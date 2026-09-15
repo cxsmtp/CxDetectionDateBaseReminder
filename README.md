@@ -14,6 +14,16 @@ finding by how long ago it was *first detected*:
 | `31–60 days` | first detected 31–60 days ago |
 | `> 60 days` | first detected more than 60 days ago — nobody has touched these |
 
+Before fetching you can narrow the **Scope** two ways (both default to "any time"):
+
+- **Projects last scanned in** — skips projects with no scan in the window, so the
+  fetch itself is faster on a large tenant.
+- **Findings first detected in** — counts only findings first seen in the window.
+
+Each offers last week / last month / last 90 days / last year / custom range. Note
+that a short detection window empties the older age buckets by definition — the UI
+says so when you pick one.
+
 Pick the buckets (and optionally a subset of projects), choose a Feedback App, and
 send. Recipients are **never typed into this tool** — they come from the Feedback
 App's own configuration in Checkmarx One, so the distribution list stays managed in
@@ -74,7 +84,9 @@ src/cxone/auth.js  API key -> access token (OIDC refresh-token grant, cached)
 src/cxone/client.js    Authenticated fetch: retries, 401 re-auth, offset/limit pagination
 src/cxone/projects.js  Projects API
 src/cxone/risks.js     Risk Insights API, first-detection normalisation, age bucketing
+src/cxone/discovery.js Candidate endpoint paths + live probing ("Detect")
 src/cxone/feedbackApps.js  Lists Feedback Apps and reads their recipient lists
+src/window.js      Time-window presets and custom ranges for the Scope filters
 src/reminder.js    Builds the HTML/plain-text reminder and delivers it
 ```
 
@@ -107,12 +119,11 @@ from the selected Feedback App:
 
 ---
 
-## ⚠️ Endpoint paths you should verify
+## Endpoint paths — "400 Bad Request" and how to fix it
 
-The Risk Insights and Feedback App paths below are **configurable on purpose**.
 Checkmarx's published API reference was not reachable from the environment this was
-built in, so these defaults are best-effort and may not match your tenant. Nothing
-else in the tool needs to change if they differ — just set the env var.
+built in, so the Risk Insights and Feedback App paths are **best-effort defaults**
+that may not match your tenant:
 
 | Setting | Default | Notes |
 | --- | --- | --- |
@@ -120,10 +131,17 @@ else in the tool needs to change if they differ — just set the env var.
 | `CX_FEEDBACK_APPS_PATH` | `/api/feedbackapps` | Lists configured Feedback Apps |
 | `CX_FEEDBACK_APP_TRIGGER_PATH` | `/api/feedbackapps/{appId}/notify` | Sends through the app |
 
-To reduce the chance of a dead end, the client **probes a short list of alternative
-paths** when the configured one returns `404`/`405`, and remembers whichever answers
-(`CX_RISKS_AUTODISCOVER=false` turns this off). The UI reports the path that actually
-worked after a fetch, so you can pin it in `.env`.
+You do not have to guess. Open **Endpoints & diagnostics** in the UI and click
+**Detect**: it probes every known candidate against your live tenant and prints what
+each one returned, then fills in whichever answered. **Save paths** pins them for the
+session; put the same values in `.env` to make them permanent.
+
+An unknown path can come back as `400`, `403`, `404` or `405` depending on how your
+gateway is fronted, so all of those are treated as "wrong path, try the next
+candidate" rather than as a fatal error — a `400` from the default path no longer
+stops the fetch. Whatever Checkmarx actually said is shown in the UI rather than
+swallowed. Discovering a Feedback App list path also updates the trigger path, since
+the two share a prefix.
 
 If the Risk Management service is not enabled on your tenant at all, set
 `CX_RISK_SOURCE=scan-results`. That fallback reads each project's latest completed
@@ -165,3 +183,5 @@ See [`.env.example`](.env.example) for the annotated list. In short:
   in its table row, rather than failing the whole fetch.
 - **Scan results are held in memory** between fetching and sending, so a reminder
   always reflects exactly the list you were looking at. Restarting clears it.
+- **Paths pinned via "Save paths" last for the session only.** Copy them into `.env`
+  to survive a restart.

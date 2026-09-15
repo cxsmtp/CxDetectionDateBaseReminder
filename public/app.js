@@ -5,6 +5,7 @@ const state = {
   projects: [],
   selected: new Set(),
   apps: [],
+  windowPresets: [],
 };
 
 async function api(path, options = {}) {
@@ -17,6 +18,7 @@ async function api(path, options = {}) {
   if (!response.ok) {
     const error = new Error(payload.error || `${response.status} ${response.statusText}`);
     error.status = response.status;
+    error.detail = payload.detail || '';
     throw error;
   }
   return payload;
@@ -34,6 +36,11 @@ function setStatus(id, message, kind = '') {
   const el = $(id);
   el.textContent = message;
   el.className = `status ${kind}`;
+}
+
+/** Errors from Checkmarx carry a response body; it is usually the real answer. */
+function showError(id, error) {
+  setStatus(id, error.detail ? `${error.message} — ${error.detail}` : error.message, 'error');
 }
 
 // ---------------------------------------------------------------------------
@@ -134,6 +141,7 @@ function showConnected(session) {
   $('api-key').value = '';
   $('detected').hidden = true;
 
+  fillEndpointFields(session.paths);
   loadFeedbackApps();
 }
 
@@ -183,6 +191,134 @@ async function connect(event) {
 async function disconnect() {
   await api('/api/session', { method: 'DELETE' }).catch(() => {});
   showDisconnected('Disconnected. Enter an API key to reconnect.');
+}
+
+// ---------------------------------------------------------------------------
+// Scope (time windows)
+// ---------------------------------------------------------------------------
+
+function fillPresets(selectId, defaultId) {
+  const select = $(selectId);
+  select.innerHTML = state.windowPresets
+    .map((preset) => `<option value="${preset.id}"${preset.id === defaultId ? ' selected' : ''}>${escapeHtml(preset.label)}</option>`)
+    .join('');
+}
+
+function toggleRange(prefix) {
+  $(`${prefix}-range`).hidden = $(`${prefix}-preset`).value !== 'custom';
+  updateScopeSummary();
+}
+
+function windowParams() {
+  const params = new URLSearchParams();
+  for (const prefix of ['activity', 'detection']) {
+    const preset = $(`${prefix}-preset`).value;
+    params.set(`${prefix}Preset`, preset);
+    if (preset === 'custom') {
+      if ($(`${prefix}-from`).value) params.set(`${prefix}From`, $(`${prefix}-from`).value);
+      if ($(`${prefix}-to`).value) params.set(`${prefix}To`, $(`${prefix}-to`).value);
+    }
+  }
+  return params;
+}
+
+const presetLabel = (id) => state.windowPresets.find((p) => p.id === id)?.label ?? id;
+
+function updateScopeSummary() {
+  const activity = $('activity-preset').value;
+  const detection = $('detection-preset').value;
+  $('scope-summary').textContent = `Projects: ${presetLabel(activity)} · Findings: ${presetLabel(detection)}`;
+
+  // A short detection window empties the older buckets; say so rather than
+  // letting an empty "> 60 days" column look like a bug.
+  const narrow = ['7d', '30d'].includes(detection);
+  $('detection-hint').textContent = narrow
+    ? `Only findings first seen in the ${presetLabel(detection).toLowerCase()} are counted, so the older age buckets will be empty.`
+    : 'Counts only findings first seen in this window.';
+}
+
+// ---------------------------------------------------------------------------
+// Endpoints & diagnostics
+// ---------------------------------------------------------------------------
+
+function fillEndpointFields(paths) {
+  if (!paths) return;
+  $('risks-path').value = paths.risksPath ?? '';
+  $('feedback-list-path').value = paths.feedbackListPath ?? '';
+  $('feedback-trigger-path').value = paths.feedbackTriggerPath ?? '';
+}
+
+async function saveEndpoints() {
+  setStatus('endpoints-status', 'Saving…');
+  try {
+    const paths = await api('/api/endpoints', {
+      method: 'PUT',
+      body: JSON.stringify({
+        risksPath: $('risks-path').value,
+        feedbackListPath: $('feedback-list-path').value,
+        feedbackTriggerPath: $('feedback-trigger-path').value,
+      }),
+    });
+    fillEndpointFields(paths);
+    setStatus('endpoints-status', 'Saved for this session.', 'ok');
+    loadFeedbackApps();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('endpoints-status', error);
+  }
+}
+
+function renderProbe(report) {
+  const box = $('probe-results');
+  box.hidden = false;
+  box.innerHTML = `
+    <table class="probe">
+      <thead><tr><th>Path</th><th class="num">Status</th><th>Response</th></tr></thead>
+      <tbody>
+        ${report.results
+          .map(
+            (row) => `
+          <tr class="${row.ok ? 'hit' : 'miss'}">
+            <td><code>${escapeHtml(row.template)}</code></td>
+            <td class="num">${row.ok ? '200 ✓' : row.status || 'error'}</td>
+            <td class="snippet">${escapeHtml(
+              row.ok ? `${row.itemCount} item(s) returned` : row.snippet || row.error || '',
+            )}</td>
+          </tr>`,
+          )
+          .join('')}
+      </tbody>
+    </table>
+    <p class="hint">${
+      report.match
+        ? `Found: <code>${escapeHtml(report.match)}</code> — it has been filled in above, click Save paths to keep it.`
+        : 'None of the known candidates answered. Paste the correct path from your tenant\'s API reference above and save it.'
+    }</p>`;
+}
+
+async function detect(target, button) {
+  button.disabled = true;
+  setStatus('endpoints-status', 'Probing candidate paths…');
+  try {
+    const report = await api('/api/discover', { method: 'POST', body: JSON.stringify({ target }) });
+    renderProbe(report);
+    if (report.match) {
+      if (target === 'risks') {
+        $('risks-path').value = report.match;
+      } else {
+        $('feedback-list-path').value = report.match;
+        // The trigger path shares the list path's prefix; keep them in step so
+        // a corrected list path does not leave sending pointed at the old one.
+        if (report.suggestedTriggerPath) $('feedback-trigger-path').value = report.suggestedTriggerPath;
+      }
+      setStatus('endpoints-status', 'Found a working path — click Save paths.', 'ok');
+    } else {
+      setStatus('endpoints-status', 'No candidate answered. See the table below.', 'error');
+    }
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('endpoints-status', error);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -272,7 +408,9 @@ async function loadFeedbackApps() {
   } catch (error) {
     if (handleAuthLoss(error)) return;
     select.innerHTML = '<option value="">Could not load feedback apps</option>';
-    $('recipients-hint').textContent = error.message;
+    $('recipients-hint').textContent = error.detail ? `${error.message} — ${error.detail}` : error.message;
+    $('recipients-hint').className = 'hint error-hint';
+    $('endpoints').open = true;
   }
 }
 
@@ -292,15 +430,27 @@ async function fetchProjects() {
   setStatus('status', '');
 
   try {
-    const result = await api('/api/scan');
+    const result = await api(`/api/scan?${windowParams()}`);
     state.projects = result.projects.sort((a, b) => (b.counts['60+'] ?? 0) - (a.counts['60+'] ?? 0));
     state.selected.clear();
     $('select-all').checked = false;
     renderTotals(result.totals);
     renderProjects();
-    setStatus('status', `Loaded ${result.totals.projects} projects from ${result.resolvedPath}.`, 'ok');
+
+    const scoped =
+      result.projectsSkipped > 0
+        ? ` (${result.projectsSkipped} of ${result.projectsTotal} skipped — not scanned in ${result.windows.activity.label.toLowerCase()})`
+        : '';
+    const failed = result.projects.filter((p) => p.error).length;
+    setStatus(
+      'status',
+      `Loaded ${result.totals.projects} projects${scoped}.` +
+        (failed ? ` ${failed} could not be read — open Endpoints & diagnostics.` : ''),
+      failed ? 'error' : 'ok',
+    );
+    if (result.warning) console.warn(result.warning);
   } catch (error) {
-    if (!handleAuthLoss(error)) setStatus('status', error.message, 'error');
+    if (!handleAuthLoss(error)) showError('status', error);
   } finally {
     button.disabled = false;
     button.textContent = 'Fetch projects';
@@ -343,7 +493,7 @@ async function submitReminder({ dryRun }) {
       );
     }
   } catch (error) {
-    if (!handleAuthLoss(error)) setStatus('status', error.message, 'error');
+    if (!handleAuthLoss(error)) showError('status', error);
   } finally {
     button.disabled = false;
   }
@@ -353,6 +503,11 @@ async function submitReminder({ dryRun }) {
 // Wiring
 // ---------------------------------------------------------------------------
 
+$('activity-preset').addEventListener('change', () => toggleRange('activity'));
+$('detection-preset').addEventListener('change', () => toggleRange('detection'));
+$('save-endpoints').addEventListener('click', saveEndpoints);
+$('detect-risks').addEventListener('click', (e) => detect('risks', e.target));
+$('detect-feedback').addEventListener('click', (e) => detect('feedbackApps', e.target));
 $('connect-form').addEventListener('submit', connect);
 $('disconnect').addEventListener('click', disconnect);
 $('api-key').addEventListener('input', renderDetected);
@@ -385,6 +540,10 @@ $('projects-body').addEventListener('change', (event) => {
   try {
     const health = await api('/api/health');
     for (const problem of health.problems) console.warn(problem);
+    state.windowPresets = health.windowPresets ?? [];
+    fillPresets('activity-preset', 'any');
+    fillPresets('detection-preset', 'any');
+    updateScopeSummary();
   } catch {
     /* health is advisory only */
   }

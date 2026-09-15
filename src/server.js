@@ -4,14 +4,18 @@ import path from 'node:path';
 import express from 'express';
 
 import { config, configProblems } from './config.js';
-import { listProjects } from './cxone/projects.js';
+import { filterProjectsByActivity, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, selectRisks } from './cxone/risks.js';
 import { getFeedbackApp, listFeedbackApps } from './cxone/feedbackApps.js';
+import { discover } from './cxone/discovery.js';
 import { buildReminder, sendReminder } from './reminder.js';
+import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
 import {
   SessionStore,
   clearSessionCookie,
   describeSession,
+  effectiveConfig,
+  endpointPaths,
   readSessionCookie,
   setSessionCookie,
 } from './session.js';
@@ -53,12 +57,13 @@ app.get('/api/health', (req, res) => {
     deliveryMode: config.delivery.mode,
     smtpConfigured: Boolean(config.delivery.smtp.host),
     buckets: AGE_BUCKETS.map(({ id, label }) => ({ id, label })),
+    windowPresets: WINDOW_PRESETS.map(({ id, label }) => ({ id, label })),
   });
 });
 
 app.get('/api/session', (req, res) => {
   const session = currentSession(req);
-  res.json(session ? describeSession(session) : { connected: false });
+  res.json(session ? describeSession(session, config) : { connected: false });
 });
 
 /** Verify a pasted API key and open a session for it. */
@@ -74,7 +79,7 @@ app.post(
 
     const session = await sessions.create(apiKey, overrides);
     setSessionCookie(req, res, session.id);
-    res.status(201).json(describeSession(session));
+    res.status(201).json(describeSession(session, config));
   }),
 );
 
@@ -87,6 +92,55 @@ app.delete('/api/session', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Endpoints
+// ---------------------------------------------------------------------------
+
+/** Pin the API paths this tenant actually uses, for this session. */
+app.put('/api/endpoints', requireSession, (req, res) => {
+  const { risksPath, feedbackListPath, feedbackTriggerPath } = req.body ?? {};
+  const clean = (value) => (typeof value === 'string' && value.trim().startsWith('/') ? value.trim() : '');
+
+  req.session.paths = {
+    risksPath: clean(risksPath),
+    feedbackListPath: clean(feedbackListPath),
+    feedbackTriggerPath: clean(feedbackTriggerPath),
+  };
+  res.json(endpointPaths(effectiveConfig(req.session, config)));
+});
+
+/**
+ * Probe candidate paths against the live tenant and report what each returned.
+ * This is the answer to a 400/404 from a guessed path: ask the tenant.
+ */
+app.post(
+  '/api/discover',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const { target = 'feedbackApps' } = req.body ?? {};
+    if (!['risks', 'feedbackApps'].includes(target)) {
+      return res.status(400).json({ error: `Unknown discovery target "${target}".` });
+    }
+
+    const { client } = req.session;
+    const active = effectiveConfig(req.session, config);
+
+    // Risk paths are per-project, so probe against a real project id.
+    let projectId = '';
+    if (target === 'risks') {
+      const known = req.session.lastScan?.projects?.[0]?.projectId;
+      projectId = known ?? (await listProjects(client, { maxItems: 1 }))[0]?.id ?? '';
+      if (!projectId) return res.status(409).json({ error: 'No projects found to probe against.' });
+    }
+
+    const report = await discover(client, target, {
+      configuredPath: target === 'risks' ? active.risks.path : active.feedback.listPath,
+      projectId,
+    });
+    res.json(report);
+  }),
+);
+
+// ---------------------------------------------------------------------------
 // Data
 // ---------------------------------------------------------------------------
 
@@ -96,12 +150,31 @@ app.get(
   requireSession,
   asyncRoute(async (req, res) => {
     const { client } = req.session;
-    const projects = await listProjects(client);
-    const result = await collectProjectRisks(client, config, projects);
+    const active = effectiveConfig(req.session, config);
+
+    const activityWindow = resolveWindow(
+      { preset: req.query.activityPreset, from: req.query.activityFrom, to: req.query.activityTo },
+      'Project activity',
+    );
+    const detectionWindow = resolveWindow(
+      { preset: req.query.detectionPreset, from: req.query.detectionFrom, to: req.query.detectionTo },
+      'First detection',
+    );
+
+    const allProjects = await listProjects(client);
+    const { projects, skipped, warning } = await filterProjectsByActivity(client, allProjects, activityWindow);
+    const result = await collectProjectRisks(client, active, projects, { detectionWindow });
     req.session.lastScan = result;
 
     res.json({
       ...result,
+      windows: {
+        activity: describeWindow(activityWindow),
+        detection: describeWindow(detectionWindow),
+      },
+      projectsTotal: allProjects.length,
+      projectsSkipped: skipped,
+      warning,
       totals: result.projects.reduce(
         (acc, summary) => {
           acc.projects += 1;
@@ -121,7 +194,8 @@ app.get(
   '/api/feedback-apps',
   requireSession,
   asyncRoute(async (req, res) => {
-    const { path: resolvedPath, apps } = await listFeedbackApps(req.session.client, config);
+    const active = effectiveConfig(req.session, config);
+    const { path: resolvedPath, apps } = await listFeedbackApps(req.session.client, active);
     res.json({ path: resolvedPath, apps: apps.map(({ raw, ...app }) => app) });
   }),
 );
@@ -133,6 +207,7 @@ app.post(
   asyncRoute(async (req, res) => {
     const { feedbackAppId, projectIds = null, buckets = [], severities = null, dryRun = false } = req.body ?? {};
     const { client, lastScan } = req.session;
+    const active = effectiveConfig(req.session, config);
 
     if (!lastScan) {
       return res.status(409).json({ error: 'Fetch the project list first, then send a reminder.' });
@@ -159,12 +234,12 @@ app.post(
         text: reminder.text,
         totalRisks: reminder.totalRisks,
         projects: reminder.groups.length,
-        recipients: feedbackAppId ? (await getFeedbackApp(client, config, feedbackAppId)).recipients : [],
+        recipients: feedbackAppId ? (await getFeedbackApp(client, active, feedbackAppId)).recipients : [],
       });
     }
 
-    const feedbackApp = await getFeedbackApp(client, config, feedbackAppId);
-    const result = await sendReminder({ client, config, app: feedbackApp, reminder, buckets });
+    const feedbackApp = await getFeedbackApp(client, active, feedbackAppId);
+    const result = await sendReminder({ client, config: active, app: feedbackApp, reminder, buckets });
 
     res.json({ ...result, totalRisks: reminder.totalRisks, projects: reminder.groups.length });
   }),

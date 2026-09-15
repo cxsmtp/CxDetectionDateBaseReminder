@@ -1,5 +1,7 @@
 import { CxApiError, extractItems, mapWithConcurrency } from './client.js';
+import { RISK_PATH_CANDIDATES, isProbeMiss } from './discovery.js';
 import { getLastScans } from './projects.js';
+import { withinWindow } from '../window.js';
 
 export const AGE_BUCKETS = [
   { id: '0-30', label: 'Last 30 days', min: 0, max: 30 },
@@ -8,17 +10,6 @@ export const AGE_BUCKETS = [
 ];
 
 const MS_PER_DAY = 86_400_000;
-
-/**
- * Alternative Risk Insights paths tried when the configured one 404s.  The
- * Risk Management service has moved between these during its rollout, so we
- * probe once and then remember whichever answers.
- */
-const RISK_PATH_CANDIDATES = [
-  '/api/risk-management/risks/{projectId}',
-  '/api/risk-management/projects/{projectId}/risks',
-  '/api/risk-management/risks',
-];
 
 const pick = (source, keys) => {
   for (const key of keys) {
@@ -103,7 +94,7 @@ const cryptoId = () => `risk-${Date.now().toString(36)}-${(counter += 1)}`;
 // Risk sources
 // ---------------------------------------------------------------------------
 
-/** Risk Insights API, with one-time path discovery when the default 404s. */
+/** Risk Insights API, with one-time path discovery when the default path misses. */
 class RiskInsightsSource {
   #client;
   #config;
@@ -140,7 +131,7 @@ class RiskInsightsSource {
         const items = [];
         for await (const item of this.#client.paginate(path, {
           itemsKey: 'risks',
-          query: usesPathParam ? {} : { 'project-id': project.id, projectId: project.id },
+          query: usesPathParam ? {} : { 'project-id': project.id },
           limit: 100,
           maxItems: 5000,
         })) {
@@ -149,7 +140,9 @@ class RiskInsightsSource {
         this.#resolvedPath = candidate;
         return items;
       } catch (error) {
-        if (error instanceof CxApiError && (error.status === 404 || error.status === 405)) {
+        if (isProbeMiss(error)) {
+          // A gateway may answer an unknown path with 400/403 as readily as
+          // 404, so every "wrong path" status moves on to the next candidate.
           // POST-style endpoints reject GET with 405; try the body form once.
           if (error.status === 405 && method !== 'POST') {
             const page = await this.#client
@@ -169,7 +162,11 @@ class RiskInsightsSource {
 
     throw (
       lastNotFound ??
-      new CxApiError(`No Risk Insights endpoint responded for project ${project.id}.`, { status: 404 })
+      new CxApiError(
+        `No Risk Insights endpoint responded for project ${project.id}. ` +
+          'Use "Detect endpoints" to find the right path for this tenant.',
+        { status: 404 },
+      )
     );
   }
 }
@@ -237,14 +234,21 @@ const emptyCounts = () =>
  * A project whose risks cannot be read is reported with an `error` rather than
  * failing the whole run.
  */
-export async function collectProjectRisks(client, config, projects, { now = new Date() } = {}) {
+export async function collectProjectRisks(
+  client,
+  config,
+  projects,
+  { now = new Date(), detectionWindow = null } = {},
+) {
   const source = createRiskSource(client, config);
   await source.prime?.(projects);
 
   const rows = await mapWithConcurrency(projects, config.concurrency, async (project) => {
     try {
       const raw = await source.fetchForProject(project);
-      const risks = raw.map((item) => normalizeRisk(item, project, now));
+      const risks = raw
+        .map((item) => normalizeRisk(item, project, now))
+        .filter((risk) => withinWindow(detectionWindow, risk.firstDetectedAt));
       return { project, risks, error: null };
     } catch (error) {
       return { project, risks: [], error: error.message ?? String(error) };

@@ -64,6 +64,34 @@
       <!-- Workspace                                                      -->
       <!-- ------------------------------------------------------------- -->
       <div id="workspace" hidden>
+        <section class="panel" id="scope-panel">
+          <div class="panel-head">
+            <h2>Scope</h2>
+            <span class="hint" id="scope-summary"></span>
+          </div>
+          <div class="controls">
+            <fieldset>
+              <legend>Projects last scanned in</legend>
+              <select id="activity-preset"></select>
+              <div class="range" id="activity-range" hidden>
+                <label><span>From</span><input type="date" id="activity-from" /></label>
+                <label><span>To</span><input type="date" id="activity-to" /></label>
+              </div>
+              <p class="hint">Skips projects with no scan in this window, so the fetch is faster.</p>
+            </fieldset>
+
+            <fieldset>
+              <legend>Findings first detected in</legend>
+              <select id="detection-preset"></select>
+              <div class="range" id="detection-range" hidden>
+                <label><span>From</span><input type="date" id="detection-from" /></label>
+                <label><span>To</span><input type="date" id="detection-to" /></label>
+              </div>
+              <p class="hint" id="detection-hint">Counts only findings first seen in this window.</p>
+            </fieldset>
+          </div>
+        </section>
+
         <section class="panel" id="totals-panel" hidden>
           <div class="totals" id="totals"></div>
         </section>
@@ -119,6 +147,46 @@
             <button id="send" class="primary">Send reminder</button>
             <span id="status" class="status"></span>
           </div>
+        </section>
+
+
+        <section class="panel">
+          <details id="endpoints">
+            <summary>Endpoints &amp; diagnostics</summary>
+            <p class="hint">
+              If a fetch fails with 400 or 404, the path below is not the one this tenant uses.
+              <strong>Detect</strong> probes the known candidates against your tenant and reports
+              exactly what each one returned.
+            </p>
+
+            <label class="field">
+              <span>Risk Insights path <code>{projectId}</code> is substituted</span>
+              <div class="path-row">
+                <input id="risks-path" spellcheck="false" />
+                <button id="detect-risks" type="button">Detect</button>
+              </div>
+            </label>
+
+            <label class="field">
+              <span>Feedback Apps list path</span>
+              <div class="path-row">
+                <input id="feedback-list-path" spellcheck="false" />
+                <button id="detect-feedback" type="button">Detect</button>
+              </div>
+            </label>
+
+            <label class="field">
+              <span>Feedback App trigger path <code>{appId}</code> is substituted</span>
+              <input id="feedback-trigger-path" spellcheck="false" />
+            </label>
+
+            <div class="actions">
+              <button id="save-endpoints" type="button" class="primary">Save paths</button>
+              <span id="endpoints-status" class="status"></span>
+            </div>
+
+            <div id="probe-results" hidden></div>
+          </details>
         </section>
 
         <section class="panel" id="preview-panel" hidden>

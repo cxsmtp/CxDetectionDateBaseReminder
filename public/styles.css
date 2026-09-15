@@ -198,3 +198,43 @@ details#advanced[open] summary { margin-bottom: 8px; }
 
 .totals { min-width: 0; }
 .filter { min-width: 0; max-width: 100%; }
+
+/* --- Scope + diagnostics ------------------------------------------------- */
+
+.range { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.range label { display: grid; gap: 3px; }
+.range span { font-size: 11px; color: var(--muted); }
+.range input {
+  font: inherit;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  color-scheme: light dark;
+}
+
+#scope-panel .panel-head { margin-bottom: 10px; }
+#scope-summary { font-size: 12px; }
+
+#endpoints summary { cursor: pointer; color: var(--accent); font-size: 14px; font-weight: 600; padding: 2px 0; }
+#endpoints[open] summary { margin-bottom: 12px; }
+#endpoints code {
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.path-row { display: flex; gap: 8px; align-items: center; }
+.path-row input { flex: 1 1 auto; min-width: 0; }
+.path-row button { white-space: nowrap; }
+
+.error-hint { color: var(--danger); }
+
+table.probe { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+table.probe th, table.probe td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+table.probe td { white-space: normal; word-break: break-word; }
+table.probe tr.hit { color: var(--ok); }
+table.probe tr.miss .snippet { color: var(--muted); }
+#probe-results { overflow-x: auto; }

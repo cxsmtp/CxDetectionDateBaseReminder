@@ -1,4 +1,5 @@
 import { CxApiError, extractItems } from './client.js';
+import { FEEDBACK_LIST_CANDIDATES, isProbeMiss } from './discovery.js';
 
 /**
  * Feedback Apps are the notification integrations configured under
@@ -6,12 +7,6 @@ import { CxApiError, extractItems } from './client.js';
  * This module lists them and reuses their configured recipient list, so the
  * reminder goes to exactly the people already set up in CxONE.
  */
-
-const LIST_PATH_CANDIDATES = [
-  '/api/feedbackapps',
-  '/api/feedback-apps',
-  '/api/integrations/feedback-apps',
-];
 
 const RECIPIENT_KEYS = [
   'recipients',
@@ -66,7 +61,7 @@ function normalizeApp(raw) {
 export async function listFeedbackApps(client, config) {
   const candidates = [
     config.feedback.listPath,
-    ...LIST_PATH_CANDIDATES.filter((path) => path !== config.feedback.listPath),
+    ...FEEDBACK_LIST_CANDIDATES.filter((path) => path !== config.feedback.listPath),
   ];
 
   let lastError;
@@ -76,7 +71,10 @@ export async function listFeedbackApps(client, config) {
       const apps = extractItems(response, 'feedbackApps').map(normalizeApp).filter((app) => app.id);
       return { path, apps };
     } catch (error) {
-      if (error instanceof CxApiError && (error.status === 404 || error.status === 403)) {
+      // An unknown path can come back as 400 or 403 just as easily as 404,
+      // depending on how the tenant's gateway is fronted, so all of them
+      // simply mean "try the next candidate".
+      if (isProbeMiss(error)) {
         lastError = error;
         continue;
       }
@@ -84,9 +82,11 @@ export async function listFeedbackApps(client, config) {
     }
   }
 
-  throw (
-    lastError ??
-    new CxApiError('No Feedback Apps endpoint responded. Set CX_FEEDBACK_APPS_PATH.', { status: 404 })
+  const detail = lastError ? ` Last response: ${lastError.status} ${lastError.body ?? ''}`.trim() : '';
+  throw new CxApiError(
+    `No Feedback Apps endpoint responded on this tenant. Use "Detect endpoints" to find the right ` +
+      `path, or set it under Endpoints.${detail ? ` ${detail}` : ''}`,
+    { status: lastError?.status ?? 404, body: lastError?.body ?? '' },
   );
 }
 
@@ -108,7 +108,7 @@ export async function triggerFeedbackApp(client, config, appId, payload) {
     const response = await client.request(path, { method: 'POST', body: payload });
     return { delivered: true, path, response };
   } catch (error) {
-    if (error instanceof CxApiError && [404, 405, 501].includes(error.status)) return null;
+    if (isProbeMiss(error)) return null;
     throw error;
   }
 }
