@@ -1,31 +1,192 @@
 const $ = (id) => document.getElementById(id);
 
 const state = {
+  connection: null,
   projects: [],
   selected: new Set(),
   apps: [],
 };
 
-async function api(path, options) {
+async function api(path, options = {}) {
   const response = await fetch(path, {
-    headers: options?.body ? { 'Content-Type': 'application/json' } : undefined,
+    credentials: 'same-origin',
+    headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
     ...options,
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || `${response.status} ${response.statusText}`);
+  if (!response.ok) {
+    const error = new Error(payload.error || `${response.status} ${response.statusText}`);
+    error.status = response.status;
+    throw error;
+  }
   return payload;
 }
 
-function setStatus(message, kind = '') {
-  const el = $('status');
+const escapeHtml = (value) =>
+  String(value).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
+
+const formatDate = (iso) => (iso ? iso.slice(0, 10) : '—');
+
+function setStatus(id, message, kind = '') {
+  const el = $(id);
   el.textContent = message;
   el.className = `status ${kind}`;
 }
 
-const formatDate = (iso) => (iso ? iso.slice(0, 10) : '—');
+// ---------------------------------------------------------------------------
+// Connect screen
+// ---------------------------------------------------------------------------
+
+const REGION_LABELS = {
+  us: 'US',
+  us2: 'US 2',
+  eu: 'EU',
+  eu2: 'EU 2',
+  deu: 'Germany',
+  anz: 'Australia / NZ',
+  ind: 'India',
+  sng: 'Singapore',
+  uae: 'UAE',
+  mea: 'Middle East',
+};
+
+/**
+ * Decode the pasted key in the browser purely to show what we detected before
+ * the user commits. The server derives it again and is the actual authority.
+ */
+function previewKey(apiKey) {
+  const payload = String(apiKey).trim().split('.')[1];
+  if (!payload) return null;
+  try {
+    const json = JSON.parse(
+      decodeURIComponent(
+        atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+          .split('')
+          .map((c) => `%${c.charCodeAt(0).toString(16).padStart(2, '0')}`)
+          .join(''),
+      ),
+    );
+    const match = String(json.iss ?? '').match(/^(https?:\/\/[^/]+)\/auth\/realms\/([^/?#]+)/);
+    if (!match) return null;
+
+    const [, iamUrl, tenant] = match;
+    const host = new URL(iamUrl).host;
+    const region = host.match(/^([a-z0-9-]+)\.(?:iam|ast)\./i)?.[1]?.toLowerCase() ?? (/^(iam|ast)\./i.test(host) ? 'us' : '');
+
+    return {
+      tenant: decodeURIComponent(tenant),
+      iamUrl,
+      baseUrl: `${new URL(iamUrl).protocol}//${host.replace(/^iam\./i, 'ast.').replace(/\.iam\./i, '.ast.')}`,
+      regionLabel: REGION_LABELS[region] ?? (region ? region.toUpperCase() : 'Custom / single-tenant'),
+      expiresAt: typeof json.exp === 'number' ? new Date(json.exp * 1000) : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function renderDetected() {
+  const box = $('detected');
+  const value = $('api-key').value.trim();
+  if (!value) {
+    box.hidden = true;
+    return;
+  }
+
+  const info = previewKey(value);
+  if (!info) {
+    box.hidden = false;
+    box.className = 'detected warn';
+    box.textContent = "Couldn't read a tenant from that key. It should be a JWT with three dot-separated parts — or set the values under Advanced.";
+    return;
+  }
+
+  const expired = info.expiresAt && info.expiresAt.getTime() < Date.now();
+  box.hidden = false;
+  box.className = `detected ${expired ? 'warn' : 'ok'}`;
+  box.innerHTML = `
+    <div><span class="k">Tenant</span><span class="v">${escapeHtml(info.tenant)}</span></div>
+    <div><span class="k">Region</span><span class="v">${escapeHtml(info.regionLabel)}</span></div>
+    <div><span class="k">API URL</span><span class="v">${escapeHtml(info.baseUrl)}</span></div>
+    <div><span class="k">IAM URL</span><span class="v">${escapeHtml(info.iamUrl)}</span></div>
+    ${
+      info.expiresAt
+        ? `<div><span class="k">Key expires</span><span class="v">${info.expiresAt.toISOString().slice(0, 10)}${
+            expired ? ' — expired' : ''
+          }</span></div>`
+        : ''
+    }`;
+}
+
+function showConnected(session) {
+  state.connection = session.connection;
+  const { tenant, regionLabel, baseUrl } = session.connection;
+
+  $('connection').textContent = `Connected to ${tenant} · ${regionLabel} · ${baseUrl}`;
+  $('connection').className = 'sub ok';
+  $('connect-panel').hidden = true;
+  $('workspace').hidden = false;
+  $('fetch').hidden = false;
+  $('disconnect').hidden = false;
+  $('api-key').value = '';
+  $('detected').hidden = true;
+
+  loadFeedbackApps();
+}
+
+function showDisconnected(message = 'Not connected.') {
+  state.connection = null;
+  state.projects = [];
+  state.selected.clear();
+  state.apps = [];
+
+  $('connection').textContent = message;
+  $('connection').className = 'sub';
+  $('connect-panel').hidden = false;
+  $('workspace').hidden = true;
+  $('fetch').hidden = true;
+  $('disconnect').hidden = true;
+  $('totals-panel').hidden = true;
+  $('preview-panel').hidden = true;
+}
+
+async function connect(event) {
+  event.preventDefault();
+  const button = $('connect');
+  button.disabled = true;
+  setStatus('connect-status', 'Verifying key against Checkmarx One…');
+
+  try {
+    const session = await api('/api/session', {
+      method: 'POST',
+      body: JSON.stringify({
+        apiKey: $('api-key').value.trim(),
+        iamUrl: $('iam-url').value.trim() || undefined,
+        baseUrl: $('base-url').value.trim() || undefined,
+        tenant: $('tenant').value.trim() || undefined,
+      }),
+    });
+    setStatus('connect-status', '');
+    showConnected(session);
+  } catch (error) {
+    setStatus('connect-status', error.message, 'error');
+    // A bad host is the most likely cause of a non-credential failure.
+    if (/reach|API URL|404/i.test(error.message)) $('advanced').open = true;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function disconnect() {
+  await api('/api/session', { method: 'DELETE' }).catch(() => {});
+  showDisconnected('Disconnected. Enter an API key to reconnect.');
+}
 
 // ---------------------------------------------------------------------------
-// Rendering
+// Workspace
 // ---------------------------------------------------------------------------
 
 function renderTotals(totals) {
@@ -39,16 +200,11 @@ function renderTotals(totals) {
     ['> 60 days', counts['60+'] ?? 0],
     ['Unknown date', counts.unknown ?? 0],
   ]
-    .map(
-      ([label, value]) =>
-        `<div><span class="value">${value}</span><span class="label">${label}</span></div>`,
-    )
+    .map(([label, value]) => `<div><span class="value">${value}</span><span class="label">${label}</span></div>`)
     .join('');
 }
 
-function cell(count) {
-  return count > 0 ? `<td class="num">${count}</td>` : '<td class="num zero">0</td>';
-}
+const cell = (count) => (count > 0 ? `<td class="num">${count}</td>` : '<td class="num zero">0</td>');
 
 function renderProjects() {
   const filter = $('filter').value.trim().toLowerCase();
@@ -64,9 +220,9 @@ function renderProjects() {
     .map((project) => {
       const aged = project.counts['60+'] ?? 0;
       return `
-      <tr data-id="${project.projectId}">
+      <tr data-id="${escapeHtml(project.projectId)}">
         <td class="checkbox">
-          <input type="checkbox" data-select="${project.projectId}" ${
+          <input type="checkbox" data-select="${escapeHtml(project.projectId)}" ${
             state.selected.has(project.projectId) ? 'checked' : ''
           } />
         </td>
@@ -86,40 +242,12 @@ function renderProjects() {
     .join('');
 }
 
-function escapeHtml(value) {
-  return String(value).replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-  );
-}
-
-function selectedBuckets() {
-  return [...document.querySelectorAll('input[name="bucket"]:checked')].map((input) => input.value);
-}
-
-function selectedProjectIds() {
-  return state.selected.size > 0 ? [...state.selected] : null;
-}
-
-// ---------------------------------------------------------------------------
-// Actions
-// ---------------------------------------------------------------------------
-
-async function loadHealth() {
-  try {
-    const health = await api('/api/health');
-    const el = $('connection');
-    if (health.ok) {
-      el.textContent = `Connected to ${health.tenant || 'Checkmarx One'} · risks via ${health.riskSource} · delivery ${health.deliveryMode}`;
-      el.className = 'sub ok';
-    } else {
-      el.textContent = health.problems.join(' ');
-      el.className = 'sub error';
-    }
-  } catch (error) {
-    $('connection').textContent = error.message;
-    $('connection').className = 'sub error';
+function handleAuthLoss(error) {
+  if (error.status === 401) {
+    showDisconnected('Session expired. Enter your API key again.');
+    return true;
   }
+  return false;
 }
 
 async function loadFeedbackApps() {
@@ -142,6 +270,7 @@ async function loadFeedbackApps() {
       : '<option value="">No feedback apps configured</option>';
     updateRecipientHint();
   } catch (error) {
+    if (handleAuthLoss(error)) return;
     select.innerHTML = '<option value="">Could not load feedback apps</option>';
     $('recipients-hint').textContent = error.message;
   }
@@ -160,7 +289,7 @@ async function fetchProjects() {
   const button = $('fetch');
   button.disabled = true;
   button.textContent = 'Fetching…';
-  setStatus('');
+  setStatus('status', '');
 
   try {
     const result = await api('/api/scan');
@@ -169,9 +298,9 @@ async function fetchProjects() {
     $('select-all').checked = false;
     renderTotals(result.totals);
     renderProjects();
-    setStatus(`Loaded ${result.totals.projects} projects from ${result.resolvedPath}.`, 'ok');
+    setStatus('status', `Loaded ${result.totals.projects} projects from ${result.resolvedPath}.`, 'ok');
   } catch (error) {
-    setStatus(error.message, 'error');
+    if (!handleAuthLoss(error)) setStatus('status', error.message, 'error');
   } finally {
     button.disabled = false;
     button.textContent = 'Fetch projects';
@@ -179,19 +308,19 @@ async function fetchProjects() {
 }
 
 async function submitReminder({ dryRun }) {
-  const buckets = selectedBuckets();
-  if (buckets.length === 0) return setStatus('Pick at least one age range.', 'error');
+  const buckets = [...document.querySelectorAll('input[name="bucket"]:checked')].map((i) => i.value);
+  if (buckets.length === 0) return setStatus('status', 'Pick at least one age range.', 'error');
 
   const button = dryRun ? $('preview') : $('send');
   button.disabled = true;
-  setStatus(dryRun ? 'Building preview…' : 'Sending…');
+  setStatus('status', dryRun ? 'Building preview…' : 'Sending…');
 
   try {
     const result = await api('/api/reminders', {
       method: 'POST',
       body: JSON.stringify({
         feedbackAppId: $('feedback-app').value,
-        projectIds: selectedProjectIds(),
+        projectIds: state.selected.size > 0 ? [...state.selected] : null,
         buckets,
         dryRun,
       }),
@@ -203,17 +332,18 @@ async function submitReminder({ dryRun }) {
         `${result.totalRisks} findings across ${result.projects} project(s)` +
         (result.recipients.length ? ` → ${result.recipients.length} recipient(s)` : '');
       $('preview-frame').srcdoc = result.html;
-      setStatus('Preview ready.', 'ok');
+      setStatus('status', 'Preview ready.', 'ok');
       $('preview-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } else {
       setStatus(
+        'status',
         `Reminder sent via ${result.via} to ${result.recipients.length} recipient(s) — ` +
           `${result.totalRisks} findings across ${result.projects} project(s).`,
         'ok',
       );
     }
   } catch (error) {
-    setStatus(error.message, 'error');
+    if (!handleAuthLoss(error)) setStatus('status', error.message, 'error');
   } finally {
     button.disabled = false;
   }
@@ -223,6 +353,9 @@ async function submitReminder({ dryRun }) {
 // Wiring
 // ---------------------------------------------------------------------------
 
+$('connect-form').addEventListener('submit', connect);
+$('disconnect').addEventListener('click', disconnect);
+$('api-key').addEventListener('input', renderDetected);
 $('fetch').addEventListener('click', fetchProjects);
 $('filter').addEventListener('input', renderProjects);
 $('preview').addEventListener('click', () => submitReminder({ dryRun: true }));
@@ -234,8 +367,7 @@ $('close-preview').addEventListener('click', () => {
 
 $('select-all').addEventListener('change', (event) => {
   const filter = $('filter').value.trim().toLowerCase();
-  const visible = state.projects.filter((p) => !filter || p.projectName.toLowerCase().includes(filter));
-  for (const project of visible) {
+  for (const project of state.projects.filter((p) => !filter || p.projectName.toLowerCase().includes(filter))) {
     if (event.target.checked) state.selected.add(project.projectId);
     else state.selected.delete(project.projectId);
   }
@@ -249,5 +381,19 @@ $('projects-body').addEventListener('change', (event) => {
   else state.selected.delete(id);
 });
 
-loadHealth();
-loadFeedbackApps();
+(async function init() {
+  try {
+    const health = await api('/api/health');
+    for (const problem of health.problems) console.warn(problem);
+  } catch {
+    /* health is advisory only */
+  }
+
+  try {
+    const session = await api('/api/session');
+    if (session.connected) showConnected(session);
+    else showDisconnected('Not connected — enter your Checkmarx One API key below.');
+  } catch (error) {
+    showDisconnected(error.message);
+  }
+})();

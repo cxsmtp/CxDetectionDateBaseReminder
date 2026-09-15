@@ -25,16 +25,40 @@ one place.
 
 ```bash
 npm install
-cp .env.example .env      # then paste your CX_API_KEY into it
 npm start                 # http://127.0.0.1:3000
 ```
 
-The only required setting is `CX_API_KEY`. A Checkmarx One API key is itself a JWT
-whose `iss` claim names your tenant and region, so the IAM URL, tenant and API host
-are derived from it automatically. Generate one under
-**Settings → Identity & Access Management → API Keys**.
+There is nothing to configure. Open the portal, paste an API key into the connect
+screen, and click **Connect** — no `.env` file is needed to get going.
+
+Generate the key under **Settings → Identity & Access Management → API Keys**.
 
 Run the tests with `npm test`.
+
+### Signing in
+
+The key is a JWT whose `iss` claim names your tenant and region, so everything else
+is worked out for you and shown before you commit:
+
+| Detected | From |
+| --- | --- |
+| Tenant | `iss` realm segment |
+| Region | IAM host prefix (`eu.iam.checkmarx.net` → EU) |
+| IAM URL | `iss` origin |
+| API URL | IAM host with `iam` → `ast` |
+| Key expiry | `exp` claim |
+
+Clicking **Connect** then does two checks: it exchanges the key for a token (proving
+the key and the IAM URL) and makes one cheap `/api/projects` call (proving the
+derived API URL), so a wrong host is reported distinctly from a bad key.
+
+Single-tenant or on-prem deployment where that convention does not hold? Open
+**Advanced** on the connect screen and set the IAM URL, API URL and tenant by hand.
+
+**Where the key lives:** in the server process's memory, for the session only. It is
+never written to disk, never logged, and never sent back to the browser — the browser
+holds only an opaque `HttpOnly` session cookie. **Disconnect** destroys the session
+immediately, and idle sessions expire after `SESSION_IDLE_MINUTES` (default 8h).
 
 ---
 
@@ -42,8 +66,10 @@ Run the tests with `npm test`.
 
 ```
 public/            Single-page UI (no build step, plain ES modules)
-src/server.js      Express app: /api/health, /api/scan, /api/feedback-apps, /api/reminders
-src/config.js      Env parsing + endpoint derivation from the API key
+src/server.js      Express app: /api/session, /api/scan, /api/feedback-apps, /api/reminders
+src/session.js     Per-browser connection store + session cookie handling
+src/config.js      Deployment settings (no credentials)
+src/cxone/endpoints.js  Tenant / region / URL derivation from the API key
 src/cxone/auth.js  API key -> access token (OIDC refresh-token grant, cached)
 src/cxone/client.js    Authenticated fetch: retries, 401 re-auth, offset/limit pagination
 src/cxone/projects.js  Projects API
@@ -115,8 +141,9 @@ See [`.env.example`](.env.example) for the annotated list. In short:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `CX_API_KEY` | — | **Required.** Checkmarx One API key |
+| `CX_API_KEY` | — | *Optional.* Bootstrap a shared session for headless deployments; normally you paste the key into the UI instead |
 | `CX_BASE_URL` / `CX_IAM_URL` / `CX_TENANT` | derived from the key | Override for single-tenant / on-prem |
+| `SESSION_IDLE_MINUTES` | `480` | How long an idle connection stays open |
 | `CX_RISK_SOURCE` | `risk-insights` | or `scan-results` |
 | `CX_FETCH_CONCURRENCY` | `5` | Projects fetched in parallel |
 | `REMINDER_DELIVERY_MODE` | `auto` | `auto` / `feedback` / `smtp` |
@@ -127,10 +154,13 @@ See [`.env.example`](.env.example) for the annotated list. In short:
 
 ## Operational notes
 
-- **`.env` is gitignored.** The API key is a long-lived credential — keep it out of
-  version control and off shared machines.
+- **The API key never touches disk.** It is entered in the UI and kept in memory for
+  the session. If you use `CX_API_KEY` for a headless deployment instead, note that
+  `.env` is gitignored — keep it out of version control.
 - **No authentication in front of the UI.** It binds to `127.0.0.1` by default for
-  that reason. Put it behind a reverse proxy with auth before exposing it.
+  that reason. Anyone who can reach the port can use a connected session, so put it
+  behind a reverse proxy with auth before exposing it beyond localhost.
+- **Restarting the server clears all sessions**, since nothing is persisted.
 - **A project whose risks cannot be read is reported inline**, with the error shown
   in its table row, rather than failing the whole fetch.
 - **Scan results are held in memory** between fetching and sending, so a reminder

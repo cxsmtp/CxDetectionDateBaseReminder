@@ -54,10 +54,14 @@ main {
   margin: 0 auto;
   padding: 20px 16px 60px;
   display: grid;
+  /* minmax(0,…) lets grid children shrink below their content width, so the
+     table and the filter input scroll internally instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
 .panel {
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -95,7 +99,8 @@ input[type="search"], select {
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
-  min-width: 240px;
+  min-width: min(240px, 100%);
+  max-width: 100%;
 }
 
 .totals { display: flex; flex-wrap: wrap; gap: 20px; }
@@ -141,3 +146,55 @@ iframe {
   border-radius: 8px;
   background: #fff;
 }
+
+/* --- Connect screen ------------------------------------------------------ */
+
+.topbar-actions { display: flex; gap: 8px; }
+
+.connect { max-width: 680px; margin: 0 auto; width: 100%; }
+.connect .hint { max-width: none; margin-bottom: 16px; }
+
+.field { display: grid; gap: 5px; margin-bottom: 12px; }
+.field > span { font-size: 12px; color: var(--muted); }
+
+textarea,
+.field input {
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 9px 11px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  width: 100%;
+  resize: vertical;
+}
+textarea:focus, .field input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.detected {
+  display: grid;
+  gap: 4px;
+  padding: 11px 13px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.detected.ok { border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
+.detected.warn { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); color: var(--danger); }
+.detected div { display: flex; gap: 10px; }
+.detected .k { color: var(--muted); min-width: 84px; }
+.detected .v { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+
+details#advanced { margin-bottom: 14px; }
+details#advanced summary { cursor: pointer; color: var(--accent); font-size: 13px; padding: 4px 0; }
+details#advanced[open] summary { margin-bottom: 8px; }
+
+#workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+}
+
+.totals { min-width: 0; }
+.filter { min-width: 0; max-width: 100%; }

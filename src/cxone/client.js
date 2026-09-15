@@ -15,16 +15,21 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Thin authenticated wrapper around the Checkmarx One REST API. */
 export class CxClient {
-  #config;
+  #connection;
   #tokens;
 
-  constructor(config, tokenProvider = new TokenProvider(config)) {
-    this.#config = config;
+  /**
+   * @param {{baseUrl: string, tokenUrl: string, apiKey: string}} connection
+   *   Per-session connection descriptor, built from the API key the operator
+   *   pasted into the portal.
+   */
+  constructor(connection, tokenProvider = new TokenProvider(connection)) {
+    this.#connection = connection;
     this.#tokens = tokenProvider;
   }
 
   get baseUrl() {
-    return this.#config.baseUrl;
+    return this.#connection.baseUrl;
   }
 
   /**

@@ -4,85 +4,132 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Checkmarx One — Detection Date Reminder</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%232563eb'/%3E%3Cpath d='M8 4v4.4l2.8 1.7' stroke='white' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="topbar">
       <div>
         <h1>Checkmarx One — Detection Date Reminder</h1>
-        <p class="sub" id="connection">Checking connection…</p>
+        <p class="sub" id="connection">Starting…</p>
       </div>
-      <button id="fetch" class="primary">Fetch projects</button>
+      <div class="topbar-actions">
+        <button id="fetch" class="primary" hidden>Fetch projects</button>
+        <button id="disconnect" hidden>Disconnect</button>
+      </div>
     </header>
 
     <main>
-      <section class="panel" id="totals-panel" hidden>
-        <div class="totals" id="totals"></div>
-      </section>
+      <!-- ------------------------------------------------------------- -->
+      <!-- Connect                                                        -->
+      <!-- ------------------------------------------------------------- -->
+      <section class="panel connect" id="connect-panel" hidden>
+        <h2>Connect to Checkmarx One</h2>
+        <p class="hint">
+          Paste an API key from <strong>Settings → Identity &amp; Access Management → API Keys</strong>.
+          The tenant and regional URLs are detected from the key itself. The key is held in the
+          server's memory for this session only — it is never written to disk.
+        </p>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Projects</h2>
-          <label class="filter">
-            <input type="search" id="filter" placeholder="Filter by project name…" />
+        <form id="connect-form" autocomplete="off">
+          <label class="field">
+            <span>API key</span>
+            <textarea
+              id="api-key"
+              rows="3"
+              spellcheck="false"
+              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              required
+            ></textarea>
           </label>
-        </div>
-        <div class="table-wrap">
-          <table id="projects">
-            <thead>
-              <tr>
-                <th class="checkbox"><input type="checkbox" id="select-all" title="Select all" /></th>
-                <th>Project</th>
-                <th class="num">Total</th>
-                <th class="num">≤ 30d</th>
-                <th class="num">31–60d</th>
-                <th class="num">&gt; 60d</th>
-                <th>Oldest first detection</th>
-              </tr>
-            </thead>
-            <tbody id="projects-body">
-              <tr class="empty">
-                <td colspan="7">Click <strong>Fetch projects</strong> to load projects and first-detection dates.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+
+          <div id="detected" class="detected" hidden></div>
+
+          <details id="advanced">
+            <summary>Advanced — single-tenant / on-prem overrides</summary>
+            <p class="hint">Leave blank unless detection fails or you need to force a specific host.</p>
+            <label class="field"><span>IAM URL</span><input id="iam-url" placeholder="https://eu.iam.checkmarx.net" /></label>
+            <label class="field"><span>API URL</span><input id="base-url" placeholder="https://eu.ast.checkmarx.net" /></label>
+            <label class="field"><span>Tenant</span><input id="tenant" placeholder="acme-corp" /></label>
+          </details>
+
+          <div class="actions">
+            <button type="submit" class="primary" id="connect">Connect</button>
+            <span id="connect-status" class="status"></span>
+          </div>
+        </form>
       </section>
 
-      <section class="panel">
-        <h2>Send reminder</h2>
-        <div class="controls">
-          <fieldset>
-            <legend>Age since first detection</legend>
-            <label><input type="checkbox" name="bucket" value="0-30" /> Last 30 days</label>
-            <label><input type="checkbox" name="bucket" value="31-60" /> 31–60 days</label>
-            <label><input type="checkbox" name="bucket" value="60+" checked /> More than 60 days</label>
-          </fieldset>
+      <!-- ------------------------------------------------------------- -->
+      <!-- Workspace                                                      -->
+      <!-- ------------------------------------------------------------- -->
+      <div id="workspace" hidden>
+        <section class="panel" id="totals-panel" hidden>
+          <div class="totals" id="totals"></div>
+        </section>
 
-          <fieldset>
-            <legend>Feedback app (recipients)</legend>
-            <select id="feedback-app">
-              <option value="">Loading…</option>
-            </select>
-            <p class="hint" id="recipients-hint">Recipients come from the app's configuration in CxONE.</p>
-          </fieldset>
-        </div>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Projects</h2>
+            <label class="filter">
+              <input type="search" id="filter" placeholder="Filter by project name…" />
+            </label>
+          </div>
+          <div class="table-wrap">
+            <table id="projects">
+              <thead>
+                <tr>
+                  <th class="checkbox"><input type="checkbox" id="select-all" title="Select all" /></th>
+                  <th>Project</th>
+                  <th class="num">Total</th>
+                  <th class="num">≤ 30d</th>
+                  <th class="num">31–60d</th>
+                  <th class="num">&gt; 60d</th>
+                  <th>Oldest first detection</th>
+                </tr>
+              </thead>
+              <tbody id="projects-body">
+                <tr class="empty">
+                  <td colspan="7">Click <strong>Fetch projects</strong> to load projects and first-detection dates.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-        <div class="actions">
-          <button id="preview">Preview email</button>
-          <button id="send" class="primary">Send reminder</button>
-          <span id="status" class="status"></span>
-        </div>
-      </section>
+        <section class="panel">
+          <h2>Send reminder</h2>
+          <div class="controls">
+            <fieldset>
+              <legend>Age since first detection</legend>
+              <label><input type="checkbox" name="bucket" value="0-30" /> Last 30 days</label>
+              <label><input type="checkbox" name="bucket" value="31-60" /> 31–60 days</label>
+              <label><input type="checkbox" name="bucket" value="60+" checked /> More than 60 days</label>
+            </fieldset>
 
-      <section class="panel" id="preview-panel" hidden>
-        <div class="panel-head">
-          <h2>Preview</h2>
-          <button id="close-preview" class="link">Close</button>
-        </div>
-        <p class="hint" id="preview-meta"></p>
-        <iframe id="preview-frame" title="Email preview" sandbox=""></iframe>
-      </section>
+            <fieldset>
+              <legend>Feedback app (recipients)</legend>
+              <select id="feedback-app"><option value="">Loading…</option></select>
+              <p class="hint" id="recipients-hint">Recipients come from the app's configuration in CxONE.</p>
+            </fieldset>
+          </div>
+
+          <div class="actions">
+            <button id="preview">Preview email</button>
+            <button id="send" class="primary">Send reminder</button>
+            <span id="status" class="status"></span>
+          </div>
+        </section>
+
+        <section class="panel" id="preview-panel" hidden>
+          <div class="panel-head">
+            <h2>Preview</h2>
+            <button id="close-preview" class="link">Close</button>
+          </div>
+          <p class="hint" id="preview-meta"></p>
+          <iframe id="preview-frame" title="Email preview" sandbox=""></iframe>
+        </section>
+      </div>
     </main>
 
     <script type="module" src="app.js"></script>

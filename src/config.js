@@ -1,10 +1,8 @@
 import 'dotenv/config';
 
-import { decodeApiKey } from './cxone/auth.js';
-
 const bool = (value, fallback) => {
   if (value === undefined || value === '') return fallback;
-  return /^(1|true|yes|on)$/i.test(value.trim());
+  return /^(1|true|yes|on)$/i.test(String(value).trim());
 };
 
 const int = (value, fallback) => {
@@ -12,41 +10,28 @@ const int = (value, fallback) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const trimTrailingSlash = (url) => (url ? url.replace(/\/+$/, '') : url);
+const trimSlash = (value) => (value ? String(value).replace(/\/+$/, '') : '');
 
 /**
- * A Checkmarx One API key is a JWT whose `iss` claim points at the tenant's
- * realm, e.g. https://eu.iam.checkmarx.net/auth/realms/acme.  That gives us
- * the IAM host and the tenant for free; the API host is the same region with
- * `iam` swapped for `ast`.
+ * Deployment settings only.
+ *
+ * Credentials are *not* configured here: the API key is pasted into the portal
+ * at runtime and lives in the session store.  `CX_API_KEY` remains supported
+ * purely as an optional bootstrap for headless/kiosk deployments.
  */
-export function deriveEndpoints(apiKey) {
-  const claims = decodeApiKey(apiKey);
-  const issuer = typeof claims?.iss === 'string' ? claims.iss : '';
-  const match = issuer.match(/^(https?:\/\/[^/]+)\/auth\/realms\/([^/]+)/);
-  if (!match) return {};
-
-  const [, iamUrl, tenant] = match;
-  const baseUrl = iamUrl.includes('.iam.') ? iamUrl.replace('.iam.', '.ast.') : iamUrl;
-  return { iamUrl, tenant: decodeURIComponent(tenant), baseUrl };
-}
-
 export function loadConfig(env = process.env) {
-  const apiKey = (env.CX_API_KEY ?? '').trim();
-  const derived = apiKey ? deriveEndpoints(apiKey) : {};
-
-  const iamUrl = trimTrailingSlash(env.CX_IAM_URL?.trim() || derived.iamUrl || '');
-  const tenant = env.CX_TENANT?.trim() || derived.tenant || '';
-  const baseUrl = trimTrailingSlash(env.CX_BASE_URL?.trim() || derived.baseUrl || '');
-
   return {
-    apiKey,
-    iamUrl,
-    tenant,
-    baseUrl,
-    tokenUrl: iamUrl && tenant
-      ? `${iamUrl}/auth/realms/${encodeURIComponent(tenant)}/protocol/openid-connect/token`
-      : '',
+    // Optional: pre-connect a shared session at startup instead of requiring
+    // someone to paste the key into the UI.
+    bootstrapApiKey: (env.CX_API_KEY ?? '').trim(),
+
+    // Optional overrides applied to every connection, for single-tenant /
+    // on-prem deployments where the regional convention does not hold.
+    overrides: {
+      baseUrl: trimSlash(env.CX_BASE_URL?.trim()),
+      iamUrl: trimSlash(env.CX_IAM_URL?.trim()),
+      tenant: env.CX_TENANT?.trim() || '',
+    },
 
     risks: {
       source: env.CX_RISK_SOURCE?.trim() || 'risk-insights',
@@ -72,27 +57,21 @@ export function loadConfig(env = process.env) {
       },
     },
 
+    session: { idleMs: int(env.SESSION_IDLE_MINUTES, 480) * 60_000 },
     concurrency: Math.max(1, int(env.CX_FETCH_CONCURRENCY, 5)),
     port: int(env.PORT, 3000),
     host: env.HOST?.trim() || '127.0.0.1',
   };
 }
 
-/** Human-readable list of things that would stop the app from working. */
+/** Deployment-level misconfiguration, independent of any connection. */
 export function configProblems(config) {
   const problems = [];
-  if (!config.apiKey) {
-    problems.push('CX_API_KEY is not set. Generate an API key in Checkmarx One and put it in .env.');
-  } else if (!config.tokenUrl) {
-    problems.push(
-      'Could not derive the IAM URL / tenant from CX_API_KEY. Set CX_IAM_URL and CX_TENANT explicitly.',
-    );
-  }
-  if (!config.baseUrl) {
-    problems.push('Could not derive the Checkmarx One API URL. Set CX_BASE_URL explicitly.');
-  }
   if (config.delivery.mode === 'smtp' && !config.delivery.smtp.host) {
     problems.push('REMINDER_DELIVERY_MODE=smtp but SMTP_HOST is not set.');
+  }
+  if (!['auto', 'smtp', 'feedback'].includes(config.delivery.mode)) {
+    problems.push(`REMINDER_DELIVERY_MODE="${config.delivery.mode}" is not one of auto, feedback, smtp.`);
   }
   return problems;
 }
