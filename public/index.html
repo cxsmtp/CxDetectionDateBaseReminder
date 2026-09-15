@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Checkmarx One — Detection Date Reminder</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Checkmarx One — Detection Date Reminder</h1>
+        <p class="sub" id="connection">Checking connection…</p>
+      </div>
+      <button id="fetch" class="primary">Fetch projects</button>
+    </header>
+
+    <main>
+      <section class="panel" id="totals-panel" hidden>
+        <div class="totals" id="totals"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Projects</h2>
+          <label class="filter">
+            <input type="search" id="filter" placeholder="Filter by project name…" />
+          </label>
+        </div>
+        <div class="table-wrap">
+          <table id="projects">
+            <thead>
+              <tr>
+                <th class="checkbox"><input type="checkbox" id="select-all" title="Select all" /></th>
+                <th>Project</th>
+                <th class="num">Total</th>
+                <th class="num">≤ 30d</th>
+                <th class="num">31–60d</th>
+                <th class="num">&gt; 60d</th>
+                <th>Oldest first detection</th>
+              </tr>
+            </thead>
+            <tbody id="projects-body">
+              <tr class="empty">
+                <td colspan="7">Click <strong>Fetch projects</strong> to load projects and first-detection dates.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Send reminder</h2>
+        <div class="controls">
+          <fieldset>
+            <legend>Age since first detection</legend>
+            <label><input type="checkbox" name="bucket" value="0-30" /> Last 30 days</label>
+            <label><input type="checkbox" name="bucket" value="31-60" /> 31–60 days</label>
+            <label><input type="checkbox" name="bucket" value="60+" checked /> More than 60 days</label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Feedback app (recipients)</legend>
+            <select id="feedback-app">
+              <option value="">Loading…</option>
+            </select>
+            <p class="hint" id="recipients-hint">Recipients come from the app's configuration in CxONE.</p>
+          </fieldset>
+        </div>
+
+        <div class="actions">
+          <button id="preview">Preview email</button>
+          <button id="send" class="primary">Send reminder</button>
+          <span id="status" class="status"></span>
+        </div>
+      </section>
+
+      <section class="panel" id="preview-panel" hidden>
+        <div class="panel-head">
+          <h2>Preview</h2>
+          <button id="close-preview" class="link">Close</button>
+        </div>
+        <p class="hint" id="preview-meta"></p>
+        <iframe id="preview-frame" title="Email preview" sandbox=""></iframe>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
