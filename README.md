@@ -40,9 +40,13 @@ Both offer last week / last month / last 90 days / last year / custom range. A s
 detection window empties the older age buckets by definition; the UI says so when you
 pick one.
 
-The project table can then be searched by name, filtered by severity, age bucket or
-scan initiator, sorted by any column, and used to select a subset. A reminder covers
-the selected projects, or all of them if none are selected.
+The project table can then be searched by name, filtered by severity or age bucket,
+sorted by any column, and used to select a subset. A reminder covers the selected
+projects, or all of them if none are selected.
+
+**The age buckets are a filter, not a requirement.** Leave all three unticked and
+findings of any age are included, so a selection of projects or initiators is enough on
+its own to send.
 
 ### Scan initiators
 
@@ -50,10 +54,20 @@ Each project shows **who ran its latest scan** and the email that resolved to. A
 rescan it is the latest scan that counts, so the reminder follows whoever ran it most
 recently, not whoever ran it first.
 
+The **Scan initiators** panel lists everyone found in the current results with their
+project and finding counts. Tick **any number** of them to narrow the table and the
+reminder; ticking none includes everyone. *Select all*, *Clear* and *Only those missing
+an email* are there for the common cases.
+
+Anyone whose address could not be resolved gets an inline field: type an address, press
+Save, and it is applied to the current results immediately **and** stored as an override
+so future fetches resolve it without asking again. Tagging one person never disturbs the
+others.
+
 **Send as → One email per scan initiator** then addresses each person directly. Someone
 who owns five projects gets a single message covering all of their open findings, not
-five messages. Anyone whose address could not be resolved is reported as skipped — with
-their finding count — rather than silently dropped.
+five messages. Anyone still without an address is reported as skipped — with their
+finding count — rather than silently dropped.
 
 Checkmarx records the initiator as a username, which is not always an address, so
 resolution is layered (Settings → Scan initiators):

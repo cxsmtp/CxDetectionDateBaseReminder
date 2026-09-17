@@ -127,3 +127,29 @@ test('markVerified pins the fingerprint of the settings in force', () => {
   store.save({ smtp: { host: 'elsewhere.example.com' } });
   assert.equal(isVerified(store.get()), false, 'a host change must force a retest');
 });
+
+test('tagging one initiator must not clear the others', () => {
+  const store = new SettingsStore({ file: tempFile() });
+  store.save({ initiators: { overrides: 'alice = alice@x.com\nbob = bob@x.com' } });
+
+  // How the tag endpoint saves: current overrides spread, plus the new one.
+  const current = store.get().initiators.overrides;
+  const after = store.save({ initiators: { overrides: { ...current, carl: 'carl@x.com' } } });
+
+  assert.deepEqual(after.initiators.overrides, {
+    alice: 'alice@x.com',
+    bob: 'bob@x.com',
+    carl: 'carl@x.com',
+  });
+});
+
+test('an override survives a restart and other settings are untouched', () => {
+  const file = tempFile();
+  const store = new SettingsStore({ file });
+  store.save({ smtp: { host: 'smtp.example.com' }, initiators: { overrides: { jdoe: 'jane@x.com' } } });
+
+  const reloaded = new SettingsStore({ file }).get();
+  assert.equal(reloaded.initiators.overrides.jdoe, 'jane@x.com');
+  assert.equal(reloaded.smtp.host, 'smtp.example.com');
+  assert.equal(reloaded.initiators.useDirectory, true, 'unrelated defaults stay put');
+});

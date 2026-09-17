@@ -320,3 +320,45 @@ button.big { padding: 11px 20px; font-weight: 600; }
 td.initiator { white-space: normal; max-width: 220px; }
 td.initiator .zero { display: block; font-size: 11px; }
 td.initiator .err { display: block; font-size: 11px; }
+
+/* --- Scan initiator picker ----------------------------------------------- */
+
+.initiator-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+
+.initiator-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+}
+
+.initiator-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  min-width: 0;
+}
+.initiator-row.picked { border-color: var(--accent); }
+.initiator-row.missing { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+.initiator-row > input[type="checkbox"] { margin-top: 3px; flex: 0 0 auto; }
+
+.initiator-body { display: grid; gap: 3px; min-width: 0; flex: 1 1 auto; }
+.initiator-name { font-weight: 600; word-break: break-word; }
+.initiator-meta { font-size: 12px; color: var(--muted); }
+.initiator-mail { font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+
+.tag-row { display: flex; gap: 6px; margin-top: 4px; }
+.tag-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.tag-row button { padding: 5px 10px; font-size: 12px; }

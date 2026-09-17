@@ -7,6 +7,8 @@ const state = {
   projects: [],
   selected: new Set(),
   sort: { key: '60+', dir: 'desc' },
+  initiators: [],
+  pickedInitiators: new Set(),
   lastScan: null,
 };
 
@@ -542,13 +544,13 @@ function visibleProjects() {
   const bucket = $('bucket-filter').value;
   const hideEmpty = $('hide-empty').checked;
 
-  const initiator = $('initiator-filter').value;
+  const picked = state.pickedInitiators;
 
   const rows = state.projects.filter((p) => {
     if (text && !p.projectName.toLowerCase().includes(text)) return false;
     if (severity && !(p.bySeverity?.[severity] > 0)) return false;
     if (bucket && !(p.counts?.[bucket] > 0)) return false;
-    if (initiator && (p.initiatorEmail || p.initiator || '') !== initiator) return false;
+    if (picked.size > 0 && !picked.has(p.initiator || p.initiatorEmail || '')) return false;
     if (hideEmpty && p.totalRisks === 0) return false;
     return true;
   });
@@ -584,31 +586,117 @@ function renderInitiator(project) {
     : `${name}<span class="zero">${escapeHtml(project.initiatorEmail)}</span>`;
 }
 
-/** Distinct initiators in the current results, for the filter dropdown. */
-function fillInitiatorFilter() {
-  const select = $('initiator-filter');
-  const previous = select.value;
-
+/**
+ * Distinct scan initiators in the current results.
+ *
+ * Keyed by the initiator identity rather than the email, so someone whose
+ * address has not been resolved is still a selectable row that can be tagged.
+ */
+function collectInitiators() {
   const seen = new Map();
+
   for (const project of state.projects) {
-    const key = project.initiatorEmail || project.initiator;
+    const key = project.initiator || project.initiatorEmail;
     if (!key) continue;
-    if (!seen.has(key)) seen.set(key, { label: project.initiator || key, email: project.initiatorEmail, count: 0 });
-    seen.get(key).count += 1;
+    if (!seen.has(key)) {
+      seen.set(key, {
+        key,
+        initiator: project.initiator || '',
+        email: project.initiatorEmail || '',
+        via: project.initiatorVia || 'none',
+        projects: 0,
+        risks: 0,
+      });
+    }
+    const entry = seen.get(key);
+    entry.projects += 1;
+    entry.risks += project.totalRisks;
+    if (!entry.email && project.initiatorEmail) entry.email = project.initiatorEmail;
   }
 
-  select.innerHTML =
-    '<option value="">All scan initiators</option>' +
-    [...seen.entries()]
-      .sort((a, b) => b[1].count - a[1].count)
-      .map(
-        ([key, info]) =>
-          `<option value="${escapeHtml(key)}">${escapeHtml(info.label)} (${info.count})${
-            info.email ? '' : ' — no email'
-          }</option>`,
-      )
-      .join('');
-  if ([...seen.keys()].includes(previous)) select.value = previous;
+  state.initiators = [...seen.values()].sort((a, b) => b.risks - a.risks);
+  // Drop selections for people who are no longer in the results.
+  for (const key of [...state.pickedInitiators]) {
+    if (!seen.has(key)) state.pickedInitiators.delete(key);
+  }
+}
+
+function renderInitiatorList() {
+  const list = $('initiator-list');
+
+  if (state.initiators.length === 0) {
+    list.innerHTML = '<p class="hint">No scan initiator was recorded for any project in these results.</p>';
+    $('initiator-summary').textContent = 'None found.';
+    return;
+  }
+
+  list.innerHTML = state.initiators
+    .map((entry) => {
+      const picked = state.pickedInitiators.has(entry.key);
+      const id = `init-${encodeURIComponent(entry.key)}`;
+
+      return `
+      <div class="initiator-row ${picked ? 'picked' : ''} ${entry.email ? '' : 'missing'}">
+        <input type="checkbox" id="${escapeHtml(id)}" data-pick="${escapeHtml(entry.key)}" ${picked ? 'checked' : ''} />
+        <div class="initiator-body">
+          <label class="initiator-name" for="${escapeHtml(id)}">${escapeHtml(entry.initiator || entry.email)}</label>
+          <span class="initiator-meta">${entry.projects} project(s) · ${entry.risks} finding(s)</span>
+          ${
+            entry.email
+              ? `<span class="initiator-mail">${escapeHtml(entry.email)}</span>`
+              : `<span class="initiator-meta error-hint">No email found — tag one below.</span>
+                 <div class="tag-row">
+                   <input type="email" placeholder="name@example.com" data-tag-for="${escapeHtml(entry.key)}" />
+                   <button type="button" data-tag-save="${escapeHtml(entry.key)}">Save</button>
+                 </div>`
+          }
+        </div>
+      </div>`;
+    })
+    .join('');
+
+  const picked = state.pickedInitiators.size;
+  const missing = state.initiators.filter((e) => !e.email).length;
+  $('initiator-summary').textContent =
+    `${state.initiators.length} initiator(s)` +
+    (picked ? ` · ${picked} selected` : ' · none selected (all included)') +
+    (missing ? ` · ${missing} missing an email` : '');
+}
+
+/** Save a typed address as an override, and use it immediately. */
+async function tagInitiator(key) {
+  const input = document.querySelector(`input[data-tag-for="${CSS.escape(key)}"]`);
+  const entry = state.initiators.find((e) => e.key === key);
+  if (!input || !entry) return;
+
+  setStatus('status', `Saving address for ${entry.initiator || key}…`);
+  try {
+    const result = await api('/api/initiators/tag', {
+      method: 'POST',
+      body: JSON.stringify({ initiator: entry.initiator || key, email: input.value }),
+    });
+
+    // Reflect it locally so the row updates without another fetch.
+    entry.email = result.email;
+    entry.via = 'override';
+    for (const project of state.projects) {
+      if ((project.initiator || project.initiatorEmail) === key) {
+        project.initiatorEmail = result.email;
+        project.initiatorVia = 'override';
+      }
+    }
+    state.settings = result.settings;
+
+    renderInitiatorList();
+    renderProjects();
+    setStatus(
+      'status',
+      `${result.email} saved for ${result.initiator} and applied to ${result.projectsUpdated} project(s).`,
+      'ok',
+    );
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('status', error);
+  }
 }
 
 function renderProjects() {
@@ -645,9 +733,13 @@ function renderProjects() {
   }
 
   const selectedCount = state.selected.size;
+  const pickedCount = state.pickedInitiators.size;
   $('table-meta').textContent =
     `${rows.length} of ${state.projects.length} project(s) shown` +
-    (selectedCount ? ` · ${selectedCount} selected (reminder covers only these)` : ' · none selected (reminder covers all)');
+    (pickedCount ? ` · filtered to ${pickedCount} initiator(s)` : '') +
+    (selectedCount
+      ? ` · ${selectedCount} selected (reminder covers only these)`
+      : ' · no project selected (reminder covers every shown project)');
 
   for (const th of document.querySelectorAll('#projects th[data-sort]')) {
     th.classList.toggle('sorted', th.dataset.sort === state.sort.key);
@@ -686,7 +778,8 @@ async function fetchProjects() {
     state.selected.clear();
     $('select-all').checked = false;
     renderTotals(result.totals);
-    fillInitiatorFilter();
+    collectInitiators();
+    renderInitiatorList();
     renderProjects();
 
     for (const note of result.initiatorNotes ?? []) console.warn(note);
@@ -714,8 +807,9 @@ async function fetchProjects() {
 }
 
 async function submitReminder({ dryRun }) {
+  // No ticked bucket means no age filter, so a project or initiator selection
+  // is enough on its own.
   const buckets = [...document.querySelectorAll('input[name="bucket"]:checked')].map((i) => i.value);
-  if (buckets.length === 0) return setStatus('status', 'Pick at least one age range.', 'error');
 
   const groupBy = document.querySelector('input[name="groupBy"]:checked').value;
   const button = dryRun ? $('preview') : $('send');
@@ -724,14 +818,13 @@ async function submitReminder({ dryRun }) {
 
   try {
     const severity = $('severity-filter').value;
-    const initiator = $('initiator-filter').value;
 
     const result = await api('/api/reminders', {
       method: 'POST',
       body: JSON.stringify({
         projectIds: state.selected.size > 0 ? [...state.selected] : null,
         severities: severity ? [severity] : null,
-        initiators: initiator ? [initiator] : null,
+        initiators: state.pickedInitiators.size > 0 ? [...state.pickedInitiators] : null,
         buckets,
         groupBy,
         dryRun,
@@ -830,7 +923,7 @@ $('activity-preset').addEventListener('change', () => toggleRange('activity'));
 $('detection-preset').addEventListener('change', () => toggleRange('detection'));
 $('fetch').addEventListener('click', fetchProjects);
 
-for (const id of ['filter', 'severity-filter', 'bucket-filter', 'initiator-filter', 'hide-empty']) {
+for (const id of ['filter', 'severity-filter', 'bucket-filter', 'hide-empty']) {
   $(id).addEventListener('input', renderProjects);
 }
 
@@ -871,6 +964,48 @@ for (const th of document.querySelectorAll('#projects th[data-sort]')) {
     renderProjects();
   });
 }
+
+$('initiator-list').addEventListener('change', (event) => {
+  const key = event.target.dataset.pick;
+  if (!key) return;
+  if (event.target.checked) state.pickedInitiators.add(key);
+  else state.pickedInitiators.delete(key);
+  renderInitiatorList();
+  renderProjects();
+});
+
+$('initiator-list').addEventListener('click', (event) => {
+  const key = event.target.dataset.tagSave;
+  if (key) tagInitiator(key);
+});
+
+// Enter in a tag field saves it, rather than doing nothing.
+$('initiator-list').addEventListener('keydown', (event) => {
+  const key = event.target.dataset.tagFor;
+  if (key && event.key === 'Enter') {
+    event.preventDefault();
+    tagInitiator(key);
+  }
+});
+
+$('init-all').addEventListener('click', () => {
+  for (const entry of state.initiators) state.pickedInitiators.add(entry.key);
+  renderInitiatorList();
+  renderProjects();
+});
+
+$('init-none').addEventListener('click', () => {
+  state.pickedInitiators.clear();
+  renderInitiatorList();
+  renderProjects();
+});
+
+$('init-unresolved').addEventListener('click', () => {
+  state.pickedInitiators.clear();
+  for (const entry of state.initiators) if (!entry.email) state.pickedInitiators.add(entry.key);
+  renderInitiatorList();
+  renderProjects();
+});
 
 $('select-all').addEventListener('change', (event) => {
   for (const project of visibleProjects()) {

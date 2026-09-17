@@ -112,7 +112,6 @@
                 <option value="31-60">Has 31–60d</option>
                 <option value="60+">Has &gt; 60d</option>
               </select>
-              <select id="initiator-filter"><option value="">All scan initiators</option></select>
               <label class="check"><input type="checkbox" id="hide-empty" /> Hide projects with no findings</label>
             </div>
           </div>
@@ -140,6 +139,19 @@
         </section>
 
         <section class="panel">
+          <div class="panel-head">
+            <h2>Scan initiators</h2>
+            <span class="hint" id="initiator-summary">Fetch data to list initiators.</span>
+          </div>
+          <div class="initiator-actions">
+            <button id="init-all" type="button">Select all</button>
+            <button id="init-none" type="button">Clear</button>
+            <button id="init-unresolved" type="button">Only those missing an email</button>
+          </div>
+          <div id="initiator-list" class="initiator-list"></div>
+        </section>
+
+        <section class="panel">
           <h2>Send reminder</h2>
           <div class="controls">
             <fieldset>
@@ -147,6 +159,7 @@
               <label><input type="checkbox" name="bucket" value="0-30" /> Last 30 days</label>
               <label><input type="checkbox" name="bucket" value="31-60" /> 31–60 days</label>
               <label><input type="checkbox" name="bucket" value="60+" checked /> More than 60 days</label>
+              <p class="hint" id="bucket-hint">Leave all three unticked to include findings of any age.</p>
             </fieldset>
 
             <fieldset>

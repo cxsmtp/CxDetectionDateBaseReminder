@@ -219,6 +219,48 @@ app.post(
   }),
 );
 
+/**
+ * Attach an email address to a scan initiator whose address could not be
+ * resolved. The address is merged into the stored overrides (so it is
+ * remembered for future fetches) and patched into the current scan, so the
+ * operator can tag someone and send immediately without re-fetching.
+ */
+app.post(
+  '/api/initiators/tag',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const initiator = String(req.body?.initiator ?? '').trim();
+    const [email] = parseAddressList(req.body?.email ?? '');
+
+    if (!initiator) return res.status(400).json({ error: 'Which initiator is this address for?' });
+    if (!email) return res.status(400).json({ error: `"${req.body?.email ?? ''}" is not a valid email address.` });
+
+    const current = settingsStore.get().initiators.overrides;
+    const saved = settingsStore.save({
+      // Merge, so tagging one person never clears the others.
+      initiators: { overrides: { ...current, [initiator]: email } },
+    });
+
+    // Patch the in-memory scan so the new address is usable straight away.
+    let projectsUpdated = 0;
+    for (const info of Object.values(req.session.lastScan?.initiators ?? {})) {
+      if (info.initiator === initiator) {
+        info.email = email;
+        info.via = 'override';
+        projectsUpdated += 1;
+      }
+    }
+    for (const summary of req.session.lastScan?.projects ?? []) {
+      if (summary.initiator === initiator) {
+        summary.initiatorEmail = email;
+        summary.initiatorVia = 'override';
+      }
+    }
+
+    res.json({ initiator, email, projectsUpdated, settings: publicSettings(saved) });
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // Dashboard data
 // ---------------------------------------------------------------------------
@@ -322,9 +364,9 @@ app.post(
     if (!lastScan) {
       return res.status(409).json({ error: 'Fetch the project list first, then send a reminder.' });
     }
-    if (!Array.isArray(buckets) || buckets.length === 0) {
-      return res.status(400).json({ error: 'Select at least one age bucket (30 / 60 / 60+ days).' });
-    }
+    // An empty bucket list means "no age filter", so a selection of projects or
+    // initiators is enough on its own to send.
+    const ageBuckets = Array.isArray(buckets) ? buckets : [];
 
     const initiatorsByProject = lastScan.initiators ?? {};
 
@@ -341,14 +383,14 @@ app.post(
 
     const risks = selectRisks(lastScan.projects, {
       projectIds: scopedProjectIds,
-      buckets,
+      buckets: ageBuckets,
       severities,
     });
     if (risks.length === 0) {
       return res.status(400).json({ error: 'No vulnerabilities match that selection.' });
     }
 
-    const common = { buckets, tenant: connection.tenant, initiatorsByProject };
+    const common = { buckets: ageBuckets, tenant: connection.tenant, initiatorsByProject };
 
     // ---- One email per scan initiator -------------------------------------
     if (groupBy === 'initiator') {
