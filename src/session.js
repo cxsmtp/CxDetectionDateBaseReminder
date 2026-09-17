@@ -41,9 +41,6 @@ export class SessionStore {
       connection,
       client,
       lastScan: null,
-      // Endpoint paths the operator pinned from the UI, layered over the
-      // deployment defaults by effectiveConfig().
-      paths: {},
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
     };
@@ -79,36 +76,12 @@ export class SessionStore {
 }
 
 /** Session details the browser is allowed to see (never the API key). */
-export function describeSession(session, config) {
+export function describeSession(session) {
   return {
     connected: true,
     connection: publicConnection(session.connection),
     hasScan: Boolean(session.lastScan),
     connectedAt: new Date(session.createdAt).toISOString(),
-    paths: config ? endpointPaths(effectiveConfig(session, config)) : undefined,
-  };
-}
-
-/** Deployment config with this session's pinned endpoint paths layered on top. */
-export function effectiveConfig(session, config) {
-  const { risksPath, feedbackListPath, feedbackTriggerPath } = session.paths ?? {};
-  if (!risksPath && !feedbackListPath && !feedbackTriggerPath) return config;
-
-  return {
-    ...config,
-    risks: { ...config.risks, path: risksPath || config.risks.path },
-    feedback: {
-      listPath: feedbackListPath || config.feedback.listPath,
-      triggerPath: feedbackTriggerPath || config.feedback.triggerPath,
-    },
-  };
-}
-
-export function endpointPaths(config) {
-  return {
-    risksPath: config.risks.path,
-    feedbackListPath: config.feedback.listPath,
-    feedbackTriggerPath: config.feedback.triggerPath,
   };
 }
 

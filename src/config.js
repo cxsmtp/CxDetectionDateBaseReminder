@@ -35,27 +35,14 @@ export function loadConfig(env = process.env) {
 
     risks: {
       source: env.CX_RISK_SOURCE?.trim() || 'risk-insights',
-      path: env.CX_RISKS_PATH?.trim() || '/api/risk-management/risks/{projectId}',
+      path: env.CX_RISKS_PATH?.trim() || '/api/risks/',
       method: (env.CX_RISKS_METHOD?.trim() || 'GET').toUpperCase(),
       autodiscover: bool(env.CX_RISKS_AUTODISCOVER, true),
     },
 
-    feedback: {
-      listPath: env.CX_FEEDBACK_APPS_PATH?.trim() || '/api/feedbackapps',
-      triggerPath: env.CX_FEEDBACK_APP_TRIGGER_PATH?.trim() || '/api/feedbackapps/{appId}/notify',
-    },
-
-    delivery: {
-      mode: (env.REMINDER_DELIVERY_MODE?.trim() || 'auto').toLowerCase(),
-      smtp: {
-        host: env.SMTP_HOST?.trim() || '',
-        port: int(env.SMTP_PORT, 587),
-        secure: bool(env.SMTP_SECURE, false),
-        user: env.SMTP_USER?.trim() || '',
-        password: env.SMTP_PASSWORD ?? '',
-        from: env.SMTP_FROM?.trim() || '',
-      },
-    },
+    // SMTP, recipients and the mail template are administrator settings,
+    // configured in the UI and persisted by SettingsStore -- not env vars.
+    settingsFile: env.SETTINGS_FILE?.trim() || '',
 
     session: { idleMs: int(env.SESSION_IDLE_MINUTES, 480) * 60_000 },
     concurrency: Math.max(1, int(env.CX_FETCH_CONCURRENCY, 5)),
@@ -67,11 +54,8 @@ export function loadConfig(env = process.env) {
 /** Deployment-level misconfiguration, independent of any connection. */
 export function configProblems(config) {
   const problems = [];
-  if (config.delivery.mode === 'smtp' && !config.delivery.smtp.host) {
-    problems.push('REMINDER_DELIVERY_MODE=smtp but SMTP_HOST is not set.');
-  }
-  if (!['auto', 'smtp', 'feedback'].includes(config.delivery.mode)) {
-    problems.push(`REMINDER_DELIVERY_MODE="${config.delivery.mode}" is not one of auto, feedback, smtp.`);
+  if (config.risks.source !== 'risk-insights' && config.risks.source !== 'scan-results') {
+    problems.push(`CX_RISK_SOURCE="${config.risks.source}" is not one of risk-insights, scan-results.`);
   }
   return problems;
 }

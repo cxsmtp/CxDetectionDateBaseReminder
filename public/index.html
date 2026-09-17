@@ -9,45 +9,39 @@
   </head>
   <body>
     <header class="topbar">
-      <div>
-        <h1>Checkmarx One — Detection Date Reminder</h1>
+      <div class="brand">
+        <h1>Detection Date Reminder</h1>
         <p class="sub" id="connection">Starting…</p>
       </div>
+      <nav class="tabs" id="nav" hidden>
+        <a href="#/dashboard" data-route="dashboard" class="tab">Dashboard</a>
+        <a href="#/settings" data-route="settings" class="tab">Settings</a>
+      </nav>
       <div class="topbar-actions">
-        <button id="fetch" class="primary" hidden>Fetch projects</button>
         <button id="disconnect" hidden>Disconnect</button>
       </div>
     </header>
 
     <main>
-      <!-- ------------------------------------------------------------- -->
-      <!-- Connect                                                        -->
-      <!-- ------------------------------------------------------------- -->
+      <!-- ================= Connect ================= -->
       <section class="panel connect" id="connect-panel" hidden>
         <h2>Connect to Checkmarx One</h2>
         <p class="hint">
           Paste an API key from <strong>Settings → Identity &amp; Access Management → API Keys</strong>.
-          The tenant and regional URLs are detected from the key itself. The key is held in the
-          server's memory for this session only — it is never written to disk.
+          The tenant and regional URLs are detected from the key. It is held in the server's memory
+          for this session only and never written to disk.
         </p>
 
         <form id="connect-form" autocomplete="off">
           <label class="field">
             <span>API key</span>
-            <textarea
-              id="api-key"
-              rows="3"
-              spellcheck="false"
-              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-              required
-            ></textarea>
+            <textarea id="api-key" rows="3" spellcheck="false" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…" required></textarea>
           </label>
 
           <div id="detected" class="detected" hidden></div>
 
           <details id="advanced">
             <summary>Advanced — single-tenant / on-prem overrides</summary>
-            <p class="hint">Leave blank unless detection fails or you need to force a specific host.</p>
             <label class="field"><span>IAM URL</span><input id="iam-url" placeholder="https://eu.iam.checkmarx.net" /></label>
             <label class="field"><span>API URL</span><input id="base-url" placeholder="https://eu.ast.checkmarx.net" /></label>
             <label class="field"><span>Tenant</span><input id="tenant" placeholder="acme-corp" /></label>
@@ -60,11 +54,9 @@
         </form>
       </section>
 
-      <!-- ------------------------------------------------------------- -->
-      <!-- Workspace                                                      -->
-      <!-- ------------------------------------------------------------- -->
-      <div id="workspace" hidden>
-        <section class="panel" id="scope-panel">
+      <!-- ================= Dashboard ================= -->
+      <div id="page-dashboard" class="page" hidden>
+        <section class="panel">
           <div class="panel-head">
             <h2>Scope</h2>
             <span class="hint" id="scope-summary"></span>
@@ -77,7 +69,7 @@
                 <label><span>From</span><input type="date" id="activity-from" /></label>
                 <label><span>To</span><input type="date" id="activity-to" /></label>
               </div>
-              <p class="hint">Skips projects with no scan in this window, so the fetch is faster.</p>
+              <p class="hint">Skips projects with no scan in this window.</p>
             </fieldset>
 
             <fieldset>
@@ -87,7 +79,13 @@
                 <label><span>From</span><input type="date" id="detection-from" /></label>
                 <label><span>To</span><input type="date" id="detection-to" /></label>
               </div>
-              <p class="hint" id="detection-hint">Counts only findings first seen in this window.</p>
+              <p class="hint" id="detection-hint">Sent to the API as fromDate/toDate, so it is filtered server-side.</p>
+            </fieldset>
+
+            <fieldset class="grow">
+              <legend>&nbsp;</legend>
+              <button id="fetch" class="primary big">Fetch vulnerability data</button>
+              <p class="hint" id="fetch-meta"></p>
             </fieldset>
           </div>
         </section>
@@ -99,30 +97,44 @@
         <section class="panel">
           <div class="panel-head">
             <h2>Projects</h2>
-            <label class="filter">
-              <input type="search" id="filter" placeholder="Filter by project name…" />
-            </label>
+            <div class="filters">
+              <input type="search" id="filter" placeholder="Search project name…" />
+              <select id="severity-filter">
+                <option value="">All severities</option>
+                <option value="CRITICAL">Critical</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
+              </select>
+              <select id="bucket-filter">
+                <option value="">Any age</option>
+                <option value="0-30">Has ≤ 30d</option>
+                <option value="31-60">Has 31–60d</option>
+                <option value="60+">Has &gt; 60d</option>
+              </select>
+              <label class="check"><input type="checkbox" id="hide-empty" /> Hide projects with no findings</label>
+            </div>
           </div>
+
           <div class="table-wrap">
             <table id="projects">
               <thead>
                 <tr>
                   <th class="checkbox"><input type="checkbox" id="select-all" title="Select all" /></th>
-                  <th>Project</th>
-                  <th class="num">Total</th>
-                  <th class="num">≤ 30d</th>
-                  <th class="num">31–60d</th>
-                  <th class="num">&gt; 60d</th>
-                  <th>Oldest first detection</th>
+                  <th data-sort="projectName">Project</th>
+                  <th class="num" data-sort="totalRisks">Total</th>
+                  <th class="num" data-sort="0-30">≤ 30d</th>
+                  <th class="num" data-sort="31-60">31–60d</th>
+                  <th class="num" data-sort="60+">&gt; 60d</th>
+                  <th data-sort="maxAgeDays">Oldest first detection</th>
                 </tr>
               </thead>
               <tbody id="projects-body">
-                <tr class="empty">
-                  <td colspan="7">Click <strong>Fetch projects</strong> to load projects and first-detection dates.</td>
-                </tr>
+                <tr class="empty"><td colspan="7">Click <strong>Fetch vulnerability data</strong> to load projects and first-detection dates.</td></tr>
               </tbody>
             </table>
           </div>
+          <p class="hint" id="table-meta"></p>
         </section>
 
         <section class="panel">
@@ -135,10 +147,10 @@
               <label><input type="checkbox" name="bucket" value="60+" checked /> More than 60 days</label>
             </fieldset>
 
-            <fieldset>
-              <legend>Feedback app (recipients)</legend>
-              <select id="feedback-app"><option value="">Loading…</option></select>
-              <p class="hint" id="recipients-hint">Recipients come from the app's configuration in CxONE.</p>
+            <fieldset class="grow">
+              <legend>Recipients</legend>
+              <p class="hint" id="recipients-hint">Loading…</p>
+              <a href="#/settings" class="link-inline">Change on the Settings page →</a>
             </fieldset>
           </div>
 
@@ -149,46 +161,6 @@
           </div>
         </section>
 
-
-        <section class="panel">
-          <details id="endpoints">
-            <summary>Endpoints &amp; diagnostics</summary>
-            <p class="hint">
-              If a fetch fails with 400 or 404, the path below is not the one this tenant uses.
-              <strong>Detect</strong> probes the known candidates against your tenant and reports
-              exactly what each one returned.
-            </p>
-
-            <label class="field">
-              <span>Risk Insights path <code>{projectId}</code> is substituted</span>
-              <div class="path-row">
-                <input id="risks-path" spellcheck="false" />
-                <button id="detect-risks" type="button">Detect</button>
-              </div>
-            </label>
-
-            <label class="field">
-              <span>Feedback Apps list path</span>
-              <div class="path-row">
-                <input id="feedback-list-path" spellcheck="false" />
-                <button id="detect-feedback" type="button">Detect</button>
-              </div>
-            </label>
-
-            <label class="field">
-              <span>Feedback App trigger path <code>{appId}</code> is substituted</span>
-              <input id="feedback-trigger-path" spellcheck="false" />
-            </label>
-
-            <div class="actions">
-              <button id="save-endpoints" type="button" class="primary">Save paths</button>
-              <span id="endpoints-status" class="status"></span>
-            </div>
-
-            <div id="probe-results" hidden></div>
-          </details>
-        </section>
-
         <section class="panel" id="preview-panel" hidden>
           <div class="panel-head">
             <h2>Preview</h2>
@@ -197,6 +169,120 @@
           <p class="hint" id="preview-meta"></p>
           <iframe id="preview-frame" title="Email preview" sandbox=""></iframe>
         </section>
+      </div>
+
+      <!-- ================= Settings ================= -->
+      <div id="page-settings" class="page" hidden>
+        <section class="panel">
+          <h2>Checkmarx One connection</h2>
+          <div class="kv" id="connection-details"></div>
+          <div class="actions">
+            <button id="reconnect">Use a different API key</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>SMTP server</h2>
+          <p class="hint">
+            Your own mail server. Nothing can be sent until a connection test succeeds —
+            changing any connection field clears a previous pass.
+          </p>
+
+          <div class="grid2">
+            <label class="field"><span>Host</span><input id="smtp-host" placeholder="smtp.example.com" /></label>
+            <label class="field"><span>Port</span><input id="smtp-port" type="number" min="1" max="65535" /></label>
+          </div>
+
+          <div class="checks">
+            <label class="check"><input type="checkbox" id="smtp-secure" /> Implicit TLS (port 465)</label>
+            <label class="check"><input type="checkbox" id="smtp-auth" /> Server requires authentication</label>
+            <label class="check"><input type="checkbox" id="smtp-reject" /> Verify TLS certificate</label>
+          </div>
+
+          <div class="grid2" id="smtp-credentials">
+            <label class="field"><span>Username</span><input id="smtp-user" autocomplete="off" /></label>
+            <label class="field">
+              <span>Password <span class="muted" id="password-state"></span></span>
+              <input id="smtp-password" type="password" autocomplete="new-password" placeholder="Leave blank to keep the stored one" />
+            </label>
+          </div>
+
+          <div class="grid2">
+            <label class="field"><span>From name</span><input id="smtp-from-name" placeholder="Checkmarx Reminders" /></label>
+            <label class="field"><span>From address</span><input id="smtp-from-address" placeholder="security@example.com" /></label>
+          </div>
+
+          <div class="actions">
+            <button id="test-smtp" class="primary">Test connection</button>
+            <input id="test-to" placeholder="you@example.com" class="inline-input" />
+            <button id="send-test">Send test email</button>
+            <span id="smtp-status" class="status"></span>
+          </div>
+          <p class="hint" id="verified-state"></p>
+        </section>
+
+        <section class="panel">
+          <h2>Recipients</h2>
+          <p class="hint">One address per line, or separated by commas. These receive every reminder.</p>
+          <div class="grid3">
+            <label class="field"><span>To</span><textarea id="rcpt-to" rows="4" spellcheck="false"></textarea></label>
+            <label class="field"><span>Cc</span><textarea id="rcpt-cc" rows="4" spellcheck="false"></textarea></label>
+            <label class="field"><span>Bcc</span><textarea id="rcpt-bcc" rows="4" spellcheck="false"></textarea></label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Mail template</h2>
+          <p class="hint">
+            The message body is yours to decide. Values are inserted with <code>{{name}}</code> and
+            HTML-escaped; <code>{{{name}}}</code> inserts raw HTML. Repeat a list with
+            <code>{{#projects}}…{{/projects}}</code>, and show a block only when something is empty
+            with <code>{{^projects}}…{{/projects}}</code>.
+          </p>
+
+          <label class="field"><span>Subject</span><input id="tpl-subject" spellcheck="false" /></label>
+          <label class="field">
+            <span>HTML body</span>
+            <textarea id="tpl-html" rows="18" spellcheck="false" class="code"></textarea>
+          </label>
+
+          <details id="variables">
+            <summary>Available variables</summary>
+            <div class="kv" id="variable-list"></div>
+          </details>
+
+          <div class="actions">
+            <button id="preview-template" class="primary">Preview template</button>
+            <button id="reset-template">Restore default</button>
+            <span id="template-status" class="status"></span>
+          </div>
+
+          <div id="template-preview-wrap" hidden>
+            <p class="hint" id="template-subject-preview"></p>
+            <iframe id="template-preview" title="Template preview" sandbox=""></iframe>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Risks endpoint</h2>
+          <p class="hint">
+            Defaults to <code>/api/risks/</code>. <strong>Detect</strong> probes the known paths
+            against your tenant and reports what each returned.
+          </p>
+          <label class="field">
+            <span>Path — <code>{projectId}</code> is substituted for a templated endpoint</span>
+            <div class="path-row">
+              <input id="risks-path" spellcheck="false" placeholder="/api/risks/" />
+              <button id="detect-risks" type="button">Detect</button>
+            </div>
+          </label>
+          <div id="probe-results" hidden></div>
+        </section>
+
+        <div class="save-bar">
+          <button id="save-settings" class="primary big">Save settings</button>
+          <span id="save-status" class="status"></span>
+        </div>
       </div>
     </main>
 

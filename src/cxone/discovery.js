@@ -3,11 +3,11 @@ import { CxApiError, extractItems } from './client.js';
 /**
  * Endpoint discovery.
  *
- * The Risk Management and Feedback App services have moved between paths as
- * they rolled out, and a tenant's API gateway may answer an unknown path with
- * 400, 403, 404 or 405 depending on how it is fronted.  Rather than guessing
- * once and failing, the client probes a candidate list, remembers what
- * answered, and can report the whole probe to the operator.
+ * The risks endpoint has moved between paths as the service rolled out, and a
+ * tenant's API gateway may answer an unknown path with 400, 403, 404 or 405
+ * depending on how it is fronted.  Rather than guessing once and failing, the
+ * client probes a candidate list, remembers what answered, and can report the
+ * whole probe to the operator.
  */
 
 /** Statuses that mean "this path is not the one" rather than "give up". */
@@ -17,6 +17,14 @@ export const isProbeMiss = (error) =>
   error instanceof CxApiError && PROBE_MISS_STATUSES.has(error.status);
 
 export const RISK_PATH_CANDIDATES = [
+  // Tenant-wide endpoint: one sweep covers every project and carries the
+  // first-detection date, so it is tried first.
+  '/api/risks/',
+  '/api/risks',
+  // "Retrieve Aggregated Risks" in the API reference; probed so the tenant
+  // confirms the spelling rather than the code guessing it.
+  '/api/risks/aggregate',
+  '/api/risks/aggregated',
   '/api/risk-management/risks/{projectId}',
   '/api/risk-management/projects/{projectId}/risks',
   '/api/risk-management/risks',
@@ -24,20 +32,10 @@ export const RISK_PATH_CANDIDATES = [
   '/api/risks/{projectId}',
 ];
 
-export const FEEDBACK_LIST_CANDIDATES = [
-  '/api/feedbackapps',
-  '/api/feedback-apps',
-  '/api/feedbackapps/list',
-  '/api/integrations/feedback-apps',
-  '/api/integrations/feedbackapps',
-  '/api/notifications/feedbackapps',
-];
-
-/** Build the candidate list for a target, with the configured path tried first. */
-export function candidatesFor(target, configuredPath) {
-  const base = target === 'risks' ? RISK_PATH_CANDIDATES : FEEDBACK_LIST_CANDIDATES;
-  const rest = base.filter((path) => path !== configuredPath);
-  return configuredPath ? [configuredPath, ...rest] : base;
+/** Build the candidate list, with the configured path tried first. */
+export function candidatesFor(configuredPath) {
+  const rest = RISK_PATH_CANDIDATES.filter((path) => path !== configuredPath);
+  return configuredPath ? [configuredPath, ...rest] : [...RISK_PATH_CANDIDATES];
 }
 
 const summarise = (payload) => {
@@ -73,37 +71,27 @@ export async function probePath(client, path, { query = {}, method = 'GET' } = {
  * Probe every candidate and return the full report, most useful first.
  * Nothing is thrown — a report where every row failed is itself the answer.
  */
-export async function discover(client, target, { configuredPath, projectId = '' } = {}) {
+/** Probe every risks-endpoint candidate and report what each one returned. */
+export async function discover(client, { configuredPath, projectId = '' } = {}) {
   const results = [];
 
-  for (const candidate of candidatesFor(target, configuredPath)) {
+  for (const candidate of candidatesFor(configuredPath)) {
     const usesPathParam = candidate.includes('{projectId}');
     if (usesPathParam && !projectId) continue;
 
     const path = candidate.replace('{projectId}', encodeURIComponent(projectId));
-    const query =
-      target === 'risks' && !usesPathParam ? { 'project-id': projectId, limit: 1 } : { limit: 1 };
+    // The documented endpoints require `projectId` (camel case) and answer
+    // 400 without it; a templated path carries it in the URL instead.
+    const query = usesPathParam ? { limit: 1 } : { projectId, limit: 1 };
 
     const result = await probePath(client, path, { query });
-    results.push({ ...result, template: candidate });
+    results.push({ ...result, template: candidate, tenantWide: !usesPathParam });
     if (result.ok) break; // First working path wins; no need to keep probing.
   }
 
-  const match = results.find((result) => result.ok)?.template ?? null;
-
   return {
-    target,
     projectId: projectId || null,
     results,
-    match,
-    // The trigger endpoint lives under the same prefix as the list endpoint,
-    // so finding one tells us where the other is. Without this, pinning a
-    // corrected list path would silently leave the trigger path stale.
-    suggestedTriggerPath: target === 'feedbackApps' && match ? triggerPathFor(match) : null,
+    match: results.find((result) => result.ok)?.template ?? null,
   };
-}
-
-/** Derive the notify path that pairs with a working Feedback Apps list path. */
-export function triggerPathFor(listPath) {
-  return `${String(listPath).replace(/\/+$/, '').replace(/\/list$/, '')}/{appId}/notify`;
 }

@@ -71,13 +71,14 @@ test('every "wrong path" status counts as a probe miss, 400 included', () => {
 });
 
 test('candidatesFor puts the configured path first and never repeats it', () => {
-  const list = candidatesFor('feedbackApps', '/api/feedback-apps');
-  assert.equal(list[0], '/api/feedback-apps');
+  const list = candidatesFor('/api/risk-management/risks/{projectId}');
+  assert.equal(list[0], '/api/risk-management/risks/{projectId}');
   assert.equal(new Set(list).size, list.length);
-  assert.ok(list.includes('/api/feedbackapps'));
+  // The documented endpoint is always among the candidates.
+  assert.ok(list.includes('/api/risks/'));
 
-  const risks = candidatesFor('risks', '/custom/path');
-  assert.equal(risks[0], '/custom/path');
+  assert.equal(candidatesFor('/custom/path')[0], '/custom/path');
+  assert.equal(candidatesFor('')[0], '/api/risks/');
 });
 
 test('lastScanDate reads whichever date field the tenant returns', () => {
@@ -86,12 +87,4 @@ test('lastScanDate reads whichever date field the tenant returns', () => {
   assert.equal(lastScanDate({ completedAt: 'd' }), 'd');
   assert.equal(lastScanDate(undefined), null);
   assert.equal(lastScanDate({}), null);
-});
-
-test('triggerPathFor pairs the notify endpoint with a discovered list path', async () => {
-  const { triggerPathFor } = await import('../src/cxone/discovery.js');
-  assert.equal(triggerPathFor('/api/feedback-apps'), '/api/feedback-apps/{appId}/notify');
-  assert.equal(triggerPathFor('/api/feedbackapps/'), '/api/feedbackapps/{appId}/notify');
-  // A "/list" suffix is a listing verb, not part of the resource prefix.
-  assert.equal(triggerPathFor('/api/feedbackapps/list'), '/api/feedbackapps/{appId}/notify');
 });

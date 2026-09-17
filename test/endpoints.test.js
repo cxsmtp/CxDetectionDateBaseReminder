@@ -10,8 +10,7 @@ import {
   regionLabel,
 } from '../src/cxone/endpoints.js';
 import { configProblems, loadConfig } from '../src/config.js';
-import { extractRecipients } from '../src/cxone/feedbackApps.js';
-import { extractItems, mapWithConcurrency } from '../src/cxone/client.js';
+import { ACCEPT, extractItems, mapWithConcurrency } from '../src/cxone/client.js';
 
 const apiKey = (claims) =>
   ['header', Buffer.from(JSON.stringify(claims)).toString('base64url'), 'signature'].join('.');
@@ -76,17 +75,17 @@ test('publicConnection never exposes the API key', () => {
   assert.ok(!JSON.stringify(safe).includes(euKey));
 });
 
-test('config no longer requires a credential and validates delivery mode', () => {
-  assert.deepEqual(configProblems(loadConfig({})), []);
-  assert.match(configProblems(loadConfig({ REMINDER_DELIVERY_MODE: 'smtp' })).join(' '), /SMTP_HOST is not set/);
-  assert.match(configProblems(loadConfig({ REMINDER_DELIVERY_MODE: 'carrier-pigeon' })).join(' '), /not one of/);
+test('config carries no credential and defaults to the documented risks path', () => {
+  const config = loadConfig({});
+  assert.deepEqual(configProblems(config), []);
+  assert.equal(config.risks.path, '/api/risks/');
+  assert.equal(config.bootstrapApiKey, '');
+  assert.match(configProblems(loadConfig({ CX_RISK_SOURCE: 'guesswork' })).join(' '), /not one of/);
 });
 
-test('extractRecipients finds emails wherever the feedback app keeps them', () => {
-  assert.deepEqual(extractRecipients({ config: { recipients: 'a@x.com, b@x.com' } }), ['a@x.com', 'b@x.com']);
-  assert.deepEqual(extractRecipients({ emails: [{ email: 'c@x.com' }, 'not-an-email'] }), ['c@x.com']);
-  assert.deepEqual(extractRecipients({ settings: { to: ['d@x.com', 'd@x.com'] } }), ['d@x.com']);
-  assert.deepEqual(extractRecipients({ name: 'Slack' }), []);
+test('the Accept header carries the API version the risks endpoint requires', () => {
+  // Without "version=", Checkmarx One answers 400 Bad Request.
+  assert.match(ACCEPT, /version\s*=\s*1\.0/);
 });
 
 test('extractItems unwraps the various response envelopes', () => {

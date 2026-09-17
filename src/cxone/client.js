@@ -11,6 +11,12 @@ export class CxApiError extends Error {
 }
 
 const RETRYABLE = new Set([429, 502, 503, 504]);
+
+/**
+ * Checkmarx One negotiates API versions through the Accept header and answers
+ * 400 Bad Request when it is missing. Only v1.0 exists today.
+ */
+export const ACCEPT = 'application/json; version=1.0';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Thin authenticated wrapper around the Checkmarx One REST API. */
@@ -41,7 +47,7 @@ export class CxClient {
    * @param {string} [options.accept]
    * @param {number} [options.retries]
    */
-  async request(path, { method = 'GET', query, body, accept = 'application/json', retries = 3 } = {}) {
+  async request(path, { method = 'GET', query, body, accept = ACCEPT, retries = 3 } = {}) {
     if (!this.baseUrl) throw new CxApiError('Checkmarx One API URL is not configured.', { path });
 
     const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
@@ -117,7 +123,12 @@ export class CxClient {
         if (fetched >= maxItems) return;
       }
 
-      const total = Number(page?.filteredTotalCount ?? page?.totalCount);
+      const total = Number(
+        page?.filteredTotalCount ??
+          page?.totalCount ??
+          page?.metaData?.filteredResults ??
+          page?.metaData?.totalResults,
+      );
       if (items.length < limit) return;
       if (Number.isFinite(total) && fetched >= total) return;
       offset += limit;
