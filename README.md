@@ -82,6 +82,19 @@ Everything is here, and everything can be changed at any time:
 - **Mail template** — subject and HTML body, with a live preview.
 - **Risks endpoint** — the API path, with a **Detect** probe.
 
+**Port and TLS mode are paired.** Port 465 speaks TLS from the first byte
+("Implicit TLS"); ports 25, 587 and 2525 start in plaintext and upgrade with
+STARTTLS. Picking one sets the other, because the wrong combination does not fail
+cleanly — the handshake stalls and surfaces fifteen seconds later as a connection
+timeout that reads like a firewall problem. A mismatch reaching the form some other
+way is flagged inline, and the test result names it rather than blaming the network.
+
+**Gmail:** `smtp.gmail.com`, port 587, Implicit TLS **off**, and with 2-step
+verification enabled the password must be a 16-character
+[App Password](https://myaccount.google.com/apppasswords), not your account password.
+Leave *From address* blank to use the authenticated account, which Gmail requires
+anyway.
+
 **Sending is locked until an SMTP connection test passes.** The passing test is
 fingerprinted against the exact connection settings, so changing the host, port,
 user, password or TLS options re-locks it until you test again. Changing recipients

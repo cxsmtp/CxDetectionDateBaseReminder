@@ -74,3 +74,34 @@ test('per-send recipient overrides are used in place of the stored list', async 
     },
   );
 });
+
+// ---------------------------------------------------------------------------
+// TLS mode
+
+test('tlsModeMismatch catches implicit TLS on a STARTTLS port and the reverse', async () => {
+  const { tlsModeMismatch } = await import('../src/mailer.js');
+
+  // The reported case: smtp.gmail.com:587 with Implicit TLS switched on.
+  assert.match(tlsModeMismatch({ port: 587, secure: true }), /expects STARTTLS/);
+  assert.match(tlsModeMismatch({ port: 25, secure: true }), /expects STARTTLS/);
+  assert.match(tlsModeMismatch({ port: 465, secure: false }), /TLS from the first byte/);
+
+  // Correct pairings, and a non-standard port we should not second-guess.
+  assert.equal(tlsModeMismatch({ port: 587, secure: false }), '');
+  assert.equal(tlsModeMismatch({ port: 465, secure: true }), '');
+  assert.equal(tlsModeMismatch({ port: 1025, secure: true }), '');
+  assert.equal(tlsModeMismatch({ port: '587', secure: true }) === '', false, 'string ports count too');
+});
+
+test('a stalled handshake on a mismatched port names the mismatch, not the firewall', async () => {
+  // Port 465 with implicit TLS off, pointed at a port that never answers:
+  // the timeout must be explained by the mismatch rather than blamed on the
+  // network, which is what made the original report hard to act on.
+  const settings = verified({ smtp: { host: '127.0.0.1', port: 465, secure: false } });
+
+  await assert.rejects(sendReminderMail(settings, message), (error) => {
+    assert.ok(error instanceof MailError);
+    assert.doesNotMatch(error.message, /check the host, port and any firewall/);
+    return true;
+  });
+});

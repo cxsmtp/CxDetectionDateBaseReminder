@@ -244,6 +244,7 @@ function renderSettings() {
   $('smtp-from-address').value = s.smtp.fromAddress;
   $('password-state').textContent = s.smtp.passwordSet ? '(stored)' : '(not set)';
   $('smtp-credentials').hidden = !s.smtp.requireAuth;
+  renderTlsWarning();
 
   $('init-directory').checked = s.initiators.useDirectory;
   $('init-copy').checked = s.initiators.copyConfiguredRecipients;
@@ -271,6 +272,47 @@ function renderSettings() {
         `<div><span class="k"><code>{{${escapeHtml(v.name)}}}</code></span><span class="v">${escapeHtml(v.description)}</span></div>`,
     )
     .join('');
+}
+
+const STARTTLS_PORTS = [25, 587, 2525];
+
+/**
+ * Port and TLS mode are two halves of one decision: 465 speaks TLS from the
+ * first byte, 25/587/2525 start in plaintext and upgrade with STARTTLS. Wiring
+ * them together stops the most common misconfiguration, which otherwise only
+ * shows up as a connection timeout fifteen seconds later.
+ */
+function syncTlsMode(changed) {
+  const port = Number($('smtp-port').value);
+  const secure = $('smtp-secure').checked;
+
+  if (changed === 'port') {
+    if (port === 465) $('smtp-secure').checked = true;
+    else if (STARTTLS_PORTS.includes(port)) $('smtp-secure').checked = false;
+  } else if (changed === 'secure') {
+    // Only move a port that is still at one of the standard values, so a
+    // deliberate non-standard port is left alone.
+    if (secure && STARTTLS_PORTS.includes(port)) $('smtp-port').value = 465;
+    else if (!secure && port === 465) $('smtp-port').value = 587;
+  }
+  renderTlsWarning();
+}
+
+function renderTlsWarning() {
+  const port = Number($('smtp-port').value);
+  const secure = $('smtp-secure').checked;
+  const el = $('tls-warning');
+
+  let message = '';
+  if (secure && STARTTLS_PORTS.includes(port)) {
+    message = `Port ${port} expects STARTTLS, not implicit TLS. The connection will stall and time out. Use port 465, or turn Implicit TLS off.`;
+  } else if (!secure && port === 465) {
+    message = 'Port 465 expects TLS from the first byte. Turn Implicit TLS on, or use port 587.';
+  }
+
+  el.hidden = !message;
+  el.textContent = message;
+  el.className = 'hint error-hint';
 }
 
 /** Everything on the settings form, as the API expects it. */
@@ -794,6 +836,8 @@ $('detect-risks').addEventListener('click', detectRisksPath);
 $('smtp-auth').addEventListener('change', () => {
   $('smtp-credentials').hidden = !$('smtp-auth').checked;
 });
+$('smtp-port').addEventListener('input', () => syncTlsMode('port'));
+$('smtp-secure').addEventListener('change', () => syncTlsMode('secure'));
 $('reset-template').addEventListener('click', async () => {
   const health = state.health ?? {};
   $('tpl-subject').value = health.defaultTemplate?.subject ?? $('tpl-subject').value;

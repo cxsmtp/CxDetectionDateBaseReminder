@@ -206,10 +206,11 @@
           </div>
 
           <div class="checks">
-            <label class="check"><input type="checkbox" id="smtp-secure" /> Implicit TLS (port 465)</label>
+            <label class="check"><input type="checkbox" id="smtp-secure" /> Implicit TLS (SMTPS, port 465)</label>
             <label class="check"><input type="checkbox" id="smtp-auth" /> Server requires authentication</label>
             <label class="check"><input type="checkbox" id="smtp-reject" /> Verify TLS certificate</label>
           </div>
+          <p class="hint" id="tls-warning" hidden></p>
 
           <div class="grid2" id="smtp-credentials">
             <label class="field"><span>Username</span><input id="smtp-user" autocomplete="off" /></label>
