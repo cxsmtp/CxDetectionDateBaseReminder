@@ -40,9 +40,35 @@ Both offer last week / last month / last 90 days / last year / custom range. A s
 detection window empties the older age buckets by definition; the UI says so when you
 pick one.
 
-The project table can then be searched by name, filtered by severity or by which age
-buckets it has findings in, sorted by any column, and used to select a subset. A
-reminder covers the selected projects, or all of them if none are selected.
+The project table can then be searched by name, filtered by severity, age bucket or
+scan initiator, sorted by any column, and used to select a subset. A reminder covers
+the selected projects, or all of them if none are selected.
+
+### Scan initiators
+
+Each project shows **who ran its latest scan** and the email that resolved to. After a
+rescan it is the latest scan that counts, so the reminder follows whoever ran it most
+recently, not whoever ran it first.
+
+**Send as → One email per scan initiator** then addresses each person directly. Someone
+who owns five projects gets a single message covering all of their open findings, not
+five messages. Anyone whose address could not be resolved is reported as skipped — with
+their finding count — rather than silently dropped.
+
+Checkmarx records the initiator as a username, which is not always an address, so
+resolution is layered (Settings → Scan initiators):
+
+1. an email already on the scan record
+2. the username, when it is itself an address
+3. an explicit `username = email` override
+4. the tenant's IAM directory, if the API key has IAM read access
+5. a default domain appended to the username
+
+Where the initiator comes from, in order: `/api/projects/last-scan` (bulk, one call per
+50 projects), then `/api/scans?project-id=…` for anything it did not cover. The
+`/projects` overview endpoint documented as *"Get overview for the tenant projects"* is
+**deprecated and returns 410 Gone**, so it is only consulted as a last resort and its
+410 is reported as a plain note rather than an error.
 
 ### Settings
 
@@ -79,6 +105,10 @@ The body is yours to decide. Values are inserted with `{{name}}` and HTML-escape
   {{#hiddenCount}}<p>…and {{hiddenCount}} more.</p>{{/hiddenCount}}
 {{/projects}}
 ```
+
+`{{initiator}}` and `{{initiatorEmail}}` are set on per-initiator sends, so a template
+can greet the recipient by name; inside `{{#projects}}` there is also
+`{{initiator}}` and `{{lastScanDate}}` for that project.
 
 A section body can see both the current item and everything outside it, so
 `{{projectCount}}` still works inside `{{#projects}}`. The full variable list is in
@@ -149,7 +179,7 @@ src/mailer.js      SMTP transport, connection test, sending
 src/template.js    Safe template renderer + the default template
 src/reminder.js    Turns selected findings into template data and a message
 src/window.js      Time-window presets and custom ranges
-src/cxone/         Auth, HTTP client, projects, risks, endpoint discovery
+src/cxone/         Auth, HTTP client, projects, risks, initiators, endpoint discovery
 ```
 
 `.env` is optional; see [`.env.example`](.env.example) for the handful of

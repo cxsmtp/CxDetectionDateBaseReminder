@@ -245,6 +245,13 @@ function renderSettings() {
   $('password-state').textContent = s.smtp.passwordSet ? '(stored)' : '(not set)';
   $('smtp-credentials').hidden = !s.smtp.requireAuth;
 
+  $('init-directory').checked = s.initiators.useDirectory;
+  $('init-copy').checked = s.initiators.copyConfiguredRecipients;
+  $('init-domain').value = s.initiators.defaultDomain;
+  $('init-overrides').value = Object.entries(s.initiators.overrides)
+    .map(([name, email]) => `${name} = ${email}`)
+    .join('\n');
+
   $('rcpt-to').value = s.recipients.to.join('\n');
   $('rcpt-cc').value = s.recipients.cc.join('\n');
   $('rcpt-bcc').value = s.recipients.bcc.join('\n');
@@ -280,6 +287,12 @@ function settingsPayload() {
       fromAddress: $('smtp-from-address').value,
     },
     recipients: { to: $('rcpt-to').value, cc: $('rcpt-cc').value, bcc: $('rcpt-bcc').value },
+    initiators: {
+      useDirectory: $('init-directory').checked,
+      copyConfiguredRecipients: $('init-copy').checked,
+      defaultDomain: $('init-domain').value,
+      overrides: $('init-overrides').value,
+    },
     template: { subject: $('tpl-subject').value, html: $('tpl-html').value },
     endpoints: { risksPath: $('risks-path').value },
   };
@@ -400,9 +413,15 @@ function renderRecipientHint() {
   const { to, cc, bcc } = s.recipients;
   const total = to.length + cc.length + bcc.length;
 
+  const perInitiatorMode = document.querySelector('input[name="groupBy"]:checked')?.value === 'initiator';
+
   if (!s.verified) {
     el.textContent = 'SMTP has not passed a connection test — sending is disabled.';
     el.className = 'hint error-hint';
+  } else if (perInitiatorMode) {
+    el.textContent = "Each scan initiator is addressed directly; this list is not used" +
+      (s.initiators.copyConfiguredRecipients ? ', except for Cc/Bcc.' : '.');
+    el.className = 'hint';
   } else if (total === 0) {
     el.textContent = 'No recipients configured.';
     el.className = 'hint error-hint';
@@ -412,7 +431,8 @@ function renderRecipientHint() {
       ` — ${to.slice(0, 3).join(', ')}${to.length > 3 ? ', …' : ''}`;
     el.className = 'hint';
   }
-  $('send').disabled = !s.verified || total === 0;
+  const perInitiator = document.querySelector('input[name="groupBy"]:checked')?.value === 'initiator';
+  $('send').disabled = !s.verified || (total === 0 && !perInitiator);
 }
 
 // ---------------------------------------------------------------------------
@@ -465,17 +485,23 @@ function visibleProjects() {
   const bucket = $('bucket-filter').value;
   const hideEmpty = $('hide-empty').checked;
 
+  const initiator = $('initiator-filter').value;
+
   const rows = state.projects.filter((p) => {
     if (text && !p.projectName.toLowerCase().includes(text)) return false;
     if (severity && !(p.bySeverity?.[severity] > 0)) return false;
     if (bucket && !(p.counts?.[bucket] > 0)) return false;
+    if (initiator && (p.initiatorEmail || p.initiator || '') !== initiator) return false;
     if (hideEmpty && p.totalRisks === 0) return false;
     return true;
   });
 
   const { key, dir } = state.sort;
-  const value = (p) =>
-    key === 'projectName' ? p.projectName.toLowerCase() : key in p ? p[key] ?? 0 : p.counts?.[key] ?? 0;
+  const value = (p) => {
+    if (key === 'projectName') return p.projectName.toLowerCase();
+    if (key === 'initiator') return (p.initiator || '').toLowerCase();
+    return key in p ? p[key] ?? 0 : p.counts?.[key] ?? 0;
+  };
 
   return rows.sort((a, b) => {
     const [x, y] = [value(a), value(b)];
@@ -486,12 +512,54 @@ function visibleProjects() {
 
 const cell = (count) => (count > 0 ? `<td class="num">${count}</td>` : '<td class="num zero">0</td>');
 
+/** Who ran the latest scan, and whether we could reach them. */
+function renderInitiator(project) {
+  if (!project.initiator && !project.initiatorEmail) {
+    return '<span class="zero">no initiator recorded</span>';
+  }
+  const name = escapeHtml(project.initiator || project.initiatorEmail);
+  if (!project.initiatorEmail) {
+    return `${name}<span class="err">no email resolved</span>`;
+  }
+  const same = project.initiatorEmail === project.initiator;
+  return same
+    ? escapeHtml(project.initiatorEmail)
+    : `${name}<span class="zero">${escapeHtml(project.initiatorEmail)}</span>`;
+}
+
+/** Distinct initiators in the current results, for the filter dropdown. */
+function fillInitiatorFilter() {
+  const select = $('initiator-filter');
+  const previous = select.value;
+
+  const seen = new Map();
+  for (const project of state.projects) {
+    const key = project.initiatorEmail || project.initiator;
+    if (!key) continue;
+    if (!seen.has(key)) seen.set(key, { label: project.initiator || key, email: project.initiatorEmail, count: 0 });
+    seen.get(key).count += 1;
+  }
+
+  select.innerHTML =
+    '<option value="">All scan initiators</option>' +
+    [...seen.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(
+        ([key, info]) =>
+          `<option value="${escapeHtml(key)}">${escapeHtml(info.label)} (${info.count})${
+            info.email ? '' : ' — no email'
+          }</option>`,
+      )
+      .join('');
+  if ([...seen.keys()].includes(previous)) select.value = previous;
+}
+
 function renderProjects() {
   const rows = visibleProjects();
   const body = $('projects-body');
 
   if (rows.length === 0) {
-    body.innerHTML = `<tr class="empty"><td colspan="7">${
+    body.innerHTML = `<tr class="empty"><td colspan="8">${
       state.projects.length ? 'No projects match these filters.' : 'No data yet.'
     }</td></tr>`;
   } else {
@@ -513,6 +581,7 @@ function renderProjects() {
           <td>${formatDate(p.oldestFirstDetectedAt)}${
             p.maxAgeDays === null ? '' : ` <span class="zero">(${p.maxAgeDays}d)</span>`
           }</td>
+          <td class="initiator">${renderInitiator(p)}</td>
         </tr>`;
       })
       .join('');
@@ -560,7 +629,10 @@ async function fetchProjects() {
     state.selected.clear();
     $('select-all').checked = false;
     renderTotals(result.totals);
+    fillInitiatorFilter();
     renderProjects();
+
+    for (const note of result.initiatorNotes ?? []) console.warn(note);
 
     const failed = result.projects.filter((p) => p.error).length;
     const skipped = result.projectsSkipped
@@ -588,45 +660,102 @@ async function submitReminder({ dryRun }) {
   const buckets = [...document.querySelectorAll('input[name="bucket"]:checked')].map((i) => i.value);
   if (buckets.length === 0) return setStatus('status', 'Pick at least one age range.', 'error');
 
+  const groupBy = document.querySelector('input[name="groupBy"]:checked').value;
   const button = dryRun ? $('preview') : $('send');
   button.disabled = true;
   setStatus('status', dryRun ? 'Building preview…' : 'Sending…');
 
   try {
     const severity = $('severity-filter').value;
+    const initiator = $('initiator-filter').value;
+
     const result = await api('/api/reminders', {
       method: 'POST',
       body: JSON.stringify({
         projectIds: state.selected.size > 0 ? [...state.selected] : null,
         severities: severity ? [severity] : null,
+        initiators: initiator ? [initiator] : null,
         buckets,
+        groupBy,
         dryRun,
       }),
     });
 
-    if (dryRun) {
-      $('preview-panel').hidden = false;
-      const r = result.recipients;
-      $('preview-meta').textContent =
-        `${result.totalRisks} findings across ${result.projects} project(s) → ` +
-        `${r.to.length} to, ${r.cc.length} cc, ${r.bcc.length} bcc` +
-        (result.canSend ? '' : ' — SMTP not verified, sending is disabled');
-      $('preview-frame').srcdoc = result.html;
-      setStatus('status', 'Preview ready.', 'ok');
-      $('preview-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    } else {
-      setStatus(
-        'status',
-        `Sent to ${result.accepted.length} recipient(s) — ${result.totalRisks} findings across ${result.projects} project(s).` +
-          (result.rejected.length ? ` ${result.rejected.length} rejected.` : ''),
-        'ok',
-      );
-    }
+    if (dryRun) renderPreview(result);
+    else renderSendResult(result);
   } catch (error) {
     if (!handleAuthLoss(error)) showError('status', error);
   } finally {
     button.disabled = false;
   }
+}
+
+function renderPreview(result) {
+  $('preview-panel').hidden = false;
+
+  if (result.groupBy === 'initiator') {
+    const total = result.messages.reduce((sum, m) => sum + m.riskCount, 0);
+    $('preview-meta').textContent =
+      `${result.messages.length} message(s) covering ${total} finding(s)` +
+      (result.skipped.length ? ` · ${result.skipped.length} initiator(s) skipped` : '') +
+      (result.canSend ? '' : ' — SMTP not verified, sending is disabled');
+
+    // Stack each person's message so the whole batch can be reviewed at once.
+    $('preview-frame').srcdoc = result.messages
+      .map(
+        (m) =>
+          `<div style="font:13px system-ui;padding:8px 12px;background:#eef2ff;border-bottom:1px solid #c7d2fe">
+             <strong>To:</strong> ${escapeHtml(m.email)} &nbsp;
+             <strong>Subject:</strong> ${escapeHtml(m.subject)} &nbsp;
+             <span style="color:#4f46e5">${m.riskCount} finding(s) across ${m.projectCount} project(s)</span>
+           </div>${m.html}`,
+      )
+      .join('<hr style="margin:24px 0;border:none;border-top:2px dashed #cbd5e1">');
+
+    if (result.skipped.length) {
+      console.warn('Skipped initiators:', result.skipped);
+      setStatus(
+        'status',
+        `Preview ready. ${result.skipped.length} initiator(s) have no resolvable email — ` +
+          'add an override or a default domain in Settings.',
+        'error',
+      );
+    } else {
+      setStatus('status', 'Preview ready.', 'ok');
+    }
+  } else {
+    const r = result.recipients;
+    $('preview-meta').textContent =
+      `${result.totalRisks} findings across ${result.projects} project(s) → ` +
+      `${r.to.length} to, ${r.cc.length} cc, ${r.bcc.length} bcc` +
+      (result.canSend ? '' : ' — SMTP not verified, sending is disabled');
+    $('preview-frame').srcdoc = result.html;
+    setStatus('status', 'Preview ready.', 'ok');
+  }
+
+  $('preview-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function renderSendResult(result) {
+  if (result.groupBy === 'initiator') {
+    const total = result.sent.reduce((sum, s) => sum + s.riskCount, 0);
+    const parts = [`Sent ${result.sent.length} email(s) covering ${total} finding(s).`];
+    if (result.failed.length) parts.push(`${result.failed.length} failed.`);
+    if (result.skipped.length) parts.push(`${result.skipped.length} initiator(s) had no email.`);
+
+    if (result.failed.length) console.error('Failed sends:', result.failed);
+    if (result.skipped.length) console.warn('Skipped initiators:', result.skipped);
+
+    setStatus('status', parts.join(' '), result.failed.length ? 'error' : 'ok');
+    return;
+  }
+
+  setStatus(
+    'status',
+    `Sent to ${result.accepted.length} recipient(s) — ${result.totalRisks} findings across ${result.projects} project(s).` +
+      (result.rejected.length ? ` ${result.rejected.length} rejected.` : ''),
+    'ok',
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -644,7 +773,7 @@ $('activity-preset').addEventListener('change', () => toggleRange('activity'));
 $('detection-preset').addEventListener('change', () => toggleRange('detection'));
 $('fetch').addEventListener('click', fetchProjects);
 
-for (const id of ['filter', 'severity-filter', 'bucket-filter', 'hide-empty']) {
+for (const id of ['filter', 'severity-filter', 'bucket-filter', 'initiator-filter', 'hide-empty']) {
   $(id).addEventListener('input', renderProjects);
 }
 
@@ -654,6 +783,9 @@ $('close-preview').addEventListener('click', () => {
   $('preview-panel').hidden = true;
 });
 
+for (const radio of document.querySelectorAll('input[name="groupBy"]')) {
+  radio.addEventListener('change', renderRecipientHint);
+}
 $('save-settings').addEventListener('click', saveSettings);
 $('test-smtp').addEventListener('click', testSmtp);
 $('send-test').addEventListener('click', sendTestEmail);

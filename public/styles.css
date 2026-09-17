@@ -316,3 +316,7 @@ button.big { padding: 11px 20px; font-weight: 600; }
 #variables summary { cursor: pointer; color: var(--accent); font-size: 13px; padding: 4px 0; }
 #variables[open] summary { margin-bottom: 10px; }
 #variables code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+td.initiator { white-space: normal; max-width: 220px; }
+td.initiator .zero { display: block; font-size: 11px; }
+td.initiator .err { display: block; font-size: 11px; }

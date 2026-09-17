@@ -112,6 +112,7 @@
                 <option value="31-60">Has 31–60d</option>
                 <option value="60+">Has &gt; 60d</option>
               </select>
+              <select id="initiator-filter"><option value="">All scan initiators</option></select>
               <label class="check"><input type="checkbox" id="hide-empty" /> Hide projects with no findings</label>
             </div>
           </div>
@@ -127,10 +128,11 @@
                   <th class="num" data-sort="31-60">31–60d</th>
                   <th class="num" data-sort="60+">&gt; 60d</th>
                   <th data-sort="maxAgeDays">Oldest first detection</th>
+                  <th data-sort="initiator">Latest scan by</th>
                 </tr>
               </thead>
               <tbody id="projects-body">
-                <tr class="empty"><td colspan="7">Click <strong>Fetch vulnerability data</strong> to load projects and first-detection dates.</td></tr>
+                <tr class="empty"><td colspan="8">Click <strong>Fetch vulnerability data</strong> to load projects and first-detection dates.</td></tr>
               </tbody>
             </table>
           </div>
@@ -145,6 +147,16 @@
               <label><input type="checkbox" name="bucket" value="0-30" /> Last 30 days</label>
               <label><input type="checkbox" name="bucket" value="31-60" /> 31–60 days</label>
               <label><input type="checkbox" name="bucket" value="60+" checked /> More than 60 days</label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Send as</legend>
+              <label><input type="radio" name="groupBy" value="none" checked /> One email to the configured list</label>
+              <label><input type="radio" name="groupBy" value="initiator" /> One email per scan initiator</label>
+              <p class="hint" id="groupby-hint">
+                Per-initiator mode addresses each person who ran a project's latest scan, with all
+                of their projects' open findings in a single message.
+              </p>
             </fieldset>
 
             <fieldset class="grow">
@@ -229,6 +241,30 @@
             <label class="field"><span>Cc</span><textarea id="rcpt-cc" rows="4" spellcheck="false"></textarea></label>
             <label class="field"><span>Bcc</span><textarea id="rcpt-bcc" rows="4" spellcheck="false"></textarea></label>
           </div>
+        </section>
+
+        <section class="panel">
+          <h2>Scan initiators</h2>
+          <p class="hint">
+            Checkmarx records the person who ran a scan as a username, which is not always an
+            email address. These rules turn it into one; the dashboard shows what each project
+            resolved to.
+          </p>
+
+          <div class="checks">
+            <label class="check"><input type="checkbox" id="init-directory" /> Look usernames up in the tenant IAM directory</label>
+            <label class="check"><input type="checkbox" id="init-copy" /> Copy the configured Cc/Bcc on per-initiator emails</label>
+          </div>
+
+          <label class="field">
+            <span>Default domain — appended to a username when nothing else resolves</span>
+            <input id="init-domain" placeholder="example.com" spellcheck="false" />
+          </label>
+
+          <label class="field">
+            <span>Overrides — one <code>username = email</code> per line</span>
+            <textarea id="init-overrides" rows="5" spellcheck="false" class="code" placeholder="jdoe = jane.doe@example.com"></textarea>
+          </label>
         </section>
 
         <section class="panel">

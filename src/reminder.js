@@ -61,8 +61,19 @@ export function groupByProject(risks, { maxRowsPerProject = 25 } = {}) {
  * The variables a template can reference. Keep in step with
  * TEMPLATE_VARIABLES in template.js, which documents these in the editor.
  */
-export function buildTemplateData(risks, { buckets = [], tenant = '', now = new Date() } = {}) {
-  const projects = groupByProject(risks);
+export function buildTemplateData(
+  risks,
+  { buckets = [], tenant = '', now = new Date(), initiator = null, initiatorsByProject = {} } = {},
+) {
+  const projects = groupByProject(risks).map((project) => {
+    const info = initiatorsByProject[project.projectId];
+    return {
+      ...project,
+      initiator: info?.initiator ?? '',
+      initiatorEmail: info?.email ?? '',
+      lastScanDate: formatDate(info?.scanDate ?? null),
+    };
+  });
 
   const counts = {};
   for (const risk of risks) counts[risk.severity] = (counts[risk.severity] ?? 0) + 1;
@@ -74,6 +85,10 @@ export function buildTemplateData(risks, { buckets = [], tenant = '', now = new 
 
   return {
     tenant,
+    // Set when the reminder is addressed to one scan initiator, so a template
+    // can greet them by name; empty for a broadcast to the configured list.
+    initiator: initiator?.initiator ?? '',
+    initiatorEmail: initiator?.email ?? '',
     generatedAt: now.toISOString().slice(0, 16).replace('T', ' '),
     scope: buckets.length ? buckets.map(bucketLabel).join(', ').toLowerCase() : 'any time',
     totalRisks: risks.length,

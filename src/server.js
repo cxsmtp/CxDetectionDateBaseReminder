@@ -7,6 +7,7 @@ import { config, configProblems } from './config.js';
 import { filterProjectsByActivity, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, selectRisks } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
+import { collectInitiators, groupRisksByInitiator } from './cxone/initiators.js';
 import { buildReminder } from './reminder.js';
 import { sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
 import { SettingsStore, isVerified, parseAddressList, publicSettings } from './settings.js';
@@ -239,9 +240,32 @@ app.get(
     );
 
     const started = Date.now();
+    const settings = settingsStore.get();
     const allProjects = await listProjects(client);
-    const { projects, skipped, warning } = await filterProjectsByActivity(client, allProjects, activityWindow);
+    const { projects, skipped, warning, lastScans } = await filterProjectsByActivity(
+      client,
+      allProjects,
+      activityWindow,
+    );
+
+    // Who ran each project's *latest* scan, so a rescan moves the reminder to
+    // whoever ran it most recently.
+    const initiators = await collectInitiators(client, req.session.connection, projects, {
+      rules: settings.initiators,
+      useDirectory: settings.initiators.useDirectory,
+      concurrency: config.concurrency,
+      lastScans: Object.keys(lastScans ?? {}).length ? lastScans : undefined,
+    });
+
     const result = await collectProjectRisks(client, active, projects, { detectionWindow });
+    for (const summary of result.projects) {
+      const info = initiators.byProject[summary.projectId] ?? {};
+      summary.initiator = info.initiator ?? '';
+      summary.initiatorEmail = info.email ?? '';
+      summary.initiatorVia = info.via ?? 'none';
+      summary.lastScanDate = info.scanDate ?? null;
+    }
+    result.initiators = initiators.byProject;
     req.session.lastScan = result;
 
     res.json({
@@ -253,6 +277,8 @@ app.get(
       projectsTotal: allProjects.length,
       projectsSkipped: skipped,
       warning,
+      initiatorNotes: initiators.notes,
+      unresolvedInitiators: initiators.unresolved,
       elapsedMs: Date.now() - started,
       totals: result.projects.reduce(
         (acc, summary) => {
@@ -280,7 +306,16 @@ app.post(
   '/api/reminders',
   requireSession,
   asyncRoute(async (req, res) => {
-    const { projectIds = null, buckets = [], severities = null, dryRun = false, recipients } = req.body ?? {};
+    const {
+      projectIds = null,
+      buckets = [],
+      severities = null,
+      initiators: wantedInitiators = null,
+      groupBy = 'none',
+      dryRun = false,
+      recipients,
+    } = req.body ?? {};
+
     const { lastScan, connection } = req.session;
     const settings = settingsStore.get();
 
@@ -291,19 +326,117 @@ app.post(
       return res.status(400).json({ error: 'Select at least one age bucket (30 / 60 / 60+ days).' });
     }
 
-    const risks = selectRisks(lastScan.projects, { projectIds, buckets, severities });
+    const initiatorsByProject = lastScan.initiators ?? {};
+
+    // Narrowing by initiator is a project-level filter: a finding belongs to
+    // whoever ran that project's latest scan.
+    let scopedProjectIds = projectIds;
+    if (Array.isArray(wantedInitiators) && wantedInitiators.length > 0) {
+      const wanted = new Set(wantedInitiators);
+      const matching = Object.entries(initiatorsByProject)
+        .filter(([, info]) => wanted.has(info.email) || wanted.has(info.initiator))
+        .map(([projectId]) => projectId);
+      scopedProjectIds = projectIds ? matching.filter((id) => projectIds.includes(id)) : matching;
+    }
+
+    const risks = selectRisks(lastScan.projects, {
+      projectIds: scopedProjectIds,
+      buckets,
+      severities,
+    });
     if (risks.length === 0) {
       return res.status(400).json({ error: 'No vulnerabilities match that selection.' });
     }
 
-    const reminder = buildReminder(risks, settings.template, {
-      buckets,
-      tenant: connection.tenant,
-    });
+    const common = { buckets, tenant: connection.tenant, initiatorsByProject };
+
+    // ---- One email per scan initiator -------------------------------------
+    if (groupBy === 'initiator') {
+      const groups = groupRisksByInitiator(risks, initiatorsByProject);
+      const sendable = groups.filter((group) => group.email);
+      const skipped = groups
+        .filter((group) => !group.email)
+        .map((group) => ({
+          initiator: group.initiator || '(unknown)',
+          riskCount: group.risks.length,
+          projectCount: group.projectCount,
+          reason: group.initiator
+            ? 'No email address could be resolved for this user.'
+            : 'No initiator recorded on the latest scan.',
+        }));
+
+      const prepared = sendable.map((group) => ({
+        group,
+        reminder: buildReminder(risks.filter((r) => group.projectIds.includes(r.projectId)), settings.template, {
+          ...common,
+          initiator: group,
+        }),
+      }));
+
+      if (dryRun) {
+        return res.json({
+          dryRun: true,
+          groupBy: 'initiator',
+          canSend: isVerified(settings),
+          skipped,
+          messages: prepared.map(({ group, reminder }) => ({
+            initiator: group.initiator,
+            email: group.email,
+            via: group.via,
+            projectCount: group.projectCount,
+            riskCount: group.risks.length,
+            subject: reminder.subject,
+            html: reminder.html,
+          })),
+        });
+      }
+
+      if (prepared.length === 0) {
+        return res.status(400).json({
+          error: 'No scan initiator in this selection has a resolvable email address.',
+          skipped,
+        });
+      }
+
+      // Sent one at a time so a single bad address cannot lose the rest.
+      const sent = [];
+      const failed = [];
+      for (const { group, reminder } of prepared) {
+        try {
+          const result = await sendReminderMail(settings, reminder, {
+            to: [group.email],
+            cc: settings.initiators.copyConfiguredRecipients ? settings.recipients.cc : [],
+            bcc: settings.initiators.copyConfiguredRecipients ? settings.recipients.bcc : [],
+          });
+          sent.push({
+            initiator: group.initiator,
+            email: group.email,
+            riskCount: group.risks.length,
+            projectCount: group.projectCount,
+            messageId: result.messageId,
+          });
+        } catch (error) {
+          failed.push({ initiator: group.initiator, email: group.email, error: error.message });
+        }
+      }
+
+      return res.json({
+        groupBy: 'initiator',
+        delivered: sent.length > 0,
+        sent,
+        failed,
+        skipped,
+        totalRisks: risks.length,
+      });
+    }
+
+    // ---- One email to the configured recipient list ------------------------
+    const reminder = buildReminder(risks, settings.template, common);
 
     if (dryRun) {
       return res.json({
         dryRun: true,
+        groupBy: 'none',
         subject: reminder.subject,
         html: reminder.html,
         text: reminder.text,
@@ -323,7 +456,7 @@ app.post(
       : {};
 
     const result = await sendReminderMail(settings, reminder, overrides);
-    res.json({ ...result, totalRisks: risks.length, projects: reminder.projects.length });
+    res.json({ ...result, groupBy: 'none', totalRisks: risks.length, projects: reminder.projects.length });
   }),
 );
 

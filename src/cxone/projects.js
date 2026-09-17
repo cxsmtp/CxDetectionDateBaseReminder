@@ -68,6 +68,7 @@ export function lastScanDate(scan) {
 export async function filterProjectsByActivity(client, projects, window) {
   if (!window) return { projects, lastScans: {}, skipped: 0, warning: null };
 
+
   let lastScans;
   try {
     lastScans = await getLastScans(
