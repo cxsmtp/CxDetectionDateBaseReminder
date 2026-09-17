@@ -245,6 +245,7 @@ function renderSettings() {
   $('password-state').textContent = s.smtp.passwordSet ? '(stored)' : '(not set)';
   $('smtp-credentials').hidden = !s.smtp.requireAuth;
   renderTlsWarning();
+  renderPasswordHint();
 
   $('init-directory').checked = s.initiators.useDirectory;
   $('init-copy').checked = s.initiators.copyConfiguredRecipients;
@@ -296,6 +297,20 @@ function syncTlsMode(changed) {
     else if (!secure && port === 465) $('smtp-port').value = 587;
   }
   renderTlsWarning();
+}
+
+/** Gmail will not accept an account password over SMTP; say so up front. */
+function renderPasswordHint() {
+  const host = $('smtp-host').value.trim();
+  const el = $('password-hint');
+  const isGoogle = /(^|\.)(gmail|googlemail)\.com$/i.test(host);
+
+  el.hidden = !isGoogle;
+  if (isGoogle) {
+    el.innerHTML =
+      'Gmail requires a 16-character <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">App Password</a>, ' +
+      'not your account password. Spaces in the pasted value are ignored.';
+  }
 }
 
 function renderTlsWarning() {
@@ -836,6 +851,7 @@ $('detect-risks').addEventListener('click', detectRisksPath);
 $('smtp-auth').addEventListener('change', () => {
   $('smtp-credentials').hidden = !$('smtp-auth').checked;
 });
+$('smtp-host').addEventListener('input', renderPasswordHint);
 $('smtp-port').addEventListener('input', () => syncTlsMode('port'));
 $('smtp-secure').addEventListener('change', () => syncTlsMode('secure'));
 $('reset-template').addEventListener('click', async () => {

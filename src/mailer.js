@@ -9,12 +9,29 @@ import { isVerified } from './settings.js';
  * settings in force, which `isVerified()` decides by fingerprint.
  */
 
+const GMAIL_HOSTS = /(^|\.)(gmail|googlemail)\.com$/i;
+
 export class MailError extends Error {
   constructor(message, status = 400) {
     super(message);
     this.name = 'MailError';
     this.status = status;
   }
+}
+
+/**
+ * Google shows an App Password as four space-separated groups ("abcd efgh ijkl
+ * mnop"), so it is routinely pasted with the spaces still in it and rejected.
+ * Google's own passwords never contain spaces, so stripping them for Google
+ * hosts is safe -- and is not done for any other server, where a space could
+ * be a legitimate part of the secret.
+ */
+export function normalizePassword(smtp) {
+  const password = String(smtp.password ?? '');
+  if (!GMAIL_HOSTS.test(String(smtp.host ?? ''))) return password;
+
+  const stripped = password.replace(/\s+/g, '');
+  return /^[A-Za-z0-9]{16}$/.test(stripped) ? stripped : password;
 }
 
 export function buildTransport(smtp) {
@@ -24,7 +41,7 @@ export function buildTransport(smtp) {
     host: smtp.host,
     port: smtp.port,
     secure: Boolean(smtp.secure),
-    auth: smtp.requireAuth && smtp.user ? { user: smtp.user, pass: smtp.password } : undefined,
+    auth: smtp.requireAuth && smtp.user ? { user: smtp.user, pass: normalizePassword(smtp) } : undefined,
     tls: { rejectUnauthorized: smtp.rejectUnauthorized !== false },
     connectionTimeout: 15_000,
     greetingTimeout: 15_000,
@@ -64,8 +81,6 @@ export function tlsModeMismatch(smtp) {
   return '';
 }
 
-const GMAIL_HOSTS = /(^|\.)(gmail|googlemail)\.com$/i;
-
 const friendly = (error, smtp = {}) => {
   const code = error.code ?? '';
   const mismatch = tlsModeMismatch(smtp);
@@ -73,11 +88,14 @@ const friendly = (error, smtp = {}) => {
   if (code === 'EAUTH') {
     if (GMAIL_HOSTS.test(String(smtp.host ?? ''))) {
       return (
-        'Gmail rejected those credentials. With 2-step verification enabled, Gmail ' +
-        'requires a 16-character App Password here, not your account password.'
+        'Google rejected those credentials. Gmail does not accept your account ' +
+        'password over SMTP: create a 16-character App Password at ' +
+        'https://myaccount.google.com/apppasswords and paste that here. ' +
+        'Check too that the username is the full address of the account the App ' +
+        'Password belongs to.'
       );
     }
-    return 'The server rejected those credentials.';
+    return `The server rejected those credentials for ${smtp.user || '(no username)'}.`;
   }
 
   if (code === 'ECONNREFUSED') {

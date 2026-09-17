@@ -105,3 +105,30 @@ test('a stalled handshake on a mismatched port names the mismatch, not the firew
     return true;
   });
 });
+
+// ---------------------------------------------------------------------------
+// Credentials
+
+test('a Gmail App Password pasted with spaces is accepted as typed', async () => {
+  const { normalizePassword } = await import('../src/mailer.js');
+  const gmail = (password) => normalizePassword({ host: 'smtp.gmail.com', password });
+
+  // Google displays App Passwords as four groups of four.
+  assert.equal(gmail('abcd efgh ijkl mnop'), 'abcdefghijklmnop');
+  assert.equal(gmail(' abcdefghijklmnop '), 'abcdefghijklmnop');
+  assert.equal(gmail('abcdefghijklmnop'), 'abcdefghijklmnop');
+  assert.equal(normalizePassword({ host: 'smtp.googlemail.com', password: 'abcd efgh ijkl mnop' }), 'abcdefghijklmnop');
+});
+
+test('passwords that are not App Passwords are never altered', async () => {
+  const { normalizePassword } = await import('../src/mailer.js');
+
+  // A real passphrase on Gmail: not 16 alphanumerics once stripped, so left alone.
+  assert.equal(normalizePassword({ host: 'smtp.gmail.com', password: 'correct horse battery' }), 'correct horse battery');
+  // Any other server may legitimately use spaces in a secret.
+  assert.equal(normalizePassword({ host: 'smtp.corp.example', password: 'a b c d' }), 'a b c d');
+  assert.equal(normalizePassword({ host: 'smtp.corp.example', password: 'abcd efgh ijkl mnop' }), 'abcd efgh ijkl mnop');
+  // A lookalike host must not be treated as Google.
+  assert.equal(normalizePassword({ host: 'smtp.gmail.com.evil.io', password: 'abcd efgh ijkl mnop' }), 'abcd efgh ijkl mnop');
+  assert.equal(normalizePassword({ host: 'smtp.gmail.com', password: '' }), '');
+});
