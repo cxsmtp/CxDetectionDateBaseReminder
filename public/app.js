@@ -260,6 +260,11 @@ function renderSettings() {
   $('rcpt-cc').value = s.recipients.cc.join('\n');
   $('rcpt-bcc').value = s.recipients.bcc.join('\n');
 
+  $('link-base').value = s.links.baseUrl;
+  $('link-project').value = s.links.project;
+  $('link-risk').value = s.links.risk;
+  renderLinkExamples(s.linkExamples);
+
   $('tpl-subject').value = s.template.subject;
   $('tpl-html').value = s.template.html;
   $('risks-path').value = s.endpoints.risksPath;
@@ -299,6 +304,23 @@ function syncTlsMode(changed) {
     else if (!secure && port === 465) $('smtp-port').value = 587;
   }
   renderTlsWarning();
+}
+
+/** Worked examples, so a wrong UI route is obvious before a mail goes out. */
+function renderLinkExamples(examples) {
+  $('link-examples').innerHTML = [
+    ['Project', examples?.project],
+    ['Finding', examples?.risk],
+  ]
+    .map(
+      ([label, url]) =>
+        `<div><span class="k">${label}</span><span class="v">${
+          url
+            ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`
+            : '<span class="error-hint">no link — check the base URL</span>'
+        }</span></div>`,
+    )
+    .join('');
 }
 
 /** Gmail will not accept an account password over SMTP; say so up front. */
@@ -353,6 +375,11 @@ function settingsPayload() {
       overrides: $('init-overrides').value,
     },
     template: { subject: $('tpl-subject').value, html: $('tpl-html').value },
+    links: {
+      baseUrl: $('link-base').value,
+      project: $('link-project').value,
+      risk: $('link-risk').value,
+    },
     endpoints: { risksPath: $('risks-path').value },
   };
   // Only send a password when one was typed, so saving an unrelated field
@@ -716,9 +743,11 @@ function renderProjects() {
           <td class="checkbox"><input type="checkbox" data-select="${escapeHtml(p.projectId)}" ${
             state.selected.has(p.projectId) ? 'checked' : ''
           } /></td>
-          <td class="name">${escapeHtml(p.projectName)}${
-            p.error ? `<span class="err">${escapeHtml(p.error)}</span>` : ''
-          }</td>
+          <td class="name">${
+            p.url
+              ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.projectName)}</a>`
+              : escapeHtml(p.projectName)
+          }${p.error ? `<span class="err">${escapeHtml(p.error)}</span>` : ''}</td>
           <td class="num">${p.totalRisks}</td>
           ${cell(p.counts['0-30'] ?? 0)}
           ${cell(p.counts['31-60'] ?? 0)}

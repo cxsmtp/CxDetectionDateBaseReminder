@@ -315,6 +315,30 @@
         </section>
 
         <section class="panel">
+          <h2>Links into Checkmarx One</h2>
+          <p class="hint">
+            Every finding in the reminder is a link straight to it in the platform. The web app's
+            routes are not part of the published API reference, so if a link lands in the wrong
+            place, correct the template here — the example below updates as you type.
+          </p>
+
+          <label class="field">
+            <span>Base URL — blank uses the API host your key resolved to</span>
+            <input id="link-base" spellcheck="false" placeholder="https://us.ast.checkmarx.net" />
+          </label>
+          <label class="field">
+            <span>Project link — <code>{baseUrl} {projectId}</code></span>
+            <input id="link-project" spellcheck="false" />
+          </label>
+          <label class="field">
+            <span>Finding link — <code>{baseUrl} {projectId} {scanId} {engine} {riskId}</code></span>
+            <input id="link-risk" spellcheck="false" />
+          </label>
+
+          <div class="kv" id="link-examples"></div>
+        </section>
+
+        <section class="panel">
           <h2>Risks endpoint</h2>
           <p class="hint">
             Defaults to <code>/api/risks/</code>. <strong>Detect</strong> probes the known paths

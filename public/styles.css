@@ -362,3 +362,8 @@ td.initiator .err { display: block; font-size: 11px; }
   color: var(--text);
 }
 .tag-row button { padding: 5px 10px; font-size: 12px; }
+
+#link-examples { margin-top: 12px; }
+#link-examples a { color: var(--accent); }
+td.name a { color: var(--accent); text-decoration: none; }
+td.name a:hover { text-decoration: underline; }

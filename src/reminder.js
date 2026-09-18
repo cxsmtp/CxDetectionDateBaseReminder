@@ -1,4 +1,5 @@
 import { AGE_BUCKETS } from './cxone/risks.js';
+import { DEFAULT_LINK_TEMPLATES, projectUrl, riskUrl } from './links.js';
 import { render } from './template.js';
 
 /**
@@ -21,7 +22,7 @@ function sortRisks(risks) {
 }
 
 /** Group the selected risks per project, largest first. */
-export function groupByProject(risks, { maxRowsPerProject = 25 } = {}) {
+export function groupByProject(risks, { maxRowsPerProject = 25, links = null, connection = null, initiatorsByProject = {} } = {}) {
   const groups = new Map();
 
   for (const risk of risks) {
@@ -52,6 +53,10 @@ export function groupByProject(risks, { maxRowsPerProject = 25 } = {}) {
           ageDays: risk.ageDays ?? '—',
           state: risk.state || '',
           scanner: risk.scanner || '',
+          // Straight to this finding in the Checkmarx One UI.
+          url: links
+            ? riskUrl(risk, connection, links, initiatorsByProject[risk.projectId]?.scanId ?? '')
+            : '',
         })),
       };
     });
@@ -63,15 +68,24 @@ export function groupByProject(risks, { maxRowsPerProject = 25 } = {}) {
  */
 export function buildTemplateData(
   risks,
-  { buckets = [], tenant = '', now = new Date(), initiator = null, initiatorsByProject = {} } = {},
+  {
+    buckets = [],
+    tenant = '',
+    now = new Date(),
+    initiator = null,
+    initiatorsByProject = {},
+    links = DEFAULT_LINK_TEMPLATES,
+    connection = null,
+  } = {},
 ) {
-  const projects = groupByProject(risks).map((project) => {
+  const projects = groupByProject(risks, { links, connection, initiatorsByProject }).map((project) => {
     const info = initiatorsByProject[project.projectId];
     return {
       ...project,
       initiator: info?.initiator ?? '',
       initiatorEmail: info?.email ?? '',
       lastScanDate: formatDate(info?.scanDate ?? null),
+      url: links ? projectUrl(project, connection, links) : '',
     };
   });
 
@@ -109,12 +123,14 @@ function buildText(data) {
 
   for (const project of data.projects) {
     lines.push(`${project.projectName} (${project.riskCount})`);
+    if (project.url) lines.push(`  ${project.url}`);
     for (const risk of project.risks) {
       lines.push(
         `  - [${risk.severity}] ${risk.title}` +
           `${risk.location && risk.location !== '—' ? ` (${risk.location})` : ''}` +
           ` | first detected ${risk.firstDetectedAt} | ${risk.ageDays} days old`,
       );
+      if (risk.url) lines.push(`      ${risk.url}`);
     }
     if (project.hiddenCount > 0) lines.push(`  ... and ${project.hiddenCount} more`);
     lines.push('');

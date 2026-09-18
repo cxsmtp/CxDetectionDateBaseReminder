@@ -9,6 +9,7 @@ import { AGE_BUCKETS, collectProjectRisks, selectRisks } from './cxone/risks.js'
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator } from './cxone/initiators.js';
 import { buildReminder } from './reminder.js';
+import { exampleLinks, projectUrl } from './links.js';
 import { sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
 import { SettingsStore, isVerified, parseAddressList, publicSettings } from './settings.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
@@ -103,14 +104,24 @@ app.delete('/api/session', (req, res) => {
 // ---------------------------------------------------------------------------
 
 app.get('/api/settings', requireSession, (req, res) => {
-  res.json(publicSettings(settingsStore.get()));
+  const settings = settingsStore.get();
+  res.json({
+    ...publicSettings(settings),
+    // Rendered from the current templates so a wrong UI route is visible
+    // without having to send a mail to find out.
+    linkExamples: exampleLinks(req.session.connection, settings.links),
+  });
 });
 
 app.put(
   '/api/settings',
   requireSession,
   asyncRoute(async (req, res) => {
-    res.json(publicSettings(settingsStore.save(req.body ?? {})));
+    const saved = settingsStore.save(req.body ?? {});
+    res.json({
+      ...publicSettings(saved),
+      linkExamples: exampleLinks(req.session.connection, saved.links),
+    });
   }),
 );
 
@@ -157,6 +168,9 @@ app.post(
     const reminder = buildReminder(risks.length ? risks : SAMPLE_RISKS, template, {
       buckets: ['60+'],
       tenant: req.session.connection.tenant,
+      links: settings.links,
+      connection: req.session.connection,
+      initiatorsByProject: req.session.lastScan?.initiators ?? {},
     });
     res.json({ subject: reminder.subject, html: reminder.html, text: reminder.text });
   }),
@@ -165,7 +179,9 @@ app.post(
 /** Stand-in findings so the template editor works before the first fetch. */
 const SAMPLE_RISKS = [
   {
-    projectId: 'sample-1',
+    projectId: '2c7007de-1c72-42bf-80db-97967a6e3e29',
+    scanId: '80f5a95a-ba0e-43d9-9486-d26ac4d82a0b',
+    id: 'cye0DZkmtm6xwMN4J1Td3BKw03o=',
     projectName: 'Payments API',
     title: 'SQL Injection',
     severity: 'HIGH',
@@ -176,7 +192,9 @@ const SAMPLE_RISKS = [
     scanner: 'SAST',
   },
   {
-    projectId: 'sample-1',
+    projectId: '2c7007de-1c72-42bf-80db-97967a6e3e29',
+    scanId: '80f5a95a-ba0e-43d9-9486-d26ac4d82a0b',
+    id: 'P/DqljWEGo1ADcofHN6qnx7er5M=',
     projectName: 'Payments API',
     title: 'CVE-2024-21538 in cross-spawn',
     severity: 'CRITICAL',
@@ -187,7 +205,9 @@ const SAMPLE_RISKS = [
     scanner: 'SCA',
   },
   {
-    projectId: 'sample-2',
+    projectId: '72e4088c-26a0-46ef-a6fc-e42a2eafd9c3',
+    scanId: 'ef1c75f0-9116-42c2-851f-ba276c7616cc',
+    id: 'FYlX49796MsmZ729jiZ3AXTv/1o=',
     projectName: 'Web Storefront',
     title: 'Reflected XSS',
     severity: 'MEDIUM',
@@ -306,6 +326,7 @@ app.get(
       summary.initiatorEmail = info.email ?? '';
       summary.initiatorVia = info.via ?? 'none';
       summary.lastScanDate = info.scanDate ?? null;
+      summary.url = projectUrl(summary, req.session.connection, settings.links);
     }
     result.initiators = initiators.byProject;
     req.session.lastScan = result;
@@ -390,7 +411,13 @@ app.post(
       return res.status(400).json({ error: 'No vulnerabilities match that selection.' });
     }
 
-    const common = { buckets: ageBuckets, tenant: connection.tenant, initiatorsByProject };
+    const common = {
+      buckets: ageBuckets,
+      tenant: connection.tenant,
+      initiatorsByProject,
+      links: settings.links,
+      connection,
+    };
 
     // ---- One email per scan initiator -------------------------------------
     if (groupBy === 'initiator') {

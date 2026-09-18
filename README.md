@@ -118,6 +118,36 @@ or the template does not.
 
 ---
 
+## Links into Checkmarx One
+
+Every finding in the reminder is a hyperlink straight to it in the platform, so the mail
+is a ready reckoner: click a row and start fixing. Project names link to the project
+overview, in the mail and in the dashboard table. The plain-text part carries the same
+URLs, for clients that strip HTML.
+
+The web app's routes are **not** part of the published API reference, so the defaults
+below are best-effort and a tenant may differ:
+
+| | Default |
+| --- | --- |
+| Project | `{baseUrl}/projects/{projectId}/overview` |
+| Finding | `{baseUrl}/results/{scanId}/{projectId}/{engine}?result-id={riskId}` |
+
+Both are editable under **Settings → Links into Checkmarx One**, which renders a worked
+example as you type — so if a link lands in the wrong place, you can see and fix it
+without sending a mail to find out. `{baseUrl}` defaults to the API host your key
+resolved to; set it explicitly if your UI is served elsewhere. Available placeholders
+are `{baseUrl}`, `{projectId}`, `{scanId}`, `{engine}` and `{riskId}`.
+
+Engine names map to the UI's tabs (`SAST`→`sast`, `SCA`→`sca`, `IAC`→`kics`). Every
+substituted value is URL-encoded, which matters because a risk id such as
+`cye0DZkmtm6xwMN4J1Td3BKw03o=` contains `/`, `+` and `=`. Only `http`/`https` links are
+ever emitted. A finding with no scan falls back to its project overview, and if no base
+URL can be resolved the mail still renders — just without links, rather than with broken
+ones.
+
+---
+
 ## The mail template
 
 The body is yours to decide. Values are inserted with `{{name}}` and HTML-escaped;

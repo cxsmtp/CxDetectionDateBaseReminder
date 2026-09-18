@@ -162,7 +162,9 @@ export const TEMPLATE_VARIABLES = [
   { name: 'projects.riskCount', description: 'Findings in that project' },
   { name: 'projects.oldestFirstDetected', description: 'Earliest first-detection date in that project' },
   { name: 'projects.risks', description: 'Loop over findings within a project' },
+  { name: 'projects.url', description: "Link to the project in Checkmarx One" },
   { name: 'risks.title', description: 'Finding name' },
+  { name: 'risks.url', description: 'Link straight to that finding in Checkmarx One' },
   { name: 'risks.severity', description: 'CRITICAL / HIGH / MEDIUM / LOW' },
   { name: 'risks.location', description: 'File or package' },
   { name: 'risks.firstDetectedAt', description: 'First-detection date (YYYY-MM-DD)' },
@@ -186,7 +188,9 @@ export const DEFAULT_TEMPLATE = {
 
   {{#projects}}
   <h3 style="margin:24px 0 8px;font-size:15px">
-    {{projectName}} <span style="font-weight:400;color:#64748b">&mdash; {{riskCount}} open</span>
+    {{#url}}<a href="{{url}}" style="color:#1d4ed8;text-decoration:none">{{projectName}}</a>{{/url}}
+    {{^url}}{{projectName}}{{/url}}
+    <span style="font-weight:400;color:#64748b">&mdash; {{riskCount}} open</span>
   </h3>
 
   <table role="presentation" style="border-collapse:collapse;width:100%;font-size:13px">
@@ -203,7 +207,10 @@ export const DEFAULT_TEMPLATE = {
       {{#risks}}
       <tr>
         <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">{{severity}}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">{{title}}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">
+          {{#url}}<a href="{{url}}" style="color:#1d4ed8;text-decoration:none">{{title}}</a>{{/url}}
+          {{^url}}{{title}}{{/url}}
+        </td>
         <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;color:#64748b">{{location}}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">{{firstDetectedAt}}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">{{ageDays}}d</td>
@@ -215,6 +222,7 @@ export const DEFAULT_TEMPLATE = {
   {{/projects}}
 
   <p style="margin-top:28px;color:#94a3b8;font-size:12px">
+    Each finding above links straight to it in Checkmarx One &mdash; click through to start fixing.<br />
     Sent from the Checkmarx detection-date reminder for tenant {{tenant}} on {{generatedAt}} UTC.
   </p>
 </div>`,
