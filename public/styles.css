@@ -367,3 +367,6 @@ td.initiator .err { display: block; font-size: 11px; }
 #link-examples a { color: var(--accent); }
 td.name a { color: var(--accent); text-decoration: none; }
 td.name a:hover { text-decoration: underline; }
+
+#auto-runs { margin-top: 14px; overflow-x: auto; }
+#auto-credential { margin: 14px 0; display: block; }

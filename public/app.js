@@ -7,6 +7,7 @@ const state = {
   projects: [],
   selected: new Set(),
   sort: { key: '60+', dir: 'desc' },
+  automation: null,
   initiators: [],
   pickedInitiators: new Set(),
   lastScan: null,
@@ -74,7 +75,10 @@ function route() {
   for (const tab of document.querySelectorAll('.tab')) {
     tab.classList.toggle('active', tab.dataset.route === target);
   }
-  if (target === 'settings') renderSettings();
+  if (target === 'settings') {
+    renderSettings();
+    loadAutomation();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -304,6 +308,136 @@ function syncTlsMode(changed) {
     else if (!secure && port === 465) $('smtp-port').value = 587;
   }
   renderTlsWarning();
+}
+
+// ---------------------------------------------------------------------------
+// Automation
+// ---------------------------------------------------------------------------
+
+const timeAgo = (iso) => {
+  if (!iso) return 'never';
+  const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (Math.abs(seconds) < 90) return `${Math.abs(seconds)}s ${seconds < 0 ? 'from now' : 'ago'}`;
+  const minutes = Math.round(seconds / 60);
+  if (Math.abs(minutes) < 90) return `${Math.abs(minutes)}m ${minutes < 0 ? 'from now' : 'ago'}`;
+  const hours = Math.round(minutes / 60);
+  return `${Math.abs(hours)}h ${hours < 0 ? 'from now' : 'ago'}`;
+};
+
+async function loadAutomation() {
+  try {
+    state.automation = await api('/api/automation');
+    renderAutomation();
+  } catch (error) {
+    if (!handleAuthLoss(error)) console.warn(error.message);
+  }
+}
+
+function renderAutomation() {
+  const a = state.automation;
+  if (!a) return;
+
+  $('auto-enabled').checked = a.config.enabled;
+  $('auto-dry').checked = a.config.dryRun;
+  $('auto-thresholds').value = a.config.thresholds.join(', ');
+  $('auto-interval').value = a.config.intervalMinutes;
+  $('auto-groupby').value = a.config.groupBy;
+  $('auto-mode').value = a.config.mode;
+  $('auto-severities').value = a.config.severities.join(', ');
+
+  $('auto-status').textContent = a.config.enabled
+    ? `On · next run ${timeAgo(a.nextRunAt)} · ${a.trackedFindings} finding(s) already reported`
+    : 'Off';
+  $('auto-status').className = `hint ${a.config.enabled ? 'ok-hint' : ''}`;
+
+  // Automation has no browser to paste a key into, so say plainly what it
+  // will and will not be able to do on its own.
+  const credential = $('auto-credential');
+  if (a.bootstrapKey) {
+    credential.className = 'detected ok';
+    credential.textContent = 'Using the CX_API_KEY from the environment. Automation can run unattended.';
+  } else if (a.keyStored) {
+    credential.className = 'detected ok';
+    credential.textContent =
+      'Armed: your API key is stored in the settings file (owner-readable only) so runs can authenticate without you. Use "Forget stored key" to revoke it.';
+  } else {
+    credential.className = 'detected warn';
+    credential.textContent =
+      'No stored credential. Unattended runs need one — either set CX_API_KEY in the environment, or click "Arm with current key" to save this session\'s key to the settings file. Until then, only "Run once now" works.';
+  }
+
+  if (!a.smtpVerified) {
+    setStatus('auto-message', 'SMTP has not passed a connection test — automation cannot send yet.', 'error');
+  }
+
+  $('auto-runs').innerHTML = a.runs.length
+    ? `<table class="probe">
+        <thead><tr><th>When</th><th class="num">Scanned</th><th class="num">Crossed</th><th class="num">Sent</th><th>Outcome</th></tr></thead>
+        <tbody>${a.runs
+          .map(
+            (run) => `<tr class="${run.ok ? 'hit' : 'miss'}">
+              <td>${escapeHtml(timeAgo(run.at))}</td>
+              <td class="num">${run.scanned ?? '—'}</td>
+              <td class="num">${run.crossed ?? '—'}</td>
+              <td class="num">${run.sent ?? 0}${run.dryRun ? ' (dry)' : ''}</td>
+              <td class="snippet">${escapeHtml(
+                run.error || run.reason || (run.failures?.length ? `${run.failures.length} failed` : 'ok'),
+              )}</td>
+            </tr>`,
+          )
+          .join('')}</tbody>
+      </table>`
+    : '<p class="hint">No runs yet.</p>';
+}
+
+function automationPayload() {
+  return {
+    enabled: $('auto-enabled').checked,
+    dryRun: $('auto-dry').checked,
+    thresholds: $('auto-thresholds').value,
+    intervalMinutes: $('auto-interval').value,
+    groupBy: $('auto-groupby').value,
+    mode: $('auto-mode').value,
+    severities: $('auto-severities').value,
+  };
+}
+
+async function saveAutomation() {
+  setStatus('auto-message', 'Saving…');
+  try {
+    const status = await api('/api/automation', { method: 'PUT', body: JSON.stringify(automationPayload()) });
+    state.automation = { ...state.automation, ...status };
+    renderAutomation();
+    setStatus(
+      'auto-message',
+      status.config.enabled ? `Saved. Next run in ${status.config.intervalMinutes} minutes.` : 'Saved. Automation is off.',
+      'ok',
+    );
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('auto-message', error);
+  }
+}
+
+async function runAutomationNow() {
+  const button = $('auto-run');
+  button.disabled = true;
+  setStatus('auto-message', 'Running a pass…');
+  try {
+    const { run } = await api('/api/automation/run', { method: 'POST', body: JSON.stringify({}) });
+    await loadAutomation();
+    setStatus(
+      'auto-message',
+      run.error || run.reason ||
+        `Scanned ${run.scanned} finding(s), ${run.crossed} newly crossed, ${run.sent} message(s) ${
+          run.dryRun ? 'would have been sent' : 'sent'
+        }.`,
+      run.ok ? 'ok' : 'error',
+    );
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('auto-message', error);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 /** Worked examples, so a wrong UI route is obvious before a mail goes out. */
@@ -965,6 +1099,35 @@ $('close-preview').addEventListener('click', () => {
 for (const radio of document.querySelectorAll('input[name="groupBy"]')) {
   radio.addEventListener('change', renderRecipientHint);
 }
+$('auto-save').addEventListener('click', saveAutomation);
+$('auto-run').addEventListener('click', runAutomationNow);
+$('auto-arm').addEventListener('click', async () => {
+  try {
+    await api('/api/automation/arm', { method: 'POST', body: JSON.stringify({}) });
+    await loadAutomation();
+    setStatus('auto-message', 'Armed — unattended runs can now authenticate.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('auto-message', error);
+  }
+});
+$('auto-disarm').addEventListener('click', async () => {
+  try {
+    await api('/api/automation/arm', { method: 'DELETE' });
+    await loadAutomation();
+    setStatus('auto-message', 'Stored key forgotten.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('auto-message', error);
+  }
+});
+$('auto-reset').addEventListener('click', async () => {
+  try {
+    await api('/api/automation/reset', { method: 'POST', body: JSON.stringify({}) });
+    await loadAutomation();
+    setStatus('auto-message', 'History cleared — the next run reports from scratch.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('auto-message', error);
+  }
+});
 $('save-settings').addEventListener('click', saveSettings);
 $('test-smtp').addEventListener('click', testSmtp);
 $('send-test').addEventListener('click', sendTestEmail);

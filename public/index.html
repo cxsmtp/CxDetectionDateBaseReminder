@@ -315,6 +315,69 @@
         </section>
 
         <section class="panel">
+          <div class="panel-head">
+            <h2>Automation</h2>
+            <span class="hint" id="auto-status"></span>
+          </div>
+          <p class="hint">
+            Checks on a timer and mails the moment a finding crosses one of your age
+            thresholds. Each finding is reported <strong>once per threshold</strong>, so a
+            daily sweep does not re-send the same thing every day.
+          </p>
+
+          <div class="checks">
+            <label class="check"><input type="checkbox" id="auto-enabled" /> Run automatically</label>
+            <label class="check"><input type="checkbox" id="auto-dry" /> Dry run — decide and log, but send nothing</label>
+          </div>
+
+          <div class="grid2">
+            <label class="field">
+              <span>Age thresholds, in days</span>
+              <input id="auto-thresholds" spellcheck="false" placeholder="30, 60, 90" />
+            </label>
+            <label class="field">
+              <span>Check every (minutes)</span>
+              <input id="auto-interval" type="number" min="15" max="10080" />
+            </label>
+          </div>
+
+          <div class="grid2">
+            <label class="field">
+              <span>Address to</span>
+              <select id="auto-groupby">
+                <option value="initiator">Each scan initiator</option>
+                <option value="none">The configured recipient list</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Only these severities — blank means all</span>
+              <input id="auto-severities" spellcheck="false" placeholder="CRITICAL, HIGH" />
+            </label>
+          </div>
+
+          <label class="field">
+            <span>When a finding is already past several thresholds</span>
+            <select id="auto-mode">
+              <option value="crossing">Report each threshold once (recommended)</option>
+              <option value="digest">Re-report everything past a threshold on every run</option>
+            </select>
+          </label>
+
+          <div class="detected" id="auto-credential"></div>
+
+          <div class="actions">
+            <button id="auto-save" class="primary">Save automation</button>
+            <button id="auto-run">Run once now</button>
+            <button id="auto-arm">Arm with current key</button>
+            <button id="auto-disarm">Forget stored key</button>
+            <button id="auto-reset" class="link">Reset history</button>
+            <span id="auto-message" class="status"></span>
+          </div>
+
+          <div id="auto-runs"></div>
+        </section>
+
+        <section class="panel">
           <h2>Links into Checkmarx One</h2>
           <p class="hint">
             Every finding in the reminder is a link straight to it in the platform. The web app's

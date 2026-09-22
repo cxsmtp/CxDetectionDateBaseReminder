@@ -118,6 +118,51 @@ or the template does not.
 
 ---
 
+## Automation
+
+**Settings → Automation** turns the tool into a watcher: it checks on a timer and mails
+the moment a finding crosses one of your age thresholds (30 / 60 / 90 by default, or any
+list you type).
+
+The interesting problem is not the timer, it is **not nagging**. A daily sweep would
+otherwise re-send the same finding every day once it passed 30 days. So each
+*(finding, threshold)* pair is recorded in a ledger once reported, and only unrecorded
+pairs are mailed:
+
+| Situation | What happens |
+| --- | --- |
+| Finding reaches 30 days | One message |
+| Same finding next day, still 30+ | Silence |
+| It reaches 60 days | One message |
+| It is already 200 days old on the first run | **One** message, against the highest threshold passed — not three |
+| It gets fixed | Dropped from the ledger |
+| It comes back | Reported again, as a genuine regression |
+
+The ledger is persisted, so a restart does not cause duplicate mail. **Reset history**
+clears it if you want the next run to report from scratch. *Report each threshold once*
+is the recommended mode; *digest* re-reports everything past a threshold on every run.
+
+Runs are addressed per scan initiator or to the configured list, can be limited to
+chosen severities, and **Dry run** decides and logs without sending — worth using for the
+first pass, since an established tenant will have a backlog that all crosses at once.
+The panel shows the last runs with what was scanned, crossed and sent.
+
+### Automation needs a stored credential
+
+The API key is normally per-session and memory-only. An unattended run has no browser to
+paste one into, so it needs a credential that outlives a session. Two ways:
+
+- **`CX_API_KEY` in the environment** — preferred. The key stays out of the settings file
+  and out of the UI.
+- **Arm with current key** — stores this session's key in `data/settings.json`
+  (owner-only, gitignored) so runs can authenticate. **Forget stored key** revokes it.
+
+Without either, the schedule still runs but every pass is skipped with that reason
+recorded, and **Run once now** falls back to your own session so you can rehearse first.
+The panel states plainly which of the three situations you are in.
+
+---
+
 ## Links into Checkmarx One
 
 Every finding in the reminder is a hyperlink straight to it in the platform, so the mail

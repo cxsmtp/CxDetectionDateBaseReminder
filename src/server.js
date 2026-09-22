@@ -10,6 +10,7 @@ import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator } from './cxone/initiators.js';
 import { buildReminder } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
+import { AutomationState, Scheduler } from './automation.js';
 import { sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
 import { SettingsStore, isVerified, parseAddressList, publicSettings } from './settings.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
@@ -29,6 +30,46 @@ const settingsStore = new SettingsStore(
   config.settingsFile ? { file: config.settingsFile } : undefined,
 );
 let bootstrapSessionId = null;
+
+const automationState = new AutomationState(
+  config.settingsFile
+    ? { file: config.settingsFile.replace(/\.json$/, '') + '-automation.json' }
+    : undefined,
+);
+
+/**
+ * The session unattended runs use. Automation has no browser to paste a key,
+ * so it needs a credential that outlives a session: either CX_API_KEY, or one
+ * the administrator explicitly armed from the Settings page.
+ */
+let automationSessionId = null;
+
+async function resolveAutomationSession() {
+  const existing = sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId);
+  if (existing) return existing;
+
+  const storedKey = settingsStore.get().automationApiKey;
+  if (!storedKey) return null;
+
+  try {
+    const session = await sessions.create(storedKey, config.overrides);
+    automationSessionId = session.id;
+    return session;
+  } catch (error) {
+    console.warn(`! Stored automation key could not be used: ${error.message}`);
+    return null;
+  }
+}
+
+const scheduler = new Scheduler({
+  // The scheduler is synchronous about session lookup, so a key armed while
+  // the process is running is picked up by the refresh below rather than here.
+  resolveSession: () => sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId),
+  state: automationState,
+  settingsStore,
+  config: () => activeConfig(),
+  isVerified,
+});
 
 const app = express();
 app.use(express.json({ limit: '4mb' }));
@@ -280,6 +321,72 @@ app.post(
     res.json({ initiator, email, projectsUpdated, settings: publicSettings(saved) });
   }),
 );
+
+// ---------------------------------------------------------------------------
+// Automation
+// ---------------------------------------------------------------------------
+
+app.get('/api/automation', requireSession, (req, res) => {
+  const settings = settingsStore.get();
+  res.json({
+    ...scheduler.status,
+    config: settings.automation,
+    keyStored: Boolean(settings.automationApiKey),
+    bootstrapKey: Boolean(config.bootstrapApiKey),
+    canRun: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId)),
+    smtpVerified: isVerified(settings),
+  });
+});
+
+app.put(
+  '/api/automation',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    settingsStore.save({ automation: req.body ?? {} });
+    await resolveAutomationSession();
+    scheduler.sync();
+    res.json({ ...scheduler.status, config: settingsStore.get().automation });
+  }),
+);
+
+/** Store the current session's key so unattended runs can authenticate. */
+app.post(
+  '/api/automation/arm',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    settingsStore.save({ automationApiKey: req.session.connection.apiKey });
+    automationSessionId = req.session.id;
+    scheduler.sync();
+    res.json({ ...scheduler.status, keyStored: true, canRun: true });
+  }),
+);
+
+app.delete('/api/automation/arm', requireSession, (req, res) => {
+  settingsStore.save({ automationApiKey: '' });
+  automationSessionId = null;
+  res.json({ ...scheduler.status, keyStored: false, canRun: Boolean(sessions.get(bootstrapSessionId)) });
+});
+
+/** Run a pass now, without waiting for the timer. */
+app.post(
+  '/api/automation/run',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    // A manual run uses the caller's own session when nothing is armed, so
+    // automation can be rehearsed before a credential is stored.
+    if (!(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId))) {
+      automationSessionId = req.session.id;
+    }
+    const run = await scheduler.tick({ force: true });
+    res.json({ run, status: scheduler.status });
+  }),
+);
+
+/** Forget every reported pair, so the next run reports from scratch. */
+app.post('/api/automation/reset', requireSession, (req, res) => {
+  automationState.reset();
+  res.json(scheduler.status);
+});
 
 // ---------------------------------------------------------------------------
 // Dashboard data
@@ -552,9 +659,21 @@ const server = app.listen(config.port, config.host, async () => {
   console.log(`Settings file: ${settingsStore.file}`);
   for (const problem of configProblems(config)) console.warn(`! ${problem}`);
   await bootstrap();
+  await resolveAutomationSession();
+  scheduler.sync();
+  const automation = settingsStore.get().automation;
+  if (automation.enabled) {
+    console.log(
+      `Automation on: every ${automation.intervalMinutes}m, thresholds ${automation.thresholds.join('/')} days` +
+        (automation.dryRun ? ' (dry run)' : ''),
+    );
+  }
 });
 
-const shutdown = () => server.close(() => process.exit(0));
+const shutdown = () => {
+  scheduler.stop();
+  server.close(() => process.exit(0));
+};
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
