@@ -1126,6 +1126,114 @@ async function fetchProjects() {
   }
 }
 
+async function previewHtmlReport() {
+  const button = $('preview-html');
+  button.disabled = true;
+  setStatus('html-status', 'Generating report…');
+
+  try {
+    const severity = $('severity-filter').value;
+    const response = await fetch(
+      `/api/reports/html?${new URLSearchParams({
+        projectIds: state.selected.size > 0 ? [...state.selected].join(',') : '',
+        severities: severity ? severity : '',
+      }).toString()}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectIds: state.selected.size > 0 ? [...state.selected] : null,
+          severities: severity ? [severity] : null,
+          buckets: [],
+        }),
+      },
+    );
+
+    if (!response.ok) throw new Error(await response.text());
+
+    const html = await response.text();
+    $('preview-panel').hidden = false;
+    $('preview-frame').srcdoc = html;
+    setStatus('html-status', 'Report ready.', 'ok');
+    $('preview-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('html-status', error);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function downloadHtmlReport() {
+  const button = $('download-html');
+  button.disabled = true;
+  setStatus('html-status', 'Generating report…');
+
+  try {
+    const severity = $('severity-filter').value;
+    const response = await fetch('/api/reports/html', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectIds: state.selected.size > 0 ? [...state.selected] : null,
+        severities: severity ? [severity] : null,
+        buckets: [],
+      }),
+    });
+
+    if (!response.ok) throw new Error(await response.text());
+
+    const html = await response.text();
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vulnerability-report-${new Date().toISOString().split('T')[0]}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setStatus('html-status', 'Report downloaded.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('html-status', error);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function sendReminderWithHtml() {
+  const button = $('send-with-html');
+  button.disabled = true;
+  setStatus('html-status', 'Sending…');
+
+  try {
+    const severity = $('severity-filter').value;
+    const response = await fetch('/api/reports/html', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectIds: state.selected.size > 0 ? [...state.selected] : null,
+        severities: severity ? [severity] : null,
+        buckets: [],
+      }),
+    });
+
+    if (!response.ok) throw new Error(await response.text());
+
+    const html = await response.text();
+
+    // For now, just show a message that this feature requires backend integration
+    setStatus(
+      'html-status',
+      'HTML report generated. Backend integration needed for email attachment sending. Use "Send reminder" + manually attach, or implement POST /api/reminders/with-attachment endpoint.',
+      'warning',
+    );
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('html-status', error);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function submitReminder({ dryRun }) {
   // Age is already decided by the Scope panel at the top of the page, so this
   // request carries no bucket filter of its own.
@@ -1267,6 +1375,10 @@ $('send').addEventListener('click', () => submitReminder({ dryRun: false }));
 $('close-preview').addEventListener('click', () => {
   $('preview-panel').hidden = true;
 });
+
+$('preview-html').addEventListener('click', previewHtmlReport);
+$('download-html').addEventListener('click', downloadHtmlReport);
+$('send-with-html').addEventListener('click', sendReminderWithHtml);
 
 for (const radio of document.querySelectorAll('input[name="groupBy"]')) {
   radio.addEventListener('change', renderRecipientHint);
