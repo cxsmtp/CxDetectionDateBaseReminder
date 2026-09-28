@@ -7,6 +7,7 @@ import path from 'node:path';
 import {
   DEFAULT_SETTINGS,
   SettingsStore,
+  applyEnvironmentSmtp,
   isVerified,
   mergeSettings,
   parseAddressList,
@@ -152,4 +153,24 @@ test('an override survives a restart and other settings are untouched', () => {
   assert.equal(reloaded.initiators.overrides.jdoe, 'jane@x.com');
   assert.equal(reloaded.smtp.host, 'smtp.example.com');
   assert.equal(reloaded.initiators.useDirectory, true, 'unrelated defaults stay put');
+});
+
+test('SMTP values from the environment are trimmed and unquoted', () => {
+  const saved = { ...process.env };
+  try {
+    process.env.SMTP_HOST = ' "smtp.gmail.com" \r';
+    process.env.SMTP_USER = 'me@gmail.com \r';
+    process.env.SMTP_PASS = 'abcd efgh ijkl mnop\r';
+    process.env.SMTP_PORT = '587\r';
+    const applied = applyEnvironmentSmtp(base());
+    assert.equal(applied.smtp.host, 'smtp.gmail.com');
+    assert.equal(applied.smtp.user, 'me@gmail.com');
+    assert.equal(applied.smtp.password, 'abcd efgh ijkl mnop');
+    assert.equal(applied.smtp.port, 587);
+  } finally {
+    for (const key of ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'SMTP_PORT']) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  }
 });

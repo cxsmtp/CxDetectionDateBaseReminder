@@ -743,22 +743,18 @@ app.post(
       return res.status(409).json({ error: 'Fetch the project list first.' });
     }
 
-    let projects = lastScan.projects;
-    if (projectIds?.length) {
-      projects = projects.filter((p) => projectIds.includes(p.id));
-    }
-
     // For HTML reports, get all risks (no bucket filtering) unless specific buckets requested
-    let risks = selectRisks(projects, { buckets: buckets.length ? buckets : [] });
-    if (severities?.length) {
-      risks = risks.filter((r) => severities.includes(r.severity));
-    }
+    const risks = selectRisks(lastScan.projects, {
+      projectIds: projectIds?.length ? projectIds : null,
+      buckets,
+      severities,
+    });
 
     // Provide diagnostic info if no risks found
     const diagnostics = risks.length === 0
       ? `
         <!-- Diagnostic Info -->
-        <!-- Projects selected: ${projects.length} -->
+        <!-- Projects selected: ${projectIds?.length ?? 0} -->
         <!-- Total risks in session: ${lastScan.projects.reduce((sum, p) => sum + (p.totalRisks ?? 0), 0)} -->
         <!-- Buckets filter: ${buckets.length > 0 ? buckets.join(', ') : 'none (include all)'} -->
         <!-- Severities filter: ${severities?.length > 0 ? severities.join(', ') : 'none (include all)'} -->
@@ -776,11 +772,13 @@ app.post(
 
     const htmlReport = generateHtmlReport(
       {
-        projects: projects.map((p) => ({
-          projectId: p.id,
-          projectName: p.name,
-          risks: risks.filter((r) => r.projectId === p.id),
-        })),
+        projects: lastScan.projects
+          .filter((p) => risks.some((r) => r.projectId === p.projectId))
+          .map((p) => ({
+            projectId: p.projectId,
+            projectName: p.projectName,
+            risks: risks.filter((r) => r.projectId === p.projectId),
+          })),
         totalRisks: risks.length,
         ...reminder,
       },
@@ -815,15 +813,11 @@ app.post(
       });
     }
 
-    let projects = lastScan.projects;
-    if (projectIds?.length) {
-      projects = projects.filter((p) => projectIds.includes(p.id));
-    }
-
-    let risks = selectRisks(projects, { buckets: buckets.length ? buckets : [] });
-    if (severities?.length) {
-      risks = risks.filter((r) => severities.includes(r.severity));
-    }
+    const risks = selectRisks(lastScan.projects, {
+      projectIds: projectIds?.length ? projectIds : null,
+      buckets,
+      severities,
+    });
 
     if (risks.length === 0) {
       return res.status(400).json({ error: 'No vulnerabilities match that selection.' });
@@ -846,14 +840,14 @@ app.post(
     for (const group of sendable) {
       try {
         const groupRisks = group.risks;
-        const groupProjects = projects.filter((p) => group.projectIds.has(p.id));
+        const groupProjects = lastScan.projects.filter((p) => group.projectIds.includes(p.projectId));
 
         const htmlReport = generateHtmlReport(
           {
             projects: groupProjects.map((p) => ({
-              projectId: p.id,
-              projectName: p.name,
-              risks: groupRisks.filter((r) => r.projectId === p.id),
+              projectId: p.projectId,
+              projectName: p.projectName,
+              risks: groupRisks.filter((r) => r.projectId === p.projectId),
             })),
             totalRisks: groupRisks.length,
           },
