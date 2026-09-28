@@ -1,7 +1,10 @@
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+import dotenv from 'dotenv';
 import express from 'express';
+
+dotenv.config({ path: path.join(process.cwd(), '..', '.env') });
 
 import { config, configProblems } from './config.js';
 import { filterProjectsByActivity, listProjects } from './cxone/projects.js';
