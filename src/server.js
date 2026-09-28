@@ -8,6 +8,8 @@ import { filterProjectsByActivity, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, selectRisks } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
+import { triageRisk, remediateRisk } from './cxone/triage.js';
+import { generateHtmlReport } from './html-report.js';
 import { buildReminder } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -672,6 +674,100 @@ app.post(
 
     const result = await sendReminderMail(settings, reminder, overrides);
     res.json({ ...result, groupBy: 'none', totalRisks: risks.length, projects: reminder.projects.length });
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Triage & Remediation
+// ---------------------------------------------------------------------------
+
+app.post(
+  '/api/risks/triage',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const { riskId } = req.body ?? {};
+    if (!riskId) {
+      return res.status(400).json({ error: 'riskId is required.' });
+    }
+
+    try {
+      const result = await triageRisk(req.session.client, riskId);
+      res.json({ ok: true, riskId, state: 'TRIAGED', result });
+    } catch (error) {
+      const status = error.status || 400;
+      res.status(status).json({ error: error.message });
+    }
+  }),
+);
+
+app.post(
+  '/api/risks/remediate',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const { riskId } = req.body ?? {};
+    if (!riskId) {
+      return res.status(400).json({ error: 'riskId is required.' });
+    }
+
+    try {
+      const result = await remediateRisk(req.session.client, riskId);
+      res.json({ ok: true, riskId, state: 'REMEDIATED', result });
+    } catch (error) {
+      const status = error.status || 400;
+      res.status(status).json({ error: error.message });
+    }
+  }),
+);
+
+app.post(
+  '/api/reports/html',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const { projectIds = null, buckets = [], severities = null } = req.body ?? {};
+    const { lastScan, connection } = req.session;
+    const settings = settingsStore.get();
+
+    if (!lastScan) {
+      return res.status(409).json({ error: 'Fetch the project list first.' });
+    }
+
+    let projects = lastScan.projects;
+    if (projectIds?.length) {
+      projects = projects.filter((p) => projectIds.includes(p.id));
+    }
+
+    const risks = selectRisks(projects, { buckets: buckets.length ? buckets : ['0-30', '31-60', '60+'] });
+    if (severities?.length) {
+      risks.filter((r) => severities.includes(r.severity));
+    }
+
+    const reminder = buildReminder(risks, settings.template, {
+      buckets: buckets.length ? buckets : ['0-30', '31-60', '60+'],
+      tenant: connection.tenant,
+      links: settings.links,
+      connection,
+      branding: settings.branding,
+      initiatorsByProject: lastScan.initiators ?? {},
+    });
+
+    const htmlReport = generateHtmlReport(
+      {
+        projects: projects.map((p) => ({
+          projectId: p.id,
+          projectName: p.name,
+          risks: risks.filter((r) => r.projectId === p.id),
+        })),
+        totalRisks: risks.length,
+        ...reminder,
+      },
+      {
+        apiBaseUrl: req.protocol + '://' + req.get('host'),
+        branding: settings.branding,
+      },
+    );
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(htmlReport);
   }),
 );
 

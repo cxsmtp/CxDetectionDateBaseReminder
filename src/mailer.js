@@ -171,7 +171,7 @@ export async function sendTestEmail(smtp, to) {
  *
  * @param {object} settings  Full settings, including the SMTP password.
  * @param {{subject: string, html: string, text: string}} message
- * @param {{to?: string[], cc?: string[], bcc?: string[]}} [overrides]
+ * @param {{to?: string[], cc?: string[], bcc?: string[], attachments?: object[]}} [overrides]
  */
 export async function sendReminderMail(settings, message, overrides = {}) {
   if (!isVerified(settings)) {
@@ -194,7 +194,7 @@ export async function sendReminderMail(settings, message, overrides = {}) {
 
   const transport = buildTransport(settings.smtp);
   try {
-    const info = await transport.sendMail({
+    const mailOptions = {
       from: fromAddress(settings.smtp),
       to,
       cc,
@@ -202,7 +202,13 @@ export async function sendReminderMail(settings, message, overrides = {}) {
       subject: message.subject,
       html: message.html,
       text: message.text,
-    });
+    };
+
+    if (overrides.attachments?.length) {
+      mailOptions.attachments = overrides.attachments;
+    }
+
+    const info = await transport.sendMail(mailOptions);
     return {
       delivered: true,
       messageId: info.messageId,
