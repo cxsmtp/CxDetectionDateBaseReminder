@@ -73,6 +73,13 @@ const scheduler = new Scheduler({
   isVerified,
 });
 
+const escapeHtml = (text) => String(text ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
 const app = express();
 app.use(express.json({ limit: '4mb' }));
 app.use(express.static(publicDir));
@@ -773,6 +780,133 @@ app.post(
 );
 
 app.post(
+  '/api/reminders/send-html-by-initiator',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const { projectIds = null, buckets = [], severities = null } = req.body ?? {};
+    const { lastScan, connection } = req.session;
+    const settings = settingsStore.get();
+
+    if (!lastScan) {
+      return res.status(409).json({ error: 'Fetch the project list first.' });
+    }
+
+    if (!isVerified(settings)) {
+      return res.status(400).json({
+        error:
+          'Test the SMTP connection on the Settings page before sending. ' +
+          'Changing any connection detail clears a previous successful test.',
+      });
+    }
+
+    let projects = lastScan.projects;
+    if (projectIds?.length) {
+      projects = projects.filter((p) => projectIds.includes(p.id));
+    }
+
+    let risks = selectRisks(projects, { buckets: buckets.length ? buckets : [] });
+    if (severities?.length) {
+      risks = risks.filter((r) => severities.includes(r.severity));
+    }
+
+    if (risks.length === 0) {
+      return res.status(400).json({ error: 'No vulnerabilities match that selection.' });
+    }
+
+    const initiatorsByProject = lastScan.initiators ?? {};
+    const groups = groupRisksByInitiator(risks, initiatorsByProject);
+
+    const sendable = groups.filter((group) => group.email);
+    const skipped = groups
+      .filter((group) => !group.email)
+      .map((group) => ({
+        initiator: group.initiator || '(unknown)',
+        riskCount: group.risks.length,
+      }));
+
+    const sent = [];
+    const errors = [];
+
+    for (const group of sendable) {
+      try {
+        const groupRisks = group.risks;
+        const groupProjects = projects.filter((p) => group.projectIds.has(p.id));
+
+        const htmlReport = generateHtmlReport(
+          {
+            projects: groupProjects.map((p) => ({
+              projectId: p.id,
+              projectName: p.name,
+              risks: groupRisks.filter((r) => r.projectId === p.id),
+            })),
+            totalRisks: groupRisks.length,
+          },
+          {
+            apiBaseUrl: req.protocol + '://' + req.get('host'),
+            branding: settings.branding,
+          },
+        );
+
+        const message = {
+          subject: `Vulnerability Report - Interactive Report Attached`,
+          html:
+            `<p>Hi ${escapeHtml(group.initiator || 'Developer')},</p>` +
+            `<p>Please review the attached interactive vulnerability report for your projects. You can triage and remediate findings directly from the HTML file.</p>` +
+            `<p><strong>Features:</strong></p>` +
+            `<ul><li>Click "Triage" or "Remediate" buttons to update finding status</li>` +
+            `<li>Use bulk actions to triage all critical or high-severity findings at once</li>` +
+            `<li>Status updates in real-time in the report</li></ul>` +
+            `<p>Simply open the attached HTML file in your browser to get started.</p>`,
+          text:
+            `Hi ${group.initiator || 'Developer'},\n\nPlease review the attached interactive vulnerability report for your projects. ` +
+            `You can triage and remediate findings directly from the HTML file.\n\n` +
+            `Features:\n` +
+            `- Click "Triage" or "Remediate" buttons to update finding status\n` +
+            `- Use bulk actions to triage all critical or high-severity findings at once\n` +
+            `- Status updates in real-time in the report\n\n` +
+            `Simply open the attached HTML file in your browser to get started.`,
+        };
+
+        const result = await sendReminderMail(settings, message, {
+          to: [group.email],
+          cc: [],
+          bcc: [],
+          attachments: [
+            {
+              filename: `vulnerability-report-${new Date().toISOString().split('T')[0]}.html`,
+              content: htmlReport,
+              contentType: 'text/html',
+            },
+          ],
+        });
+
+        sent.push({
+          initiator: group.initiator,
+          email: group.email,
+          riskCount: group.risks.length,
+          projectCount: group.projectIds.size,
+          messageId: result.messageId,
+        });
+      } catch (error) {
+        errors.push({
+          initiator: group.initiator,
+          email: group.email,
+          error: error.message,
+        });
+      }
+    }
+
+    res.json({
+      delivered: sent.length > 0,
+      sent,
+      skipped,
+      errors: errors.length > 0 ? errors : undefined,
+      summary: `Sent HTML reports to ${sent.length} person(s), skipped ${skipped.length}`,
+    });
+  }),
+);
+
+app.post(
   '/api/reminders/with-attachment',
   requireSession,
   asyncRoute(async (req, res) => {
@@ -799,16 +933,6 @@ app.post(
     if (to.length + cc.length + bcc.length === 0) {
       return res.status(400).json({ error: 'No recipients configured.' });
     }
-
-    // Create email with summary and HTML attachment
-    const summary = buildReminder([], settings.template, {
-      buckets: [],
-      tenant: req.session.connection.tenant,
-      links: settings.links,
-      connection: req.session.connection,
-      branding: settings.branding,
-      initiatorsByProject: {},
-    });
 
     const message = {
       subject: `Vulnerability Report - Interactive Report Attached`,

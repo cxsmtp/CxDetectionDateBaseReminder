@@ -1129,39 +1129,18 @@ async function fetchProjects() {
 async function sendReminderWithHtmlAttachment() {
   const button = $('send');
   button.disabled = true;
-  setStatus('status', 'Generating report and sending…');
+  setStatus('status', 'Generating reports and sending to each developer…');
 
   try {
     const severity = $('severity-filter').value;
 
-    // First, generate the HTML report
-    const reportResponse = await fetch('/api/reports/html', {
+    // Send HTML reports grouped by initiator (each developer gets their own email)
+    const sendResponse = await api('/api/reminders/send-html-by-initiator', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         projectIds: state.selected.size > 0 ? [...state.selected] : null,
         severities: severity ? [severity] : null,
         buckets: [],
-      }),
-    });
-
-    if (!reportResponse.ok) throw new Error(await reportResponse.text());
-    const htmlReport = await reportResponse.text();
-
-    // Parse recipient addresses (comma or newline separated)
-    const parseAddrs = (str) => str.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
-    const recipients = {
-      to: parseAddrs($('send-to').value),
-      cc: parseAddrs($('send-cc').value),
-      bcc: parseAddrs($('send-bcc').value),
-    };
-
-    // Send with HTML attachment
-    const sendResponse = await api('/api/reminders/with-attachment', {
-      method: 'POST',
-      body: JSON.stringify({
-        recipients,
-        htmlReport,
       }),
     });
 
@@ -1268,6 +1247,24 @@ function renderPreview(result) {
 }
 
 function renderSendResult(result) {
+  // Handle HTML report per-initiator response (from /api/reminders/send-html-by-initiator)
+  if (result.summary && (result.sent || result.skipped)) {
+    const parts = [result.summary];
+
+    if (result.sent?.length > 0) {
+      const totalRisks = result.sent.reduce((sum, entry) => sum + entry.riskCount, 0);
+      parts.push(`${totalRisks} total findings`);
+    }
+
+    if (result.errors?.length) {
+      parts.push(`${result.errors.length} error(s).`);
+      console.error('Send errors:', result.errors);
+    }
+
+    setStatus('status', parts.join(' '), result.errors?.length ? 'error' : 'ok');
+    return;
+  }
+
   // Handle HTML attachment response (from /api/reminders/with-attachment)
   if (result.delivered) {
     const recipientCount = (result.recipients?.to?.length || 0) +
@@ -1291,13 +1288,13 @@ function renderSendResult(result) {
       `Sent ${individual.length} email(s) covering ${total} finding(s)` +
         (result.consolidated ? ', plus a consolidated copy to the list.' : '.'),
     ];
-    if (result.failed.length) parts.push(`${result.failed.length} failed.`);
-    if (result.skipped.length) parts.push(`${result.skipped.length} initiator(s) had no email.`);
+    if (result.failed?.length) parts.push(`${result.failed.length} failed.`);
+    if (result.skipped?.length) parts.push(`${result.skipped.length} initiator(s) had no email.`);
 
-    if (result.failed.length) console.error('Failed sends:', result.failed);
-    if (result.skipped.length) console.warn('Skipped initiators:', result.skipped);
+    if (result.failed?.length) console.error('Failed sends:', result.failed);
+    if (result.skipped?.length) console.warn('Skipped initiators:', result.skipped);
 
-    setStatus('status', parts.join(' '), result.failed.length ? 'error' : 'ok');
+    setStatus('status', parts.join(' '), result.failed?.length ? 'error' : 'ok');
     return;
   }
 
