@@ -771,6 +771,91 @@ app.post(
   }),
 );
 
+app.post(
+  '/api/reminders/with-attachment',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const { htmlReport, recipients } = req.body ?? {};
+    const settings = settingsStore.get();
+
+    if (!htmlReport) {
+      return res.status(400).json({ error: 'htmlReport is required.' });
+    }
+
+    if (!isVerified(settings)) {
+      return res.status(400).json({
+        error:
+          'Test the SMTP connection on the Settings page before sending. ' +
+          'Changing any connection detail clears a previous successful test.',
+      });
+    }
+
+    // Use provided recipients or fall back to configured recipients
+    const to = recipients?.to?.length ? recipients.to : settings.recipients.to;
+    const cc = recipients?.cc?.length ? recipients.cc : settings.recipients.cc;
+    const bcc = recipients?.bcc?.length ? recipients.bcc : settings.recipients.bcc;
+
+    if (to.length + cc.length + bcc.length === 0) {
+      return res.status(400).json({ error: 'No recipients configured.' });
+    }
+
+    // Create email with summary and HTML attachment
+    const summary = buildReminder([], settings.template, {
+      buckets: [],
+      tenant: req.session.connection.tenant,
+      links: settings.links,
+      connection: req.session.connection,
+      branding: settings.branding,
+      initiatorsByProject: {},
+    });
+
+    const message = {
+      subject: `Vulnerability Report - Interactive Report Attached`,
+      html:
+        `<p>Hi,</p>` +
+        `<p>Please review the attached interactive vulnerability report. You can triage and remediate findings directly from the HTML file.</p>` +
+        `<p><strong>Features:</strong></p>` +
+        `<ul><li>Click "Triage" or "Remediate" buttons to update finding status</li>` +
+        `<li>Use bulk actions to triage all critical or high-severity findings at once</li>` +
+        `<li>Status updates in real-time in the report</li></ul>` +
+        `<p>Simply open the attached HTML file in your browser to get started.</p>`,
+      text:
+        `Hi,\n\nPlease review the attached interactive vulnerability report. ` +
+        `You can triage and remediate findings directly from the HTML file.\n\n` +
+        `Features:\n` +
+        `- Click "Triage" or "Remediate" buttons to update finding status\n` +
+        `- Use bulk actions to triage all critical or high-severity findings at once\n` +
+        `- Status updates in real-time in the report\n\n` +
+        `Simply open the attached HTML file in your browser to get started.`,
+    };
+
+    try {
+      const result = await sendReminderMail(settings, message, {
+        to,
+        cc,
+        bcc,
+        attachments: [
+          {
+            filename: `vulnerability-report-${new Date().toISOString().split('T')[0]}.html`,
+            content: htmlReport,
+            contentType: 'text/html',
+          },
+        ],
+      });
+
+      res.json({
+        delivered: true,
+        messageId: result.messageId,
+        recipients: { to, cc, bcc },
+        attachment: 'vulnerability-report.html',
+        status: 'Email sent with interactive HTML report attached.',
+      });
+    } catch (error) {
+      res.status(error.status || 500).json({ error: error.message });
+    }
+  }),
+);
+
 // eslint-disable-next-line no-unused-vars -- Express identifies error handlers by arity.
 app.use((error, req, res, next) => {
   const status = error.status && error.status >= 400 && error.status < 600 ? error.status : 500;
