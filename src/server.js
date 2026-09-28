@@ -3,8 +3,18 @@ import path from 'node:path';
 
 import dotenv from 'dotenv';
 import express from 'express';
+import fs from 'node:fs';
 
-dotenv.config({ path: path.join(process.cwd(), '..', '.env') });
+const envPath = path.join(process.cwd(), '..', '.env');
+const envExists = fs.existsSync(envPath);
+console.log(`[dotenv] Looking for .env at: ${envPath}`);
+console.log(`[dotenv] File exists: ${envExists}`);
+const result = dotenv.config({ path: envPath });
+if (!result.error && envExists) {
+  console.log(`[dotenv] Successfully loaded environment variables from parent .env`);
+} else if (result.error && result.error.code !== 'ENOENT') {
+  console.warn(`[dotenv] Error loading .env: ${result.error.message}`);
+}
 
 import { config, configProblems } from './config.js';
 import { filterProjectsByActivity, listProjects } from './cxone/projects.js';
@@ -35,6 +45,10 @@ const settingsStore = new SettingsStore(
   config.settingsFile ? { file: config.settingsFile } : undefined,
 );
 settingsStore.applyEnvironment();
+const settings = settingsStore.get();
+console.log(`[SMTP] Host from env: ${process.env.SMTP_HOST ? `${process.env.SMTP_HOST}:${process.env.SMTP_PORT || '587'}` : 'not set'}`);
+console.log(`[SMTP] Applied Host: ${settings.smtp.host ? `${settings.smtp.host}:${settings.smtp.port}` : 'empty'}`);
+console.log(`[SMTP] Applied User: ${settings.smtp.user ? settings.smtp.user : 'empty'}`);
 let bootstrapSessionId = null;
 
 const automationState = new AutomationState(
