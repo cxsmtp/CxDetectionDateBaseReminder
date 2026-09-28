@@ -14,7 +14,7 @@ import { buildReminder } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
 import { sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
-import { SettingsStore, isVerified, parseAddressList, publicSettings } from './settings.js';
+import { SettingsStore, applyEnvironmentSmtp, isVerified, parseAddressList, publicSettings } from './settings.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
 import {
@@ -31,6 +31,7 @@ const sessions = new SessionStore({ idleMs: config.session.idleMs });
 const settingsStore = new SettingsStore(
   config.settingsFile ? { file: config.settingsFile } : undefined,
 );
+settingsStore.applyEnvironment();
 let bootstrapSessionId = null;
 
 const automationState = new AutomationState(
