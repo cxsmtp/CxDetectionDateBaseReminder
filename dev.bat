@@ -1,10 +1,35 @@
 @echo off
 REM Development script for CxDetectionDateBaseReminder
 REM Run this to quickly start the application for local testing
+REM Loads .env from parent directory
+
+setlocal enabledelayedexpansion
+
+set PARENT_DIR=%cd%
+set ENV_FILE=%PARENT_DIR%\.env
 
 cls
 echo 🚀 CxDetectionDateBaseReminder - Development Mode
 echo.
+
+REM Load .env from parent directory
+if exist "%ENV_FILE%" (
+    echo 📝 Loading .env from parent directory
+    for /f "usebackq delims==" %%a in ("%ENV_FILE%") do (
+        if not "%%a"=="" (
+            if not "%%a:~0,1%"=="#" (
+                set "line=%%a"
+                for /f "tokens=1,2 delims==" %%x in ("!line!") do (
+                    set "%%x=%%y"
+                )
+            )
+        )
+    )
+    echo.
+) else (
+    echo ℹ️  No .env file found in parent directory
+    echo.
+)
 
 REM Check if node_modules exists
 if not exist "node_modules" (
