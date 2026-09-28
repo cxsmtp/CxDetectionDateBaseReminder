@@ -216,9 +216,35 @@ async function disconnect() {
 // Settings page
 // ---------------------------------------------------------------------------
 
+function fillInlineRecipients() {
+  const s = state.settings;
+  if (!s) return;
+  $('send-to').value = s.recipients.to.join('\n');
+  $('send-cc').value = s.recipients.cc.join('\n');
+  $('send-bcc').value = s.recipients.bcc.join('\n');
+}
+
+async function saveInlineRecipients() {
+  setStatus('status', 'Saving recipients…');
+  try {
+    state.settings = await api('/api/settings', {
+      method: 'PUT',
+      body: JSON.stringify({
+        recipients: { to: $('send-to').value, cc: $('send-cc').value, bcc: $('send-bcc').value },
+      }),
+    });
+    fillInlineRecipients();
+    renderRecipientHint();
+    setStatus('status', 'Recipient list saved.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('status', error);
+  }
+}
+
 async function loadSettings() {
   try {
     state.settings = await api('/api/settings');
+    fillInlineRecipients();
     renderRecipientHint();
   } catch (error) {
     if (!handleAuthLoss(error)) console.warn(error.message);
@@ -263,6 +289,13 @@ function renderSettings() {
   $('rcpt-to').value = s.recipients.to.join('\n');
   $('rcpt-cc').value = s.recipients.cc.join('\n');
   $('rcpt-bcc').value = s.recipients.bcc.join('\n');
+
+  $('brand-name').value = s.branding.companyName;
+  $('brand-logo').value = s.branding.logoUrl;
+  $('brand-height').value = s.branding.logoHeight;
+  $('brand-accent').value = /^#[0-9a-f]{6}$/i.test(s.branding.accentColor) ? s.branding.accentColor : '#1d4ed8';
+  $('brand-cta').value = s.branding.callToAction;
+  renderBrandPreview();
 
   $('link-base').value = s.links.baseUrl;
   $('link-project').value = s.links.project;
@@ -440,6 +473,31 @@ async function runAutomationNow() {
   }
 }
 
+/** Show the header exactly as recipients will see it. */
+function renderBrandPreview() {
+  const url = $('brand-logo').value.trim();
+  const name = $('brand-name').value.trim();
+  const accent = $('brand-accent').value;
+  const height = Number($('brand-height').value) || 40;
+  const box = $('brand-preview');
+
+  if (!url && !name) {
+    box.innerHTML = '<p class="hint">No logo or company name — reminders will have a plain header.</p>';
+    return;
+  }
+  if (url && !/^https:\/\//i.test(url) && !/^data:image\//i.test(url)) {
+    box.innerHTML =
+      '<p class="hint error-hint">A logo must be an https URL (or a data: image). Other schemes are blocked by mail clients and will not be saved.</p>';
+    return;
+  }
+
+  box.innerHTML = `<div style="border-bottom:2px solid ${escapeHtml(accent)};padding-bottom:10px">${
+    url
+      ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" style="height:${height}px;max-width:260px;display:block" />`
+      : `<strong style="font-size:17px">${escapeHtml(name)}</strong>`
+  }</div>`;
+}
+
 /** Worked examples, so a wrong UI route is obvious before a mail goes out. */
 function renderLinkExamples(examples) {
   $('link-examples').innerHTML = [
@@ -509,6 +567,13 @@ function settingsPayload() {
       overrides: $('init-overrides').value,
     },
     template: { subject: $('tpl-subject').value, html: $('tpl-html').value },
+    branding: {
+      companyName: $('brand-name').value,
+      logoUrl: $('brand-logo').value,
+      logoHeight: $('brand-height').value,
+      accentColor: $('brand-accent').value,
+      callToAction: $('brand-cta').value,
+    },
     links: {
       baseUrl: $('link-base').value,
       project: $('link-project').value,
@@ -633,13 +698,24 @@ function renderRecipientHint() {
   const { to, cc, bcc } = s.recipients;
   const total = to.length + cc.length + bcc.length;
 
-  const perInitiatorMode = document.querySelector('input[name="groupBy"]:checked')?.value === 'initiator';
+  const mode = document.querySelector('input[name="groupBy"]:checked')?.value ?? 'none';
+  const perInitiatorMode = mode !== 'none';
+
+  $('groupby-hint').textContent = {
+    none: 'Everything in one message to the list on the right.',
+    initiator: "Each person who ran a project's latest scan gets one message covering all of their projects.",
+    project: 'One message per project, each naming that project and its own counts. Someone with four projects gets four messages.',
+  }[mode];
+
+  // The list is only used in "one email to the list" mode; the other two
+  // address people directly, so grey it out rather than implying it applies.
+  $('inline-recipients').style.opacity = mode === 'none' ? '1' : '0.5';
 
   if (!s.verified) {
     el.textContent = 'SMTP has not passed a connection test — sending is disabled.';
     el.className = 'hint error-hint';
   } else if (perInitiatorMode) {
-    el.textContent = "Each scan initiator is addressed directly; this list is not used" +
+    el.textContent = 'Recipients are resolved per message; this list is not used' +
       (s.initiators.copyConfiguredRecipients ? ', except for Cc/Bcc.' : '.');
     el.className = 'hint';
   } else if (total === 0) {
@@ -765,14 +841,19 @@ function collectInitiators() {
         initiator: project.initiator || '',
         email: project.initiatorEmail || '',
         via: project.initiatorVia || 'none',
+        suggestion: project.initiatorSuggestion || '',
+        confidence: project.initiatorConfidence || 'none',
         projects: 0,
         risks: 0,
+        projectIds: [],
       });
     }
     const entry = seen.get(key);
     entry.projects += 1;
     entry.risks += project.totalRisks;
+    entry.projectIds.push(project.projectId);
     if (!entry.email && project.initiatorEmail) entry.email = project.initiatorEmail;
+    if (!entry.suggestion && project.initiatorSuggestion) entry.suggestion = project.initiatorSuggestion;
   }
 
   state.initiators = [...seen.values()].sort((a, b) => b.risks - a.risks);
@@ -791,37 +872,72 @@ function renderInitiatorList() {
     return;
   }
 
-  list.innerHTML = state.initiators
+  // An address is only *needed* for projects actually going out. With projects
+  // selected, only those initiators are asked about; otherwise everyone is in
+  // scope and everyone missing an address is asked.
+  const selected = state.selected;
+  const inScope = (entry) =>
+    selected.size === 0 || entry.projectIds.some((id) => selected.has(id));
+
+  const rows = state.initiators.filter(
+    (entry) => entry.email || entry.suggestion || inScope(entry),
+  );
+
+  list.innerHTML = rows
     .map((entry) => {
       const picked = state.pickedInitiators.has(entry.key);
       const id = `init-${encodeURIComponent(entry.key)}`;
+      const needed = !entry.email && inScope(entry);
 
       return `
-      <div class="initiator-row ${picked ? 'picked' : ''} ${entry.email ? '' : 'missing'}">
+      <div class="initiator-row ${picked ? 'picked' : ''} ${
+        entry.email ? '' : needed ? 'missing' : 'dimmed'
+      }">
         <input type="checkbox" id="${escapeHtml(id)}" data-pick="${escapeHtml(entry.key)}" ${picked ? 'checked' : ''} />
         <div class="initiator-body">
           <label class="initiator-name" for="${escapeHtml(id)}">${escapeHtml(entry.initiator || entry.email)}</label>
           <span class="initiator-meta">${entry.projects} project(s) · ${entry.risks} finding(s)</span>
-          ${
-            entry.email
-              ? `<span class="initiator-mail">${escapeHtml(entry.email)}</span>`
-              : `<span class="initiator-meta error-hint">No email found — tag one below.</span>
-                 <div class="tag-row">
-                   <input type="email" placeholder="name@example.com" data-tag-for="${escapeHtml(entry.key)}" />
-                   <button type="button" data-tag-save="${escapeHtml(entry.key)}">Save</button>
-                 </div>`
-          }
+          ${renderInitiatorAddress(entry, needed)}
         </div>
       </div>`;
     })
     .join('');
 
   const picked = state.pickedInitiators.size;
-  const missing = state.initiators.filter((e) => !e.email).length;
+  const missing = rows.filter((entry) => !entry.email && !entry.suggestion).length;
+  const suggested = rows.filter((entry) => !entry.email && entry.suggestion).length;
+
   $('initiator-summary').textContent =
-    `${state.initiators.length} initiator(s)` +
+    `${rows.length} initiator(s)` +
     (picked ? ` · ${picked} selected` : ' · none selected (all included)') +
-    (missing ? ` · ${missing} missing an email` : '');
+    (suggested ? ` · ${suggested} suggested, confirm below` : '') +
+    (missing ? ` · ${missing} need an address` : '');
+}
+
+/** The address line for one initiator: known, suggested, or missing. */
+function renderInitiatorAddress(entry, needed) {
+  if (entry.email) return `<span class="initiator-mail">${escapeHtml(entry.email)}</span>`;
+
+  if (entry.suggestion) {
+    const label = entry.confidence === 'likely' ? 'Matched from your tenant\'s naming pattern' : 'Best guess';
+    return `
+      <span class="initiator-meta suggested">${escapeHtml(label)} — confirm to use it:</span>
+      <div class="tag-row">
+        <input type="email" value="${escapeHtml(entry.suggestion)}" data-tag-for="${escapeHtml(entry.key)}" />
+        <button type="button" class="primary" data-tag-save="${escapeHtml(entry.key)}">Confirm</button>
+      </div>`;
+  }
+
+  if (!needed) {
+    return '<span class="initiator-meta">No email — not needed for the current selection.</span>';
+  }
+
+  return `
+    <span class="initiator-meta error-hint">No email found — enter one:</span>
+    <div class="tag-row">
+      <input type="email" placeholder="name@example.com" data-tag-for="${escapeHtml(entry.key)}" />
+      <button type="button" data-tag-save="${escapeHtml(entry.key)}">Save</button>
+    </div>`;
 }
 
 /** Save a typed address as an override, and use it immediately. */
@@ -840,6 +956,7 @@ async function tagInitiator(key) {
     // Reflect it locally so the row updates without another fetch.
     entry.email = result.email;
     entry.via = 'override';
+    entry.suggestion = '';
     for (const project of state.projects) {
       if ((project.initiator || project.initiatorEmail) === key) {
         project.initiatorEmail = result.email;
@@ -970,9 +1087,9 @@ async function fetchProjects() {
 }
 
 async function submitReminder({ dryRun }) {
-  // No ticked bucket means no age filter, so a project or initiator selection
-  // is enough on its own.
-  const buckets = [...document.querySelectorAll('input[name="bucket"]:checked')].map((i) => i.value);
+  // Age is already decided by the Scope panel at the top of the page, so this
+  // request carries no bucket filter of its own.
+  const buckets = [];
 
   const groupBy = document.querySelector('input[name="groupBy"]:checked').value;
   const button = dryRun ? $('preview') : $('send');
@@ -1006,7 +1123,7 @@ async function submitReminder({ dryRun }) {
 function renderPreview(result) {
   $('preview-panel').hidden = false;
 
-  if (result.groupBy === 'initiator') {
+  if (result.messages) {
     const total = result.messages.reduce((sum, m) => sum + m.riskCount, 0);
     $('preview-meta').textContent =
       `${result.messages.length} message(s) covering ${total} finding(s)` +
@@ -1020,7 +1137,9 @@ function renderPreview(result) {
           `<div style="font:13px system-ui;padding:8px 12px;background:#eef2ff;border-bottom:1px solid #c7d2fe">
              <strong>To:</strong> ${escapeHtml(m.email)} &nbsp;
              <strong>Subject:</strong> ${escapeHtml(m.subject)} &nbsp;
-             <span style="color:#4f46e5">${m.riskCount} finding(s) across ${m.projectCount} project(s)</span>
+             <span style="color:#4f46e5">${m.riskCount} finding(s)${
+               m.projectName ? ` in ${escapeHtml(m.projectName)}` : ` across ${m.projectCount} project(s)`
+             }</span>
            </div>${m.html}`,
       )
       .join('<hr style="margin:24px 0;border:none;border-top:2px dashed #cbd5e1">');
@@ -1050,7 +1169,7 @@ function renderPreview(result) {
 }
 
 function renderSendResult(result) {
-  if (result.groupBy === 'initiator') {
+  if (result.sent) {
     const total = result.sent.reduce((sum, s) => sum + s.riskCount, 0);
     const parts = [`Sent ${result.sent.length} email(s) covering ${total} finding(s).`];
     if (result.failed.length) parts.push(`${result.failed.length} failed.`);
@@ -1128,6 +1247,10 @@ $('auto-reset').addEventListener('click', async () => {
     if (!handleAuthLoss(error)) showError('auto-message', error);
   }
 });
+$('save-recipients').addEventListener('click', saveInlineRecipients);
+for (const id of ['brand-name', 'brand-logo', 'brand-height', 'brand-accent']) {
+  $(id).addEventListener('input', renderBrandPreview);
+}
 $('save-settings').addEventListener('click', saveSettings);
 $('test-smtp').addEventListener('click', testSmtp);
 $('send-test').addEventListener('click', sendTestEmail);
@@ -1205,6 +1328,7 @@ $('select-all').addEventListener('change', (event) => {
     else state.selected.delete(project.projectId);
   }
   renderProjects();
+  renderInitiatorList();
 });
 
 $('projects-body').addEventListener('change', (event) => {
@@ -1213,6 +1337,7 @@ $('projects-body').addEventListener('change', (event) => {
   if (event.target.checked) state.selected.add(id);
   else state.selected.delete(id);
   renderProjects();
+  renderInitiatorList();
 });
 
 (async function init() {

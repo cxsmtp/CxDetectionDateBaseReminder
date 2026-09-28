@@ -34,7 +34,9 @@ export function mergeAutomation(current, incoming = {}) {
   if ('enabled' in incoming) next.enabled = Boolean(incoming.enabled);
   if ('dryRun' in incoming) next.dryRun = Boolean(incoming.dryRun);
   if ('mode' in incoming) next.mode = incoming.mode === 'digest' ? 'digest' : 'crossing';
-  if ('groupBy' in incoming) next.groupBy = incoming.groupBy === 'none' ? 'none' : 'initiator';
+  if ('groupBy' in incoming) {
+    next.groupBy = ['none', 'initiator', 'project'].includes(incoming.groupBy) ? incoming.groupBy : 'initiator';
+  }
 
   if ('intervalMinutes' in incoming) {
     const minutes = Number.parseInt(incoming.intervalMinutes, 10);

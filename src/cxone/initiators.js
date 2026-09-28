@@ -1,6 +1,7 @@
 import { CxApiError, extractItems, mapWithConcurrency } from './client.js';
 import { getLastScans, lastScanDate } from './projects.js';
 import { isProbeMiss } from './discovery.js';
+import { dominantDomain, fetchDirectory, indexDirectory, suggestEmail } from './directory.js';
 
 /**
  * Who triggered a project's most recent scan, and how to reach them.
@@ -183,6 +184,9 @@ export async function collectInitiators(client, connection, projects, options = 
       initiator: scanInitiator(scan),
       email: '',
       via: 'none',
+      confidence: 'none',
+      suggestedEmail: '',
+      suggestionVia: '',
       scanId: scan?.id ?? scan?.scanId ?? '',
       scanDate: lastScanDate(scan),
     };
@@ -204,54 +208,94 @@ export async function collectInitiators(client, connection, projects, options = 
     }
   }
 
-  // Resolve identities to addresses, looking each distinct name up once.
-  const cache = new Map();
+  // ---- Resolve identities to addresses ------------------------------------
+  // Anything already carrying an address (scan record, override, or a username
+  // that is itself an address) is settled first, and the domains they use tell
+  // us the tenant's naming convention for everyone else.
   for (const [projectId, entry] of Object.entries(byProject)) {
     if (!entry.initiator) continue;
     const direct = resolveFromRules(entry.initiator, scanInitiatorEmail(lastScans[projectId]), rules);
     if (direct.email) {
       entry.email = direct.email;
       entry.via = direct.via;
-      cache.set(entry.initiator, direct);
+      entry.confidence = 'exact';
     }
   }
 
-  const needDirectory = [...new Set(
-    Object.values(byProject).filter((e) => e.initiator && !e.email).map((e) => e.initiator),
-  )];
+  const domain =
+    String(rules.defaultDomain ?? '').trim().replace(/^@/, '') ||
+    dominantDomain(Object.values(byProject).map((entry) => entry.email).filter(Boolean));
 
-  if (useDirectory && needDirectory.length > 0) {
-    const found = await mapWithConcurrency(needDirectory, concurrency, async (name) => ({
-      name,
-      email: await lookupDirectoryEmail(client, connection, name),
-    }));
-    for (const { name, email } of found) {
-      if (email) cache.set(name, { email, via: 'directory' });
-    }
+  // One directory fetch for the whole tenant, rather than a call per username.
+  let index = null;
+  if (useDirectory && Object.values(byProject).some((entry) => entry.initiator && !entry.email)) {
+    const { users, note } = await fetchDirectory(client, connection);
+    if (note) notes.push(note);
+    if (users.length > 0) index = indexDirectory(users);
   }
 
+  const cache = new Map();
   for (const entry of Object.values(byProject)) {
     if (!entry.initiator || entry.email) continue;
+
+    if (!cache.has(entry.initiator)) {
+      cache.set(entry.initiator, suggestEmail(entry.initiator, { index, domain, overrides: rules.overrides ?? {} }));
+    }
     const hit = cache.get(entry.initiator);
-    if (hit?.email) {
+
+    if (hit.confidence === 'exact' && hit.email) {
       entry.email = hit.email;
       entry.via = hit.via;
+      entry.confidence = 'exact';
       continue;
     }
-    const domained = applyDefaultDomain(entry.initiator, rules);
-    if (domained) {
-      entry.email = domained;
-      entry.via = 'default-domain';
-    } else {
-      entry.via = 'unresolved';
-    }
+
+    // A pattern match is offered, not applied: the operator confirms it with
+    // one click, so nobody is mailed at an address the tool invented.
+    entry.suggestedEmail = hit.email;
+    entry.suggestionVia = hit.via;
+    entry.confidence = hit.confidence;
+    entry.via = 'unresolved';
   }
 
   const unresolved = [...new Set(
     Object.values(byProject).filter((e) => e.initiator && !e.email).map((e) => e.initiator),
   )];
 
-  return { byProject, notes, unresolved };
+  const suggested = [...new Set(
+    Object.values(byProject).filter((e) => !e.email && e.suggestedEmail).map((e) => e.initiator),
+  )];
+
+  return { byProject, notes, unresolved, suggested, domain, directorySize: index?.size ?? 0 };
+}
+
+/**
+ * Group findings per project, so someone with four projects gets four
+ * messages -- one per project, each naming that project and its own counts.
+ * The recipient is still whoever ran that project's latest scan.
+ */
+export function groupRisksByProject(risks, byProject) {
+  const groups = new Map();
+
+  for (const risk of risks) {
+    if (!groups.has(risk.projectId)) {
+      const info = byProject[risk.projectId] ?? {};
+      groups.set(risk.projectId, {
+        key: risk.projectId,
+        projectId: risk.projectId,
+        projectName: risk.projectName,
+        initiator: info.initiator ?? '',
+        email: info.email ?? '',
+        via: info.via ?? 'none',
+        projectIds: [risk.projectId],
+        projectCount: 1,
+        risks: [],
+      });
+    }
+    groups.get(risk.projectId).risks.push(risk);
+  }
+
+  return [...groups.values()].sort((a, b) => b.risks.length - a.risks.length);
 }
 
 /**

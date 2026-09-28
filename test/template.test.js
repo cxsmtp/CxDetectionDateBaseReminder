@@ -83,10 +83,12 @@ test('buildReminder renders the administrator template with real values', () => 
     now: new Date('2026-09-17T12:00:00Z'),
   });
 
+  // The subject leads with the project (when the mail covers just one) and the
+  // age of the oldest finding, which is the number that prompts action.
   assert.match(reminder.subject, /2 open finding/);
-  assert.match(reminder.subject, /more than 60 days/);
+  assert.match(reminder.subject, /\[Payments API\]/);
+  assert.match(reminder.subject, /oldest 259 days/);
   assert.match(reminder.html, /SQL_Injection/);
-  assert.match(reminder.html, /1 critical, 1 high/);
   assert.match(reminder.html, /acme/);
   assert.match(reminder.text, /Payments API \(2\)/);
   assert.match(reminder.text, /first detected 2026-01-01/);
@@ -114,4 +116,62 @@ test('a custom template controls the whole message', () => {
   assert.equal(reminder.subject, '[acme] 2 overdue');
   assert.match(reminder.html, /<h1>2<\/h1>/);
   assert.match(reminder.html, /<p>Payments API: 1<\/p>/);
+});
+
+test('the summary header carries a count per severity', () => {
+  const reminder = buildReminder(
+    [
+      risk({ id: '1', severity: 'CRITICAL' }),
+      risk({ id: '2', severity: 'CRITICAL' }),
+      risk({ id: '3', severity: 'HIGH' }),
+      risk({ id: '4', severity: 'LOW' }),
+    ],
+    DEFAULT_TEMPLATE,
+    { buckets: [], tenant: 'acme' },
+  );
+
+  assert.match(reminder.html, /2<\/div>\s*<div[^>]*>Critical/, 'critical count');
+  assert.match(reminder.html, /1<\/div>\s*<div[^>]*>High/, 'high count');
+  assert.match(reminder.html, /0<\/div>\s*<div[^>]*>Medium/, 'medium shows zero, not blank');
+  assert.match(reminder.html, /1<\/div>\s*<div[^>]*>Low/, 'low count');
+});
+
+test('branding renders a logo header and the call to action', () => {
+  const branding = {
+    companyName: 'Acme Corp',
+    logoUrl: 'https://acme.example/logo.png',
+    logoHeight: 48,
+    accentColor: '#aa0000',
+    callToAction: 'Fix the criticals before Friday.',
+  };
+  const reminder = buildReminder([risk()], DEFAULT_TEMPLATE, { buckets: [], tenant: 'acme', branding });
+
+  assert.match(reminder.html, /<img src="https:\/\/acme\.example\/logo\.png"/);
+  assert.match(reminder.html, /alt="Acme Corp"/);
+  assert.match(reminder.html, /height:48px/);
+  assert.match(reminder.html, /#aa0000/);
+  assert.match(reminder.html, /Fix the criticals before Friday\./);
+});
+
+test('with no logo the company name still gives the mail a header', () => {
+  const reminder = buildReminder([risk()], DEFAULT_TEMPLATE, {
+    buckets: [],
+    tenant: 'acme',
+    branding: { companyName: 'Acme Corp', accentColor: '#1d4ed8' },
+  });
+
+  assert.ok(!reminder.html.includes('<img'), 'no broken image when no logo is set');
+  assert.match(reminder.html, /Acme Corp/);
+});
+
+test('a single-project reminder names the project; a multi-project one does not', () => {
+  const one = buildReminder([risk()], DEFAULT_TEMPLATE, { buckets: [], tenant: 'acme' });
+  assert.match(one.subject, /\[Payments API\]/);
+
+  const many = buildReminder([risk(), risk({ projectId: 'p2', projectName: 'Web' })], DEFAULT_TEMPLATE, {
+    buckets: [],
+    tenant: 'acme',
+  });
+  assert.ok(!many.subject.includes('['), 'no project prefix when several are covered');
+  assert.match(many.html, /Open security findings need attention/);
 });

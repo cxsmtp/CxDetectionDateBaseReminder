@@ -7,7 +7,7 @@ import { config, configProblems } from './config.js';
 import { filterProjectsByActivity, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, selectRisks } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
-import { collectInitiators, groupRisksByInitiator } from './cxone/initiators.js';
+import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
 import { buildReminder } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -211,6 +211,7 @@ app.post(
       tenant: req.session.connection.tenant,
       links: settings.links,
       connection: req.session.connection,
+      branding: settings.branding,
       initiatorsByProject: req.session.lastScan?.initiators ?? {},
     });
     res.json({ subject: reminder.subject, html: reminder.html, text: reminder.text });
@@ -432,6 +433,8 @@ app.get(
       summary.initiator = info.initiator ?? '';
       summary.initiatorEmail = info.email ?? '';
       summary.initiatorVia = info.via ?? 'none';
+      summary.initiatorSuggestion = info.suggestedEmail ?? '';
+      summary.initiatorConfidence = info.confidence ?? 'none';
       summary.lastScanDate = info.scanDate ?? null;
       summary.url = projectUrl(summary, req.session.connection, settings.links);
     }
@@ -449,6 +452,9 @@ app.get(
       warning,
       initiatorNotes: initiators.notes,
       unresolvedInitiators: initiators.unresolved,
+      suggestedInitiators: initiators.suggested,
+      initiatorDomain: initiators.domain,
+      directorySize: initiators.directorySize,
       elapsedMs: Date.now() - started,
       totals: result.projects.reduce(
         (acc, summary) => {
@@ -524,11 +530,15 @@ app.post(
       initiatorsByProject,
       links: settings.links,
       connection,
+      branding: settings.branding,
     };
 
     // ---- One email per scan initiator -------------------------------------
-    if (groupBy === 'initiator') {
-      const groups = groupRisksByInitiator(risks, initiatorsByProject);
+    if (groupBy === 'initiator' || groupBy === 'project') {
+      const groups =
+        groupBy === 'project'
+          ? groupRisksByProject(risks, initiatorsByProject)
+          : groupRisksByInitiator(risks, initiatorsByProject);
       const sendable = groups.filter((group) => group.email);
       const skipped = groups
         .filter((group) => !group.email)
@@ -552,11 +562,12 @@ app.post(
       if (dryRun) {
         return res.json({
           dryRun: true,
-          groupBy: 'initiator',
+          groupBy,
           canSend: isVerified(settings),
           skipped,
           messages: prepared.map(({ group, reminder }) => ({
             initiator: group.initiator,
+            projectName: group.projectName ?? '',
             email: group.email,
             via: group.via,
             projectCount: group.projectCount,
@@ -586,6 +597,7 @@ app.post(
           });
           sent.push({
             initiator: group.initiator,
+            projectName: group.projectName ?? '',
             email: group.email,
             riskCount: group.risks.length,
             projectCount: group.projectCount,
@@ -597,7 +609,7 @@ app.post(
       }
 
       return res.json({
-        groupBy: 'initiator',
+        groupBy,
         delivered: sent.length > 0,
         sent,
         failed,

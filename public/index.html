@@ -155,27 +155,24 @@
           <h2>Send reminder</h2>
           <div class="controls">
             <fieldset>
-              <legend>Age since first detection</legend>
-              <label><input type="checkbox" name="bucket" value="0-30" /> Last 30 days</label>
-              <label><input type="checkbox" name="bucket" value="31-60" /> 31–60 days</label>
-              <label><input type="checkbox" name="bucket" value="60+" checked /> More than 60 days</label>
-              <p class="hint" id="bucket-hint">Leave all three unticked to include findings of any age.</p>
-            </fieldset>
-
-            <fieldset>
               <legend>Send as</legend>
-              <label><input type="radio" name="groupBy" value="none" checked /> One email to the configured list</label>
-              <label><input type="radio" name="groupBy" value="initiator" /> One email per scan initiator</label>
-              <p class="hint" id="groupby-hint">
-                Per-initiator mode addresses each person who ran a project's latest scan, with all
-                of their projects' open findings in a single message.
-              </p>
+              <label><input type="radio" name="groupBy" value="none" checked /> One email to the list below</label>
+              <label><input type="radio" name="groupBy" value="initiator" /> One email per person — all their projects together</label>
+              <label><input type="radio" name="groupBy" value="project" /> One email per project — a person with 4 projects gets 4</label>
+              <p class="hint" id="groupby-hint"></p>
             </fieldset>
 
             <fieldset class="grow">
               <legend>Recipients</legend>
-              <p class="hint" id="recipients-hint">Loading…</p>
-              <a href="#/settings" class="link-inline">Change on the Settings page →</a>
+              <div class="grid3" id="inline-recipients">
+                <label class="field"><span>To</span><textarea id="send-to" rows="3" spellcheck="false"></textarea></label>
+                <label class="field"><span>Cc</span><textarea id="send-cc" rows="3" spellcheck="false"></textarea></label>
+                <label class="field"><span>Bcc</span><textarea id="send-bcc" rows="3" spellcheck="false"></textarea></label>
+              </div>
+              <div class="actions compact">
+                <button id="save-recipients" type="button">Save list</button>
+                <span class="hint" id="recipients-hint">Loading…</span>
+              </div>
             </fieldset>
           </div>
 
@@ -375,6 +372,31 @@
           </div>
 
           <div id="auto-runs"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Branding</h2>
+          <p class="hint">
+            Shown in the header of every reminder. A logo must be an <code>https</code> URL that
+            recipients' mail clients can load — most block images from other schemes.
+          </p>
+
+          <div class="grid2">
+            <label class="field"><span>Company name</span><input id="brand-name" placeholder="Acme Corp" /></label>
+            <label class="field"><span>Logo URL (https)</span><input id="brand-logo" spellcheck="false" placeholder="https://acme.com/logo.png" /></label>
+          </div>
+
+          <div class="grid2">
+            <label class="field"><span>Logo height, in pixels</span><input id="brand-height" type="number" min="16" max="200" /></label>
+            <label class="field"><span>Accent colour</span><input id="brand-accent" type="color" /></label>
+          </div>
+
+          <label class="field">
+            <span>Call to action — shown above the findings</span>
+            <textarea id="brand-cta" rows="2" spellcheck="false"></textarea>
+          </label>
+
+          <div id="brand-preview" class="brand-preview"></div>
         </section>
 
         <section class="panel">

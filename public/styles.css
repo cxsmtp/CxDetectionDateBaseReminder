@@ -370,3 +370,18 @@ td.name a:hover { text-decoration: underline; }
 
 #auto-runs { margin-top: 14px; overflow-x: auto; }
 #auto-credential { margin: 14px 0; display: block; }
+
+.actions.compact { margin-top: 8px; gap: 10px; }
+#inline-recipients { transition: opacity .15s ease; }
+.brand-preview {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+}
+input[type="color"] { padding: 2px; height: 36px; width: 72px; }
+
+.initiator-row.dimmed { opacity: 0.55; }
+.initiator-meta.suggested { color: var(--accent); }

@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { listProjects } from './cxone/projects.js';
 import { collectProjectRisks } from './cxone/risks.js';
-import { collectInitiators, groupRisksByInitiator } from './cxone/initiators.js';
+import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
 import { buildReminder } from './reminder.js';
 import { sendReminderMail } from './mailer.js';
 import { DEFAULT_AUTOMATION } from './automation-config.js';
@@ -224,14 +224,20 @@ export async function runOnce({
     initiatorsByProject: initiators.byProject,
     links: settings.links,
     connection,
+    branding: settings.branding,
     now,
   };
 
   const messages = [];
   const failures = [];
 
-  if (automation.groupBy === 'initiator') {
-    for (const group of groupRisksByInitiator(crossed, initiators.byProject)) {
+  if (automation.groupBy === 'initiator' || automation.groupBy === 'project') {
+    const groups =
+      automation.groupBy === 'project'
+        ? groupRisksByProject(crossed, initiators.byProject)
+        : groupRisksByInitiator(crossed, initiators.byProject);
+
+    for (const group of groups) {
       if (!group.email) {
         failures.push({ to: group.initiator || '(unknown)', error: 'No email address could be resolved.' });
         continue;

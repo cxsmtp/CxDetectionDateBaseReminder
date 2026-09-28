@@ -76,6 +76,7 @@ export function buildTemplateData(
     initiatorsByProject = {},
     links = DEFAULT_LINK_TEMPLATES,
     connection = null,
+    branding = {},
   } = {},
 ) {
   const projects = groupByProject(risks, { links, connection, initiatorsByProject }).map((project) => {
@@ -97,8 +98,36 @@ export function buildTemplateData(
     count: counts[key],
   }));
 
+  // A named count per severity, so a template can show the roll-up without
+  // hunting through a loop.
+  const bySeverity = Object.fromEntries(
+    SEVERITY_ORDER.map((key) => [`${key.toLowerCase()}Count`, counts[key] ?? 0]),
+  );
+
+  const oldest = projects
+    .map((project) => project.oldestFirstDetected)
+    .filter((date) => date && date !== 'unknown')
+    .sort()[0] ?? '';
+
+  const maxAge = risks.reduce((max, risk) => Math.max(max, risk.ageDays ?? 0), 0);
+
   return {
     tenant,
+    companyName: branding.companyName ?? '',
+    logoUrl: branding.logoUrl ?? '',
+    logoHeight: branding.logoHeight ?? 40,
+    accentColor: branding.accentColor ?? '#1d4ed8',
+    callToAction: branding.callToAction ?? '',
+    ...bySeverity,
+    oldestFirstDetected: oldest,
+    maxAgeDays: maxAge,
+    // Blank unless the reminder covers exactly one project, which is what the
+    // per-project mode produces.
+    projectName: projects.length === 1 ? projects[0].projectName : '',
+    // Lets a template say "across 4 projects" only when that is true, rather
+    // than "across 1 project(s)" in a per-project mail.
+    multipleProjects: projects.length > 1,
+    projectUrl: projects.length === 1 ? projects[0].url : '',
     // Set when the reminder is addressed to one scan initiator, so a template
     // can greet them by name; empty for a broadcast to the configured list.
     initiator: initiator?.initiator ?? '',

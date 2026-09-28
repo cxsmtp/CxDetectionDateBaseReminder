@@ -64,19 +64,39 @@ Save, and it is applied to the current results immediately **and** stored as an 
 so future fetches resolve it without asking again. Tagging one person never disturbs the
 others.
 
-**Send as → One email per scan initiator** then addresses each person directly. Someone
-who owns five projects gets a single message covering all of their open findings, not
-five messages. Anyone still without an address is reported as skipped — with their
-finding count — rather than silently dropped.
+**Send as** offers three shapes, and the recipient list is edited right there rather
+than on the Settings page:
 
-Checkmarx records the initiator as a username, which is not always an address, so
-resolution is layered (Settings → Scan initiators):
+| Mode | Result |
+| --- | --- |
+| One email to the list | Everything in one message |
+| One email per person | Someone with four projects gets **one** message covering all four |
+| One email per project | Someone with four projects gets **four** messages, each naming its project |
 
-1. an email already on the scan record
-2. the username, when it is itself an address
-3. an explicit `username = email` override
-4. the tenant's IAM directory, if the API key has IAM read access
-5. a default domain appended to the username
+Anyone still without an address is reported as skipped — with their finding count —
+rather than silently dropped.
+
+Age is **not** asked for again here: the Scope panel at the top of the page already
+decided it.
+
+Checkmarx records the initiator as a username, which is not always an address. Most of
+the work is done for you:
+
+1. an email already on the scan record, or a username that *is* an address
+2. an explicit `username = email` override
+3. the tenant's IAM directory — fetched **once** and matched locally, by username,
+   email local part or full name
+4. **the naming pattern your own tenant reveals.** If `avery.speller@checkmarx.com` is
+   already known, then `cx-julian-chuan` is almost certainly
+   `julian.chuan@checkmarx.com`. That suggestion is pre-filled with a **Confirm**
+   button — one click, no typing, and it needs no IAM permission at all.
+
+A suggestion is never applied silently: only an exact match (directory, override or an
+address-shaped username) resolves on its own. Anything inferred waits for a human.
+
+You are also only asked where it matters. **With projects selected, only those projects'
+initiators are prompted for**; the rest are dimmed as "not needed for the current
+selection".
 
 Where the initiator comes from, in order: `/api/projects/last-scan` (bulk, one call per
 50 projects), then `/api/scans?project-id=…` for anything it did not cover. The
@@ -190,6 +210,25 @@ substituted value is URL-encoded, which matters because a risk id such as
 ever emitted. A finding with no scan falls back to its project overview, and if no base
 URL can be resolved the mail still renders — just without links, rather than with broken
 ones.
+
+---
+
+## What the mail looks like
+
+Every reminder opens with your logo (Settings → Branding), then a headline count, a
+**summary band of critical / high / medium / low**, and your call-to-action message —
+so the recipient sees the shape of the problem before the detail. Then the findings,
+each linking straight into Checkmarx One.
+
+A single-project mail is titled with the project name and subject-prefixed `[Project]`;
+a multi-project one is not. The subject always carries the age of the oldest finding,
+since that is the number that prompts action.
+
+Branding takes a company name, an `https` logo URL (or an inline `data:` image), a
+height, an accent colour and the call-to-action text. A logo over plain `http`, or any
+other scheme, is rejected — mail clients block it, and it would be a way to smuggle a
+script URL into a message sent to other people. The Settings page previews the header
+exactly as recipients will see it.
 
 ---
 

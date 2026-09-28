@@ -152,6 +152,15 @@ export const TEMPLATE_VARIABLES = [
   { name: 'totalRisks', description: 'Number of findings in the reminder' },
   { name: 'projectCount', description: 'Number of affected projects' },
   { name: 'severitySummary', description: 'e.g. "2 critical, 5 high"' },
+  { name: 'criticalCount', description: 'Number of critical findings (also highCount, mediumCount, lowCount)' },
+  { name: 'maxAgeDays', description: 'Age of the oldest finding, in days' },
+  { name: 'oldestFirstDetected', description: 'Date of the earliest first detection' },
+  { name: 'projectName', description: 'Set only when the mail covers a single project' },
+  { name: 'multipleProjects', description: 'Truthy only when more than one project is covered' },
+  { name: 'companyName', description: 'Your company name, from Settings -> Branding' },
+  { name: 'logoUrl', description: 'Your logo, shown in the header' },
+  { name: 'accentColor', description: 'Brand colour used for rules and links' },
+  { name: 'callToAction', description: 'The instruction shown above the findings' },
   { name: 'severities', description: 'Loop: {{#severities}}{{label}} {{count}}{{/severities}}' },
   { name: 'projects', description: 'Loop over affected projects' },
   { name: 'initiator', description: 'Who ran the latest scan (per-initiator sends only)' },
@@ -175,22 +184,64 @@ export const TEMPLATE_VARIABLES = [
 
 export const DEFAULT_TEMPLATE = {
   subject:
-    'Checkmarx One: {{totalRisks}} open finding(s) first detected {{scope}}',
-  html: `<div style="max-width:760px;margin:0 auto;padding:24px;font:14px/1.6 system-ui,-apple-system,'Segoe UI',sans-serif;color:#0f172a">
+    '{{#projectName}}[{{projectName}}] {{/projectName}}Checkmarx One: {{totalRisks}} open finding(s), oldest {{maxAgeDays}} days',
 
-  <h2 style="margin:0 0 4px;font-size:19px">Open vulnerabilities need attention</h2>
+  html: `<div style="max-width:780px;margin:0 auto;padding:24px;font:14px/1.6 system-ui,-apple-system,'Segoe UI',sans-serif;color:#0f172a">
 
-  <p style="margin:0 0 20px;color:#475569">
-    <strong>{{totalRisks}}</strong> finding(s) across <strong>{{projectCount}}</strong> project(s)
-    were first detected <strong>{{scope}}</strong> and are still open.
-    {{#severitySummary}}Severity breakdown: {{severitySummary}}.{{/severitySummary}}
+  {{#logoUrl}}
+  <div style="padding-bottom:16px;border-bottom:2px solid {{accentColor}};margin-bottom:20px">
+    <img src="{{logoUrl}}" alt="{{companyName}}" height="{{logoHeight}}" style="height:{{logoHeight}}px;max-width:280px;display:block;border:0" />
+  </div>
+  {{/logoUrl}}
+  {{^logoUrl}}
+  {{#companyName}}
+  <div style="padding-bottom:12px;border-bottom:2px solid {{accentColor}};margin-bottom:20px;font-size:17px;font-weight:600">
+    {{companyName}}
+  </div>
+  {{/companyName}}
+  {{/logoUrl}}
+
+  <h2 style="margin:0 0 6px;font-size:20px">
+    {{#projectName}}{{projectName}}{{/projectName}}{{^projectName}}Open security findings need attention{{/projectName}}
+  </h2>
+
+  <p style="margin:0 0 18px;color:#475569">
+    <strong>{{totalRisks}}</strong> open finding(s){{#multipleProjects}} across <strong>{{projectCount}}</strong> projects{{/multipleProjects}},
+    first detected {{scope}}. The oldest has been open for <strong>{{maxAgeDays}} days</strong>{{#oldestFirstDetected}} (since {{oldestFirstDetected}}){{/oldestFirstDetected}}.
   </p>
+
+  <table role="presentation" style="border-collapse:separate;border-spacing:8px 0;margin:0 0 18px">
+    <tr>
+      <td style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 16px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#b91c1c">{{criticalCount}}</div>
+        <div style="font-size:11px;color:#7f1d1d;text-transform:uppercase;letter-spacing:.05em">Critical</div>
+      </td>
+      <td style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 16px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#c2410c">{{highCount}}</div>
+        <div style="font-size:11px;color:#7c2d12;text-transform:uppercase;letter-spacing:.05em">High</div>
+      </td>
+      <td style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:10px 16px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#a16207">{{mediumCount}}</div>
+        <div style="font-size:11px;color:#713f12;text-transform:uppercase;letter-spacing:.05em">Medium</div>
+      </td>
+      <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 16px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#475569">{{lowCount}}</div>
+        <div style="font-size:11px;color:#334155;text-transform:uppercase;letter-spacing:.05em">Low</div>
+      </td>
+    </tr>
+  </table>
+
+  {{#callToAction}}
+  <p style="margin:0 0 22px;padding:12px 16px;background:#eff6ff;border-left:4px solid {{accentColor}};border-radius:4px;color:#1e3a8a">
+    {{callToAction}}
+  </p>
+  {{/callToAction}}
 
   {{#projects}}
   <h3 style="margin:24px 0 8px;font-size:15px">
-    {{#url}}<a href="{{url}}" style="color:#1d4ed8;text-decoration:none">{{projectName}}</a>{{/url}}
+    {{#url}}<a href="{{url}}" style="color:{{accentColor}};text-decoration:none">{{projectName}}</a>{{/url}}
     {{^url}}{{projectName}}{{/url}}
-    <span style="font-weight:400;color:#64748b">&mdash; {{riskCount}} open</span>
+    <span style="font-weight:400;color:#64748b">&mdash; {{riskCount}} open, oldest {{oldestFirstDetected}}</span>
   </h3>
 
   <table role="presentation" style="border-collapse:collapse;width:100%;font-size:13px">
@@ -208,7 +259,7 @@ export const DEFAULT_TEMPLATE = {
       <tr>
         <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">{{severity}}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">
-          {{#url}}<a href="{{url}}" style="color:#1d4ed8;text-decoration:none">{{title}}</a>{{/url}}
+          {{#url}}<a href="{{url}}" style="color:{{accentColor}};text-decoration:none">{{title}}</a>{{/url}}
           {{^url}}{{title}}{{/url}}
         </td>
         <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;color:#64748b">{{location}}</td>
@@ -223,7 +274,7 @@ export const DEFAULT_TEMPLATE = {
 
   <p style="margin-top:28px;color:#94a3b8;font-size:12px">
     Each finding above links straight to it in Checkmarx One &mdash; click through to start fixing.<br />
-    Sent from the Checkmarx detection-date reminder for tenant {{tenant}} on {{generatedAt}} UTC.
+    Sent for tenant {{tenant}} on {{generatedAt}} UTC.
   </p>
 </div>`,
 };
