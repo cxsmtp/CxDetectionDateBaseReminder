@@ -736,7 +736,8 @@ app.post(
       projects = projects.filter((p) => projectIds.includes(p.id));
     }
 
-    let risks = selectRisks(projects, { buckets: buckets.length ? buckets : ['0-30', '31-60', '60+'] });
+    // For HTML reports, get all risks (no bucket filtering) unless specific buckets requested
+    let risks = selectRisks(projects, { buckets: buckets.length ? buckets : [] });
     if (severities?.length) {
       risks = risks.filter((r) => severities.includes(r.severity));
     }
