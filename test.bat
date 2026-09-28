@@ -8,8 +8,15 @@ setlocal enabledelayedexpansion
 set PARENT_DIR=%cd%\..
 set ENV_FILE=%PARENT_DIR%\.env
 
+cls
 echo.
-echo Running tests...
+echo   ╔════════════════════════════════════════════════════════════╗
+echo   ║                                                            ║
+echo   ║      🧪 CxDetectionDateBaseReminder Test Script 🧪        ║
+echo   ║                                                            ║
+echo   ║   Running Tests • Install Dependencies • Start Server      ║
+echo   ║                                                            ║
+echo   ╚════════════════════════════════════════════════════════════╝
 echo.
 
 REM Load .env from parent directory

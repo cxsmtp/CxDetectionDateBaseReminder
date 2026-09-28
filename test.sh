@@ -9,7 +9,13 @@ PARENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$PARENT_DIR/.env"
 
 echo ""
-echo "Running tests..."
+echo "  ╔════════════════════════════════════════════════════════════╗"
+echo "  ║                                                            ║"
+echo "  ║      🧪 CxDetectionDateBaseReminder Test Script 🧪        ║"
+echo "  ║                                                            ║"
+echo "  ║   Running Tests • Install Dependencies • Start Server      ║"
+echo "  ║                                                            ║"
+echo "  ╚════════════════════════════════════════════════════════════╝"
 echo ""
 
 # Load .env from parent directory

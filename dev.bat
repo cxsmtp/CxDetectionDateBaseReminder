@@ -9,7 +9,14 @@ set PARENT_DIR=%cd%
 set ENV_FILE=%PARENT_DIR%\.env
 
 cls
-echo 🚀 CxDetectionDateBaseReminder - Development Mode
+echo.
+echo   ╔════════════════════════════════════════════════════════════╗
+echo   ║                                                            ║
+echo   ║     🚀 CxDetectionDateBaseReminder Development Mode 🚀    ║
+echo   ║                                                            ║
+echo   ║              Run & Develop Locally With .env               ║
+echo   ║                                                            ║
+echo   ╚════════════════════════════════════════════════════════════╝
 echo.
 
 REM Load .env from parent directory
