@@ -1,82 +1,58 @@
 @echo off
-REM Test automation script for CxDetectionDateBaseReminder
-REM Run this script to clone, install, and test the application
+REM Test script for CxDetectionDateBaseReminder
+REM Run this from the repo directory to run tests
 REM Loads .env from parent directory
 
 setlocal enabledelayedexpansion
 
-set PARENT_DIR=%cd%
+set PARENT_DIR=%cd%\..
 set ENV_FILE=%PARENT_DIR%\.env
-set REPO_URL=https://github.com/cxsmtp/CxDetectionDateBaseReminder.git
-for /f "tokens=2-4 delims=/ " %%a in ('date /t') do (set mydate=%%c%%a%%b)
-for /f "tokens=1-2 delims=/:" %%a in ('time /t') do (set mytime=%%a%%b)
-set TEST_DIR=CxDetectionDateBaseReminder_test_%mydate%_%mytime%
 
+cls
 echo.
-echo 🧪 Starting test automation...
-echo 📁 Test directory: %PARENT_DIR%\%TEST_DIR%
+echo   ╔════════════════════════════════════════════════════════════╗
+echo   ║                                                            ║
+echo   ║      🧪 CxDetectionDateBaseReminder Test Script 🧪        ║
+echo   ║                                                            ║
+echo   ║   Running Tests • Install Dependencies • Start Server      ║
+echo   ║                                                            ║
+echo   ╚════════════════════════════════════════════════════════════╝
 echo.
 
 REM Load .env from parent directory
 if exist "%ENV_FILE%" (
-    echo 📝 Loading .env from parent directory
-    for /f "usebackq delims==" %%a in ("%ENV_FILE%") do (
-        if not "%%a"=="" (
-            if not "%%a:~0,1%"=="#" (
-                set "line=%%a"
-                for /f "tokens=1,2 delims==" %%x in ("!line!") do (
+    echo Loading .env from parent directory
+    for /f "usebackq tokens=* delims=" %%A in ("%ENV_FILE%") do (
+        set "line=%%A"
+        if not "!line!"=="" (
+            if not "!line:~0,1!"=="#" (
+                for /f "tokens=1,* delims==" %%x in ("!line!") do (
                     set "%%x=%%y"
                 )
             )
         )
     )
+    echo.
 ) else (
-    echo ℹ️  No .env file found in parent directory
+    echo No .env file found in parent directory
+    echo.
 )
-echo.
 
-REM Clone the repository
-echo 📥 Cloning repository...
-git clone %REPO_URL% %TEST_DIR%
-if errorlevel 1 (
-    echo ❌ Clone failed!
-    exit /b 1
-)
-cd /d %TEST_DIR%
-
-REM Install dependencies
-echo.
-echo 📦 Installing dependencies...
-call npm install
-if errorlevel 1 (
-    echo ❌ npm install failed!
-    cd /d %PARENT_DIR%
-    exit /b 1
+REM Install dependencies if needed
+if not exist "node_modules" (
+    echo Installing dependencies...
+    call npm install
+    echo.
 )
 
 REM Run tests
-echo.
-echo ✅ Running tests...
+echo Running tests...
 call npm test
-if errorlevel 1 (
-    echo ⚠️ Tests completed with warnings/errors
-)
+echo.
 
 REM Start the server
+echo Starting server...
+echo Open your browser to: http://localhost:3000
+echo Press Ctrl+C to stop the server
 echo.
-echo 🚀 Starting server (press Ctrl+C to stop)...
 call npm start
-
-REM Cleanup after user stops the server
-echo.
-echo 🧹 Cleaning up...
-cd /d %PARENT_DIR%
-rmdir /s /q %TEST_DIR%
-if errorlevel 1 (
-    echo ⚠️ Could not automatically delete test directory
-    echo 📁 Please manually delete: %PARENT_DIR%\%TEST_DIR%
-) else (
-    echo ✨ Test complete! Test directory has been removed.
-)
-echo.
-pause

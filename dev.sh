@@ -8,7 +8,14 @@ set -e
 PARENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$PARENT_DIR/.env"
 
-echo "🚀 CxDetectionDateBaseReminder - Development Mode"
+echo ""
+echo "  ╔════════════════════════════════════════════════════════════╗"
+echo "  ║                                                            ║"
+echo "  ║     🚀 CxDetectionDateBaseReminder Development Mode 🚀    ║"
+echo "  ║                                                            ║"
+echo "  ║              Run & Develop Locally With .env               ║"
+echo "  ║                                                            ║"
+echo "  ╚════════════════════════════════════════════════════════════╝"
 echo ""
 
 # Load .env from parent directory

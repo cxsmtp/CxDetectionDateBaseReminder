@@ -9,17 +9,24 @@ set PARENT_DIR=%cd%
 set ENV_FILE=%PARENT_DIR%\.env
 
 cls
-echo 🚀 CxDetectionDateBaseReminder - Development Mode
+echo.
+echo   ╔════════════════════════════════════════════════════════════╗
+echo   ║                                                            ║
+echo   ║     🚀 CxDetectionDateBaseReminder Development Mode 🚀    ║
+echo   ║                                                            ║
+echo   ║              Run & Develop Locally With .env               ║
+echo   ║                                                            ║
+echo   ╚════════════════════════════════════════════════════════════╝
 echo.
 
 REM Load .env from parent directory
 if exist "%ENV_FILE%" (
     echo 📝 Loading .env from parent directory
-    for /f "usebackq delims==" %%a in ("%ENV_FILE%") do (
-        if not "%%a"=="" (
-            if not "%%a:~0,1%"=="#" (
-                set "line=%%a"
-                for /f "tokens=1,2 delims==" %%x in ("!line!") do (
+    for /f "usebackq tokens=* delims=" %%A in ("%ENV_FILE%") do (
+        set "line=%%A"
+        if not "!line!"=="" (
+            if not "!line:~0,1!"=="#" (
+                for /f "tokens=1,* delims==" %%x in ("!line!") do (
                     set "%%x=%%y"
                 )
             )
