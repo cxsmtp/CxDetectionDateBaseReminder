@@ -1126,51 +1126,16 @@ async function fetchProjects() {
   }
 }
 
-async function previewHtmlReport() {
-  const button = $('preview-html');
+async function sendReminderWithHtmlAttachment() {
+  const button = $('send');
   button.disabled = true;
-  setStatus('html-status', 'Generating report…');
+  setStatus('status', 'Generating report and sending…');
 
   try {
     const severity = $('severity-filter').value;
-    const response = await fetch(
-      `/api/reports/html?${new URLSearchParams({
-        projectIds: state.selected.size > 0 ? [...state.selected].join(',') : '',
-        severities: severity ? severity : '',
-      }).toString()}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectIds: state.selected.size > 0 ? [...state.selected] : null,
-          severities: severity ? [severity] : null,
-          buckets: [],
-        }),
-      },
-    );
 
-    if (!response.ok) throw new Error(await response.text());
-
-    const html = await response.text();
-    $('preview-panel').hidden = false;
-    $('preview-frame').srcdoc = html;
-    setStatus('html-status', 'Report ready.', 'ok');
-    $('preview-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  } catch (error) {
-    if (!handleAuthLoss(error)) showError('html-status', error);
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function downloadHtmlReport() {
-  const button = $('download-html');
-  button.disabled = true;
-  setStatus('html-status', 'Generating report…');
-
-  try {
-    const severity = $('severity-filter').value;
-    const response = await fetch('/api/reports/html', {
+    // First, generate the HTML report
+    const reportResponse = await fetch('/api/reports/html', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1180,55 +1145,29 @@ async function downloadHtmlReport() {
       }),
     });
 
-    if (!response.ok) throw new Error(await response.text());
+    if (!reportResponse.ok) throw new Error(await reportResponse.text());
+    const htmlReport = await reportResponse.text();
 
-    const html = await response.text();
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `vulnerability-report-${new Date().toISOString().split('T')[0]}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    setStatus('html-status', 'Report downloaded.', 'ok');
-  } catch (error) {
-    if (!handleAuthLoss(error)) showError('html-status', error);
-  } finally {
-    button.disabled = false;
-  }
-}
+    // Parse recipient addresses (comma or newline separated)
+    const parseAddrs = (str) => str.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+    const recipients = {
+      to: parseAddrs($('send-to').value),
+      cc: parseAddrs($('send-cc').value),
+      bcc: parseAddrs($('send-bcc').value),
+    };
 
-async function sendReminderWithHtml() {
-  const button = $('send-with-html');
-  button.disabled = true;
-  setStatus('html-status', 'Sending…');
-
-  try {
-    const severity = $('severity-filter').value;
-    const response = await fetch('/api/reports/html', {
+    // Send with HTML attachment
+    const sendResponse = await api('/api/reminders/with-attachment', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        projectIds: state.selected.size > 0 ? [...state.selected] : null,
-        severities: severity ? [severity] : null,
-        buckets: [],
+        recipients,
+        htmlReport,
       }),
     });
 
-    if (!response.ok) throw new Error(await response.text());
-
-    const html = await response.text();
-
-    // For now, just show a message that this feature requires backend integration
-    setStatus(
-      'html-status',
-      'HTML report generated. Backend integration needed for email attachment sending. Use "Send reminder" + manually attach, or implement POST /api/reminders/with-attachment endpoint.',
-      'warning',
-    );
+    renderSendResult(sendResponse);
   } catch (error) {
-    if (!handleAuthLoss(error)) showError('html-status', error);
+    if (!handleAuthLoss(error)) showError('status', error);
   } finally {
     button.disabled = false;
   }
@@ -1240,6 +1179,12 @@ async function submitReminder({ dryRun }) {
   const buckets = [];
 
   const groupBy = document.querySelector('input[name="groupBy"]:checked').value;
+
+  // If user selected HTML report mode, use that flow instead
+  if (groupBy === 'html' && !dryRun) {
+    return sendReminderWithHtmlAttachment();
+  }
+
   const button = dryRun ? $('preview') : $('send');
   button.disabled = true;
   setStatus('status', dryRun ? 'Building preview…' : 'Sending…');
@@ -1375,10 +1320,6 @@ $('send').addEventListener('click', () => submitReminder({ dryRun: false }));
 $('close-preview').addEventListener('click', () => {
   $('preview-panel').hidden = true;
 });
-
-$('preview-html').addEventListener('click', previewHtmlReport);
-$('download-html').addEventListener('click', downloadHtmlReport);
-$('send-with-html').addEventListener('click', sendReminderWithHtml);
 
 for (const radio of document.querySelectorAll('input[name="groupBy"]')) {
   radio.addEventListener('change', renderRecipientHint);
