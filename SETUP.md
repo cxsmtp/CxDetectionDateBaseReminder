@@ -68,6 +68,13 @@ Place this in your **parent directory** (where your scripts are):
 # Get from: Checkmarx One > Settings > API Security > API Keys
 CX_API_KEY=your_api_key_here
 
+# GMAIL SMTP Configuration (for sending emails)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password-here
+
 # OPTIONAL: Server settings
 PORT=3000
 SESSION_IDLE_MINUTES=480
@@ -84,6 +91,49 @@ SESSION_IDLE_MINUTES=480
 - It stays **local** on your machine
 - It's **safe** to store sensitive keys
 - The `.gitignore` automatically excludes it
+
+---
+
+## 📧 Setting Up Gmail SMTP (For Email Sending)
+
+The application needs SMTP credentials to send reminder emails. Here's how to set it up with Gmail:
+
+### 1. Enable 2-Factor Authentication (Required)
+
+Gmail requires 2FA before creating App Passwords:
+
+1. Go to https://myaccount.google.com/security
+2. Click **2-Step Verification**
+3. Follow the prompts to enable it
+4. Confirm your recovery options
+
+### 2. Create Gmail App Password
+
+1. Go to https://myaccount.google.com/apppasswords
+2. In the dropdown, select:
+   - **App:** Mail
+   - **Device:** Windows Computer (or your device type)
+3. Click **Generate**
+4. Google will show a 16-character password (example: `abcd efgh ijkl mnop`)
+5. Copy this password
+
+### 3. Add to Your .env File
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=abcdefghijklmnop
+```
+
+Replace:
+- `your-email@gmail.com` with your actual Gmail address
+- `abcdefghijklmnop` with the 16-character App Password (no spaces)
+
+### ✅ That's It!
+
+Your application can now send emails from your Gmail account.
 
 ---
 
