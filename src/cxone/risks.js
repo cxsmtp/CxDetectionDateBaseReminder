@@ -84,6 +84,8 @@ export function normalizeRisk(raw, project, now = new Date()) {
 
   return {
     id: String(pick(raw, ['id', 'riskId', 'similarityId', 'resultId']) ?? cryptoId()),
+    riskId: String(pick(raw, ['id', 'riskId', 'similarityId', 'resultId']) ?? cryptoId()),
+    scanId: String(pick(raw, ['scanId', 'scan_id']) ?? ''),
     projectId: project.id,
     projectName: project.name,
     title: String(pick(raw, ['riskName', 'title', 'name', 'queryName', 'cveId']) ?? 'Untitled risk'),

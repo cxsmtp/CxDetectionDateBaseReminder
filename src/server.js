@@ -749,6 +749,17 @@ app.post(
       risks = risks.filter((r) => severities.includes(r.severity));
     }
 
+    // Provide diagnostic info if no risks found
+    const diagnostics = risks.length === 0
+      ? `
+        <!-- Diagnostic Info -->
+        <!-- Projects selected: ${projects.length} -->
+        <!-- Total risks in session: ${lastScan.projects.reduce((sum, p) => sum + (p.totalRisks ?? 0), 0)} -->
+        <!-- Buckets filter: ${buckets.length > 0 ? buckets.join(', ') : 'none (include all)'} -->
+        <!-- Severities filter: ${severities?.length > 0 ? severities.join(', ') : 'none (include all)'} -->
+        `
+      : '';
+
     const reminder = buildReminder(risks, settings.template, {
       buckets: buckets.length ? buckets : ['0-30', '31-60', '60+'],
       tenant: connection.tenant,
@@ -772,7 +783,7 @@ app.post(
         apiBaseUrl: req.protocol + '://' + req.get('host'),
         branding: settings.branding,
       },
-    );
+    ) + diagnostics;
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(htmlReport);
