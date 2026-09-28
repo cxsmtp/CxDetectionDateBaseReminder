@@ -1,9 +1,12 @@
 @echo off
 REM Test automation script for CxDetectionDateBaseReminder
 REM Run this script to clone, install, and test the application
+REM Loads .env from parent directory
 
 setlocal enabledelayedexpansion
 
+set PARENT_DIR=%cd%
+set ENV_FILE=%PARENT_DIR%\.env
 set REPO_URL=https://github.com/cxsmtp/CxDetectionDateBaseReminder.git
 for /f "tokens=2-4 delims=/ " %%a in ('date /t') do (set mydate=%%c%%a%%b)
 for /f "tokens=1-2 delims=/:" %%a in ('time /t') do (set mytime=%%a%%b)
@@ -11,7 +14,25 @@ set TEST_DIR=CxDetectionDateBaseReminder_test_%mydate%_%mytime%
 
 echo.
 echo 🧪 Starting test automation...
-echo 📁 Test directory: %cd%\%TEST_DIR%
+echo 📁 Test directory: %PARENT_DIR%\%TEST_DIR%
+echo.
+
+REM Load .env from parent directory
+if exist "%ENV_FILE%" (
+    echo 📝 Loading .env from parent directory
+    for /f "usebackq delims==" %%a in ("%ENV_FILE%") do (
+        if not "%%a"=="" (
+            if not "%%a:~0,1%"=="#" (
+                set "line=%%a"
+                for /f "tokens=1,2 delims==" %%x in ("!line!") do (
+                    set "%%x=%%y"
+                )
+            )
+        )
+    )
+) else (
+    echo ℹ️  No .env file found in parent directory
+)
 echo.
 
 REM Clone the repository
@@ -29,7 +50,7 @@ echo 📦 Installing dependencies...
 call npm install
 if errorlevel 1 (
     echo ❌ npm install failed!
-    cd ..
+    cd /d %PARENT_DIR%
     exit /b 1
 )
 
@@ -49,11 +70,11 @@ call npm start
 REM Cleanup after user stops the server
 echo.
 echo 🧹 Cleaning up...
-cd ..
+cd /d %PARENT_DIR%
 rmdir /s /q %TEST_DIR%
 if errorlevel 1 (
     echo ⚠️ Could not automatically delete test directory
-    echo 📁 Please manually delete: %cd%\%TEST_DIR%
+    echo 📁 Please manually delete: %PARENT_DIR%\%TEST_DIR%
 ) else (
     echo ✨ Test complete! Test directory has been removed.
 )
