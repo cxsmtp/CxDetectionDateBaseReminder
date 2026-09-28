@@ -116,3 +116,34 @@ test('a logo URL is only accepted over https or as an inline image', () => {
   assert.equal(isSafeImageUrl('data:text/html,<script>alert(1)</script>'), false);
   assert.equal(isSafeImageUrl(''), false);
 });
+
+test('a configured domain resolves; an inferred one only suggests', async () => {
+  const { collectInitiators } = await import('../src/cxone/initiators.js');
+
+  // A client that answers the bulk last-scan call and refuses everything else,
+  // so only the naming rules are in play.
+  const client = {
+    async request(path) {
+      if (String(path).includes('last-scan')) return { p1: { id: 's1', initiator: 'cx-jeff-clare' } };
+      const error = new Error('forbidden');
+      error.status = 403;
+      throw error;
+    },
+    async *paginate() {},
+  };
+  const projects = [{ id: 'p1', name: 'A' }];
+  const connection = { iamUrl: '', tenant: '' };
+
+  const configured = await collectInitiators(client, connection, projects, {
+    rules: { defaultDomain: 'checkmarx.com', overrides: {} },
+    useDirectory: false,
+  });
+  assert.equal(configured.byProject.p1.email, 'jeff.clare@checkmarx.com');
+  assert.equal(configured.byProject.p1.via, 'default-domain');
+
+  const inferred = await collectInitiators(client, connection, projects, {
+    rules: { defaultDomain: '', overrides: {} },
+    useDirectory: false,
+  });
+  assert.equal(inferred.byProject.p1.email, '', 'nothing to infer from, so nothing resolved');
+});

@@ -222,8 +222,12 @@ export async function collectInitiators(client, connection, projects, options = 
     }
   }
 
+  // A domain the administrator typed is an instruction, so a match against it
+  // resolves outright. One merely inferred from other addresses is a guess, so
+  // it only ever produces a suggestion to confirm.
+  const configuredDomain = String(rules.defaultDomain ?? '').trim().replace(/^@/, '');
   const domain =
-    String(rules.defaultDomain ?? '').trim().replace(/^@/, '') ||
+    configuredDomain ||
     dominantDomain(Object.values(byProject).map((entry) => entry.email).filter(Boolean));
 
   // One directory fetch for the whole tenant, rather than a call per username.
@@ -243,9 +247,11 @@ export async function collectInitiators(client, connection, projects, options = 
     }
     const hit = cache.get(entry.initiator);
 
-    if (hit.confidence === 'exact' && hit.email) {
+    const trusted = hit.confidence === 'exact' || (configuredDomain && hit.via === 'pattern');
+
+    if (trusted && hit.email) {
       entry.email = hit.email;
-      entry.via = hit.via;
+      entry.via = hit.via === 'pattern' ? 'default-domain' : hit.via;
       entry.confidence = 'exact';
       continue;
     }

@@ -7,6 +7,8 @@ const state = {
   projects: [],
   selected: new Set(),
   sort: { key: '60+', dir: 'desc' },
+  // Set once the operator opens a fully-resolved list on purpose.
+  showAllInitiators: false,
   automation: null,
   initiators: [],
   pickedInitiators: new Set(),
@@ -701,22 +703,29 @@ function renderRecipientHint() {
   const mode = document.querySelector('input[name="groupBy"]:checked')?.value ?? 'none';
   const perInitiatorMode = mode !== 'none';
 
-  $('groupby-hint').textContent = {
-    none: 'Everything in one message to the list on the right.',
-    initiator: "Each person who ran a project's latest scan gets one message covering all of their projects.",
-    project: 'One message per project, each naming that project and its own counts. Someone with four projects gets four messages.',
-  }[mode];
+  const extra = mode !== 'none' && $('also-consolidated').checked ? ' Plus one consolidated copy to the list.' : '';
+  $('groupby-hint').textContent =
+    {
+      none: 'Everything in one message to the recipient list.',
+      initiator: 'Each developer gets one message covering all of their projects.',
+      project: 'One message per project — four projects means four messages.',
+    }[mode] + extra;
 
-  // The list is only used in "one email to the list" mode; the other two
-  // address people directly, so grey it out rather than implying it applies.
-  $('inline-recipients').style.opacity = mode === 'none' ? '1' : '0.5';
+  // The consolidated copy only makes sense when messages are already going to
+  // people individually.
+  $('also-consolidated').disabled = mode === 'none';
+  $('also-consolidated').closest('.mode').classList.toggle('disabled', mode === 'none');
+
+  // The list is used directly in "one email to the list" mode, and for the
+  // consolidated copy otherwise.
+  const listUsed = mode === 'none' || $('also-consolidated').checked;
+  $('inline-recipients').style.opacity = listUsed ? '1' : '0.5';
 
   if (!s.verified) {
     el.textContent = 'SMTP has not passed a connection test — sending is disabled.';
     el.className = 'hint error-hint';
-  } else if (perInitiatorMode) {
-    el.textContent = 'Recipients are resolved per message; this list is not used' +
-      (s.initiators.copyConfiguredRecipients ? ', except for Cc/Bcc.' : '.');
+  } else if (perInitiatorMode && !$('also-consolidated').checked) {
+    el.textContent = 'Not used in this mode — each message is addressed to its own recipient.';
     el.className = 'hint';
   } else if (total === 0) {
     el.textContent = 'No recipients configured.';
@@ -727,8 +736,8 @@ function renderRecipientHint() {
       ` — ${to.slice(0, 3).join(', ')}${to.length > 3 ? ', …' : ''}`;
     el.className = 'hint';
   }
-  const perInitiator = document.querySelector('input[name="groupBy"]:checked')?.value === 'initiator';
-  $('send').disabled = !s.verified || (total === 0 && !perInitiator);
+  const addressedIndividually = mode !== 'none' && !$('also-consolidated').checked;
+  $('send').disabled = !s.verified || (total === 0 && !addressedIndividually);
 }
 
 // ---------------------------------------------------------------------------
@@ -865,10 +874,14 @@ function collectInitiators() {
 
 function renderInitiatorList() {
   const list = $('initiator-list');
+  const note = $('initiator-resolved');
+  const actions = $('initiator-actions');
 
   if (state.initiators.length === 0) {
     list.innerHTML = '<p class="hint">No scan initiator was recorded for any project in these results.</p>';
     $('initiator-summary').textContent = 'None found.';
+    note.hidden = true;
+    actions.hidden = true;
     return;
   }
 
@@ -876,24 +889,50 @@ function renderInitiatorList() {
   // selected, only those initiators are asked about; otherwise everyone is in
   // scope and everyone missing an address is asked.
   const selected = state.selected;
-  const inScope = (entry) =>
-    selected.size === 0 || entry.projectIds.some((id) => selected.has(id));
+  const inScope = (entry) => selected.size === 0 || entry.projectIds.some((id) => selected.has(id));
 
-  const rows = state.initiators.filter(
-    (entry) => entry.email || entry.suggestion || inScope(entry),
-  );
+  const needsAttention = state.initiators.filter((entry) => !entry.email && inScope(entry));
+  const picked = state.pickedInitiators.size;
+  const allResolved = needsAttention.length === 0;
+
+  // Nothing to do and nothing chosen: the list is just noise, so collapse it
+  // to one line. It still opens on demand, because the rows double as the
+  // filter for who a reminder goes to.
+  const collapsed = allResolved && picked === 0 && !state.showAllInitiators;
+
+  note.hidden = !collapsed;
+  actions.hidden = collapsed;
+  list.hidden = collapsed;
+
+  if (collapsed) {
+    note.innerHTML =
+      `All <strong>${state.initiators.length}</strong> scan initiator(s) have an email address — nothing needs your attention. ` +
+      '<button type="button" class="link" id="show-initiators">Show the list</button> to send to only some of them.';
+    $('initiator-summary').textContent = `${state.initiators.length} resolved`;
+    $('show-initiators').addEventListener('click', () => {
+      state.showAllInitiators = true;
+      renderInitiatorList();
+    });
+    return;
+  }
+
+  // Once open, unresolved rows come first: those are the ones blocking a send.
+  const rows = [
+    ...needsAttention,
+    ...state.initiators.filter((entry) => !needsAttention.includes(entry)),
+  ];
 
   list.innerHTML = rows
     .map((entry) => {
-      const picked = state.pickedInitiators.has(entry.key);
+      const isPicked = state.pickedInitiators.has(entry.key);
       const id = `init-${encodeURIComponent(entry.key)}`;
       const needed = !entry.email && inScope(entry);
 
       return `
-      <div class="initiator-row ${picked ? 'picked' : ''} ${
+      <div class="initiator-row ${isPicked ? 'picked' : ''} ${
         entry.email ? '' : needed ? 'missing' : 'dimmed'
       }">
-        <input type="checkbox" id="${escapeHtml(id)}" data-pick="${escapeHtml(entry.key)}" ${picked ? 'checked' : ''} />
+        <input type="checkbox" id="${escapeHtml(id)}" data-pick="${escapeHtml(entry.key)}" ${isPicked ? 'checked' : ''} />
         <div class="initiator-body">
           <label class="initiator-name" for="${escapeHtml(id)}">${escapeHtml(entry.initiator || entry.email)}</label>
           <span class="initiator-meta">${entry.projects} project(s) · ${entry.risks} finding(s)</span>
@@ -903,9 +942,8 @@ function renderInitiatorList() {
     })
     .join('');
 
-  const picked = state.pickedInitiators.size;
-  const missing = rows.filter((entry) => !entry.email && !entry.suggestion).length;
   const suggested = rows.filter((entry) => !entry.email && entry.suggestion).length;
+  const missing = rows.filter((entry) => !entry.email && !entry.suggestion).length;
 
   $('initiator-summary').textContent =
     `${rows.length} initiator(s)` +
@@ -965,6 +1003,7 @@ async function tagInitiator(key) {
     }
     state.settings = result.settings;
 
+    state.showAllInitiators = false;
     renderInitiatorList();
     renderProjects();
     setStatus(
@@ -1056,6 +1095,7 @@ async function fetchProjects() {
     state.lastScan = result;
     state.projects = result.projects;
     state.selected.clear();
+    state.showAllInitiators = false;
     $('select-all').checked = false;
     renderTotals(result.totals);
     collectInitiators();
@@ -1107,6 +1147,7 @@ async function submitReminder({ dryRun }) {
         initiators: state.pickedInitiators.size > 0 ? [...state.pickedInitiators] : null,
         buckets,
         groupBy,
+        alsoConsolidated: groupBy !== 'none' && $('also-consolidated').checked,
         dryRun,
       }),
     });
@@ -1127,11 +1168,16 @@ function renderPreview(result) {
     const total = result.messages.reduce((sum, m) => sum + m.riskCount, 0);
     $('preview-meta').textContent =
       `${result.messages.length} message(s) covering ${total} finding(s)` +
+      (result.consolidated ? ' · plus a consolidated copy to the list' : '') +
       (result.skipped.length ? ` · ${result.skipped.length} initiator(s) skipped` : '') +
       (result.canSend ? '' : ' — SMTP not verified, sending is disabled');
 
     // Stack each person's message so the whole batch can be reviewed at once.
-    $('preview-frame').srcdoc = result.messages
+    const bodies = result.consolidated
+      ? [...result.messages, { ...result.consolidated, email: result.consolidated.to.join(', '), riskCount: total, projectName: 'consolidated copy' }]
+      : result.messages;
+
+    $('preview-frame').srcdoc = bodies
       .map(
         (m) =>
           `<div style="font:13px system-ui;padding:8px 12px;background:#eef2ff;border-bottom:1px solid #c7d2fe">
@@ -1170,8 +1216,15 @@ function renderPreview(result) {
 
 function renderSendResult(result) {
   if (result.sent) {
-    const total = result.sent.reduce((sum, s) => sum + s.riskCount, 0);
-    const parts = [`Sent ${result.sent.length} email(s) covering ${total} finding(s).`];
+    // The consolidated copy repeats findings already counted in the individual
+    // messages, so it must not be added to the total.
+    const individual = result.sent.filter((entry) => entry.initiator !== 'consolidated');
+    const total = individual.reduce((sum, entry) => sum + entry.riskCount, 0);
+
+    const parts = [
+      `Sent ${individual.length} email(s) covering ${total} finding(s)` +
+        (result.consolidated ? ', plus a consolidated copy to the list.' : '.'),
+    ];
     if (result.failed.length) parts.push(`${result.failed.length} failed.`);
     if (result.skipped.length) parts.push(`${result.skipped.length} initiator(s) had no email.`);
 
@@ -1218,6 +1271,7 @@ $('close-preview').addEventListener('click', () => {
 for (const radio of document.querySelectorAll('input[name="groupBy"]')) {
   radio.addEventListener('change', renderRecipientHint);
 }
+$('also-consolidated').addEventListener('change', renderRecipientHint);
 $('auto-save').addEventListener('click', saveAutomation);
 $('auto-run').addEventListener('click', runAutomationNow);
 $('auto-arm').addEventListener('click', async () => {
