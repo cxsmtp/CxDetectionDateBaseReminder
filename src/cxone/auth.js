@@ -6,27 +6,27 @@
  * `ast-app` public client.  Tokens are cached until shortly before expiry.
  */
 
-/** Decode a JWT payload without verifying it (we only read routing claims). */
-export function decodeApiKey(apiKey) {
-  const payload = String(apiKey ?? '').split('.')[1];
-  if (!payload) return null;
-  try {
-    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-  } catch {
-    return null;
-  }
-}
+export { decodeApiKey } from './endpoints.js';
 
 const EXPIRY_SKEW_MS = 30_000;
 
+export class AuthError extends Error {
+  constructor(message, status = 401) {
+    super(message);
+    this.name = 'AuthError';
+    this.status = status;
+  }
+}
+
 export class TokenProvider {
-  #config;
+  #connection;
   #token = null;
   #expiresAt = 0;
   #inFlight = null;
 
-  constructor(config) {
-    this.#config = config;
+  /** @param {{tokenUrl: string, apiKey: string}} connection */
+  constructor(connection) {
+    this.#connection = connection;
   }
 
   /** Drop the cached token; the next call re-authenticates. */
@@ -46,9 +46,9 @@ export class TokenProvider {
   }
 
   async #fetchToken() {
-    const { tokenUrl, apiKey } = this.#config;
-    if (!tokenUrl) throw new Error('Checkmarx One IAM URL/tenant is not configured.');
-    if (!apiKey) throw new Error('CX_API_KEY is not set.');
+    const { tokenUrl, apiKey } = this.#connection;
+    if (!tokenUrl) throw new AuthError('No Checkmarx One IAM URL is configured for this session.');
+    if (!apiKey) throw new AuthError('No Checkmarx One API key is configured for this session.');
 
     const body = new URLSearchParams({
       grant_type: 'refresh_token',
@@ -56,21 +56,30 @@ export class TokenProvider {
       refresh_token: apiKey,
     });
 
-    const response = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
-    });
+    let response;
+    try {
+      response = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+      });
+    } catch (error) {
+      throw new AuthError(`Could not reach the Checkmarx One IAM host at ${tokenUrl}: ${error.message}`, 502);
+    }
 
     if (!response.ok) {
-      const detail = (await response.text().catch(() => '')).slice(0, 500);
-      throw new Error(
-        `Checkmarx One authentication failed (${response.status} ${response.statusText}). ${detail}`.trim(),
+      const detail = (await response.text().catch(() => '')).slice(0, 300);
+      const hint =
+        response.status === 400 || response.status === 401
+          ? 'The API key is invalid, revoked or expired.'
+          : detail;
+      throw new AuthError(
+        `Checkmarx One rejected the API key (${response.status} ${response.statusText}). ${hint}`.trim(),
       );
     }
 
     const data = await response.json();
-    if (!data.access_token) throw new Error('Authentication response did not contain an access_token.');
+    if (!data.access_token) throw new AuthError('Authentication response did not contain an access_token.');
 
     this.#token = data.access_token;
     const lifetimeMs = (Number(data.expires_in) || 600) * 1000;

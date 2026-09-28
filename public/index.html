@@ -4,85 +4,446 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Checkmarx One — Detection Date Reminder</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%232563eb'/%3E%3Cpath d='M8 4v4.4l2.8 1.7' stroke='white' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="topbar">
-      <div>
-        <h1>Checkmarx One — Detection Date Reminder</h1>
-        <p class="sub" id="connection">Checking connection…</p>
+      <div class="brand">
+        <h1>Detection Date Reminder</h1>
+        <p class="sub" id="connection">Starting…</p>
       </div>
-      <button id="fetch" class="primary">Fetch projects</button>
+      <nav class="tabs" id="nav" hidden>
+        <a href="#/dashboard" data-route="dashboard" class="tab">Dashboard</a>
+        <a href="#/settings" data-route="settings" class="tab">Settings</a>
+      </nav>
+      <div class="topbar-actions">
+        <button id="disconnect" hidden>Disconnect</button>
+      </div>
     </header>
 
     <main>
-      <section class="panel" id="totals-panel" hidden>
-        <div class="totals" id="totals"></div>
-      </section>
+      <!-- ================= Connect ================= -->
+      <section class="panel connect" id="connect-panel" hidden>
+        <h2>Connect to Checkmarx One</h2>
+        <p class="hint">
+          Paste an API key from <strong>Settings → Identity &amp; Access Management → API Keys</strong>.
+          The tenant and regional URLs are detected from the key. It is held in the server's memory
+          for this session only and never written to disk.
+        </p>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Projects</h2>
-          <label class="filter">
-            <input type="search" id="filter" placeholder="Filter by project name…" />
+        <form id="connect-form" autocomplete="off">
+          <label class="field">
+            <span>API key</span>
+            <textarea id="api-key" rows="3" spellcheck="false" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…" required></textarea>
           </label>
-        </div>
-        <div class="table-wrap">
-          <table id="projects">
-            <thead>
-              <tr>
-                <th class="checkbox"><input type="checkbox" id="select-all" title="Select all" /></th>
-                <th>Project</th>
-                <th class="num">Total</th>
-                <th class="num">≤ 30d</th>
-                <th class="num">31–60d</th>
-                <th class="num">&gt; 60d</th>
-                <th>Oldest first detection</th>
-              </tr>
-            </thead>
-            <tbody id="projects-body">
-              <tr class="empty">
-                <td colspan="7">Click <strong>Fetch projects</strong> to load projects and first-detection dates.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+
+          <div id="detected" class="detected" hidden></div>
+
+          <details id="advanced">
+            <summary>Advanced — single-tenant / on-prem overrides</summary>
+            <label class="field"><span>IAM URL</span><input id="iam-url" placeholder="https://eu.iam.checkmarx.net" /></label>
+            <label class="field"><span>API URL</span><input id="base-url" placeholder="https://eu.ast.checkmarx.net" /></label>
+            <label class="field"><span>Tenant</span><input id="tenant" placeholder="acme-corp" /></label>
+          </details>
+
+          <div class="actions">
+            <button type="submit" class="primary" id="connect">Connect</button>
+            <span id="connect-status" class="status"></span>
+          </div>
+        </form>
       </section>
 
-      <section class="panel">
-        <h2>Send reminder</h2>
-        <div class="controls">
-          <fieldset>
-            <legend>Age since first detection</legend>
-            <label><input type="checkbox" name="bucket" value="0-30" /> Last 30 days</label>
-            <label><input type="checkbox" name="bucket" value="31-60" /> 31–60 days</label>
-            <label><input type="checkbox" name="bucket" value="60+" checked /> More than 60 days</label>
-          </fieldset>
+      <!-- ================= Dashboard ================= -->
+      <div id="page-dashboard" class="page" hidden>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Scope</h2>
+            <span class="hint" id="scope-summary"></span>
+          </div>
+          <div class="controls">
+            <fieldset>
+              <legend>Projects last scanned in</legend>
+              <select id="activity-preset"></select>
+              <div class="range" id="activity-range" hidden>
+                <label><span>From</span><input type="date" id="activity-from" /></label>
+                <label><span>To</span><input type="date" id="activity-to" /></label>
+              </div>
+              <p class="hint">Skips projects with no scan in this window.</p>
+            </fieldset>
 
-          <fieldset>
-            <legend>Feedback app (recipients)</legend>
-            <select id="feedback-app">
-              <option value="">Loading…</option>
+            <fieldset>
+              <legend>Findings first detected in</legend>
+              <select id="detection-preset"></select>
+              <div class="range" id="detection-range" hidden>
+                <label><span>From</span><input type="date" id="detection-from" /></label>
+                <label><span>To</span><input type="date" id="detection-to" /></label>
+              </div>
+              <p class="hint" id="detection-hint">Sent to the API as fromDate/toDate, so it is filtered server-side.</p>
+            </fieldset>
+
+            <fieldset class="grow">
+              <legend>&nbsp;</legend>
+              <button id="fetch" class="primary big">Fetch vulnerability data</button>
+              <p class="hint" id="fetch-meta"></p>
+            </fieldset>
+          </div>
+        </section>
+
+        <section class="panel" id="totals-panel" hidden>
+          <div class="totals" id="totals"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Projects</h2>
+            <div class="filters">
+              <input type="search" id="filter" placeholder="Search project name…" />
+              <select id="severity-filter">
+                <option value="">All severities</option>
+                <option value="CRITICAL">Critical</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
+              </select>
+              <select id="bucket-filter">
+                <option value="">Any age</option>
+                <option value="0-30">Has ≤ 30d</option>
+                <option value="31-60">Has 31–60d</option>
+                <option value="60+">Has &gt; 60d</option>
+              </select>
+              <label class="check"><input type="checkbox" id="hide-empty" /> Hide projects with no findings</label>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table id="projects">
+              <thead>
+                <tr>
+                  <th class="checkbox"><input type="checkbox" id="select-all" title="Select all" /></th>
+                  <th data-sort="projectName">Project</th>
+                  <th class="num" data-sort="totalRisks">Total</th>
+                  <th class="num" data-sort="0-30">≤ 30d</th>
+                  <th class="num" data-sort="31-60">31–60d</th>
+                  <th class="num" data-sort="60+">&gt; 60d</th>
+                  <th data-sort="maxAgeDays">Oldest first detection</th>
+                  <th data-sort="initiator">Latest scan by</th>
+                </tr>
+              </thead>
+              <tbody id="projects-body">
+                <tr class="empty"><td colspan="8">Click <strong>Fetch vulnerability data</strong> to load projects and first-detection dates.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="hint" id="table-meta"></p>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Scan initiators</h2>
+            <span class="hint" id="initiator-summary">Fetch data to list initiators.</span>
+          </div>
+          <div class="initiator-actions">
+            <button id="init-all" type="button">Select all</button>
+            <button id="init-none" type="button">Clear</button>
+            <button id="init-unresolved" type="button">Only those missing an email</button>
+          </div>
+          <div id="initiator-list" class="initiator-list"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Send reminder</h2>
+          <div class="controls">
+            <fieldset>
+              <legend>Send as</legend>
+              <label><input type="radio" name="groupBy" value="none" checked /> One email to the list below</label>
+              <label><input type="radio" name="groupBy" value="initiator" /> One email per person — all their projects together</label>
+              <label><input type="radio" name="groupBy" value="project" /> One email per project — a person with 4 projects gets 4</label>
+              <p class="hint" id="groupby-hint"></p>
+            </fieldset>
+
+            <fieldset class="grow">
+              <legend>Recipients</legend>
+              <div class="grid3" id="inline-recipients">
+                <label class="field"><span>To</span><textarea id="send-to" rows="3" spellcheck="false"></textarea></label>
+                <label class="field"><span>Cc</span><textarea id="send-cc" rows="3" spellcheck="false"></textarea></label>
+                <label class="field"><span>Bcc</span><textarea id="send-bcc" rows="3" spellcheck="false"></textarea></label>
+              </div>
+              <div class="actions compact">
+                <button id="save-recipients" type="button">Save list</button>
+                <span class="hint" id="recipients-hint">Loading…</span>
+              </div>
+            </fieldset>
+          </div>
+
+          <div class="actions">
+            <button id="preview">Preview email</button>
+            <button id="send" class="primary">Send reminder</button>
+            <span id="status" class="status"></span>
+          </div>
+        </section>
+
+        <section class="panel" id="preview-panel" hidden>
+          <div class="panel-head">
+            <h2>Preview</h2>
+            <button id="close-preview" class="link">Close</button>
+          </div>
+          <p class="hint" id="preview-meta"></p>
+          <iframe id="preview-frame" title="Email preview" sandbox=""></iframe>
+        </section>
+      </div>
+
+      <!-- ================= Settings ================= -->
+      <div id="page-settings" class="page" hidden>
+        <section class="panel">
+          <h2>Checkmarx One connection</h2>
+          <div class="kv" id="connection-details"></div>
+          <div class="actions">
+            <button id="reconnect">Use a different API key</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>SMTP server</h2>
+          <p class="hint">
+            Your own mail server. Nothing can be sent until a connection test succeeds —
+            changing any connection field clears a previous pass.
+          </p>
+
+          <div class="grid2">
+            <label class="field"><span>Host</span><input id="smtp-host" placeholder="smtp.example.com" /></label>
+            <label class="field"><span>Port</span><input id="smtp-port" type="number" min="1" max="65535" /></label>
+          </div>
+
+          <div class="checks">
+            <label class="check"><input type="checkbox" id="smtp-secure" /> Implicit TLS (SMTPS, port 465)</label>
+            <label class="check"><input type="checkbox" id="smtp-auth" /> Server requires authentication</label>
+            <label class="check"><input type="checkbox" id="smtp-reject" /> Verify TLS certificate</label>
+          </div>
+          <p class="hint" id="tls-warning" hidden></p>
+
+          <div class="grid2" id="smtp-credentials">
+            <label class="field"><span>Username</span><input id="smtp-user" autocomplete="off" /></label>
+            <label class="field">
+              <span>Password <span class="muted" id="password-state"></span></span>
+              <input id="smtp-password" type="password" autocomplete="new-password" placeholder="Leave blank to keep the stored one" />
+              <span class="hint" id="password-hint" hidden></span>
+            </label>
+          </div>
+
+          <div class="grid2">
+            <label class="field"><span>From name</span><input id="smtp-from-name" placeholder="Checkmarx Reminders" /></label>
+            <label class="field"><span>From address</span><input id="smtp-from-address" placeholder="security@example.com" /></label>
+          </div>
+
+          <div class="actions">
+            <button id="test-smtp" class="primary">Test connection</button>
+            <input id="test-to" placeholder="you@example.com" class="inline-input" />
+            <button id="send-test">Send test email</button>
+            <span id="smtp-status" class="status"></span>
+          </div>
+          <p class="hint" id="verified-state"></p>
+        </section>
+
+        <section class="panel">
+          <h2>Recipients</h2>
+          <p class="hint">One address per line, or separated by commas. These receive every reminder.</p>
+          <div class="grid3">
+            <label class="field"><span>To</span><textarea id="rcpt-to" rows="4" spellcheck="false"></textarea></label>
+            <label class="field"><span>Cc</span><textarea id="rcpt-cc" rows="4" spellcheck="false"></textarea></label>
+            <label class="field"><span>Bcc</span><textarea id="rcpt-bcc" rows="4" spellcheck="false"></textarea></label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Scan initiators</h2>
+          <p class="hint">
+            Checkmarx records the person who ran a scan as a username, which is not always an
+            email address. These rules turn it into one; the dashboard shows what each project
+            resolved to.
+          </p>
+
+          <div class="checks">
+            <label class="check"><input type="checkbox" id="init-directory" /> Look usernames up in the tenant IAM directory</label>
+            <label class="check"><input type="checkbox" id="init-copy" /> Copy the configured Cc/Bcc on per-initiator emails</label>
+          </div>
+
+          <label class="field">
+            <span>Default domain — appended to a username when nothing else resolves</span>
+            <input id="init-domain" placeholder="example.com" spellcheck="false" />
+          </label>
+
+          <label class="field">
+            <span>Overrides — one <code>username = email</code> per line</span>
+            <textarea id="init-overrides" rows="5" spellcheck="false" class="code" placeholder="jdoe = jane.doe@example.com"></textarea>
+          </label>
+        </section>
+
+        <section class="panel">
+          <h2>Mail template</h2>
+          <p class="hint">
+            The message body is yours to decide. Values are inserted with <code>{{name}}</code> and
+            HTML-escaped; <code>{{{name}}}</code> inserts raw HTML. Repeat a list with
+            <code>{{#projects}}…{{/projects}}</code>, and show a block only when something is empty
+            with <code>{{^projects}}…{{/projects}}</code>.
+          </p>
+
+          <label class="field"><span>Subject</span><input id="tpl-subject" spellcheck="false" /></label>
+          <label class="field">
+            <span>HTML body</span>
+            <textarea id="tpl-html" rows="18" spellcheck="false" class="code"></textarea>
+          </label>
+
+          <details id="variables">
+            <summary>Available variables</summary>
+            <div class="kv" id="variable-list"></div>
+          </details>
+
+          <div class="actions">
+            <button id="preview-template" class="primary">Preview template</button>
+            <button id="reset-template">Restore default</button>
+            <span id="template-status" class="status"></span>
+          </div>
+
+          <div id="template-preview-wrap" hidden>
+            <p class="hint" id="template-subject-preview"></p>
+            <iframe id="template-preview" title="Template preview" sandbox=""></iframe>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Automation</h2>
+            <span class="hint" id="auto-status"></span>
+          </div>
+          <p class="hint">
+            Checks on a timer and mails the moment a finding crosses one of your age
+            thresholds. Each finding is reported <strong>once per threshold</strong>, so a
+            daily sweep does not re-send the same thing every day.
+          </p>
+
+          <div class="checks">
+            <label class="check"><input type="checkbox" id="auto-enabled" /> Run automatically</label>
+            <label class="check"><input type="checkbox" id="auto-dry" /> Dry run — decide and log, but send nothing</label>
+          </div>
+
+          <div class="grid2">
+            <label class="field">
+              <span>Age thresholds, in days</span>
+              <input id="auto-thresholds" spellcheck="false" placeholder="30, 60, 90" />
+            </label>
+            <label class="field">
+              <span>Check every (minutes)</span>
+              <input id="auto-interval" type="number" min="15" max="10080" />
+            </label>
+          </div>
+
+          <div class="grid2">
+            <label class="field">
+              <span>Address to</span>
+              <select id="auto-groupby">
+                <option value="initiator">Each scan initiator</option>
+                <option value="none">The configured recipient list</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Only these severities — blank means all</span>
+              <input id="auto-severities" spellcheck="false" placeholder="CRITICAL, HIGH" />
+            </label>
+          </div>
+
+          <label class="field">
+            <span>When a finding is already past several thresholds</span>
+            <select id="auto-mode">
+              <option value="crossing">Report each threshold once (recommended)</option>
+              <option value="digest">Re-report everything past a threshold on every run</option>
             </select>
-            <p class="hint" id="recipients-hint">Recipients come from the app's configuration in CxONE.</p>
-          </fieldset>
-        </div>
+          </label>
 
-        <div class="actions">
-          <button id="preview">Preview email</button>
-          <button id="send" class="primary">Send reminder</button>
-          <span id="status" class="status"></span>
-        </div>
-      </section>
+          <div class="detected" id="auto-credential"></div>
 
-      <section class="panel" id="preview-panel" hidden>
-        <div class="panel-head">
-          <h2>Preview</h2>
-          <button id="close-preview" class="link">Close</button>
+          <div class="actions">
+            <button id="auto-save" class="primary">Save automation</button>
+            <button id="auto-run">Run once now</button>
+            <button id="auto-arm">Arm with current key</button>
+            <button id="auto-disarm">Forget stored key</button>
+            <button id="auto-reset" class="link">Reset history</button>
+            <span id="auto-message" class="status"></span>
+          </div>
+
+          <div id="auto-runs"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Branding</h2>
+          <p class="hint">
+            Shown in the header of every reminder. A logo must be an <code>https</code> URL that
+            recipients' mail clients can load — most block images from other schemes.
+          </p>
+
+          <div class="grid2">
+            <label class="field"><span>Company name</span><input id="brand-name" placeholder="Acme Corp" /></label>
+            <label class="field"><span>Logo URL (https)</span><input id="brand-logo" spellcheck="false" placeholder="https://acme.com/logo.png" /></label>
+          </div>
+
+          <div class="grid2">
+            <label class="field"><span>Logo height, in pixels</span><input id="brand-height" type="number" min="16" max="200" /></label>
+            <label class="field"><span>Accent colour</span><input id="brand-accent" type="color" /></label>
+          </div>
+
+          <label class="field">
+            <span>Call to action — shown above the findings</span>
+            <textarea id="brand-cta" rows="2" spellcheck="false"></textarea>
+          </label>
+
+          <div id="brand-preview" class="brand-preview"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Links into Checkmarx One</h2>
+          <p class="hint">
+            Every finding in the reminder is a link straight to it in the platform. The web app's
+            routes are not part of the published API reference, so if a link lands in the wrong
+            place, correct the template here — the example below updates as you type.
+          </p>
+
+          <label class="field">
+            <span>Base URL — blank uses the API host your key resolved to</span>
+            <input id="link-base" spellcheck="false" placeholder="https://us.ast.checkmarx.net" />
+          </label>
+          <label class="field">
+            <span>Project link — <code>{baseUrl} {projectId}</code></span>
+            <input id="link-project" spellcheck="false" />
+          </label>
+          <label class="field">
+            <span>Finding link — <code>{baseUrl} {projectId} {scanId} {engine} {riskId}</code></span>
+            <input id="link-risk" spellcheck="false" />
+          </label>
+
+          <div class="kv" id="link-examples"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Risks endpoint</h2>
+          <p class="hint">
+            Defaults to <code>/api/risks/</code>. <strong>Detect</strong> probes the known paths
+            against your tenant and reports what each returned.
+          </p>
+          <label class="field">
+            <span>Path — <code>{projectId}</code> is substituted for a templated endpoint</span>
+            <div class="path-row">
+              <input id="risks-path" spellcheck="false" placeholder="/api/risks/" />
+              <button id="detect-risks" type="button">Detect</button>
+            </div>
+          </label>
+          <div id="probe-results" hidden></div>
+        </section>
+
+        <div class="save-bar">
+          <button id="save-settings" class="primary big">Save settings</button>
+          <span id="save-status" class="status"></span>
         </div>
-        <p class="hint" id="preview-meta"></p>
-        <iframe id="preview-frame" title="Email preview" sandbox=""></iframe>
-      </section>
+      </div>
     </main>
 
     <script type="module" src="app.js"></script>

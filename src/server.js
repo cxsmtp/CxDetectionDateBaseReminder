@@ -4,54 +4,458 @@ import path from 'node:path';
 import express from 'express';
 
 import { config, configProblems } from './config.js';
-import { CxClient } from './cxone/client.js';
-import { listProjects } from './cxone/projects.js';
+import { filterProjectsByActivity, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, selectRisks } from './cxone/risks.js';
-import { getFeedbackApp, listFeedbackApps } from './cxone/feedbackApps.js';
-import { buildReminder, sendReminder } from './reminder.js';
+import { discover } from './cxone/discovery.js';
+import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
+import { buildReminder } from './reminder.js';
+import { exampleLinks, projectUrl } from './links.js';
+import { AutomationState, Scheduler } from './automation.js';
+import { sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
+import { SettingsStore, isVerified, parseAddressList, publicSettings } from './settings.js';
+import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
+import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
+import {
+  SessionStore,
+  clearSessionCookie,
+  describeSession,
+  readSessionCookie,
+  setSessionCookie,
+} from './session.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
-const client = new CxClient(config);
-const app = express();
+const sessions = new SessionStore({ idleMs: config.session.idleMs });
+const settingsStore = new SettingsStore(
+  config.settingsFile ? { file: config.settingsFile } : undefined,
+);
+let bootstrapSessionId = null;
 
-app.use(express.json({ limit: '2mb' }));
-app.use(express.static(publicDir));
+const automationState = new AutomationState(
+  config.settingsFile
+    ? { file: config.settingsFile.replace(/\.json$/, '') + '-automation.json' }
+    : undefined,
+);
 
 /**
- * The last scan result, kept in memory so that "send reminder" works from the
- * selection the user is looking at without re-querying Checkmarx One.
+ * The session unattended runs use. Automation has no browser to paste a key,
+ * so it needs a credential that outlives a session: either CX_API_KEY, or one
+ * the administrator explicitly armed from the Settings page.
  */
-let lastScan = null;
+let automationSessionId = null;
+
+async function resolveAutomationSession() {
+  const existing = sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId);
+  if (existing) return existing;
+
+  const storedKey = settingsStore.get().automationApiKey;
+  if (!storedKey) return null;
+
+  try {
+    const session = await sessions.create(storedKey, config.overrides);
+    automationSessionId = session.id;
+    return session;
+  } catch (error) {
+    console.warn(`! Stored automation key could not be used: ${error.message}`);
+    return null;
+  }
+}
+
+const scheduler = new Scheduler({
+  // The scheduler is synchronous about session lookup, so a key armed while
+  // the process is running is picked up by the refresh below rather than here.
+  resolveSession: () => sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId),
+  state: automationState,
+  settingsStore,
+  config: () => activeConfig(),
+  isVerified,
+});
+
+const app = express();
+app.use(express.json({ limit: '4mb' }));
+app.use(express.static(publicDir));
 
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 
+/** Resolve the caller's session, falling back to the optional bootstrap one. */
+const currentSession = (req) =>
+  sessions.get(readSessionCookie(req)) ?? sessions.get(bootstrapSessionId);
+
+/** Gate for every route that talks to Checkmarx One. */
+function requireSession(req, res, next) {
+  const session = currentSession(req);
+  if (!session) {
+    return res.status(401).json({ error: 'Not connected. Enter your Checkmarx One API key to continue.' });
+  }
+  req.session = session;
+  next();
+}
+
+/** Deployment config with the administrator's pinned risks path layered on. */
+function activeConfig() {
+  const pinned = settingsStore.get().endpoints.risksPath;
+  return pinned ? { ...config, risks: { ...config.risks, path: pinned } } : config;
+}
+
+// ---------------------------------------------------------------------------
+// Connection
+// ---------------------------------------------------------------------------
+
 app.get('/api/health', (req, res) => {
   res.json({
-    ok: configProblems(config).length === 0,
     problems: configProblems(config),
-    tenant: config.tenant,
-    baseUrl: config.baseUrl,
     riskSource: config.risks.source,
-    deliveryMode: config.delivery.mode,
-    smtpConfigured: Boolean(config.delivery.smtp.host),
     buckets: AGE_BUCKETS.map(({ id, label }) => ({ id, label })),
+    windowPresets: WINDOW_PRESETS.map(({ id, label }) => ({ id, label })),
+    templateVariables: TEMPLATE_VARIABLES,
+    defaultTemplate: DEFAULT_TEMPLATE,
   });
 });
 
-/** Fetch projects + their risks, bucketed by first-detection age. */
+app.get('/api/session', (req, res) => {
+  const session = currentSession(req);
+  res.json(session ? describeSession(session) : { connected: false });
+});
+
+/** Verify a pasted API key and open a session for it. */
+app.post(
+  '/api/session',
+  asyncRoute(async (req, res) => {
+    const { apiKey, baseUrl, iamUrl, tenant } = req.body ?? {};
+    const session = await sessions.create(apiKey, {
+      baseUrl: baseUrl || config.overrides.baseUrl,
+      iamUrl: iamUrl || config.overrides.iamUrl,
+      tenant: tenant || config.overrides.tenant,
+    });
+    setSessionCookie(req, res, session.id);
+    res.status(201).json(describeSession(session));
+  }),
+);
+
+app.delete('/api/session', (req, res) => {
+  const id = readSessionCookie(req);
+  if (id) sessions.destroy(id);
+  if (id && id === bootstrapSessionId) bootstrapSessionId = null;
+  clearSessionCookie(res);
+  res.json({ connected: false });
+});
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+app.get('/api/settings', requireSession, (req, res) => {
+  const settings = settingsStore.get();
+  res.json({
+    ...publicSettings(settings),
+    // Rendered from the current templates so a wrong UI route is visible
+    // without having to send a mail to find out.
+    linkExamples: exampleLinks(req.session.connection, settings.links),
+  });
+});
+
+app.put(
+  '/api/settings',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const saved = settingsStore.save(req.body ?? {});
+    res.json({
+      ...publicSettings(saved),
+      linkExamples: exampleLinks(req.session.connection, saved.links),
+    });
+  }),
+);
+
+/** Run the SMTP handshake; success is what unlocks sending. */
+app.post(
+  '/api/settings/smtp/test',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    // Persist the whole form first, so testing never discards edits the
+    // administrator has made to other fields, and so the test always reflects
+    // what is on screen rather than what was last saved.
+    const settings = req.body && Object.keys(req.body).length ? settingsStore.save(req.body) : settingsStore.get();
+    const result = await testConnection(settings.smtp);
+    const saved = settingsStore.markVerified();
+    res.json({ ...result, settings: publicSettings(saved) });
+  }),
+);
+
+app.post(
+  '/api/settings/smtp/send-test',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const [to] = parseAddressList(req.body?.to ?? '');
+    const result = await sendTestEmail(settingsStore.get().smtp, to);
+    res.json(result);
+  }),
+);
+
+/** Render the stored template against sample data, for the editor preview. */
+app.post(
+  '/api/settings/template/preview',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const settings = settingsStore.get();
+    const template = {
+      subject: req.body?.subject ?? settings.template.subject,
+      html: req.body?.html ?? settings.template.html,
+    };
+
+    const risks = req.session.lastScan
+      ? selectRisks(req.session.lastScan.projects, { buckets: [] }).slice(0, 12)
+      : SAMPLE_RISKS;
+
+    const reminder = buildReminder(risks.length ? risks : SAMPLE_RISKS, template, {
+      buckets: ['60+'],
+      tenant: req.session.connection.tenant,
+      links: settings.links,
+      connection: req.session.connection,
+      branding: settings.branding,
+      initiatorsByProject: req.session.lastScan?.initiators ?? {},
+    });
+    res.json({ subject: reminder.subject, html: reminder.html, text: reminder.text });
+  }),
+);
+
+/** Stand-in findings so the template editor works before the first fetch. */
+const SAMPLE_RISKS = [
+  {
+    projectId: '2c7007de-1c72-42bf-80db-97967a6e3e29',
+    scanId: '80f5a95a-ba0e-43d9-9486-d26ac4d82a0b',
+    id: 'cye0DZkmtm6xwMN4J1Td3BKw03o=',
+    projectName: 'Payments API',
+    title: 'SQL Injection',
+    severity: 'HIGH',
+    location: 'src/db/query.js',
+    firstDetectedAt: '2026-02-11T00:00:00.000Z',
+    ageDays: 218,
+    state: 'CONFIRMED',
+    scanner: 'SAST',
+  },
+  {
+    projectId: '2c7007de-1c72-42bf-80db-97967a6e3e29',
+    scanId: '80f5a95a-ba0e-43d9-9486-d26ac4d82a0b',
+    id: 'P/DqljWEGo1ADcofHN6qnx7er5M=',
+    projectName: 'Payments API',
+    title: 'CVE-2024-21538 in cross-spawn',
+    severity: 'CRITICAL',
+    location: 'cross-spawn@7.0.3',
+    firstDetectedAt: '2025-12-02T00:00:00.000Z',
+    ageDays: 289,
+    state: 'TO_VERIFY',
+    scanner: 'SCA',
+  },
+  {
+    projectId: '72e4088c-26a0-46ef-a6fc-e42a2eafd9c3',
+    scanId: 'ef1c75f0-9116-42c2-851f-ba276c7616cc',
+    id: 'FYlX49796MsmZ729jiZ3AXTv/1o=',
+    projectName: 'Web Storefront',
+    title: 'Reflected XSS',
+    severity: 'MEDIUM',
+    location: 'web/render.js',
+    firstDetectedAt: '2026-05-04T00:00:00.000Z',
+    ageDays: 136,
+    state: 'CONFIRMED',
+    scanner: 'SAST',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Endpoint discovery
+// ---------------------------------------------------------------------------
+
+app.post(
+  '/api/discover',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const { client } = req.session;
+    const known = req.session.lastScan?.projects?.[0]?.projectId;
+    const projectId = known ?? (await listProjects(client, { maxItems: 1 }))[0]?.id ?? '';
+
+    const report = await discover(client, {
+      configuredPath: activeConfig().risks.path,
+      projectId,
+    });
+    res.json(report);
+  }),
+);
+
+/**
+ * Attach an email address to a scan initiator whose address could not be
+ * resolved. The address is merged into the stored overrides (so it is
+ * remembered for future fetches) and patched into the current scan, so the
+ * operator can tag someone and send immediately without re-fetching.
+ */
+app.post(
+  '/api/initiators/tag',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const initiator = String(req.body?.initiator ?? '').trim();
+    const [email] = parseAddressList(req.body?.email ?? '');
+
+    if (!initiator) return res.status(400).json({ error: 'Which initiator is this address for?' });
+    if (!email) return res.status(400).json({ error: `"${req.body?.email ?? ''}" is not a valid email address.` });
+
+    const current = settingsStore.get().initiators.overrides;
+    const saved = settingsStore.save({
+      // Merge, so tagging one person never clears the others.
+      initiators: { overrides: { ...current, [initiator]: email } },
+    });
+
+    // Patch the in-memory scan so the new address is usable straight away.
+    let projectsUpdated = 0;
+    for (const info of Object.values(req.session.lastScan?.initiators ?? {})) {
+      if (info.initiator === initiator) {
+        info.email = email;
+        info.via = 'override';
+        projectsUpdated += 1;
+      }
+    }
+    for (const summary of req.session.lastScan?.projects ?? []) {
+      if (summary.initiator === initiator) {
+        summary.initiatorEmail = email;
+        summary.initiatorVia = 'override';
+      }
+    }
+
+    res.json({ initiator, email, projectsUpdated, settings: publicSettings(saved) });
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Automation
+// ---------------------------------------------------------------------------
+
+app.get('/api/automation', requireSession, (req, res) => {
+  const settings = settingsStore.get();
+  res.json({
+    ...scheduler.status,
+    config: settings.automation,
+    keyStored: Boolean(settings.automationApiKey),
+    bootstrapKey: Boolean(config.bootstrapApiKey),
+    canRun: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId)),
+    smtpVerified: isVerified(settings),
+  });
+});
+
+app.put(
+  '/api/automation',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    settingsStore.save({ automation: req.body ?? {} });
+    await resolveAutomationSession();
+    scheduler.sync();
+    res.json({ ...scheduler.status, config: settingsStore.get().automation });
+  }),
+);
+
+/** Store the current session's key so unattended runs can authenticate. */
+app.post(
+  '/api/automation/arm',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    settingsStore.save({ automationApiKey: req.session.connection.apiKey });
+    automationSessionId = req.session.id;
+    scheduler.sync();
+    res.json({ ...scheduler.status, keyStored: true, canRun: true });
+  }),
+);
+
+app.delete('/api/automation/arm', requireSession, (req, res) => {
+  settingsStore.save({ automationApiKey: '' });
+  automationSessionId = null;
+  res.json({ ...scheduler.status, keyStored: false, canRun: Boolean(sessions.get(bootstrapSessionId)) });
+});
+
+/** Run a pass now, without waiting for the timer. */
+app.post(
+  '/api/automation/run',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    // A manual run uses the caller's own session when nothing is armed, so
+    // automation can be rehearsed before a credential is stored.
+    if (!(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId))) {
+      automationSessionId = req.session.id;
+    }
+    const run = await scheduler.tick({ force: true });
+    res.json({ run, status: scheduler.status });
+  }),
+);
+
+/** Forget every reported pair, so the next run reports from scratch. */
+app.post('/api/automation/reset', requireSession, (req, res) => {
+  automationState.reset();
+  res.json(scheduler.status);
+});
+
+// ---------------------------------------------------------------------------
+// Dashboard data
+// ---------------------------------------------------------------------------
+
 app.get(
   '/api/scan',
+  requireSession,
   asyncRoute(async (req, res) => {
-    const problems = configProblems(config);
-    if (problems.length > 0) return res.status(400).json({ error: problems.join(' ') });
+    const { client } = req.session;
+    const active = activeConfig();
 
-    const projects = await listProjects(client);
-    const result = await collectProjectRisks(client, config, projects);
-    lastScan = result;
+    const activityWindow = resolveWindow(
+      { preset: req.query.activityPreset, from: req.query.activityFrom, to: req.query.activityTo },
+      'Project activity',
+    );
+    const detectionWindow = resolveWindow(
+      { preset: req.query.detectionPreset, from: req.query.detectionFrom, to: req.query.detectionTo },
+      'First detection',
+    );
+
+    const started = Date.now();
+    const settings = settingsStore.get();
+    const allProjects = await listProjects(client);
+    const { projects, skipped, warning, lastScans } = await filterProjectsByActivity(
+      client,
+      allProjects,
+      activityWindow,
+    );
+
+    // Who ran each project's *latest* scan, so a rescan moves the reminder to
+    // whoever ran it most recently.
+    const initiators = await collectInitiators(client, req.session.connection, projects, {
+      rules: settings.initiators,
+      useDirectory: settings.initiators.useDirectory,
+      concurrency: config.concurrency,
+      lastScans: Object.keys(lastScans ?? {}).length ? lastScans : undefined,
+    });
+
+    const result = await collectProjectRisks(client, active, projects, { detectionWindow });
+    for (const summary of result.projects) {
+      const info = initiators.byProject[summary.projectId] ?? {};
+      summary.initiator = info.initiator ?? '';
+      summary.initiatorEmail = info.email ?? '';
+      summary.initiatorVia = info.via ?? 'none';
+      summary.initiatorSuggestion = info.suggestedEmail ?? '';
+      summary.initiatorConfidence = info.confidence ?? 'none';
+      summary.lastScanDate = info.scanDate ?? null;
+      summary.url = projectUrl(summary, req.session.connection, settings.links);
+    }
+    result.initiators = initiators.byProject;
+    req.session.lastScan = result;
 
     res.json({
       ...result,
+      windows: {
+        activity: describeWindow(activityWindow),
+        detection: describeWindow(detectionWindow),
+      },
+      projectsTotal: allProjects.length,
+      projectsSkipped: skipped,
+      warning,
+      initiatorNotes: initiators.notes,
+      unresolvedInitiators: initiators.unresolved,
+      suggestedInitiators: initiators.suggested,
+      initiatorDomain: initiators.domain,
+      directorySize: initiators.directorySize,
+      elapsedMs: Date.now() - started,
       totals: result.projects.reduce(
         (acc, summary) => {
           acc.projects += 1;
@@ -59,64 +463,188 @@ app.get(
           for (const [bucket, count] of Object.entries(summary.counts)) {
             acc.counts[bucket] = (acc.counts[bucket] ?? 0) + count;
           }
+          for (const [severity, count] of Object.entries(summary.bySeverity)) {
+            acc.severities[severity] = (acc.severities[severity] ?? 0) + count;
+          }
           return acc;
         },
-        { projects: 0, risks: 0, counts: {} },
+        { projects: 0, risks: 0, counts: {}, severities: {} },
       ),
     });
   }),
 );
 
-app.get(
-  '/api/feedback-apps',
-  asyncRoute(async (req, res) => {
-    const { path: resolvedPath, apps } = await listFeedbackApps(client, config);
-    res.json({
-      path: resolvedPath,
-      apps: apps.map(({ raw, ...app }) => app),
-    });
-  }),
-);
+// ---------------------------------------------------------------------------
+// Reminders
+// ---------------------------------------------------------------------------
 
-/** Preview or send a reminder for the selected projects and age buckets. */
 app.post(
   '/api/reminders',
+  requireSession,
   asyncRoute(async (req, res) => {
-    const { feedbackAppId, projectIds = null, buckets = [], severities = null, dryRun = false } = req.body ?? {};
+    const {
+      projectIds = null,
+      buckets = [],
+      severities = null,
+      initiators: wantedInitiators = null,
+      groupBy = 'none',
+      dryRun = false,
+      recipients,
+    } = req.body ?? {};
+
+    const { lastScan, connection } = req.session;
+    const settings = settingsStore.get();
 
     if (!lastScan) {
       return res.status(409).json({ error: 'Fetch the project list first, then send a reminder.' });
     }
-    if (!Array.isArray(buckets) || buckets.length === 0) {
-      return res.status(400).json({ error: 'Select at least one age bucket (30 / 60 / 60+ days).' });
-    }
-    if (!dryRun && !feedbackAppId) {
-      return res.status(400).json({ error: 'Select the feedback app that holds the recipient list.' });
+    // An empty bucket list means "no age filter", so a selection of projects or
+    // initiators is enough on its own to send.
+    const ageBuckets = Array.isArray(buckets) ? buckets : [];
+
+    const initiatorsByProject = lastScan.initiators ?? {};
+
+    // Narrowing by initiator is a project-level filter: a finding belongs to
+    // whoever ran that project's latest scan.
+    let scopedProjectIds = projectIds;
+    if (Array.isArray(wantedInitiators) && wantedInitiators.length > 0) {
+      const wanted = new Set(wantedInitiators);
+      const matching = Object.entries(initiatorsByProject)
+        .filter(([, info]) => wanted.has(info.email) || wanted.has(info.initiator))
+        .map(([projectId]) => projectId);
+      scopedProjectIds = projectIds ? matching.filter((id) => projectIds.includes(id)) : matching;
     }
 
-    const risks = selectRisks(lastScan.projects, { projectIds, buckets, severities });
+    const risks = selectRisks(lastScan.projects, {
+      projectIds: scopedProjectIds,
+      buckets: ageBuckets,
+      severities,
+    });
     if (risks.length === 0) {
       return res.status(400).json({ error: 'No vulnerabilities match that selection.' });
     }
 
-    const reminder = buildReminder(risks, { buckets });
+    const common = {
+      buckets: ageBuckets,
+      tenant: connection.tenant,
+      initiatorsByProject,
+      links: settings.links,
+      connection,
+      branding: settings.branding,
+    };
+
+    // ---- One email per scan initiator -------------------------------------
+    if (groupBy === 'initiator' || groupBy === 'project') {
+      const groups =
+        groupBy === 'project'
+          ? groupRisksByProject(risks, initiatorsByProject)
+          : groupRisksByInitiator(risks, initiatorsByProject);
+      const sendable = groups.filter((group) => group.email);
+      const skipped = groups
+        .filter((group) => !group.email)
+        .map((group) => ({
+          initiator: group.initiator || '(unknown)',
+          riskCount: group.risks.length,
+          projectCount: group.projectCount,
+          reason: group.initiator
+            ? 'No email address could be resolved for this user.'
+            : 'No initiator recorded on the latest scan.',
+        }));
+
+      const prepared = sendable.map((group) => ({
+        group,
+        reminder: buildReminder(risks.filter((r) => group.projectIds.includes(r.projectId)), settings.template, {
+          ...common,
+          initiator: group,
+        }),
+      }));
+
+      if (dryRun) {
+        return res.json({
+          dryRun: true,
+          groupBy,
+          canSend: isVerified(settings),
+          skipped,
+          messages: prepared.map(({ group, reminder }) => ({
+            initiator: group.initiator,
+            projectName: group.projectName ?? '',
+            email: group.email,
+            via: group.via,
+            projectCount: group.projectCount,
+            riskCount: group.risks.length,
+            subject: reminder.subject,
+            html: reminder.html,
+          })),
+        });
+      }
+
+      if (prepared.length === 0) {
+        return res.status(400).json({
+          error: 'No scan initiator in this selection has a resolvable email address.',
+          skipped,
+        });
+      }
+
+      // Sent one at a time so a single bad address cannot lose the rest.
+      const sent = [];
+      const failed = [];
+      for (const { group, reminder } of prepared) {
+        try {
+          const result = await sendReminderMail(settings, reminder, {
+            to: [group.email],
+            cc: settings.initiators.copyConfiguredRecipients ? settings.recipients.cc : [],
+            bcc: settings.initiators.copyConfiguredRecipients ? settings.recipients.bcc : [],
+          });
+          sent.push({
+            initiator: group.initiator,
+            projectName: group.projectName ?? '',
+            email: group.email,
+            riskCount: group.risks.length,
+            projectCount: group.projectCount,
+            messageId: result.messageId,
+          });
+        } catch (error) {
+          failed.push({ initiator: group.initiator, email: group.email, error: error.message });
+        }
+      }
+
+      return res.json({
+        groupBy,
+        delivered: sent.length > 0,
+        sent,
+        failed,
+        skipped,
+        totalRisks: risks.length,
+      });
+    }
+
+    // ---- One email to the configured recipient list ------------------------
+    const reminder = buildReminder(risks, settings.template, common);
 
     if (dryRun) {
       return res.json({
         dryRun: true,
+        groupBy: 'none',
         subject: reminder.subject,
         html: reminder.html,
         text: reminder.text,
-        totalRisks: reminder.totalRisks,
-        projects: reminder.groups.length,
-        recipients: feedbackAppId ? (await getFeedbackApp(client, config, feedbackAppId)).recipients : [],
+        totalRisks: risks.length,
+        projects: reminder.projects.length,
+        recipients: settings.recipients,
+        canSend: isVerified(settings),
       });
     }
 
-    const feedbackApp = await getFeedbackApp(client, config, feedbackAppId);
-    const result = await sendReminder({ client, config, app: feedbackApp, reminder, buckets });
+    const overrides = recipients
+      ? {
+          to: parseAddressList(recipients.to ?? []),
+          cc: parseAddressList(recipients.cc ?? []),
+          bcc: parseAddressList(recipients.bcc ?? []),
+        }
+      : {};
 
-    res.json({ ...result, totalRisks: reminder.totalRisks, projects: reminder.groups.length });
+    const result = await sendReminderMail(settings, reminder, overrides);
+    res.json({ ...result, groupBy: 'none', totalRisks: risks.length, projects: reminder.projects.length });
   }),
 );
 
@@ -127,15 +655,38 @@ app.use((error, req, res, next) => {
   res.status(status).json({ error: error.message ?? 'Unexpected error.', detail: error.body ?? undefined });
 });
 
-const server = app.listen(config.port, config.host, () => {
-  const problems = configProblems(config);
+async function bootstrap() {
+  if (!config.bootstrapApiKey) return;
+  try {
+    const session = await sessions.create(config.bootstrapApiKey, config.overrides);
+    bootstrapSessionId = session.id;
+    console.log(`Bootstrapped from CX_API_KEY: tenant ${session.connection.tenant}`);
+  } catch (error) {
+    console.warn(`! CX_API_KEY was set but could not be used: ${error.message}`);
+  }
+}
+
+const server = app.listen(config.port, config.host, async () => {
   console.log(`Checkmarx detection-date reminder running on http://${config.host}:${config.port}`);
-  if (config.tenant) console.log(`Tenant: ${config.tenant}  API: ${config.baseUrl}`);
-  for (const problem of problems) console.warn(`! ${problem}`);
+  console.log(`Settings file: ${settingsStore.file}`);
+  for (const problem of configProblems(config)) console.warn(`! ${problem}`);
+  await bootstrap();
+  await resolveAutomationSession();
+  scheduler.sync();
+  const automation = settingsStore.get().automation;
+  if (automation.enabled) {
+    console.log(
+      `Automation on: every ${automation.intervalMinutes}m, thresholds ${automation.thresholds.join('/')} days` +
+        (automation.dryRun ? ' (dry run)' : ''),
+    );
+  }
 });
 
-const shutdown = () => server.close(() => process.exit(0));
+const shutdown = () => {
+  scheduler.stop();
+  server.close(() => process.exit(0));
+};
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-export { app };
+export { app, sessions, settingsStore };
