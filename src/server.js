@@ -488,6 +488,7 @@ app.post(
       severities = null,
       initiators: wantedInitiators = null,
       groupBy = 'none',
+      alsoConsolidated = false,
       dryRun = false,
       recipients,
     } = req.body ?? {};
@@ -559,10 +560,20 @@ app.post(
         }),
       }));
 
+      // One extra message to the configured list, summarising everything the
+      // individual messages covered, so a lead sees the whole picture.
+      const consolidated =
+        alsoConsolidated && settings.recipients.to.length > 0
+          ? buildReminder(risks, settings.template, common)
+          : null;
+
       if (dryRun) {
         return res.json({
           dryRun: true,
           groupBy,
+          consolidated: consolidated
+            ? { subject: consolidated.subject, html: consolidated.html, to: settings.recipients.to }
+            : null,
           canSend: isVerified(settings),
           skipped,
           messages: prepared.map(({ group, reminder }) => ({
@@ -608,12 +619,28 @@ app.post(
         }
       }
 
+      if (consolidated) {
+        try {
+          const result = await sendReminderMail(settings, consolidated);
+          sent.push({
+            initiator: 'consolidated',
+            email: result.recipients.to.join(', '),
+            riskCount: risks.length,
+            projectCount: new Set(risks.map((risk) => risk.projectId)).size,
+            messageId: result.messageId,
+          });
+        } catch (error) {
+          failed.push({ initiator: 'consolidated', email: 'list', error: error.message });
+        }
+      }
+
       return res.json({
         groupBy,
         delivered: sent.length > 0,
         sent,
         failed,
         skipped,
+        consolidated: Boolean(consolidated),
         totalRisks: risks.length,
       });
     }

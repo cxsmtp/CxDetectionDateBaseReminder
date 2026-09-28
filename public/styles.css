@@ -385,3 +385,16 @@ input[type="color"] { padding: 2px; height: 36px; width: 72px; }
 
 .initiator-row.dimmed { opacity: 0.55; }
 .initiator-meta.suggested { color: var(--accent); }
+
+.resolved-note { margin: 0; color: var(--muted); font-size: 13px; }
+.resolved-note strong { color: var(--ok); }
+.resolved-note button.link { font-size: 13px; padding: 0 2px; }
+
+/* A fieldset stretched by a taller sibling would otherwise space its rows
+   out to fill the height; pack them at the top instead. */
+fieldset { align-content: start; }
+
+.send-modes { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.send-modes .mode { display: flex; align-items: center; gap: 7px; font-size: 13px; white-space: nowrap; }
+.send-modes .check-mode { padding-left: 10px; border-left: 1px solid var(--border); color: var(--muted); }
+.send-modes .mode.disabled { opacity: 0.45; }

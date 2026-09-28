@@ -54,10 +54,11 @@ Each project shows **who ran its latest scan** and the email that resolved to. A
 rescan it is the latest scan that counts, so the reminder follows whoever ran it most
 recently, not whoever ran it first.
 
-The **Scan initiators** panel lists everyone found in the current results with their
-project and finding counts. Tick **any number** of them to narrow the table and the
-reminder; ticking none includes everyone. *Select all*, *Clear* and *Only those missing
-an email* are there for the common cases.
+The **Scan initiators** panel only takes up room when it has something to say. When every
+initiator has an address and you have not narrowed the list, it collapses to a single
+line — *"All 11 scan initiators have an email address"* — with a link to open it, since
+the rows double as the filter for who a reminder goes to. Anything needing attention
+sorts to the top and keeps the panel open.
 
 Anyone whose address could not be resolved gets an inline field: type an address, press
 Save, and it is applied to the current results immediately **and** stored as an override
@@ -70,8 +71,12 @@ than on the Settings page:
 | Mode | Result |
 | --- | --- |
 | One email to the list | Everything in one message |
-| One email per person | Someone with four projects gets **one** message covering all four |
-| One email per project | Someone with four projects gets **four** messages, each naming its project |
+| One per developer | Someone with four projects gets **one** message covering all four |
+| One per project | Someone with four projects gets **four** messages, each naming its project |
+
+Either of the per-person modes can add **…plus a consolidated copy to the list**, so the
+developers get their own messages *and* a lead gets the whole picture in one. The
+recipient list is its own block below, so it is clear when it applies.
 
 Anyone still without an address is reported as skipped — with their finding count —
 rather than silently dropped.
