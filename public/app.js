@@ -1268,6 +1268,19 @@ function renderPreview(result) {
 }
 
 function renderSendResult(result) {
+  // Handle HTML attachment response (from /api/reminders/with-attachment)
+  if (result.delivered) {
+    const recipientCount = (result.recipients?.to?.length || 0) +
+                          (result.recipients?.cc?.length || 0) +
+                          (result.recipients?.bcc?.length || 0);
+    setStatus(
+      'status',
+      `Email sent to ${recipientCount} recipient(s) with interactive HTML report attached.`,
+      'ok',
+    );
+    return;
+  }
+
   if (result.sent) {
     // The consolidated copy repeats findings already counted in the individual
     // messages, so it must not be added to the total.
@@ -1290,8 +1303,8 @@ function renderSendResult(result) {
 
   setStatus(
     'status',
-    `Sent to ${result.accepted.length} recipient(s) — ${result.totalRisks} findings across ${result.projects} project(s).` +
-      (result.rejected.length ? ` ${result.rejected.length} rejected.` : ''),
+    `Sent to ${result.accepted?.length || 0} recipient(s) — ${result.totalRisks} findings across ${result.projects} project(s).` +
+      (result.rejected?.length ? ` ${result.rejected.length} rejected.` : ''),
     'ok',
   );
 }

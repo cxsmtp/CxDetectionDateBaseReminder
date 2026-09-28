@@ -736,9 +736,9 @@ app.post(
       projects = projects.filter((p) => projectIds.includes(p.id));
     }
 
-    const risks = selectRisks(projects, { buckets: buckets.length ? buckets : ['0-30', '31-60', '60+'] });
+    let risks = selectRisks(projects, { buckets: buckets.length ? buckets : ['0-30', '31-60', '60+'] });
     if (severities?.length) {
-      risks.filter((r) => severities.includes(r.severity));
+      risks = risks.filter((r) => severities.includes(r.severity));
     }
 
     const reminder = buildReminder(risks, settings.template, {
@@ -791,9 +791,9 @@ app.post(
     }
 
     // Use provided recipients or fall back to configured recipients
-    const to = recipients?.to?.length ? recipients.to : settings.recipients.to;
-    const cc = recipients?.cc?.length ? recipients.cc : settings.recipients.cc;
-    const bcc = recipients?.bcc?.length ? recipients.bcc : settings.recipients.bcc;
+    const to = (recipients?.to?.length ? recipients.to : settings.recipients?.to) || [];
+    const cc = (recipients?.cc?.length ? recipients.cc : settings.recipients?.cc) || [];
+    const bcc = (recipients?.bcc?.length ? recipients.bcc : settings.recipients?.bcc) || [];
 
     if (to.length + cc.length + bcc.length === 0) {
       return res.status(400).json({ error: 'No recipients configured.' });
