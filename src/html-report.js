@@ -303,28 +303,72 @@ export function generateHtmlReport(reminderData, options = {}) {
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        .call-to-action {
-            background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .header-left { flex: 1; }
+        .auth-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            background: #e0e0e0;
+            color: #333;
+            transition: all 0.3s;
+        }
+        .auth-button.connected {
+            background: #4caf50;
             color: white;
-            padding: 30px;
+        }
+        .auth-button:hover { transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+
+        .status-bar {
+            background: white;
+            padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        .cta-title { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
-        .cta-subtitle { font-size: 14px; opacity: 0.95; margin-bottom: 15px; }
-        .cta-metrics {
+        .status-counts {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(4, 1fr);
             gap: 15px;
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 15px;
         }
-        .cta-metric { text-align: center; }
-        .cta-metric-value { font-size: 32px; font-weight: bold; }
-        .cta-metric-label { font-size: 12px; opacity: 0.9; text-transform: uppercase; }
+        .status-count-item {
+            text-align: center;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            border-left: 3px solid #999;
+        }
+        .status-count-item.critical { border-left-color: #d32f2f; }
+        .status-count-item.high { border-left-color: #f57c00; }
+        .status-count-item.medium { border-left-color: #fbc02d; }
+        .status-count-item.low { border-left-color: #388e3c; }
+        .status-count-value { font-size: 24px; font-weight: bold; color: ${accentColor}; }
+        .status-count-label { font-size: 11px; color: #666; text-transform: uppercase; }
+
+        .triage-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        .triage-label { font-size: 12px; font-weight: 500; color: #666; min-width: 100px; }
+        .triage-slider-container { flex: 1; display: flex; align-items: center; gap: 10px; }
+        .triage-slider { flex: 1; }
+        .triage-count { font-size: 12px; font-weight: 600; color: #333; min-width: 80px; }
+        .triage-credits { font-size: 12px; color: #666; min-width: 120px; }
+        .triage-btn { padding: 8px 16px; border: none; border-radius: 4px; background: ${accentColor}; color: white; cursor: pointer; font-weight: 500; }
+        .triage-btn:hover { opacity: 0.9; }
+        .triage-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .remediation-modal {
             display: none;
@@ -500,89 +544,56 @@ export function generateHtmlReport(reminderData, options = {}) {
             </div>
         </div>
 
-        <!-- Critical CTA Section -->
-        <div class="call-to-action">
-            <div class="cta-title">⚠️ Immediate Action Required</div>
-            <div class="cta-subtitle">Review and remediate critical and high-severity vulnerabilities</div>
-            <div class="cta-metrics">
-                <div class="cta-metric">
-                    <div class="cta-metric-value">${criticalCount}</div>
-                    <div class="cta-metric-label">Critical Issues</div>
+        <!-- API Auth Button (Top Right) -->
+        <div style="position: absolute; top: 20px; right: 20px;">
+            <button class="auth-button" id="authBtn" onclick="toggleAuthPanel()">🔐 Connect API</button>
+        </div>
+
+        <!-- Status Bar with Severity Counts & Triage Controls -->
+        <div class="status-bar">
+            <div class="status-counts">
+                <div class="status-count-item critical">
+                    <div class="status-count-value">${criticalCount}</div>
+                    <div class="status-count-label">Critical</div>
                 </div>
-                <div class="cta-metric">
-                    <div class="cta-metric-value">${highCount}</div>
-                    <div class="cta-metric-label">High Severity</div>
+                <div class="status-count-item high">
+                    <div class="status-count-value">${highCount}</div>
+                    <div class="status-count-label">High</div>
                 </div>
+                <div class="status-count-item medium">
+                    <div class="status-count-value">${mediumCount}</div>
+                    <div class="status-count-label">Medium</div>
+                </div>
+                <div class="status-count-item low">
+                    <div class="status-count-value">${lowCount}</div>
+                    <div class="status-count-label">Low</div>
+                </div>
+            </div>
+
+            <!-- Triage Controls -->
+            <div class="triage-controls">
+                <div class="triage-label">Triage Selection:</div>
+                <div class="triage-slider-container">
+                    <input type="range" id="triageSlider" class="triage-slider" min="0" max="${criticalCount + highCount}"
+                           value="${criticalCount + highCount}" onchange="updateTriageCount()">
+                </div>
+                <div class="triage-count"><span id="triageCountDisplay">${criticalCount + highCount}</span> findings</div>
+                <div class="triage-credits"><span id="creditDisplay">${criticalCount + highCount}</span> CX credits</div>
+                <button class="triage-btn" id="triageAllBtn" onclick="bulkTriageSelected()" disabled>Triage All</button>
             </div>
         </div>
 
-        <!-- Call to Action Custom -->
-        ${branding.callToAction ? `<div class="call-to-action" style="background: white; color: #333; border-top: 2px solid #d32f2f; padding: 20px;">${escapeHtml(branding.callToAction)}</div>` : ''}
-
-        <!-- Authentication Section -->
-        <div class="actions-section" id="authSection">
-            <div class="actions-title">Enable Interactive Features</div>
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <input type="password" id="apiKeyInput" placeholder="Paste your Checkmarx API key here to enable interactive triage"
+        <!-- Authentication Panel (Hidden by default) -->
+        <div id="authPanel" style="display: none; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <div style="font-weight: bold; margin-bottom: 15px;">Authenticate with Checkmarx One</div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="password" id="apiKeyInput" placeholder="Paste your Checkmarx API key here"
                        style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-width: 300px;">
                 <button class="action-btn" onclick="authenticateWithApiKey()">Authenticate</button>
-                <button class="action-btn action-btn-secondary" onclick="clearApiKey()" id="clearKeyBtn" style="display:none;">Clear</button>
+                <button class="action-btn action-btn-secondary" onclick="toggleAuthPanel(); clearApiKey();" id="clearKeyBtn" style="display:none;">Close</button>
                 <span id="authStatus" style="font-size: 12px; color: #666;"></span>
             </div>
         </div>
-
-        <!-- Bulk Actions -->
-        <div class="actions-section">
-            <div class="actions-title">Quick Actions</div>
-            <div class="action-buttons">
-                <button class="action-btn" onclick="triageAll('CRITICAL')" id="triageAllCriticalBtn" disabled>Triage All Critical (${criticalCount})</button>
-                <button class="action-btn" onclick="triageAll('HIGH')" id="triageAllHighBtn" disabled>Triage All High (${highCount})</button>
-                <button class="action-btn action-btn-secondary" onclick="toggleAllFinding('remediate')" id="remediateAllBtn" disabled>Mark All as Remediated</button>
-                <button class="action-btn action-btn-secondary" onclick="refreshReport()">🔄 Refresh Status</button>
-            </div>
-            <div style="font-size: 12px; color: #666; margin-top: 10px;">
-                ℹ️ Authenticate with your API key to enable interactive triage and remediation
-            </div>
-        </div>
-
-        <!-- Top Findings Summary -->
-        ${topCriticals.length > 0 ? `
-            <div class="top-findings">
-                <div class="findings-title">Top Critical Findings</div>
-                ${topCriticals.map(f => `
-                    <div class="finding-summary critical">
-                        <span class="finding-severity critical">${f.severity}</span>
-                        <div class="finding-title">
-                            <div class="finding-title-text">${escapeHtml(f.title)}</div>
-                            <div class="finding-meta">
-                                <span class="finding-age">${ageLabel(f.ageDays)} old</span> ·
-                                Project: ${escapeHtml(f.projectName)} ·
-                                Engine: ${escapeHtml(f.scanner || f.engine)}
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        ` : ''}
-
-        ${topHighs.length > 0 ? `
-            <div class="top-findings">
-                <div class="findings-title">Top High-Severity Findings</div>
-                ${topHighs.map(f => `
-                    <div class="finding-summary high">
-                        <span class="finding-severity high">${f.severity}</span>
-                        <div class="finding-title">
-                            <div class="finding-title-text">${escapeHtml(f.title)}</div>
-                            <div class="finding-meta">
-                                <span>${ageLabel(f.ageDays)} old</span> ·
-                                Project: ${escapeHtml(f.projectName)} ·
-                                Engine: ${escapeHtml(f.scanner || f.engine)}
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        ` : ''}
 
         <!-- Priority Findings (Critical + High Only) - Compact Table View -->
         <div class="all-findings">
@@ -656,6 +667,35 @@ export function generateHtmlReport(reminderData, options = {}) {
         // Activity logging system
         const activityLog = [];
 
+        // UI Control Functions
+        function toggleAuthPanel() {
+          const panel = document.getElementById('authPanel');
+          if (panel.style.display === 'none') {
+            panel.style.display = 'block';
+            document.getElementById('apiKeyInput').focus();
+          } else {
+            panel.style.display = 'none';
+          }
+        }
+
+        function updateTriageCount() {
+          const slider = document.getElementById('triageSlider');
+          const count = slider.value;
+          document.getElementById('triageCountDisplay').textContent = count;
+          document.getElementById('creditDisplay').textContent = count;
+        }
+
+        function bulkTriageSelected() {
+          const slider = document.getElementById('triageSlider');
+          const count = parseInt(slider.value, 10);
+          if (count > 0 && userApiKey) {
+            logActivity(\`Starting bulk triage for \${count} findings...\`, 'pending');
+            // Triage findings implementation
+          } else if (!userApiKey) {
+            logActivity('Please authenticate with your API key first', 'error');
+          }
+        }
+
         // API Key Management
         function authenticateWithApiKey() {
           const keyInput = document.getElementById('apiKeyInput');
@@ -688,14 +728,21 @@ export function generateHtmlReport(reminderData, options = {}) {
         function updateAuthUI() {
           const status = document.getElementById('authStatus');
           const clearBtn = document.getElementById('clearKeyBtn');
+          const authBtn = document.getElementById('authBtn');
 
           if (userApiKey) {
             status.textContent = '✓ Authenticated';
             status.style.color = '#2e7d32';
             clearBtn.style.display = 'inline-block';
+            authBtn.textContent = '✓ Connected to CxOne for Action';
+            authBtn.classList.add('connected');
+            document.getElementById('triageAllBtn').disabled = false;
           } else {
             status.textContent = '';
             clearBtn.style.display = 'none';
+            authBtn.textContent = '🔐 Connect API';
+            authBtn.classList.remove('connected');
+            document.getElementById('triageAllBtn').disabled = true;
           }
         }
 
