@@ -640,7 +640,6 @@ export function generateHtmlReport(reminderData, options = {}) {
         <!-- Header -->
         <div class="header">
             <div class="header-auth-button">
-                <button class="auth-button" id="downloadBtn" onclick="downloadReport()" title="Download this report as an HTML file" style="margin-right: 10px;">⬇ Download</button>
                 <button class="auth-button" id="authBtn" onclick="toggleAuthPanel()" title="Connect with Checkmarx One API for interactive triage and remediation">Connect with CxONE</button>
             </div>
             <div class="logo">${logoHtml}</div>
@@ -664,7 +663,7 @@ export function generateHtmlReport(reminderData, options = {}) {
                     <div class="severity-triage-label">To triage</div>
                     <div class="severity-triage-count" id="criticalTriageCount">0</div>
                     <input type="range" class="severity-slider" id="criticalSlider" min="0" max="${criticalCount}" value="0"
-                           onchange="updateTriageSliderCritical()">
+                           oninput="updateTriageSliderCritical()" onchange="updateTriageSliderCritical()">
                 </div>
 
                 <!-- High Severity Card -->
@@ -677,7 +676,7 @@ export function generateHtmlReport(reminderData, options = {}) {
                     <div class="severity-triage-label">To triage</div>
                     <div class="severity-triage-count" id="highTriageCount">0</div>
                     <input type="range" class="severity-slider" id="highSlider" min="0" max="${highCount}" value="0"
-                           onchange="updateTriageSliderHigh()">
+                           oninput="updateTriageSliderHigh()" onchange="updateTriageSliderHigh()">
                 </div>
 
                 <!-- Medium Severity Card -->
@@ -690,7 +689,7 @@ export function generateHtmlReport(reminderData, options = {}) {
                     <div class="severity-triage-label">To triage</div>
                     <div class="severity-triage-count" id="mediumTriageCount">0</div>
                     <input type="range" class="severity-slider" id="mediumSlider" min="0" max="${mediumCount}" value="0"
-                           onchange="updateTriageSliderMedium()">
+                           oninput="updateTriageSliderMedium()" onchange="updateTriageSliderMedium()">
                 </div>
 
                 <!-- Low Severity Card -->
@@ -703,7 +702,7 @@ export function generateHtmlReport(reminderData, options = {}) {
                     <div class="severity-triage-label">To triage</div>
                     <div class="severity-triage-count" id="lowTriageCount">0</div>
                     <input type="range" class="severity-slider" id="lowSlider" min="0" max="${lowCount}" value="0"
-                           onchange="updateTriageSliderLow()">
+                           oninput="updateTriageSliderLow()" onchange="updateTriageSliderLow()">
                 </div>
             </div>
 
@@ -841,33 +840,39 @@ export function generateHtmlReport(reminderData, options = {}) {
 
         // UI Control Functions
         function toggleAuthPanel() {
-          const modal = document.getElementById('authModal');
-          if (!modal) {
-            console.error('authModal element not found');
-            return;
-          }
-          console.log('toggleAuthPanel called, modal found:', !!modal);
-          // Ensure modal is visible
-          modal.style.display = 'flex';
-          modal.style.visibility = 'visible';
-          modal.style.opacity = '1';
-          modal.style.pointerEvents = 'auto';
+          try {
+            const modal = document.getElementById('authModal');
+            if (!modal) {
+              console.error('authModal element not found');
+              alert('Authentication modal not found. Please refresh the page.');
+              return;
+            }
+            console.log('toggleAuthPanel called, modal found:', !!modal);
 
-          // Clear previous input
-          const apiKeyInput = document.getElementById('apiKeyInput');
-          const status = document.getElementById('authStatus');
-          if (apiKeyInput) {
-            apiKeyInput.value = '';
-            setTimeout(() => {
-              apiKeyInput.focus();
-              apiKeyInput.click();
-            }, 100);
+            // Force modal to be visible
+            modal.style.display = 'flex !important';
+            modal.style.visibility = 'visible !important';
+            modal.style.opacity = '1 !important';
+            modal.style.pointerEvents = 'auto !important';
+            modal.style.zIndex = '9999 !important';
+
+            // Clear previous input
+            const apiKeyInput = document.getElementById('apiKeyInput');
+            const status = document.getElementById('authStatus');
+            if (apiKeyInput) {
+              apiKeyInput.value = '';
+              setTimeout(() => {
+                apiKeyInput.focus();
+              }, 100);
+            }
+            if (status) status.textContent = '';
+
+            logActivity('Authentication modal opened', 'info');
+            console.log('Auth modal opened successfully');
+          } catch (error) {
+            console.error('Error opening auth modal:', error);
+            alert('Error opening authentication modal: ' + error.message);
           }
-          if (status) status.textContent = '';
-          console.log('Auth modal opened successfully');
-          console.log('Modal display:', window.getComputedStyle(modal).display);
-          console.log('Modal visibility:', window.getComputedStyle(modal).visibility);
-          console.log('Modal opacity:', window.getComputedStyle(modal).opacity);
         }
 
 
@@ -1445,28 +1450,6 @@ function clearApiKey() {
 
             buttons.forEach(b => b.disabled = false);
             logActivity(\`Batch \${action} complete: \${processed} findings processed\`, 'success');
-        }
-
-        function downloadReport() {
-          logActivity('Preparing report for download...', 'pending');
-
-          const htmlContent = document.documentElement.outerHTML;
-          const blob = new Blob([htmlContent], { type: 'text/html; charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-
-          const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-          const projectName = '${escapeHtml(projectName || 'Vulnerability-Report')}';
-          const filename = \`\${projectName}-\${timestamp}.html\`;
-
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = filename;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-
-          logActivity(\`✓ Report downloaded as "\${filename}"\`, 'success');
         }
 
         function refreshReport() {
