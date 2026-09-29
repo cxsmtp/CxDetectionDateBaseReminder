@@ -61,6 +61,12 @@ export function generateHtmlReport(reminderData, options = {}) {
             border-radius: 8px;
             margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .header-auth-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
         }
         .logo { margin-bottom: 20px; }
         .title { font-size: 28px; font-weight: bold; margin: 20px 0 10px; }
@@ -501,14 +507,35 @@ export function generateHtmlReport(reminderData, options = {}) {
         .status-badge.success { background: #c8e6c9; color: #1b5e20; }
         .status-badge.error { background: #ffcdd2; color: #b71c1c; }
 
+        @media (max-width: 1024px) {
+            .triage-controls { flex-wrap: wrap; }
+            .triage-slider-container { width: 100%; margin: 10px 0; }
+            .status-counts { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .header-auth-button { position: static; margin-bottom: 10px; }
+            .finding-card { grid-template-columns: 60px 1fr 70px 70px 60px; font-size: 11px; gap: 5px; }
+            .finding-card-header-row { grid-template-columns: 60px 1fr 70px 70px 60px; font-size: 10px; gap: 5px; }
+            .triage-controls { gap: 10px; padding-top: 10px; }
+            .triage-btn { padding: 6px 12px; font-size: 12px; }
+        }
+
         @media (max-width: 600px) {
             .summary-band { grid-template-columns: 1fr 1fr; }
             .action-buttons { flex-direction: column; }
             .action-btn { width: 100%; }
-            .finding-header { flex-direction: column; }
-            .cta-metrics { grid-template-columns: 1fr; }
+            .finding-card { grid-template-columns: 50px 1fr 50px; }
+            .finding-card-header-row { grid-template-columns: 50px 1fr 50px; }
+            .finding-ai-cell { display: none; }
+            .finding-age-cell { font-size: 10px; }
+            .status-counts { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .triage-controls { flex-direction: column; align-items: flex-start; }
+            .triage-slider-container { width: 100%; }
             .remediation-content { padding: 20px; max-width: 95vw; }
             .activity-tabs { flex-wrap: wrap; }
+            .auth-button { padding: 8px 12px; font-size: 12px; }
+            .header-auth-button { position: static; }
         }
     </style>
 </head>
@@ -516,6 +543,9 @@ export function generateHtmlReport(reminderData, options = {}) {
     <div class="container">
         <!-- Header -->
         <div class="header">
+            <div class="header-auth-button">
+                <button class="auth-button" id="authBtn" onclick="toggleAuthPanel()" title="Connect with Checkmarx One API for interactive triage and remediation">Connect with CxONE</button>
+            </div>
             <div class="logo">${logoHtml}</div>
             <div class="title">Vulnerability Report</div>
             <div class="subtitle">
@@ -542,11 +572,6 @@ export function generateHtmlReport(reminderData, options = {}) {
                     <div class="summary-label">Low</div>
                 </div>
             </div>
-        </div>
-
-        <!-- API Auth Button (Top Right) -->
-        <div style="position: absolute; top: 20px; right: 20px;">
-            <button class="auth-button" id="authBtn" onclick="toggleAuthPanel()">🔐 Connect API</button>
         </div>
 
         <!-- Status Bar with Severity Counts & Triage Controls -->
@@ -734,13 +759,13 @@ export function generateHtmlReport(reminderData, options = {}) {
             status.textContent = '✓ Authenticated';
             status.style.color = '#2e7d32';
             clearBtn.style.display = 'inline-block';
-            authBtn.textContent = '✓ Connected to CxOne for Action';
+            authBtn.textContent = '✓ Connected to CxOne';
             authBtn.classList.add('connected');
             document.getElementById('triageAllBtn').disabled = false;
           } else {
             status.textContent = '';
             clearBtn.style.display = 'none';
-            authBtn.textContent = '🔐 Connect API';
+            authBtn.textContent = 'Connect with CxONE';
             authBtn.classList.remove('connected');
             document.getElementById('triageAllBtn').disabled = true;
           }
