@@ -689,7 +689,7 @@ export function generateHtmlReport(reminderData, options = {}) {
         </div>
 
         <!-- Authentication Modal (Popup) -->
-        <div id="authModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; justify-content: center; align-items: center;">
+        <div id="authModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; visibility: hidden; opacity: 0; transition: opacity 0.3s ease;">
             <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); max-width: 500px; width: 90%; animation: slideIn 0.3s ease; max-height: 85vh; overflow-y: auto;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <div style="font-weight: bold; font-size: 16px;">Authenticate with Checkmarx One</div>
@@ -830,11 +830,22 @@ export function generateHtmlReport(reminderData, options = {}) {
         // UI Control Functions
         function toggleAuthPanel() {
           const modal = document.getElementById('authModal');
+          if (!modal) {
+            console.error('authModal element not found');
+            return;
+          }
+          console.log('toggleAuthPanel called, modal found:', !!modal);
           modal.style.display = 'flex';
-          document.getElementById('apiKeyInput').focus();
-          document.getElementById('apiKeyInput').value = '';
+          modal.style.visibility = 'visible';
+          modal.style.opacity = '1';
+          const apiKeyInput = document.getElementById('apiKeyInput');
           const status = document.getElementById('authStatus');
-          status.textContent = '';
+          if (apiKeyInput) {
+            apiKeyInput.value = '';
+            setTimeout(() => apiKeyInput.focus(), 100);
+          }
+          if (status) status.textContent = '';
+          console.log('Auth modal opened successfully');
         }
 
         function switchAuthMethod(method) {
@@ -866,12 +877,18 @@ export function generateHtmlReport(reminderData, options = {}) {
 
         function closeAuthModal() {
           const modal = document.getElementById('authModal');
+          if (!modal) return;
           modal.style.display = 'none';
-          document.getElementById('apiKeyInput').value = '';
-          document.getElementById('clientIdInput').value = '';
-          document.getElementById('clientSecretInput').value = '';
+          modal.style.visibility = 'hidden';
+          const apiKeyInput = document.getElementById('apiKeyInput');
+          const clientIdInput = document.getElementById('clientIdInput');
+          const clientSecretInput = document.getElementById('clientSecretInput');
+          if (apiKeyInput) apiKeyInput.value = '';
+          if (clientIdInput) clientIdInput.value = '';
+          if (clientSecretInput) clientSecretInput.value = '';
           const status = document.getElementById('authStatus');
-          status.textContent = '';
+          if (status) status.textContent = '';
+          console.log('Auth modal closed');
         }
 
         function updateTriageSliderCritical() {
