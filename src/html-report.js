@@ -334,47 +334,114 @@ export function generateHtmlReport(reminderData, options = {}) {
         .auth-button:hover { transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 
         .status-bar {
-            background: white;
-            padding: 15px;
+            background: #1a1a2e;
+            padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
-        .status-counts {
+        .severity-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
-            margin-bottom: 15px;
+            gap: 20px;
+            margin-bottom: 20px;
         }
-        .status-count-item {
-            text-align: center;
-            padding: 10px;
-            background: #f5f5f5;
-            border-radius: 4px;
-            border-left: 3px solid #999;
+        .severity-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            color: white;
         }
-        .status-count-item.critical { border-left-color: #d32f2f; }
-        .status-count-item.high { border-left-color: #f57c00; }
-        .status-count-item.medium { border-left-color: #fbc02d; }
-        .status-count-item.low { border-left-color: #388e3c; }
-        .status-count-value { font-size: 24px; font-weight: bold; color: ${accentColor}; }
-        .status-count-label { font-size: 11px; color: #666; text-transform: uppercase; }
-
-        .triage-controls {
+        .severity-card.critical { border-left: 4px solid #d32f2f; }
+        .severity-card.high { border-left: 4px solid #f57c00; }
+        .severity-card.medium { border-left: 4px solid #fbc02d; }
+        .severity-card.low { border-left: 4px solid #388e3c; }
+        .severity-header {
             display: flex;
             align-items: center;
-            gap: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
+            gap: 10px;
+            margin-bottom: 15px;
         }
-        .triage-label { font-size: 12px; font-weight: 500; color: #666; min-width: 100px; }
-        .triage-slider-container { flex: 1; display: flex; align-items: center; gap: 10px; }
-        .triage-slider { flex: 1; }
-        .triage-count { font-size: 12px; font-weight: 600; color: #333; min-width: 80px; }
-        .triage-credits { font-size: 12px; color: #666; min-width: 120px; }
-        .triage-btn { padding: 8px 16px; border: none; border-radius: 4px; background: ${accentColor}; color: white; cursor: pointer; font-weight: 500; }
-        .triage-btn:hover { opacity: 0.9; }
-        .triage-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .severity-badge {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .severity-badge.critical { background: #d32f2f; }
+        .severity-badge.high { background: #f57c00; }
+        .severity-badge.medium { background: #fbc02d; }
+        .severity-badge.low { background: #388e3c; }
+        .severity-title {
+            font-size: 14px;
+            font-weight: 600;
+            flex: 1;
+        }
+        .severity-count {
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .severity-triage-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 8px;
+        }
+        .severity-triage-count {
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        .severity-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .severity-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #a78bfa;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(167, 139, 250, 0.5);
+        }
+        .severity-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #a78bfa;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 5px rgba(167, 139, 250, 0.5);
+        }
+
+        .triage-button-bar {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        .fix-all-btn {
+            padding: 10px 20px;
+            background: #a78bfa;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .fix-all-btn:hover { background: #9370db; }
+        .fix-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .remediation-modal {
             display: none;
@@ -576,35 +643,63 @@ export function generateHtmlReport(reminderData, options = {}) {
 
         <!-- Status Bar with Severity Counts & Triage Controls -->
         <div class="status-bar">
-            <div class="status-counts">
-                <div class="status-count-item critical">
-                    <div class="status-count-value">${criticalCount}</div>
-                    <div class="status-count-label">Critical</div>
+            <div class="severity-grid">
+                <!-- Critical Severity Card -->
+                <div class="severity-card critical">
+                    <div class="severity-header">
+                        <span class="severity-badge critical">●</span>
+                        <span class="severity-title">Critical</span>
+                    </div>
+                    <div class="severity-count">${criticalCount}</div>
+                    <div class="severity-triage-label">To triage</div>
+                    <div class="severity-triage-count" id="criticalTriageCount">0</div>
+                    <input type="range" class="severity-slider" id="criticalSlider" min="0" max="${criticalCount}" value="0"
+                           onchange="updateTriageSliderCritical()">
                 </div>
-                <div class="status-count-item high">
-                    <div class="status-count-value">${highCount}</div>
-                    <div class="status-count-label">High</div>
+
+                <!-- High Severity Card -->
+                <div class="severity-card high">
+                    <div class="severity-header">
+                        <span class="severity-badge high">●</span>
+                        <span class="severity-title">High</span>
+                    </div>
+                    <div class="severity-count">${highCount}</div>
+                    <div class="severity-triage-label">To triage</div>
+                    <div class="severity-triage-count" id="highTriageCount">0</div>
+                    <input type="range" class="severity-slider" id="highSlider" min="0" max="${highCount}" value="0"
+                           onchange="updateTriageSliderHigh()">
                 </div>
-                <div class="status-count-item medium">
-                    <div class="status-count-value">${mediumCount}</div>
-                    <div class="status-count-label">Medium</div>
+
+                <!-- Medium Severity Card -->
+                <div class="severity-card medium">
+                    <div class="severity-header">
+                        <span class="severity-badge medium">●</span>
+                        <span class="severity-title">Medium</span>
+                    </div>
+                    <div class="severity-count">${mediumCount}</div>
+                    <div class="severity-triage-label">To triage</div>
+                    <div class="severity-triage-count" id="mediumTriageCount">0</div>
+                    <input type="range" class="severity-slider" id="mediumSlider" min="0" max="${mediumCount}" value="0"
+                           onchange="updateTriageSliderMedium()">
                 </div>
-                <div class="status-count-item low">
-                    <div class="status-count-value">${lowCount}</div>
-                    <div class="status-count-label">Low</div>
+
+                <!-- Low Severity Card -->
+                <div class="severity-card low">
+                    <div class="severity-header">
+                        <span class="severity-badge low">●</span>
+                        <span class="severity-title">Low</span>
+                    </div>
+                    <div class="severity-count">${lowCount}</div>
+                    <div class="severity-triage-label">To triage</div>
+                    <div class="severity-triage-count" id="lowTriageCount">0</div>
+                    <input type="range" class="severity-slider" id="lowSlider" min="0" max="${lowCount}" value="0"
+                           onchange="updateTriageSliderLow()">
                 </div>
             </div>
 
-            <!-- Triage Controls -->
-            <div class="triage-controls">
-                <div class="triage-label">Triage Selection:</div>
-                <div class="triage-slider-container">
-                    <input type="range" id="triageSlider" class="triage-slider" min="0" max="${criticalCount + highCount}"
-                           value="${criticalCount + highCount}" onchange="updateTriageCount()">
-                </div>
-                <div class="triage-count"><span id="triageCountDisplay">${criticalCount + highCount}</span> findings</div>
-                <div class="triage-credits"><span id="creditDisplay">${criticalCount + highCount}</span> CX credits</div>
-                <button class="triage-btn" id="triageAllBtn" onclick="bulkTriageSelected()" disabled>Triage All</button>
+            <!-- Triage Button Bar -->
+            <div class="triage-button-bar">
+                <button class="fix-all-btn" id="fixAllBtn" onclick="bulkTriageSelected()" disabled>Fix All</button>
             </div>
         </div>
 
@@ -703,18 +798,53 @@ export function generateHtmlReport(reminderData, options = {}) {
           }
         }
 
-        function updateTriageCount() {
-          const slider = document.getElementById('triageSlider');
-          const count = slider.value;
-          document.getElementById('triageCountDisplay').textContent = count;
-          document.getElementById('creditDisplay').textContent = count;
+        function updateTriageSliderCritical() {
+          const slider = document.getElementById('criticalSlider');
+          document.getElementById('criticalTriageCount').textContent = slider.value;
+          enableFixAllButton();
+        }
+
+        function updateTriageSliderHigh() {
+          const slider = document.getElementById('highSlider');
+          document.getElementById('highTriageCount').textContent = slider.value;
+          enableFixAllButton();
+        }
+
+        function updateTriageSliderMedium() {
+          const slider = document.getElementById('mediumSlider');
+          document.getElementById('mediumTriageCount').textContent = slider.value;
+          enableFixAllButton();
+        }
+
+        function updateTriageSliderLow() {
+          const slider = document.getElementById('lowSlider');
+          document.getElementById('lowTriageCount').textContent = slider.value;
+          enableFixAllButton();
+        }
+
+        function enableFixAllButton() {
+          const criticalVal = parseInt(document.getElementById('criticalSlider').value, 10);
+          const highVal = parseInt(document.getElementById('highSlider').value, 10);
+          const mediumVal = parseInt(document.getElementById('mediumSlider').value, 10);
+          const lowVal = parseInt(document.getElementById('lowSlider').value, 10);
+          const totalSelected = criticalVal + highVal + mediumVal + lowVal;
+          const fixAllBtn = document.getElementById('fixAllBtn');
+          if (totalSelected > 0 && userApiKey) {
+            fixAllBtn.disabled = false;
+          } else {
+            fixAllBtn.disabled = true;
+          }
         }
 
         function bulkTriageSelected() {
-          const slider = document.getElementById('triageSlider');
-          const count = parseInt(slider.value, 10);
-          if (count > 0 && userApiKey) {
-            logActivity(\`Starting bulk triage for \${count} findings...\`, 'pending');
+          const criticalVal = parseInt(document.getElementById('criticalSlider').value, 10);
+          const highVal = parseInt(document.getElementById('highSlider').value, 10);
+          const mediumVal = parseInt(document.getElementById('mediumSlider').value, 10);
+          const lowVal = parseInt(document.getElementById('lowSlider').value, 10);
+          const totalCount = criticalVal + highVal + mediumVal + lowVal;
+
+          if (totalCount > 0 && userApiKey) {
+            logActivity(\`Starting bulk triage for \${totalCount} findings (Critical: \${criticalVal}, High: \${highVal}, Medium: \${mediumVal}, Low: \${lowVal})...\`, 'pending');
             // Triage findings implementation
           } else if (!userApiKey) {
             logActivity('Please authenticate with your API key first', 'error');
@@ -772,9 +902,10 @@ export function generateHtmlReport(reminderData, options = {}) {
         }
 
         function enableInteractiveButtons() {
-          document.getElementById('triageAllCriticalBtn').disabled = false;
-          document.getElementById('triageAllHighBtn').disabled = false;
-          document.getElementById('remediateAllBtn').disabled = false;
+          document.getElementById('criticalSlider').disabled = false;
+          document.getElementById('highSlider').disabled = false;
+          document.getElementById('mediumSlider').disabled = false;
+          document.getElementById('lowSlider').disabled = false;
 
           // Enable individual finding buttons
           document.querySelectorAll('[data-action="triage"], [data-action="remediate"]').forEach(btn => {
@@ -783,9 +914,10 @@ export function generateHtmlReport(reminderData, options = {}) {
         }
 
         function disableInteractiveButtons() {
-          document.getElementById('triageAllCriticalBtn').disabled = true;
-          document.getElementById('triageAllHighBtn').disabled = true;
-          document.getElementById('remediateAllBtn').disabled = true;
+          document.getElementById('criticalSlider').disabled = true;
+          document.getElementById('highSlider').disabled = true;
+          document.getElementById('mediumSlider').disabled = true;
+          document.getElementById('lowSlider').disabled = true;
 
           // Disable individual finding buttons
           document.querySelectorAll('[data-action="triage"], [data-action="remediate"]').forEach(btn => {
