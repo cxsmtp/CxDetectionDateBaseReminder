@@ -692,59 +692,33 @@ export function generateHtmlReport(reminderData, options = {}) {
         <div id="authModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; visibility: hidden; opacity: 0; transition: opacity 0.3s ease;">
             <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); max-width: 500px; width: 90%; animation: slideIn 0.3s ease; max-height: 85vh; overflow-y: auto;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <div style="font-weight: bold; font-size: 16px;">Authenticate with Checkmarx One</div>
+                    <div style="font-weight: bold; font-size: 16px;">Connect to Checkmarx One</div>
                     <button onclick="closeAuthModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">✕</button>
                 </div>
 
-                <!-- Auth Method Tabs -->
-                <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #eee;">
-                    <button onclick="switchAuthMethod('apikey')" id="tab-apikey" style="padding: 10px 15px; border: none; background: none; cursor: pointer; font-weight: 500; color: #1976d2; border-bottom: 3px solid #1976d2;">API Key</button>
-                    <button onclick="switchAuthMethod('credentials')" id="tab-credentials" style="padding: 10px 15px; border: none; background: none; cursor: pointer; font-weight: 500; color: #999;">OAuth2 Credentials</button>
+                <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
+                    Paste an API key from <strong>Checkmarx One → Settings → Identity &amp; Access Management → API Keys</strong>.
+                    Regional URLs are detected from the key.
+                </p>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333; font-size: 13px;">API Key</label>
+                    <textarea id="apiKeyInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"
+                              rows="3" spellcheck="false"
+                              style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace; resize: vertical;"></textarea>
                 </div>
 
-                <!-- API Key Method -->
-                <div id="apikey-method" style="display: block;">
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333; font-size: 13px;">API Key</label>
-                        <input type="password" id="apiKeyInput" placeholder="Paste your Checkmarx API key"
-                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
-                        <div style="font-size: 11px; color: #666; margin-top: 5px;">Find this in Checkmarx One → API Security (generate if needed)</div>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button class="action-btn" id="authenticateApiKeyBtn" onclick="authenticateWithApiKey()" style="flex: 1;">Authenticate with API Key</button>
-                        <button class="action-btn action-btn-secondary" onclick="closeAuthModal()" style="flex: 1;">Cancel</button>
-                    </div>
+                <div id="detectedInfo" style="display: none; padding: 12px; background: #f5f5f5; border-radius: 4px; margin-bottom: 15px; font-size: 12px;">
+                    <div style="margin-bottom: 8px;"><strong>Detected from key:</strong></div>
+                    <div><span style="color: #666;">Tenant:</span> <span id="detectedTenant"></span></div>
+                    <div><span style="color: #666;">Region:</span> <span id="detectedRegion"></span></div>
                 </div>
 
-                <!-- OAuth2 Credentials Method -->
-                <div id="credentials-method" style="display: none;">
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Client ID</label>
-                        <input type="text" id="clientIdInput" placeholder="Enter your Client ID"
-                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Client Secret</label>
-                        <input type="password" id="clientSecretInput" placeholder="Enter your Client Secret"
-                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">IAM Region</label>
-                        <select id="iamRegionInput" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
-                            <option value="https://iam.checkmarx.net">US (Default)</option>
-                            <option value="https://us.iam.checkmarx.net">US2</option>
-                            <option value="https://eu.iam.checkmarx.net">EU</option>
-                            <option value="https://eu-2.iam.checkmarx.net">EU2</option>
-                            <option value="https://deu.iam.checkmarx.net">DEU</option>
-                            <option value="https://anz.iam.checkmarx.net">Australia & NZ</option>
-                            <option value="https://ind.iam.checkmarx.net">India</option>
-                            <option value="https://sng.iam.checkmarx.net">Singapore</option>
-                            <option value="https://mea.iam.checkmarx.net">UAE</option>
-                        </select>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button class="action-btn" id="authenticateCredentialsBtn" onclick="authenticateWithCredentials()" style="flex: 1;">Authenticate</button>
-                        <button class="action-btn action-btn-secondary" onclick="closeAuthModal()" style="flex: 1;">Cancel</button>
-                    </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button id="authenticateApiKeyBtn" onclick="authenticateWithApiKey()" style="flex: 1; padding: 10px 16px; background: #1976d2; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer; font-size: 14px;">Connect</button>
+                    <button onclick="closeAuthModal()" style="flex: 1; padding: 10px 16px; background: #f5f5f5; color: #333; border: 1px solid #ddd; border-radius: 4px; font-weight: 500; cursor: pointer; font-size: 14px;">Cancel</button>
                 </div>
 
-                <!-- Status Message -->
                 <span id="authStatus" style="font-size: 12px; color: #d32f2f; margin-top: 15px; display: block; text-align: center;"></span>
             </div>
         </div>
@@ -848,32 +822,6 @@ export function generateHtmlReport(reminderData, options = {}) {
           console.log('Auth modal opened successfully');
         }
 
-        function switchAuthMethod(method) {
-          const apiKeyMethod = document.getElementById('apikey-method');
-          const credentialsMethod = document.getElementById('credentials-method');
-          const tabApikey = document.getElementById('tab-apikey');
-          const tabCredentials = document.getElementById('tab-credentials');
-          const status = document.getElementById('authStatus');
-          status.textContent = '';
-
-          if (method === 'apikey') {
-            apiKeyMethod.style.display = 'block';
-            credentialsMethod.style.display = 'none';
-            tabApikey.style.color = '#1976d2';
-            tabApikey.style.borderBottomColor = '#1976d2';
-            tabCredentials.style.color = '#999';
-            tabCredentials.style.borderBottomColor = 'transparent';
-            document.getElementById('apiKeyInput').focus();
-          } else {
-            apiKeyMethod.style.display = 'none';
-            credentialsMethod.style.display = 'block';
-            tabApikey.style.color = '#999';
-            tabApikey.style.borderBottomColor = 'transparent';
-            tabCredentials.style.color = '#1976d2';
-            tabCredentials.style.borderBottomColor = '#1976d2';
-            document.getElementById('clientIdInput').focus();
-          }
-        }
 
         function closeAuthModal() {
           const modal = document.getElementById('authModal');
@@ -881,13 +829,11 @@ export function generateHtmlReport(reminderData, options = {}) {
           modal.style.display = 'none';
           modal.style.visibility = 'hidden';
           const apiKeyInput = document.getElementById('apiKeyInput');
-          const clientIdInput = document.getElementById('clientIdInput');
-          const clientSecretInput = document.getElementById('clientSecretInput');
           if (apiKeyInput) apiKeyInput.value = '';
-          if (clientIdInput) clientIdInput.value = '';
-          if (clientSecretInput) clientSecretInput.value = '';
           const status = document.getElementById('authStatus');
           if (status) status.textContent = '';
+          const detectedInfo = document.getElementById('detectedInfo');
+          if (detectedInfo) detectedInfo.style.display = 'none';
           console.log('Auth modal closed');
         }
 
@@ -951,11 +897,21 @@ export function generateHtmlReport(reminderData, options = {}) {
           const apiKey = document.getElementById('apiKeyInput').value?.trim();
           const status = document.getElementById('authStatus');
           const authBtn = document.getElementById('authenticateApiKeyBtn');
+          const detectedInfo = document.getElementById('detectedInfo');
 
           if (!apiKey) {
             status.textContent = 'API key is required';
             status.style.color = '#d32f2f';
+            detectedInfo.style.display = 'none';
             return;
+          }
+
+          // Decode API key to show detected info
+          const keyInfo = decodeApiKey(apiKey);
+          if (keyInfo) {
+            document.getElementById('detectedTenant').textContent = keyInfo.tenant || 'unknown';
+            document.getElementById('detectedRegion').textContent = keyInfo.regionLabel || 'unknown';
+            detectedInfo.style.display = 'block';
           }
 
           status.textContent = 'Validating API key...';
@@ -968,10 +924,10 @@ export function generateHtmlReport(reminderData, options = {}) {
             userApiKey = apiKey;
             window.cxAuthToken = apiKey;
 
-            status.textContent = '✓ API key stored successfully';
+            status.textContent = '✓ Connected successfully';
             status.style.color = '#2e7d32';
             updateAuthUI();
-            logActivity('✓ Authenticated with API key. Interactive features enabled.', 'success');
+            logActivity('✓ Connected to Checkmarx One. Interactive features enabled.', 'success');
             enableInteractiveButtons();
 
             setTimeout(() => closeAuthModal(), 500);
@@ -979,81 +935,45 @@ export function generateHtmlReport(reminderData, options = {}) {
             console.error('Auth error:', error);
             status.textContent = 'Error: ' + error.message;
             status.style.color = '#d32f2f';
-            logActivity('✗ Authentication failed: ' + error.message, 'error');
+            logActivity('✗ Connection failed: ' + error.message, 'error');
           } finally {
             authBtn.disabled = false;
           }
         }
 
-        // OAuth2 Authentication with Checkmarx One IAM
-        async function authenticateWithCredentials() {
-          const clientId = document.getElementById('clientIdInput').value?.trim();
-          const clientSecret = document.getElementById('clientSecretInput').value?.trim();
-          const iamRegion = document.getElementById('iamRegionInput').value;
-          const status = document.getElementById('authStatus');
-          const authBtn = document.getElementById('authenticateBtn');
-
-          if (!clientId || !clientSecret) {
-            status.textContent = 'Client ID and Secret are required';
-            status.style.color = '#d32f2f';
-            return;
-          }
-
-          status.textContent = 'Authenticating...';
-          status.style.color = '#1976d2';
-          authBtn.disabled = true;
-
+        function decodeApiKey(apiKey) {
           try {
-            const tokenUrl = \`\${iamRegion}/auth/realms/master/protocol/openid-connect/token\`;
-            const body = new URLSearchParams({
-              grant_type: 'client_credentials',
-              client_id: clientId,
-              client_secret: clientSecret
-            });
-
-            const response = await fetch(tokenUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: body.toString()
-            });
-
-            if (!response.ok) {
-              const errorData = await response.json().catch(() => ({}));
-              throw new Error(errorData.error_description || 'Authentication failed');
-            }
-
-            const data = await response.json();
-            const jwtToken = data.access_token;
-            const expiresIn = data.expires_in || 1800;
-
-            // Store JWT token and metadata
-            sessionStorage.setItem('cxJwtToken', jwtToken);
-            sessionStorage.setItem('cxTokenExpiry', Date.now() + (expiresIn * 1000));
-            sessionStorage.setItem('cxClientId', clientId);
-            sessionStorage.setItem('cxIamRegion', iamRegion);
-
-            userApiKey = jwtToken; // Store token as userApiKey for compatibility
-            window.cxAuthToken = jwtToken; // Global reference for API calls
-
-            status.textContent = '✓ Authenticated successfully';
-            status.style.color = '#2e7d32';
-            updateAuthUI();
-            logActivity('✓ Successfully authenticated with Checkmarx One. JWT token obtained (expires in ' + (expiresIn / 60) + ' min).', 'success');
-            enableInteractiveButtons();
-
-            // Close modal after successful auth
-            setTimeout(() => closeAuthModal(), 500);
-          } catch (error) {
-            console.error('Auth error:', error);
-            status.textContent = 'Auth failed: ' + error.message;
-            status.style.color = '#d32f2f';
-            logActivity('✗ Authentication failed: ' + error.message, 'error');
-          } finally {
-            authBtn.disabled = false;
+            const payload = String(apiKey).trim().split('.')[1];
+            if (!payload) return null;
+            const json = JSON.parse(
+              decodeURIComponent(
+                atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+                  .split('')
+                  .map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'))
+                  .join(''),
+              ),
+            );
+            const match = String(json.iss ?? '').match(/^(https?:\/\/[^/]+)\/auth\/realms\/([^/?#]+)/);
+            if (!match) return null;
+            const [, iamUrl, tenant] = match;
+            const host = new URL(iamUrl).host;
+            const region = host.match(/^([a-z0-9-]+)\.(?:iam|ast)\./i)?.[1]?.toLowerCase() ??
+                          (/^(iam|ast)\./i.test(host) ? 'us' : '');
+            const regionLabels = {
+              us: 'US', us2: 'US 2', eu: 'EU', eu2: 'EU 2', deu: 'Germany',
+              anz: 'Australia / NZ', ind: 'India', sng: 'Singapore', uae: 'UAE', mea: 'Middle East',
+            };
+            return {
+              tenant: decodeURIComponent(tenant),
+              iamUrl,
+              regionLabel: regionLabels[region] ?? (region ? region.toUpperCase() : 'Custom'),
+            };
+          } catch {
+            return null;
           }
         }
 
-        function clearApiKey() {
+function clearApiKey() {
           userApiKey = null;
           window.cxAuthToken = null;
           sessionStorage.removeItem('cxJwtToken');
