@@ -12,6 +12,20 @@ const int = (value, fallback) => {
 
 const trimSlash = (value) => (value ? String(value).replace(/\/+$/, '') : '');
 
+/** Clean environment values: trim whitespace, CRLF, and surrounding quotes */
+const envValue = (value) => {
+  if (!value) return '';
+  let clean = String(value)
+    .replace(/\r\n/g, '\n')
+    .replace(/[\r\n]+/g, '')
+    .trim();
+  // Remove surrounding quotes if present
+  if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+    clean = clean.slice(1, -1).trim();
+  }
+  return clean;
+};
+
 /**
  * Deployment settings only.
  *
@@ -20,10 +34,15 @@ const trimSlash = (value) => (value ? String(value).replace(/\/+$/, '') : '');
  * purely as an optional bootstrap for headless/kiosk deployments.
  */
 export function loadConfig(env = process.env) {
+  const bootstrapKey = envValue(env.CX_API_KEY);
+  if (bootstrapKey) {
+    console.log(`[CX_API_KEY] Loaded from environment (${bootstrapKey.length} chars)`);
+  }
+
   return {
     // Optional: pre-connect a shared session at startup instead of requiring
     // someone to paste the key into the UI.
-    bootstrapApiKey: (env.CX_API_KEY ?? '').trim(),
+    bootstrapApiKey: bootstrapKey,
 
     // Optional overrides applied to every connection, for single-tenant /
     // on-prem deployments where the regional convention does not hold.

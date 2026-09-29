@@ -987,8 +987,16 @@ async function bootstrap() {
   try {
     const session = await sessions.create(config.bootstrapApiKey, config.overrides);
     bootstrapSessionId = session.id;
-    console.log(`Bootstrapped from CX_API_KEY: tenant ${session.connection.tenant}`);
+    console.log(`[CX_API_KEY] ✓ Successfully authenticated with Checkmarx One (tenant: ${session.connection.tenant})`);
   } catch (error) {
+    console.error(`[CX_API_KEY] ✗ Authentication failed: ${error.message}`);
+    if (error.message.includes('fetch failed') || error.message.includes('ENOTFOUND')) {
+      console.error('[CX_API_KEY] This usually means: network connectivity issue, proxy configuration, or DNS resolution failure');
+      console.error('[CX_API_KEY] Check: your firewall, proxy settings, and whether the Checkmarx endpoint is reachable');
+    } else if (error.message.includes('401') || error.message.includes('Unauthorized') || error.message.includes('invalid_grant')) {
+      console.error('[CX_API_KEY] This usually means: the API key is invalid, expired, or has incorrect format');
+      console.error('[CX_API_KEY] Verify: CX_API_KEY is correct and has not expired in your Checkmarx account');
+    }
     console.warn(`! CX_API_KEY was set but could not be used: ${error.message}`);
   }
 }
