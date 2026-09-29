@@ -1006,14 +1006,42 @@ app.use((error, req, res, next) => {
   res.status(status).json({ error: error.message ?? 'Unexpected error.', detail: error.body ?? undefined });
 });
 
+/**
+ * Retry logic with exponential backoff for authentication and connection tests.
+ * Attempts up to 3 times with 2s, 5s delays before marking final failure.
+ */
+async function retryWithBackoff(label, fn, maxAttempts = 3) {
+  const delays = [0, 2000, 5000]; // No delay on first attempt, then 2s, 5s
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      if (attempt > 1) {
+        console.log(`[${label}] Retry attempt ${attempt}/${maxAttempts}...`);
+        await new Promise((resolve) => setTimeout(resolve, delays[attempt - 1]));
+      }
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxAttempts) {
+        console.warn(`[${label}] Attempt ${attempt}/${maxAttempts} failed: ${error.message}`);
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 async function bootstrap() {
   if (!config.bootstrapApiKey) return;
   try {
-    const session = await sessions.create(config.bootstrapApiKey, config.overrides);
-    bootstrapSessionId = session.id;
-    console.log(`[CX_API_KEY] ✓ Successfully authenticated with Checkmarx One (tenant: ${session.connection.tenant})`);
+    const result = await retryWithBackoff('CX_API_KEY', () =>
+      sessions.create(config.bootstrapApiKey, config.overrides),
+    );
+    bootstrapSessionId = result.id;
+    console.log(`[CX_API_KEY] ✓ Successfully authenticated with Checkmarx One (tenant: ${result.connection.tenant})`);
   } catch (error) {
-    console.error(`[CX_API_KEY] ✗ Authentication failed: ${error.message}`);
+    console.error(`[CX_API_KEY] ✗ Authentication failed after 3 attempts: ${error.message}`);
     if (error.message.includes('fetch failed') || error.message.includes('ENOTFOUND')) {
       console.error('[CX_API_KEY] This usually means: network connectivity issue, proxy configuration, or DNS resolution failure');
       console.error('[CX_API_KEY] Check: your firewall, proxy settings, and whether the Checkmarx endpoint is reachable');
@@ -1021,24 +1049,24 @@ async function bootstrap() {
       console.error('[CX_API_KEY] This usually means: the API key is invalid, expired, or has incorrect format');
       console.error('[CX_API_KEY] Verify: CX_API_KEY is correct and has not expired in your Checkmarx account');
     }
-    console.warn(`! CX_API_KEY was set but could not be used: ${error.message}`);
+    console.warn(`! CX_API_KEY was set but could not be used after retries: ${error.message}`);
   }
 }
 
 /**
  * When the SMTP login comes from .env there is nobody to click "Test
- * connection", so run the same handshake once at startup. A pass unlocks
- * sending; a failure is logged and the Settings page still shows the reason.
+ * connection", so run the same handshake once at startup with retries.
+ * A pass unlocks sending; a failure is logged and the Settings page still shows the reason.
  */
 async function verifyEnvironmentSmtp() {
   const settings = settingsStore.get();
   if (!hasEnvironmentSmtp() || isVerified(settings)) return;
   try {
-    const result = await testConnection(settings.smtp);
+    const result = await retryWithBackoff('SMTP', () => testConnection(settings.smtp));
     settingsStore.markVerified();
     console.log(`[SMTP] ${result.message} Sending is unlocked.`);
   } catch (error) {
-    console.warn(`! [SMTP] Startup connection test failed: ${error.message}`);
+    console.warn(`! [SMTP] Startup connection test failed after 3 attempts: ${error.message}`);
   }
 }
 
