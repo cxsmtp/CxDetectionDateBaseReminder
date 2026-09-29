@@ -13,6 +13,45 @@ const state = {
   initiators: [],
   pickedInitiators: new Set(),
   lastScan: null,
+  logs: [],
+};
+
+// ---------------------------------------------------------------------------
+// Logging
+// ---------------------------------------------------------------------------
+
+const logger = {
+  logs: [],
+  maxLogs: 500,
+
+  add(message, type = 'info', details = {}) {
+    const timestamp = new Date().toISOString();
+    const log = { timestamp, type, message, details };
+    this.logs.push(log);
+    if (this.logs.length > this.maxLogs) this.logs.shift();
+    renderLogs();
+  },
+
+  apiCall(method, path) {
+    this.add(`API ${method} ${path}`, 'api', { method, path });
+  },
+
+  apiSuccess(method, path, status) {
+    this.add(`✓ ${method} ${path} (${status})`, 'success', { method, path, status });
+  },
+
+  apiError(method, path, error) {
+    this.add(
+      `✗ ${method} ${path} — ${error.message || error}`,
+      'error',
+      { method, path, error: error.message || String(error), status: error.status },
+    );
+  },
+
+  clear() {
+    this.logs = [];
+    renderLogs();
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -20,19 +59,31 @@ const state = {
 // ---------------------------------------------------------------------------
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    credentials: 'same-origin',
-    headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
-    ...options,
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(payload.error || `${response.status} ${response.statusText}`);
-    error.status = response.status;
-    error.detail = payload.detail || '';
+  const method = options.method || 'GET';
+  logger.apiCall(method, path);
+
+  try {
+    const response = await fetch(path, {
+      credentials: 'same-origin',
+      headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+      ...options,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(payload.error || `${response.status} ${response.statusText}`);
+      error.status = response.status;
+      error.detail = payload.detail || '';
+      logger.apiError(method, path, error);
+      throw error;
+    }
+    logger.apiSuccess(method, path, response.status);
+    return payload;
+  } catch (error) {
+    if (error.status === undefined) {
+      logger.apiError(method, path, new Error('fetch failed - network error'));
+    }
     throw error;
   }
-  return payload;
 }
 
 const escapeHtml = (value) =>
@@ -68,10 +119,10 @@ function handleAuthLoss(error) {
 
 function route() {
   const name = (location.hash.replace('#/', '') || 'dashboard').split('?')[0];
-  const target = ['dashboard', 'settings'].includes(name) ? name : 'dashboard';
+  const target = ['dashboard', 'settings', 'logs'].includes(name) ? name : 'dashboard';
   if (!state.connection) return;
 
-  for (const page of ['dashboard', 'settings']) {
+  for (const page of ['dashboard', 'settings', 'logs']) {
     $(`page-${page}`).hidden = page !== target;
   }
   for (const tab of document.querySelectorAll('.tab')) {
@@ -80,6 +131,8 @@ function route() {
   if (target === 'settings') {
     renderSettings();
     loadAutomation();
+  } else if (target === 'logs') {
+    renderLogsPage();
   }
 }
 
@@ -1140,6 +1193,48 @@ async function fetchProjects() {
   }
 }
 
+async function downloadHtmlReport() {
+  const button = $('download-html');
+  button.disabled = true;
+  setStatus('status', 'Generating HTML report…');
+
+  try {
+    const severity = $('severity-filter').value;
+    const response = await fetch('/api/reports/html', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectIds: state.selected.size > 0 ? [...state.selected] : null,
+        severities: severity ? [severity] : null,
+        buckets: [],
+      }),
+    });
+
+    if (!response.ok) {
+      const error = new Error(`${response.status} ${response.statusText}`);
+      throw error;
+    }
+
+    const html = await response.text();
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vulnerability-report-${new Date().toISOString().split('T')[0]}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    logger.add('HTML report downloaded', 'success');
+    setStatus('status', 'HTML report downloaded successfully.', 'ok');
+  } catch (error) {
+    logger.add(`Failed to download HTML report: ${error.message}`, 'error');
+    if (!handleAuthLoss(error)) showError('status', error);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function sendReminderWithHtmlAttachment() {
   const button = $('send');
   button.disabled = true;
@@ -1360,6 +1455,9 @@ for (const id of ['filter', 'severity-filter', 'bucket-filter', 'hide-empty']) {
 
 $('preview').addEventListener('click', () => submitReminder({ dryRun: true }));
 $('send').addEventListener('click', () => submitReminder({ dryRun: false }));
+if ($('download-html')) {
+  $('download-html').addEventListener('click', downloadHtmlReport);
+}
 $('close-preview').addEventListener('click', () => {
   $('preview-panel').hidden = true;
 });
@@ -1369,7 +1467,12 @@ for (const radio of document.querySelectorAll('input[name="sendTo"], input[name=
   radio.addEventListener('change', renderRecipientHint);
 }
 if ($('attach-html-report')) {
-  $('attach-html-report').addEventListener('change', renderRecipientHint);
+  $('attach-html-report').addEventListener('change', () => {
+    renderRecipientHint();
+    const checked = $('attach-html-report').checked;
+    if ($('preview-html')) $('preview-html').hidden = !checked;
+    if ($('download-html')) $('download-html').hidden = !checked;
+  });
 }
 $('auto-save').addEventListener('click', saveAutomation);
 $('auto-run').addEventListener('click', runAutomationNow);
@@ -1492,6 +1595,91 @@ $('projects-body').addEventListener('change', (event) => {
   renderProjects();
   renderInitiatorList();
 });
+
+// ---------------------------------------------------------------------------
+// Logs
+// ---------------------------------------------------------------------------
+
+function renderLogs() {
+  const filter = {
+    api: $('log-filter-api')?.checked ?? true,
+    errors: $('log-filter-errors')?.checked ?? true,
+    success: $('log-filter-success')?.checked ?? true,
+  };
+  const search = ($('log-search')?.value ?? '').toLowerCase();
+
+  const filtered = logger.logs.filter((log) => {
+    if (!filter[log.type]) return false;
+    if (search && !log.message.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  const logsContainer = $('logs-list');
+  const emptyEl = $('logs-empty');
+
+  if (filtered.length === 0) {
+    logsContainer.innerHTML = '';
+    emptyEl.hidden = false;
+  } else {
+    emptyEl.hidden = true;
+    logsContainer.innerHTML = filtered
+      .map((log) => {
+        const time = log.timestamp.slice(11, 19);
+        const icon =
+          log.type === 'error' ? '✗' : log.type === 'success' ? '✓' : log.type === 'api' ? '→' : '•';
+        const color = log.type === 'error' ? '#dc2626' : log.type === 'success' ? '#16a34a' : '#6b7280';
+        return `<div style="padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: ${color};">
+          <span style="color: #999;">${time}</span> ${icon} ${escapeHtml(log.message)}
+        </div>`;
+      })
+      .join('');
+  }
+
+  if ($('logs-summary')) {
+    $('logs-summary').textContent = `${logger.logs.length} log entries`;
+  }
+}
+
+function renderLogsPage() {
+  renderLogs();
+}
+
+// Logs tab event listeners
+if ($('clear-logs')) {
+  $('clear-logs').addEventListener('click', () => {
+    logger.clear();
+  });
+}
+
+if ($('export-logs')) {
+  $('export-logs').addEventListener('click', () => {
+    const logsJson = JSON.stringify(logger.logs, null, 2);
+    const blob = new Blob([logsJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `logs-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    logger.add('Logs exported', 'success');
+  });
+}
+
+if ($('log-filter-api')) {
+  $('log-filter-api').addEventListener('change', renderLogs);
+}
+
+if ($('log-filter-errors')) {
+  $('log-filter-errors').addEventListener('change', renderLogs);
+}
+
+if ($('log-filter-success')) {
+  $('log-filter-success').addEventListener('change', renderLogs);
+}
+
+if ($('log-search')) {
+  $('log-search').addEventListener('input', renderLogs);
+}
 
 (async function init() {
   try {

@@ -16,6 +16,7 @@
       <nav class="tabs" id="nav" hidden>
         <a href="#/dashboard" data-route="dashboard" class="tab">Dashboard</a>
         <a href="#/settings" data-route="settings" class="tab">Settings</a>
+        <a href="#/logs" data-route="logs" class="tab">Logs</a>
       </nav>
       <div class="topbar-actions">
         <button id="disconnect" hidden>Disconnect</button>
@@ -185,6 +186,7 @@
             <button id="preview">Preview email</button>
             <button id="send" class="primary">Send reminder</button>
             <button id="preview-html" class="secondary" hidden>Preview report</button>
+            <button id="download-html" class="secondary" hidden>Download HTML</button>
             <span id="status" class="status"></span>
           </div>
         </section>
@@ -465,6 +467,41 @@
           <button id="save-settings" class="primary big">Save settings</button>
           <span id="save-status" class="status"></span>
         </div>
+      </div>
+
+      <!-- ================= Logs ================= -->
+      <div id="page-logs" class="page" hidden>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Logs and Debugging</h2>
+            <span class="hint" id="logs-summary"></span>
+          </div>
+
+          <div class="controls">
+            <fieldset class="grow">
+              <legend>Filter logs</legend>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                <label><input type="checkbox" id="log-filter-api" checked /> API calls</label>
+                <label><input type="checkbox" id="log-filter-errors" checked /> Errors</label>
+                <label><input type="checkbox" id="log-filter-success" checked /> Success</label>
+              </div>
+              <input type="text" id="log-search" placeholder="Search logs..." style="width: 100%; margin-top: 12px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" />
+            </fieldset>
+
+            <fieldset class="grow">
+              <legend>&nbsp;</legend>
+              <button id="clear-logs" class="link">Clear logs</button>
+              <button id="export-logs" class="link">Export logs</button>
+            </fieldset>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div id="logs-container" style="max-height: 600px; overflow-y: auto; font-family: monospace; font-size: 12px; background: #f5f5f5; padding: 12px; border-radius: 4px; border: 1px solid #ddd;">
+            <div id="logs-empty" style="color: #999;">No logs yet. Fetch data to start capturing logs.</div>
+            <div id="logs-list"></div>
+          </div>
+        </section>
       </div>
     </main>
 
