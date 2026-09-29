@@ -1193,48 +1193,6 @@ async function fetchProjects() {
   }
 }
 
-async function downloadHtmlReport() {
-  const button = $('download-html');
-  button.disabled = true;
-  setStatus('status', 'Generating HTML report…');
-
-  try {
-    const severity = $('severity-filter').value;
-    const response = await fetch('/api/reports/html', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        projectIds: state.selected.size > 0 ? [...state.selected] : null,
-        severities: severity ? [severity] : null,
-        buckets: [],
-      }),
-    });
-
-    if (!response.ok) {
-      const error = new Error(`${response.status} ${response.statusText}`);
-      throw error;
-    }
-
-    const html = await response.text();
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `vulnerability-report-${new Date().toISOString().split('T')[0]}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    logger.add('HTML report downloaded', 'success');
-    setStatus('status', 'HTML report downloaded successfully.', 'ok');
-  } catch (error) {
-    logger.add(`Failed to download HTML report: ${error.message}`, 'error');
-    if (!handleAuthLoss(error)) showError('status', error);
-  } finally {
-    button.disabled = false;
-  }
-}
-
 async function sendReminderWithHtmlAttachment() {
   const button = $('send');
   button.disabled = true;
@@ -1455,9 +1413,6 @@ for (const id of ['filter', 'severity-filter', 'bucket-filter', 'hide-empty']) {
 
 $('preview').addEventListener('click', () => submitReminder({ dryRun: true }));
 $('send').addEventListener('click', () => submitReminder({ dryRun: false }));
-if ($('download-html')) {
-  $('download-html').addEventListener('click', downloadHtmlReport);
-}
 $('close-preview').addEventListener('click', () => {
   $('preview-panel').hidden = true;
 });
@@ -1467,16 +1422,7 @@ for (const radio of document.querySelectorAll('input[name="sendTo"], input[name=
   radio.addEventListener('change', renderRecipientHint);
 }
 if ($('attach-html-report')) {
-  const updateHtmlReportButtonsVisibility = () => {
-    renderRecipientHint();
-    const checked = $('attach-html-report').checked;
-    if ($('preview-html')) $('preview-html').hidden = !checked;
-    if ($('download-html')) $('download-html').hidden = !checked;
-  };
-
-  $('attach-html-report').addEventListener('change', updateHtmlReportButtonsVisibility);
-  // Initialize visibility on page load
-  updateHtmlReportButtonsVisibility();
+  $('attach-html-report').addEventListener('change', renderRecipientHint);
 }
 $('auto-save').addEventListener('click', saveAutomation);
 $('auto-run').addEventListener('click', runAutomationNow);
