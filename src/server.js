@@ -14,7 +14,7 @@ import { buildReminder, buildReportData } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
 import { sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
-import { SettingsStore, applyEnvironmentSmtp, isVerified, parseAddressList, publicSettings } from './settings.js';
+import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, isVerified, parseAddressList, publicSettings } from './settings.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
 import {
@@ -993,11 +993,29 @@ async function bootstrap() {
   }
 }
 
+/**
+ * When the SMTP login comes from .env there is nobody to click "Test
+ * connection", so run the same handshake once at startup. A pass unlocks
+ * sending; a failure is logged and the Settings page still shows the reason.
+ */
+async function verifyEnvironmentSmtp() {
+  const settings = settingsStore.get();
+  if (!hasEnvironmentSmtp() || isVerified(settings)) return;
+  try {
+    const result = await testConnection(settings.smtp);
+    settingsStore.markVerified();
+    console.log(`[SMTP] ${result.message} Sending is unlocked.`);
+  } catch (error) {
+    console.warn(`! [SMTP] Startup connection test failed: ${error.message}`);
+  }
+}
+
 const server = app.listen(config.port, config.host, async () => {
   console.log(`Checkmarx detection-date reminder running on http://${config.host}:${config.port}`);
   console.log(`Settings file: ${settingsStore.file}`);
   for (const problem of configProblems(config)) console.warn(`! ${problem}`);
   await bootstrap();
+  await verifyEnvironmentSmtp();
   await resolveAutomationSession();
   scheduler.sync();
   const automation = settingsStore.get().automation;
