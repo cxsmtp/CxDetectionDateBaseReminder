@@ -317,15 +317,16 @@ export function generateHtmlReport(reminderData, options = {}) {
         }
         .header-left { flex: 1; }
         .auth-button {
-            padding: 10px 20px;
+            padding: 8px 14px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 500;
             background: #e0e0e0;
             color: #333;
             transition: all 0.3s;
+            white-space: nowrap;
         }
         .auth-button.connected {
             background: #4caf50;
@@ -614,6 +615,7 @@ export function generateHtmlReport(reminderData, options = {}) {
         <!-- Header -->
         <div class="header">
             <div class="header-auth-button">
+                <button class="auth-button" id="downloadBtn" onclick="downloadReport()" title="Download this report as an HTML file" style="margin-right: 10px;">⬇ Download</button>
                 <button class="auth-button" id="authBtn" onclick="toggleAuthPanel()" title="Connect with Checkmarx One API for interactive triage and remediation">Connect with CxONE</button>
             </div>
             <div class="logo">${logoHtml}</div>
@@ -1345,6 +1347,28 @@ export function generateHtmlReport(reminderData, options = {}) {
 
             buttons.forEach(b => b.disabled = false);
             logActivity(\`Batch \${action} complete: \${processed} findings processed\`, 'success');
+        }
+
+        function downloadReport() {
+          logActivity('Preparing report for download...', 'pending');
+
+          const htmlContent = document.documentElement.outerHTML;
+          const blob = new Blob([htmlContent], { type: 'text/html; charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+
+          const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+          const projectName = '${escapeHtml(projectName || 'Vulnerability-Report')}';
+          const filename = \`\${projectName}-\${timestamp}.html\`;
+
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+
+          logActivity(\`✓ Report downloaded as "\${filename}"\`, 'success');
         }
 
         function refreshReport() {
