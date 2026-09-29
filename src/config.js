@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './load-env.js';
 
 const bool = (value, fallback) => {
   if (value === undefined || value === '') return fallback;
