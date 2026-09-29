@@ -57,7 +57,7 @@ export function generateHtmlReport(reminderData, options = {}) {
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .header {
             background: white;
-            padding: 15px 20px;
+            padding: 12px 20px;
             border-radius: 8px;
             margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -65,31 +65,31 @@ export function generateHtmlReport(reminderData, options = {}) {
         }
         .header-auth-button {
             position: absolute;
-            top: 15px;
+            top: 12px;
             right: 20px;
         }
-        .logo { margin-bottom: 10px; }
-        .title { font-size: 20px; font-weight: bold; margin: 5px 0 5px; }
-        .subtitle { color: #666; margin-bottom: 10px; font-size: 13px; }
+        .logo { margin-bottom: 6px; font-size: 13px; }
+        .title { font-size: 18px; font-weight: bold; margin: 3px 0 2px; }
+        .subtitle { color: #666; margin-bottom: 8px; font-size: 12px; }
         .summary-band {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 8px;
+            margin-top: 8px;
         }
         .summary-card {
-            background: white;
-            border-left: 4px solid #999;
-            padding: 10px;
-            border-radius: 4px;
+            background: #f9f9f9;
+            border-left: 3px solid #999;
+            padding: 8px;
+            border-radius: 3px;
             text-align: center;
         }
         .summary-card.critical { border-left-color: #d32f2f; }
         .summary-card.high { border-left-color: #f57c00; }
         .summary-card.medium { border-left-color: #fbc02d; }
         .summary-card.low { border-left-color: #388e3c; }
-        .summary-count { font-size: 20px; font-weight: bold; color: ${accentColor}; }
-        .summary-label { font-size: 10px; color: #666; text-transform: uppercase; margin-top: 3px; }
+        .summary-count { font-size: 18px; font-weight: bold; color: ${accentColor}; }
+        .summary-label { font-size: 9px; color: #666; text-transform: uppercase; margin-top: 2px; }
 
         .actions-section {
             background: white;
@@ -335,7 +335,7 @@ export function generateHtmlReport(reminderData, options = {}) {
 
         .status-bar {
             background: #1a1a2e;
-            padding: 20px;
+            padding: 16px;
             border-radius: 8px;
             margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
@@ -345,14 +345,14 @@ export function generateHtmlReport(reminderData, options = {}) {
         .severity-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            margin-bottom: 20px;
+            gap: 14px;
+            margin-bottom: 16px;
         }
         .severity-card {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            border-radius: 8px;
+            padding: 14px;
+            border-radius: 6px;
             color: white;
         }
         .severity-card.critical { border-left: 4px solid #d32f2f; }
@@ -362,12 +362,12 @@ export function generateHtmlReport(reminderData, options = {}) {
         .severity-header {
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
+            gap: 8px;
+            margin-bottom: 10px;
         }
         .severity-badge {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 2px;
             flex-shrink: 0;
         }
@@ -376,25 +376,25 @@ export function generateHtmlReport(reminderData, options = {}) {
         .severity-badge.medium { background: #fbc02d; }
         .severity-badge.low { background: #388e3c; }
         .severity-title {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             flex: 1;
         }
         .severity-count {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             color: #fff;
         }
         .severity-triage-label {
-            font-size: 12px;
+            font-size: 11px;
             color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         .severity-triage-count {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
             color: #fff;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         .severity-slider {
             width: 100%;
@@ -427,19 +427,19 @@ export function generateHtmlReport(reminderData, options = {}) {
 
         .triage-button-bar {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             justify-content: flex-end;
-            margin-top: 12px;
+            margin-top: 10px;
         }
         .fix-all-btn {
-            padding: 8px 16px;
+            padding: 6px 14px;
             background: #a78bfa;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 3px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 11px;
             transition: all 0.2s;
             height: fit-content;
         }
