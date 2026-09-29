@@ -1467,12 +1467,16 @@ for (const radio of document.querySelectorAll('input[name="sendTo"], input[name=
   radio.addEventListener('change', renderRecipientHint);
 }
 if ($('attach-html-report')) {
-  $('attach-html-report').addEventListener('change', () => {
+  const updateHtmlReportButtonsVisibility = () => {
     renderRecipientHint();
     const checked = $('attach-html-report').checked;
     if ($('preview-html')) $('preview-html').hidden = !checked;
     if ($('download-html')) $('download-html').hidden = !checked;
-  });
+  };
+
+  $('attach-html-report').addEventListener('change', updateHtmlReportButtonsVisibility);
+  // Initialize visibility on page load
+  updateHtmlReportButtonsVisibility();
 }
 $('auto-save').addEventListener('click', saveAutomation);
 $('auto-run').addEventListener('click', runAutomationNow);
