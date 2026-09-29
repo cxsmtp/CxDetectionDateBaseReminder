@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -88,6 +89,7 @@ const escapeHtml = (text) => String(text ?? '')
 const app = express();
 app.use(express.json({ limit: '4mb' }));
 app.use(express.static(publicDir));
+app.use('/api/risks', reportCors);
 
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 
@@ -105,27 +107,53 @@ function requireSession(req, res, next) {
   next();
 }
 
-/** Create a temporary session from an API key (used for interactive HTML reports) */
-async function requireSessionOrApiKey(req, res, next) {
-  let session = currentSession(req);
-  const apiKey = req.headers['x-api-key'];
+/**
+ * The emailed HTML report is opened from disk (origin "null") or a mail client,
+ * so its calls are cross-origin. No credentials are allowed: the report must
+ * present its own API key, so this never exposes the server's own connection.
+ */
+function reportCors(req, res, next) {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
+  res.set('Access-Control-Max-Age', '600');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+}
 
-  if (session) {
+const reportKeySessions = new Map();
+
+/**
+ * Authenticates report actions by X-API-Key, or by the dashboard's own session
+ * cookie. Deliberately never falls back to the bootstrap (CX_API_KEY) session,
+ * since these routes are reachable cross-origin.
+ */
+async function requireSessionOrApiKey(req, res, next) {
+  const apiKey = String(req.headers['x-api-key'] ?? '').trim();
+  if (!apiKey) {
+    const session = sessions.get(readSessionCookie(req));
+    if (!session) {
+      return res.status(401).json({ error: 'Not connected. Provide a Checkmarx One API key.' });
+    }
     req.session = session;
     return next();
   }
 
-  if (!apiKey) {
-    return res.status(401).json({ error: 'Not connected. Provide X-API-Key header or use Checkmarx One API key.' });
+  const keyHash = createHash('sha256').update(apiKey).digest('hex');
+  const cached = sessions.get(reportKeySessions.get(keyHash));
+  if (cached) {
+    req.session = cached;
+    return next();
   }
 
   try {
-    session = await sessions.create(apiKey, config.overrides);
+    const session = await sessions.create(apiKey, config.overrides);
+    reportKeySessions.set(keyHash, session.id);
     req.session = session;
     next();
   } catch (error) {
-    console.warn(`[API-Key Auth] Failed: ${error.message}`);
-    return res.status(401).json({ error: 'Invalid or expired API key.' });
+    console.warn(`[report auth] API key rejected: ${error.message}`);
+    return res.status(401).json({ error: 'Checkmarx One rejected this API key (invalid, expired, or wrong region).' });
   }
 }
 
@@ -716,6 +744,10 @@ app.post(
 // ---------------------------------------------------------------------------
 // Triage & Remediation
 // ---------------------------------------------------------------------------
+
+app.post('/api/risks/verify', requireSessionOrApiKey, (req, res) => {
+  res.json(describeSession(req.session));
+});
 
 app.post(
   '/api/risks/triage',

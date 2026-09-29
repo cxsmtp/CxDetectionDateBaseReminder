@@ -58,3 +58,16 @@ test('the HTML report includes activity tab functionality for logging and status
   assert.ok(html.includes('sessionStorage'), 'Should use sessionStorage for API key');
   assert.ok(html.includes('clearApiKey'), 'Should have clear API key function');
 });
+
+test('the report script parses, and embeds every finding for the triage sliders', () => {
+  const html = generateHtmlReport({
+    projects: [{ projectId: 'p1', risks: [risk(1, 'CRITICAL'), risk(2, 'MEDIUM'), { ...risk(3, 'LOW'), title: '</script><b>x' }] }],
+  });
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  assert.equal(scripts.length, 1, 'a literal </script> inside the code would split the script tag');
+  assert.doesNotThrow(() => new Function(scripts[0]));
+
+  const data = JSON.parse(html.match(/<script type="application\/json" id="reportFindings">([\s\S]*?)<\/script>/)[1]);
+  assert.deepEqual(data.map((f) => f.severity).sort(), ['CRITICAL', 'LOW', 'MEDIUM']);
+  assert.match(html, /id="mediumSlider" min="0" max="1"/);
+});

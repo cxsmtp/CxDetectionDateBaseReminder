@@ -40,6 +40,21 @@ export function generateHtmlReport(reminderData, options = {}) {
 
   const accentColor = branding.accentColor || '#0066cc';
 
+  // Every finding, oldest first within a severity, so the sliders triage the most overdue ones.
+  const allFindings = projects
+    .flatMap((project) => (project.risks || []).map((risk) => ({
+      riskId: risk.riskId,
+      projectId: project.projectId,
+      scanId: risk.scanId,
+      severity: String(risk.severity || 'UNKNOWN').toUpperCase(),
+      title: risk.title || risk.riskId,
+      ageDays: risk.ageDays ?? -1,
+    })))
+    .filter((f) => f.riskId)
+    .sort((a, b) => b.ageDays - a.ageDays);
+  const countBySeverity = {};
+  for (const f of allFindings) countBySeverity[f.severity] = (countBySeverity[f.severity] || 0) + 1;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -69,6 +84,7 @@ export function generateHtmlReport(reminderData, options = {}) {
             position: absolute;
             top: 20px;
             right: 20px;
+            z-index: 2;
         }
         .logo { margin-bottom: 8px; font-size: 14px; opacity: 0.95; font-weight: 500; }
         .title { font-size: 28px; font-weight: 700; margin: 8px 0 5px; letter-spacing: -0.5px; }
@@ -453,10 +469,12 @@ export function generateHtmlReport(reminderData, options = {}) {
 
         .triage-button-bar {
             display: flex;
-            gap: 8px;
+            gap: 12px;
             justify-content: flex-end;
+            align-items: center;
             margin-top: 10px;
         }
+        .fix-all-hint { color: #9ca3af; font-size: 12px; }
         .fix-all-btn {
             padding: 6px 14px;
             background: #a78bfa;
@@ -662,8 +680,8 @@ export function generateHtmlReport(reminderData, options = {}) {
                     <div class="severity-count">${criticalCount}</div>
                     <div class="severity-triage-label">To triage</div>
                     <div class="severity-triage-count" id="criticalTriageCount">0</div>
-                    <input type="range" class="severity-slider" id="criticalSlider" min="0" max="${criticalCount}" value="0"
-                           oninput="updateTriageSliderCritical()" onchange="updateTriageSliderCritical()">
+                    <input type="range" class="severity-slider" id="criticalSlider" min="0" max="${countBySeverity.CRITICAL || 0}" value="0"
+                           oninput="updateTriageSlider('critical')">
                 </div>
 
                 <!-- High Severity Card -->
@@ -675,8 +693,8 @@ export function generateHtmlReport(reminderData, options = {}) {
                     <div class="severity-count">${highCount}</div>
                     <div class="severity-triage-label">To triage</div>
                     <div class="severity-triage-count" id="highTriageCount">0</div>
-                    <input type="range" class="severity-slider" id="highSlider" min="0" max="${highCount}" value="0"
-                           oninput="updateTriageSliderHigh()" onchange="updateTriageSliderHigh()">
+                    <input type="range" class="severity-slider" id="highSlider" min="0" max="${countBySeverity.HIGH || 0}" value="0"
+                           oninput="updateTriageSlider('high')">
                 </div>
 
                 <!-- Medium Severity Card -->
@@ -688,8 +706,8 @@ export function generateHtmlReport(reminderData, options = {}) {
                     <div class="severity-count">${mediumCount}</div>
                     <div class="severity-triage-label">To triage</div>
                     <div class="severity-triage-count" id="mediumTriageCount">0</div>
-                    <input type="range" class="severity-slider" id="mediumSlider" min="0" max="${mediumCount}" value="0"
-                           oninput="updateTriageSliderMedium()" onchange="updateTriageSliderMedium()">
+                    <input type="range" class="severity-slider" id="mediumSlider" min="0" max="${countBySeverity.MEDIUM || 0}" value="0"
+                           oninput="updateTriageSlider('medium')">
                 </div>
 
                 <!-- Low Severity Card -->
@@ -701,13 +719,14 @@ export function generateHtmlReport(reminderData, options = {}) {
                     <div class="severity-count">${lowCount}</div>
                     <div class="severity-triage-label">To triage</div>
                     <div class="severity-triage-count" id="lowTriageCount">0</div>
-                    <input type="range" class="severity-slider" id="lowSlider" min="0" max="${lowCount}" value="0"
-                           oninput="updateTriageSliderLow()" onchange="updateTriageSliderLow()">
+                    <input type="range" class="severity-slider" id="lowSlider" min="0" max="${countBySeverity.LOW || 0}" value="0"
+                           oninput="updateTriageSlider('low')">
                 </div>
             </div>
 
             <!-- Triage Button Bar -->
             <div class="triage-button-bar">
+                <span class="fix-all-hint" id="fixAllHint"></span>
                 <button class="fix-all-btn" id="fixAllBtn" onclick="bulkTriageSelected()" disabled>Fix All</button>
             </div>
         </div>
@@ -722,7 +741,7 @@ export function generateHtmlReport(reminderData, options = {}) {
 
                 <div style="margin-bottom: 20px;">
                     <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
-                        <strong>Option 1:</strong> Paste an API key from <strong>Checkmarx One → Settings → Identity &amp; Access Management → API Keys</strong>
+                        Paste an API key from <strong>Checkmarx One → Settings → Identity &amp; Access Management → API Keys</strong>
                     </p>
 
                     <div style="margin-bottom: 15px;">
@@ -731,18 +750,6 @@ export function generateHtmlReport(reminderData, options = {}) {
                                   rows="3" spellcheck="false"
                                   style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace; resize: vertical;"></textarea>
                     </div>
-                </div>
-
-                <div style="text-align: center; padding: 15px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee; margin: 20px 0;">
-                    <span style="font-size: 12px; color: #999;">OR</span>
-                </div>
-
-                <div style="margin-bottom: 15px;">
-                    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
-                        <strong>Option 2:</strong> Sign in with your Checkmarx account to access interactive features
-                    </p>
-                    <button onclick="authenticateWithBrowser()" style="width: 100%; padding: 12px 16px; background: #10b981; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer; font-size: 14px;">Sign in to Checkmarx</button>
-                    <p style="font-size: 12px; color: #666; margin-top: 10px;">Opens Checkmarx login in a new window. You'll be redirected back automatically.</p>
                 </div>
 
                 <div id="detectedInfo" style="display: none; padding: 12px; background: #f5f5f5; border-radius: 4px; margin-bottom: 15px; font-size: 12px;">
@@ -826,6 +833,7 @@ export function generateHtmlReport(reminderData, options = {}) {
         </div>
     </div>
 
+    <script type="application/json" id="reportFindings">${jsonForScript(allFindings)}</script>
     <script>
         // Configuration from server
         const apiBaseUrl = '${sanitizeJsString(apiBaseUrl)}';
@@ -838,196 +846,166 @@ export function generateHtmlReport(reminderData, options = {}) {
         // Activity logging system
         const activityLog = [];
 
-        // UI Control Functions
-        function toggleAuthPanel() {
-          try {
-            const modal = document.getElementById('authModal');
-            if (!modal) {
-              console.error('authModal element not found');
-              alert('Authentication modal not found. Please refresh the page.');
-              return;
-            }
-            console.log('toggleAuthPanel called, modal found:', !!modal);
+        const SEVERITIES = ['critical', 'high', 'medium', 'low'];
+        const ALL_FINDINGS = JSON.parse(document.getElementById('reportFindings').textContent);
+        let bulkRunning = false;
 
-            // Force modal to be visible
-            modal.style.display = 'flex !important';
-            modal.style.visibility = 'visible !important';
-            modal.style.opacity = '1 !important';
-            modal.style.pointerEvents = 'auto !important';
-            modal.style.zIndex = '9999 !important';
-
-            // Clear previous input
-            const apiKeyInput = document.getElementById('apiKeyInput');
-            const status = document.getElementById('authStatus');
-            if (apiKeyInput) {
-              apiKeyInput.value = '';
-              setTimeout(() => {
-                apiKeyInput.focus();
-              }, 100);
-            }
-            if (status) status.textContent = '';
-
-            logActivity('Authentication modal opened', 'info');
-            console.log('Auth modal opened successfully');
-          } catch (error) {
-            console.error('Error opening auth modal:', error);
-            alert('Error opening authentication modal: ' + error.message);
-          }
+        function setAuthStatus(text, color) {
+          const status = document.getElementById('authStatus');
+          status.textContent = text;
+          status.style.color = color || '#d32f2f';
         }
 
+        function toggleAuthPanel() {
+          if (userApiKey) {
+            if (confirm('Disconnect from Checkmarx One?')) clearApiKey();
+            return;
+          }
+          const modal = document.getElementById('authModal');
+          modal.style.display = 'flex';
+          modal.style.visibility = 'visible';
+          modal.style.opacity = '1';
+          document.getElementById('apiKeyInput').value = '';
+          document.getElementById('detectedInfo').style.display = 'none';
+          setAuthStatus('');
+          setTimeout(() => document.getElementById('apiKeyInput').focus(), 50);
+        }
 
         function closeAuthModal() {
           const modal = document.getElementById('authModal');
-          if (!modal) return;
           modal.style.display = 'none';
           modal.style.visibility = 'hidden';
           modal.style.opacity = '0';
-          modal.style.pointerEvents = 'none';
-          const apiKeyInput = document.getElementById('apiKeyInput');
-          if (apiKeyInput) apiKeyInput.value = '';
-          const status = document.getElementById('authStatus');
-          if (status) status.textContent = '';
-          const detectedInfo = document.getElementById('detectedInfo');
-          if (detectedInfo) detectedInfo.style.display = 'none';
-          console.log('Auth modal closed');
         }
 
-        function updateTriageSliderCritical() {
-          const slider = document.getElementById('criticalSlider');
-          document.getElementById('criticalTriageCount').textContent = slider.value;
-          enableFixAllButton();
+        function sliderValue(sev) {
+          return parseInt(document.getElementById(sev + 'Slider').value, 10) || 0;
         }
 
-        function updateTriageSliderHigh() {
-          const slider = document.getElementById('highSlider');
-          document.getElementById('highTriageCount').textContent = slider.value;
-          enableFixAllButton();
-        }
-
-        function updateTriageSliderMedium() {
-          const slider = document.getElementById('mediumSlider');
-          document.getElementById('mediumTriageCount').textContent = slider.value;
-          enableFixAllButton();
-        }
-
-        function updateTriageSliderLow() {
-          const slider = document.getElementById('lowSlider');
-          document.getElementById('lowTriageCount').textContent = slider.value;
+        function updateTriageSlider(sev) {
+          document.getElementById(sev + 'TriageCount').textContent = sliderValue(sev);
           enableFixAllButton();
         }
 
         function enableFixAllButton() {
-          const criticalVal = parseInt(document.getElementById('criticalSlider').value, 10);
-          const highVal = parseInt(document.getElementById('highSlider').value, 10);
-          const mediumVal = parseInt(document.getElementById('mediumSlider').value, 10);
-          const lowVal = parseInt(document.getElementById('lowSlider').value, 10);
-          const totalSelected = criticalVal + highVal + mediumVal + lowVal;
-          const fixAllBtn = document.getElementById('fixAllBtn');
-          if (totalSelected > 0 && userApiKey) {
-            fixAllBtn.disabled = false;
-            fixAllBtn.textContent = totalSelected > 0 ? 'Fix' : 'Fix All';
-          } else {
-            fixAllBtn.disabled = true;
-            fixAllBtn.textContent = 'Fix All';
-          }
+          const total = SEVERITIES.reduce((n, sev) => n + sliderValue(sev), 0);
+          const btn = document.getElementById('fixAllBtn');
+          const hint = document.getElementById('fixAllHint');
+          if (bulkRunning) return;
+          btn.disabled = total === 0 || !userApiKey;
+          btn.textContent = total > 0 ? \`Triage \${total} finding\${total === 1 ? '' : 's'}\` : 'Fix All';
+          if (!userApiKey) hint.textContent = 'Connect with CxONE to triage findings.';
+          else if (total === 0) hint.textContent = 'Move a slider to choose how many findings to triage (oldest first).';
+          else hint.textContent = '';
         }
 
-        function bulkTriageSelected() {
-          const criticalVal = parseInt(document.getElementById('criticalSlider').value, 10);
-          const highVal = parseInt(document.getElementById('highSlider').value, 10);
-          const mediumVal = parseInt(document.getElementById('mediumSlider').value, 10);
-          const lowVal = parseInt(document.getElementById('lowSlider').value, 10);
-          const totalCount = criticalVal + highVal + mediumVal + lowVal;
-
-          if (totalCount > 0 && userApiKey) {
-            logActivity(\`Starting bulk triage for \${totalCount} findings (Critical: \${criticalVal}, High: \${highVal}, Medium: \${mediumVal}, Low: \${lowVal})...\`, 'pending');
-            // Triage findings implementation
-          } else if (!userApiKey) {
-            logActivity('Please authenticate with your API key first', 'error');
+        async function postRiskAction(action, finding) {
+          let response;
+          try {
+            response = await fetch(apiBaseUrl + '/api/risks/' + action, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-API-Key': userApiKey },
+              body: JSON.stringify({ riskId: finding.riskId, projectId: finding.projectId, scanId: finding.scanId }),
+            });
+          } catch (error) {
+            return { ok: false, status: 0, error: \`Cannot reach the reminder server at \${apiBaseUrl} — it must be running and reachable from this computer.\` };
           }
+          if (response.ok) return { ok: true, status: response.status };
+          let message = response.statusText;
+          try { message = (await response.json()).error || message; } catch {}
+          return { ok: false, status: response.status, error: message };
         }
 
-        // Browser-based authentication (using existing Checkmarx session)
-        function authenticateWithBrowser() {
-          const status = document.getElementById('authStatus');
-          status.textContent = 'Opening Checkmarx login...';
-          status.style.color = '#1976d2';
-
-          // Open Checkmarx dashboard in a new window
-          // The user can log in there, and since this report has the same origin,
-          // they can then use the API with their authenticated session cookies
-          const checkmarxUrl = '${sanitizeJsString(apiBaseUrl || 'https://checkmarx.cloud')}';
-          const authWindow = window.open(checkmarxUrl, 'checkmarx_auth', 'width=600,height=700');
-
-          if (!authWindow) {
-            status.textContent = 'Popup blocked. Please enable popups and try again.';
-            status.style.color = '#d32f2f';
-            logActivity('Popup blocked during browser authentication', 'error');
+        async function bulkTriageSelected() {
+          if (!userApiKey) { toggleAuthPanel(); return; }
+          const queue = [];
+          for (const sev of SEVERITIES) {
+            const pending = ALL_FINDINGS.filter(f => f.severity === sev.toUpperCase() && !findingStates[f.riskId]?.triaged);
+            queue.push(...pending.slice(0, sliderValue(sev)));
+          }
+          if (queue.length === 0) {
+            logActivity('Nothing left to triage for the selected counts.', 'info');
             return;
           }
+          if (!confirm(\`Triage \${queue.length} finding\${queue.length === 1 ? '' : 's'} in Checkmarx One?\`)) return;
 
-          logActivity('Opened Checkmarx login window. Please sign in and return to this report.', 'info');
-
-          // Check periodically if the window was closed (user completed login)
-          const checkClosed = setInterval(() => {
-            if (authWindow.closed) {
-              clearInterval(checkClosed);
-              status.textContent = 'Login completed. Reloading report...';
-              status.style.color = '#2e7d32';
-              logActivity('User signed in successfully', 'success');
-
-              // Reload to use authenticated session
-              setTimeout(() => {
-                location.reload();
-              }, 1000);
+          const btn = document.getElementById('fixAllBtn');
+          bulkRunning = true;
+          btn.disabled = true;
+          logActivity(\`Bulk triage started for \${queue.length} findings\`, 'pending');
+          let ok = 0, failed = 0;
+          for (const finding of queue) {
+            btn.textContent = \`Triaging \${ok + failed + 1}/\${queue.length}…\`;
+            const result = await postRiskAction('triage', finding);
+            const card = document.querySelector(\`.finding-card[data-risk-id="\${CSS.escape(finding.riskId)}"]\`);
+            if (result.ok) {
+              ok++;
+              findingStates[finding.riskId] = { ...findingStates[finding.riskId], triaged: true };
+              if (card) markCardTriaged(card);
+              logActivity(\`Triaged: \${finding.title}\`, 'success');
+            } else {
+              failed++;
+              logActivity(\`Failed to triage \${finding.title}: \${result.error}\`, 'error');
+              if (result.status === 0 || result.status === 401) break;
             }
-          }, 500);
+          }
+          bulkRunning = false;
+          for (const sev of SEVERITIES) {
+            document.getElementById(sev + 'Slider').value = 0;
+            document.getElementById(sev + 'TriageCount').textContent = '0';
+          }
+          enableFixAllButton();
+          logActivity(\`Bulk triage finished: \${ok} triaged, \${failed} failed\`, failed ? 'error' : 'success');
         }
 
-        // API Key Authentication (simple storage)
         async function authenticateWithApiKey() {
-          const apiKey = document.getElementById('apiKeyInput').value?.trim();
-          const status = document.getElementById('authStatus');
+          const apiKey = document.getElementById('apiKeyInput').value.trim();
           const authBtn = document.getElementById('authenticateApiKeyBtn');
           const detectedInfo = document.getElementById('detectedInfo');
 
           if (!apiKey) {
-            status.textContent = 'API key is required';
-            status.style.color = '#d32f2f';
-            detectedInfo.style.display = 'none';
+            setAuthStatus('Paste an API key first.');
             return;
           }
-
-          // Decode API key to show detected info
           const keyInfo = decodeApiKey(apiKey);
-          if (keyInfo) {
-            document.getElementById('detectedTenant').textContent = keyInfo.tenant || 'unknown';
-            document.getElementById('detectedRegion').textContent = keyInfo.regionLabel || 'unknown';
-            detectedInfo.style.display = 'block';
+          if (!keyInfo) {
+            detectedInfo.style.display = 'none';
+            setAuthStatus('That does not look like a Checkmarx One API key.');
+            return;
           }
+          document.getElementById('detectedTenant').textContent = keyInfo.tenant;
+          document.getElementById('detectedRegion').textContent = keyInfo.regionLabel;
+          detectedInfo.style.display = 'block';
 
-          status.textContent = 'Validating API key...';
-          status.style.color = '#1976d2';
+          setAuthStatus('Verifying key with Checkmarx One…', '#1976d2');
           authBtn.disabled = true;
-
           try {
-            // Store API key directly (will be used for backend calls)
-            sessionStorage.setItem('cxApiKey', apiKey);
+            let response;
+            try {
+              response = await fetch(apiBaseUrl + '/api/risks/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+                body: '{}',
+              });
+            } catch {
+              setAuthStatus(\`Cannot reach the reminder server at \${apiBaseUrl}. It must be running and reachable from this computer.\`);
+              logActivity('Connection failed: reminder server unreachable', 'error');
+              return;
+            }
+            if (!response.ok) {
+              let message = response.statusText;
+              try { message = (await response.json()).error || message; } catch {}
+              setAuthStatus(message);
+              logActivity('Connection failed: ' + message, 'error');
+              return;
+            }
             userApiKey = apiKey;
-            window.cxAuthToken = apiKey;
-
-            status.textContent = '✓ Connected successfully';
-            status.style.color = '#2e7d32';
+            sessionStorage.setItem('cxApiKey', apiKey);
+            setAuthStatus('✓ Connected', '#2e7d32');
             updateAuthUI();
-            logActivity('✓ Connected to Checkmarx One. Interactive features enabled.', 'success');
             enableInteractiveButtons();
-
-            setTimeout(() => closeAuthModal(), 500);
-          } catch (error) {
-            console.error('Auth error:', error);
-            status.textContent = 'Error: ' + error.message;
-            status.style.color = '#d32f2f';
-            logActivity('✗ Connection failed: ' + error.message, 'error');
+            logActivity(\`Connected to Checkmarx One (\${keyInfo.tenant}, \${keyInfo.regionLabel})\`, 'success');
+            setTimeout(closeAuthModal, 400);
           } finally {
             authBtn.disabled = false;
           }
@@ -1045,12 +1023,12 @@ export function generateHtmlReport(reminderData, options = {}) {
                   .join(''),
               ),
             );
-            const match = String(json.iss ?? '').match(/^(https?:\/\/[^/]+)\/auth\/realms\/([^/?#]+)/);
+            const match = String(json.iss ?? '').match(new RegExp('^(https?://[^/]+)/auth/realms/([^/?#]+)'));
             if (!match) return null;
             const [, iamUrl, tenant] = match;
             const host = new URL(iamUrl).host;
-            const region = host.match(/^([a-z0-9-]+)\.(?:iam|ast)\./i)?.[1]?.toLowerCase() ??
-                          (/^(iam|ast)\./i.test(host) ? 'us' : '');
+            const region = host.match(new RegExp('^([a-z0-9-]+)[.](?:iam|ast)[.]', 'i'))?.[1]?.toLowerCase() ??
+                          (new RegExp('^(iam|ast)[.]', 'i').test(host) ? 'us' : '');
             const regionLabels = {
               us: 'US', us2: 'US 2', eu: 'EU', eu2: 'EU 2', deu: 'Germany',
               anz: 'Australia / NZ', ind: 'India', sng: 'Singapore', uae: 'UAE', mea: 'Middle East',
@@ -1065,104 +1043,47 @@ export function generateHtmlReport(reminderData, options = {}) {
           }
         }
 
-function clearApiKey() {
+        function clearApiKey() {
           userApiKey = null;
-          window.cxAuthToken = null;
-          sessionStorage.removeItem('cxJwtToken');
-          sessionStorage.removeItem('cxTokenExpiry');
-          sessionStorage.removeItem('cxClientId');
-          sessionStorage.removeItem('cxIamRegion');
-          document.getElementById('clientIdInput').value = '';
-          document.getElementById('clientSecretInput').value = '';
+          sessionStorage.removeItem('cxApiKey');
           updateAuthUI();
-          logActivity('Authentication cleared', 'info');
           disableInteractiveButtons();
-        }
-
-        // Get valid JWT token with auto-refresh if needed
-        async function getValidJwtToken() {
-          const token = sessionStorage.getItem('cxJwtToken');
-          const expiry = parseInt(sessionStorage.getItem('cxTokenExpiry') || '0', 10);
-
-          if (!token || Date.now() >= expiry - 60000) {
-            // Token missing or expired (within 1 min), try to refresh
-            const clientId = sessionStorage.getItem('cxClientId');
-            const iamRegion = sessionStorage.getItem('cxIamRegion');
-
-            if (clientId && iamRegion) {
-              logActivity('JWT token expired, attempting refresh...', 'info');
-              // Refresh token - but we don't have refresh token, so user needs to re-auth
-              return null;
-            }
-            return null;
-          }
-
-          return token;
-        }
-
-        // Make authenticated API call
-        async function makeAuthenticatedApiCall(url, options = {}) {
-          const token = await getValidJwtToken();
-          if (!token) {
-            throw new Error('Not authenticated. Please authenticate first.');
-          }
-
-          const headers = {
-            'Authorization': \`Bearer \${token}\`,
-            'Accept': '*/*; version=1.0',
-            ...options.headers
-          };
-
-          return fetch(url, {
-            ...options,
-            headers
-          });
+          logActivity('Disconnected from Checkmarx One', 'info');
         }
 
         function updateAuthUI() {
           const authBtn = document.getElementById('authBtn');
-
           if (userApiKey) {
-            authBtn.textContent = '✓ Connected to CxOne';
+            authBtn.textContent = '✓ Connected to CxONE';
             authBtn.classList.add('connected');
           } else {
             authBtn.textContent = 'Connect with CxONE';
             authBtn.classList.remove('connected');
           }
+          enableFixAllButton();
         }
 
         function enableInteractiveButtons() {
-          document.getElementById('criticalSlider').disabled = false;
-          document.getElementById('highSlider').disabled = false;
-          document.getElementById('mediumSlider').disabled = false;
-          document.getElementById('lowSlider').disabled = false;
-
-          // Enable individual finding buttons
-          document.querySelectorAll('[data-action="triage"], [data-action="remediate"]').forEach(btn => {
+          document.querySelectorAll('.finding-card:not(.triaged) [data-action="triage"]').forEach(btn => {
             btn.disabled = false;
           });
+          enableFixAllButton();
         }
 
         function disableInteractiveButtons() {
-          document.getElementById('criticalSlider').disabled = true;
-          document.getElementById('highSlider').disabled = true;
-          document.getElementById('mediumSlider').disabled = true;
-          document.getElementById('lowSlider').disabled = true;
-
-          // Disable individual finding buttons
-          document.querySelectorAll('[data-action="triage"], [data-action="remediate"]').forEach(btn => {
+          document.querySelectorAll('[data-action="triage"]').forEach(btn => {
             btn.disabled = true;
           });
+          enableFixAllButton();
         }
 
-        // Check if API key is in sessionStorage on page load
         function restoreApiKey() {
           const stored = sessionStorage.getItem('cxApiKey');
           if (stored) {
             userApiKey = stored;
             updateAuthUI();
             enableInteractiveButtons();
-            logActivity('✓ API key restored from session', 'info');
+            logActivity('Reconnected using the key from this browser session', 'info');
           }
         }
 
@@ -1259,13 +1180,13 @@ function clearApiKey() {
             examples: {
               'JavaScript': 'element.textContent = userInput; // Always use textContent, not innerHTML',
               'React': '{userInput} // JSX auto-escapes by default',
-              'HTML5': '<script nonce="random123">// Use nonce attributes for inline scripts</script>',
-              'Headers': 'Content-Security-Policy: default-src \'self\'; script-src \'self\''
+              'HTML5': '<script nonce="random123">// Use nonce attributes for inline scripts<\\/script>',
+              'Headers': "Content-Security-Policy: default-src 'self'; script-src 'self'"
             }
           },
           'INSECURE_DIRECT_OBJECT_REFERENCE': {
             title: 'Insecure Direct Object Reference (IDOR)',
-            description: 'IDOR vulnerabilities occur when an application exposes internal object references (IDs) without proper access control, allowing unauthorized users to access others\' data.',
+            description: 'IDOR vulnerabilities occur when an application exposes internal object references (IDs) without proper access control, allowing unauthorized users to access others’ data.',
             risk: 'Unauthorized access to sensitive information, data manipulation, or complete account takeover.',
             remediation: [
               'Implement proper access control checks on every resource access',
@@ -1307,7 +1228,7 @@ function clearApiKey() {
               'Review the detailed finding information and location in your codebase',
               'Consult with your security team to understand the impact',
               'Implement the recommended fix for this vulnerability type',
-              'Test thoroughly to ensure the fix doesn\'t introduce new issues',
+              'Test thoroughly to ensure the fix doesn’t introduce new issues',
               'Document the remediation in your change log'
             ],
             examples: {}
@@ -1390,231 +1311,52 @@ function clearApiKey() {
           if (e.target === modal) modal.classList.remove('show');
         });
 
-        async function triageAll(severity) {
-            if (!confirm(\`Triage all \${severity} vulnerabilities?\`)) return;
-
-            const findings = document.querySelectorAll(\`[data-severity="\${severity}"]\`);
-            if (findings.length === 0) {
-                logActivity(\`No \${severity} vulnerabilities found\`, 'info');
-                return;
-            }
-
-            logActivity(\`Starting batch triage of \${findings.length} \${severity} findings...\`, 'pending');
-
-            const buttons = Array.from(document.querySelectorAll('button')).filter(b =>
-                b.textContent.includes('Triage') || b.textContent.includes('Remediated')
-            );
-            buttons.forEach(b => b.disabled = true);
-
-            let triaged = 0;
-            for (const finding of findings) {
-                const riskId = finding.getAttribute('data-risk-id');
-                const projectId = finding.getAttribute('data-project-id');
-                const scanId = finding.getAttribute('data-scan-id');
-
-                if (!findingStates[riskId] || !findingStates[riskId].triaged) {
-                    await triageFinding(riskId, projectId, scanId, finding);
-                    triaged++;
-                }
-            }
-
-            buttons.forEach(b => b.disabled = false);
-            logActivity(\`Batch triage complete: \${triaged} findings processed\`, 'success');
+        function escapeHtml(text) {
+          return String(text ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[c]);
         }
 
-        async function toggleAllFinding(action) {
-            if (!confirm(\`Mark all findings as \${action}?\`)) return;
-
-            const findings = document.querySelectorAll('[data-risk-id]');
-            if (findings.length === 0) {
-                logActivity(\`No findings to \${action}\`, 'info');
-                return;
-            }
-
-            logActivity(\`Starting batch \${action} of \${findings.length} findings...\`, 'pending');
-
-            const buttons = Array.from(document.querySelectorAll('button'));
-            buttons.forEach(b => b.disabled = true);
-
-            let processed = 0;
-            for (const finding of findings) {
-                const riskId = finding.getAttribute('data-risk-id');
-                const projectId = finding.getAttribute('data-project-id');
-                const scanId = finding.getAttribute('data-scan-id');
-
-                if (action === 'remediate') {
-                    await remediateFinding(riskId, projectId, scanId, finding);
-                    processed++;
-                }
-            }
-
-            buttons.forEach(b => b.disabled = false);
-            logActivity(\`Batch \${action} complete: \${processed} findings processed\`, 'success');
-        }
-
-        function refreshReport() {
-            logActivity('Refreshing report data from server...', 'pending');
-            setTimeout(() => {
-                location.reload();
-            }, 500);
+        function markCardTriaged(card) {
+          card.classList.add('triaged');
+          const btn = card.querySelector('[data-action="triage"]');
+          if (btn) {
+            btn.textContent = '✓ Triaged';
+            btn.disabled = true;
+            btn.classList.add('finding-btn-disabled');
+          }
         }
 
         async function triageFinding(riskId, projectId, scanId, cardElement) {
-            const btn = cardElement.querySelector('[data-action="triage"]');
-            if (!btn) return;
-
-            if (!userApiKey) {
-                logActivity('API key required. Please authenticate first.', 'error');
-                return;
-            }
-
-            const findingTitle = cardElement.querySelector('.finding-title-card')?.textContent || riskId;
-            logActivity(\`Triaging: \${findingTitle}\`, 'pending');
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span>Triaging...';
-
-            try {
-                const response = await fetch(apiBaseUrl + '/api/risks/triage', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-API-Key': userApiKey
-                    },
-                    body: JSON.stringify({ riskId, projectId, scanId, action: 'triage' })
-                });
-
-                if (response.ok) {
-                    findingStates[riskId] = { ...findingStates[riskId], triaged: true };
-                    updateFindingCard(cardElement, 'triaged');
-                    btn.innerHTML = '✓ Triaged';
-                    btn.classList.add('finding-btn-disabled');
-                    logActivity(\`Successfully triaged: \${findingTitle}\`, 'success');
-                } else {
-                    const error = await response.text();
-                    btn.innerHTML = '⚠ Retry';
-                    btn.disabled = false;
-                    if (response.status === 401) {
-                        logActivity(\`Authentication failed - API key may be invalid\`, 'error');
-                    } else {
-                        logActivity(\`Failed to triage \${findingTitle}: \${error || 'API error'}\`, 'error');
-                    }
-                }
-            } catch (error) {
-                btn.innerHTML = '✕ Error';
-                btn.disabled = false;
-                logActivity(\`Error triaging \${findingTitle}: \${error.message}\`, 'error');
-                console.error('Triage error:', error);
-            }
-        }
-
-        async function remediateFinding(riskId, projectId, scanId, cardElement) {
-            const btn = cardElement.querySelector('[data-action="remediate"]');
-            if (!btn) return;
-
-            if (!userApiKey) {
-                logActivity('API key required. Please authenticate first.', 'error');
-                return;
-            }
-
-            const findingTitle = cardElement.querySelector('.finding-title-card')?.textContent || riskId;
-            logActivity(\`Remediating: \${findingTitle}\`, 'pending');
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span>Remediating...';
-
-            try {
-                const response = await fetch(apiBaseUrl + '/api/risks/remediate', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-API-Key': userApiKey
-                    },
-                    body: JSON.stringify({ riskId, projectId, scanId, action: 'remediate' })
-                });
-
-                if (response.ok) {
-                    findingStates[riskId] = { ...findingStates[riskId], remediated: true };
-                    updateFindingCard(cardElement, 'remediated');
-                    btn.innerHTML = '✓ Remediated';
-                    btn.classList.add('finding-btn-disabled');
-                    logActivity(\`Successfully remediated: \${findingTitle}\`, 'success');
-                } else {
-                    const error = await response.text();
-                    btn.innerHTML = '⚠ Retry';
-                    btn.disabled = false;
-                    if (response.status === 401) {
-                        logActivity(\`Authentication failed - API key may be invalid\`, 'error');
-                    } else {
-                        logActivity(\`Failed to remediate \${findingTitle}: \${error || 'API error'}\`, 'error');
-                    }
-                }
-            } catch (error) {
-                btn.innerHTML = '✕ Error';
-                btn.disabled = false;
-                logActivity(\`Error remediating \${findingTitle}: \${error.message}\`, 'error');
-                console.error('Remediate error:', error);
-            }
-        }
-
-        function updateFindingCard(cardElement, status) {
-            if (status === 'triaged') {
-                cardElement.classList.add('triaged');
-            } else if (status === 'remediated') {
-                cardElement.classList.add('remediated', 'triaged');
-            }
-        }
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('Report loaded. API base:', apiBaseUrl);
-            restoreApiKey();
-            restoreJwtToken();
-            logActivity('Report initialized successfully', 'success');
-            updateActivityUI();
-
-            // Ensure auth button click handler is attached
-            const authBtn = document.getElementById('authBtn');
-            if (authBtn) {
-                authBtn.addEventListener('click', toggleAuthPanel);
-                console.log('Auth button click handler attached');
-            }
-
-            // Ensure Connect button click handler
-            const connectBtn = document.getElementById('authenticateApiKeyBtn');
-            if (connectBtn) {
-                connectBtn.addEventListener('click', authenticateWithApiKey);
-                console.log('Connect button click handler attached');
-            }
-
-            // Display AI triage recommendations
-            document.querySelectorAll('[data-risk-id]').forEach(card => {
-                const exploitability = card.querySelector('[data-exploitability]')?.textContent;
-                const reachability = card.querySelector('[data-reachability]')?.textContent;
-                if (exploitability || reachability) {
-                    displayAiTriageRecommendation(card, exploitability, reachability);
-                }
-            });
-        });
-
-        function restoreJwtToken() {
-          const token = sessionStorage.getItem('cxJwtToken');
-          const expiry = parseInt(sessionStorage.getItem('cxTokenExpiry') || '0', 10);
-
-          if (token && Date.now() < expiry) {
-            userApiKey = token;
-            window.cxAuthToken = token;
-            updateAuthUI();
-            logActivity('✓ Restored authenticated session', 'success');
-            enableInteractiveButtons();
-          } else if (token) {
-            // Token expired, clear it
-            clearApiKey();
-            logActivity('Session token expired. Please re-authenticate.', 'info');
+          if (!userApiKey) { toggleAuthPanel(); return; }
+          const btn = cardElement.querySelector('[data-action="triage"]');
+          const title = cardElement.querySelector('.finding-title-card')?.textContent.trim() || riskId;
+          btn.disabled = true;
+          btn.innerHTML = '<span class="loading"></span>Triaging...';
+          logActivity(\`Triaging: \${title}\`, 'pending');
+          const result = await postRiskAction('triage', { riskId, projectId, scanId });
+          if (result.ok) {
+            findingStates[riskId] = { ...findingStates[riskId], triaged: true };
+            markCardTriaged(cardElement);
+            logActivity(\`Triaged: \${title}\`, 'success');
+          } else {
+            btn.textContent = '⚠ Retry';
+            btn.disabled = false;
+            logActivity(\`Failed to triage \${title}: \${result.error}\`, 'error');
           }
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+          restoreApiKey();
+          enableFixAllButton();
+          logActivity('Report loaded', 'info');
+
+          document.querySelectorAll('[data-risk-id]').forEach(card => {
+            const exploitability = card.getAttribute('data-exploitability');
+            const reachability = card.getAttribute('data-reachability');
+            if (exploitability || reachability) {
+              displayAiTriageRecommendation(card, exploitability, reachability);
+            }
+          });
+        });
 
         function displayAiTriageRecommendation(card, exploitability, reachability) {
             // Create a recommendation banner based on AI analysis
@@ -1716,7 +1458,7 @@ function generateFindingCards(projects) {
           ${aiAnalysis}
           <div style="font-size: 11px; color: #666;"><span style="color: #999;">Engine:</span> ${escapeHtml(engine)}</div>
           <div class="finding-actions">
-            <button class="finding-btn finding-btn-remediate" data-action="remediate" onclick="showRemediationModal('${escapeHtml(risk.riskId)}')" disabled>Guide</button>
+            <button class="finding-btn finding-btn-remediate" data-action="remediate" onclick="showRemediationModal('${escapeHtml(risk.riskId)}')">Guide</button>
             <button class="finding-btn finding-btn-triage" data-action="triage" onclick="triageFinding(${args})" disabled>Triage</button>
           </div>
         </div>
@@ -1742,6 +1484,10 @@ function sanitizeUrl(url) {
   if (url.startsWith('data:')) return url;
   if (url.startsWith('https://')) return escapeHtml(url);
   return '';
+}
+
+function jsonForScript(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
 function sanitizeJsString(str) {
