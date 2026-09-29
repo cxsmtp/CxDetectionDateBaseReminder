@@ -320,9 +320,9 @@ export function generateHtmlReport(reminderData, options = {}) {
                         <div class="finding-title">
                             <div class="finding-title-text">${escapeHtml(f.title)}</div>
                             <div class="finding-meta">
-                                <span class="finding-age">${f.ageDays}d old</span> ·
+                                <span class="finding-age">${ageLabel(f.ageDays)} old</span> ·
                                 Project: ${escapeHtml(f.projectName)} ·
-                                Engine: ${f.engine}
+                                Engine: ${escapeHtml(f.scanner || f.engine)}
                             </div>
                         </div>
                     </div>
@@ -339,9 +339,9 @@ export function generateHtmlReport(reminderData, options = {}) {
                         <div class="finding-title">
                             <div class="finding-title-text">${escapeHtml(f.title)}</div>
                             <div class="finding-meta">
-                                <span>${f.ageDays}d old</span> ·
+                                <span>${ageLabel(f.ageDays)} old</span> ·
                                 Project: ${escapeHtml(f.projectName)} ·
-                                Engine: ${f.engine}
+                                Engine: ${escapeHtml(f.scanner || f.engine)}
                             </div>
                         </div>
                     </div>
@@ -501,44 +501,69 @@ function extractTopVulnerabilities(projects, severity, limit) {
       }
     }
   }
-  return findings.sort((a, b) => b.ageDays - a.ageDays).slice(0, limit);
+  return findings.sort((a, b) => (b.ageDays ?? -1) - (a.ageDays ?? -1)).slice(0, limit);
+}
+
+const SEVERITY_RANK = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO', 'UNKNOWN'];
+
+function ageLabel(days) {
+  return days === null || days === undefined ? 'age unknown' : `${days}d`;
 }
 
 function generateFindingCards(projects) {
-  const cards = [];
+  const all = [];
   for (const project of projects) {
-    for (const risk of project.risks || []) {
-      cards.push(`
-        <div class="finding-card" data-risk-id="${escapeHtml(risk.riskId)}" data-project-id="${escapeHtml(project.projectId)}" data-scan-id="${escapeHtml(risk.scanId)}" data-severity="${escapeHtml(risk.severity)}">
+    for (const risk of project.risks || []) all.push({ project, risk });
+  }
+
+  // Worst first, then oldest, so the top of the list is what to fix next.
+  all.sort((a, b) => {
+    const bySeverity = SEVERITY_RANK.indexOf(a.risk.severity) - SEVERITY_RANK.indexOf(b.risk.severity);
+    if (bySeverity !== 0) return bySeverity;
+    return (b.risk.ageDays ?? -1) - (a.risk.ageDays ?? -1);
+  });
+
+  return all
+    .map(({ project, risk }) => {
+      const severity = String(risk.severity || 'UNKNOWN');
+      const detected = risk.firstDetectedAt ? String(risk.firstDetectedAt).slice(0, 10) : 'unknown';
+      const title = risk.url
+        ? `<a href="${escapeHtml(risk.url)}" target="_blank" rel="noopener">${escapeHtml(risk.title)}</a>`
+        : escapeHtml(risk.title);
+      const item = (label, value) =>
+        value
+          ? `<span class="finding-info-item"><span class="finding-info-label">${label}:</span> ${escapeHtml(value)}</span>`
+          : '';
+      const args = `'${escapeHtml(risk.riskId)}', '${escapeHtml(project.projectId)}', '${escapeHtml(risk.scanId)}', this.closest('.finding-card')`;
+
+      return `
+        <div class="finding-card" data-risk-id="${escapeHtml(risk.riskId)}" data-project-id="${escapeHtml(project.projectId)}" data-scan-id="${escapeHtml(risk.scanId)}" data-severity="${escapeHtml(severity)}">
           <div class="finding-header">
-            <span class="finding-card-severity ${risk.severity.toLowerCase()}">${risk.severity}</span>
+            <span class="finding-card-severity ${severity.toLowerCase()}">${escapeHtml(severity)}</span>
             <div class="finding-details">
-              <div class="finding-title-card">${escapeHtml(risk.title)}</div>
+              <div class="finding-title-card">${title}</div>
               <div class="finding-info">
-                <span class="finding-info-item">
-                  <span class="finding-info-label">Project:</span> ${escapeHtml(project.projectName)}
-                </span>
-                <span class="finding-info-item">
-                  <span class="finding-info-label">Age:</span> <strong>${risk.ageDays}d</strong>
-                </span>
-                <span class="finding-info-item">
-                  <span class="finding-info-label">Engine:</span> ${escapeHtml(risk.engine)}
-                </span>
-                <span class="finding-info-item">
-                  <span class="finding-info-label">Detected:</span> ${escapeHtml(risk.firstDetectedAt)}
-                </span>
+                ${item('Project', project.projectName)}
+                <span class="finding-info-item"><span class="finding-info-label">Age:</span> <strong>${ageLabel(risk.ageDays)}</strong></span>
+                ${item('Engine', risk.scanner || risk.engine)}
+                ${item('Detected', detected)}
+                ${item('Location', risk.location)}
+                ${item('State', risk.state)}
+                ${item('Status', risk.status)}
+                ${item('AI triage', risk.aiTriageStatus)}
+                ${item('Exploitability', risk.aiExploitability)}
+                ${item('Reachability', risk.aiReachability)}
               </div>
             </div>
           </div>
           <div class="finding-actions">
-            <button class="finding-btn finding-btn-triage" data-action="triage" onclick="triageFinding('${escapeHtml(risk.riskId)}', '${escapeHtml(project.projectId)}', '${escapeHtml(risk.scanId)}', this.closest('.finding-card'))">Triage</button>
-            <button class="finding-btn finding-btn-remediate" data-action="remediate" onclick="remediateFinding('${escapeHtml(risk.riskId)}', '${escapeHtml(project.projectId)}', '${escapeHtml(risk.scanId)}', this.closest('.finding-card'))">Remediate</button>
+            <button class="finding-btn finding-btn-triage" data-action="triage" onclick="triageFinding(${args})">Triage</button>
+            <button class="finding-btn finding-btn-remediate" data-action="remediate" onclick="remediateFinding(${args})">Remediate</button>
           </div>
         </div>
-      `);
-    }
-  }
-  return cards.join('');
+      `;
+    })
+    .join('');
 }
 
 function escapeHtml(text) {

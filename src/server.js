@@ -10,7 +10,7 @@ import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
 import { triageRisk, remediateRisk } from './cxone/triage.js';
 import { generateHtmlReport } from './html-report.js';
-import { buildReminder } from './reminder.js';
+import { buildReminder, buildReportData } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
 import { sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
@@ -761,8 +761,8 @@ app.post(
         `
       : '';
 
-    const reminder = buildReminder(risks, settings.template, {
-      buckets: buckets.length ? buckets : ['0-30', '31-60', '60+'],
+    const reportData = buildReportData(risks, {
+      buckets,
       tenant: connection.tenant,
       links: settings.links,
       connection,
@@ -770,23 +770,10 @@ app.post(
       initiatorsByProject: lastScan.initiators ?? {},
     });
 
-    const htmlReport = generateHtmlReport(
-      {
-        projects: lastScan.projects
-          .filter((p) => risks.some((r) => r.projectId === p.projectId))
-          .map((p) => ({
-            projectId: p.projectId,
-            projectName: p.projectName,
-            risks: risks.filter((r) => r.projectId === p.projectId),
-          })),
-        totalRisks: risks.length,
-        ...reminder,
-      },
-      {
-        apiBaseUrl: req.protocol + '://' + req.get('host'),
-        branding: settings.branding,
-      },
-    ) + diagnostics;
+    const htmlReport = generateHtmlReport(reportData, {
+      apiBaseUrl: req.protocol + '://' + req.get('host'),
+      branding: settings.branding,
+    }) + diagnostics;
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(htmlReport);
@@ -839,23 +826,20 @@ app.post(
 
     for (const group of sendable) {
       try {
-        const groupRisks = group.risks;
-        const groupProjects = lastScan.projects.filter((p) => group.projectIds.includes(p.projectId));
+        const reportData = buildReportData(group.risks, {
+          buckets,
+          tenant: connection.tenant,
+          links: settings.links,
+          connection,
+          branding: settings.branding,
+          initiatorsByProject,
+          initiator: group,
+        });
 
-        const htmlReport = generateHtmlReport(
-          {
-            projects: groupProjects.map((p) => ({
-              projectId: p.projectId,
-              projectName: p.projectName,
-              risks: groupRisks.filter((r) => r.projectId === p.projectId),
-            })),
-            totalRisks: groupRisks.length,
-          },
-          {
-            apiBaseUrl: req.protocol + '://' + req.get('host'),
-            branding: settings.branding,
-          },
-        );
+        const htmlReport = generateHtmlReport(reportData, {
+          apiBaseUrl: req.protocol + '://' + req.get('host'),
+          branding: settings.branding,
+        });
 
         const message = {
           subject: `Vulnerability Report - Interactive Report Attached`,

@@ -142,6 +142,32 @@ export function buildTemplateData(
   };
 }
 
+/**
+ * Data for the interactive HTML report: the same roll-up numbers the mail
+ * uses, but with every finding kept (the mail caps each project's list).
+ */
+export function buildReportData(risks, options = {}) {
+  const { links = null, connection = null, initiatorsByProject = {} } = options;
+  const data = buildTemplateData(risks, options);
+
+  const groups = new Map();
+  for (const risk of risks) {
+    if (!groups.has(risk.projectId)) {
+      groups.set(risk.projectId, { projectId: risk.projectId, projectName: risk.projectName, risks: [] });
+    }
+    groups.get(risk.projectId).risks.push({
+      ...risk,
+      url: links ? riskUrl(risk, connection, links, initiatorsByProject[risk.projectId]?.scanId ?? '') : '',
+    });
+  }
+
+  const projects = [...groups.values()]
+    .map((group) => ({ ...group, risks: sortRisks(group.risks) }))
+    .sort((a, b) => b.risks.length - a.risks.length);
+
+  return { ...data, projects };
+}
+
 /** Plain-text alternative, derived from the same data as the HTML part. */
 function buildText(data) {
   const lines = [
