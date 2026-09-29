@@ -328,6 +328,87 @@ export function generateHtmlReport(reminderData, options = {}) {
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+        .activity-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .activity-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .activity-tab {
+            padding: 10px 15px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #999;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .activity-tab.active {
+            color: ${accentColor};
+            border-bottom-color: ${accentColor};
+        }
+        .activity-tab:hover { color: #333; }
+
+        .activity-log {
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+        }
+        .activity-item {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .activity-item.pending {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .activity-item.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .activity-item.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .activity-icon {
+            min-width: 20px;
+            font-weight: bold;
+        }
+        .activity-text {
+            flex: 1;
+            word-break: break-word;
+        }
+        .activity-time {
+            font-size: 11px;
+            opacity: 0.7;
+            min-width: 60px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status-badge.pending { background: #bbdefb; color: #0d47a1; }
+        .status-badge.success { background: #c8e6c9; color: #1b5e20; }
+        .status-badge.error { background: #ffcdd2; color: #b71c1c; }
+
         @media (max-width: 600px) {
             .summary-band { grid-template-columns: 1fr 1fr; }
             .action-buttons { flex-direction: column; }
@@ -335,6 +416,7 @@ export function generateHtmlReport(reminderData, options = {}) {
             .finding-header { flex-direction: column; }
             .cta-metrics { grid-template-columns: 1fr; }
             .remediation-content { padding: 20px; max-width: 95vw; }
+            .activity-tabs { flex-wrap: wrap; }
         }
     </style>
 </head>
@@ -396,7 +478,7 @@ export function generateHtmlReport(reminderData, options = {}) {
                 <button class="action-btn" onclick="triageAll('CRITICAL')">Triage All Critical (${criticalCount})</button>
                 <button class="action-btn" onclick="triageAll('HIGH')">Triage All High (${highCount})</button>
                 <button class="action-btn action-btn-secondary" onclick="toggleAllFinding('remediate')">Mark All as Remediated</button>
-                <button class="action-btn action-btn-secondary" onclick="location.reload()">Refresh Status</button>
+                <button class="action-btn action-btn-secondary" onclick="refreshReport()">🔄 Refresh Status</button>
             </div>
         </div>
 
@@ -447,6 +529,33 @@ export function generateHtmlReport(reminderData, options = {}) {
             </div>
         </div>
 
+        <!-- Activity & Status Tab -->
+        <div class="activity-section" id="activitySection">
+            <div class="activity-tabs">
+                <button class="activity-tab active" onclick="switchActivityTab('overview')">📊 Overview</button>
+                <button class="activity-tab" onclick="switchActivityTab('activity')">📝 Activity Log</button>
+            </div>
+            <div id="overviewPanel" class="activity-tab-content">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                    <div style="padding: 15px; background: #f5f5f5; border-radius: 4px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #d32f2f;" id="triageCount">0</div>
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;">Triaged Today</div>
+                    </div>
+                    <div style="padding: 15px; background: #f5f5f5; border-radius: 4px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #4caf50;" id="remediateCount">0</div>
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;">Remediated</div>
+                    </div>
+                    <div style="padding: 15px; background: #f5f5f5; border-radius: 4px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #f57c00;" id="pendingCount">0</div>
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;">Pending Action</div>
+                    </div>
+                </div>
+            </div>
+            <div id="activityPanel" class="activity-log" style="display: none;">
+                <div id="activityLog"></div>
+            </div>
+        </div>
+
         <!-- Remediation Modal -->
         <div id="remediationModal" class="remediation-modal">
             <div class="remediation-content">
@@ -469,6 +578,68 @@ export function generateHtmlReport(reminderData, options = {}) {
 
         // Track finding states locally
         const findingStates = {};
+
+        // Activity logging system
+        const activityLog = [];
+
+        function getTimeString() {
+          const now = new Date();
+          return now.toLocaleTimeString('en-US', { hour12: false });
+        }
+
+        function logActivity(message, type = 'info') {
+          const entry = {
+            timestamp: getTimeString(),
+            message,
+            type
+          };
+          activityLog.push(entry);
+          updateActivityUI();
+        }
+
+        function updateActivityUI() {
+          const activityDiv = document.getElementById('activityLog');
+          if (!activityDiv) return;
+
+          activityDiv.innerHTML = activityLog.map(entry => \`
+            <div class="activity-item \${entry.type}">
+              <div class="activity-icon">
+                \${entry.type === 'success' ? '✓' : entry.type === 'error' ? '✕' : entry.type === 'pending' ? '⟳' : 'ℹ'}
+              </div>
+              <div class="activity-text">\${escapeHtml(entry.message)}</div>
+              <div class="activity-time">\${entry.timestamp}</div>
+            </div>
+          \`).join('');
+
+          // Auto-scroll to bottom
+          activityDiv.scrollTop = activityDiv.scrollHeight;
+
+          // Update overview counters
+          const triaged = activityLog.filter(l => l.message.includes('Triaged') && l.type === 'success').length;
+          const remediated = activityLog.filter(l => l.message.includes('Remediated') && l.type === 'success').length;
+          const pending = document.querySelectorAll('[data-severity="CRITICAL"], [data-severity="HIGH"]').length - triaged - remediated;
+
+          document.getElementById('triageCount').textContent = triaged;
+          document.getElementById('remediateCount').textContent = remediated;
+          document.getElementById('pendingCount').textContent = Math.max(0, pending);
+        }
+
+        function switchActivityTab(tab) {
+          const overviewPanel = document.getElementById('overviewPanel');
+          const activityPanel = document.getElementById('activityPanel');
+          const tabs = document.querySelectorAll('.activity-tab');
+
+          tabs.forEach(t => t.classList.remove('active'));
+          event.target.classList.add('active');
+
+          if (tab === 'overview') {
+            overviewPanel.style.display = 'block';
+            activityPanel.style.display = 'none';
+          } else {
+            overviewPanel.style.display = 'none';
+            activityPanel.style.display = 'block';
+          }
+        }
 
         // Remediation guidance database
         const remediationGuide = {
@@ -639,13 +810,19 @@ export function generateHtmlReport(reminderData, options = {}) {
             if (!confirm(\`Triage all \${severity} vulnerabilities?\`)) return;
 
             const findings = document.querySelectorAll(\`[data-severity="\${severity}"]\`);
-            if (findings.length === 0) return;
+            if (findings.length === 0) {
+                logActivity(\`No \${severity} vulnerabilities found\`, 'info');
+                return;
+            }
+
+            logActivity(\`Starting batch triage of \${findings.length} \${severity} findings...\`, 'pending');
 
             const buttons = Array.from(document.querySelectorAll('button')).filter(b =>
                 b.textContent.includes('Triage') || b.textContent.includes('Remediated')
             );
             buttons.forEach(b => b.disabled = true);
 
+            let triaged = 0;
             for (const finding of findings) {
                 const riskId = finding.getAttribute('data-risk-id');
                 const projectId = finding.getAttribute('data-project-id');
@@ -653,21 +830,29 @@ export function generateHtmlReport(reminderData, options = {}) {
 
                 if (!findingStates[riskId] || !findingStates[riskId].triaged) {
                     await triageFinding(riskId, projectId, scanId, finding);
+                    triaged++;
                 }
             }
 
             buttons.forEach(b => b.disabled = false);
+            logActivity(\`Batch triage complete: \${triaged} findings processed\`, 'success');
         }
 
         async function toggleAllFinding(action) {
             if (!confirm(\`Mark all findings as \${action}?\`)) return;
 
             const findings = document.querySelectorAll('[data-risk-id]');
-            if (findings.length === 0) return;
+            if (findings.length === 0) {
+                logActivity(\`No findings to \${action}\`, 'info');
+                return;
+            }
+
+            logActivity(\`Starting batch \${action} of \${findings.length} findings...\`, 'pending');
 
             const buttons = Array.from(document.querySelectorAll('button'));
             buttons.forEach(b => b.disabled = true);
 
+            let processed = 0;
             for (const finding of findings) {
                 const riskId = finding.getAttribute('data-risk-id');
                 const projectId = finding.getAttribute('data-project-id');
@@ -675,15 +860,27 @@ export function generateHtmlReport(reminderData, options = {}) {
 
                 if (action === 'remediate') {
                     await remediateFinding(riskId, projectId, scanId, finding);
+                    processed++;
                 }
             }
 
             buttons.forEach(b => b.disabled = false);
+            logActivity(\`Batch \${action} complete: \${processed} findings processed\`, 'success');
+        }
+
+        function refreshReport() {
+            logActivity('Refreshing report data from server...', 'pending');
+            setTimeout(() => {
+                location.reload();
+            }, 500);
         }
 
         async function triageFinding(riskId, projectId, scanId, cardElement) {
             const btn = cardElement.querySelector('[data-action="triage"]');
             if (!btn) return;
+
+            const findingTitle = cardElement.querySelector('.finding-title-card')?.textContent || riskId;
+            logActivity(\`Triaging: \${findingTitle}\`, 'pending');
 
             btn.disabled = true;
             btn.innerHTML = '<span class="loading"></span>Triaging...';
@@ -701,12 +898,17 @@ export function generateHtmlReport(reminderData, options = {}) {
                     updateFindingCard(cardElement, 'triaged');
                     btn.innerHTML = '✓ Triaged';
                     btn.classList.add('finding-btn-disabled');
+                    logActivity(\`Successfully triaged: \${findingTitle}\`, 'success');
                 } else {
-                    btn.innerHTML = '⚠ Triage';
-                    alert('Failed to triage. Try again or refresh.');
+                    const error = await response.text();
+                    btn.innerHTML = '⚠ Retry';
+                    btn.disabled = false;
+                    logActivity(\`Failed to triage \${findingTitle}: \${error || 'API error'}\`, 'error');
                 }
             } catch (error) {
                 btn.innerHTML = '✕ Error';
+                btn.disabled = false;
+                logActivity(\`Error triaging \${findingTitle}: \${error.message}\`, 'error');
                 console.error('Triage error:', error);
             }
         }
@@ -714,6 +916,9 @@ export function generateHtmlReport(reminderData, options = {}) {
         async function remediateFinding(riskId, projectId, scanId, cardElement) {
             const btn = cardElement.querySelector('[data-action="remediate"]');
             if (!btn) return;
+
+            const findingTitle = cardElement.querySelector('.finding-title-card')?.textContent || riskId;
+            logActivity(\`Remediating: \${findingTitle}\`, 'pending');
 
             btn.disabled = true;
             btn.innerHTML = '<span class="loading"></span>Remediating...';
@@ -731,12 +936,17 @@ export function generateHtmlReport(reminderData, options = {}) {
                     updateFindingCard(cardElement, 'remediated');
                     btn.innerHTML = '✓ Remediated';
                     btn.classList.add('finding-btn-disabled');
+                    logActivity(\`Successfully remediated: \${findingTitle}\`, 'success');
                 } else {
-                    btn.innerHTML = '⚠ Remediate';
-                    alert('Failed to remediate. Try again or refresh.');
+                    const error = await response.text();
+                    btn.innerHTML = '⚠ Retry';
+                    btn.disabled = false;
+                    logActivity(\`Failed to remediate \${findingTitle}: \${error || 'API error'}\`, 'error');
                 }
             } catch (error) {
                 btn.innerHTML = '✕ Error';
+                btn.disabled = false;
+                logActivity(\`Error remediating \${findingTitle}: \${error.message}\`, 'error');
                 console.error('Remediate error:', error);
             }
         }
@@ -752,6 +962,8 @@ export function generateHtmlReport(reminderData, options = {}) {
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             console.log('Report loaded. API base:', apiBaseUrl);
+            logActivity('Report initialized successfully', 'success');
+            updateActivityUI();
         });
     </script>
 </body>
