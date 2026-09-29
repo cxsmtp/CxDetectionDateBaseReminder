@@ -721,16 +721,29 @@ export function generateHtmlReport(reminderData, options = {}) {
                     <button onclick="closeAuthModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">✕</button>
                 </div>
 
-                <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
-                    Paste an API key from <strong>Checkmarx One → Settings → Identity &amp; Access Management → API Keys</strong>.
-                    Regional URLs are detected from the key.
-                </p>
+                <div style="margin-bottom: 20px;">
+                    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
+                        <strong>Option 1:</strong> Paste an API key from <strong>Checkmarx One → Settings → Identity &amp; Access Management → API Keys</strong>
+                    </p>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333; font-size: 13px;">API Key</label>
+                        <textarea id="apiKeyInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"
+                                  rows="3" spellcheck="false"
+                                  style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace; resize: vertical;"></textarea>
+                    </div>
+                </div>
+
+                <div style="text-align: center; padding: 15px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee; margin: 20px 0;">
+                    <span style="font-size: 12px; color: #999;">OR</span>
+                </div>
 
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333; font-size: 13px;">API Key</label>
-                    <textarea id="apiKeyInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"
-                              rows="3" spellcheck="false"
-                              style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace; resize: vertical;"></textarea>
+                    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
+                        <strong>Option 2:</strong> Sign in with your Checkmarx account to access interactive features
+                    </p>
+                    <button onclick="authenticateWithBrowser()" style="width: 100%; padding: 12px 16px; background: #10b981; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer; font-size: 14px;">Sign in to Checkmarx</button>
+                    <p style="font-size: 12px; color: #666; margin-top: 10px;">Opens Checkmarx login in a new window. You'll be redirected back automatically.</p>
                 </div>
 
                 <div id="detectedInfo" style="display: none; padding: 12px; background: #f5f5f5; border-radius: 4px; margin-bottom: 15px; font-size: 12px;">
@@ -927,6 +940,43 @@ export function generateHtmlReport(reminderData, options = {}) {
           } else if (!userApiKey) {
             logActivity('Please authenticate with your API key first', 'error');
           }
+        }
+
+        // Browser-based authentication (using existing Checkmarx session)
+        function authenticateWithBrowser() {
+          const status = document.getElementById('authStatus');
+          status.textContent = 'Opening Checkmarx login...';
+          status.style.color = '#1976d2';
+
+          // Open Checkmarx dashboard in a new window
+          // The user can log in there, and since this report has the same origin,
+          // they can then use the API with their authenticated session cookies
+          const checkmarxUrl = '${sanitizeJsString(apiBaseUrl || 'https://checkmarx.cloud')}';
+          const authWindow = window.open(checkmarxUrl, 'checkmarx_auth', 'width=600,height=700');
+
+          if (!authWindow) {
+            status.textContent = 'Popup blocked. Please enable popups and try again.';
+            status.style.color = '#d32f2f';
+            logActivity('Popup blocked during browser authentication', 'error');
+            return;
+          }
+
+          logActivity('Opened Checkmarx login window. Please sign in and return to this report.', 'info');
+
+          // Check periodically if the window was closed (user completed login)
+          const checkClosed = setInterval(() => {
+            if (authWindow.closed) {
+              clearInterval(checkClosed);
+              status.textContent = 'Login completed. Reloading report...';
+              status.style.color = '#2e7d32';
+              logActivity('User signed in successfully', 'success');
+
+              // Reload to use authenticated session
+              setTimeout(() => {
+                location.reload();
+              }, 1000);
+            }
+          }, 500);
         }
 
         // API Key Authentication (simple storage)
