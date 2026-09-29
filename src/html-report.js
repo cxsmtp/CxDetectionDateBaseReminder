@@ -57,7 +57,7 @@ export function generateHtmlReport(reminderData, options = {}) {
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .header {
             background: white;
-            padding: 30px;
+            padding: 15px 20px;
             border-radius: 8px;
             margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -65,22 +65,22 @@ export function generateHtmlReport(reminderData, options = {}) {
         }
         .header-auth-button {
             position: absolute;
-            top: 20px;
+            top: 15px;
             right: 20px;
         }
-        .logo { margin-bottom: 20px; }
-        .title { font-size: 28px; font-weight: bold; margin: 20px 0 10px; }
-        .subtitle { color: #666; margin-bottom: 20px; }
+        .logo { margin-bottom: 10px; }
+        .title { font-size: 20px; font-weight: bold; margin: 5px 0 5px; }
+        .subtitle { color: #666; margin-bottom: 10px; font-size: 13px; }
         .summary-band {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
         }
         .summary-card {
             background: white;
             border-left: 4px solid #999;
-            padding: 15px;
+            padding: 10px;
             border-radius: 4px;
             text-align: center;
         }
@@ -88,8 +88,8 @@ export function generateHtmlReport(reminderData, options = {}) {
         .summary-card.high { border-left-color: #f57c00; }
         .summary-card.medium { border-left-color: #fbc02d; }
         .summary-card.low { border-left-color: #388e3c; }
-        .summary-count { font-size: 32px; font-weight: bold; color: ${accentColor}; }
-        .summary-label { font-size: 12px; color: #666; text-transform: uppercase; margin-top: 5px; }
+        .summary-count { font-size: 20px; font-weight: bold; color: ${accentColor}; }
+        .summary-label { font-size: 10px; color: #666; text-transform: uppercase; margin-top: 3px; }
 
         .actions-section {
             background: white;
@@ -339,6 +339,8 @@ export function generateHtmlReport(reminderData, options = {}) {
             border-radius: 8px;
             margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
         }
         .severity-grid {
             display: grid;
@@ -427,18 +429,19 @@ export function generateHtmlReport(reminderData, options = {}) {
             display: flex;
             gap: 10px;
             justify-content: flex-end;
-            margin-top: 20px;
+            margin-top: 12px;
         }
         .fix-all-btn {
-            padding: 10px 20px;
+            padding: 8px 16px;
             background: #a78bfa;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 12px;
             transition: all 0.2s;
+            height: fit-content;
         }
         .fix-all-btn:hover { background: #9370db; }
         .fix-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -703,17 +706,31 @@ export function generateHtmlReport(reminderData, options = {}) {
             </div>
         </div>
 
-        <!-- Authentication Panel (Hidden by default) -->
-        <div id="authPanel" style="display: none; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <div style="font-weight: bold; margin-bottom: 15px;">Authenticate with Checkmarx One</div>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="password" id="apiKeyInput" placeholder="Paste your Checkmarx API key here"
-                       style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-width: 300px;">
-                <button class="action-btn" onclick="authenticateWithApiKey()">Authenticate</button>
-                <button class="action-btn action-btn-secondary" onclick="toggleAuthPanel(); clearApiKey();" id="clearKeyBtn" style="display:none;">Close</button>
-                <span id="authStatus" style="font-size: 12px; color: #666;"></span>
+        <!-- Authentication Modal (Popup) -->
+        <div id="authModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; justify-content: center; align-items: center;">
+            <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); max-width: 450px; width: 90%; animation: slideIn 0.3s ease;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div style="font-weight: bold; font-size: 16px;">Authenticate with Checkmarx One</div>
+                    <button onclick="closeAuthModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">✕</button>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">API Key</label>
+                    <input type="password" id="apiKeyInput" placeholder="Paste your Checkmarx API key here"
+                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <span id="authStatus" style="font-size: 12px; color: #d32f2f; margin-top: 8px; display: block;"></span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="action-btn" onclick="authenticateWithApiKey()" style="flex: 1;">Authenticate</button>
+                    <button class="action-btn action-btn-secondary" onclick="closeAuthModal()" style="flex: 1;">Cancel</button>
+                </div>
             </div>
         </div>
+        <style>
+            @keyframes slideIn {
+                from { transform: translateY(-50px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+        </style>
 
         <!-- Priority Findings (Critical + High Only) - Compact Table View -->
         <div class="all-findings">
@@ -789,13 +806,20 @@ export function generateHtmlReport(reminderData, options = {}) {
 
         // UI Control Functions
         function toggleAuthPanel() {
-          const panel = document.getElementById('authPanel');
-          if (panel.style.display === 'none') {
-            panel.style.display = 'block';
-            document.getElementById('apiKeyInput').focus();
-          } else {
-            panel.style.display = 'none';
-          }
+          const modal = document.getElementById('authModal');
+          modal.style.display = 'flex';
+          document.getElementById('apiKeyInput').focus();
+          document.getElementById('apiKeyInput').value = '';
+          const status = document.getElementById('authStatus');
+          status.textContent = '';
+        }
+
+        function closeAuthModal() {
+          const modal = document.getElementById('authModal');
+          modal.style.display = 'none';
+          document.getElementById('apiKeyInput').value = '';
+          const status = document.getElementById('authStatus');
+          status.textContent = '';
         }
 
         function updateTriageSliderCritical() {
@@ -831,8 +855,10 @@ export function generateHtmlReport(reminderData, options = {}) {
           const fixAllBtn = document.getElementById('fixAllBtn');
           if (totalSelected > 0 && userApiKey) {
             fixAllBtn.disabled = false;
+            fixAllBtn.textContent = totalSelected > 0 ? 'Fix' : 'Fix All';
           } else {
             fixAllBtn.disabled = true;
+            fixAllBtn.textContent = 'Fix All';
           }
         }
 
@@ -855,9 +881,10 @@ export function generateHtmlReport(reminderData, options = {}) {
         function authenticateWithApiKey() {
           const keyInput = document.getElementById('apiKeyInput');
           const key = keyInput.value?.trim();
+          const status = document.getElementById('authStatus');
 
           if (!key) {
-            logActivity('API key is required', 'error');
+            status.textContent = 'API key is required';
             return;
           }
 
@@ -869,6 +896,9 @@ export function generateHtmlReport(reminderData, options = {}) {
 
           // Enable buttons
           enableInteractiveButtons();
+
+          // Close modal after successful auth
+          setTimeout(() => closeAuthModal(), 500);
         }
 
         function clearApiKey() {
