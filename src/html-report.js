@@ -714,13 +714,28 @@ export function generateHtmlReport(reminderData, options = {}) {
                     <button onclick="closeAuthModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">✕</button>
                 </div>
                 <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">API Key</label>
-                    <input type="password" id="apiKeyInput" placeholder="Paste your Checkmarx API key here"
-                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Client ID</label>
+                    <input type="text" id="clientIdInput" placeholder="Enter your Client ID"
+                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Client Secret</label>
+                    <input type="password" id="clientSecretInput" placeholder="Enter your Client Secret"
+                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">IAM Region (Optional)</label>
+                    <select id="iamRegionInput" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 15px;">
+                        <option value="https://iam.checkmarx.net">US (Default)</option>
+                        <option value="https://us.iam.checkmarx.net">US2</option>
+                        <option value="https://eu.iam.checkmarx.net">EU</option>
+                        <option value="https://eu-2.iam.checkmarx.net">EU2</option>
+                        <option value="https://deu.iam.checkmarx.net">DEU</option>
+                        <option value="https://anz.iam.checkmarx.net">Australia & NZ</option>
+                        <option value="https://ind.iam.checkmarx.net">India</option>
+                        <option value="https://sng.iam.checkmarx.net">Singapore</option>
+                        <option value="https://mea.iam.checkmarx.net">UAE</option>
+                    </select>
                     <span id="authStatus" style="font-size: 12px; color: #d32f2f; margin-top: 8px; display: block;"></span>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <button class="action-btn" onclick="authenticateWithApiKey()" style="flex: 1;">Authenticate</button>
+                    <button class="action-btn" id="authenticateBtn" onclick="authenticateWithCredentials()" style="flex: 1;">Authenticate</button>
                     <button class="action-btn action-btn-secondary" onclick="closeAuthModal()" style="flex: 1;">Cancel</button>
                 </div>
             </div>
@@ -877,57 +892,137 @@ export function generateHtmlReport(reminderData, options = {}) {
           }
         }
 
-        // API Key Management
-        function authenticateWithApiKey() {
-          const keyInput = document.getElementById('apiKeyInput');
-          const key = keyInput.value?.trim();
+        // OAuth2 Authentication with Checkmarx One IAM
+        async function authenticateWithCredentials() {
+          const clientId = document.getElementById('clientIdInput').value?.trim();
+          const clientSecret = document.getElementById('clientSecretInput').value?.trim();
+          const iamRegion = document.getElementById('iamRegionInput').value;
           const status = document.getElementById('authStatus');
+          const authBtn = document.getElementById('authenticateBtn');
 
-          if (!key) {
-            status.textContent = 'API key is required';
+          if (!clientId || !clientSecret) {
+            status.textContent = 'Client ID and Secret are required';
+            status.style.color = '#d32f2f';
             return;
           }
 
-          userApiKey = key;
-          sessionStorage.setItem('cxApiKey', key);
+          status.textContent = 'Authenticating...';
+          status.style.color = '#1976d2';
+          authBtn.disabled = true;
 
-          updateAuthUI();
-          logActivity('✓ API key stored. Interactive features are now enabled.', 'success');
+          try {
+            const tokenUrl = \`\${iamRegion}/auth/realms/master/protocol/openid-connect/token\`;
+            const body = new URLSearchParams({
+              grant_type: 'client_credentials',
+              client_id: clientId,
+              client_secret: clientSecret
+            });
 
-          // Enable buttons
-          enableInteractiveButtons();
+            const response = await fetch(tokenUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: body.toString()
+            });
 
-          // Close modal after successful auth
-          setTimeout(() => closeAuthModal(), 500);
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.error_description || 'Authentication failed');
+            }
+
+            const data = await response.json();
+            const jwtToken = data.access_token;
+            const expiresIn = data.expires_in || 1800;
+
+            // Store JWT token and metadata
+            sessionStorage.setItem('cxJwtToken', jwtToken);
+            sessionStorage.setItem('cxTokenExpiry', Date.now() + (expiresIn * 1000));
+            sessionStorage.setItem('cxClientId', clientId);
+            sessionStorage.setItem('cxIamRegion', iamRegion);
+
+            userApiKey = jwtToken; // Store token as userApiKey for compatibility
+            window.cxAuthToken = jwtToken; // Global reference for API calls
+
+            status.textContent = '✓ Authenticated successfully';
+            status.style.color = '#2e7d32';
+            updateAuthUI();
+            logActivity('✓ Successfully authenticated with Checkmarx One. JWT token obtained (expires in ' + (expiresIn / 60) + ' min).', 'success');
+            enableInteractiveButtons();
+
+            // Close modal after successful auth
+            setTimeout(() => closeAuthModal(), 500);
+          } catch (error) {
+            console.error('Auth error:', error);
+            status.textContent = 'Auth failed: ' + error.message;
+            status.style.color = '#d32f2f';
+            logActivity('✗ Authentication failed: ' + error.message, 'error');
+          } finally {
+            authBtn.disabled = false;
+          }
         }
 
         function clearApiKey() {
           userApiKey = null;
-          sessionStorage.removeItem('cxApiKey');
-          document.getElementById('apiKeyInput').value = '';
+          window.cxAuthToken = null;
+          sessionStorage.removeItem('cxJwtToken');
+          sessionStorage.removeItem('cxTokenExpiry');
+          sessionStorage.removeItem('cxClientId');
+          sessionStorage.removeItem('cxIamRegion');
+          document.getElementById('clientIdInput').value = '';
+          document.getElementById('clientSecretInput').value = '';
           updateAuthUI();
-          logActivity('API key cleared', 'info');
+          logActivity('Authentication cleared', 'info');
           disableInteractiveButtons();
         }
 
+        // Get valid JWT token with auto-refresh if needed
+        async function getValidJwtToken() {
+          const token = sessionStorage.getItem('cxJwtToken');
+          const expiry = parseInt(sessionStorage.getItem('cxTokenExpiry') || '0', 10);
+
+          if (!token || Date.now() >= expiry - 60000) {
+            // Token missing or expired (within 1 min), try to refresh
+            const clientId = sessionStorage.getItem('cxClientId');
+            const iamRegion = sessionStorage.getItem('cxIamRegion');
+
+            if (clientId && iamRegion) {
+              logActivity('JWT token expired, attempting refresh...', 'info');
+              // Refresh token - but we don't have refresh token, so user needs to re-auth
+              return null;
+            }
+            return null;
+          }
+
+          return token;
+        }
+
+        // Make authenticated API call
+        async function makeAuthenticatedApiCall(url, options = {}) {
+          const token = await getValidJwtToken();
+          if (!token) {
+            throw new Error('Not authenticated. Please authenticate first.');
+          }
+
+          const headers = {
+            'Authorization': \`Bearer \${token}\`,
+            'Accept': '*/*; version=1.0',
+            ...options.headers
+          };
+
+          return fetch(url, {
+            ...options,
+            headers
+          });
+        }
+
         function updateAuthUI() {
-          const status = document.getElementById('authStatus');
-          const clearBtn = document.getElementById('clearKeyBtn');
           const authBtn = document.getElementById('authBtn');
 
           if (userApiKey) {
-            status.textContent = '✓ Authenticated';
-            status.style.color = '#2e7d32';
-            clearBtn.style.display = 'inline-block';
             authBtn.textContent = '✓ Connected to CxOne';
             authBtn.classList.add('connected');
-            document.getElementById('triageAllBtn').disabled = false;
           } else {
-            status.textContent = '';
-            clearBtn.style.display = 'none';
             authBtn.textContent = 'Connect with CxONE';
             authBtn.classList.remove('connected');
-            document.getElementById('triageAllBtn').disabled = true;
           }
         }
 
@@ -960,7 +1055,6 @@ export function generateHtmlReport(reminderData, options = {}) {
           const stored = sessionStorage.getItem('cxApiKey');
           if (stored) {
             userApiKey = stored;
-            document.getElementById('apiKeyInput').value = stored;
             updateAuthUI();
             enableInteractiveButtons();
             logActivity('✓ API key restored from session', 'info');
@@ -1372,6 +1466,7 @@ export function generateHtmlReport(reminderData, options = {}) {
         document.addEventListener('DOMContentLoaded', () => {
             console.log('Report loaded. API base:', apiBaseUrl);
             restoreApiKey();
+            restoreJwtToken();
             logActivity('Report initialized successfully', 'success');
             updateActivityUI();
 
@@ -1384,6 +1479,23 @@ export function generateHtmlReport(reminderData, options = {}) {
                 }
             });
         });
+
+        function restoreJwtToken() {
+          const token = sessionStorage.getItem('cxJwtToken');
+          const expiry = parseInt(sessionStorage.getItem('cxTokenExpiry') || '0', 10);
+
+          if (token && Date.now() < expiry) {
+            userApiKey = token;
+            window.cxAuthToken = token;
+            updateAuthUI();
+            logActivity('✓ Restored authenticated session', 'success');
+            enableInteractiveButtons();
+          } else if (token) {
+            // Token expired, clear it
+            clearApiKey();
+            logActivity('Session token expired. Please re-authenticate.', 'info');
+          }
+        }
 
         function displayAiTriageRecommendation(card, exploitability, reachability) {
             // Create a recommendation banner based on AI analysis
