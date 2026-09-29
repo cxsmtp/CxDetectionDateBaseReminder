@@ -158,12 +158,27 @@
             <span class="hint" id="groupby-hint"></span>
           </div>
 
-          <div class="send-modes">
-            <label class="mode"><input type="radio" name="groupBy" value="none" checked /> Send to: Recipient list only</label>
-            <label class="mode"><input type="radio" name="groupBy" value="initiator" /> Send to: Initiators only</label>
-            <label class="mode"><input type="radio" name="groupBy" value="initiator-both" /> Send to: Both initiators & list</label>
-            <label class="mode"><input type="radio" name="groupBy" value="project" /> Group by: Project</label>
-            <label class="mode"><input type="radio" name="groupBy" value="html" /> With: Interactive HTML report</label>
+          <!-- WHO receives the reminder -->
+          <div style="margin-bottom: 20px;">
+            <div style="font-weight: 500; margin-bottom: 8px; color: #666; font-size: 12px; text-transform: uppercase;">Send reminder to:</div>
+            <div class="send-modes">
+              <label class="mode"><input type="radio" name="sendTo" value="list" checked /> Recipient list only</label>
+              <label class="mode"><input type="radio" name="sendTo" value="initiator" /> Initiators only</label>
+              <label class="mode"><input type="radio" name="sendTo" value="both" /> Both initiators & list</label>
+            </div>
+          </div>
+
+          <!-- WHAT content in the email -->
+          <div style="margin-bottom: 20px;">
+            <div style="font-weight: 500; margin-bottom: 8px; color: #666; font-size: 12px; text-transform: uppercase;">Email content:</div>
+            <div class="send-modes">
+              <label class="mode"><input type="radio" name="emailContent" value="summary" checked /> Summary for all projects in one email</label>
+              <label class="mode"><input type="radio" name="emailContent" value="per-project" /> Separate email per project</label>
+            </div>
+            <label class="mode check-mode" style="margin-top: 10px;">
+              <input type="checkbox" id="attach-html-report" checked />
+              Attach interactive HTML report (for triage & remediation actions)
+            </label>
           </div>
 
           <div class="actions">

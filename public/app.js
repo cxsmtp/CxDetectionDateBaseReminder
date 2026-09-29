@@ -700,34 +700,48 @@ function renderRecipientHint() {
   const { to, cc, bcc } = s.recipients;
   const total = to.length + cc.length + bcc.length;
 
-  const mode = document.querySelector('input[name="groupBy"]:checked')?.value ?? 'none';
-  const perInitiatorMode = mode !== 'none';
+  // Get the new send options
+  const sendTo = document.querySelector('input[name="sendTo"]:checked')?.value ?? 'list';
+  const emailContent = document.querySelector('input[name="emailContent"]:checked')?.value ?? 'summary';
+  const attachHtml = $('attach-html-report')?.checked ?? false;
 
-  const extra = mode !== 'none' && $('also-consolidated').checked ? ' Plus one consolidated copy to the list.' : '';
-  $('groupby-hint').textContent =
-    {
-      none: 'Everything in one message to the recipient list.',
-      initiator: 'Each developer gets one message covering all of their projects.',
-      project: 'One message per project — four projects means four messages.',
-    }[mode] + extra;
+  // Build hint text
+  let hint = '';
+  if (sendTo === 'list') {
+    hint = 'Send to recipient list only. ';
+  } else if (sendTo === 'initiator') {
+    hint = 'Send to each scan initiator. ';
+  } else {
+    hint = 'Send to both initiators and recipient list. ';
+  }
 
-  // The consolidated copy only makes sense when messages are already going to
-  // people individually.
-  $('also-consolidated').disabled = mode === 'none';
-  $('also-consolidated').closest('.mode').classList.toggle('disabled', mode === 'none');
+  if (emailContent === 'summary') {
+    hint += 'One email per recipient with summary of all projects.';
+  } else {
+    hint += 'One email per project per recipient.';
+  }
 
-  // The list is used directly in "one email to the list" mode, and for the
-  // consolidated copy otherwise.
-  const listUsed = mode === 'none' || $('also-consolidated').checked;
-  $('inline-recipients').style.opacity = listUsed ? '1' : '0.5';
+  if (attachHtml) {
+    hint += ' HTML report attached for interactive triage/remediation.';
+  }
+
+  if ($('groupby-hint')) {
+    $('groupby-hint').textContent = hint;
+  }
+
+  // Recipient list is used when sending to list or when sending to both
+  const listUsed = sendTo === 'list' || sendTo === 'both';
+  if ($('inline-recipients')) {
+    $('inline-recipients').style.opacity = listUsed ? '1' : '0.5';
+  }
 
   if (!s.verified) {
     el.textContent = 'SMTP has not passed a connection test — sending is disabled.';
     el.className = 'hint error-hint';
-  } else if (perInitiatorMode && !$('also-consolidated').checked) {
+  } else if (sendTo === 'initiator' && total === 0) {
     el.textContent = 'Not used in this mode — each message is addressed to its own recipient.';
     el.className = 'hint';
-  } else if (total === 0) {
+  } else if (sendTo !== 'initiator' && total === 0) {
     el.textContent = 'No recipients configured.';
     el.className = 'hint error-hint';
   } else {
@@ -736,7 +750,7 @@ function renderRecipientHint() {
       ` — ${to.slice(0, 3).join(', ')}${to.length > 3 ? ', …' : ''}`;
     el.className = 'hint';
   }
-  const addressedIndividually = mode !== 'none' && !$('also-consolidated').checked;
+  const addressedIndividually = sendTo === 'initiator';
   $('send').disabled = !s.verified || (total === 0 && !addressedIndividually);
 }
 
@@ -1157,17 +1171,29 @@ async function submitReminder({ dryRun }) {
   // request carries no bucket filter of its own.
   const buckets = [];
 
-  let groupBy = document.querySelector('input[name="groupBy"]:checked').value;
+  // WHO to send to
+  const sendTo = document.querySelector('input[name="sendTo"]:checked').value;
+  // WHAT content to send
+  const emailContent = document.querySelector('input[name="emailContent"]:checked').value;
+  const attachHtmlReport = $('attach-html-report').checked;
+
+  // Convert sendTo and emailContent to groupBy and alsoConsolidated for backend
+  let groupBy = 'none';
   let alsoConsolidated = false;
 
-  // Handle "initiator-both" by setting groupBy to initiator and enabling consolidated
-  if (groupBy === 'initiator-both') {
-    groupBy = 'initiator';
+  if (sendTo === 'initiator') {
+    groupBy = emailContent === 'per-project' ? 'project' : 'initiator';
+    alsoConsolidated = false;
+  } else if (sendTo === 'both') {
+    groupBy = emailContent === 'per-project' ? 'project' : 'initiator';
     alsoConsolidated = true;
+  } else {
+    // sendTo === 'list'
+    groupBy = 'none';
   }
 
-  // If user selected HTML report mode, use that flow instead
-  if (groupBy === 'html' && !dryRun) {
+  // If user wants HTML report attachment, use that flow
+  if (attachHtmlReport && !dryRun) {
     return sendReminderWithHtmlAttachment();
   }
 
@@ -1186,7 +1212,7 @@ async function submitReminder({ dryRun }) {
         initiators: state.pickedInitiators.size > 0 ? [...state.pickedInitiators] : null,
         buckets,
         groupBy,
-        alsoConsolidated: alsoConsolidated || (groupBy !== 'none' && $('also-consolidated')?.checked),
+        alsoConsolidated,
         dryRun,
       }),
     });
@@ -1338,10 +1364,13 @@ $('close-preview').addEventListener('click', () => {
   $('preview-panel').hidden = true;
 });
 
-for (const radio of document.querySelectorAll('input[name="groupBy"]')) {
+// Update hints when send options change
+for (const radio of document.querySelectorAll('input[name="sendTo"], input[name="emailContent"]')) {
   radio.addEventListener('change', renderRecipientHint);
 }
-$('also-consolidated').addEventListener('change', renderRecipientHint);
+if ($('attach-html-report')) {
+  $('attach-html-report').addEventListener('change', renderRecipientHint);
+}
 $('auto-save').addEventListener('click', saveAutomation);
 $('auto-run').addEventListener('click', runAutomationNow);
 $('auto-arm').addEventListener('click', async () => {
