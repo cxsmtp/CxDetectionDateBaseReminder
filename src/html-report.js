@@ -22,6 +22,14 @@ export function generateHtmlReport(reminderData, options = {}) {
     multipleProjects = false,
   } = reminderData;
 
+  // Filter for critical and high findings only
+  const filterByPriority = (proj) => ({
+    ...proj,
+    risks: (proj.risks || []).filter(r => ['CRITICAL', 'HIGH'].includes(r.severity))
+  });
+  const priorityProjects = projects.map(filterByPriority).filter(p => p.risks.length > 0);
+  const priorityFindingsCount = criticalCount + highCount;
+
   // Extract top 5 critical vulnerabilities across all projects
   const topCriticals = extractTopVulnerabilities(projects, 'CRITICAL', 5);
   const topHighs = extractTopVulnerabilities(projects, 'HIGH', 5);
@@ -248,19 +256,85 @@ export function generateHtmlReport(reminderData, options = {}) {
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         .call-to-action {
-            background: ${accentColor};
+            background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
             color: white;
-            padding: 20px;
+            padding: 30px;
             border-radius: 8px;
             margin-bottom: 20px;
             text-align: center;
+            box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
         }
+        .cta-title { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+        .cta-subtitle { font-size: 14px; opacity: 0.95; margin-bottom: 15px; }
+        .cta-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .cta-metric { text-align: center; }
+        .cta-metric-value { font-size: 32px; font-weight: bold; }
+        .cta-metric-label { font-size: 12px; opacity: 0.9; text-transform: uppercase; }
+
+        .remediation-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.2s;
+        }
+        .remediation-modal.show { display: flex; }
+        .remediation-content {
+            background-color: white;
+            margin: auto;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 800px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+        }
+        .remediation-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px; }
+        .remediation-title { font-size: 20px; font-weight: bold; }
+        .remediation-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        .remediation-section { margin-bottom: 20px; }
+        .remediation-section-title { font-weight: bold; font-size: 14px; color: #d32f2f; text-transform: uppercase; margin-bottom: 10px; }
+        .remediation-section-content { font-size: 14px; line-height: 1.6; color: #333; }
+        .code-block {
+            background: #f5f5f5;
+            border-left: 3px solid #d32f2f;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        .remediation-actions { margin-top: 20px; display: flex; gap: 10px; }
+        .btn-close-modal { background: #f5f5f5; border: 1px solid #ddd; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+        .btn-close-modal:hover { background: #efefef; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         @media (max-width: 600px) {
             .summary-band { grid-template-columns: 1fr 1fr; }
             .action-buttons { flex-direction: column; }
             .action-btn { width: 100%; }
             .finding-header { flex-direction: column; }
+            .cta-metrics { grid-template-columns: 1fr; }
+            .remediation-content { padding: 20px; max-width: 95vw; }
         }
     </style>
 </head>
@@ -296,8 +370,24 @@ export function generateHtmlReport(reminderData, options = {}) {
             </div>
         </div>
 
-        <!-- Call to Action -->
-        ${branding.callToAction ? `<div class="call-to-action">${escapeHtml(branding.callToAction)}</div>` : ''}
+        <!-- Critical CTA Section -->
+        <div class="call-to-action">
+            <div class="cta-title">⚠️ Immediate Action Required</div>
+            <div class="cta-subtitle">Review and remediate critical and high-severity vulnerabilities</div>
+            <div class="cta-metrics">
+                <div class="cta-metric">
+                    <div class="cta-metric-value">${criticalCount}</div>
+                    <div class="cta-metric-label">Critical Issues</div>
+                </div>
+                <div class="cta-metric">
+                    <div class="cta-metric-value">${highCount}</div>
+                    <div class="cta-metric-label">High Severity</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Call to Action Custom -->
+        ${branding.callToAction ? `<div class="call-to-action" style="background: white; color: #333; border-top: 2px solid #d32f2f; padding: 20px;">${escapeHtml(branding.callToAction)}</div>` : ''}
 
         <!-- Bulk Actions -->
         <div class="actions-section">
@@ -349,11 +439,25 @@ export function generateHtmlReport(reminderData, options = {}) {
             </div>
         ` : ''}
 
-        <!-- All Findings -->
+        <!-- Priority Findings (Critical + High Only) -->
         <div class="all-findings">
-            <div class="findings-title">All Vulnerabilities (${totalRisks})</div>
+            <div class="findings-title">Priority Vulnerabilities to Address (${priorityFindingsCount})</div>
             <div class="findings-grid" id="findings-grid">
-                ${generateFindingCards(projects)}
+                ${generateFindingCards(priorityProjects)}
+            </div>
+        </div>
+
+        <!-- Remediation Modal -->
+        <div id="remediationModal" class="remediation-modal">
+            <div class="remediation-content">
+                <div class="remediation-header">
+                    <div class="remediation-title" id="modalTitle">Remediation Guidance</div>
+                    <button class="remediation-close" onclick="closeRemediationModal()">&times;</button>
+                </div>
+                <div id="remediationBody"></div>
+                <div class="remediation-actions">
+                    <button class="btn-close-modal" onclick="closeRemediationModal()">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -365,6 +469,171 @@ export function generateHtmlReport(reminderData, options = {}) {
 
         // Track finding states locally
         const findingStates = {};
+
+        // Remediation guidance database
+        const remediationGuide = {
+          'SQL_INJECTION': {
+            title: 'SQL Injection',
+            description: 'SQL Injection vulnerabilities occur when user input is directly concatenated into SQL queries without proper parameterization, allowing attackers to execute arbitrary database commands.',
+            risk: 'An attacker could read, modify, or delete sensitive data; bypass authentication; or execute administrative operations.',
+            remediation: [
+              'Use parameterized queries (prepared statements) for all database operations',
+              'Implement input validation and sanitization on the server side',
+              'Apply the principle of least privilege to database user accounts',
+              'Use an ORM framework that handles parameterization automatically',
+              'Enable SQL query logging and monitoring'
+            ],
+            examples: {
+              'JavaScript/Node.js': 'const result = await db.query("SELECT * FROM users WHERE id = ?", [userId]);',
+              'Python': 'cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))',
+              'Java': 'PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE id = ?");',
+              'PHP': '$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");'
+            }
+          },
+          'CROSS_SITE_SCRIPTING': {
+            title: 'Cross-Site Scripting (XSS)',
+            description: 'XSS vulnerabilities allow attackers to inject malicious scripts into web pages viewed by other users, compromising user data and session tokens.',
+            risk: 'Session hijacking, credential theft, malware distribution, website defacement, or unauthorized actions on behalf of users.',
+            remediation: [
+              'Encode all user input when rendering in HTML context',
+              'Use Content Security Policy (CSP) headers to restrict script execution',
+              'Implement input validation on the server side',
+              'Use templating engines with automatic escaping enabled',
+              'Keep all client-side libraries and frameworks up to date'
+            ],
+            examples: {
+              'JavaScript': 'element.textContent = userInput; // Always use textContent, not innerHTML',
+              'React': '{userInput} // JSX auto-escapes by default',
+              'HTML5': '<script nonce="random123">// Use nonce attributes for inline scripts</script>',
+              'Headers': 'Content-Security-Policy: default-src \'self\'; script-src \'self\''
+            }
+          },
+          'INSECURE_DIRECT_OBJECT_REFERENCE': {
+            title: 'Insecure Direct Object Reference (IDOR)',
+            description: 'IDOR vulnerabilities occur when an application exposes internal object references (IDs) without proper access control, allowing unauthorized users to access others\' data.',
+            risk: 'Unauthorized access to sensitive information, data manipulation, or complete account takeover.',
+            remediation: [
+              'Implement proper access control checks on every resource access',
+              'Use role-based access control (RBAC) or attribute-based access control (ABAC)',
+              'Verify the current user has permission to access the requested resource',
+              'Use indirect references instead of direct IDs when possible',
+              'Log and monitor access to sensitive resources'
+            ],
+            examples: {
+              'Node.js': 'if (req.user.id !== userId) { return res.status(403).send("Forbidden"); }',
+              'Python/Flask': '@login_required def get_user(user_id):\\n    if current_user.id != user_id:\\n        abort(403)',
+              'Java/Spring': '@PreAuthorize("#user.id == authentication.principal.id")',
+              'General': 'Always verify: req.user.id == resource.owner_id'
+            }
+          },
+          'INSECURE_DESERIALIZATION': {
+            title: 'Insecure Deserialization',
+            description: 'Insecure deserialization occurs when an application unserializes untrusted data without validation, potentially allowing remote code execution.',
+            risk: 'Remote code execution, arbitrary command execution, denial of service attacks, or complete system compromise.',
+            remediation: [
+              'Avoid deserializing untrusted data',
+              'Use data formats like JSON instead of native serialization',
+              'Implement integrity checks (HMAC) on serialized data',
+              'Use whitelist validation for allowed classes during deserialization',
+              'Keep serialization libraries patched and updated'
+            ],
+            examples: {
+              'Python': 'import json; data = json.loads(user_input) # Use JSON instead of pickle',
+              'Java': '// Avoid: ObjectInputStream ois = new ObjectInputStream(is);',
+              'PHP': '$data = json_decode($user_input); // Use JSON, not unserialize()',
+              'General': 'Principle: Never deserialize untrusted data with object instantiation'
+            }
+          },
+          'DEFAULT': {
+            title: 'Security Vulnerability',
+            description: 'This finding identifies a potential security vulnerability that requires attention and remediation.',
+            risk: 'The vulnerability could potentially be exploited by an attacker to compromise the security or integrity of the application.',
+            remediation: [
+              'Review the detailed finding information and location in your codebase',
+              'Consult with your security team to understand the impact',
+              'Implement the recommended fix for this vulnerability type',
+              'Test thoroughly to ensure the fix doesn\'t introduce new issues',
+              'Document the remediation in your change log'
+            ],
+            examples: {}
+          }
+        };
+
+        function getRemediationContent(risk) {
+          const type = risk.title?.toUpperCase()?.replace(/[^A-Z0-9_]/g, '_') || 'DEFAULT';
+          const guide = remediationGuide[type] || remediationGuide.DEFAULT;
+
+          let html = \`<div class="remediation-section">
+            <div class="remediation-section-title">Vulnerability Type</div>
+            <div class="remediation-section-content">\${escapeHtml(guide.title)}</div>
+          </div>
+
+          <div class="remediation-section">
+            <div class="remediation-section-title">Description</div>
+            <div class="remediation-section-content">\${escapeHtml(guide.description)}</div>
+          </div>
+
+          <div class="remediation-section">
+            <div class="remediation-section-title">Risk Impact</div>
+            <div class="remediation-section-content">\${escapeHtml(guide.risk)}</div>
+          </div>\`;
+
+          if (risk.location) {
+            html += \`<div class="remediation-section">
+              <div class="remediation-section-title">Location</div>
+              <div class="remediation-section-content"><strong>File/Path:</strong> \${escapeHtml(risk.location)}</div>
+            </div>\`;
+          }
+
+          html += \`<div class="remediation-section">
+            <div class="remediation-section-title">Remediation Steps</div>
+            <div class="remediation-section-content">
+              <ol style="margin-left: 20px;">
+                \${guide.remediation.map(step => \`<li style="margin-bottom: 8px;">\${escapeHtml(step)}</li>\`).join('')}
+              </ol>
+            </div>
+          </div>\`;
+
+          if (Object.keys(guide.examples).length > 0) {
+            html += \`<div class="remediation-section">
+              <div class="remediation-section-title">Code Examples</div>
+              <div class="remediation-section-content">
+                \${Object.entries(guide.examples).map(([lang, code]) =>
+                  \`<div style="margin-bottom: 15px;">
+                    <strong>\${escapeHtml(lang)}:</strong>
+                    <div class="code-block">\${escapeHtml(code)}</div>
+                  </div>\`
+                ).join('')}
+              </div>
+            </div>\`;
+          }
+
+          return html;
+        }
+
+        function showRemediationModal(riskId) {
+          const card = document.querySelector(\`[data-risk-id="\${riskId}"]\`);
+          if (!card) return;
+
+          const risk = {
+            title: card.querySelector('.finding-title-card')?.textContent || 'Unknown',
+            location: card.querySelector('[data-finding-location]')?.textContent || '',
+            severity: card.getAttribute('data-severity')
+          };
+
+          document.getElementById('modalTitle').textContent = \`Remediation: \${escapeHtml(risk.title)}\`;
+          document.getElementById('remediationBody').innerHTML = getRemediationContent(risk);
+          document.getElementById('remediationModal').classList.add('show');
+        }
+
+        function closeRemediationModal() {
+          document.getElementById('remediationModal').classList.remove('show');
+        }
+
+        window.addEventListener('click', (e) => {
+          const modal = document.getElementById('remediationModal');
+          if (e.target === modal) modal.classList.remove('show');
+        });
 
         async function triageAll(severity) {
             if (!confirm(\`Triage all \${severity} vulnerabilities?\`)) return;
@@ -557,8 +826,8 @@ function generateFindingCards(projects) {
             </div>
           </div>
           <div class="finding-actions">
-            <button class="finding-btn finding-btn-triage" data-action="triage" onclick="triageFinding(${args})">Triage</button>
-            <button class="finding-btn finding-btn-remediate" data-action="remediate" onclick="remediateFinding(${args})">Remediate</button>
+            <button class="finding-btn finding-btn-remediate" data-action="remediate" onclick="showRemediationModal('${escapeHtml(risk.riskId)}')">📋 View Remediation Guide</button>
+            <button class="finding-btn finding-btn-triage" data-action="triage" onclick="triageFinding(${args})">✓ Mark as Triaged</button>
           </div>
         </div>
       `;
