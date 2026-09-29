@@ -160,57 +160,105 @@ export function generateHtmlReport(reminderData, options = {}) {
 
         .all-findings {
             background: white;
-            padding: 20px;
+            padding: 10px;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        .findings-grid { display: grid; gap: 15px; }
-        .finding-card {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 15px;
-            background: #fafafa;
-        }
-        .finding-card.triaged { background: #e8f5e9; border-color: #4caf50; }
-        .finding-card.remediated { background: #c8e6c9; border-color: #2e7d32; }
-        .finding-header {
+        .findings-grid {
             display: flex;
-            align-items: start;
-            gap: 15px;
-            margin-bottom: 12px;
+            flex-direction: column;
+            gap: 0;
+        }
+        .finding-card {
+            border-bottom: 1px solid #eee;
+            padding: 8px;
+            background: #fafafa;
+            display: grid;
+            grid-template-columns: 70px 1fr 80px 80px 70px 120px;
+            gap: 10px;
+            align-items: center;
+            font-size: 12px;
+        }
+        .finding-card:hover { background: #f0f0f0; }
+        .finding-card.triaged { background: #e8f5e9; }
+        .finding-card.remediated { background: #c8e6c9; }
+        .finding-card-header-row {
+            display: grid;
+            grid-template-columns: 70px 1fr 80px 80px 70px 120px;
+            gap: 10px;
+            padding: 8px;
+            background: #f5f5f5;
+            font-weight: bold;
+            font-size: 11px;
+            border-bottom: 2px solid #ddd;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            text-transform: uppercase;
+            color: #666;
+        }
+
+        .finding-header {
+            display: contents;
         }
         .finding-card-severity {
             font-weight: bold;
-            font-size: 12px;
-            padding: 4px 8px;
+            font-size: 11px;
+            padding: 3px 6px;
             border-radius: 3px;
             text-transform: uppercase;
-            min-width: 70px;
             text-align: center;
+            min-width: 60px;
         }
         .finding-card-severity.critical { background: #d32f2f; color: white; }
         .finding-card-severity.high { background: #f57c00; color: white; }
         .finding-card-severity.medium { background: #fbc02d; color: #333; }
         .finding-card-severity.low { background: #388e3c; color: white; }
-        .finding-details { flex: 1; }
-        .finding-title-card { font-weight: 600; margin-bottom: 8px; }
-        .finding-info { font-size: 13px; color: #666; margin-bottom: 8px; }
-        .finding-info-item { display: inline-block; margin-right: 20px; }
-        .finding-info-label { color: #999; font-size: 12px; }
+
+        .finding-details {
+            display: contents;
+        }
+        .finding-title-card {
+            font-weight: 600;
+            color: #000;
+            text-decoration: none;
+        }
+        .finding-title-card a {
+            color: #1d4ed8;
+            text-decoration: none;
+        }
+        .finding-title-card a:hover {
+            text-decoration: underline;
+        }
+        .finding-info { display: none; }
+        .finding-info-item { display: none; }
+        .finding-info-label { display: none; }
+
+        .finding-age-cell {
+            font-weight: 600;
+            color: #d32f2f;
+        }
+        .finding-ai-cell {
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .finding-ai-high { color: #d32f2f; }
+        .finding-ai-medium { color: #f57c00; }
         .finding-actions {
             display: flex;
-            gap: 10px;
-            margin-top: 12px;
+            gap: 4px;
             flex-wrap: wrap;
+            justify-content: flex-end;
         }
         .finding-btn {
-            padding: 6px 12px;
+            padding: 3px 8px;
             border: none;
             border-radius: 3px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 10px;
             font-weight: 500;
             transition: all 0.2s;
+            white-space: nowrap;
         }
         .finding-btn-triage {
             background: #2196f3;
@@ -471,14 +519,29 @@ export function generateHtmlReport(reminderData, options = {}) {
         <!-- Call to Action Custom -->
         ${branding.callToAction ? `<div class="call-to-action" style="background: white; color: #333; border-top: 2px solid #d32f2f; padding: 20px;">${escapeHtml(branding.callToAction)}</div>` : ''}
 
+        <!-- Authentication Section -->
+        <div class="actions-section" id="authSection">
+            <div class="actions-title">Enable Interactive Features</div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <input type="password" id="apiKeyInput" placeholder="Paste your Checkmarx API key here to enable interactive triage"
+                       style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-width: 300px;">
+                <button class="action-btn" onclick="authenticateWithApiKey()">Authenticate</button>
+                <button class="action-btn action-btn-secondary" onclick="clearApiKey()" id="clearKeyBtn" style="display:none;">Clear</button>
+                <span id="authStatus" style="font-size: 12px; color: #666;"></span>
+            </div>
+        </div>
+
         <!-- Bulk Actions -->
         <div class="actions-section">
             <div class="actions-title">Quick Actions</div>
             <div class="action-buttons">
-                <button class="action-btn" onclick="triageAll('CRITICAL')">Triage All Critical (${criticalCount})</button>
-                <button class="action-btn" onclick="triageAll('HIGH')">Triage All High (${highCount})</button>
-                <button class="action-btn action-btn-secondary" onclick="toggleAllFinding('remediate')">Mark All as Remediated</button>
+                <button class="action-btn" onclick="triageAll('CRITICAL')" id="triageAllCriticalBtn" disabled>Triage All Critical (${criticalCount})</button>
+                <button class="action-btn" onclick="triageAll('HIGH')" id="triageAllHighBtn" disabled>Triage All High (${highCount})</button>
+                <button class="action-btn action-btn-secondary" onclick="toggleAllFinding('remediate')" id="remediateAllBtn" disabled>Mark All as Remediated</button>
                 <button class="action-btn action-btn-secondary" onclick="refreshReport()">🔄 Refresh Status</button>
+            </div>
+            <div style="font-size: 12px; color: #666; margin-top: 10px;">
+                ℹ️ Authenticate with your API key to enable interactive triage and remediation
             </div>
         </div>
 
@@ -521,11 +584,21 @@ export function generateHtmlReport(reminderData, options = {}) {
             </div>
         ` : ''}
 
-        <!-- Priority Findings (Critical + High Only) -->
+        <!-- Priority Findings (Critical + High Only) - Compact Table View -->
         <div class="all-findings">
             <div class="findings-title">Priority Vulnerabilities to Address (${priorityFindingsCount})</div>
-            <div class="findings-grid" id="findings-grid">
-                ${generateFindingCards(priorityProjects)}
+            <div style="overflow-x: auto;">
+                <div class="finding-card-header-row">
+                    <div>Severity</div>
+                    <div>Finding / Location</div>
+                    <div>Age (days)</div>
+                    <div>AI Analysis</div>
+                    <div>Engine</div>
+                    <div>Actions</div>
+                </div>
+                <div class="findings-grid" id="findings-grid">
+                    ${generateFindingCards(priorityProjects)}
+                </div>
             </div>
         </div>
 
@@ -575,12 +648,90 @@ export function generateHtmlReport(reminderData, options = {}) {
         // Configuration from server
         const apiBaseUrl = '${sanitizeJsString(apiBaseUrl)}';
         const sessionCookie = '${sanitizeJsString(sessionCookie)}';
+        let userApiKey = null;
 
         // Track finding states locally
         const findingStates = {};
 
         // Activity logging system
         const activityLog = [];
+
+        // API Key Management
+        function authenticateWithApiKey() {
+          const keyInput = document.getElementById('apiKeyInput');
+          const key = keyInput.value?.trim();
+
+          if (!key) {
+            logActivity('API key is required', 'error');
+            return;
+          }
+
+          userApiKey = key;
+          sessionStorage.setItem('cxApiKey', key);
+
+          updateAuthUI();
+          logActivity('✓ API key stored. Interactive features are now enabled.', 'success');
+
+          // Enable buttons
+          enableInteractiveButtons();
+        }
+
+        function clearApiKey() {
+          userApiKey = null;
+          sessionStorage.removeItem('cxApiKey');
+          document.getElementById('apiKeyInput').value = '';
+          updateAuthUI();
+          logActivity('API key cleared', 'info');
+          disableInteractiveButtons();
+        }
+
+        function updateAuthUI() {
+          const status = document.getElementById('authStatus');
+          const clearBtn = document.getElementById('clearKeyBtn');
+
+          if (userApiKey) {
+            status.textContent = '✓ Authenticated';
+            status.style.color = '#2e7d32';
+            clearBtn.style.display = 'inline-block';
+          } else {
+            status.textContent = '';
+            clearBtn.style.display = 'none';
+          }
+        }
+
+        function enableInteractiveButtons() {
+          document.getElementById('triageAllCriticalBtn').disabled = false;
+          document.getElementById('triageAllHighBtn').disabled = false;
+          document.getElementById('remediateAllBtn').disabled = false;
+
+          // Enable individual finding buttons
+          document.querySelectorAll('[data-action="triage"], [data-action="remediate"]').forEach(btn => {
+            btn.disabled = false;
+          });
+        }
+
+        function disableInteractiveButtons() {
+          document.getElementById('triageAllCriticalBtn').disabled = true;
+          document.getElementById('triageAllHighBtn').disabled = true;
+          document.getElementById('remediateAllBtn').disabled = true;
+
+          // Disable individual finding buttons
+          document.querySelectorAll('[data-action="triage"], [data-action="remediate"]').forEach(btn => {
+            btn.disabled = true;
+          });
+        }
+
+        // Check if API key is in sessionStorage on page load
+        function restoreApiKey() {
+          const stored = sessionStorage.getItem('cxApiKey');
+          if (stored) {
+            userApiKey = stored;
+            document.getElementById('apiKeyInput').value = stored;
+            updateAuthUI();
+            enableInteractiveButtons();
+            logActivity('✓ API key restored from session', 'info');
+          }
+        }
 
         function getTimeString() {
           const now = new Date();
@@ -879,6 +1030,11 @@ export function generateHtmlReport(reminderData, options = {}) {
             const btn = cardElement.querySelector('[data-action="triage"]');
             if (!btn) return;
 
+            if (!userApiKey) {
+                logActivity('API key required. Please authenticate first.', 'error');
+                return;
+            }
+
             const findingTitle = cardElement.querySelector('.finding-title-card')?.textContent || riskId;
             logActivity(\`Triaging: \${findingTitle}\`, 'pending');
 
@@ -889,7 +1045,10 @@ export function generateHtmlReport(reminderData, options = {}) {
                 const response = await fetch(apiBaseUrl + '/api/risks/triage', {
                     method: 'POST',
                     credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': userApiKey
+                    },
                     body: JSON.stringify({ riskId, projectId, scanId, action: 'triage' })
                 });
 
@@ -903,7 +1062,11 @@ export function generateHtmlReport(reminderData, options = {}) {
                     const error = await response.text();
                     btn.innerHTML = '⚠ Retry';
                     btn.disabled = false;
-                    logActivity(\`Failed to triage \${findingTitle}: \${error || 'API error'}\`, 'error');
+                    if (response.status === 401) {
+                        logActivity(\`Authentication failed - API key may be invalid\`, 'error');
+                    } else {
+                        logActivity(\`Failed to triage \${findingTitle}: \${error || 'API error'}\`, 'error');
+                    }
                 }
             } catch (error) {
                 btn.innerHTML = '✕ Error';
@@ -917,6 +1080,11 @@ export function generateHtmlReport(reminderData, options = {}) {
             const btn = cardElement.querySelector('[data-action="remediate"]');
             if (!btn) return;
 
+            if (!userApiKey) {
+                logActivity('API key required. Please authenticate first.', 'error');
+                return;
+            }
+
             const findingTitle = cardElement.querySelector('.finding-title-card')?.textContent || riskId;
             logActivity(\`Remediating: \${findingTitle}\`, 'pending');
 
@@ -927,7 +1095,10 @@ export function generateHtmlReport(reminderData, options = {}) {
                 const response = await fetch(apiBaseUrl + '/api/risks/remediate', {
                     method: 'POST',
                     credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': userApiKey
+                    },
                     body: JSON.stringify({ riskId, projectId, scanId, action: 'remediate' })
                 });
 
@@ -941,7 +1112,11 @@ export function generateHtmlReport(reminderData, options = {}) {
                     const error = await response.text();
                     btn.innerHTML = '⚠ Retry';
                     btn.disabled = false;
-                    logActivity(\`Failed to remediate \${findingTitle}: \${error || 'API error'}\`, 'error');
+                    if (response.status === 401) {
+                        logActivity(\`Authentication failed - API key may be invalid\`, 'error');
+                    } else {
+                        logActivity(\`Failed to remediate \${findingTitle}: \${error || 'API error'}\`, 'error');
+                    }
                 }
             } catch (error) {
                 btn.innerHTML = '✕ Error';
@@ -962,9 +1137,43 @@ export function generateHtmlReport(reminderData, options = {}) {
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             console.log('Report loaded. API base:', apiBaseUrl);
+            restoreApiKey();
             logActivity('Report initialized successfully', 'success');
             updateActivityUI();
+
+            // Display AI triage recommendations
+            document.querySelectorAll('[data-risk-id]').forEach(card => {
+                const exploitability = card.querySelector('[data-exploitability]')?.textContent;
+                const reachability = card.querySelector('[data-reachability]')?.textContent;
+                if (exploitability || reachability) {
+                    displayAiTriageRecommendation(card, exploitability, reachability);
+                }
+            });
         });
+
+        function displayAiTriageRecommendation(card, exploitability, reachability) {
+            // Create a recommendation banner based on AI analysis
+            if (exploitability || reachability) {
+                const rec = document.createElement('div');
+                rec.style.cssText = 'background: #fff3e0; border-left: 3px solid #ff9800; padding: 10px; margin-top: 10px; border-radius: 3px; font-size: 12px;';
+                rec.innerHTML = '<strong>🤖 AI Recommendation:</strong> ';
+
+                const factors = [];
+                if (exploitability === 'HIGH') factors.push('High exploitability');
+                if (reachability === 'HIGH') factors.push('Highly reachable');
+
+                if (factors.length > 0) {
+                    rec.innerHTML += factors.join(' · ') + ' - Prioritize for remediation';
+                } else {
+                    rec.innerHTML += 'Review for context';
+                }
+
+                const actionDiv = card.querySelector('.finding-actions');
+                if (actionDiv) {
+                    actionDiv.parentNode.insertBefore(rec, actionDiv);
+                }
+            }
+        }
     </script>
 </body>
 </html>`;
@@ -1007,39 +1216,43 @@ function generateFindingCards(projects) {
   return all
     .map(({ project, risk }) => {
       const severity = String(risk.severity || 'UNKNOWN');
-      const detected = risk.firstDetectedAt ? String(risk.firstDetectedAt).slice(0, 10) : 'unknown';
       const title = risk.url
         ? `<a href="${escapeHtml(risk.url)}" target="_blank" rel="noopener">${escapeHtml(risk.title)}</a>`
         : escapeHtml(risk.title);
-      const item = (label, value) =>
-        value
-          ? `<span class="finding-info-item"><span class="finding-info-label">${label}:</span> ${escapeHtml(value)}</span>`
-          : '';
+      const location = risk.location && risk.location !== '—' ? risk.location : '';
+      const titleWithLocation = location ? `${title} · <span style="color: #999;">@${escapeHtml(location)}</span>` : title;
+      
       const args = `'${escapeHtml(risk.riskId)}', '${escapeHtml(project.projectId)}', '${escapeHtml(risk.scanId)}', this.closest('.finding-card')`;
 
+      // AI Analysis summary
+      let aiAnalysis = '';
+      if (risk.aiExploitability || risk.aiReachability) {
+        const parts = [];
+        if (risk.aiExploitability) {
+          const cls = risk.aiExploitability === 'HIGH' ? 'finding-ai-high' : 'finding-ai-medium';
+          parts.push(`<span class="${cls}">E: ${risk.aiExploitability}</span>`);
+        }
+        if (risk.aiReachability) {
+          const cls = risk.aiReachability === 'HIGH' ? 'finding-ai-high' : 'finding-ai-medium';
+          parts.push(`<span class="${cls}">R: ${risk.aiReachability}</span>`);
+        }
+        aiAnalysis = `<div class="finding-ai-cell">${parts.join(' ')}</div>`;
+      } else {
+        aiAnalysis = '<div class="finding-ai-cell" style="color: #999;">—</div>';
+      }
+
+      const engine = risk.scanner || risk.engine || '—';
+
       return `
-        <div class="finding-card" data-risk-id="${escapeHtml(risk.riskId)}" data-project-id="${escapeHtml(project.projectId)}" data-scan-id="${escapeHtml(risk.scanId)}" data-severity="${escapeHtml(severity)}">
-          <div class="finding-header">
-            <span class="finding-card-severity ${severity.toLowerCase()}">${escapeHtml(severity)}</span>
-            <div class="finding-details">
-              <div class="finding-title-card">${title}</div>
-              <div class="finding-info">
-                ${item('Project', project.projectName)}
-                <span class="finding-info-item"><span class="finding-info-label">Age:</span> <strong>${ageLabel(risk.ageDays)}</strong></span>
-                ${item('Engine', risk.scanner || risk.engine)}
-                ${item('Detected', detected)}
-                ${item('Location', risk.location)}
-                ${item('State', risk.state)}
-                ${item('Status', risk.status)}
-                ${item('AI triage', risk.aiTriageStatus)}
-                ${item('Exploitability', risk.aiExploitability)}
-                ${item('Reachability', risk.aiReachability)}
-              </div>
-            </div>
-          </div>
+        <div class="finding-card" data-risk-id="${escapeHtml(risk.riskId)}" data-project-id="${escapeHtml(project.projectId)}" data-scan-id="${escapeHtml(risk.scanId)}" data-severity="${escapeHtml(severity)}" data-exploitability="${escapeHtml(risk.aiExploitability)}" data-reachability="${escapeHtml(risk.aiReachability)}">
+          <span class="finding-card-severity ${severity.toLowerCase()}">${escapeHtml(severity)}</span>
+          <div class="finding-title-card">${titleWithLocation}</div>
+          <div class="finding-age-cell">${ageLabel(risk.ageDays)}</div>
+          ${aiAnalysis}
+          <div style="font-size: 11px; color: #666;"><span style="color: #999;">Engine:</span> ${escapeHtml(engine)}</div>
           <div class="finding-actions">
-            <button class="finding-btn finding-btn-remediate" data-action="remediate" onclick="showRemediationModal('${escapeHtml(risk.riskId)}')">📋 View Remediation Guide</button>
-            <button class="finding-btn finding-btn-triage" data-action="triage" onclick="triageFinding(${args})">✓ Mark as Triaged</button>
+            <button class="finding-btn finding-btn-remediate" data-action="remediate" onclick="showRemediationModal('${escapeHtml(risk.riskId)}')" disabled>Guide</button>
+            <button class="finding-btn finding-btn-triage" data-action="triage" onclick="triageFinding(${args})" disabled>Triage</button>
           </div>
         </div>
       `;

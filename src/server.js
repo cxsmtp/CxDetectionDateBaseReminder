@@ -105,6 +105,30 @@ function requireSession(req, res, next) {
   next();
 }
 
+/** Create a temporary session from an API key (used for interactive HTML reports) */
+async function requireSessionOrApiKey(req, res, next) {
+  let session = currentSession(req);
+  const apiKey = req.headers['x-api-key'];
+
+  if (session) {
+    req.session = session;
+    return next();
+  }
+
+  if (!apiKey) {
+    return res.status(401).json({ error: 'Not connected. Provide X-API-Key header or use Checkmarx One API key.' });
+  }
+
+  try {
+    session = await sessions.create(apiKey, config.overrides);
+    req.session = session;
+    next();
+  } catch (error) {
+    console.warn(`[API-Key Auth] Failed: ${error.message}`);
+    return res.status(401).json({ error: 'Invalid or expired API key.' });
+  }
+}
+
 /** Deployment config with the administrator's pinned risks path layered on. */
 function activeConfig() {
   const pinned = settingsStore.get().endpoints.risksPath;
@@ -695,7 +719,7 @@ app.post(
 
 app.post(
   '/api/risks/triage',
-  requireSession,
+  requireSessionOrApiKey,
   asyncRoute(async (req, res) => {
     const { riskId } = req.body ?? {};
     if (!riskId) {
@@ -714,7 +738,7 @@ app.post(
 
 app.post(
   '/api/risks/remediate',
-  requireSession,
+  requireSessionOrApiKey,
   asyncRoute(async (req, res) => {
     const { riskId } = req.body ?? {};
     if (!riskId) {
