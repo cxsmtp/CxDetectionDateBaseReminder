@@ -159,11 +159,11 @@
           </div>
 
           <div class="send-modes">
-            <label class="mode"><input type="radio" name="groupBy" value="none" checked /> One email to the list</label>
-            <label class="mode"><input type="radio" name="groupBy" value="initiator" /> One per developer</label>
-            <label class="mode"><input type="radio" name="groupBy" value="project" /> One per project</label>
-            <label class="mode"><input type="radio" name="groupBy" value="html" /> With interactive HTML report</label>
-            <label class="mode check-mode"><input type="checkbox" id="also-consolidated" /> …plus a consolidated copy to the list</label>
+            <label class="mode"><input type="radio" name="groupBy" value="none" checked /> Send to: Recipient list only</label>
+            <label class="mode"><input type="radio" name="groupBy" value="initiator" /> Send to: Initiators only</label>
+            <label class="mode"><input type="radio" name="groupBy" value="initiator-both" /> Send to: Both initiators & list</label>
+            <label class="mode"><input type="radio" name="groupBy" value="project" /> Group by: Project</label>
+            <label class="mode"><input type="radio" name="groupBy" value="html" /> With: Interactive HTML report</label>
           </div>
 
           <div class="actions">
@@ -251,9 +251,10 @@
           <p class="hint" id="verified-state"></p>
         </section>
 
-        <section class="panel">
-          <h2>Recipients</h2>
-          <p class="hint">One address per line, or separated by commas. These receive every reminder.</p>
+        <!-- Recipients moved to Send reminder section to avoid duplication -->
+        <section class="panel" style="display: none;">
+          <h2>Recipients (Archived)</h2>
+          <p class="hint">Manage recipients in the Send reminder section instead.</p>
           <div class="grid3">
             <label class="field"><span>To</span><textarea id="rcpt-to" rows="4" spellcheck="false"></textarea></label>
             <label class="field"><span>Cc</span><textarea id="rcpt-cc" rows="4" spellcheck="false"></textarea></label>

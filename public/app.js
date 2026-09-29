@@ -1157,7 +1157,14 @@ async function submitReminder({ dryRun }) {
   // request carries no bucket filter of its own.
   const buckets = [];
 
-  const groupBy = document.querySelector('input[name="groupBy"]:checked').value;
+  let groupBy = document.querySelector('input[name="groupBy"]:checked').value;
+  let alsoConsolidated = false;
+
+  // Handle "initiator-both" by setting groupBy to initiator and enabling consolidated
+  if (groupBy === 'initiator-both') {
+    groupBy = 'initiator';
+    alsoConsolidated = true;
+  }
 
   // If user selected HTML report mode, use that flow instead
   if (groupBy === 'html' && !dryRun) {
@@ -1179,7 +1186,7 @@ async function submitReminder({ dryRun }) {
         initiators: state.pickedInitiators.size > 0 ? [...state.pickedInitiators] : null,
         buckets,
         groupBy,
-        alsoConsolidated: groupBy !== 'none' && $('also-consolidated').checked,
+        alsoConsolidated: alsoConsolidated || (groupBy !== 'none' && $('also-consolidated')?.checked),
         dryRun,
       }),
     });
