@@ -834,17 +834,27 @@ export function generateHtmlReport(reminderData, options = {}) {
             return;
           }
           console.log('toggleAuthPanel called, modal found:', !!modal);
+          // Ensure modal is visible
           modal.style.display = 'flex';
           modal.style.visibility = 'visible';
           modal.style.opacity = '1';
+          modal.style.pointerEvents = 'auto';
+
+          // Clear previous input
           const apiKeyInput = document.getElementById('apiKeyInput');
           const status = document.getElementById('authStatus');
           if (apiKeyInput) {
             apiKeyInput.value = '';
-            setTimeout(() => apiKeyInput.focus(), 100);
+            setTimeout(() => {
+              apiKeyInput.focus();
+              apiKeyInput.click();
+            }, 100);
           }
           if (status) status.textContent = '';
           console.log('Auth modal opened successfully');
+          console.log('Modal display:', window.getComputedStyle(modal).display);
+          console.log('Modal visibility:', window.getComputedStyle(modal).visibility);
+          console.log('Modal opacity:', window.getComputedStyle(modal).opacity);
         }
 
 
@@ -853,6 +863,8 @@ export function generateHtmlReport(reminderData, options = {}) {
           if (!modal) return;
           modal.style.display = 'none';
           modal.style.visibility = 'hidden';
+          modal.style.opacity = '0';
+          modal.style.pointerEvents = 'none';
           const apiKeyInput = document.getElementById('apiKeyInput');
           if (apiKeyInput) apiKeyInput.value = '';
           const status = document.getElementById('authStatus');
@@ -1529,6 +1541,20 @@ function clearApiKey() {
             restoreJwtToken();
             logActivity('Report initialized successfully', 'success');
             updateActivityUI();
+
+            // Ensure auth button click handler is attached
+            const authBtn = document.getElementById('authBtn');
+            if (authBtn) {
+                authBtn.addEventListener('click', toggleAuthPanel);
+                console.log('Auth button click handler attached');
+            }
+
+            // Ensure Connect button click handler
+            const connectBtn = document.getElementById('authenticateApiKeyBtn');
+            if (connectBtn) {
+                connectBtn.addEventListener('click', authenticateWithApiKey);
+                console.log('Connect button click handler attached');
+            }
 
             // Display AI triage recommendations
             document.querySelectorAll('[data-risk-id]').forEach(card => {
