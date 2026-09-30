@@ -14,6 +14,7 @@ import { ReportGrants } from './report-grants.js';
 import { CREDIT_COST, CreditLedger, monthOf } from './credits.js';
 import { CreditAllocations, toRemediateCount, toTriageCount } from './credit-allocations.js';
 import { knownAddresses } from './known-addresses.js';
+import { TtlCache } from './ttl-cache.js';
 import { TrackedReports, computeProgress, matchesFilters, reportSummary } from './tracked-reports.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
@@ -131,7 +132,36 @@ app.use('/api/relay', (req, res, next) => {
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
   res.set('Access-Control-Max-Age', '600');
+  res.set('Access-Control-Expose-Headers', 'Retry-After');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
+/**
+ * Admission control: past this many relay requests in flight, answer "busy,
+ * retry in a few seconds" at once instead of queueing without limit. Reports
+ * back off and retry, so a surge degrades into slower updates, not timeouts.
+ */
+const RELAY_MAX_IN_FLIGHT = Math.max(10, Number(process.env.RELAY_MAX_IN_FLIGHT) || 300);
+const relayStats = { inFlight: 0, peak: 0, served: 0, shed: 0 };
+app.use('/api/relay', (req, res, next) => {
+  if (relayStats.inFlight >= RELAY_MAX_IN_FLIGHT) {
+    relayStats.shed += 1;
+    const retryAfter = 2 + Math.floor(Math.random() * 4);
+    res.set('Retry-After', String(retryAfter));
+    return res.status(503).json({ error: 'The reminder server is busy; retrying in a moment.', busy: true, retryAfter });
+  }
+  relayStats.inFlight += 1;
+  relayStats.peak = Math.max(relayStats.peak, relayStats.inFlight);
+  let finished = false;
+  const done = () => {
+    if (finished) return;
+    finished = true;
+    relayStats.inFlight -= 1;
+    relayStats.served += 1;
+  };
+  res.on('finish', done);
+  res.on('close', done);
   next();
 });
 
@@ -174,6 +204,19 @@ app.get('/api/health', (req, res) => {
       name: settingsStore.get().branding.appName || 'Mission Zero',
       logoUrl: settingsStore.get().branding.logoUrl || '',
     },
+  });
+});
+
+/** Load and cache figures, for whoever operates this server. */
+app.get('/api/metrics', requireSession, async (req, res) => {
+  const session = await resolveAutomationSession();
+  const memory = process.memoryUsage();
+  res.json({
+    uptimeSeconds: Math.round(process.uptime()),
+    memoryMb: { rss: Math.round(memory.rss / 1e6), heapUsed: Math.round(memory.heapUsed / 1e6) },
+    relay: { ...relayStats, maxInFlight: RELAY_MAX_IN_FLIGHT },
+    cache: { entries: relayCache.size, hits: relayCache.hits, misses: relayCache.misses },
+    checkmarxOne: session?.client?.load ?? null,
   });
 });
 
@@ -1018,7 +1061,7 @@ app.post(
           const covered = await coveredCount(session, projectId, 'triage', riskIds);
           creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', riskIds, covered: Math.min(covered, alternateIds.length) });
         }
-        stateCache.delete(projectId);
+        actedOn('triage', group);
         touchProject(projectId);
         results.push({ alternateIds, ok: true, published });
       } catch (error) {
@@ -1040,12 +1083,23 @@ app.post(
  * the risk has settled) or be missing for a finding it changed, so the
  * report shows this. Cached briefly because every report poll asks.
  */
-const STATE_CACHE_MS = 20_000;
-const stateCache = new Map();
+const STATE_CACHE_MS = 30_000;
+/**
+ * Answers from Checkmarx One shared by every report: risk states per project,
+ * AI Triage records and AI Remediation details per finding. Concurrent asks
+ * for the same thing share one upstream call.
+ */
+const relayCache = new TtlCache({ max: 100_000 });
+const stateCache = { delete: (projectId) => relayCache.delete(`risks|${projectId}`) };
+// Findings sent for triage or remediation recently: their answers change soon, so look again sooner.
+const recentActions = new TtlCache({ max: 100_000 });
+const ACTION_WATCH_MS = 45 * 60 * 1000;
 
 async function projectRiskInfo(session, projectId) {
-  const cached = stateCache.get(projectId);
-  if (cached && Date.now() - cached.at < STATE_CACHE_MS) return cached;
+  return relayCache.wrap(`risks|${projectId}`, () => loadRiskInfo(session, projectId), STATE_CACHE_MS);
+}
+
+async function loadRiskInfo(session, projectId) {
   const cfg = activeConfig();
   const project = { id: projectId, name: '' };
   const source = createRiskSource(session.client, cfg);
@@ -1062,10 +1116,79 @@ async function projectRiskInfo(session, projectId) {
       if (risk.alternateId) states.set(risk.alternateId, risk.state);
     }
   }
-  const entry = { at: Date.now(), states, info, risks };
-  stateCache.set(projectId, entry);
-  if (stateCache.size > 500) stateCache.delete(stateCache.keys().next().value);
-  return entry;
+  return { at: Date.now(), states, info, risks };
+}
+
+const SETTLED_TTL = 10 * 60_000;
+const WATCHED_TTL = 8_000;
+const QUIET_TTL = 5 * 60_000;
+
+/** How to load a finding's AI Triage record ({found, body}) and how long to keep it. */
+function triageLookup(session, finding, { background = false } = {}) {
+  const key = `triage|${finding.projectId}|${finding.groupId}`;
+  const load = async () => {
+    try {
+      const body = await session.client.request(
+        `/api/ai-triage/triage/${encodeURIComponent(finding.projectId)}/${encodeURIComponent(finding.groupId)}`,
+        { retries: 1, background },
+      );
+      return { found: true, body };
+    } catch (error) {
+      if (error.status === 404) return { found: false };
+      throw error;
+    }
+  };
+  // Settled verdicts rarely change; ones being worked on are looked at again soon.
+  const ttl = (answer) => {
+    const status = answer.body?.triageStatus || answer.body?.jobStatus || '';
+    if (answer.found && status && !['IN_PROGRESS', 'TO_VERIFY', 'PENDING', 'QUEUED', 'RUNNING'].includes(status)) return SETTLED_TTL;
+    return recentActions.get(key) !== undefined || answer.found ? WATCHED_TTL : QUIET_TTL;
+  };
+  return { key, load, ttl };
+}
+
+/** How to load a finding's AI Remediation details (or null) and how long to keep them. */
+function remediationLookup(session, finding, { background = false } = {}) {
+  const key = `remed|${finding.scanId}|${finding.alternateId}`;
+  const load = async () => {
+    try {
+      return await session.client.request(
+        `/api/remediation/remediation-details/${encodeURIComponent(finding.scanId)}/${encodeURIComponent(finding.alternateId)}`,
+        { retries: 1, background },
+      );
+    } catch (error) {
+      if (error.status === 404) return null;
+      throw error;
+    }
+  };
+  const ttl = (body) => {
+    const r = body?.results?.[0];
+    if (r && (r.finishedAt || r.data?.summary || String(r.jobStatus || '').toUpperCase() === 'FAILED')) return SETTLED_TTL;
+    return recentActions.get(key) !== undefined || r ? WATCHED_TTL : QUIET_TTL;
+  };
+  return { key, load, ttl };
+}
+
+/**
+ * Background lookups queue behind interactive ones; past this many waiting,
+ * new ones are skipped (the report asks again and they are picked up then).
+ */
+const BACKGROUND_QUEUE_MAX = Math.max(100, Number(process.env.RELAY_BACKGROUND_QUEUE) || 2000);
+const backgroundRoom = (session) => (session.client.load?.waitingBackground ?? 0) < BACKGROUND_QUEUE_MAX;
+
+function remediationDetails(session, finding) {
+  const { key, load, ttl } = remediationLookup(session, finding);
+  return relayCache.wrap(key, load, ttl);
+}
+
+/** Forget cached answers for findings just acted on, and watch them closely for a while. */
+function actedOn(kind, findings) {
+  for (const f of findings) {
+    const key = kind === 'triage' ? `triage|${f.projectId}|${f.groupId}` : `remed|${f.scanId}|${f.alternateId}`;
+    relayCache.delete(key);
+    recentActions.set(key, true, ACTION_WATCH_MS);
+    stateCache.delete(f.projectId);
+  }
 }
 
 /** Current Checkmarx One state of every risk in a project, by risk id (and alternate id). */
@@ -1100,19 +1223,16 @@ app.post(
       }
     });
 
-    const results = await mapWithConcurrency(findings, 4, async (finding) => {
+    // Answer from what is known now; anything not known yet is fetched in the
+    // background and marked pending, so the report asks again shortly. No
+    // request ever waits on thousands of upstream lookups.
+    const results = findings.map((finding) => {
       const states = statesByProject.get(finding.projectId);
       const state = states?.get(finding.riskId) ?? states?.get(finding.alternateId) ?? '';
-      try {
-        const body = await session.client.request(
-          `/api/ai-triage/triage/${encodeURIComponent(finding.projectId)}/${encodeURIComponent(finding.groupId)}`,
-          { retries: 1 },
-        );
-        return { found: true, body, state };
-      } catch (error) {
-        if (error.status === 404) return { found: false, state };
-        return { found: false, state, status: error.status ?? 0, error: error.message };
-      }
+      const { key, load, ttl } = triageLookup(session, finding, { background: true });
+      const known = relayCache.peek(key, backgroundRoom(session) ? load : null, ttl);
+      if (!known) return { found: false, state, pending: true };
+      return { ...known.value, state, ...(known.fresh ? {} : { stale: true }) };
     });
     res.json({ results });
   }),
@@ -1125,15 +1245,16 @@ app.post(
  * Checkmarx One no longer returns its details.
  */
 async function remediationState(session, finding) {
-  let body = null;
-  try {
-    body = await session.client.request(
-      `/api/remediation/remediation-details/${encodeURIComponent(finding.scanId)}/${encodeURIComponent(finding.alternateId)}`,
-      { retries: 1 },
-    );
-  } catch (error) {
-    if (error.status !== 404) throw error;
-  }
+  // Asked right before spending credits: look now, at interactive priority,
+  // rather than wait on a background refresh that may be queued for it.
+  const { key, load, ttl } = remediationLookup(session, finding);
+  const body = await load();
+  relayCache.set(key, body, ttl(body));
+  return remediationStatusOf(finding, body);
+}
+
+/** 'none', 'running', 'done' or 'failed', from remediation details (or null). */
+function remediationStatusOf(finding, body) {
   const r = body?.results?.[0];
   if (r) {
     const job = String(r.jobStatus || r.status || '').toUpperCase();
@@ -1152,12 +1273,16 @@ app.post(
     if (!findings) return;
     const session = await relaySession(res);
     if (!session) return;
-    const results = await mapWithConcurrency(findings, 4, async (finding) => {
-      try {
-        return await remediationState(session, finding);
-      } catch (error) {
-        return { status: 'unknown', error: error.message };
+    // As with triage results: answer from what is known, fill the rest in the background.
+    const results = findings.map((finding) => {
+      const { key, load, ttl } = remediationLookup(session, finding, { background: true });
+      const known = relayCache.peek(key, backgroundRoom(session) ? load : null, ttl);
+      if (!known) {
+        return creditLedger.remediatedIds(finding.projectId).has(finding.riskId)
+          ? { status: 'done', body: null }
+          : { status: 'unknown', pending: true };
       }
+      return { ...remediationStatusOf(finding, known.value), ...(known.fresh ? {} : { stale: true }) };
     });
     res.json({ results });
   }),
@@ -1238,7 +1363,7 @@ app.post(
           covered,
         });
       }
-      stateCache.delete(finding.projectId);
+      actedOn('remediation', [finding]);
       touchProject(finding.projectId);
       reservation.release();
       res.json({
@@ -1272,13 +1397,9 @@ app.post(
     if (!session) return;
     const [finding] = findings;
     try {
-      const body = await session.client.request(
-        `/api/remediation/remediation-details/${encodeURIComponent(finding.scanId)}/${encodeURIComponent(finding.alternateId)}`,
-        { retries: 1 },
-      );
-      res.json({ found: true, body });
+      const body = await remediationDetails(session, finding);
+      res.json(body ? { found: true, body } : { found: false });
     } catch (error) {
-      if (error.status === 404) return res.json({ found: false });
       res.status(502).json({ error: `Could not read the AI Remediation result: ${error.message}` });
     }
   }),
@@ -1380,7 +1501,7 @@ async function adminTriage(session, findings, initiatorsByProject = {}) {
         // The administrator's own triage never uses up the developers' extras.
         creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', covered: alternateIds.length });
       }
-      stateCache.delete(projectId);
+      actedOn('triage', group);
       touchProject(projectId);
       startedFindings.push(...group);
     } catch (error) {
@@ -2281,6 +2402,7 @@ const server = app.listen(config.port, config.host, async () => {
 const shutdown = () => {
   scheduler.stop();
   knownAddresses.flush();
+  creditLedger.flush();
   server.close(() => process.exit(0));
 };
 process.on('SIGINT', shutdown);

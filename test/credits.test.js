@@ -16,6 +16,7 @@ test('credits are totalled per project for the month, most used first, and survi
   ledger.record({ projectId: 'p2', projectName: 'HospitalMS', credits: 10 }, sept);
   ledger.record({ projectId: 'p1', projectName: 'Payments', credits: 2 }, new Date('2026-09-20T10:00:00Z'));
   ledger.record({ projectId: 'p1', credits: 7 }, new Date('2026-08-31T23:00:00Z'));
+  ledger.flush(); // writes are batched; a restart after this sees them all
 
   const summary = new CreditLedger({ file }).summary('2026-09');
   assert.equal(summary.total, 15);
@@ -49,4 +50,22 @@ test('triage and remediation credits are totalled separately and together', () =
   assert.deepEqual([summary.total, summary.triageTotal, summary.remediationTotal], [7, 6, 1]);
   const payments = summary.projects.find((p) => p.projectId === 'p1');
   assert.deepEqual([payments.triageCredits, payments.remediationCredits, payments.credits], [4, 1, 5]);
+});
+
+test('balances come from running totals, and match a full recount after reload', () => {
+  const file = tmpFile();
+  const ledger = new CreditLedger({ file, writeDelayMs: 0 });
+  for (let i = 0; i < 500; i += 1) {
+    ledger.record({ projectId: `p${i % 7}`, credits: 3, kind: i % 2 ? 'remediation' : 'triage', riskIds: [`r${i}`], covered: i % 3 ? 3 : 0 }, sept);
+  }
+  const reloaded = new CreditLedger({ file });
+  for (let p = 0; p < 7; p += 1) {
+    for (const kind of ['triage', 'remediation']) {
+      assert.equal(reloaded.usedBy(`p${p}`, kind), ledger.usedBy(`p${p}`, kind));
+      assert.equal(reloaded.coveredBy(`p${p}`, kind), ledger.coveredBy(`p${p}`, kind));
+    }
+  }
+  assert.equal(ledger.usedInMonth('2026-09'), 1500);
+  assert.ok(ledger.remediatedIds('p1').has('r1'));
+  assert.ok(!ledger.remediatedIds('p1').has('r0'), 'triage entries are not remediations');
 });

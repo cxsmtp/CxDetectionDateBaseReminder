@@ -21,6 +21,7 @@
 
   const STORE = 'cxReportConnection';
   const POLL_MS = 6000;
+  const MAX_POLL_MS = 30000;
   const TRIAGE_TIMEOUT_MS = 20 * 60 * 1000;
   const REMEDIATION_POLL_MS = 12000;
   const REMEDIATION_TIMEOUT_MS = 40 * 60 * 1000;
@@ -170,7 +171,7 @@
   function relayBackend() {
     const base = String(config.relayUrl || '').replace(/\/+$/, '');
 
-    async function post(path, body) {
+    async function post(path, body, attempt = 0) {
       let response;
       try {
         response = await fetch(base + path, {
@@ -185,6 +186,15 @@
       try {
         parsed = await response.json();
       } catch {}
+      // Busy: the server turned the request away before doing anything, so
+      // waiting as asked and trying again is always safe.
+      if ((response.status === 503 && parsed?.busy) || response.status === 429) {
+        if (attempt < 6) {
+          const wait = (Number(response.headers.get('Retry-After')) || parsed?.retryAfter || 3) * 1000;
+          await sleep(wait * (0.8 + Math.random() * 0.4));
+          return post(path, body, attempt + 1);
+        }
+      }
       if (!response.ok) throw new CxError(parsed?.error || `The reminder server answered ${response.status}.`, response.status, parsed);
       return parsed;
     }
@@ -457,9 +467,12 @@
   async function pollTriage(list) {
     const deadline = Date.now() + TRIAGE_TIMEOUT_MS;
     let waiting = list.slice();
+    let interval = POLL_MS;
     while (waiting.length && backend && Date.now() < deadline) {
-      await sleep(POLL_MS);
+      // Jittered, and slower while nothing changes, so many open reports do not poll in step.
+      await sleep(interval * (0.85 + Math.random() * 0.3));
       const answers = await backend.results(waiting);
+      const before = waiting.length;
       const still = [];
       waiting.forEach((f, i) => {
         applyAnswer(f, answers[i]);
@@ -473,6 +486,7 @@
         }
       });
       waiting = still;
+      interval = waiting.length < before ? POLL_MS : Math.min(MAX_POLL_MS, Math.round(interval * 1.3));
     }
     for (const f of waiting) {
       // Analysis finished without changing the finding: it stays "To verify".
@@ -569,20 +583,38 @@
     note.textContent = `${n} finding${n === 1 ? '' : 's'} already triaged as not exploitable in Checkmarx One ${n === 1 ? 'is' : 'are'} not shown.`;
   }
 
+  /**
+   * Ask the server about `list`, then ask again (a few times, a little later
+   * each time) about anything it said it was still looking up.
+   */
+  async function askUntilKnown(list, ask, onAnswer) {
+    let pending = list;
+    for (let round = 0; pending.length && backend && round < 8; round += 1) {
+      if (round) await sleep(Math.min(15000, 2000 * 1.5 ** round) * (0.8 + Math.random() * 0.4));
+      const answers = await ask(pending);
+      const next = [];
+      pending.forEach((f, i) => {
+        if (answers[i]?.pending) next.push(f);
+        onAnswer(f, answers[i]);
+      });
+      pending = next;
+    }
+  }
+
   async function loadExistingTriage() {
     const eligible = findings.filter((f) => !f.aiUnavailable);
     if (!eligible.length) return;
-    const answers = await backend.results(eligible);
     const resumed = [];
-    eligible.forEach((f, i) => {
-      applyAnswer(f, answers[i]);
+    await askUntilKnown(eligible, (list) => backend.results(list), (f, answer) => {
+      if (answer?.pending && !answer.state) return;
+      applyAnswer(f, answer);
       // Already triaged as not exploitable: nothing left to do here, so it is skipped.
       if (NOT_EXPLOITABLE.has(f.state) && !f.touched) {
         hideNotExploitable(f);
         return;
       }
       const ai = f.triage?.status;
-      if (ai === 'IN_PROGRESS' && !hasVerdict(f)) resumed.push(f);
+      if (ai === 'IN_PROGRESS' && !hasVerdict(f) && !resumed.includes(f)) resumed.push(f);
       else if (ai === 'TO_VERIFY') f.settled = true;
       renderTriage(f);
     });
@@ -762,11 +794,9 @@
   async function loadExistingRemediation() {
     const eligible = findings.filter((f) => f.shown && !f.hidden && !f.aiUnavailable && row(f)?.querySelector('[data-action="remediate"]'));
     if (!eligible.length) return;
-    const answers = await backend.remediationStatus(eligible);
     let done = 0;
-    eligible.forEach((f, i) => {
-      const a = answers[i];
-      if (!a || f.remediation?.running) return;
+    await askUntilKnown(eligible, (list) => backend.remediationStatus(list), (f, a) => {
+      if (!a || a.pending || f.remediation?.running) return;
       if (a.status === 'done') {
         f.remediation = remediationFromBody(a.body) || { doneElsewhere: true };
         if (f.remediation.failed) f.remediation = { doneElsewhere: true };

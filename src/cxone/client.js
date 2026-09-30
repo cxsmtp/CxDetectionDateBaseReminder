@@ -1,4 +1,8 @@
+import { Semaphore } from '../ttl-cache.js';
 import { TokenProvider } from './auth.js';
+
+/** Calls to Checkmarx One in flight at once, per connection; the rest queue. */
+const MAX_CONCURRENT = Math.max(1, Number(process.env.CX_MAX_CONCURRENCY) || 24);
 
 export class CxApiError extends Error {
   constructor(message, { status = 0, path = '', body = '' } = {}) {
@@ -29,9 +33,16 @@ export class CxClient {
    *   Per-session connection descriptor, built from the API key the operator
    *   pasted into the portal.
    */
+  #limit = new Semaphore(MAX_CONCURRENT);
+
   constructor(connection, tokenProvider = new TokenProvider(connection)) {
     this.#connection = connection;
     this.#tokens = tokenProvider;
+  }
+
+  /** Requests running and queued against Checkmarx One right now. */
+  get load() {
+    return { active: this.#limit.active, waiting: this.#limit.waiting, waitingBackground: this.#limit.waitingLow, limit: this.#limit.limit };
   }
 
   get baseUrl() {
@@ -47,7 +58,7 @@ export class CxClient {
    * @param {string} [options.accept]
    * @param {number} [options.retries]
    */
-  async request(path, { method = 'GET', query, body, accept = ACCEPT, retries = 3 } = {}) {
+  async request(path, { method = 'GET', query, body, accept = ACCEPT, retries = 3, background = false } = {}) {
     if (!this.baseUrl) throw new CxApiError('Checkmarx One API URL is not configured.', { path });
 
     const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
@@ -61,16 +72,21 @@ export class CxClient {
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       const token = await this.#tokens.getToken();
       let response;
+      let text = '';
       try {
-        response = await fetch(url, {
-          method,
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: accept,
-            ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-          },
-          body: body === undefined ? undefined : JSON.stringify(body),
-        });
+        // Only the network round trip holds a slot; back-off waits do not.
+        [response, text] = await this.#limit.run(async () => {
+          const r = await fetch(url, {
+            method,
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: accept,
+              ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+            },
+            body: body === undefined ? undefined : JSON.stringify(body),
+          });
+          return [r, await r.text().catch(() => '')];
+        }, { low: background });
       } catch (error) {
         // A dropped connection or DNS hiccup: as retryable as a 503.
         lastError = error;
@@ -80,9 +96,7 @@ export class CxClient {
       }
 
       if (response.ok) {
-        if (response.status === 204) return null;
-        const text = await response.text();
-        if (!text) return null;
+        if (response.status === 204 || !text) return null;
         try {
           return JSON.parse(text);
         } catch {
@@ -90,7 +104,7 @@ export class CxClient {
         }
       }
 
-      const detail = (await response.text().catch(() => '')).slice(0, 1000);
+      const detail = text.slice(0, 1000);
 
       // A 401 usually means the cached token aged out mid-flight; retry once
       // with a fresh one before giving up.

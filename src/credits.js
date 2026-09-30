@@ -24,27 +24,53 @@ export class CreditLedger {
   #entries;
   #reserved = 0;
   #reservedBy = new Map();
+  // Running totals, so balance checks stay O(1) however long the ledger grows.
+  #totals = new Map(); // `${projectId}|${kind}` -> {used, covered}
+  #months = new Map(); // 'YYYY-MM' -> credits
+  #remediated = new Map(); // projectId -> Set of risk ids
+  #writeTimer = null;
+  #writeDelay;
 
-  constructor({ file } = {}) {
+  constructor({ file, writeDelayMs = 200 } = {}) {
     this.#file = file ?? path.join(process.cwd(), 'data', 'triage-credits.json');
+    this.#writeDelay = writeDelayMs;
     try {
       const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
       this.#entries = Array.isArray(raw.entries) ? raw.entries : [];
     } catch {
       this.#entries = [];
     }
+    this.#reindex();
+  }
+
+  #reindex() {
+    this.#totals.clear();
+    this.#months.clear();
+    this.#remediated.clear();
+    for (const e of this.#entries) this.#index(e);
+  }
+
+  #index(e) {
+    const key = `${e.projectId}|${e.kind ?? 'triage'}`;
+    const t = this.#totals.get(key) ?? { used: 0, covered: 0 };
+    t.used += e.credits;
+    t.covered += Math.min(e.credits, e.covered ?? e.credits);
+    this.#totals.set(key, t);
+    const month = e.at.slice(0, 7);
+    this.#months.set(month, (this.#months.get(month) ?? 0) + e.credits);
+    if (e.kind === 'remediation' && e.riskIds?.length) {
+      if (!this.#remediated.has(e.projectId)) this.#remediated.set(e.projectId, new Set());
+      for (const id of e.riskIds) this.#remediated.get(e.projectId).add(id);
+    }
   }
 
   usedInMonth(month = monthOf()) {
-    return this.#entries.reduce((sum, e) => sum + (e.at.startsWith(month) ? e.credits : 0), 0);
+    return this.#months.get(month) ?? 0;
   }
 
   /** Credits a project has used for one kind of action, all time. */
   usedBy(projectId, kind) {
-    return this.#entries.reduce(
-      (sum, e) => sum + (e.projectId === projectId && (e.kind ?? 'triage') === kind ? e.credits : 0),
-      0,
-    );
+    return this.#totals.get(`${projectId}|${kind}`)?.used ?? 0;
   }
 
   /**
@@ -53,19 +79,12 @@ export class CreditLedger {
    * The rest came out of extra credits the administrator added.
    */
   coveredBy(projectId, kind) {
-    return this.#entries.reduce(
-      (sum, e) => sum + (e.projectId === projectId && (e.kind ?? 'triage') === kind ? Math.min(e.credits, e.covered ?? e.credits) : 0),
-      0,
-    );
+    return this.#totals.get(`${projectId}|${kind}`)?.covered ?? 0;
   }
 
   /** Findings of a project already sent for AI Remediation through this utility. */
   remediatedIds(projectId) {
-    const ids = new Set();
-    for (const e of this.#entries) {
-      if (e.projectId === projectId && e.kind === 'remediation') for (const id of e.riskIds ?? []) ids.add(id);
-    }
-    return ids;
+    return new Set(this.#remediated.get(projectId) ?? []);
   }
 
   /** Credits these projects used since `since` (ISO time), by kind. */
@@ -126,8 +145,14 @@ export class CreditLedger {
       ...(riskIds?.length ? { riskIds } : {}),
       ...(Number.isFinite(covered) ? { covered: Math.max(0, Math.min(credits, covered)) } : {}),
     });
-    if (this.#entries.length > MAX_ENTRIES) this.#entries = this.#entries.slice(-MAX_ENTRIES);
-    this.#persist();
+    const entry = this.#entries.at(-1);
+    if (this.#entries.length > MAX_ENTRIES) {
+      this.#entries = this.#entries.slice(-MAX_ENTRIES);
+      this.#reindex();
+    } else {
+      this.#index(entry);
+    }
+    this.#schedule();
   }
 
   /** Usage per project for one month (default: this month), most-used first. */
@@ -167,7 +192,19 @@ export class CreditLedger {
     return [...new Set(this.#entries.map((e) => e.at.slice(0, 7)))].sort().reverse();
   }
 
-  #persist() {
+  /**
+   * Writes are batched: a burst of requests costs one write of the file, not
+   * one each. flush() writes now (on shutdown, and in tests).
+   */
+  #schedule() {
+    if (this.#writeDelay <= 0) return this.flush();
+    this.#writeTimer ??= setTimeout(() => this.flush(), this.#writeDelay);
+    this.#writeTimer.unref?.();
+  }
+
+  flush() {
+    clearTimeout(this.#writeTimer);
+    this.#writeTimer = null;
     fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
     const tmp = `${this.#file}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify({ entries: this.#entries }), { mode: 0o600 });
