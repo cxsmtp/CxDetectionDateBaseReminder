@@ -47,6 +47,27 @@ export class CreditLedger {
     );
   }
 
+  /**
+   * Of those, the credits spent on findings the project's rule covered when
+   * they were spent (entries from before this was recorded count as covered).
+   * The rest came out of extra credits the administrator added.
+   */
+  coveredBy(projectId, kind) {
+    return this.#entries.reduce(
+      (sum, e) => sum + (e.projectId === projectId && (e.kind ?? 'triage') === kind ? Math.min(e.credits, e.covered ?? e.credits) : 0),
+      0,
+    );
+  }
+
+  /** Findings of a project already sent for AI Remediation through this utility. */
+  remediatedIds(projectId) {
+    const ids = new Set();
+    for (const e of this.#entries) {
+      if (e.projectId === projectId && e.kind === 'remediation') for (const id of e.riskIds ?? []) ids.add(id);
+    }
+    return ids;
+  }
+
   /** Credits these projects used since `since` (ISO time), by kind. */
   usedSince(projectIds, since) {
     const wanted = new Set(projectIds);
@@ -93,9 +114,18 @@ export class CreditLedger {
   }
 
   /** Record credits Checkmarx One accepted, one entry per project per request. */
-  record({ projectId, projectName = '', credits, scanId = '', kind = 'triage' }, now = new Date()) {
+  record({ projectId, projectName = '', credits, scanId = '', kind = 'triage', riskIds, covered }, now = new Date()) {
     if (!credits) return;
-    this.#entries.push({ at: now.toISOString(), projectId, projectName, credits, scanId, kind });
+    this.#entries.push({
+      at: now.toISOString(),
+      projectId,
+      projectName,
+      credits,
+      scanId,
+      kind,
+      ...(riskIds?.length ? { riskIds } : {}),
+      ...(Number.isFinite(covered) ? { covered: Math.max(0, Math.min(credits, covered)) } : {}),
+    });
     if (this.#entries.length > MAX_ENTRIES) this.#entries = this.#entries.slice(-MAX_ENTRIES);
     this.#persist();
   }

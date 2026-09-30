@@ -8,6 +8,7 @@ import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from '.
 import { buildReminder } from './reminder.js';
 import { sendReminderMail } from './mailer.js';
 import { DEFAULT_AUTOMATION } from './automation-config.js';
+import { knownAddresses } from './known-addresses.js';
 
 export { DEFAULT_AUTOMATION, mergeAutomation, parseThresholds } from './automation-config.js';
 
@@ -194,6 +195,7 @@ export async function runOnce({
     rules: settings.initiators,
     useDirectory: settings.initiators.useDirectory,
     concurrency: config.concurrency,
+    memory: knownAddresses,
   });
 
   const wantedSeverities = automation.severities.length ? new Set(automation.severities) : null;

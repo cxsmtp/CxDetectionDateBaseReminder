@@ -1732,7 +1732,19 @@ async function trackedReportAction(event) {
 function creditCell(project, kind) {
   const c = project.credits?.[kind];
   if (!c) return '<td class="num credits zero">—</td>';
-  const title = `${c.used} used of ${c.allocated} allocated${kind === 'remediation' ? ` — ${Math.floor(c.remaining / 3)} remediation(s) left at 3 credits each` : ''}`;
+  const credits = project.credits;
+  const extra = kind === 'triage' ? credits.extraTriage : credits.extraRemediation;
+  const need =
+    kind === 'triage'
+      ? (credits.severities ?? []).reduce((n, s) => n + (credits.toTriage?.[s] ?? 0), 0)
+      : (credits.toRemediate ?? 0);
+  const title = [
+    `${c.remaining} left of ${c.allocated} allocated, ${c.used} used`,
+    kind === 'triage'
+      ? `${need} finding(s) still to triage at ${(credits.severities ?? []).map((s) => s.toLowerCase()).join(', ') || 'no severities'}`
+      : `${need} confirmed finding(s) to remediate (3 credits each)`,
+    extra ? `includes ${extra} extra credit(s) you added` : '',
+  ].filter(Boolean).join(' · ');
   return `<td class="num credits" title="${escapeHtml(title)}"><span class="${c.remaining === 0 && c.allocated > 0 ? 'low' : ''}">${c.remaining}</span><span class="zero"> / ${c.allocated}</span></td>`;
 }
 
@@ -1767,8 +1779,9 @@ function renderAllocation() {
     0,
   );
   $('alloc-scope').textContent = `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'}`;
+  const remediate = scope.reduce((sum, p) => sum + (p.credits?.toRemediate ?? 0), 0);
   $('alloc-needed').textContent = severities.length
-    ? `= ${needed} finding${needed === 1 ? '' : 's'} to triage (${needed} credit${needed === 1 ? '' : 's'})`
+    ? `= ${needed} finding${needed === 1 ? '' : 's'} to triage (${needed} credit${needed === 1 ? '' : 's'}) · ${remediate} confirmed to remediate (${remediate * 3} credits)`
     : 'No severities: only extra credits are allocated';
   $('run-triage').disabled = !severities.length || !scope.length || needed === 0;
 }
@@ -1792,6 +1805,30 @@ async function allocateCredits(body, message) {
   } catch (error) {
     if (!handleAuthLoss(error)) showError('alloc-status', error);
   }
+}
+
+// After a triage run, re-read the projects' findings for a while: as verdicts
+// arrive, triage credits drop and confirmed findings add remediation credits.
+const CREDIT_FOLLOW_MS = 45_000;
+const CREDIT_FOLLOW_FOR_MS = 20 * 60 * 1000;
+let creditFollow = null;
+
+function followCredits(projectIds) {
+  clearTimeout(creditFollow?.timer);
+  const until = Date.now() + CREDIT_FOLLOW_FOR_MS;
+  const ids = new Set([...(creditFollow?.ids ?? []), ...projectIds]);
+  const tick = async () => {
+    try {
+      const result = await api('/api/credits/refresh', { method: 'POST', body: JSON.stringify({ projectIds: [...ids] }) });
+      applyCredits(result.projects);
+      renderAllocation();
+    } catch (error) {
+      if (handleAuthLoss(error)) return;
+    }
+    if (Date.now() < until) creditFollow.timer = setTimeout(tick, CREDIT_FOLLOW_MS);
+    else creditFollow = null;
+  };
+  creditFollow = { ids, timer: setTimeout(tick, CREDIT_FOLLOW_MS) };
 }
 
 async function runTriageNow() {
@@ -1822,6 +1859,7 @@ async function runTriageNow() {
       result.failed ? 'error' : 'ok',
     );
     logger.add(`Admin AI Triage: ${parts.join(' · ')}`, result.failed ? 'error' : 'success');
+    if (result.started) followCredits(scope.map((p) => p.projectId));
   } catch (error) {
     if (!handleAuthLoss(error)) showError('alloc-status', error);
   } finally {
@@ -2307,7 +2345,15 @@ $('alloc-add').addEventListener('click', () => {
   const triageAdd = Number($('alloc-extra-triage').value) || 0;
   const remediationAdd = Number($('alloc-extra-remediation').value) || 0;
   if (!triageAdd && !remediationAdd) return setStatus('alloc-status', 'Enter how many credits to add.', 'error');
+  const scope = allocationScope();
+  // Extras stay until removed, so giving them to every project must be deliberate.
+  if (!state.selected.size && !confirm(`No project is selected: give all ${scope.length} shown projects ${triageAdd} extra triage and ${remediationAdd} extra remediation credit(s) each?`)) return;
   allocateCredits({ triageAdd, remediationAdd }, (n) => `Added ${triageAdd} triage and ${remediationAdd} remediation credit(s) to each of ${n} project(s).`);
+});
+$('alloc-clear').addEventListener('click', () => {
+  const scope = allocationScope();
+  if (!confirm(`Remove the extra credits you added to ${state.selected.size ? 'the' : 'all'} ${scope.length} ${state.selected.size ? 'selected' : 'shown'} project(s)? They keep what their ticked severities need.`)) return;
+  allocateCredits({ clearExtras: true }, (n) => `Extra credits removed from ${n} project(s).`);
 });
 $('run-triage').addEventListener('click', runTriageNow);
 $('track-save').addEventListener('click', saveTrackedReport);

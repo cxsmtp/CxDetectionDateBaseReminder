@@ -12,7 +12,8 @@ import { resolveAiIds } from './cxone/ai-assist.js';
 import { mapWithConcurrency } from './cxone/client.js';
 import { ReportGrants } from './report-grants.js';
 import { CREDIT_COST, CreditLedger, monthOf } from './credits.js';
-import { CreditAllocations, toTriageCount } from './credit-allocations.js';
+import { CreditAllocations, toRemediateCount, toTriageCount } from './credit-allocations.js';
+import { knownAddresses } from './known-addresses.js';
 import { TrackedReports, computeProgress, matchesFilters, reportSummary } from './tracked-reports.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
@@ -44,6 +45,7 @@ if (process.env.SMTP_HOST) {
 let bootstrapSessionId = null;
 
 const dataDir = path.dirname(config.settingsFile || path.join(process.cwd(), 'data', 'settings.json'));
+knownAddresses.configure(path.join(dataDir, 'known-initiators.json'));
 const creditLedger = new CreditLedger({ file: path.join(dataDir, 'triage-credits.json') });
 const allocations = new CreditAllocations({ file: path.join(dataDir, 'credit-allocations.json'), ledger: creditLedger });
 
@@ -59,6 +61,7 @@ function creditView(summary) {
   return {
     ...allocations.balance(summary.projectId),
     toTriage: Object.fromEntries(SEVERITIES.map((s) => [s, toTriageCount(summary.risks ?? [], [s])])),
+    toRemediate: toRemediateCount(summary.risks ?? [], allocations.severitiesOf(summary.projectId), creditLedger.remediatedIds(summary.projectId)),
   };
 }
 
@@ -487,6 +490,7 @@ app.get(
       useDirectory: settings.initiators.useDirectory,
       concurrency: config.concurrency,
       lastScans: Object.keys(lastScans ?? {}).length ? lastScans : undefined,
+      memory: knownAddresses,
     });
 
     const result = await collectProjectRisks(client, active, projects, { detectionWindow });
@@ -988,7 +992,11 @@ app.post(
         });
         const published = body?.published !== false;
         // Checkmarx One only starts (and charges for) a new job when published.
-        if (published) creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage' });
+        if (published) {
+          const riskIds = [...new Set(group.map((f) => f.riskId))];
+          const covered = await coveredCount(session, projectId, 'triage', riskIds);
+          creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', riskIds, covered: Math.min(covered, alternateIds.length) });
+        }
         stateCache.delete(projectId);
         touchProject(projectId);
         results.push({ alternateIds, ok: true, published });
@@ -1014,24 +1022,44 @@ app.post(
 const STATE_CACHE_MS = 20_000;
 const stateCache = new Map();
 
-async function projectStates(session, projectId) {
+async function projectRiskInfo(session, projectId) {
   const cached = stateCache.get(projectId);
-  if (cached && Date.now() - cached.at < STATE_CACHE_MS) return cached.states;
+  if (cached && Date.now() - cached.at < STATE_CACHE_MS) return cached;
   const cfg = activeConfig();
   const project = { id: projectId, name: '' };
   const source = createRiskSource(session.client, cfg);
   if (source.prime) await source.prime([project]);
   const states = new Map();
+  const info = new Map();
+  const risks = [];
   for (const raw of await source.fetchForProject(project)) {
     const risk = normalizeRisk(raw, project);
+    risks.push(risk);
+    info.set(risk.riskId, { severity: risk.severity, state: risk.state });
     if (risk.state) {
       states.set(risk.riskId, risk.state);
       if (risk.alternateId) states.set(risk.alternateId, risk.state);
     }
   }
-  stateCache.set(projectId, { at: Date.now(), states });
+  const entry = { at: Date.now(), states, info, risks };
+  stateCache.set(projectId, entry);
   if (stateCache.size > 500) stateCache.delete(stateCache.keys().next().value);
-  return states;
+  return entry;
+}
+
+/** Current Checkmarx One state of every risk in a project, by risk id (and alternate id). */
+async function projectStates(session, projectId) {
+  return (await projectRiskInfo(session, projectId)).states;
+}
+
+/** How many of these findings the project's rule covered, read from their live severity and state. */
+async function coveredCount(session, projectId, kind, riskIds) {
+  try {
+    const { info } = await projectRiskInfo(session, projectId);
+    return allocations.covered(projectId, kind, riskIds, info);
+  } catch {
+    return riskIds.length;
+  }
 }
 
 app.post(
@@ -1113,12 +1141,15 @@ app.post(
       });
       const published = body?.published !== false;
       if (published) {
+        const covered = (await coveredCount(session, finding.projectId, 'remediation', [finding.riskId])) ? cost : 0;
         creditLedger.record({
           projectId: finding.projectId,
           projectName: finding.projectName,
           credits: cost,
           scanId: finding.scanId,
           kind: 'remediation',
+          riskIds: [finding.riskId],
+          covered,
         });
       }
       stateCache.delete(finding.projectId);
@@ -1176,7 +1207,7 @@ const cleanSeverities = (list) =>
 
 app.post('/api/credits/allocate', requireSession, (req, res) => {
   if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
-  const { projectIds, ruleChanges, triageAdd = 0, remediationAdd = 0 } = req.body ?? {};
+  const { projectIds, ruleChanges, triageAdd = 0, remediationAdd = 0, clearExtras = false } = req.body ?? {};
   // Each change adds or removes one severity from every project's own rule,
   // so severities the administrator did not touch stay as each project had them.
   const changes = (Array.isArray(ruleChanges) ? ruleChanges : [])
@@ -1184,12 +1215,13 @@ app.post('/api/credits/allocate', requireSession, (req, res) => {
     .filter((c) => SEVERITIES.includes(c.severity));
   const extraTriage = Math.max(0, Math.floor(Number(triageAdd) || 0));
   const extraRemediation = Math.max(0, Math.floor(Number(remediationAdd) || 0));
-  if (!changes.length && !extraTriage && !extraRemediation) {
+  if (!changes.length && !extraTriage && !extraRemediation && clearExtras !== true) {
     return res.status(400).json({ error: 'Choose severities, or enter credits to add.' });
   }
 
   const projects = scanProjects(req, projectIds);
   for (const p of projects) {
+    if (clearExtras === true) allocations.clearExtras(p.projectId);
     if (extraTriage) allocations.add(p.projectId, p.projectName, 'triage', extraTriage);
     if (extraRemediation) allocations.add(p.projectId, p.projectName, 'remediation', extraRemediation);
     let rule;
@@ -1243,7 +1275,8 @@ async function adminTriage(session, findings, initiatorsByProject = {}) {
       if (body?.published !== false) {
         const balance = allocations.balance(projectId).triage;
         if (balance.remaining < alternateIds.length) allocations.raise(projectId, alternateIds.length - balance.remaining);
-        creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage' });
+        // The administrator's own triage never uses up the developers' extras.
+        creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', covered: alternateIds.length });
       }
       stateCache.delete(projectId);
       touchProject(projectId);
@@ -1266,6 +1299,39 @@ async function adminTriage(session, findings, initiatorsByProject = {}) {
     startedFindings,
   };
 }
+
+/**
+ * Re-read the live state of the fetched projects' findings (verdicts arrive
+ * minutes after a triage run) and recalculate their allocations, so the
+ * dashboard's credit columns follow without another full fetch.
+ */
+app.post(
+  '/api/credits/refresh',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+    const projects = scanProjects(req, req.body?.projectIds);
+    let changed = false;
+    await mapWithConcurrency(projects, 3, async (p) => {
+      stateCache.delete(p.projectId);
+      let live;
+      try {
+        live = await projectRiskInfo(req.session, p.projectId);
+      } catch (error) {
+        console.warn(`[credits] could not re-read ${p.projectName}: ${error.message}`);
+        return;
+      }
+      for (const r of p.risks ?? []) {
+        const now = live.info.get(r.riskId);
+        if (now?.state && now.state !== r.state) r.state = now.state;
+      }
+      changed = allocations.applyRule(p.projectId, p.projectName, p.risks ?? []) || changed;
+    });
+    if (changed) allocations.save();
+    for (const p of projects) p.credits = creditView(p);
+    res.json({ projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
+  }),
+);
 
 /**
  * The administrator triages chosen severities of chosen projects straight
@@ -1318,6 +1384,15 @@ const TRACK_TOUCHED_WINDOW_MS = 30 * 60 * 1000;
 const TRACK_TOUCHED_EVERY_MS = 3 * 60 * 1000;
 const refreshing = new Map();
 
+/** Recalculate projects' credit allocations from findings just read. */
+function reallocate(projects, byProject) {
+  let changed = false;
+  for (const { projectId, projectName } of projects) {
+    if (byProject.has(projectId)) changed = allocations.applyRule(projectId, projectName, byProject.get(projectId)) || changed;
+  }
+  if (changed) allocations.save();
+}
+
 /** Every current finding (no filters) for each of a report's projects. */
 async function currentFindings(session, projects) {
   const cfg = activeConfig();
@@ -1348,6 +1423,7 @@ function refreshTrackedReport(report, session) {
       currentFindings(session, report.projects)
         .then((byProject) => {
           trackedReports.record(report, progressFor(report, byProject));
+          reallocate(report.projects, byProject);
           report.lastError = null;
           return report;
         })
@@ -1396,6 +1472,7 @@ const MAX_REMINDERS_KEPT = 50;
 async function openScanFor(session, report) {
   const byProject = await currentFindings(session, report.projects);
   trackedReports.record(report, progressFor(report, byProject));
+  reallocate(report.projects, byProject);
   let detection = null;
   try {
     detection = resolveWindow(report.filters.detection, 'First detection');
@@ -1417,7 +1494,7 @@ async function openScanFor(session, report) {
     session.client,
     session.connection,
     report.projects.map((p) => ({ id: p.projectId, name: p.projectName })),
-    { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency },
+    { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency, memory: knownAddresses },
   );
   return { projects, initiators: initiators.byProject };
 }
@@ -2100,6 +2177,7 @@ const server = app.listen(config.port, config.host, async () => {
 
 const shutdown = () => {
   scheduler.stop();
+  knownAddresses.flush();
   server.close(() => process.exit(0));
 };
 process.on('SIGINT', shutdown);

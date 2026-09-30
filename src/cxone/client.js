@@ -60,15 +60,24 @@ export class CxClient {
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       const token = await this.#tokens.getToken();
-      const response = await fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: accept,
-          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
+      let response;
+      try {
+        response = await fetch(url, {
+          method,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: accept,
+            ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+      } catch (error) {
+        // A dropped connection or DNS hiccup: as retryable as a 503.
+        lastError = error;
+        if (attempt === retries) throw error;
+        await sleep(2 ** attempt * 500);
+        continue;
+      }
 
       if (response.ok) {
         if (response.status === 204) return null;

@@ -1,0 +1,74 @@
+/**
+ * Addresses scan initiators resolved to before, by username.
+ *
+ * The IAM directory is the source of truth, but it is read over the network
+ * on every fetch; when it cannot be read, the last address a username
+ * resolved to is a far better answer than none. Kept on disk next to the
+ * settings so it survives a restart.
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_ENTRIES = 20_000;
+
+export class KnownAddresses {
+  #file;
+  #entries = {};
+  #dirty = false;
+  #timer = null;
+
+  constructor({ file = null } = {}) {
+    this.configure(file);
+  }
+
+  /** Point the store at a file (loading what it holds). */
+  configure(file) {
+    this.#file = file;
+    this.#entries = {};
+    if (!file) return;
+    try {
+      const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (raw && typeof raw.addresses === 'object') this.#entries = raw.addresses;
+    } catch {}
+  }
+
+  get(username) {
+    return this.#entries[String(username ?? '').trim().toLowerCase()]?.email ?? '';
+  }
+
+  remember(username, email) {
+    const key = String(username ?? '').trim().toLowerCase();
+    const value = String(email ?? '').trim();
+    if (!key || !EMAIL_RE.test(value) || this.#entries[key]?.email === value) return;
+    this.#entries[key] = { email: value, at: new Date().toISOString() };
+    const keys = Object.keys(this.#entries);
+    if (keys.length > MAX_ENTRIES) {
+      keys.sort((a, b) => this.#entries[a].at.localeCompare(this.#entries[b].at));
+      for (const old of keys.slice(0, keys.length - MAX_ENTRIES)) delete this.#entries[old];
+    }
+    this.#dirty = true;
+    // Written once per burst: a fetch remembers many addresses at a time.
+    this.#timer ??= setTimeout(() => this.flush(), 1000);
+    this.#timer.unref?.();
+  }
+
+  flush() {
+    clearTimeout(this.#timer);
+    this.#timer = null;
+    if (!this.#dirty || !this.#file) return;
+    this.#dirty = false;
+    try {
+      fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
+      const tmp = `${this.#file}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify({ addresses: this.#entries }), { mode: 0o600 });
+      fs.renameSync(tmp, this.#file);
+    } catch (error) {
+      console.warn(`[initiators] could not save known addresses: ${error.message}`);
+    }
+  }
+}
+
+/** Shared by the dashboard fetch, tracked reports and automation. */
+export const knownAddresses = new KnownAddresses();

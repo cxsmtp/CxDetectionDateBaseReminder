@@ -156,12 +156,13 @@
           </div>
           <p class="hint">
             Each project may only spend the Checkmarx One credits allocated to it here — from its report or from
-            this page. Its triage credits always cover its findings of the ticked severities still to verify (critical
-            and high unless changed), recalculated on every fetch; remediation credits must be given (each remediation uses 3). Changes apply
-            straight away to the selected projects, or every shown project when none is selected.
+            this page. For the ticked severities (critical and high unless changed), triage credits cover the findings
+            still to verify and remediation credits the confirmed ones not yet remediated (3 each). Both follow the
+            findings' current state, so a project with nothing left to act on shows 0. Changes apply straight away to
+            the selected projects, or every shown project when none is selected.
           </p>
           <div class="alloc-row">
-            <span>Allocate triage credits for</span>
+            <span>Allocate credits for</span>
             <label class="check"><input type="checkbox" class="alloc-sev" value="CRITICAL" checked /> Critical</label>
             <label class="check"><input type="checkbox" class="alloc-sev" value="HIGH" checked /> High</label>
             <label class="check"><input type="checkbox" class="alloc-sev" value="MEDIUM" /> Medium</label>
@@ -174,7 +175,8 @@
           <div class="alloc-row">
             <label class="inline">Give each project <input id="alloc-extra-triage" type="number" min="0" step="1" value="0" class="small-num" /> more triage credits</label>
             <label class="inline">and <input id="alloc-extra-remediation" type="number" min="0" step="3" value="0" class="small-num" /> remediation credits <span class="hint">(3 per remediation)</span></label>
-            <button id="alloc-add" type="button">Add credits</button>
+            <button id="alloc-add" type="button">Add extra credits</button>
+            <button id="alloc-clear" type="button" class="link">Remove extra credits</button>
           </div>
           <p class="status" id="alloc-status"></p>
         </section>
