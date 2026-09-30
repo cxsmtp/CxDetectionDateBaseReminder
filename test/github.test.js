@@ -178,3 +178,8 @@ test('blame helpers: repository URLs, locations, code version and porcelain outp
   const porcelain = `${'a'.repeat(40)} 10 10 1\nauthor Jane Doe\nauthor-mail <Jane@Corp.com>\nauthor-time 1700000000\nsummary Fix it\n\tcode`;
   assert.deepEqual(parsePorcelain(porcelain), { commit: 'a'.repeat(40), authorName: 'Jane Doe', authorEmail: 'jane@corp.com', date: '2023-11-14T22:13:20.000Z', message: 'Fix it', login: '' });
 });
+
+test('local blame never passes an option-like ref or path to git', async () => {
+  const { localBlame } = await import('../src/github/blame.js');
+  assert.equal(await localBlame({ cloneUrl: 'https://example.invalid/a/b.git', ref: '--output=/tmp/x', path: '-x', line: 1, cacheDir: os.tmpdir() }), null);
+});

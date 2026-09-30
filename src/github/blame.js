@@ -129,7 +129,10 @@ export function parsePorcelain(text) {
 export async function localBlame({ cloneUrl, ref, path, line, cacheDir, token = '' }) {
   const { dir, env } = await ensureClone(cloneUrl, { cacheDir, token, blobs: true });
   const opts = { env, timeout: 120_000, maxBuffer: 16 * 1024 * 1024 };
-  for (const candidate of [ref, 'HEAD'].filter(Boolean)) {
+  // A ref from scan data must never be read as a git option ("--output=…").
+  const safeRef = (r) => r && /^[\w./@{}^~-]+$/.test(r) && !r.startsWith('-');
+  if (!path || path.startsWith('-') || !(line > 0)) return null;
+  for (const candidate of [ref, 'HEAD'].filter(safeRef)) {
     try {
       const { stdout } = await run('git', ['-C', dir, 'blame', '--porcelain', '-L', `${line},${line}`, candidate, '--', path], opts);
       const parsed = parsePorcelain(stdout);
