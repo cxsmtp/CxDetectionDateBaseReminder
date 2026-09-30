@@ -119,10 +119,10 @@ function handleAuthLoss(error) {
 
 function route() {
   const name = (location.hash.replace('#/', '') || 'dashboard').split('?')[0];
-  const target = ['dashboard', 'reports', 'settings', 'logs', 'beta'].includes(name) ? name : 'dashboard';
+  const target = ['dashboard', 'reports', 'audit', 'settings', 'logs', 'beta'].includes(name) ? name : 'dashboard';
   if (!state.connection) return;
 
-  for (const page of ['dashboard', 'reports', 'settings', 'logs', 'beta']) {
+  for (const page of ['dashboard', 'reports', 'audit', 'settings', 'logs', 'beta']) {
     $(`page-${page}`).hidden = page !== target;
   }
   for (const tab of document.querySelectorAll('.tab')) {
@@ -141,6 +141,8 @@ function route() {
     loadTrackedReports();
   } else if (target === 'beta') {
     renderBeta();
+  } else if (target === 'audit') {
+    renderAudit();
   }
 }
 
@@ -150,6 +152,7 @@ const PAGE_TITLES = {
   reports: ['Tracked reports', 'Follow progress on saved scopes and send follow-ups'],
   settings: ['Settings', 'Email, templates, automation, AI credits and branding'],
   logs: ['Logs', 'API calls and results from this browser session'],
+  audit: ['Audit', 'Every credit spent, refused or failed — who, when, where, and the balance after'],
   beta: ['Beta features', 'Experimental: code authors and GitHub identities'],
 };
 
@@ -312,7 +315,7 @@ function showDisconnected(message = 'Not connected.') {
   $('connect-panel').hidden = false;
   $('nav').hidden = true;
   $('disconnect').hidden = true;
-  for (const page of ['dashboard', 'reports', 'settings', 'logs', 'beta']) $(`page-${page}`).hidden = true;
+  for (const page of ['dashboard', 'reports', 'audit', 'settings', 'logs', 'beta']) $(`page-${page}`).hidden = true;
 }
 
 async function connect(event) {
@@ -2955,3 +2958,331 @@ async function notifyAuthors(dryRun) {
 }
 $('authors-preview').addEventListener('click', () => notifyAuthors(true));
 $('authors-send').addEventListener('click', () => notifyAuthors(false));
+
+// ---------------------------------------------------------------------------
+// Audit: credit events, integrity, reconciliation, backups
+// ---------------------------------------------------------------------------
+
+const audit = { entries: [], next: 0, more: false, loaded: false };
+const OUTCOME_BADGES = {
+  charged: ['Charged', ''],
+  'not-charged': ['Not charged', 'muted'],
+  refused: ['Refused', 'warn'],
+  failed: ['Failed', 'bad'],
+  changed: ['Changed', 'muted'],
+  info: ['Info', 'muted'],
+};
+const TYPE_LABELS = {
+  triage: 'Triage',
+  remediation: 'Remediation',
+  allocation: 'Allocation',
+  settings: 'Credit settings',
+  report: 'Report issued',
+  backup: 'Backup',
+  audit: 'Audit check',
+};
+const formatTime = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' }) : '—');
+const formatBytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
+
+function auditQuery(extra = {}) {
+  const params = new URLSearchParams();
+  const set = (key, value) => value && params.set(key, value);
+  set('from', $('audit-from').value);
+  set('to', $('audit-to').value);
+  set('types', $('audit-type').value);
+  set('outcomes', $('audit-outcome').value);
+  set('project', $('audit-project').value.trim());
+  set('q', $('audit-q').value.trim());
+  for (const [key, value] of Object.entries(extra)) set(key, String(value));
+  return params.toString();
+}
+
+function actorText(actor = {}) {
+  if (actor.kind === 'report') {
+    return [actor.recipient || 'report recipient', `emailed report${actor.reportVerified === false ? ' (unsigned)' : ''}`];
+  }
+  if (actor.kind === 'admin') return [actor.email || actor.user || actor.name || 'administrator', `admin${actor.tenant ? ` · ${actor.tenant}` : ''}`];
+  return [actor.user || actor.kind || 'system', actor.kind || ''];
+}
+
+function renderAuditTotals(totals) {
+  const outcome = totals.byOutcome ?? {};
+  const tiles = [
+    ['Credits charged', totals.charged, 'accent'],
+    ['Triage credits', totals.triageCharged, ''],
+    ['Remediation credits', totals.remediationCharged, ''],
+    ['Refused', outcome.refused ?? 0, outcome.refused ? 'warn' : ''],
+    ['Failed', outcome.failed ?? 0, outcome.failed ? 'bad' : ''],
+    ['Entries', totals.entries, ''],
+  ];
+  $('audit-totals').innerHTML = tiles
+    .map(([label, value, cls]) => `<div><span class="value ${cls}">${Number(value ?? 0).toLocaleString()}</span><span class="label">${label}</span></div>`)
+    .join('');
+}
+
+function auditDetail(e) {
+  const [who, role] = actorText(e.actor);
+  const facts = [
+    ['Entry', `#${e.seq} · ${e.id}`],
+    ['Time', `${formatTime(e.at)} (${e.at})`],
+    ['Who', `${who} — ${role}`],
+    e.actor?.ip && ['From', `${e.actor.ip}${e.actor.userAgent ? ` · ${e.actor.userAgent}` : ''}`],
+    e.actor?.reportId && ['Report', e.actor.reportId],
+    e.project && ['Project', `${e.project.name || ''} (${e.project.id})`],
+    e.credits && ['Credits', `${e.credits.kind}: requested ${e.credits.requested ?? 0}, charged ${e.credits.charged ?? 0}`],
+    e.balance?.before && ['Before', `allocated ${e.balance.before.allocated} · used ${e.balance.before.used} · remaining ${e.balance.before.remaining}`],
+    e.balance?.after && ['After', `allocated ${e.balance.after.allocated} · used ${e.balance.after.used} · remaining ${e.balance.after.remaining}`],
+    e.month && ['Month', `limit ${e.month.limit || 'none'} · remaining ${e.month.remaining ?? '—'}`],
+    e.upstream && ['Checkmarx One', [e.upstream.call, e.upstream.status && `HTTP ${e.upstream.status}`, e.upstream.jobId && `job ${e.upstream.jobId}`, e.upstream.ms != null && `${e.upstream.ms} ms`, e.upstream.error].filter(Boolean).join(' · ')],
+    e.findings?.length && ['Findings', `${e.findings.length}: ${e.findings.slice(0, 8).map((f) => f.riskId).join(', ')}${e.findings.length > 8 ? '…' : ''}`],
+    ['Chain', `mac ${e.mac?.slice(0, 16)}… ← ${e.prev?.slice(0, 16)}…`],
+  ].filter(Boolean);
+  return `<div class="facts">${facts.map(([k, v]) => `<div><b>${escapeHtml(k)}</b>${escapeHtml(v)}</div>`).join('')}</div>
+    <details><summary class="hint">Full entry (JSON)</summary><pre>${escapeHtml(JSON.stringify(e, null, 2))}</pre></details>`;
+}
+
+function renderAuditRows() {
+  if (!audit.entries.length) {
+    $('audit-body').innerHTML = '<tr><td colspan="9" class="hint">No audit entries match these filters.</td></tr>';
+  } else {
+    $('audit-body').innerHTML = audit.entries
+      .map((e, i) => {
+        const [label, cls] = OUTCOME_BADGES[e.outcome] ?? [e.outcome, 'muted'];
+        const [who, role] = actorText(e.actor);
+        const charged = e.credits?.charged ? `<b>${e.credits.charged}</b>` : e.credits?.requested ? `<span class="muted">0 / ${e.credits.requested}</span>` : '';
+        const remaining = e.balance?.after?.remaining ?? '';
+        return `<tr data-audit="${i}">
+          <td class="num muted c-seq">${e.seq}</td>
+          <td class="when c-when">${escapeHtml(formatTime(e.at))}</td>
+          <td class="c-event"><strong>${escapeHtml(TYPE_LABELS[e.type] ?? e.type)}</strong><span class="reason">${escapeHtml(e.reason || '')}</span></td>
+          <td class="c-outcome"><span class="badge ${cls}">${escapeHtml(label)}</span></td>
+          <td class="who c-who">${escapeHtml(who)}<small>${escapeHtml(role)}${e.actor?.ip ? ` · ${escapeHtml(e.actor.ip)}` : ''}</small></td>
+          <td class="c-project">${escapeHtml(e.project?.name || e.project?.id || '')}</td>
+          <td class="num c-credits">${charged}</td>
+          <td class="num c-remaining">${remaining === '' ? '' : `<span class="m-label">left </span>${escapeHtml(remaining)}`}</td>
+          <td class="c-open"><button type="button" class="link" data-audit-open="${i}" aria-expanded="false">Details</button></td>
+        </tr>`;
+      })
+      .join('');
+  }
+  $('audit-more').hidden = !audit.more;
+  $('audit-count').textContent = audit.entries.length ? `Showing ${audit.entries.length.toLocaleString()} newest first` : '';
+}
+
+async function loadAudit({ append = false } = {}) {
+  setStatus('audit-status', append ? '' : 'Loading…');
+  try {
+    const result = await api(`/api/audit?${auditQuery({ limit: 100, ...(append ? { before: audit.next } : {}) })}`);
+    audit.entries = append ? audit.entries.concat(result.entries) : result.entries;
+    audit.next = result.next;
+    audit.more = result.more;
+    renderAuditTotals(result.totals);
+    renderAuditRows();
+    if (result.writeError) setStatus('audit-status', `${result.writeError.entries} audit entr${result.writeError.entries === 1 ? 'y is' : 'ies are'} held in memory — the log folder cannot be written: ${result.writeError.error}`, 'error');
+    else setStatus('audit-status', '');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('audit-status', error);
+  }
+}
+
+$('audit-filters').addEventListener('submit', (event) => {
+  event.preventDefault();
+  loadAudit();
+});
+for (const id of ['audit-type', 'audit-outcome', 'audit-from', 'audit-to']) $(id).addEventListener('change', () => loadAudit());
+$('audit-reset').addEventListener('click', () => {
+  $('audit-filters').reset();
+  loadAudit();
+});
+$('audit-more').addEventListener('click', () => loadAudit({ append: true }));
+$('audit-body').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-audit-open]');
+  if (!button) return;
+  const row = button.closest('tr');
+  const open = row.nextElementSibling?.classList.contains('detail');
+  if (open) {
+    row.nextElementSibling.remove();
+    button.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  row.insertAdjacentHTML('afterend', `<tr class="detail"><td colspan="9">${auditDetail(audit.entries[Number(button.dataset.auditOpen)])}</td></tr>`);
+  button.setAttribute('aria-expanded', 'true');
+});
+
+function downloadAudit(format) {
+  const link = document.createElement('a');
+  link.href = `/api/audit/export?${auditQuery({ format })}`;
+  link.rel = 'noopener';
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+$('audit-export-csv').addEventListener('click', () => downloadAudit('csv'));
+$('audit-export-jsonl').addEventListener('click', () => downloadAudit('jsonl'));
+
+$('audit-verify').addEventListener('click', async () => {
+  const box = $('audit-verify-result');
+  box.hidden = false;
+  box.className = 'audit-result';
+  box.textContent = 'Checking every entry…';
+  try {
+    const r = await api('/api/audit/verify');
+    box.className = `audit-result ${r.ok ? 'ok' : 'bad'}`;
+    box.innerHTML = r.ok
+      ? `<strong>Intact.</strong> <span>${r.entries.toLocaleString()} entries${r.first ? `, ${escapeHtml(formatTime(r.first))} → ${escapeHtml(formatTime(r.last))}` : ''}: none edited, removed or reordered.</span>`
+      : `<strong>${r.problems.length} problem(s) found in ${r.entries.toLocaleString()} entries.</strong>
+         <ul>${r.problems.map((p) => `<li>${p.seq ? `Entry #${p.seq}: ` : `${escapeHtml(p.file ?? '')}: `}${escapeHtml(p.problem)}</li>`).join('')}</ul>
+         <span class="hint">Restore the audit folder from a backup, or keep this result as evidence.</span>`;
+    loadAudit();
+  } catch (error) {
+    box.className = 'audit-result bad';
+    box.textContent = error.message;
+  }
+});
+
+$('audit-reconcile').addEventListener('click', async () => {
+  const box = $('audit-reconcile-result');
+  box.hidden = false;
+  box.className = 'audit-result';
+  box.textContent = 'Comparing…';
+  try {
+    const r = await api(`/api/audit/reconcile?month=${encodeURIComponent($('audit-month').value)}`);
+    box.className = `audit-result ${r.matched ? 'ok' : 'bad'}`;
+    const rows = r.projects
+      .map((p) => `<tr><td>${escapeHtml(p.projectName || p.projectId)}</td><td class="num">${p.ledger}</td><td class="num">${p.audited}</td><td class="num ${p.difference ? 'aged' : ''}">${p.difference}</td></tr>`)
+      .join('');
+    box.innerHTML = `<strong>${escapeHtml(r.month)}: ledger ${r.ledgerTotal} credits, audit log ${r.auditedTotal}. ${r.matched ? 'Everything is accounted for.' : 'Differences found.'}</strong>
+      ${r.unlinked.entries ? `<span>${r.unlinked.entries} ledger entr${r.unlinked.entries === 1 ? 'y' : 'ies'} (${r.unlinked.credits} credits) have no audit link — ${escapeHtml(r.unlinked.note)}</span>` : ''}
+      ${r.missing.length ? `<span>${r.missing.length} ledger entr${r.missing.length === 1 ? 'y points' : 'ies point'} to audit entries that are missing.</span>` : ''}
+      ${rows ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Project</th><th class="num">Ledger</th><th class="num">Audit log</th><th class="num">Difference</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<span class="hint">No credits used this month.</span>'}`;
+  } catch (error) {
+    box.className = 'audit-result bad';
+    box.textContent = error.message;
+  }
+});
+
+async function loadBackupStatus() {
+  try {
+    const b = await api('/api/backup');
+    const last = b.last
+      ? b.last.ok
+        ? `${formatTime(b.last.at)} — ${b.last.trigger}, ${b.last.files} files`
+        : `${formatTime(b.last.at)} — failed: ${b.last.error}`
+      : b.backups[0]
+        ? formatTime(b.backups[0].at)
+        : 'none yet';
+    const facts = [
+      ['State folder', `${b.dataDir}${b.insideProject ? ' — inside the project folder: set DATA_DIR' : ''}`, b.insideProject],
+      ['Holds', `${b.files} files, ${formatBytes(b.bytes)}`],
+      ['Backup folder', `${b.backupDir}${b.sameDisk ? ' — same disk as the state: set BACKUP_DIR to another disk or share' : ''}`, b.sameDisk],
+      ['Schedule', b.intervalHours ? `every ${b.intervalHours} h, keeping ${b.keep}${b.encrypted ? ', encrypted' : ', not encrypted (set BACKUP_PASSPHRASE)'}` : 'off (BACKUP_INTERVAL_HOURS=0)', !b.encrypted],
+      ['Last backup', last, b.last && !b.last.ok],
+      b.pendingRestore && ['Restore staged', 'applied when the server restarts', true],
+      b.restoredAtStart && ['Restored at start', `backup of ${formatTime(b.restoredAtStart.createdAt)} (${b.restoredAtStart.files} files)`],
+    ].filter(Boolean);
+    $('backup-facts').innerHTML = facts.map(([k, v, warn]) => `<div><dt>${escapeHtml(k)}</dt><dd class="${warn ? 'warn' : ''}">${escapeHtml(v)}</dd></div>`).join('');
+    $('backup-list-wrap').hidden = !b.backups.length;
+    $('backup-list').innerHTML = b.backups.map((f) => `<tr><td class="code">${escapeHtml(f.name)}</td><td class="num">${formatBytes(f.size)}</td><td>${escapeHtml(formatTime(f.at))}</td></tr>`).join('');
+    if (b.pendingRestore && $('restore-panel').hidden) {
+      $('restore-panel').hidden = false;
+      $('restore-panel').className = 'audit-result';
+      $('restore-panel').innerHTML = '<span>A restore is staged and will be applied when the server restarts.</span><div><button type="button" id="restore-cancel" class="sm">Cancel the restore</button></div>';
+    }
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('backup-status', error);
+  }
+}
+
+$('backup-download').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.href = '/api/backup/download';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(loadBackupStatus, 1500);
+});
+
+$('backup-now').addEventListener('click', async () => {
+  setStatus('backup-status', 'Backing up…');
+  try {
+    const r = await api('/api/backup/now', { method: 'POST' });
+    setStatus('backup-status', `Written: ${r.file}`, 'ok');
+    loadBackupStatus();
+  } catch (error) {
+    showError('backup-status', error);
+  }
+});
+
+let restoreUpload = null;
+async function sendRestore(check) {
+  const headers = { 'Content-Type': 'application/octet-stream' };
+  if (restoreUpload.passphrase) headers['X-Backup-Passphrase'] = restoreUpload.passphrase;
+  const response = await fetch(`/api/backup/restore${check ? '?check=1' : ''}`, { method: 'POST', credentials: 'same-origin', headers, body: restoreUpload.file });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || `${response.status} ${response.statusText}`);
+  return payload;
+}
+
+$('restore-file').addEventListener('change', async () => {
+  const file = $('restore-file').files[0];
+  $('restore-file').value = '';
+  if (!file) return;
+  restoreUpload = { file, passphrase: '' };
+  const panel = $('restore-panel');
+  panel.hidden = false;
+  panel.className = 'audit-result';
+  panel.textContent = `Checking ${file.name}…`;
+  let result;
+  for (;;) {
+    try {
+      result = await sendRestore(true);
+      break;
+    } catch (error) {
+      if (/encrypted|passphrase/i.test(error.message)) {
+        const passphrase = prompt(`${error.message}\n\nPassphrase:`);
+        if (passphrase) {
+          restoreUpload.passphrase = passphrase;
+          continue;
+        }
+      }
+      panel.className = 'audit-result bad';
+      panel.textContent = error.message;
+      return;
+    }
+  }
+  const b = result.backup;
+  panel.innerHTML = `<strong>${escapeHtml(file.name)}: checksum OK.</strong>
+    <span>Made ${escapeHtml(formatTime(b.createdAt))} on ${escapeHtml(b.host)} — ${b.files} files, ${formatBytes(b.bytes)}. Settings ${b.hasSettings ? '✓' : '✗'} · credit ledger ${b.hasLedger ? '✓' : '✗'} · allocations ${b.hasAllocations ? '✓' : '✗'} · audit months: ${escapeHtml(b.auditMonths.join(', ') || 'none')}.</span>
+    <span class="hint">Restoring replaces everything in the state folder when the server next restarts; the current files are kept in a replaced-… folder beside it.</span>
+    <div><button type="button" id="restore-confirm" class="primary sm">Restore at next restart</button> <button type="button" id="restore-dismiss" class="sm ghost">Cancel</button></div>`;
+});
+
+$('restore-panel').addEventListener('click', async (event) => {
+  const panel = $('restore-panel');
+  if (event.target.id === 'restore-dismiss') {
+    panel.hidden = true;
+    restoreUpload = null;
+  } else if (event.target.id === 'restore-confirm') {
+    if (!confirm('Replace all settings, credit balances, tracked reports and the audit log with this backup at the next restart?')) return;
+    try {
+      await sendRestore(false);
+      panel.className = 'audit-result ok';
+      panel.innerHTML = '<strong>Restore staged.</strong><span>Restart the server to apply it. Until then nothing changes.</span><div><button type="button" id="restore-cancel" class="sm">Cancel the restore</button></div>';
+      restoreUpload = null;
+      loadBackupStatus();
+    } catch (error) {
+      panel.className = 'audit-result bad';
+      panel.textContent = error.message;
+    }
+  } else if (event.target.id === 'restore-cancel') {
+    await api('/api/backup/restore', { method: 'DELETE' });
+    panel.hidden = true;
+    loadBackupStatus();
+  }
+});
+
+function renderAudit() {
+  if (!$('audit-month').value) $('audit-month').value = new Date().toISOString().slice(0, 7);
+  loadAudit();
+  loadBackupStatus();
+}

@@ -12,7 +12,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const MAX_ENTRIES = 20_000;
 
 export const monthOf = (date = new Date()) => date.toISOString().slice(0, 7);
 
@@ -133,7 +132,7 @@ export class CreditLedger {
   }
 
   /** Record credits Checkmarx One accepted, one entry per project per request. */
-  record({ projectId, projectName = '', credits, scanId = '', kind = 'triage', riskIds, covered }, now = new Date()) {
+  record({ projectId, projectName = '', credits, scanId = '', kind = 'triage', riskIds, covered, auditId }, now = new Date()) {
     if (!credits) return;
     this.#entries.push({
       at: now.toISOString(),
@@ -144,14 +143,11 @@ export class CreditLedger {
       kind,
       ...(riskIds?.length ? { riskIds } : {}),
       ...(Number.isFinite(covered) ? { covered: Math.max(0, Math.min(credits, covered)) } : {}),
+      ...(auditId ? { auditId } : {}),
     });
     const entry = this.#entries.at(-1);
-    if (this.#entries.length > MAX_ENTRIES) {
-      this.#entries = this.#entries.slice(-MAX_ENTRIES);
-      this.#reindex();
-    } else {
-      this.#index(entry);
-    }
+    // Never trimmed: this is the record of credits spent, and the audit log refers to it.
+    this.#index(entry);
     this.#schedule();
   }
 
@@ -186,6 +182,11 @@ export class CreditLedger {
       remediationTotal: sum('remediationCredits'),
       projects,
     };
+  }
+
+  /** The ledger's own entries for a month (for reconciliation). */
+  entriesInMonth(month) {
+    return this.#entries.filter((e) => e.at.startsWith(month)).map((e) => ({ ...e }));
   }
 
   months() {

@@ -37,6 +37,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5" /><path d="M4 19h16" /><path d="M7 15l4-4 3 3 5-6" /></svg>
             <span>Reports</span>
           </a>
+          <a href="#/audit" data-route="audit" class="tab">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
+            <span>Audit</span>
+          </a>
           <a href="#/settings" data-route="settings" class="tab">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
             <span>Settings</span>
@@ -745,6 +749,124 @@
                 <button id="gh-save" type="button" class="primary">Save</button>
                 <button id="gh-clear-token" type="button" class="link">Remove stored token</button>
                 <span class="status" id="gh-save-status"></span>
+              </div>
+            </section>
+          </div>
+
+          <!-- ================= Audit ================= -->
+          <div id="page-audit" class="page audit" hidden>
+            <section class="kpis">
+              <div class="totals audit-totals" id="audit-totals"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Credit audit log</h2>
+                  <p class="hint">Every triage and remediation request (charged, refused, failed or not charged), every allocation and credit-setting change, report issued and backup — who, when, from where, which findings, the balance before and after, and Checkmarx One's answer. Append-only and hash-chained.</p>
+                </div>
+                <div class="log-actions">
+                  <button id="audit-export-csv" type="button" class="sm">Export CSV</button>
+                  <button id="audit-export-jsonl" type="button" class="sm">Export JSON Lines</button>
+                </div>
+              </div>
+              <form class="audit-filters" id="audit-filters">
+                <label><span>From</span><input type="date" id="audit-from" /></label>
+                <label><span>To</span><input type="date" id="audit-to" /></label>
+                <label><span>Type</span>
+                  <select id="audit-type">
+                    <option value="">All types</option>
+                    <option value="triage,remediation">Credit use (triage + remediation)</option>
+                    <option value="triage">Triage</option>
+                    <option value="remediation">Remediation</option>
+                    <option value="allocation">Allocation changes</option>
+                    <option value="settings">Credit settings</option>
+                    <option value="report">Reports issued</option>
+                    <option value="backup">Backup &amp; restore</option>
+                    <option value="audit">Audit checks</option>
+                  </select>
+                </label>
+                <label><span>Outcome</span>
+                  <select id="audit-outcome">
+                    <option value="">All outcomes</option>
+                    <option value="charged">Charged</option>
+                    <option value="not-charged">Not charged</option>
+                    <option value="refused">Refused</option>
+                    <option value="failed">Failed</option>
+                    <option value="refused,failed">Refused or failed</option>
+                    <option value="changed">Changed</option>
+                    <option value="info">Info</option>
+                  </select>
+                </label>
+                <label><span>Project</span><input type="search" id="audit-project" placeholder="Name or id" /></label>
+                <label class="grow"><span>Search</span><input type="search" id="audit-q" placeholder="User, email, IP, finding id, error…" /></label>
+                <div class="audit-filter-actions">
+                  <button type="submit" class="primary sm">Apply</button>
+                  <button type="button" id="audit-reset" class="sm ghost">Reset</button>
+                </div>
+              </form>
+              <p class="status" id="audit-status"></p>
+              <div class="table-wrap">
+                <table class="data-table audit-table">
+                  <thead><tr><th class="num">#</th><th>Time</th><th>Event</th><th>Outcome</th><th>Who</th><th>Project</th><th class="num">Credits</th><th class="num">Remaining</th><th></th></tr></thead>
+                  <tbody id="audit-body"><tr><td colspan="9" class="hint">Loading…</td></tr></tbody>
+                </table>
+              </div>
+              <div class="actions compact">
+                <button id="audit-more" type="button" hidden>Load older entries</button>
+                <span class="hint" id="audit-count"></span>
+              </div>
+            </section>
+
+            <div class="audit-grid">
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Integrity</h2>
+                    <p class="hint">Recomputes the hash chain over every entry. Any edited, removed or reordered entry is reported with its number.</p>
+                  </div>
+                </div>
+                <div class="actions compact">
+                  <button id="audit-verify" type="button" class="primary">Verify integrity</button>
+                </div>
+                <div id="audit-verify-result" class="audit-result" hidden></div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Reconcile with the credit ledger</h2>
+                    <p class="hint">Do the credits the audit log recorded as charged match the ledger the balances come from?</p>
+                  </div>
+                </div>
+                <div class="actions compact">
+                  <label class="inline">Month <input type="month" id="audit-month" /></label>
+                  <button id="audit-reconcile" type="button">Reconcile</button>
+                </div>
+                <div id="audit-reconcile-result" class="audit-result" hidden></div>
+              </section>
+            </div>
+
+            <section class="panel" id="audit-backup">
+              <div class="panel-head">
+                <div>
+                  <h2>State folder &amp; backups</h2>
+                  <p class="hint">Settings, credit ledger and allocations, tracked reports, the audit log and the signing keys live in one folder outside the project. One backup file rebuilds the server from scratch.</p>
+                </div>
+              </div>
+              <dl class="backup-facts" id="backup-facts"></dl>
+              <div class="actions compact">
+                <button id="backup-download" type="button" class="primary">Download backup</button>
+                <button id="backup-now" type="button">Back up to folder now</button>
+                <label class="button-like"><input type="file" id="restore-file" accept=".mzbackup,application/octet-stream" hidden /> Restore from backup…</label>
+                <span class="status" id="backup-status"></span>
+              </div>
+              <div id="restore-panel" class="audit-result" hidden></div>
+              <div class="table-wrap" id="backup-list-wrap" hidden>
+                <table class="data-table">
+                  <thead><tr><th>Backups in the folder</th><th class="num">Size</th><th>Written</th></tr></thead>
+                  <tbody id="backup-list"></tbody>
+                </table>
               </div>
             </section>
           </div>

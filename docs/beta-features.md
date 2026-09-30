@@ -16,7 +16,7 @@ For each finding in the current Dashboard scope (severities and a maximum you ch
 3. **Who** — `git blame` of that line: through GitHub GraphQL for repositories
    on your GitHub (one request per file, however many findings are in it), or
    `git blame` on a local clone for any host (GitLab, Bitbucket, Azure DevOps,
-   GitHub without a token). Clones are cached under `data/git-cache` and
+   GitHub without a token). Clones are cached under `git-cache/` in the state folder (never backed up) and
    refreshed at most every 10 minutes.
 4. **Their address** — the commit's author email; if it is a GitHub noreply
    address, the login is resolved with the identity methods below, starting

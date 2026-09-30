@@ -42,6 +42,10 @@ export class ReportGrants {
     return createHmac('sha256', this.#key).update(message).digest('base64url');
   }
 
+  macText(text) {
+    return createHmac('sha256', this.#key).update(text).digest('base64url');
+  }
+
   issue(finding, now = Date.now()) {
     const exp = now + GRANT_TTL_MS;
     return { exp, grant: this.#mac(finding, exp) };
@@ -57,3 +61,21 @@ export class ReportGrants {
     return given.length === expected.length && timingSafeEqual(given, expected) ? '' : 'invalid';
   }
 }
+
+/**
+ * Who a report was made for, signed, so the audit log can say whose report
+ * an action came from. {id, recipient, issuedAt, sig}; the recipient cannot
+ * be changed without breaking the signature.
+ */
+ReportGrants.prototype.signReport = function signReport({ id, recipient = '', issuedAt = new Date().toISOString() }) {
+  return { id, recipient, issuedAt, sig: this.macText(`report\n${id}\n${recipient}\n${issuedAt}`) };
+};
+
+ReportGrants.prototype.verifyReport = function verifyReport(token) {
+  if (!token || typeof token !== 'object') return null;
+  const { id, recipient = '', issuedAt = '', sig = '' } = token;
+  if (!id || !sig) return null;
+  const expected = Buffer.from(this.macText(`report\n${id}\n${recipient}\n${issuedAt}`));
+  const given = Buffer.from(String(sig));
+  return given.length === expected.length && timingSafeEqual(given, expected) ? { id: String(id), recipient: String(recipient), issuedAt: String(issuedAt) } : null;
+};

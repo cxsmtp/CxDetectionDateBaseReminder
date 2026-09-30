@@ -40,6 +40,25 @@ export class CxClient {
     this.#tokens = tokenProvider;
   }
 
+  /**
+   * Who this connection acts as, from the access token's claims (username,
+   * email, name), for the audit log. Never throws.
+   */
+  async identity() {
+    try {
+      const token = await this.#tokens.getToken();
+      const claims = JSON.parse(Buffer.from(String(token).split('.')[1] ?? '', 'base64url').toString('utf8'));
+      return {
+        user: claims.preferred_username || claims.email || claims.name || claims.sub || '',
+        email: claims.email || '',
+        name: claims.name || [claims.given_name, claims.family_name].filter(Boolean).join(' '),
+        clientId: claims.azp || '',
+      };
+    } catch {
+      return { user: '', email: '', name: '', clientId: '' };
+    }
+  }
+
   /** Requests running and queued against Checkmarx One right now. */
   get load() {
     return { active: this.#limit.active, waiting: this.#limit.waiting, waitingBackground: this.#limit.waitingLow, limit: this.#limit.limit };

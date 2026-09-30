@@ -115,6 +115,7 @@ export function generateHtmlReport(reportData, options = {}) {
       portalUrl: safeHttpUrl(options.portalUrl) || connection.baseUrl || '',
       relayUrl,
       allowRetriage: options.allowRetriage === true,
+      ...(options.reportToken ? { report: options.reportToken } : {}),
       allowReremediation: options.allowReremediation === true,
       adminContact: /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(options.adminContact ?? '') ? options.adminContact : '',
     },

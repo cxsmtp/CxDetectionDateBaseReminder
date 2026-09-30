@@ -177,7 +177,8 @@
         response = await fetch(base + path, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          // Who this report was made for (signed): the server's audit log attributes actions to it.
+          body: JSON.stringify(config.report ? { ...body, report: config.report } : body),
         });
       } catch {
         throw new CxError(`Cannot reach the reminder server at ${new URL(base).host}. It must be running and reachable from this computer.`);

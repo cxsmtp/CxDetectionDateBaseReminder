@@ -179,7 +179,7 @@ paste one into, so it needs a credential that outlives a session. Two ways:
 
 - **`CX_API_KEY` in the environment** — preferred. The key stays out of the settings file
   and out of the UI.
-- **Arm with current key** — stores this session's key in `data/settings.json`
+- **Arm with current key** — stores this session's key in `settings.json` in the state folder
   (owner-only, gitignored) so runs can authenticate. **Forget stored key** revokes it.
 
 Without either, the schedule still runs but every pass is skipped with that reason
@@ -221,7 +221,7 @@ One records the triage under the server's account.
   month — triage, remediation and total — refreshing every 15 seconds while it
   is open. This is the utility's own
   count — one credit per finding in each request Checkmarx One accepted as a new
-  job — kept in `data/triage-credits.json`; it is not Checkmarx One's billing.
+  job — kept in `triage-credits.json` in the state folder; it is not Checkmarx One's billing.
 - **Results.** The report shows AI Triage's verdict and each finding's live
   Checkmarx One state — the one Risk Hub shows — which is what settles when AI
   Triage finishes (its own record can lag behind, or be missing for grouped SAST
@@ -231,7 +231,7 @@ One records the triage under the server's account.
 - **Scope.** Each finding in a report carries a signed grant, valid for 30 days;
   the server acts only on findings with a valid grant, so it cannot be used to
   triage anything a report did not list. The signing key is kept in
-  `data/report-signing.key`, or set `REPORT_SIGNING_KEY`.
+  `report-signing.key` in the state folder, or set `REPORT_SIGNING_KEY`.
 
 ## Tracked reports
 
@@ -265,7 +265,7 @@ Reports update hourly, and every few minutes for half an hour after anyone
 triages or remediates in one of their projects (from a report or the
 dashboard); the tab refreshes itself while open. Background updates use the
 server's stored connection (`CX_API_KEY`, or automation armed); **Refresh**
-works any time. Data is kept in `data/tracked-reports.json`.
+works any time. Data is kept in `tracked-reports.json` in the state folder.
 
 ## Links into Checkmarx One
 
@@ -380,19 +380,34 @@ from each project's latest completed scan, for tenants without the risks service
 
 ## Where things are stored
 
-| | Where | Survives restart |
+All state lives in **one folder outside the project**, so redeploying or
+replacing the code never touches it and one backup rebuilds the server:
+`DATA_DIR`, default `~/.mission-zero` (the service user's home). The first start
+after upgrading copies an old in-project `data/` folder there once, and leaves the
+old copy in place.
+
+| | File in the state folder | Survives restart |
 | --- | --- | --- |
 | Checkmarx API key | server memory, per session | no |
-| SMTP password | `data/settings.json`, mode `0600` | yes |
-| Recipients, template, endpoint | `data/settings.json` | yes |
+| SMTP password, recipients, template, credit settings | `settings.json`, mode `0600` | yes |
+| Credit ledger (every credit spent) | `triage-credits.json` | yes |
+| Per-project credit allocations | `credit-allocations.json` | yes |
+| **Audit log** (append-only, hash-chained) | `audit/audit-YYYY-MM.jsonl` + `audit.key` | yes |
+| Tracked reports | `tracked-reports.json` | yes |
+| Resolved initiator addresses | `known-initiators.json` | yes |
+| Report signing key | `report-signing.key` | yes |
+| Automation state | `automation-state.json` | yes |
 | Scan results | server memory, per session | no |
+
+See [docs/audit-and-backup.md](docs/audit-and-backup.md) for the audit log,
+backups and rebuilding a server from scratch.
 
 The API key is never written to disk, never logged, and never sent back to the
 browser — the browser holds only an opaque `HttpOnly` session cookie. **Disconnect**
 destroys the session; idle sessions expire after `SESSION_IDLE_MINUTES` (default 8h).
 
 The SMTP password *is* stored, because a mail server has to be reachable without
-someone re-typing it. `data/` is gitignored and written owner-only. The password is
+someone re-typing it. The state folder is created `0700` and its files `0600`. The password is
 never returned to the browser: the settings form shows only whether one is set, and
 saving an unrelated field leaves it untouched.
 

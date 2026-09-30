@@ -15,6 +15,12 @@ import { CREDIT_COST, CreditLedger, monthOf } from './credits.js';
 import { CreditAllocations, toRemediateCount, toTriageCount } from './credit-allocations.js';
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
+import { AuditLog } from './audit-log.js';
+import { insideProject, migrateLegacyData, prepareDataDir, resolveDataDir } from './data-dir.js';
+import { PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, listBackups, readBackup, writeBackupTo } from './backup.js';
+import fs from 'node:fs';
+import zlib from 'node:zlib';
+import { createHash, randomUUID } from 'node:crypto';
 import { GitHubClient } from './github/client.js';
 import { METHODS as GITHUB_METHODS, ensureClone, evaluate as evaluateGithub, loginFromNoreply, resolveLogins, usableEmail, validLogin } from './github/identity.js';
 import { blameFindings, codeVersion, locationOf, parseRepoUrl } from './github/blame.js';
@@ -37,10 +43,39 @@ import {
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
+const projectDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * All state lives in one folder outside the project (DATA_DIR, default
+ * ~/.mission-zero), so a redeploy never touches it and one backup of it
+ * rebuilds the server from scratch. See src/data-dir.js.
+ */
+const { dir: dataDir, source: dataDirSource } = resolveDataDir(process.env, { cwd: process.cwd() });
+prepareDataDir(dataDir);
+const migrated = migrateLegacyData(dataDir, { legacyDir: path.join(projectDir, 'data') });
+if (migrated.length) {
+  console.log(`[data] Copied ${migrated.length} file(s) from ${path.join(projectDir, 'data')} to ${dataDir}: ${migrated.join(', ')}`);
+  console.log('[data] The old copies are left in place; delete them once this server runs well from the new folder.');
+}
+// A restore uploaded from the Audit page is applied here, before anything loads.
+let restoredAtStart = null;
+try {
+  restoredAtStart = applyPendingRestore({ dataDir, settingsFile: config.settingsFile });
+  if (restoredAtStart) {
+    console.log(`[data] Restored ${restoredAtStart.restored.length} file(s) from the backup of ${restoredAtStart.createdAt}.`);
+    if (restoredAtStart.replacedDir) console.log(`[data] The files it replaced are in ${restoredAtStart.replacedDir}.`);
+  }
+} catch (error) {
+  console.error(`! [data] The staged restore could not be applied, and nothing was changed: ${error.message}`);
+}
+console.log(`[data] State folder: ${dataDir} (${dataDirSource})`);
+if (insideProject(dataDir, projectDir)) {
+  console.warn(`! The state folder ${dataDir} is inside the project folder: a redeploy could delete it. Set DATA_DIR to a folder outside it.`);
+}
+
 const sessions = new SessionStore({ idleMs: config.session.idleMs });
-const settingsStore = new SettingsStore(
-  config.settingsFile ? { file: config.settingsFile } : undefined,
-);
+const settingsFile = config.settingsFile || path.join(dataDir, 'settings.json');
+const settingsStore = new SettingsStore({ file: settingsFile });
 settingsStore.applyEnvironment();
 const settings = settingsStore.get();
 if (process.env.SMTP_HOST) {
@@ -48,13 +83,22 @@ if (process.env.SMTP_HOST) {
 }
 let bootstrapSessionId = null;
 
-const dataDir = path.dirname(config.settingsFile || path.join(process.cwd(), 'data', 'settings.json'));
 knownAddresses.configure(path.join(dataDir, 'known-initiators.json'));
 const creditLedger = new CreditLedger({ file: path.join(dataDir, 'triage-credits.json') });
 const allocations = new CreditAllocations({ file: path.join(dataDir, 'credit-allocations.json'), ledger: creditLedger });
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const trackedReports = new TrackedReports({ file: path.join(dataDir, 'tracked-reports.json') });
+const audit = new AuditLog({ dir: path.join(dataDir, 'audit'), keyFile: path.join(dataDir, 'audit.key') });
+if (restoredAtStart) {
+  audit.record({
+    type: 'backup',
+    outcome: 'changed',
+    reason: `State restored from the backup of ${restoredAtStart.createdAt} (host ${restoredAtStart.host}).`,
+    actor: { kind: 'system', user: 'reminder server' },
+    details: { restore: { createdAt: restoredAtStart.createdAt, files: restoredAtStart.files, sha256: restoredAtStart.sha256, replacedDir: restoredAtStart.replacedDir } },
+  });
+}
 
 /** Projects someone just triaged or remediated in, so reports covering them refresh soon. */
 const touchedProjects = new Map();
@@ -71,14 +115,14 @@ function creditView(summary) {
 
 const reportGrants = new ReportGrants({
   secret: process.env.REPORT_SIGNING_KEY?.trim() || undefined,
-  file: path.join(path.dirname(config.settingsFile || path.join(process.cwd(), 'data', 'settings.json')), 'report-signing.key'),
+  file: path.join(dataDir, 'report-signing.key'),
 });
 
-const automationState = new AutomationState(
-  config.settingsFile
-    ? { file: config.settingsFile.replace(/\.json$/, '') + '-automation.json' }
-    : undefined,
-);
+const automationState = new AutomationState({
+  file: config.settingsFile
+    ? config.settingsFile.replace(/\.json$/, '') + '-automation.json'
+    : path.join(dataDir, 'automation-state.json'),
+});
 
 /**
  * The session unattended runs use. Automation has no browser to paste a key,
@@ -269,7 +313,9 @@ app.put(
   '/api/settings',
   requireSession,
   asyncRoute(async (req, res) => {
+    const before = creditSettingsOf(settingsStore.get());
     const saved = settingsStore.save(req.body ?? {});
+    auditSettings(await adminActor(req), before, creditSettingsOf(saved));
     res.json({
       ...publicSettings(saved),
       linkExamples: exampleLinks(req.session.connection, saved.links),
@@ -554,7 +600,7 @@ app.get(
     let allocationsChanged = false;
     for (const summary of result.projects) {
       if (summary.error) continue;
-      allocationsChanged = allocations.applyRule(summary.projectId, summary.projectName, summary.risks) || allocationsChanged;
+      allocationsChanged = recalculate(summary.projectId, summary.projectName, summary.risks, 'Recalculated from the findings just fetched.') || allocationsChanged;
     }
     if (allocationsChanged) allocations.save();
     for (const summary of result.projects) summary.credits = creditView(summary);
@@ -849,7 +895,7 @@ function reportServerUrl(req, settings) {
 
 const RELAY_MAX_FINDINGS = 500;
 
-function grantedFindings(req, res) {
+function grantedFindings(req, res, { type = '', actor = null } = {}) {
   const list = Array.isArray(req.body?.findings) ? req.body.findings : [];
   if (list.length === 0 || list.length > RELAY_MAX_FINDINGS) {
     res.status(400).json({ error: `Send between 1 and ${RELAY_MAX_FINDINGS} findings.` });
@@ -869,6 +915,17 @@ function grantedFindings(req, res) {
       grant: raw?.grant,
     };
     const problem = reportGrants.verify(finding);
+    if (problem && type) {
+      audit.record({
+        type,
+        outcome: 'refused',
+        reason: problem === 'expired' ? 'Report expired.' : 'Report permission did not verify (altered or forged request).',
+        actor,
+        project: { id: finding.projectId, name: finding.projectName },
+        findings: [{ riskId: finding.riskId, alternateId: finding.alternateId, scanId: finding.scanId, scanner: finding.scanner }],
+        credits: { kind: type, requested: 0, charged: 0 },
+      });
+    }
     if (problem) {
       res.status(403).json({
         error: problem === 'expired'
@@ -924,6 +981,177 @@ function projectCredits(projectIds) {
     out[projectId] = { triage: b.triage, remediation: b.remediation };
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Audit: every credit decision, attributed and traceable
+// ---------------------------------------------------------------------------
+
+const clientIp = (req) => String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || req.socket?.remoteAddress || '';
+
+/** Who acts through an emailed report: the signed recipient, where from. */
+function reportActor(req) {
+  const token = req.body?.report;
+  const report = reportGrants.verifyReport(token);
+  return {
+    kind: 'report',
+    recipient: report?.recipient || '',
+    reportId: report?.id || '',
+    reportVerified: Boolean(report),
+    // Reports sent before auditing carry no identity; an altered one is refused.
+    reportToken: report ? 'valid' : token ? 'invalid' : 'missing',
+    ip: clientIp(req),
+    userAgent: String(req.get('user-agent') ?? '').slice(0, 200),
+  };
+}
+
+/** Who acts from the dashboard: the Checkmarx One user behind the session's API key. */
+async function adminActor(req) {
+  const session = req.session;
+  session.identity ??= await session.client.identity();
+  return {
+    kind: 'admin',
+    user: session.identity.user,
+    name: session.identity.name,
+    email: session.identity.email,
+    tenant: session.connection?.tenant ?? '',
+    ip: clientIp(req),
+    userAgent: String(req.get('user-agent') ?? '').slice(0, 200),
+  };
+}
+
+const balanceOf = (projectId, kind) => {
+  const { allocated, used, remaining } = allocations.balance(projectId)[kind];
+  return { allocated, used, remaining };
+};
+
+/** One audit entry for a credit decision about `findings` (all in one project). */
+function auditCredit({ id, type, outcome, reason = '', actor, findings = [], kind, requested = 0, charged = 0, before, upstream, details }) {
+  const first = findings[0];
+  const project = first ? { id: first.projectId, name: first.projectName } : undefined;
+  const settings = settingsStore.get().aiTriage ?? {};
+  const what = kind === 'remediation' ? 'AI Remediation' : 'AI Triage';
+  const defaultReason =
+    outcome === 'charged'
+      ? `${what} started for ${findings.length} finding(s): ${charged} credit(s) charged${actor?.kind === 'report' && actor.reportToken === 'missing' ? ' (report without identity, sent before auditing)' : ''}.`
+      : outcome === 'not-charged'
+        ? `${what} accepted; Checkmarx One started no new job, so nothing was charged.`
+        : '';
+  return audit.record({
+    ...(id ? { id } : {}),
+    type,
+    outcome,
+    reason: reason || defaultReason,
+    actor,
+    project,
+    findings: findings.map((f) => ({ riskId: f.riskId, alternateId: f.alternateId, scanId: f.scanId, scanner: f.scanner, ...(f.severity ? { severity: f.severity } : {}) })),
+    credits: { kind, requested, charged },
+    balance: project ? { before: before ?? balanceOf(project.id, kind), after: balanceOf(project.id, kind) } : undefined,
+    month: { limit: settings.monthlyCreditLimit ?? 0, remaining: creditsRemaining() },
+    upstream,
+    details,
+  });
+}
+
+/** The settings that govern credit spending (secrets as a changed/unchanged fingerprint only). */
+function creditSettingsOf(settings) {
+  const ai = settings.aiTriage ?? {};
+  const token = settings.beta?.github?.token ?? '';
+  return {
+    aiTriageEnabled: Boolean(ai.enabled),
+    remediationEnabled: Boolean(ai.remediationEnabled),
+    monthlyCreditLimit: ai.monthlyCreditLimit ?? 0,
+    allowRetriage: Boolean(ai.allowRetriage),
+    allowReremediation: Boolean(ai.allowReremediation),
+    skipNotExploitable: ai.skipNotExploitable !== false,
+    adminContact: ai.adminContact ?? '',
+    githubToken: token ? `set (${createHash('sha256').update(token).digest('hex').slice(0, 8)})` : 'not set',
+  };
+}
+
+function auditSettings(actor, before, after) {
+  const changes = {};
+  for (const key of Object.keys(after)) {
+    if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) changes[key] = { from: before[key], to: after[key] };
+  }
+  if (!Object.keys(changes).length) return null;
+  return audit.record({
+    type: 'settings',
+    outcome: 'changed',
+    reason: `Changed: ${Object.keys(changes).join(', ')}`,
+    actor,
+    credits: { kind: 'settings', requested: 0, charged: 0 },
+    details: { changes },
+  });
+}
+
+/** A project's allocation as the audit log records it. */
+function allocationSnapshot(projectId) {
+  const b = allocations.balance(projectId);
+  return {
+    severities: b.severities,
+    extraTriage: b.extraTriage,
+    extraRemediation: b.extraRemediation,
+    triage: { allocated: b.triage.allocated, used: b.triage.used, remaining: b.triage.remaining },
+    remediation: { allocated: b.remediation.allocated, used: b.remediation.used, remaining: b.remediation.remaining },
+  };
+}
+
+/** Record an allocation change for a project when something actually changed. */
+function auditAllocation({ actor, projectId, projectName, before, change, reason, outcome = 'changed' }) {
+  const after = allocationSnapshot(projectId);
+  if (JSON.stringify(before) === JSON.stringify(after)) return null;
+  return audit.record({
+    type: 'allocation',
+    outcome,
+    reason,
+    actor,
+    project: { id: projectId, name: projectName },
+    credits: {
+      kind: 'allocation',
+      requested: 0,
+      charged: 0,
+      triageDelta: after.triage.allocated - before.triage.allocated,
+      remediationDelta: after.remediation.allocated - before.remediation.allocated,
+    },
+    details: { change, before, after },
+  });
+}
+
+const SYSTEM_ACTOR = { kind: 'system', user: 'reminder server' };
+
+/** Recalculate a project's allocation from its findings, auditing any change. */
+function recalculate(projectId, projectName, risks, reason) {
+  const before = allocationSnapshot(projectId);
+  const changed = allocations.applyRule(projectId, projectName, risks);
+  if (changed) auditAllocation({ actor: SYSTEM_ACTOR, projectId, projectName, before, change: { recalculated: true }, reason, outcome: 'info' });
+  return changed;
+}
+
+/** A whole request turned away before anything was sent: one entry per project. */
+function auditRefusedRequest(type, actor, findings, reason, outcome = 'refused') {
+  const kind = type === 'remediation' ? 'remediation' : 'triage';
+  const perFinding = kind === 'remediation' ? CREDIT_COST.remediation : 1;
+  const byProject = new Map();
+  for (const f of findings) {
+    if (!byProject.has(f.projectId)) byProject.set(f.projectId, []);
+    byProject.get(f.projectId).push(f);
+  }
+  for (const group of byProject.values()) {
+    auditCredit({ type, outcome, reason, actor, findings: group, kind, requested: new Set(group.map((f) => f.alternateId)).size * perFinding });
+  }
+}
+
+/**
+ * A report's identity (who it was sent to) must be intact: an altered one
+ * would spend credits under someone else's name. Reports without one (sent
+ * before auditing) are still honoured and logged as unattributed.
+ */
+function attributedReport(res, type, actor, findings) {
+  if (actor.reportToken !== 'invalid') return true;
+  auditRefusedRequest(type, actor, findings, 'Report identity did not verify (altered recipient or report id).');
+  res.status(403).json({ error: 'This report could not be verified. Open the report from its original email.' });
+  return false;
 }
 
 /** What a refused request needed, for the report's "ask your administrator" message. */
@@ -985,11 +1213,19 @@ app.post(
 app.post(
   '/api/relay/triage',
   asyncRoute(async (req, res) => {
-    const findings = grantedFindings(req, res);
+    const actor = reportActor(req);
+    const findings = grantedFindings(req, res, { type: 'triage', actor });
     if (!findings) return;
-    if (!triageAllowed(res)) return;
+    if (!attributedReport(res, 'triage', actor, findings)) return;
+    if (!triageAllowed(res)) {
+      auditRefusedRequest('triage', actor, findings, 'AI Triage from reports is switched off.');
+      return;
+    }
     const session = await relaySession(res);
-    if (!session) return;
+    if (!session) {
+      auditRefusedRequest('triage', actor, findings, 'No stored Checkmarx One connection on the reminder server.', 'failed');
+      return;
+    }
 
     // One AI Triage request per scan and scanner, however many projects.
     const buckets = new Map();
@@ -1027,19 +1263,32 @@ app.post(
           retriage: true,
           error: `${triaged.length === 1 ? 'This finding is' : `${triaged.length} findings are`} already triaged. Triaging again is switched off by your administrator.`,
         });
+        auditCredit({
+          type: 'triage', outcome: 'refused', reason: 'Already triaged; re-triage is switched off.', actor,
+          findings: triaged, kind: 'triage', requested: new Set(triaged.map((f) => f.alternateId)).size,
+        });
         const rest = group.filter((f) => !triaged.includes(f));
         if (rest.length) buckets.set(key, rest);
         else buckets.delete(key);
       }
     }
 
+    let stopped = '';
     for (const group of buckets.values()) {
       const { scanId, scanner, projectId, projectName } = group[0];
       const alternateIds = [...new Set(group.map((f) => f.alternateId))];
+      const before = balanceOf(projectId, 'triage');
+      const base = { type: 'triage', actor, findings: group, kind: 'triage', requested: alternateIds.length, before };
 
+      if (stopped) {
+        results.push({ alternateIds, ok: false, status: 409, error: stopped });
+        auditCredit({ ...base, outcome: 'refused', reason: `Not sent: ${stopped}` });
+        continue;
+      }
       const refusal = creditRefusal(projectId, projectName, 'triage', alternateIds.length, limit);
       if (refusal) {
         results.push({ alternateIds, ok: false, status: 402, error: refusal, credits: creditNeed(projectId, projectName, 'triage', alternateIds.length) });
+        auditCredit({ ...base, outcome: 'refused', reason: refusal });
         continue;
       }
       const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), {
@@ -1049,8 +1298,10 @@ app.post(
       });
       if (!reservation) {
         results.push({ alternateIds, ok: false, status: 402, error: 'Credits are busy with another request; try again in a moment.' });
+        auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
         continue;
       }
+      const started = Date.now();
       try {
         const body = await session.client.request('/api/ai-triage/triage', {
           method: 'POST',
@@ -1058,19 +1309,30 @@ app.post(
           retries: 1,
         });
         const published = body?.published !== false;
+        const upstream = { call: 'POST /api/ai-triage/triage', status: 200, published, jobId: body?.triageID ?? body?.id ?? '', ms: Date.now() - started };
         // Checkmarx One only starts (and charges for) a new job when published.
         if (published) {
           const riskIds = [...new Set(group.map((f) => f.riskId))];
           const covered = await coveredCount(session, projectId, 'triage', riskIds);
-          creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', riskIds, covered: Math.min(covered, alternateIds.length) });
+          // Ledger first (so the balance after is right), linked to its audit entry both ways.
+          const auditId = randomUUID();
+          reservation.release();
+          creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', riskIds, covered: Math.min(covered, alternateIds.length), auditId });
+          auditCredit({ ...base, id: auditId, outcome: 'charged', charged: alternateIds.length, upstream, details: { covered: Math.min(covered, alternateIds.length) } });
+        } else {
+          auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this triage job; no new credits.', upstream });
         }
         actedOn('triage', group);
         touchProject(projectId);
         results.push({ alternateIds, ok: true, published });
       } catch (error) {
         results.push({ alternateIds, ok: false, status: error.status ?? 0, error: error.message });
+        auditCredit({
+          ...base, outcome: 'failed', reason: error.message,
+          upstream: { call: 'POST /api/ai-triage/triage', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
+        });
         // No credits or no permission: every further request would fail the same way.
-        if (error.status === 402 || error.status === 403) break;
+        if (error.status === 402 || error.status === 403) stopped = `Checkmarx One refused an earlier request (${error.status}).`;
       } finally {
         reservation.release();
       }
@@ -1298,16 +1560,26 @@ app.post(
 app.post(
   '/api/relay/remediate',
   asyncRoute(async (req, res) => {
-    const findings = grantedFindings(req, res);
+    const actor = reportActor(req);
+    const findings = grantedFindings(req, res, { type: 'remediation', actor });
     if (!findings) return;
+    if (!attributedReport(res, 'remediation', actor, findings)) return;
     if (findings.length !== 1) return res.status(400).json({ error: 'Remediate one finding at a time.' });
-    if (!actionAllowed(res, 'remediationEnabled')) return;
+    if (!actionAllowed(res, 'remediationEnabled')) {
+      auditRefusedRequest('remediation', actor, findings, 'AI Remediation from reports is switched off.');
+      return;
+    }
     const session = await relaySession(res);
-    if (!session) return;
+    if (!session) {
+      auditRefusedRequest('remediation', actor, findings, 'No stored Checkmarx One connection on the reminder server.', 'failed');
+      return;
+    }
 
     const [finding] = findings;
     const { monthlyCreditLimit: limit = 0, allowReremediation = false } = settingsStore.get().aiTriage ?? {};
     const cost = CREDIT_COST.remediation;
+    const before = balanceOf(finding.projectId, 'remediation');
+    const base = { type: 'remediation', actor, findings: [finding], kind: 'remediation', requested: cost, before };
 
     // A finding already remediated is only remediated again when the
     // administrator allows it: every run spends credits and may open another pull request.
@@ -1318,9 +1590,11 @@ app.post(
       console.warn(`[relay] could not read the remediation state of ${finding.riskId}: ${error.message}`);
     }
     if (current.status === 'running') {
+      auditCredit({ ...base, outcome: 'refused', reason: 'AI Remediation already running for this finding; followed it instead.' });
       return res.status(409).json({ running: true, body: current.body, error: 'AI Remediation is already running for this finding.' });
     }
     if (current.status === 'done' && !allowReremediation) {
+      auditCredit({ ...base, outcome: 'refused', reason: 'Already remediated; re-remediation is switched off.' });
       return res.status(409).json({
         remediated: true,
         body: current.body,
@@ -1329,6 +1603,7 @@ app.post(
     }
     const refusal = creditRefusal(finding.projectId, finding.projectName, 'remediation', cost, limit);
     if (refusal) {
+      auditCredit({ ...base, outcome: 'refused', reason: refusal });
       return res.status(402).json({
         error: refusal,
         credits: creditNeed(finding.projectId, finding.projectName, 'remediation', cost),
@@ -1342,8 +1617,10 @@ app.post(
       allowance: allocations.balance(finding.projectId).remediation.allocated,
     });
     if (!reservation) {
+      auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
       return res.status(402).json({ error: 'Credits are busy with another request; try again in a moment.' });
     }
+    const started = Date.now();
     try {
       const body = await session.client.request('/api/remediation/remediate', {
         method: 'POST',
@@ -1354,8 +1631,11 @@ app.post(
         retries: 1,
       });
       const published = body?.published !== false;
+      const upstream = { call: 'POST /api/remediation/remediate', status: 200, published, jobId: body?.remediationJobId ?? '', ms: Date.now() - started };
       if (published) {
         const covered = (await coveredCount(session, finding.projectId, 'remediation', [finding.riskId])) ? cost : 0;
+        const auditId = randomUUID();
+        reservation.release();
         creditLedger.record({
           projectId: finding.projectId,
           projectName: finding.projectName,
@@ -1364,7 +1644,11 @@ app.post(
           kind: 'remediation',
           riskIds: [finding.riskId],
           covered,
+          auditId,
         });
+        auditCredit({ ...base, id: auditId, outcome: 'charged', charged: cost, upstream, details: { covered, existingState: body?.existingState ?? null } });
+      } else {
+        auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this remediation job; no new credits.', upstream });
       }
       actedOn('remediation', [finding]);
       touchProject(finding.projectId);
@@ -1377,6 +1661,10 @@ app.post(
         projects: projectCredits([finding.projectId]),
       });
     } catch (error) {
+      auditCredit({
+        ...base, outcome: 'failed', reason: error.message,
+        upstream: { call: 'POST /api/remediation/remediate', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
+      });
       res.status(error.status && error.status >= 400 ? error.status : 502).json({
         error: error.status === 402
           ? 'Checkmarx One has no credits left for AI Remediation.'
@@ -1421,7 +1709,7 @@ function scanProjects(req, projectIds) {
 const cleanSeverities = (list) =>
   [...new Set((Array.isArray(list) ? list : []).map((s) => String(s).toUpperCase()))].filter((s) => SEVERITIES.includes(s));
 
-app.post('/api/credits/allocate', requireSession, (req, res) => {
+app.post('/api/credits/allocate', requireSession, asyncRoute(async (req, res) => {
   if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
   const { projectIds, ruleChanges, triageAdd = 0, remediationAdd = 0, clearExtras = false, setExtra = null } = req.body ?? {};
   // Each change adds or removes one severity from every project's own rule,
@@ -1441,6 +1729,15 @@ app.post('/api/credits/allocate', requireSession, (req, res) => {
   }
 
   const projects = scanProjects(req, projectIds);
+  const actor = await adminActor(req);
+  const change = {
+    ...(changes.length ? { ruleChanges: changes } : {}),
+    ...(extraTriage ? { addTriage: extraTriage } : {}),
+    ...(extraRemediation ? { addRemediation: extraRemediation } : {}),
+    ...(clearExtras === true ? { clearExtras: true } : {}),
+    ...(exact ? { setExtra: exact } : {}),
+  };
+  const before = new Map(projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
   for (const p of exact ? projects : []) {
     for (const kind of ['triage', 'remediation']) {
       if (kind in exact) allocations.setExtra(p.projectId, p.projectName, kind, exact[kind]);
@@ -1459,18 +1756,23 @@ app.post('/api/credits/allocate', requireSession, (req, res) => {
     allocations.applyRule(p.projectId, p.projectName, p.risks ?? [], rule);
   }
   allocations.save();
-  for (const p of projects) p.credits = creditView(p);
+  for (const p of projects) {
+    auditAllocation({ actor, projectId: p.projectId, projectName: p.projectName, before: before.get(p.projectId), change, reason: 'Changed on the Dashboard.' });
+    p.credits = creditView(p);
+  }
   res.json({ projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
-});
+}));
 
 /**
  * Run AI Triage for `findings` on the administrator's behalf: one request per
  * scan and scanner. Credits count against each project's allocation, which
  * is raised to cover the request, since the administrator is the one allocating.
  */
-async function adminTriage(session, findings, initiatorsByProject = {}) {
+async function adminTriage(session, findings, initiatorsByProject = {}, { actor = { kind: 'admin' }, origin = '' } = {}) {
   await resolveAiIds(session.client, findings, (f) => initiatorsByProject[f.projectId]?.scanId ?? '');
   const eligible = findings.filter((f) => !f.aiUnavailable);
+  const ineligible = findings.filter((f) => f.aiUnavailable);
+  if (ineligible.length) auditRefusedRequest('triage', actor, ineligible, `Not eligible for AI Triage (${ineligible[0].aiUnavailable})`);
 
   const buckets = new Map();
   for (const f of eligible) {
@@ -1483,26 +1785,42 @@ async function adminTriage(session, findings, initiatorsByProject = {}) {
   let failed = 0;
   const errors = [];
   const startedFindings = [];
+  let stopped = '';
   for (const group of buckets.values()) {
     const { scanId, scanner, projectId, projectName } = group[0];
     const alternateIds = [...new Set(group.map((f) => f.alternateId))];
+    const base = { type: 'triage', actor, findings: group, kind: 'triage', requested: alternateIds.length, before: balanceOf(projectId, 'triage'), details: { origin } };
+    if (stopped) {
+      failed += group.length;
+      auditCredit({ ...base, outcome: 'refused', reason: `Not sent: ${stopped}` });
+      continue;
+    }
     const reservation = creditLedger.reserve(alternateIds.length, limit);
     if (!reservation) {
       failed += group.length;
       errors.push(`${projectName}: this month's credit limit (${limit}) is reached.`);
+      auditCredit({ ...base, outcome: 'refused', reason: `This month's credit limit (${limit}) is reached.` });
       continue;
     }
+    const started = Date.now();
     try {
       const body = await session.client.request('/api/ai-triage/triage', {
         method: 'POST',
         body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
         retries: 1,
       });
+      const upstream = { call: 'POST /api/ai-triage/triage', status: 200, published: body?.published !== false, jobId: body?.triageID ?? body?.id ?? '', ms: Date.now() - started };
       if (body?.published !== false) {
         const balance = allocations.balance(projectId).triage;
-        if (balance.remaining < alternateIds.length) allocations.raise(projectId, alternateIds.length - balance.remaining);
+        const raised = Math.max(0, alternateIds.length - balance.remaining);
+        if (raised) allocations.raise(projectId, raised);
         // The administrator's own triage never uses up the developers' extras.
-        creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', covered: alternateIds.length });
+        const auditId = randomUUID();
+        reservation.release();
+        creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', covered: alternateIds.length, riskIds: [...new Set(group.map((f) => f.riskId))], auditId });
+        auditCredit({ ...base, id: auditId, outcome: 'charged', charged: alternateIds.length, upstream, details: { origin, allocationRaisedBy: raised || undefined } });
+      } else {
+        auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this triage job; no new credits.', upstream });
       }
       actedOn('triage', group);
       touchProject(projectId);
@@ -1510,7 +1828,11 @@ async function adminTriage(session, findings, initiatorsByProject = {}) {
     } catch (error) {
       failed += group.length;
       errors.push(`${projectName}: ${error.message}`);
-      if (error.status === 402 || error.status === 403) break;
+      auditCredit({
+        ...base, outcome: 'failed', reason: error.message,
+        upstream: { call: 'POST /api/ai-triage/triage', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
+      });
+      if (error.status === 402 || error.status === 403) stopped = `Checkmarx One refused an earlier request (${error.status}).`;
     } finally {
       reservation.release();
     }
@@ -1551,7 +1873,7 @@ app.post(
         const now = live.info.get(r.riskId);
         if (now?.state && now.state !== r.state) r.state = now.state;
       }
-      changed = allocations.applyRule(p.projectId, p.projectName, p.risks ?? []) || changed;
+      changed = recalculate(p.projectId, p.projectName, p.risks ?? [], 'Recalculated after triage verdicts changed findings.') || changed;
     });
     if (changed) allocations.save();
     for (const p of projects) p.credits = creditView(p);
@@ -1593,7 +1915,10 @@ app.post(
     }
     if (!findings.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], projects: {} });
 
-    const outcome = await adminTriage(req.session, findings, req.session.lastScan.initiators ?? {});
+    const outcome = await adminTriage(req.session, findings, req.session.lastScan.initiators ?? {}, {
+      actor: await adminActor(req),
+      origin: `Dashboard: triage ${wanted.map((s) => s.toLowerCase()).join(', ')} now`,
+    });
     for (const f of outcome.startedFindings) originals.get(f).triageRequestedAt = Date.now();
     for (const p of projects) p.credits = creditView(p);
     const { startedFindings, ...summary } = outcome;
@@ -1614,7 +1939,7 @@ const refreshing = new Map();
 function reallocate(projects, byProject) {
   let changed = false;
   for (const { projectId, projectName } of projects) {
-    if (byProject.has(projectId)) changed = allocations.applyRule(projectId, projectName, byProject.get(projectId)) || changed;
+    if (byProject.has(projectId)) changed = recalculate(projectId, projectName, byProject.get(projectId), 'Recalculated from a tracked report refresh.') || changed;
   }
   if (changed) allocations.save();
 }
@@ -1774,11 +2099,12 @@ async function remindTrackedReport(session, report, options, relayUrl, { automat
 const openRisksOf = (scan) => selectRisks(scan.projects, { projectIds: null, buckets: [], severities: null });
 
 /** The interactive HTML report of a tracked report's open findings. */
-async function trackedReportHtml(session, report, scan, relayUrl) {
+async function trackedReportHtml(session, report, scan, relayUrl, audience = {}) {
   return buildInteractiveReport(session, openRisksOf(scan), {
     settings: settingsStore.get(),
     relayUrl,
     initiatorsByProject: scan.initiators,
+    audience: { purpose: `for tracked report "${report.name}"`, ...audience },
   });
 }
 
@@ -1790,7 +2116,10 @@ async function sendReportOnlyTo(session, report, scan, addresses, { attachHtml, 
     if (dryRun && result.status === 200) result.body.recipients = { to: addresses, cc: [], bcc: [] };
     return result;
   }
-  const { reportData, findings, html } = await trackedReportHtml(session, report, scan, relayUrl);
+  const { reportData, findings, html } = await trackedReportHtml(session, report, scan, relayUrl, {
+    recipient: addresses.join(', '),
+    purpose: `emailed (only to) for tracked report "${report.name}"`,
+  });
   const body = buildReportEmail(reportData, { greeting: 'Hi', topCount: findings.length });
   const total = reportData.totalRisks ?? openRisksOf(scan).length;
   const message = { subject: `${report.name}: ${total} open vulnerabilities to triage`, html: body.html, text: body.text };
@@ -1901,7 +2230,12 @@ app.get(
     if (!report) return res.status(404).json({ error: 'No such report.' });
     const scan = await openScanFor(req.session, report);
     if (!openRisksOf(scan).length) return res.status(400).json({ error: 'Nothing is left open in this report.' });
-    const { html } = await trackedReportHtml(req.session, report, scan, reportServerUrl(req, settingsStore.get()));
+    const actor = await adminActor(req);
+    const { html } = await trackedReportHtml(req.session, report, scan, reportServerUrl(req, settingsStore.get()), {
+      actor,
+      recipient: `downloaded by ${actor.user || 'administrator'}`,
+      purpose: `downloaded for tracked report "${report.name}"`,
+    });
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${reportFileName(report)}"`);
     res.send(html);
@@ -1927,6 +2261,8 @@ app.post(
     }
     const byProject = await currentFindings(req.session, report.projects);
     trackedReports.record(report, progressFor(report, byProject));
+    const actor = await adminActor(req);
+    const before = new Map(report.projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
     for (const { projectId, projectName } of report.projects) {
       if (extraTriage) allocations.add(projectId, projectName, 'triage', extraTriage);
       if (extraRemediation) allocations.add(projectId, projectName, 'remediation', extraRemediation);
@@ -1934,6 +2270,13 @@ app.post(
       allocations.applyRule(projectId, projectName, byProject.get(projectId) ?? [], rule);
     }
     allocations.save();
+    for (const { projectId, projectName } of report.projects) {
+      auditAllocation({
+        actor, projectId, projectName, before: before.get(projectId),
+        change: { severities: wanted, addTriage: extraTriage || undefined, addRemediation: extraRemediation || undefined },
+        reason: `Changed from tracked report "${report.name}".`,
+      });
+    }
     res.json({ report: trackedView(report) });
   }),
 );
@@ -1953,7 +2296,10 @@ app.post(
         .map((r) => ({ ...r, projectId: p.projectId, projectName: p.projectName })),
     );
     if (!findings.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], report: trackedView(report) });
-    const { startedFindings, ...summary } = await adminTriage(req.session, findings, scan.initiators);
+    const { startedFindings, ...summary } = await adminTriage(req.session, findings, scan.initiators, {
+      actor: await adminActor(req),
+      origin: `Tracked report "${report.name}": triage the open findings`,
+    });
     res.json({ ...summary, report: trackedView(report) });
   }),
 );
@@ -2049,7 +2395,7 @@ app.get('/api/credits', requireSession, (req, res) => {
  * here, with this session's credentials, so the report itself only ever
  * needs the reader's own API key.
  */
-async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject } = {}) {
+async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject, audience = {} } = {}) {
   const { connection, lastScan } = session;
   initiatorsByProject ??= lastScan?.initiators ?? {};
   // Whatever built the list, findings triaged as not exploitable stay out.
@@ -2073,6 +2419,26 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     [...findings, ...bulkFindings],
     (finding) => initiatorsByProject[finding.projectId]?.scanId ?? '',
   );
+  // Who this report is for, signed: every action taken from it is attributed to them.
+  const reportToken = reportGrants.signReport({ id: randomUUID(), recipient: audience.recipient ?? '' });
+  const actionable = [...findings, ...bulkFindings].filter((f) => !f.aiUnavailable).length;
+  audit.record({
+    type: 'report',
+    outcome: 'info',
+    reason: `Interactive report ${audience.purpose ?? 'generated'}${audience.recipient ? ` for ${audience.recipient}` : ''}.`,
+    actor: audience.actor ?? SYSTEM_ACTOR,
+    credits: { kind: 'report', requested: 0, charged: 0 },
+    details: {
+      reportId: reportToken.id,
+      recipient: audience.recipient ?? '',
+      purpose: audience.purpose ?? '',
+      projects: [...new Set(findings.map((f) => f.projectName))].slice(0, 50),
+      findingsShown: findings.length,
+      actionableFindings: actionable,
+      triageEnabled: Boolean(settings.aiTriage?.enabled),
+      remediationEnabled: Boolean(settings.aiTriage?.remediationEnabled),
+    },
+  });
   const html = generateHtmlReport(reportData, {
     findings,
     bulkFindings,
@@ -2080,6 +2446,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     remediationViaRelay: true,
     portalUrl: settings.links.baseUrl,
     sign: (finding) => reportGrants.issue(finding),
+    reportToken,
     connection: { tenant: connection.tenant, iamUrl: connection.iamUrl, baseUrl: connection.baseUrl },
     branding: settings.branding,
     allowRetriage: Boolean(settings.aiTriage?.allowRetriage),
@@ -2119,10 +2486,12 @@ app.post(
         `
       : '';
 
+    const actor = await adminActor(req);
     const { html } = await buildInteractiveReport(req.session, risks, {
       buckets,
       settings,
       relayUrl: reportServerUrl(req, settings),
+      audience: { actor, recipient: `downloaded by ${actor.user || 'administrator'}`, purpose: 'downloaded from the Dashboard' },
     });
     const htmlReport = html + diagnostics;
 
@@ -2179,6 +2548,7 @@ async function runHtmlReminder(session, scan, input, relayUrl) {
           relayUrl,
           initiatorsByProject,
           initiator: group,
+          audience: { recipient: group.email, purpose: 'emailed to the scan initiator' },
         });
         const body = buildReportEmail(reportData, {
           greeting: `Hi ${group.initiator || 'there'}`,
@@ -2313,6 +2683,280 @@ app.post(
     }
   }),
 );
+
+// ---------------------------------------------------------------------------
+// Audit log: browse, export, verify, reconcile
+// ---------------------------------------------------------------------------
+
+function auditFilters(query) {
+  const list = (v) => String(v ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+  const date = (v) => (/^\d{4}-\d{2}-\d{2}/.test(String(v ?? '')) ? String(v) : '');
+  return {
+    from: date(query.from),
+    to: date(query.to),
+    types: list(query.types),
+    outcomes: list(query.outcomes),
+    project: String(query.project ?? '').slice(0, 200),
+    q: String(query.q ?? '').slice(0, 200),
+    before: Number(query.before) || 0,
+    limit: Math.min(1000, Math.max(1, Number(query.limit) || 100)),
+  };
+}
+
+app.get('/api/audit', requireSession, async (req, res) => {
+  await audit.settled();
+  res.json({ ...audit.query(auditFilters(req.query)), writeError: audit.writeError });
+});
+
+const CSV_COLUMNS = [
+  ['seq', (e) => e.seq],
+  ['time', (e) => e.at],
+  ['type', (e) => e.type],
+  ['outcome', (e) => e.outcome],
+  ['reason', (e) => e.reason],
+  ['actor', (e) => e.actor?.kind],
+  ['user', (e) => e.actor?.user || e.actor?.recipient],
+  ['report_id', (e) => e.actor?.reportId || e.details?.reportId],
+  ['ip', (e) => e.actor?.ip],
+  ['project_id', (e) => e.project?.id],
+  ['project', (e) => e.project?.name],
+  ['credit_kind', (e) => e.credits?.kind],
+  ['credits_requested', (e) => e.credits?.requested],
+  ['credits_charged', (e) => e.credits?.charged],
+  ['allocated_before', (e) => e.balance?.before?.allocated],
+  ['remaining_before', (e) => e.balance?.before?.remaining],
+  ['allocated_after', (e) => e.balance?.after?.allocated],
+  ['remaining_after', (e) => e.balance?.after?.remaining],
+  ['month_remaining', (e) => e.month?.remaining],
+  ['findings', (e) => (e.findings ?? []).map((f) => f.riskId).join(' ')],
+  ['upstream_call', (e) => e.upstream?.call],
+  ['upstream_status', (e) => e.upstream?.status],
+  ['upstream_job', (e) => e.upstream?.jobId],
+  ['upstream_error', (e) => e.upstream?.error],
+  ['entry_id', (e) => e.id],
+  ['mac', (e) => e.mac],
+];
+const csvCell = (v) => {
+  const text = v === undefined || v === null ? '' : String(v);
+  // Neutralise spreadsheet formulas, then quote.
+  const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+};
+
+/** Everything matching the filters, as CSV (for spreadsheets) or JSON Lines (complete, verifiable). */
+app.get('/api/audit/export', requireSession, async (req, res) => {
+  await audit.settled();
+  const filters = { ...auditFilters(req.query), limit: 1_000_000, before: 0 };
+  const format = req.query.format === 'jsonl' ? 'jsonl' : 'csv';
+  const { entries } = audit.query(filters);
+  entries.reverse();
+  const stamp = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Disposition', `attachment; filename="audit-${stamp}.${format}"`);
+  if (format === 'jsonl') {
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+    return res.send(entries.map((e) => JSON.stringify(e)).join('\n') + '\n');
+  }
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.send([CSV_COLUMNS.map(([name]) => name).join(','), ...entries.map((e) => CSV_COLUMNS.map(([, get]) => csvCell(get(e))).join(','))].join('\n') + '\n');
+});
+
+/** Walk the hash chain: any edited, removed or reordered entry is found. */
+app.get('/api/audit/verify', requireSession, async (req, res) => {
+  await audit.settled();
+  const result = audit.verify();
+  audit.record({
+    type: 'audit',
+    outcome: 'info',
+    reason: result.ok ? `Audit log verified intact (${result.entries} entries).` : `Audit log verification found ${result.problems.length} problem(s).`,
+    actor: await adminActor(req),
+    details: { verify: { ok: result.ok, entries: result.entries, problems: result.problems.slice(0, 10) } },
+  });
+  res.json(result);
+});
+
+/**
+ * Do the credits the audit log says were charged match the ledger the
+ * balances are computed from? Per month and per project, plus ledger entries
+ * with no audit entry (spent before auditing began).
+ */
+app.get('/api/audit/reconcile', requireSession, async (req, res) => {
+  await audit.settled();
+  const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
+  const audited = new Map();
+  const auditIds = new Set();
+  for (const e of audit.entries({ from: `${month}-01`, to: `${month}-31` })) {
+    if (e.corrupt || !e.at?.startsWith(month) || !e.credits?.charged) continue;
+    auditIds.add(e.id);
+    const key = e.project?.id ?? '';
+    const row = audited.get(key) ?? { projectId: key, projectName: e.project?.name ?? '', audited: 0 };
+    row.audited += e.credits.charged;
+    audited.set(key, row);
+  }
+  const ledger = creditLedger.summary(month);
+  const rows = new Map();
+  for (const p of ledger.projects) rows.set(p.projectId, { projectId: p.projectId, projectName: p.projectName, ledger: p.credits, audited: 0 });
+  for (const [key, a] of audited) {
+    const row = rows.get(key) ?? { projectId: key, projectName: a.projectName, ledger: 0, audited: 0 };
+    row.audited = a.audited;
+    rows.set(key, row);
+  }
+  const unlinked = creditLedger.entriesInMonth(month).filter((e) => !e.auditId);
+  const missing = creditLedger.entriesInMonth(month).filter((e) => e.auditId && !auditIds.has(e.auditId));
+  const projects = [...rows.values()].map((r) => ({ ...r, difference: r.ledger - r.audited })).sort((a, b) => b.ledger - a.ledger);
+  res.json({
+    month,
+    ledgerTotal: ledger.total,
+    auditedTotal: projects.reduce((n, r) => n + r.audited, 0),
+    matched: projects.every((r) => r.difference === 0 || unlinked.some((u) => u.projectId === r.projectId)) && !missing.length,
+    projects,
+    unlinked: { entries: unlinked.length, credits: unlinked.reduce((n, e) => n + e.credits, 0), note: 'Spent before the audit log existed.' },
+    missing: missing.map((e) => ({ at: e.at, projectId: e.projectId, credits: e.credits, auditId: e.auditId })),
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Backup and restore: one file rebuilds the whole server
+// ---------------------------------------------------------------------------
+
+const backupConfig = {
+  dir: path.resolve(process.env.BACKUP_DIR?.trim() || path.join(dataDir, 'backups')),
+  explicitDir: Boolean(process.env.BACKUP_DIR?.trim()),
+  intervalHours: Math.max(0, Number(process.env.BACKUP_INTERVAL_HOURS ?? 24) || 0),
+  keep: Math.max(1, Number(process.env.BACKUP_KEEP) || 14),
+  passphrase: process.env.BACKUP_PASSPHRASE || '',
+};
+let lastBackup = null;
+
+/** Everything written to disk first, so the backup is a consistent picture. */
+async function settleState() {
+  knownAddresses.flush();
+  creditLedger.flush();
+  await audit.settled();
+}
+
+async function backupToFolder(actor, trigger) {
+  await settleState();
+  try {
+    const { file, summary, removed } = writeBackupTo(backupConfig.dir, {
+      dataDir,
+      settingsFile: config.settingsFile,
+      passphrase: backupConfig.passphrase,
+      keep: backupConfig.keep,
+    });
+    lastBackup = { at: summary.createdAt, ok: true, file, size: summary.size, files: summary.files, trigger };
+    audit.record({
+      type: 'backup',
+      outcome: 'info',
+      reason: `${trigger} backup written to ${file} (${summary.files} files${summary.encrypted ? ', encrypted' : ''}).`,
+      actor,
+      details: { backup: { file, ...summary, removed } },
+    });
+  } catch (error) {
+    lastBackup = { at: new Date().toISOString(), ok: false, error: error.message, trigger };
+    audit.record({ type: 'backup', outcome: 'failed', reason: `${trigger} backup to ${backupConfig.dir} failed: ${error.message}`, actor });
+    console.error(`! [backup] ${error.message}`);
+  }
+  return lastBackup;
+}
+
+if (backupConfig.intervalHours > 0) {
+  const every = backupConfig.intervalHours * 3600_000;
+  // First one soon after start (a fresh baseline), then on the interval.
+  setTimeout(() => {
+    backupToFolder(SYSTEM_ACTOR, 'Scheduled');
+    setInterval(() => backupToFolder(SYSTEM_ACTOR, 'Scheduled'), every).unref();
+  }, 60_000).unref();
+}
+
+app.get('/api/backup', requireSession, (req, res) => {
+  const files = collectStateFiles(dataDir, config.settingsFile);
+  const bytes = files.reduce((sum, f) => sum + fs.statSync(f.path).size, 0);
+  res.json({
+    dataDir,
+    source: dataDirSource,
+    insideProject: insideProject(dataDir, projectDir),
+    files: files.length,
+    bytes,
+    backupDir: backupConfig.dir,
+    backupDirExplicit: backupConfig.explicitDir,
+    sameDisk: !backupConfig.explicitDir || insideProject(backupConfig.dir, dataDir),
+    intervalHours: backupConfig.intervalHours,
+    keep: backupConfig.keep,
+    encrypted: Boolean(backupConfig.passphrase),
+    last: lastBackup,
+    backups: listBackups(backupConfig.dir).slice(0, 30),
+    pendingRestore: fs.existsSync(path.join(dataDir, PENDING_RESTORE)),
+    restoredAtStart: restoredAtStart && { createdAt: restoredAtStart.createdAt, files: restoredAtStart.files, replacedDir: restoredAtStart.replacedDir },
+  });
+});
+
+/** Download a backup now (encrypted when BACKUP_PASSPHRASE is set). */
+app.get('/api/backup/download', requireSession, asyncRoute(async (req, res) => {
+  await settleState();
+  const { buffer, summary } = createBackup({ dataDir, settingsFile: config.settingsFile, passphrase: backupConfig.passphrase });
+  audit.record({
+    type: 'backup',
+    outcome: 'info',
+    reason: `Backup downloaded (${summary.files} files${summary.encrypted ? ', encrypted' : ', not encrypted'}).`,
+    actor: await adminActor(req),
+    details: { backup: summary },
+  });
+  const stamp = summary.createdAt.replace(/[:.]/g, '-').slice(0, 19);
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.setHeader('Content-Disposition', `attachment; filename="mission-zero-${stamp}.mzbackup"`);
+  res.send(buffer);
+}));
+
+app.post('/api/backup/now', requireSession, asyncRoute(async (req, res) => {
+  const result = await backupToFolder(await adminActor(req), 'Manual');
+  if (!result.ok) return res.status(500).json({ error: `Backup failed: ${result.error}` });
+  res.json({ ...result, backups: listBackups(backupConfig.dir).slice(0, 30) });
+}));
+
+/**
+ * Upload a backup. ?check=1 only reads it and says what it holds. Otherwise
+ * it is staged and applied at the next start: the running server would write
+ * its in-memory state straight over restored files.
+ */
+app.post(
+  '/api/backup/restore',
+  requireSession,
+  express.raw({ type: () => true, limit: '1gb' }),
+  asyncRoute(async (req, res) => {
+    const actor = await adminActor(req);
+    let bundle;
+    try {
+      bundle = readBackup(req.body ?? Buffer.alloc(0), { passphrase: String(req.get('x-backup-passphrase') ?? '') || backupConfig.passphrase });
+    } catch (error) {
+      if (req.query.check !== '1') audit.record({ type: 'backup', outcome: 'refused', reason: `Restore refused: ${error.message}`, actor });
+      return res.status(400).json({ error: error.message });
+    }
+    const info = describeBackup(bundle);
+    if (req.query.check === '1') return res.json({ backup: info });
+    // Staged decrypted: it sits in the state folder (0600) beside the same secrets.
+    const pending = path.join(dataDir, PENDING_RESTORE);
+    fs.writeFileSync(`${pending}.partial`, zlib.gzipSync(Buffer.from(JSON.stringify(bundle))), { mode: 0o600 });
+    fs.renameSync(`${pending}.partial`, pending);
+    audit.record({
+      type: 'backup',
+      outcome: 'changed',
+      reason: `Restore staged from the backup of ${info.createdAt}: applied at the next restart.`,
+      actor,
+      details: { restore: { createdAt: info.createdAt, host: info.host, files: info.files, sha256: info.sha256 } },
+    });
+    await audit.settled();
+    res.json({ backup: info, staged: true, restartRequired: true });
+  }),
+);
+
+app.delete('/api/backup/restore', requireSession, asyncRoute(async (req, res) => {
+  const pending = path.join(dataDir, PENDING_RESTORE);
+  if (fs.existsSync(pending)) {
+    fs.rmSync(pending, { force: true });
+    audit.record({ type: 'backup', outcome: 'changed', reason: 'Staged restore cancelled.', actor: await adminActor(req) });
+  }
+  res.json({ pendingRestore: false });
+}));
 
 // ---------------------------------------------------------------------------
 // Beta: GitHub identity matching, and emailing the authors of vulnerable code
@@ -2699,6 +3343,7 @@ const shutdown = () => {
   scheduler.stop();
   knownAddresses.flush();
   creditLedger.flush();
+  audit.flushSync();
   server.close(() => process.exit(0));
 };
 process.on('SIGINT', shutdown);
