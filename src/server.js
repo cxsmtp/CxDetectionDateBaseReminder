@@ -9,6 +9,8 @@ import { AGE_BUCKETS, collectProjectRisks, selectRisks } from './cxone/risks.js'
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
 import { resolveAiIds } from './cxone/ai-assist.js';
+import { mapWithConcurrency } from './cxone/client.js';
+import { ReportGrants } from './report-grants.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
@@ -37,6 +39,11 @@ if (process.env.SMTP_HOST) {
   console.log(`[SMTP] Loaded from environment: ${settings.smtp.host}:${settings.smtp.port}`);
 }
 let bootstrapSessionId = null;
+
+const reportGrants = new ReportGrants({
+  secret: process.env.REPORT_SIGNING_KEY?.trim() || undefined,
+  file: path.join(path.dirname(config.settingsFile || path.join(process.cwd(), 'data', 'settings.json')), 'report-signing.key'),
+});
 
 const automationState = new AutomationState(
   config.settingsFile
@@ -88,6 +95,20 @@ const escapeHtml = (text) => String(text ?? '')
 const app = express();
 app.use(express.json({ limit: '4mb' }));
 app.use(express.static(publicDir));
+
+/**
+ * The emailed report is opened from disk (origin "null"), so its calls to the
+ * relay are cross-origin. No cookies are involved: every relay action is
+ * authorised by the signed grants the report carries.
+ */
+app.use('/api/relay', (req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Max-Age', '600');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 
@@ -689,13 +710,141 @@ app.post(
   }),
 );
 
+/** Where emailed reports reach this server: the configured address, else the one the dashboard is using. */
+function reportServerUrl(req, settings) {
+  return settings.links.reportServerUrl || `${req.protocol}://${req.get('host')}`;
+}
+
+// ---------------------------------------------------------------------------
+// Relay for the emailed report
+//
+// Checkmarx One does not accept API calls from a page opened as a local file,
+// so the report's AI Triage actions come here and run on this server's own
+// stored connection (CX_API_KEY, or the key armed for automation). Only
+// findings carrying a valid grant from the report are ever acted on.
+// ---------------------------------------------------------------------------
+
+const RELAY_MAX_FINDINGS = 500;
+
+function grantedFindings(req, res) {
+  const list = Array.isArray(req.body?.findings) ? req.body.findings : [];
+  if (list.length === 0 || list.length > RELAY_MAX_FINDINGS) {
+    res.status(400).json({ error: `Send between 1 and ${RELAY_MAX_FINDINGS} findings.` });
+    return null;
+  }
+  const findings = [];
+  for (const raw of list) {
+    const finding = {
+      projectId: String(raw?.projectId ?? ''),
+      scanId: String(raw?.scanId ?? ''),
+      scanner: String(raw?.scanner ?? '').toUpperCase(),
+      alternateId: String(raw?.alternateId ?? ''),
+      groupId: String(raw?.groupId ?? ''),
+      exp: raw?.exp,
+      grant: raw?.grant,
+    };
+    const problem = reportGrants.verify(finding);
+    if (problem) {
+      res.status(403).json({
+        error: problem === 'expired'
+          ? 'This report has expired. Ask for a new one to triage from it.'
+          : 'This report is not authorised for that action.',
+      });
+      return null;
+    }
+    findings.push(finding);
+  }
+  return findings;
+}
+
+async function relaySession(res) {
+  const session = await resolveAutomationSession();
+  if (!session) {
+    res.status(503).json({
+      error:
+        'The reminder server has no stored Checkmarx One connection. ' +
+        'Set CX_API_KEY, or arm automation on its Settings page.',
+    });
+  }
+  return session;
+}
+
+app.post(
+  '/api/relay/status',
+  asyncRoute(async (req, res) => {
+    const session = await relaySession(res);
+    if (session) res.json({ connected: true, tenant: session.connection.tenant });
+  }),
+);
+
+app.post(
+  '/api/relay/triage',
+  asyncRoute(async (req, res) => {
+    const findings = grantedFindings(req, res);
+    if (!findings) return;
+    const session = await relaySession(res);
+    if (!session) return;
+
+    // One AI Triage request per scan and scanner, however many projects.
+    const buckets = new Map();
+    for (const finding of findings) {
+      const key = `${finding.scanId}|${finding.scanner}`;
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(finding);
+    }
+
+    const results = [];
+    for (const group of buckets.values()) {
+      const { scanId, scanner } = group[0];
+      const alternateIds = [...new Set(group.map((f) => f.alternateId))];
+      try {
+        const body = await session.client.request('/api/ai-triage/triage', {
+          method: 'POST',
+          body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
+          retries: 1,
+        });
+        results.push({ alternateIds, ok: true, published: body?.published !== false });
+      } catch (error) {
+        results.push({ alternateIds, ok: false, status: error.status ?? 0, error: error.message });
+        // No credits or no permission: every further request would fail the same way.
+        if (error.status === 402 || error.status === 403) break;
+      }
+    }
+    res.json({ results });
+  }),
+);
+
+app.post(
+  '/api/relay/triage-results',
+  asyncRoute(async (req, res) => {
+    const findings = grantedFindings(req, res);
+    if (!findings) return;
+    const session = await relaySession(res);
+    if (!session) return;
+
+    const results = await mapWithConcurrency(findings, 4, async (finding) => {
+      try {
+        const body = await session.client.request(
+          `/api/ai-triage/triage/${encodeURIComponent(finding.projectId)}/${encodeURIComponent(finding.groupId)}`,
+          { retries: 1 },
+        );
+        return { found: true, body };
+      } catch (error) {
+        if (error.status === 404) return { found: false };
+        return { found: false, status: error.status ?? 0, error: error.message };
+      }
+    });
+    res.json({ results });
+  }),
+);
+
 /**
  * Build the interactive HTML report for a set of findings. The top findings
  * get the identifiers Checkmarx One AI Triage / Remediation need resolved
  * here, with this session's credentials, so the report itself only ever
  * needs the reader's own API key.
  */
-async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null } = {}) {
+async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '' } = {}) {
   const { connection, lastScan } = session;
   const initiatorsByProject = lastScan?.initiators ?? {};
   const reportData = buildReportData(risks, {
@@ -720,6 +869,8 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   const html = generateHtmlReport(reportData, {
     findings,
     bulkFindings,
+    relayUrl,
+    sign: (finding) => reportGrants.issue(finding),
     connection: { tenant: connection.tenant, iamUrl: connection.iamUrl, baseUrl: connection.baseUrl },
     branding: settings.branding,
   });
@@ -756,7 +907,11 @@ app.post(
         `
       : '';
 
-    const { html } = await buildInteractiveReport(req.session, risks, { buckets, settings });
+    const { html } = await buildInteractiveReport(req.session, risks, {
+      buckets,
+      settings,
+      relayUrl: reportServerUrl(req, settings),
+    });
     const htmlReport = html + diagnostics;
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -813,6 +968,7 @@ app.post(
         const { reportData, findings, html: htmlReport } = await buildInteractiveReport(req.session, group.risks, {
           buckets,
           settings,
+          relayUrl: reportServerUrl(req, settings),
           initiator: group,
         });
         const body = buildReportEmail(reportData, {
