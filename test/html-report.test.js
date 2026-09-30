@@ -69,15 +69,15 @@ test('each project links to Checkmarx One for everything beyond the top 50', () 
   const connection = { baseUrl: 'https://eu.ast.checkmarx.net' };
   const data = buildReportData([risk(1, 'HIGH')], { tenant: 't', connection, links: DEFAULT_LINK_TEMPLATES });
   const html = generateHtmlReport(data);
-  assert.match(html, /href="https:\/\/eu\.ast\.checkmarx\.net\/projects\/p1\/overview"[^>]*>Proj \(1\) →/);
+  assert.match(html, /href="https:\/\/eu\.ast\.checkmarx\.net\/riskhub\/p1"[^>]*>Proj \(1\) →/);
 });
 
 test('the report email has a Start triaging button into Checkmarx One for each project', () => {
   const connection = { baseUrl: 'https://eu.ast.checkmarx.net' };
   const risks = [risk(1, 'HIGH'), { ...risk(2, 'LOW'), projectId: 'p2', projectName: 'Other <b>' }];
   const one = buildReportEmail(buildReportData([risk(1, 'HIGH')], { connection, links: DEFAULT_LINK_TEMPLATES }), { topCount: 1 });
-  assert.match(one.html, /href="https:\/\/eu\.ast\.checkmarx\.net\/projects\/p1\/overview"[^>]*>Start triaging<\/a>/);
-  assert.match(one.text, /Start triaging Proj: https:\/\/eu\.ast\.checkmarx\.net\/projects\/p1\/overview/);
+  assert.match(one.html, /href="https:\/\/eu\.ast\.checkmarx\.net\/riskhub\/p1"[^>]*>Start triaging<\/a>/);
+  assert.match(one.text, /Start triaging Proj: https:\/\/eu\.ast\.checkmarx\.net\/riskhub\/p1/);
 
   const two = buildReportEmail(buildReportData(risks, { connection, links: DEFAULT_LINK_TEMPLATES }), { greeting: 'Hi <Ann>', topCount: 2 });
   assert.equal((two.html.match(/>Start triaging — /g) ?? []).length, 2);

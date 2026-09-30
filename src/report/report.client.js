@@ -1,7 +1,8 @@
 /*
- * Runs inside the emailed HTML report. Talks to Checkmarx One directly:
- * the API key is exchanged for a token at the tenant's IAM, then AI Triage
- * and AI Remediation are called on the tenant's API host.
+ * Runs inside the emailed HTML report. Triage and Remediate are links into
+ * Checkmarx One Risk Hub (the reader's own portal login). Optionally, with an
+ * API key, AI Triage runs from the report itself: the key is exchanged for a
+ * token at the tenant's IAM and the AI Triage API is called directly.
  *
  * Kept as a plain file (inlined by html-report.js) so it can be syntax
  * checked and is never subject to template-literal escaping.
@@ -17,7 +18,6 @@
   const KEY_STORE = 'cxReportApiKey';
   const POLL_MS = 6000;
   const TRIAGE_TIMEOUT_MS = 20 * 60 * 1000;
-  const REMEDIATION_TIMEOUT_MS = 40 * 60 * 1000;
   const TERMINAL_WAIT = new Set(['IN_PROGRESS', 'NOT_TRIAGED', 'PENDING', 'QUEUED', 'RUNNING']);
 
   const VERDICTS = {
@@ -215,60 +215,12 @@
       cell.textContent = '—';
     }
 
-    if (btn && !f.aiUnavailable) {
+    if (btn && auth && !f.aiUnavailable) {
       const busy = t?.status === 'IN_PROGRESS';
-      btn.disabled = busy;
+      btn.classList.toggle('is-busy', busy);
       btn.textContent = busy ? 'Triaging…' : hasVerdict(f) ? 'Re-triage' : 'Triage';
     }
     updateBulk();
-  }
-
-  function renderRemediation(f) {
-    const tr = row(f);
-    if (!tr) return;
-    const btn = tr.querySelector('[data-action="remediate"]');
-    const out = tr.querySelector('.fix-cell');
-    const r = f.remediation;
-    out.replaceChildren();
-    if (!r) return;
-
-    if (r.state === 'running') {
-      btn.disabled = true;
-      btn.textContent = 'Remediating…';
-      out.textContent = 'AI Remediation running…';
-      return;
-    }
-    btn.disabled = false;
-    btn.textContent = 'Remediate';
-    if (r.state === 'failed') {
-      out.className = 'fix-cell fix-failed';
-      out.textContent = r.error || 'AI Remediation failed.';
-      return;
-    }
-    out.className = 'fix-cell';
-    const links = [];
-    if (f.url) links.push(link('View fix in Checkmarx One', f.url));
-    if (r.prUrl) links.push(link('Open pull request', r.prUrl));
-    if (r.patch) {
-      const a = link('Download patch', URL.createObjectURL(new Blob([r.patch], { type: 'text/x-diff' })));
-      a.download = `${f.title.replace(/[^\w.-]+/g, '_').slice(0, 60)}.patch`;
-      links.push(a);
-    }
-    if (r.summary) {
-      const p = document.createElement('p');
-      p.textContent = r.summary;
-      out.append(p);
-    }
-    out.append(...links);
-  }
-
-  function link(text, href) {
-    const a = document.createElement('a');
-    a.href = href;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.textContent = text;
-    return a;
   }
 
   const hasVerdict = (f) =>
@@ -280,6 +232,13 @@
 
   function updateBulk() {
     const btn = $('bulk-triage');
+    btn.hidden = !auth;
+    $('bulk-portal').hidden = Boolean(auth);
+    if (!auth) {
+      $('bulk-credits').textContent = '';
+      $('bulk-progress').textContent = '';
+      return;
+    }
     const n = triageCandidates().length;
     const running = findings.filter((f) => f.triage?.status === 'IN_PROGRESS').length;
     btn.disabled = bulkRunning || n === 0;
@@ -289,10 +248,16 @@
   }
 
   function setConnectedUI() {
-    const btn = $('connect');
-    btn.textContent = auth ? `✓ Connected · ${auth.tenant}` : 'Connect to Checkmarx One';
-    btn.classList.toggle('connected', Boolean(auth));
-    $('connect-hint').hidden = Boolean(auth);
+    $('connect').textContent = auth ? `✓ API connected · ${auth.tenant} (disconnect)` : 'Run AI Triage here with an API key';
+    $('connect').classList.toggle('connected', Boolean(auth));
+    for (const f of findings) {
+      const btn = row(f)?.querySelector('[data-action="triage"]');
+      if (btn && !(auth && !f.aiUnavailable)) {
+        btn.classList.remove('is-busy');
+        btn.textContent = 'Triage';
+      }
+    }
+    updateBulk();
   }
 
   // ---------------------------------------------------------------------------
@@ -352,7 +317,6 @@
   }
 
   async function triage(list) {
-    if (!auth) return openConnect();
     const buckets = new Map();
     for (const f of list) {
       const key = `${f.scanId}|${f.scanner}`;
@@ -391,7 +355,7 @@
   }
 
   async function bulkTriage() {
-    if (!auth) return openConnect();
+    if (!auth) return;
     const list = triageCandidates();
     if (!list.length) return;
     if (!confirm(`Run AI Triage on ${list.length} finding(s)? This uses ${list.length} Checkmarx One credit(s).`)) return;
@@ -427,68 +391,6 @@
     const done = eligible.filter((f) => f.triage && !TERMINAL_WAIT.has(f.triage.status)).length;
     log(`Loaded AI Triage results: ${done} of ${eligible.length} eligible findings already triaged.`, 'success');
     if (resumed.length) pollTriage(resumed).catch((error) => log(error.message, 'error'));
-  }
-
-  // ---------------------------------------------------------------------------
-  // AI Remediation
-  // ---------------------------------------------------------------------------
-
-  function remediationFromBody(body) {
-    const r = body?.results?.[0];
-    if (!r) return null;
-    const job = String(r.jobStatus || r.status || '').toUpperCase();
-    if (job === 'FAILED' || r.data?.error) return { state: 'failed', error: r.data?.error || r.error || 'AI Remediation failed.' };
-    const data = r.data;
-    if (!r.finishedAt && !data?.summary && !data?.file_changes?.length) return { state: 'running' };
-    const patch = (data?.file_changes || [])
-      .map((c) => (c.diff ? `# ${c.file_path}\n${c.analysis ? `# ${c.analysis.replace(/\n/g, '\n# ')}\n` : ''}${c.diff}\n` : ''))
-      .join('\n');
-    return {
-      state: 'done',
-      summary: data?.summary || data?.analysis?.what || '',
-      prUrl: r.autoPr?.url || '',
-      patch,
-    };
-  }
-
-  async function remediate(f) {
-    if (!auth) return openConnect();
-    if (!confirm(`Run AI Remediation for "${f.title}"? This uses Checkmarx One credits.`)) return;
-    f.remediation = { state: 'running' };
-    renderRemediation(f);
-    try {
-      await api('/api/remediation/remediate', {
-        method: 'POST',
-        action: 'AI Remediation',
-        body: { scanID: f.scanId, buckets: [{ scannerType: f.scanner.toLowerCase(), resultIDs: [f.alternateId] }] },
-      });
-      log(`AI Remediation started: ${f.title}`, 'pending');
-      const deadline = Date.now() + REMEDIATION_TIMEOUT_MS;
-      while (Date.now() < deadline) {
-        await sleep(POLL_MS * 2);
-        const { status, body } = await api(
-          `/api/remediation/remediation-details/${encodeURIComponent(f.scanId)}/${encodeURIComponent(f.alternateId)}`,
-          { action: 'AI Remediation lookup' },
-        );
-        const result = status === 404 ? null : remediationFromBody(body);
-        if (result && result.state !== 'running') {
-          f.remediation = result;
-          renderRemediation(f);
-          if (result.state === 'done') {
-            log(`AI Remediation ready: ${f.title}`, 'success');
-            if (f.url) window.open(f.url, '_blank', 'noopener');
-          } else {
-            log(`AI Remediation failed for ${f.title}: ${result.error}`, 'error');
-          }
-          return;
-        }
-      }
-      f.remediation = { state: 'failed', error: 'Still running — check the finding in Checkmarx One later.' };
-    } catch (error) {
-      f.remediation = { state: 'failed', error: error.message };
-      log(error.message, 'error');
-    }
-    renderRemediation(f);
   }
 
   // ---------------------------------------------------------------------------
@@ -565,26 +467,22 @@
   // ---------------------------------------------------------------------------
 
   $('connect').addEventListener('click', () => (auth ? confirm('Disconnect from Checkmarx One?') && disconnect() : openConnect()));
-  $('connect-hint-link').addEventListener('click', (event) => {
-    event.preventDefault();
-    openConnect();
-  });
   $('key-form').addEventListener('submit', submitKey);
   $('key-cancel').addEventListener('click', () => $('connect-dialog').close());
   $('bulk-triage').addEventListener('click', bulkTriage);
+  // Triage opens the finding in Checkmarx One Risk Hub, unless an API key is
+  // connected, in which case it runs AI Triage right here.
   $('findings').addEventListener('click', (event) => {
-    const btn = event.target.closest('button[data-action]');
-    if (!btn) return;
+    const btn = event.target.closest('a[data-action="triage"]');
+    if (!btn || !auth) return;
     const f = byKey.get(btn.closest('tr').dataset.key);
-    if (!f) return;
-    if (btn.dataset.action === 'triage') {
-      triage([f]).catch((error) => {
-        banner(error.message);
-        log(error.message, 'error');
-      });
-    } else if (btn.dataset.action === 'remediate') {
-      remediate(f);
-    }
+    if (!f || f.aiUnavailable) return;
+    event.preventDefault();
+    if (btn.classList.contains('is-busy')) return;
+    triage([f]).catch((error) => {
+      banner(error.message);
+      log(error.message, 'error');
+    });
   });
 
   updateBulk();

@@ -2,9 +2,10 @@
  * The interactive HTML report attached to reminder mails.
  *
  * It lists the top findings (worst severity first, then oldest) with their
- * current Checkmarx One state, and lets the reader run Checkmarx One AI
- * Triage and AI Remediation on them. Everything the page does talks to
- * Checkmarx One directly — it never calls back to this server.
+ * current Checkmarx One state. Triage and Remediate open each finding in
+ * Checkmarx One Risk Hub, where the reader signs in with their normal portal
+ * login. Optionally, with an API key, AI Triage runs from the report itself.
+ * Nothing on the page calls back to this server.
  */
 
 import { readFileSync } from 'node:fs';
@@ -97,6 +98,8 @@ export function generateHtmlReport(reportData, options = {}) {
       ? `<span class="brand-name">${escapeHtml(branding.companyName)}</span>`
       : '';
 
+  const portalUrl = safeHttpUrl(projects.find((p) => safeHttpUrl(p.url))?.url) || safeHttpUrl(connection.baseUrl);
+
   const projectLinks = projects
     .map((p) => {
       const url = safeHttpUrl(p.url);
@@ -124,7 +127,10 @@ export function generateHtmlReport(reportData, options = {}) {
         · top ${findings.length} shown (worst severity, then oldest)
         · generated ${escapeHtml(reportData.generatedAt ?? '')} UTC${connection.tenant ? ` · tenant ${escapeHtml(connection.tenant)}` : ''}</p>
     </div>
-    <button id="connect" class="btn btn-light" type="button">Connect to Checkmarx One</button>
+    <div class="signin">
+      ${portalUrl ? `<a id="signin" class="btn btn-light" href="${escapeHtml(portalUrl)}" target="_blank" rel="noopener">Sign in to Checkmarx One</a>` : ''}
+      <button id="connect" class="link-button" type="button">Run AI Triage here with an API key</button>
+    </div>
   </div>
   <div class="counts">
     ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
@@ -138,12 +144,13 @@ export function generateHtmlReport(reportData, options = {}) {
 
   <section class="actions">
     <div>
-      <button id="bulk-triage" class="btn btn-primary" type="button">Triage findings</button>
+      ${portalUrl ? `<a id="bulk-portal" class="btn btn-primary" href="${escapeHtml(portalUrl)}" target="_blank" rel="noopener">Triage in Checkmarx One →</a>` : '<span id="bulk-portal"></span>'}
+      <button id="bulk-triage" class="btn btn-primary" type="button" hidden>Triage findings</button>
       <span id="bulk-credits" class="muted"></span>
       <span id="bulk-progress" class="muted"></span>
     </div>
-    <p id="connect-hint" class="muted">Checkmarx One AI Triage checks whether each finding is reachable and exploitable.
-      <a href="#" id="connect-hint-link">Connect with your API key</a> to run it and to load results already recorded.</p>
+    <p class="muted">Triage and Remediate open the finding in Checkmarx One Risk Hub, where you sign in with your usual
+      username and password and can run AI Triage and AI Remediation on it.</p>
   </section>
 
   <div class="table-wrap">
@@ -210,7 +217,6 @@ function findingRow(finding, client) {
   const location = finding.location && finding.location !== '—' ? escapeHtml(finding.location) : '';
   const state = String(finding.state || '').toUpperCase();
   const stateLabel = STATE_LABELS[state] ?? (state ? state.replace(/_/g, ' ').toLowerCase() : '—');
-  const disabled = client.aiUnavailable ? ` disabled title="${escapeHtml(client.aiUnavailable)}"` : '';
   const age = finding.ageDays === null || finding.ageDays === undefined ? '—' : `${finding.ageDays}d`;
 
   return `<tr data-key="${client.key}">
@@ -221,10 +227,13 @@ function findingRow(finding, client) {
   <td>${age}</td>
   <td>${escapeHtml(stateLabel)}</td>
   <td class="ai-cell">—</td>
-  <td class="actions-cell">
-    <button class="btn btn-small" type="button" data-action="triage"${disabled}>Triage</button>
-    <button class="btn btn-small btn-outline" type="button" data-action="remediate"${disabled}>Remediate</button>
-    <div class="fix-cell"></div>
+  <td class="actions-cell">${
+    url
+      ? `
+    <a class="btn btn-small" data-action="triage" href="${escapeHtml(url)}" target="_blank" rel="noopener">Triage</a>
+    <a class="btn btn-small btn-outline" data-action="remediate" href="${escapeHtml(url)}" target="_blank" rel="noopener">Remediate</a>`
+      : '<span class="sub">No Checkmarx One link</span>'
+  }
   </td>
 </tr>`;
 }
@@ -248,7 +257,11 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px 24px 40px; }
 .btn { font: inherit; font-weight: 600; border: 1px solid transparent; border-radius: 8px; padding: 8px 14px; cursor: pointer; background: var(--accent); color: #fff; text-decoration: none; display: inline-block; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn-light { background: #fff; color: var(--accent); white-space: nowrap; }
-.btn-light.connected { background: #12b76a; color: #fff; }
+.signin { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.link-button { background: none; border: 0; color: #fff; opacity: .85; font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 0; }
+.link-button.connected { opacity: 1; text-decoration: none; font-weight: 600; }
+.btn.is-busy { opacity: .6; pointer-events: none; }
+[hidden] { display: none !important; }
 .btn-outline { background: #fff; color: var(--accent); border-color: var(--line); }
 .btn-small { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
 .muted { color: var(--muted); font-size: 13px; margin-left: 8px; }
@@ -272,9 +285,6 @@ tr:last-child td { border-bottom: 0; }
 .chip-warn { background: #fef0c7; color: #93370d; } .chip-muted { background: #f2f4f7; color: #475467; } .chip-busy { background: #ebe9fe; color: #5925dc; }
 .ai-cell details { font-size: 12px; } .ai-cell summary { cursor: pointer; color: var(--accent); }
 .actions-cell { white-space: nowrap; } .actions-cell .btn + .btn { margin-left: 4px; }
-.fix-cell { white-space: normal; font-size: 12px; margin-top: 6px; max-width: 260px; }
-.fix-cell a { display: block; } .fix-cell p { margin: 0 0 4px; }
-.fix-failed { color: #b42318; }
 .more { margin-top: 16px; } .more p { margin: 0 0 8px; }
 .more-links { display: flex; gap: 8px; flex-wrap: wrap; }
 .activity { margin-top: 16px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; }
@@ -288,7 +298,7 @@ dialog h2 { margin: 0 0 8px; font-size: 18px; } dialog .muted { margin-left: 0; 
 dialog textarea { width: 100%; font: 12px ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 .key-status { color: #b42318; min-height: 1.5em; margin: 6px 0; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
-@media (max-width: 720px) { .top-inner { flex-direction: column; } main { padding: 12px; } }
+@media (max-width: 720px) { .top-inner { flex-direction: column; } .signin { align-items: flex-start; } main { padding: 12px; } }
 `;
 }
 

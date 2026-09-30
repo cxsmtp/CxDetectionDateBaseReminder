@@ -15,8 +15,20 @@ export const DEFAULT_LINK_TEMPLATES = {
   // Blank means "use the API host the API key resolved to", which is also the
   // web UI host on multi-tenant Checkmarx One.
   baseUrl: '',
-  project: '{baseUrl}/projects/{projectId}/overview',
-  risk: '{baseUrl}/results/{scanId}/{projectId}/{engine}?result-id={riskId}',
+  // Risk Hub: the project's risks, where findings are triaged and remediated.
+  project: '{baseUrl}/riskhub/{projectId}',
+  // Opens Risk Hub with the finding's details panel (triage / remediate) open.
+  risk:
+    '{baseUrl}/riskhub/{projectId}' +
+    '?pagination=%7B%22pageSize%22%3A50%2C%22currentPage%22%3A1%7D' +
+    '&grouping=%7B%22groups%22%3A%5B%22severity%22%5D%7D' +
+    '&resultId={riskId}',
+};
+
+/** Earlier defaults, so settings saved with them can move to the current ones. */
+export const PREVIOUS_LINK_DEFAULTS = {
+  project: ['{baseUrl}/projects/{projectId}/overview'],
+  risk: ['{baseUrl}/results/{scanId}/{projectId}/{engine}?result-id={riskId}'],
 };
 
 /** Engine names as the API reports them, mapped to the UI's tab slugs. */
@@ -89,12 +101,13 @@ export function riskUrl(risk, connection, templates = DEFAULT_LINK_TEMPLATES, fa
   const scanId = risk?.scanId || fallbackScanId;
   if (!baseUrl || !risk?.projectId) return '';
 
-  // Without a scan there is no result page to point at; the project overview
-  // is still better than nothing.
-  if (!scanId) return projectUrl({ projectId: risk.projectId }, connection, templates);
+  // A template that routes by scan has nowhere to point without one; the
+  // project page is still better than nothing.
+  const template = templates.risk || DEFAULT_LINK_TEMPLATES.risk;
+  if (!scanId && template.includes('{scanId}')) return projectUrl({ projectId: risk.projectId }, connection, templates);
 
   return safeUrl(
-    fillTemplate(templates.risk || DEFAULT_LINK_TEMPLATES.risk, {
+    fillTemplate(template, {
       baseUrl,
       projectId: risk.projectId,
       scanId,
