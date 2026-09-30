@@ -398,3 +398,7 @@ fieldset { align-content: start; }
 .send-modes .mode { display: flex; align-items: center; gap: 7px; font-size: 13px; white-space: nowrap; }
 .send-modes .check-mode { padding-left: 10px; border-left: 1px solid var(--border); color: var(--muted); }
 .send-modes .mode.disabled { opacity: 0.45; }
+label.inline { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+#credit-usage tfoot th { border-top: 2px solid var(--border); }
+#credit-usage .num { text-align: right; }
+#credit-month { width: auto; }

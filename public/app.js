@@ -131,6 +131,7 @@ function route() {
   if (target === 'settings') {
     renderSettings();
     loadAutomation();
+    loadCredits();
   } else if (target === 'logs') {
     renderLogsPage();
   }
@@ -361,6 +362,8 @@ function renderSettings() {
   $('tpl-subject').value = s.template.subject;
   $('tpl-html').value = s.template.html;
   $('risks-path').value = s.endpoints.risksPath;
+  $('ai-enabled').checked = Boolean(s.aiTriage?.enabled);
+  $('ai-limit').value = String(s.aiTriage?.monthlyCreditLimit ?? 0);
 
   $('verified-state').textContent = s.verified
     ? `Connection test passed ${formatDate(s.verifiedAt)}. Sending is enabled.`
@@ -637,11 +640,79 @@ function settingsPayload() {
       reportServerUrl: $('link-report-server').value,
     },
     endpoints: { risksPath: $('risks-path').value },
+    aiTriage: {
+      enabled: $('ai-enabled').checked,
+      monthlyCreditLimit: Number($('ai-limit').value) || 0,
+    },
   };
   // Only send a password when one was typed, so saving an unrelated field
   // never has to round-trip the stored secret through the browser.
   if ($('smtp-password').value) payload.smtp.password = $('smtp-password').value;
   return payload;
+}
+
+// ---------------------------------------------------------------------------
+// AI Triage credits (live while the Settings page is open)
+// ---------------------------------------------------------------------------
+
+const CREDIT_REFRESH_MS = 15_000;
+let creditTimer = null;
+
+function formatMonth(month) {
+  const [year, m] = month.split('-').map(Number);
+  return new Date(Date.UTC(year, m - 1, 1)).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
+async function loadCredits() {
+  clearTimeout(creditTimer);
+  if ($('page-settings').hidden) return;
+  try {
+    const selected = $('credit-month').value;
+    const data = await api(`/api/credits${selected ? `?month=${encodeURIComponent(selected)}` : ''}`);
+    renderCredits(data);
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    $('credit-usage').innerHTML = `<p class="status error">${escapeHtml(error.message)}</p>`;
+  }
+  creditTimer = setTimeout(loadCredits, CREDIT_REFRESH_MS);
+}
+
+function renderCredits(data) {
+  const select = $('credit-month');
+  const current = select.value || data.month;
+  select.innerHTML = data.months
+    .map((m) => `<option value="${escapeHtml(m)}"${m === current ? ' selected' : ''}>${escapeHtml(formatMonth(m))}</option>`)
+    .join('');
+
+  const limitText = data.monthlyCreditLimit ? `${data.monthlyCreditLimit} per month` : 'no monthly limit';
+  $('credit-state').textContent = data.enabled
+    ? `Allowed · ${limitText}${data.remaining !== null && data.remaining !== undefined ? ` · ${data.remaining} left this month` : ''}`
+    : 'Switched off';
+  $('credit-state').className = `hint ${data.enabled ? 'ok-hint' : ''}`;
+
+  const warning = data.enabled && !data.relayConnected
+    ? '<p class="status error">This server has no stored Checkmarx One connection, so reports cannot triage. Set CX_API_KEY or arm automation below.</p>'
+    : '';
+  if (!data.projects.length) {
+    $('credit-usage').innerHTML = `${warning}<p class="hint">No AI Triage credits used in ${escapeHtml(formatMonth(data.month))}.</p>`;
+    return;
+  }
+  const rows = data.projects
+    .map(
+      (p) => `<tr>
+        <td>${escapeHtml(p.projectName || p.projectId)}</td>
+        <td class="num">${p.credits}</td>
+        <td class="num">${p.requests}</td>
+        <td>${escapeHtml(new Date(p.lastUsedAt).toLocaleString())}</td>
+      </tr>`,
+    )
+    .join('');
+  $('credit-usage').innerHTML = `${warning}
+    <div class="table-wrap"><table class="probe">
+      <thead><tr><th>Project</th><th class="num">Credits</th><th class="num">Requests</th><th>Last used</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><th>Total</th><th class="num">${data.total}</th><th></th><th></th></tr></tfoot>
+    </table></div>`;
 }
 
 async function saveSettings() {
@@ -651,6 +722,7 @@ async function saveSettings() {
     $('smtp-password').value = '';
     renderSettings();
     renderRecipientHint();
+    loadCredits();
     setStatus('save-status', 'Saved.', 'ok');
   } catch (error) {
     if (!handleAuthLoss(error)) showError('save-status', error);
@@ -1514,6 +1586,7 @@ $('auto-reset').addEventListener('click', async () => {
   }
 });
 $('save-recipients').addEventListener('click', saveInlineRecipients);
+$('credit-month').addEventListener('change', loadCredits);
 for (const id of ['brand-name', 'brand-logo', 'brand-height', 'brand-accent']) {
   $(id).addEventListener('input', renderBrandPreview);
 }

@@ -5,12 +5,13 @@ import express from 'express';
 
 import { config, configProblems } from './config.js';
 import { filterProjectsByActivity, listProjects } from './cxone/projects.js';
-import { AGE_BUCKETS, collectProjectRisks, selectRisks } from './cxone/risks.js';
+import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, selectRisks } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
 import { resolveAiIds } from './cxone/ai-assist.js';
 import { mapWithConcurrency } from './cxone/client.js';
 import { ReportGrants } from './report-grants.js';
+import { CreditLedger, monthOf } from './credits.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
@@ -39,6 +40,9 @@ if (process.env.SMTP_HOST) {
   console.log(`[SMTP] Loaded from environment: ${settings.smtp.host}:${settings.smtp.port}`);
 }
 let bootstrapSessionId = null;
+
+const dataDir = path.dirname(config.settingsFile || path.join(process.cwd(), 'data', 'settings.json'));
+const creditLedger = new CreditLedger({ file: path.join(dataDir, 'triage-credits.json') });
 
 const reportGrants = new ReportGrants({
   secret: process.env.REPORT_SIGNING_KEY?.trim() || undefined,
@@ -736,6 +740,8 @@ function grantedFindings(req, res) {
   for (const raw of list) {
     const finding = {
       projectId: String(raw?.projectId ?? ''),
+      projectName: String(raw?.projectName ?? ''),
+      riskId: String(raw?.riskId ?? ''),
       scanId: String(raw?.scanId ?? ''),
       scanner: String(raw?.scanner ?? '').toUpperCase(),
       alternateId: String(raw?.alternateId ?? ''),
@@ -769,11 +775,23 @@ async function relaySession(res) {
   return session;
 }
 
+/** The administrator's switch: AI Triage from reports spends this server's credits. */
+function triageAllowed(res) {
+  if (settingsStore.get().aiTriage?.enabled) return true;
+  res.status(403).json({
+    error: 'AI Triage from reports is switched off. Ask your Checkmarx One reminder administrator to allow it.',
+  });
+  return false;
+}
+
+const creditsRemaining = () => creditLedger.remaining(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0);
+
 app.post(
   '/api/relay/status',
   asyncRoute(async (req, res) => {
+    if (!triageAllowed(res)) return;
     const session = await relaySession(res);
-    if (session) res.json({ connected: true, tenant: session.connection.tenant });
+    if (session) res.json({ connected: true, tenant: session.connection.tenant, creditsRemaining: creditsRemaining() });
   }),
 );
 
@@ -782,6 +800,7 @@ app.post(
   asyncRoute(async (req, res) => {
     const findings = grantedFindings(req, res);
     if (!findings) return;
+    if (!triageAllowed(res)) return;
     const session = await relaySession(res);
     if (!session) return;
 
@@ -793,26 +812,77 @@ app.post(
       buckets.get(key).push(finding);
     }
 
+    const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
     const results = [];
     for (const group of buckets.values()) {
-      const { scanId, scanner } = group[0];
+      const { scanId, scanner, projectId, projectName } = group[0];
       const alternateIds = [...new Set(group.map((f) => f.alternateId))];
+
+      const reservation = creditLedger.reserve(alternateIds.length, limit);
+      if (!reservation) {
+        const left = creditLedger.remaining(limit);
+        results.push({
+          alternateIds,
+          ok: false,
+          status: 402,
+          error:
+            `This month's AI Triage credit limit is reached (${left} of ${limit} left, ${alternateIds.length} needed for ` +
+            `${projectName || projectId}). Ask your administrator to raise it.`,
+        });
+        continue;
+      }
       try {
         const body = await session.client.request('/api/ai-triage/triage', {
           method: 'POST',
           body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
           retries: 1,
         });
-        results.push({ alternateIds, ok: true, published: body?.published !== false });
+        const published = body?.published !== false;
+        // Checkmarx One only starts (and charges for) a new job when published.
+        if (published) creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId });
+        stateCache.delete(projectId);
+        results.push({ alternateIds, ok: true, published });
       } catch (error) {
         results.push({ alternateIds, ok: false, status: error.status ?? 0, error: error.message });
         // No credits or no permission: every further request would fail the same way.
         if (error.status === 402 || error.status === 403) break;
+      } finally {
+        reservation.release();
       }
     }
-    res.json({ results });
+    res.json({ results, creditsRemaining: creditsRemaining() });
   }),
 );
+
+/**
+ * Current Checkmarx One state (To verify, Confirmed, Proposed not
+ * exploitable, ...) of every risk in a project, by risk id — the same state
+ * Risk Hub shows. AI Triage's own record can lag it (still "To verify" after
+ * the risk has settled) or be missing for a finding it changed, so the
+ * report shows this. Cached briefly because every report poll asks.
+ */
+const STATE_CACHE_MS = 20_000;
+const stateCache = new Map();
+
+async function projectStates(session, projectId) {
+  const cached = stateCache.get(projectId);
+  if (cached && Date.now() - cached.at < STATE_CACHE_MS) return cached.states;
+  const cfg = activeConfig();
+  const project = { id: projectId, name: '' };
+  const source = createRiskSource(session.client, cfg);
+  if (source.prime) await source.prime([project]);
+  const states = new Map();
+  for (const raw of await source.fetchForProject(project)) {
+    const risk = normalizeRisk(raw, project);
+    if (risk.state) {
+      states.set(risk.riskId, risk.state);
+      if (risk.alternateId) states.set(risk.alternateId, risk.state);
+    }
+  }
+  stateCache.set(projectId, { at: Date.now(), states });
+  if (stateCache.size > 500) stateCache.delete(stateCache.keys().next().value);
+  return states;
+}
 
 app.post(
   '/api/relay/triage-results',
@@ -822,21 +892,46 @@ app.post(
     const session = await relaySession(res);
     if (!session) return;
 
+    const statesByProject = new Map();
+    await mapWithConcurrency([...new Set(findings.map((f) => f.projectId))], 3, async (projectId) => {
+      try {
+        statesByProject.set(projectId, await projectStates(session, projectId));
+      } catch (error) {
+        console.warn(`[relay] could not read risk states for project ${projectId}: ${error.message}`);
+      }
+    });
+
     const results = await mapWithConcurrency(findings, 4, async (finding) => {
+      const states = statesByProject.get(finding.projectId);
+      const state = states?.get(finding.riskId) ?? states?.get(finding.alternateId) ?? '';
       try {
         const body = await session.client.request(
           `/api/ai-triage/triage/${encodeURIComponent(finding.projectId)}/${encodeURIComponent(finding.groupId)}`,
           { retries: 1 },
         );
-        return { found: true, body };
+        return { found: true, body, state };
       } catch (error) {
-        if (error.status === 404) return { found: false };
-        return { found: false, status: error.status ?? 0, error: error.message };
+        if (error.status === 404) return { found: false, state };
+        return { found: false, state, status: error.status ?? 0, error: error.message };
       }
     });
     res.json({ results });
   }),
 );
+
+// Administrator view of AI Triage credits used from reports.
+app.get('/api/credits', requireSession, (req, res) => {
+  const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
+  const { aiTriage } = settingsStore.get();
+  res.json({
+    ...creditLedger.summary(month),
+    months: [...new Set([monthOf(), ...creditLedger.months()])],
+    enabled: Boolean(aiTriage?.enabled),
+    monthlyCreditLimit: aiTriage?.monthlyCreditLimit ?? 0,
+    remaining: month === monthOf() ? creditsRemaining() : null,
+    relayConnected: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId) ?? settingsStore.get().automationApiKey),
+  });
+});
 
 /**
  * Build the interactive HTML report for a set of findings. The top findings

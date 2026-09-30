@@ -14,7 +14,7 @@ import path from 'node:path';
 
 export const GRANT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-const FIELDS = ['projectId', 'scanId', 'scanner', 'alternateId', 'groupId'];
+const FIELDS = ['projectId', 'projectName', 'riskId', 'scanId', 'scanner', 'alternateId', 'groupId'];
 
 /** A key that survives restarts, so reports stay usable until they expire. */
 function loadOrCreateKey(file) {

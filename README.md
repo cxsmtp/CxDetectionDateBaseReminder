@@ -192,29 +192,33 @@ The panel states plainly which of the three situations you are in.
 
 The report attached to reminder mails lists the top 50 findings with their
 Checkmarx One state. **Remediate** opens the finding in Risk Hub. **Triage**,
-**Triage all critical** and **Triage all high** run Checkmarx One AI Triage and
-show the verdict in the report; the "all" buttons cover every critical or high
-finding in the report, across all of its projects.
+**Triage all critical** and **Triage all high** run Checkmarx One AI Triage; the
+"all" buttons cover every critical or high finding in the report, across all of
+its projects, and skip findings already triaged in Checkmarx One.
 
-Checkmarx One refuses API calls from a page opened as a file, so *Connect to
-CxONE for action* offers two ways to connect:
+Checkmarx One refuses API calls from a page opened as a file, so the report
+goes through this server: **Connect to CxONE for action** connects to it, and it
+runs AI Triage on its own stored Checkmarx One connection (`CX_API_KEY`, or the
+key armed for automation). Readers need no key and nothing to install; Checkmarx
+One records the triage under the server's account.
 
-| | Through the reminder server | Direct to Checkmarx One |
-| --- | --- | --- |
-| Reader needs | nothing | the [Report Connector extension](extension/README.md) |
-| Signs in with | — | their Checkmarx One username/password (or SSO), or an API key |
-| Triage recorded as | the server's account | the reader |
-| Needs the server reachable | yes | no |
-
-**Through the reminder server.** The report calls this server, which runs AI
-Triage with its own stored connection (`CX_API_KEY`, or the key armed for
-automation). Each finding in a report carries a signed grant, valid for 30 days,
-and the relay acts only on findings with a valid grant, so the server cannot be
-used to triage anything a report did not list. Set **Settings → Reminder server
-address for reports** to an address recipients can reach (use HTTPS). The
-signing key is kept in `data/report-signing.key`, or set `REPORT_SIGNING_KEY`.
-
-**Direct.** See [extension/README.md](extension/README.md).
+- **Administrator control.** Nothing runs until **Settings → AI Triage from
+  reports → Allow** is switched on. An optional **monthly credit limit** is
+  enforced before each request (concurrent requests cannot overrun it together).
+- **Live usage.** The same panel lists the credits used per project for any
+  month, refreshing every 15 seconds while it is open. This is the utility's own
+  count — one credit per finding in each request Checkmarx One accepted as a new
+  job — kept in `data/triage-credits.json`; it is not Checkmarx One's billing.
+- **Results.** The report shows AI Triage's verdict and each finding's live
+  Checkmarx One state — the one Risk Hub shows — which is what settles when AI
+  Triage finishes (its own record can lag behind, or be missing for grouped SAST
+  findings).
+- **Reachability.** Set **Settings → Reminder server address for reports** to an
+  address recipients' browsers can reach (use HTTPS).
+- **Scope.** Each finding in a report carries a signed grant, valid for 30 days;
+  the server acts only on findings with a valid grant, so it cannot be used to
+  triage anything a report did not list. The signing key is kept in
+  `data/report-signing.key`, or set `REPORT_SIGNING_KEY`.
 
 ## Links into Checkmarx One
 

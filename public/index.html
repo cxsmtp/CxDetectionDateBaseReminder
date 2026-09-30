@@ -453,6 +453,33 @@
         </section>
 
         <section class="panel">
+          <div class="panel-head">
+            <h2>AI Triage from reports</h2>
+            <span class="hint" id="credit-state"></span>
+          </div>
+          <p class="hint">
+            Readers of the emailed report can run Checkmarx One AI Triage through this server, on its own
+            Checkmarx One connection. Each triaged finding uses one Checkmarx One credit, so nothing runs
+            until you allow it here.
+          </p>
+          <label class="check"><input type="checkbox" id="ai-enabled" /> Allow AI Triage from reports (uses Checkmarx One credits)</label>
+          <label class="field">
+            <span>Monthly credit limit — 0 for no limit</span>
+            <input id="ai-limit" type="number" min="0" step="1" inputmode="numeric" />
+          </label>
+
+          <div class="panel-head">
+            <h3>Credits used</h3>
+            <label class="inline">Month <select id="credit-month"></select></label>
+          </div>
+          <div id="credit-usage"><p class="hint">Loading…</p></div>
+          <p class="hint">
+            Counted by this server: one credit per finding in each AI Triage request Checkmarx One accepted as a
+            new job. Updates every 15 seconds while this page is open.
+          </p>
+        </section>
+
+        <section class="panel">
           <h2>Risks endpoint</h2>
           <p class="hint">
             Defaults to <code>/api/risks/</code>. <strong>Detect</strong> probes the known paths

@@ -3,9 +3,9 @@
  *
  * It lists the top findings (worst severity first, then oldest) with their
  * current Checkmarx One state. Remediate opens the finding in Checkmarx One
- * Risk Hub. Triage runs Checkmarx One AI Triage from the report, either
- * through this server's relay (signed grants, see report-grants.js) or
- * directly through the Report Connector browser extension (see extension/).
+ * Risk Hub. Triage runs Checkmarx One AI Triage from the report through this
+ * server's relay, which uses the server's own connection and acts only on
+ * findings carrying a signed grant (see report-grants.js).
  */
 
 import { readFileSync } from 'node:fs';
@@ -88,6 +88,9 @@ export function generateHtmlReport(reportData, options = {}) {
       severity: String(f.severity || '').toUpperCase(),
       title: String(f.title ?? ''),
       projectId: String(f.projectId ?? ''),
+      projectName: String(f.projectName ?? ''),
+      riskId: String(f.riskId ?? f.id ?? ''),
+      state: String(f.state || '').toUpperCase(),
       scanId: String(f.scanId || ''),
       scanner: String(f.scanner || '').toUpperCase(),
       alternateId: String(f.alternateId || ''),
@@ -145,7 +148,7 @@ export function generateHtmlReport(reportData, options = {}) {
         · top ${findings.length} shown (worst severity, then oldest)
         · generated ${escapeHtml(reportData.generatedAt ?? '')} UTC${connection.tenant ? ` · tenant ${escapeHtml(connection.tenant)}` : ''}</p>
     </div>
-    <button id="connect" class="btn btn-light" type="button">Connect to CxONE for action</button>
+    <button id="connect" class="btn btn-light" type="button"${relayUrl ? '' : ' disabled title="This report was generated without a reminder server address."'}>Connect to CxONE for action</button>
   </div>
   <div class="counts">
     ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
@@ -168,13 +171,14 @@ export function generateHtmlReport(reportData, options = {}) {
       <span id="bulk-progress" class="muted"></span>
     </div>
     <p class="muted">Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or
-      high finding in this report, across all its projects. Remediate opens the finding in Checkmarx One Risk Hub.</p>
+      high finding in this report, across all its projects. Remediate opens the finding in Checkmarx One Risk Hub.
+      ${relayUrl ? `Triage goes through your reminder server (${escapeHtml(new URL(relayUrl).host)}), which must be reachable from this computer.` : ''}</p>
   </section>
 
   <div class="table-wrap">
     <table id="findings">
       <thead>
-        <tr><th>Severity</th><th>Finding</th><th>Engine</th><th>Age</th><th title="As of when this report was generated">State</th><th>AI Triage</th><th>Actions</th></tr>
+        <tr><th>Severity</th><th>Finding</th><th>Engine</th><th>Age</th><th title="Checkmarx One state — updates once connected">State</th><th title="AI Triage verdict, or the finding\'s Checkmarx One state once triaged">Triage result</th><th>Actions</th></tr>
       </thead>
       <tbody>
 ${findings.map((f, index) => findingRow(f, clientFindings[index])).join('\n')}
@@ -192,33 +196,6 @@ ${findings.map((f, index) => findingRow(f, clientFindings[index])).join('\n')}
     <ul id="activity-list"></ul>
   </details>
 </main>
-
-<dialog id="connect-dialog">
-  <h2>Connect to Checkmarx One</h2>
-  <section class="option">
-    <h3>Sign in to Checkmarx One</h3>
-    <p class="muted">Opens the Checkmarx One sign-in page. Once you have signed in it closes by itself and this report is
-      connected as you.</p>
-    <p id="connector-status" class="muted"></p>
-    <button id="direct-connect" class="btn btn-primary" type="button">Sign in to Checkmarx One</button>
-    <details class="key-option">
-      <summary>Use an API key instead</summary>
-      <form id="key-form">
-        <textarea id="key-input" rows="3" spellcheck="false" autocomplete="off" placeholder="eyJhbGciOi…"></textarea>
-        <button id="key-submit" class="btn btn-outline" type="submit">Connect with API key</button>
-      </form>
-    </details>
-  </section>
-  ${relayUrl ? `<section class="option">
-    <h3>Through the reminder server</h3>
-    <p class="muted">No sign-in or extension needed: uses the reminder server's Checkmarx One connection
-      (${escapeHtml(new URL(relayUrl).host)}). Triage is recorded under the server's account.</p>
-    <button id="relay-connect" class="btn btn-outline" type="button">Connect through the reminder server</button>
-  </section>` : ''}
-  <p id="connect-status" class="key-status" role="status"></p>
-  <div class="dialog-actions"><button id="connect-cancel" class="btn btn-outline" type="button">Cancel</button></div>
-</dialog>
-
 <script type="application/json" id="report-data">${jsonForScript(payload)}</script>
 <script>${CLIENT_SCRIPT.replace(/<\/script/gi, '<\\/script')}</script>
 </body>
@@ -254,7 +231,7 @@ function findingRow(finding, client) {
     <div class="sub">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</div></td>
   <td>${escapeHtml(finding.scanner || '—')}</td>
   <td>${age}</td>
-  <td>${escapeHtml(stateLabel)}</td>
+  <td class="state-cell">${escapeHtml(stateLabel)}</td>
   <td class="ai-cell">—</td>
   <td class="actions-cell">
     <button class="btn btn-small" type="button" data-action="triage"${client.aiUnavailable ? ` disabled title="${escapeHtml(client.aiUnavailable)}"` : ''}>Triage</button>
@@ -283,13 +260,6 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px 24px 40px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn-light { background: #fff; color: var(--accent); white-space: nowrap; }
 .btn-light.connected { background: #12b76a; color: #fff; }
-.option { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
-.option h3 { margin: 0 0 4px; font-size: 15px; }
-.option p { margin: 0 0 10px; }
-.ok { color: #067647; font-size: 13px; }
-.key-option { margin-top: 10px; font-size: 13px; }
-.key-option summary { cursor: pointer; color: var(--accent); }
-.key-option textarea { margin: 8px 0; }
 [hidden] { display: none !important; }
 .btn-outline { background: #fff; color: var(--accent); border-color: var(--line); }
 .btn-small { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
@@ -322,12 +292,6 @@ tr:last-child td { border-bottom: 0; }
 .activity ul { list-style: none; padding: 0; margin: 8px 0 0; font-size: 13px; max-height: 260px; overflow: auto; }
 .activity li { padding: 3px 0; border-top: 1px solid var(--line); } .activity time { color: var(--muted); margin-right: 6px; }
 .log-error { color: #b42318; } .log-success { color: #067647; }
-dialog { border: 0; border-radius: 12px; padding: 24px; width: min(520px, 92vw); box-shadow: 0 20px 50px rgba(16,24,40,.25); }
-dialog::backdrop { background: rgba(16,24,40,.45); }
-dialog h2 { margin: 0 0 8px; font-size: 18px; } dialog .muted { margin-left: 0; }
-dialog textarea { width: 100%; font: 12px ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
-.key-status { color: #b42318; min-height: 1.5em; margin: 6px 0; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 @media (max-width: 720px) { .top-inner { flex-direction: column; } main { padding: 12px; } }
 `;
 }
