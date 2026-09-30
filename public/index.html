@@ -227,72 +227,77 @@
             </section>
 
             <div class="split">
-              <section class="panel">
+              <section class="panel people">
                 <div class="panel-head">
-                  <h2>Scan initiators</h2>
-                  <span class="hint" id="initiator-summary">Fetch data to list initiators.</span>
+                  <div>
+                    <h2>Scan initiators</h2>
+                    <p class="hint" id="initiator-summary">Fetch data to list initiators.</p>
+                  </div>
+                  <div class="people-stats" id="people-stats"></div>
                 </div>
                 <p class="resolved-note" id="initiator-resolved" hidden></p>
-                <div class="initiator-actions" id="initiator-actions">
-                  <button id="init-all" type="button" class="sm">Select all</button>
-                  <button id="init-none" type="button" class="sm">Clear</button>
-                  <button id="init-unresolved" type="button" class="sm">Only those missing an email</button>
+                <div class="people-toolbar" id="initiator-actions">
+                  <input type="search" id="initiator-search" placeholder="Search people or emails…" aria-label="Search people" />
+                  <div class="segmented" role="radiogroup" aria-label="Show">
+                    <label class="mode"><input type="radio" name="initiatorView" value="all" checked /> <span>All</span></label>
+                    <label class="mode"><input type="radio" name="initiatorView" value="selected" /> <span>Selected</span></label>
+                    <label class="mode"><input type="radio" name="initiatorView" value="missing" /> <span>Missing email</span></label>
+                  </div>
+                  <div class="people-bulk">
+                    <button id="init-all" type="button" class="sm ghost">Select all</button>
+                    <button id="init-none" type="button" class="sm ghost">Clear</button>
+                    <button id="init-unresolved" type="button" class="sm ghost">Pick missing</button>
+                  </div>
                 </div>
-                <div id="initiator-list" class="initiator-list"></div>
+                <div id="initiator-list" class="people-list" role="list"></div>
               </section>
 
-              <div class="stack">
-                <section class="panel">
-                  <div class="panel-head">
-                    <h2>Send reminder</h2>
-                    <span class="hint" id="groupby-hint"></span>
-                  </div>
+              <section class="panel composer">
+                <div class="panel-head">
+                  <h2>Send reminder</h2>
+                  <span class="chip" id="audience-chip"></span>
+                </div>
 
-                  <div class="option-group">
-                    <div class="label-sm">Send to</div>
-                    <div class="segmented send-modes">
-                      <label class="mode"><input type="radio" name="sendTo" value="list" checked /> <span>Recipient list</span></label>
-                      <label class="mode"><input type="radio" name="sendTo" value="initiator" /> <span>Initiators</span></label>
-                      <label class="mode"><input type="radio" name="sendTo" value="both" /> <span>Both</span></label>
-                    </div>
+                <div class="composer-row">
+                  <span class="label-sm">Send to</span>
+                  <div class="segmented send-modes">
+                    <label class="mode"><input type="radio" name="sendTo" value="list" checked /> <span>Recipient list</span></label>
+                    <label class="mode"><input type="radio" name="sendTo" value="initiator" /> <span>Scan initiators</span></label>
+                    <label class="mode"><input type="radio" name="sendTo" value="both" /> <span>Both</span></label>
                   </div>
+                </div>
+                <div class="composer-row">
+                  <span class="label-sm">Format</span>
+                  <div class="segmented send-modes">
+                    <label class="mode"><input type="radio" name="emailContent" value="summary" checked /> <span>One summary</span></label>
+                    <label class="mode"><input type="radio" name="emailContent" value="per-project" /> <span>One per project</span></label>
+                  </div>
+                </div>
+                <div class="toggle-list compact">
+                  <label class="switch"><input type="checkbox" id="attach-html-report" checked /> <span><strong>Attach the interactive HTML report</strong><small>Readers can triage and remediate straight from it</small></span></label>
+                </div>
+                <p class="hint wide" id="groupby-hint"></p>
 
-                  <div class="option-group">
-                    <div class="label-sm">Email content</div>
-                    <div class="segmented send-modes">
-                      <label class="mode"><input type="radio" name="emailContent" value="summary" checked /> <span>One summary</span></label>
-                      <label class="mode"><input type="radio" name="emailContent" value="per-project" /> <span>One per project</span></label>
-                    </div>
-                    <label class="check check-mode">
-                      <input type="checkbox" id="attach-html-report" checked />
-                      Attach the interactive HTML report (triage &amp; remediation)
-                    </label>
-                  </div>
-
-                  <div class="actions">
-                    <button id="preview">Preview email</button>
-                    <button id="send" class="primary">Send reminder</button>
-                    <button id="preview-html" class="secondary" hidden>Preview report</button>
-                    <button id="download-html" class="secondary" hidden>Download HTML</button>
-                    <span id="status" class="status"></span>
-                  </div>
-                </section>
-
-                <section class="panel">
-                  <div class="panel-head">
-                    <h2>Recipient list</h2>
-                    <span class="hint" id="recipients-hint">Loading…</span>
-                  </div>
+                <details class="disclosure recipients" id="recipients-box">
+                  <summary>Recipient list <span class="hint inline-hint" id="recipients-hint">Loading…</span></summary>
                   <div class="grid3" id="inline-recipients">
-                    <label class="field"><span>To</span><textarea id="send-to" rows="2" spellcheck="false"></textarea></label>
-                    <label class="field"><span>Cc</span><textarea id="send-cc" rows="2" spellcheck="false"></textarea></label>
-                    <label class="field"><span>Bcc</span><textarea id="send-bcc" rows="2" spellcheck="false"></textarea></label>
+                    <label class="field"><span>To</span><textarea id="send-to" rows="1" spellcheck="false" placeholder="lead@company.com"></textarea></label>
+                    <label class="field"><span>Cc</span><textarea id="send-cc" rows="1" spellcheck="false"></textarea></label>
+                    <label class="field"><span>Bcc</span><textarea id="send-bcc" rows="1" spellcheck="false"></textarea></label>
                   </div>
-                  <div class="actions compact">
-                    <button id="save-recipients" type="button">Save list</button>
+                  <button id="save-recipients" type="button" class="sm">Save list</button>
+                </details>
+
+                <div class="composer-actions">
+                  <div class="composer-secondary">
+                    <button id="preview" class="sm">Preview email</button>
+                    <button id="preview-html" class="sm" hidden>Preview report</button>
+                    <button id="download-html" class="sm" hidden>Download HTML</button>
                   </div>
-                </section>
-              </div>
+                  <button id="send" class="primary big">Send reminder</button>
+                </div>
+                <span id="status" class="status"></span>
+              </section>
             </div>
 
             <section class="panel" id="preview-panel" hidden>

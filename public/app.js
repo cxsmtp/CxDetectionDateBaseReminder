@@ -953,22 +953,14 @@ function renderRecipientHint() {
   // Build hint text
   let hint = '';
   if (sendTo === 'list') {
-    hint = 'Send to recipient list only. ';
+    hint = 'The recipient list gets ';
   } else if (sendTo === 'initiator') {
-    hint = 'Send to each scan initiator. ';
+    hint = 'Each scan initiator gets ';
   } else {
-    hint = 'Send to both initiators and recipient list. ';
+    hint = 'Each scan initiator and the recipient list get ';
   }
-
-  if (emailContent === 'summary') {
-    hint += 'One email per recipient with summary of all projects.';
-  } else {
-    hint += 'One email per project per recipient.';
-  }
-
-  if (attachHtml) {
-    hint += ' HTML report attached for interactive triage/remediation.';
-  }
+  hint += emailContent === 'summary' ? 'one email covering all their projects' : 'one email per project';
+  hint += attachHtml ? ', with the interactive report attached.' : '.';
 
   if ($('groupby-hint')) {
     $('groupby-hint').textContent = hint;
@@ -979,6 +971,16 @@ function renderRecipientHint() {
   if ($('inline-recipients')) {
     $('inline-recipients').style.opacity = listUsed ? '1' : '0.5';
   }
+  // Open the list when it is used but still empty, so the gap is obvious.
+  if (listUsed && total === 0 && $('recipients-box')) $('recipients-box').open = true;
+
+  // Who this reminder reaches, at a glance.
+  const reachable = (state.initiators ?? []).filter((e) => e.email);
+  const people = state.pickedInitiators.size || reachable.length;
+  const parts = [];
+  if (sendTo !== 'list' && state.initiators?.length) parts.push(`${people} ${people === 1 ? 'person' : 'people'}`);
+  if (listUsed) parts.push(`${total} list address${total === 1 ? '' : 'es'}`);
+  $('audience-chip').textContent = parts.join(' + ');
 
   if (!s.verified) {
     el.textContent = 'SMTP has not passed a connection test — sending is disabled.';
@@ -1131,14 +1133,37 @@ function collectInitiators() {
   }
 }
 
+const VIA_LABELS = {
+  scan: 'From scan',
+  username: 'Username',
+  override: 'Saved',
+  directory: 'Directory',
+  'default-domain': 'Domain rule',
+  remembered: 'Remembered',
+  github: 'GitHub',
+};
+
+/** Two letters and a stable colour per person. */
+function avatar(name) {
+  const clean = String(name || '?').replace(/@.*$/, '').replace(/^cx-/i, '');
+  const parts = clean.split(/[\s._-]+/).filter(Boolean);
+  const letters = ((parts[0]?.[0] ?? '?') + (parts[1]?.[0] ?? parts[0]?.[1] ?? '')).toUpperCase();
+  let hash = 0;
+  for (const ch of clean) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return `<span class="avatar" style="--hue:${hash % 360}" aria-hidden="true">${escapeHtml(letters)}</span>`;
+}
+
 function renderInitiatorList() {
+  queueMicrotask(renderRecipientHint);
   const list = $('initiator-list');
   const note = $('initiator-resolved');
   const actions = $('initiator-actions');
+  const stats = $('people-stats');
 
   if (state.initiators.length === 0) {
     list.innerHTML = '<p class="hint">No scan initiator was recorded for any project in these results.</p>';
     $('initiator-summary').textContent = 'None found.';
+    stats.innerHTML = '';
     note.hidden = true;
     actions.hidden = true;
     return;
@@ -1152,22 +1177,29 @@ function renderInitiatorList() {
 
   const needsAttention = state.initiators.filter((entry) => !entry.email && inScope(entry));
   const picked = state.pickedInitiators.size;
+  const withEmail = state.initiators.filter((e) => e.email).length;
   const allResolved = needsAttention.length === 0;
 
-  // Nothing to do and nothing chosen: the list is just noise, so collapse it
-  // to one line. It still opens on demand, because the rows double as the
-  // filter for who a reminder goes to.
+  stats.innerHTML = `
+    <span class="stat"><b>${state.initiators.length}</b> people</span>
+    <span class="stat ok"><b>${withEmail}</b> reachable</span>
+    ${needsAttention.length ? `<span class="stat bad"><b>${needsAttention.length}</b> missing</span>` : ''}`;
+
+  // Nothing to do and nothing chosen: collapse to one line. It still opens on
+  // demand, because the rows double as the filter for who a reminder goes to.
   const collapsed = allResolved && picked === 0 && !state.showAllInitiators;
 
   note.hidden = !collapsed;
   actions.hidden = collapsed;
   list.hidden = collapsed;
+  $('initiator-summary').textContent = picked
+    ? `Reminders go only to the ${picked} selected ${picked === 1 ? 'person' : 'people'}.`
+    : 'Nobody selected: reminders go to everyone in the results.';
 
   if (collapsed) {
     note.innerHTML =
-      `All <strong>${state.initiators.length}</strong> scan initiator(s) have an email address — nothing needs your attention. ` +
-      '<button type="button" class="link" id="show-initiators">Show the list</button> to send to only some of them.';
-    $('initiator-summary').textContent = `${state.initiators.length} resolved`;
+      '<span class="ok-dot"></span> Everyone has an email address — nothing needs your attention. ' +
+      '<button type="button" class="link" id="show-initiators">Choose people</button>';
     $('show-initiators').addEventListener('click', () => {
       state.showAllInitiators = true;
       renderInitiatorList();
@@ -1175,64 +1207,69 @@ function renderInitiatorList() {
     return;
   }
 
-  // Once open, unresolved rows come first: those are the ones blocking a send.
-  const rows = [
-    ...needsAttention,
-    ...state.initiators.filter((entry) => !needsAttention.includes(entry)),
-  ];
+  // Unresolved rows come first: those are the ones blocking a send.
+  const query = (state.initiatorQuery || '').trim().toLowerCase();
+  const view = state.initiatorView || 'all';
+  const rows = [...needsAttention, ...state.initiators.filter((entry) => !needsAttention.includes(entry))].filter((entry) => {
+    if (view === 'selected' && !state.pickedInitiators.has(entry.key)) return false;
+    if (view === 'missing' && entry.email) return false;
+    if (query && !`${entry.initiator} ${entry.email} ${entry.suggestion}`.toLowerCase().includes(query)) return false;
+    return true;
+  });
+
+  if (!rows.length) {
+    list.innerHTML = `<p class="hint people-empty">${query ? 'Nobody matches that search.' : view === 'selected' ? 'Nobody is selected.' : 'Nobody is missing an email.'}</p>`;
+    return;
+  }
 
   list.innerHTML = rows
     .map((entry) => {
       const isPicked = state.pickedInitiators.has(entry.key);
       const id = `init-${encodeURIComponent(entry.key)}`;
       const needed = !entry.email && inScope(entry);
-
+      const name = entry.initiator || entry.email;
+      const status = entry.email
+        ? `<span class="badge">${escapeHtml(VIA_LABELS[entry.via] || 'Resolved')}</span>`
+        : entry.suggestion
+          ? '<span class="badge warn">Suggested</span>'
+          : needed
+            ? '<span class="badge bad">No email</span>'
+            : '<span class="badge muted">Not needed</span>';
+      const mail = entry.email ? (entry.email !== name ? escapeHtml(entry.email) : '') : 'No address yet';
       return `
-      <div class="initiator-row ${isPicked ? 'picked' : ''} ${
-        entry.email ? '' : needed ? 'missing' : 'dimmed'
-      }">
-        <input type="checkbox" id="${escapeHtml(id)}" data-pick="${escapeHtml(entry.key)}" ${isPicked ? 'checked' : ''} />
-        <div class="initiator-body">
-          <label class="initiator-name" for="${escapeHtml(id)}">${escapeHtml(entry.initiator || entry.email)}</label>
-          <span class="initiator-meta">${entry.projects} project(s) · ${entry.risks} finding(s)</span>
-          ${renderInitiatorAddress(entry, needed)}
-        </div>
+      <div class="person ${isPicked ? 'picked' : ''} ${entry.email ? '' : needed ? 'missing' : 'dimmed'}" role="listitem">
+        <input type="checkbox" id="${escapeHtml(id)}" data-pick="${escapeHtml(entry.key)}" ${isPicked ? 'checked' : ''} aria-label="Select ${escapeHtml(name)}" />
+        <label class="person-main" for="${escapeHtml(id)}">
+          ${avatar(name)}
+          <span class="person-text">
+            <span class="person-name">${escapeHtml(name)}</span>
+            ${mail ? `<span class="person-mail">${mail}</span>` : ''}
+          </span>
+        </label>
+        ${status}
+        <span class="person-count" title="${entry.projects} project(s)"><b>${entry.risks.toLocaleString()}</b><small>${entry.projects === 1 ? '1 project' : `${entry.projects} projects`}</small></span>
+        ${entry.email ? '' : `<div class="person-fix">${renderInitiatorAddress(entry, needed)}</div>`}
       </div>`;
     })
     .join('');
-
-  const suggested = rows.filter((entry) => !entry.email && entry.suggestion).length;
-  const missing = rows.filter((entry) => !entry.email && !entry.suggestion).length;
-
-  $('initiator-summary').textContent =
-    `${rows.length} initiator(s)` +
-    (picked ? ` · ${picked} selected` : ' · none selected (all included)') +
-    (suggested ? ` · ${suggested} suggested, confirm below` : '') +
-    (missing ? ` · ${missing} need an address` : '');
 }
 
-/** The address line for one initiator: known, suggested, or missing. */
+/** How to fix a missing address: confirm a suggestion or type one. */
 function renderInitiatorAddress(entry, needed) {
-  if (entry.email) return `<span class="initiator-mail">${escapeHtml(entry.email)}</span>`;
-
+  if (entry.email) return '';
   if (entry.suggestion) {
-    const label = entry.confidence === 'likely' ? 'Matched from your tenant\'s naming pattern' : 'Best guess';
+    const label = entry.confidence === 'likely' ? "Matches your tenant's naming pattern" : 'Best guess';
     return `
-      <span class="initiator-meta suggested">${escapeHtml(label)} — confirm to use it:</span>
       <div class="tag-row">
-        <input type="email" value="${escapeHtml(entry.suggestion)}" data-tag-for="${escapeHtml(entry.key)}" />
+        <input type="email" value="${escapeHtml(entry.suggestion)}" data-tag-for="${escapeHtml(entry.key)}" aria-label="Email for ${escapeHtml(entry.initiator)}" />
         <button type="button" class="primary" data-tag-save="${escapeHtml(entry.key)}">Confirm</button>
-      </div>`;
+      </div>
+      <span class="initiator-meta suggested">${escapeHtml(label)} — confirm to use it</span>`;
   }
-
-  if (!needed) {
-    return '<span class="initiator-meta">No email — not needed for the current selection.</span>';
-  }
-
+  if (!needed) return '';
   return `
-    <span class="initiator-meta error-hint">No email found — enter one:</span>
     <div class="tag-row">
-      <input type="email" placeholder="name@example.com" data-tag-for="${escapeHtml(entry.key)}" />
+      <input type="email" placeholder="name@company.com" data-tag-for="${escapeHtml(entry.key)}" aria-label="Email for ${escapeHtml(entry.initiator)}" />
       <button type="button" data-tag-save="${escapeHtml(entry.key)}">Save</button>
     </div>`;
 }
@@ -2433,6 +2470,17 @@ $('initiator-list').addEventListener('keydown', (event) => {
     tagInitiator(key);
   }
 });
+
+$('initiator-search').addEventListener('input', () => {
+  state.initiatorQuery = $('initiator-search').value;
+  renderInitiatorList();
+});
+for (const radio of document.querySelectorAll('input[name="initiatorView"]')) {
+  radio.addEventListener('change', () => {
+    state.initiatorView = radio.value;
+    renderInitiatorList();
+  });
+}
 
 $('init-all').addEventListener('click', () => {
   for (const entry of state.initiators) state.pickedInitiators.add(entry.key);
