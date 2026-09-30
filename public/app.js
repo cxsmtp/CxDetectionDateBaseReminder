@@ -1783,7 +1783,7 @@ function renderAllocation() {
   $('alloc-scope').textContent = `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'}`;
   const remediate = scope.reduce((sum, p) => sum + (p.credits?.toRemediate ?? 0), 0);
   $('alloc-needed').textContent = severities.length
-    ? `= ${needed} finding${needed === 1 ? '' : 's'} to triage (${needed} credit${needed === 1 ? '' : 's'}) · ${remediate} confirmed to remediate (${remediate * 3} credits)`
+    ? `${needed} finding${needed === 1 ? '' : 's'} to triage (${needed} credit${needed === 1 ? '' : 's'}) · ${remediate} confirmed to remediate (${remediate * 3} credits)`
     : 'No severities: only extra credits are allocated';
   $('run-triage').disabled = !severities.length || !scope.length || needed === 0;
 }

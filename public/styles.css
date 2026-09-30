@@ -444,3 +444,13 @@ td.credits .low { color: var(--danger); }
 .alloc-table td .hint { margin: 2px 0 0; font-size: 12px; }
 .use-bar { height: 4px; border-radius: 2px; background: var(--border); margin-top: 3px; min-width: 40px; overflow: hidden; }
 .use-bar span { display: block; height: 100%; background: var(--accent); }
+.hint.wide { max-width: none; margin-bottom: 4px; }
+.hint.inline-hint { display: inline; margin: 0; }
+.alloc-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+  padding: 10px 12px; margin: 4px 0 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+.alloc-extras { border-top: 1px solid var(--border); padding-top: 10px; }
+@media (max-width: 720px) {
+  .alloc-summary #run-triage { width: 100%; }
+  .alloc-extras label.inline { flex: 1 1 100%; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .alloc-extras button { flex: 1 1 auto; }
+}
