@@ -38,3 +38,15 @@ test('the monthly limit holds, including against reservations still in flight', 
   assert.equal(ledger.remaining(0, sept), null, '0 means no limit');
   assert.ok(ledger.reserve(1_000, 0, sept));
 });
+
+test('triage and remediation credits are totalled separately and together', () => {
+  const ledger = new CreditLedger({ file: tmpFile() });
+  ledger.record({ projectId: 'p1', projectName: 'Payments', credits: 4, kind: 'triage' }, sept);
+  ledger.record({ projectId: 'p1', projectName: 'Payments', credits: 1, kind: 'remediation' }, sept);
+  ledger.record({ projectId: 'p2', credits: 2 }, sept);
+
+  const summary = ledger.summary('2026-09');
+  assert.deepEqual([summary.total, summary.triageTotal, summary.remediationTotal], [7, 6, 1]);
+  const payments = summary.projects.find((p) => p.projectId === 'p1');
+  assert.deepEqual([payments.triageCredits, payments.remediationCredits, payments.credits], [4, 1, 5]);
+});

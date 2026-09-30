@@ -363,6 +363,7 @@ function renderSettings() {
   $('tpl-html').value = s.template.html;
   $('risks-path').value = s.endpoints.risksPath;
   $('ai-enabled').checked = Boolean(s.aiTriage?.enabled);
+  $('ai-remediation').checked = Boolean(s.aiTriage?.remediationEnabled);
   $('ai-limit').value = String(s.aiTriage?.monthlyCreditLimit ?? 0);
 
   $('verified-state').textContent = s.verified
@@ -642,6 +643,7 @@ function settingsPayload() {
     endpoints: { risksPath: $('risks-path').value },
     aiTriage: {
       enabled: $('ai-enabled').checked,
+      remediationEnabled: $('ai-remediation').checked,
       monthlyCreditLimit: Number($('ai-limit').value) || 0,
     },
   };
@@ -685,23 +687,26 @@ function renderCredits(data) {
     .join('');
 
   const limitText = data.monthlyCreditLimit ? `${data.monthlyCreditLimit} per month` : 'no monthly limit';
-  $('credit-state').textContent = data.enabled
-    ? `Allowed · ${limitText}${data.remaining !== null && data.remaining !== undefined ? ` · ${data.remaining} left this month` : ''}`
+  const allowed = [data.enabled && 'triage', data.remediationEnabled && 'remediation'].filter(Boolean);
+  $('credit-state').textContent = allowed.length
+    ? `Allowed: ${allowed.join(' and ')} · ${limitText}${data.remaining !== null && data.remaining !== undefined ? ` · ${data.remaining} left this month` : ''}`
     : 'Switched off';
-  $('credit-state').className = `hint ${data.enabled ? 'ok-hint' : ''}`;
+  $('credit-state').className = `hint ${allowed.length ? 'ok-hint' : ''}`;
 
-  const warning = data.enabled && !data.relayConnected
+  const warning = allowed.length && !data.relayConnected
     ? '<p class="status error">This server has no stored Checkmarx One connection, so reports cannot triage. Set CX_API_KEY or arm automation below.</p>'
     : '';
   if (!data.projects.length) {
-    $('credit-usage').innerHTML = `${warning}<p class="hint">No AI Triage credits used in ${escapeHtml(formatMonth(data.month))}.</p>`;
+    $('credit-usage').innerHTML = `${warning}<p class="hint">No credits used from reports in ${escapeHtml(formatMonth(data.month))}.</p>`;
     return;
   }
   const rows = data.projects
     .map(
       (p) => `<tr>
         <td>${escapeHtml(p.projectName || p.projectId)}</td>
-        <td class="num">${p.credits}</td>
+        <td class="num">${p.triageCredits ?? p.credits}</td>
+        <td class="num">${p.remediationCredits ?? 0}</td>
+        <td class="num"><b>${p.credits}</b></td>
         <td class="num">${p.requests}</td>
         <td>${escapeHtml(new Date(p.lastUsedAt).toLocaleString())}</td>
       </tr>`,
@@ -709,9 +714,9 @@ function renderCredits(data) {
     .join('');
   $('credit-usage').innerHTML = `${warning}
     <div class="table-wrap"><table class="probe">
-      <thead><tr><th>Project</th><th class="num">Credits</th><th class="num">Requests</th><th>Last used</th></tr></thead>
+      <thead><tr><th>Project</th><th class="num">Triage</th><th class="num">Remediation</th><th class="num">Total credits</th><th class="num">Requests</th><th>Last used</th></tr></thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr><th>Total</th><th class="num">${data.total}</th><th></th><th></th></tr></tfoot>
+      <tfoot><tr><th>Total</th><th class="num">${data.triageTotal ?? data.total}</th><th class="num">${data.remediationTotal ?? 0}</th><th class="num">${data.total}</th><th></th><th></th></tr></tfoot>
     </table></div>`;
 }
 

@@ -2,10 +2,11 @@
  * The interactive HTML report attached to reminder mails.
  *
  * It lists the top findings (worst severity first, then oldest) with their
- * current Checkmarx One state. Remediate opens the finding in Checkmarx One
- * Risk Hub. Triage runs Checkmarx One AI Triage from the report through this
- * server's relay, which uses the server's own connection and acts only on
- * findings carrying a signed grant (see report-grants.js).
+ * current Checkmarx One state. Triage and Remediate run Checkmarx One AI
+ * Triage and AI Remediation through this server's relay, which uses the
+ * server's own connection and acts only on findings carrying a signed grant
+ * (see report-grants.js). When the administrator has not allowed remediation,
+ * Remediate opens the finding in Checkmarx One Risk Hub instead.
  */
 
 import { readFileSync } from 'node:fs';
@@ -60,6 +61,7 @@ export function selectTopFindings(reportData, limit = REPORT_TOP_N) {
  * @param {object} [options.connection]  {baseUrl, iamUrl, tenant} — never the API key
  * @param {string} [options.portalUrl]   Checkmarx One web UI host, if not the API host
  * @param {string} [options.relayUrl]    where the report reaches this server's relay
+ * @param {boolean} [options.remediationViaRelay]  Remediate runs AI Remediation through the relay
  * @param {(finding) => {exp, grant}} [options.sign]  signs a finding for the relay
  * @param {object} [options.branding]
  */
@@ -81,6 +83,7 @@ export function generateHtmlReport(reportData, options = {}) {
   }
 
   const relayUrl = safeHttpUrl(options.relayUrl);
+  const remediateHere = Boolean(relayUrl && options.remediationViaRelay);
   const clientFindings = [...findings, ...bulkFindings].map((f, index) => {
     const client = {
       key: String(index),
@@ -171,8 +174,10 @@ export function generateHtmlReport(reportData, options = {}) {
       <span id="bulk-progress" class="muted"></span>
     </div>
     <p class="muted">Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or
-      high finding in this report, across all its projects. Remediate opens the finding in Checkmarx One Risk Hub.
-      ${relayUrl ? `Triage goes through your reminder server (${escapeHtml(new URL(relayUrl).host)}), which must be reachable from this computer.` : ''}</p>
+      high finding in this report, across all its projects. ${remediateHere
+        ? 'Remediate runs Checkmarx One AI Remediation and links to the suggested fix (or its pull request).'
+        : 'Remediate opens the finding in Checkmarx One Risk Hub.'}
+      ${relayUrl ? `${remediateHere ? 'Triage and Remediate go' : 'Triage goes'} through your reminder server (${escapeHtml(new URL(relayUrl).host)}), which must be reachable from this computer.` : ''}</p>
   </section>
 
   <div class="table-wrap">
@@ -181,7 +186,7 @@ export function generateHtmlReport(reportData, options = {}) {
         <tr><th>Severity</th><th>Finding</th><th>Engine</th><th>Age</th><th title="Checkmarx One state — updates once connected">State</th><th title="AI Triage verdict, or the finding\'s Checkmarx One state once triaged">Triage result</th><th>Actions</th></tr>
       </thead>
       <tbody>
-${findings.map((f, index) => findingRow(f, clientFindings[index])).join('\n')}
+${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere)).join('\n')}
       </tbody>
     </table>
   </div>
@@ -214,7 +219,7 @@ function aiUnavailableReason(finding) {
   return '';
 }
 
-function findingRow(finding, client) {
+function findingRow(finding, client, remediateHere) {
   const severity = String(finding.severity || 'UNKNOWN').toUpperCase();
   const url = safeHttpUrl(finding.url);
   const title = url
@@ -235,7 +240,12 @@ function findingRow(finding, client) {
   <td class="ai-cell">—</td>
   <td class="actions-cell">
     <button class="btn btn-small" type="button" data-action="triage"${client.aiUnavailable ? ` disabled title="${escapeHtml(client.aiUnavailable)}"` : ''}>Triage</button>
-    ${url ? `<a class="btn btn-small btn-outline" data-action="remediate" href="${escapeHtml(url)}" target="_blank" rel="noopener">Remediate</a>` : ''}
+    ${remediateHere && !client.aiUnavailable
+      ? '<button class="btn btn-small btn-outline" type="button" data-action="remediate">Remediate</button>'
+      : url
+        ? `<a class="btn btn-small btn-outline" data-action="remediate-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">Remediate</a>`
+        : ''}
+    <div class="fix-cell"></div>
   </td>
 </tr>`;
 }
@@ -285,6 +295,10 @@ tr:last-child td { border-bottom: 0; }
 .chip-warn { background: #fef0c7; color: #93370d; } .chip-muted { background: #f2f4f7; color: #475467; } .chip-busy { background: #ebe9fe; color: #5925dc; }
 .ai-cell details { font-size: 12px; } .ai-cell summary { cursor: pointer; color: var(--accent); }
 .actions-cell { white-space: nowrap; } .actions-cell .btn + .btn { margin-left: 4px; }
+.fix-cell { white-space: normal; font-size: 12px; max-width: 280px; }
+.fix-cell:not(:empty) { margin-top: 6px; }
+.fix-cell a { display: block; } .fix-cell p { margin: 0 0 4px; }
+.fix-failed { color: #b42318; }
 .more { margin-top: 16px; } .more p { margin: 0 0 8px; }
 .more-links { display: flex; gap: 8px; flex-wrap: wrap; }
 .activity { margin-top: 16px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; }

@@ -1,11 +1,12 @@
 /**
- * Checkmarx One credits spent on AI Triage started from emailed reports.
+ * Checkmarx One credits spent on AI Triage and AI Remediation started from
+ * emailed reports.
  *
  * This is the utility's own record, not Checkmarx One's billing: one credit
- * per finding in an AI Triage request that Checkmarx One accepted as a new
- * job. Requests Checkmarx One de-duplicated (published: false) are not
- * counted. Credits are reserved before the call, so concurrent requests
- * cannot jointly overrun the monthly limit.
+ * per finding in a request Checkmarx One accepted as a new job. Requests
+ * Checkmarx One de-duplicated (published: false) are not counted. Credits
+ * are reserved before the call, so concurrent requests cannot jointly
+ * overrun the monthly limit.
  */
 
 import fs from 'node:fs';
@@ -56,9 +57,9 @@ export class CreditLedger {
   }
 
   /** Record credits Checkmarx One accepted, one entry per project per request. */
-  record({ projectId, projectName = '', credits, scanId = '' }, now = new Date()) {
+  record({ projectId, projectName = '', credits, scanId = '', kind = 'triage' }, now = new Date()) {
     if (!credits) return;
-    this.#entries.push({ at: now.toISOString(), projectId, projectName, credits, scanId });
+    this.#entries.push({ at: now.toISOString(), projectId, projectName, credits, scanId, kind });
     if (this.#entries.length > MAX_ENTRIES) this.#entries = this.#entries.slice(-MAX_ENTRIES);
     this.#persist();
   }
@@ -68,15 +69,32 @@ export class CreditLedger {
     const byProject = new Map();
     for (const e of this.#entries) {
       if (!e.at.startsWith(month)) continue;
-      const row = byProject.get(e.projectId) ?? { projectId: e.projectId, projectName: '', credits: 0, requests: 0, lastUsedAt: '' };
+      const row = byProject.get(e.projectId) ?? {
+        projectId: e.projectId,
+        projectName: '',
+        credits: 0,
+        triageCredits: 0,
+        remediationCredits: 0,
+        requests: 0,
+        lastUsedAt: '',
+      };
       row.credits += e.credits;
+      if (e.kind === 'remediation') row.remediationCredits += e.credits;
+      else row.triageCredits += e.credits;
       row.requests += 1;
       if (e.projectName) row.projectName = e.projectName;
       if (e.at > row.lastUsedAt) row.lastUsedAt = e.at;
       byProject.set(e.projectId, row);
     }
     const projects = [...byProject.values()].sort((a, b) => b.credits - a.credits);
-    return { month, total: projects.reduce((sum, p) => sum + p.credits, 0), projects };
+    const sum = (key) => projects.reduce((total, p) => total + p[key], 0);
+    return {
+      month,
+      total: sum('credits'),
+      triageTotal: sum('triageCredits'),
+      remediationTotal: sum('remediationCredits'),
+      projects,
+    };
   }
 
   months() {

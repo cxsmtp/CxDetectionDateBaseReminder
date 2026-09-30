@@ -776,22 +776,39 @@ async function relaySession(res) {
 }
 
 /** The administrator's switch: AI Triage from reports spends this server's credits. */
-function triageAllowed(res) {
-  if (settingsStore.get().aiTriage?.enabled) return true;
+const ACTION_NAMES = { enabled: 'AI Triage', remediationEnabled: 'AI Remediation' };
+
+/** The administrator's switches: actions from reports spend this server's credits. */
+function actionAllowed(res, flag = 'enabled') {
+  if (settingsStore.get().aiTriage?.[flag]) return true;
   res.status(403).json({
-    error: 'AI Triage from reports is switched off. Ask your Checkmarx One reminder administrator to allow it.',
+    error: `${ACTION_NAMES[flag]} from reports is switched off. Ask your Checkmarx One reminder administrator to allow it.`,
   });
   return false;
 }
+const triageAllowed = (res) => actionAllowed(res, 'enabled');
 
 const creditsRemaining = () => creditLedger.remaining(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0);
 
 app.post(
   '/api/relay/status',
   asyncRoute(async (req, res) => {
-    if (!triageAllowed(res)) return;
+    const { aiTriage } = settingsStore.get();
+    if (!aiTriage?.enabled && !aiTriage?.remediationEnabled) {
+      return res.status(403).json({
+        error: 'AI Triage and Remediation from reports are switched off. Ask your Checkmarx One reminder administrator to allow them.',
+      });
+    }
     const session = await relaySession(res);
-    if (session) res.json({ connected: true, tenant: session.connection.tenant, creditsRemaining: creditsRemaining() });
+    if (session) {
+      res.json({
+        connected: true,
+        tenant: session.connection.tenant,
+        triage: Boolean(aiTriage.enabled),
+        remediation: Boolean(aiTriage.remediationEnabled),
+        creditsRemaining: creditsRemaining(),
+      });
+    }
   }),
 );
 
@@ -839,7 +856,7 @@ app.post(
         });
         const published = body?.published !== false;
         // Checkmarx One only starts (and charges for) a new job when published.
-        if (published) creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId });
+        if (published) creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage' });
         stateCache.delete(projectId);
         results.push({ alternateIds, ok: true, published });
       } catch (error) {
@@ -919,6 +936,87 @@ app.post(
   }),
 );
 
+/**
+ * AI Remediation for one finding. Checkmarx One first triages it, then
+ * suggests a fix; for repository-integrated projects it opens a pull request.
+ */
+app.post(
+  '/api/relay/remediate',
+  asyncRoute(async (req, res) => {
+    const findings = grantedFindings(req, res);
+    if (!findings) return;
+    if (findings.length !== 1) return res.status(400).json({ error: 'Remediate one finding at a time.' });
+    if (!actionAllowed(res, 'remediationEnabled')) return;
+    const session = await relaySession(res);
+    if (!session) return;
+
+    const [finding] = findings;
+    const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
+    const reservation = creditLedger.reserve(1, limit);
+    if (!reservation) {
+      return res.status(402).json({
+        error: `This month's credit limit for actions from reports is reached (${limit}). Ask your administrator to raise it.`,
+        creditsRemaining: creditsRemaining(),
+      });
+    }
+    try {
+      const body = await session.client.request('/api/remediation/remediate', {
+        method: 'POST',
+        body: {
+          scanID: finding.scanId,
+          buckets: [{ scannerType: finding.scanner.toLowerCase(), resultIDs: [finding.alternateId] }],
+        },
+        retries: 1,
+      });
+      const published = body?.published !== false;
+      if (published) {
+        creditLedger.record({
+          projectId: finding.projectId,
+          projectName: finding.projectName,
+          credits: 1,
+          scanId: finding.scanId,
+          kind: 'remediation',
+        });
+      }
+      stateCache.delete(finding.projectId);
+      reservation.release();
+      res.json({ ok: true, published, existingState: body?.existingState ?? null, creditsRemaining: creditsRemaining() });
+    } catch (error) {
+      res.status(error.status && error.status >= 400 ? error.status : 502).json({
+        error: error.status === 402
+          ? 'Checkmarx One has no credits left for AI Remediation.'
+          : error.status === 403
+            ? "The reminder server's Checkmarx One account is not allowed to run AI Remediation."
+            : `AI Remediation could not start: ${error.message}`,
+      });
+    } finally {
+      reservation.release();
+    }
+  }),
+);
+
+app.post(
+  '/api/relay/remediation-details',
+  asyncRoute(async (req, res) => {
+    const findings = grantedFindings(req, res);
+    if (!findings) return;
+    if (findings.length !== 1) return res.status(400).json({ error: 'Ask about one finding at a time.' });
+    const session = await relaySession(res);
+    if (!session) return;
+    const [finding] = findings;
+    try {
+      const body = await session.client.request(
+        `/api/remediation/remediation-details/${encodeURIComponent(finding.scanId)}/${encodeURIComponent(finding.alternateId)}`,
+        { retries: 1 },
+      );
+      res.json({ found: true, body });
+    } catch (error) {
+      if (error.status === 404) return res.json({ found: false });
+      res.status(502).json({ error: `Could not read the AI Remediation result: ${error.message}` });
+    }
+  }),
+);
+
 // Administrator view of AI Triage credits used from reports.
 app.get('/api/credits', requireSession, (req, res) => {
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
@@ -927,6 +1025,7 @@ app.get('/api/credits', requireSession, (req, res) => {
     ...creditLedger.summary(month),
     months: [...new Set([monthOf(), ...creditLedger.months()])],
     enabled: Boolean(aiTriage?.enabled),
+    remediationEnabled: Boolean(aiTriage?.remediationEnabled),
     monthlyCreditLimit: aiTriage?.monthlyCreditLimit ?? 0,
     remaining: month === monthOf() ? creditsRemaining() : null,
     relayConnected: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId) ?? settingsStore.get().automationApiKey),
@@ -965,6 +1064,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     findings,
     bulkFindings,
     relayUrl,
+    remediationViaRelay: Boolean(settings.aiTriage?.remediationEnabled),
     portalUrl: settings.links.baseUrl,
     sign: (finding) => reportGrants.issue(finding),
     connection: { tenant: connection.tenant, iamUrl: connection.iamUrl, baseUrl: connection.baseUrl },

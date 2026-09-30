@@ -107,3 +107,20 @@ test('"Triage all critical / high" cover every critical and high finding, not on
   assert.match(html, /data-severity="CRITICAL"[^>]*>Triage all critical \(30\)/);
   assert.match(html, /data-severity="HIGH"[^>]*>Triage all high \(40\)/);
 });
+
+test('Remediate runs through the reminder server only when the administrator allowed it', () => {
+  const resolved = { ...risk(1, 'CRITICAL'), alternateId: 'alt-1', groupId: '1', scanId: 's1', url: 'https://eu.ast.checkmarx.net/riskhub/p1?resultId=r1' };
+  const build = (remediationViaRelay) =>
+    generateHtmlReport(buildReportData([resolved], { tenant: 't' }), {
+      findings: [resolved],
+      bulkFindings: [],
+      relayUrl: 'https://reminder.example',
+      remediationViaRelay,
+      sign: () => ({ exp: 1, grant: 'g' }),
+    });
+
+  assert.match(build(true), /<button[^>]*data-action="remediate">Remediate<\/button>/);
+  const off = build(false);
+  assert.ok(!/data-action="remediate"/.test(off.slice(0, off.indexOf('<script'))));
+  assert.match(off, /<a[^>]*data-action="remediate-link" href="https:\/\/eu\.ast\.checkmarx\.net\/riskhub\/p1\?resultId=r1"/);
+});

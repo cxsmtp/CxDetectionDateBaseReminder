@@ -1,10 +1,10 @@
 /*
  * Runs inside the emailed HTML report.
  *
- * Remediate opens the finding in Checkmarx One Risk Hub. Triage runs
- * Checkmarx One AI Triage through the reminder server, which calls Checkmarx
- * One with its own stored connection (Checkmarx One refuses API calls from a
- * page opened as a file). The report carries a signed grant for each finding,
+ * Triage and Remediate run Checkmarx One AI Triage and AI Remediation through
+ * the reminder server, which calls Checkmarx One with its own stored
+ * connection (Checkmarx One refuses API calls from a page opened as a file).
+ * When remediation is not allowed, Remediate is a link to Risk Hub instead. The report carries a signed grant for each finding,
  * and the server's administrator decides whether triage is allowed and how
  * many credits it may use.
  *
@@ -22,6 +22,8 @@
   const STORE = 'cxReportConnection';
   const POLL_MS = 6000;
   const TRIAGE_TIMEOUT_MS = 20 * 60 * 1000;
+  const REMEDIATION_POLL_MS = 12000;
+  const REMEDIATION_TIMEOUT_MS = 40 * 60 * 1000;
   // AI Triage's own record can say TO_VERIFY after it finished, while the
   // finding itself settles a little later, so that is still worth waiting on.
   const WAITING = new Set(['IN_PROGRESS', 'NOT_TRIAGED', 'PENDING', 'QUEUED', 'RUNNING', 'TO_VERIFY']);
@@ -150,6 +152,14 @@
         }
         return out;
       },
+      async remediate(f) {
+        const answer = await post('/api/relay/remediate', { findings: [wire(f)] });
+        showCredits(answer.creditsRemaining);
+        return answer;
+      },
+      remediationDetails(f) {
+        return post('/api/relay/remediation-details', { findings: [wire(f)] });
+      },
     };
   }
 
@@ -240,7 +250,14 @@
       const label = SEVERITY_LABELS[severity];
       const n = triageCandidates(severity).length;
       const busy = findings.some((f) => f.severity === severity && isRunning(f));
-      btn.textContent = n ? `Triage all ${label} (${n})` : busy ? `Triaging ${label}…` : `All ${label} triaged`;
+      const any = findings.some((f) => f.severity === severity);
+      btn.textContent = n
+        ? `Triage all ${label} (${n})`
+        : busy
+          ? `Triaging ${label}…`
+          : any
+            ? `All ${label} triaged`
+            : `No ${label} findings`;
       btn.disabled = bulkRunning || n === 0;
     }
     $('bulk-progress').textContent = running ? `${running} triage job${running === 1 ? '' : 's'} running…` : '';
@@ -258,8 +275,8 @@
     if (!backend) return;
     $('bulk-credits').textContent =
       remaining === null || remaining === undefined
-        ? 'AI Triage uses 1 Checkmarx One credit per finding.'
-        : `AI Triage uses 1 Checkmarx One credit per finding · ${remaining} left this month.`;
+        ? 'Each AI Triage or Remediation uses 1 Checkmarx One credit per finding.'
+        : `Each AI Triage or Remediation uses 1 Checkmarx One credit per finding · ${remaining} left this month.`;
   }
 
   // ---------------------------------------------------------------------------
@@ -373,12 +390,126 @@
   }
 
   // ---------------------------------------------------------------------------
+  // AI Remediation
+  // ---------------------------------------------------------------------------
+
+  function link(text, href, download) {
+    const a = document.createElement('a');
+    a.href = href;
+    a.textContent = text;
+    if (download) a.download = download;
+    else {
+      a.target = '_blank';
+      a.rel = 'noopener';
+    }
+    return a;
+  }
+
+  /** Remediation details: null while running, {failed} or the finished result. */
+  function remediationFromBody(body) {
+    const r = body?.results?.[0];
+    if (!r) return null;
+    const job = String(r.jobStatus || r.status || '').toUpperCase();
+    if (job === 'FAILED' || r.data?.error) return { failed: r.data?.error || r.autoPr?.error_msg || 'AI Remediation failed.' };
+    const data = r.data;
+    if (!r.finishedAt && !data?.summary && !data?.file_changes?.length) return null;
+    const patch = (data?.file_changes || [])
+      .filter((c) => c.diff)
+      .map((c) => `# ${c.file_path}\n${c.analysis ? `# ${String(c.analysis).replace(/\n/g, '\n# ')}\n` : ''}${c.diff}\n`)
+      .join('\n');
+    return {
+      summary: data?.summary || data?.analysis?.what || '',
+      how: data?.analysis?.how || '',
+      prUrl: r.autoPr?.url || '',
+      patch,
+      files: (data?.file_changes || []).length,
+    };
+  }
+
+  function renderRemediation(f) {
+    const tr = row(f);
+    if (!tr) return;
+    const btn = tr.querySelector('[data-action="remediate"]');
+    const out = tr.querySelector('.fix-cell');
+    const r = f.remediation;
+    out.replaceChildren();
+    out.className = 'fix-cell';
+    if (btn) {
+      btn.disabled = r?.running === true;
+      btn.textContent = r?.running ? 'Remediating…' : 'Remediate';
+    }
+    if (!r) return;
+    if (r.running) {
+      out.textContent = 'AI Remediation running in Checkmarx One — this can take several minutes.';
+      return;
+    }
+    if (r.failed) {
+      out.className = 'fix-cell fix-failed';
+      out.textContent = r.failed;
+      return;
+    }
+    if (r.summary) {
+      const p = document.createElement('p');
+      p.textContent = r.summary;
+      out.append(p);
+    }
+    if (r.prUrl) out.append(link('Open the pull request', r.prUrl));
+    if (f.url) out.append(link('View the fix in Checkmarx One', f.url));
+    if (r.patch) {
+      const blob = URL.createObjectURL(new Blob([r.patch], { type: 'text/x-diff' }));
+      out.append(link(`Download patch (${r.files} file${r.files === 1 ? '' : 's'})`, blob, `${f.title.replace(/[^\w.-]+/g, '_').slice(0, 60)}.patch`));
+    }
+  }
+
+  async function remediate(f) {
+    if (f.remediation?.running) return;
+    if (backend.remediationAllowed === false) {
+      // The administrator may have allowed it since this report connected.
+      try {
+        backend.remediationAllowed = (await backend.connect()).remediation !== false;
+      } catch {}
+      if (backend.remediationAllowed === false) {
+        f.remediation = { failed: 'AI Remediation from reports is switched off. Ask your Checkmarx One reminder administrator to allow it.' };
+        return renderRemediation(f);
+      }
+    }
+    if (!confirm(`Run Checkmarx One AI Remediation for "${f.title}"? It uses Checkmarx One credits and, for repository-connected projects, opens a pull request.`)) return;
+    f.remediation = { running: true };
+    renderRemediation(f);
+    try {
+      const started = await backend.remediate(f);
+      log(started.published ? `AI Remediation started: ${f.title}` : `AI Remediation already running for ${f.title}; following it.`, 'pending');
+      const deadline = Date.now() + REMEDIATION_TIMEOUT_MS;
+      while (Date.now() < deadline) {
+        await sleep(REMEDIATION_POLL_MS);
+        const answer = await backend.remediationDetails(f);
+        const result = answer?.found ? remediationFromBody(answer.body) : null;
+        if (!result) continue;
+        f.remediation = result;
+        renderRemediation(f);
+        if (result.failed) {
+          log(`AI Remediation failed for ${f.title}: ${result.failed}`, 'error');
+        } else {
+          log(`AI Remediation ready: ${f.title}${result.prUrl ? ' (pull request opened)' : ''}`, 'success');
+        }
+        return;
+      }
+      f.remediation = { failed: 'Still running — the result will appear on the finding in Checkmarx One.' };
+    } catch (error) {
+      f.remediation = { failed: error.message };
+      log(error.message, 'error');
+    }
+    renderRemediation(f);
+  }
+
+  // ---------------------------------------------------------------------------
   // Connect
   // ---------------------------------------------------------------------------
 
   async function connect({ quiet = false } = {}) {
     const candidate = relayBackend();
     const status = await candidate.connect();
+    candidate.remediationAllowed = status.remediation !== false;
     backend = candidate;
     try {
       sessionStorage.setItem(STORE, 'relay');
@@ -423,11 +554,12 @@
     btn.addEventListener('click', () => requireConnection(() => bulkTriage(btn.dataset.severity)));
   }
   $('findings').addEventListener('click', (event) => {
-    const btn = event.target.closest('button[data-action="triage"]');
+    const btn = event.target.closest('button[data-action="triage"], button[data-action="remediate"]');
     if (!btn) return;
     const f = byKey.get(btn.closest('tr').dataset.key);
     if (!f || f.aiUnavailable) return;
-    requireConnection(() => triage([f]).catch(reportError));
+    if (btn.dataset.action === 'remediate') requireConnection(() => remediate(f));
+    else requireConnection(() => triage([f]).catch(reportError));
   });
 
   setConnectedUI();

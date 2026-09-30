@@ -191,22 +191,30 @@ The panel states plainly which of the three situations you are in.
 ## Triage from the emailed report
 
 The report attached to reminder mails lists the top 50 findings with their
-Checkmarx One state. **Remediate** opens the finding in Risk Hub. **Triage**,
-**Triage all critical** and **Triage all high** run Checkmarx One AI Triage; the
-"all" buttons cover every critical or high finding in the report, across all of
-its projects, and skip findings already triaged in Checkmarx One.
+Checkmarx One state. **Triage**, **Triage all critical** and **Triage all high**
+run Checkmarx One AI Triage; the "all" buttons cover every critical or high
+finding in the report, across all of its projects, and skip findings already
+triaged in Checkmarx One. **Remediate** runs Checkmarx One AI Remediation and
+then offers the suggested fix: its summary, the pull request Checkmarx One opened
+(for repository-connected projects), a link to the finding in Risk Hub, and the
+code change as a downloadable patch. When remediation is not allowed, Remediate
+simply opens the finding in Risk Hub.
 
 Checkmarx One refuses API calls from a page opened as a file, so the report
 goes through this server: **Connect to CxONE for action** connects to it, and it
-runs AI Triage on its own stored Checkmarx One connection (`CX_API_KEY`, or the
+runs AI Triage and AI Remediation on its own stored Checkmarx One connection (`CX_API_KEY`, or the
 key armed for automation). Readers need no key and nothing to install; Checkmarx
 One records the triage under the server's account.
 
-- **Administrator control.** Nothing runs until **Settings → AI Triage from
-  reports → Allow** is switched on. An optional **monthly credit limit** is
-  enforced before each request (concurrent requests cannot overrun it together).
+- **Administrator control.** Nothing runs until allowed under **Settings → AI
+  Triage & Remediation from reports**, with separate switches for triage and
+  for remediation (which can open pull requests). An optional **monthly credit
+  limit** covers both and is enforced before each request (concurrent requests
+  cannot overrun it together). Whether Remediate runs AI Remediation is fixed
+  when a report is generated; the server re-checks the switch on every request.
 - **Live usage.** The same panel lists the credits used per project for any
-  month, refreshing every 15 seconds while it is open. This is the utility's own
+  month — triage, remediation and total — refreshing every 15 seconds while it
+  is open. This is the utility's own
   count — one credit per finding in each request Checkmarx One accepted as a new
   job — kept in `data/triage-credits.json`; it is not Checkmarx One's billing.
 - **Results.** The report shows AI Triage's verdict and each finding's live
