@@ -127,7 +127,10 @@ function route() {
   }
   for (const tab of document.querySelectorAll('.tab')) {
     tab.classList.toggle('active', tab.dataset.route === target);
+    if (tab.dataset.route === target) tab.setAttribute('aria-current', 'page');
+    else tab.removeAttribute('aria-current');
   }
+  setPageTitle(target);
   if (target === 'settings') {
     renderSettings();
     loadAutomation();
@@ -136,6 +139,75 @@ function route() {
     renderLogsPage();
   } else if (target === 'reports') {
     loadTrackedReports();
+  }
+}
+
+const PAGE_TITLES = {
+  connect: ['Connect', 'Sign in to your Checkmarx One tenant'],
+  dashboard: ['Dashboard', 'Find ageing findings, allocate credits and remind their owners'],
+  reports: ['Tracked reports', 'Follow progress on saved scopes and send follow-ups'],
+  settings: ['Settings', 'Email, templates, automation, AI credits and branding'],
+  logs: ['Logs', 'API calls and results from this browser session'],
+};
+
+function setPageTitle(page) {
+  const [title, sub] = PAGE_TITLES[page] ?? PAGE_TITLES.dashboard;
+  $('page-title').textContent = title;
+  $('page-sub').textContent = sub;
+}
+
+// ---------------------------------------------------------------------------
+// Theme: follow the device, or light / dark as chosen (kept in this browser)
+// ---------------------------------------------------------------------------
+
+const THEMES = ['auto', 'light', 'dark'];
+const THEME_LABELS = { auto: 'Theme: follow the device', light: 'Theme: light', dark: 'Theme: dark' };
+
+function applyTheme(theme) {
+  const root = document.documentElement;
+  if (theme === 'light' || theme === 'dark') root.dataset.theme = theme;
+  else delete root.dataset.theme;
+  $('theme-toggle').title = THEME_LABELS[theme] ?? THEME_LABELS.auto;
+  try {
+    if (theme === 'auto') localStorage.removeItem('mz-theme');
+    else localStorage.setItem('mz-theme', theme);
+  } catch {}
+}
+
+$('theme-toggle').addEventListener('click', () => {
+  const current = document.documentElement.dataset.theme || 'auto';
+  applyTheme(THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]);
+});
+$('theme-toggle').title = THEME_LABELS[document.documentElement.dataset.theme || 'auto'];
+
+// Settings: jump links scroll to their section (the address bar keeps the page route).
+document.querySelector('.section-nav')?.addEventListener('click', (event) => {
+  const link = event.target.closest('a[href^="#set-"]');
+  if (!link) return;
+  event.preventDefault();
+  document.getElementById(link.getAttribute('href').slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+if ('IntersectionObserver' in window) {
+  const links = new Map([...document.querySelectorAll('.section-nav a')].map((a) => [a.getAttribute('href').slice(1), a]));
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        for (const a of links.values()) a.classList.remove('active');
+        const link = links.get(entry.target.id);
+        if (!link) continue;
+        link.classList.add('active');
+        // Scroll only the chip strip, never the page (that would cut a jump short).
+        const strip = link.parentElement;
+        const left = link.offsetLeft - (strip.clientWidth - link.offsetWidth) / 2;
+        strip.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+      }
+    },
+    { rootMargin: '-35% 0px -60% 0px' },
+  );
+  for (const id of links.keys()) {
+    const section = document.getElementById(id);
+    if (section) observer.observe(section);
   }
 }
 
@@ -214,7 +286,7 @@ async function showConnected(session) {
   const { tenant, regionLabel, baseUrl } = session.connection;
 
   $('connection').textContent = `${tenant} · ${regionLabel} · ${baseUrl}`;
-  $('connection').className = 'sub ok';
+  $('connection').className = 'sub conn-pill ok';
   $('connect-panel').hidden = true;
   $('nav').hidden = false;
   $('disconnect').hidden = false;
@@ -232,11 +304,12 @@ function showDisconnected(message = 'Not connected.') {
   state.selected.clear();
 
   $('connection').textContent = message;
-  $('connection').className = 'sub';
+  $('connection').className = 'sub conn-pill';
+  setPageTitle('connect');
   $('connect-panel').hidden = false;
   $('nav').hidden = true;
   $('disconnect').hidden = true;
-  for (const page of ['dashboard', 'settings']) $(`page-${page}`).hidden = true;
+  for (const page of ['dashboard', 'reports', 'settings', 'logs']) $(`page-${page}`).hidden = true;
 }
 
 async function connect(event) {
@@ -2507,10 +2580,7 @@ function renderLogs() {
         const time = log.timestamp.slice(11, 19);
         const icon =
           log.type === 'error' ? '✗' : log.type === 'success' ? '✓' : log.type === 'api' ? '→' : '•';
-        const color = log.type === 'error' ? '#dc2626' : log.type === 'success' ? '#16a34a' : '#6b7280';
-        return `<div style="padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: ${color};">
-          <span style="color: #999;">${time}</span> ${icon} ${escapeHtml(log.message)}
-        </div>`;
+        return `<div class="log-line log-${escapeHtml(log.type)}"><time>${time}</time><span>${icon} ${escapeHtml(log.message)}</span></div>`;
       })
       .join('');
   }

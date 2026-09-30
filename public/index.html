@@ -2,618 +2,663 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f5f6fa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0c0f16" media="(prefers-color-scheme: dark)" />
     <title>Mission Zero</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%232563eb'/%3E%3Cpath d='M8 4v4.4l2.8 1.7' stroke='white' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%234f46e5'/%3E%3Cpath d='M8 4v4.4l2.8 1.7' stroke='white' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
+    <script>
+      // Apply the saved theme before first paint, so the page never flashes the wrong one.
+      try {
+        const theme = localStorage.getItem('mz-theme');
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div class="brand">
-        <img id="app-logo" class="app-logo" alt="" hidden />
-        <h1 id="app-name">Mission Zero</h1>
-        <p class="sub" id="connection">Starting…</p>
-      </div>
-      <nav class="tabs" id="nav" hidden>
-        <a href="#/dashboard" data-route="dashboard" class="tab">Dashboard</a>
-        <a href="#/reports" data-route="reports" class="tab">Tracked reports</a>
-        <a href="#/settings" data-route="settings" class="tab">Settings</a>
-        <a href="#/logs" data-route="logs" class="tab">Logs</a>
-      </nav>
-      <div class="topbar-actions">
-        <button id="disconnect" hidden>Disconnect</button>
-      </div>
-    </header>
-
-    <main>
-      <!-- ================= Connect ================= -->
-      <section class="panel connect" id="connect-panel" hidden>
-        <h2>Connect to Checkmarx One</h2>
-        <p class="hint">
-          Paste an API key from <strong>Settings → Identity &amp; Access Management → API Keys</strong>.
-          The tenant and regional URLs are detected from the key. It is held in the server's memory
-          for this session only and never written to disk.
-        </p>
-
-        <form id="connect-form" autocomplete="off">
-          <label class="field">
-            <span>API key</span>
-            <textarea id="api-key" rows="3" spellcheck="false" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…" required></textarea>
-          </label>
-
-          <div id="detected" class="detected" hidden></div>
-
-          <details id="advanced">
-            <summary>Advanced — single-tenant / on-prem overrides</summary>
-            <label class="field"><span>IAM URL</span><input id="iam-url" placeholder="https://eu.iam.checkmarx.net" /></label>
-            <label class="field"><span>API URL</span><input id="base-url" placeholder="https://eu.ast.checkmarx.net" /></label>
-            <label class="field"><span>Tenant</span><input id="tenant" placeholder="acme-corp" /></label>
-          </details>
-
-          <div class="actions">
-            <button type="submit" class="primary" id="connect">Connect</button>
-            <span id="connect-status" class="status"></span>
-          </div>
-        </form>
-      </section>
-
-      <!-- ================= Dashboard ================= -->
-      <div id="page-dashboard" class="page" hidden>
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Scope</h2>
-            <span class="hint" id="scope-summary"></span>
-          </div>
-          <div class="controls">
-            <fieldset>
-              <legend>Projects last scanned in</legend>
-              <select id="activity-preset"></select>
-              <div class="range" id="activity-range" hidden>
-                <label><span>From</span><input type="date" id="activity-from" /></label>
-                <label><span>To</span><input type="date" id="activity-to" /></label>
-              </div>
-              <p class="hint">Skips projects with no scan in this window.</p>
-            </fieldset>
-
-            <fieldset>
-              <legend>Findings first detected in</legend>
-              <select id="detection-preset"></select>
-              <div class="range" id="detection-range" hidden>
-                <label><span>From</span><input type="date" id="detection-from" /></label>
-                <label><span>To</span><input type="date" id="detection-to" /></label>
-              </div>
-              <p class="hint" id="detection-hint">Sent to the API as fromDate/toDate, so it is filtered server-side.</p>
-            </fieldset>
-
-            <fieldset class="grow">
-              <legend>&nbsp;</legend>
-              <button id="fetch" class="primary big">Fetch vulnerability data</button>
-              <p class="hint" id="fetch-meta"></p>
-            </fieldset>
-          </div>
-        </section>
-
-        <section class="panel" id="totals-panel" hidden>
-          <div class="totals" id="totals"></div>
-        </section>
-
-        <section class="panel" id="credits-panel" hidden>
-          <div class="panel-head">
-            <h2>AI Triage &amp; Remediation credits</h2>
-            <span class="hint" id="alloc-scope"></span>
-          </div>
-          <p class="hint wide">
-            Credits follow each project's findings for the ticked severities: 1 per finding still to triage, 3 per
-            confirmed finding to remediate. Changes apply at once to the selected projects, or to all shown projects
-            when none is selected.
-          </p>
-          <div class="alloc-row">
-            <span>Allocate credits for</span>
-            <label class="check"><input type="checkbox" class="alloc-sev" value="CRITICAL" checked /> Critical</label>
-            <label class="check"><input type="checkbox" class="alloc-sev" value="HIGH" checked /> High</label>
-            <label class="check"><input type="checkbox" class="alloc-sev" value="MEDIUM" /> Medium</label>
-            <label class="check"><input type="checkbox" class="alloc-sev" value="LOW" /> Low</label>
-          </div>
-          <div class="alloc-summary">
-            <strong id="alloc-needed"></strong>
-            <button id="run-triage" type="button" class="primary">Triage selected now</button>
-          </div>
-          <div class="alloc-row alloc-extras">
-            <label class="inline">Give each project <input id="alloc-extra-triage" type="number" min="0" step="1" value="0" class="small-num" /> more triage credits</label>
-            <label class="inline">and <input id="alloc-extra-remediation" type="number" min="0" step="3" value="0" class="small-num" /> remediation credits <span class="hint inline-hint">(3 per remediation)</span></label>
-            <button id="alloc-add" type="button">Add extra credits</button>
-            <button id="alloc-clear" type="button" class="link">Remove extra credits</button>
-          </div>
-          <p class="status" id="alloc-status"></p>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Projects</h2>
-            <div class="filters">
-              <input type="search" id="filter" placeholder="Search project name…" />
-              <select id="severity-filter">
-                <option value="">All severities</option>
-                <option value="CRITICAL">Critical</option>
-                <option value="HIGH">High</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="LOW">Low</option>
-              </select>
-              <select id="bucket-filter">
-                <option value="">Any age</option>
-                <option value="0-30">Has ≤ 30d</option>
-                <option value="31-60">Has 31–60d</option>
-                <option value="60+">Has &gt; 60d</option>
-              </select>
-              <label class="check"><input type="checkbox" id="hide-empty" /> Hide projects with no findings</label>
-            </div>
-          </div>
-
-          <div class="table-wrap">
-            <table id="projects">
-              <thead>
-                <tr>
-                  <th class="checkbox"><input type="checkbox" id="select-all" title="Select all" /></th>
-                  <th data-sort="projectName">Project</th>
-                  <th class="num" data-sort="totalRisks">Total</th>
-                  <th class="num" data-sort="0-30">≤ 30d</th>
-                  <th class="num" data-sort="31-60">31–60d</th>
-                  <th class="num" data-sort="60+">&gt; 60d</th>
-                  <th data-sort="maxAgeDays">Oldest first detection</th>
-                  <th data-sort="initiator">Latest scan by</th>
-                  <th class="num" title="AI Triage credits left / allocated">Triage credits</th>
-                  <th class="num" title="AI Remediation credits left / allocated">Remediation credits</th>
-                </tr>
-              </thead>
-              <tbody id="projects-body">
-                <tr class="empty"><td colspan="10">Click <strong>Fetch vulnerability data</strong> to load projects and first-detection dates.</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="hint" id="table-meta"></p>
-          <div class="alloc-row" id="track-row" hidden>
-            <label class="inline">Track this scope as <input id="track-name" placeholder="e.g. Q4 critical & high — Payments" class="track-name" /></label>
-            <button id="track-save" type="button">Save as tracked report</button>
-            <span class="hint" id="track-scope"></span>
-            <span class="status" id="track-status"></span>
-          </div>
-        </section>
-
-
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Scan initiators</h2>
-            <span class="hint" id="initiator-summary">Fetch data to list initiators.</span>
-          </div>
-          <p class="resolved-note" id="initiator-resolved" hidden></p>
-          <div class="initiator-actions" id="initiator-actions">
-            <button id="init-all" type="button">Select all</button>
-            <button id="init-none" type="button">Clear</button>
-            <button id="init-unresolved" type="button">Only those missing an email</button>
-          </div>
-          <div id="initiator-list" class="initiator-list"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Send reminder</h2>
-            <span class="hint" id="groupby-hint"></span>
-          </div>
-
-          <!-- WHO receives the reminder -->
-          <div style="margin-bottom: 20px;">
-            <div style="font-weight: 500; margin-bottom: 8px; color: #666; font-size: 12px; text-transform: uppercase;">Send reminder to:</div>
-            <div class="send-modes">
-              <label class="mode"><input type="radio" name="sendTo" value="list" checked /> Recipient list only</label>
-              <label class="mode"><input type="radio" name="sendTo" value="initiator" /> Initiators only</label>
-              <label class="mode"><input type="radio" name="sendTo" value="both" /> Both initiators & list</label>
-            </div>
-          </div>
-
-          <!-- WHAT content in the email -->
-          <div style="margin-bottom: 20px;">
-            <div style="font-weight: 500; margin-bottom: 8px; color: #666; font-size: 12px; text-transform: uppercase;">Email content:</div>
-            <div class="send-modes">
-              <label class="mode"><input type="radio" name="emailContent" value="summary" checked /> Summary for all projects in one email</label>
-              <label class="mode"><input type="radio" name="emailContent" value="per-project" /> Separate email per project</label>
-            </div>
-            <label class="mode check-mode" style="margin-top: 10px;">
-              <input type="checkbox" id="attach-html-report" checked />
-              Attach interactive HTML report (for triage & remediation actions)
-            </label>
-          </div>
-
-          <div class="actions">
-            <button id="preview">Preview email</button>
-            <button id="send" class="primary">Send reminder</button>
-            <button id="preview-html" class="secondary" hidden>Preview report</button>
-            <button id="download-html" class="secondary" hidden>Download HTML</button>
-            <span id="status" class="status"></span>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Recipient list</h2>
-            <span class="hint" id="recipients-hint">Loading…</span>
-          </div>
-          <div class="grid3" id="inline-recipients">
-            <label class="field"><span>To</span><textarea id="send-to" rows="3" spellcheck="false"></textarea></label>
-            <label class="field"><span>Cc</span><textarea id="send-cc" rows="3" spellcheck="false"></textarea></label>
-            <label class="field"><span>Bcc</span><textarea id="send-bcc" rows="3" spellcheck="false"></textarea></label>
-          </div>
-          <div class="actions compact">
-            <button id="save-recipients" type="button">Save list</button>
-          </div>
-        </section>
-
-        <section class="panel" id="preview-panel" hidden>
-          <div class="panel-head">
-            <h2>Preview</h2>
-            <button id="close-preview" class="link">Close</button>
-          </div>
-          <p class="hint" id="preview-meta"></p>
-          <iframe id="preview-frame" title="Email preview" sandbox=""></iframe>
-        </section>
-      </div>
-
-      <!-- ================= Settings ================= -->
-      <div id="page-settings" class="page" hidden>
-        <section class="panel">
-          <h2>Checkmarx One connection</h2>
-          <div class="kv" id="connection-details"></div>
-          <div class="actions">
-            <button id="reconnect">Use a different API key</button>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>SMTP server</h2>
-          <p class="hint">
-            Your own mail server. Nothing can be sent until a connection test succeeds —
-            changing any connection field clears a previous pass.
-          </p>
-
-          <div class="grid2">
-            <label class="field"><span>Host</span><input id="smtp-host" placeholder="smtp.example.com" /></label>
-            <label class="field"><span>Port</span><input id="smtp-port" type="number" min="1" max="65535" /></label>
-          </div>
-
-          <div class="checks">
-            <label class="check"><input type="checkbox" id="smtp-secure" /> Implicit TLS (SMTPS, port 465)</label>
-            <label class="check"><input type="checkbox" id="smtp-auth" /> Server requires authentication</label>
-            <label class="check"><input type="checkbox" id="smtp-reject" /> Verify TLS certificate</label>
-          </div>
-          <p class="hint" id="tls-warning" hidden></p>
-
-          <div class="grid2" id="smtp-credentials">
-            <label class="field"><span>Username</span><input id="smtp-user" autocomplete="off" /></label>
-            <label class="field">
-              <span>Password <span class="muted" id="password-state"></span></span>
-              <input id="smtp-password" type="password" autocomplete="new-password" placeholder="Leave blank to keep the stored one" />
-              <span class="hint" id="password-hint" hidden></span>
-            </label>
-          </div>
-
-          <div class="grid2">
-            <label class="field"><span>From name</span><input id="smtp-from-name" placeholder="Checkmarx Reminders" /></label>
-            <label class="field"><span>From address</span><input id="smtp-from-address" placeholder="security@example.com" /></label>
-          </div>
-
-          <div class="actions">
-            <button id="test-smtp" class="primary">Test connection</button>
-            <input id="test-to" placeholder="you@example.com" class="inline-input" />
-            <button id="send-test">Send test email</button>
-            <span id="smtp-status" class="status"></span>
-          </div>
-          <p class="hint" id="verified-state"></p>
-        </section>
-
-        <!-- Recipients moved to Send reminder section to avoid duplication -->
-        <section class="panel" style="display: none;">
-          <h2>Recipients (Archived)</h2>
-          <p class="hint">Manage recipients in the Send reminder section instead.</p>
-          <div class="grid3">
-            <label class="field"><span>To</span><textarea id="rcpt-to" rows="4" spellcheck="false"></textarea></label>
-            <label class="field"><span>Cc</span><textarea id="rcpt-cc" rows="4" spellcheck="false"></textarea></label>
-            <label class="field"><span>Bcc</span><textarea id="rcpt-bcc" rows="4" spellcheck="false"></textarea></label>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>Scan initiators</h2>
-          <p class="hint">
-            Checkmarx records the person who ran a scan as a username, which is not always an
-            email address. These rules turn it into one; the dashboard shows what each project
-            resolved to.
-          </p>
-
-          <div class="checks">
-            <label class="check"><input type="checkbox" id="init-directory" /> Look usernames up in the tenant IAM directory</label>
-            <label class="check"><input type="checkbox" id="init-copy" /> Copy the configured Cc/Bcc on per-initiator emails</label>
-          </div>
-
-          <label class="field">
-            <span>Default domain — appended to a username when nothing else resolves</span>
-            <input id="init-domain" placeholder="example.com" spellcheck="false" />
-          </label>
-
-          <label class="field">
-            <span>Overrides — one <code>username = email</code> per line</span>
-            <textarea id="init-overrides" rows="5" spellcheck="false" class="code" placeholder="jdoe = jane.doe@example.com"></textarea>
-          </label>
-        </section>
-
-        <section class="panel">
-          <h2>Mail template</h2>
-          <p class="hint">
-            The message body is yours to decide. Values are inserted with <code>{{name}}</code> and
-            HTML-escaped; <code>{{{name}}}</code> inserts raw HTML. Repeat a list with
-            <code>{{#projects}}…{{/projects}}</code>, and show a block only when something is empty
-            with <code>{{^projects}}…{{/projects}}</code>.
-          </p>
-
-          <label class="field"><span>Subject</span><input id="tpl-subject" spellcheck="false" /></label>
-          <label class="field">
-            <span>HTML body</span>
-            <textarea id="tpl-html" rows="18" spellcheck="false" class="code"></textarea>
-          </label>
-
-          <details id="variables">
-            <summary>Available variables</summary>
-            <div class="kv" id="variable-list"></div>
-          </details>
-
-          <div class="actions">
-            <button id="preview-template" class="primary">Preview template</button>
-            <button id="reset-template">Restore default</button>
-            <span id="template-status" class="status"></span>
-          </div>
-
-          <div id="template-preview-wrap" hidden>
-            <p class="hint" id="template-subject-preview"></p>
-            <iframe id="template-preview" title="Template preview" sandbox=""></iframe>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Automation</h2>
-            <span class="hint" id="auto-status"></span>
-          </div>
-          <p class="hint">
-            Checks on a timer and mails the moment a finding crosses one of your age
-            thresholds. Each finding is reported <strong>once per threshold</strong>, so a
-            daily sweep does not re-send the same thing every day.
-          </p>
-
-          <div class="checks">
-            <label class="check"><input type="checkbox" id="auto-enabled" /> Run automatically</label>
-            <label class="check"><input type="checkbox" id="auto-dry" /> Dry run — decide and log, but send nothing</label>
-          </div>
-
-          <div class="grid2">
-            <label class="field">
-              <span>Age thresholds, in days</span>
-              <input id="auto-thresholds" spellcheck="false" placeholder="30, 60, 90" />
-            </label>
-            <label class="field">
-              <span>Check every (minutes)</span>
-              <input id="auto-interval" type="number" min="15" max="10080" />
-            </label>
-          </div>
-
-          <div class="grid2">
-            <label class="field">
-              <span>Address to</span>
-              <select id="auto-groupby">
-                <option value="initiator">Each scan initiator</option>
-                <option value="none">The configured recipient list</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Only these severities — blank means all</span>
-              <input id="auto-severities" spellcheck="false" placeholder="CRITICAL, HIGH" />
-            </label>
-          </div>
-
-          <label class="field">
-            <span>When a finding is already past several thresholds</span>
-            <select id="auto-mode">
-              <option value="crossing">Report each threshold once (recommended)</option>
-              <option value="digest">Re-report everything past a threshold on every run</option>
-            </select>
-          </label>
-
-          <div class="detected" id="auto-credential"></div>
-
-          <div class="actions">
-            <button id="auto-save" class="primary">Save automation</button>
-            <button id="auto-run">Run once now</button>
-            <button id="auto-arm">Arm with current key</button>
-            <button id="auto-disarm">Forget stored key</button>
-            <button id="auto-reset" class="link">Reset history</button>
-            <span id="auto-message" class="status"></span>
-          </div>
-
-          <div id="auto-runs"></div>
-        </section>
-
-        <section class="panel">
-          <h2>Branding</h2>
-          <p class="hint">
-            The app name and logo appear at the top of this page; the company name and logo also head every
-            reminder and report. For reminders, an <code>https</code> logo URL is best — most mail clients block
-            uploaded (embedded) images.
-          </p>
-
-          <div class="grid2">
-            <label class="field"><span>App name</span><input id="brand-app" placeholder="Mission Zero" /></label>
-            <label class="field"><span>Company name</span><input id="brand-name" placeholder="Acme Corp" /></label>
-          </div>
-          <div class="grid2">
-            <label class="field"><span>Company logo — https URL, or upload one</span><input id="brand-logo" spellcheck="false" placeholder="https://acme.com/logo.png" /></label>
-            <label class="field"><span>Upload a logo (PNG, JPG, SVG or WebP, up to 200 KB)</span><input id="brand-logo-file" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" /></label>
-          </div>
-
-          <div class="grid2">
-            <label class="field"><span>Logo height, in pixels</span><input id="brand-height" type="number" min="16" max="200" /></label>
-            <label class="field"><span>Accent colour</span><input id="brand-accent" type="color" /></label>
-          </div>
-
-          <label class="field">
-            <span>Call to action — shown above the findings</span>
-            <textarea id="brand-cta" rows="2" spellcheck="false"></textarea>
-          </label>
-
-          <div id="brand-preview" class="brand-preview"></div>
-        </section>
-
-        <section class="panel">
-          <h2>Links into Checkmarx One</h2>
-          <p class="hint">
-            Every finding in the reminder is a link straight to it in the platform. The web app's
-            routes are not part of the published API reference, so if a link lands in the wrong
-            place, correct the template here — the example below updates as you type.
-          </p>
-
-          <label class="field">
-            <span>Base URL — blank uses the API host your key resolved to</span>
-            <input id="link-base" spellcheck="false" placeholder="https://us.ast.checkmarx.net" />
-          </label>
-          <label class="field">
-            <span>Project link — <code>{baseUrl} {projectId}</code></span>
-            <input id="link-project" spellcheck="false" />
-          </label>
-          <label class="field">
-            <span>Finding link — <code>{baseUrl} {projectId} {scanId} {engine} {riskId}</code></span>
-            <input id="link-risk" spellcheck="false" />
-          </label>
-
-          <div class="kv" id="link-examples"></div>
-
-          <label class="field">
-            <span>Reminder server address for reports — how recipients' browsers reach this server to triage from a report (e.g. <code>https://cx-reminder.corp.example</code>). Blank uses the address this page is open on.</span>
-            <input id="link-report-server" spellcheck="false" placeholder="https://cx-reminder.corp.example" />
-          </label>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <h2>AI Triage &amp; Remediation from reports</h2>
-            <span class="hint" id="credit-state"></span>
-          </div>
-          <p class="hint">
-            Readers of the emailed report can run Checkmarx One AI Triage and AI Remediation through this
-            server, on its own Checkmarx One connection. Both use Checkmarx One credits, so nothing runs until
-            you allow it here. AI Remediation also opens pull requests on repository-connected projects.
-          </p>
-          <label class="check"><input type="checkbox" id="ai-enabled" /> Allow AI Triage from reports (uses Checkmarx One credits)</label>
-          <label class="check"><input type="checkbox" id="ai-retriage" /> Allow re-triage — triage a finding again when it already has a verdict (spends credits again)</label>
-          <label class="check"><input type="checkbox" id="ai-skip-ne" /> Leave findings triaged as not exploitable (proposed or confirmed) out of reminders and reports — only confirmed findings and those still to verify are sent</label>
-          <label class="check"><input type="checkbox" id="ai-remediation" /> Allow AI Remediation from reports (uses credits; may open pull requests) — applies to reports generated after saving</label>
-          <label class="check"><input type="checkbox" id="ai-reremediation" /> Allow re-remediation — run AI Remediation again for a finding already remediated (3 credits again; may open another pull request)</label>
-          <label class="field">
-            <span>Monthly credit limit for both — 0 for no limit</span>
-            <input id="ai-limit" type="number" min="0" step="1" inputmode="numeric" />
-          </label>
-          <label class="field">
-            <span>Administrator contact — report readers who run out of credits are offered an email to this address (blank: the From address)</span>
-            <input id="ai-admin-contact" type="email" placeholder="appsec-admin@company.com" />
-          </label>
-
-          <div class="panel-head">
-            <h3>Credits used</h3>
-            <label class="inline">Month <select id="credit-month"></select></label>
-          </div>
-          <div id="credit-usage"><p class="hint">Loading…</p></div>
-          <p class="hint">
-            Counted by this server: per finding, 1 credit for AI Triage and 3 for AI Remediation, in each request Checkmarx One
-            accepted as a new job. Updates every 15 seconds while this page is open.
-          </p>
-
-          <div class="panel-head">
-            <h3>Allocated vs used</h3>
-          </div>
-          <div id="credit-allocations"><p class="hint">Loading…</p></div>
-          <p class="hint">
-            Per project, all time: what was first allocated, what is allocated now (allocations follow each project's severity
-            rule and any credits you added) and what has been used through this utility.
-          </p>
-        </section>
-
-        <section class="panel">
-          <h2>Risks endpoint</h2>
-          <p class="hint">
-            Defaults to <code>/api/risks/</code>. <strong>Detect</strong> probes the known paths
-            against your tenant and reports what each returned.
-          </p>
-          <label class="field">
-            <span>Path — <code>{projectId}</code> is substituted for a templated endpoint</span>
-            <div class="path-row">
-              <input id="risks-path" spellcheck="false" placeholder="/api/risks/" />
-              <button id="detect-risks" type="button">Detect</button>
-            </div>
-          </label>
-          <div id="probe-results" hidden></div>
-        </section>
-
-        <div class="save-bar">
-          <button id="save-settings" class="primary big">Save settings</button>
-          <span id="save-status" class="status"></span>
+    <div class="shell">
+      <!-- ================= Sidebar / bottom bar ================= -->
+      <aside class="sidebar">
+        <div class="brand">
+          <img id="app-logo" class="app-logo" alt="" hidden />
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6.5v6l3.8 2.3" /></svg>
+          </span>
+          <strong id="app-name" class="app-name">Mission Zero</strong>
         </div>
-      </div>
+        <nav class="nav" id="nav" aria-label="Main" hidden>
+          <a href="#/dashboard" data-route="dashboard" class="tab">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
+            <span>Dashboard</span>
+          </a>
+          <a href="#/reports" data-route="reports" class="tab">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5" /><path d="M4 19h16" /><path d="M7 15l4-4 3 3 5-6" /></svg>
+            <span>Reports</span>
+          </a>
+          <a href="#/settings" data-route="settings" class="tab">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+            <span>Settings</span>
+          </a>
+          <a href="#/logs" data-route="logs" class="tab">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>
+            <span>Logs</span>
+          </a>
+        </nav>
+        <p class="sidebar-foot">Checkmarx One reminders, triage &amp; remediation</p>
+      </aside>
 
-      <!-- ================= Logs ================= -->
-      <div id="page-reports" class="page" hidden>
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Tracked reports</h2>
-            <span class="hint" id="reports-meta"></span>
+      <div class="content">
+        <header class="topbar">
+          <div class="topbar-title">
+            <h1 id="page-title">Connect</h1>
+            <p id="page-sub" class="page-sub"></p>
           </div>
-          <p class="hint">
-            Each report keeps the findings its scope covered when saved and follows what happened to them —
-            triaged, confirmed, proposed not exploitable, or no longer detected — plus how many findings the same
-            filters match today. Save one from the Dashboard with <strong>Save as tracked report</strong>.
-          </p>
-          <div id="reports-list"><p class="hint">Loading…</p></div>
-        </section>
-      </div>
-
-      <div id="page-logs" class="page" hidden>
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Logs and Debugging</h2>
-            <span class="hint" id="logs-summary"></span>
+          <div class="topbar-actions">
+            <span class="sub conn-pill" id="connection">Starting…</span>
+            <button id="theme-toggle" type="button" class="icon-btn" title="Theme: follow the device" aria-label="Switch theme">
+              <svg class="i-auto" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" /></svg>
+              <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+              <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+            </button>
+            <button id="disconnect" type="button" class="ghost" hidden>Disconnect</button>
           </div>
+        </header>
 
-          <div class="controls">
-            <fieldset class="grow">
-              <legend>Filter logs</legend>
-              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-                <label><input type="checkbox" id="log-filter-api" checked /> API calls</label>
-                <label><input type="checkbox" id="log-filter-errors" checked /> Errors</label>
-                <label><input type="checkbox" id="log-filter-success" checked /> Success</label>
+        <main>
+          <!-- ================= Connect ================= -->
+          <section class="panel connect" id="connect-panel" hidden>
+            <div class="connect-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6.5v6l3.8 2.3" /></svg>
+            </div>
+            <h2>Connect to Checkmarx One</h2>
+            <p class="hint">
+              Paste an API key from <strong>Settings → Identity &amp; Access Management → API Keys</strong>.
+              The tenant and regional URLs are detected from the key. It is held in the server's memory
+              for this session only and never written to disk.
+            </p>
+
+            <form id="connect-form" autocomplete="off">
+              <label class="field">
+                <span>API key</span>
+                <textarea id="api-key" rows="3" spellcheck="false" class="code" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…" required></textarea>
+              </label>
+
+              <div id="detected" class="detected" hidden></div>
+
+              <details id="advanced" class="disclosure">
+                <summary>Advanced — single-tenant / on-prem overrides</summary>
+                <label class="field"><span>IAM URL</span><input id="iam-url" placeholder="https://eu.iam.checkmarx.net" /></label>
+                <label class="field"><span>API URL</span><input id="base-url" placeholder="https://eu.ast.checkmarx.net" /></label>
+                <label class="field"><span>Tenant</span><input id="tenant" placeholder="acme-corp" /></label>
+              </details>
+
+              <div class="actions">
+                <button type="submit" class="primary big block-sm" id="connect">Connect</button>
+                <span id="connect-status" class="status"></span>
               </div>
-              <input type="text" id="log-search" placeholder="Search logs..." style="width: 100%; margin-top: 12px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" />
-            </fieldset>
+            </form>
+          </section>
 
-            <fieldset class="grow">
-              <legend>&nbsp;</legend>
-              <button id="clear-logs" class="link">Clear logs</button>
-              <button id="export-logs" class="link">Export logs</button>
-            </fieldset>
-          </div>
-        </section>
+          <!-- ================= Dashboard ================= -->
+          <div id="page-dashboard" class="page" hidden>
+            <section class="panel scope">
+              <div class="panel-head">
+                <h2>Scope</h2>
+                <span class="hint" id="scope-summary"></span>
+              </div>
+              <div class="controls">
+                <fieldset>
+                  <legend>Projects last scanned in</legend>
+                  <select id="activity-preset"></select>
+                  <div class="range" id="activity-range" hidden>
+                    <label><span>From</span><input type="date" id="activity-from" /></label>
+                    <label><span>To</span><input type="date" id="activity-to" /></label>
+                  </div>
+                  <p class="hint">Skips projects with no scan in this window.</p>
+                </fieldset>
 
-        <section class="panel">
-          <div id="logs-container" style="max-height: 600px; overflow-y: auto; font-family: monospace; font-size: 12px; background: #f5f5f5; padding: 12px; border-radius: 4px; border: 1px solid #ddd;">
-            <div id="logs-empty" style="color: #999;">No logs yet. Fetch data to start capturing logs.</div>
-            <div id="logs-list"></div>
+                <fieldset>
+                  <legend>Findings first detected in</legend>
+                  <select id="detection-preset"></select>
+                  <div class="range" id="detection-range" hidden>
+                    <label><span>From</span><input type="date" id="detection-from" /></label>
+                    <label><span>To</span><input type="date" id="detection-to" /></label>
+                  </div>
+                  <p class="hint" id="detection-hint">Sent to the API as fromDate/toDate, so it is filtered server-side.</p>
+                </fieldset>
+
+                <fieldset class="grow fetch-box">
+                  <legend class="sr-only">Fetch</legend>
+                  <button id="fetch" class="primary big">Fetch vulnerability data</button>
+                  <p class="hint" id="fetch-meta"></p>
+                </fieldset>
+              </div>
+            </section>
+
+            <section class="kpis" id="totals-panel" hidden>
+              <div class="totals" id="totals"></div>
+            </section>
+
+            <section class="panel" id="credits-panel" hidden>
+              <div class="panel-head">
+                <h2>AI Triage &amp; Remediation credits</h2>
+                <span class="chip" id="alloc-scope"></span>
+              </div>
+              <p class="hint wide">
+                Credits follow each project's findings for the ticked severities: 1 per finding still to triage, 3 per
+                confirmed finding to remediate. Changes apply at once to the selected projects, or to all shown projects
+                when none is selected. Click a project's credits in the table to set its own.
+              </p>
+              <div class="alloc-row sev-picks">
+                <span class="label-sm">Allocate for</span>
+                <label class="pill-check"><input type="checkbox" class="alloc-sev" value="CRITICAL" checked /> <span>Critical</span></label>
+                <label class="pill-check"><input type="checkbox" class="alloc-sev" value="HIGH" checked /> <span>High</span></label>
+                <label class="pill-check"><input type="checkbox" class="alloc-sev" value="MEDIUM" /> <span>Medium</span></label>
+                <label class="pill-check"><input type="checkbox" class="alloc-sev" value="LOW" /> <span>Low</span></label>
+              </div>
+              <div class="alloc-summary">
+                <strong id="alloc-needed"></strong>
+                <button id="run-triage" type="button" class="primary">Triage selected now</button>
+              </div>
+              <details class="disclosure alloc-more">
+                <summary>Extra credits for every selected project</summary>
+                <div class="alloc-row alloc-extras">
+                  <label class="inline">Triage <input id="alloc-extra-triage" type="number" min="0" step="1" value="0" class="small-num" /></label>
+                  <label class="inline">Remediation <input id="alloc-extra-remediation" type="number" min="0" step="3" value="0" class="small-num" /> <span class="hint inline-hint">(3 per remediation)</span></label>
+                  <button id="alloc-add" type="button">Add extra credits</button>
+                  <button id="alloc-clear" type="button" class="link">Remove extra credits</button>
+                </div>
+              </details>
+              <p class="status" id="alloc-status"></p>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Projects</h2>
+                <div class="filters">
+                  <input type="search" id="filter" placeholder="Search projects…" aria-label="Search projects" />
+                  <select id="severity-filter" aria-label="Severity">
+                    <option value="">All severities</option>
+                    <option value="CRITICAL">Critical</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                  </select>
+                  <select id="bucket-filter" aria-label="Age">
+                    <option value="">Any age</option>
+                    <option value="0-30">Has ≤ 30d</option>
+                    <option value="31-60">Has 31–60d</option>
+                    <option value="60+">Has &gt; 60d</option>
+                  </select>
+                  <label class="check"><input type="checkbox" id="hide-empty" /> Hide empty</label>
+                </div>
+              </div>
+
+              <div class="table-wrap">
+                <table id="projects" class="data-table">
+                  <thead>
+                    <tr>
+                      <th class="checkbox"><input type="checkbox" id="select-all" title="Select all" aria-label="Select all" /></th>
+                      <th data-sort="projectName">Project</th>
+                      <th class="num" data-sort="totalRisks">Total</th>
+                      <th class="num" data-sort="0-30">≤ 30d</th>
+                      <th class="num" data-sort="31-60">31–60d</th>
+                      <th class="num" data-sort="60+">&gt; 60d</th>
+                      <th data-sort="maxAgeDays">Oldest first detection</th>
+                      <th data-sort="initiator">Latest scan by</th>
+                      <th class="num" title="AI Triage credits left / allocated">Triage credits</th>
+                      <th class="num" title="AI Remediation credits left / allocated">Remediation credits</th>
+                    </tr>
+                  </thead>
+                  <tbody id="projects-body">
+                    <tr class="empty"><td colspan="10">Click <strong>Fetch vulnerability data</strong> to load projects and first-detection dates.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="hint" id="table-meta"></p>
+              <div class="track-row" id="track-row" hidden>
+                <label class="inline grow-1"><span class="label-sm">Track this scope as</span> <input id="track-name" placeholder="e.g. Q4 critical & high — Payments" class="track-name" /></label>
+                <button id="track-save" type="button">Save as tracked report</button>
+                <span class="hint" id="track-scope"></span>
+                <span class="status" id="track-status"></span>
+              </div>
+            </section>
+
+            <div class="split">
+              <section class="panel">
+                <div class="panel-head">
+                  <h2>Scan initiators</h2>
+                  <span class="hint" id="initiator-summary">Fetch data to list initiators.</span>
+                </div>
+                <p class="resolved-note" id="initiator-resolved" hidden></p>
+                <div class="initiator-actions" id="initiator-actions">
+                  <button id="init-all" type="button" class="sm">Select all</button>
+                  <button id="init-none" type="button" class="sm">Clear</button>
+                  <button id="init-unresolved" type="button" class="sm">Only those missing an email</button>
+                </div>
+                <div id="initiator-list" class="initiator-list"></div>
+              </section>
+
+              <div class="stack">
+                <section class="panel">
+                  <div class="panel-head">
+                    <h2>Send reminder</h2>
+                    <span class="hint" id="groupby-hint"></span>
+                  </div>
+
+                  <div class="option-group">
+                    <div class="label-sm">Send to</div>
+                    <div class="segmented send-modes">
+                      <label class="mode"><input type="radio" name="sendTo" value="list" checked /> <span>Recipient list</span></label>
+                      <label class="mode"><input type="radio" name="sendTo" value="initiator" /> <span>Initiators</span></label>
+                      <label class="mode"><input type="radio" name="sendTo" value="both" /> <span>Both</span></label>
+                    </div>
+                  </div>
+
+                  <div class="option-group">
+                    <div class="label-sm">Email content</div>
+                    <div class="segmented send-modes">
+                      <label class="mode"><input type="radio" name="emailContent" value="summary" checked /> <span>One summary</span></label>
+                      <label class="mode"><input type="radio" name="emailContent" value="per-project" /> <span>One per project</span></label>
+                    </div>
+                    <label class="check check-mode">
+                      <input type="checkbox" id="attach-html-report" checked />
+                      Attach the interactive HTML report (triage &amp; remediation)
+                    </label>
+                  </div>
+
+                  <div class="actions">
+                    <button id="preview">Preview email</button>
+                    <button id="send" class="primary">Send reminder</button>
+                    <button id="preview-html" class="secondary" hidden>Preview report</button>
+                    <button id="download-html" class="secondary" hidden>Download HTML</button>
+                    <span id="status" class="status"></span>
+                  </div>
+                </section>
+
+                <section class="panel">
+                  <div class="panel-head">
+                    <h2>Recipient list</h2>
+                    <span class="hint" id="recipients-hint">Loading…</span>
+                  </div>
+                  <div class="grid3" id="inline-recipients">
+                    <label class="field"><span>To</span><textarea id="send-to" rows="2" spellcheck="false"></textarea></label>
+                    <label class="field"><span>Cc</span><textarea id="send-cc" rows="2" spellcheck="false"></textarea></label>
+                    <label class="field"><span>Bcc</span><textarea id="send-bcc" rows="2" spellcheck="false"></textarea></label>
+                  </div>
+                  <div class="actions compact">
+                    <button id="save-recipients" type="button">Save list</button>
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            <section class="panel" id="preview-panel" hidden>
+              <div class="panel-head">
+                <h2>Preview</h2>
+                <button id="close-preview" class="link">Close</button>
+              </div>
+              <p class="hint" id="preview-meta"></p>
+              <iframe id="preview-frame" title="Email preview" sandbox=""></iframe>
+            </section>
           </div>
-        </section>
+
+          <!-- ================= Settings ================= -->
+          <div id="page-settings" class="page settings" hidden>
+            <nav class="section-nav" aria-label="Settings sections">
+              <a href="#set-connection">Connection</a>
+              <a href="#set-smtp">Email server</a>
+              <a href="#set-initiators">Initiators</a>
+              <a href="#set-template">Template</a>
+              <a href="#set-automation">Automation</a>
+              <a href="#set-ai">AI &amp; credits</a>
+              <a href="#set-branding">Branding</a>
+              <a href="#set-links">Links</a>
+              <a href="#set-endpoint">Risks endpoint</a>
+            </nav>
+
+            <section class="panel" id="set-connection">
+              <h2>Checkmarx One connection</h2>
+              <div class="kv" id="connection-details"></div>
+              <div class="actions">
+                <button id="reconnect">Use a different API key</button>
+              </div>
+            </section>
+
+            <section class="panel" id="set-smtp">
+              <h2>Email server (SMTP)</h2>
+              <p class="hint wide">
+                Your own mail server. Nothing can be sent until a connection test succeeds —
+                changing any connection field clears a previous pass.
+              </p>
+
+              <div class="grid2">
+                <label class="field"><span>Host</span><input id="smtp-host" placeholder="smtp.example.com" /></label>
+                <label class="field"><span>Port</span><input id="smtp-port" type="number" min="1" max="65535" /></label>
+              </div>
+
+              <div class="checks">
+                <label class="check"><input type="checkbox" id="smtp-secure" /> Implicit TLS (SMTPS, port 465)</label>
+                <label class="check"><input type="checkbox" id="smtp-auth" /> Server requires authentication</label>
+                <label class="check"><input type="checkbox" id="smtp-reject" /> Verify TLS certificate</label>
+              </div>
+              <p class="hint" id="tls-warning" hidden></p>
+
+              <div class="grid2" id="smtp-credentials">
+                <label class="field"><span>Username</span><input id="smtp-user" autocomplete="off" /></label>
+                <label class="field">
+                  <span>Password <span class="muted" id="password-state"></span></span>
+                  <input id="smtp-password" type="password" autocomplete="new-password" placeholder="Leave blank to keep the stored one" />
+                  <span class="hint" id="password-hint" hidden></span>
+                </label>
+              </div>
+
+              <div class="grid2">
+                <label class="field"><span>From name</span><input id="smtp-from-name" placeholder="Checkmarx Reminders" /></label>
+                <label class="field"><span>From address</span><input id="smtp-from-address" placeholder="security@example.com" /></label>
+              </div>
+
+              <div class="actions">
+                <button id="test-smtp" class="primary">Test connection</button>
+                <div class="input-group">
+                  <input id="test-to" placeholder="you@example.com" class="inline-input" aria-label="Test email address" />
+                  <button id="send-test">Send test email</button>
+                </div>
+                <span id="smtp-status" class="status"></span>
+              </div>
+              <p class="hint" id="verified-state"></p>
+            </section>
+
+            <!-- Recipients are managed on the Dashboard; kept for the settings form. -->
+            <section class="panel" hidden>
+              <h2>Recipients (Archived)</h2>
+              <div class="grid3">
+                <label class="field"><span>To</span><textarea id="rcpt-to" rows="4" spellcheck="false"></textarea></label>
+                <label class="field"><span>Cc</span><textarea id="rcpt-cc" rows="4" spellcheck="false"></textarea></label>
+                <label class="field"><span>Bcc</span><textarea id="rcpt-bcc" rows="4" spellcheck="false"></textarea></label>
+              </div>
+            </section>
+
+            <section class="panel" id="set-initiators">
+              <h2>Scan initiators</h2>
+              <p class="hint wide">
+                Checkmarx records the person who ran a scan as a username, which is not always an
+                email address. These rules turn it into one; the dashboard shows what each project
+                resolved to.
+              </p>
+
+              <div class="checks">
+                <label class="check"><input type="checkbox" id="init-directory" /> Look usernames up in the tenant IAM directory</label>
+                <label class="check"><input type="checkbox" id="init-copy" /> Copy the configured Cc/Bcc on per-initiator emails</label>
+              </div>
+
+              <label class="field">
+                <span>Default domain — appended to a username when nothing else resolves</span>
+                <input id="init-domain" placeholder="example.com" spellcheck="false" />
+              </label>
+
+              <label class="field">
+                <span>Overrides — one <code>username = email</code> per line</span>
+                <textarea id="init-overrides" rows="4" spellcheck="false" class="code" placeholder="jdoe = jane.doe@example.com"></textarea>
+              </label>
+            </section>
+
+            <section class="panel" id="set-template">
+              <h2>Mail template</h2>
+              <p class="hint wide">
+                Values are inserted with <code>{{name}}</code> and HTML-escaped; <code>{{{name}}}</code> inserts raw HTML.
+                Repeat a list with <code>{{#projects}}…{{/projects}}</code>, and show a block only when something is empty
+                with <code>{{^projects}}…{{/projects}}</code>.
+              </p>
+
+              <label class="field"><span>Subject</span><input id="tpl-subject" spellcheck="false" /></label>
+              <label class="field">
+                <span>HTML body</span>
+                <textarea id="tpl-html" rows="14" spellcheck="false" class="code"></textarea>
+              </label>
+
+              <details id="variables" class="disclosure">
+                <summary>Available variables</summary>
+                <div class="kv" id="variable-list"></div>
+              </details>
+
+              <div class="actions">
+                <button id="preview-template" class="primary">Preview template</button>
+                <button id="reset-template">Restore default</button>
+                <span id="template-status" class="status"></span>
+              </div>
+
+              <div id="template-preview-wrap" hidden>
+                <p class="hint" id="template-subject-preview"></p>
+                <iframe id="template-preview" title="Template preview" sandbox=""></iframe>
+              </div>
+            </section>
+
+            <section class="panel" id="set-automation">
+              <div class="panel-head">
+                <h2>Automation</h2>
+                <span class="hint" id="auto-status"></span>
+              </div>
+              <p class="hint wide">
+                Checks on a timer and mails the moment a finding crosses one of your age thresholds. Each finding is
+                reported <strong>once per threshold</strong>, so a daily sweep does not re-send the same thing every day.
+              </p>
+
+              <div class="checks">
+                <label class="check"><input type="checkbox" id="auto-enabled" /> Run automatically</label>
+                <label class="check"><input type="checkbox" id="auto-dry" /> Dry run — decide and log, but send nothing</label>
+              </div>
+
+              <div class="grid2">
+                <label class="field">
+                  <span>Age thresholds, in days</span>
+                  <input id="auto-thresholds" spellcheck="false" placeholder="30, 60, 90" />
+                </label>
+                <label class="field">
+                  <span>Check every (minutes)</span>
+                  <input id="auto-interval" type="number" min="15" max="10080" />
+                </label>
+                <label class="field">
+                  <span>Address to</span>
+                  <select id="auto-groupby">
+                    <option value="initiator">Each scan initiator</option>
+                    <option value="none">The configured recipient list</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Only these severities — blank means all</span>
+                  <input id="auto-severities" spellcheck="false" placeholder="CRITICAL, HIGH" />
+                </label>
+              </div>
+
+              <label class="field">
+                <span>When a finding is already past several thresholds</span>
+                <select id="auto-mode">
+                  <option value="crossing">Report each threshold once (recommended)</option>
+                  <option value="digest">Re-report everything past a threshold on every run</option>
+                </select>
+              </label>
+
+              <div class="detected" id="auto-credential"></div>
+
+              <div class="actions">
+                <button id="auto-save" class="primary">Save automation</button>
+                <button id="auto-run">Run once now</button>
+                <button id="auto-arm">Arm with current key</button>
+                <button id="auto-disarm">Forget stored key</button>
+                <button id="auto-reset" class="link">Reset history</button>
+                <span id="auto-message" class="status"></span>
+              </div>
+
+              <div id="auto-runs"></div>
+            </section>
+
+            <section class="panel" id="set-ai">
+              <div class="panel-head">
+                <h2>AI Triage &amp; Remediation from reports</h2>
+                <span class="hint" id="credit-state"></span>
+              </div>
+              <p class="hint wide">
+                Readers of the emailed report can run Checkmarx One AI Triage and AI Remediation through this server, on its
+                own Checkmarx One connection. Both use credits, so nothing runs until you allow it here.
+              </p>
+              <div class="toggle-list">
+                <label class="switch"><input type="checkbox" id="ai-enabled" /> <span><strong>Allow AI Triage from reports</strong><small>Uses Checkmarx One credits</small></span></label>
+                <label class="switch"><input type="checkbox" id="ai-retriage" /> <span><strong>Allow re-triage</strong><small>Triage a finding again when it already has a verdict (spends credits again)</small></span></label>
+                <label class="switch"><input type="checkbox" id="ai-remediation" /> <span><strong>Allow AI Remediation from reports</strong><small>Uses credits; may open pull requests — applies to reports generated after saving</small></span></label>
+                <label class="switch"><input type="checkbox" id="ai-reremediation" /> <span><strong>Allow re-remediation</strong><small>Remediate a finding already remediated (3 credits again; may open another pull request)</small></span></label>
+                <label class="switch"><input type="checkbox" id="ai-skip-ne" /> <span><strong>Leave not-exploitable findings out</strong><small>Proposed or confirmed not exploitable findings are skipped in reminders and reports</small></span></label>
+              </div>
+              <div class="grid2">
+                <label class="field">
+                  <span>Monthly credit limit for both — 0 for no limit</span>
+                  <input id="ai-limit" type="number" min="0" step="1" inputmode="numeric" />
+                </label>
+                <label class="field">
+                  <span>Administrator contact — offered to readers who run out of credits (blank: the From address)</span>
+                  <input id="ai-admin-contact" type="email" placeholder="appsec-admin@company.com" />
+                </label>
+              </div>
+
+              <div class="panel-head sub-head">
+                <h3>Credits used</h3>
+                <label class="inline">Month <select id="credit-month"></select></label>
+              </div>
+              <div id="credit-usage"><p class="hint">Loading…</p></div>
+              <p class="hint wide">
+                Counted by this server: per finding, 1 credit for AI Triage and 3 for AI Remediation, in each request Checkmarx One
+                accepted as a new job. Updates every 15 seconds while this page is open.
+              </p>
+
+              <div class="panel-head sub-head">
+                <h3>Allocated vs used</h3>
+              </div>
+              <div id="credit-allocations"><p class="hint">Loading…</p></div>
+              <p class="hint wide">
+                Per project, all time: what was first allocated, what is allocated now and what has been used through this utility.
+              </p>
+            </section>
+
+            <section class="panel" id="set-branding">
+              <h2>Branding</h2>
+              <p class="hint wide">
+                The app name and logo appear in this app; the company name and logo also head every reminder and report.
+                For reminders, an <code>https</code> logo URL is best — most mail clients block embedded images.
+              </p>
+
+              <div class="grid2">
+                <label class="field"><span>App name</span><input id="brand-app" placeholder="Mission Zero" /></label>
+                <label class="field"><span>Company name</span><input id="brand-name" placeholder="Acme Corp" /></label>
+                <label class="field"><span>Company logo — https URL, or upload one</span><input id="brand-logo" spellcheck="false" placeholder="https://acme.com/logo.png" /></label>
+                <label class="field"><span>Upload a logo (PNG, JPG, SVG or WebP, up to 200 KB)</span><input id="brand-logo-file" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" /></label>
+                <label class="field"><span>Logo height, in pixels</span><input id="brand-height" type="number" min="16" max="200" /></label>
+                <label class="field"><span>Accent colour</span><input id="brand-accent" type="color" /></label>
+              </div>
+
+              <label class="field">
+                <span>Call to action — shown above the findings</span>
+                <textarea id="brand-cta" rows="2" spellcheck="false"></textarea>
+              </label>
+
+              <div id="brand-preview" class="brand-preview"></div>
+            </section>
+
+            <section class="panel" id="set-links">
+              <h2>Links into Checkmarx One</h2>
+              <p class="hint wide">
+                Every finding in a reminder links straight to it in the platform. If a link lands in the wrong place, correct
+                the template here — the example below updates as you type.
+              </p>
+
+              <label class="field">
+                <span>Base URL — blank uses the API host your key resolved to</span>
+                <input id="link-base" spellcheck="false" placeholder="https://us.ast.checkmarx.net" />
+              </label>
+              <label class="field">
+                <span>Project link — <code>{baseUrl} {projectId}</code></span>
+                <input id="link-project" spellcheck="false" />
+              </label>
+              <label class="field">
+                <span>Finding link — <code>{baseUrl} {projectId} {scanId} {engine} {riskId}</code></span>
+                <input id="link-risk" spellcheck="false" />
+              </label>
+
+              <div class="kv" id="link-examples"></div>
+
+              <label class="field">
+                <span>Reminder server address for reports — how recipients' browsers reach this server to triage from a report (e.g. <code>https://cx-reminder.corp.example</code>). Blank uses the address this page is open on.</span>
+                <input id="link-report-server" spellcheck="false" placeholder="https://cx-reminder.corp.example" />
+              </label>
+            </section>
+
+            <section class="panel" id="set-endpoint">
+              <h2>Risks endpoint</h2>
+              <p class="hint wide">
+                Defaults to <code>/api/risks/</code>. <strong>Detect</strong> probes the known paths against your tenant and
+                reports what each returned.
+              </p>
+              <label class="field">
+                <span>Path — <code>{projectId}</code> is substituted for a templated endpoint</span>
+                <div class="path-row">
+                  <input id="risks-path" spellcheck="false" placeholder="/api/risks/" />
+                  <button id="detect-risks" type="button">Detect</button>
+                </div>
+              </label>
+              <div id="probe-results" hidden></div>
+            </section>
+
+            <div class="save-bar">
+              <span id="save-status" class="status"></span>
+              <button id="save-settings" class="primary big">Save settings</button>
+            </div>
+          </div>
+
+          <!-- ================= Tracked reports ================= -->
+          <div id="page-reports" class="page" hidden>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Tracked reports</h2>
+                <span class="hint" id="reports-meta"></span>
+              </div>
+              <p class="hint wide">
+                Each report keeps the findings its scope covered when saved and follows what happened to them — triaged,
+                confirmed, proposed not exploitable, or no longer detected — plus how many findings the same filters match
+                today. Save one from the Dashboard with <strong>Save as tracked report</strong>.
+              </p>
+              <div id="reports-list"><p class="hint">Loading…</p></div>
+            </section>
+          </div>
+
+          <!-- ================= Logs ================= -->
+          <div id="page-logs" class="page" hidden>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Activity log</h2>
+                <span class="hint" id="logs-summary"></span>
+              </div>
+              <div class="log-toolbar">
+                <div class="segmented log-filters">
+                  <label class="mode"><input type="checkbox" id="log-filter-api" checked /> <span>API calls</span></label>
+                  <label class="mode"><input type="checkbox" id="log-filter-errors" checked /> <span>Errors</span></label>
+                  <label class="mode"><input type="checkbox" id="log-filter-success" checked /> <span>Success</span></label>
+                </div>
+                <input type="search" id="log-search" placeholder="Search logs…" aria-label="Search logs" />
+                <div class="log-actions">
+                  <button id="export-logs" class="sm">Export</button>
+                  <button id="clear-logs" class="sm ghost">Clear</button>
+                </div>
+              </div>
+              <div id="logs-container" class="logs">
+                <div id="logs-empty" class="logs-empty">No logs yet. Fetch data to start capturing logs.</div>
+                <div id="logs-list"></div>
+              </div>
+            </section>
+          </div>
+        </main>
       </div>
-    </main>
+    </div>
 
     <script type="module" src="app.js"></script>
   </body>
