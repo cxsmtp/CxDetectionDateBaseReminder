@@ -184,6 +184,14 @@ export class CreditAllocations {
     return true;
   }
 
+  /** Set a project's extra credits of `kind` to exactly `credits` (0 removes them). */
+  setExtra(projectId, projectName, kind, credits) {
+    if (!KINDS.includes(kind)) throw new Error(`Unknown credit kind: ${kind}`);
+    const current = Number(this.#projects[projectId]?.[EXTRA[kind]]) || 0;
+    const target = Math.max(0, Math.floor(Number(credits) || 0));
+    if (target !== current) this.add(projectId, projectName, kind, target - current);
+  }
+
   /** Drop the extra credits the administrator added; the rule alone decides again. */
   clearExtras(projectId) {
     const entry = this.#projects[projectId];

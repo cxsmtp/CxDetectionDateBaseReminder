@@ -870,6 +870,16 @@ function adminContact(settings = settingsStore.get()) {
 
 const KIND_NAMES = { triage: 'AI Triage', remediation: 'AI Remediation' };
 
+/** Each project's credits, as a report shows them. */
+function projectCredits(projectIds) {
+  const out = {};
+  for (const projectId of new Set(projectIds)) {
+    const b = allocations.balance(projectId);
+    out[projectId] = { triage: b.triage, remediation: b.remediation };
+  }
+  return out;
+}
+
 /** What a refused request needed, for the report's "ask your administrator" message. */
 function creditNeed(projectId, projectName, kind, needed) {
   return { projectId, projectName, kind, needed, left: allocations.balance(projectId)[kind].remaining, adminContact: adminContact() };
@@ -913,6 +923,16 @@ app.post(
         creditsRemaining: creditsRemaining(),
       });
     }
+  }),
+);
+
+/** Credits available to the projects of a report (one signed finding per project). */
+app.post(
+  '/api/relay/credits',
+  asyncRoute(async (req, res) => {
+    const findings = grantedFindings(req, res);
+    if (!findings) return;
+    res.json({ projects: projectCredits(findings.map((f) => f.projectId)), creditsRemaining: creditsRemaining() });
   }),
 );
 
@@ -1009,7 +1029,7 @@ app.post(
         reservation.release();
       }
     }
-    res.json({ results, creditsRemaining: creditsRemaining() });
+    res.json({ results, creditsRemaining: creditsRemaining(), projects: projectCredits(findings.map((f) => f.projectId)) });
   }),
 );
 
@@ -1185,6 +1205,7 @@ app.post(
         error: refusal,
         credits: creditNeed(finding.projectId, finding.projectName, 'remediation', cost),
         creditsRemaining: creditsRemaining(),
+        projects: projectCredits([finding.projectId]),
       });
     }
     const reservation = creditLedger.reserve(cost, limit, new Date(), {
@@ -1220,7 +1241,13 @@ app.post(
       stateCache.delete(finding.projectId);
       touchProject(finding.projectId);
       reservation.release();
-      res.json({ ok: true, published, existingState: body?.existingState ?? null, creditsRemaining: creditsRemaining() });
+      res.json({
+        ok: true,
+        published,
+        existingState: body?.existingState ?? null,
+        creditsRemaining: creditsRemaining(),
+        projects: projectCredits([finding.projectId]),
+      });
     } catch (error) {
       res.status(error.status && error.status >= 400 ? error.status : 502).json({
         error: error.status === 402
@@ -1272,7 +1299,7 @@ const cleanSeverities = (list) =>
 
 app.post('/api/credits/allocate', requireSession, (req, res) => {
   if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
-  const { projectIds, ruleChanges, triageAdd = 0, remediationAdd = 0, clearExtras = false } = req.body ?? {};
+  const { projectIds, ruleChanges, triageAdd = 0, remediationAdd = 0, clearExtras = false, setExtra = null } = req.body ?? {};
   // Each change adds or removes one severity from every project's own rule,
   // so severities the administrator did not touch stay as each project had them.
   const changes = (Array.isArray(ruleChanges) ? ruleChanges : [])
@@ -1280,11 +1307,21 @@ app.post('/api/credits/allocate', requireSession, (req, res) => {
     .filter((c) => SEVERITIES.includes(c.severity));
   const extraTriage = Math.max(0, Math.floor(Number(triageAdd) || 0));
   const extraRemediation = Math.max(0, Math.floor(Number(remediationAdd) || 0));
-  if (!changes.length && !extraTriage && !extraRemediation && clearExtras !== true) {
+  // Exact extras for one project at a time (the per-project editor).
+  const exact = setExtra && typeof setExtra === 'object' ? setExtra : null;
+  if (!changes.length && !extraTriage && !extraRemediation && clearExtras !== true && !exact) {
     return res.status(400).json({ error: 'Choose severities, or enter credits to add.' });
+  }
+  if (exact && (!Array.isArray(projectIds) || projectIds.length !== 1)) {
+    return res.status(400).json({ error: 'Set exact extra credits for one project at a time.' });
   }
 
   const projects = scanProjects(req, projectIds);
+  for (const p of exact ? projects : []) {
+    for (const kind of ['triage', 'remediation']) {
+      if (kind in exact) allocations.setExtra(p.projectId, p.projectName, kind, exact[kind]);
+    }
+  }
   for (const p of projects) {
     if (clearExtras === true) allocations.clearExtras(p.projectId);
     if (extraTriage) allocations.add(p.projectId, p.projectName, 'triage', extraTriage);

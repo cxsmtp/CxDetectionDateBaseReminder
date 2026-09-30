@@ -171,14 +171,17 @@ export function generateHtmlReport(reportData, options = {}) {
   <div id="banner" class="banner" hidden></div>
 
   <section class="actions">
-    <div>
+    <div class="bulk-row">
       ${BULK_SEVERITIES.map((severity) => {
         const label = severity.toLowerCase();
         const count = counts[severity] ?? 0;
         return `<button class="btn btn-primary bulk" type="button" data-severity="${severity}"${count ? '' : ' disabled'}>Triage all ${label} (${count})</button>`;
       }).join('\n      ')}
-      <span id="bulk-credits" class="muted"></span>
       <span id="bulk-progress" class="muted"></span>
+    </div>
+    <div id="credit-balance" class="credit-balance" hidden>
+      <div class="credit-balance-head"><strong>Your credits</strong> <span id="bulk-credits" class="muted"></span></div>
+      <div id="credit-projects" class="credit-projects"></div>
     </div>
     <p class="muted">Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or
       high finding in this report, across all its projects. ${remediateHere
@@ -317,7 +320,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px max(24px, env(safe-area-
 .btn-small { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
 .muted { color: var(--muted); font-size: 13px; }
 .actions { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
-.actions > div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.bulk-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .actions p { margin: 8px 0 0; }
 .banner { border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; overflow-wrap: anywhere; }
 .banner-error { background: var(--bad-bg); color: var(--bad); border: 1px solid transparent; }
@@ -353,6 +356,18 @@ tr:last-child td { border-bottom: 0; }
 .activity li { padding: 3px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; } .activity time { color: var(--muted); margin-right: 6px; }
 .log-error { color: var(--bad); } .log-success { color: var(--good); }
 .hidden-note { display: block; margin: 12px 0 0; }
+.credit-balance { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.credit-balance-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 8px; }
+.credit-projects { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.credit-card { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--surface-2); min-width: 0; }
+.credit-card .name { font-weight: 600; font-size: 13px; overflow-wrap: anywhere; }
+.credit-line { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; margin-top: 4px; }
+.credit-line b { font-variant-numeric: tabular-nums; }
+.credit-line .out { color: var(--bad); }
+.credit-bar { height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; margin-top: 3px; }
+.credit-bar span { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.credit-flash { animation: credit-flash 1.2s ease-out; }
+@keyframes credit-flash { from { background: var(--busy-bg); } to { background: var(--surface-2); } }
 .dialog { border: 0; border-radius: 12px; padding: 0; max-width: 440px; width: calc(100% - 32px); background: var(--surface); color: var(--ink);
   box-shadow: 0 20px 50px rgba(16,24,40,.25); }
 .dialog::backdrop { background: rgba(16,24,40,.55); }
@@ -381,7 +396,7 @@ tr:last-child td { border-bottom: 0; }
   #connect { width: 100%; }
   main { padding-top: 12px; padding-bottom: 28px; }
   .actions { padding: 12px; }
-  .actions > div > .btn { flex: 1 1 calc(50% - 10px); }
+  .bulk-row > .btn { flex: 1 1 calc(50% - 10px); }
   .table-wrap { background: transparent; border: 0; overflow: visible; }
   #findings, #findings tbody { display: block; }
   #findings thead { display: none; }
@@ -401,7 +416,7 @@ tr:last-child td { border-bottom: 0; }
   .dialog-actions .btn { flex: 1 1 auto; }
 }
 @media (max-width: 380px) {
-  .actions > div > .btn { flex-basis: 100%; }
+  .bulk-row > .btn { flex-basis: 100%; }
 }
 
 /* Touch screens: bigger targets. */

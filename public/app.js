@@ -1234,7 +1234,7 @@ function renderProjects() {
           <td class="initiator">${renderInitiator(p)}</td>
           ${creditCell(p, 'triage')}
           ${creditCell(p, 'remediation')}
-        </tr>`;
+        </tr>${state.creditEditor === p.projectId ? creditEditorRow(p) : ''}`;
       })
       .join('');
   }
@@ -1254,6 +1254,63 @@ function renderProjects() {
   }
   renderAllocation();
   renderTrackRow();
+}
+
+/** One project's credits, editable: what its severities need, plus extras the administrator sets. */
+function creditEditorRow(p) {
+  const c = p.credits ?? {};
+  const t = c.triage ?? { allocated: 0, used: 0, remaining: 0 };
+  const r = c.remediation ?? { allocated: 0, used: 0, remaining: 0 };
+  const sev = c.severities ?? [];
+  const toTriage = sev.reduce((n, s) => n + (c.toTriage?.[s] ?? 0), 0);
+  const id = escapeHtml(p.projectId);
+  return `<tr class="credit-editor" data-editor="${id}"><td colspan="10">
+    <div class="credit-editor-grid">
+      <div class="credit-editor-head"><strong>${escapeHtml(p.projectName)}</strong>
+        <span class="hint">covers ${escapeHtml(sev.map((s) => s.toLowerCase()).join(', ') || 'no severities')} · extra credits stay until you change them</span></div>
+      <div class="credit-kind">
+        <span class="label">AI Triage</span>
+        <span class="need">${toTriage} needed +</span>
+        <label class="inline"><input type="number" min="0" step="1" class="small-num" data-extra="triage" value="${c.extraTriage ?? 0}" /> extra</label>
+        <span class="hint">${t.remaining} left of ${t.allocated} · ${t.used} used</span>
+      </div>
+      <div class="credit-kind">
+        <span class="label">AI Remediation</span>
+        <span class="need">${(c.toRemediate ?? 0) * 3} needed +</span>
+        <label class="inline"><input type="number" min="0" step="3" class="small-num" data-extra="remediation" value="${c.extraRemediation ?? 0}" /> extra</label>
+        <span class="hint">${r.remaining} left of ${r.allocated} · ${r.used} used · ${c.toRemediate ?? 0} confirmed × 3</span>
+      </div>
+      <div class="actions compact">
+        <button type="button" class="primary" data-credit-save="${id}">Save</button>
+        <button type="button" data-credit-cancel="${id}">Close</button>
+        <span class="status" data-credit-status="${id}"></span>
+      </div>
+    </div>
+  </td></tr>`;
+}
+
+async function saveProjectCredits(projectId) {
+  const row = document.querySelector(`[data-editor="${CSS.escape(projectId)}"]`);
+  const value = (kind) => Math.max(0, Math.floor(Number(row.querySelector(`[data-extra="${kind}"]`).value) || 0));
+  const status = row.querySelector('[data-credit-status]');
+  status.textContent = 'Saving…';
+  status.className = 'status';
+  try {
+    const result = await api('/api/credits/allocate', {
+      method: 'POST',
+      body: JSON.stringify({ projectIds: [projectId], setExtra: { triage: value('triage'), remediation: value('remediation') } }),
+    });
+    applyCredits(result.projects);
+    const saved = document.querySelector(`[data-credit-status="${CSS.escape(projectId)}"]`);
+    if (saved) {
+      saved.textContent = 'Saved.';
+      saved.className = 'status ok';
+    }
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    status.textContent = error.message;
+    status.className = 'status error';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1747,7 +1804,7 @@ function creditCell(project, kind) {
       : `${need} confirmed finding(s) to remediate (3 credits each)`,
     extra ? `includes ${extra} extra credit(s) you added` : '',
   ].filter(Boolean).join(' · ');
-  return `<td class="num credits" title="${escapeHtml(title)}"><span class="${c.remaining === 0 && c.allocated > 0 ? 'low' : ''}">${c.remaining}</span><span class="zero"> / ${c.allocated}</span></td>`;
+  return `<td class="num credits" title="${escapeHtml(title)}"><button type="button" class="credit-edit" data-credit-edit="${escapeHtml(project.projectId)}" aria-label="Edit ${escapeHtml(project.projectName)} credits"><span class="${c.remaining === 0 && c.allocated > 0 ? 'low' : ''}">${c.remaining}</span><span class="zero"> / ${c.allocated}</span>${extra ? '<span class="extra-dot" title="Includes extra credits">+</span>' : ''}</button></td>`;
 }
 
 /** Selected projects, or every shown one when none is selected. */
@@ -2386,6 +2443,30 @@ $('select-all').addEventListener('change', (event) => {
   renderInitiatorList();
 });
 
+$('projects-body').addEventListener('click', (event) => {
+  const edit = event.target.closest('[data-credit-edit]');
+  const save = event.target.closest('[data-credit-save]');
+  const close = event.target.closest('[data-credit-cancel]');
+  if (edit) {
+    state.creditEditor = state.creditEditor === edit.dataset.creditEdit ? null : edit.dataset.creditEdit;
+    renderProjects();
+    document.querySelector(`[data-editor="${CSS.escape(edit.dataset.creditEdit)}"] input`)?.focus();
+  } else if (save) {
+    saveProjectCredits(save.dataset.creditSave);
+  } else if (close) {
+    state.creditEditor = null;
+    renderProjects();
+  }
+});
+$('projects-body').addEventListener('keydown', (event) => {
+  const row = event.target.closest('[data-editor]');
+  if (!row) return;
+  if (event.key === 'Enter') saveProjectCredits(row.dataset.editor);
+  if (event.key === 'Escape') {
+    state.creditEditor = null;
+    renderProjects();
+  }
+});
 $('projects-body').addEventListener('change', (event) => {
   const id = event.target.dataset.select;
   if (!id) return;

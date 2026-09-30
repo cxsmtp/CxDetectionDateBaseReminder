@@ -56,6 +56,9 @@
   };
 
   let backend = null;
+  // Credits per project, from the reminder server: {triage: {allocated, used, remaining}, remediation: {...}}.
+  const credits = {};
+  const projectNames = new Map(findings.map((f) => [f.projectId, f.projectName]));
   let bulkRunning = false;
   let connecting = null;
 
@@ -190,9 +193,19 @@
       connect() {
         return post('/api/relay/status', {});
       },
+      async credits() {
+        // One signed finding per project is enough to ask about that project.
+        const perProject = new Map();
+        for (const f of findings) if (f.grant && !perProject.has(f.projectId)) perProject.set(f.projectId, f);
+        if (!perProject.size) return;
+        const answer = await post('/api/relay/credits', { findings: [...perProject.values()].map(wire) });
+        updateCredits(answer.projects);
+        showCredits(answer.creditsRemaining);
+      },
       async triage(list) {
         const answer = await post('/api/relay/triage', { findings: list.map(wire) });
         showCredits(answer.creditsRemaining);
+        updateCredits(answer.projects, true);
         return answer.results;
       },
       async results(list) {
@@ -205,6 +218,7 @@
       async remediate(f) {
         const answer = await post('/api/relay/remediate', { findings: [wire(f)] });
         showCredits(answer.creditsRemaining);
+        updateCredits(answer.projects, true);
         return answer;
       },
       remediationDetails(f) {
@@ -334,8 +348,92 @@
     if (!backend) return;
     $('bulk-credits').textContent =
       remaining === null || remaining === undefined
-        ? 'AI Triage uses 1 Checkmarx One credit per finding, AI Remediation 3.'
-        : `AI Triage uses 1 Checkmarx One credit per finding, AI Remediation 3 · ${remaining} left this month.`;
+        ? 'AI Triage uses 1 credit per finding, AI Remediation 3.'
+        : `AI Triage uses 1 credit per finding, AI Remediation 3 · ${remaining} left this month across all projects.`;
+  }
+
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+  /** Merge fresh balances; with `flash`, highlight the projects whose balance moved. */
+  function updateCredits(projects, flash = false) {
+    if (!projects) return;
+    const moved = new Set();
+    for (const [id, c] of Object.entries(projects)) {
+      const before = credits[id];
+      if (before && (before.triage.remaining !== c.triage.remaining || before.remediation.remaining !== c.remediation.remaining)) {
+        moved.add(id);
+        const used = (kind) => before[kind].remaining - c[kind].remaining;
+        const parts = [
+          used('triage') > 0 ? `${plural(used('triage'), 'triage credit')} used, ${c.triage.remaining} left` : '',
+          used('remediation') > 0 ? `${plural(used('remediation'), 'remediation credit')} used, ${c.remediation.remaining} left` : '',
+        ].filter(Boolean);
+        if (parts.length) log(`${projectNames.get(id) || id}: ${parts.join('; ')}.`, 'info');
+      }
+      credits[id] = c;
+    }
+    renderCredits(flash ? moved : new Set());
+  }
+
+  function renderCredits(flash = new Set()) {
+    const box = $('credit-balance');
+    const ids = Object.keys(credits);
+    box.hidden = !backend || ids.length === 0;
+    if (box.hidden) return;
+    const line = (label, k, unit) => {
+      const out = k.remaining === 0;
+      const pct = k.allocated ? Math.round((k.remaining / k.allocated) * 100) : 0;
+      const div = document.createElement('div');
+      const row = document.createElement('div');
+      row.className = 'credit-line';
+      const name = document.createElement('span');
+      name.textContent = label;
+      const value = document.createElement('b');
+      value.className = out ? 'out' : '';
+      value.textContent = k.allocated
+        ? `${k.remaining} of ${k.allocated} left${unit ? ` (${unit(k.remaining)})` : ''}`
+        : 'none allocated';
+      row.append(name, value);
+      const bar = document.createElement('div');
+      bar.className = 'credit-bar';
+      bar.title = `${k.used} used`;
+      const fill = document.createElement('span');
+      fill.style.width = `${pct}%`;
+      bar.append(fill);
+      div.append(row, bar);
+      return div;
+    };
+    const cards = ids
+      .sort((a, b) => (projectNames.get(a) || a).localeCompare(projectNames.get(b) || b))
+      .map((id) => {
+        const c = credits[id];
+        const card = document.createElement('div');
+        card.className = `credit-card${flash.has(id) ? ' credit-flash' : ''}`;
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = projectNames.get(id) || id;
+        card.append(
+          name,
+          line('AI Triage', c.triage, (n) => plural(n, 'finding')),
+          line('AI Remediation', c.remediation, (n) => plural(Math.floor(n / 3), 'remediation')),
+        );
+        return card;
+      });
+    $('credit-projects').replaceChildren(...cards);
+  }
+
+  /** "Payments: 5 left → 1 after" for a request's cost per project, for confirmations. */
+  function afterText(list, kind, perFinding) {
+    const cost = new Map();
+    for (const f of list) cost.set(f.projectId, (cost.get(f.projectId) ?? 0) + perFinding);
+    const lines = [...cost].map(([id, n]) => {
+      const left = credits[id]?.[kind]?.remaining;
+      const name = projectNames.get(id) || id;
+      if (left === undefined) return `${name}: ${n} credit(s)`;
+      return left < n
+        ? `${name}: needs ${n}, only ${left} left`
+        : `${name}: ${n} credit(s) — ${left} left now, ${left - n} after`;
+    });
+    return lines.length ? `\n\n${lines.join('\n')}` : '';
   }
 
   // ---------------------------------------------------------------------------
@@ -422,6 +520,10 @@
           .catch(reportError);
       } else if (isCreditRefusal(result.status, result)) {
         refusals.push(result);
+        if (result.credits) {
+          const c = credits[result.credits.projectId];
+          if (c) updateCredits({ [result.credits.projectId]: { ...c, triage: { ...c.triage, remaining: result.credits.left } } });
+        }
       } else {
         reportError(new CxError(result.error, result.status));
       }
@@ -444,7 +546,7 @@
     const label = SEVERITY_LABELS[severity];
     const projects = new Set(list.map((f) => f.projectId)).size;
     const where = projects > 1 ? ` across ${projects} projects` : '';
-    if (!confirm(`Run AI Triage on all ${list.length} ${label} finding(s)${where}? This uses ${list.length} Checkmarx One credit(s).`)) return;
+    if (!confirm(`Run AI Triage on all ${list.length} ${label} finding(s)${where}? This uses ${list.length} Checkmarx One credit(s).${afterText(list, 'triage', 1)}`)) return;
     bulkRunning = true;
     updateBulk();
     try {
@@ -624,7 +726,7 @@
       }
     }
     const again = isRemediated(f) ? ' again' : '';
-    if (!confirm(`Run Checkmarx One AI Remediation${again} for "${f.title}"? It uses 3 Checkmarx One credits and, for repository-connected projects, opens a pull request.`)) return;
+    if (!confirm(`Run Checkmarx One AI Remediation${again} for "${f.title}"? It uses 3 Checkmarx One credits and, for repository-connected projects, opens a pull request.${afterText([f], 'remediation', 3)}`)) return;
     const previous = f.remediation;
     f.remediation = { running: true };
     renderRemediation(f);
@@ -640,6 +742,7 @@
         log(error.message, 'info');
         return renderRemediation(f);
       } else if (isCreditRefusal(error.status, error.body)) {
+        updateCredits(error.body?.projects);
         f.remediation = previous ?? null;
         renderRemediation(f);
         return showCreditDialog([{ error: error.message, credits: error.body?.credits }]);
@@ -704,6 +807,7 @@
     for (const f of findings) if (hasVerdict(f)) renderTriage(f);
     loadExistingTriage().catch(reportError);
     loadExistingRemediation().catch(reportError);
+    candidate.credits().catch((error) => log(`Could not read credits: ${error.message}`, 'error'));
   }
 
   function disconnect() {
@@ -712,6 +816,7 @@
       sessionStorage.removeItem(STORE);
     } catch {}
     setConnectedUI();
+    renderCredits();
     updateBulk();
     log('Disconnected from Checkmarx One.', 'info');
   }

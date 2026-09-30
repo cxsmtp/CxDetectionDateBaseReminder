@@ -185,3 +185,19 @@ test('the allocation list shows what was first allocated, what is allocated now 
   assert.deepEqual([p1.remediation.initial, p1.remediation.allocated, p1.remediation.used, p1.remediation.remaining], [0, 6, 3, 3]);
   assert.ok(p1.initialAt);
 });
+
+test('an administrator can set one project\'s extra credits exactly, up or down', () => {
+  const { allocations } = setup();
+  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 2 }));
+  allocations.setExtra('p1', 'Payments', 'triage', 5);
+  allocations.setExtra('p1', 'Payments', 'remediation', 6);
+  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 2 }));
+  let b = allocations.balance('p1');
+  assert.deepEqual([b.triage.allocated, b.extraTriage, b.remediation.allocated, b.extraRemediation], [7, 5, 6, 6]);
+  allocations.setExtra('p1', 'Payments', 'triage', 1);
+  allocations.setExtra('p1', 'Payments', 'remediation', 0);
+  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 2 }));
+  b = allocations.balance('p1');
+  assert.deepEqual([b.triage.allocated, b.extraTriage, b.remediation.allocated, b.extraRemediation], [3, 1, 0, 0]);
+  assert.deepEqual(allocations.balance('p2').triage.allocated, 0, 'other projects untouched');
+});

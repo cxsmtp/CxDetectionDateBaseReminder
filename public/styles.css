@@ -454,3 +454,19 @@ td.credits .low { color: var(--danger); }
   .alloc-extras label.inline { flex: 1 1 100%; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .alloc-extras button { flex: 1 1 auto; }
 }
+
+/* Per-project credit editor */
+button.credit-edit { font: inherit; background: none; border: 1px dashed transparent; border-radius: 6px; padding: 2px 6px; color: inherit; cursor: pointer; }
+button.credit-edit:hover, button.credit-edit:focus-visible { border-color: var(--accent); }
+.extra-dot { color: var(--accent); font-weight: 700; margin-left: 2px; }
+tr.credit-editor td { background: color-mix(in srgb, var(--accent) 6%, transparent); border-top: 0; white-space: normal; }
+.credit-editor-grid { display: grid; gap: 8px; padding: 6px 2px; position: sticky; left: 0; max-width: min(760px, calc(100vw - 64px)); }
+.credit-editor-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.credit-editor-head .hint { margin: 0; max-width: none; }
+.credit-kind { display: grid; grid-template-columns: 120px 90px auto 1fr; align-items: center; gap: 8px; font-size: 13px; }
+.credit-kind .label { font-weight: 600; }
+.credit-kind .need { color: var(--muted); text-align: right; }
+.credit-kind .hint { margin: 0; max-width: none; }
+.credit-kind .small-num { width: 72px; }
+.credit-editor-grid .actions { margin: 2px 0 0; }
+@media (max-width: 720px) { .credit-kind { grid-template-columns: 1fr auto; } .credit-kind .need, .credit-kind .hint { grid-column: 1 / -1; text-align: left; } }
