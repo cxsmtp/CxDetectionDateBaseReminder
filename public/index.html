@@ -15,6 +15,7 @@
       </div>
       <nav class="tabs" id="nav" hidden>
         <a href="#/dashboard" data-route="dashboard" class="tab">Dashboard</a>
+        <a href="#/reports" data-route="reports" class="tab">Tracked reports</a>
         <a href="#/settings" data-route="settings" class="tab">Settings</a>
         <a href="#/logs" data-route="logs" class="tab">Logs</a>
       </nav>
@@ -139,6 +140,12 @@
             </table>
           </div>
           <p class="hint" id="table-meta"></p>
+          <div class="alloc-row" id="track-row" hidden>
+            <label class="inline">Track this scope as <input id="track-name" placeholder="e.g. Q4 critical & high — Payments" class="track-name" /></label>
+            <button id="track-save" type="button">Save as tracked report</button>
+            <span class="hint" id="track-scope"></span>
+            <span class="status" id="track-status"></span>
+          </div>
         </section>
 
         <section class="panel" id="credits-panel" hidden>
@@ -536,6 +543,21 @@
       </div>
 
       <!-- ================= Logs ================= -->
+      <div id="page-reports" class="page" hidden>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Tracked reports</h2>
+            <span class="hint" id="reports-meta"></span>
+          </div>
+          <p class="hint">
+            Each report keeps the findings its scope covered when saved and follows what happened to them —
+            triaged, confirmed, proposed not exploitable, or no longer detected — plus how many findings the same
+            filters match today. Save one from the Dashboard with <strong>Save as tracked report</strong>.
+          </p>
+          <div id="reports-list"><p class="hint">Loading…</p></div>
+        </section>
+      </div>
+
       <div id="page-logs" class="page" hidden>
         <section class="panel">
           <div class="panel-head">

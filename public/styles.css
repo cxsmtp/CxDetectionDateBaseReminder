@@ -407,3 +407,21 @@ label.inline { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .small-num { width: 80px; }
 td.credits { white-space: nowrap; }
 td.credits .low { color: var(--danger); }
+
+.track-name { width: 320px; }
+.report-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+.report-card h3 { margin: 0; font-size: 16px; }
+.report-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.report-meta { font-size: 12px; opacity: .75; margin-top: 2px; }
+.report-stats { display: flex; gap: 22px; flex-wrap: wrap; margin: 12px 0 8px; }
+.report-stats div { display: flex; flex-direction: column; }
+.report-stats .value { font-size: 22px; font-weight: 700; }
+.report-stats .label { font-size: 12px; opacity: .75; }
+.progress-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--border); }
+.progress-bar span { display: block; height: 100%; }
+.seg-resolved { background: #12b76a; } .seg-notExploitable { background: #2e90fa; }
+.seg-confirmed { background: #f79009; } .seg-awaiting { background: #d0d5dd; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; margin-top: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.report-card details { margin-top: 10px; font-size: 13px; }
+.report-card summary { cursor: pointer; }

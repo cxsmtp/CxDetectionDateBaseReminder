@@ -44,6 +44,16 @@ export class CreditLedger {
     );
   }
 
+  /** Credits these projects used since `since` (ISO time), by kind. */
+  usedSince(projectIds, since) {
+    const wanted = new Set(projectIds);
+    const out = { triage: 0, remediation: 0 };
+    for (const e of this.#entries) {
+      if (e.at >= since && wanted.has(e.projectId)) out[e.kind === 'remediation' ? 'remediation' : 'triage'] += e.credits;
+    }
+    return out;
+  }
+
   /** Credits held for requests still in flight for this project and kind. */
   reservedFor(projectId, kind) {
     return this.#reservedBy.get(`${projectId}|${kind}`) ?? 0;

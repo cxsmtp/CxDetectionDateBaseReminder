@@ -119,10 +119,10 @@ function handleAuthLoss(error) {
 
 function route() {
   const name = (location.hash.replace('#/', '') || 'dashboard').split('?')[0];
-  const target = ['dashboard', 'settings', 'logs'].includes(name) ? name : 'dashboard';
+  const target = ['dashboard', 'reports', 'settings', 'logs'].includes(name) ? name : 'dashboard';
   if (!state.connection) return;
 
-  for (const page of ['dashboard', 'settings', 'logs']) {
+  for (const page of ['dashboard', 'reports', 'settings', 'logs']) {
     $(`page-${page}`).hidden = page !== target;
   }
   for (const tab of document.querySelectorAll('.tab')) {
@@ -134,6 +134,8 @@ function route() {
     loadCredits();
   } else if (target === 'logs') {
     renderLogsPage();
+  } else if (target === 'reports') {
+    loadTrackedReports();
   }
 }
 
@@ -1213,6 +1215,177 @@ function renderProjects() {
     th.dataset.dir = th.dataset.sort === state.sort.key ? state.sort.dir : '';
   }
   renderAllocation();
+  renderTrackRow();
+}
+
+// ---------------------------------------------------------------------------
+// Tracked reports
+// ---------------------------------------------------------------------------
+
+function trackScope() {
+  const severity = $('severity-filter').value;
+  const bucket = $('bucket-filter').value;
+  const projects = allocationScope();
+  const parts = [
+    $('scope-summary').textContent,
+    severity ? `${severity.toLowerCase()} only` : 'all severities',
+    bucket ? `age ${$('bucket-filter').selectedOptions[0].textContent.toLowerCase()}` : '',
+    `${projects.length} project${projects.length === 1 ? '' : 's'}`,
+  ].filter(Boolean);
+  return { severity, bucket, projects, label: parts.join(' · ') };
+}
+
+function renderTrackRow() {
+  $('track-row').hidden = !state.projects.length;
+  if (!state.projects.length) return;
+  $('track-scope').textContent = `Saves: ${trackScope().label}`;
+}
+
+async function saveTrackedReport() {
+  const name = $('track-name').value.trim();
+  if (!name) return setStatus('track-status', 'Give the report a name.', 'error');
+  const scope = trackScope();
+  const params = windowParams();
+  const windows = Object.fromEntries(
+    ['activity', 'detection'].map((prefix) => [
+      prefix,
+      { preset: params.get(`${prefix}Preset`), from: params.get(`${prefix}From`) ?? undefined, to: params.get(`${prefix}To`) ?? undefined },
+    ]),
+  );
+  try {
+    const report = await api('/api/tracked-reports', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        projectIds: scope.projects.map((p) => p.projectId),
+        severities: scope.severity ? [scope.severity] : [],
+        buckets: scope.bucket ? [scope.bucket] : [],
+        windows,
+        scopeLabel: scope.label,
+      }),
+    });
+    $('track-name').value = '';
+    setStatus('track-status', `Saved "${report.name}" with ${report.baselineCount} finding(s). See Tracked reports.`, 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('track-status', error);
+  }
+}
+
+const TRACK_POLL_MS = 30_000;
+let trackTimer = null;
+
+async function loadTrackedReports() {
+  clearTimeout(trackTimer);
+  if ($('page-reports').hidden) return;
+  try {
+    const data = await api('/api/tracked-reports');
+    renderTrackedReports(data);
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    $('reports-list').innerHTML = `<p class="status error">${escapeHtml(error.message)}</p>`;
+  }
+  trackTimer = setTimeout(loadTrackedReports, TRACK_POLL_MS);
+}
+
+const OUTCOME_LABELS = {
+  resolved: 'No longer detected',
+  notExploitable: 'Not exploitable (proposed or confirmed)',
+  confirmed: 'Confirmed',
+  awaiting: 'Awaiting triage',
+};
+
+function progressBar(outcomes, total) {
+  if (!total) return '<div class="progress-bar"></div>';
+  return `<div class="progress-bar">${Object.keys(OUTCOME_LABELS)
+    .map((key) => (outcomes[key] ? `<span class="seg-${key}" style="width:${(outcomes[key] / total) * 100}%" title="${escapeHtml(OUTCOME_LABELS[key])}: ${outcomes[key]}"></span>` : ''))
+    .join('')}</div>
+    <div class="legend">${Object.entries(OUTCOME_LABELS)
+      .map(([key, label]) => `<span><i class="seg-${key}"></i>${escapeHtml(label)}: <b>${outcomes[key] ?? 0}</b></span>`)
+      .join('')}</div>`;
+}
+
+function renderTrackedReports({ reports, autoRefresh }) {
+  $('reports-meta').textContent = autoRefresh
+    ? 'Updates automatically: hourly, and every few minutes after anyone triages or remediates'
+    : 'Automatic updates need a stored Checkmarx One connection (CX_API_KEY, or arm automation in Settings); use Refresh meanwhile';
+  if (!reports.length) {
+    $('reports-list').innerHTML = '<p class="hint">No tracked reports yet.</p>';
+    return;
+  }
+  $('reports-list').innerHTML = reports
+    .map((r) => {
+      const l = r.latest;
+      const stats = l
+        ? `<div class="report-stats">
+            <div><span class="value">${l.baseline}</span><span class="label">findings when saved</span></div>
+            <div><span class="value">${l.percentActioned}%</span><span class="label">triaged or resolved (${l.actioned})</span></div>
+            <div><span class="value">${l.changed ?? 0}</span><span class="label">changed since saved</span></div>
+            <div><span class="value">${l.outcomes.awaiting}</span><span class="label">still awaiting triage</span></div>
+            <div><span class="value">${l.newFindings}</span><span class="label">new, matching the filters</span></div>
+            <div><span class="value">${l.currentMatching}</span><span class="label">matching the filters now</span></div>
+            <div><span class="value">${l.aiActions.triage} / ${l.aiActions.remediation}</span><span class="label">AI triage / remediation credits used</span></div>
+          </div>${progressBar(l.outcomes, l.baseline)}`
+        : '<p class="hint">Not measured yet.</p>';
+      const projects = l?.byProject?.length
+        ? `<details><summary>By project (${l.byProject.length})</summary>
+            <div class="table-wrap"><table class="probe">
+              <thead><tr><th>Project</th><th class="num">When saved</th><th class="num">Awaiting</th><th class="num">Confirmed</th><th class="num">Not exploitable</th><th class="num">No longer detected</th><th class="num">New</th><th class="num">Matching now</th></tr></thead>
+              <tbody>${l.byProject
+                .map((p) => `<tr><td>${escapeHtml(p.projectName || p.projectId)}</td><td class="num">${p.baseline}</td><td class="num">${p.awaiting}</td><td class="num">${p.confirmed}</td><td class="num">${p.notExploitable}</td><td class="num">${p.resolved}</td><td class="num">${p.newFindings}</td><td class="num">${p.currentMatching}</td></tr>`)
+                .join('')}</tbody>
+            </table></div></details>`
+        : '';
+      const history = r.history?.length > 1
+        ? `<details><summary>History (${r.history.length} readings)</summary>
+            <div class="table-wrap"><table class="probe">
+              <thead><tr><th>When</th><th class="num">Awaiting</th><th class="num">Confirmed</th><th class="num">Not exploitable</th><th class="num">No longer detected</th><th class="num">New</th><th class="num">Matching now</th></tr></thead>
+              <tbody>${r.history
+                .slice()
+                .reverse()
+                .map((h) => `<tr><td>${escapeHtml(new Date(h.at).toLocaleString())}</td><td class="num">${h.awaiting}</td><td class="num">${h.confirmed}</td><td class="num">${h.notExploitable}</td><td class="num">${h.resolved}</td><td class="num">${h.newFindings}</td><td class="num">${h.currentMatching}</td></tr>`)
+                .join('')}</tbody>
+            </table></div></details>`
+        : '';
+      return `<article class="report-card" data-report="${escapeHtml(r.id)}">
+        <div class="report-head">
+          <div>
+            <h3>${escapeHtml(r.name)}</h3>
+            <div class="report-meta">${escapeHtml(r.scopeLabel || '')}</div>
+            <div class="report-meta">Saved ${escapeHtml(new Date(r.createdAt).toLocaleString())} · ${
+              l ? `updated ${escapeHtml(new Date(l.at).toLocaleString())}` : 'not updated yet'
+            }${r.lastError ? ` · <span class="status error">last update failed: ${escapeHtml(r.lastError)}</span>` : ''}</div>
+          </div>
+          <div class="actions compact">
+            <button type="button" data-report-refresh="${escapeHtml(r.id)}">Refresh</button>
+            <button type="button" data-report-delete="${escapeHtml(r.id)}" class="link">Delete</button>
+          </div>
+        </div>
+        ${stats}${projects}${history}
+      </article>`;
+    })
+    .join('');
+}
+
+async function trackedReportAction(event) {
+  const refresh = event.target.closest('[data-report-refresh]');
+  const remove = event.target.closest('[data-report-delete]');
+  if (refresh) {
+    refresh.disabled = true;
+    refresh.textContent = 'Refreshing…';
+    try {
+      await api(`/api/tracked-reports/${encodeURIComponent(refresh.dataset.reportRefresh)}/refresh`, { method: 'POST', body: '{}' });
+    } catch (error) {
+      if (!handleAuthLoss(error)) alert(error.message);
+    }
+    loadTrackedReports();
+  } else if (remove && confirm('Delete this tracked report? Its history is lost.')) {
+    try {
+      await api(`/api/tracked-reports/${encodeURIComponent(remove.dataset.reportDelete)}`, { method: 'DELETE' });
+    } catch (error) {
+      if (!handleAuthLoss(error)) alert(error.message);
+    }
+    loadTrackedReports();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1772,6 +1945,8 @@ $('alloc-add').addEventListener('click', () => {
   allocateCredits({ triageAdd, remediationAdd }, (n) => `Added ${triageAdd} triage and ${remediationAdd} remediation credit(s) to each of ${n} project(s).`);
 });
 $('run-triage').addEventListener('click', runTriageNow);
+$('track-save').addEventListener('click', saveTrackedReport);
+$('reports-list').addEventListener('click', trackedReportAction);
 
 $('select-all').addEventListener('change', (event) => {
   for (const project of visibleProjects()) {

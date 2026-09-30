@@ -228,6 +228,28 @@ One records the triage under the server's account.
   triage anything a report did not list. The signing key is kept in
   `data/report-signing.key`, or set `REPORT_SIGNING_KEY`.
 
+## Tracked reports
+
+**Save as tracked report** (under the project table) saves the current scope —
+the project and first-detection windows, the selected projects (or every shown
+one), and the severity and age filters — with a baseline of the findings it
+covers. The **Tracked reports** tab then follows each report:
+
+- what happened to the baseline findings, from their live Checkmarx One state:
+  awaiting triage, confirmed, not exploitable (proposed or confirmed), or no
+  longer detected — with the share triaged or resolved and how many changed
+  since the report was saved;
+- how many findings the same filters match now, and how many of those are new
+  (relative windows such as "last 90 days" are re-evaluated each time);
+- AI Triage / Remediation credits used on its projects since it was saved;
+- a per-project breakdown and a history of readings.
+
+Reports update hourly, and every few minutes for half an hour after anyone
+triages or remediates in one of their projects (from a report or the
+dashboard); the tab refreshes itself while open. Background updates use the
+server's stored connection (`CX_API_KEY`, or automation armed); **Refresh**
+works any time. Data is kept in `data/tracked-reports.json`.
+
 ## Links into Checkmarx One
 
 Every finding in the reminder is a hyperlink straight to it in the platform, so the mail

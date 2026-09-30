@@ -13,6 +13,7 @@ import { mapWithConcurrency } from './cxone/client.js';
 import { ReportGrants } from './report-grants.js';
 import { CreditLedger, monthOf } from './credits.js';
 import { CreditAllocations, toTriageCount } from './credit-allocations.js';
+import { TrackedReports, computeProgress, reportSummary } from './tracked-reports.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
@@ -47,6 +48,11 @@ const creditLedger = new CreditLedger({ file: path.join(dataDir, 'triage-credits
 const allocations = new CreditAllocations({ file: path.join(dataDir, 'credit-allocations.json'), ledger: creditLedger });
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+const trackedReports = new TrackedReports({ file: path.join(dataDir, 'tracked-reports.json') });
+
+/** Projects someone just triaged or remediated in, so reports covering them refresh soon. */
+const touchedProjects = new Map();
+const touchProject = (projectId) => touchedProjects.set(projectId, Date.now());
 
 /** Per-project credit balances and what is still to triage, for the dashboard. */
 function creditView(summary) {
@@ -896,6 +902,7 @@ app.post(
         // Checkmarx One only starts (and charges for) a new job when published.
         if (published) creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage' });
         stateCache.delete(projectId);
+        touchProject(projectId);
         results.push({ alternateIds, ok: true, published });
       } catch (error) {
         results.push({ alternateIds, ok: false, status: error.status ?? 0, error: error.message });
@@ -1020,6 +1027,7 @@ app.post(
         });
       }
       stateCache.delete(finding.projectId);
+      touchProject(finding.projectId);
       reservation.release();
       res.json({ ok: true, published, existingState: body?.existingState ?? null, creditsRemaining: creditsRemaining() });
     } catch (error) {
@@ -1164,6 +1172,7 @@ app.post(
           creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage' });
         }
         stateCache.delete(projectId);
+        touchProject(projectId);
         for (const f of group) originals.get(f).triageRequestedAt = Date.now();
         started += group.length;
       } catch (error) {
@@ -1186,6 +1195,131 @@ app.post(
     });
   }),
 );
+
+// ---------------------------------------------------------------------------
+// Tracked reports: saved scopes whose progress is followed over time
+// ---------------------------------------------------------------------------
+
+const TRACK_REFRESH_MS = 60 * 60 * 1000;
+const TRACK_TOUCHED_WINDOW_MS = 30 * 60 * 1000;
+const TRACK_TOUCHED_EVERY_MS = 3 * 60 * 1000;
+const refreshing = new Map();
+
+/** Every current finding (no filters) for each of a report's projects. */
+async function currentFindings(session, projects) {
+  const cfg = activeConfig();
+  const byProject = new Map();
+  await mapWithConcurrency(projects, 3, async ({ projectId, projectName }) => {
+    const project = { id: projectId, name: projectName };
+    const source = createRiskSource(session.client, cfg);
+    if (source.prime) await source.prime([project]);
+    const raw = await source.fetchForProject(project);
+    byProject.set(projectId, raw.map((r) => normalizeRisk(r, project)));
+  });
+  return byProject;
+}
+
+function progressFor(report, byProject) {
+  let detection = null;
+  try {
+    detection = resolveWindow(report.filters.detection, 'First detection');
+  } catch {}
+  return computeProgress(report, byProject, detection, (ids, since) => creditLedger.usedSince(ids, since));
+}
+
+/** Refresh one report (collapsing concurrent refreshes of the same report). */
+function refreshTrackedReport(report, session) {
+  if (!refreshing.has(report.id)) {
+    refreshing.set(
+      report.id,
+      currentFindings(session, report.projects)
+        .then((byProject) => {
+          trackedReports.record(report, progressFor(report, byProject));
+          report.lastError = null;
+          return report;
+        })
+        .catch((error) => {
+          report.lastError = error.message;
+          throw error;
+        })
+        .finally(() => refreshing.delete(report.id)),
+    );
+  }
+  return refreshing.get(report.id);
+}
+
+async function backgroundRefresh() {
+  const session = await resolveAutomationSession();
+  if (!session) return;
+  const now = Date.now();
+  for (const [projectId, at] of touchedProjects) if (now - at > TRACK_TOUCHED_WINDOW_MS) touchedProjects.delete(projectId);
+  for (const report of trackedReports.list()) {
+    const last = report.latest ? Date.parse(report.latest.at) : 0;
+    const touched = report.projects.some((p) => touchedProjects.has(p.projectId));
+    if (now - last > TRACK_REFRESH_MS || (touched && now - last > TRACK_TOUCHED_EVERY_MS)) {
+      await refreshTrackedReport(report, session).catch((error) =>
+        console.warn(`[tracked reports] ${report.name}: ${error.message}`),
+      );
+    }
+  }
+}
+setInterval(() => backgroundRefresh().catch(() => {}), 60 * 1000).unref?.();
+
+app.get('/api/tracked-reports', requireSession, async (req, res) => {
+  res.json({
+    reports: trackedReports.list().map(reportSummary),
+    autoRefresh: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId) ?? settingsStore.get().automationApiKey),
+  });
+});
+
+app.post('/api/tracked-reports', requireSession, (req, res) => {
+  const { lastScan } = req.session;
+  if (!lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+  const { name, projectIds = null, severities = null, buckets = [], windows = {}, scopeLabel = '' } = req.body ?? {};
+  if (!String(name ?? '').trim()) return res.status(400).json({ error: 'Give the report a name.' });
+
+  const wantedSeverities = (Array.isArray(severities) ? severities : []).map((s) => String(s).toUpperCase()).filter((s) => SEVERITIES.includes(s));
+  const wantedBuckets = (Array.isArray(buckets) ? buckets : []).map(String).filter((b) => AGE_BUCKETS.some((a) => a.id === b));
+  const risks = selectRisks(lastScan.projects, {
+    projectIds: projectIds?.length ? projectIds : null,
+    buckets: wantedBuckets,
+    severities: wantedSeverities.length ? wantedSeverities : null,
+  });
+  const inScope = lastScan.projects.filter((p) => !p.error && (!projectIds?.length || projectIds.includes(p.projectId)));
+  const clean = (w) => ({ preset: String(w?.preset ?? 'any'), from: w?.from ? String(w.from) : undefined, to: w?.to ? String(w.to) : undefined });
+
+  const report = trackedReports.create({
+    name,
+    scopeLabel: String(scopeLabel).slice(0, 300),
+    filters: {
+      activity: clean(windows.activity),
+      detection: clean(windows.detection),
+      severities: wantedSeverities,
+      buckets: wantedBuckets,
+    },
+    projects: inScope.map((p) => ({ projectId: p.projectId, projectName: p.projectName })),
+    findings: risks,
+  });
+  // The first reading comes straight from the data just fetched.
+  trackedReports.record(report, progressFor(report, new Map(inScope.map((p) => [p.projectId, p.risks ?? []]))));
+  res.status(201).json(reportSummary(report));
+});
+
+app.post(
+  '/api/tracked-reports/:id/refresh',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const report = trackedReports.get(req.params.id);
+    if (!report) return res.status(404).json({ error: 'No such report.' });
+    await refreshTrackedReport(report, req.session);
+    res.json(reportSummary(report));
+  }),
+);
+
+app.delete('/api/tracked-reports/:id', requireSession, (req, res) => {
+  if (!trackedReports.delete(req.params.id)) return res.status(404).json({ error: 'No such report.' });
+  res.json({ deleted: true });
+});
 
 // Administrator view of AI Triage credits used from reports.
 app.get('/api/credits', requireSession, (req, res) => {
