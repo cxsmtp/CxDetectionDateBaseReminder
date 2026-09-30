@@ -760,6 +760,7 @@ async function runReminder(session, scan, input) {
 
     const overrides = recipients
       ? {
+          exact: recipients.exact === true,
           to: parseAddressList(recipients.to ?? []),
           cc: parseAddressList(recipients.cc ?? []),
           bcc: parseAddressList(recipients.bcc ?? []),
@@ -858,7 +859,17 @@ const triageAllowed = (res) => actionAllowed(res, 'enabled');
 
 const creditsRemaining = () => creditLedger.remaining(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0);
 
+/** Where report readers ask for more credits: the configured contact, else the sender address. */
+function adminContact(settings = settingsStore.get()) {
+  return settings.aiTriage?.adminContact || settings.smtp?.fromAddress || '';
+}
+
 const KIND_NAMES = { triage: 'AI Triage', remediation: 'AI Remediation' };
+
+/** What a refused request needed, for the report's "ask your administrator" message. */
+function creditNeed(projectId, projectName, kind, needed) {
+  return { projectId, projectName, kind, needed, left: allocations.balance(projectId)[kind].remaining, adminContact: adminContact() };
+}
 
 /** Why `credits` of `kind` cannot be spent on this project now, or '' when they can. */
 function creditRefusal(projectId, projectName, kind, credits, limit) {
@@ -892,6 +903,8 @@ app.post(
         tenant: session.connection.tenant,
         triage: Boolean(aiTriage.enabled),
         remediation: Boolean(aiTriage.remediationEnabled),
+        retriage: Boolean(aiTriage.allowRetriage),
+        adminContact: adminContact(),
         creditsRemaining: creditsRemaining(),
       });
     }
@@ -915,15 +928,47 @@ app.post(
       buckets.get(key).push(finding);
     }
 
-    const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
+    const { monthlyCreditLimit: limit = 0, allowRetriage = false } = settingsStore.get().aiTriage ?? {};
     const results = [];
+
+    // Findings that already have a verdict are only triaged again when the
+    // administrator allows it: every run spends credits.
+    if (!allowRetriage) {
+      const statesByProject = new Map();
+      await mapWithConcurrency([...new Set(findings.map((f) => f.projectId))], 3, async (projectId) => {
+        try {
+          statesByProject.set(projectId, await projectStates(session, projectId));
+        } catch (error) {
+          console.warn(`[relay] could not read risk states for project ${projectId}: ${error.message}`);
+        }
+      });
+      for (const [key, group] of buckets) {
+        const triaged = group.filter((f) => {
+          const states = statesByProject.get(f.projectId);
+          const state = states?.get(f.riskId) ?? states?.get(f.alternateId) ?? '';
+          return state && state !== 'TO_VERIFY';
+        });
+        if (!triaged.length) continue;
+        results.push({
+          alternateIds: [...new Set(triaged.map((f) => f.alternateId))],
+          ok: false,
+          status: 409,
+          retriage: true,
+          error: `${triaged.length === 1 ? 'This finding is' : `${triaged.length} findings are`} already triaged. Triaging again is switched off by your administrator.`,
+        });
+        const rest = group.filter((f) => !triaged.includes(f));
+        if (rest.length) buckets.set(key, rest);
+        else buckets.delete(key);
+      }
+    }
+
     for (const group of buckets.values()) {
       const { scanId, scanner, projectId, projectName } = group[0];
       const alternateIds = [...new Set(group.map((f) => f.alternateId))];
 
       const refusal = creditRefusal(projectId, projectName, 'triage', alternateIds.length, limit);
       if (refusal) {
-        results.push({ alternateIds, ok: false, status: 402, error: refusal });
+        results.push({ alternateIds, ok: false, status: 402, error: refusal, credits: creditNeed(projectId, projectName, 'triage', alternateIds.length) });
         continue;
       }
       const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), {
@@ -1042,7 +1087,13 @@ app.post(
     const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
     const cost = CREDIT_COST.remediation;
     const refusal = creditRefusal(finding.projectId, finding.projectName, 'remediation', cost, limit);
-    if (refusal) return res.status(402).json({ error: refusal, creditsRemaining: creditsRemaining() });
+    if (refusal) {
+      return res.status(402).json({
+        error: refusal,
+        credits: creditNeed(finding.projectId, finding.projectName, 'remediation', cost),
+        creditsRemaining: creditsRemaining(),
+      });
+    }
     const reservation = creditLedger.reserve(cost, limit, new Date(), {
       projectId: finding.projectId,
       kind: 'remediation',
@@ -1379,25 +1430,30 @@ async function remindTrackedReport(session, report, options, relayUrl, { automat
   const emailContent = options.emailContent === 'per-project' ? 'per-project' : 'summary';
   const attachHtml = options.attachHtml === true;
   const dryRun = options.dryRun === true;
+  // "Send only to": these addresses and nobody else, one summary email.
+  const onlyTo = parseAddressList(options.onlyTo ?? []);
 
   const scan = await openScanFor(session, report);
   const open = scan.projects.reduce((n, p) => n + p.risks.length, 0);
   if (!open) return { status: 400, body: { error: 'Nothing is left open in this report, so no reminder is needed.' } };
 
-  const result = attachHtml && !dryRun
-    ? await runHtmlReminder(session, scan, {}, relayUrl)
-    : await runReminder(session, scan, {
-        groupBy: sendTo === 'list' ? 'none' : emailContent === 'per-project' ? 'project' : 'initiator',
-        alsoConsolidated: sendTo === 'both',
-        dryRun,
-      });
+  const result = onlyTo.length
+    ? await sendReportOnlyTo(session, report, scan, onlyTo, { attachHtml, dryRun, relayUrl })
+    : attachHtml && !dryRun
+      ? await runHtmlReminder(session, scan, {}, relayUrl)
+      : await runReminder(session, scan, {
+          groupBy: sendTo === 'list' ? 'none' : emailContent === 'per-project' ? 'project' : 'initiator',
+          alsoConsolidated: sendTo === 'both',
+          dryRun,
+        });
 
   if (!dryRun) {
     report.reminders = [
       {
         at: new Date().toISOString(),
         automatic,
-        sendTo,
+        sendTo: onlyTo.length ? 'only' : sendTo,
+        onlyTo,
         emailContent,
         attachHtml,
         openFindings: open,
@@ -1411,12 +1467,60 @@ async function remindTrackedReport(session, report, options, relayUrl, { automat
   return result;
 }
 
-/** The next time at `hour` (UTC) that is at least `from`. */
+/** Every open finding of a tracked report, as one list. */
+const openRisksOf = (scan) => selectRisks(scan.projects, { projectIds: null, buckets: [], severities: null });
+
+/** The interactive HTML report of a tracked report's open findings. */
+async function trackedReportHtml(session, report, scan, relayUrl) {
+  return buildInteractiveReport(session, openRisksOf(scan), {
+    settings: settingsStore.get(),
+    relayUrl,
+    initiatorsByProject: scan.initiators,
+  });
+}
+
+/** One summary email of a tracked report's open findings to exactly these addresses. */
+async function sendReportOnlyTo(session, report, scan, addresses, { attachHtml, dryRun, relayUrl }) {
+  const settings = settingsStore.get();
+  if (!attachHtml) {
+    const result = await runReminder(session, scan, { groupBy: 'none', dryRun, recipients: { to: addresses, exact: true } });
+    if (dryRun && result.status === 200) result.body.recipients = { to: addresses, cc: [], bcc: [] };
+    return result;
+  }
+  const { reportData, findings, html } = await trackedReportHtml(session, report, scan, relayUrl);
+  const body = buildReportEmail(reportData, { greeting: 'Hi', topCount: findings.length });
+  const total = reportData.totalRisks ?? openRisksOf(scan).length;
+  const message = { subject: `${report.name}: ${total} open vulnerabilities to triage`, html: body.html, text: body.text };
+  if (dryRun) {
+    return { status: 200, body: { dryRun: true, groupBy: 'none', subject: message.subject, html: message.html, recipients: { to: addresses, cc: [], bcc: [] }, canSend: isVerified(settings) } };
+  }
+  const result = await sendReminderMail(settings, message, {
+    exact: true,
+    to: addresses,
+    attachments: [{ filename: reportFileName(report), content: html, contentType: 'text/html' }],
+  });
+  return { status: 200, body: { ...result, groupBy: 'none', sent: [{ email: addresses.join(', '), messageId: result.messageId }] } };
+}
+
+const reportFileName = (report) =>
+  `${String(report.name).replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'report'}-${new Date().toISOString().slice(0, 10)}.html`;
+
+/** The next time at `hour`, in this machine's time zone, that is at least `from`. */
 function nextRunAt(hour, from = new Date()) {
   const next = new Date(from);
-  next.setUTCHours(hour, 0, 0, 0);
-  if (next < from) next.setTime(next.getTime() + DAY_MS);
+  next.setHours(hour, 0, 0, 0);
+  if (next < from) next.setDate(next.getDate() + 1);
   return next.toISOString();
+}
+
+/** This machine's time zone, which schedules run in. */
+function serverTimeZone() {
+  const name = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  const offset = -new Date().getTimezoneOffset();
+  const sign = offset < 0 ? '-' : '+';
+  const hh = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+  const mm = String(Math.abs(offset) % 60).padStart(2, '0');
+  return { name, offset: `UTC${sign}${hh}:${mm}` };
 }
 
 async function runDueTrackedReminders(session) {
@@ -1426,9 +1530,10 @@ async function runDueTrackedReminders(session) {
     const auto = report.automation;
     if (!auto?.enabled || !auto.nextRunAt || Date.parse(auto.nextRunAt) > now) continue;
     // Move the schedule on first, so a failing send is not retried every minute.
-    let next = Date.parse(auto.nextRunAt);
-    while (next <= now) next += auto.everyDays * DAY_MS;
-    auto.nextRunAt = new Date(next).toISOString();
+    const next = new Date(auto.nextRunAt);
+    while (next.getTime() <= now) next.setDate(next.getDate() + auto.everyDays);
+    if (Number.isInteger(auto.hour)) next.setHours(auto.hour, 0, 0, 0);
+    auto.nextRunAt = next.toISOString();
     trackedReports.save();
     if (!isVerified(settings)) {
       auto.lastError = 'SMTP has not passed a connection test, so nothing was sent.';
@@ -1457,7 +1562,7 @@ app.post(
       return res.status(400).json({ error: 'Test the SMTP connection on the Settings page before sending.' });
     }
     const { status, body } = await remindTrackedReport(req.session, report, req.body ?? {}, reportServerUrl(req, settings));
-    res.status(status).json({ ...body, report: reportSummary(report) });
+    res.status(status).json({ ...body, report: trackedView(report) });
   }),
 );
 
@@ -1475,13 +1580,60 @@ app.put('/api/tracked-reports/:id/automation', requireSession, (req, res) => {
     sendTo: ['initiator', 'list', 'both'].includes(input.sendTo) ? input.sendTo : 'initiator',
     emailContent: input.emailContent === 'per-project' ? 'per-project' : 'summary',
     attachHtml: input.attachHtml === true,
+    onlyTo: parseAddressList(input.onlyTo ?? []),
     nextRunAt: enabled ? nextRunAt(hour) : null,
     lastRunAt: report.automation?.lastRunAt ?? null,
     lastError: '',
   };
   trackedReports.save();
-  res.json(reportSummary(report));
+  res.json(trackedView(report));
 });
+
+/** Download the interactive HTML report a follow-up reminder would attach. */
+app.get(
+  '/api/tracked-reports/:id/html',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const report = trackedReports.get(req.params.id);
+    if (!report) return res.status(404).json({ error: 'No such report.' });
+    const scan = await openScanFor(req.session, report);
+    if (!openRisksOf(scan).length) return res.status(400).json({ error: 'Nothing is left open in this report.' });
+    const { html } = await trackedReportHtml(req.session, report, scan, reportServerUrl(req, settingsStore.get()));
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${reportFileName(report)}"`);
+    res.send(html);
+  }),
+);
+
+/**
+ * Allocate credits to a tracked report's projects, so their developers can
+ * triage from their own reports: the severities join each project's triage
+ * rule, and any extra credits are added on top.
+ */
+app.post(
+  '/api/tracked-reports/:id/allocate',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const report = trackedReports.get(req.params.id);
+    if (!report) return res.status(404).json({ error: 'No such report.' });
+    const wanted = cleanSeverities(req.body?.severities);
+    const extraTriage = Math.max(0, Math.floor(Number(req.body?.triageAdd) || 0));
+    const extraRemediation = Math.max(0, Math.floor(Number(req.body?.remediationAdd) || 0));
+    if (!wanted.length && !extraTriage && !extraRemediation) {
+      return res.status(400).json({ error: 'Pick severities, or enter credits to add.' });
+    }
+    const byProject = await currentFindings(req.session, report.projects);
+    trackedReports.record(report, progressFor(report, byProject));
+    for (const { projectId, projectName } of report.projects) {
+      if (extraTriage) allocations.add(projectId, projectName, 'triage', extraTriage);
+      if (extraRemediation) allocations.add(projectId, projectName, 'remediation', extraRemediation);
+      const rule = wanted.length ? SEVERITIES.filter((s) => wanted.includes(s) || allocations.severitiesOf(projectId).includes(s)) : undefined;
+      allocations.applyRule(projectId, projectName, byProject.get(projectId) ?? [], rule);
+    }
+    allocations.save();
+    res.json({ report: trackedView(report) });
+  }),
+);
 
 app.post(
   '/api/tracked-reports/:id/triage',
@@ -1497,15 +1649,28 @@ app.post(
         .filter((r) => wanted.includes(r.severity) && (!r.state || r.state === 'TO_VERIFY'))
         .map((r) => ({ ...r, projectId: p.projectId, projectName: p.projectName })),
     );
-    if (!findings.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], report: reportSummary(report) });
+    if (!findings.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], report: trackedView(report) });
     const { startedFindings, ...summary } = await adminTriage(req.session, findings, scan.initiators);
-    res.json({ ...summary, report: reportSummary(report) });
+    res.json({ ...summary, report: trackedView(report) });
   }),
 );
 
+/** A report for listing, with its projects' credit balance summed. */
+function trackedView(report) {
+  const credits = { triage: { allocated: 0, used: 0, remaining: 0 }, remediation: { allocated: 0, used: 0, remaining: 0 } };
+  for (const { projectId } of report.projects) {
+    const balance = allocations.balance(projectId);
+    for (const kind of ['triage', 'remediation']) {
+      for (const key of ['allocated', 'used', 'remaining']) credits[kind][key] += balance[kind][key];
+    }
+  }
+  return { ...reportSummary(report), credits };
+}
+
 app.get('/api/tracked-reports', requireSession, async (req, res) => {
   res.json({
-    reports: trackedReports.list().map(reportSummary),
+    timeZone: serverTimeZone(),
+    reports: trackedReports.list().map(trackedView),
     autoRefresh: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId) ?? settingsStore.get().automationApiKey),
   });
 });
@@ -1540,7 +1705,7 @@ app.post('/api/tracked-reports', requireSession, (req, res) => {
   });
   // The first reading comes straight from the data just fetched.
   trackedReports.record(report, progressFor(report, new Map(inScope.map((p) => [p.projectId, p.risks ?? []]))));
-  res.status(201).json(reportSummary(report));
+  res.status(201).json(trackedView(report));
 });
 
 app.post(
@@ -1550,7 +1715,7 @@ app.post(
     const report = trackedReports.get(req.params.id);
     if (!report) return res.status(404).json({ error: 'No such report.' });
     await refreshTrackedReport(report, req.session);
-    res.json(reportSummary(report));
+    res.json(trackedView(report));
   }),
 );
 
@@ -1570,6 +1735,7 @@ app.get('/api/credits', requireSession, (req, res) => {
     remediationEnabled: Boolean(aiTriage?.remediationEnabled),
     monthlyCreditLimit: aiTriage?.monthlyCreditLimit ?? 0,
     remaining: month === monthOf() ? creditsRemaining() : null,
+    allocations: allocations.list(),
     relayConnected: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId) ?? settingsStore.get().automationApiKey),
   });
 });
@@ -1583,6 +1749,8 @@ app.get('/api/credits', requireSession, (req, res) => {
 async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject } = {}) {
   const { connection, lastScan } = session;
   initiatorsByProject ??= lastScan?.initiators ?? {};
+  // Whatever built the list, findings triaged as not exploitable stay out.
+  risks = await withoutNotExploitable(session, risks);
   const reportData = buildReportData(risks, {
     buckets,
     tenant: connection.tenant,
@@ -1611,6 +1779,8 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     sign: (finding) => reportGrants.issue(finding),
     connection: { tenant: connection.tenant, iamUrl: connection.iamUrl, baseUrl: connection.baseUrl },
     branding: settings.branding,
+    allowRetriage: Boolean(settings.aiTriage?.allowRetriage),
+    adminContact: adminContact(settings),
   });
   return { reportData, findings, html };
 }

@@ -368,6 +368,8 @@ function renderSettings() {
   $('ai-enabled').checked = Boolean(s.aiTriage?.enabled);
   $('ai-remediation').checked = Boolean(s.aiTriage?.remediationEnabled);
   $('ai-skip-ne').checked = s.aiTriage?.skipNotExploitable !== false;
+  $('ai-retriage').checked = Boolean(s.aiTriage?.allowRetriage);
+  $('ai-admin-contact').value = s.aiTriage?.adminContact ?? '';
   $('ai-limit').value = String(s.aiTriage?.monthlyCreditLimit ?? 0);
 
   $('verified-state').textContent = s.verified
@@ -650,6 +652,8 @@ function settingsPayload() {
       enabled: $('ai-enabled').checked,
       remediationEnabled: $('ai-remediation').checked,
       skipNotExploitable: $('ai-skip-ne').checked,
+      allowRetriage: $('ai-retriage').checked,
+      adminContact: $('ai-admin-contact').value.trim(),
       monthlyCreditLimit: Number($('ai-limit').value) || 0,
     },
   };
@@ -699,6 +703,8 @@ function renderCredits(data) {
     : 'Switched off';
   $('credit-state').className = `hint ${allowed.length ? 'ok-hint' : ''}`;
 
+  renderAllocations(data.allocations ?? []);
+
   const warning = allowed.length && !data.relayConnected
     ? '<p class="status error">This server has no stored Checkmarx One connection, so reports cannot triage. Set CX_API_KEY or arm automation below.</p>'
     : '';
@@ -724,6 +730,31 @@ function renderCredits(data) {
       <tbody>${rows}</tbody>
       <tfoot><tr><th>Total</th><th class="num">${data.triageTotal ?? data.total}</th><th class="num">${data.remediationTotal ?? 0}</th><th class="num">${data.total}</th><th></th><th></th></tr></tfoot>
     </table></div>`;
+}
+
+/** Per project: first allocated, allocated now, used through this utility, left. */
+function renderAllocations(list) {
+  if (!list.length) {
+    $('credit-allocations').innerHTML = '<p class="hint">No project has an allocation yet — fetch projects on the Dashboard.</p>';
+    return;
+  }
+  const bar = (k) => {
+    const pct = k.allocated ? Math.min(100, Math.round((k.used / k.allocated) * 100)) : 0;
+    return `<div class="use-bar" title="${k.used} of ${k.allocated} used"><span style="width:${pct}%"></span></div>`;
+  };
+  const cells = (k) => `<td class="num">${k.initial}</td><td class="num">${k.allocated}</td><td class="num"><b>${k.used}</b>${bar(k)}</td><td class="num">${k.remaining}</td>`;
+  const sum = (kind, key) => list.reduce((n, p) => n + (p[kind][key] ?? 0), 0);
+  const totals = (kind) => ['initial', 'allocated', 'used', 'remaining'].map((key) => `<th class="num">${sum(kind, key)}</th>`).join('');
+  $('credit-allocations').innerHTML = `<div class="table-wrap"><table class="probe alloc-table">
+    <thead>
+      <tr><th rowspan="2">Project</th><th colspan="4" class="group">AI Triage</th><th colspan="4" class="group">AI Remediation</th></tr>
+      <tr><th class="num">At start</th><th class="num">Allocated</th><th class="num">Used</th><th class="num">Left</th><th class="num">At start</th><th class="num">Allocated</th><th class="num">Used</th><th class="num">Left</th></tr>
+    </thead>
+    <tbody>${list
+      .map((p) => `<tr><td>${escapeHtml(p.projectName || p.projectId)}<div class="hint">${escapeHtml(p.severities.map((s) => s.toLowerCase()).join(', ') || 'no severities')}${p.initialAt ? ` · since ${escapeHtml(new Date(p.initialAt).toLocaleDateString())}` : ''}</div></td>${cells(p.triage)}${cells(p.remediation)}</tr>`)
+      .join('')}</tbody>
+    <tfoot><tr><th>Total</th>${totals('triage')}${totals('remediation')}</tr></tfoot>
+  </table></div>`;
 }
 
 async function saveSettings() {
@@ -1278,15 +1309,23 @@ async function saveTrackedReport() {
 
 const TRACK_POLL_MS = 30_000;
 let trackTimer = null;
+// The reminder server's time zone, which automatic reminders run in.
+let serverZone = { name: '', offset: 'UTC' };
+const zoneLabel = () => (serverZone.name ? `${serverZone.name} (${serverZone.offset})` : serverZone.offset);
 
 async function loadTrackedReports() {
   clearTimeout(trackTimer);
   if ($('page-reports').hidden) return;
   try {
     const data = await api('/api/tracked-reports');
+    if (data.timeZone) serverZone = data.timeZone;
     const kept = captureReportsState();
     renderTrackedReports(data);
     restoreReportsState(kept);
+    for (const card of document.querySelectorAll('#reports-list [data-report]')) {
+      syncSendTo(card);
+      updateNeed(card);
+    }
   } catch (error) {
     if (handleAuthLoss(error)) return;
     $('reports-list').innerHTML = `<p class="status error">${escapeHtml(error.message)}</p>`;
@@ -1311,7 +1350,11 @@ function progressBar(outcomes, total) {
       .join('')}</div>`;
 }
 
+const trackedById = new Map();
+
 function renderTrackedReports({ reports, autoRefresh }) {
+  trackedById.clear();
+  for (const r of reports) trackedById.set(r.id, r);
   $('reports-meta').textContent = autoRefresh
     ? 'Updates automatically: hourly, and every few minutes after anyone triages or remediates'
     : 'Automatic updates need a stored Checkmarx One connection (CX_API_KEY, or arm automation in Settings); use Refresh meanwhile';
@@ -1381,6 +1424,8 @@ function followUp(r) {
   const radio = (name, value, label, current) =>
     `<label class="check"><input type="radio" name="${name}-${id}" value="${value}" data-keep ${current === value ? 'checked' : ''} /> ${label}</label>`;
   const reminders = (r.reminders ?? []).slice(0, 10);
+  const onlyTo = auto.onlyTo?.length ? auto.onlyTo.join(', ') : '';
+  const sendTo = onlyTo ? 'only' : auto.sendTo ?? 'initiator';
   return `<details class="follow-up" data-keep-open="${id}">
     <summary><strong>Follow up</strong> — ${open} open finding${open === 1 ? '' : 's'} (awaiting triage, confirmed or new)</summary>
     <div class="follow-grid">
@@ -1388,18 +1433,21 @@ function followUp(r) {
         <legend>Send a reminder about the open findings</legend>
         <div class="alloc-row">
           <span>To</span>
-          ${radio('sendTo', 'initiator', 'Scan initiators', auto.sendTo ?? 'initiator')}
-          ${radio('sendTo', 'list', 'Recipient list', auto.sendTo)}
-          ${radio('sendTo', 'both', 'Both', auto.sendTo)}
+          ${radio('sendTo', 'initiator', 'Scan initiators', sendTo)}
+          ${radio('sendTo', 'list', 'Recipient list', sendTo)}
+          ${radio('sendTo', 'both', 'Both', sendTo)}
+          ${radio('sendTo', 'only', 'Only to', sendTo)}
+          <input type="text" class="only-to" data-field="onlyTo" data-keep value="${escapeHtml(onlyTo)}" placeholder="name@company.com, …" aria-label="Send only to these addresses" />
         </div>
-        <div class="alloc-row">
+        <div class="alloc-row" data-content-row>
           <span>Content</span>
           ${radio('content', 'summary', 'One summary per person', auto.emailContent ?? 'summary')}
           ${radio('content', 'per-project', 'One email per project', auto.emailContent)}
         </div>
-        <label class="check"><input type="checkbox" data-field="attachHtml" data-keep ${auto.attachHtml ? 'checked' : ''} /> Attach the interactive HTML report (sent to each scan initiator)</label>
+        <label class="check"><input type="checkbox" data-field="attachHtml" data-keep ${auto.attachHtml ? 'checked' : ''} /> Attach the interactive HTML report</label>
         <div class="actions compact">
           <button type="button" data-remind="${id}" data-dry="1">Preview</button>
+          <button type="button" data-report-html="${id}">Download HTML report</button>
           <button type="button" data-remind="${id}" class="primary">Send reminder now</button>
         </div>
       </fieldset>
@@ -1408,11 +1456,12 @@ function followUp(r) {
         <div class="alloc-row">
           <label class="check"><input type="checkbox" data-field="autoEnabled" data-keep ${auto.enabled ? 'checked' : ''} /> Send automatically every</label>
           <input type="number" min="1" max="90" data-field="everyDays" data-keep value="${auto.everyDays ?? 7}" class="small-num" /> days at
-          <input type="number" min="0" max="23" data-field="hour" data-keep value="${auto.hour ?? 9}" class="small-num" />:00 UTC
+          <input type="number" min="0" max="23" data-field="hour" data-keep value="${auto.hour ?? 9}" class="small-num" />:00
+          <span class="hint" title="Time zone of the machine running ${escapeHtml(state.health?.app?.name || 'Mission Zero')}">${escapeHtml(zoneLabel())}</span>
         </div>
         <p class="hint">Uses the send options above, and only while something is still open.
-          ${auto.enabled && auto.nextRunAt ? `Next: ${escapeHtml(new Date(auto.nextRunAt).toLocaleString())}.` : ''}
-          ${auto.lastRunAt ? `Last: ${escapeHtml(new Date(auto.lastRunAt).toLocaleString())}.` : ''}
+          ${auto.enabled && auto.nextRunAt ? `Next: ${escapeHtml(serverTime(auto.nextRunAt))}.` : ''}
+          ${auto.lastRunAt ? `Last: ${escapeHtml(serverTime(auto.lastRunAt))}.` : ''}
           ${auto.lastError ? `<span class="status error">${escapeHtml(auto.lastError)}</span>` : ''}</p>
         <div class="actions compact"><button type="button" data-schedule="${id}">Save schedule</button></div>
       </fieldset>
@@ -1420,11 +1469,20 @@ function followUp(r) {
         <legend>Triage the open findings now</legend>
         <div class="alloc-row">
           ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
-            .map((sev) => `<label class="check"><input type="checkbox" data-sev="${sev}" data-keep ${['CRITICAL', 'HIGH'].includes(sev) ? 'checked' : ''} /> ${sev[0] + sev.slice(1).toLowerCase()}</label>`)
+            .map((sev) => {
+              const n = r.latest?.toTriage?.[sev];
+              return `<label class="check"><input type="checkbox" data-sev="${sev}" data-keep ${['CRITICAL', 'HIGH'].includes(sev) ? 'checked' : ''} /> ${sev[0] + sev.slice(1).toLowerCase()}${n === undefined ? '' : ` <span class="hint">(${n})</span>`}</label>`;
+            })
             .join('')}
         </div>
-        <p class="hint">Runs Checkmarx One AI Triage on this report's findings still awaiting triage, within each project's credits.</p>
-        <div class="actions compact"><button type="button" data-report-triage="${id}">Triage now</button></div>
+        <p class="hint" data-need="${id}">${triageNeedText(r)}</p>
+        <div class="actions compact">
+          <button type="button" data-report-triage="${id}" class="primary">Triage now</button>
+          <button type="button" data-report-allocate="${id}">Allocate credits</button>
+          <span class="alloc-extra">+ <input type="number" min="0" max="100000" data-field="triageAdd" data-keep class="small-num" placeholder="0" /> triage
+            + <input type="number" min="0" max="100000" data-field="remediationAdd" data-keep class="small-num" placeholder="0" /> remediation</span>
+        </div>
+        <p class="hint">Triage now runs AI Triage from here. Allocate credits lets the projects' developers triage these severities from their own reports, plus any extra credits you enter.</p>
       </fieldset>
     </div>
     <p class="status" data-follow-status="${id}"></p>
@@ -1432,21 +1490,63 @@ function followUp(r) {
       <thead><tr><th>Reminder sent</th><th>How</th><th class="num">Open findings</th><th class="num">Emails</th><th>Result</th></tr></thead>
       <tbody>${reminders
         .map((m) => `<tr><td>${escapeHtml(new Date(m.at).toLocaleString())}${m.automatic ? ' <span class="hint">(automatic)</span>' : ''}</td>
-          <td>${escapeHtml({ initiator: 'Scan initiators', list: 'Recipient list', both: 'Initiators + list' }[m.sendTo] ?? m.sendTo)}${m.attachHtml ? ' · HTML report' : ''}</td>
+          <td>${m.sendTo === 'only' ? `Only to ${escapeHtml((m.onlyTo ?? []).join(', '))}` : escapeHtml({ initiator: 'Scan initiators', list: 'Recipient list', both: 'Initiators + list' }[m.sendTo] ?? m.sendTo)}${m.attachHtml ? ' · HTML report' : ''}</td>
           <td class="num">${m.openFindings}</td><td class="num">${m.sent}</td>
           <td>${m.error ? `<span class="status error">${escapeHtml(m.error)}</span>` : 'Sent'}</td></tr>`)
         .join('')}</tbody></table></div>` : ''}
   </details>`;
 }
 
+/** A time as the reminder server's clock shows it. */
+function serverTime(iso) {
+  try {
+    return new Date(iso).toLocaleString(undefined, serverZone.name ? { timeZone: serverZone.name, dateStyle: 'medium', timeStyle: 'short' } : undefined);
+  } catch {
+    return new Date(iso).toLocaleString();
+  }
+}
+
+/** "Needs N credits · M of A left" for a tracked report's chosen severities. */
+function triageNeedText(r, severities = ['CRITICAL', 'HIGH']) {
+  const counts = r.latest?.toTriage;
+  const c = r.credits?.triage;
+  const needed = counts ? severities.reduce((n, sev) => n + (counts[sev] ?? 0), 0) : null;
+  const parts = [];
+  if (needed !== null) parts.push(`${needed} finding${needed === 1 ? '' : 's'} awaiting triage at these severities (${needed} credit${needed === 1 ? '' : 's'})`);
+  if (c) parts.push(`projects have ${c.remaining} of ${c.allocated} triage credits left (${c.used} used)`);
+  if (r.credits?.remediation?.allocated) {
+    const m = r.credits.remediation;
+    parts.push(`remediation ${m.remaining} of ${m.allocated} left`);
+  }
+  return parts.length ? `${parts.join(' · ')}.` : '';
+}
+
+function updateNeed(card) {
+  const report = trackedById.get(card.dataset.report);
+  const el = card.querySelector('[data-need]');
+  if (!report || !el) return;
+  el.textContent = triageNeedText(report, [...card.querySelectorAll('[data-sev]:checked')].map((box) => box.dataset.sev));
+}
+
+/** "Only to" is picked by typing an address; the per-person options don't apply to it. */
+function syncSendTo(card) {
+  const only = card.querySelector('input[value="only"]')?.checked;
+  for (const box of card.querySelectorAll('[data-content-row] input')) box.disabled = Boolean(only);
+  card.querySelector('[data-content-row]')?.classList.toggle('muted-row', Boolean(only));
+}
+
 function followUpOptions(card) {
   const id = card.dataset.report;
   const value = (name) => card.querySelector(`input[name="${name}-${CSS.escape(id)}"]:checked`)?.value;
   const field = (name) => card.querySelector(`[data-field="${name}"]`);
+  const sendTo = value('sendTo') ?? 'initiator';
   return {
-    sendTo: value('sendTo') ?? 'initiator',
+    sendTo: sendTo === 'only' ? 'list' : sendTo,
+    onlyTo: sendTo === 'only' ? field('onlyTo').value : '',
     emailContent: value('content') ?? 'summary',
     attachHtml: field('attachHtml').checked,
+    triageAdd: Number(field('triageAdd').value) || 0,
+    remediationAdd: Number(field('remediationAdd').value) || 0,
     enabled: field('autoEnabled').checked,
     everyDays: Number(field('everyDays').value) || 7,
     hour: Number(field('hour').value) || 0,
@@ -1476,16 +1576,38 @@ function describeSend(result) {
 }
 
 async function followUpAction(event) {
-  const button = event.target.closest('[data-remind], [data-schedule], [data-report-triage]');
+  const button = event.target.closest('[data-remind], [data-schedule], [data-report-triage], [data-report-html], [data-report-allocate]');
   if (!button) return false;
   const card = button.closest('[data-report]');
   const id = card.dataset.report;
   const options = followUpOptions(card);
   button.disabled = true;
   try {
-    if (button.dataset.remind) {
+    if (button.dataset.reportHtml) {
+      followStatus(id, 'Building the HTML report from the current open findings…');
+      await downloadTrackedHtml(id);
+      followStatus(id, 'HTML report downloaded — this is what an attached report contains.', 'ok');
+    } else if (button.dataset.reportAllocate) {
+      if (!options.severities.length && !options.triageAdd && !options.remediationAdd) {
+        return followStatus(id, 'Pick severities, or enter credits to add.', 'error'), true;
+      }
+      followStatus(id, 'Allocating…');
+      const { report } = await api(`/api/tracked-reports/${encodeURIComponent(id)}/allocate`, {
+        method: 'POST',
+        body: JSON.stringify({ severities: options.severities, triageAdd: options.triageAdd, remediationAdd: options.remediationAdd }),
+      });
+      trackedById.set(id, report);
+      for (const name of ['triageAdd', 'remediationAdd']) card.querySelector(`[data-field="${name}"]`).value = '';
+      updateNeed(card);
+      const c = report.credits;
+      followStatus(id, `Allocated. Projects now have ${c.triage.remaining} triage and ${c.remediation.remaining} remediation credit(s) left.`, 'ok');
+    } else if (button.dataset.remind) {
       const dryRun = Boolean(button.dataset.dry);
-      if (!dryRun && !confirm('Send a reminder about this report\'s open findings now?')) return true;
+      const onlyTo = options.onlyTo.split(/[;,\s]+/).filter(Boolean);
+      if (card.querySelector('input[value="only"]')?.checked && !onlyTo.length) {
+        return followStatus(id, 'Enter at least one address to send to.', 'error'), true;
+      }
+      if (!dryRun && !confirm(onlyTo.length ? `Send this report's open findings only to ${onlyTo.join(', ')}?` : 'Send a reminder about this report\'s open findings now?')) return true;
       followStatus(id, dryRun ? 'Preparing preview…' : 'Sending…');
       const result = await api(`/api/tracked-reports/${encodeURIComponent(id)}/remind`, {
         method: 'POST',
@@ -1494,8 +1616,11 @@ async function followUpAction(event) {
       followStatus(id, describeSend(result), 'ok');
       if (!dryRun) loadTrackedReports();
     } else if (button.dataset.schedule) {
+      if (card.querySelector('input[value="only"]')?.checked && !options.onlyTo.trim()) {
+        return followStatus(id, 'Enter at least one address to send to.', 'error'), true;
+      }
       await api(`/api/tracked-reports/${encodeURIComponent(id)}/automation`, { method: 'PUT', body: JSON.stringify(options) });
-      followStatus(id, options.enabled ? `Automatic reminders every ${options.everyDays} day(s) at ${options.hour}:00 UTC.` : 'Automatic reminders are off.', 'ok');
+      followStatus(id, options.enabled ? `Automatic reminders every ${options.everyDays} day(s) at ${options.hour}:00 ${zoneLabel()}.` : 'Automatic reminders are off.', 'ok');
       loadTrackedReports();
     } else {
       if (!options.severities.length) return followStatus(id, 'Pick at least one severity.', 'error'), true;
@@ -1509,6 +1634,10 @@ async function followUpAction(event) {
         ? [`AI Triage started for ${result.started} finding(s)`, result.skipped ? `${result.skipped} not eligible (SAST and SCA only)` : '', result.failed ? `${result.failed} failed: ${result.errors.join('; ')}` : '']
         : ['Nothing awaiting triage at those severities'];
       followStatus(id, `${parts.filter(Boolean).join(' · ')}.`, result.failed ? 'error' : 'ok');
+      if (result.report) {
+        trackedById.set(id, result.report);
+        updateNeed(card);
+      }
     }
   } catch (error) {
     if (!handleAuthLoss(error)) followStatus(id, error.message, 'error');
@@ -1518,12 +1647,35 @@ async function followUpAction(event) {
   return true;
 }
 
+async function downloadTrackedHtml(id) {
+  const response = await fetch(`/api/tracked-reports/${encodeURIComponent(id)}/html`, { credentials: 'same-origin' });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    const error = new Error(payload.error || `${response.status} ${response.statusText}`);
+    error.status = response.status;
+    throw error;
+  }
+  const name = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') || '')?.[1] || 'report.html';
+  const url = URL.createObjectURL(await response.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Radios and checkboxes are told apart by value; text and number fields are one key each. */
+function keepKey(el) {
+  const card = el.closest('[data-report]');
+  const choice = el.type === 'checkbox' || el.type === 'radio';
+  return `${card?.dataset.report}|${el.name || el.dataset.field || el.dataset.sev}${choice ? `|${el.value}` : ''}`;
+}
+
 /** Remember form state and opened sections across the periodic re-render. */
 function captureReportsState() {
   const values = new Map();
   for (const el of document.querySelectorAll('#reports-list [data-keep]')) {
-    const card = el.closest('[data-report]');
-    const key = `${card?.dataset.report}|${el.name || el.dataset.field || el.dataset.sev}|${el.value}`;
+    const key = keepKey(el);
     values.set(key, el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value);
   }
   const open = new Set([...document.querySelectorAll('#reports-list details[open]')].map((d) => d.dataset.keepOpen || d.querySelector('summary')?.textContent));
@@ -1533,8 +1685,7 @@ function captureReportsState() {
 
 function restoreReportsState({ values, open, statuses }) {
   for (const el of document.querySelectorAll('#reports-list [data-keep]')) {
-    const card = el.closest('[data-report]');
-    const key = `${card?.dataset.report}|${el.name || el.dataset.field || el.dataset.sev}|${el.value}`;
+    const key = keepKey(el);
     if (!values.has(key)) continue;
     if (el.type === 'checkbox' || el.type === 'radio') el.checked = values.get(key);
     else el.value = values.get(key);
@@ -2161,6 +2312,22 @@ $('alloc-add').addEventListener('click', () => {
 $('run-triage').addEventListener('click', runTriageNow);
 $('track-save').addEventListener('click', saveTrackedReport);
 $('reports-list').addEventListener('click', trackedReportAction);
+$('reports-list').addEventListener('change', (event) => {
+  const card = event.target.closest('[data-report]');
+  if (!card) return;
+  if (event.target.matches('[data-sev]')) updateNeed(card);
+  if (event.target.name?.startsWith('sendTo-')) syncSendTo(card);
+});
+// Typing an address picks "Only to".
+$('reports-list').addEventListener('input', (event) => {
+  if (!event.target.matches('[data-field="onlyTo"]')) return;
+  const card = event.target.closest('[data-report]');
+  const only = card.querySelector('input[value="only"]');
+  if (event.target.value.trim() && !only.checked) {
+    only.checked = true;
+    syncSendTo(card);
+  }
+});
 
 $('select-all').addEventListener('change', (event) => {
   for (const project of visibleProjects()) {

@@ -434,3 +434,13 @@ td.credits .low { color: var(--danger); }
 .follow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-top: 10px; }
 .follow-grid fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 0; }
 .follow-grid legend { font-weight: 600; font-size: 13px; padding: 0 4px; }
+
+/* Follow up: "Only to", extra credits, allocations table */
+.only-to { flex: 1 1 220px; min-width: 180px; max-width: 360px; padding: 4px 8px; font-size: 13px; }
+.muted-row { opacity: .45; }
+.alloc-extra { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
+.alloc-extra .small-num { width: 64px; }
+.alloc-table th.group { text-align: center; border-bottom: 1px solid var(--border); }
+.alloc-table td .hint { margin: 2px 0 0; font-size: 12px; }
+.use-bar { height: 4px; border-radius: 2px; background: var(--border); margin-top: 3px; min-width: 40px; overflow: hidden; }
+.use-bar span { display: block; height: 100%; background: var(--accent); }

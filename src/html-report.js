@@ -64,6 +64,8 @@ export function selectTopFindings(reportData, limit = REPORT_TOP_N) {
  * @param {boolean} [options.remediationViaRelay]  Remediate runs AI Remediation through the relay
  * @param {(finding) => {exp, grant}} [options.sign]  signs a finding for the relay
  * @param {object} [options.branding]
+ * @param {boolean} [options.allowRetriage]  findings with a verdict may be triaged again
+ * @param {string} [options.adminContact]  who readers ask for more credits
  */
 export function generateHtmlReport(reportData, options = {}) {
   const { connection = {}, branding = {} } = options;
@@ -111,6 +113,8 @@ export function generateHtmlReport(reportData, options = {}) {
       apiBaseUrl: connection.baseUrl ?? '',
       portalUrl: safeHttpUrl(options.portalUrl) || connection.baseUrl || '',
       relayUrl,
+      allowRetriage: options.allowRetriage === true,
+      adminContact: /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(options.adminContact ?? '') ? options.adminContact : '',
     },
     findings: clientFindings,
   };
@@ -196,11 +200,25 @@ ${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere)
     <div class="more-links">${projectLinks}</div>
   </section>
 
+  <p id="hidden-note" class="muted hidden-note" hidden></p>
+
   <details id="activity" class="activity">
     <summary>Activity (<span id="activity-count">0</span>)</summary>
     <ul id="activity-list"></ul>
   </details>
 </main>
+<dialog id="credit-dialog" class="dialog" aria-labelledby="credit-dialog-title">
+  <form method="dialog">
+    <h2 id="credit-dialog-title">No credits left</h2>
+    <p id="credit-dialog-text"></p>
+    <p class="dialog-hint">Your administrator allocates Checkmarx One credits for AI Triage and AI Remediation from reports. Send them a request and try again once they have added credits.</p>
+    <p id="credit-dialog-to" class="dialog-hint"></p>
+    <div class="dialog-actions">
+      <button class="btn btn-outline" value="close" type="submit">Close</button>
+      <a id="credit-dialog-mail" class="btn btn-primary" href="#">Ask the administrator</a>
+    </div>
+  </form>
+</dialog>
 <script type="application/json" id="report-data">${jsonForScript(payload)}</script>
 <script>${CLIENT_SCRIPT.replace(/<\/script/gi, '<\\/script')}</script>
 </body>
@@ -307,6 +325,15 @@ tr:last-child td { border-bottom: 0; }
 .activity ul { list-style: none; padding: 0; margin: 8px 0 0; font-size: 13px; max-height: 260px; overflow: auto; }
 .activity li { padding: 3px 0; border-top: 1px solid var(--line); } .activity time { color: var(--muted); margin-right: 6px; }
 .log-error { color: #b42318; } .log-success { color: #067647; }
+.hidden-note { display: block; margin: 12px 0 0; }
+.dialog { border: 0; border-radius: 12px; padding: 0; max-width: 440px; width: calc(100% - 32px); box-shadow: 0 20px 50px rgba(16,24,40,.25); }
+.dialog::backdrop { background: rgba(16,24,40,.45); }
+.dialog form { padding: 20px 22px 18px; }
+.dialog h2 { margin: 0 0 8px; font-size: 18px; }
+.dialog p { margin: 0 0 10px; }
+.dialog-hint { color: var(--muted); font-size: 13px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.dialog-actions .btn { white-space: nowrap; }
 @media (max-width: 720px) { .top-inner { flex-direction: column; } main { padding: 12px; } }
 `;
 }

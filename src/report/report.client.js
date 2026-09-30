@@ -65,11 +65,18 @@
   const bulkButtons = () => [...document.querySelectorAll('button.bulk[data-severity]')];
 
   class CxError extends Error {
-    constructor(message, status = 0) {
+    constructor(message, status = 0, body = null) {
       super(message);
       this.status = status;
+      this.body = body;
     }
   }
+
+  const NOT_EXPLOITABLE = new Set(['NOT_EXPLOITABLE', 'PROPOSED_NOT_EXPLOITABLE']);
+
+  /** The administrator decides whether a finding with a verdict may be triaged again. */
+  const retriageAllowed = () => (backend ? backend.retriageAllowed : config.allowRetriage) === true;
+  const contact = () => backend?.adminContact || config.adminContact || '';
 
   // ---------------------------------------------------------------------------
   // Activity log and banner
@@ -97,6 +104,46 @@
     banner(error.message);
     log(error.message, 'error');
   }
+
+  // ---------------------------------------------------------------------------
+  // "No credits" dialog: ask the administrator for more
+  // ---------------------------------------------------------------------------
+
+  const KIND_LABELS = { triage: 'AI Triage', remediation: 'AI Remediation' };
+
+  /** refusals: [{error, credits: {projectName, kind, needed, left, adminContact}}] */
+  function showCreditDialog(refusals) {
+    const dialog = $('credit-dialog');
+    const needs = refusals.map((r) => r.credits).filter(Boolean);
+    const text = refusals.map((r) => r.error).join(' ');
+    for (const r of refusals) log(r.error, 'error');
+    const to = needs.find((n) => n.adminContact)?.adminContact || contact();
+    if (!dialog || typeof dialog.showModal !== 'function') {
+      alert(`${text}\n\nAsk your administrator${to ? ` (${to})` : ''} to allocate more credits.`);
+      return;
+    }
+    const kind = KIND_LABELS[needs[0]?.kind] || 'AI Triage';
+    $('credit-dialog-title').textContent = `No ${kind} credits left`;
+    $('credit-dialog-text').textContent = text;
+    const mail = $('credit-dialog-mail');
+    $('credit-dialog-to').textContent = to ? `Administrator: ${to}` : '';
+    if (to) {
+      const lines = needs.map((n) => `- ${n.projectName || n.projectId}: ${n.needed} ${KIND_LABELS[n.kind] || n.kind} credit(s) needed, ${n.left} left`);
+      const subject = `Credits request: ${kind} for ${[...new Set(needs.map((n) => n.projectName || n.projectId))].join(', ') || 'my report'}`;
+      const body = `Hi,\n\nPlease allocate more Checkmarx One credits so I can act on findings from my report:\n\n${lines.join('\n') || text}\n\nThank you.`;
+      mail.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      mail.textContent = 'Email the administrator';
+      mail.title = to;
+      mail.hidden = false;
+    } else {
+      mail.hidden = true;
+      $('credit-dialog-text').textContent = `${text} Contact your Checkmarx One reminder administrator.`;
+    }
+    if (!dialog.open) dialog.showModal();
+  }
+
+  /** Is this refusal about credits (the project's allocation or the monthly limit)? */
+  const isCreditRefusal = (status, body) => status === 402 && (Boolean(body?.credits) || !/busy/i.test(body?.error || ''));
 
   // ---------------------------------------------------------------------------
   // The reminder server relay
@@ -132,7 +179,7 @@
       try {
         parsed = await response.json();
       } catch {}
-      if (!response.ok) throw new CxError(parsed?.error || `The reminder server answered ${response.status}.`, response.status);
+      if (!response.ok) throw new CxError(parsed?.error || `The reminder server answered ${response.status}.`, response.status, parsed);
       return parsed;
     }
 
@@ -228,8 +275,10 @@
       }
       if (btn && !f.aiUnavailable) {
         const busy = t.status === 'IN_PROGRESS' && !hasVerdict(f);
-        btn.disabled = busy;
-        btn.textContent = busy ? 'Triaging…' : hasVerdict(f) ? 'Re-triage' : 'Triage';
+        const locked = !busy && hasVerdict(f) && !retriageAllowed();
+        btn.disabled = busy || locked;
+        btn.textContent = busy ? 'Triaging…' : locked ? 'Triaged' : hasVerdict(f) ? 'Re-triage' : 'Triage';
+        btn.title = locked ? 'Already triaged. Triaging again is switched off by your administrator.' : '';
       }
     }
     updateBulk();
@@ -237,7 +286,7 @@
 
   function triageCandidates(severity) {
     return findings.filter(
-      (f) => f.severity === severity && !f.aiUnavailable && !isRunning(f) && !hasVerdict(f),
+      (f) => f.severity === severity && !f.hidden && !f.aiUnavailable && !isRunning(f) && !hasVerdict(f),
     );
   }
 
@@ -329,10 +378,12 @@
   async function triage(list) {
     const results = await backend.triage(list);
     const started = [];
+    const refusals = [];
     for (const result of results) {
       const group = list.filter((f) => result.alternateIds.includes(f.alternateId));
       if (result.ok) {
         for (const f of group) {
+          f.touched = true;
           f.triage = { status: 'IN_PROGRESS' };
           f.settled = false;
           if (f.state && f.state !== 'TO_VERIFY') f.state = 'TO_VERIFY';
@@ -345,13 +396,36 @@
             : `AI Triage already running for ${group.length} finding(s); following it.`,
           'pending',
         );
+      } else if (result.retriage) {
+        // The server found it already triaged (e.g. in Checkmarx One since this report loaded):
+        // show its current state instead.
+        log(result.error, 'info');
+        backend
+          .results(group)
+          .then((answers) =>
+            group.forEach((f, i) => {
+              applyAnswer(f, answers[i]);
+              f.settled = true;
+              renderTriage(f);
+            }),
+          )
+          .catch(reportError);
+      } else if (isCreditRefusal(result.status, result)) {
+        refusals.push(result);
       } else {
         reportError(new CxError(result.error, result.status));
       }
     }
+    if (refusals.length) showCreditDialog(refusals);
     // Results arrive over minutes; follow them in the background so other
     // actions stay available meanwhile.
     if (started.length) pollTriage(started).catch(reportError);
+  }
+
+  /** A whole request refused for credits opens the dialog; anything else is reported. */
+  function handleActionError(error) {
+    if (isCreditRefusal(error.status, error.body)) showCreditDialog([{ error: error.message, credits: error.body?.credits }]);
+    else reportError(error);
   }
 
   async function bulkTriage(severity) {
@@ -366,11 +440,21 @@
     try {
       await triage(list);
     } catch (error) {
-      reportError(error);
+      handleActionError(error);
     } finally {
       bulkRunning = false;
       updateBulk();
     }
+  }
+
+  function hideNotExploitable(f) {
+    f.hidden = true;
+    const tr = row(f);
+    if (tr) tr.hidden = true;
+    const n = findings.filter((x) => x.hidden && x.shown).length;
+    const note = $('hidden-note');
+    note.hidden = n === 0;
+    note.textContent = `${n} finding${n === 1 ? '' : 's'} already triaged as not exploitable in Checkmarx One ${n === 1 ? 'is' : 'are'} not shown.`;
   }
 
   async function loadExistingTriage() {
@@ -380,6 +464,11 @@
     const resumed = [];
     eligible.forEach((f, i) => {
       applyAnswer(f, answers[i]);
+      // Already triaged as not exploitable: nothing left to do here, so it is skipped.
+      if (NOT_EXPLOITABLE.has(f.state) && !f.touched) {
+        hideNotExploitable(f);
+        return;
+      }
       const ai = f.triage?.status;
       if (ai === 'IN_PROGRESS' && !hasVerdict(f)) resumed.push(f);
       else if (ai === 'TO_VERIFY') f.settled = true;
@@ -516,6 +605,11 @@
       }
       f.remediation = { failed: 'Still running — the result will appear on the finding in Checkmarx One.' };
     } catch (error) {
+      if (isCreditRefusal(error.status, error.body)) {
+        f.remediation = null;
+        renderRemediation(f);
+        return showCreditDialog([{ error: error.message, credits: error.body?.credits }]);
+      }
       f.remediation = { failed: error.message };
       log(error.message, 'error');
     }
@@ -530,6 +624,8 @@
     const candidate = relayBackend();
     const status = await candidate.connect();
     candidate.remediationAllowed = status.remediation !== false;
+    candidate.retriageAllowed = status.retriage === true;
+    candidate.adminContact = status.adminContact || '';
     backend = candidate;
     try {
       sessionStorage.setItem(STORE, 'relay');
@@ -539,6 +635,7 @@
     updateBulk();
     banner('');
     if (!quiet) log(`Connected to Checkmarx One (${status.tenant}) through the reminder server.`, 'success');
+    for (const f of findings) if (hasVerdict(f)) renderTriage(f);
     loadExistingTriage().catch(reportError);
   }
 
@@ -579,7 +676,7 @@
     const f = byKey.get(btn.closest('tr').dataset.key);
     if (!f || f.aiUnavailable) return;
     if (btn.dataset.action === 'remediate') requireConnection(() => remediate(f));
-    else requireConnection(() => triage([f]).catch(reportError));
+    else requireConnection(() => (hasVerdict(f) && !retriageAllowed() ? renderTriage(f) : triage([f]).catch(handleActionError)));
   });
 
   setConnectedUI();

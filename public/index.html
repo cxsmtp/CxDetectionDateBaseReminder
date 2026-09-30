@@ -508,11 +508,16 @@
             you allow it here. AI Remediation also opens pull requests on repository-connected projects.
           </p>
           <label class="check"><input type="checkbox" id="ai-enabled" /> Allow AI Triage from reports (uses Checkmarx One credits)</label>
+          <label class="check"><input type="checkbox" id="ai-retriage" /> Allow re-triage — triage a finding again when it already has a verdict (spends credits again)</label>
           <label class="check"><input type="checkbox" id="ai-skip-ne" /> Leave findings triaged as not exploitable (proposed or confirmed) out of reminders and reports — only confirmed findings and those still to verify are sent</label>
           <label class="check"><input type="checkbox" id="ai-remediation" /> Allow AI Remediation from reports (uses credits; may open pull requests) — applies to reports generated after saving</label>
           <label class="field">
             <span>Monthly credit limit for both — 0 for no limit</span>
             <input id="ai-limit" type="number" min="0" step="1" inputmode="numeric" />
+          </label>
+          <label class="field">
+            <span>Administrator contact — report readers who run out of credits are offered an email to this address (blank: the From address)</span>
+            <input id="ai-admin-contact" type="email" placeholder="appsec-admin@company.com" />
           </label>
 
           <div class="panel-head">
@@ -523,6 +528,15 @@
           <p class="hint">
             Counted by this server: per finding, 1 credit for AI Triage and 3 for AI Remediation, in each request Checkmarx One
             accepted as a new job. Updates every 15 seconds while this page is open.
+          </p>
+
+          <div class="panel-head">
+            <h3>Allocated vs used</h3>
+          </div>
+          <div id="credit-allocations"><p class="hint">Loading…</p></div>
+          <p class="hint">
+            Per project, all time: what was first allocated, what is allocated now (allocations follow each project's severity
+            rule and any credits you added) and what has been used through this utility.
           </p>
         </section>
 

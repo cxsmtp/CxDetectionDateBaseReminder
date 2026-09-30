@@ -67,6 +67,8 @@ test('AI actions are enabled only for SAST/SCA findings whose Checkmarx One ids 
     apiBaseUrl: 'https://eu.ast.checkmarx.net',
     portalUrl: 'https://eu.ast.checkmarx.net',
     relayUrl: '',
+    allowRetriage: false,
+    adminContact: '',
   });
   assert.ok(!/apiKey|refresh_token"\s*:/.test(JSON.stringify(island(html))), 'no credential is embedded');
 });
@@ -123,4 +125,16 @@ test('Remediate runs through the reminder server only when the administrator all
   const off = build(false);
   assert.ok(!/data-action="remediate"/.test(off.slice(0, off.indexOf('<script'))));
   assert.match(off, /<a[^>]*data-action="remediate-link" href="https:\/\/eu\.ast\.checkmarx\.net\/riskhub\/p1\?resultId=r1"/);
+});
+
+test('the report carries the re-triage switch, a valid administrator contact and the credits dialog', () => {
+  const data = buildReportData([risk(1, 'CRITICAL')], { tenant: 't' });
+  const allowed = island(generateHtmlReport(data, { allowRetriage: true, adminContact: 'appsec@example.com' })).config;
+  assert.equal(allowed.allowRetriage, true);
+  assert.equal(allowed.adminContact, 'appsec@example.com');
+
+  const html = generateHtmlReport(data, { adminContact: 'not an address"><script>' });
+  assert.equal(island(html).config.allowRetriage, false);
+  assert.equal(island(html).config.adminContact, '');
+  assert.match(html, /<dialog id="credit-dialog"/);
 });

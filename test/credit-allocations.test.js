@@ -102,3 +102,22 @@ test('only findings AI Triage can act on count: SAST/SCA, to verify, not just se
   ];
   assert.equal(toTriageCount(found, ['HIGH'], now), 3);
 });
+
+test('the allocation list shows what was first allocated, what is allocated now and what was used', () => {
+  const { ledger, allocations } = setup();
+  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 3, HIGH: 2 }));
+  ledger.record({ projectId: 'p1', projectName: 'Payments', credits: 2, kind: 'triage' });
+  allocations.add('p1', 'Payments', 'remediation', 6);
+  allocations.add('p1', 'Payments', 'triage', 4);
+  ledger.record({ projectId: 'p1', projectName: 'Payments', credits: 3, kind: 'remediation' });
+  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 1, HIGH: 2 }));
+
+  const [p1] = allocations.list();
+  assert.equal(p1.projectName, 'Payments');
+  assert.equal(p1.triage.initial, 5, 'first allocation: 3 critical + 2 high');
+  assert.equal(p1.triage.used, 2);
+  assert.equal(p1.triage.allocated, 2 + 3 + 4, 'used + still to verify + extra');
+  assert.equal(p1.triage.remaining, 7);
+  assert.deepEqual([p1.remediation.initial, p1.remediation.allocated, p1.remediation.used, p1.remediation.remaining], [0, 6, 3, 3]);
+  assert.ok(p1.initialAt);
+});

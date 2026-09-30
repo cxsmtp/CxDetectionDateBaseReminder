@@ -76,3 +76,15 @@ test('readings are kept as history, and reports can be deleted', () => {
   assert.equal(store.delete(report.id), true);
   assert.equal(store.get(report.id), null);
 });
+
+test('progress counts the open findings AI Triage can still act on, by severity', () => {
+  const { report } = setup();
+  const sast = (r) => ({ ...r, scanner: 'SAST' });
+  const current = new Map([
+    ['p1', [sast(risk('a', 'CRITICAL')), sast(risk('b', 'HIGH', 'CONFIRMED')), { ...risk('c', 'HIGH'), scanner: 'KICS' }, sast(risk('x', 'HIGH'))]],
+    ['p2', [{ ...risk('d', 'CRITICAL'), scanner: 'SCA' }, sast(risk('e', 'HIGH', 'PROPOSED_NOT_EXPLOITABLE'))]],
+  ]);
+  const progress = computeProgress(report, current, resolveWindow({ preset: '90d' }, 'x', now), () => ({ triage: 0, remediation: 0 }), now);
+  // a and d (baseline, still to verify) and x (new); b, e have verdicts, c is KICS.
+  assert.deepEqual(progress.toTriage, { CRITICAL: 2, HIGH: 1 });
+});

@@ -181,9 +181,11 @@ export async function sendReminderMail(settings, message, overrides = {}) {
     );
   }
 
-  const to = overrides.to?.length ? overrides.to : settings.recipients.to;
-  const cc = overrides.cc?.length ? overrides.cc : settings.recipients.cc;
-  const bcc = overrides.bcc?.length ? overrides.bcc : settings.recipients.bcc;
+  // `exact` sends to the given addresses only, never the configured list.
+  const pick = (kind) => (overrides.exact ? overrides[kind] ?? [] : overrides[kind]?.length ? overrides[kind] : settings.recipients[kind]);
+  const to = pick('to');
+  const cc = pick('cc');
+  const bcc = pick('bcc');
 
   if (to.length + cc.length + bcc.length === 0) {
     throw new MailError('No recipients are configured. Add at least one on the Settings page.');

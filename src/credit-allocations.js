@@ -67,6 +67,27 @@ export class CreditAllocations {
     return out;
   }
 
+  /**
+   * Every project with an allocation: what it was first allocated, what it
+   * is allocated now, and what it has used through this utility.
+   */
+  list() {
+    return Object.entries(this.#projects)
+      .map(([projectId, entry]) => {
+        const balance = this.balance(projectId);
+        const initial = entry.initial ?? {};
+        return {
+          projectId,
+          projectName: entry.projectName || '',
+          severities: balance.severities,
+          initialAt: initial.at ?? entry.updatedAt ?? '',
+          triage: { ...balance.triage, initial: Number(initial.triage ?? entry.triage) || 0 },
+          remediation: { ...balance.remediation, initial: Number(initial.remediation ?? entry.remediation) || 0 },
+        };
+      })
+      .sort((a, b) => b.triage.used + b.remediation.used - (a.triage.used + a.remediation.used) || a.projectName.localeCompare(b.projectName));
+  }
+
   /** Severities a project's triage allocation covers (critical + high unless changed). */
   severitiesOf(projectId) {
     const chosen = this.#projects[projectId]?.severities;
@@ -92,6 +113,7 @@ export class CreditAllocations {
     const triage = this.#ledger.usedBy(projectId, 'triage') + toTriageCount(risks, rule) + entry.extraTriage;
     const before = this.#projects[projectId];
     const next = { ...entry, projectName: projectName || entry.projectName || '', triage };
+    next.initial ??= { triage, remediation: Number(entry.remediation) || 0, at: new Date().toISOString() };
     if (before && JSON.stringify(before) === JSON.stringify(next)) return false;
     this.#projects[projectId] = { ...next, updatedAt: new Date().toISOString() };
     return true;
@@ -102,6 +124,7 @@ export class CreditAllocations {
     if (!KINDS.includes(kind)) throw new Error(`Unknown credit kind: ${kind}`);
     const entry = this.#projects[projectId] ?? { triage: 0, remediation: 0, extraTriage: 0 };
     this.#projects[projectId] = {
+      initial: { triage: Number(entry.triage) || 0, remediation: Number(entry.remediation) || 0, at: new Date().toISOString() },
       ...entry,
       projectName: projectName || entry.projectName || '',
       [kind]: Math.max(0, (Number(entry[kind]) || 0) + credits),

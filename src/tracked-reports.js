@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { AI_SCANNERS } from './cxone/ai-assist.js';
 import { withinWindow } from './window.js';
 
 export const OUTCOMES = ['awaiting', 'confirmed', 'notExploitable', 'resolved'];
@@ -56,12 +57,21 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
     for (const risk of risks) current.set(`${projectId}|${risk.riskId}`, risk);
   }
 
+  // Open findings AI Triage can still act on, by severity.
+  const toTriage = {};
+  const countToTriage = (risk) => {
+    if (outcomeOf(risk) === 'awaiting' && AI_SCANNERS.has(String(risk.scanner || '').toUpperCase())) {
+      toTriage[risk.severity] = (toTriage[risk.severity] ?? 0) + 1;
+    }
+  };
+
   const outcomes = emptyOutcomes();
   const baselineKeys = new Set();
   let changed = 0;
   for (const f of report.baseline.findings) {
     const key = `${f.projectId}|${f.riskId}`;
     baselineKeys.add(key);
+    if (current.has(key)) countToTriage(current.get(key));
     const outcome = outcomeOf(current.get(key));
     outcomes[outcome] += 1;
     if (outcome !== outcomeOf(f)) changed += 1;
@@ -84,6 +94,7 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
       if (!baselineKeys.has(`${projectId}|${risk.riskId}`)) {
         newFindings += 1;
         if (outcomeOf(risk) !== 'notExploitable') newOpen += 1;
+        countToTriage(risk);
         if (row) row.newFindings += 1;
       }
     }
@@ -101,6 +112,7 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
     open: outcomes.awaiting + outcomes.confirmed + newOpen,
     newFindings,
     currentMatching,
+    toTriage,
     aiActions: aiActions(report.projects.map((p) => p.projectId), report.createdAt),
     byProject: [...byProject.values()].sort((a, b) => b.baseline - a.baseline),
   };
