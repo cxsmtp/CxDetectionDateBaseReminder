@@ -41,6 +41,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
             <span>Settings</span>
           </a>
+          <a href="#/beta" data-route="beta" class="tab">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.5L4.6 18.2A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.8L14 9.5V3" /><path d="M7.5 15h9" /></svg>
+            <span>Beta</span>
+          </a>
           <a href="#/logs" data-route="logs" class="tab">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>
             <span>Logs</span>
@@ -633,6 +637,115 @@
                 today. Save one from the Dashboard with <strong>Save as tracked report</strong>.
               </p>
               <div id="reports-list"><p class="hint">Loading…</p></div>
+            </section>
+          </div>
+
+          <!-- ================= Beta features ================= -->
+          <div id="page-beta" class="page beta" hidden>
+            <div class="beta-banner">
+              <span class="badge warn">Beta</span>
+              <span>Experimental features. They read your repositories' git history and, optionally, GitHub's API — check results before relying on them.</span>
+            </div>
+
+            <section class="panel" id="beta-authors">
+              <div class="panel-head">
+                <div>
+                  <h2>Email the authors of vulnerable code</h2>
+                  <p class="hint">For each finding: its exact file and line from Checkmarx One, who last changed that line (git blame at the scanned commit), and their real address.</p>
+                </div>
+                <span class="chip" id="authors-scope"></span>
+              </div>
+              <div class="alloc-row">
+                <span class="label-sm">Severities</span>
+                <label class="pill-check"><input type="checkbox" class="authors-sev" value="CRITICAL" checked /> <span>Critical</span></label>
+                <label class="pill-check"><input type="checkbox" class="authors-sev" value="HIGH" checked /> <span>High</span></label>
+                <label class="pill-check"><input type="checkbox" class="authors-sev" value="MEDIUM" /> <span>Medium</span></label>
+                <label class="pill-check"><input type="checkbox" class="authors-sev" value="LOW" /> <span>Low</span></label>
+                <label class="inline">Up to <input id="authors-limit" type="number" min="1" max="300" value="50" class="small-num" /> findings</label>
+                <button id="authors-find" type="button" class="primary">Find code authors</button>
+              </div>
+              <p class="status" id="authors-status"></p>
+              <div class="people-stats" id="authors-stats"></div>
+              <div class="table-wrap" id="authors-wrap" hidden>
+                <table class="data-table authors-table">
+                  <thead><tr><th class="checkbox"><input type="checkbox" id="authors-all" checked aria-label="Select all" /></th><th>Finding</th><th>Where</th><th>Author</th><th>Commit</th></tr></thead>
+                  <tbody id="authors-body"></tbody>
+                </table>
+              </div>
+              <div class="actions" id="authors-actions" hidden>
+                <button id="authors-preview" type="button">Preview email</button>
+                <button id="authors-send" type="button" class="primary">Send to authors</button>
+                <span class="status" id="authors-send-status"></span>
+              </div>
+              <div id="authors-preview-wrap" hidden>
+                <p class="hint" id="authors-preview-meta"></p>
+                <iframe id="authors-preview-frame" title="Author email preview" sandbox=""></iframe>
+              </div>
+            </section>
+
+            <section class="panel" id="beta-identity">
+              <div class="panel-head">
+                <div>
+                  <h2>Match GitHub usernames to email addresses</h2>
+                  <p class="hint">Scan initiators are often GitHub usernames. Run the four methods side by side on your own usernames and keep the matches you trust.</p>
+                </div>
+              </div>
+              <div class="method-grid">
+                <label class="method-card"><input type="checkbox" class="gh-method" value="localGit" checked />
+                  <span><strong>Local git history</strong><small>Noreply commits and author names in repositories you name. No API calls.</small></span></label>
+                <label class="method-card"><input type="checkbox" class="gh-method" value="graphql" checked />
+                  <span><strong>GraphQL batch</strong><small>50 users per request; includes your organisation's verified-domain emails. Needs a token.</small></span></label>
+                <label class="method-card"><input type="checkbox" class="gh-method" value="commits" checked />
+                  <span><strong>Commit author</strong><small>Email on their own commits: in the repositories listed below, or by commit search (30 a minute).</small></span></label>
+                <label class="method-card"><input type="checkbox" class="gh-method" value="profile" checked />
+                  <span><strong>Public profile</strong><small>The email on their GitHub profile, if public. One request each.</small></span></label>
+              </div>
+              <label class="field">
+                <span>GitHub usernames to match — one per line <button id="gh-load-logins" type="button" class="link">Load scan initiators</button></span>
+                <textarea id="gh-logins" rows="4" spellcheck="false" class="code" placeholder="octocat"></textarea>
+              </label>
+              <div class="actions compact">
+                <button id="gh-evaluate" type="button" class="primary">Compare methods</button>
+                <span class="status" id="gh-status"></span>
+              </div>
+              <div id="gh-results" hidden>
+                <div class="recommendation" id="gh-recommendation"></div>
+                <div class="table-wrap"><table class="data-table">
+                  <thead><tr><th>Method</th><th class="num">Found</th><th>Coverage</th><th class="num">API requests</th><th class="num">Per match</th><th class="num">Time</th><th>Notes</th></tr></thead>
+                  <tbody id="gh-methods"></tbody>
+                </table></div>
+                <h3 class="sub-title">Matches</h3>
+                <div class="table-wrap"><table class="data-table">
+                  <thead><tr><th class="checkbox"><input type="checkbox" id="gh-all" aria-label="Select all" /></th><th>Username</th><th>Email</th><th>Confidence</th><th>Found by</th><th>Evidence</th></tr></thead>
+                  <tbody id="gh-matches"></tbody>
+                </table></div>
+                <div class="actions compact">
+                  <button id="gh-apply" type="button" class="primary">Use selected matches</button>
+                  <span class="hint inline-hint">Saved as initiator overrides (username = email), used from the next fetch.</span>
+                  <span class="status" id="gh-apply-status"></span>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel" id="beta-github">
+              <h2>GitHub connection</h2>
+              <p class="hint wide">A token with read access to the repositories (and <code>read:org</code> for verified-domain emails). Stored on this server like the SMTP password, and never shown again.</p>
+              <div class="grid2">
+                <label class="field"><span>Token <span class="muted" id="gh-token-state"></span></span><input id="gh-token" type="password" autocomplete="new-password" placeholder="Leave blank to keep the stored one" /></label>
+                <label class="field"><span>API URL — GitHub Enterprise: https://github.example.com/api/v3</span><input id="gh-api" spellcheck="false" placeholder="https://api.github.com" /></label>
+                <label class="field"><span>Organisation</span><input id="gh-org" spellcheck="false" placeholder="acme" /></label>
+                <label class="field"><span>Repositories for commit lookups — owner/name, one per line</span><textarea id="gh-repos" rows="2" spellcheck="false" class="code" placeholder="acme/payments-api"></textarea></label>
+              </div>
+              <label class="field"><span>Local repositories — paths on this server, or https clone URLs (cloned without file contents)</span><textarea id="gh-local" rows="2" spellcheck="false" class="code" placeholder="https://github.com/acme/payments-api.git"></textarea></label>
+              <div class="toggle-list compact">
+                <label class="switch"><input type="checkbox" id="gh-blame-github" /> <span><strong>Blame through GitHub</strong><small>One GraphQL request per file, for repositories on this GitHub</small></span></label>
+                <label class="switch"><input type="checkbox" id="gh-blame-local" /> <span><strong>Blame with local git</strong><small>Clones each repository once (cached) — works for any host: GitLab, Bitbucket, Azure DevOps</small></span></label>
+              </div>
+              <div class="actions compact">
+                <button id="gh-save" type="button" class="primary">Save</button>
+                <button id="gh-clear-token" type="button" class="link">Remove stored token</button>
+                <span class="status" id="gh-save-status"></span>
+              </div>
             </section>
           </div>
 

@@ -128,3 +128,46 @@ export async function resolveAiIds(client, findings, latestScanId = () => '') {
   }
   return findings;
 }
+
+/**
+ * The scan result row behind each finding, for its exact code location.
+ * SAST rows sharing a similarity id can sit in different files, so prefer the
+ * row with the finding's own alternate id, then one in the finding's file.
+ * Returns Map(finding → row); findings without a row are left out.
+ */
+export async function resultRowsFor(client, findings, latestScanId = () => '') {
+  const byScan = new Map();
+  for (const finding of findings) {
+    const scanId = finding.scanId || latestScanId(finding);
+    if (!scanId) continue;
+    if (!byScan.has(scanId)) byScan.set(scanId, []);
+    byScan.get(scanId).push(finding);
+  }
+  const rows = new Map();
+  await mapWithConcurrency([...byScan.entries()], 3, async ([scanId, group]) => {
+    let all;
+    try {
+      all = await fetchScanResults(client, scanId);
+    } catch {
+      return;
+    }
+    for (const finding of group) {
+      const type = String(finding.scanner || '').toLowerCase();
+      const { similarityId } = matchKey(finding);
+      const sameType = all.filter((row) => String(row.type ?? '').toLowerCase() === type);
+      const byAlt = finding.alternateId && sameType.find((row) => String(row.alternateId) === String(finding.alternateId));
+      const candidates = similarityId ? sameType.filter((row) => String(row.similarityId ?? '') === similarityId) : [];
+      const file = String(finding.location || '').split(' :: ')[0].replace(/^\/+/, '');
+      const inFile =
+        file &&
+        candidates.find((row) => {
+          const node = row.data?.nodes?.at(-1);
+          const name = String(node?.fileName ?? row.data?.filename ?? '').replace(/^\/+/, '');
+          return name && (name === file || name.endsWith(`/${file}`) || file.endsWith(`/${name}`));
+        });
+      const row = byAlt || inFile || candidates[0];
+      if (row) rows.set(finding, { ...row, scanId });
+    }
+  });
+  return rows;
+}

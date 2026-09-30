@@ -119,10 +119,10 @@ function handleAuthLoss(error) {
 
 function route() {
   const name = (location.hash.replace('#/', '') || 'dashboard').split('?')[0];
-  const target = ['dashboard', 'reports', 'settings', 'logs'].includes(name) ? name : 'dashboard';
+  const target = ['dashboard', 'reports', 'settings', 'logs', 'beta'].includes(name) ? name : 'dashboard';
   if (!state.connection) return;
 
-  for (const page of ['dashboard', 'reports', 'settings', 'logs']) {
+  for (const page of ['dashboard', 'reports', 'settings', 'logs', 'beta']) {
     $(`page-${page}`).hidden = page !== target;
   }
   for (const tab of document.querySelectorAll('.tab')) {
@@ -139,6 +139,8 @@ function route() {
     renderLogsPage();
   } else if (target === 'reports') {
     loadTrackedReports();
+  } else if (target === 'beta') {
+    renderBeta();
   }
 }
 
@@ -148,6 +150,7 @@ const PAGE_TITLES = {
   reports: ['Tracked reports', 'Follow progress on saved scopes and send follow-ups'],
   settings: ['Settings', 'Email, templates, automation, AI credits and branding'],
   logs: ['Logs', 'API calls and results from this browser session'],
+  beta: ['Beta features', 'Experimental: code authors and GitHub identities'],
 };
 
 function setPageTitle(page) {
@@ -309,7 +312,7 @@ function showDisconnected(message = 'Not connected.') {
   $('connect-panel').hidden = false;
   $('nav').hidden = true;
   $('disconnect').hidden = true;
-  for (const page of ['dashboard', 'reports', 'settings', 'logs']) $(`page-${page}`).hidden = true;
+  for (const page of ['dashboard', 'reports', 'settings', 'logs', 'beta']) $(`page-${page}`).hidden = true;
 }
 
 async function connect(event) {
@@ -2728,3 +2731,227 @@ $('brand-logo-file').addEventListener('change', () => {
     showDisconnected(error.message);
   }
 })();
+
+
+// ---------------------------------------------------------------------------
+// Beta: code authors and GitHub identities
+// ---------------------------------------------------------------------------
+
+const METHOD_NAMES = {
+  localGit: 'Local git history',
+  graphql: 'GraphQL batch',
+  commits: 'Commit author',
+  profile: 'Public profile',
+};
+const lines = (value) => String(value || '').split(/[\n,]+/).map((v) => v.trim()).filter(Boolean);
+
+function renderBeta() {
+  const github = state.settings?.beta?.github ?? {};
+  const authors = state.settings?.beta?.authors ?? {};
+  $('gh-token-state').textContent = github.tokenSet ? '(stored)' : '(not set)';
+  $('gh-api').value = github.apiUrl ?? '';
+  $('gh-org').value = github.org ?? '';
+  $('gh-repos').value = (github.repos ?? []).join('\n');
+  $('gh-local').value = (github.localRepos ?? []).join('\n');
+  $('gh-blame-github').checked = authors.useGithubBlame !== false;
+  $('gh-blame-local').checked = authors.useLocalBlame !== false;
+  const scope = allocationScope();
+  $('authors-scope').textContent = state.projects.length
+    ? `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'} on the Dashboard`
+    : 'Fetch projects on the Dashboard first';
+  $('authors-find').disabled = !state.projects.length;
+}
+
+async function saveGithubSettings(extra = {}) {
+  setStatus('gh-save-status', 'Saving…');
+  try {
+    const github = {
+      apiUrl: $('gh-api').value.trim(),
+      org: $('gh-org').value.trim(),
+      repos: lines($('gh-repos').value),
+      localRepos: lines($('gh-local').value),
+      ...extra,
+    };
+    if ($('gh-token').value.trim()) github.token = $('gh-token').value.trim();
+    state.settings = await api('/api/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ beta: { github, authors: { useGithubBlame: $('gh-blame-github').checked, useLocalBlame: $('gh-blame-local').checked } } }),
+    });
+    $('gh-token').value = '';
+    renderBeta();
+    setStatus('gh-save-status', 'Saved.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('gh-save-status', error);
+  }
+}
+
+$('gh-save').addEventListener('click', () => saveGithubSettings());
+$('gh-clear-token').addEventListener('click', () => {
+  if (confirm('Remove the stored GitHub token?')) saveGithubSettings({ token: null });
+});
+
+$('gh-load-logins').addEventListener('click', async () => {
+  try {
+    const { logins } = await api('/api/beta/github/logins');
+    if (!logins.length) return setStatus('gh-status', 'No usernames among the scan initiators — fetch projects on the Dashboard, or type them in.', 'error');
+    // Unresolved ones first: those are the ones worth matching.
+    logins.sort((a, b) => Number(b.unresolved) - Number(a.unresolved));
+    $('gh-logins').value = logins.map((l) => l.login).join('\n');
+    setStatus('gh-status', `${logins.length} username(s) from the scan initiators, ${logins.filter((l) => l.unresolved).length} without an email.`, 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('gh-status', error);
+  }
+});
+
+let identityReport = null;
+
+$('gh-evaluate').addEventListener('click', async () => {
+  const methods = [...document.querySelectorAll('.gh-method:checked')].map((b) => b.value);
+  if (!methods.length) return setStatus('gh-status', 'Pick at least one method.', 'error');
+  const button = $('gh-evaluate');
+  button.disabled = true;
+  setStatus('gh-status', 'Comparing methods… (local clones can take a minute the first time)');
+  try {
+    identityReport = await api('/api/beta/github/evaluate', {
+      method: 'POST',
+      body: JSON.stringify({ logins: lines($('gh-logins').value), methods }),
+    });
+    renderIdentityReport(identityReport);
+    setStatus('gh-status', `Matched ${identityReport.resolved} of ${identityReport.logins.length} username(s).`, 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('gh-status', error);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+function renderIdentityReport(report) {
+  $('gh-results').hidden = false;
+  $('gh-recommendation').innerHTML = `<strong>Recommendation</strong><ul>${report.recommendation.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`;
+  $('gh-methods').innerHTML = Object.entries(report.methods)
+    .map(([name, m]) => {
+      if (m.skipped) return `<tr><td>${escapeHtml(METHOD_NAMES[name])}</td><td colspan="6" class="zero">${escapeHtml(m.skipped)}</td></tr>`;
+      const notes = [
+        m.limited ? 'hit the rate limit' : '',
+        m.extra ? `${m.extra.commits} commits read, ${m.extra.loginsSeen} GitHub logins in noreply addresses` : '',
+        ...(m.errors ?? []),
+      ].filter(Boolean);
+      return `<tr>
+        <td><strong>${escapeHtml(METHOD_NAMES[name])}</strong></td>
+        <td class="num">${m.resolved}</td>
+        <td><div class="use-bar wide" title="${m.coverage}%"><span style="width:${m.coverage}%"></span></div><span class="hint inline-hint">${m.coverage}%</span></td>
+        <td class="num">${m.requests}</td>
+        <td class="num">${m.requestsPerMatch ?? '—'}</td>
+        <td class="num">${(m.ms / 1000).toFixed(1)} s</td>
+        <td class="notes">${escapeHtml(notes.join(' · ')) || '<span class="zero">—</span>'}</td>
+      </tr>`;
+    })
+    .join('');
+  const rows = report.logins.map((login) => ({ login, found: report.combined[login] }));
+  $('gh-matches').innerHTML = rows
+    .map(({ login, found }) => `<tr class="${found ? '' : 'dim-row'}">
+      <td class="checkbox"><input type="checkbox" data-gh-login="${escapeHtml(login)}" ${found && found.confidence === 'high' ? 'checked' : ''} ${found ? '' : 'disabled'} /></td>
+      <td>${escapeHtml(login)}</td>
+      <td class="mono">${found ? escapeHtml(found.email) : '<span class="zero">not found</span>'}</td>
+      <td>${found ? `<span class="badge ${found.confidence === 'high' ? '' : 'warn'}">${escapeHtml(found.confidence)}</span>` : ''}</td>
+      <td>${found ? escapeHtml([METHOD_NAMES[found.method], ...(found.agreedBy ?? []).map((m) => METHOD_NAMES[m])].join(', ')) : ''}</td>
+      <td class="notes">${found ? escapeHtml(found.evidence) : ''}</td>
+    </tr>`)
+    .join('');
+}
+
+$('gh-all').addEventListener('change', () => {
+  for (const box of document.querySelectorAll('[data-gh-login]:not(:disabled)')) box.checked = $('gh-all').checked;
+});
+
+$('gh-apply').addEventListener('click', async () => {
+  const mappings = [...document.querySelectorAll('[data-gh-login]:checked')].map((box) => ({
+    login: box.dataset.ghLogin,
+    email: identityReport.combined[box.dataset.ghLogin]?.email,
+  }));
+  if (!mappings.length) return setStatus('gh-apply-status', 'Tick the matches to use.', 'error');
+  try {
+    const result = await api('/api/beta/github/apply', { method: 'POST', body: JSON.stringify({ mappings }) });
+    setStatus('gh-apply-status', `${result.applied} saved. Fetch again on the Dashboard to use them.`, 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('gh-apply-status', error);
+  }
+});
+
+// ---- Code authors ----------------------------------------------------------
+
+let authorItems = [];
+
+$('authors-find').addEventListener('click', async () => {
+  const severities = [...document.querySelectorAll('.authors-sev:checked')].map((b) => b.value);
+  const button = $('authors-find');
+  button.disabled = true;
+  setStatus('authors-status', 'Locating findings, reading git history and resolving authors… (the first run clones each repository)');
+  try {
+    const result = await api('/api/beta/authors/find', {
+      method: 'POST',
+      body: JSON.stringify({ projectIds: allocationScope().map((p) => p.projectId), severities, limit: Number($('authors-limit').value) || 50 }),
+    });
+    authorItems = result.items;
+    const s = result.summary;
+    $('authors-stats').innerHTML = `
+      <span class="stat"><b>${s.findings}</b> findings</span>
+      <span class="stat"><b>${s.blamed}</b> traced to a commit</span>
+      <span class="stat ok"><b>${s.authors}</b> author${s.authors === 1 ? '' : 's'} with email</span>
+      <span class="stat"><b>${s.githubRequests}</b> GitHub API call${s.githubRequests === 1 ? '' : 's'}</span>`;
+    renderAuthors();
+    setStatus('authors-status', s.withEmail ? `${s.withEmail} finding(s) can go to their author.` : 'No author could be reached for these findings.', s.withEmail ? 'ok' : 'error');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('authors-status', error);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+function renderAuthors() {
+  $('authors-wrap').hidden = !authorItems.length;
+  $('authors-actions').hidden = !authorItems.some((i) => i.author?.email);
+  $('authors-body').innerHTML = authorItems
+    .map((i) => {
+      const sev = String(i.severity || '').toLowerCase();
+      const where = i.location ? `${i.location.path}:${i.location.line}` : '';
+      const author = i.author
+        ? `<div class="person-main">${avatar(i.author.name || i.author.login || i.author.email)}<span class="person-text"><span class="person-name">${escapeHtml(i.author.name || i.author.login)}</span><span class="person-mail">${escapeHtml(i.author.email || 'no address')}${i.author.emailVia && i.author.emailVia !== 'commit' ? ` · via ${escapeHtml(METHOD_NAMES[i.author.emailVia] || i.author.emailVia)}` : ''}</span></span></div>`
+        : '';
+      return `<tr class="${i.author?.email ? '' : 'dim-row'}">
+        <td class="checkbox"><input type="checkbox" data-author-key="${escapeHtml(i.key)}" ${i.author?.email ? 'checked' : 'disabled'} /></td>
+        <td class="finding-cell"><span class="sev-dot sev-${escapeHtml(sev)}"></span>${i.url ? `<a href="${escapeHtml(i.url)}" target="_blank" rel="noopener">${escapeHtml(i.title)}</a>` : escapeHtml(i.title)}
+          <div class="hint">${escapeHtml(i.projectName)} · ${escapeHtml(i.scanner)}${i.ageDays != null ? ` · ${i.ageDays}d` : ''}</div></td>
+        <td class="mono where">${escapeHtml(where)}${i.problem ? `<div class="hint error-hint">${escapeHtml(i.problem)}</div>` : ''}</td>
+        <td>${author}</td>
+        <td class="mono">${i.commit ? `${i.commitUrl ? `<a href="${escapeHtml(i.commitUrl)}" target="_blank" rel="noopener">${escapeHtml(i.commit.slice(0, 8))}</a>` : escapeHtml(i.commit.slice(0, 8))}<div class="hint">${escapeHtml((i.committedAt || '').slice(0, 10))} · ${escapeHtml(i.via || '')}</div>` : ''}</td>
+      </tr>`;
+    })
+    .join('');
+}
+
+$('authors-all').addEventListener('change', () => {
+  for (const box of document.querySelectorAll('[data-author-key]:not(:disabled)')) box.checked = $('authors-all').checked;
+});
+
+async function notifyAuthors(dryRun) {
+  const keys = [...document.querySelectorAll('[data-author-key]:checked')].map((b) => b.dataset.authorKey);
+  if (!keys.length) return setStatus('authors-send-status', 'Tick at least one finding with an author.', 'error');
+  if (!dryRun && !confirm(`Email the authors of ${keys.length} finding(s)?`)) return;
+  setStatus('authors-send-status', dryRun ? 'Preparing preview…' : 'Sending…');
+  try {
+    const result = await api('/api/beta/authors/notify', { method: 'POST', body: JSON.stringify({ keys, dryRun }) });
+    if (dryRun) {
+      $('authors-preview-wrap').hidden = false;
+      $('authors-preview-meta').textContent = `${result.recipients.length} email(s): ${result.recipients.map((r) => `${r.to} (${r.findings})`).join(', ')}. First one: "${result.subject}"`;
+      $('authors-preview-frame').srcdoc = result.html;
+      setStatus('authors-send-status', '');
+    } else {
+      setStatus('authors-send-status', `Sent ${result.sent.length} email(s)${result.failed.length ? `, ${result.failed.length} failed: ${result.failed.map((f) => f.error).join('; ')}` : ''}.`, result.failed.length ? 'error' : 'ok');
+    }
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('authors-send-status', error);
+  }
+}
+$('authors-preview').addEventListener('click', () => notifyAuthors(true));
+$('authors-send').addEventListener('click', () => notifyAuthors(false));

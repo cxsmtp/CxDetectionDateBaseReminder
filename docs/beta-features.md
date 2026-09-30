@@ -1,0 +1,90 @@
+# Beta features
+
+Both features live on the **Beta** tab. They read git history and, optionally,
+GitHub's API; check what they find before relying on it.
+
+## Email the authors of vulnerable code
+
+For each finding in the current Dashboard scope (severities and a maximum you choose):
+
+1. **Where** — the finding's scan result gives the exact file and line: the
+   sink node of a SAST data flow (the vulnerable call), or the KICS line.
+   Open-source (SCA) findings have no line of your code and are skipped.
+2. **Which code** — the scan's commit when Checkmarx One recorded one, else its
+   branch, else the project's main branch. The repository comes from the scan
+   (`metadata.Handler.GitHandler.repo_url`) or the project's `repoUrl`.
+3. **Who** — `git blame` of that line: through GitHub GraphQL for repositories
+   on your GitHub (one request per file, however many findings are in it), or
+   `git blame` on a local clone for any host (GitLab, Bitbucket, Azure DevOps,
+   GitHub without a token). Clones are cached under `data/git-cache` and
+   refreshed at most every 10 minutes.
+4. **Their address** — the commit's author email; if it is a GitHub noreply
+   address, the login is resolved with the identity methods below, starting
+   with the history of the repository just cloned.
+
+Each author gets one email listing the findings on lines they last changed,
+with links to the finding in Checkmarx One and to their commit. Preview first.
+
+Tested end to end against the real `expressjs/express` repository: 5 of 6
+findings traced to their commit (the SCA one correctly skipped), 3 authors,
+0 GitHub API calls; first run 1.5 s including the clone, then ~150 ms per line.
+
+## Match GitHub usernames to email addresses
+
+Scan initiators of SCM-triggered scans are often GitHub usernames. Four
+methods, runnable side by side on your own usernames (**Compare methods**):
+
+| Method | How | Cost | Finds |
+|---|---|---|---|
+| Local git history | `git log` of repositories you name (paths, or https URLs cloned without file contents). A commit made with `ID+login@users.noreply.github.com` ties the login to an author name, and that name's other commits give the real address. Logins are also matched to author names and addresses (`prohde` → Philipp Rohde, `tjrhines1` → tjrhines@…, org prefixes like `cx-` stripped); names shared by different addresses are left out. | 0 API calls | Company repos: people who commit with their work address |
+| GraphQL batch | One query per 50 users: public email and `organizationVerifiedDomainEmails` (your org's verified-domain address, visible to org members even when the profile hides it). | 1 request / 50 users | Org members with a verified domain |
+| Commit author | Email on the user's own commits: REST commits-by-author in repositories you list, or commit search across the org. | 1 request / user / repo; search 30 a minute | Hidden profile emails (git records the author email) |
+| Public profile | `GET /users/{login}` | 1 request / user | Only users who made their email public |
+
+### Measured
+
+Local git history against real public repositories, scored against ground
+truth (the PR author named in "Merge pull request #N from **login**/…" and the
+address on that PR's commits):
+
+| Repository | PR authors | Found | Correct | Recall | Precision | API calls | Time |
+|---|---|---|---|---|---|---|---|
+| expressjs/express | 116 | 69 | 69 | 59% | 100% | 0 | 0.15 s |
+| axios/axios | 114 | 60 | 58 | 51% | 97% | 0 | 0.13 s |
+| lodash/lodash | 71 | 43 | 43 | 61% | 100% | 0 | 0.27 s |
+| pallets/flask | 525 | 334 | 331 | 63% | 99% | 0 | 0.25 s |
+
+(Open-source ground truth understates it: maintainers commit into other
+people's PR branches. In company repositories, where people commit with their
+work address, recall is higher.)
+
+The API methods could not be measured against github.com from the build
+environment (its GitHub access is limited to one repository), so they were
+verified against a GitHub API double for correctness and cost: 121 users
+resolved with **3** GraphQL requests versus **121** profile requests. Their hit
+rates depend on your organisation — run **Compare methods** on your real
+usernames to see them.
+
+### Recommendation
+
+Run them cheapest first and stop at the first match (the code-author feature
+does exactly this):
+
+1. **Local git history** — free, fast, ~99% precise; add your main repositories.
+2. **GraphQL batch** with your organisation set — one request per 50 people,
+   and verified-domain emails are the most reliable address GitHub has.
+3. **Commit author** in named repositories — for people who hide their
+   profile email; avoid org-wide commit search for large lists (30 a minute).
+4. **Public profile** — last, for the few left.
+
+Matches you tick are saved as initiator overrides (`username = email`) and used
+from the next fetch. Medium-confidence matches (name-based) are left unticked.
+
+## Settings
+
+**Beta → GitHub connection**: token (stored like the SMTP password, never sent
+back; `repo` read access, `read:org` for verified-domain emails), API URL
+(GitHub Enterprise: `https://github.example.com/api/v3`), organisation,
+repositories for commit lookups, local repositories / clone URLs, and whether
+to blame through GitHub and/or local git. The token is only ever sent to its
+own GitHub host.

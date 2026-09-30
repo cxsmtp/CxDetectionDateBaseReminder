@@ -327,6 +327,7 @@ export function summariseProject(project, risks, error = null) {
     projectId: project.id,
     projectName: project.name,
     repoUrl: project.repoUrl,
+    mainBranch: project.mainBranch ?? '',
     tags: project.tags,
     totalRisks: risks.length,
     counts,
