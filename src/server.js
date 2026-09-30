@@ -9,7 +9,7 @@ import { AGE_BUCKETS, collectProjectRisks, selectRisks } from './cxone/risks.js'
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
 import { resolveAiIds } from './cxone/ai-assist.js';
-import { generateHtmlReport, selectTopFindings } from './html-report.js';
+import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -707,10 +707,19 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     initiatorsByProject,
     initiator,
   });
-  const findings = selectTopFindings(reportData);
-  await resolveAiIds(session.client, findings, (finding) => initiatorsByProject[finding.projectId]?.scanId ?? '');
+  // The table shows the top findings; the "triage all critical / high"
+  // actions cover every critical and high finding, so those get ids too.
+  const ranked = selectTopFindings(reportData, Infinity);
+  const findings = ranked.slice(0, REPORT_TOP_N);
+  const bulkFindings = ranked.slice(REPORT_TOP_N).filter((f) => BULK_SEVERITIES.includes(f.severity));
+  await resolveAiIds(
+    session.client,
+    [...findings, ...bulkFindings],
+    (finding) => initiatorsByProject[finding.projectId]?.scanId ?? '',
+  );
   const html = generateHtmlReport(reportData, {
     findings,
+    bulkFindings,
     connection: { tenant: connection.tenant, iamUrl: connection.iamUrl, baseUrl: connection.baseUrl },
     branding: settings.branding,
   });

@@ -182,7 +182,7 @@
 
   function renderTriage(f) {
     const tr = row(f);
-    if (!tr) return;
+    if (!tr) return updateBulk();
     const cell = tr.querySelector('.ai-cell');
     const btn = tr.querySelector('[data-action="triage"]');
     const t = f.triage;
@@ -226,24 +226,32 @@
   const hasVerdict = (f) =>
     Boolean(f.triage?.status) && !TERMINAL_WAIT.has(f.triage.status) && f.triage.status !== 'FAILED';
 
-  function triageCandidates() {
-    return findings.filter((f) => !f.aiUnavailable && f.triage?.status !== 'IN_PROGRESS' && !hasVerdict(f));
+  const SEVERITY_LABELS = { CRITICAL: 'critical', HIGH: 'high' };
+  const bulkButtons = () => [...document.querySelectorAll('a.bulk[data-severity]')];
+
+  function triageCandidates(severity) {
+    return findings.filter(
+      (f) => f.severity === severity && !f.aiUnavailable && f.triage?.status !== 'IN_PROGRESS' && !hasVerdict(f),
+    );
   }
 
   function updateBulk() {
-    const btn = $('bulk-triage');
-    btn.hidden = !auth;
-    $('bulk-portal').hidden = Boolean(auth);
-    if (!auth) {
-      $('bulk-credits').textContent = '';
-      $('bulk-progress').textContent = '';
-      return;
-    }
-    const n = triageCandidates().length;
     const running = findings.filter((f) => f.triage?.status === 'IN_PROGRESS').length;
-    btn.disabled = bulkRunning || n === 0;
-    btn.textContent = n ? `Triage ${n} finding${n === 1 ? '' : 's'}` : 'All eligible findings triaged';
-    $('bulk-credits').textContent = n ? `Uses ${n} Checkmarx One credit${n === 1 ? '' : 's'} (1 per finding)` : '';
+    for (const btn of bulkButtons()) {
+      const severity = btn.dataset.severity;
+      const label = SEVERITY_LABELS[severity];
+      const total = findings.filter((f) => f.severity === severity).length;
+      if (!auth) {
+        btn.textContent = `Triage all ${label} (${total})`;
+        btn.classList.toggle('is-busy', total === 0);
+        continue;
+      }
+      const n = triageCandidates(severity).length;
+      const busy = findings.some((f) => f.severity === severity && f.triage?.status === 'IN_PROGRESS');
+      btn.textContent = n ? `Triage all ${label} (${n})` : busy ? `Triaging ${label}…` : `All ${label} triaged`;
+      btn.classList.toggle('is-busy', bulkRunning || n === 0);
+    }
+    $('bulk-credits').textContent = auth ? 'AI Triage uses 1 Checkmarx One credit per finding.' : '';
     $('bulk-progress').textContent = running ? `${running} triage job${running === 1 ? '' : 's'} running…` : '';
   }
 
@@ -354,11 +362,11 @@
     if (started.length) await pollTriage(started);
   }
 
-  async function bulkTriage() {
-    if (!auth) return;
-    const list = triageCandidates();
+  async function bulkTriage(severity) {
+    const list = triageCandidates(severity);
     if (!list.length) return;
-    if (!confirm(`Run AI Triage on ${list.length} finding(s)? This uses ${list.length} Checkmarx One credit(s).`)) return;
+    const label = SEVERITY_LABELS[severity];
+    if (!confirm(`Run AI Triage on all ${list.length} ${label} finding(s)? This uses ${list.length} Checkmarx One credit(s).`)) return;
     bulkRunning = true;
     updateBulk();
     try {
@@ -469,7 +477,14 @@
   $('connect').addEventListener('click', () => (auth ? confirm('Disconnect from Checkmarx One?') && disconnect() : openConnect()));
   $('key-form').addEventListener('submit', submitKey);
   $('key-cancel').addEventListener('click', () => $('connect-dialog').close());
-  $('bulk-triage').addEventListener('click', bulkTriage);
+  // Without an API key the "Triage all" buttons are plain links into Risk Hub.
+  for (const btn of bulkButtons()) {
+    btn.addEventListener('click', (event) => {
+      if (!auth) return;
+      event.preventDefault();
+      if (!btn.classList.contains('is-busy')) bulkTriage(btn.dataset.severity);
+    });
+  }
   // Triage opens the finding in Checkmarx One Risk Hub, unless an API key is
   // connected, in which case it runs AI Triage right here.
   $('findings').addEventListener('click', (event) => {

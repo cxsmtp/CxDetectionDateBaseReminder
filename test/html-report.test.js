@@ -83,3 +83,21 @@ test('the report email has a Start triaging button into Checkmarx One for each p
   assert.equal((two.html.match(/>Start triaging — /g) ?? []).length, 2);
   assert.ok(two.html.includes('Other &lt;b&gt;') && two.html.includes('Hi &lt;Ann&gt;'));
 });
+
+test('"Triage all critical / high" cover every critical and high finding, not only the 50 shown', () => {
+  const risks = [
+    ...Array.from({ length: 30 }, (_, i) => risk(i, 'CRITICAL')),
+    ...Array.from({ length: 40 }, (_, i) => risk(100 + i, 'HIGH')),
+    ...Array.from({ length: 10 }, (_, i) => risk(200 + i, 'LOW')),
+  ];
+  const html = generateHtmlReport(buildReportData(risks, { tenant: 't' }));
+  const data = island(html);
+
+  assert.equal((html.match(/<tr data-key=/g) ?? []).length, 50);
+  assert.equal(data.findings.filter((f) => f.shown).length, 50);
+  assert.equal(data.findings.filter((f) => f.severity === 'CRITICAL').length, 30);
+  assert.equal(data.findings.filter((f) => f.severity === 'HIGH').length, 40);
+  assert.equal(data.findings.filter((f) => f.severity === 'LOW').length, 0, 'low findings past the top 50 are not carried');
+  assert.match(html, /data-severity="CRITICAL"[^>]*>Triage all critical \(30\)/);
+  assert.match(html, /data-severity="HIGH"[^>]*>Triage all high \(40\)/);
+});

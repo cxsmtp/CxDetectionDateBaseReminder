@@ -13,6 +13,8 @@ import { readFileSync } from 'node:fs';
 import { AI_SCANNERS } from './cxone/ai-assist.js';
 
 export const REPORT_TOP_N = 50;
+/** Severities that get a "triage all" action covering every finding, not just the top ones. */
+export const BULK_SEVERITIES = ['CRITICAL', 'HIGH'];
 
 const CLIENT_SCRIPT = readFileSync(new URL('./report/report.client.js', import.meta.url), 'utf8');
 
@@ -54,12 +56,18 @@ export function selectTopFindings(reportData, limit = REPORT_TOP_N) {
  * @param {object} reportData  from buildReportData()
  * @param {object} options
  * @param {Array}  [options.findings]    top findings, already enriched by resolveAiIds()
+ * @param {Array}  [options.bulkFindings] critical/high findings beyond the top ones, for "triage all"
  * @param {object} [options.connection]  {baseUrl, iamUrl, tenant} — never the API key
  * @param {object} [options.branding]
  */
 export function generateHtmlReport(reportData, options = {}) {
   const { connection = {}, branding = {} } = options;
   const findings = options.findings ?? selectTopFindings(reportData);
+  const bulkFindings =
+    options.bulkFindings ??
+    selectTopFindings(reportData, Infinity)
+      .slice(findings.length)
+      .filter((f) => BULK_SEVERITIES.includes(f.severity));
   const projects = reportData.projects ?? [];
   const total = projects.reduce((sum, p) => sum + (p.risks?.length ?? 0), 0);
   const accent = /^#[0-9a-f]{3,8}$/i.test(branding.accentColor ?? '') ? branding.accentColor : '#5b4bdb';
@@ -69,8 +77,10 @@ export function generateHtmlReport(reportData, options = {}) {
     for (const risk of project.risks ?? []) counts[risk.severity] = (counts[risk.severity] ?? 0) + 1;
   }
 
-  const clientFindings = findings.map((f, index) => ({
+  const clientFindings = [...findings, ...bulkFindings].map((f, index) => ({
     key: String(index),
+    shown: index < findings.length,
+    severity: String(f.severity || '').toUpperCase(),
     title: String(f.title ?? ''),
     projectId: f.projectId,
     scanId: f.scanId || '',
@@ -144,13 +154,17 @@ export function generateHtmlReport(reportData, options = {}) {
 
   <section class="actions">
     <div>
-      ${portalUrl ? `<a id="bulk-portal" class="btn btn-primary" href="${escapeHtml(portalUrl)}" target="_blank" rel="noopener">Triage in Checkmarx One →</a>` : '<span id="bulk-portal"></span>'}
-      <button id="bulk-triage" class="btn btn-primary" type="button" hidden>Triage findings</button>
+      ${BULK_SEVERITIES.map((severity) => {
+        const label = severity.toLowerCase();
+        const count = counts[severity] ?? 0;
+        return `<a class="btn btn-primary bulk${count ? '' : ' is-busy'}" data-severity="${severity}" href="${escapeHtml(portalUrl || '#')}" target="_blank" rel="noopener">Triage all ${label} (${count})</a>`;
+      }).join('\n      ')}
       <span id="bulk-credits" class="muted"></span>
       <span id="bulk-progress" class="muted"></span>
     </div>
-    <p class="muted">Triage and Remediate open the finding in Checkmarx One Risk Hub, where you sign in with your usual
-      username and password and can run AI Triage and AI Remediation on it.</p>
+    <p class="muted" id="bulk-hint">Triage buttons open Checkmarx One Risk Hub, where you sign in with your usual username and
+      password, select the findings (or a whole severity group) and run AI Triage or AI Remediation. With an API key connected,
+      the “Triage all” buttons run AI Triage on every critical or high finding directly from this report.</p>
   </section>
 
   <div class="table-wrap">
@@ -267,6 +281,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px 24px 40px; }
 .muted { color: var(--muted); font-size: 13px; margin-left: 8px; }
 .actions { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
 .actions p { margin: 8px 0 0; }
+.actions .bulk + .bulk { margin-left: 8px; }
 .banner { border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; }
 .banner-error { background: #fef3f2; color: #b42318; border: 1px solid #fecdca; }
 .banner-warn { background: #fffaeb; color: #93370d; border: 1px solid #fedf89; }
