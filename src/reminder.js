@@ -162,7 +162,11 @@ export function buildReportData(risks, options = {}) {
   }
 
   const projects = [...groups.values()]
-    .map((group) => ({ ...group, risks: sortRisks(group.risks) }))
+    .map((group) => ({
+      ...group,
+      risks: sortRisks(group.risks),
+      url: links ? projectUrl(group, connection, links) : '',
+    }))
     .sort((a, b) => b.risks.length - a.risks.length);
 
   return { ...data, projects };
@@ -210,4 +214,46 @@ export function buildReminder(risks, template, options = {}) {
   const html = render(template.html, { ...data, subject });
 
   return { subject, html, text: buildText(data), data, projects: data.projects };
+}
+
+const escapeHtml = (text) =>
+  String(text ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+/** The mail that carries the report: a short summary and a "Start triaging" button per project. */
+export function buildReportEmail(reportData, { greeting = 'Hi', topCount = 0 } = {}) {
+  const accent = /^#[0-9a-f]{3,8}$/i.test(reportData.accentColor ?? '') ? reportData.accentColor : '#5b4bdb';
+  const projects = reportData.projects ?? [];
+  const total = projects.reduce((sum, p) => sum + p.risks.length, 0);
+  const summary = reportData.severitySummary ? ` (${reportData.severitySummary})` : '';
+  const button = (url, label) =>
+    `<a href="${escapeHtml(url)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;` +
+    `font-weight:600;padding:10px 18px;border-radius:6px;margin:4px 8px 4px 0">${escapeHtml(label)}</a>`;
+  const withUrls = projects.filter((p) => p.url);
+
+  const buttons = withUrls.length === 1
+    ? button(withUrls[0].url, 'Start triaging')
+    : withUrls.map((p) => button(p.url, `Start triaging — ${p.projectName}`)).join('');
+
+  const html =
+    `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:14px;color:#1f2330;line-height:1.5">` +
+    `<p>${escapeHtml(greeting)},</p>` +
+    `<p>You have <b>${total}</b> open finding${total === 1 ? '' : 's'}${escapeHtml(summary)} ` +
+    `across ${projects.length} project${projects.length === 1 ? '' : 's'}.</p>` +
+    (buttons ? `<p>${buttons}</p><p style="color:#667085;font-size:13px">Opens the project in Checkmarx One, where you can launch AI Triage on its findings.</p>` : '') +
+    `<p>The attached report lists the top ${topCount} findings. Open it in your browser and connect with your ` +
+    `Checkmarx One API key to run AI Triage on all of them at once, or AI Triage and AI Remediation on each one.</p>` +
+    `</div>`;
+
+  const text = [
+    `${greeting},`,
+    '',
+    `You have ${total} open finding(s)${summary} across ${projects.length} project(s).`,
+    '',
+    ...withUrls.map((p) => `Start triaging ${p.projectName}: ${p.url}`),
+    '',
+    `The attached report lists the top ${topCount} findings. Open it in your browser and connect with your ` +
+      'Checkmarx One API key to run AI Triage on all of them at once, or AI Triage and AI Remediation on each one.',
+  ].join('\n');
+
+  return { html, text };
 }

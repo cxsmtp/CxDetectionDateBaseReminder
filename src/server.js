@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -9,9 +8,9 @@ import { filterProjectsByActivity, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, selectRisks } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
-import { triageRisk, remediateRisk } from './cxone/triage.js';
-import { generateHtmlReport } from './html-report.js';
-import { buildReminder, buildReportData } from './reminder.js';
+import { resolveAiIds } from './cxone/ai-assist.js';
+import { generateHtmlReport, selectTopFindings } from './html-report.js';
+import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
 import { sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
@@ -89,7 +88,6 @@ const escapeHtml = (text) => String(text ?? '')
 const app = express();
 app.use(express.json({ limit: '4mb' }));
 app.use(express.static(publicDir));
-app.use('/api/risks', reportCors);
 
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 
@@ -105,56 +103,6 @@ function requireSession(req, res, next) {
   }
   req.session = session;
   next();
-}
-
-/**
- * The emailed HTML report is opened from disk (origin "null") or a mail client,
- * so its calls are cross-origin. No credentials are allowed: the report must
- * present its own API key, so this never exposes the server's own connection.
- */
-function reportCors(req, res, next) {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
-  res.set('Access-Control-Max-Age', '600');
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
-  next();
-}
-
-const reportKeySessions = new Map();
-
-/**
- * Authenticates report actions by X-API-Key, or by the dashboard's own session
- * cookie. Deliberately never falls back to the bootstrap (CX_API_KEY) session,
- * since these routes are reachable cross-origin.
- */
-async function requireSessionOrApiKey(req, res, next) {
-  const apiKey = String(req.headers['x-api-key'] ?? '').trim();
-  if (!apiKey) {
-    const session = sessions.get(readSessionCookie(req));
-    if (!session) {
-      return res.status(401).json({ error: 'Not connected. Provide a Checkmarx One API key.' });
-    }
-    req.session = session;
-    return next();
-  }
-
-  const keyHash = createHash('sha256').update(apiKey).digest('hex');
-  const cached = sessions.get(reportKeySessions.get(keyHash));
-  if (cached) {
-    req.session = cached;
-    return next();
-  }
-
-  try {
-    const session = await sessions.create(apiKey, config.overrides);
-    reportKeySessions.set(keyHash, session.id);
-    req.session = session;
-    next();
-  } catch (error) {
-    console.warn(`[report auth] API key rejected: ${error.message}`);
-    return res.status(401).json({ error: 'Checkmarx One rejected this API key (invalid, expired, or wrong region).' });
-  }
 }
 
 /** Deployment config with the administrator's pinned risks path layered on. */
@@ -741,58 +689,40 @@ app.post(
   }),
 );
 
-// ---------------------------------------------------------------------------
-// Triage & Remediation
-// ---------------------------------------------------------------------------
-
-app.post('/api/risks/verify', requireSessionOrApiKey, (req, res) => {
-  res.json(describeSession(req.session));
-});
-
-app.post(
-  '/api/risks/triage',
-  requireSessionOrApiKey,
-  asyncRoute(async (req, res) => {
-    const { riskId } = req.body ?? {};
-    if (!riskId) {
-      return res.status(400).json({ error: 'riskId is required.' });
-    }
-
-    try {
-      const result = await triageRisk(req.session.client, riskId);
-      res.json({ ok: true, riskId, state: 'TRIAGED', result });
-    } catch (error) {
-      const status = error.status || 400;
-      res.status(status).json({ error: error.message });
-    }
-  }),
-);
-
-app.post(
-  '/api/risks/remediate',
-  requireSessionOrApiKey,
-  asyncRoute(async (req, res) => {
-    const { riskId } = req.body ?? {};
-    if (!riskId) {
-      return res.status(400).json({ error: 'riskId is required.' });
-    }
-
-    try {
-      const result = await remediateRisk(req.session.client, riskId);
-      res.json({ ok: true, riskId, state: 'REMEDIATED', result });
-    } catch (error) {
-      const status = error.status || 400;
-      res.status(status).json({ error: error.message });
-    }
-  }),
-);
+/**
+ * Build the interactive HTML report for a set of findings. The top findings
+ * get the identifiers Checkmarx One AI Triage / Remediation need resolved
+ * here, with this session's credentials, so the report itself only ever
+ * needs the reader's own API key.
+ */
+async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null } = {}) {
+  const { connection, lastScan } = session;
+  const initiatorsByProject = lastScan?.initiators ?? {};
+  const reportData = buildReportData(risks, {
+    buckets,
+    tenant: connection.tenant,
+    links: settings.links,
+    connection,
+    branding: settings.branding,
+    initiatorsByProject,
+    initiator,
+  });
+  const findings = selectTopFindings(reportData);
+  await resolveAiIds(session.client, findings, (finding) => initiatorsByProject[finding.projectId]?.scanId ?? '');
+  const html = generateHtmlReport(reportData, {
+    findings,
+    connection: { tenant: connection.tenant, iamUrl: connection.iamUrl, baseUrl: connection.baseUrl },
+    branding: settings.branding,
+  });
+  return { reportData, findings, html };
+}
 
 app.post(
   '/api/reports/html',
   requireSession,
   asyncRoute(async (req, res) => {
     const { projectIds = null, buckets = [], severities = null } = req.body ?? {};
-    const { lastScan, connection } = req.session;
+    const { lastScan } = req.session;
     const settings = settingsStore.get();
 
     if (!lastScan) {
@@ -817,19 +747,8 @@ app.post(
         `
       : '';
 
-    const reportData = buildReportData(risks, {
-      buckets,
-      tenant: connection.tenant,
-      links: settings.links,
-      connection,
-      branding: settings.branding,
-      initiatorsByProject: lastScan.initiators ?? {},
-    });
-
-    const htmlReport = generateHtmlReport(reportData, {
-      apiBaseUrl: req.protocol + '://' + req.get('host'),
-      branding: settings.branding,
-    }) + diagnostics;
+    const { html } = await buildInteractiveReport(req.session, risks, { buckets, settings });
+    const htmlReport = html + diagnostics;
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(htmlReport);
@@ -841,7 +760,7 @@ app.post(
   requireSession,
   asyncRoute(async (req, res) => {
     const { projectIds = null, buckets = [], severities = null } = req.body ?? {};
-    const { lastScan, connection } = req.session;
+    const { lastScan } = req.session;
     const settings = settingsStore.get();
 
     if (!lastScan) {
@@ -882,39 +801,19 @@ app.post(
 
     for (const group of sendable) {
       try {
-        const reportData = buildReportData(group.risks, {
+        const { reportData, findings, html: htmlReport } = await buildInteractiveReport(req.session, group.risks, {
           buckets,
-          tenant: connection.tenant,
-          links: settings.links,
-          connection,
-          branding: settings.branding,
-          initiatorsByProject,
+          settings,
           initiator: group,
         });
-
-        const htmlReport = generateHtmlReport(reportData, {
-          apiBaseUrl: req.protocol + '://' + req.get('host'),
-          branding: settings.branding,
+        const body = buildReportEmail(reportData, {
+          greeting: `Hi ${group.initiator || 'there'}`,
+          topCount: findings.length,
         });
-
         const message = {
-          subject: `Vulnerability Report - Interactive Report Attached`,
-          html:
-            `<p>Hi ${escapeHtml(group.initiator || 'Developer')},</p>` +
-            `<p>Please review the attached interactive vulnerability report for your projects. You can triage and remediate findings directly from the HTML file.</p>` +
-            `<p><strong>Features:</strong></p>` +
-            `<ul><li>Click "Triage" or "Remediate" buttons to update finding status</li>` +
-            `<li>Use bulk actions to triage all critical or high-severity findings at once</li>` +
-            `<li>Status updates in real-time in the report</li></ul>` +
-            `<p>Simply open the attached HTML file in your browser to get started.</p>`,
-          text:
-            `Hi ${group.initiator || 'Developer'},\n\nPlease review the attached interactive vulnerability report for your projects. ` +
-            `You can triage and remediate findings directly from the HTML file.\n\n` +
-            `Features:\n` +
-            `- Click "Triage" or "Remediate" buttons to update finding status\n` +
-            `- Use bulk actions to triage all critical or high-severity findings at once\n` +
-            `- Status updates in real-time in the report\n\n` +
-            `Simply open the attached HTML file in your browser to get started.`,
+          subject: `${group.risks.length} open vulnerabilities to triage`,
+          html: body.html,
+          text: body.text,
         };
 
         const result = await sendReminderMail(settings, message, {

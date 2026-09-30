@@ -108,7 +108,7 @@ export class CxClient {
    * Walk an offset/limit paginated collection.  Checkmarx One is not entirely
    * consistent about the envelope key, so the caller says where the rows live.
    */
-  async *paginate(path, { query = {}, itemsKey, limit = 100, maxItems = 10_000 } = {}) {
+  async *paginate(path, { query = {}, itemsKey, limit = 100, maxItems = 10_000, offsetIsPage = false } = {}) {
     let offset = 0;
     let fetched = 0;
 
@@ -130,6 +130,13 @@ export class CxClient {
           page?.metaData?.totalResults,
       );
       if (items.length < limit) return;
+      // GET /api/results numbers pages rather than rows, and its totalCount
+      // has been seen reporting only the first page, so a short page is the
+      // only reliable end marker there.
+      if (offsetIsPage) {
+        offset += 1;
+        continue;
+      }
       if (Number.isFinite(total) && fetched >= total) return;
       offset += limit;
     }
