@@ -499,7 +499,7 @@ app.get(
     let allocationsChanged = false;
     for (const summary of result.projects) {
       if (summary.error) continue;
-      allocationsChanged = allocations.applyDefault(summary.projectId, summary.projectName, summary.risks) || allocationsChanged;
+      allocationsChanged = allocations.applyRule(summary.projectId, summary.projectName, summary.risks) || allocationsChanged;
     }
     if (allocationsChanged) allocations.save();
     for (const summary of result.projects) summary.credits = creditView(summary);
@@ -1081,19 +1081,29 @@ const cleanSeverities = (list) =>
 
 app.post('/api/credits/allocate', requireSession, (req, res) => {
   if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
-  const { projectIds, severities, triageAdd = 0, remediationAdd = 0 } = req.body ?? {};
-  const wanted = cleanSeverities(severities);
+  const { projectIds, ruleChanges, triageAdd = 0, remediationAdd = 0 } = req.body ?? {};
+  // Each change adds or removes one severity from every project's own rule,
+  // so severities the administrator did not touch stay as each project had them.
+  const changes = (Array.isArray(ruleChanges) ? ruleChanges : [])
+    .map((c) => ({ severity: String(c?.severity ?? '').toUpperCase(), include: c?.include === true }))
+    .filter((c) => SEVERITIES.includes(c.severity));
   const extraTriage = Math.max(0, Math.floor(Number(triageAdd) || 0));
   const extraRemediation = Math.max(0, Math.floor(Number(remediationAdd) || 0));
-  if (!wanted.length && !extraTriage && !extraRemediation) {
-    return res.status(400).json({ error: 'Pick at least one severity, or enter credits to add.' });
+  if (!changes.length && !extraTriage && !extraRemediation) {
+    return res.status(400).json({ error: 'Choose severities, or enter credits to add.' });
   }
 
   const projects = scanProjects(req, projectIds);
   for (const p of projects) {
-    if (wanted.length) allocations.allocateTriageFor(p.projectId, p.projectName, p.risks ?? [], wanted);
     if (extraTriage) allocations.add(p.projectId, p.projectName, 'triage', extraTriage);
     if (extraRemediation) allocations.add(p.projectId, p.projectName, 'remediation', extraRemediation);
+    let rule;
+    if (changes.length) {
+      const next = new Set(allocations.severitiesOf(p.projectId));
+      for (const { severity, include } of changes) include ? next.add(severity) : next.delete(severity);
+      rule = SEVERITIES.filter((s) => next.has(s));
+    }
+    allocations.applyRule(p.projectId, p.projectName, p.risks ?? [], rule);
   }
   allocations.save();
   for (const p of projects) p.credits = creditView(p);
@@ -1167,7 +1177,7 @@ app.post(
         if (body?.published !== false) {
           const balance = allocations.balance(projectId).triage;
           if (balance.remaining < alternateIds.length) {
-            allocations.add(projectId, projectName, 'triage', alternateIds.length - balance.remaining);
+            allocations.raise(projectId, alternateIds.length - balance.remaining);
           }
           creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage' });
         }

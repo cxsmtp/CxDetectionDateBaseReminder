@@ -3,9 +3,10 @@
  *
  * An allocation is the total a project has been granted; what is left is the
  * allocation minus what the credit ledger says the project has used. Triage
- * starts from a default — the project's critical and high findings still to
- * verify — so a report's "Triage all critical / high" has exactly enough and
- * no more. Remediation starts at nothing: the administrator grants it.
+ * follows a per-project rule — which severities it covers, critical and high
+ * by default — recalculated on every fetch so it always covers exactly the
+ * findings of those severities still to verify, plus any extra credits the
+ * administrator added. Remediation starts at nothing: the administrator grants it.
  */
 
 import fs from 'node:fs';
@@ -54,10 +55,10 @@ export class CreditAllocations {
     return this.#projects[projectId] ?? null;
   }
 
-  /** Allocation, used and remaining credits for one project. */
+  /** Allocation, used and remaining credits for one project, and its triage rule. */
   balance(projectId) {
     const entry = this.#projects[projectId] ?? {};
-    const out = { source: entry.source ?? 'none' };
+    const out = { severities: this.severitiesOf(projectId), extraTriage: Number(entry.extraTriage) || 0 };
     for (const kind of KINDS) {
       const allocated = Number(entry[kind]) || 0;
       const used = this.#ledger.usedBy(projectId, kind);
@@ -66,52 +67,53 @@ export class CreditAllocations {
     return out;
   }
 
+  /** Severities a project's triage allocation covers (critical + high unless changed). */
+  severitiesOf(projectId) {
+    const chosen = this.#projects[projectId]?.severities;
+    return Array.isArray(chosen) ? chosen : DEFAULT_TRIAGE_SEVERITIES;
+  }
+
   /**
-   * Keep a project's default triage allocation in step with its findings:
-   * enough for every critical and high finding still to verify. Allocations
-   * an administrator set are left alone, and a default never shrinks.
+   * Recalculate a project's triage allocation from its rule: what it has used,
+   * plus its findings of the rule's severities still to triage, plus any extra
+   * credits the administrator added. Passing `severities` changes the rule.
+   * Returns whether anything changed.
    */
-  applyDefault(projectId, projectName, risks) {
-    const entry = this.#projects[projectId] ?? { triage: 0, remediation: 0, source: 'default' };
-    if (entry.source === 'admin') {
-      if (projectName && entry.projectName !== projectName) {
-        entry.projectName = projectName;
-        this.#projects[projectId] = entry;
-        return true;
-      }
-      return false;
+  applyRule(projectId, projectName, risks, severities) {
+    const entry = { ...(this.#projects[projectId] ?? { triage: 0, remediation: 0 }) };
+    if (entry.extraTriage === undefined) {
+      // Allocations saved before rules existed: keep anything granted above the default as extra.
+      const base = this.#ledger.usedBy(projectId, 'triage') + toTriageCount(risks, DEFAULT_TRIAGE_SEVERITIES);
+      entry.extraTriage = entry.source === 'admin' ? Math.max(0, (Number(entry.triage) || 0) - base) : 0;
+      delete entry.source;
     }
-    const wanted = this.#ledger.usedBy(projectId, 'triage') + toTriageCount(risks, DEFAULT_TRIAGE_SEVERITIES);
-    if (this.#projects[projectId] && entry.triage >= wanted && entry.projectName === projectName) return false;
-    this.#projects[projectId] = {
-      ...entry,
-      projectName,
-      triage: Math.max(entry.triage ?? 0, wanted),
-      source: 'default',
-      updatedAt: new Date().toISOString(),
-    };
+    if (severities) entry.severities = [...new Set(severities)];
+    const rule = Array.isArray(entry.severities) ? entry.severities : DEFAULT_TRIAGE_SEVERITIES;
+    const triage = this.#ledger.usedBy(projectId, 'triage') + toTriageCount(risks, rule) + entry.extraTriage;
+    const before = this.#projects[projectId];
+    const next = { ...entry, projectName: projectName || entry.projectName || '', triage };
+    if (before && JSON.stringify(before) === JSON.stringify(next)) return false;
+    this.#projects[projectId] = { ...next, updatedAt: new Date().toISOString() };
     return true;
   }
 
-  /** Allow exactly enough triage to cover `severities` (never less than used). */
-  allocateTriageFor(projectId, projectName, risks, severities) {
-    const entry = this.#projects[projectId] ?? { triage: 0, remediation: 0 };
-    const triage = this.#ledger.usedBy(projectId, 'triage') + toTriageCount(risks, severities);
-    this.#projects[projectId] = { ...entry, projectName, triage, source: 'admin', updatedAt: new Date().toISOString() };
-    return triage;
-  }
-
-  /** Grant `credits` more of `kind`. */
+  /** Grant `credits` more of `kind`; extra triage credits are kept across recalculations. */
   add(projectId, projectName, kind, credits) {
     if (!KINDS.includes(kind)) throw new Error(`Unknown credit kind: ${kind}`);
-    const entry = this.#projects[projectId] ?? { triage: 0, remediation: 0 };
+    const entry = this.#projects[projectId] ?? { triage: 0, remediation: 0, extraTriage: 0 };
     this.#projects[projectId] = {
       ...entry,
       projectName: projectName || entry.projectName || '',
       [kind]: Math.max(0, (Number(entry[kind]) || 0) + credits),
-      source: 'admin',
+      ...(kind === 'triage' ? { extraTriage: Math.max(0, (Number(entry.extraTriage) || 0) + credits) } : {}),
       updatedAt: new Date().toISOString(),
     };
+  }
+
+  /** Cover credits the administrator spent beyond the allocation (not kept as extra). */
+  raise(projectId, credits) {
+    const entry = this.#projects[projectId];
+    if (entry) entry.triage = (Number(entry.triage) || 0) + credits;
   }
 
   save() {

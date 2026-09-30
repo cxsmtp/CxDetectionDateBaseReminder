@@ -155,12 +155,12 @@
           </div>
           <p class="hint">
             Each project may only spend the Checkmarx One credits allocated to it here — from its report or from
-            this page. By default a project gets enough to triage its critical and high findings still to verify;
-            remediation credits must be given. Applies to the selected projects, or every shown project when none is
-            selected.
+            this page. Its triage credits always cover its findings of the ticked severities still to verify (critical
+            and high unless changed), recalculated on every fetch; remediation credits must be given. Changes apply
+            straight away to the selected projects, or every shown project when none is selected.
           </p>
           <div class="alloc-row">
-            <span>Triage findings that are</span>
+            <span>Allocate triage credits for</span>
             <label class="check"><input type="checkbox" class="alloc-sev" value="CRITICAL" checked /> Critical</label>
             <label class="check"><input type="checkbox" class="alloc-sev" value="HIGH" checked /> High</label>
             <label class="check"><input type="checkbox" class="alloc-sev" value="MEDIUM" /> Medium</label>
@@ -168,7 +168,6 @@
             <strong id="alloc-needed"></strong>
           </div>
           <div class="actions compact">
-            <button id="alloc-triage" type="button">Allocate these triage credits</button>
             <button id="run-triage" type="button" class="primary">Triage selected now</button>
           </div>
           <div class="alloc-row">

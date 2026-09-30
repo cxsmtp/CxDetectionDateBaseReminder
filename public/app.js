@@ -1406,11 +1406,24 @@ function allocationScope() {
 }
 
 const allocSeverities = () => [...document.querySelectorAll('.alloc-sev:checked')].map((box) => box.value);
+let allocPending = null;
+const allocChanges = new Map();
+
+/** Show the scope's triage rule: ticked if every project covers it, partly if only some. */
+function syncAllocationBoxes(scope) {
+  if (allocPending) return;
+  for (const box of document.querySelectorAll('.alloc-sev')) {
+    const covering = scope.filter((p) => (p.credits?.severities ?? ['CRITICAL', 'HIGH']).includes(box.value)).length;
+    box.checked = scope.length > 0 && covering === scope.length;
+    box.indeterminate = covering > 0 && covering < scope.length;
+  }
+}
 
 function renderAllocation() {
   $('credits-panel').hidden = !state.projects.length;
   if (!state.projects.length) return;
   const scope = allocationScope();
+  syncAllocationBoxes(scope);
   const severities = allocSeverities();
   const needed = scope.reduce(
     (sum, p) => sum + severities.reduce((n, s) => n + (p.credits?.toTriage?.[s] ?? 0), 0),
@@ -1419,8 +1432,7 @@ function renderAllocation() {
   $('alloc-scope').textContent = `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'}`;
   $('alloc-needed').textContent = severities.length
     ? `= ${needed} finding${needed === 1 ? '' : 's'} to triage (${needed} credit${needed === 1 ? '' : 's'})`
-    : 'Pick at least one severity';
-  $('alloc-triage').disabled = !severities.length || !scope.length;
+    : 'No severities: only extra credits are allocated';
   $('run-triage').disabled = !severities.length || !scope.length || needed === 0;
 }
 
@@ -1934,10 +1946,26 @@ $('init-unresolved').addEventListener('click', () => {
   renderProjects();
 });
 
-for (const box of document.querySelectorAll('.alloc-sev')) box.addEventListener('change', renderAllocation);
-$('alloc-triage').addEventListener('click', () =>
-  allocateCredits({ severities: allocSeverities() }, (n) => `Triage credits set for ${n} project(s) to cover their ${allocSeverities().map((s) => s.toLowerCase()).join(', ')} findings.`),
-);
+// Ticking a severity re-allocates straight away (debounced, so quick clicks send one request).
+for (const box of document.querySelectorAll('.alloc-sev')) {
+  box.addEventListener('change', () => {
+    box.indeterminate = false;
+    allocChanges.set(box.value, box.checked);
+    clearTimeout(allocPending);
+    // Set before re-rendering, so the boxes are not re-synced from the old rule.
+    allocPending = setTimeout(async () => {
+      const ruleChanges = [...allocChanges].map(([severity, include]) => ({ severity, include }));
+      allocChanges.clear();
+      const describe = ruleChanges
+        .map((c) => `${c.include ? 'now include' : 'no longer include'} ${c.severity.toLowerCase()}`)
+        .join(' and ');
+      await allocateCredits({ ruleChanges }, (n) => `Triage credits ${describe} findings for ${n} project(s).`);
+      allocPending = null;
+      renderAllocation();
+    }, 500);
+    renderAllocation();
+  });
+}
 $('alloc-add').addEventListener('click', () => {
   const triageAdd = Number($('alloc-extra-triage').value) || 0;
   const remediationAdd = Number($('alloc-extra-remediation').value) || 0;

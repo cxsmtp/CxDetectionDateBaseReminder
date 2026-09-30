@@ -19,40 +19,62 @@ const risks = (spec) =>
     return Array.from({ length: n }, () => ({ severity, state, scanner: 'SAST' }));
   });
 
-test('the default triage allocation covers the critical and high findings still to verify', () => {
+test('by default triage credits cover the critical and high findings still to verify', () => {
   const { allocations } = setup();
   const found = risks({ CRITICAL: 3, HIGH: 5, 'HIGH:CONFIRMED': 2, MEDIUM: 9 });
   assert.equal(toTriageCount(found, ['CRITICAL', 'HIGH']), 8);
-  allocations.applyDefault('p1', 'Payments', found);
+  allocations.applyRule('p1', 'Payments', found);
   const b = allocations.balance('p1');
   assert.deepEqual([b.triage.allocated, b.triage.remaining, b.remediation.allocated], [8, 8, 0]);
+  assert.deepEqual(b.severities, ['CRITICAL', 'HIGH']);
 });
 
-test('defaults follow usage but never shrink, and never override the administrator', () => {
+test('unticking a severity lowers the allocation at once, and later fetches keep the new rule', () => {
+  const { allocations } = setup();
+  const found = risks({ CRITICAL: 3, HIGH: 5 });
+  allocations.applyRule('p1', 'Payments', found);
+  allocations.applyRule('p1', 'Payments', found, ['CRITICAL']);
+  assert.deepEqual(allocations.balance('p1').triage, { allocated: 3, used: 0, remaining: 3 });
+  // Next fetch, no rule passed: still critical only, not back to critical + high.
+  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 4, HIGH: 5 }));
+  assert.equal(allocations.balance('p1').triage.allocated, 4);
+  assert.deepEqual(allocations.balance('p1').severities, ['CRITICAL']);
+  allocations.applyRule('p1', 'Payments', found, []);
+  assert.equal(allocations.balance('p1').triage.allocated, 0, 'no severities: nothing but extras');
+});
+
+test('the rule follows usage: triaged findings move from to-verify into used', () => {
   const { ledger, allocations } = setup();
-  allocations.applyDefault('p1', 'Payments', risks({ CRITICAL: 4 }));
+  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 4 }));
   ledger.record({ projectId: 'p1', credits: 4, kind: 'triage' });
-  // Next fetch: those 4 are triaged, 2 new criticals appeared.
-  allocations.applyDefault('p1', 'Payments', risks({ 'CRITICAL:CONFIRMED': 4, CRITICAL: 2 }));
+  allocations.applyRule('p1', 'Payments', risks({ 'CRITICAL:CONFIRMED': 4, CRITICAL: 2 }));
   assert.deepEqual(allocations.balance('p1').triage, { allocated: 6, used: 4, remaining: 2 });
-  allocations.applyDefault('p1', 'Payments', []);
-  assert.equal(allocations.balance('p1').triage.allocated, 6, 'a default never shrinks');
-
-  allocations.add('p1', 'Payments', 'triage', 10);
-  allocations.applyDefault('p1', 'Payments', risks({ CRITICAL: 50 }));
-  assert.equal(allocations.balance('p1').triage.allocated, 16, 'an administrator allocation is left alone');
 });
 
-test('allocating by severity gives exactly enough, and credits can be added per kind', () => {
-  const { ledger, allocations, d } = setup();
-  ledger.record({ projectId: 'p1', credits: 3, kind: 'triage' });
-  allocations.allocateTriageFor('p1', 'Payments', risks({ CRITICAL: 2, HIGH: 1, MEDIUM: 4, LOW: 7 }), ['CRITICAL', 'MEDIUM']);
-  assert.deepEqual(allocations.balance('p1').triage, { allocated: 9, used: 3, remaining: 6 });
+test('extra credits survive rule changes and recalculation; remediation is granted separately', () => {
+  const { allocations, ledger, d } = setup();
+  const found = risks({ CRITICAL: 2, HIGH: 1, MEDIUM: 4, LOW: 7 });
+  allocations.applyRule('p1', 'Payments', found);
+  allocations.add('p1', 'Payments', 'triage', 10);
+  allocations.applyRule('p1', 'Payments', found, ['CRITICAL', 'MEDIUM']);
+  assert.equal(allocations.balance('p1').triage.allocated, 16, '6 to triage + 10 extra');
   allocations.add('p1', 'Payments', 'remediation', 5);
   allocations.add('p1', 'Payments', 'remediation', 2);
   allocations.save();
   const reloaded = new CreditAllocations({ file: path.join(d, 'alloc.json'), ledger });
+  reloaded.applyRule('p1', 'Payments', found);
+  assert.equal(reloaded.balance('p1').triage.allocated, 16);
   assert.deepEqual(reloaded.balance('p1').remediation, { allocated: 7, used: 0, remaining: 7 });
+});
+
+test('allocations saved before rules existed keep what was granted above the default as extra', () => {
+  const d = dir();
+  const ledger = new CreditLedger({ file: path.join(d, 'ledger.json') });
+  fs.writeFileSync(path.join(d, 'alloc.json'), JSON.stringify({ projects: { p1: { triage: 12, remediation: 3, source: 'admin' } } }));
+  const allocations = new CreditAllocations({ file: path.join(d, 'alloc.json'), ledger });
+  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 2, HIGH: 3 }));
+  const b = allocations.balance('p1');
+  assert.deepEqual([b.triage.allocated, b.extraTriage, b.remediation.allocated], [12, 7, 3]);
 });
 
 test('a project cannot spend beyond its allocation, including requests still in flight', () => {
