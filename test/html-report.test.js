@@ -68,6 +68,7 @@ test('AI actions are enabled only for SAST/SCA findings whose Checkmarx One ids 
     portalUrl: 'https://eu.ast.checkmarx.net',
     relayUrl: '',
     allowRetriage: false,
+    allowReremediation: false,
     adminContact: '',
   });
   assert.ok(!/apiKey|refresh_token"\s*:/.test(JSON.stringify(island(html))), 'no credential is embedded');

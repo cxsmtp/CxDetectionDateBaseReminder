@@ -65,6 +65,7 @@ export function selectTopFindings(reportData, limit = REPORT_TOP_N) {
  * @param {(finding) => {exp, grant}} [options.sign]  signs a finding for the relay
  * @param {object} [options.branding]
  * @param {boolean} [options.allowRetriage]  findings with a verdict may be triaged again
+ * @param {boolean} [options.allowReremediation]  remediated findings may be remediated again
  * @param {string} [options.adminContact]  who readers ask for more credits
  */
 export function generateHtmlReport(reportData, options = {}) {
@@ -114,6 +115,7 @@ export function generateHtmlReport(reportData, options = {}) {
       portalUrl: safeHttpUrl(options.portalUrl) || connection.baseUrl || '',
       relayUrl,
       allowRetriage: options.allowRetriage === true,
+      allowReremediation: options.allowReremediation === true,
       adminContact: /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(options.adminContact ?? '') ? options.adminContact : '',
     },
     findings: clientFindings,

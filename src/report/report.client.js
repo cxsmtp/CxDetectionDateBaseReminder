@@ -76,6 +76,9 @@
 
   /** The administrator decides whether a finding with a verdict may be triaged again. */
   const retriageAllowed = () => (backend ? backend.retriageAllowed : config.allowRetriage) === true;
+  const reremediationAllowed = () => (backend ? backend.reremediationAllowed : config.allowReremediation) === true;
+  /** A finished remediation (with or without details); a failed one may be run again. */
+  const isRemediated = (f) => Boolean(f.remediation && !f.remediation.running && !f.remediation.failed);
   const contact = () => backend?.adminContact || config.adminContact || '';
 
   // ---------------------------------------------------------------------------
@@ -206,6 +209,13 @@
       },
       remediationDetails(f) {
         return post('/api/relay/remediation-details', { findings: [wire(f)] });
+      },
+      async remediationStatus(list) {
+        const out = [];
+        for (let i = 0; i < list.length; i += 200) {
+          out.push(...(await post('/api/relay/remediation-status', { findings: list.slice(i, i + 200).map(wire) })).results);
+        }
+        return out;
       },
     };
   }
@@ -532,8 +542,11 @@
     out.replaceChildren();
     out.className = 'fix-cell';
     if (btn) {
-      btn.disabled = r?.running === true;
-      btn.textContent = r?.running ? 'Remediating…' : 'Remediate';
+      const done = isRemediated(f);
+      const locked = done && !reremediationAllowed();
+      btn.disabled = r?.running === true || locked;
+      btn.textContent = r?.running ? 'Remediating…' : locked ? 'Remediated' : done ? 'Re-remediate' : 'Remediate';
+      btn.title = locked ? 'Already remediated. Remediating again is switched off by your administrator.' : '';
     }
     if (!r) return;
     if (r.running) {
@@ -547,6 +560,12 @@
     }
     const headline = document.createElement('p');
     headline.className = 'fix-headline';
+    if (r.doneElsewhere) {
+      headline.textContent = '✓ Already remediated';
+      out.append(headline);
+      if (f.url) out.append(link('View the fix in Checkmarx One', f.url));
+      return;
+    }
     if (r.prUrl) {
       headline.append('✓ Remediation opened ');
       const pr = link(`PR ${prNumber(r.prUrl) || ''}`.trim(), r.prUrl);
@@ -570,8 +589,30 @@
     }
   }
 
+  /** Poll Checkmarx One until the remediation for `f` has a result. */
+  async function followRemediation(f) {
+    const deadline = Date.now() + REMEDIATION_TIMEOUT_MS;
+    while (Date.now() < deadline && backend) {
+      await sleep(REMEDIATION_POLL_MS);
+      const answer = await backend.remediationDetails(f);
+      const result = answer?.found ? remediationFromBody(answer.body) : null;
+      if (!result) continue;
+      f.remediation = result;
+      renderRemediation(f);
+      if (result.failed) {
+        log(`AI Remediation failed for ${f.title}: ${result.failed}`, 'error');
+      } else {
+        log(`AI Remediation ready: ${f.title}${result.prUrl ? ` — opened PR ${prNumber(result.prUrl)}`.trimEnd() : ''}`, 'success');
+      }
+      return;
+    }
+    f.remediation = { failed: 'Still running — the result will appear on the finding in Checkmarx One.' };
+    renderRemediation(f);
+  }
+
   async function remediate(f) {
     if (f.remediation?.running) return;
+    if (isRemediated(f) && !reremediationAllowed()) return renderRemediation(f);
     if (backend.remediationAllowed === false) {
       // The administrator may have allowed it since this report connected.
       try {
@@ -582,38 +623,62 @@
         return renderRemediation(f);
       }
     }
-    if (!confirm(`Run Checkmarx One AI Remediation for "${f.title}"? It uses 3 Checkmarx One credits and, for repository-connected projects, opens a pull request.`)) return;
+    const again = isRemediated(f) ? ' again' : '';
+    if (!confirm(`Run Checkmarx One AI Remediation${again} for "${f.title}"? It uses 3 Checkmarx One credits and, for repository-connected projects, opens a pull request.`)) return;
+    const previous = f.remediation;
     f.remediation = { running: true };
     renderRemediation(f);
     try {
       const started = await backend.remediate(f);
       log(started.published ? `AI Remediation started: ${f.title}` : `AI Remediation already running for ${f.title}; following it.`, 'pending');
-      const deadline = Date.now() + REMEDIATION_TIMEOUT_MS;
-      while (Date.now() < deadline) {
-        await sleep(REMEDIATION_POLL_MS);
-        const answer = await backend.remediationDetails(f);
-        const result = answer?.found ? remediationFromBody(answer.body) : null;
-        if (!result) continue;
-        f.remediation = result;
-        renderRemediation(f);
-        if (result.failed) {
-          log(`AI Remediation failed for ${f.title}: ${result.failed}`, 'error');
-        } else {
-          log(`AI Remediation ready: ${f.title}${result.prUrl ? ` — opened PR ${prNumber(result.prUrl)}`.trimEnd() : ''}`, 'success');
-        }
-        return;
-      }
-      f.remediation = { failed: 'Still running — the result will appear on the finding in Checkmarx One.' };
     } catch (error) {
-      if (isCreditRefusal(error.status, error.body)) {
-        f.remediation = null;
+      if (error.status === 409 && error.body?.running) {
+        log(`AI Remediation already running for ${f.title}; following it.`, 'pending');
+      } else if (error.status === 409 && error.body?.remediated) {
+        // Remediated meanwhile (in Checkmarx One, or from another report): show that result.
+        f.remediation = remediationFromBody(error.body.body) || previous || { doneElsewhere: true };
+        log(error.message, 'info');
+        return renderRemediation(f);
+      } else if (isCreditRefusal(error.status, error.body)) {
+        f.remediation = previous ?? null;
         renderRemediation(f);
         return showCreditDialog([{ error: error.message, credits: error.body?.credits }]);
+      } else {
+        f.remediation = { failed: error.message };
+        log(error.message, 'error');
+        return renderRemediation(f);
       }
-      f.remediation = { failed: error.message };
-      log(error.message, 'error');
     }
-    renderRemediation(f);
+    await followRemediation(f).catch((error) => {
+      f.remediation = { failed: error.message };
+      renderRemediation(f);
+    });
+  }
+
+  /** Show remediations already done (or running) for the findings in this report. */
+  async function loadExistingRemediation() {
+    const eligible = findings.filter((f) => f.shown && !f.hidden && !f.aiUnavailable && row(f)?.querySelector('[data-action="remediate"]'));
+    if (!eligible.length) return;
+    const answers = await backend.remediationStatus(eligible);
+    let done = 0;
+    eligible.forEach((f, i) => {
+      const a = answers[i];
+      if (!a || f.remediation?.running) return;
+      if (a.status === 'done') {
+        f.remediation = remediationFromBody(a.body) || { doneElsewhere: true };
+        if (f.remediation.failed) f.remediation = { doneElsewhere: true };
+        done += 1;
+        renderRemediation(f);
+      } else if (a.status === 'running') {
+        f.remediation = { running: true };
+        renderRemediation(f);
+        followRemediation(f).catch(reportError);
+      } else if (a.status === 'failed') {
+        f.remediation = remediationFromBody(a.body);
+        renderRemediation(f);
+      }
+    });
+    if (done) log(`${done} finding(s) in this report are already remediated.`, 'info');
   }
 
   // ---------------------------------------------------------------------------
@@ -625,6 +690,7 @@
     const status = await candidate.connect();
     candidate.remediationAllowed = status.remediation !== false;
     candidate.retriageAllowed = status.retriage === true;
+    candidate.reremediationAllowed = status.reremediation === true;
     candidate.adminContact = status.adminContact || '';
     backend = candidate;
     try {
@@ -637,6 +703,7 @@
     if (!quiet) log(`Connected to Checkmarx One (${status.tenant}) through the reminder server.`, 'success');
     for (const f of findings) if (hasVerdict(f)) renderTriage(f);
     loadExistingTriage().catch(reportError);
+    loadExistingRemediation().catch(reportError);
   }
 
   function disconnect() {

@@ -513,6 +513,7 @@
           <label class="check"><input type="checkbox" id="ai-retriage" /> Allow re-triage — triage a finding again when it already has a verdict (spends credits again)</label>
           <label class="check"><input type="checkbox" id="ai-skip-ne" /> Leave findings triaged as not exploitable (proposed or confirmed) out of reminders and reports — only confirmed findings and those still to verify are sent</label>
           <label class="check"><input type="checkbox" id="ai-remediation" /> Allow AI Remediation from reports (uses credits; may open pull requests) — applies to reports generated after saving</label>
+          <label class="check"><input type="checkbox" id="ai-reremediation" /> Allow re-remediation — run AI Remediation again for a finding already remediated (3 credits again; may open another pull request)</label>
           <label class="field">
             <span>Monthly credit limit for both — 0 for no limit</span>
             <input id="ai-limit" type="number" min="0" step="1" inputmode="numeric" />

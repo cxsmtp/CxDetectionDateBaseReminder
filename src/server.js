@@ -908,6 +908,7 @@ app.post(
         triage: Boolean(aiTriage.enabled),
         remediation: Boolean(aiTriage.remediationEnabled),
         retriage: Boolean(aiTriage.allowRetriage),
+        reremediation: Boolean(aiTriage.allowReremediation),
         adminContact: adminContact(),
         creditsRemaining: creditsRemaining(),
       });
@@ -1098,6 +1099,51 @@ app.post(
 );
 
 /**
+ * Where AI Remediation stands for a finding in Checkmarx One:
+ * 'none', 'running', 'done' or 'failed' (with the details, when there are any).
+ * A finding remediated through this utility counts as done even when
+ * Checkmarx One no longer returns its details.
+ */
+async function remediationState(session, finding) {
+  let body = null;
+  try {
+    body = await session.client.request(
+      `/api/remediation/remediation-details/${encodeURIComponent(finding.scanId)}/${encodeURIComponent(finding.alternateId)}`,
+      { retries: 1 },
+    );
+  } catch (error) {
+    if (error.status !== 404) throw error;
+  }
+  const r = body?.results?.[0];
+  if (r) {
+    const job = String(r.jobStatus || r.status || '').toUpperCase();
+    if (job === 'FAILED' || r.data?.error) return { status: 'failed', body };
+    if (r.finishedAt || r.data?.summary || r.data?.file_changes?.length) return { status: 'done', body };
+    return { status: 'running', body };
+  }
+  return { status: creditLedger.remediatedIds(finding.projectId).has(finding.riskId) ? 'done' : 'none', body: null };
+}
+
+/** Which of these findings are already remediated (or being remediated), for the report. */
+app.post(
+  '/api/relay/remediation-status',
+  asyncRoute(async (req, res) => {
+    const findings = grantedFindings(req, res);
+    if (!findings) return;
+    const session = await relaySession(res);
+    if (!session) return;
+    const results = await mapWithConcurrency(findings, 4, async (finding) => {
+      try {
+        return await remediationState(session, finding);
+      } catch (error) {
+        return { status: 'unknown', error: error.message };
+      }
+    });
+    res.json({ results });
+  }),
+);
+
+/**
  * AI Remediation for one finding. Checkmarx One first triages it, then
  * suggests a fix; for repository-integrated projects it opens a pull request.
  */
@@ -1112,8 +1158,27 @@ app.post(
     if (!session) return;
 
     const [finding] = findings;
-    const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
+    const { monthlyCreditLimit: limit = 0, allowReremediation = false } = settingsStore.get().aiTriage ?? {};
     const cost = CREDIT_COST.remediation;
+
+    // A finding already remediated is only remediated again when the
+    // administrator allows it: every run spends credits and may open another pull request.
+    let current = { status: 'none', body: null };
+    try {
+      current = await remediationState(session, finding);
+    } catch (error) {
+      console.warn(`[relay] could not read the remediation state of ${finding.riskId}: ${error.message}`);
+    }
+    if (current.status === 'running') {
+      return res.status(409).json({ running: true, body: current.body, error: 'AI Remediation is already running for this finding.' });
+    }
+    if (current.status === 'done' && !allowReremediation) {
+      return res.status(409).json({
+        remediated: true,
+        body: current.body,
+        error: 'This finding is already remediated. Remediating again is switched off by your administrator.',
+      });
+    }
     const refusal = creditRefusal(finding.projectId, finding.projectName, 'remediation', cost, limit);
     if (refusal) {
       return res.status(402).json({
@@ -1857,6 +1922,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     connection: { tenant: connection.tenant, iamUrl: connection.iamUrl, baseUrl: connection.baseUrl },
     branding: settings.branding,
     allowRetriage: Boolean(settings.aiTriage?.allowRetriage),
+    allowReremediation: Boolean(settings.aiTriage?.allowReremediation),
     adminContact: adminContact(settings),
   });
   return { reportData, findings, html };

@@ -369,6 +369,7 @@ function renderSettings() {
   $('ai-remediation').checked = Boolean(s.aiTriage?.remediationEnabled);
   $('ai-skip-ne').checked = s.aiTriage?.skipNotExploitable !== false;
   $('ai-retriage').checked = Boolean(s.aiTriage?.allowRetriage);
+  $('ai-reremediation').checked = Boolean(s.aiTriage?.allowReremediation);
   $('ai-admin-contact').value = s.aiTriage?.adminContact ?? '';
   $('ai-limit').value = String(s.aiTriage?.monthlyCreditLimit ?? 0);
 
@@ -653,6 +654,7 @@ function settingsPayload() {
       remediationEnabled: $('ai-remediation').checked,
       skipNotExploitable: $('ai-skip-ne').checked,
       allowRetriage: $('ai-retriage').checked,
+      allowReremediation: $('ai-reremediation').checked,
       adminContact: $('ai-admin-contact').value.trim(),
       monthlyCreditLimit: Number($('ai-limit').value) || 0,
     },
