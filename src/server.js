@@ -12,6 +12,7 @@ import { resolveAiIds } from './cxone/ai-assist.js';
 import { mapWithConcurrency } from './cxone/client.js';
 import { ReportGrants } from './report-grants.js';
 import { CreditLedger, monthOf } from './credits.js';
+import { CreditAllocations, toTriageCount } from './credit-allocations.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
@@ -43,6 +44,17 @@ let bootstrapSessionId = null;
 
 const dataDir = path.dirname(config.settingsFile || path.join(process.cwd(), 'data', 'settings.json'));
 const creditLedger = new CreditLedger({ file: path.join(dataDir, 'triage-credits.json') });
+const allocations = new CreditAllocations({ file: path.join(dataDir, 'credit-allocations.json'), ledger: creditLedger });
+
+const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+
+/** Per-project credit balances and what is still to triage, for the dashboard. */
+function creditView(summary) {
+  return {
+    ...allocations.balance(summary.projectId),
+    toTriage: Object.fromEntries(SEVERITIES.map((s) => [s, toTriageCount(summary.risks ?? [], [s])])),
+  };
+}
 
 const reportGrants = new ReportGrants({
   secret: process.env.REPORT_SIGNING_KEY?.trim() || undefined,
@@ -478,6 +490,13 @@ app.get(
       summary.url = projectUrl(summary, req.session.connection, settings.links);
     }
     result.initiators = initiators.byProject;
+    let allocationsChanged = false;
+    for (const summary of result.projects) {
+      if (summary.error) continue;
+      allocationsChanged = allocations.applyDefault(summary.projectId, summary.projectName, summary.risks) || allocationsChanged;
+    }
+    if (allocationsChanged) allocations.save();
+    for (const summary of result.projects) summary.credits = creditView(summary);
     req.session.lastScan = result;
 
     res.json({
@@ -790,6 +809,24 @@ const triageAllowed = (res) => actionAllowed(res, 'enabled');
 
 const creditsRemaining = () => creditLedger.remaining(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0);
 
+const KIND_NAMES = { triage: 'AI Triage', remediation: 'AI Remediation' };
+
+/** Why `credits` of `kind` cannot be spent on this project now, or '' when they can. */
+function creditRefusal(projectId, projectName, kind, credits, limit) {
+  const project = projectName || projectId;
+  const left = allocations.balance(projectId)[kind].remaining;
+  if (credits > left) {
+    return left === 0
+      ? `${project} has no ${KIND_NAMES[kind]} credits left (${credits} needed). Ask your administrator to allocate more.`
+      : `${project} has ${left} ${KIND_NAMES[kind]} credit${left === 1 ? '' : 's'} left, ${credits} needed. Ask your administrator to allocate more.`;
+  }
+  const monthLeft = creditLedger.remaining(limit);
+  if (monthLeft !== null && credits > monthLeft) {
+    return `This month's credit limit for actions from reports is reached (${monthLeft} of ${limit} left, ${credits} needed). Ask your administrator to raise it.`;
+  }
+  return '';
+}
+
 app.post(
   '/api/relay/status',
   asyncRoute(async (req, res) => {
@@ -835,17 +872,18 @@ app.post(
       const { scanId, scanner, projectId, projectName } = group[0];
       const alternateIds = [...new Set(group.map((f) => f.alternateId))];
 
-      const reservation = creditLedger.reserve(alternateIds.length, limit);
+      const refusal = creditRefusal(projectId, projectName, 'triage', alternateIds.length, limit);
+      if (refusal) {
+        results.push({ alternateIds, ok: false, status: 402, error: refusal });
+        continue;
+      }
+      const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), {
+        projectId,
+        kind: 'triage',
+        allowance: allocations.balance(projectId).triage.allocated,
+      });
       if (!reservation) {
-        const left = creditLedger.remaining(limit);
-        results.push({
-          alternateIds,
-          ok: false,
-          status: 402,
-          error:
-            `This month's AI Triage credit limit is reached (${left} of ${limit} left, ${alternateIds.length} needed for ` +
-            `${projectName || projectId}). Ask your administrator to raise it.`,
-        });
+        results.push({ alternateIds, ok: false, status: 402, error: 'Credits are busy with another request; try again in a moment.' });
         continue;
       }
       try {
@@ -952,12 +990,15 @@ app.post(
 
     const [finding] = findings;
     const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
-    const reservation = creditLedger.reserve(1, limit);
+    const refusal = creditRefusal(finding.projectId, finding.projectName, 'remediation', 1, limit);
+    if (refusal) return res.status(402).json({ error: refusal, creditsRemaining: creditsRemaining() });
+    const reservation = creditLedger.reserve(1, limit, new Date(), {
+      projectId: finding.projectId,
+      kind: 'remediation',
+      allowance: allocations.balance(finding.projectId).remediation.allocated,
+    });
     if (!reservation) {
-      return res.status(402).json({
-        error: `This month's credit limit for actions from reports is reached (${limit}). Ask your administrator to raise it.`,
-        creditsRemaining: creditsRemaining(),
-      });
+      return res.status(402).json({ error: 'Credits are busy with another request; try again in a moment.' });
     }
     try {
       const body = await session.client.request('/api/remediation/remediate', {
@@ -1017,6 +1058,135 @@ app.post(
   }),
 );
 
+// ---------------------------------------------------------------------------
+// Credit allocation and triage by the administrator (dashboard)
+// ---------------------------------------------------------------------------
+
+function scanProjects(req, projectIds) {
+  const projects = req.session.lastScan?.projects ?? [];
+  const wanted = Array.isArray(projectIds) && projectIds.length ? new Set(projectIds.map(String)) : null;
+  return projects.filter((p) => !p.error && (!wanted || wanted.has(p.projectId)));
+}
+
+const cleanSeverities = (list) =>
+  [...new Set((Array.isArray(list) ? list : []).map((s) => String(s).toUpperCase()))].filter((s) => SEVERITIES.includes(s));
+
+app.post('/api/credits/allocate', requireSession, (req, res) => {
+  if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+  const { projectIds, severities, triageAdd = 0, remediationAdd = 0 } = req.body ?? {};
+  const wanted = cleanSeverities(severities);
+  const extraTriage = Math.max(0, Math.floor(Number(triageAdd) || 0));
+  const extraRemediation = Math.max(0, Math.floor(Number(remediationAdd) || 0));
+  if (!wanted.length && !extraTriage && !extraRemediation) {
+    return res.status(400).json({ error: 'Pick at least one severity, or enter credits to add.' });
+  }
+
+  const projects = scanProjects(req, projectIds);
+  for (const p of projects) {
+    if (wanted.length) allocations.allocateTriageFor(p.projectId, p.projectName, p.risks ?? [], wanted);
+    if (extraTriage) allocations.add(p.projectId, p.projectName, 'triage', extraTriage);
+    if (extraRemediation) allocations.add(p.projectId, p.projectName, 'remediation', extraRemediation);
+  }
+  allocations.save();
+  for (const p of projects) p.credits = creditView(p);
+  res.json({ projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
+});
+
+/**
+ * The administrator triages chosen severities of chosen projects straight
+ * away (e.g. before reports go out). Uses the dashboard's own connection;
+ * credits count against each project's allocation, which is raised to cover
+ * the request since the administrator is the one allocating.
+ */
+app.post(
+  '/api/triage/run',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+    const wanted = cleanSeverities(req.body?.severities);
+    if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to triage.' });
+
+    const projects = scanProjects(req, req.body?.projectIds);
+    const RECENT_MS = 30 * 60 * 1000;
+    const originals = new Map();
+    const findings = [];
+    for (const p of projects) {
+      let live = null;
+      try {
+        live = await projectStates(req.session, p.projectId);
+      } catch {}
+      for (const r of p.risks ?? []) {
+        const state = live?.get(r.riskId) ?? r.state;
+        if (!wanted.includes(r.severity) || (state && state !== 'TO_VERIFY')) continue;
+        if (r.triageRequestedAt && Date.now() - r.triageRequestedAt < RECENT_MS) continue;
+        const copy = { ...r, projectId: p.projectId, projectName: p.projectName };
+        originals.set(copy, r);
+        findings.push(copy);
+      }
+    }
+    if (!findings.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], projects: {} });
+
+    const initiatorsByProject = req.session.lastScan.initiators ?? {};
+    await resolveAiIds(req.session.client, findings, (f) => initiatorsByProject[f.projectId]?.scanId ?? '');
+    const eligible = findings.filter((f) => !f.aiUnavailable);
+
+    const buckets = new Map();
+    for (const f of eligible) {
+      const key = `${f.scanId}|${f.scanner}`;
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(f);
+    }
+
+    const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
+    let started = 0;
+    let failed = 0;
+    const errors = [];
+    for (const group of buckets.values()) {
+      const { scanId, scanner, projectId, projectName } = group[0];
+      const alternateIds = [...new Set(group.map((f) => f.alternateId))];
+      const reservation = creditLedger.reserve(alternateIds.length, limit);
+      if (!reservation) {
+        failed += group.length;
+        errors.push(`${projectName}: this month's credit limit (${limit}) is reached.`);
+        continue;
+      }
+      try {
+        const body = await req.session.client.request('/api/ai-triage/triage', {
+          method: 'POST',
+          body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
+          retries: 1,
+        });
+        if (body?.published !== false) {
+          const balance = allocations.balance(projectId).triage;
+          if (balance.remaining < alternateIds.length) {
+            allocations.add(projectId, projectName, 'triage', alternateIds.length - balance.remaining);
+          }
+          creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage' });
+        }
+        stateCache.delete(projectId);
+        for (const f of group) originals.get(f).triageRequestedAt = Date.now();
+        started += group.length;
+      } catch (error) {
+        failed += group.length;
+        errors.push(`${projectName}: ${error.message}`);
+        if (error.status === 402 || error.status === 403) break;
+      } finally {
+        reservation.release();
+      }
+    }
+    allocations.save();
+    for (const p of projects) p.credits = creditView(p);
+    res.json({
+      requested: findings.length,
+      started,
+      failed,
+      skipped: findings.length - eligible.length,
+      errors,
+      projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])),
+    });
+  }),
+);
+
 // Administrator view of AI Triage credits used from reports.
 app.get('/api/credits', requireSession, (req, res) => {
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
@@ -1064,7 +1234,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     findings,
     bulkFindings,
     relayUrl,
-    remediationViaRelay: Boolean(settings.aiTriage?.remediationEnabled),
+    remediationViaRelay: true,
     portalUrl: settings.links.baseUrl,
     sign: (finding) => reportGrants.issue(finding),
     connection: { tenant: connection.tenant, iamUrl: connection.iamUrl, baseUrl: connection.baseUrl },

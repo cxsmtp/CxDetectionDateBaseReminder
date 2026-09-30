@@ -299,6 +299,7 @@ tr:last-child td { border-bottom: 0; }
 .fix-cell:not(:empty) { margin-top: 6px; }
 .fix-cell a { display: block; } .fix-cell p { margin: 0 0 4px; }
 .fix-failed { color: #b42318; }
+.fix-headline { font-weight: 600; color: #067647; }
 .more { margin-top: 16px; } .more p { margin: 0 0 8px; }
 .more-links { display: flex; gap: 8px; flex-wrap: wrap; }
 .activity { margin-top: 16px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; }

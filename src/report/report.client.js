@@ -421,9 +421,17 @@
       summary: data?.summary || data?.analysis?.what || '',
       how: data?.analysis?.how || '',
       prUrl: r.autoPr?.url || '',
+      prStatus: String(r.autoPr?.status || ''),
+      prError: r.autoPr?.error_msg || '',
       patch,
       files: (data?.file_changes || []).length,
     };
+  }
+
+  /** "#42" from a GitHub / GitLab / Azure DevOps / Bitbucket pull request address. */
+  function prNumber(url) {
+    const match = String(url).match(/\/(?:pull|pulls|merge_requests|pullrequest|pull-requests)\/(\d+)/i);
+    return match ? `#${match[1]}` : '';
   }
 
   function renderRemediation(f) {
@@ -440,7 +448,7 @@
     }
     if (!r) return;
     if (r.running) {
-      out.textContent = 'AI Remediation running in Checkmarx One — this can take several minutes.';
+      out.textContent = 'AI Remediation running in Checkmarx One — it triages the finding, writes a fix and opens a pull request. This can take several minutes.';
       return;
     }
     if (r.failed) {
@@ -448,12 +456,24 @@
       out.textContent = r.failed;
       return;
     }
+    const headline = document.createElement('p');
+    headline.className = 'fix-headline';
+    if (r.prUrl) {
+      headline.append('✓ Remediation opened ');
+      const pr = link(`PR ${prNumber(r.prUrl) || ''}`.trim(), r.prUrl);
+      pr.style.display = 'inline';
+      headline.append(pr);
+    } else if (r.prError) {
+      headline.textContent = `✓ Fix suggested — no pull request: ${r.prError}`;
+    } else {
+      headline.textContent = '✓ Fix suggested (no pull request: the project is not connected to a code repository)';
+    }
+    out.append(headline);
     if (r.summary) {
       const p = document.createElement('p');
       p.textContent = r.summary;
       out.append(p);
     }
-    if (r.prUrl) out.append(link('Open the pull request', r.prUrl));
     if (f.url) out.append(link('View the fix in Checkmarx One', f.url));
     if (r.patch) {
       const blob = URL.createObjectURL(new Blob([r.patch], { type: 'text/x-diff' }));
@@ -490,7 +510,7 @@
         if (result.failed) {
           log(`AI Remediation failed for ${f.title}: ${result.failed}`, 'error');
         } else {
-          log(`AI Remediation ready: ${f.title}${result.prUrl ? ' (pull request opened)' : ''}`, 'success');
+          log(`AI Remediation ready: ${f.title}${result.prUrl ? ` — opened PR ${prNumber(result.prUrl)}`.trimEnd() : ''}`, 'success');
         }
         return;
       }

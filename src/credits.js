@@ -20,6 +20,7 @@ export class CreditLedger {
   #file;
   #entries;
   #reserved = 0;
+  #reservedBy = new Map();
 
   constructor({ file } = {}) {
     this.#file = file ?? path.join(process.cwd(), 'data', 'triage-credits.json');
@@ -35,19 +36,41 @@ export class CreditLedger {
     return this.#entries.reduce((sum, e) => sum + (e.at.startsWith(month) ? e.credits : 0), 0);
   }
 
+  /** Credits a project has used for one kind of action, all time. */
+  usedBy(projectId, kind) {
+    return this.#entries.reduce(
+      (sum, e) => sum + (e.projectId === projectId && (e.kind ?? 'triage') === kind ? e.credits : 0),
+      0,
+    );
+  }
+
+  /** Credits held for requests still in flight for this project and kind. */
+  reservedFor(projectId, kind) {
+    return this.#reservedBy.get(`${projectId}|${kind}`) ?? 0;
+  }
+
   /**
-   * Hold `credits` against the month's limit (0 = no limit). Returns a
-   * reservation to settle, or null when the limit would be exceeded.
+   * Hold `credits` against the month's limit (0 = no limit) and, when
+   * `allowance` is given, against that project's allocation for `kind`.
+   * Returns a reservation to release once the request is settled, or null
+   * when either would be exceeded.
    */
-  reserve(credits, limit, now = new Date()) {
-    const remaining = limit > 0 ? limit - this.usedInMonth(monthOf(now)) - this.#reserved : Infinity;
-    if (credits > remaining) return null;
+  reserve(credits, limit, now = new Date(), { projectId, kind = 'triage', allowance } = {}) {
+    const monthLeft = limit > 0 ? limit - this.usedInMonth(monthOf(now)) - this.#reserved : Infinity;
+    if (credits > monthLeft) return null;
+    const key = `${projectId}|${kind}`;
+    if (allowance !== undefined && credits > allowance - this.usedBy(projectId, kind) - this.reservedFor(projectId, kind)) {
+      return null;
+    }
     this.#reserved += credits;
+    if (projectId) this.#reservedBy.set(key, this.reservedFor(projectId, kind) + credits);
     let open = true;
     return {
       release: () => {
-        if (open) this.#reserved -= credits;
+        if (!open) return;
         open = false;
+        this.#reserved -= credits;
+        if (projectId) this.#reservedBy.set(key, this.reservedFor(projectId, kind) - credits);
       },
     };
   }

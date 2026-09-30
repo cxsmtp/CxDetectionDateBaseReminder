@@ -402,3 +402,8 @@ label.inline { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 #credit-usage tfoot th { border-top: 2px solid var(--border); }
 #credit-usage .num { text-align: right; }
 #credit-month { width: auto; }
+
+.alloc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 10px 0; font-size: 13px; }
+.small-num { width: 80px; }
+td.credits { white-space: nowrap; }
+td.credits .low { color: var(--danger); }

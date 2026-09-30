@@ -1167,7 +1167,7 @@ function renderProjects() {
   const body = $('projects-body');
 
   if (rows.length === 0) {
-    body.innerHTML = `<tr class="empty"><td colspan="8">${
+    body.innerHTML = `<tr class="empty"><td colspan="10">${
       state.projects.length ? 'No projects match these filters.' : 'No data yet.'
     }</td></tr>`;
   } else {
@@ -1192,6 +1192,8 @@ function renderProjects() {
             p.maxAgeDays === null ? '' : ` <span class="zero">(${p.maxAgeDays}d)</span>`
           }</td>
           <td class="initiator">${renderInitiator(p)}</td>
+          ${creditCell(p, 'triage')}
+          ${creditCell(p, 'remediation')}
         </tr>`;
       })
       .join('');
@@ -1209,6 +1211,99 @@ function renderProjects() {
   for (const th of document.querySelectorAll('#projects th[data-sort]')) {
     th.classList.toggle('sorted', th.dataset.sort === state.sort.key);
     th.dataset.dir = th.dataset.sort === state.sort.key ? state.sort.dir : '';
+  }
+  renderAllocation();
+}
+
+// ---------------------------------------------------------------------------
+// AI credits per project
+// ---------------------------------------------------------------------------
+
+function creditCell(project, kind) {
+  const c = project.credits?.[kind];
+  if (!c) return '<td class="num credits zero">—</td>';
+  const title = `${c.used} used of ${c.allocated} allocated`;
+  return `<td class="num credits" title="${escapeHtml(title)}"><span class="${c.remaining === 0 && c.allocated > 0 ? 'low' : ''}">${c.remaining}</span><span class="zero"> / ${c.allocated}</span></td>`;
+}
+
+/** Selected projects, or every shown one when none is selected. */
+function allocationScope() {
+  const shown = visibleProjects().filter((p) => !p.error);
+  return state.selected.size ? shown.filter((p) => state.selected.has(p.projectId)) : shown;
+}
+
+const allocSeverities = () => [...document.querySelectorAll('.alloc-sev:checked')].map((box) => box.value);
+
+function renderAllocation() {
+  $('credits-panel').hidden = !state.projects.length;
+  if (!state.projects.length) return;
+  const scope = allocationScope();
+  const severities = allocSeverities();
+  const needed = scope.reduce(
+    (sum, p) => sum + severities.reduce((n, s) => n + (p.credits?.toTriage?.[s] ?? 0), 0),
+    0,
+  );
+  $('alloc-scope').textContent = `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'}`;
+  $('alloc-needed').textContent = severities.length
+    ? `= ${needed} finding${needed === 1 ? '' : 's'} to triage (${needed} credit${needed === 1 ? '' : 's'})`
+    : 'Pick at least one severity';
+  $('alloc-triage').disabled = !severities.length || !scope.length;
+  $('run-triage').disabled = !severities.length || !scope.length || needed === 0;
+}
+
+function applyCredits(byProject) {
+  for (const project of state.projects) {
+    if (byProject[project.projectId]) project.credits = byProject[project.projectId];
+  }
+  renderProjects();
+}
+
+async function allocateCredits(body, message) {
+  setStatus('alloc-status', 'Saving…');
+  try {
+    const result = await api('/api/credits/allocate', {
+      method: 'POST',
+      body: JSON.stringify({ projectIds: allocationScope().map((p) => p.projectId), ...body }),
+    });
+    applyCredits(result.projects);
+    setStatus('alloc-status', message(Object.keys(result.projects).length), 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('alloc-status', error);
+  }
+}
+
+async function runTriageNow() {
+  const scope = allocationScope();
+  const severities = allocSeverities();
+  const needed = scope.reduce((sum, p) => sum + severities.reduce((n, s) => n + (p.credits?.toTriage?.[s] ?? 0), 0), 0);
+  const names = severities.map((s) => s.toLowerCase()).join(', ');
+  if (!confirm(`Run Checkmarx One AI Triage now on up to ${needed} ${names} finding(s) across ${scope.length} project(s)? This uses up to ${needed} Checkmarx One credit(s).`)) return;
+  const button = $('run-triage');
+  button.disabled = true;
+  setStatus('alloc-status', 'Starting AI Triage… (reading scan results for the selected projects)');
+  try {
+    const result = await api('/api/triage/run', {
+      method: 'POST',
+      body: JSON.stringify({ projectIds: scope.map((p) => p.projectId), severities }),
+    });
+    applyCredits(result.projects);
+    if (!result.requested) {
+      setStatus('alloc-status', 'Nothing to triage: these findings are already triaged, or were sent for triage in the last 30 minutes.', 'ok');
+      return;
+    }
+    const parts = [`AI Triage started for ${result.started} finding(s)`];
+    if (result.skipped) parts.push(`${result.skipped} not eligible (AI Triage supports SAST and SCA)`);
+    if (result.failed) parts.push(`${result.failed} failed: ${result.errors.join('; ')}`);
+    setStatus(
+      'alloc-status',
+      `${parts.join(' · ')}. Verdicts appear in Checkmarx One within minutes, and in reports sent afterwards.`,
+      result.failed ? 'error' : 'ok',
+    );
+    logger.add(`Admin AI Triage: ${parts.join(' · ')}`, result.failed ? 'error' : 'success');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('alloc-status', error);
+  } finally {
+    renderAllocation();
   }
 }
 
@@ -1665,6 +1760,18 @@ $('init-unresolved').addEventListener('click', () => {
   renderInitiatorList();
   renderProjects();
 });
+
+for (const box of document.querySelectorAll('.alloc-sev')) box.addEventListener('change', renderAllocation);
+$('alloc-triage').addEventListener('click', () =>
+  allocateCredits({ severities: allocSeverities() }, (n) => `Triage credits set for ${n} project(s) to cover their ${allocSeverities().map((s) => s.toLowerCase()).join(', ')} findings.`),
+);
+$('alloc-add').addEventListener('click', () => {
+  const triageAdd = Number($('alloc-extra-triage').value) || 0;
+  const remediationAdd = Number($('alloc-extra-remediation').value) || 0;
+  if (!triageAdd && !remediationAdd) return setStatus('alloc-status', 'Enter how many credits to add.', 'error');
+  allocateCredits({ triageAdd, remediationAdd }, (n) => `Added ${triageAdd} triage and ${remediationAdd} remediation credit(s) to each of ${n} project(s).`);
+});
+$('run-triage').addEventListener('click', runTriageNow);
 
 $('select-all').addEventListener('change', (event) => {
   for (const project of visibleProjects()) {

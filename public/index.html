@@ -129,14 +129,47 @@
                   <th class="num" data-sort="60+">&gt; 60d</th>
                   <th data-sort="maxAgeDays">Oldest first detection</th>
                   <th data-sort="initiator">Latest scan by</th>
+                  <th class="num" title="AI Triage credits left / allocated">Triage credits</th>
+                  <th class="num" title="AI Remediation credits left / allocated">Remediation credits</th>
                 </tr>
               </thead>
               <tbody id="projects-body">
-                <tr class="empty"><td colspan="8">Click <strong>Fetch vulnerability data</strong> to load projects and first-detection dates.</td></tr>
+                <tr class="empty"><td colspan="10">Click <strong>Fetch vulnerability data</strong> to load projects and first-detection dates.</td></tr>
               </tbody>
             </table>
           </div>
           <p class="hint" id="table-meta"></p>
+        </section>
+
+        <section class="panel" id="credits-panel" hidden>
+          <div class="panel-head">
+            <h2>AI Triage &amp; Remediation credits</h2>
+            <span class="hint" id="alloc-scope"></span>
+          </div>
+          <p class="hint">
+            Each project may only spend the Checkmarx One credits allocated to it here — from its report or from
+            this page. By default a project gets enough to triage its critical and high findings still to verify;
+            remediation credits must be given. Applies to the selected projects, or every shown project when none is
+            selected.
+          </p>
+          <div class="alloc-row">
+            <span>Triage findings that are</span>
+            <label class="check"><input type="checkbox" class="alloc-sev" value="CRITICAL" checked /> Critical</label>
+            <label class="check"><input type="checkbox" class="alloc-sev" value="HIGH" checked /> High</label>
+            <label class="check"><input type="checkbox" class="alloc-sev" value="MEDIUM" /> Medium</label>
+            <label class="check"><input type="checkbox" class="alloc-sev" value="LOW" /> Low</label>
+            <strong id="alloc-needed"></strong>
+          </div>
+          <div class="actions compact">
+            <button id="alloc-triage" type="button">Allocate these triage credits</button>
+            <button id="run-triage" type="button" class="primary">Triage selected now</button>
+          </div>
+          <div class="alloc-row">
+            <label class="inline">Give each project <input id="alloc-extra-triage" type="number" min="0" step="1" value="0" class="small-num" /> more triage credits</label>
+            <label class="inline">and <input id="alloc-extra-remediation" type="number" min="0" step="1" value="0" class="small-num" /> remediation credits</label>
+            <button id="alloc-add" type="button">Add credits</button>
+          </div>
+          <p class="status" id="alloc-status"></p>
         </section>
 
         <section class="panel">
