@@ -15,6 +15,9 @@ export const DEFAULT_LINK_TEMPLATES = {
   // Blank means "use the API host the API key resolved to", which is also the
   // web UI host on multi-tenant Checkmarx One.
   baseUrl: '',
+  // How emailed reports reach this server's relay. Blank uses the address the
+  // dashboard is opened on, which only works if recipients can reach it too.
+  reportServerUrl: '',
   // Risk Hub: the project's risks, where findings are triaged and remediated.
   project: '{baseUrl}/riskhub/{projectId}',
   // Opens Risk Hub with the finding's details panel (triage / remediate) open.

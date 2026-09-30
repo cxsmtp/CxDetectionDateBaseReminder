@@ -188,6 +188,34 @@ The panel states plainly which of the three situations you are in.
 
 ---
 
+## Triage from the emailed report
+
+The report attached to reminder mails lists the top 50 findings with their
+Checkmarx One state. **Remediate** opens the finding in Risk Hub. **Triage**,
+**Triage all critical** and **Triage all high** run Checkmarx One AI Triage and
+show the verdict in the report; the "all" buttons cover every critical or high
+finding in the report, across all of its projects.
+
+Checkmarx One refuses API calls from a page opened as a file, so *Connect to
+CxONE for action* offers two ways to connect:
+
+| | Through the reminder server | Direct to Checkmarx One |
+| --- | --- | --- |
+| Reader needs | nothing | the [Report Connector extension](extension/README.md) |
+| Signs in with | — | their Checkmarx One username/password (or SSO), or an API key |
+| Triage recorded as | the server's account | the reader |
+| Needs the server reachable | yes | no |
+
+**Through the reminder server.** The report calls this server, which runs AI
+Triage with its own stored connection (`CX_API_KEY`, or the key armed for
+automation). Each finding in a report carries a signed grant, valid for 30 days,
+and the relay acts only on findings with a valid grant, so the server cannot be
+used to triage anything a report did not list. Set **Settings → Reminder server
+address for reports** to an address recipients can reach (use HTTPS). The
+signing key is kept in `data/report-signing.key`, or set `REPORT_SIGNING_KEY`.
+
+**Direct.** See [extension/README.md](extension/README.md).
+
 ## Links into Checkmarx One
 
 Every finding in the reminder is a hyperlink straight to it in the platform, so the mail

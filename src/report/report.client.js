@@ -1,8 +1,14 @@
 /*
- * Runs inside the emailed HTML report. Triage and Remediate are links into
- * Checkmarx One Risk Hub (the reader's own portal login). Optionally, with an
- * API key, AI Triage runs from the report itself: the key is exchanged for a
- * token at the tenant's IAM and the AI Triage API is called directly.
+ * Runs inside the emailed HTML report.
+ *
+ * Remediate opens the finding in Checkmarx One Risk Hub. Triage runs
+ * Checkmarx One AI Triage from the report, over one of two connections:
+ *   1. through the reminder server, which calls Checkmarx One with its own
+ *      stored connection (the report carries signed grants for its findings);
+ *   2. direct to Checkmarx One through the "Checkmarx One Report Connector"
+ *      browser extension. Checkmarx One refuses API calls from a page opened
+ *      as a file; the extension is exempt. It signs the reader in on the
+ *      Checkmarx One login page and keeps that session.
  *
  * Kept as a plain file (inlined by html-report.js) so it can be syntax
  * checked and is never subject to template-literal escaping.
@@ -15,10 +21,11 @@
   const findings = DATA.findings;
   const byKey = new Map(findings.map((f) => [f.key, f]));
 
-  const KEY_STORE = 'cxReportApiKey';
+  const STORE = 'cxReportConnection';
+  const CONNECTOR = 'cx-report-connector';
   const POLL_MS = 6000;
   const TRIAGE_TIMEOUT_MS = 20 * 60 * 1000;
-  const TERMINAL_WAIT = new Set(['IN_PROGRESS', 'NOT_TRIAGED', 'PENDING', 'QUEUED', 'RUNNING']);
+  const WAITING = new Set(['IN_PROGRESS', 'NOT_TRIAGED', 'PENDING', 'QUEUED', 'RUNNING']);
 
   const VERDICTS = {
     VULNERABLE: ['Vulnerable', 'bad'],
@@ -37,16 +44,26 @@
     EXPLOITABLE: 'Exploitable',
     NOT_EXPLOITABLE: 'Not exploitable',
   };
+  const SEVERITY_LABELS = { CRITICAL: 'critical', HIGH: 'high' };
 
-  let auth = null;
+  let backend = null;
+  let afterConnect = null;
   let bulkRunning = false;
 
   const $ = (id) => document.getElementById(id);
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const row = (f) => document.querySelector(`tr[data-key="${CSS.escape(f.key)}"]`);
+  const bulkButtons = () => [...document.querySelectorAll('button.bulk[data-severity]')];
+
+  class CxError extends Error {
+    constructor(message, status = 0) {
+      super(message);
+      this.status = status;
+    }
+  }
 
   // ---------------------------------------------------------------------------
-  // Activity log
+  // Activity log and banner
   // ---------------------------------------------------------------------------
 
   function log(message, type = 'info') {
@@ -67,167 +84,253 @@
     el.hidden = !message;
   }
 
-  // ---------------------------------------------------------------------------
-  // Checkmarx One access
-  // ---------------------------------------------------------------------------
-
-  class CxError extends Error {
-    constructor(message, status) {
-      super(message);
-      this.status = status;
-    }
-  }
-
-  function decodeKey(apiKey) {
-    try {
-      const payload = String(apiKey).trim().split('.')[1];
-      const json = JSON.parse(
-        decodeURIComponent(
-          atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
-            .split('')
-            .map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'))
-            .join(''),
-        ),
-      );
-      const match = String(json.iss || '').match(/^(https?:\/\/[^/]+)\/auth\/realms\/([^/?#]+)/);
-      if (!match) return null;
-      return { iamUrl: match[1], tenant: decodeURIComponent(match[2]) };
-    } catch {
-      return null;
-    }
-  }
-
-  function connectionFor(apiKey) {
-    const claims = decodeKey(apiKey);
-    if (!claims) return null;
-    const sameTenant = config.tenant && claims.tenant === config.tenant;
-    const iamUrl = sameTenant && config.iamUrl ? config.iamUrl : claims.iamUrl;
-    const derivedApi = claims.iamUrl.replace(/\/\/iam\./i, '//ast.').replace(/\.iam\./i, '.ast.');
-    return {
-      apiKey,
-      tenant: claims.tenant,
-      sameTenant,
-      tokenUrl: `${iamUrl}/auth/realms/${encodeURIComponent(claims.tenant)}/protocol/openid-connect/token`,
-      apiBase: sameTenant && config.apiBaseUrl ? config.apiBaseUrl : derivedApi,
-      token: null,
-      expiresAt: 0,
-    };
-  }
-
-  async function send(url, init) {
-    try {
-      return await fetch(url, init);
-    } catch {
-      throw new CxError(
-        `The browser could not complete a request to ${new URL(url).host}. Either this computer cannot reach ` +
-          'Checkmarx One, or Checkmarx One does not accept requests from a report opened as a local file (CORS). ' +
-          'The browser console (F12) shows which.',
-        0,
-      );
-    }
-  }
-
-  async function getToken(force = false) {
-    if (!force && auth.token && Date.now() < auth.expiresAt) return auth.token;
-    const response = await send(auth.tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ grant_type: 'refresh_token', client_id: 'ast-app', refresh_token: auth.apiKey }),
-    });
-    if (!response.ok) {
-      throw new CxError('Checkmarx One rejected this API key (invalid, revoked or expired).', response.status);
-    }
-    const data = await response.json();
-    auth.token = data.access_token;
-    auth.expiresAt = Date.now() + Math.max(((Number(data.expires_in) || 600) - 30) * 1000, 5000);
-    return auth.token;
+  function reportError(error) {
+    banner(error.message);
+    log(error.message, 'error');
   }
 
   function describeFailure(status, body, action) {
     const detail = (body && (body.message || body.error || body.detail)) || '';
     if (status === 402) return `Not enough Checkmarx One credits to run ${action}.`;
-    if (status === 403) return `This API key's role is not allowed to run ${action}. Ask an admin for the AI Triage / Remediation permissions.`;
+    if (status === 403) return `Your Checkmarx One role is not allowed to run ${action}. Ask an admin for the AI Triage permissions.`;
     if (status === 422) return `Checkmarx One could not accept this ${action} request${detail ? `: ${detail}` : '.'}`;
     if (status === 503) return `${action} is temporarily unavailable in Checkmarx One. Try again shortly.`;
     return `${action} failed (${status})${detail ? `: ${detail}` : ''}`;
   }
 
-  /** Call the Checkmarx One API. Resolves {status, body}; 404 is not an error. */
-  async function api(path, { method = 'GET', body, action = 'The request' } = {}) {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const token = await getToken(attempt > 0);
-      const response = await send(auth.apiBase + path, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json; version=1.0',
-          ...(body ? { 'Content-Type': 'application/json' } : {}),
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      if (response.status === 401 && attempt === 0) continue;
+  /** Split findings into one AI Triage request per scan and scanner, whatever the project. */
+  function bucketsOf(list) {
+    const groups = new Map();
+    for (const f of list) {
+      const key = `${f.scanId}|${f.scanner}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(f);
+    }
+    return [...groups.values()];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Option 1: through the reminder server
+  // ---------------------------------------------------------------------------
+
+  const wire = (f) => ({
+    projectId: f.projectId,
+    scanId: f.scanId,
+    scanner: f.scanner,
+    alternateId: f.alternateId,
+    groupId: f.groupId,
+    exp: f.exp,
+    grant: f.grant,
+  });
+
+  function relayBackend() {
+    const base = String(config.relayUrl || '').replace(/\/+$/, '');
+
+    async function post(path, body) {
+      let response;
+      try {
+        response = await fetch(base + path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+      } catch {
+        throw new CxError(`Cannot reach the reminder server at ${new URL(base).host}. It must be running and reachable from this computer.`);
+      }
       let parsed = null;
       try {
         parsed = await response.json();
       } catch {}
-      if (response.ok || response.status === 404) return { status: response.status, body: parsed };
+      if (!response.ok) throw new CxError(parsed?.error || `The reminder server answered ${response.status}.`, response.status);
+      return parsed;
+    }
+
+    return {
+      mode: 'relay',
+      label: 'via reminder server',
+      async connect() {
+        return { tenant: (await post('/api/relay/status', {})).tenant };
+      },
+      async triage(list) {
+        return (await post('/api/relay/triage', { findings: list.map(wire) })).results;
+      },
+      async results(list) {
+        const out = [];
+        for (let i = 0; i < list.length; i += 200) {
+          out.push(...(await post('/api/relay/triage-results', { findings: list.slice(i, i + 200).map(wire) })).results);
+        }
+        return out;
+      },
+      disconnect() {},
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Option 2: direct, through the Report Connector extension
+  // ---------------------------------------------------------------------------
+
+  const connectorVersion = () => document.documentElement.getAttribute('data-cx-report-connector');
+  const pendingCalls = new Map();
+  let callSeq = 0;
+
+  window.addEventListener('message', (event) => {
+    const data = event.data;
+    if (event.source !== window || data?.channel !== CONNECTOR || data.kind !== 'response') return;
+    const settle = pendingCalls.get(data.id);
+    if (!settle) return;
+    pendingCalls.delete(data.id);
+    settle(data.response || { error: 'The Report Connector returned nothing.' });
+  });
+
+  /** Ask the extension to do something; it answers {ok, ...} or {error}. */
+  function connector(op, args = {}, timeoutMs = 60000) {
+    return new Promise((resolve, reject) => {
+      const id = `c${++callSeq}`;
+      const timer = setTimeout(() => {
+        pendingCalls.delete(id);
+        reject(new CxError('The Report Connector extension did not answer.'));
+      }, timeoutMs);
+      pendingCalls.set(id, (response) => {
+        clearTimeout(timer);
+        if (response.error) reject(new CxError(response.error, response.status || 0));
+        else resolve(response);
+      });
+      window.postMessage({ channel: CONNECTOR, kind: 'request', id, request: { op, ...args } }, '*');
+    });
+  }
+
+  function directBackend(signIn) {
+    const target = {
+      iamUrl: config.iamUrl,
+      tenant: config.tenant,
+      apiBaseUrl: config.apiBaseUrl,
+      portalUrl: config.portalUrl || config.apiBaseUrl,
+    };
+
+    async function api(path, { method = 'GET', body, action = 'The request' } = {}) {
+      const response = await connector('api', { ...target, method, path, body: body ?? null });
+      let parsed = null;
+      try {
+        parsed = response.text ? JSON.parse(response.text) : null;
+      } catch {}
+      if ((response.status >= 200 && response.status < 300) || response.status === 404) return { status: response.status, body: parsed };
+      if (response.status === 401) throw new CxError('Your Checkmarx One session has ended. Connect again.', 401);
       throw new CxError(describeFailure(response.status, parsed, action), response.status);
     }
-    throw new CxError('Checkmarx One keeps rejecting the access token. Reconnect with a fresh API key.', 401);
+
+    return {
+      mode: 'direct',
+      label: 'direct',
+      async connect() {
+        if (!connectorVersion()) {
+          throw new CxError('The “Checkmarx One Report Connector” browser extension is not installed (or not allowed to read local files).');
+        }
+        const session = await signIn(target);
+        await api('/api/projects?limit=1&offset=0', { action: 'Connection check' });
+        return { tenant: session.tenant || target.tenant };
+      },
+      async triage(list) {
+        const results = [];
+        for (const group of bucketsOf(list)) {
+          const alternateIds = [...new Set(group.map((f) => f.alternateId))];
+          try {
+            const { body } = await api('/api/ai-triage/triage', {
+              method: 'POST',
+              action: 'AI Triage',
+              body: { scanID: group[0].scanId, buckets: [{ scannerType: group[0].scanner.toLowerCase(), resultIDs: alternateIds }] },
+            });
+            results.push({ alternateIds, ok: true, published: body?.published !== false });
+          } catch (error) {
+            results.push({ alternateIds, ok: false, status: error.status, error: error.message });
+            if (!error.status || error.status === 401 || error.status === 402 || error.status === 403) break;
+          }
+        }
+        return results;
+      },
+      async results(list) {
+        const out = new Array(list.length);
+        let cursor = 0;
+        const worker = async () => {
+          while (cursor < list.length) {
+            const index = cursor++;
+            const f = list[index];
+            try {
+              const { status, body } = await api(
+                `/api/ai-triage/triage/${encodeURIComponent(f.projectId)}/${encodeURIComponent(f.groupId)}`,
+                { action: 'AI Triage lookup' },
+              );
+              out[index] = status === 404 ? { found: false } : { found: true, body };
+            } catch (error) {
+              if (!error.status || error.status === 401) throw error;
+              out[index] = { found: false, status: error.status, error: error.message };
+            }
+          }
+        };
+        await Promise.all([worker(), worker(), worker(), worker()]);
+        return out;
+      },
+      disconnect() {
+        connector('signout', target).catch(() => {});
+      },
+    };
   }
+
+  /** Sign in on the Checkmarx One login page; the extension keeps the session. */
+  const loginSignIn = (target) => connector('signin', target, 6 * 60 * 1000);
+  /** Reuse a session the extension already holds, without opening the login page. */
+  const existingSession = async (target) => {
+    const status = await connector('status', target);
+    if (!status.signedIn) throw new CxError('Not signed in.');
+    return status;
+  };
+  const apiKeySignIn = (apiKey) => (target) => connector('signin-key', { ...target, apiKey });
 
   // ---------------------------------------------------------------------------
   // Rendering
   // ---------------------------------------------------------------------------
 
+  const hasVerdict = (f) => Boolean(f.triage?.status) && !WAITING.has(f.triage.status) && f.triage.status !== 'FAILED';
+
   function renderTriage(f) {
     const tr = row(f);
-    if (!tr) return updateBulk();
-    const cell = tr.querySelector('.ai-cell');
-    const btn = tr.querySelector('[data-action="triage"]');
-    const t = f.triage;
-    cell.replaceChildren();
-
-    if (t && t.status && t.status !== 'NOT_TRIAGED') {
-      const [label, tone] = VERDICTS[t.status] || [t.status.replace(/_/g, ' ').toLowerCase(), 'muted'];
-      const chip = document.createElement('span');
-      chip.className = `chip chip-${tone}`;
-      chip.textContent = label;
-      cell.append(chip);
-      const subs = [SUB_LABELS[t.reachability], SUB_LABELS[t.exploitability]].filter(Boolean);
-      if (subs.length) {
-        const sub = document.createElement('div');
-        sub.className = 'sub';
-        sub.textContent = subs.join(' · ');
-        cell.append(sub);
+    if (tr) {
+      const cell = tr.querySelector('.ai-cell');
+      const btn = tr.querySelector('[data-action="triage"]');
+      const t = f.triage;
+      cell.replaceChildren();
+      if (t?.status && t.status !== 'NOT_TRIAGED') {
+        const [label, tone] = VERDICTS[t.status] || [t.status.replace(/_/g, ' ').toLowerCase(), 'muted'];
+        const chip = document.createElement('span');
+        chip.className = `chip chip-${tone}`;
+        chip.textContent = label;
+        cell.append(chip);
+        const subs = [SUB_LABELS[t.reachability], SUB_LABELS[t.exploitability]].filter(Boolean);
+        if (subs.length) {
+          const sub = document.createElement('div');
+          sub.className = 'sub';
+          sub.textContent = subs.join(' · ');
+          cell.append(sub);
+        }
+        if (t.summary) {
+          const details = document.createElement('details');
+          const summary = document.createElement('summary');
+          summary.textContent = 'Why';
+          const text = document.createElement('p');
+          text.textContent = t.summary + (t.confidence ? ` (confidence ${t.confidence})` : '');
+          details.append(summary, text);
+          cell.append(details);
+        }
+      } else {
+        cell.textContent = t?.note || '—';
       }
-      if (t.summary) {
-        const details = document.createElement('details');
-        const summary = document.createElement('summary');
-        summary.textContent = 'Why';
-        const text = document.createElement('p');
-        text.textContent = t.summary + (t.confidence ? ` (confidence ${t.confidence})` : '');
-        details.append(summary, text);
-        cell.append(details);
+      if (btn && !f.aiUnavailable) {
+        const busy = t?.status === 'IN_PROGRESS';
+        btn.disabled = busy;
+        btn.textContent = busy ? 'Triaging…' : hasVerdict(f) ? 'Re-triage' : 'Triage';
       }
-      if (t.error) cell.title = t.error;
-    } else {
-      cell.textContent = '—';
-    }
-
-    if (btn && auth && !f.aiUnavailable) {
-      const busy = t?.status === 'IN_PROGRESS';
-      btn.classList.toggle('is-busy', busy);
-      btn.textContent = busy ? 'Triaging…' : hasVerdict(f) ? 'Re-triage' : 'Triage';
     }
     updateBulk();
   }
-
-  const hasVerdict = (f) =>
-    Boolean(f.triage?.status) && !TERMINAL_WAIT.has(f.triage.status) && f.triage.status !== 'FAILED';
-
-  const SEVERITY_LABELS = { CRITICAL: 'critical', HIGH: 'high' };
-  const bulkButtons = () => [...document.querySelectorAll('a.bulk[data-severity]')];
 
   function triageCandidates(severity) {
     return findings.filter(
@@ -240,32 +343,19 @@
     for (const btn of bulkButtons()) {
       const severity = btn.dataset.severity;
       const label = SEVERITY_LABELS[severity];
-      const total = findings.filter((f) => f.severity === severity).length;
-      if (!auth) {
-        btn.textContent = `Triage all ${label} (${total})`;
-        btn.classList.toggle('is-busy', total === 0);
-        continue;
-      }
       const n = triageCandidates(severity).length;
       const busy = findings.some((f) => f.severity === severity && f.triage?.status === 'IN_PROGRESS');
       btn.textContent = n ? `Triage all ${label} (${n})` : busy ? `Triaging ${label}…` : `All ${label} triaged`;
-      btn.classList.toggle('is-busy', bulkRunning || n === 0);
+      btn.disabled = bulkRunning || n === 0;
     }
-    $('bulk-credits').textContent = auth ? 'AI Triage uses 1 Checkmarx One credit per finding.' : '';
     $('bulk-progress').textContent = running ? `${running} triage job${running === 1 ? '' : 's'} running…` : '';
   }
 
-  function setConnectedUI() {
-    $('connect').textContent = auth ? `✓ API connected · ${auth.tenant} (disconnect)` : 'Run AI Triage here with an API key';
-    $('connect').classList.toggle('connected', Boolean(auth));
-    for (const f of findings) {
-      const btn = row(f)?.querySelector('[data-action="triage"]');
-      if (btn && !(auth && !f.aiUnavailable)) {
-        btn.classList.remove('is-busy');
-        btn.textContent = 'Triage';
-      }
-    }
-    updateBulk();
+  function setConnectedUI(tenant) {
+    const btn = $('connect');
+    btn.textContent = backend ? `✓ Connected to CxONE · ${tenant} (${backend.label})` : 'Connect to CxONE for action';
+    btn.classList.toggle('connected', Boolean(backend));
+    $('bulk-credits').textContent = backend ? 'AI Triage uses 1 Checkmarx One credit per finding.' : '';
   }
 
   // ---------------------------------------------------------------------------
@@ -286,94 +376,71 @@
     };
   }
 
-  async function readTriage(f) {
-    const { status, body } = await api(
-      `/api/ai-triage/triage/${encodeURIComponent(f.projectId)}/${encodeURIComponent(f.groupId)}`,
-      { action: 'AI Triage lookup' },
-    );
-    return status === 404 ? null : triageFromBody(body);
-  }
-
   async function pollTriage(list) {
     const deadline = Date.now() + TRIAGE_TIMEOUT_MS;
     let waiting = list.slice();
-    while (waiting.length && Date.now() < deadline) {
+    while (waiting.length && backend && Date.now() < deadline) {
       await sleep(POLL_MS);
+      const answers = await backend.results(waiting);
       const still = [];
-      for (const f of waiting) {
-        try {
-          const result = await readTriage(f);
-          if (result && !TERMINAL_WAIT.has(result.status)) {
-            f.triage = result;
-            renderTriage(f);
-            log(`AI Triage: ${f.title} → ${(VERDICTS[result.status] || [result.status])[0]}`, result.status === 'FAILED' ? 'error' : 'success');
-          } else {
-            still.push(f);
-          }
-        } catch (error) {
-          if (error.status === 0 || error.status === 401) throw error;
+      waiting.forEach((f, i) => {
+        const result = answers[i]?.found ? triageFromBody(answers[i].body) : null;
+        if (result && !WAITING.has(result.status)) {
+          f.triage = result;
+          renderTriage(f);
+          log(`AI Triage: ${f.title} → ${(VERDICTS[result.status] || [result.status])[0]}`, result.status === 'FAILED' ? 'error' : 'success');
+        } else {
           still.push(f);
         }
-      }
+      });
       waiting = still;
     }
     for (const f of waiting) {
-      f.triage = { status: '', error: 'Still running in Checkmarx One — reconnect later to see the result.' };
+      f.triage = { status: '', note: 'Still running — see Checkmarx One' };
       renderTriage(f);
-      log(`AI Triage for ${f.title} is taking longer than expected; the result will appear in Checkmarx One.`, 'info');
     }
+    if (waiting.length) log(`${waiting.length} AI Triage job(s) are still running; the results will appear in Checkmarx One.`, 'info');
   }
 
   async function triage(list) {
-    const buckets = new Map();
-    for (const f of list) {
-      const key = `${f.scanId}|${f.scanner}`;
-      if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key).push(f);
-    }
-
+    const results = await backend.triage(list);
     const started = [];
-    for (const group of buckets.values()) {
-      const { scanId, scanner } = group[0];
-      const resultIDs = [...new Set(group.map((f) => f.alternateId))];
-      try {
-        const { body } = await api('/api/ai-triage/triage', {
-          method: 'POST',
-          action: 'AI Triage',
-          body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs }] },
-        });
+    for (const result of results) {
+      const group = list.filter((f) => result.alternateIds.includes(f.alternateId));
+      if (result.ok) {
         for (const f of group) {
           f.triage = { status: 'IN_PROGRESS' };
           renderTriage(f);
         }
         started.push(...group);
         log(
-          body && body.published === false
-            ? `AI Triage already running for ${group.length} finding(s); following the existing job.`
-            : `AI Triage started for ${group.length} finding(s).`,
+          result.published
+            ? `AI Triage started for ${group.length} finding(s).`
+            : `AI Triage already running for ${group.length} finding(s); following it.`,
           'pending',
         );
-      } catch (error) {
-        log(error.message, 'error');
-        banner(error.message);
-        if (error.status === 0 || error.status === 401 || error.status === 402 || error.status === 403) break;
+      } else {
+        reportError(new CxError(result.error, result.status));
       }
     }
-    if (started.length) await pollTriage(started);
+    // Results arrive over minutes; follow them in the background so other
+    // actions stay available meanwhile.
+    if (started.length) pollTriage(started).catch(reportError);
   }
 
   async function bulkTriage(severity) {
     const list = triageCandidates(severity);
     if (!list.length) return;
     const label = SEVERITY_LABELS[severity];
-    if (!confirm(`Run AI Triage on all ${list.length} ${label} finding(s)? This uses ${list.length} Checkmarx One credit(s).`)) return;
+    const projects = new Set(list.map((f) => f.projectId)).size;
+    const where = projects > 1 ? ` across ${projects} projects` : '';
+    if (!confirm(`Run AI Triage on all ${list.length} ${label} finding(s)${where}? This uses ${list.length} Checkmarx One credit(s).`)) return;
     bulkRunning = true;
     updateBulk();
     try {
       await triage(list);
     } catch (error) {
-      banner(error.message);
-      log(error.message, 'error');
+      reportError(error);
     } finally {
       bulkRunning = false;
       updateBulk();
@@ -382,91 +449,79 @@
 
   async function loadExistingTriage() {
     const eligible = findings.filter((f) => !f.aiUnavailable);
-    let cursor = 0;
+    if (!eligible.length) return;
+    const answers = await backend.results(eligible);
     const resumed = [];
-    const worker = async () => {
-      while (cursor < eligible.length) {
-        const f = eligible[cursor++];
-        const result = await readTriage(f);
-        if (result) {
-          f.triage = result;
-          renderTriage(f);
-          if (result.status === 'IN_PROGRESS') resumed.push(f);
-        }
-      }
-    };
-    await Promise.all([worker(), worker(), worker(), worker()]);
-    const done = eligible.filter((f) => f.triage && !TERMINAL_WAIT.has(f.triage.status)).length;
-    log(`Loaded AI Triage results: ${done} of ${eligible.length} eligible findings already triaged.`, 'success');
-    if (resumed.length) pollTriage(resumed).catch((error) => log(error.message, 'error'));
+    eligible.forEach((f, i) => {
+      const result = answers[i]?.found ? triageFromBody(answers[i].body) : null;
+      if (!result) return;
+      f.triage = result;
+      renderTriage(f);
+      if (result.status === 'IN_PROGRESS') resumed.push(f);
+    });
+    log(`Loaded AI Triage results: ${eligible.filter(hasVerdict).length} of ${eligible.length} eligible findings already triaged.`, 'success');
+    if (resumed.length) pollTriage(resumed).catch(reportError);
   }
 
   // ---------------------------------------------------------------------------
   // Connect
   // ---------------------------------------------------------------------------
 
-  function openConnect() {
-    $('key-input').value = '';
-    $('key-status').textContent = '';
-    $('key-detected').hidden = true;
+  function renderConnectorStatus() {
+    const version = connectorVersion();
+    $('connector-status').textContent = version
+      ? `✓ Report Connector ${version} installed`
+      : 'Needs the “Checkmarx One Report Connector” browser extension, with “Allow access to file URLs” switched on.';
+    $('connector-status').className = version ? 'ok' : 'muted';
+    $('direct-connect').disabled = !version;
+  }
+
+  function openConnect(then = null) {
+    afterConnect = then;
+    $('connect-status').textContent = '';
+    renderConnectorStatus();
     $('connect-dialog').showModal();
-    $('key-input').focus();
   }
 
-  async function connect(apiKey, { quiet = false } = {}) {
-    const candidate = connectionFor(apiKey);
-    if (!candidate) throw new CxError('That does not look like a Checkmarx One API key.', 400);
-    const previous = auth;
-    auth = candidate;
+  async function connectWith(candidate, { quiet = false } = {}) {
+    const { tenant } = await candidate.connect();
+    backend = candidate;
     try {
-      await getToken(true);
-      await api('/api/projects?limit=1&offset=0', { action: 'Connection check' });
-    } catch (error) {
-      auth = previous;
-      throw error;
-    }
-    try {
-      sessionStorage.setItem(KEY_STORE, apiKey);
+      sessionStorage.setItem(STORE, candidate.mode);
     } catch {}
-    setConnectedUI();
-    banner('');
-    if (!candidate.sameTenant && config.tenant) {
-      banner(`This key is for tenant "${candidate.tenant}", but the report was generated from "${config.tenant}". Actions will fail unless the findings exist there.`, 'warn');
-    }
-    if (!quiet) log(`Connected to Checkmarx One (${candidate.tenant}).`, 'success');
-    loadExistingTriage().catch((error) => log(error.message, 'error'));
+    setConnectedUI(tenant);
+    updateBulk();
+    if (!quiet) log(`Connected to Checkmarx One (${tenant}) ${candidate.label}.`, 'success');
+    loadExistingTriage().catch(reportError);
   }
 
-  async function submitKey(event) {
-    event.preventDefault();
-    const apiKey = $('key-input').value.trim();
-    const status = $('key-status');
-    const claims = decodeKey(apiKey);
-    if (!claims) {
-      status.textContent = 'That does not look like a Checkmarx One API key.';
-      return;
-    }
-    $('key-tenant').textContent = claims.tenant;
-    $('key-host').textContent = new URL(claims.iamUrl).host;
-    $('key-detected').hidden = false;
-    status.textContent = 'Connecting…';
-    $('key-submit').disabled = true;
+  async function submitConnect(makeBackend, button, waitingText) {
+    const status = $('connect-status');
+    status.textContent = waitingText;
+    button.disabled = true;
     try {
-      await connect(apiKey);
+      await connectWith(makeBackend());
       $('connect-dialog').close();
+      banner('');
+      const then = afterConnect;
+      afterConnect = null;
+      if (then) then();
     } catch (error) {
       status.textContent = error.message;
     } finally {
-      $('key-submit').disabled = false;
+      button.disabled = false;
+      renderConnectorStatus();
     }
   }
 
   function disconnect() {
-    auth = null;
+    backend?.disconnect();
+    backend = null;
     try {
-      sessionStorage.removeItem(KEY_STORE);
+      sessionStorage.removeItem(STORE);
     } catch {}
     setConnectedUI();
+    updateBulk();
     log('Disconnected from Checkmarx One.', 'info');
   }
 
@@ -474,39 +529,50 @@
   // Wiring
   // ---------------------------------------------------------------------------
 
-  $('connect').addEventListener('click', () => (auth ? confirm('Disconnect from Checkmarx One?') && disconnect() : openConnect()));
-  $('key-form').addEventListener('submit', submitKey);
-  $('key-cancel').addEventListener('click', () => $('connect-dialog').close());
-  // Without an API key the "Triage all" buttons are plain links into Risk Hub.
-  for (const btn of bulkButtons()) {
-    btn.addEventListener('click', (event) => {
-      if (!auth) return;
-      event.preventDefault();
-      if (!btn.classList.contains('is-busy')) bulkTriage(btn.dataset.severity);
-    });
+  const requireConnection = (action) => (backend ? action() : openConnect(action));
+
+  $('connect').addEventListener('click', () => {
+    if (!backend) return openConnect();
+    if (confirm('Disconnect from Checkmarx One?')) disconnect();
+  });
+  if ($('relay-connect')) {
+    $('relay-connect').addEventListener('click', () =>
+      submitConnect(relayBackend, $('relay-connect'), 'Connecting to the reminder server…'),
+    );
   }
-  // Triage opens the finding in Checkmarx One Risk Hub, unless an API key is
-  // connected, in which case it runs AI Triage right here.
+  $('direct-connect').addEventListener('click', () =>
+    submitConnect(() => directBackend(loginSignIn), $('direct-connect'), 'Sign in on the Checkmarx One page that opened; it closes by itself when you are done.'),
+  );
+  $('key-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const apiKey = $('key-input').value.trim();
+    if (!apiKey) return;
+    submitConnect(() => directBackend(apiKeySignIn(apiKey)), $('key-submit'), 'Connecting…');
+  });
+  $('connect-cancel').addEventListener('click', () => $('connect-dialog').close());
+
+  for (const btn of bulkButtons()) {
+    btn.addEventListener('click', () => requireConnection(() => bulkTriage(btn.dataset.severity)));
+  }
   $('findings').addEventListener('click', (event) => {
-    const btn = event.target.closest('a[data-action="triage"]');
-    if (!btn || !auth) return;
+    const btn = event.target.closest('button[data-action="triage"]');
+    if (!btn) return;
     const f = byKey.get(btn.closest('tr').dataset.key);
     if (!f || f.aiUnavailable) return;
-    event.preventDefault();
-    if (btn.classList.contains('is-busy')) return;
-    triage([f]).catch((error) => {
-      banner(error.message);
-      log(error.message, 'error');
-    });
+    requireConnection(() => triage([f]).catch(reportError));
   });
 
-  updateBulk();
   setConnectedUI();
-  let stored = null;
+  updateBulk();
+
+  // Pick up where this browser left off: the extension keeps its session.
+  let saved = null;
   try {
-    stored = sessionStorage.getItem(KEY_STORE);
+    saved = sessionStorage.getItem(STORE);
   } catch {}
-  if (stored) {
-    connect(stored, { quiet: true }).catch((error) => log(`Could not reconnect: ${error.message}`, 'error'));
+  if (saved === 'relay' && config.relayUrl) {
+    connectWith(relayBackend(), { quiet: true }).catch((error) => log(`Could not reconnect: ${error.message}`, 'error'));
+  } else if (connectorVersion()) {
+    connectWith(directBackend(existingSession), { quiet: true }).catch(() => {});
   }
 })();

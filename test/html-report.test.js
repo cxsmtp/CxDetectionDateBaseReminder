@@ -61,7 +61,13 @@ test('AI actions are enabled only for SAST/SCA findings whose Checkmarx One ids 
   assert.equal(byTitle['Vuln 1'].alternateId, 'alt-1');
   assert.match(byTitle['Vuln 2'].aiUnavailable, /identifiers/);
   assert.match(byTitle['Vuln 3'].aiUnavailable, /SAST and SCA only/);
-  assert.deepEqual(island(html).config, { tenant: 'acme', iamUrl: '', apiBaseUrl: 'https://eu.ast.checkmarx.net' });
+  assert.deepEqual(island(html).config, {
+    tenant: 'acme',
+    iamUrl: '',
+    apiBaseUrl: 'https://eu.ast.checkmarx.net',
+    portalUrl: 'https://eu.ast.checkmarx.net',
+    relayUrl: '',
+  });
   assert.ok(!/apiKey|refresh_token"\s*:/.test(JSON.stringify(island(html))), 'no credential is embedded');
 });
 

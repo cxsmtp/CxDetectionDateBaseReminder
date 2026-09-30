@@ -355,6 +355,7 @@ function renderSettings() {
   $('link-base').value = s.links.baseUrl;
   $('link-project').value = s.links.project;
   $('link-risk').value = s.links.risk;
+  $('link-report-server').value = s.links.reportServerUrl ?? '';
   renderLinkExamples(s.linkExamples);
 
   $('tpl-subject').value = s.template.subject;
@@ -633,6 +634,7 @@ function settingsPayload() {
       baseUrl: $('link-base').value,
       project: $('link-project').value,
       risk: $('link-risk').value,
+      reportServerUrl: $('link-report-server').value,
     },
     endpoints: { risksPath: $('risks-path').value },
   };

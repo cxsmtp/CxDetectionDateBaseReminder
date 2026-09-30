@@ -240,8 +240,8 @@ export function buildReportEmail(reportData, { greeting = 'Hi', topCount = 0 } =
     `<p>You have <b>${total}</b> open finding${total === 1 ? '' : 's'}${escapeHtml(summary)} ` +
     `across ${projects.length} project${projects.length === 1 ? '' : 's'}.</p>` +
     (buttons ? `<p>${buttons}</p><p style="color:#667085;font-size:13px">Opens the project in Checkmarx One, where you can launch AI Triage on its findings.</p>` : '') +
-    `<p>The attached report lists the top ${topCount} findings. Open it in your browser and connect with your ` +
-    `Checkmarx One API key to run AI Triage on all of them at once, or AI Triage and AI Remediation on each one.</p>` +
+    `<p>The attached report lists your top ${topCount} findings. Open it in your browser, click ` +
+    `<b>Connect to CxONE for action</b>, and triage every critical or high finding across all your projects in one click.</p>` +
     `</div>`;
 
   const text = [
@@ -251,8 +251,8 @@ export function buildReportEmail(reportData, { greeting = 'Hi', topCount = 0 } =
     '',
     ...withUrls.map((p) => `Start triaging ${p.projectName}: ${p.url}`),
     '',
-    `The attached report lists the top ${topCount} findings. Open it in your browser and connect with your ` +
-      'Checkmarx One API key to run AI Triage on all of them at once, or AI Triage and AI Remediation on each one.',
+    `The attached report lists your top ${topCount} findings. Open it in your browser, click "Connect to CxONE for action", ` +
+      'and triage every critical or high finding across all your projects in one click.',
   ].join('\n');
 
   return { html, text };
