@@ -127,11 +127,11 @@ export function parsePorcelain(text) {
 
 /** `git blame` of one line on a partial clone (file contents are fetched on demand). */
 export async function localBlame({ cloneUrl, ref, path, line, cacheDir, token = '' }) {
-  const { dir, env } = await ensureClone(cloneUrl, { cacheDir, token, blobs: true });
-  const opts = { env, timeout: 120_000, maxBuffer: 16 * 1024 * 1024 };
   // A ref from scan data must never be read as a git option ("--output=…").
   const safeRef = (r) => r && /^[\w./@{}^~-]+$/.test(r) && !r.startsWith('-');
   if (!path || path.startsWith('-') || !(line > 0)) return null;
+  const { dir, env } = await ensureClone(cloneUrl, { cacheDir, token, blobs: true });
+  const opts = { env, timeout: 120_000, maxBuffer: 16 * 1024 * 1024 };
   for (const candidate of [ref, 'HEAD'].filter(safeRef)) {
     try {
       const { stdout } = await run('git', ['-C', dir, 'blame', '--porcelain', '-L', `${line},${line}`, candidate, '--', path], opts);
