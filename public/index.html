@@ -285,6 +285,7 @@
                   <label class="switch"><input type="checkbox" id="attach-html-report" checked /> <span><strong>Attach the interactive HTML report</strong><small>Readers can triage and remediate straight from it</small></span></label>
                 </div>
                 <p class="hint wide" id="groupby-hint"></p>
+                <p class="server-note" id="server-note" hidden></p>
 
                 <details class="disclosure recipients" id="recipients-box">
                   <summary>Recipient list <span class="hint inline-hint" id="recipients-hint">Loading…</span></summary>
@@ -329,6 +330,7 @@
               <a href="#set-ai">AI &amp; credits</a>
               <a href="#set-branding">Branding</a>
               <a href="#set-links">Links</a>
+              <a href="#set-server">Server address</a>
               <a href="#set-endpoint">Risks endpoint</a>
             </nav>
 
@@ -600,10 +602,23 @@
 
               <div class="kv" id="link-examples"></div>
 
-              <label class="field">
-                <span>Reminder server address for reports — how recipients' browsers reach this server to triage from a report (e.g. <code>https://cx-reminder.corp.example</code>). Blank uses the address this page is open on.</span>
-                <input id="link-report-server" spellcheck="false" placeholder="https://cx-reminder.corp.example" />
-              </label>
+            </section>
+
+            <section class="panel" id="set-server">
+              <h2>Reminder server address</h2>
+              <p class="hint wide">
+                Put into every HTML report, so anyone who opens it can connect and triage: the address people's browsers
+                use to reach this server — e.g. <code>https://cx-reminder.corp.example</code>. Readers see it in the report
+                and can correct it there if the server moves.
+              </p>
+              <div class="server-field">
+                <label class="field">
+                  <span>Address — blank uses <code>REPORT_SERVER_URL</code>, else the address this page is open on</span>
+                  <input id="link-report-server" type="url" spellcheck="false" placeholder="https://cx-reminder.corp.example" />
+                </label>
+                <button id="test-report-server" type="button">Test</button>
+              </div>
+              <div class="server-effective" id="server-effective"></div>
             </section>
 
             <section class="panel" id="set-endpoint">

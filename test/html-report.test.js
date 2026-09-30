@@ -139,3 +139,30 @@ test('the report carries the re-triage switch, a valid administrator contact and
   assert.equal(island(html).config.adminContact, '');
   assert.match(html, /<dialog id="credit-dialog"/);
 });
+
+test('the report shows its reminder server address, and one without an address can still be connected', () => {
+  const resolved = { ...risk(1, 'CRITICAL'), alternateId: 'alt-1', groupId: '1', scanId: 's1' };
+  const build = (relayUrl) =>
+    generateHtmlReport(buildReportData([resolved], { tenant: 't' }), {
+      findings: [resolved],
+      bulkFindings: [],
+      relayUrl,
+      remediationViaRelay: true,
+      sign: () => ({ exp: 1, grant: 'g' }),
+    });
+
+  const withServer = build('https://cx-reminder.corp.example/');
+  assert.match(withServer, /<code id="server-url" class="server-url">https:\/\/cx-reminder\.corp\.example<\/code>/);
+  assert.match(withServer, /id="server-change"[^>]*>Change</);
+  assert.ok(!/id="connect"[^>]*disabled/.test(withServer));
+
+  const without = build('');
+  assert.match(without, /<code id="server-url" class="server-url">not set<\/code>/);
+  assert.match(without, /id="server-change"[^>]*>Enter address</);
+  assert.ok(!/id="connect"[^>]*disabled/.test(without), 'Connect asks for the address instead of being disabled');
+  assert.equal(island(without).findings[0].grant, 'g', 'findings are signed, so the reader can triage once connected');
+  assert.match(without, /data-action="remediate">Remediate</);
+
+  const hostile = build('javascript:alert(1)');
+  assert.equal(island(hostile).config.relayUrl, '');
+});

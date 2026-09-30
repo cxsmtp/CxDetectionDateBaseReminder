@@ -20,6 +20,14 @@
   const byKey = new Map(findings.map((f) => [f.key, f]));
 
   const STORE = 'cxReportConnection';
+  // The address the report was sent with; a reader's correction is kept in
+  // this browser for every report that carries the same original address.
+  const ORIGINAL_SERVER = String(config.relayUrl || '').replace(/\/+$/, '');
+  const SERVER_STORE = `cxReportServer:${ORIGINAL_SERVER}`;
+  try {
+    const override = localStorage.getItem(SERVER_STORE);
+    if (override) config.relayUrl = override;
+  } catch {}
   const POLL_MS = 6000;
   const MAX_POLL_MS = 30000;
   const TRIAGE_TIMEOUT_MS = 20 * 60 * 1000;
@@ -181,7 +189,8 @@
           body: JSON.stringify(config.report ? { ...body, report: config.report } : body),
         });
       } catch {
-        throw new CxError(`Cannot reach the reminder server at ${new URL(base).host}. It must be running and reachable from this computer.`);
+        serverState('Unreachable', 'bad');
+        throw new CxError(`Cannot reach the reminder server at ${base}. It must be running and reachable from this computer (company network or VPN). If it moved, use "Change" next to its address.`);
       }
       let parsed = null;
       try {
@@ -831,6 +840,8 @@
       sessionStorage.setItem(STORE, 'relay');
     } catch {}
     setConnectedUI(status.tenant);
+    showServer();
+    serverState('Connected', 'good');
     showCredits(status.creditsRemaining);
     updateBulk();
     banner('');
@@ -847,6 +858,7 @@
       sessionStorage.removeItem(STORE);
     } catch {}
     setConnectedUI();
+    showServer();
     renderCredits();
     updateBulk();
     log('Disconnected from Checkmarx One.', 'info');
@@ -855,12 +867,114 @@
   /** Connect first if needed (once, however many buttons are clicked), then act. */
   function requireConnection(action) {
     if (backend) return action();
-    if (!config.relayUrl) return reportError(new CxError('This report was generated without a reminder server address.'));
+    if (!config.relayUrl) {
+      openServerForm('Enter the reminder server address to connect.');
+      return;
+    }
     connecting ??= connect().finally(() => {
       connecting = null;
     });
     connecting.then(action, reportError);
   }
+
+  // ---------------------------------------------------------------------------
+  // Reminder server address: shown, checked, and correctable by the reader
+  // ---------------------------------------------------------------------------
+
+  const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\]|0\.0\.0\.0)$/i;
+
+  function serverState(text, kind = '') {
+    const el = $('server-state');
+    el.textContent = text;
+    el.className = `server-state ${kind}`;
+  }
+
+  function showServer() {
+    const url = String(config.relayUrl || '').replace(/\/+$/, '');
+    $('server-url').textContent = url || 'not set';
+    $('server-change').textContent = url ? 'Change' : 'Enter address';
+    $('server-reset').hidden = !ORIGINAL_SERVER || url === ORIGINAL_SERVER;
+    if (!url) serverState('Needed to triage from this report', 'warn');
+    else if (url !== ORIGINAL_SERVER) serverState('Changed in this browser', 'warn');
+    else {
+      try {
+        serverState(LOOPBACK.test(new URL(url).hostname) ? 'Only reachable on the server’s own computer' : '', LOOPBACK.test(new URL(url).hostname) ? 'warn' : '');
+      } catch {
+        serverState('');
+      }
+    }
+  }
+
+  function openServerForm(message = '') {
+    $('server-form').hidden = false;
+    $('server-input').value = config.relayUrl ? String(config.relayUrl).replace(/\/+$/, '') : '';
+    $('server-error').hidden = !message;
+    $('server-error').textContent = message;
+    $('server-error').style.color = message && !config.relayUrl ? 'var(--warn)' : '';
+    $('server-input').focus();
+  }
+
+  /** Is this address a reminder server? Resolves with the clean address, or throws a readable reason. */
+  async function checkServer(value) {
+    let url;
+    try {
+      url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
+    } catch {
+      throw new CxError('That is not a web address, e.g. https://cx-reminder.example.com');
+    }
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new CxError('Use an http or https address.');
+    const base = `${url.origin}${url.pathname}`.replace(/\/+$/, '');
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = controller && setTimeout(() => controller.abort(), 10000);
+    let body = null;
+    try {
+      const response = await fetch(`${base}/api/relay/ping`, { signal: controller?.signal, cache: 'no-store' });
+      body = await response.json().catch(() => null);
+    } catch {
+      throw new CxError(`No reminder server answered at ${base}. Check the address, and that you are on the company network or VPN.`);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+    if (body?.service !== 'mission-zero-relay') throw new CxError(`${base} answered, but it is not a reminder server. Check the address.`);
+    return base;
+  }
+
+  async function useServer(base) {
+    config.relayUrl = base;
+    try {
+      if (base && base !== ORIGINAL_SERVER) localStorage.setItem(SERVER_STORE, base);
+      else localStorage.removeItem(SERVER_STORE);
+    } catch {}
+    if (backend) disconnect();
+    showServer();
+    $('server-form').hidden = true;
+    log(`Reminder server set to ${base}.`, 'info');
+    await connect();
+  }
+
+  $('server-change').addEventListener('click', () => ($('server-form').hidden ? openServerForm() : ($('server-form').hidden = true)));
+  $('server-cancel').addEventListener('click', () => {
+    $('server-form').hidden = true;
+  });
+  $('server-reset').addEventListener('click', () => {
+    useServer(ORIGINAL_SERVER).catch(reportError);
+  });
+  $('server-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submit = $('server-form').querySelector('button[type="submit"]');
+    submit.disabled = true;
+    $('server-error').hidden = true;
+    try {
+      await useServer(await checkServer($('server-input').value.trim()));
+    } catch (error) {
+      $('server-error').style.color = '';
+      $('server-error').textContent = error.message;
+      $('server-error').hidden = false;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+  showServer();
 
   // ---------------------------------------------------------------------------
   // Wiring

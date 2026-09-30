@@ -226,8 +226,23 @@ One records the triage under the server's account.
   Checkmarx One state — the one Risk Hub shows — which is what settles when AI
   Triage finishes (its own record can lag behind, or be missing for grouped SAST
   findings).
-- **Reachability.** Set **Settings → Reminder server address for reports** to an
-  address recipients' browsers can reach (use HTTPS).
+- **Reminder server address.** Every report carries the address readers'
+  browsers use to reach this server, shown at the top of the report.
+  - **Where it comes from:** **Settings → Reminder server address**, else
+    `REPORT_SERVER_URL`, else the address the dashboard is open on. Automatic
+    reminders use the same address, falling back to the last one an
+    administrator used.
+  - **Warnings:** the Settings page and the dashboard warn when the address is
+    `localhost` (no one else can reach it) or plain http. **Test** checks that
+    it answers as this server.
+  - **In the report:** readers can enter or correct the address (**Change** /
+    **Enter address**). The report checks that it really is a reminder server
+    before using it. The correction is remembered in that browser for every
+    report sent with the same original address, so a moved server is fixed
+    once. A report sent without an address can still be connected this way.
+  - **Private networks:** browsers that ask before a page opened from disk
+    calls a company-network address get the server's consent header.
+    Use HTTPS.
 - **Scope.** Each finding in a report carries a signed grant, valid for 30 days;
   the server acts only on findings with a valid grant, so it cannot be used to
   triage anything a report did not list. The signing key is kept in

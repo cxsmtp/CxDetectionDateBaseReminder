@@ -176,10 +176,13 @@ app.use(express.static(publicDir));
  */
 app.use('/api/relay', (req, res, next) => {
   res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
   res.set('Access-Control-Max-Age', '600');
   res.set('Access-Control-Expose-Headers', 'Retry-After');
+  // A report opened from disk calling a server on the company network: browsers
+  // that enforce Private Network Access ask first, and this is the yes.
+  if (req.get('access-control-request-private-network')) res.set('Access-Control-Allow-Private-Network', 'true');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
@@ -880,8 +883,47 @@ app.post(
 );
 
 /** Where emailed reports reach this server: the configured address, else the one the dashboard is using. */
+/**
+ * The reminder server address put into every report, so anyone opening it can
+ * connect: the Settings page, else REPORT_SERVER_URL / PUBLIC_URL, else the
+ * address the dashboard is open on. Reports sent with nobody at the dashboard
+ * (automatic reminders) use the last address an administrator reached it on.
+ */
+const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|0\.0\.0\.0)$/i;
+let lastDashboardOrigin = '';
+
+function requestOrigin(req) {
+  const origin = `${req.protocol}://${req.get('host')}`;
+  try {
+    if (!LOOPBACK.test(new URL(origin).hostname)) lastDashboardOrigin = origin;
+  } catch {}
+  return origin;
+}
+
+function resolveReportServer(req = null, settings = settingsStore.get()) {
+  if (settings.links.reportServerUrl) return { url: settings.links.reportServerUrl, source: 'settings' };
+  if (config.reportServerUrl) return { url: config.reportServerUrl, source: 'environment' };
+  if (req) return { url: requestOrigin(req), source: 'this page' };
+  if (lastDashboardOrigin) return { url: lastDashboardOrigin, source: 'last dashboard address' };
+  return { url: '', source: 'none' };
+}
+
 function reportServerUrl(req, settings) {
-  return settings.links.reportServerUrl || `${req.protocol}://${req.get('host')}`;
+  return resolveReportServer(req, settings).url;
+}
+
+/** Why readers might not be able to use an address. */
+function reportServerWarnings(url) {
+  if (!url) return ['No address: reports go out without one, and readers must type it in before they can triage.'];
+  const warnings = [];
+  try {
+    const parsed = new URL(url);
+    if (LOOPBACK.test(parsed.hostname)) warnings.push(`${parsed.hostname} only works on the computer running this server. Set the address others use to reach it.`);
+    if (parsed.protocol === 'http:' && !LOOPBACK.test(parsed.hostname)) warnings.push('Plain http: triage requests cross the network unencrypted. Prefer https behind a reverse proxy.');
+  } catch {
+    warnings.push('Not a valid address.');
+  }
+  return warnings;
 }
 
 // ---------------------------------------------------------------------------
@@ -1174,6 +1216,24 @@ function creditRefusal(projectId, projectName, kind, credits, limit) {
   }
   return '';
 }
+
+/** Lets a report (or the Settings page) check an address really is this server. Never needs a connection. */
+app.get('/api/relay/ping', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ service: 'mission-zero-relay', ok: true });
+});
+
+app.get('/api/report-server', requireSession, (req, res) => {
+  const settings = settingsStore.get();
+  const effective = resolveReportServer(req, settings);
+  res.json({
+    ...effective,
+    configured: settings.links.reportServerUrl,
+    environment: config.reportServerUrl,
+    automatic: resolveReportServer(null, settings),
+    warnings: reportServerWarnings(effective.url),
+  });
+});
 
 app.post(
   '/api/relay/status',
@@ -2173,7 +2233,9 @@ async function runDueTrackedReminders(session) {
       continue;
     }
     try {
-      const result = await remindTrackedReport(session, report, auto, settings.links.reportServerUrl, { automatic: true });
+      const server = resolveReportServer(null, settings);
+      if (!server.url) console.warn(`! [reports] "${report.name}": sent without a reminder server address — set it in Settings → Links or REPORT_SERVER_URL.`);
+      const result = await remindTrackedReport(session, report, auto, server.url, { automatic: true });
       auto.lastError = result.status === 200 ? '' : result.body?.error || 'Failed';
     } catch (error) {
       auto.lastError = error.message;

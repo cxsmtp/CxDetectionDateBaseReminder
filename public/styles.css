@@ -992,3 +992,12 @@ label.button-like:focus-within { outline: 2px solid var(--accent); outline-offse
   .audit-filter-actions { width: 100%; }
   .audit-filter-actions button { flex: 1; }
 }
+
+/* Reminder server address */
+.server-field { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.server-field .field { flex: 1 1 320px; margin: 0; }
+.server-effective { margin-top: 10px; display: grid; gap: 6px; font-size: 13px; }
+.server-effective p { margin: 0; overflow-wrap: anywhere; }
+.server-warnings { margin: 0; padding-left: 18px; color: var(--warn); }
+.server-note { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; font-size: 13px; color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent); overflow-wrap: anywhere; }

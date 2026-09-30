@@ -86,7 +86,9 @@ export function generateHtmlReport(reportData, options = {}) {
   }
 
   const relayUrl = safeHttpUrl(options.relayUrl);
-  const remediateHere = Boolean(relayUrl && options.remediationViaRelay);
+  // Signed and relay-ready even without an address: a reader can enter the
+  // reminder server's address in the report and still triage.
+  const remediateHere = Boolean(options.remediationViaRelay);
   const clientFindings = [...findings, ...bulkFindings].map((f, index) => {
     const client = {
       key: String(index),
@@ -104,7 +106,7 @@ export function generateHtmlReport(reportData, options = {}) {
       url: safeHttpUrl(f.url),
       aiUnavailable: aiUnavailableReason(f),
     };
-    return relayUrl && options.sign && !client.aiUnavailable ? { ...client, ...options.sign(client) } : client;
+    return options.sign && !client.aiUnavailable ? { ...client, ...options.sign(client) } : client;
   });
 
   const payload = {
@@ -159,7 +161,7 @@ export function generateHtmlReport(reportData, options = {}) {
         · top ${findings.length} shown (worst severity, then oldest)
         · generated ${escapeHtml(reportData.generatedAt ?? '')} UTC${connection.tenant ? ` · tenant ${escapeHtml(connection.tenant)}` : ''}</p>
     </div>
-    <button id="connect" class="btn btn-light" type="button"${relayUrl ? '' : ' disabled title="This report was generated without a reminder server address."'}>Connect to CxONE for action</button>
+    <button id="connect" class="btn btn-light" type="button">Connect to CxONE for action</button>
   </div>
   <div class="counts">
     ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
@@ -170,6 +172,25 @@ export function generateHtmlReport(reportData, options = {}) {
 
 <main>
   <div id="banner" class="banner" hidden></div>
+
+  <section class="server" id="server" aria-label="Reminder server">
+    <div class="server-row">
+      <span class="server-label">Reminder server</span>
+      <code id="server-url" class="server-url">${relayUrl ? escapeHtml(relayUrl.replace(/\/+$/, '')) : 'not set'}</code>
+      <span id="server-state" class="server-state"></span>
+      <button id="server-change" class="btn btn-outline btn-small" type="button">${relayUrl ? 'Change' : 'Enter address'}</button>
+    </div>
+    <form id="server-form" class="server-form" hidden>
+      <label for="server-input" class="muted">Address of your reminder server — ask whoever sent this report if you do not know it.</label>
+      <div class="server-form-row">
+        <input id="server-input" type="text" inputmode="url" autocomplete="url" spellcheck="false" placeholder="https://cx-reminder.example.com" required />
+        <button class="btn" type="submit">Check &amp; connect</button>
+        <button id="server-reset" class="btn btn-outline" type="button"${relayUrl ? '' : ' hidden'}>Use the report's address</button>
+        <button id="server-cancel" class="btn btn-outline" type="button">Cancel</button>
+      </div>
+      <p id="server-error" class="server-error" hidden></p>
+    </form>
+  </section>
 
   <section class="actions">
     <div class="bulk-row">
@@ -188,7 +209,7 @@ export function generateHtmlReport(reportData, options = {}) {
       high finding in this report, across all its projects. ${remediateHere
         ? 'Remediate runs Checkmarx One AI Remediation and links to the suggested fix (or its pull request).'
         : 'Remediate opens the finding in Checkmarx One Risk Hub.'}
-      ${relayUrl ? `${remediateHere ? 'Triage and Remediate go' : 'Triage goes'} through your reminder server (${escapeHtml(new URL(relayUrl).host)}), which must be reachable from this computer.` : ''}</p>
+      ${remediateHere ? 'Triage and Remediate go' : 'Triage goes'} through the reminder server shown above, which must be reachable from this computer (company network or VPN).</p>
   </section>
 
   <div class="table-wrap">
@@ -323,6 +344,20 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px max(24px, env(safe-area-
 .actions { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
 .bulk-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .actions p { margin: 8px 0 0; }
+.server { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; margin-bottom: 12px; }
+.server-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.server-label { font-weight: 600; }
+.server-url { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--muted-bg); color: var(--muted-ink);
+  padding: 2px 8px; border-radius: 6px; overflow-wrap: anywhere; user-select: all; }
+.server-state { font-size: 12px; font-weight: 600; }
+.server-state.good { color: var(--good); }
+.server-state.bad { color: var(--bad); }
+.server-state.warn { color: var(--warn); }
+.server-form { margin-top: 10px; display: grid; gap: 6px; }
+.server-form-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.server-form input { flex: 1 1 260px; min-width: 0; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--outline-line);
+  background: var(--surface-2); color: var(--ink); }
+.server-error { margin: 0; color: var(--bad); font-size: 13px; overflow-wrap: anywhere; }
 .banner { border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; overflow-wrap: anywhere; }
 .banner-error { background: var(--bad-bg); color: var(--bad); border: 1px solid transparent; }
 .banner-warn { background: var(--warn-bg); color: var(--warn); border: 1px solid transparent; }

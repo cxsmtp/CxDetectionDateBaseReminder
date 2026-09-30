@@ -302,6 +302,7 @@ async function showConnected(session) {
   if (!location.hash) location.hash = '#/dashboard';
   await loadSettings();
   route();
+  loadReportServer();
 }
 
 function showDisconnected(message = 'Not connected.') {
@@ -846,6 +847,7 @@ async function saveSettings() {
     renderSettings();
     renderRecipientHint();
     loadCredits();
+    loadReportServer();
     applyAppBranding({ name: state.settings.branding.appName, logoUrl: state.settings.branding.logoUrl });
     setStatus('save-status', 'Saved.', 'ok');
   } catch (error) {
@@ -3286,3 +3288,67 @@ function renderAudit() {
   loadAudit();
   loadBackupStatus();
 }
+
+// ---------------------------------------------------------------------------
+// Reminder server address put into every report
+// ---------------------------------------------------------------------------
+
+const SERVER_SOURCES = {
+  settings: 'set here',
+  environment: 'from REPORT_SERVER_URL',
+  'this page': 'the address this page is open on',
+  'last dashboard address': 'the last address the dashboard was opened on',
+  none: 'none',
+};
+
+async function loadReportServer() {
+  let info;
+  try {
+    info = await api('/api/report-server');
+  } catch {
+    return;
+  }
+  state.reportServer = info;
+  const warnings = info.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join('');
+  const automatic = info.automatic.url !== info.url
+    ? `<p class="hint">Automatic reminders (nobody at this page) use ${info.automatic.url ? `<code>${escapeHtml(info.automatic.url)}</code>` : '<strong>no address</strong>'} — set the address here to make them match.</p>`
+    : '';
+  $('server-effective').innerHTML = `
+    <p>Reports use <code>${escapeHtml(info.url || 'no address')}</code> <span class="muted">(${escapeHtml(SERVER_SOURCES[info.source] ?? info.source)})</span></p>
+    ${warnings ? `<ul class="server-warnings">${warnings}</ul>` : ''}
+    ${automatic}`;
+  const note = $('server-note');
+  note.hidden = !info.warnings.length;
+  note.innerHTML = info.warnings.length
+    ? `Reports will point readers to <code>${escapeHtml(info.url || 'no address')}</code>: ${escapeHtml(info.warnings[0])} <a href="#/settings" data-jump="set-server">Set the address</a>`
+    : '';
+}
+
+$('server-note').addEventListener('click', (event) => {
+  if (!event.target.matches('[data-jump]')) return;
+  setTimeout(() => $('set-server')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+});
+
+$('test-report-server').addEventListener('click', async () => {
+  const typed = $('link-report-server').value.trim().replace(/\/+$/, '');
+  const url = typed || state.reportServer?.url || '';
+  const box = $('server-effective');
+  if (!url) {
+    box.innerHTML = '<p class="status error">Enter an address first.</p>';
+    return;
+  }
+  const result = document.createElement('p');
+  result.className = 'status';
+  result.textContent = `Checking ${url}…`;
+  box.prepend(result);
+  try {
+    const response = await fetch(`${url}/api/relay/ping`, { cache: 'no-store' });
+    const body = await response.json().catch(() => null);
+    if (body?.service !== 'mission-zero-relay') throw new Error(`${url} answered, but not as this reminder server.`);
+    result.className = 'status ok';
+    result.textContent = `Reachable from this browser. Readers on other networks need the same access (company network or VPN).${typed && typed !== state.settings?.links?.reportServerUrl ? ' Save to use it.' : ''}`;
+  } catch (error) {
+    result.className = 'status error';
+    result.textContent = error.message.includes('answered') ? error.message : `Could not reach ${url} from this browser: check the address, DNS and firewall.`;
+  }
+});
