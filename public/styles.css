@@ -425,3 +425,12 @@ td.credits .low { color: var(--danger); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 .report-card details { margin-top: 10px; font-size: 13px; }
 .report-card summary { cursor: pointer; }
+
+.brand { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.brand .sub { flex-basis: 100%; }
+.app-logo { height: 30px; max-width: 140px; object-fit: contain; }
+
+.follow-up { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+.follow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-top: 10px; }
+.follow-grid fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 0; }
+.follow-grid legend { font-weight: 600; font-size: 13px; padding: 0 4px; }

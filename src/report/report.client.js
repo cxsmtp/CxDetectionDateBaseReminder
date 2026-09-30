@@ -275,8 +275,8 @@
     if (!backend) return;
     $('bulk-credits').textContent =
       remaining === null || remaining === undefined
-        ? 'Each AI Triage or Remediation uses 1 Checkmarx One credit per finding.'
-        : `Each AI Triage or Remediation uses 1 Checkmarx One credit per finding · ${remaining} left this month.`;
+        ? 'AI Triage uses 1 Checkmarx One credit per finding, AI Remediation 3.'
+        : `AI Triage uses 1 Checkmarx One credit per finding, AI Remediation 3 · ${remaining} left this month.`;
   }
 
   // ---------------------------------------------------------------------------
@@ -493,7 +493,7 @@
         return renderRemediation(f);
       }
     }
-    if (!confirm(`Run Checkmarx One AI Remediation for "${f.title}"? It uses Checkmarx One credits and, for repository-connected projects, opens a pull request.`)) return;
+    if (!confirm(`Run Checkmarx One AI Remediation for "${f.title}"? It uses 3 Checkmarx One credits and, for repository-connected projects, opens a pull request.`)) return;
     f.remediation = { running: true };
     renderRemediation(f);
     try {

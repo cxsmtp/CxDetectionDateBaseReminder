@@ -73,6 +73,7 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
   }
 
   let newFindings = 0;
+  let newOpen = 0;
   let currentMatching = 0;
   for (const [projectId, risks] of currentByProject) {
     const row = byProject.get(projectId);
@@ -82,6 +83,7 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
       if (row) row.currentMatching += 1;
       if (!baselineKeys.has(`${projectId}|${risk.riskId}`)) {
         newFindings += 1;
+        if (outcomeOf(risk) !== 'notExploitable') newOpen += 1;
         if (row) row.newFindings += 1;
       }
     }
@@ -96,6 +98,7 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
     actioned,
     percentActioned: baseline ? Math.round((actioned / baseline) * 100) : 100,
     changed,
+    open: outcomes.awaiting + outcomes.confirmed + newOpen,
     newFindings,
     currentMatching,
     aiActions: aiActions(report.projects.map((p) => p.projectId), report.createdAt),

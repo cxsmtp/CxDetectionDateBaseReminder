@@ -5,15 +5,15 @@ import express from 'express';
 
 import { config, configProblems } from './config.js';
 import { filterProjectsByActivity, listProjects } from './cxone/projects.js';
-import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, selectRisks } from './cxone/risks.js';
+import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, selectRisks, summariseProject } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
 import { resolveAiIds } from './cxone/ai-assist.js';
 import { mapWithConcurrency } from './cxone/client.js';
 import { ReportGrants } from './report-grants.js';
-import { CreditLedger, monthOf } from './credits.js';
+import { CREDIT_COST, CreditLedger, monthOf } from './credits.js';
 import { CreditAllocations, toTriageCount } from './credit-allocations.js';
-import { TrackedReports, computeProgress, reportSummary } from './tracked-reports.js';
+import { TrackedReports, computeProgress, matchesFilters, reportSummary } from './tracked-reports.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl } from './links.js';
@@ -166,6 +166,11 @@ app.get('/api/health', (req, res) => {
     windowPresets: WINDOW_PRESETS.map(({ id, label }) => ({ id, label })),
     templateVariables: TEMPLATE_VARIABLES,
     defaultTemplate: DEFAULT_TEMPLATE,
+    // Shown in the header before anyone connects.
+    app: {
+      name: settingsStore.get().branding.appName || 'Mission Zero',
+      logoUrl: settingsStore.get().branding.logoUrl || '',
+    },
   });
 });
 
@@ -542,10 +547,39 @@ app.get(
 // Reminders
 // ---------------------------------------------------------------------------
 
-app.post(
-  '/api/reminders',
-  requireSession,
-  asyncRoute(async (req, res) => {
+const NOT_EXPLOITABLE_STATES = new Set(['NOT_EXPLOITABLE', 'PROPOSED_NOT_EXPLOITABLE']);
+
+/**
+ * Leave out findings triaged as not exploitable (proposed or confirmed), by
+ * their live Checkmarx One state — so triage the administrator ran after the
+ * last fetch counts too. Only confirmed findings and those still to verify
+ * stay in reminders and reports. Can be switched off in Settings.
+ */
+async function withoutNotExploitable(session, risks) {
+  if (settingsStore.get().aiTriage?.skipNotExploitable === false) return risks;
+  const live = new Map();
+  await mapWithConcurrency([...new Set(risks.map((r) => r.projectId))], 3, async (projectId) => {
+    try {
+      live.set(projectId, await projectStates(session, projectId));
+    } catch (error) {
+      console.warn(`[reminders] could not read live states for ${projectId}: ${error.message}`);
+    }
+  });
+  return risks
+    .map((r) => {
+      const state = live.get(r.projectId)?.get(r.riskId);
+      return state && state !== r.state ? { ...r, state } : r;
+    })
+    .filter((r) => !NOT_EXPLOITABLE_STATES.has(r.state));
+}
+
+/**
+ * Build and send (or preview, with dryRun) reminders for findings of `scan`
+ * — the dashboard's last fetch, or a tracked report's open findings.
+ * Resolves {status, body} for the caller to send.
+ */
+async function runReminder(session, scan, input) {
+  const reply = (status, payload) => ({ status, body: payload });
     const {
       projectIds = null,
       buckets = [],
@@ -555,14 +589,12 @@ app.post(
       alsoConsolidated = false,
       dryRun = false,
       recipients,
-    } = req.body ?? {};
+    } = input;
 
-    const { lastScan, connection } = req.session;
+    const { connection } = session;
+    const lastScan = scan;
     const settings = settingsStore.get();
 
-    if (!lastScan) {
-      return res.status(409).json({ error: 'Fetch the project list first, then send a reminder.' });
-    }
     // An empty bucket list means "no age filter", so a selection of projects or
     // initiators is enough on its own to send.
     const ageBuckets = Array.isArray(buckets) ? buckets : [];
@@ -580,13 +612,13 @@ app.post(
       scopedProjectIds = projectIds ? matching.filter((id) => projectIds.includes(id)) : matching;
     }
 
-    const risks = selectRisks(lastScan.projects, {
+    const risks = await withoutNotExploitable(session, selectRisks(lastScan.projects, {
       projectIds: scopedProjectIds,
       buckets: ageBuckets,
       severities,
-    });
+    }));
     if (risks.length === 0) {
-      return res.status(400).json({ error: 'No vulnerabilities match that selection.' });
+      return reply(400, { error: 'No vulnerabilities match that selection.' });
     }
 
     const common = {
@@ -632,7 +664,7 @@ app.post(
           : null;
 
       if (dryRun) {
-        return res.json({
+        return reply(200, {
           dryRun: true,
           groupBy,
           consolidated: consolidated
@@ -654,7 +686,7 @@ app.post(
       }
 
       if (prepared.length === 0) {
-        return res.status(400).json({
+        return reply(400, {
           error: 'No scan initiator in this selection has a resolvable email address.',
           skipped,
         });
@@ -698,7 +730,7 @@ app.post(
         }
       }
 
-      return res.json({
+      return reply(200, {
         groupBy,
         delivered: sent.length > 0,
         sent,
@@ -713,7 +745,7 @@ app.post(
     const reminder = buildReminder(risks, settings.template, common);
 
     if (dryRun) {
-      return res.json({
+      return reply(200, {
         dryRun: true,
         groupBy: 'none',
         subject: reminder.subject,
@@ -735,7 +767,18 @@ app.post(
       : {};
 
     const result = await sendReminderMail(settings, reminder, overrides);
-    res.json({ ...result, groupBy: 'none', totalRisks: risks.length, projects: reminder.projects.length });
+    return reply(200, { ...result, groupBy: 'none', totalRisks: risks.length, projects: reminder.projects.length });
+  }
+
+app.post(
+  '/api/reminders',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    if (!req.session.lastScan) {
+      return res.status(409).json({ error: 'Fetch the project list first, then send a reminder.' });
+    }
+    const { status, body } = await runReminder(req.session, req.session.lastScan, req.body ?? {});
+    res.status(status).json(body);
   }),
 );
 
@@ -997,9 +1040,10 @@ app.post(
 
     const [finding] = findings;
     const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
-    const refusal = creditRefusal(finding.projectId, finding.projectName, 'remediation', 1, limit);
+    const cost = CREDIT_COST.remediation;
+    const refusal = creditRefusal(finding.projectId, finding.projectName, 'remediation', cost, limit);
     if (refusal) return res.status(402).json({ error: refusal, creditsRemaining: creditsRemaining() });
-    const reservation = creditLedger.reserve(1, limit, new Date(), {
+    const reservation = creditLedger.reserve(cost, limit, new Date(), {
       projectId: finding.projectId,
       kind: 'remediation',
       allowance: allocations.balance(finding.projectId).remediation.allocated,
@@ -1021,7 +1065,7 @@ app.post(
         creditLedger.record({
           projectId: finding.projectId,
           projectName: finding.projectName,
-          credits: 1,
+          credits: cost,
           scanId: finding.scanId,
           kind: 'remediation',
         });
@@ -1111,6 +1155,68 @@ app.post('/api/credits/allocate', requireSession, (req, res) => {
 });
 
 /**
+ * Run AI Triage for `findings` on the administrator's behalf: one request per
+ * scan and scanner. Credits count against each project's allocation, which
+ * is raised to cover the request, since the administrator is the one allocating.
+ */
+async function adminTriage(session, findings, initiatorsByProject = {}) {
+  await resolveAiIds(session.client, findings, (f) => initiatorsByProject[f.projectId]?.scanId ?? '');
+  const eligible = findings.filter((f) => !f.aiUnavailable);
+
+  const buckets = new Map();
+  for (const f of eligible) {
+    const key = `${f.scanId}|${f.scanner}`;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(f);
+  }
+
+  const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
+  let failed = 0;
+  const errors = [];
+  const startedFindings = [];
+  for (const group of buckets.values()) {
+    const { scanId, scanner, projectId, projectName } = group[0];
+    const alternateIds = [...new Set(group.map((f) => f.alternateId))];
+    const reservation = creditLedger.reserve(alternateIds.length, limit);
+    if (!reservation) {
+      failed += group.length;
+      errors.push(`${projectName}: this month's credit limit (${limit}) is reached.`);
+      continue;
+    }
+    try {
+      const body = await session.client.request('/api/ai-triage/triage', {
+        method: 'POST',
+        body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
+        retries: 1,
+      });
+      if (body?.published !== false) {
+        const balance = allocations.balance(projectId).triage;
+        if (balance.remaining < alternateIds.length) allocations.raise(projectId, alternateIds.length - balance.remaining);
+        creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage' });
+      }
+      stateCache.delete(projectId);
+      touchProject(projectId);
+      startedFindings.push(...group);
+    } catch (error) {
+      failed += group.length;
+      errors.push(`${projectName}: ${error.message}`);
+      if (error.status === 402 || error.status === 403) break;
+    } finally {
+      reservation.release();
+    }
+  }
+  allocations.save();
+  return {
+    requested: findings.length,
+    started: startedFindings.length,
+    failed,
+    skipped: findings.length - eligible.length,
+    errors,
+    startedFindings,
+  };
+}
+
+/**
  * The administrator triages chosen severities of chosen projects straight
  * away (e.g. before reports go out). Uses the dashboard's own connection;
  * credits count against each project's allocation, which is raised to cover
@@ -1144,65 +1250,11 @@ app.post(
     }
     if (!findings.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], projects: {} });
 
-    const initiatorsByProject = req.session.lastScan.initiators ?? {};
-    await resolveAiIds(req.session.client, findings, (f) => initiatorsByProject[f.projectId]?.scanId ?? '');
-    const eligible = findings.filter((f) => !f.aiUnavailable);
-
-    const buckets = new Map();
-    for (const f of eligible) {
-      const key = `${f.scanId}|${f.scanner}`;
-      if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key).push(f);
-    }
-
-    const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
-    let started = 0;
-    let failed = 0;
-    const errors = [];
-    for (const group of buckets.values()) {
-      const { scanId, scanner, projectId, projectName } = group[0];
-      const alternateIds = [...new Set(group.map((f) => f.alternateId))];
-      const reservation = creditLedger.reserve(alternateIds.length, limit);
-      if (!reservation) {
-        failed += group.length;
-        errors.push(`${projectName}: this month's credit limit (${limit}) is reached.`);
-        continue;
-      }
-      try {
-        const body = await req.session.client.request('/api/ai-triage/triage', {
-          method: 'POST',
-          body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
-          retries: 1,
-        });
-        if (body?.published !== false) {
-          const balance = allocations.balance(projectId).triage;
-          if (balance.remaining < alternateIds.length) {
-            allocations.raise(projectId, alternateIds.length - balance.remaining);
-          }
-          creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage' });
-        }
-        stateCache.delete(projectId);
-        touchProject(projectId);
-        for (const f of group) originals.get(f).triageRequestedAt = Date.now();
-        started += group.length;
-      } catch (error) {
-        failed += group.length;
-        errors.push(`${projectName}: ${error.message}`);
-        if (error.status === 402 || error.status === 403) break;
-      } finally {
-        reservation.release();
-      }
-    }
-    allocations.save();
+    const outcome = await adminTriage(req.session, findings, req.session.lastScan.initiators ?? {});
+    for (const f of outcome.startedFindings) originals.get(f).triageRequestedAt = Date.now();
     for (const p of projects) p.credits = creditView(p);
-    res.json({
-      requested: findings.length,
-      started,
-      failed,
-      skipped: findings.length - eligible.length,
-      errors,
-      projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])),
-    });
+    const { startedFindings, ...summary } = outcome;
+    res.json({ ...summary, projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
   }),
 );
 
@@ -1273,7 +1325,183 @@ async function backgroundRefresh() {
     }
   }
 }
-setInterval(() => backgroundRefresh().catch(() => {}), 60 * 1000).unref?.();
+setInterval(() => {
+  backgroundRefresh().catch(() => {});
+  resolveAutomationSession()
+    .then((session) => session && runDueTrackedReminders(session))
+    .catch((error) => console.warn(`[tracked reminders] ${error.message}`));
+}, 60 * 1000).unref?.();
+
+// ---- Follow-up reminders, schedules and triage for a tracked report -------
+
+const DAY_MS = 86_400_000;
+const MAX_REMINDERS_KEPT = 50;
+
+/**
+ * A tracked report's open findings, fetched fresh: baseline findings not yet
+ * resolved or triaged as not exploitable, plus new findings its filters match.
+ * Shaped like a dashboard fetch so the reminder senders can use it directly.
+ */
+async function openScanFor(session, report) {
+  const byProject = await currentFindings(session, report.projects);
+  trackedReports.record(report, progressFor(report, byProject));
+  let detection = null;
+  try {
+    detection = resolveWindow(report.filters.detection, 'First detection');
+  } catch {}
+  const baselineKeys = new Set(report.baseline.findings.map((f) => `${f.projectId}|${f.riskId}`));
+  const settings = settingsStore.get();
+  const projects = report.projects.map(({ projectId, projectName }) => {
+    const risks = (byProject.get(projectId) ?? []).filter(
+      (r) =>
+        !NOT_EXPLOITABLE_STATES.has(r.state) &&
+        (baselineKeys.has(`${projectId}|${r.riskId}`) || matchesFilters(r, report.filters, detection)),
+    );
+    const summary = summariseProject({ id: projectId, name: projectName }, risks);
+    summary.url = projectUrl(summary, session.connection, settings.links);
+    return summary;
+  });
+  // Looked up fresh: a rescan moves a reminder to whoever ran it.
+  const initiators = await collectInitiators(
+    session.client,
+    session.connection,
+    report.projects.map((p) => ({ id: p.projectId, name: p.projectName })),
+    { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency },
+  );
+  return { projects, initiators: initiators.byProject };
+}
+
+const countSent = (body) => (Array.isArray(body?.sent) ? body.sent.length : body?.messageId ? 1 : 0);
+
+/** Send (or preview) a follow-up reminder for a report's open findings. */
+async function remindTrackedReport(session, report, options, relayUrl, { automatic = false } = {}) {
+  const sendTo = ['initiator', 'list', 'both'].includes(options.sendTo) ? options.sendTo : 'initiator';
+  const emailContent = options.emailContent === 'per-project' ? 'per-project' : 'summary';
+  const attachHtml = options.attachHtml === true;
+  const dryRun = options.dryRun === true;
+
+  const scan = await openScanFor(session, report);
+  const open = scan.projects.reduce((n, p) => n + p.risks.length, 0);
+  if (!open) return { status: 400, body: { error: 'Nothing is left open in this report, so no reminder is needed.' } };
+
+  const result = attachHtml && !dryRun
+    ? await runHtmlReminder(session, scan, {}, relayUrl)
+    : await runReminder(session, scan, {
+        groupBy: sendTo === 'list' ? 'none' : emailContent === 'per-project' ? 'project' : 'initiator',
+        alsoConsolidated: sendTo === 'both',
+        dryRun,
+      });
+
+  if (!dryRun) {
+    report.reminders = [
+      {
+        at: new Date().toISOString(),
+        automatic,
+        sendTo,
+        emailContent,
+        attachHtml,
+        openFindings: open,
+        sent: result.status === 200 ? countSent(result.body) : 0,
+        error: result.status === 200 ? '' : result.body?.error || 'Failed',
+      },
+      ...(report.reminders ?? []),
+    ].slice(0, MAX_REMINDERS_KEPT);
+    trackedReports.save();
+  }
+  return result;
+}
+
+/** The next time at `hour` (UTC) that is at least `from`. */
+function nextRunAt(hour, from = new Date()) {
+  const next = new Date(from);
+  next.setUTCHours(hour, 0, 0, 0);
+  if (next < from) next.setTime(next.getTime() + DAY_MS);
+  return next.toISOString();
+}
+
+async function runDueTrackedReminders(session) {
+  const settings = settingsStore.get();
+  const now = Date.now();
+  for (const report of trackedReports.list()) {
+    const auto = report.automation;
+    if (!auto?.enabled || !auto.nextRunAt || Date.parse(auto.nextRunAt) > now) continue;
+    // Move the schedule on first, so a failing send is not retried every minute.
+    let next = Date.parse(auto.nextRunAt);
+    while (next <= now) next += auto.everyDays * DAY_MS;
+    auto.nextRunAt = new Date(next).toISOString();
+    trackedReports.save();
+    if (!isVerified(settings)) {
+      auto.lastError = 'SMTP has not passed a connection test, so nothing was sent.';
+      trackedReports.save();
+      continue;
+    }
+    try {
+      const result = await remindTrackedReport(session, report, auto, settings.links.reportServerUrl, { automatic: true });
+      auto.lastError = result.status === 200 ? '' : result.body?.error || 'Failed';
+    } catch (error) {
+      auto.lastError = error.message;
+    }
+    auto.lastRunAt = new Date().toISOString();
+    trackedReports.save();
+  }
+}
+
+app.post(
+  '/api/tracked-reports/:id/remind',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const report = trackedReports.get(req.params.id);
+    if (!report) return res.status(404).json({ error: 'No such report.' });
+    const settings = settingsStore.get();
+    if (req.body?.dryRun !== true && !isVerified(settings)) {
+      return res.status(400).json({ error: 'Test the SMTP connection on the Settings page before sending.' });
+    }
+    const { status, body } = await remindTrackedReport(req.session, report, req.body ?? {}, reportServerUrl(req, settings));
+    res.status(status).json({ ...body, report: reportSummary(report) });
+  }),
+);
+
+app.put('/api/tracked-reports/:id/automation', requireSession, (req, res) => {
+  const report = trackedReports.get(req.params.id);
+  if (!report) return res.status(404).json({ error: 'No such report.' });
+  const input = req.body ?? {};
+  const everyDays = Math.min(90, Math.max(1, Math.floor(Number(input.everyDays) || 7)));
+  const hour = Math.min(23, Math.max(0, Math.floor(Number(input.hour) || 0)));
+  const enabled = input.enabled === true;
+  report.automation = {
+    enabled,
+    everyDays,
+    hour,
+    sendTo: ['initiator', 'list', 'both'].includes(input.sendTo) ? input.sendTo : 'initiator',
+    emailContent: input.emailContent === 'per-project' ? 'per-project' : 'summary',
+    attachHtml: input.attachHtml === true,
+    nextRunAt: enabled ? nextRunAt(hour) : null,
+    lastRunAt: report.automation?.lastRunAt ?? null,
+    lastError: '',
+  };
+  trackedReports.save();
+  res.json(reportSummary(report));
+});
+
+app.post(
+  '/api/tracked-reports/:id/triage',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const report = trackedReports.get(req.params.id);
+    if (!report) return res.status(404).json({ error: 'No such report.' });
+    const wanted = cleanSeverities(req.body?.severities);
+    if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to triage.' });
+    const scan = await openScanFor(req.session, report);
+    const findings = scan.projects.flatMap((p) =>
+      p.risks
+        .filter((r) => wanted.includes(r.severity) && (!r.state || r.state === 'TO_VERIFY'))
+        .map((r) => ({ ...r, projectId: p.projectId, projectName: p.projectName })),
+    );
+    if (!findings.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], report: reportSummary(report) });
+    const { startedFindings, ...summary } = await adminTriage(req.session, findings, scan.initiators);
+    res.json({ ...summary, report: reportSummary(report) });
+  }),
+);
 
 app.get('/api/tracked-reports', requireSession, async (req, res) => {
   res.json({
@@ -1352,9 +1580,9 @@ app.get('/api/credits', requireSession, (req, res) => {
  * here, with this session's credentials, so the report itself only ever
  * needs the reader's own API key.
  */
-async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '' } = {}) {
+async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject } = {}) {
   const { connection, lastScan } = session;
-  const initiatorsByProject = lastScan?.initiators ?? {};
+  initiatorsByProject ??= lastScan?.initiators ?? {};
   const reportData = buildReportData(risks, {
     buckets,
     tenant: connection.tenant,
@@ -1429,34 +1657,30 @@ app.post(
   }),
 );
 
-app.post(
-  '/api/reminders/send-html-by-initiator',
-  requireSession,
-  asyncRoute(async (req, res) => {
-    const { projectIds = null, buckets = [], severities = null } = req.body ?? {};
-    const { lastScan } = req.session;
+/** Send each scan initiator an email with the interactive HTML report attached. */
+async function runHtmlReminder(session, scan, input, relayUrl) {
+  const reply = (status, payload) => ({ status, body: payload });
+    const { projectIds = null, buckets = [], severities = null } = input;
+    const lastScan = scan;
     const settings = settingsStore.get();
 
-    if (!lastScan) {
-      return res.status(409).json({ error: 'Fetch the project list first.' });
-    }
 
     if (!isVerified(settings)) {
-      return res.status(400).json({
+      return reply(400, {
         error:
           'Test the SMTP connection on the Settings page before sending. ' +
           'Changing any connection detail clears a previous successful test.',
       });
     }
 
-    const risks = selectRisks(lastScan.projects, {
+    const risks = await withoutNotExploitable(session, selectRisks(lastScan.projects, {
       projectIds: projectIds?.length ? projectIds : null,
       buckets,
       severities,
-    });
+    }));
 
     if (risks.length === 0) {
-      return res.status(400).json({ error: 'No vulnerabilities match that selection.' });
+      return reply(400, { error: 'No vulnerabilities match that selection.' });
     }
 
     const initiatorsByProject = lastScan.initiators ?? {};
@@ -1475,10 +1699,11 @@ app.post(
 
     for (const group of sendable) {
       try {
-        const { reportData, findings, html: htmlReport } = await buildInteractiveReport(req.session, group.risks, {
+        const { reportData, findings, html: htmlReport } = await buildInteractiveReport(session, group.risks, {
           buckets,
           settings,
-          relayUrl: reportServerUrl(req, settings),
+          relayUrl,
+          initiatorsByProject,
           initiator: group,
         });
         const body = buildReportEmail(reportData, {
@@ -1520,13 +1745,23 @@ app.post(
       }
     }
 
-    res.json({
+    return reply(200, {
       delivered: sent.length > 0,
       sent,
       skipped,
       errors: errors.length > 0 ? errors : undefined,
       summary: `Sent HTML reports to ${sent.length} person(s), skipped ${skipped.length}`,
     });
+  }
+
+app.post(
+  '/api/reminders/send-html-by-initiator',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+    const settings = settingsStore.get();
+    const { status, body } = await runHtmlReminder(req.session, req.session.lastScan, req.body ?? {}, reportServerUrl(req, settings));
+    res.status(status).json(body);
   }),
 );
 
@@ -1677,7 +1912,7 @@ async function verifyEnvironmentSmtp() {
 }
 
 const server = app.listen(config.port, config.host, async () => {
-  console.log(`Checkmarx detection-date reminder running on http://${config.host}:${config.port}`);
+  console.log(`Mission Zero running on http://${config.host}:${config.port}`);
   console.log(`Settings file: ${settingsStore.file}`);
   for (const problem of configProblems(config)) console.warn(`! ${problem}`);
   await bootstrap();

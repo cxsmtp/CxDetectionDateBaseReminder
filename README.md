@@ -1,4 +1,4 @@
-# Checkmarx One — Detection Date Reminder
+# Mission Zero — Checkmarx One reminders, triage and tracking
 
 A small self-hosted utility that answers one question: **which vulnerabilities have
 been sitting unfixed, and for how long?** — then emails the right people about them
@@ -212,6 +212,11 @@ One records the triage under the server's account.
   limit** covers both and is enforced before each request (concurrent requests
   cannot overrun it together). Whether Remediate runs AI Remediation is fixed
   when a report is generated; the server re-checks the switch on every request.
+- **Costs.** AI Triage uses 1 credit per finding, AI Remediation 3.
+- **Not exploitable is left out.** Reminders and reports (including automatic
+  ones) leave out findings triaged as proposed not exploitable or not
+  exploitable, by their live Checkmarx One state at send time — so triage run
+  just before sending counts. Switch this off under the same Settings panel.
 - **Live usage.** The same panel lists the credits used per project for any
   month — triage, remediation and total — refreshing every 15 seconds while it
   is open. This is the utility's own
@@ -243,6 +248,18 @@ covers. The **Tracked reports** tab then follows each report:
   (relative windows such as "last 90 days" are re-evaluated each time);
 - AI Triage / Remediation credits used on its projects since it was saved;
 - a per-project breakdown and a history of readings.
+
+Each report also has **Follow up**:
+
+- **Send a reminder** about its open findings (baseline findings awaiting
+  triage or confirmed, plus new ones its filters match) — to scan initiators,
+  the recipient list, or both; one summary per person or one email per project;
+  optionally with the interactive HTML report attached. **Preview** first.
+- **Automatic reminders** every N days at a set hour (UTC), with the same
+  options, only while something is still open. Each send is listed with the
+  report.
+- **Triage now**: AI Triage on its findings still awaiting triage, for the
+  chosen severities, within each project's credits.
 
 Reports update hourly, and every few minutes for half an hour after anyone
 triages or remediates in one of their projects (from a report or the

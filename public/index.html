@@ -3,14 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Checkmarx One — Detection Date Reminder</title>
+    <title>Mission Zero</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%232563eb'/%3E%3Cpath d='M8 4v4.4l2.8 1.7' stroke='white' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="topbar">
       <div class="brand">
-        <h1>Detection Date Reminder</h1>
+        <img id="app-logo" class="app-logo" alt="" hidden />
+        <h1 id="app-name">Mission Zero</h1>
         <p class="sub" id="connection">Starting…</p>
       </div>
       <nav class="tabs" id="nav" hidden>
@@ -156,7 +157,7 @@
           <p class="hint">
             Each project may only spend the Checkmarx One credits allocated to it here — from its report or from
             this page. Its triage credits always cover its findings of the ticked severities still to verify (critical
-            and high unless changed), recalculated on every fetch; remediation credits must be given. Changes apply
+            and high unless changed), recalculated on every fetch; remediation credits must be given (each remediation uses 3). Changes apply
             straight away to the selected projects, or every shown project when none is selected.
           </p>
           <div class="alloc-row">
@@ -172,7 +173,7 @@
           </div>
           <div class="alloc-row">
             <label class="inline">Give each project <input id="alloc-extra-triage" type="number" min="0" step="1" value="0" class="small-num" /> more triage credits</label>
-            <label class="inline">and <input id="alloc-extra-remediation" type="number" min="0" step="1" value="0" class="small-num" /> remediation credits</label>
+            <label class="inline">and <input id="alloc-extra-remediation" type="number" min="0" step="3" value="0" class="small-num" /> remediation credits <span class="hint">(3 per remediation)</span></label>
             <button id="alloc-add" type="button">Add credits</button>
           </div>
           <p class="status" id="alloc-status"></p>
@@ -440,13 +441,18 @@
         <section class="panel">
           <h2>Branding</h2>
           <p class="hint">
-            Shown in the header of every reminder. A logo must be an <code>https</code> URL that
-            recipients' mail clients can load — most block images from other schemes.
+            The app name and logo appear at the top of this page; the company name and logo also head every
+            reminder and report. For reminders, an <code>https</code> logo URL is best — most mail clients block
+            uploaded (embedded) images.
           </p>
 
           <div class="grid2">
+            <label class="field"><span>App name</span><input id="brand-app" placeholder="Mission Zero" /></label>
             <label class="field"><span>Company name</span><input id="brand-name" placeholder="Acme Corp" /></label>
-            <label class="field"><span>Logo URL (https)</span><input id="brand-logo" spellcheck="false" placeholder="https://acme.com/logo.png" /></label>
+          </div>
+          <div class="grid2">
+            <label class="field"><span>Company logo — https URL, or upload one</span><input id="brand-logo" spellcheck="false" placeholder="https://acme.com/logo.png" /></label>
+            <label class="field"><span>Upload a logo (PNG, JPG, SVG or WebP, up to 200 KB)</span><input id="brand-logo-file" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" /></label>
           </div>
 
           <div class="grid2">
@@ -502,6 +508,7 @@
             you allow it here. AI Remediation also opens pull requests on repository-connected projects.
           </p>
           <label class="check"><input type="checkbox" id="ai-enabled" /> Allow AI Triage from reports (uses Checkmarx One credits)</label>
+          <label class="check"><input type="checkbox" id="ai-skip-ne" /> Leave findings triaged as not exploitable (proposed or confirmed) out of reminders and reports — only confirmed findings and those still to verify are sent</label>
           <label class="check"><input type="checkbox" id="ai-remediation" /> Allow AI Remediation from reports (uses credits; may open pull requests) — applies to reports generated after saving</label>
           <label class="field">
             <span>Monthly credit limit for both — 0 for no limit</span>
@@ -514,7 +521,7 @@
           </div>
           <div id="credit-usage"><p class="hint">Loading…</p></div>
           <p class="hint">
-            Counted by this server: one credit per finding in each AI Triage or AI Remediation request Checkmarx One
+            Counted by this server: per finding, 1 credit for AI Triage and 3 for AI Remediation, in each request Checkmarx One
             accepted as a new job. Updates every 15 seconds while this page is open.
           </p>
         </section>

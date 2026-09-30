@@ -16,6 +16,9 @@ const MAX_ENTRIES = 20_000;
 
 export const monthOf = (date = new Date()) => date.toISOString().slice(0, 7);
 
+/** Checkmarx One credits per finding: AI Triage 1, AI Remediation 3. */
+export const CREDIT_COST = { triage: 1, remediation: 3 };
+
 export class CreditLedger {
   #file;
   #entries;

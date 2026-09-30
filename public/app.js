@@ -348,6 +348,7 @@ function renderSettings() {
   $('rcpt-cc').value = s.recipients.cc.join('\n');
   $('rcpt-bcc').value = s.recipients.bcc.join('\n');
 
+  $('brand-app').value = s.branding.appName || 'Mission Zero';
   $('brand-name').value = s.branding.companyName;
   $('brand-logo').value = s.branding.logoUrl;
   $('brand-height').value = s.branding.logoHeight;
@@ -366,6 +367,7 @@ function renderSettings() {
   $('risks-path').value = s.endpoints.risksPath;
   $('ai-enabled').checked = Boolean(s.aiTriage?.enabled);
   $('ai-remediation').checked = Boolean(s.aiTriage?.remediationEnabled);
+  $('ai-skip-ne').checked = s.aiTriage?.skipNotExploitable !== false;
   $('ai-limit').value = String(s.aiTriage?.monthlyCreditLimit ?? 0);
 
   $('verified-state').textContent = s.verified
@@ -630,6 +632,7 @@ function settingsPayload() {
     },
     template: { subject: $('tpl-subject').value, html: $('tpl-html').value },
     branding: {
+      appName: $('brand-app').value,
       companyName: $('brand-name').value,
       logoUrl: $('brand-logo').value,
       logoHeight: $('brand-height').value,
@@ -646,6 +649,7 @@ function settingsPayload() {
     aiTriage: {
       enabled: $('ai-enabled').checked,
       remediationEnabled: $('ai-remediation').checked,
+      skipNotExploitable: $('ai-skip-ne').checked,
       monthlyCreditLimit: Number($('ai-limit').value) || 0,
     },
   };
@@ -730,6 +734,7 @@ async function saveSettings() {
     renderSettings();
     renderRecipientHint();
     loadCredits();
+    applyAppBranding({ name: state.settings.branding.appName, logoUrl: state.settings.branding.logoUrl });
     setStatus('save-status', 'Saved.', 'ok');
   } catch (error) {
     if (!handleAuthLoss(error)) showError('save-status', error);
@@ -1279,7 +1284,9 @@ async function loadTrackedReports() {
   if ($('page-reports').hidden) return;
   try {
     const data = await api('/api/tracked-reports');
+    const kept = captureReportsState();
     renderTrackedReports(data);
+    restoreReportsState(kept);
   } catch (error) {
     if (handleAuthLoss(error)) return;
     $('reports-list').innerHTML = `<p class="status error">${escapeHtml(error.message)}</p>`;
@@ -1360,13 +1367,192 @@ function renderTrackedReports({ reports, autoRefresh }) {
             <button type="button" data-report-delete="${escapeHtml(r.id)}" class="link">Delete</button>
           </div>
         </div>
-        ${stats}${projects}${history}
+        ${stats}${followUp(r)}${projects}${history}
       </article>`;
     })
     .join('');
 }
 
+/** Reminder, schedule and triage controls for one tracked report. */
+function followUp(r) {
+  const id = escapeHtml(r.id);
+  const auto = r.automation ?? {};
+  const open = r.latest?.open ?? 0;
+  const radio = (name, value, label, current) =>
+    `<label class="check"><input type="radio" name="${name}-${id}" value="${value}" data-keep ${current === value ? 'checked' : ''} /> ${label}</label>`;
+  const reminders = (r.reminders ?? []).slice(0, 10);
+  return `<details class="follow-up" data-keep-open="${id}">
+    <summary><strong>Follow up</strong> — ${open} open finding${open === 1 ? '' : 's'} (awaiting triage, confirmed or new)</summary>
+    <div class="follow-grid">
+      <fieldset>
+        <legend>Send a reminder about the open findings</legend>
+        <div class="alloc-row">
+          <span>To</span>
+          ${radio('sendTo', 'initiator', 'Scan initiators', auto.sendTo ?? 'initiator')}
+          ${radio('sendTo', 'list', 'Recipient list', auto.sendTo)}
+          ${radio('sendTo', 'both', 'Both', auto.sendTo)}
+        </div>
+        <div class="alloc-row">
+          <span>Content</span>
+          ${radio('content', 'summary', 'One summary per person', auto.emailContent ?? 'summary')}
+          ${radio('content', 'per-project', 'One email per project', auto.emailContent)}
+        </div>
+        <label class="check"><input type="checkbox" data-field="attachHtml" data-keep ${auto.attachHtml ? 'checked' : ''} /> Attach the interactive HTML report (sent to each scan initiator)</label>
+        <div class="actions compact">
+          <button type="button" data-remind="${id}" data-dry="1">Preview</button>
+          <button type="button" data-remind="${id}" class="primary">Send reminder now</button>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Automatic reminders</legend>
+        <div class="alloc-row">
+          <label class="check"><input type="checkbox" data-field="autoEnabled" data-keep ${auto.enabled ? 'checked' : ''} /> Send automatically every</label>
+          <input type="number" min="1" max="90" data-field="everyDays" data-keep value="${auto.everyDays ?? 7}" class="small-num" /> days at
+          <input type="number" min="0" max="23" data-field="hour" data-keep value="${auto.hour ?? 9}" class="small-num" />:00 UTC
+        </div>
+        <p class="hint">Uses the send options above, and only while something is still open.
+          ${auto.enabled && auto.nextRunAt ? `Next: ${escapeHtml(new Date(auto.nextRunAt).toLocaleString())}.` : ''}
+          ${auto.lastRunAt ? `Last: ${escapeHtml(new Date(auto.lastRunAt).toLocaleString())}.` : ''}
+          ${auto.lastError ? `<span class="status error">${escapeHtml(auto.lastError)}</span>` : ''}</p>
+        <div class="actions compact"><button type="button" data-schedule="${id}">Save schedule</button></div>
+      </fieldset>
+      <fieldset>
+        <legend>Triage the open findings now</legend>
+        <div class="alloc-row">
+          ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+            .map((sev) => `<label class="check"><input type="checkbox" data-sev="${sev}" data-keep ${['CRITICAL', 'HIGH'].includes(sev) ? 'checked' : ''} /> ${sev[0] + sev.slice(1).toLowerCase()}</label>`)
+            .join('')}
+        </div>
+        <p class="hint">Runs Checkmarx One AI Triage on this report's findings still awaiting triage, within each project's credits.</p>
+        <div class="actions compact"><button type="button" data-report-triage="${id}">Triage now</button></div>
+      </fieldset>
+    </div>
+    <p class="status" data-follow-status="${id}"></p>
+    ${reminders.length ? `<div class="table-wrap"><table class="probe">
+      <thead><tr><th>Reminder sent</th><th>How</th><th class="num">Open findings</th><th class="num">Emails</th><th>Result</th></tr></thead>
+      <tbody>${reminders
+        .map((m) => `<tr><td>${escapeHtml(new Date(m.at).toLocaleString())}${m.automatic ? ' <span class="hint">(automatic)</span>' : ''}</td>
+          <td>${escapeHtml({ initiator: 'Scan initiators', list: 'Recipient list', both: 'Initiators + list' }[m.sendTo] ?? m.sendTo)}${m.attachHtml ? ' · HTML report' : ''}</td>
+          <td class="num">${m.openFindings}</td><td class="num">${m.sent}</td>
+          <td>${m.error ? `<span class="status error">${escapeHtml(m.error)}</span>` : 'Sent'}</td></tr>`)
+        .join('')}</tbody></table></div>` : ''}
+  </details>`;
+}
+
+function followUpOptions(card) {
+  const id = card.dataset.report;
+  const value = (name) => card.querySelector(`input[name="${name}-${CSS.escape(id)}"]:checked`)?.value;
+  const field = (name) => card.querySelector(`[data-field="${name}"]`);
+  return {
+    sendTo: value('sendTo') ?? 'initiator',
+    emailContent: value('content') ?? 'summary',
+    attachHtml: field('attachHtml').checked,
+    enabled: field('autoEnabled').checked,
+    everyDays: Number(field('everyDays').value) || 7,
+    hour: Number(field('hour').value) || 0,
+    severities: [...card.querySelectorAll('[data-sev]:checked')].map((box) => box.dataset.sev),
+  };
+}
+
+function followStatus(id, text, kind = '') {
+  const el = document.querySelector(`[data-follow-status="${CSS.escape(id)}"]`);
+  if (el) {
+    el.textContent = text;
+    el.className = `status ${kind}`;
+  }
+}
+
+function describeSend(result) {
+  if (result.dryRun) {
+    if (Array.isArray(result.messages)) {
+      const people = result.messages.map((m) => m.email).join(', ');
+      return `Would send ${result.messages.length} email(s)${people ? ` to ${people}` : ''}${result.consolidated ? ', plus a copy to the recipient list' : ''}${result.skipped?.length ? `; ${result.skipped.length} initiator(s) have no email address` : ''}.`;
+    }
+    return `Would send "${result.subject}" covering ${result.totalRisks} finding(s) to ${(result.recipients?.to ?? []).join(', ') || 'the recipient list'}.`;
+  }
+  const sent = Array.isArray(result.sent) ? result.sent.length : result.messageId ? 1 : 0;
+  const failed = (result.failed?.length ?? 0) + (result.errors?.length ?? 0);
+  return `Sent ${sent} email(s)${failed ? `, ${failed} failed` : ''}${result.skipped?.length ? `; ${result.skipped.length} initiator(s) skipped (no email address)` : ''}.`;
+}
+
+async function followUpAction(event) {
+  const button = event.target.closest('[data-remind], [data-schedule], [data-report-triage]');
+  if (!button) return false;
+  const card = button.closest('[data-report]');
+  const id = card.dataset.report;
+  const options = followUpOptions(card);
+  button.disabled = true;
+  try {
+    if (button.dataset.remind) {
+      const dryRun = Boolean(button.dataset.dry);
+      if (!dryRun && !confirm('Send a reminder about this report\'s open findings now?')) return true;
+      followStatus(id, dryRun ? 'Preparing preview…' : 'Sending…');
+      const result = await api(`/api/tracked-reports/${encodeURIComponent(id)}/remind`, {
+        method: 'POST',
+        body: JSON.stringify({ ...options, dryRun }),
+      });
+      followStatus(id, describeSend(result), 'ok');
+      if (!dryRun) loadTrackedReports();
+    } else if (button.dataset.schedule) {
+      await api(`/api/tracked-reports/${encodeURIComponent(id)}/automation`, { method: 'PUT', body: JSON.stringify(options) });
+      followStatus(id, options.enabled ? `Automatic reminders every ${options.everyDays} day(s) at ${options.hour}:00 UTC.` : 'Automatic reminders are off.', 'ok');
+      loadTrackedReports();
+    } else {
+      if (!options.severities.length) return followStatus(id, 'Pick at least one severity.', 'error'), true;
+      if (!confirm(`Run AI Triage on this report's ${options.severities.map((s) => s.toLowerCase()).join(', ')} findings still awaiting triage? It uses Checkmarx One credits.`)) return true;
+      followStatus(id, 'Starting AI Triage…');
+      const result = await api(`/api/tracked-reports/${encodeURIComponent(id)}/triage`, {
+        method: 'POST',
+        body: JSON.stringify({ severities: options.severities }),
+      });
+      const parts = result.requested
+        ? [`AI Triage started for ${result.started} finding(s)`, result.skipped ? `${result.skipped} not eligible (SAST and SCA only)` : '', result.failed ? `${result.failed} failed: ${result.errors.join('; ')}` : '']
+        : ['Nothing awaiting triage at those severities'];
+      followStatus(id, `${parts.filter(Boolean).join(' · ')}.`, result.failed ? 'error' : 'ok');
+    }
+  } catch (error) {
+    if (!handleAuthLoss(error)) followStatus(id, error.message, 'error');
+  } finally {
+    button.disabled = false;
+  }
+  return true;
+}
+
+/** Remember form state and opened sections across the periodic re-render. */
+function captureReportsState() {
+  const values = new Map();
+  for (const el of document.querySelectorAll('#reports-list [data-keep]')) {
+    const card = el.closest('[data-report]');
+    const key = `${card?.dataset.report}|${el.name || el.dataset.field || el.dataset.sev}|${el.value}`;
+    values.set(key, el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value);
+  }
+  const open = new Set([...document.querySelectorAll('#reports-list details[open]')].map((d) => d.dataset.keepOpen || d.querySelector('summary')?.textContent));
+  const statuses = new Map([...document.querySelectorAll('[data-follow-status]')].map((el) => [el.dataset.followStatus, [el.textContent, el.className]]));
+  return { values, open, statuses };
+}
+
+function restoreReportsState({ values, open, statuses }) {
+  for (const el of document.querySelectorAll('#reports-list [data-keep]')) {
+    const card = el.closest('[data-report]');
+    const key = `${card?.dataset.report}|${el.name || el.dataset.field || el.dataset.sev}|${el.value}`;
+    if (!values.has(key)) continue;
+    if (el.type === 'checkbox' || el.type === 'radio') el.checked = values.get(key);
+    else el.value = values.get(key);
+  }
+  for (const d of document.querySelectorAll('#reports-list details')) {
+    if (open.has(d.dataset.keepOpen || d.querySelector('summary')?.textContent)) d.open = true;
+  }
+  for (const [id, [text, className]] of statuses) {
+    const el = document.querySelector(`[data-follow-status="${CSS.escape(id)}"]`);
+    if (el) {
+      el.textContent = text;
+      el.className = className;
+    }
+  }
+}
+
 async function trackedReportAction(event) {
+  if (await followUpAction(event)) return;
   const refresh = event.target.closest('[data-report-refresh]');
   const remove = event.target.closest('[data-report-delete]');
   if (refresh) {
@@ -1395,7 +1581,7 @@ async function trackedReportAction(event) {
 function creditCell(project, kind) {
   const c = project.credits?.[kind];
   if (!c) return '<td class="num credits zero">—</td>';
-  const title = `${c.used} used of ${c.allocated} allocated`;
+  const title = `${c.used} used of ${c.allocated} allocated${kind === 'remediation' ? ` — ${Math.floor(c.remaining / 3)} remediation(s) left at 3 credits each` : ''}`;
   return `<td class="num credits" title="${escapeHtml(title)}"><span class="${c.remaining === 0 && c.allocated > 0 ? 'low' : ''}">${c.remaining}</span><span class="zero"> / ${c.allocated}</span></td>`;
 }
 
@@ -2079,9 +2265,39 @@ if ($('log-search')) {
   $('log-search').addEventListener('input', renderLogs);
 }
 
+/** The app's own name and logo, in the header and the browser tab. */
+function applyAppBranding({ name, logoUrl } = {}) {
+  const appName = name || 'Mission Zero';
+  $('app-name').textContent = appName;
+  document.title = appName;
+  const logo = $('app-logo');
+  logo.hidden = !logoUrl;
+  if (logoUrl) {
+    logo.src = logoUrl;
+    logo.alt = `${appName} logo`;
+  }
+}
+
+$('brand-logo-file').addEventListener('change', () => {
+  const file = $('brand-logo-file').files[0];
+  if (!file) return;
+  if (file.size > 200 * 1024) {
+    alert('That image is larger than 200 KB. Please use a smaller logo.');
+    $('brand-logo-file').value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    $('brand-logo').value = reader.result;
+    $('brand-logo').dispatchEvent(new Event('input'));
+  };
+  reader.readAsDataURL(file);
+});
+
 (async function init() {
   try {
     state.health = await api('/api/health');
+    applyAppBranding(state.health.app);
     for (const problem of state.health.problems) console.warn(problem);
     fillPresets('activity-preset', 'any');
     fillPresets('detection-preset', 'any');

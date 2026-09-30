@@ -197,9 +197,13 @@ export async function runOnce({
   });
 
   const wantedSeverities = automation.severities.length ? new Set(automation.severities) : null;
+  // Findings triaged as not exploitable (proposed or confirmed) are left out,
+  // unless the administrator switched that off.
+  const skipNotExploitable = settings.aiTriage?.skipNotExploitable !== false;
   const open = scan.projects
     .flatMap((summary) => summary.risks)
-    .filter((risk) => !wantedSeverities || wantedSeverities.has(risk.severity));
+    .filter((risk) => !wantedSeverities || wantedSeverities.has(risk.severity))
+    .filter((risk) => !skipNotExploitable || !['NOT_EXPLOITABLE', 'PROPOSED_NOT_EXPLOITABLE'].includes(risk.state));
 
   const { crossed, seen } = findCrossings(open, automation.thresholds, state.ledger, { mode: automation.mode });
 
