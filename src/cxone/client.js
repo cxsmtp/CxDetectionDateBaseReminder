@@ -15,6 +15,29 @@ export class CxApiError extends Error {
 }
 
 const RETRYABLE = new Set([429, 502, 503, 504]);
+// One request may not hang the caller for minutes (Node's fetch has no overall timeout).
+const REQUEST_TIMEOUT_MS = Math.max(5_000, Number(process.env.CX_REQUEST_TIMEOUT_MS) || 60_000);
+
+/** "fetch failed" says nothing: name the host and the network reason (timeout, DNS, TLS, refused…). */
+export function networkReason(error) {
+  if (error?.name === 'TimeoutError' || error?.name === 'AbortError') return `no answer within ${Math.round(REQUEST_TIMEOUT_MS / 1000)} s`;
+  const cause = error?.cause;
+  const code = cause?.code || error?.code || '';
+  const known = {
+    ENOTFOUND: 'host name not found (DNS)',
+    EAI_AGAIN: 'DNS lookup failed temporarily',
+    ECONNREFUSED: 'connection refused',
+    ECONNRESET: 'connection reset',
+    ETIMEDOUT: 'connection timed out',
+    UND_ERR_CONNECT_TIMEOUT: 'connection timed out',
+    UND_ERR_SOCKET: 'connection closed unexpectedly',
+    CERT_HAS_EXPIRED: 'TLS certificate expired',
+    UNABLE_TO_VERIFY_LEAF_SIGNATURE: 'TLS certificate not trusted (proxy or missing CA — see NODE_EXTRA_CA_CERTS)',
+    SELF_SIGNED_CERT_IN_CHAIN: 'TLS certificate not trusted (proxy or missing CA — see NODE_EXTRA_CA_CERTS)',
+    DEPTH_ZERO_SELF_SIGNED_CERT: 'self-signed TLS certificate',
+  };
+  return known[code] || [code, cause?.message || error?.message].filter(Boolean).join(': ') || 'network error';
+}
 
 /**
  * Checkmarx One negotiates API versions through the Accept header and answers
@@ -103,13 +126,14 @@ export class CxClient {
               ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
             },
             body: body === undefined ? undefined : JSON.stringify(body),
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
           });
           return [r, await r.text().catch(() => '')];
         }, { low: background });
       } catch (error) {
         // A dropped connection or DNS hiccup: as retryable as a 503.
-        lastError = error;
-        if (attempt === retries) throw error;
+        lastError = new CxApiError(`Could not reach Checkmarx One at ${url.host}: ${networkReason(error)}.`, { status: 502, path: url.pathname });
+        if (attempt === retries) throw lastError;
         await sleep(2 ** attempt * 500);
         continue;
       }

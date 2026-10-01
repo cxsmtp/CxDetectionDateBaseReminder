@@ -313,6 +313,11 @@
       const status = effectiveStatus(f);
       const stateCell = tr.querySelector('.state-cell');
       if (stateCell && f.state) stateCell.textContent = STATE_LABELS[f.state] || f.state.replace(/_/g, ' ').toLowerCase();
+      // AI cannot act on it (e.g. IaC): the "Manual fix" note from the report stays.
+      if (f.aiUnavailable) {
+        updateBulk();
+        return;
+      }
       cell.replaceChildren();
       if (status && status !== 'NOT_TRIAGED') {
         const [label, tone] = VERDICTS[status] || [status.replace(/_/g, ' ').toLowerCase(), 'muted'];
@@ -395,7 +400,12 @@
             : `No ${label} findings`;
       btn.disabled = bulkRunning || n === 0;
     }
-    $('bulk-progress').textContent = running ? `${running} triage job${running === 1 ? '' : 's'} running…` : '';
+    // Critical/high findings AI cannot act on (IaC, …): say so, rather than leave them looking forgotten.
+    const manual = findings.filter((f) => f.shown && !f.hidden && f.aiUnavailable && (f.severity === 'CRITICAL' || f.severity === 'HIGH')).length;
+    $('bulk-progress').textContent = [
+      running ? `${running} triage job${running === 1 ? '' : 's'} running…` : '',
+      manual ? `${manual} critical/high finding${manual === 1 ? '' : 's'} need${manual === 1 ? 's' : ''} a manual fix in Checkmarx One (AI Triage covers SAST and SCA only).` : '',
+    ].filter(Boolean).join(' · ');
   }
 
   function setConnectedUI(tenant) {

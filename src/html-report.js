@@ -291,17 +291,28 @@ function findingRow(finding, client, remediateHere) {
   <td class="meta-cell" data-label="Engine">${escapeHtml(finding.scanner || '—')}</td>
   <td class="meta-cell" data-label="Age">${age}</td>
   <td class="state-cell" data-label="State">${escapeHtml(stateLabel)}</td>
-  <td class="ai-cell" data-label="Triage result">—</td>
+  <td class="ai-cell" data-label="Triage result">${client.aiUnavailable ? manualCell(finding, client.aiUnavailable) : '—'}</td>
   <td class="actions-cell">
-    <button class="btn btn-small" type="button" data-action="triage"${client.aiUnavailable ? ` disabled title="${escapeHtml(client.aiUnavailable)}"` : ''}>Triage</button>
-    ${remediateHere && !client.aiUnavailable
+    ${client.aiUnavailable
+      ? url
+        ? `<a class="btn btn-small btn-outline" data-action="remediate-link" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="AI Triage and Remediation are not available for this finding: fix it in Checkmarx One">Fix in Checkmarx One</a>`
+        : ''
+      : `<button class="btn btn-small" type="button" data-action="triage">Triage</button>
+    ${remediateHere
       ? '<button class="btn btn-small btn-outline" type="button" data-action="remediate">Remediate</button>'
       : url
         ? `<a class="btn btn-small btn-outline" data-action="remediate-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">Remediate</a>`
-        : ''}
+        : ''}`}
     <div class="fix-cell"></div>
   </td>
 </tr>`;
+}
+
+/** Why AI cannot act on this finding, in a few words, with the full reason on hover. */
+function manualCell(finding, reason) {
+  const engine = String(finding.scanner || '').toUpperCase();
+  const short = engine && !['SAST', 'SCA'].includes(engine) ? `No AI for ${['KICS', 'IAC'].includes(engine) ? 'IaC' : engine} findings` : 'AI not available';
+  return `<span class="chip chip-muted" title="${escapeHtml(reason)}">Manual fix</span><div class="sub">${escapeHtml(short)} — fix it in Checkmarx One</div>`;
 }
 
 function styles(accent) {

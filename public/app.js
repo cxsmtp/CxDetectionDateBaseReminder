@@ -1894,11 +1894,24 @@ function followUpOptions(card) {
   };
 }
 
+/** The button last clicked in a report card: its message is shown right under it, where the eye is. */
+let followButton = null;
+
 function followStatus(id, text, kind = '') {
   const el = document.querySelector(`[data-follow-status="${CSS.escape(id)}"]`);
   if (el) {
     el.textContent = text;
     el.className = `status ${kind}`;
+  }
+  const near = followButton?.isConnected && followButton.closest(`[data-report="${CSS.escape(id)}"]`) ? followButton.closest('.actions') : null;
+  if (near) {
+    let inline = near.nextElementSibling?.matches?.('.inline-status') ? near.nextElementSibling : null;
+    if (!inline) {
+      inline = document.createElement('p');
+      near.after(inline);
+    }
+    inline.textContent = text;
+    inline.className = `status inline-status ${kind}`;
   }
 }
 
@@ -1922,9 +1935,12 @@ async function followUpAction(event) {
   const id = card.dataset.report;
   const options = followUpOptions(card);
   button.disabled = true;
+  followButton = button;
+  const label = button.textContent;
   try {
     if (button.dataset.reportHtml) {
-      followStatus(id, 'Building the HTML report from the current open findings…');
+      button.textContent = 'Preparing…';
+      followStatus(id, 'Building the HTML report from the current open findings in Checkmarx One — this can take a minute for large reports…');
       await downloadTrackedHtml(id);
       followStatus(id, 'HTML report downloaded — this is what an attached report contains.', 'ok');
     } else if (button.dataset.reportAllocate) {
@@ -1980,8 +1996,9 @@ async function followUpAction(event) {
       }
     }
   } catch (error) {
-    if (!handleAuthLoss(error)) followStatus(id, error.message, 'error');
+    if (!handleAuthLoss(error)) followStatus(id, button.dataset.reportHtml ? `Could not build the HTML report: ${error.message}` : error.message, 'error');
   } finally {
+    button.textContent = label;
     button.disabled = false;
   }
   return true;

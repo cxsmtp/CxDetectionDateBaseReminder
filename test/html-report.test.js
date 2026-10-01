@@ -178,3 +178,13 @@ test('the report shows its reminder server address, and one without an address c
   const hostile = build('javascript:alert(1)');
   assert.equal(island(hostile).config.relayUrl, '');
 });
+
+test('findings AI cannot act on (IaC) say so, and offer a fix in Checkmarx One instead of Triage / Remediate', () => {
+  const iac = { ...risk(1, 'CRITICAL'), scanner: 'IAC', url: 'https://eu.ast.checkmarx.net/r/1', aiUnavailable: 'AI Triage and Remediation support SAST and SCA only (this is IAC).' };
+  const html = generateHtmlReport(buildReportData([iac], { tenant: 't' }), { findings: [iac], bulkFindings: [], relayUrl: 'https://r.example', remediationViaRelay: true, sign: () => ({ exp: 1, grant: 'g' }) });
+  const row = html.slice(html.indexOf('<tr data-key="0"'), html.indexOf('</tr>', html.indexOf('<tr data-key="0"')));
+  assert.match(row, /Manual fix/);
+  assert.match(row, /No AI for IaC findings/);
+  assert.match(row, />Fix in Checkmarx One</);
+  assert.ok(!/data-action="triage"|data-action="remediate"/.test(row));
+});

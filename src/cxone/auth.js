@@ -1,3 +1,4 @@
+import { networkReason } from './client.js';
 /**
  * Checkmarx One authentication.
  *
@@ -62,9 +63,10 @@ export class TokenProvider {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body,
+        signal: AbortSignal.timeout(60_000),
       });
     } catch (error) {
-      throw new AuthError(`Could not reach the Checkmarx One IAM host at ${tokenUrl}: ${error.message}`, 502);
+      throw new AuthError(`Could not reach the Checkmarx One IAM host at ${new URL(tokenUrl).host}: ${networkReason(error)}.`, 502);
     }
 
     if (!response.ok) {

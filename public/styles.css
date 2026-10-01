@@ -1061,3 +1061,4 @@ button.link.danger { color: var(--danger); }
   .iam-matrix .perm-desc { display: none; }
   .iam-matrix .role-col { min-width: 80px; }
 }
+.inline-status { margin: 6px 0 0; overflow-wrap: anywhere; }
