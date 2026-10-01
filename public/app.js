@@ -2929,7 +2929,12 @@ $('brand-logo-file').addEventListener('change', () => {
   try {
     const session = await api('/api/session');
     if (session.signedIn) await afterSignIn(session);
-    else showSignIn({ setup: session.setup });
+    else {
+      showSignIn({ setup: session.setup });
+      if (session.firstStart) {
+        setStatus('signin-status', 'First start: sign in with the administrator email and password printed in the server (container) log.', 'ok');
+      }
+    }
   } catch (error) {
     showSignIn({ message: error.message });
   }

@@ -16,7 +16,7 @@ import { CreditAllocations, alreadySent, toRemediateCount, toTriageCount } from 
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
-import { IamStore, PERMISSIONS, publicUser } from './iam.js';
+import { IamStore, PERMISSIONS, generatePassword, publicUser } from './iam.js';
 import { insideProject, migrateLegacyData, prepareDataDir, resolveDataDir } from './data-dir.js';
 import { PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, listBackups, readBackup, writeBackupTo } from './backup.js';
 import fs from 'node:fs';
@@ -125,12 +125,29 @@ async function prepareAccess() {
       console.warn(`! [access] ADMIN_EMAIL / ADMIN_PASSWORD could not be used: ${error.message}`);
     }
   }
-  // Nobody can use the utility until someone proves they can read this server's log.
-  setupCode = randomBytes(9).toString('base64url').toUpperCase().replace(/[^A-Z0-9]/g, 'X').match(/.{1,4}/g).join('-');
-  console.log('');
-  console.log('  No users yet. Open the utility and create the first administrator with this setup code:');
-  console.log(`      ${setupCode}`);
-  console.log('');
+  if (String(process.env.FIRST_ADMIN ?? '').trim() === 'setup-code') {
+    // Nobody can use the utility until someone proves they can read this server's log.
+    setupCode = randomBytes(9).toString('base64url').toUpperCase().replace(/[^A-Z0-9]/g, 'X').match(/.{1,4}/g).join('-');
+    console.log('');
+    console.log('  No users yet. Open the utility and create the first administrator with this setup code:');
+    console.log(`      ${setupCode}`);
+    console.log('');
+    return;
+  }
+  // Default (and in containers): generate the first administrator and print the
+  // sign-in once, in this log. They must choose their own password at first sign-in.
+  const adminEmail = email || 'admin@mission-zero.local';
+  const generated = generatePassword();
+  const admin = await iam.createUser({ email: adminEmail, name: 'Administrator', role: 'admin', password: generated, mustChangePassword: true });
+  audit.record({ type: 'iam', outcome: 'changed', reason: `First administrator ${admin.email} created with a generated password (printed in the server log once).`, actor: SYSTEM_ACTOR, details: { user: admin } });
+  const line = '='.repeat(64);
+  console.log(`\n${line}`);
+  console.log('  First start: an administrator was created. Sign in with:');
+  console.log(`      Email:    ${admin.email}`);
+  console.log(`      Password: ${generated}`);
+  console.log('  You choose your own password at first sign-in. This is shown only once;');
+  console.log('  lost it? Run: node scripts/reset-admin.mjs  (in a container: docker exec <name> node scripts/reset-admin.mjs)');
+  console.log(`${line}\n`);
 }
 
 /** Projects someone just triaged or remediated in, so reports covering them refresh soon. */
@@ -374,7 +391,10 @@ app.get('/api/session', (req, res) => {
   const session = currentSession(req);
   const user = session ? iam.user(session.userId) : null;
   if (!session || !user || user.disabled) {
-    return res.json({ connected: false, signedIn: false, setup: !iam.hasUsers() });
+    // First start: nobody has signed in yet, so point at the log with the generated sign-in.
+    const users = iam.users();
+    const firstStart = users.length > 0 && users.every((u) => !u.lastLoginAt);
+    return res.json({ connected: false, signedIn: false, setup: !iam.hasUsers() && Boolean(setupCode), firstStart });
   }
   res.json(describeMe(session, user));
 });

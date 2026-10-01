@@ -13,7 +13,8 @@
     "dev": "node --watch src/server.js",
     "test": "node --test test/*.test.js",
     "backup": "node scripts/backup.mjs",
-    "restore": "node scripts/restore.mjs"
+    "restore": "node scripts/restore.mjs",
+    "reset-admin": "node scripts/reset-admin.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

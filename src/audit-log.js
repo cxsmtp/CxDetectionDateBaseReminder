@@ -87,6 +87,11 @@ export class AuditLog {
 
   /** Carry on the chain from the last entry written. */
   #resume() {
+    this.#resumeChain();
+    this.#remember();
+  }
+
+  #resumeChain() {
     const files = this.files();
     for (let i = files.length - 1; i >= 0; i -= 1) {
       const file = path.join(this.#dir, files[i]);
@@ -120,6 +125,9 @@ export class AuditLog {
    * shutdown); `writeError` says so until then.
    */
   record(event, now = new Date()) {
+    // Another process (e.g. an admin command run next to the server) may have
+    // appended since: carry on the chain from what is really on disk.
+    if (!this.#unwritten.length && this.#changedOnDisk()) this.#resume();
     const entry = { seq: this.#seq + 1, id: randomUUID(), at: now.toISOString(), ...event };
     entry.prev = this.#lastMac;
     entry.mac = this.#mac(entry, this.#lastMac);
@@ -133,6 +141,29 @@ export class AuditLog {
   /** Entries not yet on disk, and why (null when everything is written). */
   get writeError() {
     return this.#unwritten.length ? { entries: this.#unwritten.length, error: this.#lastError } : null;
+  }
+
+  #lastFile = '';
+  #lastSize = -1;
+
+  #changedOnDisk() {
+    const files = this.files();
+    const last = files.at(-1) ?? '';
+    let size = -1;
+    try {
+      size = last ? fs.statSync(path.join(this.#dir, last)).size : -1;
+    } catch {}
+    return last !== this.#lastFile || size !== this.#lastSize;
+  }
+
+  #remember() {
+    const last = this.files().at(-1) ?? '';
+    this.#lastFile = last;
+    try {
+      this.#lastSize = last ? fs.statSync(path.join(this.#dir, last)).size : -1;
+    } catch {
+      this.#lastSize = -1;
+    }
   }
 
   /** Write held entries, in order. */
@@ -149,6 +180,7 @@ export class AuditLog {
       this.#unwritten.shift();
     }
     this.#lastError = '';
+    this.#remember();
     return true;
   }
 

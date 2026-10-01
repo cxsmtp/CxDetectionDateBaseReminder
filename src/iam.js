@@ -90,6 +90,13 @@ const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 const fail = (status, message, extra = {}) => Object.assign(new Error(message), { status, ...extra });
 const norm = (value) => String(value ?? '').trim().toLowerCase();
 
+/** A strong temporary password that is easy to read out and type: 4 groups of 5. */
+export function generatePassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const bytes = randomBytes(20);
+  return [...bytes].map((b) => alphabet[b % alphabet.length]).join('').match(/.{5}/g).join('-');
+}
+
 export async function hashPassword(password) {
   const salt = randomBytes(16);
   const hash = await scrypt(String(password), salt, 32, { N: 16384, r: 8, p: 1 });
@@ -119,10 +126,19 @@ export function passwordProblem(password) {
 export class IamStore {
   #file;
   #state;
+  #mtime = 0;
 
   constructor({ file }) {
     this.#file = file;
     this.#state = this.#load();
+  }
+
+  /** Pick up changes another process made (e.g. `node scripts/reset-admin.mjs` on a running server). */
+  #fresh() {
+    try {
+      const mtime = fs.statSync(this.#file).mtimeMs;
+      if (mtime !== this.#mtime) this.#state = this.#load();
+    } catch {}
   }
 
   get file() {
@@ -132,6 +148,7 @@ export class IamStore {
   #load() {
     let raw = {};
     try {
+      this.#mtime = fs.statSync(this.#file).mtimeMs;
       raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
     } catch {}
     const roles = {};
@@ -157,6 +174,7 @@ export class IamStore {
     const tmp = `${this.#file}.${process.pid}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 2), { mode: 0o600 });
     fs.renameSync(tmp, this.#file);
+    this.#mtime = fs.statSync(this.#file).mtimeMs;
   }
 
   // -------------------------------------------------------------------------
@@ -164,10 +182,12 @@ export class IamStore {
   // -------------------------------------------------------------------------
 
   hasUsers() {
+    this.#fresh();
     return this.#state.users.length > 0;
   }
 
   roles() {
+    this.#fresh();
     return Object.entries(this.#state.roles).map(([id, role]) => ({
       id,
       ...role,
@@ -181,20 +201,24 @@ export class IamStore {
   }
 
   users() {
+    this.#fresh();
     return this.#state.users.map(publicUser);
   }
 
   user(id) {
+    this.#fresh();
     return this.#state.users.find((u) => u.id === id) ?? null;
   }
 
   findByEmail(email) {
+    this.#fresh();
     const key = norm(email);
     return this.#state.users.find((u) => norm(u.email) === key) ?? null;
   }
 
   /** The user a Checkmarx One identity belongs to: by email, then by mapped username or client id. */
   findByCxIdentity({ email = '', user = '', clientId = '' } = {}) {
+    this.#fresh();
     const keys = [email, user, clientId].map(norm).filter(Boolean);
     if (!keys.length) return null;
     return (

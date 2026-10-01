@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+data
+.env
+.env.*
+*.log
+test
+loadtest
+docs
+coverage
+Dockerfile
+compose.yaml

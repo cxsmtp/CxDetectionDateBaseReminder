@@ -67,6 +67,7 @@ test.before(async () => {
       REPORT_SIGNING_KEY: 'rbac-test',
       ADMIN_EMAIL: '',
       ADMIN_PASSWORD: '',
+      FIRST_ADMIN: 'setup-code',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

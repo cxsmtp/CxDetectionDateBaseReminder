@@ -16,6 +16,20 @@ Run the tests with `npm test`.
 
 ---
 
+## Run it anywhere (Docker or Podman)
+
+```
+docker run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+Swap `docker` for `podman` to use Podman. From a checkout you can instead run
+`docker compose up -d` (or `podman compose up -d`).
+
+Open <http://localhost:3000> and sign in with the administrator's email and
+password, which `docker logs mission-zero` shows once, at first start. See
+[docs/container.md](docs/container.md) for options, backups, upgrades and
+proxies.
+
 ## The two pages
 
 ### Dashboard
@@ -494,10 +508,16 @@ Access.
 Disabling or removing someone ends their sessions at once, and a role change
 applies on their next click.
 
-**First start.** With no users yet, the server prints a one-time setup code in its
-log. Open the utility and create the first administrator with it. For an unattended
-install, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` instead; that administrator then
-chooses a new password at first sign-in.
+**First start.**
+- With no users yet, the server creates an administrator and prints its email and
+  a generated password once in its log (or the container log). The administrator
+  chooses their own password at first sign-in.
+- `ADMIN_EMAIL` sets that email. `ADMIN_PASSWORD` sets the password instead of
+  generating one.
+- Lost it? `node scripts/reset-admin.mjs` sets a new temporary one. It works
+  while the server runs, and the reset is audited.
+- `FIRST_ADMIN=setup-code` restores the older flow: create the first
+  administrator in the browser with a one-time code from the log.
 
 **Audit.** Sign-ins (and refusals and lockouts), people and role changes, and
 integration changes are recorded in the audit log (types `access` and `iam`).
