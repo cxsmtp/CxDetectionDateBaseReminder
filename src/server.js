@@ -12,7 +12,7 @@ import { resolveAiIds, resultRowsFor } from './cxone/ai-assist.js';
 import { mapWithConcurrency } from './cxone/client.js';
 import { ReportGrants } from './report-grants.js';
 import { CREDIT_COST, CreditLedger, monthOf } from './credits.js';
-import { CreditAllocations, toRemediateCount, toTriageCount } from './credit-allocations.js';
+import { CreditAllocations, alreadySent, toRemediateCount, toTriageCount } from './credit-allocations.js';
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
@@ -1153,12 +1153,29 @@ async function withoutNotExploitable(session, risks) {
       console.warn(`[reminders] could not read live states for ${projectId}: ${error.message}`);
     }
   });
-  return risks
+  const current = risks
     .map((r) => {
       const state = live.get(r.projectId)?.get(r.riskId);
       return state && state !== r.state ? { ...r, state } : r;
     })
     .filter((r) => !NOT_EXPLOITABLE_STATES.has(r.state));
+  // AI Triage can propose "not exploitable" while the finding still reads To verify:
+  // look at the verdict of everything this utility sent for triage, and leave those out too.
+  const sent = new Map();
+  const askAi = current.filter((r) => {
+    if (r.state && r.state !== 'TO_VERIFY') return false;
+    if (!sent.has(r.projectId)) sent.set(r.projectId, creditLedger.triagedAt(r.projectId));
+    return r.groupId && alreadySent(r, sent.get(r.projectId));
+  });
+  const verdictNotExploitable = new Set();
+  await mapWithConcurrency(askAi, 6, async (r) => {
+    const { key, load, ttl } = triageLookup(session, r);
+    try {
+      const answer = await relayCache.wrap(key, load, ttl);
+      if (NOT_EXPLOITABLE_STATES.has(String(answer?.body?.triageStatus ?? '').toUpperCase())) verdictNotExploitable.add(r);
+    } catch {}
+  });
+  return verdictNotExploitable.size ? current.filter((r) => !verdictNotExploitable.has(r)) : current;
 }
 
 /**
@@ -1807,7 +1824,7 @@ app.post(
       const sentBefore = new Map([...new Set(findings.map((f) => f.projectId))].map((id) => [id, creditLedger.triagedAt(id)]));
       for (const [key, group] of buckets) {
         const triaged = group.filter((f) => {
-          if (sentBefore.get(f.projectId)?.has(f.riskId)) return true;
+          if (alreadySent(f, sentBefore.get(f.projectId))) return true;
           const states = statesByProject.get(f.projectId);
           const state = states?.get(f.riskId) ?? states?.get(f.alternateId) ?? '';
           return state && state !== 'TO_VERIFY';
@@ -1874,7 +1891,10 @@ app.post(
           // Ledger first (so the balance after is right), linked to its audit entry both ways.
           const auditId = randomUUID();
           reservation.release();
-          creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', riskIds, covered: Math.min(covered, alternateIds.length), auditId });
+          creditLedger.record({
+            projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', riskIds, alternateIds,
+            groupIds: [...new Set(group.map((f) => f.groupId).filter(Boolean))], covered: Math.min(covered, alternateIds.length), auditId,
+          });
           auditCredit({ ...base, id: auditId, outcome: 'charged', charged: alternateIds.length, upstream, details: { covered: Math.min(covered, alternateIds.length) } });
         } else {
           auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this triage job; no new credits.', upstream });
@@ -2058,8 +2078,10 @@ app.post(
       const { key, load, ttl } = triageLookup(session, finding, { background: true });
       const known = relayCache.peek(key, backgroundRoom(session) ? load : null, ttl);
       // When this utility sent it for AI Triage, so the report can say so even before Checkmarx One has a verdict.
+      const sent = sentBefore.get(finding.projectId);
+      const sentAt = sent?.get(finding.riskId) || sent?.get(`a:${finding.alternateId}`) || (finding.groupId && sent?.get(`g:${finding.groupId}`));
       const extra = {
-        ...(sentBefore.get(finding.projectId)?.get(finding.riskId) ? { triagedAt: sentBefore.get(finding.projectId).get(finding.riskId) } : {}),
+        ...(sentAt ? { triagedAt: sentAt } : {}),
         ...(stateErrors.has(finding.projectId) ? { stateError: stateErrors.get(finding.projectId) } : {}),
       };
       if (!known) return { found: false, state, pending: true, ...extra };
@@ -2344,7 +2366,7 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
   let alreadyTriaged = 0;
   if (!settingsStore.get().aiTriage?.allowRetriage) {
     const sent = new Map();
-    const before = (f) => (sent.has(f.projectId) ? sent : sent.set(f.projectId, creditLedger.triagedAt(f.projectId))).get(f.projectId).has(f.riskId);
+    const before = (f) => alreadySent(f, (sent.has(f.projectId) ? sent : sent.set(f.projectId, creditLedger.triagedAt(f.projectId))).get(f.projectId));
     const again = eligible.filter(before);
     if (again.length) {
       alreadyTriaged = again.length;
@@ -2396,7 +2418,10 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
         // The administrator's own triage never uses up the developers' extras.
         const auditId = randomUUID();
         reservation.release();
-        creditLedger.record({ projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', covered: alternateIds.length, riskIds: [...new Set(group.map((f) => f.riskId))], auditId });
+        creditLedger.record({
+          projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', covered: alternateIds.length,
+          riskIds: [...new Set(group.map((f) => f.riskId))], alternateIds, groupIds: [...new Set(group.map((f) => f.groupId).filter(Boolean))], auditId,
+        });
         auditCredit({ ...base, id: auditId, outcome: 'charged', charged: alternateIds.length, upstream, details: { origin, allocationRaisedBy: raised || undefined } });
       } else {
         auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this triage job; no new credits.', upstream });

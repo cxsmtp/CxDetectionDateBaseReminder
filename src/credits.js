@@ -59,10 +59,14 @@ export class CreditLedger {
     this.#totals.set(key, t);
     const month = e.at.slice(0, 7);
     this.#months.set(month, (this.#months.get(month) ?? 0) + e.credits);
-    if ((e.kind ?? 'triage') === 'triage' && e.riskIds?.length) {
-      if (!this.#triaged.has(e.projectId)) this.#triaged.set(e.projectId, new Map());
-      const map = this.#triaged.get(e.projectId);
-      for (const id of e.riskIds) if (!(map.get(id) > e.at)) map.set(id, e.at);
+    if ((e.kind ?? 'triage') === 'triage') {
+      // Indexed by finding, and by the result and group Checkmarx One charged for.
+      const keys = [...(e.riskIds ?? []), ...(e.alternateIds ?? []).map((id) => `a:${id}`), ...(e.groupIds ?? []).map((id) => `g:${id}`)];
+      if (keys.length) {
+        if (!this.#triaged.has(e.projectId)) this.#triaged.set(e.projectId, new Map());
+        const map = this.#triaged.get(e.projectId);
+        for (const id of keys) if (!(map.get(id) > e.at)) map.set(id, e.at);
+      }
     }
     if (e.kind === 'remediation' && e.riskIds?.length) {
       if (!this.#remediated.has(e.projectId)) this.#remediated.set(e.projectId, new Set());
@@ -148,7 +152,7 @@ export class CreditLedger {
   }
 
   /** Record credits Checkmarx One accepted, one entry per project per request. */
-  record({ projectId, projectName = '', credits, scanId = '', kind = 'triage', riskIds, covered, auditId }, now = new Date()) {
+  record({ projectId, projectName = '', credits, scanId = '', kind = 'triage', riskIds, alternateIds, groupIds, covered, auditId }, now = new Date()) {
     if (!credits) return;
     this.#entries.push({
       at: now.toISOString(),
@@ -158,6 +162,8 @@ export class CreditLedger {
       scanId,
       kind,
       ...(riskIds?.length ? { riskIds } : {}),
+      ...(alternateIds?.length ? { alternateIds } : {}),
+      ...(groupIds?.length ? { groupIds } : {}),
       ...(Number.isFinite(covered) ? { covered: Math.max(0, Math.min(credits, covered)) } : {}),
       ...(auditId ? { auditId } : {}),
     });

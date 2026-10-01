@@ -31,20 +31,39 @@ const RECENTLY_REQUESTED_MS = 30 * 60 * 1000;
 const aiScanner = (r) => AI_SCANNERS.has(String(r.scanner || '').toUpperCase());
 
 /**
+ * What Checkmarx One charges for: one result. Findings that share a result
+ * (an SCA vulnerability listed twice, SAST findings of one similarity group)
+ * are triaged — and charged — once, so they are counted once.
+ */
+export const billingUnit = (r) =>
+  r.alternateId ? `a:${r.alternateId}` : r.groupId ? `g:${r.groupId}` : r.riskId ? `r:${r.riskId}` : r; // no id at all: itself
+
+/** Was this finding (or its result) already sent through this utility? `sent` is CreditLedger.triagedAt(). */
+export function alreadySent(r, sent) {
+  if (!sent?.size) return false;
+  return sent.has(r.riskId) || (r.alternateId && sent.has(`a:${r.alternateId}`)) || (r.groupId && sent.has(`g:${r.groupId}`));
+}
+
+const unique = (risks) => new Set(risks.map(billingUnit)).size;
+
+/**
  * Findings of these severities that AI Triage can still act on: SAST or SCA,
  * state To verify (or unknown), and not sent for triage in the last 30 minutes.
  */
 export function toTriageCount(risks, severities, now = Date.now(), triaged = new Map()) {
   const wanted = new Set(severities.map((s) => String(s).toUpperCase()));
-  return risks.filter(
-    (r) =>
-      wanted.has(r.severity) &&
-      aiScanner(r) &&
-      (!r.state || r.state === 'TO_VERIFY') &&
-      // Already sent for AI Triage through this utility (a "vulnerable" verdict stays To verify).
-      !triaged.has(r.riskId) &&
-      !(r.triageRequestedAt && now - r.triageRequestedAt < RECENTLY_REQUESTED_MS),
-  ).length;
+  return unique(
+    risks.filter(
+      (r) =>
+        wanted.has(r.severity) &&
+        aiScanner(r) &&
+        (!r.state || r.state === 'TO_VERIFY') &&
+        // Already sent for AI Triage through this utility: still "To verify" while AI Triage
+        // runs (and after a vulnerable verdict), but paid for — never counted twice.
+        !alreadySent(r, triaged) &&
+        !(r.triageRequestedAt && now - r.triageRequestedAt < RECENTLY_REQUESTED_MS),
+    ),
+  );
 }
 
 /**
@@ -53,9 +72,11 @@ export function toTriageCount(risks, severities, now = Date.now(), triaged = new
  */
 export function toRemediateCount(risks, severities, remediated = new Set()) {
   const wanted = new Set(severities.map((s) => String(s).toUpperCase()));
-  return risks.filter(
-    (r) => wanted.has(r.severity) && aiScanner(r) && (r.state === 'CONFIRMED' || r.state === 'URGENT') && !remediated.has(r.riskId),
-  ).length;
+  return unique(
+    risks.filter(
+      (r) => wanted.has(r.severity) && aiScanner(r) && (r.state === 'CONFIRMED' || r.state === 'URGENT') && !remediated.has(r.riskId),
+    ),
+  );
 }
 
 export class CreditAllocations {

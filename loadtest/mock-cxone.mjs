@@ -4,6 +4,8 @@ const PROJECTS = Number(process.env.PROJECTS || 200);
 const RISKS = Number(process.env.RISKS || 60);
 const LAT = Number(process.env.LAT || 80);
 const KEY = process.env.KEY;
+// How long AI Triage takes before verdicts (and the new states) appear.
+const FLIP_MS = Number(process.env.FLIP_MS || 20000);
 const counts = {};
 let inFlight = 0, peak = 0;
 const bump = (k) => (counts[k] = (counts[k] || 0) + 1);
@@ -14,7 +16,7 @@ const risksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
   const id = `${pid}-r${i}`;
   const alt = `alt-${id}`;
   const t = triaged.get(alt);
-  const state = t && Date.now() - t > 20000 ? (i % 3 ? 'PROPOSED_NOT_EXPLOITABLE' : 'CONFIRMED') : 'TO_VERIFY';
+  const state = t && Date.now() - t > FLIP_MS ? (i % 3 ? 'PROPOSED_NOT_EXPLOITABLE' : 'CONFIRMED') : 'TO_VERIFY';
   return { id, riskName: `Finding ${id}`, severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: 'SAST', state, firstDetectionDate: day(40), groupId: `sim-${id}` };
 });
 http.createServer((req, res) => {
@@ -56,10 +58,11 @@ http.createServer((req, res) => {
       }
       if ((m = u.pathname.match(/^\/api\/ai-triage\/triage\/([^/]+)\/(.+)$/))) {
         bump('triage-get');
-        const alt = `alt-${decodeURIComponent(m[2]).replace(/^sim-/, '')}`;
-        const t = triaged.get(alt);
+        const id = decodeURIComponent(m[2]).replace(/^sim-/, '');
+        const t = triaged.get(`alt-${id}`);
         if (!t) return send(404, {});
-        return send(200, Date.now() - t < 20000 ? { jobStatus: 'IN_PROGRESS' } : { triageStatus: 'VULNERABLE', summary: 'x' });
+        const i = Number(id.split('-r')[1]);
+        return send(200, Date.now() - t < FLIP_MS ? { jobStatus: 'IN_PROGRESS' } : { triageStatus: i % 3 ? 'PROPOSED_NOT_EXPLOITABLE' : 'VULNERABLE', summary: 'x' });
       }
       if (req.method === 'POST' && u.pathname === '/api/remediation/remediate') {
         bump('remediate-post');

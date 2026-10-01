@@ -62,3 +62,16 @@ test('/api/results is paged by page number and read until a short page, ignoring
   assert.deepEqual(calls.map((c) => c.offset), [0, 1]);
   assert.equal(f.alternateId, 'on-page-2');
 });
+
+test('an SCA finding is never matched to the same vulnerability in another package version', async () => {
+  // The latest scan only has CVE-9 in crypto v0.51.0; the finding is about v0.21.0.
+  const { client } = fakeClient({
+    s1: [[{ type: 'sca', similarityId: 'CVE-9', alternateId: 'alt-051', data: { packageIdentifier: 'Go-golang.org/x/crypto-v0.51.0' } }]],
+  });
+  const stale = finding({ scanner: 'SCA', groupId: 'CVE-9#-#Go-golang.org/x/crypto-v0.21.0#-#p1' });
+  const current = finding({ scanner: 'SCA', groupId: 'CVE-9#-#Go-golang.org/x/crypto-v0.51.0#-#p1' });
+  await resolveAiIds(client, [stale, current], () => 's1');
+  assert.equal(stale.alternateId, undefined, 'not triaged (and charged) as someone else');
+  assert.match(stale.aiUnavailable, /not found in the latest scan results/);
+  assert.equal(current.alternateId, 'alt-051');
+});

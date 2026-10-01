@@ -2,14 +2,15 @@
 // role may do, sign-in by password and by Checkmarx One key, the first-admin
 // setup, and that nobody can raise their own access.
 import test from 'node:test';
+import { freePort } from './free-port.js';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const MOCK_PORT = 4300 + Math.floor(Math.random() * 300);
-const PORT = MOCK_PORT + 400;
+const MOCK_PORT = await freePort();
+const PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
 const key = (claims) => {

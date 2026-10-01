@@ -59,9 +59,14 @@ function findRow(rows, finding) {
   let matches = rows.filter(
     (row) => String(row.type ?? '').toLowerCase() === type && String(row.similarityId ?? '') === similarityId,
   );
-  if (finding.scanner === 'SCA' && packageIdentifier && matches.length > 1) {
-    const narrowed = matches.filter((row) => row.data?.packageIdentifier === packageIdentifier);
-    if (narrowed.length) matches = narrowed;
+  // SCA: the same vulnerability in another version of the package is another
+  // finding. Never stand one in for the other — AI Triage would run (and
+  // charge) for the wrong one, and this one's verdict would never come.
+  if (finding.scanner === 'SCA' && packageIdentifier && matches.length) {
+    const known = matches.filter((row) => row.data?.packageIdentifier);
+    const exact = matches.filter((row) => row.data?.packageIdentifier === packageIdentifier);
+    if (exact.length) matches = exact;
+    else if (known.length) return null;
   }
   // SAST groups findings by pattern, so rows sharing a similarityId all map
   // to the same AI Triage verdict and any of them is a valid representative.

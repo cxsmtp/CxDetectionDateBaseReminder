@@ -31,6 +31,8 @@
   const POLL_MS = 6000;
   const MAX_POLL_MS = 30000;
   const TRIAGE_TIMEOUT_MS = 20 * 60 * 1000;
+  // Sent this long ago and Checkmarx One still has no AI Triage record at all: stop saying "Triaging…".
+  const NO_RECORD_MS = 6 * 60 * 1000;
   const REMEDIATION_POLL_MS = 12000;
   const REMEDIATION_TIMEOUT_MS = 40 * 60 * 1000;
   // AI Triage's own record can say TO_VERIFY after it finished, while the
@@ -291,7 +293,18 @@
     if (ai) f.triage = { ...ai, note: '' };
   }
 
+  /** Marked not exploitable (or proposed so) by AI Triage or in Checkmarx One: never shown in the report. */
+  const notExploitable = (f) => NOT_EXPLOITABLE.has(f.state) || NOT_EXPLOITABLE.has(f.triage?.status);
+
   function renderTriage(f) {
+    if (notExploitable(f)) {
+      if (!f.hidden) {
+        if (f.touched) log(`AI Triage: ${f.title} → ${(VERDICTS[f.triage?.status] || VERDICTS[f.state] || ['not exploitable'])[0]} — removed from this report.`, 'success');
+        hideNotExploitable(f);
+      }
+      updateBulk();
+      return;
+    }
     const tr = row(f);
     if (tr) {
       const cell = tr.querySelector('.ai-cell');
@@ -323,6 +336,14 @@
           details.append(summary, text);
           cell.append(details);
         }
+      } else if (f.noRecord) {
+        const chip = document.createElement('span');
+        chip.className = 'chip chip-warn';
+        chip.textContent = 'No verdict';
+        const sub = document.createElement('div');
+        sub.className = 'sub';
+        sub.textContent = 'Sent for AI Triage, but Checkmarx One has not produced a result for this finding. Check it in Checkmarx One.';
+        cell.append(chip, sub);
       } else if (f.triagedAt && !(t.status === 'IN_PROGRESS')) {
         const chip = document.createElement('span');
         chip.className = 'chip chip-muted';
@@ -508,6 +529,14 @@
       waiting.forEach((f, i) => {
         applyAnswer(f, answers[i]);
         const status = effectiveStatus(f);
+        const sentAt = Date.parse(f.triagedAt || '') || f.sentAt || Date.now();
+        if (answers[i]?.found === false && !answers[i]?.pending && Date.now() - sentAt > NO_RECORD_MS && (!status || status === 'IN_PROGRESS' || status === 'TO_VERIFY')) {
+          f.triage = { status: '' };
+          f.noRecord = true;
+          renderTriage(f);
+          log(`AI Triage: ${f.title} → no result from Checkmarx One ${Math.round((Date.now() - sentAt) / 60000)} min after it was sent. The report keeps checking.`, 'error');
+          return;
+        }
         if (status && !WAITING.has(status)) {
           f.settled = true;
           renderTriage(f);
@@ -537,6 +566,8 @@
       if (result.ok) {
         for (const f of group) {
           f.touched = true;
+          f.sentAt = Date.now();
+          f.noRecord = false;
           f.triage = { status: 'IN_PROGRESS' };
           f.settled = false;
           if (f.state && f.state !== 'TO_VERIFY') f.state = 'TO_VERIFY';
@@ -611,7 +642,7 @@
     const n = findings.filter((x) => x.hidden && x.shown).length;
     const note = $('hidden-note');
     note.hidden = n === 0;
-    note.textContent = `${n} finding${n === 1 ? '' : 's'} already triaged as not exploitable in Checkmarx One ${n === 1 ? 'is' : 'are'} not shown.`;
+    note.textContent = `${n} finding${n === 1 ? '' : 's'} triaged as not exploitable (or proposed so) ${n === 1 ? 'is' : 'are'} not shown.`;
   }
 
   /**
@@ -640,8 +671,8 @@
       if (answer?.pending && !answer.state) return;
       applyAnswer(f, answer);
       // Already triaged as not exploitable: nothing left to do here, so it is skipped.
-      if (NOT_EXPLOITABLE.has(f.state) && !f.touched) {
-        hideNotExploitable(f);
+      if (notExploitable(f)) {
+        renderTriage(f);
         return;
       }
       const ai = f.triage?.status;
@@ -691,7 +722,12 @@
         const answer = answers[i];
         if (!answer || (answer.pending && !answer.state && !answer.triagedAt)) return;
         applyAnswer(f, answer);
-        if (NOT_EXPLOITABLE.has(f.state) && !f.touched) return hideNotExploitable(f);
+        if (answer.found === false && f.triage?.status === 'IN_PROGRESS' && f.triagedAt && Date.now() - Date.parse(f.triagedAt) > NO_RECORD_MS) {
+          f.triage = { status: '' };
+          f.noRecord = true;
+        } else if (answer.found) {
+          f.noRecord = false;
+        }
         renderTriage(f);
       });
       reportStateErrors();

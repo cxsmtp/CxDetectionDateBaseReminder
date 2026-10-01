@@ -229,10 +229,37 @@ under the server's account.
   cannot overrun it together). Whether Remediate runs AI Remediation is fixed
   when a report is generated; the server re-checks the switch on every request.
 - **Costs.** AI Triage uses 1 credit per finding, AI Remediation 3.
-- **Not exploitable is left out.** Reminders and reports (including automatic
-  ones) leave out findings triaged as proposed not exploitable or not
-  exploitable, by their live Checkmarx One state at send time — so triage run
-  just before sending counts. Switch this off under the same Settings panel.
+  - One finding here means one Checkmarx One result: rows that share a result,
+    such as the same vulnerability listed twice, are triaged and counted once.
+- **Allocations.** Each project gets credits for the severities its rule covers
+  (critical and high by default):
+  - **Triage:** credits already used, plus 1 for each finding still to triage.
+  - **Remediation:** credits already used, plus 3 for each **confirmed** finding
+    not yet remediated.
+  - **Triaged findings are never counted again.** A finding sent for AI Triage
+    stays "To verify" while it runs, and after a vulnerable verdict. The credit
+    ledger records every result sent for triage, so it is not counted as "still
+    to triage" again and the allocation does not jump while AI Triage runs.
+  - **Re-triage is refused while re-triage is off,** from the report, the
+    dashboard and tracked reports alike, so it is never charged twice.
+  - `test/credits-lifecycle.e2e.test.js` checks allocation, use and the audit
+    trail after every stage: fetch, triage, a second triage attempt, verdicts,
+    remediation and its repeat, duplicate rows, the monthly limit, and
+    reconciliation.
+- **Not exploitable is left out.** Findings marked not exploitable, or proposed
+  not exploitable, never appear in HTML reports or reminders, including
+  automatic ones.
+  - This covers the live Checkmarx One state, and AI Triage's verdict while the
+    state still reads "To verify".
+  - A finding triaged from an open report disappears from it as soon as that
+    verdict arrives, and the report counts how many it has hidden.
+  - Switch this off under the same Settings panel.
+- **No verdict.** If Checkmarx One has produced no AI Triage result for a finding
+  6 minutes after it was sent, the report says "No verdict" instead of
+  "Triaging…" forever, and keeps checking.
+  - An SCA finding is only triaged as its own package version. If the latest
+    scan only has that vulnerability in another version, it is reported as not
+    found rather than triaged (and charged) as the other version.
 - **Live usage.** The same panel lists the credits used per project for any
   month — triage, remediation and total — refreshing every 15 seconds while it
   is open. This is the utility's own
