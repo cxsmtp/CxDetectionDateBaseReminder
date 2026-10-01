@@ -17,6 +17,8 @@ One entry per event, in `audit/audit-YYYY-MM.jsonl` in the state folder:
 | `report` | A report is issued (downloaded, emailed to an initiator, or sent to "only to" addresses), with its recipient |
 | `backup` | A backup is downloaded or written, a restore is staged, cancelled or applied |
 | `audit` | Someone ran "Verify integrity" |
+| `access` | Every sign-in and sign-out, and every refused sign-in (wrong password, lockout, a key with no matching person) |
+| `iam` | People added, changed, disabled or removed; roles created, changed or removed; passwords set |
 
 Outcomes:
 
@@ -34,7 +36,8 @@ Each entry records:
 - **Who acted:**
   - for a report reader: the report's recipient and report id, taken from a
     signed identity token in the report, plus IP address and browser;
-  - for the dashboard: the Checkmarx One user behind the API key.
+  - for the dashboard: the signed-in person (email, role, and whether they used a
+    password or a Checkmarx One key).
 - **What it touched:** the project and the findings (risk id, alternate id, scan,
   scanner).
 - **Credits:** credits requested and charged, and the project's allocated, used and
@@ -91,6 +94,7 @@ The state folder holds:
 
 ```
 settings.json               SMTP, recipients, template, credit settings, stored keys
+iam.json                    people, roles and permissions (passwords as scrypt hashes)
 triage-credits.json         credit ledger: every credit spent, never trimmed
 credit-allocations.json     per-project allocations and admin-added credits
 audit/audit-YYYY-MM.jsonl   the audit log

@@ -28,8 +28,15 @@ http.createServer((req, res) => {
       const send = (s, o) => { res.writeHead(s, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o ?? {})); };
       if (u.pathname === '/__stats') return send(200, { counts, peak });
       if (u.pathname === '/__reset') { for (const k of Object.keys(counts)) delete counts[k]; peak = 0; return send(200, {}); }
-      if (u.pathname.endsWith('/openid-connect/token')) { bump('token'); return send(200, { access_token: 'tok', expires_in: 3600 }); }
-      if (req.headers.authorization !== 'Bearer tok') return send(401, {});
+      if (u.pathname.endsWith('/openid-connect/token')) {
+        bump('token');
+        // The access token carries the identity claims of the API key (email, preferred_username), like Checkmarx One's.
+        let claims = {};
+        try { claims = JSON.parse(Buffer.from(new URLSearchParams(b).get('refresh_token').split('.')[1], 'base64url')); } catch {}
+        const who = { email: claims.email, preferred_username: claims.preferred_username, azp: claims.azp };
+        return send(200, { access_token: `h.${Buffer.from(JSON.stringify(who)).toString('base64url')}.tok`, expires_in: 3600 });
+      }
+      if (!/^Bearer h\.[\w-]*\.tok$/.test(req.headers.authorization || '')) return send(401, {});
       const offset = Number(u.searchParams.get('offset') || 0);
       if (u.pathname === '/api/projects') { bump('projects'); const all = Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}` })); const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: PROJECTS }); }
       if (u.pathname === '/api/projects/last-scan') { bump('last-scan'); return send(200, Object.fromEntries(Array.from({ length: PROJECTS }, (_, i) => [`p${i}`, { id: `scan-p${i}`, updatedAt: day(1), initiator: `dev${i % 40}@acme.com` }]))); }

@@ -16,11 +16,12 @@ import { CreditAllocations, toRemediateCount, toTriageCount } from './credit-all
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
+import { IamStore, PERMISSIONS, publicUser } from './iam.js';
 import { insideProject, migrateLegacyData, prepareDataDir, resolveDataDir } from './data-dir.js';
 import { PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, listBackups, readBackup, writeBackupTo } from './backup.js';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { GitHubClient } from './github/client.js';
 import { METHODS as GITHUB_METHODS, ensureClone, evaluate as evaluateGithub, loginFromNoreply, resolveLogins, usableEmail, validLogin } from './github/identity.js';
 import { blameFindings, codeVersion, locationOf, parseRepoUrl } from './github/blame.js';
@@ -29,6 +30,7 @@ import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } 
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
+import { publicConnection } from './cxone/endpoints.js';
 import { sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
 import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, isVerified, parseAddressList, publicSettings } from './settings.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
@@ -100,6 +102,35 @@ if (restoredAtStart) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Users, roles and permissions (src/iam.js)
+// ---------------------------------------------------------------------------
+
+const iam = new IamStore({ file: path.join(dataDir, 'iam.json') });
+let setupCode = '';
+
+async function prepareAccess() {
+  if (iam.hasUsers()) return;
+  const email = process.env.ADMIN_EMAIL?.trim();
+  const password = process.env.ADMIN_PASSWORD ?? '';
+  if (email && password) {
+    try {
+      const admin = await iam.createUser({ email, name: 'Administrator', role: 'admin', password, mustChangePassword: true });
+      audit.record({ type: 'iam', outcome: 'changed', reason: `First administrator ${admin.email} created from ADMIN_EMAIL.`, actor: SYSTEM_ACTOR, details: { user: admin } });
+      console.log(`[access] First administrator ${admin.email} created from ADMIN_EMAIL; they choose a new password at first sign-in.`);
+      return;
+    } catch (error) {
+      console.warn(`! [access] ADMIN_EMAIL / ADMIN_PASSWORD could not be used: ${error.message}`);
+    }
+  }
+  // Nobody can use the utility until someone proves they can read this server's log.
+  setupCode = randomBytes(9).toString('base64url').toUpperCase().replace(/[^A-Z0-9]/g, 'X').match(/.{1,4}/g).join('-');
+  console.log('');
+  console.log('  No users yet. Open the utility and create the first administrator with this setup code:');
+  console.log(`      ${setupCode}`);
+  console.log('');
+}
+
 /** Projects someone just triaged or remediated in, so reports covering them refresh soon. */
 const touchedProjects = new Map();
 const touchProject = (projectId) => touchedProjects.set(projectId, Date.now());
@@ -131,15 +162,34 @@ const automationState = new AutomationState({
  */
 let automationSessionId = null;
 
+/** Where the stored integration key connects: what the administrator entered, else the deployment's overrides. */
+function integrationOverrides(settings = settingsStore.get()) {
+  const stored = settings.integrationOverrides ?? {};
+  return {
+    baseUrl: stored.baseUrl || config.overrides.baseUrl,
+    iamUrl: stored.iamUrl || config.overrides.iamUrl,
+    tenant: stored.tenant || config.overrides.tenant,
+  };
+}
+
+/**
+ * The server's own Checkmarx One connection (the "integration"): used by
+ * report triage, automation, and everyone who signed in with a password.
+ */
+function integrationSession() {
+  return sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId);
+}
+
 async function resolveAutomationSession() {
-  const existing = sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId);
+  const existing = integrationSession();
   if (existing) return existing;
 
   const storedKey = settingsStore.get().automationApiKey;
   if (!storedKey) return null;
 
   try {
-    const session = await sessions.create(storedKey, config.overrides);
+    const session = await sessions.create(storedKey, integrationOverrides());
+    session.pinned = true;
     automationSessionId = session.id;
     return session;
   } catch (error) {
@@ -217,18 +267,48 @@ app.use('/api/relay', (req, res, next) => {
 
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
 
-/** Resolve the caller's session, falling back to the optional bootstrap one. */
-const currentSession = (req) =>
-  sessions.get(readSessionCookie(req)) ?? sessions.get(bootstrapSessionId);
+/** The caller's signed-in session (every person signs in; there is no shared fallback). */
+const currentSession = (req) => {
+  const session = sessions.get(readSessionCookie(req));
+  return session?.userId ? session : null;
+};
 
-/** Gate for every route that talks to Checkmarx One. */
+/** Routes someone who must change their password may still use. */
+const PASSWORD_CHANGE_ROUTES = new Set(['/api/me/password', '/api/session', '/api/me']);
+
+/** Gate for every signed-in route: a live session of an active user. */
 function requireSession(req, res, next) {
   const session = currentSession(req);
-  if (!session) {
-    return res.status(401).json({ error: 'Not connected. Enter your Checkmarx One API key to continue.' });
+  const user = session ? iam.user(session.userId) : null;
+  if (!session || !user || user.disabled) {
+    if (session) sessions.destroy(session.id);
+    return res.status(401).json({ error: 'Please sign in.', signIn: true });
+  }
+  if (user.mustChangePassword && session.via === 'password' && !PASSWORD_CHANGE_ROUTES.has(req.path)) {
+    return res.status(403).json({ error: 'Choose a new password before continuing.', mustChangePassword: true });
   }
   req.session = session;
+  req.user = user;
+  req.permissions = iam.permissionsOf(user);
+  // Password sessions use the integration; make sure it is up (it is re-created from the stored key if needed).
+  if (session.linked && !integrationSession()) {
+    resolveAutomationSession().then(() => next(), next);
+    return;
+  }
   next();
+}
+
+const can = (req, permission) => Boolean(req.permissions?.has(permission));
+
+/** Signed in, and holding at least one of `permissions`. */
+function requirePermission(...permissions) {
+  return (req, res, next) =>
+    requireSession(req, res, (error) => {
+      if (error) return next(error);
+      if (permissions.some((p) => req.permissions.has(p))) return next();
+      const labels = permissions.map((p) => PERMISSIONS.find((x) => x.id === p)?.label ?? p);
+      res.status(403).json({ error: `Your role does not allow this (needs “${labels.join('” or “')}”).`, permission: permissions[0] });
+    });
 }
 
 /** Deployment config with the administrator's pinned risks path layered on. */
@@ -258,7 +338,7 @@ app.get('/api/health', (req, res) => {
 });
 
 /** Load and cache figures, for whoever operates this server. */
-app.get('/api/metrics', requireSession, async (req, res) => {
+app.get('/api/metrics', requirePermission('system.metrics'), async (req, res) => {
   const session = await resolveAutomationSession();
   const memory = process.memoryUsage();
   res.json({
@@ -270,42 +350,435 @@ app.get('/api/metrics', requireSession, async (req, res) => {
   });
 });
 
+/** What this browser may see about itself: who is signed in, what they may do, and the connection. */
+function describeMe(session, user) {
+  const permissions = [...iam.permissionsOf(user)];
+  const integration = integrationSession();
+  let tenant = '';
+  try {
+    tenant = integration?.connection?.tenant ?? '';
+  } catch {}
+  return {
+    ...describeSession(session),
+    user: publicUser(user),
+    role: { id: user.role, name: iam.role(user.role)?.name ?? user.role },
+    permissions,
+    via: session.via,
+    integration: { connected: Boolean(integration), tenant },
+  };
+}
+
 app.get('/api/session', (req, res) => {
   const session = currentSession(req);
-  res.json(session ? describeSession(session) : { connected: false });
+  const user = session ? iam.user(session.userId) : null;
+  if (!session || !user || user.disabled) {
+    return res.json({ connected: false, signedIn: false, setup: !iam.hasUsers() });
+  }
+  res.json(describeMe(session, user));
 });
 
-/** Verify a pasted API key and open a session for it. */
+/** Sign-in attempts per address, to slow down guessing across many accounts. */
+const signInAttempts = new Map();
+function throttleSignIn(req, res) {
+  const ip = clientIp(req);
+  const now = Date.now();
+  const recent = (signInAttempts.get(ip) ?? []).filter((t) => now - t < 10 * 60 * 1000);
+  recent.push(now);
+  signInAttempts.set(ip, recent);
+  if (signInAttempts.size > 10_000) signInAttempts.clear();
+  if (recent.length > 30) {
+    res.status(429).json({ error: 'Too many sign-in attempts from this address. Wait a few minutes.' });
+    return true;
+  }
+  return false;
+}
+
+function auditAccess(req, outcome, reason, user = null, details) {
+  audit.record({
+    type: 'access',
+    outcome,
+    reason,
+    actor: { kind: 'user', user: user?.email ?? '', ip: clientIp(req), userAgent: String(req.get('user-agent') ?? '').slice(0, 200) },
+    ...(details ? { details } : {}),
+  });
+}
+
+/** Sign in with an email and password; Checkmarx One is reached through the server's integration. */
+app.post(
+  '/api/session/password',
+  asyncRoute(async (req, res) => {
+    if (throttleSignIn(req, res)) return;
+    const email = String(req.body?.email ?? '').trim();
+    let user;
+    try {
+      user = await iam.signIn(email, String(req.body?.password ?? ''));
+    } catch (error) {
+      const known = error.userId ? iam.user(error.userId) : null;
+      auditAccess(req, 'refused', `Sign-in refused for ${email || '(no email)'}: ${error.message}${error.locked ? ' Account locked.' : ''}`, known);
+      throw error;
+    }
+    const session = sessions.createLinked(integrationSession);
+    Object.assign(session, { userId: user.id, via: 'password' });
+    setSessionCookie(req, res, session.id);
+    auditAccess(req, 'info', `${user.email} signed in with a password.`, user);
+    res.status(201).json(describeMe(session, user));
+  }),
+);
+
+/**
+ * Sign in with a Checkmarx One API key. The key's identity (email, username or
+ * client id) must belong to a user here; the session then calls Checkmarx One
+ * with that person's own key.
+ */
 app.post(
   '/api/session',
   asyncRoute(async (req, res) => {
-    const { apiKey, baseUrl, iamUrl, tenant } = req.body ?? {};
-    const session = await sessions.create(apiKey, {
-      baseUrl: baseUrl || config.overrides.baseUrl,
-      iamUrl: iamUrl || config.overrides.iamUrl,
-      tenant: tenant || config.overrides.tenant,
-    });
+    if (throttleSignIn(req, res)) return;
+    if (!iam.hasUsers()) return res.status(403).json({ error: 'Create the first administrator before anyone signs in.', setup: true });
+    // Identity comes from the token Checkmarx One issues for the key, so the key
+    // may only ever be exchanged at this server's own, trusted Checkmarx One —
+    // never at an address taken from the key or the browser, where anyone could
+    // run a look-alike that vouches for any email.
+    const trusted = trustedCheckmarxOne();
+    if (!trusted) {
+      return res.status(403).json({ error: 'Signing in with a Checkmarx One key works once an Admin has connected this server to Checkmarx One. Sign in with your email and password.' });
+    }
+    const session = await sessions.create(req.body?.apiKey, trusted);
+    const identity = await session.client.identity();
+    const seen = identity.email || identity.user || identity.clientId || 'unknown';
+    const refuse = (message) => {
+      sessions.destroy(session.id);
+      auditAccess(req, 'refused', message, null, { identity: { ...identity }, tenant: session.connection.tenant });
+      return res.status(403).json({ error: message });
+    };
+    const user = iam.findByCxIdentity(identity);
+    if (!user) return refuse(`The Checkmarx One identity "${seen}" has no access to this utility. Ask an administrator to add it.`);
+    if (user.disabled) return refuse(`${user.email} is disabled. Ask an administrator.`);
+    Object.assign(session, { userId: user.id, via: 'cxone', cxUser: seen });
+    iam.recordSignIn(user);
     setSessionCookie(req, res, session.id);
-    res.status(201).json(describeSession(session));
+    auditAccess(req, 'info', `${user.email} signed in with a Checkmarx One API key (${seen}).`, user);
+    res.status(201).json(describeMe(session, user));
+  }),
+);
+
+/**
+ * The Checkmarx One that key sign-ins are checked against: the integration's
+ * endpoints, or the deployment's pinned CX_IAM_URL + CX_TENANT. null when neither.
+ */
+function trustedCheckmarxOne() {
+  try {
+    const connection = integrationSession()?.connection;
+    if (connection) return { iamUrl: connection.iamUrl, baseUrl: connection.baseUrl, tenant: connection.tenant };
+  } catch {}
+  if (config.overrides.iamUrl && config.overrides.tenant) {
+    return { iamUrl: config.overrides.iamUrl, baseUrl: config.overrides.baseUrl, tenant: config.overrides.tenant };
+  }
+  return null;
+}
+
+/** First start: whoever holds the setup code from the server log creates the first administrator. */
+app.post(
+  '/api/setup',
+  asyncRoute(async (req, res) => {
+    if (iam.hasUsers()) return res.status(409).json({ error: 'This utility already has an administrator.' });
+    if (throttleSignIn(req, res)) return;
+    const given = Buffer.from(String(req.body?.code ?? '').trim().toUpperCase());
+    const expected = Buffer.from(setupCode);
+    if (!setupCode || given.length !== expected.length || !timingSafeEqual(given, expected)) {
+      auditAccess(req, 'refused', 'First-administrator setup refused: wrong setup code.');
+      return res.status(403).json({ error: 'Wrong setup code. It is printed in the server log at start-up.' });
+    }
+    // Claim the code before any await, so two requests cannot both create an administrator.
+    const claimed = setupCode;
+    setupCode = '';
+    let admin;
+    try {
+      admin = await iam.createUser({
+        email: req.body?.email,
+        name: req.body?.name,
+        role: 'admin',
+        password: String(req.body?.password ?? ''),
+        cxoneIdentities: req.body?.cxoneIdentities ?? [],
+        mustChangePassword: false,
+      });
+    } catch (error) {
+      setupCode = claimed; // e.g. a weak password: let them try again
+      throw error;
+    }
+    const user = iam.user(admin.id);
+    iam.recordSignIn(user);
+    const session = sessions.createLinked(integrationSession);
+    Object.assign(session, { userId: user.id, via: 'password' });
+    setSessionCookie(req, res, session.id);
+    audit.record({ type: 'iam', outcome: 'changed', reason: `First administrator ${admin.email} created with the setup code.`, actor: { kind: 'user', user: admin.email, ip: clientIp(req) }, details: { user: admin } });
+    res.status(201).json(describeMe(session, user));
   }),
 );
 
 app.delete('/api/session', (req, res) => {
   const id = readSessionCookie(req);
-  if (id) sessions.destroy(id);
-  if (id && id === bootstrapSessionId) bootstrapSessionId = null;
+  const session = id ? sessions.get(id) : null;
+  if (session?.userId) auditAccess(req, 'info', `${iam.user(session.userId)?.email ?? 'Someone'} signed out.`, iam.user(session.userId));
+  // Never the integration: signing out ends only this person's session.
+  if (id && id !== automationSessionId && id !== bootstrapSessionId) sessions.destroy(id);
   clearSessionCookie(res);
-  res.json({ connected: false });
+  res.json({ connected: false, signedIn: false });
 });
+
+app.get('/api/me', requireSession, (req, res) => res.json(describeMe(req.session, req.user)));
+
+/** Change one's own password (required after an administrator reset). */
+app.post(
+  '/api/me/password',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const user = req.user;
+    if (user.passwordHash) {
+      try {
+        await iam.signIn(user.email, String(req.body?.current ?? ''));
+      } catch (error) {
+        return res.status(error.status === 423 ? 423 : 400).json({ error: error.status === 423 ? error.message : 'Your current password is wrong.' });
+      }
+    }
+    if (String(req.body?.next ?? '') === String(req.body?.current ?? '')) return res.status(400).json({ error: 'Choose a password different from the current one.' });
+    await iam.setPassword(user.id, String(req.body?.next ?? ''), { mustChange: false });
+    audit.record({ type: 'iam', outcome: 'changed', reason: `${user.email} changed their password.`, actor: await adminActor(req) });
+    res.json(describeMe(req.session, iam.user(user.id)));
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Access: users and roles
+// ---------------------------------------------------------------------------
+
+const actorOf = (req) => ({ actorPerms: req.permissions, actorId: req.user.id });
+
+function iamView(req) {
+  return {
+    users: iam.users().map((u) => ({ ...u, canManage: can(req, 'iam.manage') && iam.canGrant(req.permissions, iam.permissionsOf({ ...iam.user(u.id), disabled: false })) && u.id !== req.user.id })),
+    roles: iam.roles().map((r) => ({ ...r, canManage: can(req, 'iam.manage') && !r.locked && iam.canGrant(req.permissions, r.permissions), canAssign: can(req, 'iam.manage') && iam.canGrant(req.permissions, r.permissions) })),
+    permissions: PERMISSIONS,
+    me: { id: req.user.id, permissions: [...req.permissions] },
+  };
+}
+
+async function auditIam(req, reason, details) {
+  audit.record({ type: 'iam', outcome: 'changed', reason, actor: await adminActor(req), details });
+}
+
+/** Sign out every session of a user whose access was removed. */
+function endSessionsOf(userId) {
+  for (const session of sessions.filter((s) => s.userId === userId)) sessions.destroy(session.id);
+}
+
+app.get('/api/iam', requirePermission('iam.view'), (req, res) => res.json(iamView(req)));
+
+app.post(
+  '/api/iam/users',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    const { email, name, role, password, cxoneIdentities } = req.body ?? {};
+    const user = await iam.createUser({ email, name, role, password: password ? String(password) : '', cxoneIdentities, mustChangePassword: true }, actorOf(req));
+    await auditIam(req, `Added ${user.email} as ${iam.role(user.role)?.name}.`, { user });
+    res.status(201).json(iamView(req));
+  }),
+);
+
+app.patch(
+  '/api/iam/users/:id',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    const patch = {};
+    for (const key of ['name', 'role', 'cxoneIdentities', 'disabled']) if (key in (req.body ?? {})) patch[key] = req.body[key];
+    const { before, after } = iam.updateUser(req.params.id, patch, actorOf(req));
+    const changes = Object.keys(patch).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
+    if (changes.length) {
+      const what = changes.map((k) => (k === 'role' ? `role ${iam.role(before.role)?.name ?? before.role} → ${iam.role(after.role)?.name ?? after.role}` : k === 'disabled' ? (after.disabled ? 'disabled' : 'enabled') : k)).join(', ');
+      await auditIam(req, `Changed ${after.email}: ${what}.`, { before, after });
+    }
+    if (after.disabled) endSessionsOf(after.id);
+    res.json(iamView(req));
+  }),
+);
+
+app.delete(
+  '/api/iam/users/:id',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    const removed = iam.deleteUser(req.params.id, actorOf(req));
+    endSessionsOf(removed.id);
+    await auditIam(req, `Removed ${removed.email} (${iam.role(removed.role)?.name ?? removed.role}).`, { user: removed });
+    res.json(iamView(req));
+  }),
+);
+
+/** Set a temporary password; the user must choose their own at next sign-in. */
+app.post(
+  '/api/iam/users/:id/password',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Change your own password from your account menu.' });
+    const user = await iam.setPassword(req.params.id, String(req.body?.password ?? ''), { mustChange: true, actorPerms: req.permissions });
+    endSessionsOf(user.id);
+    await auditIam(req, `Set a temporary password for ${user.email}.`);
+    res.json(iamView(req));
+  }),
+);
+
+app.post(
+  '/api/iam/roles',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    const { after } = iam.saveRole(null, req.body ?? {}, actorOf(req));
+    await auditIam(req, `Created role "${after.name}" (${after.permissions.length} permissions).`, { role: after });
+    res.status(201).json(iamView(req));
+  }),
+);
+
+app.put(
+  '/api/iam/roles/:id',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    const { before, after } = iam.saveRole(req.params.id, req.body ?? {}, actorOf(req));
+    const added = after.permissions.filter((p) => !before.permissions.includes(p));
+    const removed = before.permissions.filter((p) => !after.permissions.includes(p));
+    if (added.length || removed.length || before.description !== after.description || before.name !== after.name) {
+      await auditIam(req, `Changed role "${after.name}"${added.length ? `: added ${added.join(', ')}` : ''}${removed.length ? `${added.length ? ';' : ':'} removed ${removed.join(', ')}` : ''}.`, { before, after });
+    }
+    res.json(iamView(req));
+  }),
+);
+
+app.delete(
+  '/api/iam/roles/:id',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    const removed = iam.deleteRole(req.params.id, actorOf(req));
+    await auditIam(req, `Removed role "${removed.name}".`, { role: removed });
+    res.json(iamView(req));
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Checkmarx One integration: the server's own connection (Admin)
+// ---------------------------------------------------------------------------
+
+function integrationStatus() {
+  const session = integrationSession();
+  const settings = settingsStore.get();
+  let connection = null;
+  try {
+    connection = session ? publicConnection(session.connection) : null;
+  } catch {}
+  return {
+    connected: Boolean(session),
+    source: session ? (session.id === automationSessionId ? 'stored' : 'environment') : settings.automationApiKey ? 'stored (not reachable)' : 'none',
+    keyStored: Boolean(settings.automationApiKey),
+    environmentKey: Boolean(config.bootstrapApiKey),
+    overrides: settings.integrationOverrides ?? { baseUrl: '', iamUrl: '', tenant: '' },
+    connection,
+  };
+}
+
+app.get('/api/integration', requirePermission('settings.view', 'integration.cxone'), (req, res) => res.json(integrationStatus()));
+
+/** Connect the server to Checkmarx One with an API key, verified first, then stored. */
+app.post(
+  '/api/integration/cxone',
+  requirePermission('integration.cxone'),
+  asyncRoute(async (req, res) => {
+    const { apiKey, baseUrl = '', iamUrl = '', tenant = '' } = req.body ?? {};
+    // Use this session's own key when none is pasted (signed in with a Checkmarx One key).
+    const key = String(apiKey ?? '').trim() || (req.session.via === 'cxone' ? req.session.connection.apiKey : '');
+    if (!key) return res.status(400).json({ error: 'Paste a Checkmarx One API key.' });
+    const overrides = { baseUrl: String(baseUrl).trim(), iamUrl: String(iamUrl).trim(), tenant: String(tenant).trim() };
+    const session = await sessions.create(key, {
+      baseUrl: overrides.baseUrl || config.overrides.baseUrl,
+      iamUrl: overrides.iamUrl || config.overrides.iamUrl,
+      tenant: overrides.tenant || config.overrides.tenant,
+    });
+    session.pinned = true;
+    const previous = automationSessionId;
+    settingsStore.save({ automationApiKey: key, integrationOverrides: overrides });
+    automationSessionId = session.id;
+    if (previous && previous !== session.id && previous !== bootstrapSessionId) sessions.destroy(previous);
+    scheduler.sync();
+    audit.record({ type: 'settings', outcome: 'changed', reason: `Checkmarx One integration connected to tenant ${session.connection.tenant}.`, actor: await adminActor(req), details: { tenant: session.connection.tenant, baseUrl: session.connection.baseUrl } });
+    res.json(integrationStatus());
+  }),
+);
+
+app.delete(
+  '/api/integration/cxone',
+  requirePermission('integration.cxone'),
+  asyncRoute(async (req, res) => {
+    settingsStore.save({ automationApiKey: '' });
+    if (automationSessionId) sessions.destroy(automationSessionId);
+    automationSessionId = null;
+    audit.record({ type: 'settings', outcome: 'changed', reason: 'Stored Checkmarx One integration key removed.', actor: await adminActor(req) });
+    res.json(integrationStatus());
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
 
+/** Which permission each part of the settings needs to be changed. */
+const SETTINGS_SECTIONS = {
+  smtp: 'integration.smtp',
+  recipients: 'settings.recipients',
+  initiators: 'settings.initiators',
+  template: 'settings.template',
+  branding: 'settings.branding',
+  links: 'settings.links',
+  automation: 'settings.automation',
+  endpoints: 'integration.cxone',
+  beta: 'beta.use',
+};
+
+/**
+ * Keep only what this person may change. Sections they may not change are
+ * dropped (and reported), so a form posted whole cannot slip them through.
+ */
+function permittedSettings(req, body = {}) {
+  const allowed = {};
+  const ignored = [];
+  for (const [key, value] of Object.entries(body ?? {})) {
+    if (key === 'aiTriage' && value && typeof value === 'object') {
+      const { monthlyCreditLimit, ...rules } = value;
+      const ai = {};
+      if (Object.keys(rules).length) {
+        if (can(req, 'settings.ai')) Object.assign(ai, rules);
+        else ignored.push('aiTriage');
+      }
+      if (monthlyCreditLimit !== undefined) {
+        if (can(req, 'credits.limit')) ai.monthlyCreditLimit = monthlyCreditLimit;
+        else ignored.push('aiTriage.monthlyCreditLimit');
+      }
+      if (Object.keys(ai).length) allowed.aiTriage = ai;
+    } else if (SETTINGS_SECTIONS[key] && can(req, SETTINGS_SECTIONS[key])) {
+      allowed[key] = value;
+    } else {
+      ignored.push(key);
+    }
+  }
+  return { allowed, ignored };
+}
+
+/** Settings as this person may see them (secrets are never sent to anyone). */
+function settingsFor(req, settings) {
+  const view = publicSettings(settings);
+  if (!can(req, 'settings.view') && !can(req, 'integration.smtp')) view.smtp = { passwordSet: view.smtp.passwordSet };
+  if (!can(req, 'beta.use')) delete view.beta;
+  return view;
+}
+
 app.get('/api/settings', requireSession, (req, res) => {
   const settings = settingsStore.get();
   res.json({
-    ...publicSettings(settings),
+    ...settingsFor(req, settings),
     // Rendered from the current templates so a wrong UI route is visible
     // without having to send a mail to find out.
     linkExamples: exampleLinks(req.session.connection, settings.links),
@@ -316,11 +789,16 @@ app.put(
   '/api/settings',
   requireSession,
   asyncRoute(async (req, res) => {
+    const { allowed, ignored } = permittedSettings(req, req.body ?? {});
+    if (!Object.keys(allowed).length) {
+      return res.status(403).json({ error: 'Your role cannot change these settings.', ignored });
+    }
     const before = creditSettingsOf(settingsStore.get());
-    const saved = settingsStore.save(req.body ?? {});
+    const saved = settingsStore.save(allowed);
     auditSettings(await adminActor(req), before, creditSettingsOf(saved));
     res.json({
-      ...publicSettings(saved),
+      ...settingsFor(req, saved),
+      ignored,
       linkExamples: exampleLinks(req.session.connection, saved.links),
     });
   }),
@@ -329,21 +807,22 @@ app.put(
 /** Run the SMTP handshake; success is what unlocks sending. */
 app.post(
   '/api/settings/smtp/test',
-  requireSession,
+  requirePermission('integration.smtp'),
   asyncRoute(async (req, res) => {
     // Persist the whole form first, so testing never discards edits the
     // administrator has made to other fields, and so the test always reflects
     // what is on screen rather than what was last saved.
-    const settings = req.body && Object.keys(req.body).length ? settingsStore.save(req.body) : settingsStore.get();
+    // Only the mail server part of the form is saved here: this route is the SMTP permission's.
+    const settings = req.body?.smtp ? settingsStore.save({ smtp: req.body.smtp }) : settingsStore.get();
     const result = await testConnection(settings.smtp);
     const saved = settingsStore.markVerified();
-    res.json({ ...result, settings: publicSettings(saved) });
+    res.json({ ...result, settings: settingsFor(req, saved) });
   }),
 );
 
 app.post(
   '/api/settings/smtp/send-test',
-  requireSession,
+  requirePermission('integration.smtp'),
   asyncRoute(async (req, res) => {
     const [to] = parseAddressList(req.body?.to ?? '');
     const result = await sendTestEmail(settingsStore.get().smtp, to);
@@ -354,7 +833,7 @@ app.post(
 /** Render the stored template against sample data, for the editor preview. */
 app.post(
   '/api/settings/template/preview',
-  requireSession,
+  requirePermission('settings.template', 'reminders.send', 'settings.view'),
   asyncRoute(async (req, res) => {
     const settings = settingsStore.get();
     const template = {
@@ -427,7 +906,7 @@ const SAMPLE_RISKS = [
 
 app.post(
   '/api/discover',
-  requireSession,
+  requirePermission('integration.cxone'),
   asyncRoute(async (req, res) => {
     const { client } = req.session;
     const known = req.session.lastScan?.projects?.[0]?.projectId;
@@ -449,7 +928,7 @@ app.post(
  */
 app.post(
   '/api/initiators/tag',
-  requireSession,
+  requirePermission('initiators.tag'),
   asyncRoute(async (req, res) => {
     const initiator = String(req.body?.initiator ?? '').trim();
     const [email] = parseAddressList(req.body?.email ?? '');
@@ -479,7 +958,7 @@ app.post(
       }
     }
 
-    res.json({ initiator, email, projectsUpdated, settings: publicSettings(saved) });
+    res.json({ initiator, email, projectsUpdated, settings: settingsFor(req, saved) });
   }),
 );
 
@@ -487,7 +966,7 @@ app.post(
 // Automation
 // ---------------------------------------------------------------------------
 
-app.get('/api/automation', requireSession, (req, res) => {
+app.get('/api/automation', requirePermission('settings.view', 'settings.automation'), (req, res) => {
   const settings = settingsStore.get();
   res.json({
     ...scheduler.status,
@@ -501,7 +980,7 @@ app.get('/api/automation', requireSession, (req, res) => {
 
 app.put(
   '/api/automation',
-  requireSession,
+  requirePermission('settings.automation'),
   asyncRoute(async (req, res) => {
     settingsStore.save({ automation: req.body ?? {} });
     await resolveAutomationSession();
@@ -513,16 +992,25 @@ app.put(
 /** Store the current session's key so unattended runs can authenticate. */
 app.post(
   '/api/automation/arm',
-  requireSession,
+  requirePermission('integration.cxone'),
   asyncRoute(async (req, res) => {
-    settingsStore.save({ automationApiKey: req.session.connection.apiKey });
-    automationSessionId = req.session.id;
+    if (req.session.via !== 'cxone') {
+      return res.status(400).json({ error: 'Signed in with a password: connect the server under Settings → Connection with an API key instead.' });
+    }
+    // A session of its own for the integration: never this person's (which carries their access).
+    const { apiKey, iamUrl, baseUrl, tenant } = req.session.connection;
+    const integration = await sessions.create(apiKey, { iamUrl, baseUrl, tenant });
+    integration.pinned = true;
+    settingsStore.save({ automationApiKey: apiKey, integrationOverrides: { iamUrl, baseUrl, tenant } });
+    if (automationSessionId && automationSessionId !== bootstrapSessionId) sessions.destroy(automationSessionId);
+    automationSessionId = integration.id;
+    audit.record({ type: 'settings', outcome: 'changed', reason: `Checkmarx One integration armed with ${req.user.email}'s key (tenant ${tenant}).`, actor: await adminActor(req) });
     scheduler.sync();
     res.json({ ...scheduler.status, keyStored: true, canRun: true });
   }),
 );
 
-app.delete('/api/automation/arm', requireSession, (req, res) => {
+app.delete('/api/automation/arm', requirePermission('integration.cxone'), (req, res) => {
   settingsStore.save({ automationApiKey: '' });
   automationSessionId = null;
   res.json({ ...scheduler.status, keyStored: false, canRun: Boolean(sessions.get(bootstrapSessionId)) });
@@ -531,12 +1019,11 @@ app.delete('/api/automation/arm', requireSession, (req, res) => {
 /** Run a pass now, without waiting for the timer. */
 app.post(
   '/api/automation/run',
-  requireSession,
+  requirePermission('settings.automation'),
   asyncRoute(async (req, res) => {
-    // A manual run uses the caller's own session when nothing is armed, so
-    // automation can be rehearsed before a credential is stored.
-    if (!(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId))) {
-      automationSessionId = req.session.id;
+    // Runs on the server's integration, like the scheduled runs it rehearses.
+    if (!(await resolveAutomationSession())) {
+      return res.status(409).json({ error: 'Connect the server to Checkmarx One first (Settings → Checkmarx One).' });
     }
     const run = await scheduler.tick({ force: true });
     res.json({ run, status: scheduler.status });
@@ -544,7 +1031,7 @@ app.post(
 );
 
 /** Forget every reported pair, so the next run reports from scratch. */
-app.post('/api/automation/reset', requireSession, (req, res) => {
+app.post('/api/automation/reset', requirePermission('settings.automation'), (req, res) => {
   automationState.reset();
   res.json(scheduler.status);
 });
@@ -555,7 +1042,7 @@ app.post('/api/automation/reset', requireSession, (req, res) => {
 
 app.get(
   '/api/scan',
-  requireSession,
+  requirePermission('findings.fetch'),
   asyncRoute(async (req, res) => {
     const { client } = req.session;
     const active = activeConfig();
@@ -872,7 +1359,7 @@ async function runReminder(session, scan, input) {
 
 app.post(
   '/api/reminders',
-  requireSession,
+  requirePermission('reminders.send'),
   asyncRoute(async (req, res) => {
     if (!req.session.lastScan) {
       return res.status(409).json({ error: 'Fetch the project list first, then send a reminder.' });
@@ -1050,13 +1537,19 @@ function reportActor(req) {
 /** Who acts from the dashboard: the Checkmarx One user behind the session's API key. */
 async function adminActor(req) {
   const session = req.session;
-  session.identity ??= await session.client.identity();
+  const user = req.user ?? (session?.userId ? iam.user(session.userId) : null);
+  let tenant = '';
+  try {
+    tenant = session?.connection?.tenant ?? '';
+  } catch {}
   return {
-    kind: 'admin',
-    user: session.identity.user,
-    name: session.identity.name,
-    email: session.identity.email,
-    tenant: session.connection?.tenant ?? '',
+    kind: 'user',
+    user: user?.email ?? '',
+    name: user?.name ?? '',
+    email: user?.email ?? '',
+    role: user ? (iam.role(user.role)?.name ?? user.role) : '',
+    via: session?.via === 'cxone' ? `Checkmarx One key${session.cxUser ? ` (${session.cxUser})` : ''}` : 'password',
+    tenant,
     ip: clientIp(req),
     userAgent: String(req.get('user-agent') ?? '').slice(0, 200),
   };
@@ -1769,7 +2262,7 @@ function scanProjects(req, projectIds) {
 const cleanSeverities = (list) =>
   [...new Set((Array.isArray(list) ? list : []).map((s) => String(s).toUpperCase()))].filter((s) => SEVERITIES.includes(s));
 
-app.post('/api/credits/allocate', requireSession, asyncRoute(async (req, res) => {
+app.post('/api/credits/allocate', requirePermission('credits.allocate'), asyncRoute(async (req, res) => {
   if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
   const { projectIds, ruleChanges, triageAdd = 0, remediationAdd = 0, clearExtras = false, setExtra = null } = req.body ?? {};
   // Each change adds or removes one severity from every project's own rule,
@@ -1915,7 +2408,7 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
  */
 app.post(
   '/api/credits/refresh',
-  requireSession,
+  requirePermission('credits.view'),
   asyncRoute(async (req, res) => {
     if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
     const projects = scanProjects(req, req.body?.projectIds);
@@ -1949,7 +2442,7 @@ app.post(
  */
 app.post(
   '/api/triage/run',
-  requireSession,
+  requirePermission('triage.run'),
   asyncRoute(async (req, res) => {
     if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
     const wanted = cleanSeverities(req.body?.severities);
@@ -2247,7 +2740,7 @@ async function runDueTrackedReminders(session) {
 
 app.post(
   '/api/tracked-reports/:id/remind',
-  requireSession,
+  requirePermission('reports.remind'),
   asyncRoute(async (req, res) => {
     const report = trackedReports.get(req.params.id);
     if (!report) return res.status(404).json({ error: 'No such report.' });
@@ -2260,7 +2753,7 @@ app.post(
   }),
 );
 
-app.put('/api/tracked-reports/:id/automation', requireSession, (req, res) => {
+app.put('/api/tracked-reports/:id/automation', requirePermission('reports.manage'), (req, res) => {
   const report = trackedReports.get(req.params.id);
   if (!report) return res.status(404).json({ error: 'No such report.' });
   const input = req.body ?? {};
@@ -2286,7 +2779,7 @@ app.put('/api/tracked-reports/:id/automation', requireSession, (req, res) => {
 /** Download the interactive HTML report a follow-up reminder would attach. */
 app.get(
   '/api/tracked-reports/:id/html',
-  requireSession,
+  requirePermission('reports.view'),
   asyncRoute(async (req, res) => {
     const report = trackedReports.get(req.params.id);
     if (!report) return res.status(404).json({ error: 'No such report.' });
@@ -2311,7 +2804,7 @@ app.get(
  */
 app.post(
   '/api/tracked-reports/:id/allocate',
-  requireSession,
+  requirePermission('credits.allocate'),
   asyncRoute(async (req, res) => {
     const report = trackedReports.get(req.params.id);
     if (!report) return res.status(404).json({ error: 'No such report.' });
@@ -2345,7 +2838,7 @@ app.post(
 
 app.post(
   '/api/tracked-reports/:id/triage',
-  requireSession,
+  requirePermission('triage.run'),
   asyncRoute(async (req, res) => {
     const report = trackedReports.get(req.params.id);
     if (!report) return res.status(404).json({ error: 'No such report.' });
@@ -2378,7 +2871,7 @@ function trackedView(report) {
   return { ...reportSummary(report), credits };
 }
 
-app.get('/api/tracked-reports', requireSession, async (req, res) => {
+app.get('/api/tracked-reports', requirePermission('reports.view'), async (req, res) => {
   res.json({
     timeZone: serverTimeZone(),
     reports: trackedReports.list().map(trackedView),
@@ -2386,7 +2879,7 @@ app.get('/api/tracked-reports', requireSession, async (req, res) => {
   });
 });
 
-app.post('/api/tracked-reports', requireSession, (req, res) => {
+app.post('/api/tracked-reports', requirePermission('reports.manage'), (req, res) => {
   const { lastScan } = req.session;
   if (!lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
   const { name, projectIds = null, severities = null, buckets = [], windows = {}, scopeLabel = '' } = req.body ?? {};
@@ -2421,7 +2914,7 @@ app.post('/api/tracked-reports', requireSession, (req, res) => {
 
 app.post(
   '/api/tracked-reports/:id/refresh',
-  requireSession,
+  requirePermission('reports.view'),
   asyncRoute(async (req, res) => {
     const report = trackedReports.get(req.params.id);
     if (!report) return res.status(404).json({ error: 'No such report.' });
@@ -2430,13 +2923,13 @@ app.post(
   }),
 );
 
-app.delete('/api/tracked-reports/:id', requireSession, (req, res) => {
+app.delete('/api/tracked-reports/:id', requirePermission('reports.manage'), (req, res) => {
   if (!trackedReports.delete(req.params.id)) return res.status(404).json({ error: 'No such report.' });
   res.json({ deleted: true });
 });
 
 // Administrator view of AI Triage credits used from reports.
-app.get('/api/credits', requireSession, (req, res) => {
+app.get('/api/credits', requirePermission('credits.view'), (req, res) => {
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
   const { aiTriage } = settingsStore.get();
   res.json({
@@ -2520,7 +3013,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
 
 app.post(
   '/api/reports/html',
-  requireSession,
+  requirePermission('reminders.send'),
   asyncRoute(async (req, res) => {
     const { projectIds = null, buckets = [], severities = null } = req.body ?? {};
     const { lastScan } = req.session;
@@ -2662,7 +3155,7 @@ async function runHtmlReminder(session, scan, input, relayUrl) {
 
 app.post(
   '/api/reminders/send-html-by-initiator',
-  requireSession,
+  requirePermission('reminders.send'),
   asyncRoute(async (req, res) => {
     if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
     const settings = settingsStore.get();
@@ -2673,7 +3166,7 @@ app.post(
 
 app.post(
   '/api/reminders/with-attachment',
-  requireSession,
+  requirePermission('reminders.send'),
   asyncRoute(async (req, res) => {
     const { htmlReport, recipients } = req.body ?? {};
     const settings = settingsStore.get();
@@ -2765,7 +3258,7 @@ function auditFilters(query) {
   };
 }
 
-app.get('/api/audit', requireSession, async (req, res) => {
+app.get('/api/audit', requirePermission('audit.view'), async (req, res) => {
   await audit.settled();
   res.json({ ...audit.query(auditFilters(req.query)), writeError: audit.writeError });
 });
@@ -2806,7 +3299,7 @@ const csvCell = (v) => {
 };
 
 /** Everything matching the filters, as CSV (for spreadsheets) or JSON Lines (complete, verifiable). */
-app.get('/api/audit/export', requireSession, async (req, res) => {
+app.get('/api/audit/export', requirePermission('audit.export'), async (req, res) => {
   await audit.settled();
   const filters = { ...auditFilters(req.query), limit: 1_000_000, before: 0 };
   const format = req.query.format === 'jsonl' ? 'jsonl' : 'csv';
@@ -2823,7 +3316,7 @@ app.get('/api/audit/export', requireSession, async (req, res) => {
 });
 
 /** Walk the hash chain: any edited, removed or reordered entry is found. */
-app.get('/api/audit/verify', requireSession, async (req, res) => {
+app.get('/api/audit/verify', requirePermission('audit.view'), async (req, res) => {
   await audit.settled();
   const result = audit.verify();
   audit.record({
@@ -2841,7 +3334,7 @@ app.get('/api/audit/verify', requireSession, async (req, res) => {
  * balances are computed from? Per month and per project, plus ledger entries
  * with no audit entry (spent before auditing began).
  */
-app.get('/api/audit/reconcile', requireSession, async (req, res) => {
+app.get('/api/audit/reconcile', requirePermission('audit.view'), async (req, res) => {
   await audit.settled();
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
   const audited = new Map();
@@ -2930,7 +3423,7 @@ if (backupConfig.intervalHours > 0) {
   }, 60_000).unref();
 }
 
-app.get('/api/backup', requireSession, (req, res) => {
+app.get('/api/backup', requirePermission('backup.view'), (req, res) => {
   const files = collectStateFiles(dataDir, config.settingsFile);
   const bytes = files.reduce((sum, f) => sum + fs.statSync(f.path).size, 0);
   res.json({
@@ -2953,7 +3446,7 @@ app.get('/api/backup', requireSession, (req, res) => {
 });
 
 /** Download a backup now (encrypted when BACKUP_PASSPHRASE is set). */
-app.get('/api/backup/download', requireSession, asyncRoute(async (req, res) => {
+app.get('/api/backup/download', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
   await settleState();
   const { buffer, summary } = createBackup({ dataDir, settingsFile: config.settingsFile, passphrase: backupConfig.passphrase });
   audit.record({
@@ -2969,7 +3462,7 @@ app.get('/api/backup/download', requireSession, asyncRoute(async (req, res) => {
   res.send(buffer);
 }));
 
-app.post('/api/backup/now', requireSession, asyncRoute(async (req, res) => {
+app.post('/api/backup/now', requirePermission('backup.run'), asyncRoute(async (req, res) => {
   const result = await backupToFolder(await adminActor(req), 'Manual');
   if (!result.ok) return res.status(500).json({ error: `Backup failed: ${result.error}` });
   res.json({ ...result, backups: listBackups(backupConfig.dir).slice(0, 30) });
@@ -2982,7 +3475,7 @@ app.post('/api/backup/now', requireSession, asyncRoute(async (req, res) => {
  */
 app.post(
   '/api/backup/restore',
-  requireSession,
+  requirePermission('backup.manage'),
   express.raw({ type: () => true, limit: '1gb' }),
   asyncRoute(async (req, res) => {
     const actor = await adminActor(req);
@@ -3011,7 +3504,7 @@ app.post(
   }),
 );
 
-app.delete('/api/backup/restore', requireSession, asyncRoute(async (req, res) => {
+app.delete('/api/backup/restore', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
   const pending = path.join(dataDir, PENDING_RESTORE);
   if (fs.existsSync(pending)) {
     fs.rmSync(pending, { force: true });
@@ -3041,7 +3534,7 @@ function initiatorLogins(lastScan) {
   return [...logins];
 }
 
-app.get('/api/beta/github/logins', requireSession, (req, res) => {
+app.get('/api/beta/github/logins', requirePermission('beta.use'), (req, res) => {
   const lastScan = req.session.lastScan;
   const unresolved = new Set(
     Object.values(lastScan?.initiators ?? {})
@@ -3054,7 +3547,7 @@ app.get('/api/beta/github/logins', requireSession, (req, res) => {
 /** Run the identity methods side by side on real logins and compare them. */
 app.post(
   '/api/beta/github/evaluate',
-  requireSession,
+  requirePermission('beta.use'),
   asyncRoute(async (req, res) => {
     const settings = settingsStore.get();
     const github = settings.beta?.github ?? {};
@@ -3077,7 +3570,7 @@ app.post(
 );
 
 /** Save chosen matches as initiator overrides (username = email), used from the next fetch. */
-app.post('/api/beta/github/apply', requireSession, (req, res) => {
+app.post('/api/beta/github/apply', requirePermission('beta.use'), (req, res) => {
   const mappings = (Array.isArray(req.body?.mappings) ? req.body.mappings : [])
     .map((m) => ({ login: String(m?.login ?? '').trim(), email: String(m?.email ?? '').trim().toLowerCase() }))
     .filter((m) => validLogin(m.login) && usableEmail(m.email));
@@ -3098,7 +3591,7 @@ const AUTHOR_LIMIT_MAX = 300;
  */
 app.post(
   '/api/beta/authors/find',
-  requireSession,
+  requirePermission('beta.use'),
   asyncRoute(async (req, res) => {
     const { lastScan, client, connection } = req.session;
     if (!lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
@@ -3242,7 +3735,7 @@ app.post(
 /** Email each code author the vulnerable code they wrote (or preview it). */
 app.post(
   '/api/beta/authors/notify',
-  requireSession,
+  requirePermission('beta.use'),
   asyncRoute(async (req, res) => {
     const items = req.session.lastAuthors;
     if (!items?.length) return res.status(409).json({ error: 'Find the code authors first.' });
@@ -3352,6 +3845,7 @@ async function bootstrap() {
     const result = await retryWithBackoff('CX_API_KEY', () =>
       sessions.create(config.bootstrapApiKey, config.overrides),
     );
+    result.pinned = true;
     bootstrapSessionId = result.id;
     console.log(`[CX_API_KEY] ✓ Successfully authenticated with Checkmarx One (tenant: ${result.connection.tenant})`);
   } catch (error) {
@@ -3388,6 +3882,7 @@ const server = app.listen(config.port, config.host, async () => {
   console.log(`Mission Zero running on http://${config.host}:${config.port}`);
   console.log(`Settings file: ${settingsStore.file}`);
   for (const problem of configProblems(config)) console.warn(`! ${problem}`);
+  await prepareAccess();
   await bootstrap();
   await verifyEnvironmentSmtp();
   await resolveAutomationSession();

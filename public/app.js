@@ -107,10 +107,56 @@ function showError(id, error) {
 
 function handleAuthLoss(error) {
   if (error.status === 401) {
-    showDisconnected('Session expired. Enter your API key again.');
+    showSignIn({ message: 'Your session ended. Sign in again.' });
     return true;
   }
   return false;
+}
+
+// ---------------------------------------------------------------------------
+// Who is signed in, and what they may do
+// ---------------------------------------------------------------------------
+
+const can = (permission) => Boolean(state.me?.permissions?.includes(permission));
+const canAny = (list) => String(list).split(/\s+/).filter(Boolean).some(can);
+
+/** Which permissions open each page (any one of them). */
+const PAGE_PERMS = {
+  dashboard: '',
+  reports: 'reports.view',
+  audit: 'audit.view backup.view',
+  settings: 'settings.view',
+  access: 'iam.view',
+  beta: 'beta.use',
+  logs: '',
+};
+
+/**
+ * Show only what this person may use: [data-perm] elements need any one of
+ * the listed permissions; [data-edit-perm] panels turn read-only without it.
+ */
+function applyPermissions() {
+  for (const el of document.querySelectorAll('[data-perm]')) el.classList.toggle('perm-hidden', !canAny(el.dataset.perm));
+  for (const panel of document.querySelectorAll('[data-edit-perm]')) {
+    const editable = canAny(panel.dataset.editPerm);
+    panel.classList.toggle('read-only', !editable);
+    for (const control of panel.querySelectorAll('input, select, textarea, button')) {
+      if (control.dataset.viewOk !== undefined) continue;
+      if (!editable) {
+        control.dataset.permLocked = '1';
+        control.disabled = true;
+      } else if (control.dataset.permLocked) {
+        delete control.dataset.permLocked;
+        control.disabled = false;
+      }
+    }
+    const heading = panel.querySelector('h2');
+    heading?.querySelector('.view-only')?.remove();
+    if (!editable && heading) {
+      const special = /integration\.|credits\.limit/.test(panel.dataset.editPerm);
+      heading.insertAdjacentHTML('beforeend', ` <span class="badge ${special ? 'warn' : 'muted'} view-only">${special ? 'Admin only' : 'View only'}</span>`);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -119,10 +165,12 @@ function handleAuthLoss(error) {
 
 function route() {
   const name = (location.hash.replace('#/', '') || 'dashboard').split('?')[0];
-  const target = ['dashboard', 'reports', 'audit', 'settings', 'logs', 'beta'].includes(name) ? name : 'dashboard';
-  if (!state.connection) return;
+  if (!state.me) return;
+  const allowed = (page) => page in PAGE_PERMS && (!PAGE_PERMS[page] || canAny(PAGE_PERMS[page]));
+  const target = allowed(name) ? name : 'dashboard';
+  if (target !== name && location.hash) history.replaceState(null, '', '#/dashboard');
 
-  for (const page of ['dashboard', 'reports', 'audit', 'settings', 'logs', 'beta']) {
+  for (const page of Object.keys(PAGE_PERMS)) {
     $(`page-${page}`).hidden = page !== target;
   }
   for (const tab of document.querySelectorAll('.tab')) {
@@ -143,15 +191,18 @@ function route() {
     renderBeta();
   } else if (target === 'audit') {
     renderAudit();
+  } else if (target === 'access') {
+    loadAccess();
   }
 }
 
 const PAGE_TITLES = {
-  connect: ['Connect', 'Sign in to your Checkmarx One tenant'],
+  connect: ['Sign in', 'Checkmarx One reminders, triage & credits for your security team'],
   dashboard: ['Dashboard', 'Find ageing findings, allocate credits and remind their owners'],
   reports: ['Tracked reports', 'Follow progress on saved scopes and send follow-ups'],
   settings: ['Settings', 'Email, templates, automation, AI credits and branding'],
   logs: ['Logs', 'API calls and results from this browser session'],
+  access: ['Access', 'Who can sign in, their roles, and what each role may do'],
   audit: ['Audit', 'Every credit spent, refused or failed — who, when, where, and the balance after'],
   beta: ['Beta features', 'Experimental: code authors and GitHub identities'],
 };
@@ -287,36 +338,76 @@ function renderDetected() {
     ${info.expiresAt ? `<div><span class="k">Key expires</span><span class="v">${info.expiresAt.toISOString().slice(0, 10)}${expired ? ' — expired' : ''}</span></div>` : ''}`;
 }
 
-async function showConnected(session) {
-  state.connection = session.connection;
-  const { tenant, regionLabel, baseUrl } = session.connection;
+/** Signed in: show the workspace this person may use. */
+async function showConnected(me) {
+  state.me = me;
+  state.connection = me.connection;
+  for (const box of ['setup-box', 'signin-box', 'change-box']) $(box).hidden = true;
 
-  $('connection').textContent = `${tenant} · ${regionLabel} · ${baseUrl}`;
-  $('connection').className = 'sub conn-pill ok';
+  if (me.connection) {
+    const { tenant, regionLabel, baseUrl } = me.connection;
+    $('connection').textContent = `${tenant} · ${regionLabel} · ${baseUrl}`;
+    $('connection').className = 'sub conn-pill ok';
+  } else {
+    $('connection').textContent = 'Checkmarx One not connected';
+    $('connection').className = 'sub conn-pill error';
+  }
+  const user = me.user;
+  $('me-name').textContent = user.name || user.email;
+  $('me-role').textContent = me.role.name;
+  $('me-avatar').textContent = (user.name || user.email).trim()[0]?.toUpperCase() ?? '?';
+  $('me-detail').textContent = `${user.email} · ${me.role.name} · signed in with ${me.via === 'cxone' ? 'a Checkmarx One key' : 'a password'}`;
+  $('user-menu').hidden = false;
   $('connect-panel').hidden = true;
   $('nav').hidden = false;
-  $('disconnect').hidden = false;
   $('api-key').value = '';
+  $('signin-password').value = '';
   $('detected').hidden = true;
+  applyPermissions();
 
   if (!location.hash) location.hash = '#/dashboard';
   await loadSettings();
+  applyPermissions();
   route();
   loadReportServer();
+  if (!me.connection) {
+    setStatus('status', can('integration.cxone')
+      ? 'Connect this server to Checkmarx One under Settings → Checkmarx One before fetching.'
+      : 'Checkmarx One is not connected on this server yet. Ask an Admin to connect it.', 'error');
+  }
 }
 
-function showDisconnected(message = 'Not connected.') {
+/** Not signed in: setup (first start), sign-in, or a required password change. */
+function showSignIn({ setup = false, change = false, message = '' } = {}) {
+  state.me = null;
   state.connection = null;
   state.projects = [];
   state.selected.clear();
-
-  $('connection').textContent = message;
+  $('connection').textContent = setup ? 'First start' : 'Signed out';
   $('connection').className = 'sub conn-pill';
   setPageTitle('connect');
+  $('page-title').textContent = setup ? 'Welcome' : change ? 'New password' : 'Sign in';
   $('connect-panel').hidden = false;
+  $('setup-box').hidden = !setup;
+  $('signin-box').hidden = setup || change;
+  $('change-box').hidden = !change;
+  $('change-cancel').hidden = change;
+  $('change-current-field').hidden = false;
   $('nav').hidden = true;
-  $('disconnect').hidden = true;
-  for (const page of ['dashboard', 'reports', 'audit', 'settings', 'logs', 'beta']) $(`page-${page}`).hidden = true;
+  $('user-menu').hidden = true;
+  $('user-menu').open = false;
+  for (const page of Object.keys(PAGE_PERMS)) $(`page-${page}`).hidden = true;
+  if (message) setStatus(setup ? 'setup-status' : change ? 'change-status' : 'signin-status', message, 'error');
+}
+const showDisconnected = (message) => showSignIn({ message });
+
+function afterSignIn(me) {
+  if (me.user?.mustChangePassword && me.via === 'password') {
+    state.pendingMe = me;
+    showSignIn({ change: true });
+    return;
+  }
+  return showConnected(me);
 }
 
 async function connect(event) {
@@ -324,9 +415,8 @@ async function connect(event) {
   const button = $('connect');
   button.disabled = true;
   setStatus('connect-status', 'Verifying key against Checkmarx One…');
-
   try {
-    const session = await api('/api/session', {
+    const me = await api('/api/session', {
       method: 'POST',
       body: JSON.stringify({
         apiKey: $('api-key').value.trim(),
@@ -336,18 +426,91 @@ async function connect(event) {
       }),
     });
     setStatus('connect-status', '');
-    await showConnected(session);
+    await afterSignIn(me);
   } catch (error) {
     showError('connect-status', error);
-    if (/reach|API URL|404/i.test(error.message)) $('advanced').open = true;
   } finally {
     button.disabled = false;
   }
 }
 
+async function signInWithPassword(event) {
+  event.preventDefault();
+  const button = $('signin-submit');
+  button.disabled = true;
+  setStatus('signin-status', 'Signing in…');
+  try {
+    const me = await api('/api/session/password', {
+      method: 'POST',
+      body: JSON.stringify({ email: $('signin-email').value.trim(), password: $('signin-password').value }),
+    });
+    setStatus('signin-status', '');
+    $('signin-password').value = '';
+    await afterSignIn(me);
+  } catch (error) {
+    showError('signin-status', error);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function createFirstAdmin(event) {
+  event.preventDefault();
+  if ($('setup-password').value !== $('setup-password2').value) return setStatus('setup-status', 'The passwords do not match.', 'error');
+  setStatus('setup-status', 'Creating…');
+  try {
+    const me = await api('/api/setup', {
+      method: 'POST',
+      body: JSON.stringify({
+        code: $('setup-code').value.trim(),
+        name: $('setup-name').value.trim(),
+        email: $('setup-email').value.trim(),
+        password: $('setup-password').value,
+      }),
+    });
+    for (const id of ['setup-password', 'setup-password2', 'setup-code']) $(id).value = '';
+    setStatus('setup-status', '');
+    location.hash = '#/access';
+    await showConnected(me);
+  } catch (error) {
+    showError('setup-status', error);
+  }
+}
+
+async function changePassword(event) {
+  event.preventDefault();
+  if ($('change-next').value !== $('change-next2').value) return setStatus('change-status', 'The new passwords do not match.', 'error');
+  try {
+    const me = await api('/api/me/password', {
+      method: 'POST',
+      body: JSON.stringify({ current: $('change-current').value, next: $('change-next').value }),
+    });
+    for (const id of ['change-current', 'change-next', 'change-next2']) $(id).value = '';
+    setStatus('change-status', '');
+    state.pendingMe = null;
+    await showConnected(me);
+    setStatus('status', 'Password changed.', 'ok');
+  } catch (error) {
+    showError('change-status', error);
+  }
+}
+
+/** From the user menu: change password without signing out. */
+function openPasswordChange() {
+  const me = state.me;
+  $('user-menu').open = false;
+  showSignIn({ change: true });
+  state.pendingMe = me;
+  $('change-hint').textContent = me.user.hasPassword ? 'Enter your current password and choose a new one.' : 'You signed in with a Checkmarx One key: set a password to also sign in with your email.';
+  $('change-current-field').hidden = !me.user.hasPassword;
+  $('change-cancel').hidden = false;
+}
+
 async function disconnect() {
   await api('/api/session', { method: 'DELETE' }).catch(() => {});
-  showDisconnected('Disconnected. Enter an API key to reconnect.');
+  location.hash = '';
+  showSignIn({ message: '' });
+  setStatus('signin-status', 'Signed out.', 'ok');
 }
 
 // ---------------------------------------------------------------------------
@@ -393,16 +556,7 @@ function renderSettings() {
   const s = state.settings;
   if (!s) return;
 
-  const c = state.connection ?? {};
-  $('connection-details').innerHTML = [
-    ['Tenant', c.tenant],
-    ['Region', c.regionLabel],
-    ['API URL', c.baseUrl],
-    ['IAM URL', c.iamUrl],
-    ['Key expires', formatDate(c.expiresAt)],
-  ]
-    .map(([k, v]) => `<div><span class="k">${k}</span><span class="v">${escapeHtml(v ?? '—')}</span></div>`)
-    .join('');
+  loadIntegration();
 
   $('smtp-host').value = s.smtp.host;
   $('smtp-port').value = s.smtp.port;
@@ -742,6 +896,15 @@ function settingsPayload() {
   // Only send a password when one was typed, so saving an unrelated field
   // never has to round-trip the stored secret through the browser.
   if ($('smtp-password').value) payload.smtp.password = $('smtp-password').value;
+  // Send only the sections this person may change (the server enforces the same).
+  const SECTION = { smtp: 'integration.smtp', recipients: 'settings.recipients', initiators: 'settings.initiators', template: 'settings.template', branding: 'settings.branding', links: 'settings.links', endpoints: 'integration.cxone' };
+  for (const [key, permission] of Object.entries(SECTION)) if (!can(permission)) delete payload[key];
+  if (!can('credits.limit')) delete payload.aiTriage.monthlyCreditLimit;
+  if (!can('settings.ai')) {
+    const { monthlyCreditLimit } = payload.aiTriage;
+    payload.aiTriage = monthlyCreditLimit === undefined ? undefined : { monthlyCreditLimit };
+  }
+  if (!payload.aiTriage) delete payload.aiTriage;
   return payload;
 }
 
@@ -1270,11 +1433,11 @@ function renderInitiatorAddress(entry, needed) {
     return `
       <div class="tag-row">
         <input type="email" value="${escapeHtml(entry.suggestion)}" data-tag-for="${escapeHtml(entry.key)}" aria-label="Email for ${escapeHtml(entry.initiator)}" />
-        <button type="button" class="primary" data-tag-save="${escapeHtml(entry.key)}">Confirm</button>
+        ${can('initiators.tag') ? `<button type="button" class="primary" data-tag-save="${escapeHtml(entry.key)}">Confirm</button>` : ''}
       </div>
       <span class="initiator-meta suggested">${escapeHtml(label)} — confirm to use it</span>`;
   }
-  if (!needed) return '';
+  if (!needed || !can('initiators.tag')) return '';
   return `
     <div class="tag-row">
       <input type="email" placeholder="name@company.com" data-tag-for="${escapeHtml(entry.key)}" aria-label="Email for ${escapeHtml(entry.initiator)}" />
@@ -1584,7 +1747,7 @@ function renderTrackedReports({ reports, autoRefresh }) {
           </div>
           <div class="actions compact">
             <button type="button" data-report-refresh="${escapeHtml(r.id)}">Refresh</button>
-            <button type="button" data-report-delete="${escapeHtml(r.id)}" class="link">Delete</button>
+            ${can('reports.manage') ? `<button type="button" data-report-delete="${escapeHtml(r.id)}" class="link">Delete</button>` : ''}
           </div>
         </div>
         ${stats}${followUp(r)}${projects}${history}
@@ -1623,12 +1786,12 @@ function followUp(r) {
         </div>
         <label class="check"><input type="checkbox" data-field="attachHtml" data-keep ${auto.attachHtml ? 'checked' : ''} /> Attach the interactive HTML report</label>
         <div class="actions compact">
-          <button type="button" data-remind="${id}" data-dry="1">Preview</button>
+          ${can('reports.remind') ? `<button type="button" data-remind="${id}" data-dry="1">Preview</button>` : ''}
           <button type="button" data-report-html="${id}">Download HTML report</button>
-          <button type="button" data-remind="${id}" class="primary">Send reminder now</button>
+          ${can('reports.remind') ? `<button type="button" data-remind="${id}" class="primary">Send reminder now</button>` : ''}
         </div>
       </fieldset>
-      <fieldset>
+      <fieldset${can('reports.manage') ? '' : ' hidden'}>
         <legend>Automatic reminders</legend>
         <div class="alloc-row">
           <label class="check"><input type="checkbox" data-field="autoEnabled" data-keep ${auto.enabled ? 'checked' : ''} /> Send automatically every</label>
@@ -1642,7 +1805,7 @@ function followUp(r) {
           ${auto.lastError ? `<span class="status error">${escapeHtml(auto.lastError)}</span>` : ''}</p>
         <div class="actions compact"><button type="button" data-schedule="${id}">Save schedule</button></div>
       </fieldset>
-      <fieldset>
+      <fieldset${can('triage.run') || can('credits.allocate') ? '' : ' hidden'}>
         <legend>Triage the open findings now</legend>
         <div class="alloc-row">
           ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
@@ -1654,9 +1817,9 @@ function followUp(r) {
         </div>
         <p class="hint" data-need="${id}">${triageNeedText(r)}</p>
         <div class="actions compact">
-          <button type="button" data-report-triage="${id}" class="primary">Triage now</button>
-          <button type="button" data-report-allocate="${id}">Allocate credits</button>
-          <span class="alloc-extra">+ <input type="number" min="0" max="100000" data-field="triageAdd" data-keep class="small-num" placeholder="0" /> triage
+          ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary">Triage now</button>` : ''}
+          ${can('credits.allocate') ? `<button type="button" data-report-allocate="${id}">Allocate credits</button>` : ''}
+          <span class="alloc-extra${can('credits.allocate') ? '' : ' perm-hidden'}">+ <input type="number" min="0" max="100000" data-field="triageAdd" data-keep class="small-num" placeholder="0" /> triage
             + <input type="number" min="0" max="100000" data-field="remediationAdd" data-keep class="small-num" placeholder="0" /> remediation</span>
         </div>
         <p class="hint">Triage now runs AI Triage from here. Allocate credits lets the projects' developers triage these severities from their own reports, plus any extra credits you enter.</p>
@@ -1922,7 +2085,9 @@ function creditCell(project, kind) {
       : `${need} confirmed finding(s) to remediate (3 credits each)`,
     extra ? `includes ${extra} extra credit(s) you added` : '',
   ].filter(Boolean).join(' · ');
-  return `<td class="num credits" title="${escapeHtml(title)}"><button type="button" class="credit-edit" data-credit-edit="${escapeHtml(project.projectId)}" aria-label="Edit ${escapeHtml(project.projectName)} credits"><span class="${c.remaining === 0 && c.allocated > 0 ? 'low' : ''}">${c.remaining}</span><span class="zero"> / ${c.allocated}</span>${extra ? '<span class="extra-dot" title="Includes extra credits">+</span>' : ''}</button></td>`;
+  const figures = `<span class="${c.remaining === 0 && c.allocated > 0 ? 'low' : ''}">${c.remaining}</span><span class="zero"> / ${c.allocated}</span>${extra ? '<span class="extra-dot" title="Includes extra credits">+</span>' : ''}`;
+  if (!can('credits.allocate')) return `<td class="num credits" title="${escapeHtml(title)}">${figures}</td>`;
+  return `<td class="num credits" title="${escapeHtml(title)}"><button type="button" class="credit-edit" data-credit-edit="${escapeHtml(project.projectId)}" aria-label="Edit ${escapeHtml(project.projectName)} credits">${figures}</button></td>`;
 }
 
 /** Selected projects, or every shown one when none is selected. */
@@ -2352,9 +2517,25 @@ function renderSendResult(result) {
 window.addEventListener('hashchange', route);
 
 $('connect-form').addEventListener('submit', connect);
+$('password-form').addEventListener('submit', signInWithPassword);
+$('setup-form').addEventListener('submit', createFirstAdmin);
+$('change-form').addEventListener('submit', changePassword);
+$('change-cancel').addEventListener('click', () => {
+  if (state.pendingMe) showConnected(state.pendingMe);
+});
+$('me-password').addEventListener('click', openPasswordChange);
 $('disconnect').addEventListener('click', disconnect);
 $('api-key').addEventListener('input', renderDetected);
-$('reconnect').addEventListener('click', disconnect);
+for (const radio of document.querySelectorAll('input[name="signinMode"]')) {
+  radio.addEventListener('change', () => {
+    const cx = document.querySelector('input[name="signinMode"]:checked').value === 'cxone';
+    $('password-form').hidden = cx;
+    $('connect-form').hidden = !cx;
+  });
+}
+document.addEventListener('click', (event) => {
+  if ($('user-menu').open && !$('user-menu').contains(event.target)) $('user-menu').open = false;
+});
 
 $('activity-preset').addEventListener('change', () => toggleRange('activity'));
 $('detection-preset').addEventListener('change', () => toggleRange('detection'));
@@ -2730,10 +2911,10 @@ $('brand-logo-file').addEventListener('change', () => {
 
   try {
     const session = await api('/api/session');
-    if (session.connected) await showConnected(session);
-    else showDisconnected('Not connected — enter your Checkmarx One API key below.');
+    if (session.signedIn) await afterSignIn(session);
+    else showSignIn({ setup: session.setup });
   } catch (error) {
-    showDisconnected(error.message);
+    showSignIn({ message: error.message });
   }
 })();
 
@@ -2982,6 +3163,8 @@ const TYPE_LABELS = {
   report: 'Report issued',
   backup: 'Backup',
   audit: 'Audit check',
+  access: 'Sign-in',
+  iam: 'Access change',
 };
 const formatTime = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' }) : '—');
 const formatBytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
@@ -3004,6 +3187,7 @@ function actorText(actor = {}) {
     return [actor.recipient || 'report recipient', `emailed report${actor.reportVerified === false ? ' (unsigned)' : ''}`];
   }
   if (actor.kind === 'admin') return [actor.email || actor.user || actor.name || 'administrator', `admin${actor.tenant ? ` · ${actor.tenant}` : ''}`];
+  if (actor.kind === 'user') return [actor.email || actor.user || 'unknown', [actor.role, actor.via].filter(Boolean).join(' · ') || 'signed-in user'];
   return [actor.user || actor.kind || 'system', actor.kind || ''];
 }
 
@@ -3351,4 +3535,305 @@ $('test-report-server').addEventListener('click', async () => {
     result.className = 'status error';
     result.textContent = error.message.includes('answered') ? error.message : `Could not reach ${url} from this browser: check the address, DNS and firewall.`;
   }
+});
+
+// ---------------------------------------------------------------------------
+// Checkmarx One integration (Settings): the server's own connection
+// ---------------------------------------------------------------------------
+
+async function loadIntegration() {
+  let info;
+  try {
+    info = await api('/api/integration');
+  } catch {
+    return;
+  }
+  const c = info.connection ?? {};
+  const source = { stored: 'key stored by an Admin', environment: 'CX_API_KEY on the server', none: 'not connected', 'stored (not reachable)': 'stored key — Checkmarx One not reachable' }[info.source] ?? info.source;
+  $('connection-details').innerHTML = [
+    ['Status', info.connected ? 'Connected' : 'Not connected'],
+    ['Using', source],
+    ['Tenant', c.tenant],
+    ['API URL', c.baseUrl],
+    ['IAM URL', c.iamUrl],
+    ['Key expires', formatDate(c.expiresAt)],
+  ]
+    .map(([k, v]) => `<div><span class="k">${k}</span><span class="v">${escapeHtml(v ?? '—')}</span></div>`)
+    .join('');
+  $('integration-base').value = info.overrides?.baseUrl ?? '';
+  $('integration-iam').value = info.overrides?.iamUrl ?? '';
+  $('integration-tenant').value = info.overrides?.tenant ?? '';
+  $('integration-remove').hidden = !info.keyStored;
+  $('integration-key').placeholder = state.me?.via === 'cxone' ? 'Blank: use the key you signed in with' : 'Paste the API key for this server';
+}
+
+$('integration-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  setStatus('integration-status', 'Verifying the key against Checkmarx One…');
+  try {
+    await api('/api/integration/cxone', {
+      method: 'POST',
+      body: JSON.stringify({
+        apiKey: $('integration-key').value.trim(),
+        baseUrl: $('integration-base').value.trim(),
+        iamUrl: $('integration-iam').value.trim(),
+        tenant: $('integration-tenant').value.trim(),
+      }),
+    });
+    $('integration-key').value = '';
+    setStatus('integration-status', 'Connected and stored. Everyone signed in with a password now uses it.', 'ok');
+    await loadIntegration();
+    const me = await api('/api/me');
+    state.me = me;
+    if (me.connection) {
+      state.connection = me.connection;
+      $('connection').textContent = `${me.connection.tenant} · ${me.connection.regionLabel} · ${me.connection.baseUrl}`;
+      $('connection').className = 'sub conn-pill ok';
+    }
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('integration-status', error);
+  }
+});
+
+$('integration-remove').addEventListener('click', async () => {
+  if (!confirm('Remove the stored Checkmarx One key? Password sign-ins, report triage and automation stop working until a key is stored again (unless CX_API_KEY is set on the server).')) return;
+  try {
+    await api('/api/integration/cxone', { method: 'DELETE' });
+    setStatus('integration-status', 'Stored key removed.', 'ok');
+    loadIntegration();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('integration-status', error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Access: people, roles and the permission matrix
+// ---------------------------------------------------------------------------
+
+const access = { data: null, edits: new Map() };
+
+async function loadAccess() {
+  setStatus('iam-status', '');
+  try {
+    access.data = await api('/api/iam');
+    access.edits.clear();
+    renderAccess();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('iam-status', error);
+  }
+}
+
+function roleName(id) {
+  return access.data?.roles.find((r) => r.id === id)?.name ?? id;
+}
+
+function renderAccess() {
+  const { users, roles } = access.data;
+  const assignable = roles.filter((r) => r.canAssign);
+  $('iam-add-role').innerHTML = assignable.map((r) => `<option value="${escapeHtml(r.id)}" ${r.id === 'user' ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('');
+
+  $('iam-users').innerHTML = users
+    .map((u) => {
+      const me = u.id === state.me.user.id;
+      const status = u.disabled ? '<span class="badge bad">Disabled</span>' : u.locked ? '<span class="badge warn">Locked</span>' : u.mustChangePassword ? '<span class="badge muted">Must set password</span>' : '<span class="badge">Active</span>';
+      const methods = [u.hasPassword ? 'Password' : '', `Checkmarx One: ${[u.email, ...u.cxoneIdentities].map(escapeHtml).join(', ')}`].filter(Boolean).join('<br>');
+      const roleCell = u.canManage
+        ? `<select data-iam-role="${u.id}" aria-label="Role of ${escapeHtml(u.email)}">${roles
+            .filter((r) => r.canAssign || r.id === u.role)
+            .map((r) => `<option value="${escapeHtml(r.id)}" ${r.id === u.role ? 'selected' : ''} ${r.canAssign ? '' : 'disabled'}>${escapeHtml(r.name)}</option>`)
+            .join('')}</select>`
+        : `<span class="role-pill role-${escapeHtml(u.role)}">${escapeHtml(roleName(u.role))}</span>`;
+      const actions = u.canManage
+        ? `<button type="button" class="link" data-iam-reset="${u.id}">Set password</button>
+           <button type="button" class="link" data-iam-ids="${u.id}">Identities</button>
+           <button type="button" class="link" data-iam-toggle="${u.id}">${u.disabled ? 'Enable' : 'Disable'}</button>
+           <button type="button" class="link danger" data-iam-delete="${u.id}">Remove</button>`
+        : me ? '<span class="hint">You</span>' : '';
+      return `<tr>
+        <td><strong>${escapeHtml(u.name || u.email)}</strong>${u.name ? `<small class="muted block">${escapeHtml(u.email)}</small>` : ''}</td>
+        <td>${roleCell}</td>
+        <td class="small-text">${methods}</td>
+        <td>${status}</td>
+        <td class="when">${u.lastLoginAt ? escapeHtml(formatTime(u.lastLoginAt)) : '<span class="hint">never</span>'}</td>
+        <td><div class="row-actions">${actions}</div></td>
+      </tr>`;
+    })
+    .join('');
+  renderMatrix();
+}
+
+/** Permissions down the side, roles across the top; tick to change what a role may do. */
+function renderMatrix() {
+  const { roles, permissions, me } = access.data;
+  const mine = new Set(me.permissions);
+  const groups = [...new Set(permissions.map((p) => p.group))];
+  const valueOf = (role, pid) => (access.edits.get(role.id) ?? new Set(role.permissions)).has(pid);
+  const head = `<thead><tr><th>Permission</th>${roles
+    .map((r) => `<th class="role-col" title="${escapeHtml(r.description || '')}"><span class="role-pill role-${escapeHtml(r.id)}">${escapeHtml(r.name)}</span><small>${r.users} ${r.users === 1 ? 'person' : 'people'}${r.locked ? ' · fixed' : ''}</small>${
+      r.canManage && !r.builtin ? `<button type="button" class="link danger" data-iam-role-delete="${escapeHtml(r.id)}">Remove</button>` : ''
+    }</th>`)
+    .join('')}</tr></thead>`;
+  const body = groups
+    .map((group) => {
+      const rows = permissions
+        .filter((p) => p.group === group)
+        .map((p) => `<tr><td><span class="perm-label">${escapeHtml(p.label)}${p.special ? ' <span class="badge warn">Admin</span>' : ''}</span><small class="perm-desc">${escapeHtml(p.description)}</small></td>${roles
+          .map((r) => {
+            const editable = r.canManage && mine.has(p.id);
+            const checked = valueOf(r, p.id);
+            return `<td class="cell"><input type="checkbox" data-matrix-role="${escapeHtml(r.id)}" data-matrix-perm="${escapeHtml(p.id)}" ${checked ? 'checked' : ''} ${editable ? '' : 'disabled'} aria-label="${escapeHtml(r.name)}: ${escapeHtml(p.label)}" /></td>`;
+          })
+          .join('')}</tr>`)
+        .join('');
+      return `<tbody><tr class="group-row"><th colspan="${roles.length + 1}">${escapeHtml(group)}</th></tr>${rows}</tbody>`;
+    })
+    .join('');
+  $('iam-matrix').innerHTML = head + body;
+  $('iam-matrix-actions').hidden = access.edits.size === 0;
+}
+
+$('iam-matrix').addEventListener('change', (event) => {
+  const box = event.target.closest('[data-matrix-role]');
+  if (!box) return;
+  const role = access.data.roles.find((r) => r.id === box.dataset.matrixRole);
+  const set = access.edits.get(role.id) ?? new Set(role.permissions);
+  if (box.checked) set.add(box.dataset.matrixPerm);
+  else set.delete(box.dataset.matrixPerm);
+  const unchanged = set.size === role.permissions.length && role.permissions.every((p) => set.has(p));
+  if (unchanged) access.edits.delete(role.id);
+  else access.edits.set(role.id, set);
+  $('iam-matrix-actions').hidden = access.edits.size === 0;
+  setStatus('iam-matrix-status', access.edits.size ? `Unsaved changes to ${[...access.edits.keys()].map(roleName).join(', ')}.` : '');
+});
+
+$('iam-matrix-cancel').addEventListener('click', () => {
+  access.edits.clear();
+  renderMatrix();
+  setStatus('iam-matrix-status', '');
+});
+
+$('iam-matrix-save').addEventListener('click', async () => {
+  try {
+    for (const [id, set] of access.edits) {
+      const role = access.data.roles.find((r) => r.id === id);
+      access.data = await api(`/api/iam/roles/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ name: role.name, description: role.description, permissions: [...set] }) });
+    }
+    access.edits.clear();
+    renderAccess();
+    setStatus('iam-matrix-status', 'Saved — it applies at once to everyone with these roles.', 'ok');
+    refreshMe();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('iam-matrix-status', error);
+  }
+});
+
+/** My own permissions may have changed (e.g. I edited my role). */
+async function refreshMe() {
+  try {
+    state.me = await api('/api/me');
+    applyPermissions();
+  } catch {}
+}
+
+$('iam-add-toggle').addEventListener('click', () => {
+  $('iam-add-form').hidden = !$('iam-add-form').hidden;
+  if (!$('iam-add-form').hidden) $('iam-add-email').focus();
+});
+
+function generatePassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return [...bytes].map((b) => alphabet[b % alphabet.length]).join('').replace(/(.{4})(?!$)/g, '$1-');
+}
+$('iam-generate').addEventListener('click', () => {
+  $('iam-add-password').value = generatePassword();
+});
+
+$('iam-add-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  try {
+    access.data = await api('/api/iam/users', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: $('iam-add-email').value.trim(),
+        name: $('iam-add-name').value.trim(),
+        role: $('iam-add-role').value,
+        password: $('iam-add-password').value,
+        cxoneIdentities: $('iam-add-cx').value,
+      }),
+    });
+    const password = $('iam-add-password').value;
+    setStatus('iam-add-status', password ? `Added. Give them their temporary password: ${password}` : 'Added. They sign in with a Checkmarx One key.', 'ok');
+    for (const id of ['iam-add-email', 'iam-add-name', 'iam-add-password', 'iam-add-cx']) $(id).value = '';
+    renderAccess();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('iam-add-status', error);
+  }
+});
+
+$('iam-role-new').addEventListener('click', () => {
+  $('iam-role-form').hidden = !$('iam-role-form').hidden;
+  if (!$('iam-role-form').hidden) $('iam-role-name').focus();
+});
+$('iam-role-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  try {
+    access.data = await api('/api/iam/roles', { method: 'POST', body: JSON.stringify({ name: $('iam-role-name').value.trim(), description: $('iam-role-desc').value.trim(), permissions: [] }) });
+    $('iam-role-name').value = '';
+    $('iam-role-desc').value = '';
+    $('iam-role-form').hidden = true;
+    renderAccess();
+    setStatus('iam-matrix-status', 'Role created — tick its permissions in its column, then save.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('iam-role-status', error);
+  }
+});
+
+async function iamCall(path, options, done = '') {
+  try {
+    access.data = await api(path, options);
+    renderAccess();
+    setStatus('iam-status', done, 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('iam-status', error);
+    renderAccess();
+  }
+}
+
+$('iam-users').addEventListener('change', (event) => {
+  const select = event.target.closest('[data-iam-role]');
+  if (!select) return;
+  const user = access.data.users.find((u) => u.id === select.dataset.iamRole);
+  iamCall(`/api/iam/users/${user.id}`, { method: 'PATCH', body: JSON.stringify({ role: select.value }) }, `${user.email} is now ${roleName(select.value)}.`);
+});
+
+$('iam-users').addEventListener('click', (event) => {
+  const button = event.target.closest('button');
+  if (!button) return;
+  const id = button.dataset.iamReset || button.dataset.iamIds || button.dataset.iamToggle || button.dataset.iamDelete;
+  const user = access.data.users.find((u) => u.id === id);
+  if (!user) return;
+  if (button.dataset.iamReset) {
+    const password = generatePassword();
+    if (!confirm(`Set a temporary password for ${user.email}? They are signed out and choose their own at next sign-in.`)) return;
+    iamCall(`/api/iam/users/${id}/password`, { method: 'POST', body: JSON.stringify({ password }) }, `Temporary password for ${user.email}: ${password}`);
+  } else if (button.dataset.iamIds) {
+    const value = prompt(`Checkmarx One identities that sign in as ${user.email} — usernames or client ids, comma separated (their email always counts):`, user.cxoneIdentities.join(', '));
+    if (value === null) return;
+    iamCall(`/api/iam/users/${id}`, { method: 'PATCH', body: JSON.stringify({ cxoneIdentities: value }) }, 'Saved.');
+  } else if (button.dataset.iamToggle) {
+    if (!user.disabled && !confirm(`Disable ${user.email}? They are signed out at once.`)) return;
+    iamCall(`/api/iam/users/${id}`, { method: 'PATCH', body: JSON.stringify({ disabled: !user.disabled }) }, `${user.email} ${user.disabled ? 'enabled' : 'disabled'}.`);
+  } else if (button.dataset.iamDelete) {
+    if (!confirm(`Remove ${user.email}? They lose access at once.`)) return;
+    iamCall(`/api/iam/users/${id}`, { method: 'DELETE' }, `${user.email} removed.`);
+  }
+});
+
+$('iam-matrix').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-iam-role-delete]');
+  if (!button) return;
+  const id = button.dataset.iamRoleDelete;
+  if (!confirm(`Remove the role "${roleName(id)}"?`)) return;
+  iamCall(`/api/iam/roles/${encodeURIComponent(id)}`, { method: 'DELETE' }, 'Role removed.');
 });

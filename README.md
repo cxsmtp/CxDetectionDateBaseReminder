@@ -393,6 +393,73 @@ from each project's latest completed scan, for tenants without the risks service
 
 ---
 
+## Access control
+
+Every person signs in, and has one **role**: a set of permissions covering every
+part of the utility. Admins and Security Analysts manage people and roles on the
+**Access** page; it is hidden from Users.
+
+| Role | Can |
+| --- | --- |
+| **Admin** | Everything, including the Admin-only permissions below |
+| **Security Analyst** | Everything except the Admin-only permissions, including people and roles |
+| **User** | Fetch findings, send reminders, follow tracked reports and send their follow-ups, see credits; Settings read-only; no Access, Audit or Beta |
+
+The Admin-only permissions are:
+
+- **Checkmarx One integration:** the server's own API key and endpoints.
+- **Email server (SMTP).**
+- **Utility-wide monthly credit limit:** the bulk credit budget on the Settings page.
+- **Download and restore backups:** a backup holds the SMTP password, the
+  integration key and every user, so handing it out is as powerful as the other three.
+
+Analysts still allocate credits to projects, within the budget.
+
+**Permissions.** There are 29 of them, in groups: Dashboard, Tracked reports,
+AI & credits, Settings (one per section), Integrations, Audit & data, Beta and
+Access.
+- Every API route checks them on the server; the screens only hide what the server
+  would refuse anyway.
+- A settings save keeps only the sections the person may change.
+- The **Access** page shows a matrix of permissions against roles. You can change
+  what Security Analyst and User may do, or create your own roles. The Admin role
+  is fixed and always holds everything.
+
+**Nobody can grant more than they hold.**
+- A person can only assign a role, or build one, whose permissions they all have.
+- They can only change or remove people whose role they could have assigned.
+- So an analyst can manage Users and other analysts, but cannot create an Admin,
+  promote anyone to Admin, or touch an Admin's account.
+- Nobody can change their own role or disable themselves, and there is always at
+  least one active Admin.
+
+**Signing in.**
+- **Email and password.**
+  - Passwords are hashed with scrypt and need at least 12 characters.
+  - Five wrong attempts lock the account for 15 minutes, and a single address is
+    slowed down after 30 attempts.
+  - When an Admin or Analyst sets a temporary password, the person must choose
+    their own at next sign-in.
+  - People who sign in this way reach Checkmarx One through the server's
+    integration (**Settings → Checkmarx One**, Admin).
+- **Checkmarx One API key.**
+  - The key's identity (email, username or client id) must be listed against a
+    person on the Access page. The person's email always counts.
+  - The key must be for the integration's tenant.
+  - The session then calls Checkmarx One with that person's own key.
+
+Disabling or removing someone ends their sessions at once, and a role change
+applies on their next click.
+
+**First start.** With no users yet, the server prints a one-time setup code in its
+log. Open the utility and create the first administrator with it. For an unattended
+install, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` instead; that administrator then
+chooses a new password at first sign-in.
+
+**Audit.** Sign-ins (and refusals and lockouts), people and role changes, and
+integration changes are recorded in the audit log (types `access` and `iam`).
+Credit events carry the person's email, role and how they signed in.
+
 ## Where things are stored
 
 All state lives in **one folder outside the project**, so redeploying or
@@ -403,8 +470,9 @@ old copy in place.
 
 | | File in the state folder | Survives restart |
 | --- | --- | --- |
-| Checkmarx API key | server memory, per session | no |
-| SMTP password, recipients, template, credit settings | `settings.json`, mode `0600` | yes |
+| A person's own Checkmarx One API key (key sign-in) | server memory, per session | no |
+| SMTP password, recipients, template, credit settings, the integration key | `settings.json`, mode `0600` | yes |
+| **Users, roles and permissions** (passwords as scrypt hashes) | `iam.json` | yes |
 | Credit ledger (every credit spent) | `triage-credits.json` | yes |
 | Per-project credit allocations | `credit-allocations.json` | yes |
 | **Audit log** (append-only, hash-chained) | `audit/audit-YYYY-MM.jsonl` + `audit.key` | yes |
@@ -417,9 +485,11 @@ old copy in place.
 See [docs/audit-and-backup.md](docs/audit-and-backup.md) for the audit log,
 backups and rebuilding a server from scratch.
 
-The API key is never written to disk, never logged, and never sent back to the
-browser — the browser holds only an opaque `HttpOnly` session cookie. **Disconnect**
-destroys the session; idle sessions expire after `SESSION_IDLE_MINUTES` (default 8h).
+A key someone signs in with is never written to disk, never logged, and never sent
+back to the browser — the browser holds only an opaque `HttpOnly` session cookie.
+**Sign out** ends the session; idle sessions expire after `SESSION_IDLE_MINUTES`
+(default 8h). The server's own integration key, which an Admin stores under
+**Settings → Checkmarx One**, is kept in `settings.json` like the SMTP password.
 
 The SMTP password *is* stored, because a mail server has to be reachable without
 someone re-typing it. The state folder is created `0700` and its files `0600`. The password is
@@ -450,9 +520,11 @@ and an optional `CX_API_KEY` bootstrap for headless deployments).
 
 ## Operational notes
 
-- **No authentication in front of the UI.** It binds to `127.0.0.1` for that reason.
-  Anyone who can reach the port can use a connected session and send mail as your
-  SMTP user, so put it behind a reverse proxy with auth before exposing it.
+- **Everyone signs in.** There is no shared session: even with `CX_API_KEY` set,
+  the UI does nothing until someone signs in, and each person can do only what
+  their role allows (see [Access control](#access-control)). Serve it over HTTPS
+  (a reverse proxy) when it leaves `127.0.0.1`, so passwords and session cookies
+  are encrypted in transit.
 - **A project whose risks cannot be read is reported inline** in its table row, rather
   than failing the whole fetch.
 - **Scan results are held in memory** between fetching and sending, so a reminder

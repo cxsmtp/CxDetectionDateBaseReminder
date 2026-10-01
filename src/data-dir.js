@@ -20,6 +20,7 @@ import path from 'node:path';
 /** Every file (and folder) that makes up the server's state. */
 export const STATE_FILES = [
   'settings.json',
+  'iam.json',
   'report-signing.key',
   'audit.key',
   'triage-credits.json',

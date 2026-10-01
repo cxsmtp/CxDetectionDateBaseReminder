@@ -30,7 +30,7 @@ import path from 'node:path';
 
 const GENESIS = 'genesis';
 export const OUTCOMES = ['charged', 'not-charged', 'refused', 'failed', 'changed', 'info'];
-export const TYPES = ['triage', 'remediation', 'allocation', 'settings', 'report', 'backup', 'audit'];
+export const TYPES = ['triage', 'remediation', 'allocation', 'settings', 'report', 'backup', 'audit', 'access', 'iam'];
 
 const monthOf = (iso) => iso.slice(0, 7);
 
