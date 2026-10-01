@@ -121,3 +121,17 @@ test('a restore staged from the web page is applied at the next start', async ()
   assert.ok(!fs.existsSync(path.join(target, PENDING_RESTORE)));
   assert.equal(applyPendingRestore({ dataDir: target }), null);
 });
+
+test('emailed reports are kept for download, expire after their lifetime, and ids cannot escape the folder', async () => {
+  const { ReportFiles } = await import('../src/report-files.js');
+  const dir = path.join(tmpDir(), 'report-files');
+  const files = new ReportFiles({ dir, ttlDays: 30 });
+  const id = '0f8fad5b-d9cb-469f-a165-70867728950e';
+  files.save(id, '<html>report</html>', { filename: 'Payments-2026-10-01.html' });
+  assert.deepEqual([files.get(id).html, files.get(id).filename], ['<html>report</html>', 'Payments-2026-10-01.html']);
+  assert.equal(files.get(id, Date.now() + 31 * 86400000), null);
+  assert.equal(files.get('../../etc/passwd'), null);
+  assert.throws(() => files.save('../x', 'y'));
+  assert.ok(files.purge({ force: true, now: Date.now() + 31 * 86400000 }) >= 1);
+  assert.equal(files.get(id), null);
+});

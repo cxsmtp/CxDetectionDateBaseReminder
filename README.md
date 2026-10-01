@@ -201,10 +201,26 @@ code change as a downloadable patch. When remediation is not allowed, Remediate
 simply opens the finding in Risk Hub.
 
 Checkmarx One refuses API calls from a page opened as a file, so the report
-goes through this server: **Connect to CxONE for action** connects to it, and it
-runs AI Triage and AI Remediation on its own stored Checkmarx One connection (`CX_API_KEY`, or the
-key armed for automation). Readers need no key and nothing to install; Checkmarx
-One records the triage under the server's account.
+goes through this server, which runs AI Triage and AI Remediation on its own
+stored Checkmarx One connection (`CX_API_KEY`, or the key an Admin stored).
+Readers need no key and nothing to install; Checkmarx One records the triage
+under the server's account.
+
+**From the email to fixing.**
+- **The button.** The email's **Let's start fixing the vulnerabilities** button
+  downloads the same interactive report that is attached. Mail clients cannot
+  link to an attachment, so the server keeps each emailed report and the button
+  downloads it through a signed link.
+  - The link works for 30 days, the life of the report's permissions.
+  - A changed or made-up link gets nothing.
+  - Each download is recorded in the audit log.
+  - Without a reminder server address, the button opens the project in Checkmarx
+    One instead.
+- **Opening the report.** The downloaded file, or the attachment itself, connects
+  to the reminder server as soon as it is opened.
+  - If it cannot, it says why and offers **Connect** to try again, or **Change
+    address** if the server moved.
+  - **Connect to CxONE for action** in the header does the same.
 
 - **Administrator control.** Nothing runs until allowed under **Settings → AI
   Triage & Remediation from reports**, with separate switches for triage and

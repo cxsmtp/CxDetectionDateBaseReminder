@@ -228,3 +228,31 @@ test('sign-ins, refusals and access changes are in the audit log', async () => {
   const verify = await as.admin('GET', '/api/audit/verify');
   assert.equal(verify.body.ok, true);
 });
+
+test("the email's button downloads the very report that was attached, through a signed link", async () => {
+  assert.equal((await as.admin('GET', '/api/scan')).status, 200);
+  const created = await as.admin('POST', '/api/tracked-reports', { name: 'Payments' });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const preview = await as.admin('POST', `/api/tracked-reports/${created.body.id}/remind`, { dryRun: true, attachHtml: true, onlyTo: 'dev@acme.io' });
+  assert.equal(preview.status, 200, JSON.stringify(preview.body));
+  const href = /href="([^"]+\/r\/[0-9a-f-]{36}\?s=[^"]+)"[^>]*>Let&#39;s start fixing the vulnerabilities</.exec(preview.body.html)?.[1];
+  assert.ok(href, preview.body.html);
+  const url = href.replace(/&amp;/g, '&');
+  assert.ok(url.startsWith(BASE), 'points at the reminder server');
+
+  const res = await fetch(url);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-disposition'), /^attachment; filename="Payments-\d{4}-\d{2}-\d{2}\.html"$/);
+  assert.match(res.headers.get('content-security-policy'), /sandbox/);
+  const html = await res.text();
+  assert.match(html, /id="report-data"/);
+  assert.match(html, new RegExp(`"relayUrl":"${BASE.replace(/[.]/g, '\\.')}/?"`), 'the downloaded report knows its reminder server');
+
+  const id = /\/r\/([0-9a-f-]{36})/.exec(url)[1];
+  assert.equal((await fetch(url.replace(/s=[^&]+/, 's=forged'))).status, 404);
+  assert.equal((await fetch(`${BASE}/r/${id}`)).status, 404, 'no signature, no report');
+  const other = '00000000-0000-4000-8000-000000000000';
+  assert.equal((await fetch(url.replace(id, other))).status, 404, 'a signature is only good for its own report');
+  const { body } = await as.admin('GET', '/api/audit?types=report&q=downloaded');
+  assert.ok(body.entries.some((e) => e.actor?.reportId === id));
+});

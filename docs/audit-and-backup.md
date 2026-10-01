@@ -102,6 +102,7 @@ audit.key                   the audit log's HMAC key
 report-signing.key          signs report permissions: emailed reports stay valid after a restore
 tracked-reports.json, known-initiators.json, automation-state.json
 git-cache/                  Beta clones: a cache, never backed up
+report-files/               emailed reports for the email's download button, kept 30 days, never backed up
 backups/                    default BACKUP_DIR (better on another disk)
 ```
 

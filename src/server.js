@@ -26,6 +26,7 @@ import { GitHubClient } from './github/client.js';
 import { METHODS as GITHUB_METHODS, ensureClone, evaluate as evaluateGithub, loginFromNoreply, resolveLogins, usableEmail, validLogin } from './github/identity.js';
 import { blameFindings, codeVersion, locationOf, parseRepoUrl } from './github/blame.js';
 import { TrackedReports, computeProgress, matchesFilters, reportSummary } from './tracked-reports.js';
+import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
@@ -91,6 +92,7 @@ const allocations = new CreditAllocations({ file: path.join(dataDir, 'credit-all
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const trackedReports = new TrackedReports({ file: path.join(dataDir, 'tracked-reports.json') });
+const reportFiles = new ReportFiles({ dir: path.join(dataDir, 'report-files'), ttlDays: 30 });
 const audit = new AuditLog({ dir: path.join(dataDir, 'audit'), keyFile: path.join(dataDir, 'audit.key') });
 if (restoredAtStart) {
   audit.record({
@@ -2652,10 +2654,11 @@ async function remindTrackedReport(session, report, options, relayUrl, { automat
 const openRisksOf = (scan) => selectRisks(scan.projects, { projectIds: null, buckets: [], severities: null });
 
 /** The interactive HTML report of a tracked report's open findings. */
-async function trackedReportHtml(session, report, scan, relayUrl, audience = {}) {
+async function trackedReportHtml(session, report, scan, relayUrl, audience = {}, publish = '') {
   return buildInteractiveReport(session, openRisksOf(scan), {
     settings: settingsStore.get(),
     relayUrl,
+    publish,
     initiatorsByProject: scan.initiators,
     audience: { purpose: `for tracked report "${report.name}"`, ...audience },
   });
@@ -2669,11 +2672,12 @@ async function sendReportOnlyTo(session, report, scan, addresses, { attachHtml, 
     if (dryRun && result.status === 200) result.body.recipients = { to: addresses, cc: [], bcc: [] };
     return result;
   }
-  const { reportData, findings, html } = await trackedReportHtml(session, report, scan, relayUrl, {
+  const filename = reportFileName(report);
+  const { reportData, findings, html, downloadUrl } = await trackedReportHtml(session, report, scan, relayUrl, {
     recipient: addresses.join(', '),
     purpose: `emailed (only to) for tracked report "${report.name}"`,
-  });
-  const body = buildReportEmail(reportData, { greeting: 'Hi', topCount: findings.length });
+  }, filename);
+  const body = buildReportEmail(reportData, { greeting: 'Hi', topCount: findings.length, downloadUrl });
   const total = reportData.totalRisks ?? openRisksOf(scan).length;
   const message = { subject: `${report.name}: ${total} open vulnerabilities to triage`, html: body.html, text: body.text };
   if (dryRun) {
@@ -2682,7 +2686,7 @@ async function sendReportOnlyTo(session, report, scan, addresses, { attachHtml, 
   const result = await sendReminderMail(settings, message, {
     exact: true,
     to: addresses,
-    attachments: [{ filename: reportFileName(report), content: html, contentType: 'text/html' }],
+    attachments: [{ filename, content: html, contentType: 'text/html' }],
   });
   return { status: 200, body: { ...result, groupBy: 'none', sent: [{ email: addresses.join(', '), messageId: result.messageId }] } };
 }
@@ -2950,7 +2954,7 @@ app.get('/api/credits', requirePermission('credits.view'), (req, res) => {
  * here, with this session's credentials, so the report itself only ever
  * needs the reader's own API key.
  */
-async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject, audience = {} } = {}) {
+async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject, audience = {}, publish = '' } = {}) {
   const { connection, lastScan } = session;
   initiatorsByProject ??= lastScan?.initiators ?? {};
   // Whatever built the list, findings triaged as not exploitable stay out.
@@ -3008,8 +3012,62 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     allowReremediation: Boolean(settings.aiTriage?.allowReremediation),
     adminContact: adminContact(settings),
   });
-  return { reportData, findings, html };
+  // For email: keep the file, so the email's button can download exactly this report.
+  let downloadUrl = '';
+  if (publish && relayUrl) {
+    reportFiles.save(reportToken.id, html, { filename: publish });
+    downloadUrl = reportDownloadUrl(relayUrl, reportToken.id);
+  }
+  return { reportData, findings, html, downloadUrl, reportId: reportToken.id };
 }
+
+/** A link only this server could have made: the report id plus its signature. */
+const downloadSignature = (id) => reportGrants.macText(`download\n${id}`);
+function reportDownloadUrl(relayUrl, id) {
+  return `${String(relayUrl).replace(/\/+$/, '')}/r/${id}?s=${encodeURIComponent(downloadSignature(id))}`;
+}
+
+function linkPage(title, message) {
+  const name = escapeHtml(settingsStore.get().branding.appName || 'Mission Zero');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(title)} · ${name}</title><style>body{font:15px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#f6f7fb;color:#1f2330}
+main{max-width:520px;margin:24px;padding:28px;border-radius:14px;background:#fff;border:1px solid #e6e8ef}h1{font-size:20px;margin:0 0 8px}p{color:#475467;margin:0}
+@media (prefers-color-scheme:dark){body{background:#0f131a;color:#e6e8ef}main{background:#161b24;border-color:#2a3140}p{color:#98a2b3}}</style></head>
+<body><main><h1>${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p></main></body></html>`;
+}
+
+/**
+ * The email's "Let's start fixing the vulnerabilities" button: downloads the
+ * interactive report that was attached to that email. The signed link is the
+ * permission — like the attachment itself, whoever has the email has it.
+ */
+app.get('/r/:id', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('Referrer-Policy', 'no-referrer');
+  const id = String(req.params.id);
+  const given = Buffer.from(String(req.query.s ?? ''));
+  const expected = Buffer.from(/^[0-9a-f-]{36}$/i.test(id) ? downloadSignature(id) : '');
+  if (!expected.length || given.length !== expected.length || !timingSafeEqual(given, expected)) {
+    return res.status(404).type('html').send(linkPage('Link not recognised', 'This download link is incomplete or was changed. Use the button in the email again, or open the report attached to it.'));
+  }
+  const file = reportFiles.get(id);
+  if (!file) {
+    return res.status(410).type('html').send(linkPage('This report has expired', 'Reports can be downloaded for 30 days. Open the report attached to the email, or ask for a new reminder.'));
+  }
+  audit.record({
+    type: 'report',
+    outcome: 'info',
+    reason: 'Report downloaded from the email’s button.',
+    actor: { kind: 'report', reportId: id, ip: clientIp(req), userAgent: String(req.get('user-agent') ?? '').slice(0, 200) },
+    details: { reportId: id },
+  });
+  const filename = (file.filename || `vulnerability-report-${file.savedAt.slice(0, 10)}.html`).replace(/[^\w.-]+/g, '-');
+  res.set('Content-Disposition', `attachment; filename="${filename}"`);
+  // Downloaded, never rendered on this origin.
+  res.set('Content-Security-Policy', "sandbox; default-src 'none'");
+  res.type('html').send(file.html);
+});
 
 app.post(
   '/api/reports/html',
@@ -3097,17 +3155,20 @@ async function runHtmlReminder(session, scan, input, relayUrl) {
 
     for (const group of sendable) {
       try {
-        const { reportData, findings, html: htmlReport } = await buildInteractiveReport(session, group.risks, {
+        const attachmentName = `vulnerability-report-${new Date().toISOString().split('T')[0]}.html`;
+        const { reportData, findings, html: htmlReport, downloadUrl } = await buildInteractiveReport(session, group.risks, {
           buckets,
           settings,
           relayUrl,
           initiatorsByProject,
           initiator: group,
           audience: { recipient: group.email, purpose: 'emailed to the scan initiator' },
+          publish: attachmentName,
         });
         const body = buildReportEmail(reportData, {
           greeting: `Hi ${group.initiator || 'there'}`,
           topCount: findings.length,
+          downloadUrl,
         });
         const message = {
           subject: `${group.risks.length} open vulnerabilities to triage`,
@@ -3121,7 +3182,7 @@ async function runHtmlReminder(session, scan, input, relayUrl) {
           bcc: [],
           attachments: [
             {
-              filename: `vulnerability-report-${new Date().toISOString().split('T')[0]}.html`,
+              filename: attachmentName,
               content: htmlReport,
               contentType: 'text/html',
             },

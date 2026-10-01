@@ -179,16 +179,20 @@
   function relayBackend() {
     const base = String(config.relayUrl || '').replace(/\/+$/, '');
 
-    async function post(path, body, attempt = 0) {
+    async function post(path, body, attempt = 0, timeoutMs = 0) {
       let response;
+      const controller = timeoutMs && typeof AbortController === 'function' ? new AbortController() : null;
+      const timer = controller && setTimeout(() => controller.abort(), timeoutMs);
       try {
         response = await fetch(base + path, {
           method: 'POST',
+          signal: controller?.signal,
           headers: { 'Content-Type': 'application/json' },
           // Who this report was made for (signed): the server's audit log attributes actions to it.
           body: JSON.stringify(config.report ? { ...body, report: config.report } : body),
         });
       } catch {
+        if (timer) clearTimeout(timer);
         serverState('Unreachable', 'bad');
         throw new CxError(`Cannot reach the reminder server at ${base}. It must be running and reachable from this computer (company network or VPN). If it moved, use "Change" next to its address.`);
       }
@@ -211,7 +215,8 @@
 
     return {
       connect() {
-        return post('/api/relay/status', {});
+        // Bounded: an address that never answers must not leave the report "connecting" for minutes.
+        return post('/api/relay/status', {}, 0, 15000);
       },
       async credits() {
         // One signed finding per project is enough to ask about that project.
@@ -842,6 +847,7 @@
     setConnectedUI(status.tenant);
     showServer();
     serverState('Connected', 'good');
+    $('server-prompt').hidden = true;
     showCredits(status.creditsRemaining);
     updateBulk();
     banner('');
@@ -1000,12 +1006,43 @@
   for (const f of findings) if (f.state && f.state !== 'TO_VERIFY') renderTriage(f);
   updateBulk();
 
-  // Reconnect automatically if this report was connected earlier in this tab.
-  let saved = null;
-  try {
-    saved = sessionStorage.getItem(STORE);
-  } catch {}
-  if (saved === 'relay' && config.relayUrl) {
-    connect({ quiet: true }).catch((error) => log(`Could not reconnect: ${error.message}`, 'error'));
+  // ---------------------------------------------------------------------------
+  // Connect on open: straight to the reminder server; if that fails, say why
+  // and offer to connect (or to correct the address).
+  // ---------------------------------------------------------------------------
+
+  function showConnectPrompt(reason) {
+    const prompt = $('server-prompt');
+    $('server-prompt-text').textContent = reason;
+    prompt.hidden = false;
   }
+
+  function autoConnect() {
+    if (!config.relayUrl) {
+      serverState('Needed to triage from this report', 'warn');
+      showConnectPrompt('This report does not say which reminder server to use. Enter its address to connect.');
+      return;
+    }
+    serverState('Connecting…');
+    $('server-prompt').hidden = true;
+    connecting ??= connect({ quiet: true }).finally(() => {
+      connecting = null;
+    });
+    connecting.then(
+      () => log('Connected to the reminder server automatically.', 'success'),
+      (error) => {
+        log(`Could not connect automatically: ${error.message}`, 'error');
+        if (/^(Connected|Unreachable)$/.test($('server-state').textContent) === false) serverState('Not connected', 'bad');
+        showConnectPrompt(`Could not connect to the reminder server automatically: ${error.message}`);
+      },
+    );
+  }
+
+  $('server-connect').addEventListener('click', () => {
+    if (!config.relayUrl) return openServerForm('Enter the reminder server address to connect.');
+    autoConnect();
+  });
+  $('server-fix').addEventListener('click', () => openServerForm());
+
+  autoConnect();
 })();

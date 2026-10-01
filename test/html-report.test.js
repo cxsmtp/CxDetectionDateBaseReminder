@@ -81,15 +81,27 @@ test('each project links to Checkmarx One for everything beyond the top 50', () 
   assert.match(html, /href="https:\/\/eu\.ast\.checkmarx\.net\/riskhub\/p1"[^>]*>Proj \(1\) →/);
 });
 
-test('the report email has a Start triaging button into Checkmarx One for each project', () => {
+test("the report email's button downloads the attached report from the reminder server", () => {
+  const connection = { baseUrl: 'https://eu.ast.checkmarx.net' };
+  const data = buildReportData([risk(1, 'HIGH')], { connection, links: DEFAULT_LINK_TEMPLATES });
+  const url = 'https://cx-reminder.corp.example/r/0f8fad5b-d9cb-469f-a165-70867728950e?s=abc';
+  const email = buildReportEmail(data, { topCount: 1, downloadUrl: url });
+  assert.match(email.html, /href="https:\/\/cx-reminder\.corp\.example\/r\/0f8fad5b[^"]*"[^>]*>Let&#39;s start fixing the vulnerabilities<\/a>/);
+  assert.match(email.html, /Downloads your interactive report/);
+  assert.match(email.html, /Or open in Checkmarx One: <a href="https:\/\/eu\.ast\.checkmarx\.net\/riskhub\/p1"/);
+  assert.match(email.text, /Let's start fixing the vulnerabilities \(downloads your interactive report\): https:\/\/cx-reminder/);
+  assert.ok(!/Start triaging/.test(email.html + email.text));
+  // Never a link to anything but http(s).
+  assert.ok(!buildReportEmail(data, { downloadUrl: 'javascript:alert(1)' }).html.includes('javascript:'));
+});
+
+test('without a download link the button opens each project in Checkmarx One', () => {
   const connection = { baseUrl: 'https://eu.ast.checkmarx.net' };
   const risks = [risk(1, 'HIGH'), { ...risk(2, 'LOW'), projectId: 'p2', projectName: 'Other <b>' }];
   const one = buildReportEmail(buildReportData([risk(1, 'HIGH')], { connection, links: DEFAULT_LINK_TEMPLATES }), { topCount: 1 });
-  assert.match(one.html, /href="https:\/\/eu\.ast\.checkmarx\.net\/riskhub\/p1"[^>]*>Start triaging<\/a>/);
-  assert.match(one.text, /Start triaging Proj: https:\/\/eu\.ast\.checkmarx\.net\/riskhub\/p1/);
-
+  assert.match(one.html, /href="https:\/\/eu\.ast\.checkmarx\.net\/riskhub\/p1"[^>]*>Let&#39;s start fixing the vulnerabilities<\/a>/);
   const two = buildReportEmail(buildReportData(risks, { connection, links: DEFAULT_LINK_TEMPLATES }), { greeting: 'Hi <Ann>', topCount: 2 });
-  assert.equal((two.html.match(/>Start triaging — /g) ?? []).length, 2);
+  assert.equal((two.html.match(/>Let&#39;s start fixing the vulnerabilities — /g) ?? []).length, 2);
   assert.ok(two.html.includes('Other &lt;b&gt;') && two.html.includes('Hi &lt;Ann&gt;'));
 });
 

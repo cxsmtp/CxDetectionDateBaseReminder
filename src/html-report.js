@@ -180,6 +180,13 @@ export function generateHtmlReport(reportData, options = {}) {
       <span id="server-state" class="server-state"></span>
       <button id="server-change" class="btn btn-outline btn-small" type="button">${relayUrl ? 'Change' : 'Enter address'}</button>
     </div>
+    <div id="server-prompt" class="server-prompt" hidden role="status">
+      <p id="server-prompt-text"></p>
+      <div class="server-form-row">
+        <button id="server-connect" class="btn" type="button">Connect</button>
+        <button id="server-fix" class="btn btn-outline" type="button">Change address</button>
+      </div>
+    </div>
     <form id="server-form" class="server-form" hidden>
       <label for="server-input" class="muted">Address of your reminder server — ask whoever sent this report if you do not know it.</label>
       <div class="server-form-row">
@@ -354,6 +361,8 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px max(24px, env(safe-area-
 .server-state.bad { color: var(--bad); }
 .server-state.warn { color: var(--warn); }
 .server-form { margin-top: 10px; display: grid; gap: 6px; }
+.server-prompt { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); display: grid; gap: 8px; }
+.server-prompt p { margin: 0; overflow-wrap: anywhere; }
 .server-form-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .server-form input { flex: 1 1 260px; min-width: 0; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--outline-line);
   background: var(--surface-2); color: var(--ink); }
