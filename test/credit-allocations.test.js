@@ -201,3 +201,23 @@ test('an administrator can set one project\'s extra credits exactly, up or down'
   assert.deepEqual([b.triage.allocated, b.extraTriage, b.remediation.allocated, b.extraRemediation], [3, 1, 0, 0]);
   assert.deepEqual(allocations.balance('p2').triage.allocated, 0, 'other projects untouched');
 });
+
+test('findings already triaged through the utility stay counted as done, even while Checkmarx One keeps them "To verify"', () => {
+  const { ledger, allocations, d } = setup();
+  // 6 critical findings, all To verify; 4 of them were sent for AI Triage (judged vulnerable, so still To verify).
+  const found = Array.from({ length: 6 }, (_, i) => ({ riskId: `r${i}`, severity: 'CRITICAL', state: 'TO_VERIFY', scanner: 'SAST' }));
+  allocations.applyRule('p1', 'Payments', found);
+  assert.equal(allocations.balance('p1').triage.allocated, 6);
+  ledger.record({ projectId: 'p1', projectName: 'Payments', credits: 4, kind: 'triage', riskIds: ['r0', 'r1', 'r2', 'r3'], covered: 4 });
+
+  // Recalculating later (the "recently requested" window long gone) must not count them again.
+  allocations.applyRule('p1', 'Payments', found);
+  const b = allocations.balance('p1');
+  assert.deepEqual([b.triage.allocated, b.triage.used, b.triage.remaining], [6, 4, 2], 'was 10 allocated / 6 left before the fix');
+  assert.equal(toTriageCount(found, ['CRITICAL'], Date.now(), ledger.triagedAt('p1')), 2);
+
+  // And the ledger remembers it across restarts.
+  ledger.flush();
+  const reopened = new CreditLedger({ file: path.join(d, 'ledger.json') });
+  assert.deepEqual([...reopened.triagedAt('p1').keys()].sort(), ['r0', 'r1', 'r2', 'r3']);
+});

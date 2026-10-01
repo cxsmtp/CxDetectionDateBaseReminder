@@ -207,6 +207,7 @@ export function generateHtmlReport(reportData, options = {}) {
         return `<button class="btn btn-primary bulk" type="button" data-severity="${severity}"${count ? '' : ' disabled'}>Triage all ${label} (${count})</button>`;
       }).join('\n      ')}
       <span id="bulk-progress" class="muted"></span>
+      <span class="refresh-box"><span id="last-refresh" class="muted"></span> <button id="refresh-now" class="btn btn-outline btn-small" type="button">Refresh</button></span>
     </div>
     <div id="credit-balance" class="credit-balance" hidden>
       <div class="credit-balance-head"><strong>Your credits</strong> <span id="bulk-credits" class="muted"></span></div>
@@ -361,6 +362,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px max(24px, env(safe-area-
 .server-state.bad { color: var(--bad); }
 .server-state.warn { color: var(--warn); }
 .server-form { margin-top: 10px; display: grid; gap: 6px; }
+.refresh-box { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
 .server-prompt { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); display: grid; gap: 8px; }
 .server-prompt p { margin: 0; overflow-wrap: anywhere; }
 .server-form-row { display: flex; flex-wrap: wrap; gap: 8px; }

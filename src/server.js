@@ -141,7 +141,7 @@ const touchProject = (projectId) => touchedProjects.set(projectId, Date.now());
 function creditView(summary) {
   return {
     ...allocations.balance(summary.projectId),
-    toTriage: Object.fromEntries(SEVERITIES.map((s) => [s, toTriageCount(summary.risks ?? [], [s])])),
+    toTriage: Object.fromEntries(SEVERITIES.map((s) => [s, toTriageCount(summary.risks ?? [], [s], Date.now(), creditLedger.triagedAt(summary.projectId))])),
     toRemediate: toRemediateCount(summary.risks ?? [], allocations.severitiesOf(summary.projectId), creditLedger.remediatedIds(summary.projectId)),
   };
 }
@@ -1804,8 +1804,10 @@ app.post(
           console.warn(`[relay] could not read risk states for project ${projectId}: ${error.message}`);
         }
       });
+      const sentBefore = new Map([...new Set(findings.map((f) => f.projectId))].map((id) => [id, creditLedger.triagedAt(id)]));
       for (const [key, group] of buckets) {
         const triaged = group.filter((f) => {
+          if (sentBefore.get(f.projectId)?.has(f.riskId)) return true;
           const states = statesByProject.get(f.projectId);
           const state = states?.get(f.riskId) ?? states?.get(f.alternateId) ?? '';
           return state && state !== 'TO_VERIFY';
@@ -2035,10 +2037,14 @@ app.post(
     if (!session) return;
 
     const statesByProject = new Map();
-    await mapWithConcurrency([...new Set(findings.map((f) => f.projectId))], 3, async (projectId) => {
+    const stateErrors = new Map();
+    const projectIds = [...new Set(findings.map((f) => f.projectId))];
+    const sentBefore = new Map(projectIds.map((id) => [id, creditLedger.triagedAt(id)]));
+    await mapWithConcurrency(projectIds, 3, async (projectId) => {
       try {
         statesByProject.set(projectId, await projectStates(session, projectId));
       } catch (error) {
+        stateErrors.set(projectId, error.message);
         console.warn(`[relay] could not read risk states for project ${projectId}: ${error.message}`);
       }
     });
@@ -2051,10 +2057,15 @@ app.post(
       const state = states?.get(finding.riskId) ?? states?.get(finding.alternateId) ?? '';
       const { key, load, ttl } = triageLookup(session, finding, { background: true });
       const known = relayCache.peek(key, backgroundRoom(session) ? load : null, ttl);
-      if (!known) return { found: false, state, pending: true };
-      return { ...known.value, state, ...(known.fresh ? {} : { stale: true }) };
+      // When this utility sent it for AI Triage, so the report can say so even before Checkmarx One has a verdict.
+      const extra = {
+        ...(sentBefore.get(finding.projectId)?.get(finding.riskId) ? { triagedAt: sentBefore.get(finding.projectId).get(finding.riskId) } : {}),
+        ...(stateErrors.has(finding.projectId) ? { stateError: stateErrors.get(finding.projectId) } : {}),
+      };
+      if (!known) return { found: false, state, pending: true, ...extra };
+      return { ...known.value, state, ...extra, ...(known.fresh ? {} : { stale: true }) };
     });
-    res.json({ results });
+    res.json({ results, checkedAt: new Date().toISOString() });
   }),
 );
 
@@ -2325,9 +2336,22 @@ app.post('/api/credits/allocate', requirePermission('credits.allocate'), asyncRo
  */
 async function adminTriage(session, findings, initiatorsByProject = {}, { actor = { kind: 'admin' }, origin = '' } = {}) {
   await resolveAiIds(session.client, findings, (f) => initiatorsByProject[f.projectId]?.scanId ?? '');
-  const eligible = findings.filter((f) => !f.aiUnavailable);
+  let eligible = findings.filter((f) => !f.aiUnavailable);
   const ineligible = findings.filter((f) => f.aiUnavailable);
   if (ineligible.length) auditRefusedRequest('triage', actor, ineligible, `Not eligible for AI Triage (${ineligible[0].aiUnavailable})`);
+  // Already sent for AI Triage through this utility (a "vulnerable" verdict stays To verify):
+  // not again, and not charged again, unless re-triage is allowed.
+  let alreadyTriaged = 0;
+  if (!settingsStore.get().aiTriage?.allowRetriage) {
+    const sent = new Map();
+    const before = (f) => (sent.has(f.projectId) ? sent : sent.set(f.projectId, creditLedger.triagedAt(f.projectId))).get(f.projectId).has(f.riskId);
+    const again = eligible.filter(before);
+    if (again.length) {
+      alreadyTriaged = again.length;
+      auditRefusedRequest('triage', actor, again, 'Already triaged through this utility; re-triage is switched off.');
+      eligible = eligible.filter((f) => !before(f));
+    }
+  }
 
   const buckets = new Map();
   for (const f of eligible) {
@@ -2398,6 +2422,7 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
     started: startedFindings.length,
     failed,
     skipped: findings.length - eligible.length,
+    alreadyTriaged,
     errors,
     startedFindings,
   };

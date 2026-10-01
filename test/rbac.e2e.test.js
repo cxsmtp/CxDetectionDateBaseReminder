@@ -256,3 +256,27 @@ test("the email's button downloads the very report that was attached, through a 
   const { body } = await as.admin('GET', '/api/audit?types=report&q=downloaded');
   assert.ok(body.entries.some((e) => e.actor?.reportId === id));
 });
+
+test('a finding triaged through the utility is never charged again while re-triage is off, and reports say it was triaged', async () => {
+  const { ReportGrants } = await import('../src/report-grants.js');
+  const grants = new ReportGrants({ secret: 'rbac-test' });
+  assert.equal((await as.admin('PUT', '/api/settings', { aiTriage: { enabled: true, allowRetriage: false } })).status, 200);
+  assert.equal((await as.admin('GET', '/api/scan')).status, 200);
+  const alloc = await as.admin('POST', '/api/credits/allocate', { projectIds: ['p0'], triageAdd: 10 });
+  assert.equal(alloc.status, 200, JSON.stringify(alloc.body));
+  const base = { projectId: 'p0', projectName: 'Project 0', riskId: 'p0-r1', scanId: 'scan-p0', scanner: 'SAST', alternateId: 'alt-p0-r1', groupId: 'sim-p0-r1' };
+  const finding = { ...base, ...grants.issue(base) };
+  const relay = async (path, body) => (await fetch(`${BASE}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+
+  const first = await relay('/api/relay/triage', { findings: [finding] });
+  assert.equal(first.results[0].ok, true, JSON.stringify(first));
+  const second = await relay('/api/relay/triage', { findings: [finding] });
+  assert.equal(second.results[0].retriage, true, 'still "To verify" in Checkmarx One, but already triaged: refused, not charged');
+  const results = await relay('/api/relay/triage-results', { findings: [finding] });
+  assert.ok(results.results[0].triagedAt, 'the report learns it was triaged');
+
+  // The dashboard's "triage now" skips it too, and the allocation does not count it as still to triage.
+  const credits = (await as.admin('GET', '/api/credits')).body;
+  const used = credits.projects?.find?.((p) => p.projectId === 'p0')?.triage?.used ?? null;
+  if (used !== null) assert.equal(used, 1);
+});

@@ -34,13 +34,15 @@ const aiScanner = (r) => AI_SCANNERS.has(String(r.scanner || '').toUpperCase());
  * Findings of these severities that AI Triage can still act on: SAST or SCA,
  * state To verify (or unknown), and not sent for triage in the last 30 minutes.
  */
-export function toTriageCount(risks, severities, now = Date.now()) {
+export function toTriageCount(risks, severities, now = Date.now(), triaged = new Map()) {
   const wanted = new Set(severities.map((s) => String(s).toUpperCase()));
   return risks.filter(
     (r) =>
       wanted.has(r.severity) &&
       aiScanner(r) &&
       (!r.state || r.state === 'TO_VERIFY') &&
+      // Already sent for AI Triage through this utility (a "vulnerable" verdict stays To verify).
+      !triaged.has(r.riskId) &&
       !(r.triageRequestedAt && now - r.triageRequestedAt < RECENTLY_REQUESTED_MS),
   ).length;
 }
@@ -170,7 +172,7 @@ export class CreditAllocations {
     const remediated = this.#ledger.remediatedIds?.(projectId) ?? new Set();
     // Credits spent on covered findings stay allocated; anything spent
     // beyond the rule came out of the extras, so it is not added back.
-    const triage = this.#ledger.coveredBy(projectId, 'triage') + toTriageCount(risks, rule) + (Number(entry.extraTriage) || 0);
+    const triage = this.#ledger.coveredBy(projectId, 'triage') + toTriageCount(risks, rule, Date.now(), this.#ledger.triagedAt?.(projectId) ?? new Map()) + (Number(entry.extraTriage) || 0);
     const remediation =
       this.#ledger.coveredBy(projectId, 'remediation') +
       CREDIT_COST.remediation * toRemediateCount(risks, rule, remediated) +

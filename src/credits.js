@@ -27,6 +27,7 @@ export class CreditLedger {
   #totals = new Map(); // `${projectId}|${kind}` -> {used, covered}
   #months = new Map(); // 'YYYY-MM' -> credits
   #remediated = new Map(); // projectId -> Set of risk ids
+  #triaged = new Map(); // projectId -> Map of risk id -> when it was last sent for AI Triage
   #writeTimer = null;
   #writeDelay;
 
@@ -46,6 +47,7 @@ export class CreditLedger {
     this.#totals.clear();
     this.#months.clear();
     this.#remediated.clear();
+    this.#triaged.clear();
     for (const e of this.#entries) this.#index(e);
   }
 
@@ -57,6 +59,11 @@ export class CreditLedger {
     this.#totals.set(key, t);
     const month = e.at.slice(0, 7);
     this.#months.set(month, (this.#months.get(month) ?? 0) + e.credits);
+    if ((e.kind ?? 'triage') === 'triage' && e.riskIds?.length) {
+      if (!this.#triaged.has(e.projectId)) this.#triaged.set(e.projectId, new Map());
+      const map = this.#triaged.get(e.projectId);
+      for (const id of e.riskIds) if (!(map.get(id) > e.at)) map.set(id, e.at);
+    }
     if (e.kind === 'remediation' && e.riskIds?.length) {
       if (!this.#remediated.has(e.projectId)) this.#remediated.set(e.projectId, new Set());
       for (const id of e.riskIds) this.#remediated.get(e.projectId).add(id);
@@ -79,6 +86,15 @@ export class CreditLedger {
    */
   coveredBy(projectId, kind) {
     return this.#totals.get(`${projectId}|${kind}`)?.covered ?? 0;
+  }
+
+  /**
+   * Findings of a project sent for AI Triage through this utility, with when
+   * (ISO time of the latest). Checkmarx One keeps a finding AI Triage judged
+   * vulnerable "To verify", so its state alone cannot say it was triaged.
+   */
+  triagedAt(projectId) {
+    return new Map(this.#triaged.get(projectId) ?? []);
   }
 
   /** Findings of a project already sent for AI Remediation through this utility. */

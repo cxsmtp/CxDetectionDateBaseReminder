@@ -283,6 +283,10 @@
   /** Fold an answer from the relay into the finding: its live state and AI Triage record. */
   function applyAnswer(f, answer) {
     if (answer?.state) f.state = answer.state;
+    // Sent for AI Triage through the reminder server: it stays "To verify" in
+    // Checkmarx One when judged vulnerable, so the state alone cannot say so.
+    if (answer?.triagedAt) f.triagedAt = answer.triagedAt;
+    if (answer?.stateError) stateErrors.add(answer.stateError);
     const ai = answer?.found ? triageFromBody(answer.body) : null;
     if (ai) f.triage = { ...ai, note: '' };
   }
@@ -319,14 +323,26 @@
           details.append(summary, text);
           cell.append(details);
         }
+      } else if (f.triagedAt && !(t.status === 'IN_PROGRESS')) {
+        const chip = document.createElement('span');
+        chip.className = 'chip chip-muted';
+        chip.textContent = 'Triaged';
+        chip.title = `Sent for AI Triage on ${new Date(f.triagedAt).toLocaleString()}`;
+        const sub = document.createElement('div');
+        sub.className = 'sub';
+        sub.textContent = f.state === 'TO_VERIFY' || !f.state
+          ? `${new Date(f.triagedAt).toLocaleDateString()} · no verdict published yet — still “To verify” in Checkmarx One`
+          : new Date(f.triagedAt).toLocaleDateString();
+        cell.append(chip, sub);
       } else {
         cell.textContent = t.note || '—';
       }
       if (btn && !f.aiUnavailable) {
         const busy = t.status === 'IN_PROGRESS' && !hasVerdict(f);
-        const locked = !busy && hasVerdict(f) && !retriageAllowed();
+        const done = hasVerdict(f) || Boolean(f.triagedAt);
+        const locked = !busy && done && !retriageAllowed();
         btn.disabled = busy || locked;
-        btn.textContent = busy ? 'Triaging…' : locked ? 'Triaged' : hasVerdict(f) ? 'Re-triage' : 'Triage';
+        btn.textContent = busy ? 'Triaging…' : locked ? 'Triaged' : done ? 'Re-triage' : 'Triage';
         btn.title = locked ? 'Already triaged. Triaging again is switched off by your administrator.' : '';
       }
     }
@@ -335,7 +351,7 @@
 
   function triageCandidates(severity) {
     return findings.filter(
-      (f) => f.severity === severity && !f.hidden && !f.aiUnavailable && !isRunning(f) && !hasVerdict(f),
+      (f) => f.severity === severity && !f.hidden && !f.aiUnavailable && !isRunning(f) && !hasVerdict(f) && !f.triagedAt,
     );
   }
 
@@ -633,9 +649,70 @@
       else if (ai === 'TO_VERIFY') f.settled = true;
       renderTriage(f);
     });
-    log(`Loaded Checkmarx One states: ${eligible.filter(hasVerdict).length} of ${eligible.length} eligible findings already triaged.`, 'success');
+    const done = eligible.filter((f) => hasVerdict(f) || f.triagedAt).length;
+    log(`Loaded Checkmarx One states: ${done} of ${eligible.length} eligible findings already triaged.`, 'success');
+    reportStateErrors();
+    markRefreshed();
     if (resumed.length) pollTriage(resumed).catch(reportError);
   }
+
+  // ---------------------------------------------------------------------------
+  // Keep the report current while it is open: triage done anywhere (another
+  // copy of the report, the dashboard, Checkmarx One itself) shows up here.
+  // ---------------------------------------------------------------------------
+
+  const stateErrors = new Set();
+  const REFRESH_MS = 60_000;
+  let refreshing = false;
+  let lastRefresh = 0;
+
+  function reportStateErrors() {
+    if (!stateErrors.size) return;
+    const message = `Could not read current states from Checkmarx One: ${[...stateErrors][0]}`;
+    log(message, 'error');
+    banner(`${message} The report keeps trying every minute.`, 'warn');
+    stateErrors.clear();
+  }
+
+  function markRefreshed() {
+    lastRefresh = Date.now();
+    const el = $('last-refresh');
+    if (el) el.textContent = `Updated ${new Date(lastRefresh).toLocaleTimeString()}`;
+  }
+
+  async function refreshStates({ manual = false } = {}) {
+    if (!backend || refreshing) return;
+    refreshing = true;
+    if (manual) $('last-refresh').textContent = 'Updating…';
+    try {
+      const list = findings.filter((f) => !f.aiUnavailable && !f.hidden);
+      const answers = await backend.results(list);
+      list.forEach((f, i) => {
+        const answer = answers[i];
+        if (!answer || (answer.pending && !answer.state && !answer.triagedAt)) return;
+        applyAnswer(f, answer);
+        if (NOT_EXPLOITABLE.has(f.state) && !f.touched) return hideNotExploitable(f);
+        renderTriage(f);
+      });
+      reportStateErrors();
+      markRefreshed();
+      if (manual) log('Report refreshed from Checkmarx One.', 'success');
+      backend.credits?.().catch(() => {});
+    } catch (error) {
+      log(`Could not refresh: ${error.message}`, 'error');
+      if (manual) reportError(error);
+      if ($('last-refresh')) $('last-refresh').textContent = 'Update failed — retrying';
+    } finally {
+      refreshing = false;
+    }
+  }
+
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && Date.now() - lastRefresh >= REFRESH_MS) refreshStates();
+  }, 15_000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && backend && Date.now() - lastRefresh >= 15_000) refreshStates();
+  });
 
   // ---------------------------------------------------------------------------
   // AI Remediation
@@ -1043,6 +1120,7 @@
     autoConnect();
   });
   $('server-fix').addEventListener('click', () => openServerForm());
+  $('refresh-now').addEventListener('click', () => (backend ? refreshStates({ manual: true }) : requireConnection(() => {})));
 
   autoConnect();
 })();
