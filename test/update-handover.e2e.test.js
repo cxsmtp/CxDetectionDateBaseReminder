@@ -9,29 +9,41 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import zlib from 'node:zlib';
 
 import { freePort } from './free-port.js';
-import { HANDOVER_FILE, saveHandover, sessionKey, takeHandover } from '../src/handover.js';
+import { HANDOVER_FILE, SessionPersistence, sessionKey } from '../src/handover.js';
 import { InstanceLock, LOCK_FILE } from '../src/instance-lock.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-test('handover: session ids are stored only hashed, dates come back as dates, the file is used once', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'handover-'));
+test('saved sign-ins: ids only hashed, fetched data saved apart and read back with its dates, ended ones deleted', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sessions-'));
+  const store = new SessionPersistence(dir);
+  const key = sessionKey('secret-session-id');
   const scan = { projects: [{ projectId: 'p1' }], detectionWindow: { from: new Date('2026-01-01T00:00:00Z'), to: null, label: 'x' } };
-  saveHandover(dir, { live: [{ id: 'secret-session-id', userId: 'u1', via: 'password', createdAt: 1, lastUsedAt: Date.now(), lastScan: scan }] });
-  const file = path.join(dir, HANDOVER_FILE);
-  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
-  const raw = fs.readFileSync(file);
-  assert.ok(!raw.includes('secret-session-id'), 'the session id itself is never written');
-  const [entry] = takeHandover(dir);
-  assert.equal(entry.key, sessionKey('secret-session-id'));
-  assert.ok(entry.lastScan.detectionWindow.from instanceof Date);
-  assert.equal(fs.existsSync(file), false, 'read once, then deleted');
-  assert.deepEqual(takeHandover(dir), []);
+  store.saveIndex([{ key, userId: 'u1', via: 'password', createdAt: 1, lastUsedAt: Date.now() }]);
+  store.saveScan(key, scan);
+  await sleep(200);
+  const files = fs.readdirSync(path.join(dir, 'sessions'));
+  assert.deepEqual(files.sort(), [`${key}.scan.json.gz`, 'index.json'].sort());
+  for (const name of files) {
+    assert.equal(fs.statSync(path.join(dir, 'sessions', name)).mode & 0o777, 0o600);
+    assert.ok(!fs.readFileSync(path.join(dir, 'sessions', name)).includes('secret-session-id'), 'the session id itself is never written');
+  }
+  const [entry] = new SessionPersistence(dir).load();
+  assert.equal(entry.key, key);
+  assert.ok(store.readScan(key).detectionWindow.from instanceof Date);
+  store.forget(key);
+  store.saveIndex([]);
+  assert.deepEqual(fs.readdirSync(path.join(dir, 'sessions')), ['index.json']);
+  assert.deepEqual(new SessionPersistence(dir).load(), []);
 
-  saveHandover(dir, { live: [{ id: 'old', userId: 'u1', via: 'password', createdAt: 1, lastUsedAt: 1 }] }, Date.now() - 2 * 60 * 60 * 1000);
-  assert.deepEqual(takeHandover(dir), [], 'a handover from long ago is not resurrected');
+  // A clean stop of MZ-01.00.10 left a handover file: read once, then gone.
+  fs.writeFileSync(path.join(dir, HANDOVER_FILE), zlib.gzipSync(JSON.stringify({ version: 1, savedAt: Date.now(), sessions: [{ key, userId: 'u1', via: 'password', createdAt: 1, lastUsedAt: Date.now(), lastScan: scan }] })));
+  const [legacy] = new SessionPersistence(dir).load();
+  assert.ok(legacy.lastScan.detectionWindow.from instanceof Date);
+  assert.equal(fs.existsSync(path.join(dir, HANDOVER_FILE)), false);
 });
 
 test('instance lock: a live server keeps others out; a dead one is taken over; a clean stop frees it at once', async () => {
@@ -71,7 +83,7 @@ test('a server update keeps people signed in with their fetched data, and keeps 
       env: {
         ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, BACKUP_INTERVAL_HOURS: '0',
         CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', REPORT_SIGNING_KEY: 'update-test',
-        ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', SMTP_HOST: '', ...extra,
+        ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', SMTP_HOST: '', INSTANCE_LOCK_STALE_SECONDS: '3', ...extra,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -120,7 +132,7 @@ test('a server update keeps people signed in with their fetched data, and keeps 
 
   const v2 = start();
   await ready(v2);
-  assert.match(v2.log, /Picked up 1 sign-in\(s\) and their fetched data from the previous server/);
+  assert.match(v2.log, /Kept 1 sign-in\(s\) and their fetched data from before this start/);
 
   // Same browser cookie: still signed in, with the data fetched before the update.
   const me = await call('GET', '/api/session');
@@ -129,9 +141,27 @@ test('a server update keeps people signed in with their fetched data, and keeps 
   const verify = await call('POST', '/api/credits/verify', { projectIds: ['p0'], severities: ['CRITICAL', 'HIGH'] });
   assert.equal(verify.status, 200, 'actions on the fetched data work without fetching again');
   assert.deepEqual((await call('GET', '/api/credits')).body.pool, before, 'every credit is where it was');
-  assert.equal(fs.existsSync(path.join(dataDir, HANDOVER_FILE)), false, 'the handover file is used once');
 
-  // A cookie that was never signed in gets nothing from the handover.
+  // A crash (no clean stop at all): still signed in afterwards, with the data.
+  await sleep(300);
+  v2.kill('SIGKILL');
+  await v2.exited;
+  const v3 = start();
+  await ready(v3);
+  assert.match(v3.log, /Kept 1 sign-in\(s\)/);
+  const again = await call('GET', '/api/session');
+  assert.equal(again.body?.signedIn, true, 'a crash does not sign anyone out');
+  assert.equal(again.body.hasScan, true);
+
+  // A cookie that was never signed in gets nothing.
   const stranger = await fetch(`${BASE}/api/session`, { headers: { Cookie: 'cxdr_sid=made-up' } });
   assert.notEqual((await stranger.json()).signedIn, true);
+
+  // Signing out is final: after another restart that browser is signed out.
+  await call('DELETE', '/api/session');
+  v3.kill('SIGTERM');
+  await v3.exited;
+  const v4 = start();
+  await ready(v4);
+  assert.notEqual((await call('GET', '/api/session')).body?.signedIn, true, 'signed out stays signed out');
 });

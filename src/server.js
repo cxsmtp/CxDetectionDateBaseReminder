@@ -40,7 +40,7 @@ import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from '
 import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, isVerified, parseAddressList, publicSettings, smtpFingerprint } from './settings.js';
 import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
 import { ENV_SETTINGS, SECRET_VARIABLES, parseEnvText, settingsFromEnv } from './env-import.js';
-import { saveHandover, takeHandover } from './handover.js';
+import { SessionPersistence, sessionKey } from './handover.js';
 import { InstanceLock } from './instance-lock.js';
 import { inlineScriptHashes, sameOriginGuard, securityHeaders } from './security.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
@@ -65,7 +65,7 @@ const projectDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const { dir: dataDir, source: dataDirSource } = resolveDataDir(process.env, { cwd: process.cwd() });
 prepareDataDir(dataDir);
 // One server per data folder: wait for the previous one (an update) to finish, or refuse.
-const instanceLock = new InstanceLock(dataDir);
+const instanceLock = new InstanceLock(dataDir, { staleMs: Math.max(3, Number(process.env.INSTANCE_LOCK_STALE_SECONDS ?? 30)) * 1000 });
 try {
   await instanceLock.acquire({ waitMs: Math.max(0, Number(process.env.INSTANCE_LOCK_WAIT_SECONDS ?? 45)) * 1000, onWait: (held) => console.log(`[data] Waiting for the previous server (host ${held.host}) to finish with ${dataDir}…`) });
 } catch (error) {
@@ -94,6 +94,39 @@ if (insideProject(dataDir, projectDir)) {
 }
 
 const sessions = new SessionStore({ idleMs: config.session.idleMs });
+// Sign-ins outlive the process (updates, restarts, crashes): see src/handover.js.
+const sessionPersistence = new SessionPersistence(dataDir);
+let indexTimer = null;
+/** Write who is signed in, soon (coalesced). */
+function saveSignInsSoon() {
+  if (indexTimer) return;
+  indexTimer = setTimeout(() => {
+    indexTimer = null;
+    try {
+      sessionPersistence.saveIndex(sessions.index());
+    } catch (error) {
+      console.warn(`! [sessions] Could not save sign-ins: ${error.message}`);
+    }
+  }, 200);
+  indexTimer.unref?.();
+}
+sessions.onEnd = (key) => {
+  sessionPersistence.forget(key);
+  saveSignInsSoon();
+};
+/** Keep a session's fetched data across restarts (password sign-ins only). */
+function saveFetchedData(session) {
+  if (session?.linked && session.userId && !session.pinned && session.lastScan) sessionPersistence.saveScan(sessionKey(session.id), session.lastScan);
+}
+// Every minute: last-used times, and the data of sessions used since (verify, triage and refresh change it).
+let savedAt = Date.now();
+const persistTimer = setInterval(() => {
+  const since = savedAt;
+  savedAt = Date.now();
+  saveSignInsSoon();
+  for (const { session } of sessions.persistable()) if (session.lastUsedAt > since) saveFetchedData(session);
+}, 60_000);
+persistTimer.unref?.();
 const settingsFile = config.settingsFile || path.join(dataDir, 'settings.json');
 const settingsStore = new SettingsStore({ file: settingsFile });
 settingsStore.applyEnvironment();
@@ -584,6 +617,7 @@ app.post(
     }
     const session = sessions.createLinked(integrationSession);
     Object.assign(session, { userId: user.id, via: 'password' });
+    saveSignInsSoon();
     setSessionCookie(req, res, session.id);
     auditAccess(req, 'info', `${user.email} signed in with a password.`, user);
     res.status(201).json(describeMe(session, user));
@@ -675,6 +709,7 @@ app.post(
     iam.recordSignIn(user);
     const session = sessions.createLinked(integrationSession);
     Object.assign(session, { userId: user.id, via: 'password' });
+    saveSignInsSoon();
     setSessionCookie(req, res, session.id);
     audit.record({ type: 'iam', outcome: 'changed', reason: `First administrator ${admin.email} created with the setup code.`, actor: { kind: 'user', user: admin.email, ip: clientIp(req) }, details: { user: admin } });
     res.status(201).json(describeMe(session, user));
@@ -735,7 +770,8 @@ async function auditIam(req, reason, details) {
 
 /** Sign out every session of a user whose access was removed. */
 function endSessionsOf(userId) {
-  for (const session of sessions.filter((s) => s.userId === userId)) sessions.destroy(session.id);
+  // Saved sign-ins nobody has come back for since a restart end too.
+  sessions.endWhere((s) => s.userId === userId);
 }
 
 app.get('/api/iam', requirePermission('iam.view'), (req, res) => res.json(iamView(req)));
@@ -1616,7 +1652,7 @@ async function runScan(req, { onStart, onProject } = {}) {
   for (const summary of result.projects) summary.credits = creditView(summary);
   req.session.lastScan = result;
 
-  return {
+  const response = {
     ...result,
     // The findings themselves stay here, in the session: the page shows the
     // summaries, and sending every finding made the reply many megabytes.
@@ -1650,7 +1686,35 @@ async function runScan(req, { onStart, onProject } = {}) {
       { projects: 0, risks: 0, counts: {}, severities: {} },
     ),
   };
+  // What the page showed, and the scope that produced it: a reload (or a restart) shows it again.
+  const q = (name) => String(req.query[name] ?? '').slice(0, 40);
+  result.view = {
+    ...response,
+    projects: undefined,
+    initiators: undefined,
+    fetchedAt: new Date().toISOString(),
+    request: {
+      activityPreset: q('activityPreset'), activityFrom: q('activityFrom'), activityTo: q('activityTo'),
+      detectionPreset: q('detectionPreset'), detectionFrom: q('detectionFrom'), detectionTo: q('detectionTo'),
+      projects: scope.projectIds,
+      initiators: scope.initiators,
+    },
+  };
+  saveFetchedData(req.session);
+  return response;
 }
+
+/**
+ * The data this person fetched last, as the fetch returned it, with credits as
+ * they are now: after a page reload or a server restart the Dashboard shows it
+ * again without reading Checkmarx One. 204 when nothing was fetched yet.
+ */
+app.get('/api/scan/last', requirePermission('findings.fetch'), (req, res) => {
+  const scan = req.session.lastScan;
+  if (!scan?.view || fetchInProgress(req.session)) return res.status(204).end();
+  for (const p of scan.projects) p.credits = creditView(p);
+  res.json({ ...scan.view, initiators: scan.initiators, projects: scan.projects.map(projectRow), restored: true });
+});
 
 /**
  * Fetch the data. With ?stream=1 the reply is NDJSON, one line per event:
@@ -5123,11 +5187,17 @@ async function verifyEnvironmentSmtp() {
   }
 }
 
-// Picked up from the previous server (an update): password sign-ins and their fetched data.
+// Everyone signed in before this start (an update, a restart, a crash) stays signed in, with their fetched data.
 // Not after a restore from backup, which may have changed who exists.
-{
-  const handedOver = restoredAtStart ? [] : takeHandover(dataDir);
-  if (handedOver.length) console.log(`[update] Picked up ${sessions.adopt(handedOver, integrationSession)} sign-in(s) and their fetched data from the previous server.`);
+if (restoredAtStart) {
+  sessionPersistence.clear();
+} else {
+  const saved = sessionPersistence.load();
+  if (saved.length) {
+    const kept = sessions.adopt(saved, integrationSession, (key) => sessionPersistence.readScan(key));
+    saveSignInsSoon();
+    console.log(`[sessions] Kept ${kept} sign-in(s) and their fetched data from before this start.`);
+  }
 }
 
 const server = app.listen(config.port, config.host, async () => {
@@ -5173,8 +5243,11 @@ const shutdown = async (signal) => {
   while (inFlight > 0 && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 100));
   if (inFlight > 0) console.warn(`! [update] ${inFlight} request(s) still running after ${DRAIN_MS / 1000}s; stopping anyway.`);
   try {
-    const handed = saveHandover(dataDir, sessions.toHandover());
-    if (handed) console.log(`[update] Saved ${handed} sign-in(s) and their fetched data for the next server.`);
+    clearTimeout(indexTimer);
+    const index = sessions.index();
+    sessionPersistence.saveIndex(index);
+    sessionPersistence.flushSync(sessions.persistable().map(({ key, session }) => ({ key, scan: session.lastScan })));
+    if (index.length) console.log(`[update] Saved ${index.length} sign-in(s) and their fetched data for the next server.`);
   } catch (error) {
     console.warn(`! [update] Could not save sign-ins for the next server: ${error.message}`);
   }
