@@ -61,7 +61,7 @@ podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -e TZ=
 
 **Another port** (e.g. 3001): change the left side only, `-p 3001:3000`, and open <http://localhost:3001>.
 
-**Update without losing anything:** download first, then swap.
+**Update without losing anything:** download first, then swap. If you serve HTTPS, use your [HTTPS](#https) command instead of the second one.
 
 ```
 podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
@@ -82,18 +82,62 @@ The version shows bottom-left as `MZ-xx.xx.xx`. Details and rollback: [Updating]
 
 **Without a container** (Node 20+): `npm install`, then `npm start`.
 
-**HTTPS** (do this before anyone else uses it). With your company's certificate in `C:\mission-zero\certs`:
+More container options: [docs/container.md](docs/container.md).
+
+## HTTPS
+
+Serve Mission Zero over HTTPS before anyone else uses it. Sign-ins, findings and triage requests then cross the network encrypted, and the sign-in cookie is marked `Secure`, so browsers never send it over plain http. Pick one way:
+
+| Way | Use it when | You need |
+| --- | --- | --- |
+| **A. Your company's certificate** | It runs inside the company network or VPN (the usual case) | A certificate for its name from IT: `server.crt` + `server.key`, or a `.pfx` and its password |
+| **B. Automatic certificate** (Let's Encrypt, through Caddy) | It has a public name the internet can reach | A DNS name pointing at the host, with ports 80 and 443 open to it |
+| **C. Self-signed** | Trying it out | Nothing. Browsers warn until you trust it |
+
+In every command below, replace `mz.company.com` with your server's name.
+
+**A. Your company's certificate.** Put `server.crt` (with its chain) and `server.key` in `C:\mission-zero\certs`, then:
 
 ```
 podman run --replace -d --name mission-zero -p 443:3000 -p 80:8080 -v mission-zero-data:/data -v C:\mission-zero\certs:/certs:ro -e TZ=Asia/Dubai -e TLS_CERT_FILE=/certs/server.crt -e TLS_KEY_FILE=/certs/server.key -e HTTP_REDIRECT_PORT=8080 -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 ```
 
-The other ways:
-- a `.pfx`;
-- automatic Let's Encrypt certificates through Caddy, for a public name;
-- a self-signed certificate, to try it out.
+- **With a `.pfx` instead:** replace the two `TLS_CERT_FILE` / `TLS_KEY_FILE` options with `-e TLS_PFX_FILE=/certs/server.pfx -e TLS_PFX_PASSPHRASE=…`.
+- **Port 80** (`-p 80:8080` and `HTTP_REDIRECT_PORT`) only sends `http://` visitors to `https://`.
+- **Renewals:** copy the renewed files over the old ones. It switches over within 5 minutes, with no restart.
 
-The guide also has a checklist for hosting it safely: [HTTPS and hosting](docs/https-and-hosting.md). More container options and upgrades are in [docs/container.md](docs/container.md).
+**B. Automatic certificate** (public name). Caddy fetches and renews the certificate; Mission Zero has no port of its own:
+
+```
+podman network create mz-net
+```
+
+```
+podman run --replace -d --name mission-zero --network mz-net -v mission-zero-data:/data -e TZ=Asia/Dubai -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+```
+podman run --replace -d --name mz-caddy --network mz-net -p 80:80 -p 443:443 -v caddy-data:/data docker.io/library/caddy:2 caddy reverse-proxy --from mz.company.com --to mission-zero:3000
+```
+
+**C. Self-signed** (try it out), then open <https://localhost:3443>:
+
+```
+podman run --replace -d --name mission-zero -p 3443:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e TLS_SELF_SIGNED=1 --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+**Check it worked**
+- `podman logs mission-zero` shows `running on https://…`, and for A and C the certificate's name and expiry date. A certificate that does not fit its key, or a wrong `.pfx` password, stops the start with the reason; it never falls back to plain http.
+- The browser shows the padlock at `https://mz.company.com`.
+- **Settings → Reminder server address** shows the `https://` address, so new emailed reports use it. It comes from `REPORT_SERVER_URL`, unless an address was saved on that page before: then change it there, and click **Test**.
+
+**After switching to HTTPS**
+- **People sign in once** at the new address.
+- **Reports emailed before the switch** still carry the old address. Readers click **Change** next to the server address in the report and enter the new one once; the report remembers it.
+- **Updating:** `podman pull`, then the same command you started with, including its HTTPS options.
+- **"Permission denied" on ports 80 / 443** (Podman on Windows): run `podman machine stop`, `podman machine set --rootful`, `podman machine start`. Or use `-p 8443:3000 -e HTTPS_PUBLIC_PORT=8443` and the address `https://mz.company.com:8443`.
+
+Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](docs/user-guide.md#turn-on-https). Other reverse proxies, all the options, and a checklist for hosting it safely: [HTTPS and hosting](docs/https-and-hosting.md).
 
 ## Configure
 
