@@ -1259,7 +1259,7 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 .conn-pop .conn-state.bad { background: #fee2e2; color: #991b1b; }
 @media (max-width: 900px) { .conn-chip .conn-label { display: none; } .conn-chip { padding: 0 8px; } }
 
-/* Progress flares, bottom right: amber with a flying hero while something is in progress, green when done, red when it failed. */
+/* Progress flares, bottom right: amber with a fast icon (a different one each time) while something is in progress, green when done, red when it failed. */
 .flares { position: fixed; right: 20px; bottom: 20px; z-index: 45; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
 .flare { display: flex; align-items: center; gap: 10px; max-width: min(460px, calc(100vw - 32px)); padding: 8px 16px 8px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #111; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18); pointer-events: auto; animation: flare-in 0.2s ease-out; }
 .flare.busy { background: #fde68a; border: 1px solid #f59e0b; }
@@ -1270,18 +1270,45 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 .flare-icon { flex: none; display: grid; place-items: center; width: 64px; height: 32px; }
 .flare-icon svg { width: 64px; height: 32px; overflow: visible; }
 .flare.done .flare-icon svg, .flare.failed .flare-icon svg { width: 22px; height: 22px; }
-.hero-body { animation: hero-bob 0.22s ease-in-out infinite alternate; }
-.hero-cape { transform-box: fill-box; transform-origin: 100% 40%; animation: hero-cape 0.12s ease-in-out infinite alternate; }
-.hero-streak { animation: hero-streak 0.28s linear infinite; }
-.hero-streak.b { animation-delay: 0.09s; }
-.hero-streak.c { animation-delay: 0.18s; }
-.hero-spark { animation: hero-spark 0.5s steps(2) infinite; }
-@keyframes hero-bob { from { transform: translate(0, 0); } to { transform: translate(1.2px, -1.4px); } }
-@keyframes hero-cape { from { transform: scaleY(0.82) skewX(-6deg); } to { transform: scaleY(1.08) skewX(4deg); } }
-@keyframes hero-streak { from { transform: translateX(10px); opacity: 0.9; } to { transform: translateX(-16px); opacity: 0; } }
-@keyframes hero-spark { from { opacity: 1; } to { opacity: 0.15; } }
+.flare.done .flare-icon.settling svg { width: 64px; height: 32px; }
+/* The fast icons (public/speedsters.js): streaks rush past, the body bobs, parts spin, flicker, flap and run. */
+.sp-body { animation: sp-bob 0.22s ease-in-out infinite alternate; }
+.sp-streak { animation: sp-streak 0.28s linear infinite; }
+.sp-streak.b { animation-delay: 0.09s; }
+.sp-streak.c { animation-delay: 0.18s; }
+.sp-spin, .sp-spin-x, .sp-flame, .sp-flap, .sp-run { transform-box: fill-box; }
+.sp-spin { transform-origin: center; animation: sp-spin 0.3s linear infinite; }
+.sp-spin-x { transform-origin: center; animation: sp-spin-x 0.08s linear infinite alternate; }
+.sp-spin-x.b { animation-delay: 0.04s; }
+.sp-flame { transform-origin: 100% 50%; animation: sp-flame 0.1s ease-in-out infinite alternate; }
+.sp-flame.b { animation-duration: 0.07s; }
+.sp-flap { transform-origin: 100% 50%; animation: sp-flap 0.14s ease-in-out infinite alternate; }
+.sp-flap.b { animation-delay: 0.07s; }
+.sp-run { transform-origin: 0% 0%; animation: sp-run 0.16s ease-in-out infinite alternate; }
+.sp-run.b { animation-direction: alternate-reverse; }
+.sp-blink { animation: sp-blink 0.4s steps(2) infinite; }
+.sp-blink.b { animation-delay: 0.2s; }
+@keyframes sp-bob { from { transform: translate(0, 0); } to { transform: translate(1.2px, -1.4px); } }
+@keyframes sp-streak { from { transform: translateX(10px); opacity: 0.9; } to { transform: translateX(-16px); opacity: 0; } }
+@keyframes sp-spin { to { transform: rotate(360deg); } }
+@keyframes sp-spin-x { from { transform: scaleX(1); } to { transform: scaleX(0.2); } }
+@keyframes sp-flame { from { transform: scaleX(0.7); opacity: 0.8; } to { transform: scaleX(1.15); opacity: 1; } }
+@keyframes sp-flap { from { transform: scaleY(0.75) skewX(-5deg); } to { transform: scaleY(1.1) skewX(4deg); } }
+@keyframes sp-run { from { transform: rotate(-18deg); } to { transform: rotate(18deg); } }
+@keyframes sp-blink { from { opacity: 1; } to { opacity: 0.2; } }
+/* Done: everything freezes where it is, the streaks and flames fade, and it glides forward to a stop... */
+.flare-icon.settling * { animation-play-state: paused; }
+.flare-icon.settling .sp-streaks { transition: opacity 0.3s ease-out; opacity: 0; }
+.flare-icon.settling .sp-flame { animation: none; opacity: 0; }
+.flare-icon.settling svg { animation: sp-settle 0.52s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
+@keyframes sp-settle { 0% { transform: translateX(0); opacity: 1; } 60% { transform: translateX(6px); opacity: 1; } 100% { transform: translateX(7px) scale(0.85); opacity: 0; } }
+/* ...then the green disc pops in and the tick draws itself. */
+.flare.done .tick-disc { transform-box: fill-box; transform-origin: center; animation: tick-pop 0.36s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+.flare.done .tick-mark { stroke-dasharray: 1; stroke-dashoffset: 1; animation: tick-draw 0.3s ease-out 0.2s forwards; }
+@keyframes tick-pop { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes tick-draw { to { stroke-dashoffset: 0; } }
 @keyframes flare-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .hero-body, .hero-cape, .hero-streak, .hero-spark, .flare { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .flare, .flare-icon *, .flare-icon svg { animation: none !important; } .flare.done .tick-mark { stroke-dashoffset: 0; } }
 @media (max-width: 760px) { .flares { left: 16px; right: 16px; bottom: calc(110px + env(safe-area-inset-bottom)); align-items: stretch; } .flare { border-radius: 14px; max-width: none; } }
 /* Paused while its action runs: no second click on the same thing. */
 [aria-busy="true"] button, [aria-busy="true"] input[type="checkbox"], [aria-busy="true"] select { pointer-events: none; opacity: 0.6; }

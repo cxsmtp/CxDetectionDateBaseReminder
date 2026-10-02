@@ -1,3 +1,5 @@
+import { nextSpeedster } from './speedsters.js';
+
 const $ = (id) => document.getElementById(id);
 
 // Script errors go to the server's troubleshooting log (scrubbed there; at most 20 per page load).
@@ -96,31 +98,12 @@ const FETCHING_MESSAGE = 'Data is still being fetched. Triage, remediation and c
 // is done, red when it failed. One per action, so several can run at once.
 // ---------------------------------------------------------------------------
 
-// An original caped speedster (no logo; not any existing character), flying flat out.
-const HERO_SVG = `<svg viewBox="0 0 64 32" aria-hidden="true">
-  <g class="hero-streaks" stroke-linecap="round">
-    <line class="hero-streak" x1="2" y1="11" x2="16" y2="11" stroke="#b45309" stroke-width="1.6" />
-    <line class="hero-streak b" x1="0" y1="17" x2="18" y2="17" stroke="#d97706" stroke-width="2" />
-    <line class="hero-streak c" x1="4" y1="23" x2="15" y2="23" stroke="#b45309" stroke-width="1.4" />
-  </g>
-  <g class="hero-body">
-    <path class="hero-cape" d="M44 13 C36 6 27 5 18 8 C24 11 27 15 22 21 C30 19 37 18 42 17 Z" fill="#ea580c" />
-    <path d="M24 16 L15 15.2 M24 19 L16 20.5" stroke="#4c1d95" stroke-width="3.2" stroke-linecap="round" />
-    <path d="M15.6 15.1 l-2.4 -0.2 M16.6 20.4 l-2.4 0.5" stroke="#111827" stroke-width="3.4" stroke-linecap="round" />
-    <rect x="23" y="12.6" width="21" height="8" rx="4" fill="#6d28d9" />
-    <rect x="23" y="16.4" width="21" height="1.6" fill="#ffffff" />
-    <path d="M43 14 L56 11.5" stroke="#6d28d9" stroke-width="3.2" stroke-linecap="round" />
-    <circle cx="57.4" cy="11.2" r="2" fill="#f1c27d" />
-    <circle cx="48.4" cy="13.4" r="4.6" fill="#f1c27d" />
-    <path d="M44.2 12.6 C44.8 8.4 50.6 7.6 52.6 10.6 C50.4 10 47.4 10.6 46 13.2 Z" fill="#1f2937" />
-    <path d="M47.6 13.2 h4" stroke="#1f2937" stroke-width="1.6" stroke-linecap="round" />
-  </g>
-  <g class="hero-spark"><path d="M61 6 l-2.6 4 h2.4 l-2.2 4.2" fill="none" stroke="#f59e0b" stroke-width="1.4" stroke-linejoin="round" /></g>
-</svg>`;
-const DONE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#16a34a" /><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>';
+// Done: a green disc pops in and the tick draws itself (pathLength 1 lets CSS draw it).
+const DONE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="tick-disc" cx="12" cy="12" r="11" fill="#16a34a" /><path class="tick-mark" pathLength="1" d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>';
 const FAILED_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#dc2626" /><path d="M8 8l8 8M16 8l-8 8" stroke="#fff" stroke-width="2.4" stroke-linecap="round" /></svg>';
 
 const flares = new Map();
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let flareSeq = 0;
 /** Show or update the flare `key`: kind busy | done | failed. */
 function flare(key, kind, text, hint = '') {
@@ -134,7 +117,28 @@ function flare(key, kind, text, hint = '') {
     flares.set(key, el);
   }
   clearTimeout(el.hideTimer);
-  if (el.dataset.kind !== kind) el.querySelector('.flare-icon').innerHTML = kind === 'busy' ? HERO_SVG : kind === 'done' ? DONE_SVG : FAILED_SVG;
+  clearTimeout(el.settleTimer);
+  const icon = el.querySelector('.flare-icon');
+  if (el.dataset.kind !== kind) {
+    icon.classList.remove('settling');
+    if (kind === 'busy') {
+      // A different fast thing for every action.
+      const speedster = nextSpeedster();
+      icon.innerHTML = speedster.svg;
+      icon.title = speedster.name;
+    } else if (kind === 'done' && el.dataset.kind === 'busy' && !reducedMotion.matches) {
+      // It glides to a stop, then the tick pops in.
+      icon.classList.add('settling');
+      el.settleTimer = setTimeout(() => {
+        icon.classList.remove('settling');
+        icon.innerHTML = DONE_SVG;
+        icon.title = '';
+      }, 520);
+    } else {
+      icon.innerHTML = kind === 'done' ? DONE_SVG : FAILED_SVG;
+      icon.title = '';
+    }
+  }
   el.dataset.kind = kind;
   el.className = `flare ${kind}`;
   el.querySelector('.flare-main').textContent = text;
