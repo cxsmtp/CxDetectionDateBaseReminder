@@ -582,6 +582,14 @@
   };
   const para = (label, text, className) => el('p', className ? { className } : {}, el('b', { textContent: label }), ` ${text}`);
 
+  /** How Checkmarx One knows, by engine (the same words as howKnown in html-report.js). */
+  function howKnown(scanner) {
+    const engine = String(scanner || '').toUpperCase();
+    if (engine === 'SCA') return 'This project uses a version of the package with a published vulnerability that its code can reach; a fixed version removes it.';
+    if (engine === 'SAST') return 'Checkmarx One followed the data from where it enters the application to this code, and nothing on the way makes it safe.';
+    return 'Checkmarx One matched this code or configuration against a known vulnerable pattern.';
+  }
+
   function renderConfirmedWhy(f, tr) {
     const box = tr.querySelector('.state-why');
     if (!box || f.aiUnavailable) return;
@@ -590,24 +598,24 @@
       box.replaceChildren();
       return;
     }
+    // Said once: Why and Fix; "why?" adds only what those two lines do not say.
     const advice = f.advice || { what: 'Checkmarx One judged this finding a real vulnerability.', fix: 'Remediate asks AI Remediation for a fix.' };
     const verdict = [t.reachability, t.exploitability].filter(Boolean).map((v) => v.replace(/_/g, ' ').toLowerCase()).join(' and ');
-    const details = el('details', { className: 'why-more' }, el('summary', { textContent: 'why?' }));
-    if (t.reason) details.append(para('What Checkmarx One found.', advice.what));
-    details.append(
-      t.reason || verdict
-        ? para('AI Triage.', `${t.reason || ''}${verdict ? `${t.reason ? ' (' : ''}Judged ${verdict}${t.confidence ? `, confidence ${t.confidence}` : ''}${t.reason ? ')' : '.'}` : ''}`)
-        : para('Confirmed in Checkmarx One.', 'Someone (or AI Triage) marked this finding a real vulnerability.'),
-      para('Possible solution.', t.recommendation || advice.fix),
-    );
-    const next = el('p', {}, config.remediateHere ? 'Remediate asks Checkmarx One AI Remediation for a code fix (a pull request when the project is connected to its repository).' : 'Checkmarx One shows the full data flow and can suggest a fix.');
+    const whyFull = t.reason || advice.what;
+    const fixFull = t.recommendation || advice.fix;
+    const why = firstSentence(whyFull, 160);
+    const fix = firstSentence(fixFull, 160);
+    const more = [
+      why !== whyFull ? whyFull : howKnown(f.scanner),
+      verdict && `AI Triage judged it ${verdict}${t.confidence ? ` (confidence ${t.confidence})` : ''}.`,
+      t.reason && advice.what !== t.reason ? `This kind of finding: ${advice.what}` : '',
+      fix !== fixFull ? `Fix in full: ${fixFull}` : '',
+    ].filter(Boolean);
+    const details = el('details', { className: 'why-more' }, el('summary', { textContent: 'why?' }), ...more.map((text) => el('p', { textContent: text })));
+    const next = el('p', {}, config.remediateHere ? 'Remediate asks Checkmarx One AI Remediation for the code change (a pull request when the project is connected to its repository).' : 'Checkmarx One shows the full data flow.');
     if (f.url) next.append(' ', el('a', { href: f.url, target: '_blank', rel: 'noopener', textContent: 'Open in Checkmarx One' }));
     details.append(next);
-    box.replaceChildren(
-      para('Why:', t.reason ? firstSentence(t.reason) : advice.what, 'why-line'),
-      para('Fix:', firstSentence(t.recommendation || advice.fix, 100), 'why-line'),
-      details,
-    );
+    box.replaceChildren(para('Why:', why, 'why-line'), para('Fix:', fix, 'why-line'), details);
   }
 
   async function pollTriage(list) {
