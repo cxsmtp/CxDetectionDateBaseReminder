@@ -2755,6 +2755,39 @@ function syncAllocationBoxes(scope) {
   }
 }
 
+/** What the scan initiators were told after an action on their behalf. */
+function onBehalfText(notified) {
+  if (!notified) return [];
+  const out = [];
+  if (notified.emailed) out.push(`emailed ${notified.emailed} scan initiator(s) that it was done on their behalf`);
+  if (notified.noAddress?.length) out.push(`no address to tell for ${notified.noAddress.length} project(s)`);
+  if (notified.failed) out.push(`${notified.failed} email(s) failed — check the mail server`);
+  return out;
+}
+
+/** Take back what the projects in scope were given and did not use. */
+async function reclaimUnused() {
+  const scope = allocationScope();
+  const triage = scope.reduce((n, p) => n + (p.credits?.triage?.remaining ?? 0), 0);
+  const remediation = scope.reduce((n, p) => n + (p.credits?.remediation?.remaining ?? 0), 0);
+  if (!triage && !remediation) return setStatus('alloc-status', 'Nothing to take back: these projects have no unused credits.', 'ok');
+  if (!confirm(`Take back ${triage + remediation} unused credit(s) — ${triage} triage, ${remediation} remediation — from ${scope.length} project(s) to the credit pool?\n\nDevelopers can no longer triage or remediate from their reports until credits are allocated again. You can still act on their behalf from here.`)) return;
+  try {
+    const result = await api('/api/credits/allocate', { method: 'POST', body: JSON.stringify({ projectIds: scope.map((p) => p.projectId), reclaimUnused: ['triage', 'remediation'] }) });
+    for (const [projectId, credits] of Object.entries(result.projects ?? {})) {
+      const p = state.projects.find((x) => x.projectId === projectId);
+      if (p) p.credits = credits;
+    }
+    setStatus('alloc-status', `Took back ${result.reclaimed} unused credit(s) to the credit pool.`, 'ok');
+    logger.add(`Took back ${result.reclaimed} unused credit(s)`, 'success');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('alloc-status', error);
+  } finally {
+    renderProjects();
+    renderAllocation();
+  }
+}
+
 /** For the scope and ticked severities: findings to triage, confirmed to remediate, and what is allocated / short. */
 function allocationTotals(scope = allocationScope(), severities = allocSeverities()) {
   const sum = (fn) => scope.reduce((n, p) => n + (fn(p) || 0), 0);
@@ -2806,14 +2839,17 @@ function renderAllocation() {
 
 /** "Allocate for triage / remediation": give the scope what it needs, after confirming. */
 async function allocateNeeded(kind) {
+  // Checked twice with Checkmarx One first: the confirmation only ever shows confirmed numbers.
+  const check = await verifyWithCheckmarx();
+  if (!check?.ok) return; // the status line says why (the reads disagreed, or Checkmarx One could not be read)
   const scope = allocationScope();
   const t = allocationTotals(scope);
   const credits = kind === 'triage' ? t.triageShort : t.remediationShort;
-  if (!credits) return;
+  if (!credits) return setStatus('alloc-status', `Confirmed twice with Checkmarx One: nothing more to allocate for ${kind === 'triage' ? 'triage' : 'remediation'} — the projects already have what they need.`, 'ok');
   const what = kind === 'triage'
     ? `${resultsText(t.toTriage, t.toTriageRows)} still to triage`
-    : `${t.toRemediate} confirmed finding(s) to remediate (3 credits each)`;
-  if (!confirm(`Allocate ${credits} ${kind === 'triage' ? 'AI Triage' : 'AI Remediation'} credit(s) from the credit pool to ${scope.length} project(s), for ${what}?`)) return;
+    : `${t.toRemediate} confirmed result(s) to remediate (3 credits each)`;
+  if (!confirm(`Confirmed twice with Checkmarx One just now: ${what}.\n\nAllocate ${credits} ${kind === 'triage' ? 'AI Triage' : 'AI Remediation'} credit(s) from the credit pool to ${scope.length} project(s)?\n\n(The server reads Checkmarx One twice again as it allocates, and refuses if anything changed.)`)) return;
   await allocateCredits({ allocate: [kind] }, (n) => `Allocated ${credits} ${kind} credit(s) to ${n} project(s).`);
   renderAllocation();
 }
@@ -2877,7 +2913,7 @@ async function runTriageNow() {
   try {
     const result = await api('/api/triage/run', {
       method: 'POST',
-      body: JSON.stringify({ projectIds: scope.map((p) => p.projectId), severities }),
+      body: JSON.stringify({ projectIds: scope.map((p) => p.projectId), severities, notifyInitiators: $('notify-on-behalf').checked }),
     });
     applyCredits(result.projects);
     if (!result.requested) {
@@ -2887,6 +2923,7 @@ async function runTriageNow() {
     const parts = [`AI Triage started for ${result.started} finding(s)`];
     if (result.skipped) parts.push(`${result.skipped} not eligible (AI Triage supports SAST and SCA)`);
     if (result.failed) parts.push(`${result.failed} failed: ${result.errors.join('; ')}`);
+    parts.push(...onBehalfText(result.notified));
     setStatus(
       'alloc-status',
       `${parts.join(' · ')}. Verdicts appear in Checkmarx One within minutes, and in reports sent afterwards.`,
@@ -2931,7 +2968,7 @@ async function runRemediationNow() {
   button.disabled = true;
   setStatus('alloc-status', 'Starting AI Remediation… (checking each finding is confirmed in Checkmarx One)');
   try {
-    const result = await api('/api/remediation/run', { method: 'POST', body: JSON.stringify({ projectIds: scope.map((p) => p.projectId), severities }) });
+    const result = await api('/api/remediation/run', { method: 'POST', body: JSON.stringify({ projectIds: scope.map((p) => p.projectId), severities, notifyInitiators: $('notify-on-behalf').checked }) });
     applyCredits(result.projects);
     if (!result.requested) {
       setStatus('alloc-status', 'Nothing to remediate: no finding of these severities is confirmed and not yet remediated.', 'ok');
@@ -2941,6 +2978,7 @@ async function runRemediationNow() {
     if (result.notConfirmed) parts.push(`${result.notConfirmed} not confirmed — left alone`);
     if (result.skipped) parts.push(`${result.skipped} not eligible`);
     if (result.failed) parts.push(`${result.failed} not started: ${result.errors.map((e) => e.replace(/\.?\s*Ask your administrator to allocate more\.?$/, '').replace(/\.$/, '')).join('; ')} — allocate for remediation first`);
+    parts.push(...onBehalfText(result.notified));
     setStatus('alloc-status', `${parts.join(' · ')}. Pull requests or remediation details follow in Checkmarx One and in the developers' reports.`, result.failed ? 'error' : 'ok');
     logger.add(`Admin AI Remediation: ${parts.join(' · ')}`, result.failed ? 'error' : 'success');
   } catch (error) {
@@ -3565,6 +3603,7 @@ $('run-triage').addEventListener('click', runTriageNow);
 $('run-remediation').addEventListener('click', runRemediationNow);
 $('alloc-triage').addEventListener('click', () => allocateNeeded('triage'));
 $('alloc-verify').addEventListener('click', verifyWithCheckmarx);
+$('alloc-reclaim').addEventListener('click', reclaimUnused);
 
 /** Freshly confirmed twice with Checkmarx One, for the severities ticked now. */
 function isVerified(p, severities = allocSeverities()) {
@@ -3607,8 +3646,10 @@ async function verifyWithCheckmarx() {
       setStatus('alloc-status', summary, 'ok');
     }
     logger.add(`Refresh & verify: ${ok.length} verified, ${failed.length} not`, failed.length ? 'error' : 'success');
+    return { ok: failed.length === 0, summary };
   } catch (error) {
     if (!handleAuthLoss(error)) showError('alloc-status', error);
+    return { ok: false };
   } finally {
     button.disabled = false;
     renderAllocation();

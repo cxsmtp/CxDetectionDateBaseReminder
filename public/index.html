@@ -272,13 +272,16 @@
                   </div>
                 </div>
               </div>
+              <label class="check notify-row" data-perm="triage.run"><input type="checkbox" id="notify-on-behalf" checked />
+                Email each scan initiator when I triage or remediate on their behalf (their own projects only: fetch the changes in their report, review and approve the pull requests)</label>
               <details class="disclosure alloc-more" data-perm="credits.allocate">
-                <summary>Extra credits for every selected project</summary>
+                <summary>Extra credits, and taking credits back</summary>
                 <div class="alloc-row alloc-extras">
                   <label class="inline">Triage <input id="alloc-extra-triage" type="number" min="0" step="1" value="0" class="small-num" /></label>
                   <label class="inline">Remediation <input id="alloc-extra-remediation" type="number" min="0" step="3" value="0" class="small-num" /> <span class="hint inline-hint">(3 per remediation)</span></label>
                   <button id="alloc-add" type="button" data-needs-data>Add extra credits</button>
                   <button id="alloc-clear" type="button" class="link" data-needs-data>Take back extra credits</button>
+                  <button id="alloc-reclaim" type="button" data-needs-data title="Allocated but not used (people did not act on it): back to the credit pool">Take back unused credits</button>
                 </div>
               </details>
               <p class="status" id="alloc-status"></p>
