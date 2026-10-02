@@ -73,7 +73,7 @@ The password is also kept in `/data/first-admin-password.txt` until it is change
 Click one for its details: tenant and URLs, mail server and sender, the GitHub account, and what to do when it is red. They update as soon as settings are saved or a .env file is uploaded.
 
 **Progress flares, bottom right.** Whatever you start shows a flare while it runs:
-- **Amber, with something fast racing along:** in progress. Each action gets one of 21 icons (a rocket, a cheetah, a bullet train, a falcon…), a different one each time. The button and the part of the page it came from are paused, so nothing is started twice.
+- **Amber, with something fast racing along:** in progress. Each action gets one of 21 icons (a rocket, a cheetah, a bullet train, a falcon…), a different one each time. The top line is a light-hearted note about what it is doing, new every few seconds; the line under it is live: the action, how many projects, and the seconds so far (e.g. *Checking with Checkmarx One (two independent reads) · 12 projects · 4s*). The button and the part of the page it came from are paused, so nothing is started twice.
 - **Green:** done. The icon glides to a stop and a tick mark draws itself in. With *reduce motion* turned on in your system settings, the tick shows straight away and nothing moves.
 - **Red:** it did not finish, and says why.
 
