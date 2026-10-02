@@ -53,18 +53,21 @@ const unique = (risks) => new Set(risks.map(billingUnit)).size;
  * state To verify (or unknown), and not sent for triage in the last 30 minutes.
  */
 export function toTriageCount(risks, severities, now = Date.now(), triaged = new Map()) {
+  return unique(triageRows(risks, severities, now, triaged));
+}
+
+/** The findings (rows) still to triage; several rows can share one billed result. */
+export function triageRows(risks, severities, now = Date.now(), triaged = new Map()) {
   const wanted = new Set(severities.map((s) => String(s).toUpperCase()));
-  return unique(
-    risks.filter(
-      (r) =>
-        wanted.has(r.severity) &&
-        aiScanner(r) &&
-        (!r.state || r.state === 'TO_VERIFY') &&
-        // Already sent for AI Triage through this utility: still "To verify" while AI Triage
-        // runs (and after a vulnerable verdict), but paid for — never counted twice.
-        !alreadySent(r, triaged) &&
-        !(r.triageRequestedAt && now - r.triageRequestedAt < RECENTLY_REQUESTED_MS),
-    ),
+  return risks.filter(
+    (r) =>
+      wanted.has(r.severity) &&
+      aiScanner(r) &&
+      (!r.state || r.state === 'TO_VERIFY') &&
+      // Already sent for AI Triage through this utility: still "To verify" while AI Triage
+      // runs (and after a vulnerable verdict), but paid for — never counted twice.
+      !alreadySent(r, triaged) &&
+      !(r.triageRequestedAt && now - r.triageRequestedAt < RECENTLY_REQUESTED_MS),
   );
 }
 

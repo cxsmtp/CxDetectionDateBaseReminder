@@ -1,4 +1,7 @@
 const $ = (id) => document.getElementById(id);
+/** How long a "confirmed twice with Checkmarx One" count stays good for. */
+const VERIFY_TTL_MS = 10 * 60 * 1000;
+const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
 const state = {
   connection: null,
@@ -2749,13 +2752,18 @@ function renderAllocation() {
     return;
   }
   const t = allocationTotals(scope, severities);
+  const verifiedAll = scope.length && scope.every((p) => isVerified(p, severities));
+  const rows = scope.reduce((n, p) => n + (isVerified(p, severities) ? p.verified.triage.rows : 0), 0);
+  $('alloc-verified').innerHTML = verifiedAll
+    ? `<span class="verified-ok">✓ Confirmed twice with Checkmarx One</span> — ${rows} finding row(s) are ${t.toTriage} Checkmarx One result(s): rows that share a result are triaged, and charged, once.`
+    : 'Not confirmed with Checkmarx One yet. <b>Refresh &amp; verify</b> re-reads the findings (someone may be working on them) and confirms the credits needed twice; allocating does it too, and refuses if the two reads disagree.';
   $('alloc-scope').textContent = `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'}`;
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   $('alloc-needed').innerHTML = severities.length
-    ? `<b>${plural(t.toTriage, 'finding')}</b> to triage (${plural(t.toTriage, 'credit')}) · <b>${t.triageLeft}</b> allocated and not used${t.triageShort ? ` · <span class="short">${t.triageShort} more needed</span>` : ''}`
+    ? `<b>${plural(t.toTriage, 'Checkmarx One result')}</b> to triage (${plural(t.toTriage, 'credit')}) · <b>${t.triageLeft}</b> allocated and not used${t.triageShort ? ` · <span class="short">${t.triageShort} more needed</span>` : ''}`
     : 'Tick at least one severity.';
   $('remediate-needed').innerHTML = severities.length
-    ? `<b>${plural(t.toRemediate, 'confirmed finding')}</b> to remediate (${plural(t.toRemediate * 3, 'credit')}, 3 each) · <b>${t.remediationLeft}</b> allocated and not used${t.remediationShort ? ` · <span class="short">${t.remediationShort} more needed</span>` : ''}${t.toRemediate ? '' : ' — triage first: remediation needs findings it confirmed'}`
+    ? `<b>${plural(t.toRemediate, 'confirmed result')}</b> to remediate (${plural(t.toRemediate * 3, 'credit')}, 3 each) · <b>${t.remediationLeft}</b> allocated and not used${t.remediationShort ? ` · <span class="short">${t.remediationShort} more needed</span>` : ''}${t.toRemediate ? '' : ' — triage first: remediation needs findings it confirmed'}`
     : '';
   $('run-triage').disabled = !severities.length || !scope.length || t.toTriage === 0;
   $('alloc-triage').disabled = !scope.length || t.triageShort === 0;
@@ -3525,6 +3533,56 @@ $('alloc-clear').addEventListener('click', () => {
 $('run-triage').addEventListener('click', runTriageNow);
 $('run-remediation').addEventListener('click', runRemediationNow);
 $('alloc-triage').addEventListener('click', () => allocateNeeded('triage'));
+$('alloc-verify').addEventListener('click', verifyWithCheckmarx);
+
+/** Freshly confirmed twice with Checkmarx One, for the severities ticked now. */
+function isVerified(p, severities = allocSeverities()) {
+  const v = p.verified;
+  return Boolean(v?.agreed && Date.now() - v.at < VERIFY_TTL_MS && v.severities?.join() === SEVERITY_ORDER.filter((s) => severities.includes(s)).join());
+}
+
+/**
+ * Refresh & verify: the server re-reads the chosen projects from Checkmarx One
+ * twice; their rows and credit needs are replaced by what it holds now, and a
+ * count is only shown as verified when both reads agree, result id for result id.
+ */
+async function verifyWithCheckmarx() {
+  const scope = allocationScope();
+  if (!scope.length) return setStatus('alloc-status', 'Fetch the projects first.', 'error');
+  const button = $('alloc-verify');
+  button.disabled = true;
+  setStatus('alloc-status', `Reading ${scope.length} project(s) from Checkmarx One twice…`);
+  try {
+    const result = await api('/api/credits/verify', {
+      method: 'POST',
+      body: JSON.stringify({ projectIds: scope.map((p) => p.projectId), severities: allocSeverities() }),
+    });
+    for (const [projectId, row] of Object.entries(result.projects)) {
+      const i = state.projects.findIndex((p) => p.projectId === projectId);
+      if (i >= 0) state.projects[i] = { ...state.projects[i], ...row };
+    }
+    renderTotals(totalsOf(state.projects));
+    renderProjects();
+    const failed = result.verified.filter((v) => !v.agreed);
+    const ok = result.verified.filter((v) => v.agreed);
+    const sum = (key, sub) => ok.reduce((n, v) => n + (v[key]?.[sub] ?? 0), 0);
+    const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const summary =
+      `Verified twice with Checkmarx One at ${at}: ${sum('triage', 'rows')} finding row(s) to triage = ${sum('triage', 'results')} Checkmarx One result(s) = ${sum('triage', 'results')} triage credit(s)` +
+      ` · ${sum('remediation', 'results')} confirmed result(s) to remediate = ${sum('remediation', 'credits')} remediation credit(s).`;
+    if (failed.length) {
+      setStatus('alloc-status', `${failed.length} project(s) not verified — ${failed[0].reason ?? 'the two reads disagreed'}${ok.length ? ` ${summary}` : ''}`, 'error');
+    } else {
+      setStatus('alloc-status', summary, 'ok');
+    }
+    logger.add(`Refresh & verify: ${ok.length} verified, ${failed.length} not`, failed.length ? 'error' : 'success');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('alloc-status', error);
+  } finally {
+    button.disabled = false;
+    renderAllocation();
+  }
+}
 $('alloc-remediation').addEventListener('click', () => allocateNeeded('remediation'));
 $('track-save').addEventListener('click', saveTrackedReport);
 $('reports-list').addEventListener('click', trackedReportAction);

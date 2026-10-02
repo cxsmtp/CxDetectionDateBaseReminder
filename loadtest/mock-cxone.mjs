@@ -13,6 +13,8 @@ let inFlight = 0, peak = 0;
 const bump = (k) => (counts[k] = (counts[k] || 0) + 1);
 const triaged = new Map(); // alternateId -> time
 const sentCount = new Map(); // alternateId -> times it was sent for AI Triage
+let changing = false; // /__changing?on=1: scan results differ on every read
+let reads = 0;
 const remediated = new Map();
 const day = (n) => new Date(Date.now() - n * 86400000).toISOString();
 const risksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
@@ -32,6 +34,7 @@ http.createServer((req, res) => {
       const u = new URL(req.url, 'http://x');
       const send = (s, o) => { res.writeHead(s, { 'Content-Type': 'application/json', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' }); res.end(JSON.stringify(o ?? {})); };
       if (u.pathname === '/__stats') return send(200, { counts, peak, maxSendsPerResult: Math.max(0, ...sentCount.values()), resultsSent: sentCount.size });
+      if (u.pathname === '/__changing') { changing = u.searchParams.get('on') === '1'; return send(200, { changing }); }
       if (u.pathname === '/__reset') { for (const k of Object.keys(counts)) delete counts[k]; peak = 0; return send(200, {}); }
       if (u.pathname.endsWith('/openid-connect/token')) {
         bump('token');
@@ -57,7 +60,9 @@ http.createServer((req, res) => {
         // The scan's results: one SAST row per finding, so AI ids resolve (alternateId by similarityId).
         const pid = String(u.searchParams.get('scan-id') ?? '').replace(/^scan-/, '');
         const page = Number(u.searchParams.get('offset') ?? 0);
-        const rows = pid && page === 0 ? risksFor(pid).map((r) => ({ type: 'sast', similarityId: r.groupId, alternateId: `alt-${r.id}`, id: `alt-${r.id}` })) : [];
+        // While "changing" is on, every read returns other result ids (as if someone were working on the scan).
+        const v = changing ? `-${++reads}` : '';
+        const rows = pid && page === 0 ? risksFor(pid).map((r) => ({ type: 'sast', similarityId: r.groupId, alternateId: `alt-${r.id}${v}`, id: `alt-${r.id}${v}` })) : [];
         return send(200, { results: rows, totalCount: rows.length });
       }
       let m;
