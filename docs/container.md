@@ -89,6 +89,7 @@ Add any of these to `docker run` / `podman run` as `-e NAME=value`, or put them 
 | `REPORT_SERVER_URL` | The address people use to reach this server, put in every report (e.g. `https://cx-reminder.company.com`). |
 | `CX_API_KEY` | Checkmarx One integration key; an Admin can store one in Settings instead. |
 | `BACKUP_DIR`, `BACKUP_INTERVAL_HOURS`, `BACKUP_KEEP`, `BACKUP_PASSPHRASE` | Scheduled backups — see [audit-and-backup.md](audit-and-backup.md). |
+| `NODE_OPTIONS` | e.g. `--max-old-space-size=2048` alongside `--memory 3g`; see [performance.md](performance.md) for sizing. |
 | `NODE_EXTRA_CA_CERTS` | A company CA file (mounted into the container) when a proxy inspects TLS to Checkmarx One or your mail server. |
 
 To publish on another port, change the left side: `-p 8080:3000`.

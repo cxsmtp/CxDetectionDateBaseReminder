@@ -324,8 +324,9 @@
       const btn = tr.querySelector('[data-action="triage"]');
       const t = f.triage || {};
       const status = effectiveStatus(f);
-      const stateCell = tr.querySelector('.state-cell');
-      if (stateCell && f.state) stateCell.textContent = STATE_LABELS[f.state] || f.state.replace(/_/g, ' ').toLowerCase();
+      const stateLabel = tr.querySelector('.state-label');
+      if (stateLabel && f.state) stateLabel.textContent = STATE_LABELS[f.state] || f.state.replace(/_/g, ' ').toLowerCase();
+      renderConfirmedWhy(f, tr);
       // AI cannot act on it (e.g. IaC): the "Manual fix" note from the report stays.
       if (f.aiUnavailable) {
         updateBulk();
@@ -549,7 +550,64 @@
       exploitability: body.exploitabilityStatus || analysis.exploitability?.status || '',
       summary: body.summary || '',
       confidence: analysis.confidence?.score || '',
+      // Why AI Triage judged it so, and what it suggests: the first of the fields Checkmarx One fills.
+      reason: firstText(body.reason, body.justification, body.explanation, body.reasoning, analysis.summary, analysis.exploitability?.reason,
+        analysis.exploitability?.justification, analysis.exploitability?.explanation, analysis.exploitability?.description,
+        analysis.reachability?.reason, analysis.reachability?.explanation, body.summary),
+      recommendation: firstText(body.recommendation, body.recommendedFix, body.fixRecommendation, typeof body.remediation === 'string' ? body.remediation : '',
+        analysis.recommendation, analysis.mitigation, analysis.remediation?.recommendation, analysis.remediation?.description),
     };
+  }
+
+  const firstText = (...values) => values.find((v) => typeof v === 'string' && v.trim())?.trim() || '';
+
+  // ---------------------------------------------------------------------------
+  // "Why confirmed": under the state, why it was confirmed and how to fix it,
+  // with "why?" for the details (the same note html-report.js renders).
+  // ---------------------------------------------------------------------------
+
+  const CONFIRMED = new Set(['CONFIRMED', 'URGENT', 'VULNERABLE']);
+  const firstSentence = (text, max = 120) => {
+    const clean = String(text || '').replace(/\s+/g, ' ').trim();
+    const sentence = (/^.+?[.!?](?=\s|$)/.exec(clean) || [clean])[0];
+    if (sentence.length <= max) return sentence;
+    const cut = sentence.slice(0, max);
+    const at = Math.max(cut.lastIndexOf(', '), cut.lastIndexOf('; '));
+    return `${(at > max / 2 ? cut.slice(0, at) : cut.slice(0, cut.lastIndexOf(' '))).replace(/[,;:]$/, '')}…`;
+  };
+  const el = (tag, props = {}, ...children) => {
+    const node = Object.assign(document.createElement(tag), props);
+    node.append(...children.filter((c) => c !== null && c !== undefined && c !== ''));
+    return node;
+  };
+  const para = (label, text, className) => el('p', className ? { className } : {}, el('b', { textContent: label }), ` ${text}`);
+
+  function renderConfirmedWhy(f, tr) {
+    const box = tr.querySelector('.state-why');
+    if (!box || f.aiUnavailable) return;
+    const t = f.triage || {};
+    if (!CONFIRMED.has(f.state) && !CONFIRMED.has(t.status)) {
+      box.replaceChildren();
+      return;
+    }
+    const advice = f.advice || { what: 'Checkmarx One judged this finding a real vulnerability.', fix: 'Remediate asks AI Remediation for a fix.' };
+    const verdict = [t.reachability, t.exploitability].filter(Boolean).map((v) => v.replace(/_/g, ' ').toLowerCase()).join(' and ');
+    const details = el('details', { className: 'why-more' }, el('summary', { textContent: 'why?' }));
+    if (t.reason) details.append(para('What Checkmarx One found.', advice.what));
+    details.append(
+      t.reason || verdict
+        ? para('AI Triage.', `${t.reason || ''}${verdict ? `${t.reason ? ' (' : ''}Judged ${verdict}${t.confidence ? `, confidence ${t.confidence}` : ''}${t.reason ? ')' : '.'}` : ''}`)
+        : para('Confirmed in Checkmarx One.', 'Someone (or AI Triage) marked this finding a real vulnerability.'),
+      para('Possible solution.', t.recommendation || advice.fix),
+    );
+    const next = el('p', {}, config.remediateHere ? 'Remediate asks Checkmarx One AI Remediation for a code fix (a pull request when the project is connected to its repository).' : 'Checkmarx One shows the full data flow and can suggest a fix.');
+    if (f.url) next.append(' ', el('a', { href: f.url, target: '_blank', rel: 'noopener', textContent: 'Open in Checkmarx One' }));
+    details.append(next);
+    box.replaceChildren(
+      para('Why:', t.reason ? firstSentence(t.reason) : advice.what, 'why-line'),
+      para('Fix:', firstSentence(t.recommendation || advice.fix, 100), 'why-line'),
+      details,
+    );
   }
 
   async function pollTriage(list) {
@@ -1179,6 +1237,17 @@
     if (!f || f.aiUnavailable) return;
     if (btn.dataset.action === 'remediate') requireConnection(() => remediate(f));
     else requireConnection(() => (hasVerdict(f) && !retriageAllowed() ? renderTriage(f) : triage(sameAs(f)).catch(handleActionError)));
+  });
+
+  // Rows that are one Checkmarx One result light up together; following a link to a twin flashes it.
+  const twins = (tr) => (tr?.dataset.result ? document.querySelectorAll(`tr[data-result="${CSS.escape(tr.dataset.result)}"]`) : []);
+  $('findings').addEventListener('mouseover', (event) => {
+    const tr = event.target.closest('tr.shared-row');
+    for (const t of document.querySelectorAll('tr.twin-hi')) if (!tr || t.dataset.result !== tr.dataset.result) t.classList.remove('twin-hi');
+    for (const t of twins(tr)) t.classList.add('twin-hi');
+  });
+  $('findings').addEventListener('mouseleave', () => {
+    for (const t of document.querySelectorAll('tr.twin-hi')) t.classList.remove('twin-hi');
   });
 
   setConnectedUI();
