@@ -245,9 +245,13 @@ test('a confirmed finding says why and how to fix it, with "why?" for the detail
     const key = island(html).findings.findIndex((f) => f.riskId === `r${n}`);
     return html.slice(html.indexOf(`<tr data-key="${key}"`), html.indexOf('</tr>', html.indexOf(`<tr data-key="${key}"`)));
   };
-  assert.match(row(1), /<b>Why:<\/b> Input from the request is written into the page without encoding/);
-  assert.match(row(1), /<b>Fix:<\/b> Encode output for its context \(HTML, attribute, JavaScript…<\/p>/, 'short: the full fix is under "why?"');
-  assert.match(row(1), /<summary>why\?<\/summary>[\s\S]*Possible solution[\s\S]*AI Remediation/);
+  assert.match(row(1), /<b>Why:<\/b> Input from the request is written into the page without encoding, so an attacker can run script in a victim&#39;s browser\.<\/p>/);
+  assert.match(row(1), /<b>Fix:<\/b> Encode output for its context \(HTML, attribute, JavaScript, URL\) or use the template engine&#39;s auto-escaping; validate input against an allow-list\.<\/p>/);
+  assert.match(row(1), /<summary>why\?<\/summary>[\s\S]*Checkmarx One followed the data from where it enters the application to this code[\s\S]*AI Remediation/);
+  // Said once: the why and the fix are not repeated under "why?", and nobody is credited with confirming it.
+  assert.equal(row(1).split('Input from the request is written').length - 1, 1, 'the why appears once');
+  assert.equal(row(1).split('Encode output for its context').length - 1, 1, 'the fix appears once');
+  assert.doesNotMatch(row(1), /Someone|Possible solution|Confirmed in Checkmarx One/);
   assert.ok(!row(2).includes('Why:'), 'only confirmed findings get the note');
   assert.ok(island(html).findings.every((f) => f.advice?.fix), 'the script gets the advice too, to render it after triage');
 });

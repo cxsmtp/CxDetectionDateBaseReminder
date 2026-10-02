@@ -333,7 +333,7 @@ function findingRow(finding, client, remediateHere, shared = null) {
     <div class="sub">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</div>${shared ? `\n    ${sharedNoteHtml(shared)}` : ''}</td>
   <td class="meta-cell" data-label="Engine">${escapeHtml(finding.scanner || '—')}</td>
   <td class="meta-cell" data-label="Age">${age}</td>
-  <td class="state-cell" data-label="State"><span class="state-label">${escapeHtml(stateLabel)}</span><div class="state-why">${CONFIRMED_STATES.has(state) && !client.aiUnavailable ? confirmedWhyHtml(client.advice ?? fixAdvice(finding), { ...aiFromRisk(finding), url, remediateHere }) : ''}</div></td>
+  <td class="state-cell" data-label="State"><span class="state-label">${escapeHtml(stateLabel)}</span><div class="state-why">${CONFIRMED_STATES.has(state) && !client.aiUnavailable ? confirmedWhyHtml(client.advice ?? fixAdvice(finding), { ...aiFromRisk(finding), scanner: finding.scanner, url, remediateHere }) : ''}</div></td>
   <td class="ai-cell" data-label="Triage result">${client.aiUnavailable ? manualCell(finding, client.aiUnavailable) : '—'}</td>
   <td class="actions-cell">
     ${client.aiUnavailable
@@ -394,21 +394,36 @@ const firstSentence = (text, max = 120) => {
 };
 
 /**
- * Under "Confirmed": why, and what to do about it, in two short lines; "why?"
- * opens the full explanation. AI Triage's own words come first when there are
- * any; the rest comes from what this kind of finding means (fix-advice.js).
- * The report's script renders the same thing when it learns more (report.client.js).
+ * Under "Confirmed": why it is a real vulnerability and how to fix it, once,
+ * in two short lines. "why?" adds only what those lines do not say: how
+ * Checkmarx One knows, AI Triage's verdict and full explanation, and the next
+ * step. AI Triage's own words come first when there are any; otherwise what
+ * this kind of finding means (fix-advice.js). The report's script renders the
+ * same thing when it learns more (report.client.js).
  */
-function confirmedWhyHtml(advice, { reason = '', recommendation = '', reachability = '', exploitability = '', confidence = '', url = '', remediateHere = false } = {}) {
-  const verdict = [reachability && reachability.replace(/_/g, ' ').toLowerCase(), exploitability && exploitability.replace(/_/g, ' ').toLowerCase()].filter(Boolean).join(' and ');
-  const why = reason ? firstSentence(reason) : advice.what;
-  const fix = firstSentence(recommendation || advice.fix, 100);
+export function howKnown(scanner) {
+  const engine = String(scanner || '').toUpperCase();
+  if (engine === 'SCA') return 'This project uses a version of the package with a published vulnerability that its code can reach; a fixed version removes it.';
+  if (engine === 'SAST') return 'Checkmarx One followed the data from where it enters the application to this code, and nothing on the way makes it safe.';
+  return 'Checkmarx One matched this code or configuration against a known vulnerable pattern.';
+}
+
+function confirmedWhyHtml(advice, { reason = '', recommendation = '', reachability = '', exploitability = '', confidence = '', scanner = '', url = '', remediateHere = false } = {}) {
+  const verdict = [reachability, exploitability].filter(Boolean).map((v) => v.replace(/_/g, ' ').toLowerCase()).join(' and ');
+  const whyFull = reason || advice.what;
+  const fixFull = recommendation || advice.fix;
+  const why = firstSentence(whyFull, 160);
+  const fix = firstSentence(fixFull, 160);
+  const more = [
+    why !== whyFull ? whyFull : howKnown(scanner),
+    verdict && `AI Triage judged it ${verdict}${confidence ? ` (confidence ${confidence})` : ''}.`,
+    reason && advice.what !== reason ? `This kind of finding: ${advice.what}` : '',
+    fix !== fixFull ? `Fix in full: ${fixFull}` : '',
+  ].filter(Boolean);
   return `<p class="why-line"><b>Why:</b> ${escapeHtml(why)}</p><p class="why-line"><b>Fix:</b> ${escapeHtml(fix)}</p>
       <details class="why-more"><summary>why?</summary>
-        ${reason ? `<p><b>What Checkmarx One found.</b> ${escapeHtml(advice.what)}</p>` : ''}
-        ${reason || verdict ? `<p><b>AI Triage.</b> ${escapeHtml(reason || '')}${verdict ? ` ${reason ? '(' : ''}Judged ${escapeHtml(verdict)}${confidence ? `, confidence ${escapeHtml(String(confidence))}` : ''}${reason ? ')' : '.'}` : ''}</p>` : '<p><b>Confirmed in Checkmarx One.</b> Someone (or AI Triage) marked this finding a real vulnerability.</p>'}
-        <p><b>Possible solution.</b> ${escapeHtml(recommendation ? `${recommendation} ` : '')}${escapeHtml(recommendation ? '' : advice.fix)}</p>
-        <p>${remediateHere ? 'Remediate asks Checkmarx One AI Remediation for a code fix (a pull request when the project is connected to its repository).' : 'Checkmarx One shows the full data flow and can suggest a fix.'}${url ? ` <a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open in Checkmarx One</a>` : ''}</p>
+        ${more.map((text) => `<p>${escapeHtml(text)}</p>`).join('')}
+        <p>${remediateHere ? 'Remediate asks Checkmarx One AI Remediation for the code change (a pull request when the project is connected to its repository).' : 'Checkmarx One shows the full data flow.'}${url ? ` <a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open in Checkmarx One</a>` : ''}</p>
       </details>`;
 }
 

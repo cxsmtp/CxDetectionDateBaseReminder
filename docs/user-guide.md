@@ -329,7 +329,7 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
 | Mark | Meaning |
 | --- | --- |
 | **Same result R1**, **R2**, … | Rows with the same label and colour are **one** Checkmarx One result, listed once per code path. They are triaged together for 1 credit. **below ↓ / above ↑** jumps to the twin; hovering a row lights up its whole group. **why?** shows the shared result ID. |
-| **Why / Fix** under Confirmed | Why the finding is a real vulnerability and how to fix it, in two lines. **why?** opens: <ul><li>AI Triage's explanation and verdict (reachable / exploitable, confidence);</li><li>the possible solution;</li><li>what Remediate will do.</li></ul> |
+| **Why / Fix** under Confirmed | Why the finding is a real vulnerability and how to fix it, said once, in two lines. **why?** adds only what those lines do not say: <ul><li>how Checkmarx One knows (for example, it followed the data from input to this code);</li><li>AI Triage's verdict (reachable / exploitable, confidence) when there is one;</li><li>what Remediate will do.</li></ul> |
 | **Triaging…** | AI Triage is running. |
 | **No verdict** | Checkmarx One produced no AI Triage result within 6 minutes. Check the finding in Checkmarx One; the report keeps checking. |
 | **Manual fix** | AI cannot act on this kind of finding (for example IaC). Use **Fix in Checkmarx One**. |
