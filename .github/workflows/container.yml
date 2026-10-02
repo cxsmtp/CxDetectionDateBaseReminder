@@ -40,10 +40,10 @@ jobs:
           done
           docker logs mz
           test "$(docker inspect -f '{{.State.Health.Status}}' mz)" = healthy
-          # The one-time password is in a private file in /data, never in the log.
+          # The first sign-in is printed once in the log (and kept in /data until changed).
           PW=$(docker exec mz cat /data/first-admin-password.txt)
           test -n "$PW"
-          if docker logs mz 2>&1 | grep -qF "$PW"; then echo 'the first password is in the log'; exit 1; fi
+          docker logs mz 2>&1 | grep -qF "Password: $PW"
           curl -sf -H 'Content-Type: application/json' \
             -d "{\"email\":\"admin@mission-zero.local\",\"password\":\"$PW\"}" \
             http://127.0.0.1:3000/api/session/password | grep -q '"signedIn":true'

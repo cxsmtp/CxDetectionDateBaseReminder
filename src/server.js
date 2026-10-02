@@ -148,22 +148,21 @@ async function prepareAccess() {
     console.log('');
     return;
   }
-  // Default (and in containers): generate the first administrator. The password
-  // never goes to the log (logs are often shipped elsewhere): it is written to a
-  // file only this server's user can read, removed once they choose their own.
+  // Default (and in containers): generate the first administrator and print the
+  // sign-in once, in this log. It is also kept in a file only this server's user
+  // can read, until they choose their own password at first sign-in.
   const adminEmail = email || DEFAULT_ADMIN_EMAIL;
   const generated = generatePassword();
   const admin = await iam.createUser({ email: adminEmail, name: 'Administrator', role: 'admin', password: generated, mustChangePassword: true });
   fs.writeFileSync(firstAdminFile, `${generated}\n`, { mode: 0o600 });
-  audit.record({ type: 'iam', outcome: 'changed', reason: `First administrator ${admin.email} created with a generated password (saved to ${path.basename(firstAdminFile)}).`, actor: SYSTEM_ACTOR, details: { user: admin } });
+  audit.record({ type: 'iam', outcome: 'changed', reason: `First administrator ${admin.email} created with a generated password (printed in the server log once).`, actor: SYSTEM_ACTOR, details: { user: admin } });
   const line = '='.repeat(64);
   console.log(`\n${line}`);
-  console.log('  First start: an administrator was created.');
-  // Addresses stay out of the log; the default one is a constant, not personal data.
-  console.log(`      Email:  ${email ? 'the ADMIN_EMAIL address' : DEFAULT_ADMIN_EMAIL}`);
-  console.log(`      Their one-time password is in ${firstAdminFile}`);
-  console.log(`      In a container: docker exec <name> cat ${firstAdminFile}`);
-  console.log('  You choose your own password at first sign-in, and the file is then deleted.');
+  console.log('  First start: an administrator was created. Sign in with:');
+  console.log(`      Email:    ${admin.email}`);
+  console.log(`      Password: ${generated}`);
+  console.log('  You choose your own password at first sign-in. This is shown only once;');
+  console.log(`  until then it is also in ${firstAdminFile}.`);
   console.log('  Lost it? Run: node scripts/reset-admin.mjs  (in a container: docker exec <name> node scripts/reset-admin.mjs)');
   console.log(`${line}\n`);
 }

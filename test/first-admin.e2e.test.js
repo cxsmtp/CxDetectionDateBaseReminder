@@ -1,6 +1,6 @@
-// The generated first administrator's password never reaches the server log:
-// it is saved to a file only the server's user can read, and that file is
-// deleted once the administrator chooses their own password.
+// The generated first administrator's sign-in is printed once in the server
+// log, and kept in a file only the server's user can read until the
+// administrator chooses their own password.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -25,7 +25,7 @@ test.before(async () => {
   const end = Date.now() + 15000;
   while (Date.now() < end) {
     const up = await fetch(`${BASE}/api/health`).then((r) => r.ok, () => false);
-    if (up && log.includes('one-time password')) return;
+    if (up && log.includes('Password: ')) return;
     await new Promise((r) => setTimeout(r, 100));
   }
   throw new Error(`server did not start:\n${log}`);
@@ -33,12 +33,12 @@ test.before(async () => {
 
 test.after(() => server?.kill());
 
-test('the generated password is in a private file, not in the log, and goes once replaced', async () => {
+test('the first sign-in is in the log and a private file, and the file goes once replaced', async () => {
   const password = fs.readFileSync(file, 'utf8').trim();
   assert.ok(password.length >= 16);
   if (process.platform !== 'win32') assert.equal(fs.statSync(file).mode & 0o777, 0o600);
-  assert.ok(!log.includes(password), 'the password is not in the log');
-  assert.ok(log.includes('first-admin-password.txt'), 'the log says where to find it');
+  assert.ok(log.includes('Email:    admin@mission-zero.local'), 'the log shows the email');
+  assert.ok(log.includes(`Password: ${password}`), 'the log shows the password');
 
   const signIn = await fetch(`${BASE}/api/session/password`, {
     method: 'POST',
