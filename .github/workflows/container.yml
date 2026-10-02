@@ -2,8 +2,8 @@ name: Container image
 
 # Builds the image on every push and pull request, smoke-tests it (starts,
 # turns healthy, prints the first administrator's sign-in), and publishes it
-# for linux/amd64 and linux/arm64 to the GitHub container registry from the
-# default branch and version tags:
+# for linux/amd64 and linux/arm64 to the GitHub container registry from main
+# (or master) and version tags:
 #   ghcr.io/<owner>/<repo>:latest   (and :<version>, :sha-<commit>)
 
 on:
@@ -60,8 +60,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          # main / master publish :latest, whichever branch is the repository's default.
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
             type=semver,pattern={{version}}
             type=sha
       - uses: docker/build-push-action@v6
