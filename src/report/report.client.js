@@ -194,7 +194,8 @@
   function relayBackend() {
     const base = String(config.relayUrl || '').replace(/\/+$/, '');
 
-    async function post(path, body, attempt = 0, timeoutMs = 0) {
+    let reached = false; // answered at least once: losing it now means a restart, not a wrong address
+    async function post(path, body, attempt = 0, timeoutMs = 0, offline = 0) {
       let response;
       const controller = timeoutMs && typeof AbortController === 'function' ? new AbortController() : null;
       const timer = controller && setTimeout(() => controller.abort(), timeoutMs);
@@ -208,9 +209,18 @@
         });
       } catch {
         if (timer) clearTimeout(timer);
+        // No answer at all: the server may be restarting for an update (a few seconds).
+        // Nothing reached it, so asking again is safe; the server never sends one finding twice anyway.
+        if (reached && !controller?.signal.aborted && offline < 6) {
+          serverState('Reconnecting…', 'warn');
+          await sleep(2000);
+          return post(path, body, attempt, timeoutMs, offline + 1);
+        }
         serverState('Unreachable', 'bad');
         throw new CxError(`Cannot reach the reminder server at ${base}. It must be running and reachable from this computer (company network or VPN). If it moved, use "Change" next to its address.`);
       }
+      reached = true;
+      if (offline) serverState('Connected', 'good'); // back after a restart
       let parsed = null;
       try {
         parsed = await response.json();

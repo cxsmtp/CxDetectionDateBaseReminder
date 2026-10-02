@@ -61,6 +61,9 @@ jobs:
           docker exec mz node scripts/reset-admin.mjs | grep -q 'Password: '
           docker restart mz && sleep 5
           test "$(docker logs --since 5s mz 2>&1 | grep -c 'Password:')" = 0
+          # A stop (as an update does) finishes cleanly through tini, and the restarted server takes the data folder at once.
+          docker logs mz 2>&1 | grep -q 'Stopped cleanly'
+          curl -sf http://127.0.0.1:3000/api/health > /dev/null
 
   publish:
     needs: smoke-test

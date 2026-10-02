@@ -40,6 +40,8 @@ import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from '
 import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, isVerified, parseAddressList, publicSettings, smtpFingerprint } from './settings.js';
 import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
 import { ENV_SETTINGS, SECRET_VARIABLES, parseEnvText, settingsFromEnv } from './env-import.js';
+import { saveHandover, takeHandover } from './handover.js';
+import { InstanceLock } from './instance-lock.js';
 import { inlineScriptHashes, sameOriginGuard, securityHeaders } from './security.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
@@ -62,6 +64,14 @@ const projectDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
  */
 const { dir: dataDir, source: dataDirSource } = resolveDataDir(process.env, { cwd: process.cwd() });
 prepareDataDir(dataDir);
+// One server per data folder: wait for the previous one (an update) to finish, or refuse.
+const instanceLock = new InstanceLock(dataDir);
+try {
+  await instanceLock.acquire({ waitMs: Math.max(0, Number(process.env.INSTANCE_LOCK_WAIT_SECONDS ?? 45)) * 1000, onWait: (held) => console.log(`[data] Waiting for the previous server (host ${held.host}) to finish with ${dataDir}…`) });
+} catch (error) {
+  console.error(`! ${error.message}`);
+  process.exit(1);
+}
 const migrated = migrateLegacyData(dataDir, { legacyDir: path.join(projectDir, 'data') });
 if (migrated.length) {
   console.log(`[data] Copied ${migrated.length} file(s) from ${path.join(projectDir, 'data')} to ${dataDir}: ${migrated.join(', ')}`);
@@ -299,6 +309,26 @@ const app = express();
 // Security headers on every response, including the static pages (src/security.js).
 app.disable('x-powered-by');
 app.use(securityHeaders({ scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')) }));
+// Stopping for an update: requests in progress finish; new ones are told to retry in a moment
+// (reports and the page do), so nothing is lost and nobody sees an error.
+let draining = false;
+let inFlight = 0;
+app.use((req, res, next) => {
+  if (draining) {
+    res.set({ 'Retry-After': '3', Connection: 'close' });
+    return res.status(503).json({ error: 'Mission Zero is restarting for an update. Trying again in a moment.', restarting: true, busy: true, retryAfter: 3 });
+  }
+  inFlight += 1;
+  let done = false;
+  const end = () => {
+    if (done) return;
+    done = true;
+    inFlight -= 1;
+  };
+  res.on('finish', end);
+  res.on('close', end);
+  next();
+});
 app.use(express.json({ limit: '4mb' }));
 // A browser request that changes state must come from this server's own pages.
 app.use('/api', sameOriginGuard({ exempt: ['/relay'] }));
@@ -5093,6 +5123,13 @@ async function verifyEnvironmentSmtp() {
   }
 }
 
+// Picked up from the previous server (an update): password sign-ins and their fetched data.
+// Not after a restore from backup, which may have changed who exists.
+{
+  const handedOver = restoredAtStart ? [] : takeHandover(dataDir);
+  if (handedOver.length) console.log(`[update] Picked up ${sessions.adopt(handedOver, integrationSession)} sign-in(s) and their fetched data from the previous server.`);
+}
+
 const server = app.listen(config.port, config.host, async () => {
   console.log(`Mission Zero ${APP_VERSION} running on http://${config.host}:${config.port}`);
   console.log(`Settings file: ${settingsStore.file}`);
@@ -5116,14 +5153,40 @@ const server = app.listen(config.port, config.host, async () => {
   }
 });
 
-const shutdown = () => {
+/**
+ * Stop cleanly (a container update or restart sends SIGTERM): stop taking new
+ * work, let requests in progress finish (up to SHUTDOWN_DRAIN_SECONDS, 8 by
+ * default), hand sign-ins and their fetched data to the next server, write
+ * everything still buffered, and let go of the data folder.
+ */
+const DRAIN_MS = Math.max(0, Number(process.env.SHUTDOWN_DRAIN_SECONDS ?? 8)) * 1000; // inside the 10 s Podman and Docker allow by default
+let stopping = false;
+const shutdown = async (signal) => {
+  if (stopping) return;
+  stopping = true;
+  draining = true;
   scheduler.stop();
+  server.close();
+  server.closeIdleConnections?.();
+  console.log(`[update] ${signal}: finishing ${inFlight} request(s) in progress…`);
+  const until = Date.now() + DRAIN_MS;
+  while (inFlight > 0 && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 100));
+  if (inFlight > 0) console.warn(`! [update] ${inFlight} request(s) still running after ${DRAIN_MS / 1000}s; stopping anyway.`);
+  try {
+    const handed = saveHandover(dataDir, sessions.toHandover());
+    if (handed) console.log(`[update] Saved ${handed} sign-in(s) and their fetched data for the next server.`);
+  } catch (error) {
+    console.warn(`! [update] Could not save sign-ins for the next server: ${error.message}`);
+  }
   knownAddresses.flush();
   creditLedger.flush();
   audit.flushSync();
-  server.close(() => process.exit(0));
+  diagnostics.flush();
+  instanceLock.release();
+  console.log('[update] Stopped cleanly.');
+  process.exit(0);
 };
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 export { app, sessions, settingsStore };

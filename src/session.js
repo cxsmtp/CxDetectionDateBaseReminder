@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import { sessionKey } from './handover.js';
+
 import { CxClient } from './cxone/client.js';
 import { deriveConnection, publicConnection } from './cxone/endpoints.js';
 
@@ -16,6 +18,8 @@ const SWEEP_INTERVAL_MS = 15 * 60 * 1000;
 export class SessionStore {
   #sessions = new Map();
   #idleMs;
+  #adopted = new Map(); // sessionKey -> saved session from the previous server, until its browser calls
+  #adoptLink = null;
 
   constructor({ idleMs = DEFAULT_IDLE_MS } = {}) {
     this.#idleMs = idleMs;
@@ -54,8 +58,7 @@ export class SessionStore {
    * returns at the time of each call, so reconnecting the integration applies
    * to everyone at once.
    */
-  createLinked(link) {
-    const id = randomUUID();
+  createLinked(link, id = randomUUID()) {
     const integration = () => {
       const target = link();
       if (!target) {
@@ -78,7 +81,7 @@ export class SessionStore {
   }
 
   get(id) {
-    const session = id ? this.#sessions.get(id) : undefined;
+    const session = id ? this.#sessions.get(id) ?? this.#takeAdopted(id) : undefined;
     if (!session) return null;
     // The server's own integration session never idles out.
     if (!session.pinned && Date.now() - session.lastUsedAt > this.#idleMs) {
@@ -87,6 +90,36 @@ export class SessionStore {
     }
     session.lastUsedAt = Date.now();
     return session;
+  }
+
+  /**
+   * Password sign-ins handed over by the previous server (an update): each is
+   * picked up, with its fetched data, when its browser next calls.
+   */
+  adopt(entries, link) {
+    this.#adoptLink = link;
+    for (const entry of entries) this.#adopted.set(entry.key, entry);
+    return this.#adopted.size;
+  }
+
+  #takeAdopted(id) {
+    if (!this.#adopted.size) return undefined;
+    const key = sessionKey(id);
+    const entry = this.#adopted.get(key);
+    if (!entry) return undefined;
+    this.#adopted.delete(key);
+    const session = this.createLinked(this.#adoptLink, id);
+    Object.assign(session, { userId: entry.userId, via: entry.via, createdAt: entry.createdAt, lastUsedAt: entry.lastUsedAt, lastScan: entry.lastScan ?? null });
+    return session;
+  }
+
+  /** What to hand over to the next server: password sign-ins (never one holding a person's own API key) and their fetched data. */
+  toHandover() {
+    const live = [...this.#sessions.values()]
+      .filter((s) => s.linked && s.userId && !s.pinned && Date.now() - s.lastUsedAt <= this.#idleMs)
+      .map(({ id, userId, via, createdAt, lastUsedAt, lastScan }) => ({ id, userId, via, createdAt, lastUsedAt, lastScan }));
+    // Saved ones nobody has come back for yet are passed on again, as they were.
+    return { live, adopted: [...this.#adopted.values()].filter((e) => Date.now() - e.lastUsedAt <= this.#idleMs) };
   }
 
   destroy(id) {

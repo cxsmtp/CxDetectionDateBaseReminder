@@ -32,6 +32,8 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 512
+    # Time to finish running requests and hand sign-ins to the next version on an update (docs/updating.md).
+    stop_grace_period: 15s
     # Size for up to 3000 people at once (docs/performance.md): uncomment to cap
     # the container at 2 CPUs / 3 GB, and keep NODE_OPTIONS below in step.
     # cpus: 2

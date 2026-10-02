@@ -100,13 +100,36 @@ async function api(path, options = {}) {
   }
   logger.apiCall(method, path);
 
+  // While the server restarts for an update (a few seconds), wait and ask again instead of failing:
+  // a "restarting" answer means it did nothing, and a read can always be repeated.
+  const until = Date.now() + 45_000;
   try {
-    const response = await fetch(path, {
-      credentials: 'same-origin',
-      headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
-      ...options,
-    });
-    const payload = await response.json().catch(() => ({}));
+    let response;
+    let payload;
+    for (;;) {
+      try {
+        response = await fetch(path, {
+          credentials: 'same-origin',
+          headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+          ...options,
+        });
+      } catch (error) {
+        if (method === 'GET' && Date.now() < until) {
+          restartingNotice();
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          continue;
+        }
+        if (method !== 'GET') error.message = 'Mission Zero could not be reached (it may be restarting for an update). Check whether it went through, then try again.';
+        throw error;
+      }
+      payload = await response.json().catch(() => ({}));
+      if (response.status === 503 && payload.restarting && Date.now() < until) {
+        restartingNotice();
+        await new Promise((resolve) => setTimeout(resolve, (payload.retryAfter || 3) * 1000));
+        continue;
+      }
+      break;
+    }
     if (!response.ok) {
       const error = new Error(payload.error || `${response.status} ${response.statusText}`);
       error.status = response.status;
@@ -122,6 +145,14 @@ async function api(path, options = {}) {
     }
     throw error;
   }
+}
+
+let restartingShownAt = 0;
+/** Said once per restart, not once per request. */
+function restartingNotice() {
+  if (Date.now() - restartingShownAt < 30_000) return;
+  restartingShownAt = Date.now();
+  toast('Mission Zero is restarting for an update — reconnecting…', 'warn');
 }
 
 const escapeHtml = (value) =>
@@ -2837,11 +2868,77 @@ function renderAllocation() {
   $('run-remediation').disabled = !severities.length || !scope.length || t.toRemediate === 0;
 }
 
+/**
+ * What the credits panel shows for these projects now: what each needs and has
+ * for the ticked severities. Compared before and after Refresh & verify.
+ */
+function creditPicture(scope = allocationScope(), severities = allocSeverities()) {
+  const out = {};
+  for (const p of scope) {
+    const c = p.credits ?? {};
+    out[p.projectId] = {
+      name: p.projectName,
+      toTriage: severities.reduce((n, s) => n + (c.toTriage?.[s] ?? 0), 0),
+      toRemediate: severities.reduce((n, s) => n + (c.toRemediateBySeverity?.[s] ?? 0), 0),
+      triageLeft: c.triage?.remaining ?? 0,
+      remediationLeft: c.remediation?.remaining ?? 0,
+    };
+  }
+  return out;
+}
+
+const PICTURE_LABELS = {
+  toTriage: 'results to triage',
+  toRemediate: 'confirmed results to remediate',
+  triageLeft: 'triage credits left',
+  remediationLeft: 'remediation credits left',
+};
+
+/** What changed between two pictures, in words: "Payments: results to triage 10 → 8". */
+function pictureChanges(before, after) {
+  const changes = [];
+  for (const [id, now] of Object.entries(after)) {
+    const was = before[id];
+    if (!was) continue;
+    for (const key of Object.keys(PICTURE_LABELS)) {
+      if (was[key] !== now[key]) changes.push(`${now.name}: ${PICTURE_LABELS[key]} ${was[key]} → ${now[key]}`);
+    }
+  }
+  return changes;
+}
+
+/**
+ * Every credit and AI action goes through here: Refresh & verify runs first
+ * (Checkmarx One read twice, independently). If the reads disagree, or what is
+ * needed or left changed since the panel last showed it (someone triaged or
+ * remediated in Checkmarx One, or from a report), the action is cancelled and
+ * the panel now shows the real numbers; clicking again goes ahead with them.
+ */
+async function guardedAction(label, run) {
+  if (state.fetching) return setStatus('alloc-status', 'Wait for the data fetch to complete.', 'error');
+  const scope = allocationScope();
+  if (!scope.length) return setStatus('alloc-status', 'Fetch the projects first.', 'error');
+  const before = creditPicture(scope);
+  const check = await verifyWithCheckmarx({ before: label });
+  if (!check?.ok) {
+    // The status line says why: the two reads disagreed (findings changing right now), or Checkmarx One could not be read.
+    if (check) setStatus('alloc-status', `${label} cancelled — ${$('alloc-status').textContent} Wait a moment and click again.`, 'warn');
+    return;
+  }
+  const changes = pictureChanges(before, creditPicture(allocationScope()));
+  if (changes.length) {
+    const shown = changes.slice(0, 4).join('; ') + (changes.length > 4 ? `; and ${changes.length - 4} more` : '');
+    setStatus('alloc-status', `${label} cancelled: Checkmarx One changed since this page last showed it — ${shown}. Someone may have triaged or remediated in Checkmarx One or from a report. The numbers above are now current; click again to go ahead with them.`, 'warn');
+    logger.add(`${label} cancelled: ${changes.length} change(s) found by Refresh & verify`, 'error');
+    $('alloc-verify').scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    return;
+  }
+  return run();
+}
+
 /** "Allocate for triage / remediation": give the scope what it needs, after confirming. */
 async function allocateNeeded(kind) {
   // Checked twice with Checkmarx One first: the confirmation only ever shows confirmed numbers.
-  const check = await verifyWithCheckmarx();
-  if (!check?.ok) return; // the status line says why (the reads disagreed, or Checkmarx One could not be read)
   const scope = allocationScope();
   const t = allocationTotals(scope);
   const credits = kind === 'triage' ? t.triageShort : t.remediationShort;
@@ -3585,25 +3682,25 @@ for (const box of document.querySelectorAll('.alloc-sev')) {
     renderAllocation();
   });
 }
-$('alloc-add').addEventListener('click', () => {
+$('alloc-add').addEventListener('click', () => guardedAction('Adding extra credits', () => {
   const triageAdd = Number($('alloc-extra-triage').value) || 0;
   const remediationAdd = Number($('alloc-extra-remediation').value) || 0;
   if (!triageAdd && !remediationAdd) return setStatus('alloc-status', 'Enter how many credits to add.', 'error');
   const scope = allocationScope();
   // Extras stay until removed, so giving them to every project must be deliberate.
   if (!state.selected.size && !confirm(`No project is selected: give all ${scope.length} shown projects ${triageAdd} extra triage and ${remediationAdd} extra remediation credit(s) each?`)) return;
-  allocateCredits({ triageAdd, remediationAdd }, (n) => `Added ${triageAdd} triage and ${remediationAdd} remediation credit(s) to each of ${n} project(s).`);
-});
-$('alloc-clear').addEventListener('click', () => {
+  return allocateCredits({ triageAdd, remediationAdd }, (n) => `Added ${triageAdd} triage and ${remediationAdd} remediation credit(s) to each of ${n} project(s).`);
+}));
+$('alloc-clear').addEventListener('click', () => guardedAction('Taking back extra credits', () => {
   const scope = allocationScope();
   if (!confirm(`Take back the extra credits added to ${state.selected.size ? 'the' : 'all'} ${scope.length} ${state.selected.size ? 'selected' : 'shown'} project(s)? Credits already used stay counted.`)) return;
-  allocateCredits({ clearExtras: true }, (n) => `Extra credits removed from ${n} project(s).`);
-});
-$('run-triage').addEventListener('click', runTriageNow);
-$('run-remediation').addEventListener('click', runRemediationNow);
-$('alloc-triage').addEventListener('click', () => allocateNeeded('triage'));
-$('alloc-verify').addEventListener('click', verifyWithCheckmarx);
-$('alloc-reclaim').addEventListener('click', reclaimUnused);
+  return allocateCredits({ clearExtras: true }, (n) => `Extra credits removed from ${n} project(s).`);
+}));
+$('run-triage').addEventListener('click', () => guardedAction('Triage', runTriageNow));
+$('run-remediation').addEventListener('click', () => guardedAction('Remediation', runRemediationNow));
+$('alloc-triage').addEventListener('click', () => guardedAction('Allocating for triage', () => allocateNeeded('triage')));
+$('alloc-verify').addEventListener('click', () => verifyWithCheckmarx());
+$('alloc-reclaim').addEventListener('click', () => guardedAction('Taking back unused credits', reclaimUnused));
 
 /** Freshly confirmed twice with Checkmarx One, for the severities ticked now. */
 function isVerified(p, severities = allocSeverities()) {
@@ -3616,12 +3713,12 @@ function isVerified(p, severities = allocSeverities()) {
  * twice; their rows and credit needs are replaced by what it holds now, and a
  * count is only shown as verified when both reads agree, result id for result id.
  */
-async function verifyWithCheckmarx() {
+async function verifyWithCheckmarx({ before = '' } = {}) {
   const scope = allocationScope();
   if (!scope.length) return setStatus('alloc-status', 'Fetch the projects first.', 'error');
   const button = $('alloc-verify');
   button.disabled = true;
-  setStatus('alloc-status', `Reading ${scope.length} project(s) from Checkmarx One twice…`);
+  setStatus('alloc-status', `${before ? `${before}: checking first — ` : ''}reading ${scope.length} project(s) from Checkmarx One twice…`);
   try {
     const result = await api('/api/credits/verify', {
       method: 'POST',
@@ -3655,7 +3752,7 @@ async function verifyWithCheckmarx() {
     renderAllocation();
   }
 }
-$('alloc-remediation').addEventListener('click', () => allocateNeeded('remediation'));
+$('alloc-remediation').addEventListener('click', () => guardedAction('Allocating for remediation', () => allocateNeeded('remediation')));
 $('track-save').addEventListener('click', saveTrackedReport);
 $('reports-list').addEventListener('click', trackedReportAction);
 $('reports-list').addEventListener('change', (event) => {

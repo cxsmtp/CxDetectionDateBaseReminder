@@ -9,7 +9,7 @@ Self-hosted, one container, nothing to install for developers.
 | **Know what is ageing** | Every project's findings bucketed by first detection (≤ 30, 31–60, > 60 days), streamed in as they are read. |
 | **The right person, only their projects** | Reminders go to whoever ran each project's latest scan, by email, as a summary or one per project. The server refuses any email that would show someone a project they did not scan. |
 | **Fix from the inbox** | An interactive report in every email: **Triage** and **Remediate** with Checkmarx One AI, see the verdict, open the pull request. |
-| **Credits under control** | A credit pool, per-project allocations confirmed with Checkmarx One twice, never two requests for one vulnerability, and unused credits taken back. |
+| **Credits under control** | A credit pool, and per-project allocations. Every action re-checks Checkmarx One twice first and stops if anyone changed the findings meanwhile. Never two requests for one vulnerability, and unused credits are taken back. |
 | **Hands-off follow-up** | Age-threshold automation that never nags twice, and tracked reports that measure progress and send follow-ups. |
 | **Accountable** | A hash-chained audit log of every credit and change, role-based access, one-file backups, and a privacy-safe troubleshooting log. |
 | **Scales** | 3000 people at once on 2 vCPU / 4 GB ([benchmark](docs/performance.md)). |
@@ -61,17 +61,22 @@ podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -e TZ=
 
 **Another port** (e.g. 3001): change the left side only, `-p 3001:3000`, and open <http://localhost:3001>.
 
-**Update to the latest version** (your data stays in the volume):
+**Update without losing anything:** download first, then swap.
 
 ```
 podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 ```
 
 ```
-podman rm -f mission-zero
+podman run --replace -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 ```
 
-Then run the same `podman run` line again. The version shows bottom-left as `MZ-xx.xx.xx`.
+Use the same options you started it with. What carries over:
+- **The swap.** The running server finishes what it is doing and hands over to the new version in a few seconds. Browsers and emailed reports reconnect by themselves.
+- **People** stay signed in with the data they fetched.
+- **All data** stays in the volume: credits, the audit log, settings.
+
+The version shows bottom-left as `MZ-xx.xx.xx`. Details and rollback: [Updating](docs/updating.md).
 
 **Compose** (from a checkout): `podman compose up -d`. It binds to `127.0.0.1` unless `BIND_ADDRESS=0.0.0.0` is set in `.env`.
 
@@ -109,6 +114,7 @@ For production, put an HTTPS reverse proxy in front and set the **Reminder serve
 | `NODE_OPTIONS` | e.g. `--max-old-space-size=2048` with `--memory 3g`. |
 | `NODE_EXTRA_CA_CERTS` | A company CA, when a proxy inspects TLS. |
 | `BACKUP_INTERVAL_HOURS` (24), `BACKUP_KEEP` (14), `BACKUP_PASSPHRASE`, `BACKUP_DIR` | Scheduled, optionally encrypted backups of `/data`. |
+| `SHUTDOWN_DRAIN_SECONDS` (8), `INSTANCE_LOCK_WAIT_SECONDS` (45) | Updates: how long running requests may finish when stopping; how long a new server waits for the old one ([Updating](docs/updating.md)). |
 | `CONNECTION_CHECK_TIMEOUT_MS` (25000), `CONFIG_ROLLBACK_IDLE_MINUTES` (10) | When a changed connection counts as failed, and when an unattended one is rolled back. |
 | `PORT` (3000), `HOST`, `DATA_DIR` | Outside a container only; the image sets them. |
 
@@ -118,7 +124,8 @@ For production, put an HTTPS reverse proxy in front and set the **Reminder serve
 | --- | --- |
 | [User guide](docs/user-guide.md) | Every page and option, step by step, for administrators, analysts and developers. With recipes and troubleshooting. |
 | [How it works](docs/how-it-works.md) | Architecture, the Checkmarx One API, credits and safety nets, storage, security. |
-| [Containers](docs/container.md) | Docker / Podman / Compose options, proxies, upgrades. |
+| [Updating](docs/updating.md) | New versions without downtime, sign-outs or data loss; rollback. |
+| [Containers](docs/container.md) | Docker / Podman / Compose options, proxies. |
 | [Performance and sizing](docs/performance.md) | The 3000-user benchmark and the recommended server size. |
 | [Audit log and backups](docs/audit-and-backup.md) | The tamper-evident audit log, backups, restore, moving servers. |
 | [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code; GitHub username matching. |
