@@ -373,7 +373,7 @@ async function cloneOrFetch(url, { cacheDir, token = '', blobs = false } = {}) {
 
 async function cloneOnce(url, { cacheDir, token = '', blobs = false } = {}) {
   if (!/^https:\/\/[\w.-]+(:\d+)?\/[\w.\-/]+$/.test(url)) throw new Error(`Not an https repository address: ${url}`);
-  const dir = path.join(cacheDir, `${createHash('sha1').update(url).digest('hex').slice(0, 16)}${blobs ? '-full' : ''}`);
+  const dir = path.join(cacheDir, `${createHash('sha256').update(url).digest('hex').slice(0, 16)}${blobs ? '-full' : ''}`);
   // The token goes in an environment-only header: never in arguments, never on disk.
   const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
   if (token) {

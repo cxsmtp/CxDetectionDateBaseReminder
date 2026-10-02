@@ -109,12 +109,20 @@ if (restoredAtStart) {
   });
 }
 
+/** One line of untrusted text for the server log: no line breaks or control characters (log forging). */
+const logSafe = (value) => String(value ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').slice(0, 500);
+
+/** At most `max` distinct ids from a request field that should be an array of ids. */
+const idList = (value, max = 5000) => (Array.isArray(value) ? [...new Set(value.map(String))].slice(0, max) : []);
+
 // ---------------------------------------------------------------------------
 // Users, roles and permissions (src/iam.js)
 // ---------------------------------------------------------------------------
 
 const iam = new IamStore({ file: path.join(dataDir, 'iam.json') });
 let setupCode = '';
+/** The generated first administrator's one-time password, until they choose their own. */
+const firstAdminFile = path.join(dataDir, 'first-admin-password.txt');
 
 async function prepareAccess() {
   if (iam.hasUsers()) return;
@@ -139,19 +147,22 @@ async function prepareAccess() {
     console.log('');
     return;
   }
-  // Default (and in containers): generate the first administrator and print the
-  // sign-in once, in this log. They must choose their own password at first sign-in.
+  // Default (and in containers): generate the first administrator. The password
+  // never goes to the log (logs are often shipped elsewhere): it is written to a
+  // file only this server's user can read, removed once they choose their own.
   const adminEmail = email || 'admin@mission-zero.local';
   const generated = generatePassword();
   const admin = await iam.createUser({ email: adminEmail, name: 'Administrator', role: 'admin', password: generated, mustChangePassword: true });
-  audit.record({ type: 'iam', outcome: 'changed', reason: `First administrator ${admin.email} created with a generated password (printed in the server log once).`, actor: SYSTEM_ACTOR, details: { user: admin } });
+  fs.writeFileSync(firstAdminFile, `${generated}\n`, { mode: 0o600 });
+  audit.record({ type: 'iam', outcome: 'changed', reason: `First administrator ${admin.email} created with a generated password (saved to ${path.basename(firstAdminFile)}).`, actor: SYSTEM_ACTOR, details: { user: admin } });
   const line = '='.repeat(64);
   console.log(`\n${line}`);
-  console.log('  First start: an administrator was created. Sign in with:');
-  console.log(`      Email:    ${admin.email}`);
-  console.log(`      Password: ${generated}`);
-  console.log('  You choose your own password at first sign-in. This is shown only once;');
-  console.log('  lost it? Run: node scripts/reset-admin.mjs  (in a container: docker exec <name> node scripts/reset-admin.mjs)');
+  console.log('  First start: an administrator was created.');
+  console.log(`      Email:  ${admin.email}`);
+  console.log(`      Their one-time password is in ${firstAdminFile}`);
+  console.log(`      In a container: docker exec <name> cat ${firstAdminFile}`);
+  console.log('  You choose your own password at first sign-in, and the file is then deleted.');
+  console.log('  Lost it? Run: node scripts/reset-admin.mjs  (in a container: docker exec <name> node scripts/reset-admin.mjs)');
   console.log(`${line}\n`);
 }
 
@@ -607,6 +618,7 @@ app.post(
     }
     if (String(req.body?.next ?? '') === String(req.body?.current ?? '')) return res.status(400).json({ error: 'Choose a password different from the current one.' });
     await iam.setPassword(user.id, String(req.body?.next ?? ''), { mustChange: false });
+    fs.rmSync(firstAdminFile, { force: true });
     audit.record({ type: 'iam', outcome: 'changed', reason: `${user.email} changed their password.`, actor: await adminActor(req) });
     res.json(describeMe(req.session, iam.user(user.id)));
   }),
@@ -1521,7 +1533,7 @@ async function withoutNotExploitable(session, risks) {
     try {
       live.set(projectId, await projectStates(session, projectId));
     } catch (error) {
-      console.warn(`[reminders] could not read live states for ${projectId}: ${error.message}`);
+      console.warn(`[reminders] could not read live states for ${logSafe(projectId)}: ${logSafe(error.message)}`);
     }
   });
   const current = risks
@@ -1556,11 +1568,12 @@ async function withoutNotExploitable(session, risks) {
  */
 async function reminderScope(session, scan, { projectIds = null, buckets = [], severities = null, initiators = null } = {}) {
   const initiatorsByProject = scan.initiators ?? {};
-  let scoped = Array.isArray(projectIds) && projectIds.length ? projectIds.map(String) : null;
+  let scoped = idList(projectIds);
+  scoped = scoped.length ? scoped : null;
   // Narrowing by initiator is a project-level filter: a finding belongs to
   // whoever ran that project's latest scan.
-  if (Array.isArray(initiators) && initiators.length > 0) {
-    const wanted = new Set(initiators.map(String));
+  if (idList(initiators, 1000).length > 0) {
+    const wanted = new Set(idList(initiators, 1000));
     const matching = Object.entries(initiatorsByProject)
       .filter(([, info]) => wanted.has(info.email) || wanted.has(info.initiator))
       .map(([projectId]) => projectId);
@@ -2234,7 +2247,7 @@ app.post(
         try {
           statesByProject.set(projectId, await projectStates(session, projectId));
         } catch (error) {
-          console.warn(`[relay] could not read risk states for project ${projectId}: ${error.message}`);
+          console.warn(`[relay] could not read risk states for project ${logSafe(projectId)}: ${logSafe(error.message)}`);
         }
       });
       const sentBefore = new Map([...new Set(findings.map((f) => f.projectId))].map((id) => [id, creditLedger.triagedAt(id)]));
@@ -2466,7 +2479,7 @@ async function liveState(session, finding) {
     stateCache.delete(finding.projectId);
     return (await projectRiskInfo(session, finding.projectId)).info.get(finding.riskId)?.state ?? '';
   } catch (error) {
-    console.warn(`[remediation] could not read the state of ${finding.riskId}: ${error.message}`);
+    console.warn(`[remediation] could not read the state of ${logSafe(finding.riskId)}: ${logSafe(error.message)}`);
     return '';
   }
 }
@@ -2500,7 +2513,7 @@ app.post(
         statesByProject.set(projectId, await projectStates(session, projectId));
       } catch (error) {
         stateErrors.set(projectId, error.message);
-        console.warn(`[relay] could not read risk states for project ${projectId}: ${error.message}`);
+        console.warn(`[relay] could not read risk states for project ${logSafe(projectId)}: ${logSafe(error.message)}`);
       }
     });
 
@@ -2621,7 +2634,7 @@ app.post(
     try {
       current = await remediationState(session, finding);
     } catch (error) {
-      console.warn(`[relay] could not read the remediation state of ${finding.riskId}: ${error.message}`);
+      console.warn(`[relay] could not read the remediation state of ${logSafe(finding.riskId)}: ${logSafe(error.message)}`);
     }
     if (current.status === 'running') {
       auditCredit({ ...base, outcome: 'refused', reason: 'AI Remediation already running for this finding; followed it instead.' });
@@ -2956,7 +2969,7 @@ app.post(
       try {
         live = await projectRiskInfo(req.session, p.projectId);
       } catch (error) {
-        console.warn(`[credits] could not re-read ${p.projectName}: ${error.message}`);
+        console.warn(`[credits] could not re-read ${logSafe(p.projectName)}: ${logSafe(error.message)}`);
         return;
       }
       for (const r of p.risks ?? []) {
@@ -3212,7 +3225,7 @@ async function backgroundRefresh() {
     const touched = report.projects.some((p) => touchedProjects.has(p.projectId));
     if (now - last > TRACK_REFRESH_MS || (touched && now - last > TRACK_TOUCHED_EVERY_MS)) {
       await refreshTrackedReport(report, session).catch((error) =>
-        console.warn(`[tracked reports] ${report.name}: ${error.message}`),
+        console.warn(`[tracked reports] ${logSafe(report.name)}: ${logSafe(error.message)}`),
       );
     }
   }
@@ -3392,7 +3405,7 @@ async function runDueTrackedReminders(session) {
     }
     try {
       const server = resolveReportServer(null, settings);
-      if (!server.url) console.warn(`! [reports] "${report.name}": sent without a reminder server address — set it in Settings → Links or REPORT_SERVER_URL.`);
+      if (!server.url) console.warn(`! [reports] "${logSafe(report.name)}": sent without a reminder server address — set it in Settings → Links or REPORT_SERVER_URL.`);
       const result = await remindTrackedReport(session, report, auto, server.url, { automatic: true });
       auto.lastError = result.status === 200 ? '' : result.body?.error || 'Failed';
     } catch (error) {
@@ -3563,17 +3576,18 @@ app.get('/api/tracked-reports', requirePermission('reports.view'), async (req, r
 app.post('/api/tracked-reports', requirePermission('reports.manage'), (req, res) => {
   const { lastScan } = req.session;
   if (!lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
-  const { name, projectIds = null, severities = null, buckets = [], windows = {}, scopeLabel = '' } = req.body ?? {};
+  const { name, severities = null, buckets = [], windows = {}, scopeLabel = '' } = req.body ?? {};
+  const projectIds = idList(req.body?.projectIds);
   if (!String(name ?? '').trim()) return res.status(400).json({ error: 'Give the report a name.' });
 
   const wantedSeverities = (Array.isArray(severities) ? severities : []).map((s) => String(s).toUpperCase()).filter((s) => SEVERITIES.includes(s));
   const wantedBuckets = (Array.isArray(buckets) ? buckets : []).map(String).filter((b) => AGE_BUCKETS.some((a) => a.id === b));
   const risks = selectRisks(lastScan.projects, {
-    projectIds: projectIds?.length ? projectIds : null,
+    projectIds: projectIds.length ? projectIds : null,
     buckets: wantedBuckets,
     severities: wantedSeverities.length ? wantedSeverities : null,
   });
-  const inScope = lastScan.projects.filter((p) => !p.error && (!projectIds?.length || projectIds.includes(p.projectId)));
+  const inScope = lastScan.projects.filter((p) => !p.error && (!projectIds.length || projectIds.includes(p.projectId)));
   const clean = (w) => ({ preset: String(w?.preset ?? 'any'), from: w?.from ? String(w.from) : undefined, to: w?.to ? String(w.to) : undefined });
 
   const report = trackedReports.create({
@@ -3783,7 +3797,8 @@ app.post(
   '/api/reports/html',
   requirePermission('reminders.send'),
   asyncRoute(async (req, res) => {
-    const { projectIds = null, buckets = [], severities = null } = req.body ?? {};
+    const { buckets = [], severities = null } = req.body ?? {};
+    const projectIds = idList(req.body?.projectIds);
     const { lastScan } = req.session;
     const settings = settingsStore.get();
 
@@ -4294,7 +4309,8 @@ app.post(
     if (!lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
     const settings = settingsStore.get();
     const github = settings.beta?.github ?? {};
-    const { projectIds = null, severities = null } = req.body ?? {};
+    const { severities = null } = req.body ?? {};
+    const projectIds = idList(req.body?.projectIds);
     const limit = Math.min(AUTHOR_LIMIT_MAX, Math.max(1, Number(req.body?.limit) || 50));
 
     const rank = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
@@ -4505,9 +4521,13 @@ function authorMessage(author, items, settings) {
 
 // eslint-disable-next-line no-unused-vars -- Express identifies error handlers by arity.
 app.use((error, req, res, next) => {
-  const status = error.status && error.status >= 400 && error.status < 600 ? error.status : 500;
-  console.error(`${req.method} ${req.path} ->`, error.message);
-  res.status(status).json({ error: error.message ?? 'Unexpected error.', detail: error.body ?? undefined });
+  // An error raised on purpose carries its HTTP status and a message meant for
+  // the user. Anything else is unexpected: its details (paths, internals) stay
+  // in the server log, and the browser gets a plain message.
+  const expected = Number.isInteger(error.status) && error.status >= 400 && error.status < 600;
+  console.error(`${logSafe(req.method)} ${logSafe(req.path)} ->`, logSafe(expected ? error.message : error.stack ?? error.message));
+  if (!expected) return res.status(500).json({ error: 'Something went wrong on the server. The details are in its log.' });
+  res.status(error.status).json({ error: error.message ?? 'Unexpected error.', detail: error.body ?? undefined });
 });
 
 /**

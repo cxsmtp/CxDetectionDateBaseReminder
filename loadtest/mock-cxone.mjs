@@ -29,7 +29,7 @@ http.createServer((req, res) => {
     setTimeout(() => {
       inFlight--;
       const u = new URL(req.url, 'http://x');
-      const send = (s, o) => { res.writeHead(s, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o ?? {})); };
+      const send = (s, o) => { res.writeHead(s, { 'Content-Type': 'application/json', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' }); res.end(JSON.stringify(o ?? {})); };
       if (u.pathname === '/__stats') return send(200, { counts, peak });
       if (u.pathname === '/__reset') { for (const k of Object.keys(counts)) delete counts[k]; peak = 0; return send(200, {}); }
       if (u.pathname.endsWith('/openid-connect/token')) {

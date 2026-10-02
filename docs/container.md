@@ -38,24 +38,29 @@ Then open <http://localhost:3000>.
 
 ## The administrator's sign-in
 
-The first start creates an administrator and prints the sign-in once in the
-container log:
+The first start creates an administrator, `admin@mission-zero.local`, with a
+generated one-time password. The password is never written to the log, which
+is often shipped to other systems. It is saved in the data volume, readable
+only by the server's own user:
 
 ```
-docker logs mission-zero        # or: podman logs mission-zero / docker compose logs
+docker exec mission-zero cat /data/first-admin-password.txt
+# or: podman exec … / docker compose exec mission-zero cat /data/first-admin-password.txt
 ```
+
+The container log only says where to look:
 
 ```
 ================================================================
-  First start: an administrator was created. Sign in with:
-      Email:    admin@mission-zero.local
-      Password: W5AP3-RSkHE-hBePY-Nigku
-  You choose your own password at first sign-in. ...
+  First start: an administrator was created.
+      Email:  admin@mission-zero.local
+      Their one-time password is in /data/first-admin-password.txt
+  ...
 ================================================================
 ```
 
-- The password is generated, shown once and never stored in clear. It is not
-  printed again on a restart.
+- The file is deleted as soon as the administrator chooses their own password,
+  and is never part of a backup.
 - The administrator chooses their own password at first sign-in, then adds the
   team under **Access**.
 - To use your own email for this account, add `-e ADMIN_EMAIL=appsec-lead@company.com`
@@ -87,6 +92,11 @@ Add any of these to `docker run` / `podman run` as `-e NAME=value`, or put them 
 | `NODE_EXTRA_CA_CERTS` | A company CA file (mounted into the container) when a proxy inspects TLS to Checkmarx One or your mail server. |
 
 To publish on another port, change the left side: `-p 8080:3000`.
+
+`compose.yaml` publishes the port on this machine only (`127.0.0.1`). To let
+other machines reach it, set `BIND_ADDRESS=0.0.0.0` (or one interface's
+address) in `.env`, ideally behind an HTTPS reverse proxy. `PORT` changes the
+port on the host.
 
 ## Data, backups and upgrades
 
@@ -124,13 +134,17 @@ docker build --secret id=ca,src=company-ca.pem -t mission-zero .
 
 ## What is in the image
 
-- `node:22-alpine`, plus `git` (Beta code-author lookups), `tini` (signal
-  handling) and `tzdata`.
+- `alpine:3.24` with Alpine's own Node.js 24 package, plus `git` (Beta
+  code-author lookups) and `tini` (signal handling). Time zones come from the
+  ICU data inside Node.js. Packages are pinned to their major version line.
+- It does not use the official `node` image, which bundles npm and its
+  dependencies (and their CVEs) even when the app never runs npm.
 - It runs as the unprivileged `node` user, listens on port 3000, and has a
   health check on `/api/health`.
 - Built in two stages: npm installs the dependencies in the first, and the
   runtime image gets only `node_modules` — no npm, npx, corepack or yarn. OS
   packages are upgraded to their latest fixes at build time.
+- The runtime user keeps uid 1000, so volumes from earlier images still work.
 - It runs with a read-only root filesystem, no Linux capabilities and no
   privilege escalation (`compose.yaml` sets this; CI tests the image the same
   way). With `docker run`, add the same:
