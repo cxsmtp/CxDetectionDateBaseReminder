@@ -250,6 +250,10 @@
                 <label class="pill-check"><input type="checkbox" class="alloc-sev" value="MEDIUM" /> <span>Medium</span></label>
                 <label class="pill-check"><input type="checkbox" class="alloc-sev" value="LOW" /> <span>Low</span></label>
               </div>
+              <div class="alloc-row verify-row">
+                <button id="alloc-verify" type="button" data-needs-data>Refresh &amp; verify with Checkmarx One</button>
+                <span class="hint" id="alloc-verified">Re-reads the findings (someone may be working on them) and confirms the credits needed with Checkmarx One twice. Nothing is allocated from an unconfirmed count.</span>
+              </div>
               <div class="alloc-steps">
                 <div class="alloc-step" id="step-triage">
                   <div class="step-head"><span class="step-no">1</span><strong>AI Triage</strong></div>

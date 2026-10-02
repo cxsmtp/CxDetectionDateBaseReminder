@@ -10,11 +10,11 @@ import { filterProjectsByActivity, getLastScans, lastScanDate, listProjects } fr
 import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, selectRisks, summariseProject } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject, projectsInScope, scanInitiator, scanInitiatorEmail } from './cxone/initiators.js';
-import { resolveAiIds, resultRowsFor } from './cxone/ai-assist.js';
+import { AI_SCANNERS, resolveAiIds, resultRowsFor } from './cxone/ai-assist.js';
 import { mapWithConcurrency } from './cxone/client.js';
 import { ReportGrants } from './report-grants.js';
 import { CREDIT_COST, CreditLedger, monthOf } from './credits.js';
-import { CreditAllocations, REMEDIABLE_STATE, alreadySent, remediable, remediationCandidates, toTriageCount } from './credit-allocations.js';
+import { CreditAllocations, REMEDIABLE_STATE, alreadySent, billingUnit, remediable, remediationCandidates, toTriageCount, triageRows } from './credit-allocations.js';
 import { poolSummary, resolveRange, usageSeries } from './credit-usage.js';
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
@@ -1519,6 +1519,7 @@ async function runScan(req, { onStart, onProject } = {}) {
     summary.url = projectUrl(summary, req.session.connection, settings.links);
   }
   result.initiators = initiators.byProject;
+  result.detectionWindow = detectionWindow;
   // Fetching shows what the findings need; it never allocates anything.
   for (const summary of result.projects) summary.credits = creditView(summary);
   req.session.lastScan = result;
@@ -2896,6 +2897,124 @@ function scanProjects(req, projectIds) {
 const cleanSeverities = (list) =>
   [...new Set((Array.isArray(list) ? list : []).map((s) => String(s).toUpperCase()))].filter((s) => SEVERITIES.includes(s));
 
+// ---------------------------------------------------------------------------
+// Verified credit needs: confirmed with Checkmarx One twice before any demand
+// ---------------------------------------------------------------------------
+
+/** A verification is good for this long; allocating "what is needed" asks for a fresh one after that. */
+const VERIFY_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * One complete, independent read from Checkmarx One of what a project needs:
+ * its findings and their live states (risks API), then the scan results that
+ * AI Triage and AI Remediation would be sent (results API). Returns the exact
+ * billed result ids, not an estimate.
+ */
+async function readProjectNeed(session, project, { detectionWindow = null, scanIdOf = () => '', severities = null } = {}) {
+  const read = await collectProjectRisks(session.client, activeConfig(), [{ id: project.projectId, name: project.projectName }], { detectionWindow });
+  const summary = read.projects[0];
+  if (summary.error) throw Object.assign(new Error(`${project.projectName}: ${summary.error}`), { status: 502 });
+  const rule = severities?.length ? severities : allocations.severitiesOf(project.projectId);
+  const ai = summary.risks.filter((r) => rule.includes(r.severity) && AI_SCANNERS.has(r.scanner));
+  await resolveAiIds(session.client, ai, () => scanIdOf(project.projectId));
+  const triage = triageRows(summary.risks, rule, Date.now(), creditLedger.triagedAt(project.projectId));
+  const remediate = remediationCandidates(summary.risks, rule, creditLedger.remediatedIds(project.projectId));
+  const units = (rows) => [...new Set(rows.map(billingUnit))].sort();
+  return {
+    summary,
+    rule,
+    triage: { rows: triage.length, results: units(triage) },
+    remediation: { rows: remediate.length, results: units(remediate) },
+    // Findings the AI cannot act on (no result id in the latest scan): never billed, shown apart.
+    unresolved: ai.filter((r) => r.aiUnavailable).length,
+  };
+}
+
+/**
+ * Verify what projects need: two independent reads from Checkmarx One that must
+ * agree, result id for result id. On agreement the project's findings and
+ * credit needs are replaced by what Checkmarx One said; on disagreement (the
+ * data is changing, e.g. someone is triaging) nothing is trusted.
+ */
+/** Two independent reads of one project; `agreed` only when every billed result id matches. */
+async function doubleRead(session, project, options) {
+  const first = await readProjectNeed(session, project, options);
+  const second = await readProjectNeed(session, project, options);
+  const same = (a, b) => a.length === b.length && a.every((id, i) => id === b[i]);
+  const agreed =
+    same(first.triage.results, second.triage.results) &&
+    same(first.remediation.results, second.remediation.results) &&
+    first.rule.join() === second.rule.join();
+  return { first, second, agreed };
+}
+
+const DISAGREED = 'Checkmarx One gave different results on the two reads — the findings are changing (someone may be triaging). Refresh again in a moment.';
+
+async function verifyNeeds(session, projects, { severities = null } = {}) {
+  const scan = session.lastScan;
+  const options = { detectionWindow: scan?.detectionWindow ?? null, scanIdOf: (id) => scan?.initiators?.[id]?.scanId ?? '', severities };
+  const out = await mapWithConcurrency(projects, 3, async (p) => {
+    try {
+      const { first, second, agreed } = await doubleRead(session, p, options);
+      const verified = {
+        at: Date.now(),
+        agreed,
+        severities: second.rule,
+        triage: { rows: second.triage.rows, results: second.triage.results.length },
+        remediation: { rows: second.remediation.rows, results: second.remediation.results.length, credits: CREDIT_COST.remediation * second.remediation.results.length },
+        reads: [first.triage.results.length, second.triage.results.length],
+        unresolved: second.unresolved,
+      };
+      if (agreed) {
+        // The second read is what Checkmarx One holds now: it replaces the fetched rows.
+        const { risks, counts, bySeverity, totalRisks, oldestFirstDetectedAt, maxAgeDays } = second.summary;
+        Object.assign(p, { risks, counts, bySeverity, totalRisks, oldestFirstDetectedAt, maxAgeDays });
+        p.credits = creditView(p);
+        // The count the allocation will use must be the verified one, to the credit.
+        const need = allocations.need(p.projectId, p.risks);
+        const sameRule = second.rule.join() === allocations.severitiesOf(p.projectId).join();
+        if (sameRule && (need.toTriage !== verified.triage.results || need.toRemediate !== verified.remediation.results)) {
+          verified.agreed = false;
+          verified.reason = 'The credit count did not match the verified Checkmarx One results.';
+        }
+      } else {
+        verified.reason = DISAGREED;
+      }
+      p.verified = verified;
+      return { projectId: p.projectId, ...verified };
+    } catch (error) {
+      p.verified = { at: Date.now(), agreed: false, reason: `Could not read Checkmarx One: ${error.message}` };
+      return { projectId: p.projectId, ...p.verified };
+    }
+  });
+  return out;
+}
+
+const freshlyVerified = (p) =>
+  p.verified?.agreed && Date.now() - p.verified.at < VERIFY_TTL_MS && p.verified.severities.join() === allocations.severitiesOf(p.projectId).join();
+
+/**
+ * Refresh & verify: re-read the chosen projects from Checkmarx One twice. Their
+ * rows and credit needs are replaced by what Checkmarx One holds now, and only
+ * a verified need can be allocated.
+ */
+app.post(
+  '/api/credits/verify',
+  requirePermission('credits.view'),
+  afterFetch,
+  asyncRoute(async (req, res) => {
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+    const projects = scanProjects(req, req.body?.projectIds);
+    for (const p of projects) stateCache.delete(p.projectId);
+    const severities = cleanSeverities(req.body?.severities);
+    const results = await verifyNeeds(req.session, projects, { severities: severities.length ? SEVERITIES.filter((s) => severities.includes(s)) : null });
+    res.json({
+      verified: results,
+      projects: Object.fromEntries(projects.map((p) => [p.projectId, { ...projectRow(p), credits: p.credits, verified: p.verified }])),
+    });
+  }),
+);
+
 /**
  * Allocate credits to projects — only ever because someone asked here:
  *   allocate: ['triage', 'remediation']  give each project what its findings need and it does not have
@@ -2934,6 +3053,19 @@ app.post('/api/credits/allocate', requirePermission('credits.allocate'), afterFe
       const next = new Set(allocations.severitiesOf(p.projectId));
       for (const { severity, include } of changes) include ? next.add(severity) : next.delete(severity);
       allocations.setSeverities(p.projectId, p.projectName, SEVERITIES.filter((s) => next.has(s)));
+    }
+  }
+
+  // "What is needed" is only ever a need Checkmarx One confirmed twice, just now:
+  // read again here (after any severity change), and refused if the reads disagree.
+  if (needed.length) {
+    await verifyNeeds(req.session, projects.filter((p) => !freshlyVerified(p)));
+    const unverified = projects.filter((p) => !freshlyVerified(p));
+    if (unverified.length) {
+      if (changes.length) allocations.save();
+      const reason = `Not allocated: what ${unverified.length === 1 ? unverified[0].projectName : `${unverified.length} projects`} need${unverified.length === 1 ? 's' : ''} could not be confirmed twice with Checkmarx One. ${unverified[0].verified?.reason ?? ''}`.trim();
+      audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: 0, charged: 0 }, details: { projectIds: unverified.map((p) => p.projectId) } });
+      return res.status(409).json({ error: reason, unverified: unverified.map((p) => ({ projectId: p.projectId, projectName: p.projectName, reason: p.verified?.reason ?? '' })) });
     }
   }
 
@@ -3669,8 +3801,30 @@ app.post(
     for (const { projectId, projectName } of report.projects) {
       if (wanted.length) allocations.setSeverities(projectId, projectName, SEVERITIES.filter((s) => wanted.includes(s) || allocations.severitiesOf(projectId).includes(s)));
     }
+    // What is needed comes from two agreeing reads of Checkmarx One, never an estimate.
+    const verifiedRisks = new Map();
+    if (wanted.length) {
+      const lastScans = await getLastScans(req.session.client, report.projects.map((p) => p.projectId)).catch(() => ({}));
+      const scanIdOf = (id) => String(lastScans?.[id]?.id ?? lastScans?.[id]?.scanId ?? '');
+      const refused = [];
+      await mapWithConcurrency(report.projects, 3, async (p) => {
+        try {
+          const { second, agreed } = await doubleRead(req.session, p, { scanIdOf });
+          if (agreed) verifiedRisks.set(p.projectId, second.summary.risks);
+          else refused.push(`${p.projectName}: ${DISAGREED}`);
+        } catch (error) {
+          refused.push(`${p.projectName}: could not read Checkmarx One (${error.message})`);
+        }
+      });
+      if (refused.length) {
+        allocations.save();
+        const reason = `Not allocated: what the report's projects need could not be confirmed twice with Checkmarx One. ${refused[0]}`;
+        audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: 0, charged: 0 }, details: { report: report.id } });
+        return res.status(409).json({ error: reason });
+      }
+    }
     const plan = report.projects.map(({ projectId, projectName }) => {
-      const { shortfall } = allocations.need(projectId, byProject.get(projectId) ?? []);
+      const { shortfall } = allocations.need(projectId, verifiedRisks.get(projectId) ?? byProject.get(projectId) ?? []);
       return { projectId, projectName, triage: wanted.length ? shortfall.triage : 0, remediation: wanted.length ? shortfall.remediation : 0 };
     });
     const given = plan.reduce((n, x) => n + x.triage + x.remediation + extraTriage + extraRemediation, 0);

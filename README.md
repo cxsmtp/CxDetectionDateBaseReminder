@@ -372,6 +372,18 @@ under the server's account.
     to triage" again and what is needed does not jump while AI Triage runs.
   - **Re-triage is refused while re-triage is off,** from the report, the
     dashboard and tracked reports alike, so it is never charged twice.
+  - **Needs are confirmed with Checkmarx One twice.** **Refresh & verify** (on
+    the Dashboard's credits panel) re-reads the chosen projects' findings and
+    the scan results AI Triage would be sent, twice, independently. The count
+    is shown as verified only when both reads agree, result id for result id,
+    and the rows are replaced by what Checkmarx One holds now (use it before
+    allocating if anyone may be working on the findings). Allocating "what is
+    needed", from the Dashboard or a tracked report, always reads twice itself
+    and refuses when the reads disagree. The panel shows rows and results
+    apart: rows that share one Checkmarx One result are triaged, and charged,
+    once (e.g. 12 rows can be 10 results, so 10 credits).
+    `test/verified-credits.e2e.test.js` covers agreement, the exact allocation,
+    and a refusal while results change between reads.
   - **Never two requests for one vulnerability.** Every path that sends AI
     Triage or AI Remediation (the Dashboard, tracked reports, the emailed
     report, any number of people or tabs at once) first claims the findings on

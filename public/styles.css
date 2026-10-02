@@ -1242,3 +1242,8 @@ body.fetching [data-needs-data] { opacity: 0.45; cursor: not-allowed; }
 @media (max-width: 760px) {
   .fetch-flare { left: 16px; right: 16px; bottom: calc(110px + env(safe-area-inset-bottom)); border-radius: 14px; }
 }
+
+/* Refresh & verify: the credits needed are confirmed with Checkmarx One twice. */
+.verify-row { align-items: center; gap: 12px; flex-wrap: wrap; }
+.verify-row .hint { flex: 1 1 320px; }
+.verified-ok { color: var(--ok); font-weight: 700; }
