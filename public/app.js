@@ -3569,6 +3569,10 @@ $('brand-logo-file').addEventListener('change', () => {
 (async function init() {
   try {
     state.health = await api('/api/health');
+    if (state.health.version) {
+      $('app-version').textContent = state.health.version;
+      $('app-version').hidden = false;
+    }
     applyAppBranding(state.health.app);
     for (const problem of state.health.problems) console.warn(problem);
     fillPresets('activity-preset', 'any');

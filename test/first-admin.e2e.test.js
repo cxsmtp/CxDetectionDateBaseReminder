@@ -37,6 +37,8 @@ test('the first sign-in is in the log and a private file, and the file goes once
   const password = fs.readFileSync(file, 'utf8').trim();
   assert.ok(password.length >= 16);
   if (process.platform !== 'win32') assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  assert.match(log, /Mission Zero MZ-\d{2}\.\d{2}\.\d{2} running/, 'the log shows the version');
+  assert.equal((await (await fetch(`${BASE}/api/health`)).json()).version.slice(0, 3), 'MZ-');
   assert.ok(log.includes('Email:    admin@mission-zero.local'), 'the log shows the email');
   assert.ok(log.includes(`Password: ${password}`), 'the log shows the password');
 

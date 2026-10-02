@@ -4,6 +4,7 @@ import path from 'node:path';
 import express from 'express';
 
 import { config, configProblems } from './config.js';
+import { APP_VERSION } from './version.js';
 import { filterProjectsByActivity, getLastScans, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, selectRisks, summariseProject } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
@@ -394,6 +395,7 @@ function activeConfig() {
 
 app.get('/api/health', (req, res) => {
   res.json({
+    version: APP_VERSION,
     problems: configProblems(config),
     riskSource: config.risks.source,
     buckets: AGE_BUCKETS.map(({ id, label }) => ({ id, label })),
@@ -4624,7 +4626,7 @@ async function verifyEnvironmentSmtp() {
 }
 
 const server = app.listen(config.port, config.host, async () => {
-  console.log(`Mission Zero running on http://${config.host}:${config.port}`);
+  console.log(`Mission Zero ${APP_VERSION} running on http://${config.host}:${config.port}`);
   console.log(`Settings file: ${settingsStore.file}`);
   for (const problem of configProblems(config)) console.warn(`! ${problem}`);
   await prepareAccess();
