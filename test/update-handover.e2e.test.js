@@ -46,6 +46,26 @@ test('saved sign-ins: ids only hashed, fetched data saved apart and read back wi
   assert.equal(fs.existsSync(path.join(dir, HANDOVER_FILE)), false);
 });
 
+test('fetched data is saved at once, then at most every SESSION_SAVE_SECONDS; a stop writes what is still waiting', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sessions-'));
+  const store = new SessionPersistence(dir);
+  const key = sessionKey('throttled');
+  store.saveIndex([{ key, userId: 'u1', via: 'password', createdAt: 1, lastUsedAt: Date.now() }]);
+  const scan = (n) => ({ projects: [{ projectId: `p${n}` }], detectionWindow: { from: null, to: null, label: 'x' } });
+  store.saveScan(key, scan(1));
+  await sleep(200);
+  assert.equal(store.readScan(key).projects[0].projectId, 'p1', 'the first save is written at once');
+  store.saveScan(key, scan(2));
+  store.saveScan(key, scan(3));
+  await sleep(200);
+  assert.equal(store.readScan(key).projects[0].projectId, 'p1', 'later ones wait their turn');
+  store.saveIndex([{ key, userId: 'u1', via: 'password', createdAt: 1, lastUsedAt: Date.now() }]);
+  assert.ok(fs.existsSync(path.join(dir, 'sessions', `${key}.scan.json.gz`)), 'a waiting save keeps its file');
+  store.flushSync();
+  assert.equal(store.readScan(key).projects[0].projectId, 'p3', 'a stop writes the latest at once');
+  store.forget(key);
+});
+
 test('instance lock: a live server keeps others out; a dead one is taken over; a clean stop frees it at once', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lock-'));
   const first = await new InstanceLock(dir).acquire();

@@ -344,6 +344,23 @@ async function readProject(source, project, detectionWindow, shared) {
 }
 
 /**
+ * normalizeRisk for a raw record that recent reads share between people: worked out once
+ * per record, project and day, then handed out as a copy (each session may change its
+ * own, e.g. a state read again). Re-normalising every record on every fetch was a
+ * measurable share of the server's time and of its garbage.
+ */
+const normalized = new WeakMap(); // raw record -> {stamp, risk}
+function normalizeShared(item, project, now) {
+  if (!item || typeof item !== 'object') return normalizeRisk(item, project, now);
+  const stamp = `${project.id}\u0000${project.name}\u0000${Math.floor(now.getTime() / 86_400_000)}`;
+  const known = normalized.get(item);
+  if (known?.stamp === stamp) return { ...known.risk };
+  const risk = normalizeRisk(item, project, now);
+  normalized.set(item, { stamp, risk });
+  return { ...risk };
+}
+
+/**
  * Read and summarise `projects`. With `shared` ({identity, lastScans, fresh}),
  * recent reads by others on the same Checkmarx One key are reused (see
  * projectReads); `reused` in the result counts them.
@@ -366,7 +383,7 @@ export async function collectProjectRisks(
       const { items: raw, reused: wasReused } = await readProject(source, project, detectionWindow, shared);
       if (wasReused) reusedHere += 1;
       const risks = raw
-        .map((item) => normalizeRisk(item, project, now))
+        .map((item) => normalizeShared(item, project, now))
         // The server already applied the window where it could; this also
         // covers the fallback source and any record with an unusable date.
         .filter((risk) => withinWindow(detectionWindow, risk.firstDetectedAt));

@@ -44,26 +44,42 @@ jobs:
           PW=$(docker exec mz cat /data/first-admin-password.txt)
           test -n "$PW"
           docker logs mz 2>&1 | grep -qF "Password: $PW"
-          curl -sf -H 'Content-Type: application/json' \
+          curl -skf -H 'Content-Type: application/json' \
             -d "{\"email\":\"admin@mission-zero.local\",\"password\":\"$PW\"}" \
-            http://127.0.0.1:3000/api/session/password | grep -q '"signedIn":true'
+            https://127.0.0.1:3000/api/session/password | grep -q '"signedIn":true'
           docker exec mz git --version
           # The version is in the log and on /api/health (shown bottom-left in the app).
           docker logs mz 2>&1 | grep -qE 'CxMissionZero MZ-[0-9]{2}\.[0-9]{2}\.[0-9]{2} running'
-          curl -sf http://127.0.0.1:3000/api/health | grep -qE '"version":"MZ-[0-9]{2}\.[0-9]{2}\.[0-9]{2}"'
+          curl -skf https://127.0.0.1:3000/api/health | grep -qE '"version":"MZ-[0-9]{2}\.[0-9]{2}\.[0-9]{2}"'
           # TZ works from the ICU data Node.js carries (the image has no tzdata).
           docker exec mz node -e "process.exit(Intl.DateTimeFormat().resolvedOptions().timeZone === 'Asia/Dubai' ? 0 : 1)"
           # The runtime image carries no package manager (fewer components, fewer CVEs).
           if docker exec mz sh -c 'command -v npm || command -v npx || command -v yarn'; then echo 'a package manager is still in the image'; exit 1; fi
           # Security headers on the pages.
-          curl -sfI http://127.0.0.1:3000/ | grep -qi "content-security-policy: .*frame-ancestors 'none'"
-          curl -sfI http://127.0.0.1:3000/ | grep -qi 'x-frame-options: DENY'
+          curl -skfI https://127.0.0.1:3000/ | grep -qi "content-security-policy: .*frame-ancestors 'none'"
+          curl -skfI https://127.0.0.1:3000/ | grep -qi 'x-frame-options: DENY'
           docker exec mz node scripts/reset-admin.mjs | grep -q 'Password: '
           docker restart mz && sleep 5
           test "$(docker logs --since 5s mz 2>&1 | grep -c 'Password:')" = 0
           # A stop (as an update does) finishes cleanly through tini, and the restarted server takes the data folder at once.
           docker logs mz 2>&1 | grep -q 'Stopped cleanly'
-          curl -sf http://127.0.0.1:3000/api/health > /dev/null
+          curl -skf https://127.0.0.1:3000/api/health > /dev/null
+          # HTTPS is the image's default; without a certificate given it serves a self-signed one, says so, and sends no HSTS.
+          docker logs mz 2>&1 | grep -q 'running on https://'
+          docker logs mz 2>&1 | grep -q 'Self-signed: traffic is encrypted'
+          if curl -skfI https://127.0.0.1:3000/ | grep -qi 'strict-transport-security'; then echo 'HSTS with a self-signed certificate'; exit 1; fi
+          if curl -sf http://127.0.0.1:3000/api/health > /dev/null 2>&1; then echo 'plain http answered on the https port'; exit 1; fi
+      - name: HTTPS=off serves plain http (a laptop, or behind a reverse proxy)
+        run: |
+          docker run -d --name mz-http -p 3001:3000 -e HTTPS=off --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true mission-zero:test
+          for i in $(seq 1 30); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' mz-http)" = healthy ] && break
+            sleep 2
+          done
+          docker logs mz-http
+          test "$(docker inspect -f '{{.State.Health.Status}}' mz-http)" = healthy
+          curl -sf http://127.0.0.1:3001/api/health | grep -q '"version":"MZ-'
+          docker logs mz-http 2>&1 | grep -q 'running on http://'
 
   publish:
     needs: smoke-test

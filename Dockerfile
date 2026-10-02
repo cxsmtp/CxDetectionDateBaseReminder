@@ -51,7 +51,11 @@ COPY scripts ./scripts
 RUN mkdir -p /data && chown -R node:node /data
 VOLUME ["/data"]
 
+# HTTPS=on: a production release serves HTTPS by default (your certificate via TLS_CERT_FILE /
+# TLS_KEY_FILE or TLS_PFX_FILE, else a self-signed one). -e HTTPS=off for plain http on a laptop,
+# or behind a reverse proxy that does HTTPS (docs/https-and-hosting.md).
 ENV NODE_ENV=production \
+    HTTPS=on \
     HOST=0.0.0.0 \
     PORT=3000 \
     DATA_DIR=/data \

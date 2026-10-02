@@ -31,6 +31,7 @@ function loadOrCreateKey(file) {
 
 export class ReportGrants {
   #key;
+  #verified = new Map(); // grant -> the message it was verified for
 
   /** @param {{file?: string, secret?: string}} options */
   constructor({ file, secret } = {}) {
@@ -51,14 +52,25 @@ export class ReportGrants {
     return { exp, grant: this.#mac(finding, exp) };
   }
 
-  /** '' when the finding's grant is valid, otherwise 'expired' or 'invalid'. */
+  /**
+   * '' when the finding's grant is valid, otherwise 'expired' or 'invalid'. A grant that
+   * verified once is remembered with the exact message it signs, so an open report polling
+   * every few seconds is not re-hashed each time: a later request is accepted from memory
+   * only when it names exactly the same fields and expiry (anything else is hashed again).
+   */
   verify(finding, now = Date.now()) {
     const exp = Number(finding?.exp);
     if (!Number.isFinite(exp)) return 'invalid';
     if (exp <= now) return 'expired';
-    const expected = Buffer.from(this.#mac(finding, exp));
-    const given = Buffer.from(String(finding.grant ?? ''));
-    return given.length === expected.length && timingSafeEqual(given, expected) ? '' : 'invalid';
+    const grant = String(finding.grant ?? '');
+    const message = [...FIELDS.map((field) => String(finding[field] ?? '')), String(exp)].join('\n');
+    if (this.#verified.get(grant) === message) return '';
+    const expected = Buffer.from(createHmac('sha256', this.#key).update(message).digest('base64url'));
+    const given = Buffer.from(grant);
+    if (given.length !== expected.length || !timingSafeEqual(given, expected)) return 'invalid';
+    this.#verified.set(grant, message);
+    if (this.#verified.size > 50_000) this.#verified.delete(this.#verified.keys().next().value);
+    return '';
   }
 }
 

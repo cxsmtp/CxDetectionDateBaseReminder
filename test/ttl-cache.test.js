@@ -81,3 +81,24 @@ test('the semaphore never exceeds its limit, and interactive work jumps the back
   assert.equal(peak, 2);
   assert.ok(order.indexOf('interactive') < order.indexOf('background-0'), `order: ${order.join(', ')}`);
 });
+
+test('a person waiting never joins a background load; later callers join theirs', async () => {
+  const cache = new TtlCache();
+  let releaseBackground;
+  let calls = 0;
+  cache.peek('k', () => new Promise((resolve) => { calls += 1; releaseBackground = () => resolve('background'); }), 60_000);
+  const clicked = cache.wrap('k', async () => { calls += 1; return 'interactive'; }, 60_000);
+  const joined = cache.wrap('k', async () => { calls += 1; return 'third'; }, 60_000);
+  assert.equal(await clicked, 'interactive', 'the click did not wait on the queued background read');
+  assert.equal(await joined, 'interactive');
+  assert.equal(calls, 2);
+  releaseBackground();
+  await new Promise((r) => setImmediate(r));
+  // Two background refreshes of one key still share a load.
+  let background = 0;
+  const slow = () => new Promise((resolve) => { background += 1; setTimeout(() => resolve('x'), 5); });
+  cache.delete('k');
+  cache.peek('k2', slow, 60_000);
+  cache.peek('k2', slow, 60_000);
+  assert.equal(background, 1);
+});

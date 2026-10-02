@@ -142,3 +142,22 @@ test('when the disk refuses a write, entries are held and written in order once 
   assert.equal(result.ok, true, JSON.stringify(result.problems));
   assert.equal(result.entries, 3);
 });
+
+test('a log already read is read again when changed underneath, and new entries are picked up', async () => {
+  const root = tmpDir();
+  const log = open(root);
+  for (let i = 0; i < 3; i += 1) log.record(charge('p1', 1), new Date(`2026-09-0${i + 1}T10:00:00Z`));
+  await log.settled();
+  assert.equal(log.verify().ok, true);
+  log.record(charge('p2', 1), new Date('2026-09-05T10:00:00Z'));
+  await log.settled();
+  const appended = log.verify();
+  assert.equal(appended.ok, true, JSON.stringify(appended.problems));
+  assert.equal(appended.entries, 4);
+  // Same length, different bytes: the parsed copy must not hide it.
+  const file = path.join(root, 'audit', 'audit-2026-09.jsonl');
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('"charged":1', '"charged":2'));
+  const tampered = log.verify();
+  assert.equal(tampered.ok, false);
+  assert.ok(tampered.problems.some((p) => p.seq === 1), JSON.stringify(tampered.problems));
+});

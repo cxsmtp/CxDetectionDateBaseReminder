@@ -34,7 +34,7 @@ docker compose up -d
 podman compose up -d
 ```
 
-Then open <http://localhost:3000>.
+Then open <https://localhost:3000>. The image serves HTTPS by default (`HTTPS=on`), with a self-signed certificate until you give it yours, so the browser warns once. For plain http on your own machine, add `-e HTTPS=off` and open <http://localhost:3000>. Certificates and hosting: [HTTPS and hosting](https-and-hosting.md).
 
 ## The administrator's sign-in
 

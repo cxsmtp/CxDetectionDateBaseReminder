@@ -62,7 +62,11 @@ export function viaTrustedProxy(req) {
 // req.secure already counts X-Forwarded-Proto, but only from a trusted proxy.
 const isHttps = (req) => Boolean(req.secure);
 
-export function securityHeaders({ scriptHashes = [] } = {}) {
+/**
+ * `hsts: false` when the certificate is self-signed: pinning browsers to HTTPS for a
+ * certificate nobody vouches for only locks them out if the server later goes back to http.
+ */
+export function securityHeaders({ scriptHashes = [], hsts = true } = {}) {
   const csp = contentSecurityPolicy(scriptHashes);
   return (req, res, next) => {
     res.set('X-Content-Type-Options', 'nosniff');
@@ -71,7 +75,7 @@ export function securityHeaders({ scriptHashes = [] } = {}) {
     res.set('Cross-Origin-Opener-Policy', 'same-origin');
     res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
     res.set('Content-Security-Policy', csp);
-    if (isHttps(req)) res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    if (hsts && isHttps(req)) res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     next();
   };
 }

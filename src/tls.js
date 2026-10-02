@@ -9,6 +9,11 @@
  *   3. TLS_SELF_SIGNED=1: a certificate made here and kept in DATA_DIR/tls, for
  *      trying it out or a closed network. Browsers warn about it until it is trusted.
  *
+ * HTTPS (the switch): `on` = always HTTPS, with 1 or 2 when given, else 3 (the
+ * container image's default, so a production release never serves plain http by
+ * accident); `off` = plain http (a laptop, or behind a reverse proxy that does
+ * HTTPS); unset = HTTPS only when a certificate option above is given.
+ *
  * Certificate files are re-read when they change (a renewal), without a restart.
  */
 
@@ -22,6 +27,9 @@ const readFile = (file) => fs.readFileSync(file);
 
 /** null when HTTPS is not configured; otherwise what https.createServer needs, plus how to reload it. */
 export function tlsConfig(env = process.env, dataDir = '') {
+  const mode = String(env.HTTPS ?? '').trim().toLowerCase();
+  if (/^(off|false|no|0)$/.test(mode)) return null;
+  if (mode && !/^(on|true|yes|1)$/.test(mode)) throw new Error(`HTTPS must be on or off, not "${env.HTTPS}".`);
   const certFile = env.TLS_CERT_FILE?.trim();
   const keyFile = env.TLS_KEY_FILE?.trim();
   const pfxFile = env.TLS_PFX_FILE?.trim();
@@ -34,7 +42,7 @@ export function tlsConfig(env = process.env, dataDir = '') {
   } else if (pfxFile) {
     files = [pfxFile];
     load = () => ({ pfx: readFile(pfxFile), passphrase: env.TLS_PFX_PASSPHRASE || undefined });
-  } else if (/^(1|true|yes|on)$/i.test(env.TLS_SELF_SIGNED ?? '')) {
+  } else if (mode || /^(1|true|yes|on)$/i.test(env.TLS_SELF_SIGNED ?? '')) {
     const names = selfSignedNames(env);
     const { cert, key } = ensureSelfSigned(path.join(dataDir || '.', 'tls'), names);
     files = [cert, key];

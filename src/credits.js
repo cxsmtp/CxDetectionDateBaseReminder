@@ -12,6 +12,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+/** Shared empties for projects with no history (callers only read them). */
+const EMPTY_MAP = new Map();
+const EMPTY_SET = new Set();
+
 
 export const monthOf = (date = new Date()) => date.toISOString().slice(0, 7);
 
@@ -120,12 +124,14 @@ export class CreditLedger {
    * vulnerable "To verify", so its state alone cannot say it was triaged.
    */
   triagedAt(projectId) {
-    return new Map(this.#triaged.get(projectId) ?? []);
+    // A read-only view, not a copy: asked for per project and per severity on every
+    // fetch and report poll, where copying the whole history was measurable.
+    return this.#triaged.get(projectId) ?? EMPTY_MAP;
   }
 
-  /** Findings of a project already sent for AI Remediation through this utility. */
+  /** Findings of a project already sent for AI Remediation through this utility (read-only view). */
   remediatedIds(projectId) {
-    return new Set(this.#remediated.get(projectId) ?? []);
+    return this.#remediated.get(projectId) ?? EMPTY_SET;
   }
 
   /** Credits these projects used since `since` (ISO time), by kind. */

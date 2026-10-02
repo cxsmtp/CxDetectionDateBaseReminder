@@ -405,7 +405,7 @@ function trustProxySetting(value, servingHttps) {
 app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY, Boolean(tls)));
 // Security headers on every response, including the static pages (src/security.js).
 app.disable('x-powered-by');
-app.use(securityHeaders({ scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')) }));
+app.use(securityHeaders({ scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')), hsts: !tls?.selfSigned }));
 // Big replies (the page's script, the fetch stream, full results, downloads) shrink
 // 5-10x for a remote office or VPN: brotli or gzip at a quick level, the fetch stream
 // flushed line by line. Small, frequent ones (report polls) are left alone: compressing
@@ -2196,7 +2196,8 @@ function reportServerWarnings(url) {
   try {
     const parsed = new URL(url);
     if (LOOPBACK.test(parsed.hostname)) warnings.push(`${parsed.hostname} only works on the computer running this server. Set the address others use to reach it.`);
-    if (parsed.protocol === 'http:' && !LOOPBACK.test(parsed.hostname)) warnings.push('Plain http: triage requests cross the network unencrypted. Prefer https behind a reverse proxy.');
+    if (parsed.protocol === 'http:' && !LOOPBACK.test(parsed.hostname)) warnings.push('Plain http: triage requests cross the network unencrypted. Serve HTTPS (docs/https-and-hosting.md).');
+    if (parsed.protocol === 'https:' && tls?.selfSigned && !LOOPBACK.test(parsed.hostname)) warnings.push('This server uses a self-signed certificate: reports reach it only from machines that trust it. Install your company certificate.');
   } catch {
     warnings.push('Not a valid address.');
   }
@@ -5516,6 +5517,9 @@ const server = (tls ? https.createServer(tls.options, app) : http.createServer(a
   console.log(`CxMissionZero ${APP_VERSION} running on ${tls ? 'https' : 'http'}://${config.host}:${config.port}`);
   if (tls) {
     console.log(`[https] ${tls.selfSigned ? 'Self-signed certificate (browsers warn until it is trusted)' : 'Certificate'}: ${describeCertificate(tls.options)}`);
+    if (tls.selfSigned) {
+      console.warn('! [https] Self-signed: traffic is encrypted, but browsers warn, and emailed reports reach this server only from machines that trust the certificate. For production give it your certificate (TLS_CERT_FILE and TLS_KEY_FILE, or TLS_PFX_FILE); for plain http on a laptop, HTTPS=off. See docs/https-and-hosting.md.');
+    }
     watchCertificate(server, tls);
   }
   console.log(`Settings file: ${settingsStore.file}`);

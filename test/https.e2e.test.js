@@ -73,7 +73,22 @@ test('a self-signed certificate is made with node alone, and covers the names as
   assert.equal(fs.statSync(first.key).mode & 0o777, 0o600, 'the key is private');
 });
 
-test('over self-signed HTTPS: health, HSTS, Secure cookie, http redirects, faked forwarded headers ignored', async () => {
+test('HTTPS=on is HTTPS whatever else is set (the image default), HTTPS=off is plain http, anything else is refused', () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'https-switch-'));
+  const on = tlsConfig({ HTTPS: 'on' }, dataDir);
+  assert.ok(on && on.selfSigned, 'no certificate given: self-signed');
+  assert.ok(fs.existsSync(path.join(dataDir, 'tls', 'self-signed.crt')));
+  const { cert, key } = selfSignedCertificate(['localhost']);
+  fs.writeFileSync(path.join(dataDir, 'own.crt'), cert);
+  fs.writeFileSync(path.join(dataDir, 'own.key'), key);
+  const own = tlsConfig({ HTTPS: 'on', TLS_CERT_FILE: path.join(dataDir, 'own.crt'), TLS_KEY_FILE: path.join(dataDir, 'own.key') }, dataDir);
+  assert.equal(own.selfSigned, false, 'a given certificate wins');
+  assert.equal(tlsConfig({ HTTPS: 'off', TLS_SELF_SIGNED: '1' }, dataDir), null, 'off wins');
+  assert.equal(tlsConfig({}, dataDir), null, 'unset and nothing given: plain http, as for npm start');
+  assert.throws(() => tlsConfig({ HTTPS: 'maybe' }, dataDir), /HTTPS must be on or off/);
+});
+
+test('over self-signed HTTPS: health, no HSTS, Secure cookie, http redirects, faked forwarded headers ignored', async () => {
   const port = await freePort();
   const redirect = await freePort();
   const server = start({ PORT: String(port), TLS_SELF_SIGNED: '1', TLS_HOSTNAMES: 'mz.acme.io', HTTP_REDIRECT_PORT: String(redirect), HTTPS_PUBLIC_PORT: String(port) });
@@ -85,7 +100,7 @@ test('over self-signed HTTPS: health, HSTS, Secure cookie, http redirects, faked
 
   const health = await request(`${base}/api/health`, { ca });
   assert.equal(health.status, 200, 'the certificate verifies for this address');
-  assert.match(health.headers['strict-transport-security'], /max-age=31536000/);
+  assert.equal(health.headers['strict-transport-security'], undefined, 'no HSTS for a certificate nobody vouches for');
 
   const signIn = await request(`${base}/api/session/password`, { method: 'POST', ca, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@acme.io', password: 'temporary password 1' }) });
   assert.ok(signIn.status < 300, `signed in (${signIn.status})`);
@@ -116,7 +131,9 @@ test('the company\'s own certificate (PEM), checked at start: a key that does no
   const port = await freePort();
   const good = start({ PORT: String(port), TLS_CERT_FILE: path.join(dir, 'server.crt'), TLS_KEY_FILE: path.join(dir, 'server.key') });
   await until(() => /\[https\] Certificate: CN=localhost/.test(good.log()));
-  assert.equal((await request(`https://127.0.0.1:${port}/api/health`, { ca: own.cert })).status, 200);
+  const ownHealth = await request(`https://127.0.0.1:${port}/api/health`, { ca: own.cert });
+  assert.equal(ownHealth.status, 200);
+  assert.match(ownHealth.headers['strict-transport-security'], /max-age=31536000/, 'HSTS with a real certificate');
 
   const bad = start({ PORT: String(await freePort()), TLS_CERT_FILE: path.join(dir, 'server.crt'), TLS_KEY_FILE: path.join(dir, 'other.key') });
   assert.equal(await bad.exited, 1);
