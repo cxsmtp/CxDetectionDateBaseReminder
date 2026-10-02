@@ -121,6 +121,7 @@ const idList = (value, max = 5000) => (Array.isArray(value) ? [...new Set(value.
 
 const iam = new IamStore({ file: path.join(dataDir, 'iam.json') });
 let setupCode = '';
+const DEFAULT_ADMIN_EMAIL = 'admin@mission-zero.local';
 /** The generated first administrator's one-time password, until they choose their own. */
 const firstAdminFile = path.join(dataDir, 'first-admin-password.txt');
 
@@ -132,7 +133,7 @@ async function prepareAccess() {
     try {
       const admin = await iam.createUser({ email, name: 'Administrator', role: 'admin', password, mustChangePassword: true });
       audit.record({ type: 'iam', outcome: 'changed', reason: `First administrator ${admin.email} created from ADMIN_EMAIL.`, actor: SYSTEM_ACTOR, details: { user: admin } });
-      console.log(`[access] First administrator ${admin.email} created from ADMIN_EMAIL; they choose a new password at first sign-in.`);
+      console.log('[access] First administrator created from ADMIN_EMAIL; they choose a new password at first sign-in.');
       return;
     } catch (error) {
       console.warn(`! [access] ADMIN_EMAIL / ADMIN_PASSWORD could not be used: ${error.message}`);
@@ -150,7 +151,7 @@ async function prepareAccess() {
   // Default (and in containers): generate the first administrator. The password
   // never goes to the log (logs are often shipped elsewhere): it is written to a
   // file only this server's user can read, removed once they choose their own.
-  const adminEmail = email || 'admin@mission-zero.local';
+  const adminEmail = email || DEFAULT_ADMIN_EMAIL;
   const generated = generatePassword();
   const admin = await iam.createUser({ email: adminEmail, name: 'Administrator', role: 'admin', password: generated, mustChangePassword: true });
   fs.writeFileSync(firstAdminFile, `${generated}\n`, { mode: 0o600 });
@@ -158,7 +159,8 @@ async function prepareAccess() {
   const line = '='.repeat(64);
   console.log(`\n${line}`);
   console.log('  First start: an administrator was created.');
-  console.log(`      Email:  ${admin.email}`);
+  // Addresses stay out of the log; the default one is a constant, not personal data.
+  console.log(`      Email:  ${email ? 'the ADMIN_EMAIL address' : DEFAULT_ADMIN_EMAIL}`);
   console.log(`      Their one-time password is in ${firstAdminFile}`);
   console.log(`      In a container: docker exec <name> cat ${firstAdminFile}`);
   console.log('  You choose your own password at first sign-in, and the file is then deleted.');
@@ -1858,6 +1860,21 @@ function reportServerWarnings(url) {
 
 const RELAY_MAX_FINDINGS = 500;
 
+/**
+ * What someone acting from a report is told when Checkmarx One fails: the kind
+ * of failure, not the raw upstream text. That text (hosts, paths, response
+ * bodies) is for administrators, and stays in the audit log and server log.
+ */
+function relayError(error) {
+  const status = Number(error?.status) || 0;
+  if (status === 401 || status === 403) return 'Checkmarx One refused the request. Ask your security team to check the reminder server.';
+  if (status === 402) return 'Checkmarx One has no AI credits left for this.';
+  if (status === 404) return 'Checkmarx One could not find this finding.';
+  if (status === 429) return 'Checkmarx One is busy. Try again in a minute.';
+  if (status >= 400 && status < 500) return `Checkmarx One did not accept the request (${status}).`;
+  return 'Checkmarx One could not be reached. Try again later.';
+}
+
 function grantedFindings(req, res, { type = '', actor = null } = {}) {
   const list = Array.isArray(req.body?.findings) ? req.body.findings : [];
   if (list.length === 0 || list.length > RELAY_MAX_FINDINGS) {
@@ -2333,7 +2350,7 @@ app.post(
         touchProject(projectId);
         results.push({ alternateIds, ok: true, published });
       } catch (error) {
-        results.push({ alternateIds, ok: false, status: error.status ?? 0, error: error.message });
+        results.push({ alternateIds, ok: false, status: error.status ?? 0, error: relayError(error) });
         auditCredit({
           ...base, outcome: 'failed', reason: error.message,
           upstream: { call: 'POST /api/ai-triage/triage', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
@@ -2512,7 +2529,7 @@ app.post(
       try {
         statesByProject.set(projectId, await projectStates(session, projectId));
       } catch (error) {
-        stateErrors.set(projectId, error.message);
+        stateErrors.set(projectId, relayError(error));
         console.warn(`[relay] could not read risk states for project ${logSafe(projectId)}: ${logSafe(error.message)}`);
       }
     });
@@ -2718,7 +2735,7 @@ app.post(
           ? 'Checkmarx One has no credits left for AI Remediation.'
           : error.status === 403
             ? "The reminder server's Checkmarx One account is not allowed to run AI Remediation."
-            : `AI Remediation could not start: ${error.message}`,
+            : `AI Remediation could not start: ${relayError(error)}`,
       });
     } finally {
       reservation.release();
@@ -2739,7 +2756,8 @@ app.post(
       const body = await remediationDetails(session, finding);
       res.json(body ? { found: true, body } : { found: false });
     } catch (error) {
-      res.status(502).json({ error: `Could not read the AI Remediation result: ${error.message}` });
+      console.warn(`[relay] could not read the AI Remediation result of ${logSafe(finding.riskId)}: ${logSafe(error.message)}`);
+      res.status(502).json({ error: `Could not read the AI Remediation result: ${relayError(error)}` });
     }
   }),
 );
