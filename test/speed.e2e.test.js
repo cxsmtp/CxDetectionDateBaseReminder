@@ -95,14 +95,17 @@ test('a project read moments ago is reused by the next fetch; fresh and triage s
   assert.equal((await mockStats()).counts.risks, PROJECTS * Math.ceil(RISKS / 200), 'fresh: every page read again');
 });
 
-test('replies are compressed for clients that accept it, and plain for those that do not', async () => {
-  const big = await admin('GET', '/api/scan', null, { 'Accept-Encoding': 'br' });
-  assert.equal(big.status, 200);
-  assert.equal(big.headers.get('content-encoding'), 'br');
-  assert.equal(big.body.projects.length, PROJECTS);
-  const plain = await admin('GET', '/api/scan', null, { 'Accept-Encoding': 'identity' });
-  assert.equal(plain.headers.get('content-encoding'), null);
-  assert.equal(plain.body.projects.length, PROJECTS);
+test('big replies are compressed for clients that accept it; small, frequent ones and other clients get them plain', async () => {
+  const script = await fetch(`${BASE}/app.js`, { headers: { 'Accept-Encoding': 'br' } });
+  assert.equal(script.headers.get('content-encoding'), 'br', 'the page script');
+  assert.match(await script.text(), /flare/);
+  const plainScript = await fetch(`${BASE}/app.js`, { headers: { 'Accept-Encoding': 'identity' } });
+  assert.equal(plainScript.headers.get('content-encoding'), null);
+  // A small reply (here a few projects' summaries) is not worth the CPU.
+  const small = await admin('GET', '/api/scan', null, { 'Accept-Encoding': 'gzip, br' });
+  assert.equal(small.status, 200);
+  assert.equal(small.headers.get('content-encoding'), null);
+  assert.equal(small.body.projects.length, PROJECTS);
 });
 
 test('a report opens with one call: status, credits and where every finding stands', async () => {

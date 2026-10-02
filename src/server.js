@@ -377,17 +377,24 @@ const app = express();
 // Security headers on every response, including the static pages (src/security.js).
 app.disable('x-powered-by');
 app.use(securityHeaders({ scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')) }));
-// Replies are mostly JSON, which shrinks 5-10x: brotli or gzip at a quick level,
-// for whatever the browser or report accepts. The fetch stream is flushed line by line.
+// Big replies (the page's script, the fetch stream, full results, downloads) shrink
+// 5-10x for a remote office or VPN: brotli or gzip at a quick level, the fetch stream
+// flushed line by line. Small, frequent ones (report polls) are left alone: compressing
+// hundreds a second costs a 2-CPU server more than it saves (docs/performance.md).
+// HTTP_COMPRESSION=off leaves it all to a reverse proxy; HTTP_COMPRESSION_MIN_KB sets the size.
 const COMPRESSION = String(process.env.HTTP_COMPRESSION ?? 'on').toLowerCase() !== 'off';
-if (COMPRESSION) app.use(
-  compression({
-    threshold: 1024,
-    level: 4,
-    brotli: { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } },
-    filter: (req, res) => /ndjson/i.test(String(res.getHeader('Content-Type') ?? '')) || compression.filter(req, res),
-  }),
-);
+const COMPRESSION_MIN_BYTES = Math.max(0, Number(process.env.HTTP_COMPRESSION_MIN_KB ?? 32) || 0) * 1024;
+if (COMPRESSION) {
+  app.use(
+    compression({
+      threshold: COMPRESSION_MIN_BYTES,
+      level: 4,
+      brotli: { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } },
+      // The fetch stream has no length up front, so it is compressed whatever its size.
+      filter: (req, res) => /ndjson/i.test(String(res.getHeader('Content-Type') ?? '')) || compression.filter(req, res),
+    }),
+  );
+}
 // Stopping for an update: requests in progress finish; new ones are told to retry in a moment
 // (reports and the page do), so nothing is lost and nobody sees an error.
 let draining = false;
