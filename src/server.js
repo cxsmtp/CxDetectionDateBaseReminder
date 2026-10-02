@@ -379,7 +379,8 @@ app.disable('x-powered-by');
 app.use(securityHeaders({ scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')) }));
 // Replies are mostly JSON, which shrinks 5-10x: brotli or gzip at a quick level,
 // for whatever the browser or report accepts. The fetch stream is flushed line by line.
-app.use(
+const COMPRESSION = String(process.env.HTTP_COMPRESSION ?? 'on').toLowerCase() !== 'off';
+if (COMPRESSION) app.use(
   compression({
     threshold: 1024,
     level: 4,
