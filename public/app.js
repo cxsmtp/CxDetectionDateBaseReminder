@@ -1529,6 +1529,9 @@ function toggleRange(prefix) {
 
 function windowParams() {
   const params = new URLSearchParams();
+  // Named projects (by id) and people: only these are fetched.
+  for (const id of scopePick.projects.keys()) params.append('project', id);
+  for (const who of scopePick.initiators) params.append('initiator', who);
   for (const prefix of ['activity', 'detection']) {
     const preset = $(`${prefix}-preset`).value;
     params.set(`${prefix}Preset`, preset);
@@ -1544,13 +1547,152 @@ const presetLabel = (id) => state.health?.windowPresets.find((p) => p.id === id)
 
 function updateScopeSummary() {
   const detection = $('detection-preset').value;
-  $('scope-summary').textContent =
-    `Projects: ${presetLabel($('activity-preset').value)} · Findings: ${presetLabel(detection)}`;
+  const named = scopePick.projects.size + scopePick.initiators.size;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const projectsPart = named
+    ? [
+        scopePick.projects.size && plural(scopePick.projects.size, 'named project'),
+        scopePick.initiators.size && `${scopePick.initiators.size === 1 ? '1 person' : `${scopePick.initiators.size} people`}'s projects`,
+      ].filter(Boolean).join(' + ')
+    : presetLabel($('activity-preset').value);
+  $('scope-summary').textContent = `Projects: ${projectsPart} · Findings: ${presetLabel(detection)}`;
+  // Naming projects or people replaces the "last scanned in" window.
+  $('activity-preset').disabled = Boolean(named);
+  $('activity-preset').title = named ? 'Named projects and people are fetched whatever their last scan date.' : '';
+  $('activity-hint').textContent = named
+    ? 'Not used while projects or people are named below: those are fetched whatever their last scan date.'
+    : 'Skips projects with no scan in this window.';
 
   $('detection-hint').textContent = ['7d', '30d'].includes(detection)
     ? `Only findings first seen in the ${presetLabel(detection).toLowerCase()} are counted, so the older age buckets will be empty.`
     : 'Sent to the API as fromDate/toDate, so it is filtered server-side.';
 }
+
+// ---------------------------------------------------------------------------
+// Scope: fetch only named projects, or the projects named people last scanned
+// ---------------------------------------------------------------------------
+
+const scopePick = { projects: new Map(), initiators: new Set(), options: null, loading: null };
+
+/** Project names and latest-scan initiators, for the suggestions (loaded on first use). */
+function loadScopeOptions() {
+  if (scopePick.options) return Promise.resolve(scopePick.options);
+  if (scopePick.loading) return scopePick.loading;
+  setScopeHint('Loading project names and who scanned them…');
+  scopePick.loading = api('/api/scope/options')
+    .then((data) => {
+      scopePick.options = data;
+      const projectList = $('scope-project-options');
+      const peopleList = $('scope-initiator-options');
+      projectList.replaceChildren(...data.projects.map((p) => Object.assign(document.createElement('option'), { value: p.name })));
+      peopleList.replaceChildren(
+        ...data.initiators.map((i) => Object.assign(document.createElement('option'), { value: i.initiator, label: `${i.email ? `${i.email} · ` : ''}${i.projects} project${i.projects === 1 ? '' : 's'}` })),
+      );
+      setScopeHint(data.warning || `${data.projects.length} projects, ${data.initiators.length} people. Pick as you type; Enter adds every project whose name contains the text.`, data.warning ? 'error' : '');
+      return data;
+    })
+    .catch((error) => {
+      if (!handleAuthLoss(error)) setScopeHint(`Could not load project names: ${error.message}`, 'error');
+      return null;
+    })
+    .finally(() => {
+      scopePick.loading = null;
+    });
+  return scopePick.loading;
+}
+
+function setScopeHint(text, kind = '') {
+  $('scope-pick-hint').textContent = text;
+  $('scope-pick-hint').className = `hint wide ${kind === 'error' ? 'error-hint' : ''}`;
+}
+
+/** Add the project with this exact name, else every project whose name contains the text. Returns how many. */
+async function addScopeProjects(text) {
+  const wanted = text.trim().toLowerCase();
+  if (!wanted) return 0;
+  const options = await loadScopeOptions();
+  if (!options) return 0;
+  const exact = options.projects.filter((p) => p.name.toLowerCase() === wanted);
+  const matches = exact.length ? exact : options.projects.filter((p) => p.name.toLowerCase().includes(wanted));
+  for (const p of matches) scopePick.projects.set(p.id, p.name);
+  if (!matches.length) setScopeHint(`No project name contains "${text.trim()}".`, 'error');
+  else if (!exact.length) setScopeHint(`Added ${matches.length} project${matches.length === 1 ? '' : 's'} whose name contains "${text.trim()}".`);
+  return matches.length;
+}
+
+function addScopeInitiator(text) {
+  const who = text.trim();
+  if (who) scopePick.initiators.add(who);
+}
+
+/** Chips, built from text nodes (names come from Checkmarx One). */
+function renderScopeChips() {
+  const draw = (box, entries, kind) => {
+    for (const chip of box.querySelectorAll('.scope-chip')) chip.remove();
+    const input = box.querySelector('input');
+    for (const [key, label] of entries) {
+      const chip = document.createElement('span');
+      chip.className = 'scope-chip';
+      const text = document.createElement('span');
+      text.textContent = label;
+      text.title = label;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', `Remove ${label}`);
+      remove.dataset.removeScope = kind;
+      remove.dataset.key = key;
+      chip.append(text, remove);
+      box.insertBefore(chip, input);
+    }
+  };
+  draw($('scope-projects'), [...scopePick.projects], 'project');
+  draw($('scope-initiators'), [...scopePick.initiators].map((who) => [who, who]), 'initiator');
+  updateScopeSummary();
+}
+
+for (const [inputId, kind] of [['scope-project-input', 'project'], ['scope-initiator-input', 'initiator']]) {
+  const input = $(inputId);
+  input.addEventListener('focus', () => loadScopeOptions());
+  const commit = async () => {
+    const value = input.value;
+    input.value = '';
+    if (kind === 'project') await addScopeProjects(value);
+    else addScopeInitiator(value);
+    renderScopeChips();
+  };
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ',' || event.key === 'Tab') {
+      if (!input.value.trim()) return;
+      event.preventDefault();
+      commit();
+    } else if (event.key === 'Backspace' && !input.value) {
+      const store = kind === 'project' ? scopePick.projects : scopePick.initiators;
+      const last = [...store.keys()].pop();
+      if (last !== undefined) {
+        store.delete(last);
+        renderScopeChips();
+      }
+    }
+  });
+  // Picking a suggestion fills the input with an exact value: add it straight away.
+  input.addEventListener('input', () => {
+    const value = input.value.trim().toLowerCase();
+    if (!value || !scopePick.options) return;
+    const exact = kind === 'project'
+      ? scopePick.options.projects.some((p) => p.name.toLowerCase() === value)
+      : scopePick.options.initiators.some((i) => i.initiator.toLowerCase() === value);
+    if (exact) commit();
+  });
+}
+
+$('scope-pick').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-remove-scope]');
+  if (!button) return;
+  if (button.dataset.removeScope === 'project') scopePick.projects.delete(button.dataset.key);
+  else scopePick.initiators.delete(button.dataset.key);
+  renderScopeChips();
+});
 
 // ---------------------------------------------------------------------------
 // Dashboard: table
@@ -2785,9 +2927,12 @@ async function fetchProjects() {
     for (const note of result.initiatorNotes ?? []) console.warn(note);
 
     const failed = result.projects.filter((p) => p.error).length;
-    const skipped = result.projectsSkipped
-      ? `, ${result.projectsSkipped} of ${result.projectsTotal} skipped (not scanned in ${result.windows.activity.label.toLowerCase()})`
-      : '';
+    const named = result.scope?.projects || result.scope?.initiators?.length;
+    const skipped = named
+      ? ` of ${result.projectsTotal}: only the projects and people named in the scope`
+      : result.projectsSkipped
+        ? `, ${result.projectsSkipped} of ${result.projectsTotal} skipped (not scanned in ${result.windows.activity.label.toLowerCase()})`
+        : '';
     $('fetch-meta').textContent =
       `${result.totals.risks} finding(s) in ${(result.elapsedMs / 1000).toFixed(1)}s via ${result.resolvedPath}` +
       (result.stats?.requests ? ` · ${result.stats.requests} API request(s)` : '');

@@ -123,6 +123,7 @@ const MATRIX = [
   ['POST', '/api/reports/html', {}, true, true, true],
   ['GET', '/api/automation', null, true, true, true],
   ['GET', '/api/credits/usage', null, true, true, true],
+  ['GET', '/api/scope/options', null, true, true, true],
   ['GET', '/api/settings/connections', null, true, true, true],
   ['POST', '/api/settings/notices/ack', {}, true, true, true],
   ['POST', '/api/tracked-reports', {}, true, true, false],

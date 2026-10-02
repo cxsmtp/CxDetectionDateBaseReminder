@@ -1205,3 +1205,17 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 .filters input[type="search"] { width: 180px; }
 .deliveries { margin-top: 8px; font-size: 13px; }
 .deliveries ul { margin: 6px 0 0; padding-left: 18px; max-height: 220px; overflow: auto; }
+
+/* Scope: fetch only named projects or people */
+.scope-pick { margin-top: 12px; }
+.scope-pick legend .muted { font-weight: 400; }
+.scope-pick-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px 16px; }
+.scope-pick .field { margin-bottom: 0; }
+.scope-pick .field > label { font-size: 12.5px; font-weight: 550; color: var(--muted); }
+.chip-input { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: var(--control-h); padding: 4px 6px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); }
+.chip-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.chip-input input { flex: 1 1 160px; min-width: 120px; border: 0 !important; box-shadow: none !important; outline: none; background: transparent; padding: 4px 6px; min-height: 0; }
+.scope-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 2px 4px 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--text); font-size: 12.5px; }
+.scope-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+.scope-chip button { min-height: 0; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; box-shadow: none; color: var(--muted); font-size: 15px; line-height: 1; }
+.scope-chip button:hover:not(:disabled) { background: var(--surface-3); color: var(--text); }

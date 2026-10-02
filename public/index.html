@@ -186,7 +186,7 @@
                     <label><span>From</span><input type="date" id="activity-from" /></label>
                     <label><span>To</span><input type="date" id="activity-to" /></label>
                   </div>
-                  <p class="hint">Skips projects with no scan in this window.</p>
+                  <p class="hint" id="activity-hint">Skips projects with no scan in this window.</p>
                 </fieldset>
 
                 <fieldset>
@@ -205,6 +205,27 @@
                   <p class="hint" id="fetch-meta"></p>
                 </fieldset>
               </div>
+
+              <fieldset class="scope-pick" id="scope-pick">
+                <legend>Only these projects or people <span class="muted">— optional</span></legend>
+                <div class="scope-pick-grid">
+                  <div class="field">
+                    <label for="scope-project-input">Projects, by name</label>
+                    <div class="chip-input" id="scope-projects">
+                      <input id="scope-project-input" list="scope-project-options" autocomplete="off" spellcheck="false" placeholder="Type a project name…" />
+                    </div>
+                    <datalist id="scope-project-options"></datalist>
+                  </div>
+                  <div class="field">
+                    <label for="scope-initiator-input">People who ran the latest scan</label>
+                    <div class="chip-input" id="scope-initiators">
+                      <input id="scope-initiator-input" list="scope-initiator-options" autocomplete="off" spellcheck="false" placeholder="Username or email…" />
+                    </div>
+                    <datalist id="scope-initiator-options"></datalist>
+                  </div>
+                </div>
+                <p class="hint wide" id="scope-pick-hint">Fetch just these, instead of every project: pick names as you type, or press Enter to add every project whose name contains the text. Named projects are fetched whatever their last scan date; "Findings first detected in" still applies.</p>
+              </fieldset>
             </section>
 
             <section class="kpis" id="totals-panel" hidden>
