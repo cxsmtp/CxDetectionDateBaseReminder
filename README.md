@@ -109,6 +109,9 @@ For production, put an HTTPS reverse proxy in front and set the **Reminder serve
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | The first administrator, created on first start. Default `admin@mission-zero.local` with a generated password printed in the log. |
 | `FIRST_ADMIN=setup-code` | Create the first administrator in the browser with a code from the log instead. |
 | `SESSION_IDLE_MINUTES` (480) | Idle sign-ins end after this. |
+| **GitHub (Beta)** | |
+| `GITHUB_TOKEN` ⬆ | A GitHub token for the Beta features (code authors, username matching). |
+| `GITHUB_API_URL`, `GITHUB_ORG` ⬆ | GitHub Enterprise API (e.g. `https://github.company.com/api/v3`), and your organisation. |
 | **Server** | |
 | `TZ` | Time zone for automation and email dates, e.g. `Asia/Dubai`. Default UTC. |
 | `NODE_OPTIONS` | e.g. `--max-old-space-size=2048` with `--memory 3g`. |

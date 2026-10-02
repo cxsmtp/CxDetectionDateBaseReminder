@@ -1133,7 +1133,7 @@ app.put(
 /** Configure from an uploaded .env file: the variables this person may set are saved, then checked. */
 app.post(
   '/api/settings/import-env',
-  requirePermission('integration.cxone', 'integration.smtp', 'settings.links'),
+  requirePermission('integration.cxone', 'integration.smtp', 'settings.links', 'beta.use'),
   asyncRoute(async (req, res) => {
     const vars = parseEnvText(req.body?.text);
     const { changes, applied, refused, ignored } = settingsFromEnv(vars, (permission) => can(req, permission));
@@ -1155,6 +1155,7 @@ app.post(
     }
     if (changes.smtp) settingsStore.save({ smtp: changes.smtp });
     if (changes.links) settingsStore.save({ links: changes.links });
+    if (changes.github) settingsStore.save({ beta: { github: changes.github } });
     guard.touch();
     const actor = await adminActor(req);
     audit.record({ type: 'settings', outcome: 'changed', reason: `Settings imported from a .env file: ${applied.join(', ')}.`, actor, details: { applied, refused, ignored, secrets: applied.filter((n) => SECRET_VARIABLES.has(n)) } });
@@ -4808,10 +4809,80 @@ app.delete('/api/backup/restore', requirePermission('backup.manage'), asyncRoute
 
 const gitCacheDir = path.join(dataDir, 'git-cache');
 
-function githubClient(settings = settingsStore.get()) {
+/** The GitHub connection: what Settings stores, else GITHUB_TOKEN / GITHUB_API_URL / GITHUB_ORG from the environment. */
+function githubConfig(settings = settingsStore.get()) {
   const github = settings.beta?.github ?? {};
+  const env = (name) => String(process.env[name] ?? '').trim();
+  const defaultApi = !github.apiUrl || github.apiUrl === 'https://api.github.com';
+  return {
+    ...github,
+    token: github.token || env('GITHUB_TOKEN'),
+    tokenSource: github.token ? 'settings' : env('GITHUB_TOKEN') ? 'environment' : 'none',
+    apiUrl: defaultApi && env('GITHUB_API_URL') ? env('GITHUB_API_URL').replace(/\/+$/, '') : github.apiUrl || 'https://api.github.com',
+    org: github.org || env('GITHUB_ORG'),
+  };
+}
+
+function githubClient(settings = settingsStore.get()) {
+  const github = githubConfig(settings);
   return new GitHubClient({ token: github.token, apiUrl: github.apiUrl });
 }
+
+/**
+ * The three connections the header shows, green or red, with a few details:
+ * Checkmarx One (the server's integration), the mail server (passed its test
+ * with the current settings), GitHub (the token answers). GitHub is checked
+ * at most every 5 minutes, and again when its settings change.
+ */
+let githubCheck = { key: '', at: 0, result: null };
+async function connectionsStatus() {
+  const settings = settingsStore.get();
+  const cx = integrationStatus();
+  const smtp = settings.smtp ?? {};
+  const verified = isVerified(settings);
+  const gh = githubConfig(settings);
+  const ghKey = createHash('sha256').update(`${gh.apiUrl}|${gh.token}`).digest('hex');
+  if (gh.token && (githubCheck.key !== ghKey || Date.now() - githubCheck.at > 5 * 60_000)) {
+    try {
+      const user = await githubClient(settings).rest('/user');
+      githubCheck = { key: ghKey, at: Date.now(), result: { ok: true, login: user?.login ?? '' } };
+    } catch (error) {
+      githubCheck = { key: ghKey, at: Date.now(), result: { ok: false, reason: `GitHub refused the token: ${error.message}` } };
+    }
+  }
+  const ghResult = gh.token ? githubCheck.result : { ok: false, reason: 'No GitHub token: add GITHUB_TOKEN to the .env file, or set it on the Beta page.' };
+  return {
+    cxone: {
+      ok: cx.connected,
+      tenant: cx.connection?.tenant ?? '',
+      apiUrl: cx.connection?.baseUrl ?? '',
+      iamUrl: cx.connection?.iamUrl ?? '',
+      source: cx.source,
+      pending: cx.pending,
+      reason: cx.connected ? (cx.pending ? 'A changed connection is being checked; the last known good one is in use.' : '') : 'Not connected: an Admin connects it under Settings → Checkmarx One integration, or with CX_API_KEY.',
+    },
+    smtp: {
+      ok: Boolean(smtp.host) && verified,
+      host: smtp.host ?? '',
+      port: smtp.port ?? null,
+      tls: smtp.secure ? 'implicit TLS' : 'STARTTLS',
+      from: smtp.fromAddress || smtp.user || '',
+      verifiedAt: verified ? settings.verifiedAt ?? null : null,
+      reason: !smtp.host ? 'No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.' : verified ? '' : 'Not tested with these settings: Settings → Email server → Test connection.',
+    },
+    github: {
+      ok: Boolean(ghResult?.ok),
+      login: ghResult?.login ?? '',
+      apiUrl: gh.apiUrl,
+      org: gh.org ?? '',
+      source: gh.tokenSource,
+      checkedAt: gh.token ? new Date(githubCheck.at).toISOString() : null,
+      reason: ghResult?.ok ? '' : ghResult?.reason ?? '',
+    },
+  };
+}
+
+app.get('/api/connections', requireSession, asyncRoute(async (req, res) => res.json(await connectionsStatus())));
 
 /** Usernames worth matching: scan initiators that are not already addresses. */
 function initiatorLogins(lastScan) {

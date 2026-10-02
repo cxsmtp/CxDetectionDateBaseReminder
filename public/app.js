@@ -90,7 +90,153 @@ const logger = {
 const NEEDS_FETCHED_DATA = /^\/api\/(credits\/allocate|triage\/run|remediation\/run|tracked-reports\/[^/]+\/(allocate|triage))(\?|$)/;
 const FETCHING_MESSAGE = 'Data is still being fetched. Triage, remediation and credit allocation unlock when the fetch is complete.';
 
+// ---------------------------------------------------------------------------
+// Flares, bottom right: amber with a running mouse while an action is in
+// progress (and the part of the page it came from is paused), green when it
+// is done, red when it failed. One per action, so several can run at once.
+// ---------------------------------------------------------------------------
+
+const MOUSE_SVG = `<svg viewBox="0 0 48 30" aria-hidden="true">
+  <g class="mouse-dust"><circle cx="5" cy="25" r="1.6" fill="#a16207" /></g><g class="mouse-dust b"><circle cx="9" cy="27" r="1.2" fill="#a16207" /></g>
+  <g class="mouse-body">
+    <path class="mouse-tail" d="M12 17 C6 16 4 10 8 8" fill="none" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round" />
+    <line class="mouse-leg" x1="16" y1="21" x2="15" y2="26" stroke="#4b5563" stroke-width="1.8" stroke-linecap="round" />
+    <line class="mouse-leg b" x1="20" y1="22" x2="20" y2="27" stroke="#4b5563" stroke-width="1.8" stroke-linecap="round" />
+    <line class="mouse-leg b" x1="27" y1="22" x2="27" y2="27" stroke="#4b5563" stroke-width="1.8" stroke-linecap="round" />
+    <line class="mouse-leg" x1="31" y1="21" x2="32" y2="26" stroke="#4b5563" stroke-width="1.8" stroke-linecap="round" />
+    <ellipse cx="23" cy="17" rx="11" ry="6.5" fill="#9ca3af" />
+    <circle cx="35" cy="13.5" r="5.5" fill="#9ca3af" />
+    <circle cx="33" cy="8" r="3.6" fill="#9ca3af" /><circle cx="33" cy="8" r="2" fill="#f9a8d4" />
+    <circle cx="36.8" cy="12.5" r="0.95" fill="#111827" />
+    <circle cx="40.6" cy="14.6" r="1.15" fill="#f472b6" />
+    <path d="M39 16 l4 -0.6 M39 16.4 l3.8 1" stroke="#6b7280" stroke-width="0.6" />
+  </g></svg>`;
+const DONE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#16a34a" /><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>';
+const FAILED_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#dc2626" /><path d="M8 8l8 8M16 8l-8 8" stroke="#fff" stroke-width="2.4" stroke-linecap="round" /></svg>';
+
+const flares = new Map();
+let flareSeq = 0;
+/** Show or update the flare `key`: kind busy | done | failed. */
+function flare(key, kind, text, hint = '') {
+  let el = flares.get(key);
+  if (!el) {
+    el = document.createElement('div');
+    el.setAttribute('role', 'status');
+    if (key === 'fetch') el.id = 'fetch-flare';
+    el.innerHTML = '<span class="flare-icon"></span><span class="flare-text"><span class="flare-main"></span><small></small></span>';
+    $('flares').append(el);
+    flares.set(key, el);
+  }
+  clearTimeout(el.hideTimer);
+  if (el.dataset.kind !== kind) el.querySelector('.flare-icon').innerHTML = kind === 'busy' ? MOUSE_SVG : kind === 'done' ? DONE_SVG : FAILED_SVG;
+  el.dataset.kind = kind;
+  el.className = `flare ${kind}`;
+  el.querySelector('.flare-main').textContent = text;
+  el.querySelector('small').textContent = hint;
+  el.querySelector('small').hidden = !hint;
+  if (kind !== 'busy') {
+    el.hideTimer = setTimeout(() => {
+      el.remove();
+      flares.delete(key);
+    }, kind === 'done' ? 5000 : 10000);
+  }
+}
+
+/**
+ * What each action is called while it runs and when it is done. Anything not
+ * listed that changes something is "Working…" / "Done".
+ */
+const ACTIVITIES = [
+  ['PUT', /^\/api\/settings$/, 'Saving settings…', 'Settings saved', { lock: false, key: 'settings' }],
+  ['POST', /^\/api\/settings\/import-env$/, 'Applying the .env file and checking each connection…', '.env file applied'],
+  ['POST', /^\/api\/settings\/connections\/check$/, 'Checking the connections…', 'Connections checked'],
+  ['POST', /^\/api\/settings\/smtp\/test$/, 'Testing the mail server…', 'Mail server test finished'],
+  ['POST', /^\/api\/settings\/smtp\/send-test$/, 'Sending a test email…', 'Test email sent'],
+  ['POST', /^\/api\/settings\/template\/preview$/, 'Rendering the preview…', 'Preview ready', { quiet: true }],
+  ['POST', /^\/api\/integration\/cxone$/, 'Connecting to Checkmarx One…', 'Connected to Checkmarx One'],
+  ['DELETE', /^\/api\/integration\/cxone$/, 'Removing the stored Checkmarx One key…', 'Key removed'],
+  ['POST', /^\/api\/credits\/verify$/, 'Checking with Checkmarx One (two independent reads)…', 'Confirmed with Checkmarx One'],
+  ['POST', /^\/api\/credits\/refresh$/, 'Refreshing credits…', 'Credits refreshed', { quiet: true }],
+  ['POST', /^\/api\/credits\/allocate$/, 'Allocating credits…', 'Credits updated'],
+  ['POST', /^\/api\/triage\/run$/, 'Starting AI Triage…', 'AI Triage started'],
+  ['POST', /^\/api\/remediation\/run$/, 'Starting AI Remediation…', 'AI Remediation started'],
+  ['POST', /^\/api\/reminders$/, 'Sending reminders…', 'Reminders sent'],
+  ['POST', /^\/api\/reminders\/send-html-by-initiator$/, 'Sending the HTML reports…', 'HTML reports sent'],
+  ['POST', /^\/api\/initiators\/tag$/, 'Saving the address…', 'Address saved'],
+  ['POST', /^\/api\/tracked-reports$/, 'Saving the tracked report…', 'Tracked report saved'],
+  ['POST', /^\/api\/tracked-reports\/[^/]+\/refresh$/, 'Refreshing the tracked report…', 'Tracked report refreshed'],
+  ['POST', /^\/api\/tracked-reports\/[^/]+\/remind$/, 'Sending the follow-up…', 'Follow-up sent'],
+  ['POST', /^\/api\/tracked-reports\/[^/]+\/triage$/, 'Starting AI Triage for the tracked report…', 'AI Triage started'],
+  ['POST', /^\/api\/tracked-reports\/[^/]+\/allocate$/, 'Allocating credits for the tracked report…', 'Credits allocated'],
+  ['PUT', /^\/api\/tracked-reports\/[^/]+\/automation$/, 'Saving the follow-up schedule…', 'Schedule saved'],
+  ['DELETE', /^\/api\/tracked-reports\/[^/]+$/, 'Deleting the tracked report…', 'Tracked report deleted'],
+  ['POST', /^\/api\/automation\/run$/, 'Running automation…', 'Automation run finished'],
+  ['POST', /^\/api\/automation\/reset$/, 'Resetting automation history…', 'History reset'],
+  ['POST', /^\/api\/backup\/now$/, 'Backing up…', 'Backup written'],
+  ['POST', /^\/api\/backup\/restore$/, 'Checking the backup…', 'Backup checked'],
+  ['POST', /^\/api\/iam\//, 'Saving people and roles…', 'Saved'],
+  ['PATCH', /^\/api\/iam\//, 'Saving people and roles…', 'Saved'],
+  ['PUT', /^\/api\/iam\//, 'Saving people and roles…', 'Saved'],
+  ['DELETE', /^\/api\/iam\//, 'Removing…', 'Removed'],
+  ['POST', /^\/api\/me\/password$/, 'Changing your password…', 'Password changed'],
+  ['POST', /^\/api\/beta\/github\/evaluate$/, 'Matching GitHub usernames…', 'Matching finished'],
+  ['POST', /^\/api\/beta\/authors\/find$/, 'Finding who wrote the vulnerable code…', 'Authors found'],
+  ['POST', /^\/api\/beta\/authors\/notify$/, 'Emailing the code authors…', 'Code authors emailed'],
+  ['GET', /^\/api\/audit\/verify/, 'Verifying the audit log…', 'Audit log verified'],
+  ['GET', /^\/api\/audit\/reconcile/, 'Reconciling with the credit ledger…', 'Reconciled'],
+];
+const NO_FLARE = /^\/api\/(session|diagnostics\/client-error|settings\/notices\/ack)/;
+
+function activityFor(method, path) {
+  const route = path.split('?')[0];
+  if (NO_FLARE.test(route)) return null;
+  const hit = ACTIVITIES.find(([m, pattern]) => m === method && pattern.test(route));
+  if (hit) return { busy: hit[2], done: hit[3], ...(hit[4] ?? {}) };
+  return method === 'GET' ? null : { busy: 'Working…', done: 'Done' };
+}
+
+// What was clicked last: the origin of an action even when its button disabled itself (and lost focus) first.
+let lastClick = { el: null, at: 0 };
+document.addEventListener('click', (event) => (lastClick = { el: event.target, at: Date.now() }), true);
+
+/** Pause the button that started an action, and the part of the page around it, until it finishes. */
+function pauseOrigin() {
+  const focused = document.activeElement;
+  const origin = focused && focused !== document.body ? focused : Date.now() - lastClick.at < 3000 ? lastClick.el?.closest?.('button, input, select, label') ?? lastClick.el : null;
+  if (!origin || !origin.closest) return () => {};
+  const button = origin.matches('button, input[type="checkbox"], input[type="radio"], select') ? origin : null;
+  const area = origin.closest('.alloc-step, .panel, form, details.disclosure, .report-card, [data-report]');
+  const wasDisabled = button?.disabled;
+  if (button) button.disabled = true;
+  if (area) area.setAttribute('aria-busy', 'true');
+  return () => {
+    if (button && !wasDisabled) button.disabled = false;
+    if (area) area.removeAttribute('aria-busy');
+  };
+}
+
 async function api(path, options = {}) {
+  const method = options.method || 'GET';
+  const activity = options.quiet ? null : activityFor(method, path);
+  if (!activity || activity.quiet) return apiCall(path, options);
+  const key = activity.key ?? `act-${++flareSeq}`;
+  const resume = activity.lock === false ? () => {} : pauseOrigin();
+  flare(key, 'busy', activity.busy, activity.lock === false ? '' : 'In progress: this part of the page is paused until it finishes.');
+  try {
+    const result = await apiCall(path, options);
+    flare(key, 'done', activity.done);
+    if (method !== 'GET' && /^\/api\/(settings|integration|beta)/.test(path)) refreshConnectionsSoon();
+    return result;
+  } catch (error) {
+    flare(key, 'failed', `${activity.busy.replace(/…$/, '')} did not finish`, error.message);
+    if (/^\/api\/(settings|integration)/.test(path)) refreshConnectionsSoon();
+    throw error;
+  } finally {
+    resume();
+  }
+}
+
+async function apiCall(path, options = {}) {
   const method = options.method || 'GET';
   if (method !== 'GET' && state.fetching && NEEDS_FETCHED_DATA.test(path)) {
     const error = new Error(FETCHING_MESSAGE);
@@ -450,11 +596,101 @@ async function showConnected(me) {
   loadReportServer();
   if (me.configNotices?.length) showNotices(me.configNotices, { acknowledge: true });
   if (me.hasScan) restoreLastScan();
+  startConnections();
   if (!me.connection) {
     setStatus('status', can('integration.cxone')
       ? 'Connect this server to Checkmarx One under Settings → Checkmarx One before fetching.'
       : 'Checkmarx One is not connected on this server yet. Ask an Admin to connect it.', 'error');
   }
+}
+
+// ---------------------------------------------------------------------------
+// Connections in the header: Checkmarx One, email, GitHub — green when
+// working, red when not; click one for its details.
+// ---------------------------------------------------------------------------
+
+const CONNECTIONS = {
+  cxone: { title: 'Checkmarx One', settings: '#/settings', fields: (c) => [['Tenant', c.tenant], ['API', c.apiUrl], ['IAM', c.iamUrl], ['Key', c.source === 'environment' ? 'CX_API_KEY (environment)' : c.source === 'stored' ? 'stored in Settings' : c.source]] },
+  smtp: { title: 'Email server', settings: '#/settings', fields: (c) => [['Server', c.host ? `${c.host}:${c.port ?? ''}` : ''], ['Security', c.host ? c.tls : ''], ['From', c.from], ['Tested', c.verifiedAt ? new Date(c.verifiedAt).toLocaleString() : '']] },
+  github: { title: 'GitHub', settings: '#/beta', fields: (c) => [['Signed in as', c.login], ['API', c.apiUrl], ['Organisation', c.org], ['Token', c.source === 'environment' ? 'GITHUB_TOKEN (environment)' : c.source === 'settings' ? 'stored on the Beta page' : ''], ['Checked', c.checkedAt ? new Date(c.checkedAt).toLocaleTimeString() : '']] },
+};
+let connectionStatus = null;
+let connectionTimer = null;
+let connectionPoll = null;
+
+async function loadConnections() {
+  try {
+    connectionStatus = await api('/api/connections', { quiet: true });
+  } catch {
+    return;
+  }
+  renderConnections();
+}
+
+function refreshConnectionsSoon() {
+  clearTimeout(connectionTimer);
+  connectionTimer = setTimeout(loadConnections, 400);
+}
+
+function renderConnections() {
+  if (!connectionStatus) return;
+  for (const chip of document.querySelectorAll('.conn-chip')) {
+    const key = chip.dataset.conn;
+    const c = connectionStatus[key];
+    if (!c) continue;
+    chip.classList.toggle('ok', c.ok);
+    chip.classList.toggle('bad', !c.ok);
+    chip.title = `${CONNECTIONS[key].title}: ${c.ok ? 'connected' : 'not connected'}${c.reason ? ` — ${c.reason}` : ''}`;
+  }
+  const pop = $('conn-pop');
+  if (!pop.hidden && pop.dataset.conn) showConnection(pop.dataset.conn);
+}
+
+function showConnection(key) {
+  const c = connectionStatus?.[key];
+  const meta = CONNECTIONS[key];
+  const pop = $('conn-pop');
+  if (!c || !meta) return;
+  pop.dataset.conn = key;
+  const rows = meta.fields(c).filter(([, value]) => value);
+  pop.innerHTML = `<h3>${escapeHtml(meta.title)} <span class="conn-state ${c.ok ? 'ok' : 'bad'}">${c.ok ? 'Connected' : 'Not connected'}</span></h3>
+    ${rows.length ? `<dl>${rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd>`).join('')}</dl>` : ''}
+    ${c.reason ? `<p class="conn-reason">${escapeHtml(c.reason)}</p>` : ''}
+    <p class="conn-reason"><a href="${meta.settings}">${key === 'github' ? 'Beta page' : 'Settings'} →</a></p>`;
+  pop.hidden = false;
+}
+
+$('conn-group').addEventListener('click', (event) => {
+  const chip = event.target.closest('.conn-chip');
+  if (!chip) return;
+  const pop = $('conn-pop');
+  if (!pop.hidden && pop.dataset.conn === chip.dataset.conn) {
+    pop.hidden = true;
+    return;
+  }
+  showConnection(chip.dataset.conn);
+  loadConnections();
+});
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('#conn-group')) $('conn-pop').hidden = true;
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') $('conn-pop').hidden = true;
+});
+
+function startConnections() {
+  $('connection').hidden = true;
+  $('conn-group').hidden = false;
+  loadConnections();
+  clearInterval(connectionPoll);
+  connectionPoll = setInterval(loadConnections, 60_000);
+}
+
+function stopConnections() {
+  clearInterval(connectionPoll);
+  $('conn-group').hidden = true;
+  $('conn-pop').hidden = true;
+  $('connection').hidden = false;
 }
 
 /** Not signed in: setup (first start), sign-in, or a required password change. */
@@ -464,6 +700,7 @@ function showSignIn({ setup = false, change = false, message = '' } = {}) {
   state.connection = null;
   state.projects = [];
   state.selected.clear();
+  stopConnections();
   $('connection').textContent = setup ? 'First start' : 'Signed out';
   $('connection').className = 'sub conn-pill';
   setPageTitle('connect');
@@ -3150,15 +3387,9 @@ async function streamScan(path, on = {}) {
   return done;
 }
 
-/** The flare in the bottom-right corner: amber while fetching, green when complete, red if it failed. */
-let flareTimer = null;
+/** The data fetch's flare (the same flares every action uses). */
 function fetchFlare(kind, text) {
-  const flare = $('fetch-flare');
-  clearTimeout(flareTimer);
-  flare.className = `fetch-flare ${kind}`;
-  $('fetch-flare-text').textContent = text;
-  flare.hidden = false;
-  if (kind === 'done') flareTimer = setTimeout(() => (flare.hidden = true), 8000);
+  flare('fetch', kind, text, kind === 'busy' ? 'Triage, remediation and credits wait until it is complete.' : '');
 }
 
 /** Totals from the rows that have arrived so far. */

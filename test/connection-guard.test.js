@@ -70,6 +70,15 @@ test('.env variables become settings, only those this person may change', () => 
   assert.deepEqual(linksOnly.refused.sort(), ['CX_API_KEY', 'CX_TENANT', 'SMTP_HOST', 'SMTP_PASS', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER']);
 });
 
+test('a .env file can set the GitHub connection for the Beta features, only for people who may use them', () => {
+  const vars = parseEnvText('GITHUB_TOKEN=ghp_example\nGITHUB_API_URL=https://github.acme.io/api/v3\nGITHUB_ORG=acme\n');
+  const all = settingsFromEnv(vars);
+  assert.deepEqual(all.changes.github, { token: 'ghp_example', apiUrl: 'https://github.acme.io/api/v3', org: 'acme' });
+  const noBeta = settingsFromEnv(vars, (permission) => permission !== 'beta.use');
+  assert.equal(noBeta.changes.github, undefined);
+  assert.deepEqual(noBeta.refused.sort(), ['GITHUB_API_URL', 'GITHUB_ORG', 'GITHUB_TOKEN']);
+});
+
 test('the credit pool: used by kind, left, given to projects and free to give', () => {
   const allocations = [
     { triage: { allocated: 10, used: 4, remaining: 6 }, remediation: { allocated: 9, used: 3, remaining: 6 } },
