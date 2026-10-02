@@ -98,3 +98,18 @@ test('when Checkmarx One gives different answers on the two reads, nothing is al
   const ok = await admin('POST', '/api/credits/allocate', { projectIds: ['p1'], allocate: ['triage'] });
   assert.equal(ok.status, 200, JSON.stringify(ok.body));
 });
+
+test('the troubleshooting log records the disagreement, and holds nothing sensitive', async () => {
+  const r = await fetch(`${BASE}/api/diagnostics/download`, { headers: { Cookie: cookie } });
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-disposition'), /attachment; filename="mission-zero-troubleshooting-MZ-/);
+  const text = await r.text();
+  const log = JSON.parse(text);
+  assert.ok(log.discrepancies.byEvent['credit-verify-disagreed'] >= 1, 'the two disagreeing reads are in the log');
+  assert.ok(log.features['POST /api/credits/verify']?.uses >= 1, 'feature usage is counted');
+  assert.ok(log.recommendations.length >= 1);
+  for (const leak of ['admin@acme.io', '127.0.0.1', 'Project 0', 'Project 1', KEY, 'correct horse battery', 'acme']) {
+    assert.ok(!text.includes(leak), `the log must not contain ${leak}`);
+  }
+});
+

@@ -173,6 +173,12 @@ export async function sendTestEmail(smtp, to) {
  * @param {{subject: string, html: string, text: string}} message
  * @param {{to?: string[], cc?: string[], bcc?: string[], attachments?: object[]}} [overrides]
  */
+/** Told about every failed send (for the troubleshooting log); never given the message or addresses. */
+let onSendFailure = null;
+export function onMailFailure(fn) {
+  onSendFailure = fn;
+}
+
 export async function sendReminderMail(settings, message, overrides = {}) {
   if (!isVerified(settings)) {
     throw new MailError(
@@ -219,6 +225,11 @@ export async function sendReminderMail(settings, message, overrides = {}) {
       recipients: { to, cc, bcc },
     };
   } catch (error) {
+    try {
+      onSendFailure?.(error);
+    } catch {
+      /* never in the way of the real error */
+    }
     throw new MailError(`Sending failed: ${friendly(error, settings.smtp)}`, 502);
   } finally {
     transport.close();

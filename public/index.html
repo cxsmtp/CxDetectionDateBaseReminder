@@ -1184,6 +1184,18 @@
 
           <!-- ================= Logs ================= -->
           <div id="page-logs" class="page" hidden>
+            <section class="panel troubleshooting" data-perm="diagnostics.export">
+              <div class="panel-head">
+                <h2>Troubleshooting log</h2>
+              </div>
+              <p class="hint">What this server records about its own use: which features are used and how fast, where errors happen,
+                and where numbers disagree (for example Checkmarx One answering differently on two reads, or a request refused
+                for lack of credits) — with recommended fixes. Send it to whoever maintains Mission Zero when something goes wrong.</p>
+              <button id="download-diagnostics" type="button" class="primary">Download troubleshooting log</button>
+              <p class="privacy-ok">These logs do not capture any sensitive information at all: no names, email addresses,
+                passwords, keys, tokens, hosts, URLs, findings or code. Only feature names, counts, timings, status codes and
+                error types, and project ids replaced by one-way codes.</p>
+            </section>
             <section class="panel">
               <div class="panel-head">
                 <h2>Activity log</h2>
