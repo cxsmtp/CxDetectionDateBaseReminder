@@ -42,7 +42,7 @@ test('notices describe connections without their secrets', () => {
 
 test('.env text: comments, export, quotes, multi-line values and inline comments', () => {
   const vars = parseEnvText([
-    '# Mission Zero',
+    '# CxMissionZero',
     'export CX_API_KEY="abc.def.ghi"',
     "SMTP_HOST='mail.acme.io'",
     'SMTP_PORT=465 # implicit TLS',

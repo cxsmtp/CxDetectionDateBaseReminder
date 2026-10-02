@@ -62,7 +62,7 @@ export class InstanceLock {
         continue;
       }
       if (Date.now() > until) {
-        throw new Error(`Another Mission Zero server (host ${held.host}, started ${held.startedAt}) is using this data folder. Stop it first; two servers on one data folder would corrupt credits and the audit log.`);
+        throw new Error(`Another CxMissionZero server (host ${held.host}, started ${held.startedAt}) is using this data folder. Stop it first; two servers on one data folder would corrupt credits and the audit log.`);
       }
       if (!told) onWait(held);
       told = true;

@@ -1,4 +1,4 @@
-// HTTPS served by Mission Zero itself: a self-signed certificate made with no
+// HTTPS served by CxMissionZero itself: a self-signed certificate made with no
 // extra tools, or the company's own (PEM or .pfx). Plain http redirects to it,
 // cookies are Secure, HSTS is on, and forwarded headers from just anyone are ignored.
 import test from 'node:test';

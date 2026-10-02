@@ -97,7 +97,7 @@ function unseal(buffer, passphrase) {
   const rest = buffer.subarray(MAGIC_SEALED.length);
   const newline = rest.indexOf(0x0a);
   const header = JSON.parse(rest.subarray(0, newline).toString('utf8'));
-  if (header.format !== SEALED_FORMAT) throw new Error('Not a Mission Zero backup.');
+  if (header.format !== SEALED_FORMAT) throw new Error('Not a CxMissionZero backup.');
   if (!passphrase) throw new Error('This backup is encrypted: give its passphrase (BACKUP_PASSPHRASE).');
   const key = scryptSync(passphrase, Buffer.from(header.salt, 'base64'), 32);
   const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(header.iv, 'base64'));
@@ -117,9 +117,9 @@ export function readBackup(buffer, { passphrase = '' } = {}) {
   try {
     bundle = JSON.parse(zlib.gunzipSync(data).toString('utf8'));
   } catch {
-    throw new Error('Not a Mission Zero backup (or the file is damaged).');
+    throw new Error('Not a CxMissionZero backup (or the file is damaged).');
   }
-  if (bundle?.format !== BACKUP_FORMAT || typeof bundle.files !== 'object') throw new Error('Not a Mission Zero backup.');
+  if (bundle?.format !== BACKUP_FORMAT || typeof bundle.files !== 'object') throw new Error('Not a CxMissionZero backup.');
   if (bundle.version !== 1) throw new Error(`Backup version ${bundle.version} is newer than this server understands.`);
   for (const [name, file] of Object.entries(bundle.files)) {
     if (!safeName(name)) throw new Error(`Backup contains an unexpected file name: ${name}`);

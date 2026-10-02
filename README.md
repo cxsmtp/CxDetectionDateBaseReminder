@@ -1,6 +1,6 @@
-# Mission Zero
+# CxMissionZero
 
-**Drive Checkmarx One findings to zero.** Mission Zero shows which vulnerabilities have sat unfixed and for how long, and emails each developer *their own* findings. Developers can then triage and fix them with Checkmarx One AI straight from that email, with every credit accounted for.
+**Drive Checkmarx One findings to zero.** CxMissionZero shows which vulnerabilities have sat unfixed and for how long, and emails each developer *their own* findings. Developers can then triage and fix them with Checkmarx One AI straight from that email, with every credit accounted for.
 
 Self-hosted, one container, nothing to install for developers.
 
@@ -16,13 +16,13 @@ Self-hosted, one container, nothing to install for developers.
 
 ## Architecture
 
-![Mission Zero architecture: people use the web app; Mission Zero reads Checkmarx One, emails each developer their own projects, and developers triage and remediate from the report through Mission Zero, which calls Checkmarx One AI; fixes land as pull requests](docs/architecture.svg)
+![CxMissionZero architecture: people use the web app; CxMissionZero reads Checkmarx One, emails each developer their own projects, and developers triage and remediate from the report through CxMissionZero, which calls Checkmarx One AI; fixes land as pull requests](docs/architecture.svg)
 
 **How a finding gets fixed** (the numbers match the diagram)
-1. **Fetch.** Mission Zero reads projects, scan initiators and findings from Checkmarx One with one integration key, and ages each finding.
+1. **Fetch.** CxMissionZero reads projects, scan initiators and findings from Checkmarx One with one integration key, and ages each finding.
 2. **Remind.** A reminder emails each developer their own projects through your SMTP server, with the interactive report attached. It is sent by hand, by automation, or from a tracked report.
-3. **Act from the report.** The developer clicks **Triage** or **Remediate**. The report calls Mission Zero, never Checkmarx One directly, and Mission Zero checks the finding's signed grant and its project's credits.
-4. **AI runs.** Mission Zero calls Checkmarx One AI Triage or AI Remediation. However many people click at once, one vulnerability is sent only once.
+3. **Act from the report.** The developer clicks **Triage** or **Remediate**. The report calls CxMissionZero, never Checkmarx One directly, and CxMissionZero checks the finding's signed grant and its project's credits.
+4. **AI runs.** CxMissionZero calls Checkmarx One AI Triage or AI Remediation. However many people click at once, one vulnerability is sent only once.
 5. **Fix lands.** AI Remediation opens a pull request on the developer's repository.
 
 Every credit and change is recorded in the audit log. The Dashboard, tracked reports and the Credits page show progress toward zero.
@@ -86,7 +86,7 @@ More container options: [docs/container.md](docs/container.md).
 
 ## HTTPS
 
-Serve Mission Zero over HTTPS before anyone else uses it. Sign-ins, findings and triage requests then cross the network encrypted, and the sign-in cookie is marked `Secure`, so browsers never send it over plain http. Pick one way:
+Serve CxMissionZero over HTTPS before anyone else uses it. Sign-ins, findings and triage requests then cross the network encrypted, and the sign-in cookie is marked `Secure`, so browsers never send it over plain http. Pick one way:
 
 | Way | Use it when | You need |
 | --- | --- | --- |
@@ -106,7 +106,7 @@ podman run --replace -d --name mission-zero -p 443:3000 -p 80:8080 -v mission-ze
 - **Port 80** (`-p 80:8080` and `HTTP_REDIRECT_PORT`) only sends `http://` visitors to `https://`.
 - **Renewals:** copy the renewed files over the old ones. It switches over within 5 minutes, with no restart.
 
-**B. Automatic certificate** (public name). Caddy fetches and renews the certificate; Mission Zero has no port of its own:
+**B. Automatic certificate** (public name). Caddy fetches and renews the certificate; CxMissionZero has no port of its own:
 
 ```
 podman network create mz-net

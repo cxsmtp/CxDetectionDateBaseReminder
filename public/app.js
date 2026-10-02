@@ -335,7 +335,7 @@ async function apiCall(path, options = {}) {
           await new Promise((resolve) => setTimeout(resolve, 2000));
           continue;
         }
-        if (method !== 'GET') error.message = 'Mission Zero could not be reached (it may be restarting for an update). Check whether it went through, then try again.';
+        if (method !== 'GET') error.message = 'CxMissionZero could not be reached (it may be restarting for an update). Check whether it went through, then try again.';
         throw error;
       }
       payload = await response.json().catch(() => ({}));
@@ -368,7 +368,7 @@ let restartingShownAt = 0;
 function restartingNotice() {
   if (Date.now() - restartingShownAt < 30_000) return;
   restartingShownAt = Date.now();
-  toast('Mission Zero is restarting for an update — reconnecting…', 'warn');
+  toast('CxMissionZero is restarting for an update — reconnecting…', 'warn');
 }
 
 const escapeHtml = (value) =>
@@ -970,7 +970,7 @@ function renderSettings() {
   $('rcpt-cc').value = s.recipients.cc.join('\n');
   $('rcpt-bcc').value = s.recipients.bcc.join('\n');
 
-  $('brand-app').value = s.branding.appName || 'Mission Zero';
+  $('brand-app').value = s.branding.appName || 'CxMissionZero';
   $('brand-name').value = s.branding.companyName;
   $('brand-logo').value = s.branding.logoUrl;
   $('brand-height').value = s.branding.logoHeight;
@@ -2780,7 +2780,7 @@ function followUp(r) {
           <label class="check"><input type="checkbox" data-field="autoEnabled" data-keep ${auto.enabled ? 'checked' : ''} /> Send automatically every</label>
           <input type="number" min="1" max="90" data-field="everyDays" data-keep value="${auto.everyDays ?? 7}" class="small-num" /> days at
           <input type="number" min="0" max="23" data-field="hour" data-keep value="${auto.hour ?? 9}" class="small-num" />:00
-          <span class="hint" title="Time zone of the machine running ${escapeHtml(state.health?.app?.name || 'Mission Zero')}">${escapeHtml(zoneLabel())}</span>
+          <span class="hint" title="Time zone of the machine running ${escapeHtml(state.health?.app?.name || 'CxMissionZero')}">${escapeHtml(zoneLabel())}</span>
         </div>
         <p class="hint">Uses the send options above, and only while something is still open.
           ${auto.enabled && auto.nextRunAt ? `Next: ${escapeHtml(serverTime(auto.nextRunAt))}.` : ''}
@@ -4272,7 +4272,7 @@ if ($('log-search')) {
 
 /** The app's own name and logo, in the header and the browser tab. */
 function applyAppBranding({ name, logoUrl } = {}) {
-  const appName = name || 'Mission Zero';
+  const appName = name || 'CxMissionZero';
   $('app-name').textContent = appName;
   document.title = appName;
   const logo = $('app-logo');

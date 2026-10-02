@@ -1,5 +1,5 @@
 /**
- * HTTPS served by Mission Zero itself, when there is no reverse proxy in front.
+ * HTTPS served by CxMissionZero itself, when there is no reverse proxy in front.
  *
  * Certificates, in order of preference:
  *   1. TLS_CERT_FILE + TLS_KEY_FILE (PEM; the certificate file may carry the chain),
@@ -126,7 +126,7 @@ const isIp = (name) => /^\d{1,3}(\.\d{1,3}){3}$/.test(name) || name.includes(':'
 export function selfSignedCertificate(names, now = Date.now()) {
   const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
   const cn = names.find((n) => !isIp(n)) ?? 'localhost';
-  const name = seq(set(seq(oid('2.5.4.3'), utf8(cn))), set(seq(oid('2.5.4.10'), utf8('Mission Zero (self-signed)'))));
+  const name = seq(set(seq(oid('2.5.4.3'), utf8(cn))), set(seq(oid('2.5.4.10'), utf8('CxMissionZero (self-signed)'))));
   const ecdsaSha256 = seq(oid('1.2.840.10045.4.3.2'));
   const san = seq(
     ...names.map((n) => (isIp(n) ? tagged(0x87, ipBytes(n)) : tagged(0x82, Buffer.from(n, 'ascii')))),

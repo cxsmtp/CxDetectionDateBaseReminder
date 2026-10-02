@@ -177,7 +177,7 @@ export class Diagnostics {
     const ranked = Object.fromEntries(Object.entries(features).sort((a, b) => b[1].uses - a[1].uses));
 
     return {
-      about: 'Mission Zero troubleshooting log. Holds no names, email addresses, hosts, URLs, keys, passwords, findings or code: only feature names, counts, timings, status codes and scrubbed error types. Project ids are one-way hashes.',
+      about: 'CxMissionZero troubleshooting log. Holds no names, email addresses, hosts, URLs, keys, passwords, findings or code: only feature names, counts, timings, status codes and scrubbed error types. Project ids are one-way hashes.',
       generatedAt: new Date().toISOString(),
       version: this.#version,
       runtime: { node: process.version, platform: `${os.platform()} ${os.arch()}`, uptimeSeconds: Math.round(process.uptime()), serverStartedAt: this.#startedAt, memoryMb: Math.round(process.memoryUsage().rss / 1048576) },

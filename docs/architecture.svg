@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" width="1200" height="760" role="img" aria-labelledby="t d" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
-  <title id="t">Mission Zero architecture</title>
-  <desc id="d">People use the web app; Mission Zero reads findings from Checkmarx One, emails each developer their own projects through your SMTP server, and developers triage and remediate from the emailed report through Mission Zero's relay, which calls Checkmarx One AI; fixes land as pull requests. All state lives in the /data volume.</desc>
+  <title id="t">CxMissionZero architecture</title>
+  <desc id="d">People use the web app; CxMissionZero reads findings from Checkmarx One, emails each developer their own projects through your SMTP server, and developers triage and remediate from the emailed report through CxMissionZero's relay, which calls Checkmarx One AI; fixes land as pull requests. All state lives in the /data volume.</desc>
   <defs>
     <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
     <marker id="ap" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker>
@@ -26,9 +26,9 @@
   <text x="970" y="50" text-anchor="middle" class="h">Developers</text>
   <text x="970" y="72" text-anchor="middle" class="s">reminder email + interactive HTML report</text>
 
-  <!-- Mission Zero container -->
+  <!-- CxMissionZero container -->
   <rect x="20" y="128" width="1160" height="470" rx="16" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
-  <text x="610" y="153" text-anchor="middle" font-size="16" font-weight="800" fill="#5b21b6">Mission Zero · one container · port 3000</text>
+  <text x="610" y="153" text-anchor="middle" font-size="16" font-weight="800" fill="#5b21b6">CxMissionZero · one container · port 3000</text>
 
   <rect x="40" y="168" width="400" height="86" rx="10" class="box"/>
   <text x="240" y="192" text-anchor="middle" class="h">Web app + API</text>

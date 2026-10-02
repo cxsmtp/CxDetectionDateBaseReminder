@@ -1,4 +1,4 @@
-# How Mission Zero works
+# How CxMissionZero works
 
 The technical reference: what happens under each feature, where data lives, and how it is kept safe. To learn how to *use* the features, see the [user guide](user-guide.md).
 
@@ -39,7 +39,7 @@ The technical reference: what happens under each feature, where data lives, and 
 - **Shared recent reads.** A project read in the last 2 minutes (`CX_FETCH_CACHE_SECONDS`, 0 switches it off) is reused by the next fetch instead of read again, when all of these hold:
   - it is the same Checkmarx One key on the same tenant (people on different keys never share what they can see);
   - its latest scan is still the one it was read for;
-  - nobody triaged or remediated it from Mission Zero in the last 30 minutes (those are read fresh every time while Checkmarx One works through them);
+  - nobody triaged or remediated it from CxMissionZero in the last 30 minutes (those are read fresh every time while Checkmarx One works through them);
   - **Read everything fresh** is not ticked.
 
   Changes made directly in Checkmarx One show up within those 2 minutes, or at once with **Read everything fresh**. The page says how many projects were reused. Verify, credits, triage and remediation never use these reads: they always ask Checkmarx One.

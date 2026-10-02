@@ -1,6 +1,6 @@
 # Performance benchmark and sizing
 
-Can one Mission Zero server handle **3000 people at once**? This page answers that. The people are:
+Can one CxMissionZero server handle **3000 people at once**? This page answers that. The people are:
 - readers of emailed HTML reports, triaging, remediating and polling for results;
 - people on the Dashboard, fetching data, reading credits and analytics, and sending reminders and reports;
 - administrators.
@@ -14,7 +14,7 @@ It also gives the server, VM or container size to run.
 
 ## How it was measured
 
-`loadtest/benchmark.sh` starts three things: a mock Checkmarx One, a real Mission Zero server with a throwaway data folder and a mock mail server, and the load generator `loadtest/mixed-load.mjs`.
+`loadtest/benchmark.sh` starts three things: a mock Checkmarx One, a real CxMissionZero server with a throwaway data folder and a mock mail server, and the load generator `loadtest/mixed-load.mjs`.
 
 **Phase 1: burst.** 3000 requests of the whole mix are fired at the same instant.
 
