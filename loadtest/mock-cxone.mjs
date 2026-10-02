@@ -12,6 +12,7 @@ const counts = {};
 let inFlight = 0, peak = 0;
 const bump = (k) => (counts[k] = (counts[k] || 0) + 1);
 const triaged = new Map(); // alternateId -> time
+const sentCount = new Map(); // alternateId -> times it was sent for AI Triage
 const remediated = new Map();
 const day = (n) => new Date(Date.now() - n * 86400000).toISOString();
 const risksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
@@ -30,7 +31,7 @@ http.createServer((req, res) => {
       inFlight--;
       const u = new URL(req.url, 'http://x');
       const send = (s, o) => { res.writeHead(s, { 'Content-Type': 'application/json', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' }); res.end(JSON.stringify(o ?? {})); };
-      if (u.pathname === '/__stats') return send(200, { counts, peak });
+      if (u.pathname === '/__stats') return send(200, { counts, peak, maxSendsPerResult: Math.max(0, ...sentCount.values()), resultsSent: sentCount.size });
       if (u.pathname === '/__reset') { for (const k of Object.keys(counts)) delete counts[k]; peak = 0; return send(200, {}); }
       if (u.pathname.endsWith('/openid-connect/token')) {
         bump('token');
@@ -62,7 +63,7 @@ http.createServer((req, res) => {
       let m;
       if (req.method === 'POST' && u.pathname === '/api/ai-triage/triage') {
         bump('triage-post');
-        for (const bk of JSON.parse(b).buckets) for (const id of bk.resultIDs) triaged.set(id, Date.now());
+        for (const bk of JSON.parse(b).buckets) for (const id of bk.resultIDs) { triaged.set(id, Date.now()); sentCount.set(id, (sentCount.get(id) ?? 0) + 1); }
         return send(202, { status: 'accepted', published: true });
       }
       if ((m = u.pathname.match(/^\/api\/ai-triage\/triage\/([^/]+)\/(.+)$/))) {

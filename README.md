@@ -372,6 +372,14 @@ under the server's account.
     to triage" again and what is needed does not jump while AI Triage runs.
   - **Re-triage is refused while re-triage is off,** from the report, the
     dashboard and tracked reports alike, so it is never charged twice.
+  - **Never two requests for one vulnerability.** Every path that sends AI
+    Triage or AI Remediation (the Dashboard, tracked reports, the emailed
+    report, any number of people or tabs at once) first claims the findings on
+    the server, by Checkmarx One result id, vulnerability group and risk id. A
+    finding another request is sending right now is answered "already being
+    sent", not sent again; once that request is done, the ledger shows it as
+    sent. `test/no-double-send.e2e.test.js` fires two triage runs at the same
+    moment and checks Checkmarx One received each result once.
   - `test/credits-lifecycle.e2e.test.js` checks allocation, use and the audit
     trail after every stage: fetch (nothing allocated), allocating for triage,
     triage, a second triage attempt, verdicts (still nothing allocated),
