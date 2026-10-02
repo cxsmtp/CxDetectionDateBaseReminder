@@ -1,6 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+import http from 'node:http';
+import https from 'node:https';
 import express from 'express';
 import compression from 'compression';
 
@@ -43,7 +45,8 @@ import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard
 import { ENV_SETTINGS, SECRET_VARIABLES, parseEnvText, settingsFromEnv } from './env-import.js';
 import { SessionPersistence, sessionKey } from './handover.js';
 import { InstanceLock } from './instance-lock.js';
-import { inlineScriptHashes, sameOriginGuard, securityHeaders } from './security.js';
+import { inlineScriptHashes, sameOriginGuard, securityHeaders, viaTrustedProxy } from './security.js';
+import { describeCertificate, tlsConfig, watchCertificate } from './tls.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
 import {
@@ -374,6 +377,32 @@ const escapeHtml = (text) => String(text ?? '')
   .replace(/'/g, '&#39;');
 
 const app = express();
+
+// HTTPS served here (src/tls.js), unless a reverse proxy in front does it. A wrong
+// certificate stops the start, rather than quietly serving plain http.
+let tls = null;
+try {
+  tls = tlsConfig(process.env, dataDir);
+} catch (error) {
+  console.error(`! HTTPS is not set up correctly: ${error.message}`);
+  process.exit(1);
+}
+
+/**
+ * Whose X-Forwarded-For / -Proto / -Host to believe (TRUST_PROXY, as Express reads it:
+ * "loopback", IPs or CIDRs, a hop count, on or off). By default a proxy on this machine
+ * or a private network (a reverse proxy in the same compose network); nobody when this
+ * server does HTTPS itself, because then it faces the clients directly.
+ */
+function trustProxySetting(value, servingHttps) {
+  const text = String(value ?? '').trim();
+  if (!text) return servingHttps ? false : 'loopback, linklocal, uniquelocal';
+  if (/^(off|false|no|0|none)$/i.test(text)) return false;
+  if (/^(on|true|yes|all)$/i.test(text)) return true;
+  if (/^\d+$/.test(text)) return Number(text);
+  return text;
+}
+app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY, Boolean(tls)));
 // Security headers on every response, including the static pages (src/security.js).
 app.disable('x-powered-by');
 app.use(securityHeaders({ scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')) }));
@@ -2140,7 +2169,8 @@ const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|0\.0\.0\.0)$/i;
 let lastDashboardOrigin = '';
 
 function requestOrigin(req) {
-  const origin = `${req.protocol}://${req.get('host')}`;
+  const forwardedHost = viaTrustedProxy(req) ? String(req.get('x-forwarded-host') ?? '').split(',')[0].trim() : '';
+  const origin = `${req.protocol}://${forwardedHost || req.get('host')}`;
   try {
     if (!LOOPBACK.test(new URL(origin).hostname)) lastDashboardOrigin = origin;
   } catch {}
@@ -2295,7 +2325,8 @@ function projectCredits(projectIds) {
 // Audit: every credit decision, attributed and traceable
 // ---------------------------------------------------------------------------
 
-const clientIp = (req) => String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || req.socket?.remoteAddress || '';
+// The client's address: X-Forwarded-For only from a trusted proxy (see TRUST_PROXY), so it cannot be faked.
+const clientIp = (req) => req.ip || req.socket?.remoteAddress || '';
 
 /** Who acts through an emailed report: the signed recipient, where from. */
 function reportActor(req) {
@@ -4362,13 +4393,99 @@ app.get('/api/credits/usage', requirePermission('credits.view'), (req, res) => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// One project's own report, asked for from a report with several projects
+// ---------------------------------------------------------------------------
+
+const PROJECT_REPORT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // as long as the report's grants
+const PROJECT_REPORT_SEVERITIES = new Set(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO', 'UNKNOWN']);
+
+/** The scope a project report keeps, in one canonical shape (it is signed). */
+function projectReportScope(scope = {}) {
+  const list = (value, allowed) =>
+    [...new Set((Array.isArray(value) ? value : []).map((v) => String(v)).filter((v) => allowed(v)))].sort().slice(0, 10);
+  const iso = (value) => {
+    const time = Date.parse(value ?? '');
+    return Number.isFinite(time) ? new Date(time).toISOString() : '';
+  };
+  const detection = scope.detection ?? {};
+  return {
+    buckets: list(scope.buckets, (b) => AGE_BUCKETS.some((a) => a.id === b) || b === 'unknown'),
+    severities: list((scope.severities ?? []).map?.((v) => String(v).toUpperCase()) ?? [], (v) => PROJECT_REPORT_SEVERITIES.has(v)),
+    detection: { from: iso(detection.from), to: iso(detection.to) },
+  };
+}
+
+function projectReportSignature(projectId, projectName, exp, scope) {
+  return reportGrants.macText(['project-report', projectId, projectName, String(exp), JSON.stringify(projectReportScope(scope))].join('\n'));
+}
+
+/**
+ * A report covering several projects asks for one project's own report: the
+ * same interactive report, for that project alone, read fresh from Checkmarx
+ * One with this server's connection. Only for a project and scope the report
+ * was signed with; the reader never needs (or is sent to) Checkmarx One.
+ */
+app.post(
+  '/api/relay/project-report',
+  asyncRoute(async (req, res) => {
+    const projectId = String(req.body?.projectId ?? '').slice(0, 200);
+    const projectName = String(req.body?.projectName ?? '').slice(0, 300);
+    const exp = Number(req.body?.exp);
+    const scope = projectReportScope(req.body?.scope ?? {});
+    const given = Buffer.from(String(req.body?.sig ?? ''));
+    const expected = Buffer.from(projectReportSignature(projectId, projectName, exp, scope));
+    if (!projectId || !Number.isFinite(exp) || given.length !== expected.length || !timingSafeEqual(given, expected)) {
+      return res.status(403).json({ error: 'This report is not authorised to open that project.' });
+    }
+    if (exp <= Date.now()) return res.status(403).json({ error: 'This report has expired. Ask for a new one.' });
+    const session = await relaySession(res);
+    if (!session) return;
+
+    const settings = settingsStore.get();
+    const project = { id: projectId, name: projectName };
+    const lastScans = await getLastScans(session.client, [projectId]).catch(() => ({}));
+    const detectionWindow = scope.detection.from || scope.detection.to
+      ? { from: scope.detection.from ? new Date(scope.detection.from) : null, to: scope.detection.to ? new Date(scope.detection.to) : null }
+      : null;
+    const [read, initiators] = await Promise.all([
+      collectProjectRisks(session.client, activeConfig(), [project], {
+        detectionWindow,
+        shared: { identity: readerIdentity(session), lastScans },
+      }),
+      collectInitiators(session.client, session.connection, [project], {
+        rules: settings.initiators,
+        useDirectory: settings.initiators.useDirectory,
+        concurrency: config.concurrency,
+        lastScans,
+        memory: knownAddresses,
+      }),
+    ]);
+    const summary = read.projects[0];
+    if (summary?.error) return res.status(502).json({ error: `Could not read ${projectName || 'the project'} from Checkmarx One: ${summary.error}` });
+    if (summary) summary.url = projectUrl(summary, session.connection, settings.links);
+    const risks = selectRisks(read.projects, { buckets: scope.buckets, severities: scope.severities.length ? scope.severities : null });
+    const actor = reportActor(req);
+    const { html, findings } = await buildInteractiveReport(session, risks, {
+      buckets: scope.buckets,
+      settings,
+      relayUrl: reportServerUrl(req, settings),
+      initiatorsByProject: initiators.byProject,
+      scope,
+      audience: { actor, recipient: actor.recipient, purpose: `opened for ${projectName || projectId} from a report` },
+    });
+    const filename = `${(projectName || projectId).replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'project'}-report.html`;
+    res.json({ html, filename, findings: findings.length, total: risks.length });
+  }),
+);
+
 /**
  * Build the interactive HTML report for a set of findings. The top findings
  * get the identifiers Checkmarx One AI Triage / Remediation need resolved
  * here, with this session's credentials, so the report itself only ever
  * needs the reader's own API key.
  */
-async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject, audience = {}, publish = '' } = {}) {
+async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject, audience = {}, publish = '', scope = null } = {}) {
   const { connection, lastScan } = session;
   initiatorsByProject ??= lastScan?.initiators ?? {};
   // Whatever built the list, findings triaged as not exploitable stay out.
@@ -4425,6 +4542,13 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     allowRetriage: Boolean(settings.aiTriage?.allowRetriage),
     allowReremediation: Boolean(settings.aiTriage?.allowReremediation),
     adminContact: adminContact(settings),
+    // "One project's report" buttons: this server builds it, within the same scope.
+    projectReportScope: projectReportScope(scope ?? { buckets }),
+    signProjectReport: (projectId) => {
+      const name = reportData.projects.find((p) => String(p.projectId) === projectId)?.projectName ?? '';
+      const exp = Date.now() + PROJECT_REPORT_TTL_MS;
+      return { exp, sig: projectReportSignature(projectId, name, exp, projectReportScope(scope ?? { buckets })) };
+    },
   });
   // For email: keep the file, so the email's button can download exactly this report.
   let downloadUrl = '';
@@ -4520,6 +4644,7 @@ app.post(
     const actor = await adminActor(req);
     const { html } = await buildInteractiveReport(req.session, risks, {
       buckets,
+      scope: { buckets, severities, detection: lastScan.detectionWindow },
       settings,
       relayUrl: reportServerUrl(req, settings),
       audience: { actor, recipient: `downloaded by ${actor.user || 'administrator'}`, purpose: 'downloaded from the Dashboard' },
@@ -4556,6 +4681,7 @@ async function runHtmlReminder(session, scan, input, relayUrl) {
   const sendReport = async (findings, { to, cc = [], bcc = [], greeting, initiator = null, purpose }) => {
     const { reportData, findings: shown, html, downloadUrl } = await buildInteractiveReport(session, findings, {
       buckets,
+      scope: { buckets, severities, detection: scan.detectionWindow },
       settings,
       relayUrl,
       initiatorsByProject,
@@ -5386,8 +5512,12 @@ if (restoredAtStart) {
   }
 }
 
-const server = app.listen(config.port, config.host, async () => {
-  console.log(`Mission Zero ${APP_VERSION} running on http://${config.host}:${config.port}`);
+const server = (tls ? https.createServer(tls.options, app) : http.createServer(app)).listen(config.port, config.host, async () => {
+  console.log(`Mission Zero ${APP_VERSION} running on ${tls ? 'https' : 'http'}://${config.host}:${config.port}`);
+  if (tls) {
+    console.log(`[https] ${tls.selfSigned ? 'Self-signed certificate (browsers warn until it is trusted)' : 'Certificate'}: ${describeCertificate(tls.options)}`);
+    watchCertificate(server, tls);
+  }
   console.log(`Settings file: ${settingsStore.file}`);
   for (const problem of configProblems(config)) console.warn(`! ${problem}`);
   await prepareAccess();
@@ -5410,6 +5540,34 @@ const server = app.listen(config.port, config.host, async () => {
 });
 
 /**
+ * Plain http on HTTP_REDIRECT_PORT, when this server does HTTPS: every request is
+ * sent to the https address (308 keeps the method), so old bookmarks and typed
+ * addresses still land on the encrypted site. HTTPS_PUBLIC_PORT is the port
+ * people use for https (443 by default, so it is left out of the address).
+ */
+const REDIRECT_PORT = Number(process.env.HTTP_REDIRECT_PORT) || 0;
+const PUBLIC_HTTPS_PORT = Number(process.env.HTTPS_PUBLIC_PORT) || 443;
+const redirectServer = tls && REDIRECT_PORT
+  ? http
+      .createServer((req, res) => {
+        // The configured public https address when there is one; otherwise this host on HTTPS_PUBLIC_PORT.
+        const path = req.url?.startsWith('/') ? req.url : '/';
+        let origin = '';
+        try {
+          const configured = new URL(settingsStore.get().links.reportServerUrl || config.reportServerUrl || '');
+          if (configured.protocol === 'https:') origin = configured.origin;
+        } catch {}
+        if (!origin) {
+          const host = String(req.headers.host ?? '').replace(/:\d+$/, '').replace(/[^\w.\-[\]:]/g, '') || 'localhost';
+          origin = `https://${host}${PUBLIC_HTTPS_PORT === 443 ? '' : `:${PUBLIC_HTTPS_PORT}`}`;
+        }
+        res.writeHead(308, { Location: `${origin}${path}`, 'Cache-Control': 'no-store' });
+        res.end();
+      })
+      .listen(REDIRECT_PORT, config.host, () => console.log(`[https] http on port ${REDIRECT_PORT} redirects to https.`))
+  : null;
+
+/**
  * Stop cleanly (a container update or restart sends SIGTERM): stop taking new
  * work, let requests in progress finish (up to SHUTDOWN_DRAIN_SECONDS, 8 by
  * default), hand sign-ins and their fetched data to the next server, write
@@ -5424,6 +5582,7 @@ const shutdown = async (signal) => {
   scheduler.stop();
   server.close();
   server.closeIdleConnections?.();
+  redirectServer?.close();
   console.log(`[update] ${signal}: finishing ${inFlight} request(s) in progress…`);
   const until = Date.now() + DRAIN_MS;
   while (inFlight > 0 && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 100));

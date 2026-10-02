@@ -327,6 +327,10 @@
       remediationDetails(f) {
         return post('/api/relay/remediation-details', { findings: [wire(f)] });
       },
+      /** One project's own report, built by the server (signed link from this report). */
+      projectReport(p) {
+        return post('/api/relay/project-report', { projectId: p.projectId, projectName: p.projectName, exp: p.exp, sig: p.sig, scope: p.scope }, 0, 180000);
+      },
       remediationStatus(list) {
         return batched('/api/relay/remediation-status', list, early.remediation);
       },
@@ -1137,6 +1141,75 @@
     });
     if (done) log(`${done} finding(s) in this report are already remediated.`, 'info');
   }
+
+  // ---------------------------------------------------------------------------
+  // One project's own report (a report covering several projects)
+  // ---------------------------------------------------------------------------
+
+  function projectReportStatus(text, kind = '') {
+    const el = $('project-report-status');
+    if (!el) return;
+    el.hidden = !text;
+    el.textContent = text;
+    el.className = `muted ${kind}`;
+  }
+
+  /**
+   * Ask the reminder server for one project's report, then open it in a new tab and
+   * download it. The tab is opened at the click (later, a browser would block it) and
+   * filled once the report arrives. Nothing here goes to Checkmarx One.
+   */
+  async function openProjectReport(p, button) {
+    if (!p) return;
+    if (!config.relayUrl) {
+      openServerForm(`Enter the reminder server address to open the report for ${p.projectName}.`);
+      return;
+    }
+    const tab = window.open('', '_blank');
+    if (tab) {
+      try {
+        tab.document.title = `${p.projectName} — building the report…`;
+        tab.document.body.innerHTML = '<p style="font:16px system-ui,sans-serif;padding:32px;color:#374151">Building the report…</p>';
+        tab.document.body.firstChild.textContent = `Building the report for ${p.projectName}…`;
+      } catch {}
+    }
+    button.disabled = true;
+    projectReportStatus(`Building the report for ${p.projectName} (${p.count} finding${p.count === 1 ? '' : 's'})…`);
+    try {
+      const answer = await relayBackend().projectReport(p);
+      const url = URL.createObjectURL(new Blob([answer.html], { type: 'text/html' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = answer.filename || 'project-report.html';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      let shown = false;
+      if (tab && !tab.closed) {
+        try {
+          tab.document.open();
+          tab.document.write(answer.html);
+          tab.document.close();
+          shown = true;
+        } catch {}
+      }
+      const where = shown ? 'opened in a new tab and downloaded' : 'downloaded (allow pop-ups for this page to open it in a tab too)';
+      projectReportStatus(`The report for ${p.projectName} was ${where} as ${link.download}.`, 'ok');
+      log(`Report for ${p.projectName}: ${where}.`, 'success');
+    } catch (error) {
+      if (tab && !tab.closed) tab.close();
+      projectReportStatus(`Could not build the report for ${p.projectName}: ${error.message}`, 'error');
+      reportError(error);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest?.('button[data-project-report]');
+    if (button) openProjectReport((DATA.projectReports || [])[Number(button.dataset.projectReport)], button);
+  });
 
   // ---------------------------------------------------------------------------
   // Connect

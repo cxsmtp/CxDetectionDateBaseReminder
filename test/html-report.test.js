@@ -75,11 +75,20 @@ test('AI actions are enabled only for SAST/SCA findings whose Checkmarx One ids 
   assert.ok(!/apiKey|refresh_token"\s*:/.test(JSON.stringify(island(html))), 'no credential is embedded');
 });
 
-test('each project links to Checkmarx One for everything beyond the top 50', () => {
+test("beyond the top 50, each project opens its own report from the reminder server, never Checkmarx One", () => {
   const connection = { baseUrl: 'https://eu.ast.checkmarx.net' };
-  const data = buildReportData([risk(1, 'HIGH')], { tenant: 't', connection, links: DEFAULT_LINK_TEMPLATES });
-  const html = generateHtmlReport(data);
-  assert.match(html, /href="https:\/\/eu\.ast\.checkmarx\.net\/riskhub\/p1"[^>]*>Proj \(1\) →/);
+  const risks = [risk(1, 'HIGH'), { ...risk(2, 'LOW'), projectId: 'p2', projectName: 'Other' }];
+  const data = buildReportData(risks, { tenant: 't', connection, links: DEFAULT_LINK_TEMPLATES });
+  const html = generateHtmlReport(data, { signProjectReport: (id) => ({ exp: 1, sig: `sig-${id}` }), projectReportScope: { severities: ['HIGH'] } });
+  const more = html.match(/<section class="more">[\s\S]*?<\/section>/)[0];
+  assert.match(more, /<button type="button" class="btn btn-outline" data-project-report="0"[^>]*>Proj \(1\) →<\/button>/);
+  assert.match(more, /data-project-report="1"[^>]*>Other \(1\) →/);
+  assert.doesNotMatch(more, /checkmarx|riskhub|<a /i, 'no link to Checkmarx One');
+  const payload = JSON.parse(html.match(/id="report-data">([\s\S]*?)<\/script>/)[1]);
+  assert.deepEqual(payload.projectReports.map((p) => [p.projectId, p.sig, p.scope.severities]), [['p1', 'sig-p1', ['HIGH']], ['p2', 'sig-p2', ['HIGH']]]);
+  // One project: its own report already; no buttons, and no Checkmarx One link either.
+  const single = generateHtmlReport(buildReportData([risk(1, 'HIGH')], { tenant: 't', connection, links: DEFAULT_LINK_TEMPLATES }), { signProjectReport: () => ({ exp: 1, sig: 's' }) });
+  assert.doesNotMatch(single, /data-project-report=|See every finding in Checkmarx One|Open in Checkmarx One:/);
 });
 
 test("the report email's button downloads the attached report from the reminder server", () => {
