@@ -351,6 +351,10 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
    - a downloadable patch;
    - a link to Risk Hub.
 6. **Refresh** re-reads states at any time. The report also refreshes by itself.
+7. **One project's own report.** A report covering several projects lists them at the bottom.
+   - Clicking one asks the reminder server for that project's own report: the same kind of report, for that project alone, read fresh, and limited to the severities and age the original covered.
+   - It opens in a new tab and is downloaded too. If the browser blocks the tab, the download still arrives; allow pop-ups for the report to get the tab as well.
+   - These buttons never lead to Checkmarx One.
 
 **What the marks mean**
 

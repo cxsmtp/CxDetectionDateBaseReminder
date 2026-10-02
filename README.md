@@ -82,7 +82,18 @@ The version shows bottom-left as `MZ-xx.xx.xx`. Details and rollback: [Updating]
 
 **Without a container** (Node 20+): `npm install`, then `npm start`.
 
-For production, put an HTTPS reverse proxy in front and set the **Reminder server address** to its URL. Then developers' reports can reach the server, and sign-ins are encrypted. More container options, proxies and upgrades are in [docs/container.md](docs/container.md).
+**HTTPS** (do this before anyone else uses it). With your company's certificate in `C:\mission-zero\certs`:
+
+```
+podman run --replace -d --name mission-zero -p 443:3000 -p 80:8080 -v mission-zero-data:/data -v C:\mission-zero\certs:/certs:ro -e TZ=Asia/Dubai -e TLS_CERT_FILE=/certs/server.crt -e TLS_KEY_FILE=/certs/server.key -e HTTP_REDIRECT_PORT=8080 -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+The other ways:
+- a `.pfx`;
+- automatic Let's Encrypt certificates through Caddy, for a public name;
+- a self-signed certificate, to try it out.
+
+The guide also has a checklist for hosting it safely: [HTTPS and hosting](docs/https-and-hosting.md). More container options and upgrades are in [docs/container.md](docs/container.md).
 
 ## Configure
 
@@ -115,6 +126,8 @@ For production, put an HTTPS reverse proxy in front and set the **Reminder serve
 | `GITHUB_TOKEN` ⬆ | A GitHub token for the Beta features (code authors, username matching). |
 | `GITHUB_API_URL`, `GITHUB_ORG` ⬆ | GitHub Enterprise API (e.g. `https://github.company.com/api/v3`), and your organisation. |
 | **Server** | |
+| `TLS_CERT_FILE`, `TLS_KEY_FILE` (or `TLS_PFX_FILE`, `TLS_PFX_PASSPHRASE`), `TLS_SELF_SIGNED` | Serve HTTPS: your certificate, a `.pfx`, or a self-signed one ([HTTPS and hosting](docs/https-and-hosting.md)). |
+| `HTTP_REDIRECT_PORT`, `HTTPS_PUBLIC_PORT` (443), `TRUST_PROXY` | Redirect plain http to https; whose `X-Forwarded-*` headers to believe (private networks by default; nobody when serving HTTPS itself). |
 | `TZ` | Time zone for automation and email dates, e.g. `Asia/Dubai`. Default UTC. |
 | `NODE_OPTIONS` | e.g. `--max-old-space-size=2048` with `--memory 3g`. |
 | `NODE_EXTRA_CA_CERTS` | A company CA, when a proxy inspects TLS. |
@@ -130,6 +143,7 @@ For production, put an HTTPS reverse proxy in front and set the **Reminder serve
 | [User guide](docs/user-guide.md) | Every page and option, step by step, for administrators, analysts and developers. With recipes and troubleshooting. |
 | [How it works](docs/how-it-works.md) | Architecture, the Checkmarx One API, credits and safety nets, storage, security. |
 | [Updating](docs/updating.md) | New versions without downtime, sign-outs or data loss; rollback. |
+| [HTTPS and hosting](docs/https-and-hosting.md) | Your certificate, automatic Let's Encrypt, or self-signed; and a checklist for hosting it safely. |
 | [Containers](docs/container.md) | Docker / Podman / Compose options, proxies. |
 | [Performance and sizing](docs/performance.md) | The 3000-user benchmark and the recommended server size. |
 | [Audit log and backups](docs/audit-and-backup.md) | The tamper-evident audit log, backups, restore, moving servers. |

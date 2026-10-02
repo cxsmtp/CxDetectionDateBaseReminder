@@ -95,7 +95,7 @@ To publish on another port, change the left side: `-p 8080:3000`.
 
 `compose.yaml` publishes the port on this machine only (`127.0.0.1`). To let
 other machines reach it, set `BIND_ADDRESS=0.0.0.0` (or one interface's
-address) in `.env`, ideally behind an HTTPS reverse proxy. `PORT` changes the
+address) in `.env`, and serve it over HTTPS ([HTTPS and hosting](https-and-hosting.md)). `PORT` changes the
 port on the host.
 
 ## Data, backups and upgrades

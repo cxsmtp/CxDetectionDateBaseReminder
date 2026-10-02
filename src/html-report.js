@@ -72,6 +72,9 @@ export function selectTopFindings(reportData, limit = REPORT_TOP_N) {
  * @param {boolean} [options.allowRetriage]  findings with a verdict may be triaged again
  * @param {boolean} [options.allowReremediation]  remediated findings may be remediated again
  * @param {string} [options.adminContact]  who readers ask for more credits
+ * @param {(projectId) => {exp, sig}} [options.signProjectReport]  signs "one project's report"
+ *   links: the report asks this server for that project's own report (never Checkmarx One)
+ * @param {object} [options.projectReportScope]  the scope those reports keep ({buckets, severities, detection})
  */
 export function generateHtmlReport(reportData, options = {}) {
   const { connection = {}, branding = {} } = options;
@@ -91,6 +94,19 @@ export function generateHtmlReport(reportData, options = {}) {
   }
 
   const relayUrl = safeHttpUrl(options.relayUrl);
+  // Each project's own report, made by this server on request (signed, so a
+  // report can only ask for the projects and scope it was made with).
+  const projectReports = options.signProjectReport && projects.length > 1
+    ? projects
+        .filter((p) => (p.risks?.length ?? 0) > 0)
+        .map((p) => ({
+          projectId: String(p.projectId),
+          projectName: String(p.projectName ?? ''),
+          count: p.risks.length,
+          scope: options.projectReportScope ?? {},
+          ...options.signProjectReport(String(p.projectId)),
+        }))
+    : [];
   // Signed and relay-ready even without an address: a reader can enter the
   // reminder server's address in the report and still triage.
   const remediateHere = Boolean(options.remediationViaRelay);
@@ -159,6 +175,7 @@ export function generateHtmlReport(reportData, options = {}) {
       adminContact: /^(?=[^]{3,254}$)[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(options.adminContact ?? '') ? options.adminContact : '',
     },
     findings: clientFindings,
+    projectReports,
   };
 
   const title = projects.length === 1 ? `${projects[0].projectName} — vulnerability report` : 'Vulnerability report';
@@ -170,14 +187,22 @@ export function generateHtmlReport(reportData, options = {}) {
       : '';
 
 
-  const projectLinks = projects
-    .map((p) => {
-      const url = safeHttpUrl(p.url);
-      return url
-        ? `<a class="btn btn-outline" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(p.projectName)} (${p.risks?.length ?? 0}) →</a>`
-        : '';
-    })
+  // One project's full report: built by the reminder server and opened in a new tab.
+  // There is no link to Checkmarx One here.
+  const projectLinks = projectReports
+    .map(
+      (p, i) =>
+        `<button type="button" class="btn btn-outline" data-project-report="${i}" title="Builds this project's own report and opens it in a new tab (also downloaded)">${escapeHtml(p.projectName)} (${p.count}) →</button>`,
+    )
     .join('');
+  const singleProject = projects.length === 1;
+  const moreText = total > findings.length
+    ? singleProject
+      ? `Showing ${findings.length} of ${total} findings: the worst and oldest first.`
+      : `Showing ${findings.length} of ${total} findings. Open one project's own report (built by the reminder server, opens in a new tab):`
+    : projectReports.length
+      ? `Open one project's own report (built by the reminder server, opens in a new tab):`
+      : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -271,10 +296,13 @@ ${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere,
     </table>
   </div>
 
-  <section class="more">
-    <p>${total > findings.length ? `Showing ${findings.length} of ${total} findings. See every finding in Checkmarx One:` : 'Open in Checkmarx One:'}</p>
-    <div class="more-links">${projectLinks}</div>
-  </section>
+  ${moreText
+    ? `<section class="more">
+    <p>${moreText}</p>
+    ${projectLinks ? `<div class="more-links">${projectLinks}</div>` : ''}
+    <p id="project-report-status" class="muted" role="status" hidden></p>
+  </section>`
+    : ''}
 
   <p id="hidden-note" class="muted hidden-note" hidden></p>
 

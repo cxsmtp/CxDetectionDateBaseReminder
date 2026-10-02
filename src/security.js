@@ -50,7 +50,17 @@ export function contentSecurityPolicy(scriptHashes = []) {
   ].join('; ');
 }
 
-const isHttps = (req) => req.secure || String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim() === 'https';
+/**
+ * Whether this request came through a proxy this server trusts (TRUST_PROXY), so its
+ * X-Forwarded-* headers can be believed. Anyone else could set them to anything.
+ */
+export function viaTrustedProxy(req) {
+  const trust = req.app?.get?.('trust proxy fn');
+  return Boolean(trust && trust(req.socket?.remoteAddress ?? '', 0));
+}
+
+// req.secure already counts X-Forwarded-Proto, but only from a trusted proxy.
+const isHttps = (req) => Boolean(req.secure);
 
 export function securityHeaders({ scriptHashes = [] } = {}) {
   const csp = contentSecurityPolicy(scriptHashes);
@@ -77,7 +87,7 @@ function hostOf(value) {
   }
 }
 
-/** The hosts this request may legitimately come from: this server's Host, and a proxy's forwarded host. */
+/** The hosts this request may legitimately come from: this server's Host, and a trusted proxy's forwarded host. */
 function ownHosts(req) {
   const hosts = new Set();
   const add = (value) => {
@@ -87,7 +97,7 @@ function ownHosts(req) {
     }
   };
   add(req.headers.host);
-  add(req.headers['x-forwarded-host']);
+  if (viaTrustedProxy(req)) add(req.headers['x-forwarded-host']);
   return hosts;
 }
 

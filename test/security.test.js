@@ -25,7 +25,9 @@ test('every response forbids framing and sniffing, and allows only this server\'
   assert.doesNotMatch(headers['Content-Security-Policy'], /script-src[^;]*unsafe-inline/);
   assert.match(headers['Content-Security-Policy'], /object-src 'none'/);
   assert.equal(headers['Strict-Transport-Security'], undefined, 'HSTS only over HTTPS');
-  assert.ok(run(securityHeaders(), { headers: { 'x-forwarded-proto': 'https' } }).headers['Strict-Transport-Security']);
+  // Express sets req.secure for HTTPS here, or for X-Forwarded-Proto from a trusted proxy only.
+  assert.ok(run(securityHeaders(), { secure: true }).headers['Strict-Transport-Security']);
+  assert.equal(run(securityHeaders(), { headers: { 'x-forwarded-proto': 'https' } }).headers['Strict-Transport-Security'], undefined, 'a header anyone can send is not HTTPS');
 });
 
 test('the inline theme script in index.html is allowed by its hash, and nothing else inline', () => {
@@ -44,7 +46,11 @@ test('a state-changing request from another site is refused; this site, scripts 
   assert.equal(post({ origin: 'null' }).status, 403, 'a sandboxed or file page');
   assert.equal(post({ referer: 'https://evil.example/page' }).status, 403);
   assert.ok(post({ origin: 'https://mz.acme.io' }).passed);
-  assert.ok(post({ origin: 'https://proxy.acme.io', 'x-forwarded-host': 'proxy.acme.io' }).passed, 'behind a reverse proxy');
+  // A forwarded host counts only from a proxy this server trusts (TRUST_PROXY).
+  const app = (trusted) => ({ get: (name) => (name === 'trust proxy fn' ? () => trusted : undefined) });
+  const viaProxy = (trusted) => run(guard, { method: 'POST', path: '/settings', app: app(trusted), socket: { remoteAddress: '10.0.0.5' }, headers: { host: 'mz.acme.io', origin: 'https://proxy.acme.io', 'x-forwarded-host': 'proxy.acme.io' } });
+  assert.ok(viaProxy(true).passed, 'behind a trusted reverse proxy');
+  assert.equal(viaProxy(false).status, 403, 'a forwarded host from anyone else is ignored');
   assert.ok(post({}).passed, 'no browser: nothing ambient to abuse');
   assert.ok(post({ origin: 'null' }, '/relay/triage').passed, 'reports opened from disk call the relay');
   assert.ok(run(guard, { method: 'GET', path: '/settings', headers: { host: 'mz.acme.io', origin: 'https://evil.example' } }).passed, 'reads are not state changes');

@@ -208,7 +208,8 @@ export function readSessionCookie(req) {
 }
 
 export function setSessionCookie(req, res, id) {
-  const secure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  // HTTPS here, or at a trusted proxy (TRUST_PROXY): Express sets req.secure from either.
+  const secure = Boolean(req.secure);
   res.append(
     'Set-Cookie',
     [
