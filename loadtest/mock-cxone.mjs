@@ -56,8 +56,10 @@ http.createServer((req, res) => {
       if (u.pathname === '/api/risks/' || u.pathname === '/api/risks') {
         bump('risks');
         const pid = u.searchParams.get('projectId');
-        const rows = offset ? [] : risksFor(pid);
-        return send(200, { risks: rows, totalCount: rows.length });
+        // Paged like the real API: offset/limit, with the total on every page.
+        const all = risksFor(pid);
+        const lim = Number(u.searchParams.get('limit') || 200);
+        return send(200, { risks: all.slice(offset, offset + lim), totalCount: all.length });
       }
       if (u.pathname === '/api/results/' || u.pathname === '/api/results') {
         bump('results');

@@ -2,13 +2,14 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import express from 'express';
+import compression from 'compression';
 
 import { config, configProblems } from './config.js';
 import { APP_VERSION } from './version.js';
 import { SendGuard } from './send-guard.js';
 import { Diagnostics } from './diagnostics.js';
 import { filterProjectsByActivity, getLastScans, lastScanDate, listProjects } from './cxone/projects.js';
-import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, selectRisks, summariseProject } from './cxone/risks.js';
+import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, projectReads, selectRisks, summariseProject } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject, projectsInScope, scanInitiator, scanInitiatorEmail } from './cxone/initiators.js';
 import { AI_SCANNERS, resolveAiIds, resultRowsFor } from './cxone/ai-assist.js';
@@ -138,6 +139,11 @@ let bootstrapSessionId = null;
 
 knownAddresses.configure(path.join(dataDir, 'known-initiators.json'));
 const creditLedger = new CreditLedger({ file: path.join(dataDir, 'triage-credits.json') });
+/** Record triage or remediation sent for a project; its findings are about to change, so recent reads of it are dropped. */
+function recordCreditUse(entry) {
+  projectReads.forget(entry.projectId);
+  return creditLedger.record(entry);
+}
 const allocations = new CreditAllocations({ file: path.join(dataDir, 'credit-allocations.json'), ledger: creditLedger });
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
@@ -371,6 +377,24 @@ const app = express();
 // Security headers on every response, including the static pages (src/security.js).
 app.disable('x-powered-by');
 app.use(securityHeaders({ scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')) }));
+// Big replies (the page's script, the fetch stream, full results, downloads) shrink
+// 5-10x for a remote office or VPN: brotli or gzip at a quick level, the fetch stream
+// flushed line by line. Small, frequent ones (report polls) are left alone: compressing
+// hundreds a second costs a 2-CPU server more than it saves (docs/performance.md).
+// HTTP_COMPRESSION=off leaves it all to a reverse proxy; HTTP_COMPRESSION_MIN_KB sets the size.
+const COMPRESSION = String(process.env.HTTP_COMPRESSION ?? 'on').toLowerCase() !== 'off';
+const COMPRESSION_MIN_BYTES = Math.max(0, Number(process.env.HTTP_COMPRESSION_MIN_KB ?? 32) || 0) * 1024;
+if (COMPRESSION) {
+  app.use(
+    compression({
+      threshold: COMPRESSION_MIN_BYTES,
+      level: 4,
+      brotli: { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } },
+      // The fetch stream has no length up front, so it is compressed whatever its size.
+      filter: (req, res) => /ndjson/i.test(String(res.getHeader('Content-Type') ?? '')) || compression.filter(req, res),
+    }),
+  );
+}
 // Stopping for an update: requests in progress finish; new ones are told to retry in a moment
 // (reports and the page do), so nothing is lost and nobody sees an error.
 let draining = false;
@@ -568,6 +592,7 @@ app.get('/api/metrics', requirePermission('system.metrics'), async (req, res) =>
     memoryMb: { rss: Math.round(memory.rss / 1e6), heapUsed: Math.round(memory.heapUsed / 1e6) },
     relay: { ...relayStats, maxInFlight: RELAY_MAX_IN_FLIGHT },
     cache: { entries: relayCache.size, hits: relayCache.hits, misses: relayCache.misses },
+    projectReads: projectReads.stats,
     checkmarxOne: session?.client?.load ?? null,
   });
 });
@@ -1600,6 +1625,15 @@ const projectRow = ({ risks, ...summary }) => summary;
  * Fetch projects and findings. `onStart` hears how many projects will be read;
  * `onProject` gets each project's row as soon as it is read.
  */
+/**
+ * Who a session reads Checkmarx One as: the same key on the same tenant sees
+ * the same projects, so it may share recent reads (never across keys).
+ */
+function readerIdentity(session) {
+  const { apiKey = '', baseUrl = '', tenant = '' } = session?.connection ?? {};
+  return apiKey ? createHash('sha256').update(`${baseUrl}\u0000${tenant}\u0000${apiKey}`).digest('base64url').slice(0, 22) : '';
+}
+
 async function runScan(req, { onStart, onProject } = {}) {
   const { client } = req.session;
   const active = activeConfig();
@@ -1627,6 +1661,11 @@ async function runScan(req, { onStart, onProject } = {}) {
     warning = projects.length ? null : 'No project matches the projects or people named in the scope.';
   } else {
     ({ projects, skipped, warning, lastScans } = await filterProjectsByActivity(client, allProjects, activityWindow));
+  }
+  // Each project's latest scan: whose it is (for reminders), and whether a
+  // recent read of it by someone else is still current (see projectReads).
+  if (!Object.keys(lastScans ?? {}).length && projects.length) {
+    lastScans = await getLastScans(client, projects.map((p) => p.id)).catch(() => ({}));
   }
   onStart?.({ total: projects.length, projectsTotal: allProjects.length, projectsSkipped: skipped });
 
@@ -1660,6 +1699,7 @@ async function runScan(req, { onStart, onProject } = {}) {
     collectProjectRisks(client, active, projects, {
       detectionWindow,
       onProject: onProject ? (summary) => onProject(earlyRow(summary)) : null,
+      shared: { identity: readerIdentity(req.session), lastScans, fresh: req.query.fresh === '1' },
     }),
   ]);
   for (const summary of result.projects) {
@@ -1677,7 +1717,7 @@ async function runScan(req, { onStart, onProject } = {}) {
   for (const summary of result.projects) {
     if (summary.error) diagnostics.discrepancy('project-read-failed', { project: summary.projectId, message: summary.error });
   }
-  diagnostics.usage('fetch-complete', { projects: result.projects.length, findings: result.projects.reduce((n, p) => n + p.totalRisks, 0), ms: Date.now() - started });
+  diagnostics.usage('fetch-complete', { projects: result.projects.length, reused: result.reused ?? 0, findings: result.projects.reduce((n, p) => n + p.totalRisks, 0), ms: Date.now() - started });
   // Fetching shows what the findings need; it never allocates anything.
   for (const summary of result.projects) summary.credits = creditView(summary);
   req.session.lastScan = result;
@@ -1776,7 +1816,9 @@ app.get(
     });
     res.flushHeaders();
     const send = (event) => {
-      if (!res.writableEnded) res.write(`${JSON.stringify(event)}\n`);
+      if (res.writableEnded) return;
+      res.write(`${JSON.stringify(event)}\n`);
+      res.flush?.(); // through compression: each line leaves now, not when a buffer fills
     };
     try {
       const result = await runScan(req, {
@@ -2157,8 +2199,8 @@ function relayError(error) {
   return 'Checkmarx One could not be reached. Try again later.';
 }
 
-function grantedFindings(req, res, { type = '', actor = null } = {}) {
-  const list = Array.isArray(req.body?.findings) ? req.body.findings : [];
+function grantedFindings(req, res, { type = '', actor = null, list: given = req.body?.findings } = {}) {
+  const list = Array.isArray(given) ? given : [];
   if (list.length === 0 || list.length > RELAY_MAX_FINDINGS) {
     res.status(400).json({ error: `Send between 1 and ${RELAY_MAX_FINDINGS} findings.` });
     return null;
@@ -2486,18 +2528,53 @@ app.post(
       });
     }
     const session = await relaySession(res);
-    if (session) {
-      res.json({
-        connected: true,
-        tenant: session.connection.tenant,
-        triage: Boolean(aiTriage.enabled),
-        remediation: Boolean(aiTriage.remediationEnabled),
-        retriage: Boolean(aiTriage.allowRetriage),
-        reremediation: Boolean(aiTriage.allowReremediation),
-        adminContact: adminContact(),
-        creditsRemaining: creditsRemaining(),
+    if (session) res.json(relayStatus(session, aiTriage));
+  }),
+);
+
+function relayStatus(session, aiTriage) {
+  return {
+    connected: true,
+    tenant: session.connection.tenant,
+    triage: Boolean(aiTriage.enabled),
+    remediation: Boolean(aiTriage.remediationEnabled),
+    retriage: Boolean(aiTriage.allowRetriage),
+    reremediation: Boolean(aiTriage.allowReremediation),
+    adminContact: adminContact(),
+    creditsRemaining: creditsRemaining(),
+  };
+}
+
+/**
+ * Everything a report needs when it opens, in one round trip: the status
+ * (as /status), its projects' credits (as /credits, from `credits`: one
+ * signed finding per project), and where AI Triage and AI Remediation stand
+ * (as /triage-results for `findings`, /remediation-status for `remediation`).
+ * Each list is optional. Reports from before this call use the separate ones.
+ */
+app.post(
+  '/api/relay/hello',
+  asyncRoute(async (req, res) => {
+    const { aiTriage } = settingsStore.get();
+    if (!aiTriage?.enabled && !aiTriage?.remediationEnabled) {
+      return res.status(403).json({
+        error: 'AI Triage and Remediation from reports are switched off. Ask your Checkmarx One reminder administrator to allow them.',
       });
     }
+    const session = await relaySession(res);
+    if (!session) return;
+    const given = (key) => (Array.isArray(req.body?.[key]) && req.body[key].length ? req.body[key] : null);
+    const lists = {};
+    for (const key of ['credits', 'findings', 'remediation']) {
+      if (!given(key)) continue;
+      lists[key] = grantedFindings(req, res, { list: given(key) });
+      if (!lists[key]) return;
+    }
+    const answer = relayStatus(session, aiTriage);
+    if (lists.credits) answer.projects = projectCredits(lists.credits.map((f) => f.projectId));
+    if (lists.remediation) answer.remediationStatus = remediationStatusFor(session, lists.remediation);
+    if (lists.findings) answer.triageResults = await triageResultsFor(session, lists.findings);
+    res.json(answer);
   }),
 );
 
@@ -2636,7 +2713,7 @@ app.post(
             // Ledger first (so the balance after is right), linked to its audit entry both ways.
             const auditId = randomUUID();
             reservation.release();
-            creditLedger.record({
+            recordCreditUse({
               projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', riskIds, alternateIds,
               groupIds: [...new Set(group.map((f) => f.groupId).filter(Boolean))], covered: Math.min(covered, alternateIds.length), auditId,
             });
@@ -2821,41 +2898,45 @@ app.post(
     if (!findings) return;
     const session = await relaySession(res);
     if (!session) return;
-
-    const statesByProject = new Map();
-    const stateErrors = new Map();
-    const projectIds = [...new Set(findings.map((f) => f.projectId))];
-    const sentBefore = new Map(projectIds.map((id) => [id, creditLedger.triagedAt(id)]));
-    await mapWithConcurrency(projectIds, 3, async (projectId) => {
-      try {
-        statesByProject.set(projectId, await projectStates(session, projectId));
-      } catch (error) {
-        stateErrors.set(projectId, relayError(error));
-        console.warn(`[relay] could not read risk states for project ${logSafe(projectId)}: ${logSafe(error.message)}`);
-      }
-    });
-
-    // Answer from what is known now; anything not known yet is fetched in the
-    // background and marked pending, so the report asks again shortly. No
-    // request ever waits on thousands of upstream lookups.
-    const results = findings.map((finding) => {
-      const states = statesByProject.get(finding.projectId);
-      const state = states?.get(finding.riskId) ?? states?.get(finding.alternateId) ?? '';
-      const { key, load, ttl } = triageLookup(session, finding, { background: true });
-      const known = relayCache.peek(key, backgroundRoom(session) ? load : null, ttl);
-      // When this utility sent it for AI Triage, so the report can say so even before Checkmarx One has a verdict.
-      const sent = sentBefore.get(finding.projectId);
-      const sentAt = sent?.get(finding.riskId) || sent?.get(`a:${finding.alternateId}`) || (finding.groupId && sent?.get(`g:${finding.groupId}`));
-      const extra = {
-        ...(sentAt ? { triagedAt: sentAt } : {}),
-        ...(stateErrors.has(finding.projectId) ? { stateError: stateErrors.get(finding.projectId) } : {}),
-      };
-      if (!known) return { found: false, state, pending: true, ...extra };
-      return { ...known.value, state, ...extra, ...(known.fresh ? {} : { stale: true }) };
-    });
-    res.json({ results, checkedAt: new Date().toISOString() });
+    res.json(await triageResultsFor(session, findings));
   }),
 );
+
+/** Where AI Triage stands for these findings, answered from what is known now (see /api/relay/triage-results). */
+async function triageResultsFor(session, findings) {
+  const statesByProject = new Map();
+  const stateErrors = new Map();
+  const projectIds = [...new Set(findings.map((f) => f.projectId))];
+  const sentBefore = new Map(projectIds.map((id) => [id, creditLedger.triagedAt(id)]));
+  await mapWithConcurrency(projectIds, 3, async (projectId) => {
+    try {
+      statesByProject.set(projectId, await projectStates(session, projectId));
+    } catch (error) {
+      stateErrors.set(projectId, relayError(error));
+      console.warn(`[relay] could not read risk states for project ${logSafe(projectId)}: ${logSafe(error.message)}`);
+    }
+  });
+
+  // Answer from what is known now; anything not known yet is fetched in the
+  // background and marked pending, so the report asks again shortly. No
+  // request ever waits on thousands of upstream lookups.
+  const results = findings.map((finding) => {
+    const states = statesByProject.get(finding.projectId);
+    const state = states?.get(finding.riskId) ?? states?.get(finding.alternateId) ?? '';
+    const { key, load, ttl } = triageLookup(session, finding, { background: true });
+    const known = relayCache.peek(key, backgroundRoom(session) ? load : null, ttl);
+    // When this utility sent it for AI Triage, so the report can say so even before Checkmarx One has a verdict.
+    const sent = sentBefore.get(finding.projectId);
+    const sentAt = sent?.get(finding.riskId) || sent?.get(`a:${finding.alternateId}`) || (finding.groupId && sent?.get(`g:${finding.groupId}`));
+    const extra = {
+      ...(sentAt ? { triagedAt: sentAt } : {}),
+      ...(stateErrors.has(finding.projectId) ? { stateError: stateErrors.get(finding.projectId) } : {}),
+    };
+    if (!known) return { found: false, state, pending: true, ...extra };
+    return { ...known.value, state, ...extra, ...(known.fresh ? {} : { stale: true }) };
+  });
+  return { results, checkedAt: new Date().toISOString() };
+}
 
 /**
  * Where AI Remediation stands for a finding in Checkmarx One:
@@ -2892,20 +2973,25 @@ app.post(
     if (!findings) return;
     const session = await relaySession(res);
     if (!session) return;
-    // As with triage results: answer from what is known, fill the rest in the background.
-    const results = findings.map((finding) => {
-      const { key, load, ttl } = remediationLookup(session, finding, { background: true });
-      const known = relayCache.peek(key, backgroundRoom(session) ? load : null, ttl);
-      if (!known) {
-        return creditLedger.remediatedIds(finding.projectId).has(finding.riskId)
-          ? { status: 'done', body: null }
-          : { status: 'unknown', pending: true };
-      }
-      return { ...remediationStatusOf(finding, known.value), ...(known.fresh ? {} : { stale: true }) };
-    });
-    res.json({ results });
+    res.json(remediationStatusFor(session, findings));
   }),
 );
+
+/** Which of these findings are already remediated, answered from what is known now. */
+function remediationStatusFor(session, findings) {
+  // As with triage results: answer from what is known, fill the rest in the background.
+  const results = findings.map((finding) => {
+    const { key, load, ttl } = remediationLookup(session, finding, { background: true });
+    const known = relayCache.peek(key, backgroundRoom(session) ? load : null, ttl);
+    if (!known) {
+      return creditLedger.remediatedIds(finding.projectId).has(finding.riskId)
+        ? { status: 'done', body: null }
+        : { status: 'unknown', pending: true };
+    }
+    return { ...remediationStatusOf(finding, known.value), ...(known.fresh ? {} : { stale: true }) };
+  });
+  return { results };
+}
 
 /**
  * AI Remediation for one finding. Checkmarx One first triages it, then
@@ -3010,7 +3096,7 @@ app.post(
           const covered = (await coveredCount(session, finding.projectId, 'remediation', [finding.riskId])) ? cost : 0;
           const auditId = randomUUID();
           reservation.release();
-          creditLedger.record({
+          recordCreditUse({
             projectId: finding.projectId,
             projectName: finding.projectName,
             credits: cost,
@@ -3480,7 +3566,7 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
           // The administrator's own triage never uses up the developers' extras.
           const auditId = randomUUID();
           reservation.release();
-          creditLedger.record({
+          recordCreditUse({
             projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', covered: alternateIds.length,
             riskIds: [...new Set(group.map((f) => f.riskId))], alternateIds, groupIds: [...new Set(group.map((f) => f.groupId).filter(Boolean))], auditId,
           });
@@ -3665,7 +3751,7 @@ async function adminRemediate(session, findings, initiatorsByProject = {}, { act
         if (published) {
           const auditId = randomUUID();
           reservation.release();
-          creditLedger.record({ projectId, projectName, credits, scanId, kind: 'remediation', riskIds: [...new Set(group.map((f) => f.riskId))], covered: credits, auditId });
+          recordCreditUse({ projectId, projectName, credits, scanId, kind: 'remediation', riskIds: [...new Set(group.map((f) => f.riskId))], covered: credits, auditId });
           auditCredit({ ...base, id: auditId, outcome: 'charged', charged: credits, upstream });
         } else {
           auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this remediation job; no new credits.', upstream });

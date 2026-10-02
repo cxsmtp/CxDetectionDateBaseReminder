@@ -49,6 +49,48 @@ It also gives the server, VM or container size to run.
 - The mock tenant and the load generator ran on the same machine. For the sized runs the server was pinned to its own CPUs with `taskset`, and everything else to the remaining CPUs.
 - The generator itself competes for CPU, so real servers do somewhat better than these numbers.
 
+## MZ-01.00.17: faster fetches and report opening
+
+What changed:
+- **Shared recent reads.** A project fetched by anyone in the last 2 minutes is reused by the next fetch on the same Checkmarx One key, while its latest scan is unchanged and nobody triaged it from here (see [How it works](how-it-works.md)).
+- **Big projects, a few pages at once**, and last-scan lookups in parallel.
+- **Reports open with one call** (`/api/relay/hello`) instead of four.
+- **Big replies compressed** (32 KB and up): the page, the fetch stream, full results, downloads.
+
+Same machine, same load (3000 users, 120 s, server pinned to 2 vCPU), same load generator for both. Reports open the way the real report does: before, the status then credits, triage results and remediation state side by side; after, the one call.
+
+| Sustained load | Before (MZ-01.00.16) | After (MZ-01.00.17) |
+| --- | --- | --- |
+| **Failed requests** | 242 of 69,796 | **6 of 64,320** |
+| **Report opens, all states known** (p50 / p95 / p99) | 222 ms / 11.7 s / 14.5 s | **53 ms / 2.1 s / 4.4 s** |
+| Report polls: triage results (p95 / p99) | 1.1 s / 8.2 s | **240 ms / 1.3 s** |
+| Report polls: remediation state (p95 / p99) | 5.9 s / 10.7 s | **65 ms / 149 ms** |
+| Report: triage (p95) | 6.1 s | **3.9 s** |
+| **Fetch, whole tenant** (p50 / p95) | 26.2 s / 34.7 s | **10.3 s / 25.1 s** |
+| 21 people fetching at the same moment | 15.2 s | **2.7 s** |
+| Refresh & verify credits (p50 / p95) | 4.4 s / 7.0 s | **1.9 s / 5.6 s** |
+| Tracked report refresh (p50) | 2.8 s | **1.5 s** |
+| Email reminders to initiators (p95) | 20.8 s | **6.6 s** |
+| Pages: who am I, settings, health (p50 / p99) | 10 ms / 0.3–0.4 s | 10 ms / 0.2 s |
+| Server health check (worst) | 30 s | **0.3 s** |
+| Checkmarx One calls | 37,781 (113 fetches) | 36,706 (136 fetches) |
+
+Requests per second fell (536 → 494) because each report now opens with one request instead of four; the work done went up.
+
+**Burst** (2,970 requests at the same instant): 0 failed both times, all answered in about 15.5 s both times; a fetch inside the burst took 4.8 s instead of 10.5 s.
+
+**Not better yet:** building an HTML report or emailing HTML reports still has a slow tail (p99 up to the 60 s timeout, 2–3 of ~170 each run, before and after), waiting behind everything else in the Checkmarx One queue.
+
+**Compression, measured** (bytes on the wire):
+
+| Reply | Plain | gzip | brotli |
+| --- | --- | --- | --- |
+| Opening the page (script, styles, HTML) | 426 KB | 110 KB | 106 KB |
+| Fetch stream, 200 projects | 445 KB | 105 KB | 11 KB |
+| Full fetch result, 200 projects | 241 KB | 8 KB | 4.5 KB |
+
+Compressing *every* reply was tried and measured first: on 2 vCPU it cost more CPU than it saved on the hundreds of small report polls a second, and page latency at p99 rose to about 10 s. Hence the 32 KB threshold (`HTTP_COMPRESSION_MIN_KB`). Behind a reverse proxy that compresses, `HTTP_COMPRESSION=off` leaves it to the proxy.
+
 ## Results (MZ-01.00.06)
 
 ### Summary
@@ -159,6 +201,9 @@ podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -e TZ=
 | --- | --- | --- |
 | `CX_MAX_CONCURRENCY` | 24 | Calls to Checkmarx One at once. Raise it (e.g. 48) only if your tenant's rate limits allow; it shortens fetch, verify and report times under load. |
 | `CX_FETCH_CONCURRENCY` | 10 | Projects read at once by one fetch. |
+| `CX_PAGES_AT_ONCE` | 4 | Pages of one big project read at once, once its size is known. |
+| `HTTP_COMPRESSION`, `HTTP_COMPRESSION_MIN_KB` | on, 32 | Compress replies of at least this many KB (brotli or gzip). `off` when a reverse proxy compresses. |
+| `CX_FETCH_CACHE_SECONDS` | 120 | How long a project someone fetched is reused by the next fetch on the same key (see [How it works](how-it-works.md)). Longer means fewer calls and staler states; `0` reads everything every time. |
 | `RELAY_MAX_IN_FLIGHT` | 300 | Report requests handled at once before answering "busy, retry". Raise it on 4 vCPU. |
 | `RELAY_BACKGROUND_QUEUE` | 2000 | Background lookups allowed to queue. |
 | `NODE_OPTIONS=--max-old-space-size=N` | Node's default | About two-thirds of the container's memory limit, in MB. |
