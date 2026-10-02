@@ -1256,6 +1256,11 @@ body.fetching [data-needs-data] { opacity: 0.45; cursor: not-allowed; }
 .verify-row { align-items: center; gap: 12px; flex-wrap: wrap; }
 .verify-row .hint { flex: 1 1 320px; }
 .verified-ok { color: var(--ok); font-weight: 700; }
+#alloc-verify { border: 2px solid #16a34a; color: #15803d; }
+#alloc-verify:hover:not(:disabled) { border-color: #15803d; background: color-mix(in srgb, #16a34a 8%, var(--surface)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #alloc-verify { color: #4ade80; } }
+:root[data-theme="dark"] #alloc-verify { color: #4ade80; }
+.status.warn { color: var(--warn, #b45309); font-weight: 600; }
 
 /* Logs page: the troubleshooting download and its privacy promise (green, as it is a guarantee). */
 .privacy-ok { margin: 10px 0 0; color: #15803d; font-weight: 600; font-size: 13px; }

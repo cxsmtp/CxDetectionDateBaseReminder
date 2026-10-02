@@ -266,7 +266,7 @@ Each finding falls into an age bucket by when it was **first detected**:
 
 | Button | What it does |
 | --- | --- |
-| **Refresh & verify with Checkmarx One** | Re-reads the findings twice, independently. The numbers are marked verified only when both reads agree. Use it before allocating if anyone may be working on the findings. |
+| **Refresh & verify with Checkmarx One** (green border) | Re-reads the findings twice, independently. The numbers are marked verified only when both reads agree. Every button below runs it first by itself. |
 | **Allocate for triage** | Verifies first, then shows what will be given and asks you to confirm. Credits come out of the credit pool. |
 | **Triage selected now** | Runs AI Triage on the selected projects' findings, within their credits. |
 | **Allocate for remediation** | The same, for confirmed findings. |
@@ -275,6 +275,11 @@ Each finding falls into an age bucket by when it was **first detected**:
 | Extra credits → **Add extra credits** | Gives every selected project a fixed extra amount. |
 | **Take back extra credits** | Returns the extras. |
 | **Take back unused credits** | Returns everything allocated but not used (people did not act on it) to the pool. It never goes below what was used or is in flight. |
+
+**Every action checks first.** Each button in this panel (allocate, triage, remediate, extra credits, taking credits back) first runs **Refresh & verify**. Developers may be triaging or remediating in Checkmarx One itself, or from their emailed report, while you look at this page.
+- **Nothing changed:** the action goes ahead with the confirmed numbers.
+- **Something changed** (for example, results to triage 10 → 8, or remediation credits left 6 → 3): the action is **cancelled**. The panel now shows the real numbers, and a message lists exactly what changed. Click again to go ahead with them.
+- **The two reads disagree** (someone is working on those findings right now): the action is cancelled. Wait a moment and click again.
 
 **Safety nets**
 - The same vulnerability is never sent twice, from any page, report or person, even at the same moment.
@@ -486,6 +491,8 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 | More rows than credits needed | Several rows can be one Checkmarx One result (marked **Same result R1** …). You are charged per result. |
 | "Fetch still running" when you click Allocate or Triage | Wait for the green **Data fetch complete** flare. |
 | "Could not be confirmed twice" when allocating | Someone was triaging, or a scan finished, between the two reads. Wait a minute and use **Refresh & verify** again. |
+| "… cancelled: Checkmarx One changed since this page last showed it" | Someone triaged or remediated meanwhile, in Checkmarx One or from a report. The panel now shows the real numbers; click the button again. |
+| "Mission Zero is restarting for an update — reconnecting…" | A new version is being applied. Wait a few seconds; you stay signed in and nothing is lost. |
 | A report says "busy, retrying" | Many reports are open at once. It retries by itself; nothing is lost. |
 | Credits refused | The project has no credits left. Allocate on the Dashboard, or raise the credit pool (Admin). |
 | Anything else | Logs page → **Download troubleshooting log** and send it to your maintainer. |

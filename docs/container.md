@@ -107,8 +107,9 @@ port on the host.
   - `-v /srv/mz-backups:/backups -e BACKUP_DIR=/backups`
   - Podman with SELinux: `-v /srv/mz-backups:/backups:Z`
   - Or use **Audit → Download backup**.
-- **Upgrade.** Pull the new image, remove the container, and run the same line
-  again. The volume carries everything over:
+- **Upgrade.** See [updating.md](updating.md) for the two-line update that keeps
+  people signed in. With Docker: pull the new image, stop and remove the
+  container, and run the same line again. The volume carries everything over:
 
   ```
   docker pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
