@@ -91,7 +91,7 @@ test('encrypted backups need the passphrase; damaged or foreign files are refuse
   assert.throws(() => readBackup(buffer, { passphrase: 'wrong' }), /Wrong passphrase/);
   assert.equal(describeBackup(readBackup(buffer, { passphrase: 'correct horse' })).hasSettings, true);
 
-  assert.throws(() => readBackup(Buffer.from('hello')), /Not a Mission Zero backup/);
+  assert.throws(() => readBackup(Buffer.from('hello')), /Not a CxMissionZero backup/);
   const plain = JSON.parse(zlib.gunzipSync(createBackup({ dataDir: source }).buffer));
   plain.files['settings.json'].data = Buffer.from('{"tampered":1}').toString('base64');
   assert.throws(() => readBackup(zlib.gzipSync(JSON.stringify(plain))), /damaged/);

@@ -1,4 +1,4 @@
-# Mission Zero — one image for Docker and Podman, on Linux, macOS and Windows
+# CxMissionZero — one image for Docker and Podman, on Linux, macOS and Windows
 # (amd64 and arm64). Everything it keeps lives in the /data volume.
 #
 #   docker run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest

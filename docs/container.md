@@ -1,4 +1,4 @@
-# Run Mission Zero in a container (Docker or Podman)
+# Run CxMissionZero in a container (Docker or Podman)
 
 One image runs on Linux, macOS (Intel and Apple Silicon) and Windows, under
 Docker or Podman. Everything the utility keeps — settings, people and roles,

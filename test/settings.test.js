@@ -117,6 +117,20 @@ test('a missing or corrupt settings file falls back to defaults', () => {
   assert.deepEqual(new SettingsStore({ file: corrupt }).get(), DEFAULT_SETTINGS);
 });
 
+test('the product is CxMissionZero; an earlier default name saved by auto-save becomes it, a chosen name stays', () => {
+  assert.equal(DEFAULT_SETTINGS.branding.appName, 'CxMissionZero');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cxdr-'));
+  const load = (appName) => {
+    const file = path.join(dir, `${appName.replace(/\W/g, '')}.json`);
+    fs.writeFileSync(file, JSON.stringify({ branding: { appName, companyName: 'Acme' } }));
+    return new SettingsStore({ file }).get().branding;
+  };
+  assert.equal(load('Mission Zero').appName, 'CxMissionZero');
+  assert.equal(load('Detection Date Reminder').appName, 'CxMissionZero');
+  assert.equal(load('Acme AppSec').appName, 'Acme AppSec');
+  assert.equal(load('Mission Zero').companyName, 'Acme', 'the rest of the branding is kept');
+});
+
 test('markVerified pins the fingerprint of the settings in force', () => {
   const store = new SettingsStore({ file: tempFile() });
   store.save({ smtp: { host: 'smtp.example.com', password: 'pw' } });

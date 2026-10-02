@@ -1,6 +1,6 @@
-# Mission Zero user guide
+# CxMissionZero user guide
 
-Everything you can do in Mission Zero, page by page, with every option explained.
+Everything you can do in CxMissionZero, page by page, with every option explained.
 
 **Who needs which part**
 - Developers who only receive emails need [The emailed report](#the-emailed-report).
@@ -63,7 +63,7 @@ The password is also kept in `/data/first-admin-password.txt` until it is change
 
 **Locked out?** Five wrong passwords lock an account for 15 minutes. An Admin or Analyst can set a new temporary password for you on the Access page (**Set password**).
 
-**Connections, top right.** Three indicators show whether Mission Zero can reach what it needs:
+**Connections, top right.** Three indicators show whether CxMissionZero can reach what it needs:
 
 | Indicator | Green when | Red until |
 | --- | --- | --- |
@@ -82,7 +82,7 @@ Several actions can run at once, each with its own flare.
 
 **Sign out** is under your name, top right. Idle sessions end after 8 hours (`SESSION_IDLE_MINUTES`).
 
-**Staying signed in.** Reloading the page, an update of Mission Zero, or a server restart never signs you out, or loses the data you fetched and the scope you chose. Only signing out, 8 idle hours, or an administrator changing your access does.
+**Staying signed in.** Reloading the page, an update of CxMissionZero, or a server restart never signs you out, or loses the data you fetched and the scope you chose. Only signing out, 8 idle hours, or an administrator changing your access does.
 - If you signed in with your own Checkmarx One API key, you sign in again after a restart: that key is never written to disk.
 
 ---
@@ -119,7 +119,7 @@ You need access to the machine that runs the container (Podman or Docker). The c
 
 | Way | Use it when | You need |
 | --- | --- | --- |
-| **A. Your company's certificate** | Mission Zero runs inside the company network or VPN. This is the usual case, and the safest. | A certificate for its name from IT, and a DNS name pointing at the machine |
+| **A. Your company's certificate** | CxMissionZero runs inside the company network or VPN. This is the usual case, and the safest. | A certificate for its name from IT, and a DNS name pointing at the machine |
 | **B. Automatic certificate** (Let's Encrypt) | It has a public name the internet can reach | A public DNS name pointing at the machine, with ports 80 and 443 open to it |
 | **C. Self-signed** | Trying it out, or a lab | Nothing. Browsers warn about it until you trust it |
 
@@ -130,7 +130,7 @@ You need access to the machine that runs the container (Podman or Docker). The c
    - Ask for the **full chain**: your certificate and the intermediate certificates in one file.
    - You get either two files, `server.crt` and `server.key`, or one `.pfx` file and its password.
 2. **Put the files in a folder** on the machine, e.g. `C:\mission-zero\certs`.
-3. **Start Mission Zero with them.** This replaces the running container; no data is lost.
+3. **Start CxMissionZero with them.** This replaces the running container; no data is lost.
 
 ```
 podman run --replace -d --name mission-zero -p 443:3000 -p 80:8080 -v mission-zero-data:/data -v C:\mission-zero\certs:/certs:ro -e TZ=Asia/Dubai -e TLS_CERT_FILE=/certs/server.crt -e TLS_KEY_FILE=/certs/server.key -e HTTP_REDIRECT_PORT=8080 -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
@@ -140,11 +140,11 @@ podman run --replace -d --name mission-zero -p 443:3000 -p 80:8080 -v mission-ze
    - **`-p 80:8080` and `HTTP_REDIRECT_PORT=8080`** send anyone who types `http://` to `https://`. Leave both out if you don't want port 80.
 4. **Check it** (see [step 3](#3-check-it-worked)).
 
-**When the certificate is renewed,** copy the new files over the old ones in the folder. Mission Zero switches to them within 5 minutes, with no restart. If a new file is broken, it keeps serving the old certificate and says why in its log.
+**When the certificate is renewed,** copy the new files over the old ones in the folder. CxMissionZero switches to them within 5 minutes, with no restart. If a new file is broken, it keeps serving the old certificate and says why in its log.
 
 ### 2B. With an automatic certificate (public name)
 
-Caddy, a small web server, gets a free certificate from Let's Encrypt, renews it by itself, and passes requests on to Mission Zero. Mission Zero itself then has no open port.
+Caddy, a small web server, gets a free certificate from Let's Encrypt, renews it by itself, and passes requests on to CxMissionZero. CxMissionZero itself then has no open port.
 
 ```
 podman network create mz-net
@@ -169,7 +169,7 @@ podman run --replace -d --name mission-zero -p 3443:3000 -v mission-zero-data:/d
 Open <https://localhost:3443>.
 
 **The certificate**
-- Mission Zero makes it at the first start and keeps it in the data volume. It covers `localhost`, the machine's name and the names in `TLS_HOSTNAMES`.
+- CxMissionZero makes it at the first start and keeps it in the data volume. It covers `localhost`, the machine's name and the names in `TLS_HOSTNAMES`.
 - The browser warns once ("Your connection is not private"), because no authority vouches for it. Click **Advanced**, then the link that continues to the site.
 
 **To stop the warning on a Windows machine (Edge and Chrome)**
@@ -213,7 +213,7 @@ For everyday use, switch to way A or B instead: every reader's machine would hav
 - Let it handle HTTPS and forward to port 3000, with the `X-Forwarded-Proto`, `X-Forwarded-For` and `X-Forwarded-Host` headers.
 - If the proxy is on another machine outside a private network, add `-e TRUST_PROXY=<its address>`. Otherwise those headers are not believed.
 
-All the options, and a checklist for hosting Mission Zero safely: [HTTPS and hosting](https-and-hosting.md).
+All the options, and a checklist for hosting CxMissionZero safely: [HTTPS and hosting](https-and-hosting.md).
 
 ---
 
@@ -366,7 +366,7 @@ Where findings are read from. The default is `/api/risks/`.
 - Rows appear as each project is read.
 - An **amber flare** (bottom-right) says the fetch is in progress, with how many projects are in so far. It turns **green, Data fetch complete**, when the last one arrives.
 - Until then, triage, remediation and credit allocation are switched off, so nothing is decided on half the data.
-- **Faster when someone just fetched.** A project read by anyone in the last couple of minutes is reused, unless it was rescanned or triaged from Mission Zero since. Under the button it says how many were reused. Tick **Read everything fresh from Checkmarx One** to read every project again, for example right after changing findings directly in Checkmarx One.
+- **Faster when someone just fetched.** A project read by anyone in the last couple of minutes is reused, unless it was rescanned or triaged from CxMissionZero since. Under the button it says how many were reused. Tick **Read everything fresh from Checkmarx One** to read every project again, for example right after changing findings directly in Checkmarx One.
 
 Each finding falls into an age bucket by when it was **first detected**:
 
@@ -581,7 +581,7 @@ Early features: check what they find before relying on them. Details are in [bet
 - where numbers disagree;
 - recommended fixes.
 
-Send it to whoever maintains Mission Zero when something goes wrong. **It captures no sensitive information:** no names, email addresses, passwords, keys, tokens, hosts, URLs, findings or code.
+Send it to whoever maintains CxMissionZero when something goes wrong. **It captures no sensitive information:** no names, email addresses, passwords, keys, tokens, hosts, URLs, findings or code.
 
 **Activity log.** What this browser did, filtered by API calls, errors and successes, and searchable. **Export** saves it; **Clear** empties it.
 
@@ -629,7 +629,7 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 | "Fetch still running" when you click Allocate or Triage | Wait for the green **Data fetch complete** flare. |
 | "Could not be confirmed twice" when allocating | Someone was triaging, or a scan finished, between the two reads. Wait a minute and use **Refresh & verify** again. |
 | "… cancelled: Checkmarx One changed since this page last showed it" | Someone triaged or remediated meanwhile, in Checkmarx One or from a report. The panel now shows the real numbers; click the button again. |
-| "Mission Zero is restarting for an update — reconnecting…" | A new version is being applied. Wait a few seconds; you stay signed in and nothing is lost. |
+| "CxMissionZero is restarting for an update — reconnecting…" | A new version is being applied. Wait a few seconds; you stay signed in and nothing is lost. |
 | A report says "busy, retrying" | Many reports are open at once. It retries by itself; nothing is lost. |
 | Credits refused | The project has no credits left. Allocate on the Dashboard, or raise the credit pool (Admin). |
 | **HTTPS:** the container stops; the log says "HTTPS is not set up correctly: …" | It tells you what is wrong:<ul><li>*The private key does not belong to the certificate*: the two files are from different requests. Ask IT for the matching pair.</li><li>*The .pfx file did not open: wrong TLS_PFX_PASSPHRASE?*: check the password.</li><li>*needs both TLS_CERT_FILE and TLS_KEY_FILE*: give both, or use `TLS_PFX_FILE`.</li><li>*no such file*: the folder is not mounted (`-v C:\mission-zero\certs:/certs:ro`), or the file name differs.</li></ul> |

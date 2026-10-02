@@ -49,7 +49,7 @@ test('saved sign-ins: ids only hashed, fetched data saved apart and read back wi
 test('instance lock: a live server keeps others out; a dead one is taken over; a clean stop frees it at once', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lock-'));
   const first = await new InstanceLock(dir).acquire();
-  await assert.rejects(new InstanceLock(dir).acquire({ waitMs: 300 }), /Another Mission Zero server .* is using this data folder/);
+  await assert.rejects(new InstanceLock(dir).acquire({ waitMs: 300 }), /Another CxMissionZero server .* is using this data folder/);
   first.release();
   const second = await new InstanceLock(dir).acquire({ waitMs: 300 });
   second.release();
@@ -122,7 +122,7 @@ test('a server update keeps people signed in with their fetched data, and keeps 
   // A second server on the same data folder is refused while the first runs.
   const intruder = start({ PORT: String(await freePort()), INSTANCE_LOCK_WAIT_SECONDS: '1' });
   assert.equal(await intruder.exited, 1);
-  assert.match(intruder.log, /Another Mission Zero server .* is using this data folder/);
+  assert.match(intruder.log, /Another CxMissionZero server .* is using this data folder/);
 
   // The update: stop the running server the way podman stop / --replace does.
   v1.kill('SIGTERM');

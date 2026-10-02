@@ -39,7 +39,7 @@ function browser() {
 }
 const admin = browser();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const mail = (port) => ({ host: '127.0.0.1', port, secure: false, requireAuth: false, rejectUnauthorized: false, fromAddress: 'mz@acme.io', fromName: 'Mission Zero' });
+const mail = (port) => ({ host: '127.0.0.1', port, secure: false, requireAuth: false, rejectUnauthorized: false, fromAddress: 'mz@acme.io', fromName: 'CxMissionZero' });
 
 test.before(async () => {
   smtp = await fakeSmtp();
@@ -125,7 +125,7 @@ test('a connection timeout rolls back too, and the administrator is told at the 
   assert.equal(me.configNotices.length, 1);
   const [notice] = me.configNotices;
   assert.match(notice.parts[0].error, /timed out/);
-  assert.deepEqual(notice.parts[0].restored, { host: '127.0.0.1', port: smtp.port, secure: false, user: '', fromName: 'Mission Zero', fromAddress: 'mz@acme.io' });
+  assert.deepEqual(notice.parts[0].restored, { host: '127.0.0.1', port: smtp.port, secure: false, user: '', fromName: 'CxMissionZero', fromAddress: 'mz@acme.io' });
   assert.equal((await next('POST', '/api/settings/notices/ack', { ids: [notice.id] })).body.acknowledged, 1);
   assert.equal((await next('GET', '/api/me')).body.configNotices.length, 0, 'shown once');
   const audit = (await admin('GET', '/api/audit?types=settings&limit=50')).body.entries.map((e) => e.reason).join('\n');

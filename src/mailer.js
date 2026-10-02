@@ -152,10 +152,10 @@ export async function sendTestEmail(smtp, to) {
     const info = await transport.sendMail({
       from: fromAddress(smtp),
       to,
-      subject: 'Mission Zero — test message',
-      text: 'This is a test message from Mission Zero, the Checkmarx One reminder utility. SMTP is working.',
+      subject: 'CxMissionZero — test message',
+      text: 'This is a test message from CxMissionZero, the Checkmarx One reminder utility. SMTP is working.',
       html:
-        '<p>This is a test message from <strong>Mission Zero</strong>, the Checkmarx One reminder utility.</p>' +
+        '<p>This is a test message from <strong>CxMissionZero</strong>, the Checkmarx One reminder utility.</p>' +
         '<p>SMTP is working.</p>',
     });
     return { ok: true, messageId: info.messageId, accepted: info.accepted ?? [] };

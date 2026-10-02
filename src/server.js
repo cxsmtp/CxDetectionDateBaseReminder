@@ -431,7 +431,7 @@ let inFlight = 0;
 app.use((req, res, next) => {
   if (draining) {
     res.set({ 'Retry-After': '3', Connection: 'close' });
-    return res.status(503).json({ error: 'Mission Zero is restarting for an update. Trying again in a moment.', restarting: true, busy: true, retryAfter: 3 });
+    return res.status(503).json({ error: 'CxMissionZero is restarting for an update. Trying again in a moment.', restarting: true, busy: true, retryAfter: 3 });
   }
   inFlight += 1;
   let done = false;
@@ -571,7 +571,7 @@ app.get('/api/health', (req, res) => {
     defaultTemplate: DEFAULT_TEMPLATE,
     // Shown in the header before anyone connects.
     app: {
-      name: settingsStore.get().branding.appName || 'Mission Zero',
+      name: settingsStore.get().branding.appName || 'CxMissionZero',
       logoUrl: settingsStore.get().branding.logoUrl || '',
     },
   });
@@ -3240,8 +3240,8 @@ async function notifyOnBehalf(session, kind, started, initiatorsByProject, actor
   const title = KIND_TITLES[kind];
   const by = actor?.user ? `${actor.user}` : 'Your security team';
   const next = kind === 'remediation'
-    ? ['Open your Mission Zero report for these projects and click Refresh to fetch the suggested fixes.', 'Review and approve the pull requests AI Remediation opens in your repository (or apply the fix shown in Checkmarx One).']
-    : ['Open your Mission Zero report for these projects and click Refresh to see the verdicts.', 'Confirmed findings can then be remediated from the report; proposed not exploitable ones drop out of it.'];
+    ? ['Open your CxMissionZero report for these projects and click Refresh to fetch the suggested fixes.', 'Review and approve the pull requests AI Remediation opens in your repository (or apply the fix shown in Checkmarx One).']
+    : ['Open your CxMissionZero report for these projects and click Refresh to see the verdicts.', 'Confirmed findings can then be remediated from the report; proposed not exploitable ones drop out of it.'];
   for (const [email, projects] of byPerson) {
     const total = projects.reduce((n, p) => n + p.results.size, 0);
     const lines = projects.map((p) => `${p.name}: ${p.results.size} finding${p.results.size === 1 ? '' : 's'} (${[...p.severities].filter(Boolean).join(', ')})`);
@@ -4566,7 +4566,7 @@ function reportDownloadUrl(relayUrl, id) {
 }
 
 function linkPage(title, message) {
-  const name = escapeHtml(settingsStore.get().branding.appName || 'Mission Zero');
+  const name = escapeHtml(settingsStore.get().branding.appName || 'CxMissionZero');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(title)} · ${name}</title><style>body{font:15px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#f6f7fb;color:#1f2330}
 main{max-width:520px;margin:24px;padding:28px;border-radius:14px;background:#fff;border:1px solid #e6e8ef}h1{font-size:20px;margin:0 0 8px}p{color:#475467;margin:0}
@@ -5513,7 +5513,7 @@ if (restoredAtStart) {
 }
 
 const server = (tls ? https.createServer(tls.options, app) : http.createServer(app)).listen(config.port, config.host, async () => {
-  console.log(`Mission Zero ${APP_VERSION} running on ${tls ? 'https' : 'http'}://${config.host}:${config.port}`);
+  console.log(`CxMissionZero ${APP_VERSION} running on ${tls ? 'https' : 'http'}://${config.host}:${config.port}`);
   if (tls) {
     console.log(`[https] ${tls.selfSigned ? 'Self-signed certificate (browsers warn until it is trusted)' : 'Certificate'}: ${describeCertificate(tls.options)}`);
     watchCertificate(server, tls);
