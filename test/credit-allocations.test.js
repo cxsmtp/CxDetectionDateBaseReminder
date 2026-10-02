@@ -19,114 +19,99 @@ const risks = (spec) =>
     return Array.from({ length: n }, () => ({ severity, state, scanner: 'SAST' }));
   });
 
-test('by default credits cover the critical and high findings: to verify for triage, confirmed for remediation', () => {
+test('nothing is ever allocated on its own: a project only shows what its findings need', () => {
   const { allocations } = setup();
   const found = risks({ CRITICAL: 3, HIGH: 5, 'HIGH:CONFIRMED': 2, MEDIUM: 9, 'MEDIUM:CONFIRMED': 4 });
   assert.equal(toTriageCount(found, ['CRITICAL', 'HIGH']), 8);
-  allocations.applyRule('p1', 'Payments', found);
-  const b = allocations.balance('p1');
-  assert.deepEqual([b.triage.allocated, b.triage.remaining, b.remediation.allocated], [8, 8, 6], '2 confirmed highs × 3');
-  assert.deepEqual(b.severities, ['CRITICAL', 'HIGH']);
+  const view = allocations.need('p1', found);
+  assert.deepEqual(view.need, { triage: 8, remediation: 6 }, '8 to verify; 2 confirmed highs × 3');
+  assert.deepEqual(view.shortfall, { triage: 8, remediation: 6 });
+  assert.deepEqual(allocations.balance('p1').triage, { allocated: 0, used: 0, remaining: 0 });
+  assert.deepEqual(allocations.list(), [], 'working out the need allocated nothing');
 });
 
-test('unticking a severity lowers the allocation at once, and later fetches keep the new rule', () => {
-  const { allocations } = setup();
-  const found = risks({ CRITICAL: 3, HIGH: 5 });
-  allocations.applyRule('p1', 'Payments', found);
-  allocations.applyRule('p1', 'Payments', found, ['CRITICAL']);
-  assert.deepEqual(allocations.balance('p1').triage, { allocated: 3, used: 0, remaining: 3 });
-  // Next fetch, no rule passed: still critical only, not back to critical + high.
-  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 4, HIGH: 5 }));
-  assert.equal(allocations.balance('p1').triage.allocated, 4);
-  assert.deepEqual(allocations.balance('p1').severities, ['CRITICAL']);
-  allocations.applyRule('p1', 'Payments', found, []);
-  assert.equal(allocations.balance('p1').triage.allocated, 0, 'no severities: nothing but extras');
-});
-
-test('the rule follows usage: triaged findings move from to-verify into used', () => {
+test('allocating what is needed gives the shortfall once; asking again gives nothing more', () => {
   const { ledger, allocations } = setup();
-  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 4 }));
+  const found = risks({ CRITICAL: 4 });
+  assert.equal(allocations.allocateNeeded('p1', 'Payments', 'triage', found), 4);
+  assert.equal(allocations.allocateNeeded('p1', 'Payments', 'triage', found), 0);
   ledger.record({ projectId: 'p1', credits: 4, kind: 'triage' });
-  allocations.applyRule('p1', 'Payments', risks({ 'CRITICAL:CONFIRMED': 4, CRITICAL: 2 }));
-  assert.deepEqual(allocations.balance('p1').triage, { allocated: 6, used: 4, remaining: 2 });
+  // Two new findings arrive: only they are short.
+  assert.deepEqual(allocations.need('p1', risks({ 'CRITICAL:CONFIRMED': 4, CRITICAL: 2 })).shortfall.triage, 2);
+  assert.deepEqual(allocations.balance('p1').triage, { allocated: 4, used: 4, remaining: 0 }, 'still nothing until someone allocates');
 });
 
-test('extra credits survive rule changes and recalculation; remediation is granted separately', () => {
-  const { allocations, ledger, d } = setup();
-  const found = risks({ CRITICAL: 2, HIGH: 1, MEDIUM: 4, LOW: 7 });
-  allocations.applyRule('p1', 'Payments', found);
-  allocations.add('p1', 'Payments', 'triage', 10);
-  allocations.applyRule('p1', 'Payments', found, ['CRITICAL', 'MEDIUM']);
-  assert.equal(allocations.balance('p1').triage.allocated, 16, '6 to triage + 10 extra');
-  allocations.add('p1', 'Payments', 'remediation', 5);
-  allocations.add('p1', 'Payments', 'remediation', 2);
-  allocations.save();
-  const reloaded = new CreditAllocations({ file: path.join(d, 'alloc.json'), ledger });
-  reloaded.applyRule('p1', 'Payments', found);
-  assert.equal(reloaded.balance('p1').triage.allocated, 16);
-  assert.deepEqual(reloaded.balance('p1').remediation, { allocated: 7, used: 0, remaining: 7 });
+test('a project that used more than it was allocated (older data) still ends up with what it needs', () => {
+  const { ledger, allocations } = setup();
+  ledger.record({ projectId: 'p1', credits: 10, kind: 'triage' });
+  assert.equal(allocations.allocateNeeded('p1', 'Payments', 'triage', risks({ CRITICAL: 4 })), 14);
+  assert.equal(allocations.balance('p1').triage.remaining, 4);
 });
 
-test('allocations saved before the current rule drop standing grants and follow the rule', () => {
-  const d = dir();
-  const ledger = new CreditLedger({ file: path.join(d, 'ledger.json') });
-  ledger.record({ projectId: 'p1', credits: 1, kind: 'triage' });
-  // e.g. "give each project 10" from an earlier release.
-  fs.writeFileSync(path.join(d, 'alloc.json'), JSON.stringify({ projects: { p1: { triage: 12, remediation: 10, extraTriage: 10, severities: ['CRITICAL'] } } }));
-  const allocations = new CreditAllocations({ file: path.join(d, 'alloc.json'), ledger });
-  assert.deepEqual([allocations.balance('p1').triage.allocated, allocations.balance('p1').remediation.allocated], [2, 0], 'at once, before any fetch');
-  allocations.applyRule('p1', 'Payments', risks({ HIGH: 3 }));
-  const b = allocations.balance('p1');
-  assert.deepEqual([b.triage.allocated, b.triage.remaining, b.extraTriage, b.remediation.allocated], [1, 0, 0, 0], 'only critical ticked and none left');
+test('changing the severities changes what is needed, never what is allocated', () => {
+  const { allocations } = setup();
+  const found = risks({ CRITICAL: 3, HIGH: 5, MEDIUM: 4 });
+  allocations.allocateNeeded('p1', 'Payments', 'triage', found);
+  allocations.setSeverities('p1', 'Payments', ['CRITICAL']);
+  assert.equal(allocations.balance('p1').triage.allocated, 8, 'allocations stay as given');
+  assert.deepEqual(allocations.need('p1', found).need.triage, 3);
+  allocations.setSeverities('p1', 'Payments', ['CRITICAL', 'HIGH', 'MEDIUM']);
+  assert.deepEqual(allocations.need('p1', found).shortfall.triage, 4, 'the mediums are short');
+  assert.deepEqual(allocations.balance('p1').severities, ['CRITICAL', 'HIGH', 'MEDIUM']);
 });
 
-test('remediation credits follow confirmed findings, and drop once a finding is remediated', () => {
+test('remediation is needed only for confirmed findings — never proposed not exploitable — 3 credits each, until remediated', () => {
   const { ledger, allocations } = setup();
   const found = [
     { riskId: 'a', severity: 'CRITICAL', state: 'CONFIRMED', scanner: 'SAST' },
     { riskId: 'b', severity: 'HIGH', state: 'URGENT', scanner: 'SCA' },
     { riskId: 'c', severity: 'HIGH', state: 'TO_VERIFY', scanner: 'SAST' },
     { riskId: 'd', severity: 'CRITICAL', state: 'CONFIRMED', scanner: 'KICS' },
+    { riskId: 'e', severity: 'HIGH', state: 'PROPOSED_NOT_EXPLOITABLE', scanner: 'SAST' },
+    { riskId: 'f', severity: 'HIGH', state: 'NOT_EXPLOITABLE', scanner: 'SAST' },
   ];
-  assert.equal(toRemediateCount(found, ['CRITICAL', 'HIGH']), 2);
-  allocations.applyRule('p1', 'Payments', found);
-  assert.deepEqual(allocations.balance('p1').remediation, { allocated: 6, used: 0, remaining: 6 });
-  // c is triaged and confirmed: one more remediation needed.
+  assert.equal(toRemediateCount(found, ['CRITICAL', 'HIGH']), 1, 'only a: confirmed, and an engine AI Remediation supports');
+  assert.equal(allocations.allocateNeeded('p1', 'Payments', 'remediation', found), 3);
+  // Triage confirms c: 3 more needed, given only when asked.
   found[2].state = 'CONFIRMED';
-  allocations.applyRule('p1', 'Payments', found);
-  assert.equal(allocations.balance('p1').remediation.remaining, 9);
-  // a is remediated through the utility.
+  assert.equal(allocations.need('p1', found).shortfall.remediation, 3);
+  assert.equal(allocations.balance('p1').remediation.allocated, 3);
+  assert.equal(allocations.allocateNeeded('p1', 'Payments', 'remediation', found), 3);
+  // a is remediated through the utility: no longer needed.
   ledger.record({ projectId: 'p1', credits: 3, kind: 'remediation', riskIds: ['a'], covered: 3 });
-  allocations.applyRule('p1', 'Payments', found);
-  assert.deepEqual(allocations.balance('p1').remediation, { allocated: 9, used: 3, remaining: 6 });
+  assert.deepEqual(allocations.need('p1', found).need.remediation, 3);
+  assert.deepEqual(allocations.balance('p1').remediation, { allocated: 6, used: 3, remaining: 3 });
 });
 
-test('extra credits are used up by actions outside the rule, not by covered ones', () => {
+test('extra credits come on top and can be taken back, never below what was used', () => {
   const { ledger, allocations } = setup();
-  const found = risks({ CRITICAL: 2, MEDIUM: 5 });
-  allocations.applyRule('p1', 'Payments', found, ['CRITICAL']);
-  allocations.add('p1', 'Payments', 'triage', 3);
-  allocations.applyRule('p1', 'Payments', found);
-  assert.equal(allocations.balance('p1').triage.remaining, 5, '2 critical + 3 extra');
-  // Two mediums triaged from a report: out of the extras.
-  ledger.record({ projectId: 'p1', credits: 2, kind: 'triage', covered: 0 });
-  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 2, MEDIUM: 3, 'MEDIUM:CONFIRMED': 2 }));
-  assert.equal(allocations.balance('p1').triage.remaining, 3);
-  // The two criticals: covered by the rule.
-  ledger.record({ projectId: 'p1', credits: 2, kind: 'triage', covered: 2 });
-  allocations.applyRule('p1', 'Payments', risks({ 'CRITICAL:CONFIRMED': 2, MEDIUM: 3, 'MEDIUM:CONFIRMED': 2 }));
-  assert.deepEqual(allocations.balance('p1').triage, { allocated: 5, used: 4, remaining: 1 });
+  allocations.allocateNeeded('p1', 'Payments', 'triage', risks({ CRITICAL: 2 }));
+  allocations.add('p1', 'Payments', 'triage', 10);
+  allocations.add('p1', 'Payments', 'remediation', 6);
+  assert.deepEqual([allocations.balance('p1').triage.allocated, allocations.balance('p1').extraTriage], [12, 10]);
+  ledger.record({ projectId: 'p1', credits: 3, kind: 'remediation', covered: 0 });
+  allocations.clearExtras('p1');
+  const b = allocations.balance('p1');
+  assert.deepEqual([b.triage.allocated, b.remediation.allocated, b.extraTriage, b.extraRemediation], [2, 3, 0, 0]);
 });
 
-test('clearing extras leaves only what the rule needs', () => {
-  const { allocations } = setup();
-  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 2 }));
-  allocations.add('p1', 'Payments', 'triage', 10);
-  allocations.add('p1', 'Payments', 'remediation', 10);
-  allocations.clearExtras('p1');
-  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 2 }));
+test('upgrading: allocations an earlier release made on its own are removed; used credits and unused extras stay', () => {
+  const d = dir();
+  const ledger = new CreditLedger({ file: path.join(d, 'ledger.json') });
+  ledger.record({ projectId: 'p1', credits: 4, kind: 'triage', covered: 3 });
+  // Version 2 allocated 20 triage (incl. 5 extra, 1 of them used) and 3 remediation on its own.
+  fs.writeFileSync(path.join(d, 'alloc.json'), JSON.stringify({ projects: {
+    p1: { projectName: 'Payments', triage: 20, remediation: 3, extraTriage: 5, extraRemediation: 0, severities: ['CRITICAL'], version: 2 },
+    p2: { projectName: 'Web', triage: 0, remediation: 3, version: 2 },
+  } }));
+  const allocations = new CreditAllocations({ file: path.join(d, 'alloc.json'), ledger });
   const b = allocations.balance('p1');
-  assert.deepEqual([b.triage.allocated, b.remediation.allocated, b.extraTriage, b.extraRemediation], [2, 0, 0, 0]);
+  assert.deepEqual([b.triage.allocated, b.triage.remaining, b.extraTriage, b.remediation.allocated], [8, 4, 4, 0]);
+  assert.deepEqual(b.severities, ['CRITICAL'], 'the chosen severities stay');
+  assert.equal(allocations.balance('p2').remediation.allocated, 0, 'the 3 remediation credits nobody gave are gone');
+  assert.deepEqual(allocations.migrated.map((m) => m.projectId).sort(), ['p1', 'p2']);
+  const again = new CreditAllocations({ file: path.join(d, 'alloc.json'), ledger });
+  assert.deepEqual(again.migrated, [], 'once');
 });
 
 test('coverage: triage covers the rule severities, remediation only confirmed findings of them', () => {
@@ -169,34 +154,31 @@ test('only findings AI Triage can act on count: SAST/SCA, to verify, not just se
 
 test('the allocation list shows what was first allocated, what is allocated now and what was used', () => {
   const { ledger, allocations } = setup();
-  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 3, HIGH: 2 }));
+  assert.equal(allocations.allocateNeeded('p1', 'Payments', 'triage', risks({ CRITICAL: 3, HIGH: 2 })), 5);
   ledger.record({ projectId: 'p1', projectName: 'Payments', credits: 2, kind: 'triage' });
   allocations.add('p1', 'Payments', 'remediation', 6);
   allocations.add('p1', 'Payments', 'triage', 4);
   ledger.record({ projectId: 'p1', projectName: 'Payments', credits: 3, kind: 'remediation', covered: 0 });
-  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 1, HIGH: 2 }));
 
   const [p1] = allocations.list();
   assert.equal(p1.projectName, 'Payments');
   assert.equal(p1.triage.initial, 5, 'first allocation: 3 critical + 2 high');
   assert.equal(p1.triage.used, 2);
-  assert.equal(p1.triage.allocated, 2 + 3 + 4, 'used + still to verify + extra');
+  assert.equal(p1.triage.allocated, 5 + 4, 'what was allocated + extra');
   assert.equal(p1.triage.remaining, 7);
-  assert.deepEqual([p1.remediation.initial, p1.remediation.allocated, p1.remediation.used, p1.remediation.remaining], [0, 6, 3, 3]);
+  assert.deepEqual([p1.remediation.allocated, p1.remediation.used, p1.remediation.remaining], [6, 3, 3]);
   assert.ok(p1.initialAt);
 });
 
 test('an administrator can set one project\'s extra credits exactly, up or down', () => {
   const { allocations } = setup();
-  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 2 }));
+  allocations.allocateNeeded('p1', 'Payments', 'triage', risks({ CRITICAL: 2 }));
   allocations.setExtra('p1', 'Payments', 'triage', 5);
   allocations.setExtra('p1', 'Payments', 'remediation', 6);
-  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 2 }));
   let b = allocations.balance('p1');
   assert.deepEqual([b.triage.allocated, b.extraTriage, b.remediation.allocated, b.extraRemediation], [7, 5, 6, 6]);
   allocations.setExtra('p1', 'Payments', 'triage', 1);
   allocations.setExtra('p1', 'Payments', 'remediation', 0);
-  allocations.applyRule('p1', 'Payments', risks({ CRITICAL: 2 }));
   b = allocations.balance('p1');
   assert.deepEqual([b.triage.allocated, b.extraTriage, b.remediation.allocated, b.extraRemediation], [3, 1, 0, 0]);
   assert.deepEqual(allocations.balance('p2').triage.allocated, 0, 'other projects untouched');
@@ -206,12 +188,12 @@ test('findings already triaged through the utility stay counted as done, even wh
   const { ledger, allocations, d } = setup();
   // 6 critical findings, all To verify; 4 of them were sent for AI Triage (judged vulnerable, so still To verify).
   const found = Array.from({ length: 6 }, (_, i) => ({ riskId: `r${i}`, severity: 'CRITICAL', state: 'TO_VERIFY', scanner: 'SAST' }));
-  allocations.applyRule('p1', 'Payments', found);
+  allocations.allocateNeeded('p1', 'Payments', 'triage', found);
   assert.equal(allocations.balance('p1').triage.allocated, 6);
   ledger.record({ projectId: 'p1', projectName: 'Payments', credits: 4, kind: 'triage', riskIds: ['r0', 'r1', 'r2', 'r3'], covered: 4 });
 
-  // Recalculating later (the "recently requested" window long gone) must not count them again.
-  allocations.applyRule('p1', 'Payments', found);
+  // Later (the "recently requested" window long gone) they are not needed again, and allocating again gives nothing.
+  assert.equal(allocations.allocateNeeded('p1', 'Payments', 'triage', found), 0);
   const b = allocations.balance('p1');
   assert.deepEqual([b.triage.allocated, b.triage.used, b.triage.remaining], [6, 4, 2], 'was 10 allocated / 6 left before the fix');
   assert.equal(toTriageCount(found, ['CRITICAL'], Date.now(), ledger.triagedAt('p1')), 2);

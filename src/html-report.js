@@ -273,6 +273,9 @@ function aiUnavailableReason(finding) {
   return '';
 }
 
+/** AI Remediation only ever runs on a confirmed finding — never one proposed not exploitable. */
+const NOT_CONFIRMED_TITLE = 'Remediate works once triage has confirmed this finding (state Confirmed).';
+
 function findingRow(finding, client, remediateHere) {
   const severity = String(finding.severity || 'UNKNOWN').toUpperCase();
   const url = safeHttpUrl(finding.url);
@@ -299,7 +302,9 @@ function findingRow(finding, client, remediateHere) {
         : ''
       : `<button class="btn btn-small" type="button" data-action="triage">Triage</button>
     ${remediateHere
-      ? '<button class="btn btn-small btn-outline" type="button" data-action="remediate">Remediate</button>'
+      ? state === 'CONFIRMED'
+        ? '<button class="btn btn-small btn-outline" type="button" data-action="remediate">Remediate</button>'
+        : `<button class="btn btn-small btn-outline" type="button" data-action="remediate" disabled title="${escapeHtml(NOT_CONFIRMED_TITLE)}">Remediate</button>`
       : url
         ? `<a class="btn btn-small btn-outline" data-action="remediate-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">Remediate</a>`
         : ''}`}

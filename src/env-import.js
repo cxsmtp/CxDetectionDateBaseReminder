@@ -1,0 +1,103 @@
+/**
+ * Configure the utility from a .env file an administrator uploads on the
+ * Settings page: the same variables the server reads from its environment at
+ * start-up, turned into settings that take effect at once.
+ *
+ * Only the variables listed in ENV_SETTINGS are applied; anything else (PORT,
+ * DATA_DIR, ...) only means something at start-up and is reported as such.
+ */
+
+const MAX_BYTES = 64 * 1024;
+
+/** Parse dotenv text: KEY=VALUE lines, # comments, optional `export`, quoted values. */
+export function parseEnvText(text) {
+  const source = String(text ?? '');
+  if (Buffer.byteLength(source) > MAX_BYTES) {
+    throw Object.assign(new Error('That file is too large for a .env file (64 KB at most).'), { status: 400 });
+  }
+  const vars = {};
+  const lines = source.replace(/^﻿/, '').split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    if (!line || line.startsWith('#')) continue;
+    const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
+    if (!match) continue;
+    const [, name] = match;
+    let value = match[2];
+    const quote = value[0];
+    if (quote === '"' || quote === "'") {
+      // A quoted value may run over several lines (a PEM, a long key).
+      let rest = value.slice(1);
+      while (!rest.includes(quote) && i + 1 < lines.length) rest += `\n${lines[++i]}`;
+      const end = rest.indexOf(quote);
+      value = end >= 0 ? rest.slice(0, end) : rest;
+      if (quote === '"') value = value.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+    } else {
+      value = value.replace(/\s+#.*$/, '').trim();
+    }
+    vars[name] = value;
+  }
+  return vars;
+}
+
+const truthy = (v) => /^(1|true|yes|on)$/i.test(String(v).trim());
+
+/**
+ * The variables applied, which part of the settings each lands in, and the
+ * permission needed to change it. A value of '' is skipped (an empty line in a
+ * template must not wipe a working setting).
+ */
+export const ENV_SETTINGS = {
+  CX_API_KEY: { part: 'cxone', permission: 'integration.cxone', apply: (s, v) => (s.cxone.apiKey = v) },
+  CX_BASE_URL: { part: 'cxone', permission: 'integration.cxone', apply: (s, v) => (s.cxone.baseUrl = v) },
+  CX_IAM_URL: { part: 'cxone', permission: 'integration.cxone', apply: (s, v) => (s.cxone.iamUrl = v) },
+  CX_TENANT: { part: 'cxone', permission: 'integration.cxone', apply: (s, v) => (s.cxone.tenant = v) },
+  SMTP_HOST: { part: 'smtp', permission: 'integration.smtp', apply: (s, v) => (s.smtp.host = v) },
+  SMTP_PORT: { part: 'smtp', permission: 'integration.smtp', apply: (s, v) => (s.smtp.port = Number(v)) },
+  SMTP_SECURE: { part: 'smtp', permission: 'integration.smtp', apply: (s, v) => (s.smtp.secure = truthy(v)) },
+  SMTP_REQUIRE_AUTH: { part: 'smtp', permission: 'integration.smtp', apply: (s, v) => (s.smtp.requireAuth = truthy(v)) },
+  SMTP_REJECT_UNAUTHORIZED: { part: 'smtp', permission: 'integration.smtp', apply: (s, v) => (s.smtp.rejectUnauthorized = truthy(v)) },
+  SMTP_USER: { part: 'smtp', permission: 'integration.smtp', apply: (s, v) => (s.smtp.user = v) },
+  SMTP_PASS: { part: 'smtp', permission: 'integration.smtp', apply: (s, v) => (s.smtp.password = v) },
+  SMTP_PASSWORD: { part: 'smtp', permission: 'integration.smtp', apply: (s, v) => (s.smtp.password = v) },
+  SMTP_FROM: { part: 'smtp', permission: 'integration.smtp', apply: (s, v) => (s.smtp.fromAddress = v) },
+  SMTP_FROM_ADDRESS: { part: 'smtp', permission: 'integration.smtp', apply: (s, v) => (s.smtp.fromAddress = v) },
+  SMTP_FROM_NAME: { part: 'smtp', permission: 'integration.smtp', apply: (s, v) => (s.smtp.fromName = v) },
+  REPORT_SERVER_URL: { part: 'links', permission: 'settings.links', apply: (s, v) => (s.links.reportServerUrl = v) },
+  PUBLIC_URL: { part: 'links', permission: 'settings.links', apply: (s, v) => (s.links.reportServerUrl ||= v) },
+};
+
+/** Secrets: reported by name only, never echoed back. */
+export const SECRET_VARIABLES = new Set(['CX_API_KEY', 'SMTP_PASS', 'SMTP_PASSWORD']);
+
+/**
+ * Turn parsed variables into setting changes this person may make.
+ * Returns {changes: {cxone?, smtp?, links?}, applied: [names], refused: [names], ignored: [names]}.
+ */
+export function settingsFromEnv(vars, may = () => true) {
+  const draft = { cxone: {}, smtp: {}, links: {} };
+  const applied = [];
+  const refused = [];
+  const ignored = [];
+  // SMTP_USER doubles as the From address when none is given (as at start-up).
+  const order = Object.keys(vars).sort((a, b) => (a === 'SMTP_USER' ? -1 : b === 'SMTP_USER' ? 1 : 0));
+  for (const name of order) {
+    const value = String(vars[name] ?? '').trim();
+    const rule = ENV_SETTINGS[name];
+    if (!rule) {
+      ignored.push(name);
+      continue;
+    }
+    if (!value) continue;
+    if (!may(rule.permission)) {
+      refused.push(name);
+      continue;
+    }
+    rule.apply(draft, value);
+    if (name === 'SMTP_USER' && !vars.SMTP_FROM && !vars.SMTP_FROM_ADDRESS && value.includes('@')) draft.smtp.fromAddress = value;
+    applied.push(name);
+  }
+  const changes = {};
+  for (const [key, value] of Object.entries(draft)) if (Object.keys(value).length) changes[key] = value;
+  return { changes, applied, refused, ignored };
+}

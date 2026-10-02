@@ -124,6 +124,7 @@ const canAny = (list) => String(list).split(/\s+/).filter(Boolean).some(can);
 const PAGE_PERMS = {
   dashboard: '',
   reports: 'reports.view',
+  credits: 'credits.view',
   audit: 'audit.view backup.view',
   settings: 'settings.view',
   access: 'iam.view',
@@ -179,10 +180,17 @@ function route() {
     else tab.removeAttribute('aria-current');
   }
   setPageTitle(target);
+  // Leaving Settings: what was typed is saved; connections that do not work go back to the last known good ones.
+  const previous = state.page;
+  state.page = target;
+  if (previous === 'settings' && target !== 'settings') leaveSettings();
+  if (target !== 'credits') clearTimeout(usageTimer);
   if (target === 'settings') {
     renderSettings();
     loadAutomation();
-    loadCredits();
+    loadPool();
+  } else if (target === 'credits') {
+    loadUsage();
   } else if (target === 'logs') {
     renderLogsPage();
   } else if (target === 'reports') {
@@ -200,7 +208,8 @@ const PAGE_TITLES = {
   connect: ['Sign in', 'Checkmarx One reminders, triage & credits for your security team'],
   dashboard: ['Dashboard', 'Find ageing findings, allocate credits and remind their owners'],
   reports: ['Tracked reports', 'Follow progress on saved scopes and send follow-ups'],
-  settings: ['Settings', 'Email, templates, automation, AI credits and branding'],
+  credits: ['Credits', 'The credit pool, what each project was allocated and used, and usage over time'],
+  settings: ['Settings', 'Connections, email, templates, automation, the credit pool and branding — saved as you type'],
   logs: ['Logs', 'API calls and results from this browser session'],
   access: ['Access', 'Who can sign in, their roles, and what each role may do'],
   audit: ['Audit', 'Every credit spent, refused or failed — who, when, where, and the balance after'],
@@ -370,6 +379,7 @@ async function showConnected(me) {
   applyPermissions();
   route();
   loadReportServer();
+  if (me.configNotices?.length) showNotices(me.configNotices, { acknowledge: true });
   if (!me.connection) {
     setStatus('status', can('integration.cxone')
       ? 'Connect this server to Checkmarx One under Settings → Checkmarx One before fetching.'
@@ -380,6 +390,7 @@ async function showConnected(me) {
 /** Not signed in: setup (first start), sign-in, or a required password change. */
 function showSignIn({ setup = false, change = false, message = '' } = {}) {
   state.me = null;
+  state.page = null;
   state.connection = null;
   state.projects = [];
   state.selected.clear();
@@ -606,11 +617,11 @@ function renderSettings() {
   $('ai-reremediation').checked = Boolean(s.aiTriage?.allowReremediation);
   $('ai-admin-contact').value = s.aiTriage?.adminContact ?? '';
   $('ai-limit').value = String(s.aiTriage?.monthlyCreditLimit ?? 0);
+  $('ai-pool-period').value = s.aiTriage?.poolPeriod === 'all' ? 'all' : 'month';
+  $('smtp-password').value = '';
 
-  $('verified-state').textContent = s.verified
-    ? `Connection test passed ${formatDate(s.verifiedAt)}. Sending is enabled.`
-    : 'No successful connection test for the current settings — sending is disabled.';
-  $('verified-state').className = `hint ${s.verified ? 'ok-hint' : 'error-hint'}`;
+  renderVerified();
+  loadConnectionGuard();
 
   $('variable-list').innerHTML = (state.health?.templateVariables ?? [])
     .map(
@@ -684,25 +695,33 @@ function renderAutomation() {
     : 'Off';
   $('auto-status').className = `hint ${a.config.enabled ? 'ok-hint' : ''}`;
 
-  // Automation has no browser to paste a key into, so say plainly what it
-  // will and will not be able to do on its own.
+  // Runs use the server's Checkmarx One integration and its mail server: say,
+  // from their current state, what an unattended run can do.
   const credential = $('auto-credential');
-  if (a.bootstrapKey) {
-    credential.className = 'detected ok';
-    credential.textContent = 'Using the CX_API_KEY from the environment. Automation can run unattended.';
-  } else if (a.keyStored) {
-    credential.className = 'detected ok';
-    credential.textContent =
-      'Armed: your API key is stored in the settings file (owner-readable only) so runs can authenticate without you. Use "Forget stored key" to revoke it.';
+  const integration = a.integration ?? {};
+  const tenant = integration.connection?.tenant;
+  const lines = [];
+  let ready = true;
+  if (integration.connected) {
+    const source = integration.source === 'environment' ? 'CX_API_KEY on the server' : 'the key stored under Checkmarx One integration';
+    lines.push(`✓ Checkmarx One: connected${tenant ? ` to tenant ${tenant}` : ''}, using ${source}.`);
   } else {
-    credential.className = 'detected warn';
-    credential.textContent =
-      'No stored credential. Unattended runs need one — either set CX_API_KEY in the environment, or click "Arm with current key" to save this session\'s key to the settings file. Until then, only "Run once now" works.';
+    ready = false;
+    lines.push('✗ Checkmarx One: not connected. Connect the server under "Checkmarx One integration" above — unattended runs use that connection.');
   }
-
-  if (!a.smtpVerified) {
-    setStatus('auto-message', 'SMTP has not passed a connection test — automation cannot send yet.', 'error');
+  if (integration.pending) lines.push('… A changed integration key is saved but not in use yet: runs keep using the last known good connection until it works.');
+  if (a.smtpVerified) {
+    lines.push('✓ Mail server: connection test passed. Automation can send.');
+  } else if (a.connections?.lastGood?.smtp) {
+    lines.push('… Mail server: changed settings are not tested yet. They are checked when you leave Settings; the last known good ones come back if they fail.');
+  } else {
+    ready = false;
+    lines.push(a.smtpConfigured
+      ? '✗ Mail server: no successful connection test yet — automation cannot send. Use "Test connection" under Email server.'
+      : '✗ Mail server: not set up yet — automation cannot send. Fill in Email server above.');
   }
+  credential.className = `detected ${ready ? 'ok' : 'warn'}`;
+  credential.innerHTML = lines.map((line) => `<div>${escapeHtml(line)}</div>`).join('');
 
   $('auto-runs').innerHTML = a.runs.length
     ? `<table class="probe">
@@ -736,19 +755,22 @@ function automationPayload() {
   };
 }
 
-async function saveAutomation() {
-  setStatus('auto-message', 'Saving…');
+async function saveAutomation({ quiet = false } = {}) {
+  autosave.automation = null;
+  if (!quiet) setStatus('auto-message', 'Saving…');
   try {
     const status = await api('/api/automation', { method: 'PUT', body: JSON.stringify(automationPayload()) });
     state.automation = { ...state.automation, ...status };
-    renderAutomation();
-    setStatus(
-      'auto-message',
-      status.config.enabled ? `Saved. Next run in ${status.config.intervalMinutes} minutes.` : 'Saved. Automation is off.',
-      'ok',
-    );
+    // Only the status line: the form stays as typed.
+    const a = state.automation;
+    $('auto-status').textContent = a.config.enabled
+      ? `On · next run ${timeAgo(a.nextRunAt)} · ${a.trackedFindings ?? 0} finding(s) already reported`
+      : 'Off';
+    $('auto-status').className = `hint ${a.config.enabled ? 'ok-hint' : ''}`;
+    setStatus('auto-message', status.config.enabled ? `Saved. Runs every ${status.config.intervalMinutes} minutes.` : 'Saved. Automation is off.', 'ok');
   } catch (error) {
     if (!handleAuthLoss(error)) showError('auto-message', error);
+    throw error;
   }
 }
 
@@ -891,6 +913,7 @@ function settingsPayload() {
       allowReremediation: $('ai-reremediation').checked,
       adminContact: $('ai-admin-contact').value.trim(),
       monthlyCreditLimit: Number($('ai-limit').value) || 0,
+      poolPeriod: $('ai-pool-period').value,
     },
   };
   // Only send a password when one was typed, so saving an unrelated field
@@ -899,124 +922,437 @@ function settingsPayload() {
   // Send only the sections this person may change (the server enforces the same).
   const SECTION = { smtp: 'integration.smtp', recipients: 'settings.recipients', initiators: 'settings.initiators', template: 'settings.template', branding: 'settings.branding', links: 'settings.links', endpoints: 'integration.cxone' };
   for (const [key, permission] of Object.entries(SECTION)) if (!can(permission)) delete payload[key];
-  if (!can('credits.limit')) delete payload.aiTriage.monthlyCreditLimit;
+  if (!can('credits.limit')) {
+    delete payload.aiTriage.monthlyCreditLimit;
+    delete payload.aiTriage.poolPeriod;
+  }
   if (!can('settings.ai')) {
-    const { monthlyCreditLimit } = payload.aiTriage;
-    payload.aiTriage = monthlyCreditLimit === undefined ? undefined : { monthlyCreditLimit };
+    const { monthlyCreditLimit, poolPeriod } = payload.aiTriage;
+    payload.aiTriage = monthlyCreditLimit === undefined ? undefined : { monthlyCreditLimit, poolPeriod };
   }
   if (!payload.aiTriage) delete payload.aiTriage;
   return payload;
 }
 
 // ---------------------------------------------------------------------------
-// AI Triage credits (live while the Settings page is open)
+// The credit pool (Settings → AI & credits; live while the page is open)
 // ---------------------------------------------------------------------------
 
 const CREDIT_REFRESH_MS = 15_000;
 let creditTimer = null;
+const fmt = (n) => Number(n ?? 0).toLocaleString();
+const periodText = (pool) => (pool.period === 'all' ? 'one pool, does not refill' : 'refills on the 1st of each month (UTC)');
 
-function formatMonth(month) {
-  const [year, m] = month.split('-').map(Number);
-  return new Date(Date.UTC(year, m - 1, 1)).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
-}
-
-async function loadCredits() {
+async function loadPool() {
   clearTimeout(creditTimer);
   if ($('page-settings').hidden) return;
   try {
-    const selected = $('credit-month').value;
-    const data = await api(`/api/credits${selected ? `?month=${encodeURIComponent(selected)}` : ''}`);
-    renderCredits(data);
+    const data = await api('/api/credits');
+    renderPool(data);
   } catch (error) {
     if (handleAuthLoss(error)) return;
-    $('credit-usage').innerHTML = `<p class="status error">${escapeHtml(error.message)}</p>`;
+    $('pool-view').innerHTML = `<p class="status error">${escapeHtml(error.message)}</p>`;
   }
-  creditTimer = setTimeout(loadCredits, CREDIT_REFRESH_MS);
+  creditTimer = setTimeout(loadPool, CREDIT_REFRESH_MS);
 }
 
-function renderCredits(data) {
-  const select = $('credit-month');
-  const current = select.value || data.month;
-  select.innerHTML = data.months
-    .map((m) => `<option value="${escapeHtml(m)}"${m === current ? ' selected' : ''}>${escapeHtml(formatMonth(m))}</option>`)
-    .join('');
+/** Pool meter + tiles: used (triage / remediation), left, given to projects, free to give. */
+function poolHtml(pool, { compact = false } = {}) {
+  const used = pool.used;
+  const tiles = [
+    { label: 'Pool', value: pool.limited ? fmt(pool.size) : 'No limit', detail: pool.limited ? (pool.period === 'all' ? 'One pool' : 'This month') : 'Set a pool size to cap spending' },
+    { label: 'Used', value: fmt(used.total), detail: `Triage ${fmt(used.triage)} · Remediation ${fmt(used.remediation)}`, hero: true },
+    { label: 'Remaining', value: pool.limited ? fmt(pool.remaining) : '—', detail: pool.limited ? `${Math.round(((pool.remaining ?? 0) / Math.max(1, pool.size)) * 100)}% of the pool` : 'No limit set', bad: pool.limited && pool.remaining === 0 },
+    { label: 'Given to projects, not used', value: fmt(pool.outstanding.total), detail: `Triage ${fmt(pool.outstanding.triage)} · Remediation ${fmt(pool.outstanding.remediation)}` },
+    { label: 'Free to give', value: pool.limited ? fmt(pool.unallocated) : '—', detail: pool.overAllocated ? `Projects hold ${fmt(pool.overAllocated)} more than the pool has left` : 'Can still be allocated to projects', bad: pool.overAllocated > 0 },
+  ];
+  const tileHtml = `<div class="stat-tiles">${tiles
+    .map((t) => `<div class="${t.hero ? 'hero' : ''} ${t.bad ? 'bad' : ''}"><span class="label">${escapeHtml(t.label)}</span><span class="value">${escapeHtml(t.value)}</span><span class="detail">${escapeHtml(t.detail)}</span></div>`)
+    .join('')}</div>`;
+  if (!pool.limited) return compact ? tileHtml : tileHtml;
+  const pct = (n) => `${Math.max(0, (n / Math.max(1, pool.size)) * 100).toFixed(2)}%`;
+  const given = Math.min(pool.outstanding.total, pool.remaining ?? 0);
+  const meter = `<div class="pool-meter" role="img" aria-label="${escapeHtml(`Of ${fmt(pool.size)} credits: ${fmt(used.triage)} used for triage, ${fmt(used.remediation)} for remediation, ${fmt(given)} given to projects and not used, ${fmt(pool.unallocated)} free`)}">
+      <span class="m-triage" style="width:${pct(used.triage)}" title="Triage: ${fmt(used.triage)}"></span>
+      <span class="m-remediation" style="width:${pct(used.remediation)}" title="Remediation: ${fmt(used.remediation)}"></span>
+      <span class="m-given" style="width:${pct(given)}" title="Given to projects, not used: ${fmt(given)}"></span>
+    </div>
+    <div class="pool-legend">
+      <span><i class="key key-triage"></i>Used for triage <b>${fmt(used.triage)}</b></span>
+      <span><i class="key key-remediation"></i>Used for remediation <b>${fmt(used.remediation)}</b></span>
+      <span><i class="key key-given"></i>Given to projects, not used <b>${fmt(given)}</b></span>
+      <span><i class="key key-free"></i>Free to give <b>${fmt(pool.unallocated)}</b></span>
+    </div>`;
+  return tileHtml + meter;
+}
 
-  const limitText = data.monthlyCreditLimit ? `${data.monthlyCreditLimit} per month` : 'no monthly limit';
+function renderPool(data) {
+  const pool = data.pool;
   const allowed = [data.enabled && 'triage', data.remediationEnabled && 'remediation'].filter(Boolean);
   $('credit-state').textContent = allowed.length
-    ? `Allowed: ${allowed.join(' and ')} · ${limitText}${data.remaining !== null && data.remaining !== undefined ? ` · ${data.remaining} left this month` : ''}`
+    ? `Allowed: ${allowed.join(' and ')}${pool.limited ? ` · ${fmt(pool.remaining)} of ${fmt(pool.size)} credits left` : ' · no credit limit'}`
     : 'Switched off';
   $('credit-state').className = `hint ${allowed.length ? 'ok-hint' : ''}`;
-
-  renderAllocations(data.allocations ?? []);
-
   const warning = allowed.length && !data.relayConnected
-    ? '<p class="status error">This server has no stored Checkmarx One connection, so reports cannot triage. Set CX_API_KEY or arm automation below.</p>'
+    ? '<p class="status error">This server is not connected to Checkmarx One, so reports cannot triage or remediate. Connect it under "Checkmarx One integration" above.</p>'
     : '';
-  if (!data.projects.length) {
-    $('credit-usage').innerHTML = `${warning}<p class="hint">No credits used from reports in ${escapeHtml(formatMonth(data.month))}.</p>`;
-    return;
-  }
-  const rows = data.projects
-    .map(
-      (p) => `<tr>
-        <td>${escapeHtml(p.projectName || p.projectId)}</td>
-        <td class="num">${p.triageCredits ?? p.credits}</td>
-        <td class="num">${p.remediationCredits ?? 0}</td>
-        <td class="num"><b>${p.credits}</b></td>
-        <td class="num">${p.requests}</td>
-        <td>${escapeHtml(new Date(p.lastUsedAt).toLocaleString())}</td>
-      </tr>`,
-    )
-    .join('');
-  $('credit-usage').innerHTML = `${warning}
-    <div class="table-wrap"><table class="probe">
-      <thead><tr><th>Project</th><th class="num">Triage</th><th class="num">Remediation</th><th class="num">Total credits</th><th class="num">Requests</th><th>Last used</th></tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr><th>Total</th><th class="num">${data.triageTotal ?? data.total}</th><th class="num">${data.remediationTotal ?? 0}</th><th class="num">${data.total}</th><th></th><th></th></tr></tfoot>
-    </table></div>`;
+  $('pool-view').innerHTML = `${warning}${poolHtml(pool)}<p class="hint wide">${escapeHtml(pool.limited ? `The pool ${periodText(pool)}.` : 'No pool size set: spending is limited only by what each project is allocated.')} Per project and over time: <a href="#/credits">Credits</a>.</p>`;
 }
 
-/** Per project: first allocated, allocated now, used through this utility, left. */
-function renderAllocations(list) {
-  if (!list.length) {
-    $('credit-allocations').innerHTML = '<p class="hint">No project has an allocation yet — fetch projects on the Dashboard.</p>';
-    return;
-  }
-  const bar = (k) => {
-    const pct = k.allocated ? Math.min(100, Math.round((k.used / k.allocated) * 100)) : 0;
-    return `<div class="use-bar" title="${k.used} of ${k.allocated} used"><span style="width:${pct}%"></span></div>`;
-  };
-  const cells = (k) => `<td class="num">${k.initial}</td><td class="num">${k.allocated}</td><td class="num"><b>${k.used}</b>${bar(k)}</td><td class="num">${k.remaining}</td>`;
-  const sum = (kind, key) => list.reduce((n, p) => n + (p[kind][key] ?? 0), 0);
-  const totals = (kind) => ['initial', 'allocated', 'used', 'remaining'].map((key) => `<th class="num">${sum(kind, key)}</th>`).join('');
-  $('credit-allocations').innerHTML = `<div class="table-wrap"><table class="probe alloc-table">
-    <thead>
-      <tr><th rowspan="2">Project</th><th colspan="4" class="group">AI Triage</th><th colspan="4" class="group">AI Remediation</th></tr>
-      <tr><th class="num">At start</th><th class="num">Allocated</th><th class="num">Used</th><th class="num">Left</th><th class="num">At start</th><th class="num">Allocated</th><th class="num">Used</th><th class="num">Left</th></tr>
-    </thead>
-    <tbody>${list
-      .map((p) => `<tr><td>${escapeHtml(p.projectName || p.projectId)}<div class="hint">${escapeHtml(p.severities.map((s) => s.toLowerCase()).join(', ') || 'no severities')}${p.initialAt ? ` · since ${escapeHtml(new Date(p.initialAt).toLocaleDateString())}` : ''}</div></td>${cells(p.triage)}${cells(p.remediation)}</tr>`)
-      .join('')}</tbody>
-    <tfoot><tr><th>Total</th>${totals('triage')}${totals('remediation')}</tr></tfoot>
-  </table></div>`;
+// ---------------------------------------------------------------------------
+// Settings save as they are typed
+// ---------------------------------------------------------------------------
+
+const AUTOSAVE_MS = 700;
+const DRAFT_MS = 1200;
+const CHECK_MS = 2500;
+const autosave = { settings: null, automation: null, draft: null, check: null, running: new Set(), lastCheck: null, connectionEdited: false };
+const INTEGRATION_FIELDS = new Set(['integration-key', 'integration-base', 'integration-iam', 'integration-tenant']);
+const NOT_SAVED = new Set(['test-to', 'env-file', 'brand-logo-file']);
+
+/** Which save an edit belongs to: the settings form, automation, the integration draft, or none. */
+function autosaveKind(el) {
+  if (!el?.id || NOT_SAVED.has(el.id) || el.disabled || el.closest('[hidden]')?.id === 'probe-results') return '';
+  if (INTEGRATION_FIELDS.has(el.id)) return 'draft';
+  if (el.closest('#set-automation')) return 'automation';
+  if (el.matches('input, select, textarea')) return 'settings';
+  return '';
 }
+
+function onSettingsEdit(event) {
+  const kind = autosaveKind(event.target);
+  if (!kind) return;
+  setStatus('save-status', 'Saving…');
+  if (kind === 'settings') scheduleSave();
+  if (kind === 'automation') {
+    clearTimeout(autosave.automation);
+    autosave.automation = setTimeout(() => track(saveAutomation({ quiet: true })), AUTOSAVE_MS);
+  }
+  if (kind === 'draft') {
+    clearTimeout(autosave.draft);
+    autosave.draft = setTimeout(() => track(saveIntegrationDraft()), DRAFT_MS);
+  }
+}
+
+function scheduleSave() {
+  clearTimeout(autosave.settings);
+  autosave.settings = setTimeout(() => track(saveSettings()), AUTOSAVE_MS);
+}
+
+/** Keep count of saves in flight, so leaving the page can wait for them. */
+function track(promise) {
+  autosave.running.add(promise);
+  promise.finally(() => {
+    autosave.running.delete(promise);
+    if (!autosave.running.size && !autosave.settings && !autosave.automation && !autosave.draft) {
+      setStatus('save-status', `All changes are saved · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, 'ok');
+    }
+  });
+  return promise;
+}
+
+/** Save everything pending now (leaving the page). */
+async function flushSaves() {
+  const pending = [];
+  if (autosave.settings) pending.push(saveSettings());
+  if (autosave.automation) pending.push(saveAutomation({ quiet: true }));
+  if (autosave.draft) pending.push(saveIntegrationDraft());
+  for (const key of ['settings', 'automation', 'draft']) clearTimeout(autosave[key]);
+  autosave.settings = autosave.automation = autosave.draft = null;
+  await Promise.allSettled([...pending, ...autosave.running]);
+}
+
+$('page-settings').addEventListener('input', onSettingsEdit);
+$('page-settings').addEventListener('change', (event) => {
+  // Text fields already saved on input; checkboxes, selects and colour pickers save on change.
+  if (event.target.matches('input[type="checkbox"], input[type="radio"], select, input[type="color"], input[type="number"]')) onSettingsEdit(event);
+});
 
 async function saveSettings() {
-  setStatus('save-status', 'Saving…');
+  autosave.settings = null;
+  const payload = settingsPayload();
+  const before = state.settings;
   try {
-    state.settings = await api('/api/settings', { method: 'PUT', body: JSON.stringify(settingsPayload()) });
-    $('smtp-password').value = '';
-    renderSettings();
+    const saved = await api('/api/settings', { method: 'PUT', body: JSON.stringify(payload) });
+    state.settings = saved;
+    // Not re-rendering the form: that would fight the person typing in it.
+    renderVerified();
+    renderLinkExamples(saved.linkExamples);
     renderRecipientHint();
-    loadCredits();
-    loadReportServer();
-    applyAppBranding({ name: state.settings.branding.appName, logoUrl: state.settings.branding.logoUrl });
-    setStatus('save-status', 'Saved.', 'ok');
+    $('password-state').textContent = saved.smtp.passwordSet ? '(stored)' : '(not set)';
+    applyAppBranding({ name: saved.branding.appName, logoUrl: saved.branding.logoUrl });
+    if (JSON.stringify(before?.links) !== JSON.stringify(saved.links)) loadReportServer();
+    if (JSON.stringify(before?.aiTriage) !== JSON.stringify(saved.aiTriage)) loadPool();
+    if (payload.smtp && !saved.verified && saved.smtp.host) {
+      autosave.connectionEdited = true;
+      renderGuardLine('smtp-guard', 'warn', 'Saved — not tested yet. Checking the mail server in a moment…');
+      scheduleCheck();
+    }
   } catch (error) {
     if (!handleAuthLoss(error)) showError('save-status', error);
+    throw error;
   }
 }
+
+function renderVerified() {
+  const s = state.settings;
+  $('verified-state').textContent = s.verified
+    ? `Connection test passed ${formatDate(s.verifiedAt)}. Sending is enabled.`
+    : 'No successful connection test for the current settings yet.';
+  $('verified-state').className = `hint ${s.verified ? 'ok-hint' : 'error-hint'}`;
+}
+
+/** The integration key and endpoints, saved as typed but not used until a check connects with them. */
+async function saveIntegrationDraft() {
+  autosave.draft = null;
+  const key = $('integration-key').value.trim();
+  try {
+    const info = await api('/api/integration/cxone/draft', {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...(key ? { apiKey: key } : {}),
+        baseUrl: $('integration-base').value.trim(),
+        iamUrl: $('integration-iam').value.trim(),
+        tenant: $('integration-tenant').value.trim(),
+      }),
+    });
+    // The key is stored on the server now; it is never shown again.
+    if (key && $('integration-key').value.trim() === key) $('integration-key').value = '';
+    if (info.pending) {
+      autosave.connectionEdited = true;
+      renderGuardLine('integration-guard', 'warn', 'Saved — not in use yet. Checking the connection in a moment…');
+      scheduleCheck();
+    }
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('integration-status', error);
+    throw error;
+  }
+}
+
+function scheduleCheck() {
+  clearTimeout(autosave.check);
+  autosave.check = setTimeout(() => checkConnections({ rollback: false }), CHECK_MS);
+}
+
+function renderGuardLine(id, kind, text, extra = '') {
+  const el = $(id);
+  el.hidden = !text;
+  el.className = `guard-line ${kind}`;
+  el.innerHTML = `<span>${escapeHtml(text)}</span>${extra ? `<span class="muted">${escapeHtml(extra)}</span>` : ''}`;
+}
+
+const goodSince = (good) => (good?.at ? ` (working since ${new Date(good.at).toLocaleString()})` : '');
+
+/** Show, under each connection, whether a change is waiting and what the last known good one is. */
+function renderConnectionGuard(status, result = autosave.lastCheck) {
+  if (!status) return;
+  const { pending, lastGood } = status;
+  const cx = lastGood.cxone;
+  const cxGood = cx ? `Last known good: tenant ${cx.tenant || '—'}${cx.source === 'environment' ? ' (CX_API_KEY on the server)' : ''}${goodSince(cx)}.` : '';
+  if (pending.cxone) {
+    const failed = result?.cxone && result.cxone.ok === false && !result.cxone.superseded;
+    renderGuardLine('integration-guard', failed ? 'bad' : 'warn',
+      failed ? `Not working: ${result.cxone.error}` : 'Saved — not checked yet.',
+      cx ? `${cxGood} It comes back when you leave Settings if this still fails.` : 'There is no earlier working connection to go back to.');
+  } else if (result?.cxone?.ok) {
+    renderGuardLine('integration-guard', 'ok', `Checked and in use: tenant ${result.cxone.tenant}.`, 'This is now the last known good connection.');
+  } else {
+    renderGuardLine('integration-guard', '', cxGood);
+  }
+  const mail = lastGood.smtp;
+  const mailGood = mail ? `Last known good: ${mail.host}:${mail.port}${mail.fromAddress ? `, from ${mail.fromAddress}` : ''}${goodSince(mail)}.` : '';
+  if (pending.smtp) {
+    const failed = result?.smtp && result.smtp.ok === false && !result.smtp.superseded;
+    renderGuardLine('smtp-guard', failed ? 'bad' : 'warn',
+      failed ? `Not working: ${result.smtp.error}` : 'Saved — not tested yet.',
+      mail ? `${mailGood} It comes back when you leave Settings if this still fails.` : 'There is no earlier working mail server to go back to.');
+  } else if (result?.smtp?.ok) {
+    renderGuardLine('smtp-guard', 'ok', `Connection test passed: ${result.smtp.host}.`, 'This is now the last known good mail server.');
+  } else {
+    renderGuardLine('smtp-guard', '', mailGood);
+  }
+}
+
+async function loadConnectionGuard() {
+  if (!canAny('settings.view integration.cxone integration.smtp')) return;
+  try {
+    state.connections = await api('/api/settings/connections');
+    renderConnectionGuard(state.connections);
+  } catch {}
+}
+
+/** Check changed connections; `rollback` puts back the last known good ones that fail. */
+async function checkConnections({ rollback }) {
+  clearTimeout(autosave.check);
+  autosave.check = null;
+  if (!canAny('integration.cxone integration.smtp')) return null;
+  const result = await api('/api/settings/connections/check', { method: 'POST', body: JSON.stringify({ rollback }) });
+  autosave.lastCheck = result;
+  state.connections = result.status;
+  if (!$('page-settings').hidden) {
+    renderConnectionGuard(result.status, result);
+    if (result.cxone || result.smtp) {
+      await loadSettings();
+      renderVerified();
+      loadIntegration();
+      loadAutomation();
+    }
+  }
+  return result;
+}
+
+/** Leaving Settings: save what is pending, then check the connections and roll back what fails. */
+async function leaveSettings() {
+  clearTimeout(creditTimer);
+  if (!canAny('integration.cxone integration.smtp')) return flushSaves().catch(() => {});
+  try {
+    await flushSaves();
+    const pending = state.connections?.pending;
+    if (!autosave.connectionEdited && !pending?.cxone && !pending?.smtp) return;
+    toast('Checking the connection settings you changed…');
+    const result = await checkConnections({ rollback: true });
+    autosave.connectionEdited = false;
+    autosave.lastCheck = null;
+    if (result?.notice) {
+      hideToast();
+      showNotices([result.notice]);
+    } else if ((result?.cxone && !result.cxone.ok && !result.cxone.superseded) || (result?.smtp && !result.smtp.ok && !result.smtp.superseded)) {
+      toast(`Connection settings saved but not working: ${result.cxone?.error ?? result.smtp?.error}. There was no earlier working configuration to go back to.`, 'bad', 12000);
+    } else if (result?.cxone?.ok || result?.smtp?.ok) {
+      toast('Connection settings checked and in use.', 'ok');
+    } else {
+      hideToast();
+    }
+  } catch (error) {
+    if (!handleAuthLoss(error)) toast(`Could not check the connection settings: ${error.message}. The server checks them again shortly and rolls back what does not work.`, 'bad', 12000);
+  }
+}
+
+// Closing the tab on Settings: the server still checks (the result shows at the next sign-in).
+window.addEventListener('pagehide', () => {
+  if (state.page !== 'settings' || !canAny('integration.cxone integration.smtp')) return;
+  if (!autosave.connectionEdited && !state.connections?.pending?.cxone && !state.connections?.pending?.smtp) return;
+  navigator.sendBeacon?.('/api/settings/connections/check', new Blob([JSON.stringify({ rollback: true, present: false })], { type: 'application/json' }));
+});
+
+let toastTimer = null;
+function toast(message, kind = '', ms = 6000) {
+  const el = $('toast');
+  el.textContent = message;
+  el.className = `toast ${kind}`;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, ms);
+}
+function hideToast() {
+  clearTimeout(toastTimer);
+  $('toast').hidden = true;
+}
+
+// ---------------------------------------------------------------------------
+// Rollback notices: shown once to each administrator
+// ---------------------------------------------------------------------------
+
+const TRIGGERS = {
+  'left the Settings page': 'when the Settings page was left',
+  'no change for a while': 'after the changes were left unchecked for a while',
+  'server start': 'when the server started',
+};
+
+function noticeHtml(notice) {
+  const when = new Date(notice.at).toLocaleString();
+  const how = TRIGGERS[notice.trigger] ?? notice.trigger;
+  return notice.parts
+    .map((part) => {
+      const isCx = part.part === 'cxone';
+      const rows = isCx
+        ? [['Tenant', part.restored.tenant], ['API URL', part.restored.baseUrl], ['IAM URL', part.restored.iamUrl]]
+        : [['Server', `${part.restored.host}:${part.restored.port}${part.restored.secure ? ' (TLS)' : ''}`], ['Username', part.restored.user], ['From', [part.restored.fromName, part.restored.fromAddress && `<${part.restored.fromAddress}>`].filter(Boolean).join(' ')]];
+      const tried = isCx
+        ? [part.attempted.tenant && `tenant ${part.attempted.tenant}`, part.attempted.baseUrl].filter(Boolean).join(', ') || 'a new API key'
+        : `${part.attempted.host || '(no host)'}:${part.attempted.port}`;
+      return `<div class="notice-item">
+        <h3>${isCx ? 'Checkmarx One connection' : 'Email server (SMTP)'}</h3>
+        <p class="why">${part.timedOut ? 'The connection timed out' : 'It did not work'} with the new settings (${escapeHtml(tried)}): ${escapeHtml(part.error)}</p>
+        <p>Back in use — the last known good configuration${part.restoredAt ? `, working since ${escapeHtml(new Date(part.restoredAt).toLocaleString())}` : ''}:</p>
+        <div class="kv">${rows.map(([k, v]) => `<div><span class="k">${k}</span><span class="v">${escapeHtml(v || '—')}</span></div>`).join('')}</div>
+      </div>`;
+    })
+    .join('') + `<p class="hint">Rolled back ${escapeHtml(how)}, ${escapeHtml(when)}${notice.actor ? ` · changes by ${escapeHtml(notice.actor)}` : ''}. Recorded in the audit log.</p>`;
+}
+
+/** Show rollback notices in a dialog; `acknowledge` marks them seen when it is closed. */
+function showNotices(notices, { acknowledge = false } = {}) {
+  if (!notices.length) return;
+  const dialog = $('notice-dialog');
+  $('notice-title').textContent = notices.length > 1
+    ? `New settings did not work: rolled back ${notices.length} times to the last known good configuration`
+    : 'New settings did not work: rolled back to the last known good configuration';
+  $('notice-body').innerHTML = notices.map(noticeHtml).join('');
+  $('notice-settings').hidden = state.page === 'settings';
+  dialog.onclose = () => {
+    if (acknowledge) api('/api/settings/notices/ack', { method: 'POST', body: JSON.stringify({ ids: notices.map((n) => n.id) }) }).catch(() => {});
+    if (state.page === 'settings') renderSettings();
+  };
+  if (typeof dialog.showModal === 'function') dialog.showModal();
+  else dialog.setAttribute('open', '');
+}
+$('notice-settings').addEventListener('click', () => $('notice-dialog').close());
+
+// ---------------------------------------------------------------------------
+// Quick setup from a .env file
+// ---------------------------------------------------------------------------
+
+async function importEnvFile(file) {
+  if (!file) return;
+  if (file.size > 64 * 1024) {
+    setStatus('env-status', 'That file is larger than 64 KB — not a .env file?', 'error');
+    return;
+  }
+  setStatus('env-status', `Reading ${file.name} and checking the connections in it…`);
+  $('env-result').innerHTML = '';
+  try {
+    await flushSaves();
+    const text = await file.text();
+    const result = await api('/api/settings/import-env', { method: 'POST', body: JSON.stringify({ text }) });
+    state.settings = result.settings;
+    renderSettings();
+    loadAutomation();
+    loadReportServer();
+    autosave.lastCheck = result.check;
+    state.connections = result.check.status;
+    renderConnectionGuard(result.check.status, result.check);
+    autosave.connectionEdited = Boolean(result.check.status.pending.cxone || result.check.status.pending.smtp);
+    const line = (ok, label, r) => (r ? `<li>${ok ? '✓' : '✗'} ${escapeHtml(label)}: ${escapeHtml(r.ok ? (r.tenant ? `connected to tenant ${r.tenant}` : 'connection test passed') : r.error ?? 'not checked')}</li>` : '');
+    const checks = line(result.check.cxone?.ok, 'Checkmarx One', result.check.cxone) + line(result.check.smtp?.ok, 'Mail server', result.check.smtp);
+    const failed = (result.check.cxone && !result.check.cxone.ok) || (result.check.smtp && !result.check.smtp.ok);
+    $('env-result').innerHTML = `<div class="env-result">
+      <div>Applied: ${result.applied.map((n) => `<code>${escapeHtml(n)}</code>`).join(' ')}</div>
+      ${checks ? `<ul>${checks}</ul>` : ''}
+      ${failed ? '<div class="error-hint">Correct it here, or leave Settings and the last known good settings come back.</div>' : ''}
+      ${result.refused.length ? `<div class="error-hint">Your role cannot set: ${result.refused.map((n) => `<code>${escapeHtml(n)}</code>`).join(' ')}</div>` : ''}
+      ${result.ignored.length ? `<div class="muted">Not settings here (only read when the server starts): ${result.ignored.map((n) => `<code>${escapeHtml(n)}</code>`).join(' ')}</div>` : ''}
+    </div>`;
+    setStatus('env-status', failed ? `Imported ${file.name}, but a connection does not work yet.` : `Imported ${file.name}.`, failed ? 'error' : 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('env-status', error);
+  } finally {
+    $('env-file').value = '';
+  }
+}
+
+$('env-file').addEventListener('change', () => importEnvFile($('env-file').files[0]));
+for (const type of ['dragenter', 'dragover']) {
+  $('env-drop').addEventListener(type, (event) => {
+    event.preventDefault();
+    $('env-drop').classList.add('over');
+  });
+}
+for (const type of ['dragleave', 'drop']) $('env-drop').addEventListener(type, () => $('env-drop').classList.remove('over'));
+$('env-drop').addEventListener('drop', (event) => {
+  event.preventDefault();
+  importEnvFile(event.dataTransfer?.files?.[0]);
+});
 
 async function testSmtp() {
   const button = $('test-smtp');
@@ -1038,6 +1374,8 @@ async function testSmtp() {
     await loadSettings();
     renderSettings();
   } finally {
+    // The Automation panel says whether runs can send: it follows the test.
+    loadAutomation();
     button.disabled = false;
   }
 }
@@ -1097,7 +1435,8 @@ async function detectRisksPath() {
       </table>`;
     if (report.match) {
       $('risks-path').value = report.match;
-      setStatus('save-status', 'Found a working path — click Save settings.', 'ok');
+      scheduleSave();
+      setStatus('save-status', 'Found a working path and saved it.', 'ok');
     } else {
       setStatus('save-status', 'No candidate answered; see the table.', 'error');
     }
@@ -1237,6 +1576,8 @@ function visibleProjects() {
   const value = (p) => {
     if (key === 'projectName') return p.projectName.toLowerCase();
     if (key === 'initiator') return (p.initiator || '').toLowerCase();
+    const optional = OPTIONAL_COLUMNS.find((c) => c.id === key);
+    if (optional) return optional.value(p);
     return key in p ? p[key] ?? 0 : p.counts?.[key] ?? 0;
   };
 
@@ -1247,7 +1588,6 @@ function visibleProjects() {
   });
 }
 
-const cell = (count) => (count > 0 ? `<td class="num">${count}</td>` : '<td class="num zero">0</td>');
 
 /** Who ran the latest scan, and whether we could reach them. */
 function renderInitiator(project) {
@@ -1483,18 +1823,111 @@ async function tagInitiator(key) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Projects table: optional columns (chosen once, kept in this browser) and export
+// ---------------------------------------------------------------------------
+
+/**
+ * Columns a person can add to the projects table. Add one here and it appears
+ * under "Columns", sorts, and goes into the export.
+ */
+const OPTIONAL_COLUMNS = [
+  { id: '0-30', group: 'Age', label: '≤ 30d', title: 'Findings first detected 30 days ago or less', value: (p) => p.counts?.['0-30'] ?? 0 },
+  { id: '31-60', group: 'Age', label: '31–60d', title: 'Findings first detected 31 to 60 days ago', value: (p) => p.counts?.['31-60'] ?? 0 },
+  { id: '60+', group: 'Age', label: '> 60d', title: 'Findings first detected more than 60 days ago', value: (p) => p.counts?.['60+'] ?? 0, alert: true },
+  { id: 'unknown', group: 'Age', label: 'No date', title: 'Findings with no first-detection date', value: (p) => p.counts?.unknown ?? 0 },
+  { id: 'sev:CRITICAL', group: 'Severity', label: 'Critical', value: (p) => p.bySeverity?.CRITICAL ?? 0, alert: true },
+  { id: 'sev:HIGH', group: 'Severity', label: 'High', value: (p) => p.bySeverity?.HIGH ?? 0 },
+  { id: 'sev:MEDIUM', group: 'Severity', label: 'Medium', value: (p) => p.bySeverity?.MEDIUM ?? 0 },
+  { id: 'sev:LOW', group: 'Severity', label: 'Low', value: (p) => p.bySeverity?.LOW ?? 0 },
+];
+const COLUMNS_KEY = 'mz-project-columns';
+const shownColumns = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(COLUMNS_KEY) ?? 'null');
+    if (Array.isArray(saved)) return new Set(saved.filter((id) => OPTIONAL_COLUMNS.some((c) => c.id === id)));
+  } catch {}
+  return new Set();
+})();
+const activeColumns = () => OPTIONAL_COLUMNS.filter((c) => shownColumns.has(c.id));
+const projectColspan = () => 7 + activeColumns().length;
+
+function renderColumnMenu() {
+  const groups = [...new Set(OPTIONAL_COLUMNS.map((c) => c.group))];
+  $('col-menu').innerHTML = groups
+    .map((group) => `<fieldset><legend>${escapeHtml(group)}</legend>${OPTIONAL_COLUMNS.filter((c) => c.group === group)
+      .map((c) => `<label class="check"${c.title ? ` title="${escapeHtml(c.title)}"` : ''}><input type="checkbox" data-col="${escapeHtml(c.id)}"${shownColumns.has(c.id) ? ' checked' : ''} /> ${escapeHtml(c.label)}</label>`)
+      .join('')}</fieldset>`)
+    .join('') + '<p class="hint">Kept in this browser.</p>';
+}
+
+function renderProjectsHead() {
+  const head = $('projects-head');
+  for (const th of head.querySelectorAll('[data-optional]')) th.remove();
+  const anchor = head.querySelector('th[data-sort="maxAgeDays"]');
+  for (const c of activeColumns()) {
+    const th = document.createElement('th');
+    th.className = 'num';
+    th.dataset.sort = c.id;
+    th.dataset.optional = '';
+    th.textContent = c.label;
+    if (c.title) th.title = c.title;
+    head.insertBefore(th, anchor);
+  }
+}
+
+$('col-menu').addEventListener('change', (event) => {
+  const id = event.target.dataset.col;
+  if (!id) return;
+  if (event.target.checked) shownColumns.add(id);
+  else shownColumns.delete(id);
+  try {
+    localStorage.setItem(COLUMNS_KEY, JSON.stringify([...shownColumns]));
+  } catch {}
+  renderProjectsHead();
+  renderProjects();
+});
+document.addEventListener('click', (event) => {
+  const picker = $('col-picker');
+  if (picker.open && !picker.contains(event.target)) picker.open = false;
+});
+
+/** Every shown project, with every column (chosen or not), as CSV. */
+function exportProjectsCsv() {
+  const rows = visibleProjects();
+  if (!rows.length) return;
+  const cellText = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ''));
+  const credit = (p, kind, key) => p.credits?.[kind]?.[key] ?? '';
+  const header = ['Project', 'Project id', 'Total', ...OPTIONAL_COLUMNS.map((c) => `${c.group}: ${c.label}`), 'Oldest first detection', 'Oldest (days)', 'Latest scan by', 'Initiator email',
+    'Triage allocated', 'Triage used', 'Triage left', 'Triage needed', 'Remediation allocated', 'Remediation used', 'Remediation left', 'Remediation needed'];
+  const lines = rows.map((p) => [
+    p.projectName, p.projectId, p.totalRisks, ...OPTIONAL_COLUMNS.map((c) => c.value(p)), formatDate(p.oldestFirstDetectedAt), p.maxAgeDays ?? '', p.initiator ?? '', p.initiatorEmail ?? '',
+    credit(p, 'triage', 'allocated'), credit(p, 'triage', 'used'), credit(p, 'triage', 'remaining'), p.credits?.need?.triage ?? '',
+    credit(p, 'remediation', 'allocated'), credit(p, 'remediation', 'used'), credit(p, 'remediation', 'remaining'), p.credits?.need?.remediation ?? '',
+  ]);
+  const csv = [header, ...lines].map((line) => line.map(cellText).join(',')).join('\n');
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  link.download = `projects-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+$('export-projects').addEventListener('click', exportProjectsCsv);
+renderColumnMenu();
+renderProjectsHead();
+
 function renderProjects() {
   const rows = visibleProjects();
   const body = $('projects-body');
+  $('export-projects').disabled = !rows.length;
 
   if (rows.length === 0) {
-    body.innerHTML = `<tr class="empty"><td colspan="10">${
+    body.innerHTML = `<tr class="empty"><td colspan="${projectColspan()}">${
       state.projects.length ? 'No projects match these filters.' : 'No data yet.'
     }</td></tr>`;
   } else {
     body.innerHTML = rows
       .map((p) => {
-        const aged = p.counts['60+'] ?? 0;
         return `
         <tr data-id="${escapeHtml(p.projectId)}">
           <td class="checkbox"><input type="checkbox" data-select="${escapeHtml(p.projectId)}" ${
@@ -1505,16 +1938,17 @@ function renderProjects() {
               ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.projectName)}</a>`
               : escapeHtml(p.projectName)
           }${p.error ? `<span class="err">${escapeHtml(p.error)}</span>` : ''}</td>
-          <td class="num">${p.totalRisks}</td>
-          ${cell(p.counts['0-30'] ?? 0)}
-          ${cell(p.counts['31-60'] ?? 0)}
-          <td class="num ${aged > 0 ? 'aged' : 'zero'}">${aged}</td>
-          <td>${formatDate(p.oldestFirstDetectedAt)}${
+          <td class="num c-count" data-label="Total">${p.totalRisks}</td>
+          ${activeColumns().map((c) => {
+            const v = c.value(p);
+            return `<td class="num c-count ${v > 0 ? (c.alert ? 'aged' : '') : 'zero'}" data-label="${escapeHtml(c.label)}">${v}</td>`;
+          }).join('')}
+          <td class="c-oldest" data-label="Oldest">${formatDate(p.oldestFirstDetectedAt)}${
             p.maxAgeDays === null ? '' : ` <span class="zero">(${p.maxAgeDays}d)</span>`
           }</td>
-          <td class="initiator">${renderInitiator(p)}</td>
-          ${creditCell(p, 'triage')}
-          ${creditCell(p, 'remediation')}
+          <td class="initiator c-wide" data-label="Latest scan by">${renderInitiator(p)}</td>
+          ${creditCell(p, 'triage').replace('<td class="', '<td data-label="Triage credits" class="c-half ')}
+          ${creditCell(p, 'remediation').replace('<td class="', '<td data-label="Remediation credits" class="c-half ')}
         </tr>${state.creditEditor === p.projectId ? creditEditorRow(p) : ''}`;
       })
       .join('');
@@ -1545,19 +1979,19 @@ function creditEditorRow(p) {
   const sev = c.severities ?? [];
   const toTriage = sev.reduce((n, s) => n + (c.toTriage?.[s] ?? 0), 0);
   const id = escapeHtml(p.projectId);
-  return `<tr class="credit-editor" data-editor="${id}"><td colspan="10">
+  return `<tr class="credit-editor" data-editor="${id}"><td colspan="${projectColspan()}">
     <div class="credit-editor-grid">
       <div class="credit-editor-head"><strong>${escapeHtml(p.projectName)}</strong>
-        <span class="hint">covers ${escapeHtml(sev.map((s) => s.toLowerCase()).join(', ') || 'no severities')} · extra credits stay until you change them</span></div>
+        <span class="hint">needs are for ${escapeHtml(sev.map((s) => s.toLowerCase()).join(', ') || 'no severities')} · extra credits come out of the credit pool and stay until you change them</span></div>
       <div class="credit-kind">
         <span class="label">AI Triage</span>
-        <span class="need">${toTriage} needed +</span>
+        <span class="need">${toTriage} needed ·</span>
         <label class="inline"><input type="number" min="0" step="1" class="small-num" data-extra="triage" value="${c.extraTriage ?? 0}" /> extra</label>
         <span class="hint">${t.remaining} left of ${t.allocated} · ${t.used} used</span>
       </div>
       <div class="credit-kind">
         <span class="label">AI Remediation</span>
-        <span class="need">${(c.toRemediate ?? 0) * 3} needed +</span>
+        <span class="need">${(c.toRemediate ?? 0) * 3} needed ·</span>
         <label class="inline"><input type="number" min="0" step="3" class="small-num" data-extra="remediation" value="${c.extraRemediation ?? 0}" /> extra</label>
         <span class="hint">${r.remaining} left of ${r.allocated} · ${r.used} used · ${c.toRemediate ?? 0} confirmed × 3</span>
       </div>
@@ -1822,7 +2256,7 @@ function followUp(r) {
           <span class="alloc-extra${can('credits.allocate') ? '' : ' perm-hidden'}">+ <input type="number" min="0" max="100000" data-field="triageAdd" data-keep class="small-num" placeholder="0" /> triage
             + <input type="number" min="0" max="100000" data-field="remediationAdd" data-keep class="small-num" placeholder="0" /> remediation</span>
         </div>
-        <p class="hint">Triage now runs AI Triage from here. Allocate credits lets the projects' developers triage these severities from their own reports, plus any extra credits you enter.</p>
+        <p class="hint">Triage now runs AI Triage from here. Allocate credits gives the projects what these severities need — 1 per finding to triage, 3 per confirmed finding to remediate — plus any extra credits you enter, so their developers can act from their own reports. Nothing is allocated until you click it.</p>
       </fieldset>
     </div>
     <p class="status" data-follow-status="${id}"></p>
@@ -1947,6 +2381,9 @@ async function followUpAction(event) {
       if (!options.severities.length && !options.triageAdd && !options.remediationAdd) {
         return followStatus(id, 'Pick severities, or enter credits to add.', 'error'), true;
       }
+      const sev = options.severities.map((s) => s.toLowerCase()).join(', ');
+      const extras = [options.triageAdd && `${options.triageAdd} extra triage`, options.remediationAdd && `${options.remediationAdd} extra remediation`].filter(Boolean).join(' and ');
+      if (!confirm(`Allocate from the credit pool to this report's projects: ${sev ? `what their ${sev} findings need (1 per finding to triage, 3 per confirmed finding to remediate)` : ''}${sev && extras ? ', plus ' : ''}${extras ? `${extras} credit(s) each` : ''}?`)) return true;
       followStatus(id, 'Allocating…');
       const { report } = await api(`/api/tracked-reports/${encodeURIComponent(id)}/allocate`, {
         method: 'POST',
@@ -2091,18 +2528,17 @@ function creditCell(project, kind) {
   if (!c) return '<td class="num credits zero">—</td>';
   const credits = project.credits;
   const extra = kind === 'triage' ? credits.extraTriage : credits.extraRemediation;
-  const need =
-    kind === 'triage'
-      ? (credits.severities ?? []).reduce((n, s) => n + (credits.toTriage?.[s] ?? 0), 0)
-      : (credits.toRemediate ?? 0);
+  const need = credits.need?.[kind] ?? 0;
+  const short = credits.shortfall?.[kind] ?? 0;
   const title = [
     `${c.remaining} left of ${c.allocated} allocated, ${c.used} used`,
     kind === 'triage'
-      ? `${need} finding(s) still to triage at ${(credits.severities ?? []).map((s) => s.toLowerCase()).join(', ') || 'no severities'}`
-      : `${need} confirmed finding(s) to remediate (3 credits each)`,
+      ? `needs ${need} for ${credits.toTriage ? Object.entries(credits.toTriage).filter(([s]) => (credits.severities ?? []).includes(s)).reduce((n, [, v]) => n + v, 0) : 0} finding(s) still to triage (${(credits.severities ?? []).map((s) => s.toLowerCase()).join(', ') || 'no severities'})`
+      : `needs ${need} for ${credits.toRemediate ?? 0} confirmed finding(s) to remediate (3 credits each)`,
+    short ? `${short} more needed than allocated — allocate it on purpose` : '',
     extra ? `includes ${extra} extra credit(s) you added` : '',
   ].filter(Boolean).join(' · ');
-  const figures = `<span class="${c.remaining === 0 && c.allocated > 0 ? 'low' : ''}">${c.remaining}</span><span class="zero"> / ${c.allocated}</span>${extra ? '<span class="extra-dot" title="Includes extra credits">+</span>' : ''}`;
+  const figures = `<span class="${c.remaining === 0 && c.allocated > 0 ? 'low' : ''}">${c.remaining}</span><span class="zero"> / ${c.allocated}</span>${extra ? '<span class="extra-dot" title="Includes extra credits">+</span>' : ''}${short ? `<span class="need-tag">${short} more needed</span>` : ''}`;
   if (!can('credits.allocate')) return `<td class="num credits" title="${escapeHtml(title)}">${figures}</td>`;
   return `<td class="num credits" title="${escapeHtml(title)}"><button type="button" class="credit-edit" data-credit-edit="${escapeHtml(project.projectId)}" aria-label="Edit ${escapeHtml(project.projectName)} credits">${figures}</button></td>`;
 }
@@ -2127,22 +2563,54 @@ function syncAllocationBoxes(scope) {
   }
 }
 
+/** For the scope and ticked severities: findings to triage, confirmed to remediate, and what is allocated / short. */
+function allocationTotals(scope = allocationScope(), severities = allocSeverities()) {
+  const sum = (fn) => scope.reduce((n, p) => n + (fn(p) || 0), 0);
+  return {
+    toTriage: sum((p) => severities.reduce((n, s) => n + (p.credits?.toTriage?.[s] ?? 0), 0)),
+    toRemediate: sum((p) => severities.reduce((n, s) => n + (p.credits?.toRemediateBySeverity?.[s] ?? 0), 0)),
+    triageLeft: sum((p) => p.credits?.triage?.remaining),
+    remediationLeft: sum((p) => p.credits?.remediation?.remaining),
+    triageShort: sum((p) => p.credits?.shortfall?.triage),
+    remediationShort: sum((p) => p.credits?.shortfall?.remediation),
+  };
+}
+
 function renderAllocation() {
   $('credits-panel').hidden = !state.projects.length;
   if (!state.projects.length) return;
   const scope = allocationScope();
   syncAllocationBoxes(scope);
   const severities = allocSeverities();
-  const needed = scope.reduce(
-    (sum, p) => sum + severities.reduce((n, s) => n + (p.credits?.toTriage?.[s] ?? 0), 0),
-    0,
-  );
+  const t = allocationTotals(scope, severities);
   $('alloc-scope').textContent = `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'}`;
-  const remediate = scope.reduce((sum, p) => sum + (p.credits?.toRemediate ?? 0), 0);
-  $('alloc-needed').textContent = severities.length
-    ? `${needed} finding${needed === 1 ? '' : 's'} to triage (${needed} credit${needed === 1 ? '' : 's'}) · ${remediate} confirmed to remediate (${remediate * 3} credits)`
-    : 'No severities: only extra credits are allocated';
-  $('run-triage').disabled = !severities.length || !scope.length || needed === 0;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  $('alloc-needed').innerHTML = severities.length
+    ? `<b>${plural(t.toTriage, 'finding')}</b> to triage (${plural(t.toTriage, 'credit')}) · <b>${t.triageLeft}</b> allocated and not used${t.triageShort ? ` · <span class="short">${t.triageShort} more needed</span>` : ''}`
+    : 'Tick at least one severity.';
+  $('remediate-needed').innerHTML = severities.length
+    ? `<b>${plural(t.toRemediate, 'confirmed finding')}</b> to remediate (${plural(t.toRemediate * 3, 'credit')}, 3 each) · <b>${t.remediationLeft}</b> allocated and not used${t.remediationShort ? ` · <span class="short">${t.remediationShort} more needed</span>` : ''}${t.toRemediate ? '' : ' — triage first: remediation needs findings it confirmed'}`
+    : '';
+  $('run-triage').disabled = !severities.length || !scope.length || t.toTriage === 0;
+  $('alloc-triage').disabled = !scope.length || t.triageShort === 0;
+  $('alloc-triage').textContent = t.triageShort ? `Allocate ${t.triageShort} for triage` : 'Triage is allocated';
+  $('alloc-remediation').disabled = !scope.length || t.remediationShort === 0;
+  $('alloc-remediation').textContent = t.remediationShort ? `Allocate ${t.remediationShort} for remediation` : t.toRemediate ? 'Remediation is allocated' : 'Allocate for remediation';
+  $('run-remediation').disabled = !severities.length || !scope.length || t.toRemediate === 0;
+}
+
+/** "Allocate for triage / remediation": give the scope what it needs, after confirming. */
+async function allocateNeeded(kind) {
+  const scope = allocationScope();
+  const t = allocationTotals(scope);
+  const credits = kind === 'triage' ? t.triageShort : t.remediationShort;
+  if (!credits) return;
+  const what = kind === 'triage'
+    ? `${t.toTriage} finding(s) still to triage`
+    : `${t.toRemediate} confirmed finding(s) to remediate (3 credits each)`;
+  if (!confirm(`Allocate ${credits} ${kind === 'triage' ? 'AI Triage' : 'AI Remediation'} credit(s) from the credit pool to ${scope.length} project(s), for ${what}?`)) return;
+  await allocateCredits({ allocate: [kind] }, (n) => `Allocated ${credits} ${kind} credit(s) to ${n} project(s).`);
+  renderAllocation();
 }
 
 function applyCredits(byProject) {
@@ -2195,7 +2663,9 @@ async function runTriageNow() {
   const severities = allocSeverities();
   const needed = scope.reduce((sum, p) => sum + severities.reduce((n, s) => n + (p.credits?.toTriage?.[s] ?? 0), 0), 0);
   const names = severities.map((s) => s.toLowerCase()).join(', ');
-  if (!confirm(`Run Checkmarx One AI Triage now on up to ${needed} ${names} finding(s) across ${scope.length} project(s)? This uses up to ${needed} Checkmarx One credit(s).`)) return;
+  const left = scope.reduce((n, p) => n + (p.credits?.triage?.remaining ?? 0), 0);
+  const fromPool = Math.max(0, needed - left);
+  if (!confirm(`Run Checkmarx One AI Triage now on up to ${needed} ${names} finding(s) across ${scope.length} project(s)? This uses up to ${needed} Checkmarx One credit(s)${fromPool ? ` — ${left} already allocated, and you allocate the other ${fromPool} from the credit pool by confirming` : ''}.`)) return;
   const button = $('run-triage');
   button.disabled = true;
   setStatus('alloc-status', 'Starting AI Triage… (reading scan results for the selected projects)');
@@ -2219,6 +2689,55 @@ async function runTriageNow() {
     );
     logger.add(`Admin AI Triage: ${parts.join(' · ')}`, result.failed ? 'error' : 'success');
     if (result.started) followCredits(scope.map((p) => p.projectId));
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('alloc-status', error);
+  } finally {
+    renderAllocation();
+  }
+}
+
+/** "Remediate selected": confirmed findings only, 3 credits each, after a clear confirmation. */
+async function runRemediationNow() {
+  const scope = allocationScope();
+  const severities = allocSeverities();
+  const t = allocationTotals(scope, severities);
+  if (!t.toRemediate) return;
+  const projects = scope.filter((p) => severities.some((s) => p.credits?.toRemediateBySeverity?.[s]));
+  const cost = t.toRemediate * 3;
+  $('remediate-title').textContent = `Remediate ${t.toRemediate} confirmed finding${t.toRemediate === 1 ? '' : 's'}?`;
+  $('remediate-body').innerHTML = `
+    <p>Checkmarx One AI Remediation runs on the <strong>${escapeHtml(severities.map((s) => s.toLowerCase()).join(', '))}</strong> findings that triage <strong>confirmed</strong> — and only those: anything proposed not exploitable or still to verify is never remediated.</p>
+    <ul class="remediate-list">${projects
+      .map((p) => {
+        const n = severities.reduce((sum, s) => sum + (p.credits?.toRemediateBySeverity?.[s] ?? 0), 0);
+        return `<li>${escapeHtml(p.projectName)} — ${n} confirmed · ${n * 3} credits · ${p.credits?.remediation?.remaining ?? 0} allocated</li>`;
+      })
+      .join('')}</ul>
+    <p class="cost-line">This consumes <strong>3 credits for each confirmed vulnerability: ${cost} credit${cost === 1 ? '' : 's'}</strong>, from the remediation credits allocated to these projects${t.remediationShort ? ` — <strong>${t.remediationShort} are not allocated yet</strong>: allocate them first, or those projects are skipped` : ''}.</p>
+    <p class="hint">Developers get the results as when they click Remediate in their report: a pull request where the project is connected to a repository, otherwise the remediation details.</p>`;
+  $('remediate-go').disabled = t.remediationLeft === 0;
+  const dialog = $('remediate-dialog');
+  dialog.returnValue = '';
+  dialog.showModal();
+  await new Promise((resolve) => dialog.addEventListener('close', resolve, { once: true }));
+  if (dialog.returnValue !== 'go') return;
+
+  const button = $('run-remediation');
+  button.disabled = true;
+  setStatus('alloc-status', 'Starting AI Remediation… (checking each finding is confirmed in Checkmarx One)');
+  try {
+    const result = await api('/api/remediation/run', { method: 'POST', body: JSON.stringify({ projectIds: scope.map((p) => p.projectId), severities }) });
+    applyCredits(result.projects);
+    if (!result.requested) {
+      setStatus('alloc-status', 'Nothing to remediate: no finding of these severities is confirmed and not yet remediated.', 'ok');
+      return;
+    }
+    const parts = [`AI Remediation started for ${result.started} confirmed finding(s)`];
+    if (result.notConfirmed) parts.push(`${result.notConfirmed} not confirmed — left alone`);
+    if (result.skipped) parts.push(`${result.skipped} not eligible`);
+    if (result.failed) parts.push(`${result.failed} not started: ${result.errors.map((e) => e.replace(/\.?\s*Ask your administrator to allocate more\.?$/, '').replace(/\.$/, '')).join('; ')} — allocate for remediation first`);
+    setStatus('alloc-status', `${parts.join(' · ')}. Pull requests or remediation details follow in Checkmarx One and in the developers' reports.`, result.failed ? 'error' : 'ok');
+    logger.add(`Admin AI Remediation: ${parts.join(' · ')}`, result.failed ? 'error' : 'success');
   } catch (error) {
     if (!handleAuthLoss(error)) showError('alloc-status', error);
   } finally {
@@ -2591,26 +3110,7 @@ if ($('download-html')) {
 if ($('preview-html')) {
   $('preview-html').addEventListener('click', () => submitReminder({ dryRun: true, preview: 'html' }));
 }
-$('auto-save').addEventListener('click', saveAutomation);
 $('auto-run').addEventListener('click', runAutomationNow);
-$('auto-arm').addEventListener('click', async () => {
-  try {
-    await api('/api/automation/arm', { method: 'POST', body: JSON.stringify({}) });
-    await loadAutomation();
-    setStatus('auto-message', 'Armed — unattended runs can now authenticate.', 'ok');
-  } catch (error) {
-    if (!handleAuthLoss(error)) showError('auto-message', error);
-  }
-});
-$('auto-disarm').addEventListener('click', async () => {
-  try {
-    await api('/api/automation/arm', { method: 'DELETE' });
-    await loadAutomation();
-    setStatus('auto-message', 'Stored key forgotten.', 'ok');
-  } catch (error) {
-    if (!handleAuthLoss(error)) showError('auto-message', error);
-  }
-});
 $('auto-reset').addEventListener('click', async () => {
   try {
     await api('/api/automation/reset', { method: 'POST', body: JSON.stringify({}) });
@@ -2621,11 +3121,9 @@ $('auto-reset').addEventListener('click', async () => {
   }
 });
 $('save-recipients').addEventListener('click', saveInlineRecipients);
-$('credit-month').addEventListener('change', loadCredits);
 for (const id of ['brand-name', 'brand-logo', 'brand-height', 'brand-accent']) {
   $(id).addEventListener('input', renderBrandPreview);
 }
-$('save-settings').addEventListener('click', saveSettings);
 $('test-smtp').addEventListener('click', testSmtp);
 $('send-test').addEventListener('click', sendTestEmail);
 $('preview-template').addEventListener('click', previewTemplate);
@@ -2640,19 +3138,21 @@ $('reset-template').addEventListener('click', async () => {
   const health = state.health ?? {};
   $('tpl-subject').value = health.defaultTemplate?.subject ?? $('tpl-subject').value;
   $('tpl-html').value = health.defaultTemplate?.html ?? $('tpl-html').value;
-  setStatus('template-status', 'Default restored — click Save settings to keep it.', 'ok');
+  scheduleSave();
+  setStatus('template-status', 'Default restored and saved.', 'ok');
 });
 
-for (const th of document.querySelectorAll('#projects th[data-sort]')) {
-  th.addEventListener('click', () => {
-    const key = th.dataset.sort;
-    state.sort =
-      state.sort.key === key
-        ? { key, dir: state.sort.dir === 'asc' ? 'desc' : 'asc' }
-        : { key, dir: key === 'projectName' ? 'asc' : 'desc' };
-    renderProjects();
-  });
-}
+// Delegated: optional columns come and go.
+$('projects-head').addEventListener('click', (event) => {
+  const th = event.target.closest('th[data-sort]');
+  if (!th) return;
+  const key = th.dataset.sort;
+  state.sort =
+    state.sort.key === key
+      ? { key, dir: state.sort.dir === 'asc' ? 'desc' : 'asc' }
+      : { key, dir: key === 'projectName' ? 'asc' : 'desc' };
+  renderProjects();
+});
 
 $('initiator-list').addEventListener('change', (event) => {
   const key = event.target.dataset.pick;
@@ -2720,7 +3220,7 @@ for (const box of document.querySelectorAll('.alloc-sev')) {
       const describe = ruleChanges
         .map((c) => `${c.include ? 'now include' : 'no longer include'} ${c.severity.toLowerCase()}`)
         .join(' and ');
-      await allocateCredits({ ruleChanges }, (n) => `Triage credits ${describe} findings for ${n} project(s).`);
+      await allocateCredits({ ruleChanges }, (n) => `What ${n} project(s) need will ${describe} findings. Nothing was allocated.`);
       allocPending = null;
       renderAllocation();
     }, 500);
@@ -2738,10 +3238,13 @@ $('alloc-add').addEventListener('click', () => {
 });
 $('alloc-clear').addEventListener('click', () => {
   const scope = allocationScope();
-  if (!confirm(`Remove the extra credits you added to ${state.selected.size ? 'the' : 'all'} ${scope.length} ${state.selected.size ? 'selected' : 'shown'} project(s)? They keep what their ticked severities need.`)) return;
+  if (!confirm(`Take back the extra credits added to ${state.selected.size ? 'the' : 'all'} ${scope.length} ${state.selected.size ? 'selected' : 'shown'} project(s)? Credits already used stay counted.`)) return;
   allocateCredits({ clearExtras: true }, (n) => `Extra credits removed from ${n} project(s).`);
 });
 $('run-triage').addEventListener('click', runTriageNow);
+$('run-remediation').addEventListener('click', runRemediationNow);
+$('alloc-triage').addEventListener('click', () => allocateNeeded('triage'));
+$('alloc-remediation').addEventListener('click', () => allocateNeeded('remediation'));
 $('track-save').addEventListener('click', saveTrackedReport);
 $('reports-list').addEventListener('click', trackedReportAction);
 $('reports-list').addEventListener('change', (event) => {
@@ -2909,7 +3412,7 @@ $('brand-logo-file').addEventListener('change', () => {
   const reader = new FileReader();
   reader.onload = () => {
     $('brand-logo').value = reader.result;
-    $('brand-logo').dispatchEvent(new Event('input'));
+    $('brand-logo').dispatchEvent(new Event('input', { bubbles: true }));
   };
   reader.readAsDataURL(file);
 });
@@ -3591,6 +4094,9 @@ async function loadIntegration() {
 
 $('integration-form').addEventListener('submit', async (event) => {
   event.preventDefault();
+  // Connect & store verifies right away: the typed key need not also be saved as a draft.
+  clearTimeout(autosave.draft);
+  autosave.draft = null;
   setStatus('integration-status', 'Verifying the key against Checkmarx One…');
   try {
     await api('/api/integration/cxone', {
@@ -3605,6 +4111,8 @@ $('integration-form').addEventListener('submit', async (event) => {
     $('integration-key').value = '';
     setStatus('integration-status', 'Connected and stored. Everyone signed in with a password now uses it.', 'ok');
     await loadIntegration();
+    loadAutomation();
+    loadConnectionGuard();
     const me = await api('/api/me');
     state.me = me;
     if (me.connection) {
@@ -3623,6 +4131,8 @@ $('integration-remove').addEventListener('click', async () => {
     await api('/api/integration/cxone', { method: 'DELETE' });
     setStatus('integration-status', 'Stored key removed.', 'ok');
     loadIntegration();
+    loadAutomation();
+    loadConnectionGuard();
   } catch (error) {
     if (!handleAuthLoss(error)) showError('integration-status', error);
   }
@@ -3858,4 +4368,280 @@ $('iam-matrix').addEventListener('click', (event) => {
   const id = button.dataset.iamRoleDelete;
   if (!confirm(`Remove the role "${roleName(id)}"?`)) return;
   iamCall(`/api/iam/roles/${encodeURIComponent(id)}`, { method: 'DELETE' }, 'Role removed.');
+});
+
+// ---------------------------------------------------------------------------
+// Credits page: the pool, usage over time, by project, allocated vs used
+// ---------------------------------------------------------------------------
+
+const USAGE_REFRESH_MS = 30_000;
+let usageTimer = null;
+const usage = { data: null, loading: false };
+const isoDay = (date) => date.toISOString().slice(0, 10);
+
+/** The period the filters describe, as from/to dates (UTC). */
+function usageRange() {
+  const preset = $('usage-preset').value;
+  const today = new Date();
+  const day = (offset) => isoDay(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + offset)));
+  if (preset === 'custom') return { from: $('usage-from').value, to: $('usage-to').value };
+  if (preset === 'this-month') return { from: isoDay(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1))), to: day(0) };
+  if (preset === 'last-month') {
+    return {
+      from: isoDay(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1))),
+      to: isoDay(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0))),
+    };
+  }
+  return { from: day(1 - Number(preset)), to: day(0) };
+}
+
+async function loadUsage() {
+  clearTimeout(usageTimer);
+  if ($('page-credits').hidden) return;
+  const range = usageRange();
+  const query = new URLSearchParams({ ...range, bucket: $('usage-bucket').value, projectId: $('usage-project').value });
+  $('page-credits').classList.add('loading');
+  try {
+    usage.data = await api(`/api/credits/usage?${query}`);
+    renderUsage(usage.data);
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    $('usage-chart').innerHTML = `<p class="status error">${escapeHtml(error.message)}</p>`;
+  } finally {
+    $('page-credits').classList.remove('loading');
+  }
+  usageTimer = setTimeout(loadUsage, USAGE_REFRESH_MS);
+}
+
+const BUCKET_NAMES = { day: 'day', week: 'week', month: 'month' };
+function bucketLabel(start, bucket, { long = false } = {}) {
+  const d = new Date(`${start}T00:00:00Z`);
+  if (bucket === 'month') return d.toLocaleDateString(undefined, { month: long ? 'long' : 'short', year: 'numeric', timeZone: 'UTC' });
+  const text = d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return bucket === 'week' && long ? `Week of ${text}` : text;
+}
+
+function renderUsage(data) {
+  // Projects to filter by: every one with an allocation or usage, keeping the choice.
+  const select = $('usage-project');
+  const chosen = select.value;
+  const names = new Map(data.projects.map((p) => [p.projectId, p.projectName || p.projectId]));
+  for (const p of data.byProject) if (!names.has(p.projectId)) names.set(p.projectId, p.projectName || p.projectId);
+  select.innerHTML = `<option value="">All projects</option>${[...names]
+    .sort((a, b) => a[1].localeCompare(b[1]))
+    .map(([id, name]) => `<option value="${escapeHtml(id)}"${id === chosen ? ' selected' : ''}>${escapeHtml(name)}</option>`)
+    .join('')}`;
+
+  const pool = data.pool;
+  $('pool-period-note').textContent = pool.limited ? `${fmt(pool.size)} credits · ${periodText(pool)}` : 'No pool size set';
+  $('credits-pool').innerHTML = poolHtml(pool);
+
+  const t = data.totals;
+  const span = `${new Date(`${data.from}T00:00:00Z`).toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' })} – ${new Date(`${data.to}T00:00:00Z`).toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' })}`;
+  $('usage-range-note').textContent = `${span} · by ${BUCKET_NAMES[data.bucket]}${data.projectId ? ` · ${names.get(data.projectId) ?? data.projectId}` : ''}`;
+  const share = (n) => (t.credits ? `${Math.round((n / t.credits) * 100)}% of credits used` : '—');
+  $('usage-tiles').innerHTML = [
+    { label: 'Credits used', value: fmt(t.credits), detail: `${fmt(t.requests)} request${t.requests === 1 ? '' : 's'} · ${fmt(t.projects)} project${t.projects === 1 ? '' : 's'}`, hero: true },
+    { label: 'AI Triage', value: fmt(t.triage), detail: share(t.triage), key: 'triage' },
+    { label: 'AI Remediation', value: fmt(t.remediation), detail: share(t.remediation), key: 'remediation' },
+    { label: `Average per ${BUCKET_NAMES[data.bucket]}`, value: fmt(Math.round((t.credits / Math.max(1, data.series.length)) * 10) / 10), detail: `Busiest: ${busiest(data)}` },
+  ]
+    .map((x) => `<div class="${x.hero ? 'hero' : ''}"><span class="label">${x.key ? `<i class="key key-${x.key}"></i>` : ''}${escapeHtml(x.label)}</span><span class="value">${escapeHtml(x.value)}</span><span class="detail">${escapeHtml(x.detail)}</span></div>`)
+    .join('');
+
+  drawUsageChart(data);
+  renderUsageTable(data);
+  renderUsageProjects(data);
+  renderAllocations(data.allocations ?? []);
+}
+
+function busiest(data) {
+  const top = data.series.reduce((best, row) => (row.credits > (best?.credits ?? 0) ? row : best), null);
+  return top ? `${bucketLabel(top.start, data.bucket, { long: true })} (${fmt(top.credits)})` : 'none yet';
+}
+
+/** A clean axis maximum and step: 1, 2 or 5 × 10^n. */
+function niceScale(max, ticks = 4) {
+  if (max <= 0) return { top: 4, step: 1 };
+  const raw = max / ticks;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map((m) => m * power).find((v) => v >= raw);
+  return { top: Math.ceil(max / step) * step, step: Math.max(1, step) };
+}
+
+/** Stacked columns per day/week/month: triage at the base, remediation on top. */
+function drawUsageChart(data) {
+  const box = $('usage-chart');
+  const series = data.series;
+  if (!data.totals.credits) {
+    box.innerHTML = '<div class="chart-empty">No credits used in this period.</div>';
+    return;
+  }
+  const width = Math.max(320, box.clientWidth || 800);
+  const height = 260;
+  const pad = { top: 18, right: 8, bottom: 28, left: 40 };
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+  const { top, step } = niceScale(Math.max(...series.map((r) => r.credits)));
+  const y = (v) => pad.top + plotH - (v / top) * plotH;
+  const band = plotW / series.length;
+  const barW = Math.max(2, Math.min(24, band * 0.7));
+  const GAP = 2;
+  // A rectangle with a 4px rounded top (square at the baseline, or square top when another segment sits on it).
+  const rect = (x, yTop, h, roundTop) => {
+    if (h <= 0) return '';
+    const r = roundTop ? Math.min(4, barW / 2, h) : 0;
+    return `M${x},${yTop + h}V${yTop + r}${r ? `Q${x},${yTop} ${x + r},${yTop}` : ''}H${x + barW - r}${r ? `Q${x + barW},${yTop} ${x + barW},${yTop + r}` : ''}V${yTop + h}Z`;
+  };
+  const grid = [];
+  for (let v = 0; v <= top; v += step) {
+    grid.push(`<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(v)}" y2="${y(v)}" /><text x="${pad.left - 8}" y="${y(v) + 4}" text-anchor="end">${fmt(v)}</text>`);
+  }
+  const labelEvery = Math.ceil(series.length / Math.max(1, Math.floor(plotW / 64)));
+  const peak = series.reduce((best, row, i) => (row.credits > series[best].credits ? i : best), 0);
+  const cols = series
+    .map((row, i) => {
+      const x = pad.left + i * band + (band - barW) / 2;
+      const hT = (row.triage / top) * plotH;
+      const hR = (row.remediation / top) * plotH;
+      const baseY = pad.top + plotH;
+      const triageTop = baseY - hT;
+      const remTop = triageTop - hR - (hT > 0 && hR > 0 ? GAP : 0);
+      const paths = `<path class="bar-triage" d="${rect(x, triageTop, hT, hR <= 0)}" /><path class="bar-remediation" d="${rect(x, remTop, hR, true)}" />`;
+      const label = i % labelEvery === 0 ? `<text class="axis-x" x="${x + barW / 2}" y="${height - 8}" text-anchor="middle">${escapeHtml(bucketLabel(row.start, data.bucket))}</text>` : '';
+      const peakLabel = i === peak && row.credits ? `<text class="peak" x="${x + barW / 2}" y="${Math.min(remTop, triageTop) - 5}" text-anchor="middle">${fmt(row.credits)}</text>` : '';
+      return `<g class="col" data-i="${i}" tabindex="0" role="img" aria-label="${escapeHtml(`${bucketLabel(row.start, data.bucket, { long: true })}: ${row.triage} triage, ${row.remediation} remediation`)}">
+        <rect class="hit" x="${pad.left + i * band}" y="${pad.top}" width="${band}" height="${plotH}" />${paths}${peakLabel}</g>${label ? `<g class="axis">${label}</g>` : ''}`;
+    })
+    .join('');
+  box.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-label="Credits used per ${data.bucket}">
+    <g class="grid axis">${grid.join('')}</g>${cols}</svg><div class="tip" hidden></div>`;
+
+  const tip = box.querySelector('.tip');
+  const show = (g) => {
+    const row = series[Number(g.dataset.i)];
+    tip.innerHTML = '';
+    const title = document.createElement('div');
+    title.className = 'tip-title';
+    title.textContent = bucketLabel(row.start, data.bucket, { long: true });
+    tip.append(title);
+    for (const [name, value, color] of [['AI Triage', row.triage, 'var(--series-1)'], ['AI Remediation', row.remediation, 'var(--series-2)'], ['Total', row.credits, '']]) {
+      const line = document.createElement('div');
+      line.className = 'tip-row';
+      line.innerHTML = `<span class="line-key" style="background:${color || 'transparent'}"></span><b></b><span></span>`;
+      line.querySelector('b').textContent = fmt(value);
+      line.querySelector('span:last-child').textContent = name;
+      tip.append(line);
+    }
+    tip.hidden = false;
+    const hit = g.querySelector('.hit').getBBox();
+    const scale = box.clientWidth / width;
+    const left = (hit.x + hit.width / 2) * scale;
+    tip.style.left = `${Math.min(Math.max(0, left - tip.offsetWidth / 2), box.clientWidth - tip.offsetWidth)}px`;
+    tip.style.top = `${Math.max(0, pad.top * scale - 4)}px`;
+  };
+  for (const g of box.querySelectorAll('.col')) {
+    g.addEventListener('pointerenter', () => show(g));
+    g.addEventListener('focus', () => show(g));
+    g.addEventListener('pointerleave', () => (tip.hidden = true));
+    g.addEventListener('blur', () => (tip.hidden = true));
+  }
+}
+
+function renderUsageTable(data) {
+  $('usage-table').innerHTML = `<div class="table-wrap"><table class="probe">
+    <thead><tr><th>${data.bucket === 'day' ? 'Day' : data.bucket === 'week' ? 'Week of' : 'Month'}</th><th class="num">AI Triage</th><th class="num">AI Remediation</th><th class="num">Total</th><th class="num">Requests</th><th class="num">Running total</th></tr></thead>
+    <tbody>${data.series
+      .map((r) => `<tr><td>${escapeHtml(bucketLabel(r.start, data.bucket, { long: true }))}</td><td class="num">${fmt(r.triage)}</td><td class="num">${fmt(r.remediation)}</td><td class="num"><b>${fmt(r.credits)}</b></td><td class="num">${fmt(r.requests)}</td><td class="num">${fmt(r.cumulative)}</td></tr>`)
+      .join('')}</tbody>
+    <tfoot><tr><th>Total</th><th class="num">${fmt(data.totals.triage)}</th><th class="num">${fmt(data.totals.remediation)}</th><th class="num">${fmt(data.totals.credits)}</th><th class="num">${fmt(data.totals.requests)}</th><th></th></tr></tfoot>
+  </table></div>`;
+}
+
+function renderUsageProjects(data) {
+  if (!data.byProject.length) {
+    $('usage-projects').innerHTML = '<p class="hint">No project used credits in this period.</p>';
+    return;
+  }
+  const max = Math.max(...data.byProject.map((p) => p.credits));
+  const pct = (n) => `${((n / max) * 100).toFixed(2)}%`;
+  $('usage-projects').innerHTML = `<div class="table-wrap"><table class="probe">
+    <thead><tr><th>Project</th><th class="share-cell">Share</th><th class="num">AI Triage</th><th class="num">AI Remediation</th><th class="num">Total</th><th class="num">Requests</th><th>Last used</th></tr></thead>
+    <tbody>${data.byProject
+      .map((p) => `<tr>
+        <td>${escapeHtml(p.projectName || p.projectId)}</td>
+        <td class="share-cell"><div class="hbar" title="${p.triage} triage, ${p.remediation} remediation"><span class="m-triage" style="width:${pct(p.triage)}"></span><span class="m-remediation" style="width:${pct(p.remediation)}"></span></div></td>
+        <td class="num">${fmt(p.triage)}</td><td class="num">${fmt(p.remediation)}</td><td class="num"><b>${fmt(p.credits)}</b></td><td class="num">${fmt(p.requests)}</td>
+        <td>${escapeHtml(new Date(p.lastUsedAt).toLocaleString())}</td></tr>`)
+      .join('')}</tbody>
+    <tfoot><tr><th>Total</th><th></th><th class="num">${fmt(data.totals.triage)}</th><th class="num">${fmt(data.totals.remediation)}</th><th class="num">${fmt(data.totals.credits)}</th><th class="num">${fmt(data.totals.requests)}</th><th></th></tr></tfoot>
+  </table></div>`;
+}
+
+/** Per project: first allocated, allocated now, used through this utility, left. */
+function renderAllocations(all) {
+  const filter = $('alloc-search').value.trim().toLowerCase();
+  const list = filter ? all.filter((p) => (p.projectName || p.projectId).toLowerCase().includes(filter)) : all;
+  if (!list.length) {
+    $('credit-allocations').innerHTML = `<p class="hint">${all.length ? 'No project matches.' : 'No project has an allocation yet — allocate credits on the Dashboard.'}</p>`;
+    return;
+  }
+  const bar = (k) => {
+    const pct = k.allocated ? Math.min(100, Math.round((k.used / k.allocated) * 100)) : 0;
+    return `<div class="use-bar" title="${k.used} of ${k.allocated} used"><span style="width:${pct}%"></span></div>`;
+  };
+  const cells = (k) => `<td class="num">${fmt(k.initial)}</td><td class="num">${fmt(k.allocated)}</td><td class="num"><b>${fmt(k.used)}</b>${bar(k)}</td><td class="num">${fmt(k.remaining)}</td>`;
+  const sum = (kind, key) => list.reduce((n, p) => n + (p[kind][key] ?? 0), 0);
+  const totals = (kind) => ['initial', 'allocated', 'used', 'remaining'].map((key) => `<th class="num">${fmt(sum(kind, key))}</th>`).join('');
+  $('credit-allocations').innerHTML = `<div class="table-wrap"><table class="probe alloc-table">
+    <thead>
+      <tr><th rowspan="2">Project</th><th colspan="4" class="group">AI Triage</th><th colspan="4" class="group">AI Remediation</th></tr>
+      <tr><th class="num">At start</th><th class="num">Allocated</th><th class="num">Used</th><th class="num">Left</th><th class="num">At start</th><th class="num">Allocated</th><th class="num">Used</th><th class="num">Left</th></tr>
+    </thead>
+    <tbody>${list
+      .map((p) => `<tr><td>${escapeHtml(p.projectName || p.projectId)}<div class="hint">${escapeHtml(p.severities.map((s) => s.toLowerCase()).join(', ') || 'no severities')}${p.initialAt ? ` · since ${escapeHtml(new Date(p.initialAt).toLocaleDateString())}` : ''}</div></td>${cells(p.triage)}${cells(p.remediation)}</tr>`)
+      .join('')}</tbody>
+    <tfoot><tr><th>Total</th>${totals('triage')}${totals('remediation')}</tr></tfoot>
+  </table></div>`;
+}
+
+function exportUsageCsv() {
+  const data = usage.data;
+  if (!data) return;
+  const cell = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+  const rows = [
+    ['Section', 'Period start', 'Project', 'AI Triage', 'AI Remediation', 'Total', 'Requests'],
+    ...data.series.map((r) => ['over time', r.start, data.projectId || 'all projects', r.triage, r.remediation, r.credits, r.requests]),
+    ...data.byProject.map((p) => ['by project', `${data.from}..${data.to}`, p.projectName || p.projectId, p.triage, p.remediation, p.credits, p.requests]),
+    [],
+    ['Allocations (all time)', '', 'Project', 'Triage allocated', 'Triage used', 'Remediation allocated', 'Remediation used'],
+    ...data.allocations.map((p) => ['allocation', '', p.projectName || p.projectId, p.triage.allocated, p.triage.used, p.remediation.allocated, p.remediation.used]),
+  ];
+  const blob = new Blob([rows.map((r) => r.map(cell).join(',')).join('\n')], { type: 'text/csv' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `credits-${data.from}-to-${data.to}.csv`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+$('usage-preset').addEventListener('change', () => {
+  const custom = $('usage-preset').value === 'custom';
+  $('usage-from-field').hidden = !custom;
+  $('usage-to-field').hidden = !custom;
+  if (custom && !$('usage-from').value) {
+    const { from, to } = usage.data ?? usageRange();
+    $('usage-from').value = from;
+    $('usage-to').value = to;
+  }
+  loadUsage();
+});
+for (const id of ['usage-from', 'usage-to', 'usage-bucket', 'usage-project']) $(id).addEventListener('change', loadUsage);
+$('usage-filters').addEventListener('submit', (event) => event.preventDefault());
+$('usage-export').addEventListener('click', exportUsageCsv);
+$('alloc-search').addEventListener('input', () => renderAllocations(usage.data?.allocations ?? []));
+let usageResize = null;
+window.addEventListener('resize', () => {
+  clearTimeout(usageResize);
+  usageResize = setTimeout(() => usage.data && !$('page-credits').hidden && drawUsageChart(usage.data), 150);
 });

@@ -124,7 +124,7 @@ test('"Triage all critical / high" cover every critical and high finding, not on
 });
 
 test('Remediate runs through the reminder server only when the administrator allowed it', () => {
-  const resolved = { ...risk(1, 'CRITICAL'), alternateId: 'alt-1', groupId: '1', scanId: 's1', url: 'https://eu.ast.checkmarx.net/riskhub/p1?resultId=r1' };
+  const resolved = { ...risk(1, 'CRITICAL'), state: 'CONFIRMED', alternateId: 'alt-1', groupId: '1', scanId: 's1', url: 'https://eu.ast.checkmarx.net/riskhub/p1?resultId=r1' };
   const build = (remediationViaRelay) =>
     generateHtmlReport(buildReportData([resolved], { tenant: 't' }), {
       findings: [resolved],
@@ -140,6 +140,14 @@ test('Remediate runs through the reminder server only when the administrator all
   assert.match(off, /<a[^>]*data-action="remediate-link" href="https:\/\/eu\.ast\.checkmarx\.net\/riskhub\/p1\?resultId=r1"/);
 });
 
+test('the fence: Remediate is disabled for any finding not confirmed (to verify, proposed not exploitable…)', () => {
+  for (const state of ['TO_VERIFY', 'PROPOSED_NOT_EXPLOITABLE', 'URGENT', '']) {
+    const f = { ...risk(1, 'CRITICAL'), state, alternateId: 'alt-1', groupId: '1', scanId: 's1' };
+    const html = generateHtmlReport(buildReportData([f], { tenant: 't' }), { findings: [f], bulkFindings: [], relayUrl: 'https://r.example', remediationViaRelay: true, sign: () => ({ exp: 1, grant: 'g' }) });
+    assert.match(html, /<button[^>]*data-action="remediate" disabled title="Remediate works once triage has confirmed this finding/, state);
+  }
+});
+
 test('the report carries the re-triage switch, a valid administrator contact and the credits dialog', () => {
   const data = buildReportData([risk(1, 'CRITICAL')], { tenant: 't' });
   const allowed = island(generateHtmlReport(data, { allowRetriage: true, adminContact: 'appsec@example.com' })).config;
@@ -153,7 +161,7 @@ test('the report carries the re-triage switch, a valid administrator contact and
 });
 
 test('the report shows its reminder server address, and one without an address can still be connected', () => {
-  const resolved = { ...risk(1, 'CRITICAL'), alternateId: 'alt-1', groupId: '1', scanId: 's1' };
+  const resolved = { ...risk(1, 'CRITICAL'), state: 'CONFIRMED', alternateId: 'alt-1', groupId: '1', scanId: 's1' };
   const build = (relayUrl) =>
     generateHtmlReport(buildReportData([resolved], { tenant: 't' }), {
       findings: [resolved],

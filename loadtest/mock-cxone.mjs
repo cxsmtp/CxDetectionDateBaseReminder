@@ -49,7 +49,14 @@ http.createServer((req, res) => {
         const rows = offset ? [] : risksFor(pid);
         return send(200, { risks: rows, totalCount: rows.length });
       }
-      if (u.pathname === '/api/results/' || u.pathname === '/api/results') { bump('results'); return send(200, { results: [], totalCount: 0 }); }
+      if (u.pathname === '/api/results/' || u.pathname === '/api/results') {
+        bump('results');
+        // The scan's results: one SAST row per finding, so AI ids resolve (alternateId by similarityId).
+        const pid = String(u.searchParams.get('scan-id') ?? '').replace(/^scan-/, '');
+        const page = Number(u.searchParams.get('offset') ?? 0);
+        const rows = pid && page === 0 ? risksFor(pid).map((r) => ({ type: 'sast', similarityId: r.groupId, alternateId: `alt-${r.id}`, id: `alt-${r.id}` })) : [];
+        return send(200, { results: rows, totalCount: rows.length });
+      }
       let m;
       if (req.method === 'POST' && u.pathname === '/api/ai-triage/triage') {
         bump('triage-post');

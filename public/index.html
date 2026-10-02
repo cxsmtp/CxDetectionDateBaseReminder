@@ -37,6 +37,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5" /><path d="M4 19h16" /><path d="M7 15l4-4 3 3 5-6" /></svg>
             <span>Reports</span>
           </a>
+          <a href="#/credits" data-route="credits" class="tab" data-perm="credits.view">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></svg>
+            <span>Credits</span>
+          </a>
           <a href="#/audit" data-route="audit" class="tab" data-perm="audit.view backup.view">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
             <span>Audit</span>
@@ -213,20 +217,35 @@
                 <span class="chip" id="alloc-scope"></span>
               </div>
               <p class="hint wide" data-perm="credits.allocate">
-                Credits follow each project's findings for the ticked severities: 1 per finding still to triage, 3 per
-                confirmed finding to remediate. Changes apply at once to the selected projects, or to all shown projects
-                when none is selected. Click a project's credits in the table to set its own.
+                Nothing is allocated until you confirm it. For the ticked severities the table shows what each project
+                <em>needs</em>: 1 credit per finding still to triage, then — once triage has confirmed findings — 3 per
+                confirmed finding to remediate. Allocate it, then triage or remediate. Applies to the selected projects, or
+                to all shown projects when none is selected; every credit comes out of the credit pool.
               </p>
               <div class="alloc-row sev-picks" data-perm="credits.allocate">
-                <span class="label-sm">Allocate for</span>
+                <span class="label-sm">Severities</span>
                 <label class="pill-check"><input type="checkbox" class="alloc-sev" value="CRITICAL" checked /> <span>Critical</span></label>
                 <label class="pill-check"><input type="checkbox" class="alloc-sev" value="HIGH" checked /> <span>High</span></label>
                 <label class="pill-check"><input type="checkbox" class="alloc-sev" value="MEDIUM" /> <span>Medium</span></label>
                 <label class="pill-check"><input type="checkbox" class="alloc-sev" value="LOW" /> <span>Low</span></label>
               </div>
-              <div class="alloc-summary">
-                <strong id="alloc-needed"></strong>
-                <button id="run-triage" type="button" class="primary" data-perm="triage.run">Triage selected now</button>
+              <div class="alloc-steps">
+                <div class="alloc-step" id="step-triage">
+                  <div class="step-head"><span class="step-no">1</span><strong>AI Triage</strong></div>
+                  <p class="step-need" id="alloc-needed"></p>
+                  <div class="step-actions">
+                    <button id="alloc-triage" type="button" data-perm="credits.allocate">Allocate for triage</button>
+                    <button id="run-triage" type="button" class="primary" data-perm="triage.run">Triage selected now</button>
+                  </div>
+                </div>
+                <div class="alloc-step" id="step-remediation">
+                  <div class="step-head"><span class="step-no">2</span><strong>AI Remediation</strong> <span class="hint">confirmed findings only</span></div>
+                  <p class="step-need" id="remediate-needed"></p>
+                  <div class="step-actions">
+                    <button id="alloc-remediation" type="button" data-perm="credits.allocate">Allocate for remediation</button>
+                    <button id="run-remediation" type="button" class="primary" data-perm="triage.run">Remediate selected</button>
+                  </div>
+                </div>
               </div>
               <details class="disclosure alloc-more" data-perm="credits.allocate">
                 <summary>Extra credits for every selected project</summary>
@@ -234,7 +253,7 @@
                   <label class="inline">Triage <input id="alloc-extra-triage" type="number" min="0" step="1" value="0" class="small-num" /></label>
                   <label class="inline">Remediation <input id="alloc-extra-remediation" type="number" min="0" step="3" value="0" class="small-num" /> <span class="hint inline-hint">(3 per remediation)</span></label>
                   <button id="alloc-add" type="button">Add extra credits</button>
-                  <button id="alloc-clear" type="button" class="link">Remove extra credits</button>
+                  <button id="alloc-clear" type="button" class="link">Take back extra credits</button>
                 </div>
               </details>
               <p class="status" id="alloc-status"></p>
@@ -259,27 +278,33 @@
                     <option value="60+">Has &gt; 60d</option>
                   </select>
                   <label class="check"><input type="checkbox" id="hide-empty" /> Hide empty</label>
+                  <details class="col-picker" id="col-picker">
+                    <summary class="button-like" aria-label="Choose columns">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>
+                      Columns
+                    </summary>
+                    <div class="col-menu" id="col-menu"></div>
+                  </details>
+                  <button type="button" id="export-projects" class="secondary" disabled>Export CSV</button>
                 </div>
               </div>
 
               <div class="table-wrap">
                 <table id="projects" class="data-table">
                   <thead>
-                    <tr>
+                    <tr id="projects-head">
                       <th class="checkbox"><input type="checkbox" id="select-all" title="Select all" aria-label="Select all" /></th>
                       <th data-sort="projectName">Project</th>
                       <th class="num" data-sort="totalRisks">Total</th>
-                      <th class="num" data-sort="0-30">≤ 30d</th>
-                      <th class="num" data-sort="31-60">31–60d</th>
-                      <th class="num" data-sort="60+">&gt; 60d</th>
+                      <!-- Optional columns (chosen under "Columns") are inserted here. -->
                       <th data-sort="maxAgeDays">Oldest first detection</th>
                       <th data-sort="initiator">Latest scan by</th>
-                      <th class="num" title="AI Triage credits left / allocated">Triage credits</th>
-                      <th class="num" title="AI Remediation credits left / allocated">Remediation credits</th>
+                      <th class="num" title="AI Triage credits left / allocated, and what is still needed">Triage credits</th>
+                      <th class="num" title="AI Remediation credits left / allocated, and what confirmed findings still need">Remediation credits</th>
                     </tr>
                   </thead>
                   <tbody id="projects-body">
-                    <tr class="empty"><td colspan="10">Click <strong>Fetch vulnerability data</strong> to load projects and first-detection dates.</td></tr>
+                    <tr class="empty"><td colspan="7">Click <strong>Fetch vulnerability data</strong> to load projects and first-detection dates.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -380,6 +405,7 @@
           <!-- ================= Settings ================= -->
           <div id="page-settings" class="page settings" hidden>
             <nav class="section-nav" aria-label="Settings sections">
+              <a href="#set-import" data-perm="integration.cxone integration.smtp settings.links">Quick setup</a>
               <a href="#set-connection">Checkmarx One</a>
               <a href="#set-smtp">Email server</a>
               <a href="#set-initiators">Initiators</a>
@@ -392,6 +418,31 @@
               <a href="#set-endpoint">Risks endpoint</a>
             </nav>
 
+            <div class="autosave-note" id="autosave-note" data-perm="integration.smtp settings.recipients settings.initiators settings.template settings.branding settings.links settings.ai settings.automation integration.cxone credits.limit">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10" /></svg>
+              <p>Changes save as you type. A changed Checkmarx One or mail server connection is checked; if it does not work, the
+                <strong>last known good</strong> settings come back when you leave this page, so the utility keeps working.</p>
+            </div>
+
+            <section class="panel" id="set-import" data-perm="integration.cxone integration.smtp settings.links">
+              <h2>Quick setup from a .env file</h2>
+              <p class="hint wide">
+                Upload a <code>.env</code> file to fill in the Checkmarx One connection (<code>CX_API_KEY</code>,
+                <code>CX_BASE_URL</code>, <code>CX_IAM_URL</code>, <code>CX_TENANT</code>), the mail server
+                (<code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_SECURE</code>, <code>SMTP_USER</code>,
+                <code>SMTP_PASS</code>, <code>SMTP_FROM</code>, <code>SMTP_FROM_NAME</code>) and <code>REPORT_SERVER_URL</code>.
+                Each connection is checked straight away; one that does not work goes back to the last known good settings
+                when you leave this page.
+              </p>
+              <div class="env-drop" id="env-drop">
+                <input type="file" id="env-file" accept=".env,.txt,text/plain" class="sr-only" />
+                <label for="env-file" class="button primary">Choose a .env file</label>
+                <span class="hint">or drop it here. Read in this browser and sent only to this server.</span>
+              </div>
+              <span class="status" id="env-status"></span>
+              <div id="env-result"></div>
+            </section>
+
             <section class="panel" id="set-connection" data-edit-perm="integration.cxone">
               <h2>Checkmarx One integration</h2>
               <p class="hint wide">
@@ -399,6 +450,7 @@
                 reports, and automatic reminders all use it. Only an Admin can change it.
               </p>
               <div class="kv" id="connection-details"></div>
+              <div class="guard-line" id="integration-guard" hidden></div>
               <form id="integration-form" class="integration-form" autocomplete="off">
                 <label class="field">
                   <span>API key — leave blank to use the key you signed in with</span>
@@ -423,8 +475,8 @@
             <section class="panel" id="set-smtp" data-edit-perm="integration.smtp">
               <h2>Email server (SMTP)</h2>
               <p class="hint wide">
-                Your own mail server. Nothing can be sent until a connection test succeeds —
-                changing any connection field clears a previous pass.
+                Your own mail server. Changes save as you type and are tested; until a test passes, the last known good
+                server keeps sending — and comes back if the new one does not work.
               </p>
 
               <div class="grid2">
@@ -462,6 +514,7 @@
                 <span id="smtp-status" class="status"></span>
               </div>
               <p class="hint" id="verified-state"></p>
+              <div class="guard-line" id="smtp-guard" hidden></div>
             </section>
 
             <!-- Recipients are managed on the Dashboard; kept for the settings form. -->
@@ -577,10 +630,7 @@
               <div class="detected" id="auto-credential"></div>
 
               <div class="actions">
-                <button id="auto-save" class="primary">Save automation</button>
                 <button id="auto-run">Run once now</button>
-                <button id="auto-arm" data-perm="integration.cxone">Arm with current key</button>
-                <button id="auto-disarm" data-perm="integration.cxone">Forget stored key</button>
                 <button id="auto-reset" class="link">Reset history</button>
                 <span id="auto-message" class="status"></span>
               </div>
@@ -604,34 +654,35 @@
                 <label class="switch"><input type="checkbox" id="ai-reremediation" /> <span><strong>Allow re-remediation</strong><small>Remediate a finding already remediated (3 credits again; may open another pull request)</small></span></label>
                 <label class="switch"><input type="checkbox" id="ai-skip-ne" /> <span><strong>Leave not-exploitable findings out</strong><small>Proposed or confirmed not exploitable findings are skipped in reminders and reports</small></span></label>
               </div>
-              <div class="grid2">
-                <label class="field" data-edit-perm="credits.limit">
-                  <span>Utility-wide monthly credit limit, triage + remediation — 0 for no limit <span class="badge muted">Admin</span></span>
-                  <input id="ai-limit" type="number" min="0" step="1" inputmode="numeric" />
-                </label>
-                <label class="field">
-                  <span>Administrator contact — offered to readers who run out of credits (blank: the From address)</span>
-                  <input id="ai-admin-contact" type="email" placeholder="appsec-admin@company.com" />
-                </label>
-              </div>
+              <label class="field">
+                <span>Administrator contact — offered to readers who run out of credits (blank: the From address)</span>
+                <input id="ai-admin-contact" type="email" placeholder="appsec-admin@company.com" />
+              </label>
 
-              <div class="panel-head sub-head">
-                <h3>Credits used</h3>
-                <label class="inline">Month <select id="credit-month"></select></label>
+              <div class="pool viz" data-edit-perm="credits.limit">
+                <div class="panel-head sub-head">
+                  <h3>Credit pool <span class="badge muted">Admin</span></h3>
+                  <a href="#/credits" class="link-arrow">Usage by project and over time →</a>
+                </div>
+                <p class="hint wide">
+                  The most this utility may spend on AI Triage and AI Remediation together. Every credit given to a project comes
+                  out of it, and nothing is spent once it is used up. 0 means no limit.
+                </p>
+                <div class="grid2">
+                  <label class="field">
+                    <span>Pool size, in credits</span>
+                    <input id="ai-limit" type="number" min="0" step="1" inputmode="numeric" />
+                  </label>
+                  <label class="field">
+                    <span>Refills</span>
+                    <select id="ai-pool-period">
+                      <option value="month">Every month, on the 1st (UTC)</option>
+                      <option value="all">Never — one pool</option>
+                    </select>
+                  </label>
+                </div>
+                <div id="pool-view" data-view-ok><p class="hint">Loading…</p></div>
               </div>
-              <div id="credit-usage"><p class="hint">Loading…</p></div>
-              <p class="hint wide">
-                Counted by this server: per finding, 1 credit for AI Triage and 3 for AI Remediation, in each request Checkmarx One
-                accepted as a new job. Updates every 15 seconds while this page is open.
-              </p>
-
-              <div class="panel-head sub-head">
-                <h3>Allocated vs used</h3>
-              </div>
-              <div id="credit-allocations"><p class="hint">Loading…</p></div>
-              <p class="hint wide">
-                Per project, all time: what was first allocated, what is allocated now and what has been used through this utility.
-              </p>
             </section>
 
             <section class="panel" id="set-branding" data-edit-perm="settings.branding">
@@ -715,13 +766,91 @@
               <div id="probe-results" hidden></div>
             </section>
 
-            <div class="save-bar">
-              <span id="save-status" class="status"></span>
-              <button id="save-settings" class="primary big" data-perm="integration.smtp settings.recipients settings.initiators settings.template settings.branding settings.links settings.ai settings.automation integration.cxone credits.limit">Save settings</button>
+            <div class="save-bar" data-perm="integration.smtp settings.recipients settings.initiators settings.template settings.branding settings.links settings.ai settings.automation integration.cxone credits.limit">
+              <span id="save-status" class="status">All changes are saved.</span>
             </div>
           </div>
 
           <!-- ================= Tracked reports ================= -->
+          <!-- ================= Credits ================= -->
+          <div id="page-credits" class="page credits viz" hidden>
+            <form class="filter-row panel" id="usage-filters" aria-label="Period and project">
+              <label class="field">
+                <span>Period</span>
+                <select id="usage-preset">
+                  <option value="7">Last 7 days</option>
+                  <option value="30" selected>Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                  <option value="this-month">This month</option>
+                  <option value="last-month">Last month</option>
+                  <option value="365">Last 12 months</option>
+                  <option value="custom">Custom range…</option>
+                </select>
+              </label>
+              <label class="field" id="usage-from-field" hidden><span>From</span><input type="date" id="usage-from" /></label>
+              <label class="field" id="usage-to-field" hidden><span>To</span><input type="date" id="usage-to" /></label>
+              <label class="field">
+                <span>Group by</span>
+                <select id="usage-bucket">
+                  <option value="">Automatic</option>
+                  <option value="day">Day</option>
+                  <option value="week">Week</option>
+                  <option value="month">Month</option>
+                </select>
+              </label>
+              <label class="field grow">
+                <span>Project</span>
+                <select id="usage-project"><option value="">All projects</option></select>
+              </label>
+              <button type="button" id="usage-export" class="ghost">Export CSV</button>
+            </form>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Credit pool</h2>
+                <span class="hint" id="pool-period-note"></span>
+              </div>
+              <div id="credits-pool"><p class="hint">Loading…</p></div>
+            </section>
+
+            <section class="panel" id="usage-panel">
+              <div class="panel-head">
+                <h2>Credits used over time</h2>
+                <span class="hint" id="usage-range-note"></span>
+              </div>
+              <div class="stat-tiles" id="usage-tiles"></div>
+              <div class="chart-legend" id="usage-legend">
+                <span><i class="key key-triage"></i>AI Triage</span>
+                <span><i class="key key-remediation"></i>AI Remediation</span>
+              </div>
+              <div class="chart" id="usage-chart"></div>
+              <details class="disclosure">
+                <summary>Show as a table</summary>
+                <div id="usage-table"></div>
+              </details>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>By project, in this period</h2>
+                <span class="hint">Triage and remediation credits each project used</span>
+              </div>
+              <div id="usage-projects"><p class="hint">Loading…</p></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Allocated vs used</h2>
+                <input type="search" id="alloc-search" placeholder="Filter projects" aria-label="Filter projects" class="inline-input" />
+              </div>
+              <div id="credit-allocations"><p class="hint">Loading…</p></div>
+              <p class="hint wide">
+                Per project, all time: what was first allocated, what is allocated now, what has been used through this utility
+                and what is left. Allocations are given out of the credit pool.
+              </p>
+            </section>
+          </div>
+
           <div id="page-reports" class="page" hidden>
             <section class="panel">
               <div class="panel-head">
@@ -1057,5 +1186,32 @@
     </div>
 
     <script type="module" src="app.js"></script>
-  </body>
+      <dialog id="notice-dialog" class="notice-dialog" aria-labelledby="notice-title">
+      <form method="dialog">
+        <div class="notice-head">
+          <span class="notice-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg></span>
+          <h2 id="notice-title">Settings rolled back to the last known good configuration</h2>
+        </div>
+        <div id="notice-body"></div>
+        <div class="actions">
+          <button value="ok" class="primary" id="notice-ok">OK, understood</button>
+          <a href="#/settings" id="notice-settings" class="link">Open Settings</a>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="remediate-dialog" class="notice-dialog" aria-labelledby="remediate-title">
+      <form method="dialog">
+        <div class="notice-head">
+          <span class="notice-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z" /></svg></span>
+          <h2 id="remediate-title">Remediate the confirmed findings?</h2>
+        </div>
+        <div id="remediate-body"></div>
+        <div class="actions">
+          <button value="go" class="primary" id="remediate-go">Remediate</button>
+          <button value="cancel" formnovalidate>Cancel</button>
+        </div>
+      </form>
+    </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
 </html>

@@ -26,6 +26,7 @@ export class CreditLedger {
   // Running totals, so balance checks stay O(1) however long the ledger grows.
   #totals = new Map(); // `${projectId}|${kind}` -> {used, covered}
   #months = new Map(); // 'YYYY-MM' -> credits
+  #kinds = new Map(); // 'YYYY-MM' and 'all' -> {triage, remediation}
   #remediated = new Map(); // projectId -> Set of risk ids
   #triaged = new Map(); // projectId -> Map of risk id -> when it was last sent for AI Triage
   #writeTimer = null;
@@ -46,6 +47,7 @@ export class CreditLedger {
   #reindex() {
     this.#totals.clear();
     this.#months.clear();
+    this.#kinds.clear();
     this.#remediated.clear();
     this.#triaged.clear();
     for (const e of this.#entries) this.#index(e);
@@ -59,6 +61,12 @@ export class CreditLedger {
     this.#totals.set(key, t);
     const month = e.at.slice(0, 7);
     this.#months.set(month, (this.#months.get(month) ?? 0) + e.credits);
+    const kind = e.kind === 'remediation' ? 'remediation' : 'triage';
+    for (const bucket of [month, 'all']) {
+      const k = this.#kinds.get(bucket) ?? { triage: 0, remediation: 0 };
+      k[kind] += e.credits;
+      this.#kinds.set(bucket, k);
+    }
     if ((e.kind ?? 'triage') === 'triage') {
       // Indexed by finding, and by the result and group Checkmarx One charged for.
       const keys = [...(e.riskIds ?? []), ...(e.alternateIds ?? []).map((id) => `a:${id}`), ...(e.groupIds ?? []).map((id) => `g:${id}`)];
@@ -76,6 +84,20 @@ export class CreditLedger {
 
   usedInMonth(month = monthOf()) {
     return this.#months.get(month) ?? 0;
+  }
+
+  /**
+   * Credits used in the credit pool's current period, by kind: this month
+   * ('month') or since the start ('all').
+   */
+  usedInPeriod(period = 'month', now = new Date()) {
+    const k = this.#kinds.get(period === 'all' ? 'all' : monthOf(now)) ?? { triage: 0, remediation: 0 };
+    return { triage: k.triage, remediation: k.remediation, total: k.triage + k.remediation };
+  }
+
+  /** Credits held for requests still in flight, all projects. */
+  get reserved() {
+    return this.#reserved;
   }
 
   /** Credits a project has used for one kind of action, all time. */
@@ -122,13 +144,14 @@ export class CreditLedger {
   }
 
   /**
-   * Hold `credits` against the month's limit (0 = no limit) and, when
+   * Hold `credits` against the credit pool (`limit`, 0 = no limit; `period`
+   * 'month' refills monthly, 'all' never) and, when
    * `allowance` is given, against that project's allocation for `kind`.
    * Returns a reservation to release once the request is settled, or null
    * when either would be exceeded.
    */
-  reserve(credits, limit, now = new Date(), { projectId, kind = 'triage', allowance } = {}) {
-    const monthLeft = limit > 0 ? limit - this.usedInMonth(monthOf(now)) - this.#reserved : Infinity;
+  reserve(credits, limit, now = new Date(), { projectId, kind = 'triage', allowance, period = 'month' } = {}) {
+    const monthLeft = limit > 0 ? limit - this.usedInPeriod(period, now).total - this.#reserved : Infinity;
     if (credits > monthLeft) return null;
     const key = `${projectId}|${kind}`;
     if (allowance !== undefined && credits > allowance - this.usedBy(projectId, kind) - this.reservedFor(projectId, kind)) {
@@ -147,8 +170,8 @@ export class CreditLedger {
     };
   }
 
-  remaining(limit, now = new Date()) {
-    return limit > 0 ? Math.max(0, limit - this.usedInMonth(monthOf(now)) - this.#reserved) : null;
+  remaining(limit, now = new Date(), period = 'month') {
+    return limit > 0 ? Math.max(0, limit - this.usedInPeriod(period, now).total - this.#reserved) : null;
   }
 
   /** Record credits Checkmarx One accepted, one entry per project per request. */
@@ -209,6 +232,11 @@ export class CreditLedger {
   /** The ledger's own entries for a month (for reconciliation). */
   entriesInMonth(month) {
     return this.#entries.filter((e) => e.at.startsWith(month)).map((e) => ({ ...e }));
+  }
+
+  /** Entries from `from` (inclusive) to `to` (exclusive), ISO times; copies. */
+  entriesBetween(from, to) {
+    return this.#entries.filter((e) => e.at >= from && e.at < to).map((e) => ({ ...e }));
   }
 
   months() {

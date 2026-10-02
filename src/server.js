@@ -12,7 +12,8 @@ import { resolveAiIds, resultRowsFor } from './cxone/ai-assist.js';
 import { mapWithConcurrency } from './cxone/client.js';
 import { ReportGrants } from './report-grants.js';
 import { CREDIT_COST, CreditLedger, monthOf } from './credits.js';
-import { CreditAllocations, alreadySent, toRemediateCount, toTriageCount } from './credit-allocations.js';
+import { CreditAllocations, REMEDIABLE_STATE, alreadySent, remediable, remediationCandidates, toTriageCount } from './credit-allocations.js';
+import { poolSummary, resolveRange, usageSeries } from './credit-usage.js';
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
@@ -33,7 +34,9 @@ import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
 import { publicConnection } from './cxone/endpoints.js';
 import { sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
-import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, isVerified, parseAddressList, publicSettings } from './settings.js';
+import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, isVerified, parseAddressList, publicSettings, smtpFingerprint } from './settings.js';
+import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
+import { SECRET_VARIABLES, parseEnvText, settingsFromEnv } from './env-import.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
 import {
@@ -93,6 +96,7 @@ const allocations = new CreditAllocations({ file: path.join(dataDir, 'credit-all
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const trackedReports = new TrackedReports({ file: path.join(dataDir, 'tracked-reports.json') });
 const reportFiles = new ReportFiles({ dir: path.join(dataDir, 'report-files'), ttlDays: 30 });
+const guard = new ConnectionGuard({ file: path.join(dataDir, 'connection-guard.json') });
 const audit = new AuditLog({ dir: path.join(dataDir, 'audit'), keyFile: path.join(dataDir, 'audit.key') });
 if (restoredAtStart) {
   audit.record({
@@ -154,12 +158,20 @@ async function prepareAccess() {
 const touchedProjects = new Map();
 const touchProject = (projectId) => touchedProjects.set(projectId, Date.now());
 
-/** Per-project credit balances and what is still to triage, for the dashboard. */
+/**
+ * Per-project credits for the dashboard: what is allocated and used, and what
+ * the findings need (never allocated until someone confirms it).
+ */
 function creditView(summary) {
+  const { toRemediate, need, shortfall } = allocations.need(summary.projectId, summary.risks ?? []);
   return {
     ...allocations.balance(summary.projectId),
     toTriage: Object.fromEntries(SEVERITIES.map((s) => [s, toTriageCount(summary.risks ?? [], [s], Date.now(), creditLedger.triagedAt(summary.projectId))])),
-    toRemediate: toRemediateCount(summary.risks ?? [], allocations.severitiesOf(summary.projectId), creditLedger.remediatedIds(summary.projectId)),
+    // Confirmed findings to remediate, by severity, so any choice of severities can be costed.
+    toRemediateBySeverity: Object.fromEntries(SEVERITIES.map((s) => [s, remediationCandidates(summary.risks ?? [], [s], creditLedger.remediatedIds(summary.projectId)).length])),
+    toRemediate,
+    need,
+    shortfall,
   };
 }
 
@@ -199,17 +211,38 @@ function integrationSession() {
   return sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId);
 }
 
+/** Which key and endpoints a connection was made from (to tell a changed configuration from the running one). */
+const cxoneFingerprint = (key, overrides = {}) =>
+  createHash('sha256').update(JSON.stringify([key ?? '', overrides.baseUrl ?? '', overrides.iamUrl ?? '', overrides.tenant ?? ''])).digest('hex');
+/** The fingerprint of the configuration the running integration session was made from. */
+let integrationFingerprint = null;
+
+/**
+ * Make `session` the integration: it replaces the previous one, and the key and
+ * endpoints it was made from become the last known good Checkmarx One configuration.
+ */
+function activateIntegration(session, key, overrides = {}) {
+  session.pinned = true;
+  const previous = automationSessionId;
+  automationSessionId = session.id;
+  integrationFingerprint = cxoneFingerprint(key, overrides);
+  if (previous && previous !== session.id && previous !== bootstrapSessionId) sessions.destroy(previous);
+  const { tenant, baseUrl, iamUrl } = session.connection;
+  guard.recordGood('cxone', { apiKey: key, overrides: { baseUrl: overrides.baseUrl ?? '', iamUrl: overrides.iamUrl ?? '', tenant: overrides.tenant ?? '' }, connection: { tenant, baseUrl, iamUrl } });
+  scheduler.sync();
+}
+
 async function resolveAutomationSession() {
   const existing = integrationSession();
   if (existing) return existing;
 
-  const storedKey = settingsStore.get().automationApiKey;
+  const settings = settingsStore.get();
+  const storedKey = settings.automationApiKey;
   if (!storedKey) return null;
 
   try {
-    const session = await sessions.create(storedKey, integrationOverrides());
-    session.pinned = true;
-    automationSessionId = session.id;
+    const session = await sessions.create(storedKey, integrationOverrides(settings));
+    activateIntegration(session, storedKey, settings.integrationOverrides ?? {});
     return session;
   } catch (error) {
     console.warn(`! Stored automation key could not be used: ${error.message}`);
@@ -222,7 +255,8 @@ const scheduler = new Scheduler({
   // the process is running is picked up by the refresh below rather than here.
   resolveSession: () => sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId),
   state: automationState,
-  settingsStore,
+  // Runs send through the last known good mail server while a change waits to be checked.
+  settingsStore: { get: () => sendingSettings() },
   config: () => activeConfig(),
   isVerified,
 });
@@ -384,6 +418,8 @@ function describeMe(session, user) {
     permissions,
     via: session.via,
     integration: { connected: Boolean(integration), tenant },
+    // Connection settings put back because new ones did not work: shown once to each administrator.
+    configNotices: iam.permissionsOf(user).has('integration.cxone') || iam.permissionsOf(user).has('integration.smtp') ? guard.unseen(user.id) : [],
   };
 }
 
@@ -700,6 +736,9 @@ function integrationStatus() {
     environmentKey: Boolean(config.bootstrapApiKey),
     overrides: settings.integrationOverrides ?? { baseUrl: '', iamUrl: '', tenant: '' },
     connection,
+    // Saved but not working yet: the running connection stays the last known good one.
+    pending: cxonePending(settings),
+    lastGood: lastGoodView('cxone'),
   };
 }
 
@@ -714,18 +753,17 @@ app.post(
     // Use this session's own key when none is pasted (signed in with a Checkmarx One key).
     const key = String(apiKey ?? '').trim() || (req.session.via === 'cxone' ? req.session.connection.apiKey : '');
     if (!key) return res.status(400).json({ error: 'Paste a Checkmarx One API key.' });
-    const overrides = { baseUrl: String(baseUrl).trim(), iamUrl: String(iamUrl).trim(), tenant: String(tenant).trim() };
-    const session = await sessions.create(key, {
-      baseUrl: overrides.baseUrl || config.overrides.baseUrl,
-      iamUrl: overrides.iamUrl || config.overrides.iamUrl,
-      tenant: overrides.tenant || config.overrides.tenant,
-    });
-    session.pinned = true;
-    const previous = automationSessionId;
+    const overrides = { baseUrl: String(baseUrl).trim().replace(/\/+$/, ''), iamUrl: String(iamUrl).trim().replace(/\/+$/, ''), tenant: String(tenant).trim() };
+    const session = await withTimeout(
+      sessions.create(key, {
+        baseUrl: overrides.baseUrl || config.overrides.baseUrl,
+        iamUrl: overrides.iamUrl || config.overrides.iamUrl,
+        tenant: overrides.tenant || config.overrides.tenant,
+      }),
+      'Checkmarx One',
+    );
     settingsStore.save({ automationApiKey: key, integrationOverrides: overrides });
-    automationSessionId = session.id;
-    if (previous && previous !== session.id && previous !== bootstrapSessionId) sessions.destroy(previous);
-    scheduler.sync();
+    activateIntegration(session, key, overrides);
     audit.record({ type: 'settings', outcome: 'changed', reason: `Checkmarx One integration connected to tenant ${session.connection.tenant}.`, actor: await adminActor(req), details: { tenant: session.connection.tenant, baseUrl: session.connection.baseUrl } });
     res.json(integrationStatus());
   }),
@@ -738,10 +776,248 @@ app.delete(
     settingsStore.save({ automationApiKey: '' });
     if (automationSessionId) sessions.destroy(automationSessionId);
     automationSessionId = null;
+    integrationFingerprint = null;
     audit.record({ type: 'settings', outcome: 'changed', reason: 'Stored Checkmarx One integration key removed.', actor: await adminActor(req) });
     res.json(integrationStatus());
   }),
 );
+
+// ---------------------------------------------------------------------------
+// Last known good connections: settings save as typed; a change that does not
+// work is rolled back (src/connection-guard.js)
+// ---------------------------------------------------------------------------
+
+const CONNECTION_CHECK_TIMEOUT_MS = Math.max(1000, Number(process.env.CONNECTION_CHECK_TIMEOUT_MS) || 25_000);
+const ROLLBACK_IDLE_MS = Math.max(1, Number(process.env.CONFIG_ROLLBACK_IDLE_MINUTES) || 10) * 60_000;
+
+/** Reject when `promise` takes longer than the connection check allows. */
+function withTimeout(promise, label, ms = CONNECTION_CHECK_TIMEOUT_MS) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(Object.assign(new Error(`${label} did not answer within ${Math.round(ms / 1000)} seconds (connection timed out).`), { status: 504, timedOut: true })),
+      ms,
+    );
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** A stored integration key or endpoints that differ from the running connection. */
+function cxonePending(settings = settingsStore.get()) {
+  return Boolean(settings.automationApiKey) && cxoneFingerprint(settings.automationApiKey, settings.integrationOverrides ?? {}) !== integrationFingerprint;
+}
+
+/** Mail server settings that have not passed a connection test. */
+function smtpPending(settings = settingsStore.get()) {
+  return !isVerified(settings) && (Boolean(settings.smtp.host) || Boolean(guard.lastGood('smtp')));
+}
+
+/**
+ * The settings mail is sent with: the current ones, except that while a
+ * changed mail server waits to be checked, the last known good one keeps
+ * sending — so editing Settings never stops reminders.
+ */
+function sendingSettings(settings = settingsStore.get()) {
+  if (!smtpPending(settings)) return settings;
+  const good = guard.lastGood('smtp');
+  if (!good) return settings;
+  const { at, ...smtp } = good;
+  return { ...settings, smtp, verifiedAt: at, verifiedFingerprint: smtpFingerprint(smtp) };
+}
+
+/** What the last known good configuration of a part was (no secrets). */
+function lastGoodView(part) {
+  const good = guard.lastGood(part);
+  if (!good) return null;
+  return { ...(part === 'cxone' ? describeCxone(good) : describeSmtp(good)), at: good.at, ...(part === 'cxone' && !good.apiKey ? { source: 'environment' } : {}) };
+}
+
+function connectionStatus(settings = settingsStore.get()) {
+  return {
+    pending: { cxone: cxonePending(settings), smtp: smtpPending(settings) },
+    lastGood: { cxone: lastGoodView('cxone'), smtp: lastGoodView('smtp') },
+    changedAt: guard.changedAt,
+    rollbackAfterMinutes: ROLLBACK_IDLE_MS / 60_000,
+  };
+}
+
+/** Checks run one at a time: a second caller waits for the first and then checks again. */
+let checkQueue = Promise.resolve();
+function checkConnections(options) {
+  const run = checkQueue.then(() => runConnectionCheck(options));
+  checkQueue = run.catch(() => {});
+  return run;
+}
+
+/**
+ * Try every changed connection setting. One that works becomes the last known
+ * good one. One that fails stays saved (so it can be corrected) unless
+ * `rollback`: then the last known good configuration is put back, and a notice
+ * tells every administrator what happened. A configuration identical to the
+ * last known good one is never "rolled back" — that failure is an outage.
+ */
+async function runConnectionCheck({ rollback = false, trigger = 'check', actor = null } = {}) {
+  const result = { cxone: null, smtp: null, notice: null };
+  const parts = [];
+  const who = actor?.user || actor?.kind || '';
+
+  let settings = settingsStore.get();
+  if (cxonePending(settings)) {
+    const key = settings.automationApiKey;
+    const overrides = { baseUrl: '', iamUrl: '', tenant: '', ...(settings.integrationOverrides ?? {}) };
+    const tried = cxoneFingerprint(key, overrides);
+    try {
+      const session = await withTimeout(sessions.create(key, integrationOverrides(settings)), 'Checkmarx One');
+      if (cxoneFingerprint(settingsStore.get().automationApiKey, settingsStore.get().integrationOverrides ?? {}) !== tried) {
+        sessions.destroy(session.id);
+        result.cxone = { ok: false, superseded: true };
+      } else {
+        activateIntegration(session, key, overrides);
+        result.cxone = { ok: true, tenant: session.connection.tenant };
+        audit.record({ type: 'settings', outcome: 'changed', reason: `Checkmarx One integration checked and in use (tenant ${session.connection.tenant}).`, actor: actor ?? SYSTEM_ACTOR, details: { tenant: session.connection.tenant, baseUrl: session.connection.baseUrl, trigger } });
+      }
+    } catch (error) {
+      result.cxone = { ok: false, error: error.message, timedOut: Boolean(error.timedOut) };
+      const good = guard.lastGood('cxone');
+      const current = settingsStore.get();
+      const unchanged = cxoneFingerprint(current.automationApiKey, current.integrationOverrides ?? {}) === tried;
+      if (rollback && good && unchanged && cxoneFingerprint(good.apiKey, good.overrides) !== tried) {
+        settingsStore.save({ automationApiKey: good.apiKey, integrationOverrides: good.overrides });
+        if (!good.apiKey) {
+          // The last working connection was the environment's CX_API_KEY.
+          if (automationSessionId && automationSessionId !== bootstrapSessionId) sessions.destroy(automationSessionId);
+          automationSessionId = null;
+          integrationFingerprint = null;
+        } else if (cxoneFingerprint(good.apiKey, good.overrides) !== integrationFingerprint || !integrationSession()) {
+          automationSessionId = null;
+          await resolveAutomationSession();
+        }
+        result.cxone.rolledBack = true;
+        parts.push({ part: 'cxone', error: error.message, timedOut: Boolean(error.timedOut), attempted: describeCxone({ overrides }), restored: describeCxone(good), restoredAt: good.at });
+      }
+    }
+  }
+
+  settings = settingsStore.get();
+  if (smtpPending(settings)) {
+    const good = guard.lastGood('smtp');
+    const tried = smtpFingerprint(settings.smtp);
+    const attempted = describeSmtp(settings.smtp);
+    try {
+      const outcome = await withTimeout(testConnection(settings.smtp), 'The mail server');
+      if (smtpFingerprint(settingsStore.get().smtp) !== tried) {
+        result.smtp = { ok: false, superseded: true };
+      } else {
+        settingsStore.markVerified();
+        guard.recordGood('smtp', settingsStore.get().smtp);
+        result.smtp = { ok: true, host: settings.smtp.host, message: outcome?.message ?? '' };
+      }
+    } catch (error) {
+      result.smtp = { ok: false, error: error.message, timedOut: Boolean(error.timedOut) || /timed? ?out|ETIMEDOUT/i.test(error.message) };
+      const unchanged = smtpFingerprint(settingsStore.get().smtp) === tried;
+      if (rollback && good && unchanged && smtpFingerprint(good) !== tried) {
+        settingsStore.restoreSmtp(good);
+        result.smtp.rolledBack = true;
+        parts.push({ part: 'smtp', error: error.message, timedOut: result.smtp.timedOut, attempted, restored: describeSmtp(good), restoredAt: good.at });
+      }
+    }
+  }
+
+  if (parts.length) {
+    result.notice = guard.addNotice({ trigger, actor: who, parts });
+    audit.record({
+      type: 'settings',
+      outcome: 'changed',
+      reason: `Rolled back to the last known good ${parts.map((p) => (p.part === 'cxone' ? 'Checkmarx One integration' : 'mail server settings')).join(' and ')}: the new ${parts.length > 1 ? 'ones' : 'one'} did not work (${trigger}).`,
+      actor: actor ?? SYSTEM_ACTOR,
+      details: { rollback: parts },
+    });
+    console.warn(`! [settings] ${parts.map((p) => `${p.part} rolled back: ${p.error}`).join('; ')}`);
+  }
+  if (rollback) guard.settle();
+  return { ...result, status: connectionStatus() };
+}
+
+/** Changes nobody is checking (the browser closed mid-edit) are checked once they have been left alone a while. */
+const idleCheck = setInterval(() => {
+  const changedAt = guard.changedAt;
+  if (!changedAt || Date.now() - Date.parse(changedAt) < ROLLBACK_IDLE_MS) return;
+  if (!cxonePending() && !smtpPending()) return guard.settle();
+  checkConnections({ rollback: true, trigger: 'no change for a while' }).catch((error) => console.warn(`! [settings] Connection check failed: ${error.message}`));
+}, Math.min(60_000, ROLLBACK_IDLE_MS));
+idleCheck.unref?.();
+
+const mayChangeConnections = (req) => can(req, 'integration.cxone') || can(req, 'integration.smtp');
+
+app.get('/api/settings/connections', requirePermission('settings.view', 'integration.cxone', 'integration.smtp'), (req, res) => {
+  res.json(connectionStatus());
+});
+
+/** Check changed connection settings now; `rollback` puts back the last known good ones that fail (on leaving Settings). */
+app.post(
+  '/api/settings/connections/check',
+  requirePermission('integration.cxone', 'integration.smtp'),
+  asyncRoute(async (req, res) => {
+    const rollback = req.body?.rollback === true;
+    const trigger = rollback ? 'left the Settings page' : 'check';
+    const result = await checkConnections({ rollback, trigger, actor: await adminActor(req) });
+    // The person who was there has seen it: they are not shown it again at sign-in.
+    if (result.notice && req.body?.present !== false) guard.acknowledge(req.user.id, [result.notice.id]);
+    res.json(result);
+  }),
+);
+
+/** Save the integration key and endpoints as typed, without connecting yet (the check decides). */
+app.put(
+  '/api/integration/cxone/draft',
+  requirePermission('integration.cxone'),
+  asyncRoute(async (req, res) => {
+    const body = req.body ?? {};
+    const current = settingsStore.get();
+    const clean = (v) => String(v ?? '').trim().replace(/\/+$/, '');
+    const overrides = { ...(current.integrationOverrides ?? { baseUrl: '', iamUrl: '', tenant: '' }) };
+    for (const field of ['baseUrl', 'iamUrl', 'tenant']) if (field in body) overrides[field] = clean(body[field]);
+    const key = String(body.apiKey ?? '').trim();
+    const before = cxoneFingerprint(current.automationApiKey, current.integrationOverrides ?? {});
+    settingsStore.save({ ...(key ? { automationApiKey: key } : {}), integrationOverrides: overrides });
+    const after = settingsStore.get();
+    if (cxoneFingerprint(after.automationApiKey, after.integrationOverrides ?? {}) !== before) guard.touch();
+    res.json(integrationStatus());
+  }),
+);
+
+/** Configure from an uploaded .env file: the variables this person may set are saved, then checked. */
+app.post(
+  '/api/settings/import-env',
+  requirePermission('integration.cxone', 'integration.smtp', 'settings.links'),
+  asyncRoute(async (req, res) => {
+    const vars = parseEnvText(req.body?.text);
+    const { changes, applied, refused, ignored } = settingsFromEnv(vars, (permission) => can(req, permission));
+    if (!applied.length) {
+      if (refused.length) return res.status(403).json({ error: `Your role cannot set ${refused.join(', ')}.`, applied, refused, ignored });
+      return res.status(400).json({ error: 'No setting this page understands was found in that file.', applied, refused, ignored });
+    }
+    if (changes.cxone) {
+      const current = settingsStore.get();
+      const { apiKey, ...endpoints } = changes.cxone;
+      // Endpoints the file leaves out are derived from the key, as at start-up.
+      settingsStore.save({ ...(apiKey ? { automationApiKey: apiKey } : {}), integrationOverrides: { baseUrl: '', iamUrl: '', tenant: '', ...(apiKey ? {} : current.integrationOverrides ?? {}), ...endpoints } });
+    }
+    if (changes.smtp) settingsStore.save({ smtp: changes.smtp });
+    if (changes.links) settingsStore.save({ links: changes.links });
+    guard.touch();
+    const actor = await adminActor(req);
+    audit.record({ type: 'settings', outcome: 'changed', reason: `Settings imported from a .env file: ${applied.join(', ')}.`, actor, details: { applied, refused, ignored, secrets: applied.filter((n) => SECRET_VARIABLES.has(n)) } });
+    const check = await checkConnections({ rollback: false, trigger: 'import', actor });
+    res.json({ applied, refused, ignored, check, settings: settingsFor(req, settingsStore.get()), integration: integrationStatus() });
+  }),
+);
+
+/** Rollback notices this person has seen. */
+app.post('/api/settings/notices/ack', requireSession, (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
+  res.json({ acknowledged: guard.acknowledge(req.user.id, ids) });
+});
 
 // ---------------------------------------------------------------------------
 // Settings
@@ -769,15 +1045,17 @@ function permittedSettings(req, body = {}) {
   const ignored = [];
   for (const [key, value] of Object.entries(body ?? {})) {
     if (key === 'aiTriage' && value && typeof value === 'object') {
-      const { monthlyCreditLimit, ...rules } = value;
+      // The credit pool (size and period) is the Admin's; the rest is the AI settings permission's.
+      const { monthlyCreditLimit, poolPeriod, ...rules } = value;
       const ai = {};
       if (Object.keys(rules).length) {
         if (can(req, 'settings.ai')) Object.assign(ai, rules);
         else ignored.push('aiTriage');
       }
-      if (monthlyCreditLimit !== undefined) {
-        if (can(req, 'credits.limit')) ai.monthlyCreditLimit = monthlyCreditLimit;
-        else ignored.push('aiTriage.monthlyCreditLimit');
+      for (const [field, given] of [['monthlyCreditLimit', monthlyCreditLimit], ['poolPeriod', poolPeriod]]) {
+        if (given === undefined) continue;
+        if (can(req, 'credits.limit')) ai[field] = given;
+        else ignored.push(`aiTriage.${field}`);
       }
       if (Object.keys(ai).length) allowed.aiTriage = ai;
     } else if (SETTINGS_SECTIONS[key] && can(req, SETTINGS_SECTIONS[key])) {
@@ -816,7 +1094,10 @@ app.put(
       return res.status(403).json({ error: 'Your role cannot change these settings.', ignored });
     }
     const before = creditSettingsOf(settingsStore.get());
+    const smtpBefore = smtpFingerprint(settingsStore.get().smtp);
     const saved = settingsStore.save(allowed);
+    // A changed mail server is checked (and rolled back if it fails) when the editor leaves Settings, or after a while.
+    if (smtpFingerprint(saved.smtp) !== smtpBefore) guard.touch();
     auditSettings(await adminActor(req), before, creditSettingsOf(saved));
     res.json({
       ...settingsFor(req, saved),
@@ -838,6 +1119,7 @@ app.post(
     const settings = req.body?.smtp ? settingsStore.save({ smtp: req.body.smtp }) : settingsStore.get();
     const result = await testConnection(settings.smtp);
     const saved = settingsStore.markVerified();
+    guard.recordGood('smtp', saved.smtp);
     res.json({ ...result, settings: settingsFor(req, saved) });
   }),
 );
@@ -997,6 +1279,10 @@ app.get('/api/automation', requirePermission('settings.view', 'settings.automati
     bootstrapKey: Boolean(config.bootstrapApiKey),
     canRun: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId)),
     smtpVerified: isVerified(settings),
+    smtpConfigured: Boolean(settings.smtp.host),
+    // The panel says what runs will use: the integration, as the Checkmarx One section shows it.
+    integration: integrationStatus(),
+    connections: connectionStatus(settings),
   });
 });
 
@@ -1022,10 +1308,8 @@ app.post(
     // A session of its own for the integration: never this person's (which carries their access).
     const { apiKey, iamUrl, baseUrl, tenant } = req.session.connection;
     const integration = await sessions.create(apiKey, { iamUrl, baseUrl, tenant });
-    integration.pinned = true;
     settingsStore.save({ automationApiKey: apiKey, integrationOverrides: { iamUrl, baseUrl, tenant } });
-    if (automationSessionId && automationSessionId !== bootstrapSessionId) sessions.destroy(automationSessionId);
-    automationSessionId = integration.id;
+    activateIntegration(integration, apiKey, { iamUrl, baseUrl, tenant });
     audit.record({ type: 'settings', outcome: 'changed', reason: `Checkmarx One integration armed with ${req.user.email}'s key (tenant ${tenant}).`, actor: await adminActor(req) });
     scheduler.sync();
     res.json({ ...scheduler.status, keyStored: true, canRun: true });
@@ -1034,7 +1318,9 @@ app.post(
 
 app.delete('/api/automation/arm', requirePermission('integration.cxone'), (req, res) => {
   settingsStore.save({ automationApiKey: '' });
+  if (automationSessionId && automationSessionId !== bootstrapSessionId) sessions.destroy(automationSessionId);
   automationSessionId = null;
+  integrationFingerprint = null;
   res.json({ ...scheduler.status, keyStored: false, canRun: Boolean(sessions.get(bootstrapSessionId)) });
 });
 
@@ -1087,17 +1373,18 @@ app.get(
       activityWindow,
     );
 
-    // Who ran each project's *latest* scan, so a rescan moves the reminder to
-    // whoever ran it most recently.
-    const initiators = await collectInitiators(client, req.session.connection, projects, {
-      rules: settings.initiators,
-      useDirectory: settings.initiators.useDirectory,
-      concurrency: config.concurrency,
-      lastScans: Object.keys(lastScans ?? {}).length ? lastScans : undefined,
-      memory: knownAddresses,
-    });
-
-    const result = await collectProjectRisks(client, active, projects, { detectionWindow });
+    // Who ran each project's *latest* scan (so a rescan moves the reminder to
+    // whoever ran it most recently), and the findings: independent, so both at once.
+    const [initiators, result] = await Promise.all([
+      collectInitiators(client, req.session.connection, projects, {
+        rules: settings.initiators,
+        useDirectory: settings.initiators.useDirectory,
+        concurrency: config.concurrency,
+        lastScans: Object.keys(lastScans ?? {}).length ? lastScans : undefined,
+        memory: knownAddresses,
+      }),
+      collectProjectRisks(client, active, projects, { detectionWindow }),
+    ]);
     for (const summary of result.projects) {
       const info = initiators.byProject[summary.projectId] ?? {};
       summary.initiator = info.initiator ?? '';
@@ -1109,17 +1396,15 @@ app.get(
       summary.url = projectUrl(summary, req.session.connection, settings.links);
     }
     result.initiators = initiators.byProject;
-    let allocationsChanged = false;
-    for (const summary of result.projects) {
-      if (summary.error) continue;
-      allocationsChanged = recalculate(summary.projectId, summary.projectName, summary.risks, 'Recalculated from the findings just fetched.') || allocationsChanged;
-    }
-    if (allocationsChanged) allocations.save();
+    // Fetching shows what the findings need; it never allocates anything.
     for (const summary of result.projects) summary.credits = creditView(summary);
     req.session.lastScan = result;
 
     res.json({
       ...result,
+      // The findings themselves stay here, in the session: the page shows the
+      // summaries, and sending every finding made the reply many megabytes.
+      projects: result.projects.map(({ risks, ...summary }) => summary),
       windows: {
         activity: describeWindow(activityWindow),
         detection: describeWindow(detectionWindow),
@@ -1218,7 +1503,7 @@ async function runReminder(session, scan, input) {
 
     const { connection } = session;
     const lastScan = scan;
-    const settings = settingsStore.get();
+    const settings = sendingSettings();
 
     // An empty bucket list means "no age filter", so a selection of projects or
     // initiators is enough on its own to send.
@@ -1532,7 +1817,11 @@ function actionAllowed(res, flag = 'enabled') {
 }
 const triageAllowed = (res) => actionAllowed(res, 'enabled');
 
-const creditsRemaining = () => creditLedger.remaining(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0);
+/** The credit pool's period: 'month' (refills monthly) or 'all' (one pool). */
+const poolPeriod = (settings = settingsStore.get()) => (settings.aiTriage?.poolPeriod === 'all' ? 'all' : 'month');
+const creditsRemaining = () => creditLedger.remaining(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0, new Date(), poolPeriod());
+/** "this month's credit pool of 500" / "the credit pool of 500", for messages. */
+const poolName = (limit) => `${poolPeriod() === 'all' ? 'the credit pool' : "this month's credit pool"} of ${limit}`;
 
 /** Where report readers ask for more credits: the configured contact, else the sender address. */
 function adminContact(settings = settingsStore.get()) {
@@ -1621,7 +1910,7 @@ function auditCredit({ id, type, outcome, reason = '', actor, findings = [], kin
     findings: findings.map((f) => ({ riskId: f.riskId, alternateId: f.alternateId, scanId: f.scanId, scanner: f.scanner, ...(f.severity ? { severity: f.severity } : {}) })),
     credits: { kind, requested, charged },
     balance: project ? { before: before ?? balanceOf(project.id, kind), after: balanceOf(project.id, kind) } : undefined,
-    month: { limit: settings.monthlyCreditLimit ?? 0, remaining: creditsRemaining() },
+    month: { limit: settings.monthlyCreditLimit ?? 0, period: settings.poolPeriod === 'all' ? 'all' : 'month', remaining: creditsRemaining() },
     upstream,
     details,
   });
@@ -1635,6 +1924,7 @@ function creditSettingsOf(settings) {
     aiTriageEnabled: Boolean(ai.enabled),
     remediationEnabled: Boolean(ai.remediationEnabled),
     monthlyCreditLimit: ai.monthlyCreditLimit ?? 0,
+    poolPeriod: ai.poolPeriod === 'all' ? 'all' : 'month',
     allowRetriage: Boolean(ai.allowRetriage),
     allowReremediation: Boolean(ai.allowReremediation),
     skipNotExploitable: ai.skipNotExploitable !== false,
@@ -1694,12 +1984,20 @@ function auditAllocation({ actor, projectId, projectName, before, change, reason
 
 const SYSTEM_ACTOR = { kind: 'system', user: 'reminder server' };
 
-/** Recalculate a project's allocation from its findings, auditing any change. */
-function recalculate(projectId, projectName, risks, reason) {
-  const before = allocationSnapshot(projectId);
-  const changed = allocations.applyRule(projectId, projectName, risks);
-  if (changed) auditAllocation({ actor: SYSTEM_ACTOR, projectId, projectName, before, change: { recalculated: true }, reason, outcome: 'info' });
-  return changed;
+// Earlier releases allocated on their own: those allocations were dropped at start-up (src/credit-allocations.js).
+if (allocations.migrated?.length) {
+  for (const m of allocations.migrated) {
+    audit.record({
+      type: 'allocation',
+      outcome: 'changed',
+      reason: `Allocations made automatically by an earlier release removed: credits are now allocated only when someone confirms it. Kept what was used and extra credits not used yet.`,
+      actor: SYSTEM_ACTOR,
+      project: { id: m.projectId, name: m.projectName },
+      credits: { kind: 'allocation', requested: 0, charged: 0, triageDelta: m.after.triage - m.before.triage, remediationDelta: m.after.remediation - m.before.remediation },
+      details: { before: m.before, after: m.after },
+    });
+  }
+  console.log(`[credits] ${allocations.migrated.length} project allocation(s) made automatically by an earlier release were removed; allocate on the Dashboard.`);
 }
 
 /** A whole request turned away before anything was sent: one entry per project. */
@@ -1742,9 +2040,10 @@ function creditRefusal(projectId, projectName, kind, credits, limit) {
       ? `${project} has no ${KIND_NAMES[kind]} credits left (${credits} needed). Ask your administrator to allocate more.`
       : `${project} has ${left} ${KIND_NAMES[kind]} credit${left === 1 ? '' : 's'} left, ${credits} needed. Ask your administrator to allocate more.`;
   }
-  const monthLeft = creditLedger.remaining(limit);
+  const monthLeft = creditLedger.remaining(limit, new Date(), poolPeriod());
   if (monthLeft !== null && credits > monthLeft) {
-    return `This month's credit limit for actions from reports is reached (${monthLeft} of ${limit} left, ${credits} needed). Ask your administrator to raise it.`;
+    const name = poolName(limit);
+    return `${name[0].toUpperCase()}${name.slice(1)} is used up — the credit limit for actions from reports (${monthLeft} left, ${credits} needed). Ask your administrator to raise it.`;
   }
   return '';
 }
@@ -1886,6 +2185,7 @@ app.post(
         continue;
       }
       const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), {
+        period: poolPeriod(),
         projectId,
         kind: 'triage',
         allowance: allocations.balance(projectId).triage.allocated,
@@ -2058,6 +2358,24 @@ async function projectStates(session, projectId) {
   return (await projectRiskInfo(session, projectId)).states;
 }
 
+/**
+ * A finding's state in Checkmarx One now ('' when it cannot be read). A cached
+ * answer other than confirmed is read again, so a verdict that just arrived counts.
+ */
+async function liveState(session, finding) {
+  try {
+    const cached = (await projectRiskInfo(session, finding.projectId)).info.get(finding.riskId)?.state ?? '';
+    if (cached === REMEDIABLE_STATE) return cached;
+    stateCache.delete(finding.projectId);
+    return (await projectRiskInfo(session, finding.projectId)).info.get(finding.riskId)?.state ?? '';
+  } catch (error) {
+    console.warn(`[remediation] could not read the state of ${finding.riskId}: ${error.message}`);
+    return '';
+  }
+}
+
+const stateName = (state) => String(state).toLowerCase().replace(/_/g, ' ');
+
 /** How many of these findings the project's rule covered, read from their live severity and state. */
 async function coveredCount(session, projectId, kind, riskIds) {
   try {
@@ -2189,6 +2507,17 @@ app.post(
     const before = balanceOf(finding.projectId, 'remediation');
     const base = { type: 'remediation', actor, findings: [finding], kind: 'remediation', requested: cost, before };
 
+    // The fence: AI Remediation only for a finding triaged and confirmed — never one proposed
+    // not exploitable or still to verify. Read live, whatever the report says.
+    const state = await liveState(session, finding);
+    if (state !== REMEDIABLE_STATE) {
+      const reason = state
+        ? `AI Remediation runs only on confirmed findings; this one is ${stateName(state)}.`
+        : 'Could not confirm this finding is confirmed in Checkmarx One, so AI Remediation was not started.';
+      auditCredit({ ...base, outcome: 'refused', reason, details: { state: state || 'unknown' } });
+      return res.status(409).json({ error: reason, notConfirmed: true, state: state || null });
+    }
+
     // A finding already remediated is only remediated again when the
     // administrator allows it: every run spends credits and may open another pull request.
     let current = { status: 'none', body: null };
@@ -2220,6 +2549,7 @@ app.post(
       });
     }
     const reservation = creditLedger.reserve(cost, limit, new Date(), {
+      period: poolPeriod(),
       projectId: finding.projectId,
       kind: 'remediation',
       allowance: allocations.balance(finding.projectId).remediation.allocated,
@@ -2317,20 +2647,29 @@ function scanProjects(req, projectIds) {
 const cleanSeverities = (list) =>
   [...new Set((Array.isArray(list) ? list : []).map((s) => String(s).toUpperCase()))].filter((s) => SEVERITIES.includes(s));
 
+/**
+ * Allocate credits to projects — only ever because someone asked here:
+ *   allocate: ['triage', 'remediation']  give each project what its findings need and it does not have
+ *                                        (remediation: 3 per confirmed finding, once triage has confirmed them)
+ *   triageAdd / remediationAdd           extra credits on top, for every project
+ *   setExtra {triage, remediation}       one project's extra credits, exactly
+ *   clearExtras                          take extra credits back
+ *   ruleChanges                          which severities the projects' needs cover (allocates nothing)
+ * Everything given comes out of the credit pool, and never more than it has free.
+ */
 app.post('/api/credits/allocate', requirePermission('credits.allocate'), asyncRoute(async (req, res) => {
   if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
   const { projectIds, ruleChanges, triageAdd = 0, remediationAdd = 0, clearExtras = false, setExtra = null } = req.body ?? {};
-  // Each change adds or removes one severity from every project's own rule,
-  // so severities the administrator did not touch stay as each project had them.
   const changes = (Array.isArray(ruleChanges) ? ruleChanges : [])
     .map((c) => ({ severity: String(c?.severity ?? '').toUpperCase(), include: c?.include === true }))
     .filter((c) => SEVERITIES.includes(c.severity));
+  const needed = (Array.isArray(req.body?.allocate) ? req.body.allocate : []).filter((k) => k === 'triage' || k === 'remediation');
   const extraTriage = Math.max(0, Math.floor(Number(triageAdd) || 0));
   const extraRemediation = Math.max(0, Math.floor(Number(remediationAdd) || 0));
   // Exact extras for one project at a time (the per-project editor).
   const exact = setExtra && typeof setExtra === 'object' ? setExtra : null;
-  if (!changes.length && !extraTriage && !extraRemediation && clearExtras !== true && !exact) {
-    return res.status(400).json({ error: 'Choose severities, or enter credits to add.' });
+  if (!changes.length && !needed.length && !extraTriage && !extraRemediation && clearExtras !== true && !exact) {
+    return res.status(400).json({ error: 'Choose what to allocate, severities, or credits to add.' });
   }
   if (exact && (!Array.isArray(projectIds) || projectIds.length !== 1)) {
     return res.status(400).json({ error: 'Set exact extra credits for one project at a time.' });
@@ -2338,37 +2677,62 @@ app.post('/api/credits/allocate', requirePermission('credits.allocate'), asyncRo
 
   const projects = scanProjects(req, projectIds);
   const actor = await adminActor(req);
+  const before = new Map(projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
+
+  // Severities first: they decide what "needed" means below.
+  if (changes.length) {
+    for (const p of projects) {
+      const next = new Set(allocations.severitiesOf(p.projectId));
+      for (const { severity, include } of changes) include ? next.add(severity) : next.delete(severity);
+      allocations.setSeverities(p.projectId, p.projectName, SEVERITIES.filter((s) => next.has(s)));
+    }
+  }
+
+  // What would be given, before giving anything: it must fit in the pool.
+  const plan = projects.map((p) => {
+    const { shortfall } = allocations.need(p.projectId, p.risks ?? []);
+    const extras = allocations.balance(p.projectId);
+    const exactDelta = (kind) => (exact && kind in exact ? Math.max(0, Math.floor(Number(exact[kind]) || 0)) - extras[kind === 'triage' ? 'extraTriage' : 'extraRemediation'] : 0);
+    return {
+      p,
+      triage: (needed.includes('triage') ? shortfall.triage : 0) + extraTriage,
+      remediation: (needed.includes('remediation') ? shortfall.remediation : 0) + extraRemediation,
+      exact: { triage: exactDelta('triage'), remediation: exactDelta('remediation') },
+    };
+  });
+  const given = plan.reduce((n, x) => n + x.triage + x.remediation + Math.max(0, x.exact.triage) + Math.max(0, x.exact.remediation), 0);
+  const pool = creditPool();
+  if (pool.limited && given > pool.unallocated) {
+    const reason = `Only ${pool.unallocated} credit${pool.unallocated === 1 ? '' : 's'} left in the credit pool to give (pool ${pool.size}${pool.period === 'month' ? ' this month' : ''}, ${pool.used.total} used, ${pool.outstanding.total} given to projects and not used yet); ${given} asked for.`;
+    if (changes.length) allocations.save();
+    audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { projectIds: projects.map((p) => p.projectId), pool } });
+    return res.status(409).json({ error: `${reason} Raise the pool under Settings → AI & credits.`, pool });
+  }
+
+  for (const { p, triage, remediation, exact: delta } of plan) {
+    if (clearExtras === true) allocations.clearExtras(p.projectId);
+    const neededTriage = triage - extraTriage;
+    const neededRemediation = remediation - extraRemediation;
+    if (neededTriage) allocations.grant(p.projectId, p.projectName, 'triage', neededTriage);
+    if (neededRemediation) allocations.grant(p.projectId, p.projectName, 'remediation', neededRemediation);
+    if (extraTriage) allocations.add(p.projectId, p.projectName, 'triage', extraTriage);
+    if (extraRemediation) allocations.add(p.projectId, p.projectName, 'remediation', extraRemediation);
+    for (const kind of ['triage', 'remediation']) if (delta[kind]) allocations.add(p.projectId, p.projectName, kind, delta[kind]);
+  }
+  allocations.save();
   const change = {
     ...(changes.length ? { ruleChanges: changes } : {}),
+    ...(needed.length ? { allocateNeeded: needed } : {}),
     ...(extraTriage ? { addTriage: extraTriage } : {}),
     ...(extraRemediation ? { addRemediation: extraRemediation } : {}),
     ...(clearExtras === true ? { clearExtras: true } : {}),
     ...(exact ? { setExtra: exact } : {}),
   };
-  const before = new Map(projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
-  for (const p of exact ? projects : []) {
-    for (const kind of ['triage', 'remediation']) {
-      if (kind in exact) allocations.setExtra(p.projectId, p.projectName, kind, exact[kind]);
-    }
-  }
   for (const p of projects) {
-    if (clearExtras === true) allocations.clearExtras(p.projectId);
-    if (extraTriage) allocations.add(p.projectId, p.projectName, 'triage', extraTriage);
-    if (extraRemediation) allocations.add(p.projectId, p.projectName, 'remediation', extraRemediation);
-    let rule;
-    if (changes.length) {
-      const next = new Set(allocations.severitiesOf(p.projectId));
-      for (const { severity, include } of changes) include ? next.add(severity) : next.delete(severity);
-      rule = SEVERITIES.filter((s) => next.has(s));
-    }
-    allocations.applyRule(p.projectId, p.projectName, p.risks ?? [], rule);
-  }
-  allocations.save();
-  for (const p of projects) {
-    auditAllocation({ actor, projectId: p.projectId, projectName: p.projectName, before: before.get(p.projectId), change, reason: 'Changed on the Dashboard.' });
+    auditAllocation({ actor, projectId: p.projectId, projectName: p.projectName, before: before.get(p.projectId), change, reason: needed.length ? `Allocated what the findings need (${needed.join(' and ')}) on the Dashboard.` : 'Changed on the Dashboard.' });
     p.credits = creditView(p);
   }
-  res.json({ projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
+  res.json({ given, projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])), pool: creditPool() });
 }));
 
 /**
@@ -2416,11 +2780,11 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
       auditCredit({ ...base, outcome: 'refused', reason: `Not sent: ${stopped}` });
       continue;
     }
-    const reservation = creditLedger.reserve(alternateIds.length, limit);
+    const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), { period: poolPeriod() });
     if (!reservation) {
       failed += group.length;
-      errors.push(`${projectName}: this month's credit limit (${limit}) is reached.`);
-      auditCredit({ ...base, outcome: 'refused', reason: `This month's credit limit (${limit}) is reached.` });
+      errors.push(`${projectName}: ${poolName(limit)} is used up (credit limit reached).`);
+      auditCredit({ ...base, outcome: 'refused', reason: `${poolName(limit)} is used up (credit limit reached).` });
       continue;
     }
     const started = Date.now();
@@ -2432,9 +2796,14 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
       });
       const upstream = { call: 'POST /api/ai-triage/triage', status: 200, published: body?.published !== false, jobId: body?.triageID ?? body?.id ?? '', ms: Date.now() - started };
       if (body?.published !== false) {
+        // The person who confirmed this run allocated what it needed beyond what the project had: recorded as theirs.
         const balance = allocations.balance(projectId).triage;
         const raised = Math.max(0, alternateIds.length - balance.remaining);
-        if (raised) allocations.raise(projectId, raised);
+        if (raised) {
+          const snapshot = allocationSnapshot(projectId);
+          allocations.grant(projectId, projectName, 'triage', raised);
+          auditAllocation({ actor, projectId, projectName, before: snapshot, change: { allocatedForRun: raised }, reason: `Allocated ${raised} triage credit${raised === 1 ? '' : 's'} for the AI Triage run ${actor?.user || 'the administrator'} confirmed.` });
+        }
         // The administrator's own triage never uses up the developers' extras.
         const auditId = randomUUID();
         reservation.release();
@@ -2475,8 +2844,8 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
 
 /**
  * Re-read the live state of the fetched projects' findings (verdicts arrive
- * minutes after a triage run) and recalculate their allocations, so the
- * dashboard's credit columns follow without another full fetch.
+ * minutes after a triage run), so what each project needs — confirmed
+ * findings to remediate — follows without another full fetch.
  */
 app.post(
   '/api/credits/refresh',
@@ -2484,7 +2853,6 @@ app.post(
   asyncRoute(async (req, res) => {
     if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
     const projects = scanProjects(req, req.body?.projectIds);
-    let changed = false;
     await mapWithConcurrency(projects, 3, async (p) => {
       stateCache.delete(p.projectId);
       let live;
@@ -2498,9 +2866,8 @@ app.post(
         const now = live.info.get(r.riskId);
         if (now?.state && now.state !== r.state) r.state = now.state;
       }
-      changed = recalculate(p.projectId, p.projectName, p.risks ?? [], 'Recalculated after triage verdicts changed findings.') || changed;
     });
-    if (changed) allocations.save();
+    // New verdicts change what is needed (e.g. confirmed findings to remediate), never what is allocated.
     for (const p of projects) p.credits = creditView(p);
     res.json({ projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
   }),
@@ -2551,6 +2918,140 @@ app.post(
   }),
 );
 
+/**
+ * Run AI Remediation for confirmed findings on the administrator's behalf:
+ * one request per scan and scanner, 3 credits per finding, out of each
+ * project's remediation allocation (and the credit pool). Only findings
+ * confirmed in Checkmarx One right now are sent — the fence also applies here.
+ * The results reach developers as they do when they click Remediate in a
+ * report: a pull request where the project is set up for it, otherwise the
+ * remediation details in the report.
+ */
+async function adminRemediate(session, findings, initiatorsByProject = {}, { actor = { kind: 'admin' }, origin = '' } = {}) {
+  const cost = CREDIT_COST.remediation;
+  await resolveAiIds(session.client, findings, (f) => initiatorsByProject[f.projectId]?.scanId ?? '');
+  const eligible = findings.filter((f) => !f.aiUnavailable);
+  const ineligible = findings.filter((f) => f.aiUnavailable);
+  if (ineligible.length) auditRefusedRequest('remediation', actor, ineligible, `Not eligible for AI Remediation (${ineligible[0].aiUnavailable})`);
+
+  const buckets = new Map();
+  for (const f of eligible) {
+    const key = `${f.projectId}|${f.scanId}|${f.scanner}`;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(f);
+  }
+  const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
+  let failed = 0;
+  let notAllocated = 0;
+  const errors = [];
+  const startedFindings = [];
+  for (const group of buckets.values()) {
+    const { scanId, scanner, projectId, projectName } = group[0];
+    const alternateIds = [...new Set(group.map((f) => f.alternateId))];
+    const credits = cost * alternateIds.length;
+    const base = { type: 'remediation', actor, findings: group, kind: 'remediation', requested: credits, before: balanceOf(projectId, 'remediation'), details: { origin } };
+    // Allocated first, on purpose: remediation spends only what was given to the project.
+    const refusal = creditRefusal(projectId, projectName, 'remediation', credits, limit);
+    if (refusal) {
+      failed += group.length;
+      if (/credits? left/.test(refusal) && !/pool/.test(refusal)) notAllocated += credits - allocations.balance(projectId).remediation.remaining;
+      errors.push(refusal);
+      auditCredit({ ...base, outcome: 'refused', reason: refusal });
+      continue;
+    }
+    const reservation = creditLedger.reserve(credits, limit, new Date(), { period: poolPeriod(), projectId, kind: 'remediation', allowance: allocations.balance(projectId).remediation.allocated });
+    if (!reservation) {
+      failed += group.length;
+      errors.push(`${projectName}: credits are busy with another request; try again in a moment.`);
+      auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
+      continue;
+    }
+    const started = Date.now();
+    try {
+      const body = await session.client.request('/api/remediation/remediate', {
+        method: 'POST',
+        body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
+        retries: 1,
+      });
+      const published = body?.published !== false;
+      const upstream = { call: 'POST /api/remediation/remediate', status: 200, published, jobId: body?.remediationJobId ?? '', ms: Date.now() - started };
+      if (published) {
+        const auditId = randomUUID();
+        reservation.release();
+        creditLedger.record({ projectId, projectName, credits, scanId, kind: 'remediation', riskIds: [...new Set(group.map((f) => f.riskId))], covered: credits, auditId });
+        auditCredit({ ...base, id: auditId, outcome: 'charged', charged: credits, upstream });
+      } else {
+        auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this remediation job; no new credits.', upstream });
+      }
+      actedOn('remediation', group);
+      touchProject(projectId);
+      startedFindings.push(...group);
+    } catch (error) {
+      failed += group.length;
+      errors.push(`${projectName}: ${error.status === 402 ? 'Checkmarx One has no credits left for AI Remediation' : error.message}`);
+      auditCredit({
+        ...base, outcome: 'failed', reason: error.message,
+        upstream: { call: 'POST /api/remediation/remediate', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
+      });
+    } finally {
+      reservation.release();
+    }
+  }
+  return { requested: findings.length, started: startedFindings.length, failed, skipped: ineligible.length, notAllocated, errors: [...new Set(errors)], startedFindings };
+}
+
+/**
+ * The Dashboard's "Remediate selected": AI Remediation for the confirmed
+ * findings (and only those) of the chosen severities in the chosen projects,
+ * read live. Spends 3 credits each, from remediation credits already
+ * allocated — "Allocate for remediation" first.
+ */
+app.post(
+  '/api/remediation/run',
+  requirePermission('triage.run'),
+  asyncRoute(async (req, res) => {
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+    const wanted = cleanSeverities(req.body?.severities);
+    if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to remediate.' });
+    const { allowReremediation = false } = settingsStore.get().aiTriage ?? {};
+    const projects = scanProjects(req, req.body?.projectIds);
+    const findings = [];
+    let notConfirmed = 0;
+    for (const p of projects) {
+      stateCache.delete(p.projectId);
+      let live = null;
+      try {
+        live = await projectStates(req.session, p.projectId);
+      } catch {}
+      const remediated = allowReremediation ? new Set() : creditLedger.remediatedIds(p.projectId);
+      for (const r of p.risks ?? []) {
+        const state = live?.get(r.riskId) ?? r.state;
+        if (state && state !== r.state) r.state = state;
+        if (!wanted.includes(r.severity)) continue;
+        if (!remediable({ ...r, state })) {
+          if (state && state !== REMEDIABLE_STATE) notConfirmed += 1;
+          continue;
+        }
+        if (remediated.has(r.riskId)) continue;
+        findings.push({ ...r, projectId: p.projectId, projectName: p.projectName });
+      }
+    }
+    // One finding per result: duplicates of one result are remediated (and charged) once.
+    const unique = remediationCandidates(findings, wanted);
+    if (!unique.length) {
+      for (const p of projects) p.credits = creditView(p);
+      return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, notConfirmed, errors: [], projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
+    }
+    const outcome = await adminRemediate(req.session, unique, req.session.lastScan.initiators ?? {}, {
+      actor: await adminActor(req),
+      origin: `Dashboard: remediate confirmed ${wanted.map((s) => s.toLowerCase()).join(', ')}`,
+    });
+    for (const p of projects) p.credits = creditView(p);
+    const { startedFindings, ...summary } = outcome;
+    res.json({ ...summary, notConfirmed, projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // Tracked reports: saved scopes whose progress is followed over time
 // ---------------------------------------------------------------------------
@@ -2560,14 +3061,6 @@ const TRACK_TOUCHED_WINDOW_MS = 30 * 60 * 1000;
 const TRACK_TOUCHED_EVERY_MS = 3 * 60 * 1000;
 const refreshing = new Map();
 
-/** Recalculate projects' credit allocations from findings just read. */
-function reallocate(projects, byProject) {
-  let changed = false;
-  for (const { projectId, projectName } of projects) {
-    if (byProject.has(projectId)) changed = recalculate(projectId, projectName, byProject.get(projectId), 'Recalculated from a tracked report refresh.') || changed;
-  }
-  if (changed) allocations.save();
-}
 
 /** Every current finding (no filters) for each of a report's projects. */
 async function currentFindings(session, projects) {
@@ -2599,7 +3092,6 @@ function refreshTrackedReport(report, session) {
       currentFindings(session, report.projects)
         .then((byProject) => {
           trackedReports.record(report, progressFor(report, byProject));
-          reallocate(report.projects, byProject);
           report.lastError = null;
           return report;
         })
@@ -2648,7 +3140,6 @@ const MAX_REMINDERS_KEPT = 50;
 async function openScanFor(session, report) {
   const byProject = await currentFindings(session, report.projects);
   trackedReports.record(report, progressFor(report, byProject));
-  reallocate(report.projects, byProject);
   let detection = null;
   try {
     detection = resolveWindow(report.filters.detection, 'First detection');
@@ -2736,7 +3227,7 @@ async function trackedReportHtml(session, report, scan, relayUrl, audience = {},
 
 /** One summary email of a tracked report's open findings to exactly these addresses. */
 async function sendReportOnlyTo(session, report, scan, addresses, { attachHtml, dryRun, relayUrl }) {
-  const settings = settingsStore.get();
+  const settings = sendingSettings();
   if (!attachHtml) {
     const result = await runReminder(session, scan, { groupBy: 'none', dryRun, recipients: { to: addresses, exact: true } });
     if (dryRun && result.status === 200) result.body.recipients = { to: addresses, cc: [], bcc: [] };
@@ -2783,7 +3274,7 @@ function serverTimeZone() {
 }
 
 async function runDueTrackedReminders(session) {
-  const settings = settingsStore.get();
+  const settings = sendingSettings();
   const now = Date.now();
   for (const report of trackedReports.list()) {
     const auto = report.automation;
@@ -2818,7 +3309,7 @@ app.post(
   asyncRoute(async (req, res) => {
     const report = trackedReports.get(req.params.id);
     if (!report) return res.status(404).json({ error: 'No such report.' });
-    const settings = settingsStore.get();
+    const settings = sendingSettings();
     if (req.body?.dryRun !== true && !isVerified(settings)) {
       return res.status(400).json({ error: 'Test the SMTP connection on the Settings page before sending.' });
     }
@@ -2892,11 +3383,27 @@ app.post(
     trackedReports.record(report, progressFor(report, byProject));
     const actor = await adminActor(req);
     const before = new Map(report.projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
+    // The severities join each project's rule, and the person clicking Allocate gives what they now need.
     for (const { projectId, projectName } of report.projects) {
+      if (wanted.length) allocations.setSeverities(projectId, projectName, SEVERITIES.filter((s) => wanted.includes(s) || allocations.severitiesOf(projectId).includes(s)));
+    }
+    const plan = report.projects.map(({ projectId, projectName }) => {
+      const { shortfall } = allocations.need(projectId, byProject.get(projectId) ?? []);
+      return { projectId, projectName, triage: wanted.length ? shortfall.triage : 0, remediation: wanted.length ? shortfall.remediation : 0 };
+    });
+    const given = plan.reduce((n, x) => n + x.triage + x.remediation + extraTriage + extraRemediation, 0);
+    const pool = creditPool();
+    if (pool.limited && given > pool.unallocated) {
+      allocations.save();
+      const reason = `Only ${pool.unallocated} credit${pool.unallocated === 1 ? '' : 's'} left in the credit pool to give; ${given} needed for tracked report "${report.name}".`;
+      audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { report: report.id, pool } });
+      return res.status(409).json({ error: `${reason} Raise the pool under Settings → AI & credits.`, pool });
+    }
+    for (const { projectId, projectName, triage, remediation } of plan) {
+      if (triage) allocations.grant(projectId, projectName, 'triage', triage);
+      if (remediation) allocations.grant(projectId, projectName, 'remediation', remediation);
       if (extraTriage) allocations.add(projectId, projectName, 'triage', extraTriage);
       if (extraRemediation) allocations.add(projectId, projectName, 'remediation', extraRemediation);
-      const rule = wanted.length ? SEVERITIES.filter((s) => wanted.includes(s) || allocations.severitiesOf(projectId).includes(s)) : undefined;
-      allocations.applyRule(projectId, projectName, byProject.get(projectId) ?? [], rule);
     }
     allocations.save();
     for (const { projectId, projectName } of report.projects) {
@@ -3013,8 +3520,38 @@ app.get('/api/credits', requirePermission('credits.view'), (req, res) => {
     remediationEnabled: Boolean(aiTriage?.remediationEnabled),
     monthlyCreditLimit: aiTriage?.monthlyCreditLimit ?? 0,
     remaining: month === monthOf() ? creditsRemaining() : null,
+    pool: creditPool(),
     allocations: allocations.list(),
     relayConnected: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId) ?? settingsStore.get().automationApiKey),
+  });
+});
+
+/** The credit pool now: size, used (triage / remediation), left, given to projects, free to give. */
+function creditPool(settings = settingsStore.get()) {
+  const period = poolPeriod(settings);
+  return poolSummary({
+    size: settings.aiTriage?.monthlyCreditLimit ?? 0,
+    period,
+    used: creditLedger.usedInPeriod(period),
+    reserved: creditLedger.reserved,
+    allocations: allocations.list(),
+  });
+}
+
+/** Credits used over a period, for the Credits page: by day / week / month, by kind and by project. */
+app.get('/api/credits/usage', requirePermission('credits.view'), (req, res) => {
+  const range = resolveRange({ from: req.query.from, to: req.query.to, bucket: req.query.bucket });
+  const projectId = String(req.query.projectId ?? '').slice(0, 200);
+  const end = new Date(Date.parse(`${range.to}T00:00:00.000Z`) + 24 * 60 * 60 * 1000).toISOString();
+  const usage = usageSeries(creditLedger.entriesBetween(`${range.from}T00:00:00.000Z`, end), { ...range, projectId });
+  const list = allocations.list();
+  res.json({
+    ...usage,
+    days: range.days,
+    projectId,
+    pool: creditPool(),
+    allocations: projectId ? list.filter((p) => p.projectId === projectId) : list,
+    projects: list.map((p) => ({ projectId: p.projectId, projectName: p.projectName })),
   });
 });
 
@@ -3188,7 +3725,7 @@ async function runHtmlReminder(session, scan, input, relayUrl) {
   const reply = (status, payload) => ({ status, body: payload });
     const { projectIds = null, buckets = [], severities = null } = input;
     const lastScan = scan;
-    const settings = settingsStore.get();
+    const settings = sendingSettings();
 
 
     if (!isVerified(settings)) {
@@ -3300,7 +3837,7 @@ app.post(
   requirePermission('reminders.send'),
   asyncRoute(async (req, res) => {
     const { htmlReport, recipients } = req.body ?? {};
-    const settings = settingsStore.get();
+    const settings = sendingSettings();
 
     if (!htmlReport) {
       return res.status(400).json({ error: 'htmlReport is required.' });
@@ -3870,7 +4407,7 @@ app.post(
   asyncRoute(async (req, res) => {
     const items = req.session.lastAuthors;
     if (!items?.length) return res.status(409).json({ error: 'Find the code authors first.' });
-    const settings = settingsStore.get();
+    const settings = sendingSettings();
     const dryRun = req.body?.dryRun === true;
     if (!dryRun && !isVerified(settings)) return res.status(400).json({ error: 'Test the SMTP connection on the Settings page before sending.' });
     const chosen = Array.isArray(req.body?.keys) && req.body.keys.length ? new Set(req.body.keys) : null;
@@ -3997,12 +4534,23 @@ async function bootstrap() {
  * connection", so run the same handshake once at startup with retries.
  * A pass unlocks sending; a failure is logged and the Settings page still shows the reason.
  */
+/** Upgrading: connections that already work become the first last known good ones. */
+function seedLastKnownGood() {
+  const settings = settingsStore.get();
+  const bootstrap = sessions.get(bootstrapSessionId);
+  if (!guard.lastGood('cxone') && !settings.automationApiKey && bootstrap) {
+    const { tenant, baseUrl, iamUrl } = bootstrap.connection;
+    guard.recordGood('cxone', { apiKey: '', overrides: { baseUrl: '', iamUrl: '', tenant: '' }, connection: { tenant, baseUrl, iamUrl } });
+  }
+  if (!guard.lastGood('smtp') && isVerified(settings)) guard.recordGood('smtp', settings.smtp);
+}
+
 async function verifyEnvironmentSmtp() {
   const settings = settingsStore.get();
   if (!hasEnvironmentSmtp() || isVerified(settings)) return;
   try {
     const result = await retryWithBackoff('SMTP', () => testConnection(settings.smtp));
-    settingsStore.markVerified();
+    guard.recordGood('smtp', settingsStore.markVerified().smtp);
     console.log(`[SMTP] ${result.message} Sending is unlocked.`);
   } catch (error) {
     console.warn(`! [SMTP] Startup connection test failed after 3 attempts: ${error.message}`);
@@ -4017,7 +4565,12 @@ const server = app.listen(config.port, config.host, async () => {
   await bootstrap();
   await verifyEnvironmentSmtp();
   await resolveAutomationSession();
+  seedLastKnownGood();
   scheduler.sync();
+  // Settings changed and left unchecked before a restart (or a timeout): check them now, rolling back what fails.
+  if (cxonePending() || smtpPending()) {
+    checkConnections({ rollback: true, trigger: 'server start' }).catch((error) => console.warn(`! [settings] Connection check failed: ${error.message}`));
+  }
   const automation = settingsStore.get().automation;
   if (automation.enabled) {
     console.log(

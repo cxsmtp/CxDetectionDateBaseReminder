@@ -1,18 +1,20 @@
 /**
  * Per-project credit allocations for AI Triage and AI Remediation.
  *
- * An allocation is the total a project has been granted; what is left is the
- * allocation minus what the credit ledger says the project has used. Both
- * follow a per-project rule — which severities it covers, critical and high
- * by default — recalculated from the findings' current states:
+ * An allocation is what someone using this utility has given a project — and
+ * only that: nothing is ever allocated on its own. What is left is the
+ * allocation minus what the credit ledger says the project has used.
  *
- *   triage       used + findings of those severities still to verify
- *   remediation  used + 3 per finding of those severities confirmed (or
- *                urgent) and not yet remediated through this utility
+ * What a project needs is worked out from its findings, per its rule (which
+ * severities it covers, critical and high by default), and shown next to what
+ * it has, so the person allocating can confirm it:
  *
- * so a project with nothing left to act on has nothing left over. Extra
- * credits the administrator adds on top are kept separately, and shown; they
- * are used up by actions on findings the rule does not cover.
+ *   triage       1 per finding of those severities still to verify, not yet sent
+ *   remediation  3 per finding of those severities CONFIRMED (only that state —
+ *                never one proposed not exploitable) and not yet remediated
+ *
+ * "Allocate what is needed" gives a project the difference. Extra credits on
+ * top are allowed and kept separately, and shown.
  */
 
 import fs from 'node:fs';
@@ -24,8 +26,8 @@ import { CREDIT_COST } from './credits.js';
 export const KINDS = ['triage', 'remediation'];
 export const DEFAULT_TRIAGE_SEVERITIES = ['CRITICAL', 'HIGH'];
 const EXTRA = { triage: 'extraTriage', remediation: 'extraRemediation' };
-/** Allocations saved before this rule have their extras cleared once. */
-const RULE_VERSION = 2;
+/** Allocations saved before allocations became explicit drop what was allocated on its own (see #migrate). */
+const RULE_VERSION = 3;
 
 const RECENTLY_REQUESTED_MS = 30 * 60 * 1000;
 const aiScanner = (r) => AI_SCANNERS.has(String(r.scanner || '').toUpperCase());
@@ -66,17 +68,28 @@ export function toTriageCount(risks, severities, now = Date.now(), triaged = new
   );
 }
 
+/** AI Remediation only ever runs on a finding triaged and confirmed: never one proposed not exploitable, or still to verify. */
+export const REMEDIABLE_STATE = 'CONFIRMED';
+export const remediable = (r) => aiScanner(r) && r.state === REMEDIABLE_STATE;
+
 /**
  * Findings of these severities AI Remediation is needed for: SAST or SCA,
- * confirmed (or urgent), and not already remediated through this utility.
+ * confirmed, and not already remediated through this utility.
  */
-export function toRemediateCount(risks, severities, remediated = new Set()) {
+export function remediationCandidates(risks, severities, remediated = new Set()) {
   const wanted = new Set(severities.map((s) => String(s).toUpperCase()));
-  return unique(
-    risks.filter(
-      (r) => wanted.has(r.severity) && aiScanner(r) && (r.state === 'CONFIRMED' || r.state === 'URGENT') && !remediated.has(r.riskId),
-    ),
-  );
+  const seen = new Set();
+  return risks.filter((r) => {
+    if (!wanted.has(r.severity) || !remediable(r) || remediated.has(r.riskId)) return false;
+    const unit = billingUnit(r);
+    if (seen.has(unit)) return false;
+    seen.add(unit);
+    return true;
+  });
+}
+
+export function toRemediateCount(risks, severities, remediated = new Set()) {
+  return remediationCandidates(risks, severities, remediated).length;
 }
 
 export class CreditAllocations {
@@ -98,24 +111,30 @@ export class CreditAllocations {
   }
 
   /**
-   * Allocations saved before the current rule kept whatever had been granted
-   * (e.g. a bulk "give each project 10") as a standing balance. Start them
-   * from the rule instead: the next fetch fills in what each project needs.
+   * Earlier releases allocated on their own, from the findings at every fetch.
+   * Those allocations are dropped: a project keeps what it used, plus extra
+   * credits someone gave it and it has not used yet. What the projects need
+   * is shown on the Dashboard, to allocate on purpose. `migrated` lists the
+   * projects changed, for the audit log.
    */
   #migrate() {
-    let changed = false;
+    this.migrated = [];
     for (const [projectId, entry] of Object.entries(this.#projects)) {
       if (entry.version === RULE_VERSION) continue;
-      entry.triage = Math.max(this.#ledger.usedBy(projectId, 'triage'), (Number(entry.triage) || 0) - (Number(entry.extraTriage) || 0));
-      entry.remediation = this.#ledger.usedBy(projectId, 'remediation');
-      entry.extraTriage = 0;
-      entry.extraRemediation = 0;
+      const before = { triage: Number(entry.triage) || 0, remediation: Number(entry.remediation) || 0 };
+      for (const kind of KINDS) {
+        const used = this.#ledger.usedBy(projectId, kind);
+        const beyondRule = Math.max(0, used - this.#ledger.coveredBy(projectId, kind));
+        const extraLeft = Math.max(0, (Number(entry[EXTRA[kind]]) || 0) - beyondRule);
+        entry[kind] = used + extraLeft;
+        entry[EXTRA[kind]] = extraLeft;
+      }
+      entry.initial = { triage: entry.triage, remediation: entry.remediation, at: new Date().toISOString() };
       delete entry.source;
-      delete entry.initial;
       entry.version = RULE_VERSION;
-      changed = true;
+      this.migrated.push({ projectId, projectName: entry.projectName || '', before, after: { triage: entry.triage, remediation: entry.remediation } });
     }
-    if (changed && fs.existsSync(this.#file)) this.save();
+    if (this.migrated.length && fs.existsSync(this.#file)) this.save();
   }
 
   get(projectId) {
@@ -162,7 +181,7 @@ export class CreditAllocations {
   /**
    * How many of these findings the project's rule covers, for the ledger:
    * triage covers findings of the rule's severities, remediation those that
-   * are also confirmed (or urgent). `info` maps a risk id to {severity, state}.
+   * are also confirmed. `info` maps a risk id to {severity, state}.
    */
   covered(projectId, kind, riskIds, info) {
     const rule = new Set(this.severitiesOf(projectId));
@@ -170,7 +189,7 @@ export class CreditAllocations {
       const risk = info.get(id);
       if (!risk) return true; // unknown: never charge the extras for it
       if (!rule.has(risk.severity)) return false;
-      return kind === 'triage' || risk.state === 'CONFIRMED' || risk.state === 'URGENT';
+      return kind === 'triage' || risk.state === REMEDIABLE_STATE;
     }).length;
   }
 
@@ -181,30 +200,53 @@ export class CreditAllocations {
   }
 
   /**
-   * Recalculate a project's allocations from its rule and its findings'
-   * current states (see the top of this file). Passing `severities` changes
-   * the rule. Returns whether anything changed.
+   * What a project needs from its findings and its rule (see the top of this
+   * file), and how much of it is not allocated yet. Never changes anything.
    */
-  applyRule(projectId, projectName, risks, severities) {
-    const entry = { ...(this.#projects[projectId] ?? {}) };
-    entry.version = RULE_VERSION;
-    if (severities) entry.severities = [...new Set(severities)];
-    const rule = Array.isArray(entry.severities) ? entry.severities : DEFAULT_TRIAGE_SEVERITIES;
-    const remediated = this.#ledger.remediatedIds?.(projectId) ?? new Set();
-    // Credits spent on covered findings stay allocated; anything spent
-    // beyond the rule came out of the extras, so it is not added back.
-    const triage = this.#ledger.coveredBy(projectId, 'triage') + toTriageCount(risks, rule, Date.now(), this.#ledger.triagedAt?.(projectId) ?? new Map()) + (Number(entry.extraTriage) || 0);
-    const remediation =
-      this.#ledger.coveredBy(projectId, 'remediation') +
-      CREDIT_COST.remediation * toRemediateCount(risks, rule, remediated) +
-      (Number(entry.extraRemediation) || 0);
-    const before = this.#projects[projectId];
-    const next = { ...entry, projectName: projectName || entry.projectName || '', triage, remediation };
-    next.initial ??= { triage, remediation, at: new Date().toISOString() };
-    const same = (a, b) => JSON.stringify({ ...a, updatedAt: 0 }) === JSON.stringify({ ...b, updatedAt: 0 });
-    if (before && same(before, next)) return false;
-    this.#projects[projectId] = { ...next, updatedAt: new Date().toISOString() };
-    return true;
+  need(projectId, risks) {
+    const rule = this.severitiesOf(projectId);
+    const toTriage = toTriageCount(risks, rule, Date.now(), this.#ledger.triagedAt?.(projectId) ?? new Map());
+    const toRemediate = toRemediateCount(risks, rule, this.#ledger.remediatedIds?.(projectId) ?? new Set());
+    const need = { triage: toTriage, remediation: CREDIT_COST.remediation * toRemediate };
+    // Spendable now: allocated minus used and in flight — below zero when a project
+    // used more than it was allocated (older data), so allocating still leaves it `need`.
+    const spendable = (kind) => (Number(this.#projects[projectId]?.[kind]) || 0) - this.#ledger.usedBy(projectId, kind) - this.#ledger.reservedFor(projectId, kind);
+    return {
+      toTriage,
+      toRemediate,
+      need,
+      // Needed but not allocated: what "allocate what is needed" would give.
+      shortfall: { triage: Math.max(0, need.triage - spendable('triage')), remediation: Math.max(0, need.remediation - spendable('remediation')) },
+    };
+  }
+
+  /** Give a project what it needs of `kind` and does not have yet. Returns the credits given. */
+  allocateNeeded(projectId, projectName, kind, risks) {
+    const given = this.need(projectId, risks).shortfall[kind];
+    if (given) this.grant(projectId, projectName, kind, given);
+    return given;
+  }
+
+  /** Change which severities a project's needs cover. Allocations stay as they are. */
+  setSeverities(projectId, projectName, severities) {
+    const entry = this.#entry(projectId, projectName);
+    entry.severities = [...new Set(severities)];
+    entry.updatedAt = new Date().toISOString();
+  }
+
+  /** Allocate `credits` more of `kind` to a project (someone confirmed it). */
+  grant(projectId, projectName, kind, credits) {
+    if (!KINDS.includes(kind)) throw new Error(`Unknown credit kind: ${kind}`);
+    const entry = this.#entry(projectId, projectName);
+    entry[kind] = Math.max(0, (Number(entry[kind]) || 0) + Math.floor(credits));
+    entry.initial ??= { triage: entry.triage, remediation: entry.remediation, at: new Date().toISOString() };
+    entry.updatedAt = new Date().toISOString();
+  }
+
+  #entry(projectId, projectName = '') {
+    const entry = (this.#projects[projectId] ??= { triage: 0, remediation: 0, extraTriage: 0, extraRemediation: 0, version: RULE_VERSION });
+    if (projectName) entry.projectName = projectName;
+    return entry;
   }
 
   /** Set a project's extra credits of `kind` to exactly `credits` (0 removes them). */
@@ -215,33 +257,22 @@ export class CreditAllocations {
     if (target !== current) this.add(projectId, projectName, kind, target - current);
   }
 
-  /** Drop the extra credits the administrator added; the rule alone decides again. */
+  /** Take back the extra credits added (never below what was used). */
   clearExtras(projectId) {
     const entry = this.#projects[projectId];
     if (!entry) return;
-    entry.triage = Math.max(0, (Number(entry.triage) || 0) - (Number(entry.extraTriage) || 0));
-    entry.remediation = Math.max(0, (Number(entry.remediation) || 0) - (Number(entry.extraRemediation) || 0));
+    entry.triage = Math.max(this.#ledger.usedBy(projectId, 'triage'), (Number(entry.triage) || 0) - (Number(entry.extraTriage) || 0));
+    entry.remediation = Math.max(this.#ledger.usedBy(projectId, 'remediation'), (Number(entry.remediation) || 0) - (Number(entry.extraRemediation) || 0));
     entry.extraTriage = 0;
     entry.extraRemediation = 0;
   }
 
-  /** Grant `credits` more of `kind`, kept on top of the rule across recalculations. */
+  /** Extra credits: allocated on top of what the findings need, and shown as such. */
   add(projectId, projectName, kind, credits) {
     if (!KINDS.includes(kind)) throw new Error(`Unknown credit kind: ${kind}`);
-    const entry = this.#projects[projectId] ?? { triage: 0, remediation: 0, extraTriage: 0, extraRemediation: 0, version: RULE_VERSION };
-    this.#projects[projectId] = {
-      ...entry,
-      projectName: projectName || entry.projectName || '',
-      [kind]: Math.max(0, (Number(entry[kind]) || 0) + credits),
-      [EXTRA[kind]]: Math.max(0, (Number(entry[EXTRA[kind]]) || 0) + credits),
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
-  /** Cover credits the administrator spent beyond the allocation (not kept as extra). */
-  raise(projectId, credits) {
-    const entry = this.#projects[projectId];
-    if (entry) entry.triage = (Number(entry.triage) || 0) + credits;
+    const entry = this.#entry(projectId, projectName);
+    this.grant(projectId, projectName, kind, credits);
+    entry[EXTRA[kind]] = Math.max(0, (Number(entry[EXTRA[kind]]) || 0) + credits);
   }
 
   save() {

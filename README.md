@@ -30,7 +30,7 @@ password, which `docker logs mission-zero` shows once, at first start. See
 [docs/container.md](docs/container.md) for options, backups, upgrades and
 proxies.
 
-## The two pages
+## The pages
 
 ### Dashboard
 
@@ -57,6 +57,53 @@ pick one.
 The project table can then be searched by name, filtered by severity or age bucket,
 sorted by any column, and used to select a subset. A reminder covers the selected
 projects, or all of them if none are selected.
+
+**Columns.** The table starts lean: project, total, oldest first detection, who ran the
+latest scan, and credits. **Columns** adds the age buckets (≤ 30d, 31–60d, > 60d, no
+date) and per-severity counts; the choice is kept in the browser. New optional columns
+are one entry in `OPTIONAL_COLUMNS` in `public/app.js`. **Export CSV** downloads every
+shown project with every column — chosen or not — and its credits (allocated, used, left
+and needed).
+
+**Fetching faster.** A fetch reads three things from Checkmarx One: the projects, who ran
+each project's latest scan, and each project's findings. These run as wide as is safe:
+initiators and findings are fetched at the same time, findings 10 projects at a time
+(`CX_FETCH_CONCURRENCY`; every Checkmarx One call also shares a cap of 24 in flight,
+`CX_MAX_CONCURRENCY`), and the page receives per-project summaries rather than every
+finding (those stay on the server for reminders and reports). Against a simulated tenant
+of 60 projects × 600 findings with 80 ms per call this took a fetch from 1.8 s to 0.7 s.
+The biggest further savings are scope: **Projects last scanned in** skips idle projects
+before any finding is read, and **Findings first detected in** is filtered by Checkmarx One
+itself.
+
+### Credits on the Dashboard: allocate, then triage or remediate
+
+**Nothing is ever allocated on its own.** A fetch, a refresh, a triage verdict or a tracked
+report only work out what each project *needs* for the ticked severities; the credit
+columns show it as "N more needed". Credits move only when someone confirms it:
+
+1. **AI Triage** — 1 credit per finding still to verify. **Allocate N for triage** gives the
+   selected projects (or all shown) exactly what they lack; **Triage selected now** runs it.
+   If you triage beyond what is allocated, the confirmation says how many credits you are
+   allocating by confirming, and the audit log records them as yours.
+2. **AI Remediation** — only for findings **confirmed** (that state, and only that state:
+   never proposed not exploitable, never still to verify). Once triage has confirmed, say,
+   3 of 10 findings, remediation needs 3 × 3 = 9 credits; **Allocate 9 for remediation**
+   gives them. **Remediate selected** shows each project, its confirmed findings and the
+   cost — 3 credits per confirmed vulnerability — and runs only after you confirm. It
+   re-reads each finding's state in Checkmarx One first and leaves anything not confirmed
+   alone. Developers get the results as when they click Remediate in their report: a pull
+   request where the project is connected to a repository, otherwise the remediation
+   details.
+
+The same fence applies everywhere: the report's **Remediate** button is disabled until a
+finding is confirmed, and the server refuses (and audits) a remediation request for any
+other state whatever the report says.
+
+Everything allocated comes out of the **credit pool** (Settings → AI & credits); an
+allocation larger than what the pool has free is refused. Upgrading from a release that
+allocated on its own removes those allocations once — each project keeps what it used and
+any extra credits it was given and has not used — and records it in the audit log.
 
 **The age buckets are a filter, not a requirement.** Leave all three unticked and
 findings of any age are included, so a selection of projects or initiators is enough on
@@ -125,8 +172,16 @@ Where the initiator comes from, in order: `/api/projects/last-scan` (bulk, one c
 
 ### Settings
 
-Everything is here, and everything can be changed at any time:
+Everything is here, and everything can be changed at any time. **Changes save as you
+type** — there is no Save button.
 
+- **Quick setup from a .env file** — upload a `.env` and the variables it holds are applied:
+  `CX_API_KEY`, `CX_BASE_URL`, `CX_IAM_URL`, `CX_TENANT`, `SMTP_HOST`, `SMTP_PORT`,
+  `SMTP_SECURE`, `SMTP_REQUIRE_AUTH`, `SMTP_REJECT_UNAUTHORIZED`, `SMTP_USER`, `SMTP_PASS`
+  (or `SMTP_PASSWORD`), `SMTP_FROM`, `SMTP_FROM_NAME` and `REPORT_SERVER_URL`. Each
+  connection is checked at once. Variables that only mean something when the server starts
+  (`PORT`, `DATA_DIR`…) are listed as not applied; secrets are never echoed back; the
+  import is audited by variable name.
 - **Checkmarx One connection** — what the API key resolved to; swap keys from here.
 - **SMTP server** — your own mail server. **Test connection** runs a real handshake
   (and authentication) without sending anything; **Send test email** proves delivery
@@ -150,10 +205,40 @@ as four space-separated groups; pasting it with the spaces is fine, they are str
 Leave *From address* blank to use the authenticated account, which Gmail requires
 anyway.
 
-**Sending is locked until an SMTP connection test passes.** The passing test is
+**Sending needs a mail server that passed a connection test.** The passing test is
 fingerprinted against the exact connection settings, so changing the host, port,
-user, password or TLS options re-locks it until you test again. Changing recipients
-or the template does not.
+user, password or TLS options needs a new test. Changing recipients or the template
+does not.
+
+**Last known good connections.** The Checkmarx One integration and the mail server are
+the two settings that can stop the utility, so a change to either is checked before it
+counts:
+
+- Typing saves the new values and checks them after a short pause. Until they work, the
+  **last known good** ones keep running: reports and automation keep the previous
+  Checkmarx One connection, and reminders keep sending through the previous mail server.
+- A check that passes makes the new configuration the last known good one.
+- **Leaving Settings** checks what is still pending. A configuration that does not work —
+  wrong key, wrong host, or a connection that times out (`CONNECTION_CHECK_TIMEOUT_MS`,
+  25 s by default) — is **rolled back** to the last known good one, with a message saying
+  what failed and what is back in use (tenant, API and IAM URLs; mail server, user and
+  From address).
+- If nobody was there to see it — the tab was closed mid-edit, the browser lost the
+  connection, or the server restarted — the server checks on its own (after
+  `CONFIG_ROLLBACK_IDLE_MINUTES`, 10 by default, or at start-up), and every administrator
+  sees the same message as a pop-up at their next sign-in, once.
+- A failure of the configuration that *is* the last known good one is an outage, not a
+  bad change: it is reported, never "rolled back" to itself.
+- Every check and rollback is in the audit log. The last known good configuration is kept
+  in `connection-guard.json` in the state folder (owner-only; it holds the key and password
+  like `settings.json` does).
+
+**The credit pool** (Settings → AI & credits) is the master limit: the most the utility may
+spend on AI Triage and AI Remediation together, refilled on the 1st of each month (UTC) or
+as one pool that does not refill. It shows what was used — split into triage and
+remediation — what is left, what is given to projects and not used yet, and what is still
+free to give. Every allocation comes out of it, and spending stops when it is used up.
+0 means no limit. Only an Admin can change it (`credits.limit`).
 
 ---
 
@@ -186,19 +271,13 @@ chosen severities, and **Dry run** decides and logs without sending — worth us
 first pass, since an established tenant will have a backlog that all crosses at once.
 The panel shows the last runs with what was scanned, crossed and sent.
 
-### Automation needs a stored credential
+### Automation uses the server's connections
 
-The API key is normally per-session and memory-only. An unattended run has no browser to
-paste one into, so it needs a credential that outlives a session. Two ways:
-
-- **`CX_API_KEY` in the environment** — preferred. The key stays out of the settings file
-  and out of the UI.
-- **Arm with current key** — stores this session's key in `settings.json` in the state folder
-  (owner-only, gitignored) so runs can authenticate. **Forget stored key** revokes it.
-
-Without either, the schedule still runs but every pass is skipped with that reason
-recorded, and **Run once now** falls back to your own session so you can rehearse first.
-The panel states plainly which of the three situations you are in.
+Unattended runs use the server's **Checkmarx One integration** (`CX_API_KEY`, or the key an
+Admin connected under Settings → Checkmarx One integration) and its mail server. The
+panel shows both as they are now — connected and to which tenant, whether the mail server
+passed its test — and updates as soon as either changes. Without a connection the schedule
+still runs, but every pass is skipped with that reason recorded.
 
 ---
 
@@ -238,27 +317,30 @@ under the server's account.
 
 - **Administrator control.** Nothing runs until allowed under **Settings → AI
   Triage & Remediation from reports**, with separate switches for triage and
-  for remediation (which can open pull requests). An optional **monthly credit
-  limit** covers both and is enforced before each request (concurrent requests
-  cannot overrun it together). Whether Remediate runs AI Remediation is fixed
+  for remediation (which can open pull requests). The **credit pool** covers both
+  and is enforced before each request (concurrent requests cannot overrun it
+  together). Whether Remediate runs AI Remediation is fixed
   when a report is generated; the server re-checks the switch on every request.
 - **Costs.** AI Triage uses 1 credit per finding, AI Remediation 3.
   - One finding here means one Checkmarx One result: rows that share a result,
     such as the same vulnerability listed twice, are triaged and counted once.
-- **Allocations.** Each project gets credits for the severities its rule covers
-  (critical and high by default):
-  - **Triage:** credits already used, plus 1 for each finding still to triage.
-  - **Remediation:** credits already used, plus 3 for each **confirmed** finding
-    not yet remediated.
+- **Allocations.** A project can spend only what someone allocated to it on the
+  Dashboard (see *Credits on the Dashboard*); nothing is allocated on its own.
+  What it *needs* follows the severities its rule covers (critical and high by default):
+  - **Triage:** 1 for each finding still to triage.
+  - **Remediation:** 3 for each **confirmed** finding not yet remediated. Remediate
+    is disabled in the report, and refused by the server, for any other state.
   - **Triaged findings are never counted again.** A finding sent for AI Triage
     stays "To verify" while it runs, and after a vulnerable verdict. The credit
     ledger records every result sent for triage, so it is not counted as "still
-    to triage" again and the allocation does not jump while AI Triage runs.
+    to triage" again and what is needed does not jump while AI Triage runs.
   - **Re-triage is refused while re-triage is off,** from the report, the
     dashboard and tracked reports alike, so it is never charged twice.
   - `test/credits-lifecycle.e2e.test.js` checks allocation, use and the audit
-    trail after every stage: fetch, triage, a second triage attempt, verdicts,
-    remediation and its repeat, duplicate rows, the monthly limit, and
+    trail after every stage: fetch (nothing allocated), allocating for triage,
+    triage, a second triage attempt, verdicts (still nothing allocated),
+    allocating for remediation, the confirmed-only fence, remediation and its
+    repeat, **Remediate selected**, duplicate rows, the pool limit, and
     reconciliation.
 - **Not exploitable is left out.** Findings marked not exploitable, or proposed
   not exploitable, never appear in HTML reports or reminders, including
@@ -274,9 +356,10 @@ under the server's account.
   - An SCA finding is only triaged as its own package version. If the latest
     scan only has that vulnerability in another version, it is reported as not
     found rather than triaged (and charged) as the other version.
-- **Live usage.** The same panel lists the credits used per project for any
-  month — triage, remediation and total — refreshing every 15 seconds while it
-  is open. This is the utility's own
+- **Live usage.** The **Credits** page (every signed-in user with `credits.view`)
+  shows the pool, usage over any period — by day, week or month, triage against
+  remediation, with a table view and CSV export — usage by project, and each
+  project's allocated vs used. This is the utility's own
   count — one credit per finding in each request Checkmarx One accepted as a new
   job — kept in `triage-credits.json` in the state folder; it is not Checkmarx One's billing.
 - **Results.** The report shows AI Triage's verdict and each finding's live
@@ -304,6 +387,28 @@ under the server's account.
   the server acts only on findings with a valid grant, so it cannot be used to
   triage anything a report did not list. The signing key is kept in
   `report-signing.key` in the state folder, or set `REPORT_SIGNING_KEY`.
+
+## Credits page
+
+For everyone who can sign in (`credits.view`, which every built-in role has): how the credit
+pool is being used, so the Settings page stays about settings.
+
+- **Filters**, one row above everything they scope: last 7 / 30 / 90 days, this or last
+  month, last 12 months or a custom range; grouped by day, week or month (automatic by the
+  length of the period); one project or all.
+- **Credit pool**: size, used (triage / remediation), remaining, given to projects and not
+  used, free to give — as tiles and as one bar.
+- **Credits used over time**: totals for the period, then a stacked column per day / week /
+  month (triage at the base, remediation on top; hover or focus a column for its numbers),
+  with **Show as a table** for the exact figures and a running total.
+- **By project, in this period**: each project's triage and remediation credits, with its
+  share.
+- **Allocated vs used**: per project, all time — first allocated, allocated now, used and
+  left, for triage and remediation, with a filter.
+- **Export CSV** downloads the period's series, the by-project figures and the allocations.
+
+Data: `GET /api/credits/usage?from=YYYY-MM-DD&to=YYYY-MM-DD&bucket=day|week|month&projectId=`
+(UTC, at most two years), built from the credit ledger.
 
 ## Tracked reports
 
@@ -466,11 +571,12 @@ The Admin-only permissions are:
 
 - **Checkmarx One integration:** the server's own API key and endpoints.
 - **Email server (SMTP).**
-- **Utility-wide monthly credit limit:** the bulk credit budget on the Settings page.
+- **The credit pool:** its size and whether it refills monthly, on the Settings page.
 - **Download and restore backups:** a backup holds the SMTP password, the
   integration key and every user, so handing it out is as powerful as the other three.
 
-Analysts still allocate credits to projects, within the budget.
+Analysts still allocate credits to projects, out of the pool. Uploading a `.env` file
+sets only the variables the person's own permissions cover; the rest are refused.
 
 **Permissions.** There are 29 of them, in groups: Dashboard, Tracked reports,
 AI & credits, Settings (one per section), Integrations, Audit & data, Beta and
@@ -538,6 +644,7 @@ old copy in place.
 | **Users, roles and permissions** (passwords as scrypt hashes) | `iam.json` | yes |
 | Credit ledger (every credit spent) | `triage-credits.json` | yes |
 | Per-project credit allocations | `credit-allocations.json` | yes |
+| Last known good connections, rollback notices | `connection-guard.json` | yes |
 | **Audit log** (append-only, hash-chained) | `audit/audit-YYYY-MM.jsonl` + `audit.key` | yes |
 | Tracked reports | `tracked-reports.json` | yes |
 | Resolved initiator addresses | `known-initiators.json` | yes |

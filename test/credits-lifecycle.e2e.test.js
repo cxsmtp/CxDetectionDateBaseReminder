@@ -87,9 +87,26 @@ test.after(() => {
   for (const child of children) child.kill();
 });
 
-test('stage 0 — fetch: triage covers each critical/high finding to verify once; nothing to remediate yet', async () => {
-  assert.equal((await admin('GET', '/api/scan')).status, 200);
+test('stage 0 — fetch: nothing is allocated on its own; the dashboard shows what is needed', async () => {
+  const scan = await admin('GET', '/api/scan');
+  assert.equal(scan.status, 200);
+  assert.deepEqual(await balance(), { triage: [0, 0, 0], remediation: [0, 0, 0] }, 'a fetch never allocates');
+  const p0 = scan.body.projects.find((p) => p.projectId === 'p0').credits;
+  assert.deepEqual(p0.need, { triage: 6, remediation: 0 }, '6 critical/high findings to verify, none confirmed yet');
+  assert.deepEqual(p0.shortfall, { triage: 6, remediation: 0 });
+  // A report reader cannot triage before anyone allocated.
+  const early = await relay('/api/relay/triage', { findings: [finding(0)] });
+  assert.equal(early.body.results[0].status, 402, JSON.stringify(early.body));
+  assert.deepEqual(await dashboardRecalculation(), { triage: [0, 0, 0], remediation: [0, 0, 0] }, 'nor does a refresh');
+});
+
+test('stage 0b — the administrator allocates what triage needs: exactly the findings to verify', async () => {
+  const r = await admin('POST', '/api/credits/allocate', { projectIds: ['p0'], allocate: ['triage'] });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.given, 6);
   assert.deepEqual(await balance(), { triage: [6, 0, 6], remediation: [0, 0, 0] });
+  const again = await admin('POST', '/api/credits/allocate', { projectIds: ['p0'], allocate: ['triage'] });
+  assert.equal(again.body.given, 0, 'allocating again gives nothing more: the need is covered');
 });
 
 test('stage 1 — triage all: 6 charged, and the allocation does not jump while AI Triage runs', async () => {
@@ -97,7 +114,6 @@ test('stage 1 — triage all: 6 charged, and the allocation does not jump while 
   assert.equal(r.status, 200);
   assert.ok(r.body.results.every((x) => x.ok), JSON.stringify(r.body));
   assert.deepEqual(await balance(), { triage: [6, 6, 0], remediation: [0, 0, 0] });
-  // The findings still read "To verify" while AI Triage runs: the dashboard's recalculation used to count them again (6 → 12).
   assert.deepEqual(await dashboardRecalculation(), { triage: [6, 6, 0], remediation: [0, 0, 0] });
   assert.equal((await admin('GET', '/api/scan')).status, 200);
   assert.deepEqual(await balance(), { triage: [6, 6, 0], remediation: [0, 0, 0] }, 'a full re-fetch agrees');
@@ -111,14 +127,27 @@ test('stage 2 — triage all again while still running: refused, nothing charged
   assert.deepEqual(await balance(), { triage: [6, 6, 0], remediation: [0, 0, 0] });
 });
 
-test('stage 3 — verdicts arrive: remediation is allocated 3 per confirmed finding; triage stays as used', async () => {
+test('stage 3 — verdicts arrive: remediation is needed for the confirmed ones only, and allocated only when asked', async () => {
   await sleep(FLIP_MS + 500);
-  // r0 and r9 are confirmed (vulnerable); r1, r4, r5, r8 proposed not exploitable.
-  assert.deepEqual(await dashboardRecalculation(), { triage: [6, 6, 0], remediation: [6, 0, 6] });
+  const refreshed = await admin('POST', '/api/credits/refresh', { projectIds: ['p0'] });
+  assert.deepEqual(refreshed.body.projects.p0.need.remediation, 6, '2 confirmed (r0, r9) × 3; the 4 proposed not exploitable need nothing');
+  assert.deepEqual(await balance(), { triage: [6, 6, 0], remediation: [0, 0, 0] }, 'verdicts never allocate on their own');
   const results = await relay('/api/relay/triage-results', { findings: CRITICAL_AND_HIGH.map((i) => finding(i)) });
   const states = Object.fromEntries(results.body.results.map((x, k) => [CRITICAL_AND_HIGH[k], x.state]));
   assert.deepEqual(states, { 0: 'CONFIRMED', 1: 'PROPOSED_NOT_EXPLOITABLE', 4: 'PROPOSED_NOT_EXPLOITABLE', 5: 'PROPOSED_NOT_EXPLOITABLE', 8: 'PROPOSED_NOT_EXPLOITABLE', 9: 'CONFIRMED' });
-  assert.ok(results.body.results.every((x) => x.triagedAt), 'every one is known as triaged');
+  const r = await admin('POST', '/api/credits/allocate', { projectIds: ['p0'], allocate: ['remediation'] });
+  assert.equal(r.body.given, 6);
+  assert.deepEqual(await balance(), { triage: [6, 6, 0], remediation: [6, 0, 6] });
+});
+
+test('stage 3b — the fence: AI Remediation is refused for anything not confirmed', async () => {
+  for (const i of [1, 2]) {
+    // r1: proposed not exploitable; r2: medium, never triaged (to verify).
+    const r = await relay('/api/relay/remediate', { findings: [finding(i)] });
+    assert.equal(r.status, 409, JSON.stringify(r.body));
+    assert.equal(r.body.notConfirmed, true);
+  }
+  assert.deepEqual(await balance(), { triage: [6, 6, 0], remediation: [6, 0, 6] }, 'nothing charged');
 });
 
 test('stage 4 — remediate one: 3 charged; doing it again is refused; allocation unchanged', async () => {
@@ -129,6 +158,16 @@ test('stage 4 — remediate one: 3 charged; doing it again is refused; allocatio
   const again = await relay('/api/relay/remediate', { findings: [finding(0)] });
   assert.ok([409].includes(again.status), `refused: ${again.status} ${JSON.stringify(again.body)}`);
   assert.deepEqual(await balance(), { triage: [6, 6, 0], remediation: [6, 3, 3] });
+});
+
+test('stage 4b — "Remediate selected" remediates the remaining confirmed finding only, from what was allocated', async () => {
+  const r = await admin('POST', '/api/remediation/run', { projectIds: ['p0'], severities: ['CRITICAL', 'HIGH'] });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.started, 1, `r9 only: r0 is already remediated, the rest are not confirmed — ${JSON.stringify(r.body)}`);
+  assert.equal(r.body.notConfirmed, 4);
+  assert.deepEqual(await balance(), { triage: [6, 6, 0], remediation: [6, 6, 0] });
+  const nothing = await admin('POST', '/api/remediation/run', { projectIds: ['p0'], severities: ['CRITICAL', 'HIGH'] });
+  assert.equal(nothing.body.requested, 0, 'nothing confirmed is left to remediate');
 });
 
 test('stage 5 — two rows for one result are triaged and counted once', async () => {
@@ -160,14 +199,15 @@ test('stage 7 — every credit is in the audit log, and the log matches the ledg
   const rec = await admin('GET', `/api/audit/reconcile?month=${month}`);
   assert.equal(rec.body.matched, true, JSON.stringify(rec.body));
   assert.equal(rec.body.ledgerTotal, rec.body.auditedTotal);
-  // 6 + 1 (r2) + 1 (r3) triage, 3 remediation.
-  assert.equal(rec.body.ledgerTotal, 11);
+  // 6 + 1 (r2) + 1 (r3) triage, 3 + 3 remediation.
+  assert.equal(rec.body.ledgerTotal, 14);
   const audit = (await admin('GET', '/api/audit?types=triage,remediation&limit=500')).body;
-  assert.equal(audit.totals.charged, 11);
+  assert.equal(audit.totals.charged, 14);
   assert.equal(audit.totals.triageCharged, 8);
-  assert.equal(audit.totals.remediationCharged, 3);
+  assert.equal(audit.totals.remediationCharged, 6);
   const refused = audit.entries.filter((e) => e.outcome === 'refused').map((e) => e.reason).join('\n');
   assert.match(refused, /re-triage is switched off/);
+  assert.match(refused, /runs only on confirmed findings/);
   assert.match(refused, /month|limit/i);
   assert.equal((await admin('GET', '/api/audit/verify')).body.ok, true);
 });
