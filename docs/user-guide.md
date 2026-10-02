@@ -64,6 +64,9 @@ The password is also kept in `/data/first-admin-password.txt` until it is change
 
 **Sign out** is under your name, top right. Idle sessions end after 8 hours (`SESSION_IDLE_MINUTES`).
 
+**Staying signed in.** Reloading the page, an update of Mission Zero, or a server restart never signs you out, or loses the data you fetched and the scope you chose. Only signing out, 8 idle hours, or an administrator changing your access does.
+- If you signed in with your own Checkmarx One API key, you sign in again after a restart: that key is never written to disk.
+
 ---
 
 ## Set up in 10 minutes

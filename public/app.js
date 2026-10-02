@@ -449,6 +449,7 @@ async function showConnected(me) {
   route();
   loadReportServer();
   if (me.configNotices?.length) showNotices(me.configNotices, { acknowledge: true });
+  if (me.hasScan) restoreLastScan();
   if (!me.connection) {
     setStatus('status', can('integration.cxone')
       ? 'Connect this server to Checkmarx One under Settings → Checkmarx One before fetching.'
@@ -3176,6 +3177,52 @@ function setFetching(on) {
   state.fetching = on;
   document.body.classList.toggle('fetching', on);
   for (const el of document.querySelectorAll('[data-needs-data]')) el.setAttribute('aria-disabled', on ? 'true' : 'false');
+}
+
+/**
+ * After a page reload or a server restart: show the data this person fetched,
+ * and the scope that produced it, from the server's copy (Checkmarx One is not
+ * read again; Fetch gets the latest).
+ */
+async function restoreLastScan() {
+  if (state.projects.length || state.fetching || !can('findings.fetch')) return;
+  let result;
+  try {
+    result = await api('/api/scan/last');
+  } catch {
+    return;
+  }
+  if (!result?.projects || state.projects.length || state.fetching) return;
+  restoreScope(result.request, result.projects);
+  state.lastScan = result;
+  state.projects = result.projects;
+  renderTotals(totalsOf(state.projects));
+  collectInitiators();
+  renderInitiatorList();
+  renderProjects();
+  renderAllocation();
+  const at = new Date(result.fetchedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  $('fetch-meta').textContent = `Showing the data fetched ${at}. Fetch vulnerability data for the latest.`;
+  setStatus('status', `Loaded ${state.projects.length} project(s) as fetched ${at}.`, 'ok');
+}
+
+/** Put the scope controls back the way they were for that fetch. */
+function restoreScope(request, projects) {
+  if (!request) return;
+  for (const prefix of ['activity', 'detection']) {
+    const select = $(`${prefix}-preset`);
+    const preset = request[`${prefix}Preset`];
+    if (preset && [...select.options].some((o) => o.value === preset)) select.value = preset;
+    $(`${prefix}-from`).value = request[`${prefix}From`] || '';
+    $(`${prefix}-to`).value = request[`${prefix}To`] || '';
+    toggleRange(prefix);
+  }
+  const names = new Map(projects.map((p) => [p.projectId, p.projectName]));
+  scopePick.projects.clear();
+  scopePick.initiators.clear();
+  for (const id of request.projects ?? []) scopePick.projects.set(id, names.get(id) ?? id);
+  for (const who of request.initiators ?? []) scopePick.initiators.add(who);
+  renderScopeChips();
 }
 
 async function fetchProjects() {

@@ -20,6 +20,9 @@ export class SessionStore {
   #idleMs;
   #adopted = new Map(); // sessionKey -> saved session from the previous server, until its browser calls
   #adoptLink = null;
+  #readScan = () => null;
+  /** Called with a session's key when it ends (sign-out, idle, access removed), so its saved copy goes too. */
+  onEnd = () => {};
 
   constructor({ idleMs = DEFAULT_IDLE_MS } = {}) {
     this.#idleMs = idleMs;
@@ -85,7 +88,7 @@ export class SessionStore {
     if (!session) return null;
     // The server's own integration session never idles out.
     if (!session.pinned && Date.now() - session.lastUsedAt > this.#idleMs) {
-      this.#sessions.delete(id);
+      this.destroy(id);
       return null;
     }
     session.lastUsedAt = Date.now();
@@ -93,11 +96,12 @@ export class SessionStore {
   }
 
   /**
-   * Password sign-ins handed over by the previous server (an update): each is
-   * picked up, with its fetched data, when its browser next calls.
+   * Password sign-ins saved by the previous server (an update, a restart, a
+   * crash): each is picked up, with its fetched data, when its browser next calls.
    */
-  adopt(entries, link) {
+  adopt(entries, link, readScan = () => null) {
     this.#adoptLink = link;
+    this.#readScan = readScan;
     for (const entry of entries) this.#adopted.set(entry.key, entry);
     return this.#adopted.size;
   }
@@ -108,28 +112,60 @@ export class SessionStore {
     const entry = this.#adopted.get(key);
     if (!entry) return undefined;
     this.#adopted.delete(key);
+    if (Date.now() - entry.lastUsedAt > this.#idleMs) {
+      this.onEnd(key);
+      return undefined;
+    }
     const session = this.createLinked(this.#adoptLink, id);
-    Object.assign(session, { userId: entry.userId, via: entry.via, createdAt: entry.createdAt, lastUsedAt: entry.lastUsedAt, lastScan: entry.lastScan ?? null });
+    Object.assign(session, { userId: entry.userId, via: entry.via, createdAt: entry.createdAt, lastUsedAt: entry.lastUsedAt, lastScan: entry.lastScan ?? this.#readScan(key) ?? null });
     return session;
   }
 
-  /** What to hand over to the next server: password sign-ins (never one holding a person's own API key) and their fetched data. */
-  toHandover() {
+  /** Sessions worth keeping across a restart: password sign-ins, never one holding a person's own API key. */
+  #persistable(session) {
+    return session.linked && session.userId && !session.pinned;
+  }
+
+  /** Who is signed in, for the saved index: live sessions and saved ones not picked up yet. */
+  index() {
     const live = [...this.#sessions.values()]
-      .filter((s) => s.linked && s.userId && !s.pinned && Date.now() - s.lastUsedAt <= this.#idleMs)
-      .map(({ id, userId, via, createdAt, lastUsedAt, lastScan }) => ({ id, userId, via, createdAt, lastUsedAt, lastScan }));
-    // Saved ones nobody has come back for yet are passed on again, as they were.
-    return { live, adopted: [...this.#adopted.values()].filter((e) => Date.now() - e.lastUsedAt <= this.#idleMs) };
+      .filter((s) => this.#persistable(s))
+      .map((s) => ({ key: sessionKey(s.id), userId: s.userId, via: s.via, createdAt: s.createdAt, lastUsedAt: s.lastUsedAt }));
+    return [...live, ...this.#adopted.values()];
+  }
+
+  /** Live sessions to save fetched data for: [{key, session}]. */
+  persistable() {
+    return [...this.#sessions.values()].filter((s) => this.#persistable(s)).map((session) => ({ key: sessionKey(session.id), session }));
+  }
+
+  /** End every session matching a test, including saved ones nobody has come back for yet. */
+  endWhere(test) {
+    for (const session of this.filter(test)) this.destroy(session.id);
+    for (const [key, entry] of this.#adopted) {
+      if (test(entry)) {
+        this.#adopted.delete(key);
+        this.onEnd(key);
+      }
+    }
   }
 
   destroy(id) {
-    return this.#sessions.delete(id);
+    const existed = this.#sessions.delete(id);
+    if (existed) this.onEnd(sessionKey(id));
+    return existed;
   }
 
   sweep() {
     const cutoff = Date.now() - this.#idleMs;
     for (const [id, session] of this.#sessions) {
-      if (!session.pinned && session.lastUsedAt < cutoff) this.#sessions.delete(id);
+      if (!session.pinned && session.lastUsedAt < cutoff) this.destroy(id);
+    }
+    for (const [key, entry] of this.#adopted) {
+      if (entry.lastUsedAt < cutoff) {
+        this.#adopted.delete(key);
+        this.onEnd(key);
+      }
     }
   }
 

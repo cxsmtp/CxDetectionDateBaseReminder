@@ -113,10 +113,11 @@ All state lives in one folder: `/data` in the container, `DATA_DIR` elsewhere (d
 | Tracked reports, emailed reports kept for download | `tracked-reports.json`, `report-files/` |
 | Resolved initiator addresses, automation state | `known-initiators.json`, `automation-state.json` |
 | Last known good connections | `connection-guard.json` |
+| Sign-ins (session ids as SHA-256 only) and each person's fetched data, so restarts sign nobody out | `sessions/` |
 | Report signing key | `report-signing.key` |
 | Troubleshooting log (no sensitive data) | `diagnostics.jsonl` |
 | Backups | `backups/` (or `BACKUP_DIR`) |
-| Fetched findings, and a person's own API key | Server memory, per session; never written to disk |
+| A person's own Checkmarx One API key (key sign-in) | Server memory only; never written to disk |
 
 See [audit-and-backup.md](audit-and-backup.md) for backups and rebuilding a server.
 
