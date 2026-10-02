@@ -12,6 +12,16 @@ services:
       - "${PORT:-3000}:3000"
     volumes:
       - mission-zero-data:/data
+    # Hardened: nothing in the image can be changed at run time (only /data and a
+    # scratch /tmp are writable), no Linux capabilities, no privilege escalation.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
     environment:
       # Optional — all of these can also be set in the utility (Settings).
       TZ: ${TZ:-UTC}                                # time zone for automatic reminders, e.g. Asia/Dubai

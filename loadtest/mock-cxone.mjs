@@ -2,6 +2,8 @@
 import http from 'http';
 const PROJECTS = Number(process.env.PROJECTS || 200);
 const RISKS = Number(process.env.RISKS || 60);
+// How many different people ran the latest scans: project i was scanned by dev(i % INITIATORS).
+const INITIATORS = Math.max(1, Number(process.env.INITIATORS || 40));
 const LAT = Number(process.env.LAT || 80);
 const KEY = process.env.KEY;
 // How long AI Triage takes before verdicts (and the new states) appear.
@@ -41,7 +43,7 @@ http.createServer((req, res) => {
       if (!/^Bearer h\.[\w-]*\.tok$/.test(req.headers.authorization || '')) return send(401, {});
       const offset = Number(u.searchParams.get('offset') || 0);
       if (u.pathname === '/api/projects') { bump('projects'); const all = Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}` })); const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: PROJECTS }); }
-      if (u.pathname === '/api/projects/last-scan') { bump('last-scan'); return send(200, Object.fromEntries(Array.from({ length: PROJECTS }, (_, i) => [`p${i}`, { id: `scan-p${i}`, updatedAt: day(1), initiator: `dev${i % 40}@acme.com` }]))); }
+      if (u.pathname === '/api/projects/last-scan') { bump('last-scan'); return send(200, Object.fromEntries(Array.from({ length: PROJECTS }, (_, i) => [`p${i}`, { id: `scan-p${i}`, updatedAt: day(1), initiator: `dev${i % INITIATORS}@acme.com` }]))); }
       if (u.pathname === '/api/scans') { bump('scans'); return send(200, { scans: [] }); }
       if (u.pathname === '/api/risks/' || u.pathname === '/api/risks') {
         bump('risks');

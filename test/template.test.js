@@ -175,3 +175,11 @@ test('a single-project reminder names the project; a multi-project one does not'
   assert.ok(!many.subject.includes('['), 'no project prefix when several are covered');
   assert.match(many.html, /Open security findings need attention/);
 });
+
+test('only balanced triple braces render raw: an unbalanced {{{name}} stays escaped', () => {
+  const data = { name: '<img src=x onerror=alert(1)>' };
+  assert.equal(render('{{{name}}}', data), data.name);
+  assert.doesNotMatch(render('{{{name}}', data), /<img/);
+  assert.doesNotMatch(render('{{name}}}', data), /<img/);
+  assert.equal(render('{{name}}', data), '&lt;img src=x onerror=alert(1)&gt;');
+});

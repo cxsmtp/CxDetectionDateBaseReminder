@@ -289,3 +289,23 @@ test('a finding triaged through the utility is never charged again while re-tria
   const used = credits.projects?.find?.((p) => p.projectId === 'p0')?.triage?.used ?? null;
   if (used !== null) assert.equal(used, 1);
 });
+
+test('pages carry the security headers, and a state change from another site is refused', async () => {
+  const page = await fetch(`${BASE}/`);
+  assert.match(page.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+  assert.match(page.headers.get('content-security-policy'), /script-src 'self' 'sha256-/);
+  assert.equal(page.headers.get('x-frame-options'), 'DENY');
+  assert.equal(page.headers.get('x-powered-by'), null);
+  const cross = await fetch(`${BASE}/api/session/password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://evil.example' },
+    body: JSON.stringify({ email: 'admin@acme.io', password: PW }),
+  });
+  assert.equal(cross.status, 403);
+  const same = await fetch(`${BASE}/api/session/password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: BASE },
+    body: JSON.stringify({ email: 'admin@acme.io', password: PW }),
+  });
+  assert.equal(same.status, 201);
+});

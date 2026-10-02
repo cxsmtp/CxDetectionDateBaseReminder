@@ -103,3 +103,15 @@ test('weak passwords are refused, and an administrator reset forces a change at 
   const reset = await iam.setPassword(user.id, 'temporary password 1', { mustChange: true, actorPerms: as(admin).actorPerms });
   assert.equal(reset.mustChangePassword, true);
 });
+
+test('role ids are only ever the roles themselves: "constructor" and "__proto__" are not roles', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'iam-proto-'));
+  const store = new IamStore({ file: path.join(dir, 'iam.json') });
+  for (const id of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+    assert.equal(store.role(id), null, id);
+    await assert.rejects(store.createUser({ email: `x-${id.replace(/_/g, '')}@acme.io`, role: id, password: 'correct horse battery' }), /role does not exist/, id);
+    assert.throws(() => store.deleteRole(id, { actorPerms: new Set(PERMISSION_IDS) }), /No such role/, id);
+    assert.throws(() => store.saveRole(id, { name: 'x', permissions: [] }, { actorPerms: new Set(PERMISSION_IDS) }), /No such role/, id);
+  }
+  assert.equal(Object.getPrototypeOf({}).polluted, undefined);
+});

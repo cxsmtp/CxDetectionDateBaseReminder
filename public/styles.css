@@ -1203,3 +1203,5 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 @media (max-width: 760px) { .col-menu { left: 0; right: auto; } }
 .filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 10px; min-width: 0; }
 .filters input[type="search"] { width: 180px; }
+.deliveries { margin-top: 8px; font-size: 13px; }
+.deliveries ul { margin: 6px 0 0; padding-left: 18px; max-height: 220px; overflow: auto; }

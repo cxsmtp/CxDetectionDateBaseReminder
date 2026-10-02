@@ -53,7 +53,9 @@ const isEmpty = (value) =>
 // render() recurses for section bodies, so the pattern is compiled per call:
 // a shared /g regex would have its lastIndex clobbered by the inner render
 // and restart the outer scan from zero, looping forever.
-const TOKEN_SOURCE = String.raw`\{\{([#^/]?)\s*([{]?)([\w.]+)\s*[}]?\}\}`;
+// Raw output needs the braces balanced, `{{{name}}}`: an unbalanced `{{{name}}`
+// is not a raw tag, so it can never switch escaping off by accident.
+const TOKEN_SOURCE = String.raw`\{\{([#^/]?)\s*(?:(\{)\s*([\w.]+)\s*\}|([\w.]+))\s*\}\}`;
 
 export class TemplateError extends Error {
   constructor(message) {
@@ -92,7 +94,8 @@ function renderWithStack(source, stack, escape) {
   let match;
 
   while ((match = token.exec(source)) !== null) {
-    const [raw, sigil, brace, name] = match;
+    const [raw, sigil, brace, rawName, plainName] = match;
+    const name = rawName ?? plainName;
     const text = source.slice(cursor, match.index);
     cursor = match.index + raw.length;
 

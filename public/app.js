@@ -1461,16 +1461,17 @@ function renderRecipientHint() {
   const attachHtml = $('attach-html-report')?.checked ?? false;
 
   // Build hint text
+  // A scan initiator is only ever sent the projects whose latest scan they ran.
+  const theirs = emailContent === 'summary' ? 'one email covering only the selected projects they scanned' : 'one email for each selected project they scanned';
+  const attached = attachHtml ? ', with its own interactive report attached' : '';
   let hint = '';
   if (sendTo === 'list') {
-    hint = 'The recipient list gets ';
+    hint = `The recipient list gets one email covering every selected project${attached}.`;
   } else if (sendTo === 'initiator') {
-    hint = 'Each scan initiator gets ';
+    hint = `Each scan initiator gets ${theirs}${attached} — never anyone else's projects.`;
   } else {
-    hint = 'Each scan initiator and the recipient list get ';
+    hint = `Each scan initiator gets ${theirs}${attached}; the recipient list gets one covering everything selected.`;
   }
-  hint += emailContent === 'summary' ? 'one email covering all their projects' : 'one email per project';
-  hint += attachHtml ? ', with the interactive report attached.' : '.';
 
   if ($('groupby-hint')) {
     $('groupby-hint').textContent = hint;
@@ -2847,21 +2848,25 @@ async function downloadHtmlReport() {
   }
 }
 
-async function sendReminderWithHtmlAttachment() {
+async function sendReminderWithHtmlAttachment({ groupBy, alsoConsolidated }) {
   const button = $('send');
   button.disabled = true;
-  setStatus('status', 'Generating reports and sending to each developer…');
+  setStatus('status', groupBy === 'none' ? 'Generating the report and sending it to the recipient list…' : 'Generating reports and sending each person their own projects…');
 
   try {
     const severity = $('severity-filter').value;
 
-    // Send HTML reports grouped by initiator (each developer gets their own email)
+    // Each scan initiator gets a report of only the projects they scanned
+    // (one per project, or one covering all of theirs), as chosen above.
     const sendResponse = await api('/api/reminders/send-html-by-initiator', {
       method: 'POST',
       body: JSON.stringify({
         projectIds: state.selected.size > 0 ? [...state.selected] : null,
         severities: severity ? [severity] : null,
+        initiators: state.pickedInitiators.size > 0 ? [...state.pickedInitiators] : null,
         buckets: [],
+        groupBy,
+        alsoConsolidated,
       }),
     });
 
@@ -2901,7 +2906,7 @@ async function submitReminder({ dryRun }) {
 
   // If user wants HTML report attachment, use that flow
   if (attachHtmlReport && !dryRun) {
-    return sendReminderWithHtmlAttachment();
+    return sendReminderWithHtmlAttachment({ groupBy, alsoConsolidated });
   }
 
   const button = dryRun ? $('preview') : $('send');
@@ -2986,35 +2991,34 @@ function renderPreview(result) {
   $('preview-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+/** Who got which projects: the proof that each person was sent only their own. */
+function renderDeliveries(entries = []) {
+  const list = entries.filter((e) => e.projects?.length);
+  $('send-deliveries').hidden = !list.length;
+  $('send-deliveries').innerHTML = list.length
+    ? `<summary>${list.length} email${list.length === 1 ? '' : 's'} — who got which projects</summary><ul>${list
+        .map((e) => `<li><strong>${escapeHtml(e.consolidated || e.initiator === 'consolidated' ? `Recipient list (${e.email})` : e.email)}</strong> — ${escapeHtml(e.projects.join(', '))} · ${e.riskCount} finding${e.riskCount === 1 ? '' : 's'}</li>`)
+        .join('')}</ul>`
+    : '';
+}
+
 function renderSendResult(result) {
-  // Handle HTML report per-initiator response (from /api/reminders/send-html-by-initiator)
+  renderDeliveries(result.sent);
+  // Interactive HTML reports (from /api/reminders/send-html-by-initiator)
   if (result.summary && (result.sent || result.skipped)) {
     const parts = [result.summary];
 
     if (result.sent?.length > 0) {
-      const totalRisks = result.sent.reduce((sum, entry) => sum + entry.riskCount, 0);
-      parts.push(`${totalRisks} total findings`);
+      const totalRisks = result.sent.filter((e) => !e.consolidated).reduce((sum, entry) => sum + entry.riskCount, 0);
+      if (totalRisks) parts.push(`${totalRisks} findings in all.`);
     }
 
     if (result.errors?.length) {
-      parts.push(`${result.errors.length} error(s).`);
+      parts.push(`${result.errors.length} error(s): ${result.errors.map((e) => e.error).join('; ')}`);
       console.error('Send errors:', result.errors);
     }
 
     setStatus('status', parts.join(' '), result.errors?.length ? 'error' : 'ok');
-    return;
-  }
-
-  // Handle HTML attachment response (from /api/reminders/with-attachment)
-  if (result.delivered) {
-    const recipientCount = (result.recipients?.to?.length || 0) +
-                          (result.recipients?.cc?.length || 0) +
-                          (result.recipients?.bcc?.length || 0);
-    setStatus(
-      'status',
-      `Email sent to ${recipientCount} recipient(s) with interactive HTML report attached.`,
-      'ok',
-    );
     return;
   }
 

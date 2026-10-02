@@ -119,7 +119,7 @@ export function generateHtmlReport(reportData, options = {}) {
       allowRetriage: options.allowRetriage === true,
       ...(options.reportToken ? { report: options.reportToken } : {}),
       allowReremediation: options.allowReremediation === true,
-      adminContact: /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(options.adminContact ?? '') ? options.adminContact : '',
+      adminContact: /^(?=[^]{3,254}$)[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(options.adminContact ?? '') ? options.adminContact : '',
     },
     findings: clientFindings,
   };
