@@ -2425,6 +2425,29 @@ function renderProjects() {
   renderTrackRow();
 }
 
+/**
+ * Which findings are one Checkmarx One result, and why: Checkmarx One lists a
+ * result once for every code path (data flow) into the same vulnerable code,
+ * so those findings are triaged once, charged once, and fixed in one go.
+ * groups: credits.sharedResults (with projectName when several projects).
+ */
+function sharedResultsHtml(groups, severities, { open = false } = {}) {
+  const shown = (groups ?? []).filter((g) => severities.includes(g.severity));
+  if (!shown.length) return '';
+  const findings = shown.reduce((n, g) => n + g.findings, 0);
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  return `<details class="shared-results"${open || shown.length <= 3 ? ' open' : ''}>
+    <summary>Why fewer results than findings: ${plural(findings, 'finding', 'findings')} here ${findings === 1 ? 'is' : 'are'} ${plural(shown.length, 'Checkmarx One result', 'Checkmarx One results')}</summary>
+    <p class="hint">Checkmarx One lists one result once for every code path (data flow) that reaches the same vulnerable code. Each line below is one result: AI Triage judges it once (1 credit), and one fix in that code closes all of its findings.</p>
+    <ul>${shown
+      .map(
+        (g) => `<li><span class="sev-dot sev-${escapeHtml(g.severity.toLowerCase())}"></span><b>${escapeHtml(g.title)}</b>${g.projectName ? ` <span class="hint">in ${escapeHtml(g.projectName)}</span>` : ''} — ${g.findings} findings, <b>1 result</b>${g.places.length ? ` · ${escapeHtml(g.places.join(', '))}` : ''}
+          <span class="hint">(${g.tie === 'result' ? 'same result ID' : 'same similarity group'} <code>${escapeHtml(g.id)}…</code>)</span></li>`,
+      )
+      .join('')}</ul>
+  </details>`;
+}
+
 /** One project's credits, editable: what its severities need, plus extras the administrator sets. */
 function creditEditorRow(p) {
   const c = p.credits ?? {};
@@ -2443,6 +2466,7 @@ function creditEditorRow(p) {
         <span class="need" title="${escapeHtml(`For ${resultsText(toTriage, toTriageRows)}.`)}">${toTriage} needed${toTriageRows > toTriage ? ` <span class="hint">(${toTriageRows} findings = ${toTriage} results)</span>` : ''} ·</span>
         <label class="inline"><input type="number" min="0" step="1" class="small-num" data-extra="triage" value="${c.extraTriage ?? 0}" /> extra</label>
         <span class="hint">${t.remaining} left of ${t.allocated} · ${t.used} used</span>
+        ${sharedResultsHtml(c.sharedResults, sev, { open: true })}
       </div>
       <div class="credit-kind">
         <span class="label">AI Remediation</span>
@@ -3093,7 +3117,8 @@ function renderAllocation() {
   $('alloc-scope').textContent = `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'}`;
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   $('alloc-needed').innerHTML = severities.length
-    ? `<b>${plural(t.toTriage, 'Checkmarx One result')}</b> to triage (${plural(t.toTriage, 'credit')})${t.toTriageRows > t.toTriage ? ` <span class="hint">— from ${t.toTriageRows} findings: rows that share one result are triaged, and charged, once</span>` : ''} · <b>${t.triageLeft}</b> allocated and not used${t.triageShort ? ` · <span class="short">${t.triageShort} more needed</span>` : ''}`
+    ? `<b>${plural(t.toTriage, 'Checkmarx One result')}</b> to triage (${plural(t.toTriage, 'credit')})${t.toTriageRows > t.toTriage ? ` <span class="hint">— from ${t.toTriageRows} findings: rows that share one result are triaged, and charged, once</span>` : ''} · <b>${t.triageLeft}</b> allocated and not used${t.triageShort ? ` · <span class="short">${t.triageShort} more needed</span>` : ''}` +
+      (t.toTriageRows > t.toTriage ? sharedResultsHtml(scope.flatMap((p) => (p.credits?.sharedResults ?? []).map((g) => ({ ...g, projectName: scope.length > 1 ? p.projectName : '' }))), severities) : '')
     : 'Tick at least one severity.';
   $('remediate-needed').innerHTML = severities.length
     ? `<b>${plural(t.toRemediate, 'confirmed result')}</b> to remediate (${plural(t.toRemediate * 3, 'credit')}, 3 each) · <b>${t.remediationLeft}</b> allocated and not used${t.remediationShort ? ` · <span class="short">${t.remediationShort} more needed</span>` : ''}${t.toRemediate ? '' : ' — triage first: remediation needs findings it confirmed'}`

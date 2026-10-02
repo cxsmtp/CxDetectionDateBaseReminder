@@ -17,12 +17,16 @@ let changing = false; // /__changing?on=1: scan results differ on every read
 let reads = 0;
 const remediated = new Map();
 const day = (n) => new Date(Date.now() - n * 86400000).toISOString();
+// SHARED=1: like a real tenant, some findings are another code path into the same vulnerable code
+// (risk i+4 shares risk i's similarity group, for i in 0–3, 8–11, …), so they are one result.
+const SHARED = process.env.SHARED === '1';
 const risksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
   const id = `${pid}-r${i}`;
-  const alt = `alt-${id}`;
+  const twin = SHARED && Math.floor(i / 4) % 2 === 1 ? `${pid}-r${i - 4}` : id;
+  const alt = `alt-${twin}`;
   const t = triaged.get(alt);
   const state = t && Date.now() - t > FLIP_MS ? (i % 3 ? 'PROPOSED_NOT_EXPLOITABLE' : 'CONFIRMED') : 'TO_VERIFY';
-  return { id, riskName: `Finding ${id}`, severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: 'SAST', state, firstDetectionDate: day(40), groupId: `sim-${id}` };
+  return { id, riskName: SHARED ? `Finding ${twin}` : `Finding ${id}`, severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: 'SAST', state, firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}` };
 });
 http.createServer((req, res) => {
   let b = '';
@@ -62,7 +66,9 @@ http.createServer((req, res) => {
         const page = Number(u.searchParams.get('offset') ?? 0);
         // While "changing" is on, every read returns other result ids (as if someone were working on the scan).
         const v = changing ? `-${++reads}` : '';
-        const rows = pid && page === 0 ? risksFor(pid).map((r) => ({ type: 'sast', similarityId: r.groupId, alternateId: `alt-${r.id}${v}`, id: `alt-${r.id}${v}` })) : [];
+        // One result per similarity group (findings that share it are one result).
+        const groups = [...new Set(risksFor(pid).map((r) => r.groupId))];
+        const rows = pid && page === 0 ? groups.map((g) => ({ type: 'sast', similarityId: g, alternateId: `alt-${g.replace(/^sim-/, '')}${v}`, id: `alt-${g.replace(/^sim-/, '')}${v}` })) : [];
         return send(200, { results: rows, totalCount: rows.length });
       }
       let m;
