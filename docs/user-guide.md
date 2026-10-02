@@ -4,23 +4,24 @@ Everything you can do in Mission Zero, page by page, with every option explained
 
 **Who needs which part**
 - Developers who only receive emails need [The emailed report](#the-emailed-report).
-- Administrators setting it up start with [Set up in 10 minutes](#set-up-in-10-minutes).
+- Administrators setting it up start with [Set up in 10 minutes](#set-up-in-10-minutes), and serve it over HTTPS: [Turn on HTTPS](#turn-on-https).
 
 **Contents**
 1. [Who can do what](#who-can-do-what)
 2. [Sign in](#sign-in)
 3. [Set up in 10 minutes](#set-up-in-10-minutes) (Admin)
-4. [Settings, option by option](#settings-option-by-option)
-5. [Dashboard: fetch, credits, remind](#dashboard)
-6. [The emailed report](#the-emailed-report) (for developers)
-7. [Reports: tracked reports](#reports-tracked-reports)
-8. [Credits page](#credits-page)
-9. [Audit page: credit audit log and backups](#audit-page)
-10. [Access page: people and roles](#access-page)
-11. [Beta page](#beta-page)
-12. [Logs page](#logs-page)
-13. [Everyday recipes](#everyday-recipes)
-14. [Troubleshooting](#troubleshooting)
+4. [Turn on HTTPS](#turn-on-https) (Admin)
+5. [Settings, option by option](#settings-option-by-option)
+6. [Dashboard: fetch, credits, remind](#dashboard)
+7. [The emailed report](#the-emailed-report) (for developers)
+8. [Reports: tracked reports](#reports-tracked-reports)
+9. [Credits page](#credits-page)
+10. [Audit page: credit audit log and backups](#audit-page)
+11. [Access page: people and roles](#access-page)
+12. [Beta page](#beta-page)
+13. [Logs page](#logs-page)
+14. [Everyday recipes](#everyday-recipes)
+15. [Troubleshooting](#troubleshooting)
 
 The running version is shown in the bottom-left corner of every screen, as `MZ-xx.xx.xx`.
 
@@ -95,7 +96,7 @@ As an Admin, open **Settings** and work down this list.
 | 1 | Quick setup from a .env file | **Download the sample .env**, fill in your Checkmarx One key and mail server, and upload it. This does steps 2–4 in one go. |
 | 2 | Checkmarx One integration | Paste the API key, then **Connect & store**. |
 | 3 | Email server (SMTP) | Host, port, user and password. Then **Test connection** and **Send test email**. |
-| 4 | Reminder server address | The HTTPS address people use to reach this server. Then **Test**. |
+| 4 | Reminder server address | The `https://` address people use to reach this server. Then **Test**. Serve it over HTTPS first: [Turn on HTTPS](#turn-on-https). |
 | 5 | AI Triage & Remediation from reports | Decide what developers may run from their reports, and set the credit pool. |
 | 6 | Branding | Company name, logo and colour for emails and reports. |
 | 7 | Automation (optional) | Turn on age-threshold reminders. Start with **Dry run**. |
@@ -105,6 +106,114 @@ Then go to the **Dashboard**, click **Fetch vulnerability data**, and send your 
 Settings **save as you type**; there is no Save button.
 - A changed Checkmarx One or mail connection is checked straight away.
 - If it does not work, the **last known good** settings come back when you leave the page, so nothing stops working. Every administrator is told what was rolled back.
+
+---
+
+## Turn on HTTPS
+
+Do this before anyone else signs in or receives a report. Over HTTPS, sign-ins, findings and triage requests cross the network encrypted. Plain http sends them as readable text to anyone on the way.
+
+You need access to the machine that runs the container (Podman or Docker). The commands are for Windows cmd, one line each. In every command, replace `mz.company.com` with your server's name.
+
+### 1. Choose how
+
+| Way | Use it when | You need |
+| --- | --- | --- |
+| **A. Your company's certificate** | Mission Zero runs inside the company network or VPN. This is the usual case, and the safest. | A certificate for its name from IT, and a DNS name pointing at the machine |
+| **B. Automatic certificate** (Let's Encrypt) | It has a public name the internet can reach | A public DNS name pointing at the machine, with ports 80 and 443 open to it |
+| **C. Self-signed** | Trying it out, or a lab | Nothing. Browsers warn about it until you trust it |
+
+### 2A. With your company's certificate
+
+1. **Ask IT for a server certificate** for the name people will use, e.g. `mz.company.com`.
+   - The name must be in the certificate's *Subject Alternative Name*.
+   - Ask for the **full chain**: your certificate and the intermediate certificates in one file.
+   - You get either two files, `server.crt` and `server.key`, or one `.pfx` file and its password.
+2. **Put the files in a folder** on the machine, e.g. `C:\mission-zero\certs`.
+3. **Start Mission Zero with them.** This replaces the running container; no data is lost.
+
+```
+podman run --replace -d --name mission-zero -p 443:3000 -p 80:8080 -v mission-zero-data:/data -v C:\mission-zero\certs:/certs:ro -e TZ=Asia/Dubai -e TLS_CERT_FILE=/certs/server.crt -e TLS_KEY_FILE=/certs/server.key -e HTTP_REDIRECT_PORT=8080 -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+   - **With a `.pfx`:** replace `-e TLS_CERT_FILE=/certs/server.crt -e TLS_KEY_FILE=/certs/server.key` with `-e TLS_PFX_FILE=/certs/server.pfx -e TLS_PFX_PASSPHRASE=yourpassword`. To keep the password off the command line, put that line in your settings file and use `--env-file`.
+   - **`-p 80:8080` and `HTTP_REDIRECT_PORT=8080`** send anyone who types `http://` to `https://`. Leave both out if you don't want port 80.
+4. **Check it** (see [step 3](#3-check-it-worked)).
+
+**When the certificate is renewed,** copy the new files over the old ones in the folder. Mission Zero switches to them within 5 minutes, with no restart. If a new file is broken, it keeps serving the old certificate and says why in its log.
+
+### 2B. With an automatic certificate (public name)
+
+Caddy, a small web server, gets a free certificate from Let's Encrypt, renews it by itself, and passes requests on to Mission Zero. Mission Zero itself then has no open port.
+
+```
+podman network create mz-net
+```
+
+```
+podman run --replace -d --name mission-zero --network mz-net -v mission-zero-data:/data -e TZ=Asia/Dubai -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+```
+podman run --replace -d --name mz-caddy --network mz-net -p 80:80 -p 443:443 -v caddy-data:/data docker.io/library/caddy:2 caddy reverse-proxy --from mz.company.com --to mission-zero:3000
+```
+
+Let's Encrypt checks that it really reaches your name on port 80, so the DNS name must point at this machine before you start. `podman logs mz-caddy` shows the certificate being obtained.
+
+### 2C. Self-signed (to try it out)
+
+```
+podman run --replace -d --name mission-zero -p 3443:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e TLS_SELF_SIGNED=1 -e TLS_HOSTNAMES=mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+Open <https://localhost:3443>.
+
+**The certificate**
+- Mission Zero makes it at the first start and keeps it in the data volume. It covers `localhost`, the machine's name and the names in `TLS_HOSTNAMES`.
+- The browser warns once ("Your connection is not private"), because no authority vouches for it. Click **Advanced**, then the link that continues to the site.
+
+**To stop the warning on a Windows machine (Edge and Chrome)**
+1. Copy the certificate out of the container:
+
+```
+podman cp mission-zero:/data/tls/self-signed.crt C:\mission-zero\self-signed.crt
+```
+
+2. Double-click `self-signed.crt`, then **Install Certificate** → **Local Machine**.
+3. Choose **Place all certificates in the following store** → **Trusted Root Certification Authorities**.
+
+Firefox keeps its own list: **Settings → Certificates → View Certificates → Authorities → Import**.
+
+For everyday use, switch to way A or B instead: every reader's machine would have to trust a self-signed certificate.
+
+### 3. Check it worked
+
+1. **The log:** run `podman logs mission-zero`. You should see:
+   - `running on https://…`;
+   - for A and C, a line `[https] Certificate: CN=mz.company.com, valid until …` with the names it covers.
+
+   If the start fails, the log says why (see [Troubleshooting](#troubleshooting)).
+2. **The browser:** open `https://mz.company.com`. It shows the padlock, with no warning.
+3. **Settings → Reminder server address:** it should show `https://mz.company.com`. Click **Test**.
+   - The address comes from `REPORT_SERVER_URL`. If one was saved on this page before, that one wins: change it here.
+   - New emailed reports carry this address.
+
+### 4. After the switch
+
+- **Everyone signs in once** at the new address. A browser keeps its sign-in per address, and the old `http://` one is no longer used.
+- **Reports emailed before the switch** still point at the old address.
+  - A reader clicks **Change** next to *Reminder server* at the top of the report, enters `https://mz.company.com`, and the report remembers it.
+  - Alternatively, send new reports.
+- **Updating** works as before: `podman pull`, then the same command you started with, **including its HTTPS options**. If you run the plain-http command instead, the server goes back to http.
+- **Ports 80 and 443 on Windows:** Podman may refuse them ("permission denied"). Either:
+  - run `podman machine stop`, then `podman machine set --rootful`, then `podman machine start`; or
+  - use another port, e.g. `-p 8443:3000 -e HTTPS_PUBLIC_PORT=8443`, with the address `https://mz.company.com:8443`.
+
+**Behind a reverse proxy you already have** (nginx, IIS, an F5, a cloud load balancer):
+- Let it handle HTTPS and forward to port 3000, with the `X-Forwarded-Proto`, `X-Forwarded-For` and `X-Forwarded-Host` headers.
+- If the proxy is on another machine outside a private network, add `-e TRUST_PROXY=<its address>`. Otherwise those headers are not believed.
+
+All the options, and a checklist for hosting Mission Zero safely: [HTTPS and hosting](https-and-hosting.md).
 
 ---
 
@@ -235,6 +344,7 @@ Every finding in an email links straight to it in Checkmarx One (Risk Hub).
 The address people's browsers use to reach this server, put into every emailed report so readers can triage from it. For example `https://mission-zero.company.com`.
 - **Test** checks that it answers as this server.
 - You are warned if it is `localhost` (nobody else can reach it) or plain `http`.
+- Use the `https://` name in your certificate ([Turn on HTTPS](#turn-on-https)). `REPORT_SERVER_URL` fills it in when the page has none saved.
 
 ### Risks endpoint
 Where findings are read from. The default is `/api/risks/`.
@@ -522,4 +632,10 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 | "Mission Zero is restarting for an update — reconnecting…" | A new version is being applied. Wait a few seconds; you stay signed in and nothing is lost. |
 | A report says "busy, retrying" | Many reports are open at once. It retries by itself; nothing is lost. |
 | Credits refused | The project has no credits left. Allocate on the Dashboard, or raise the credit pool (Admin). |
+| **HTTPS:** the container stops; the log says "HTTPS is not set up correctly: …" | It tells you what is wrong:<ul><li>*The private key does not belong to the certificate*: the two files are from different requests. Ask IT for the matching pair.</li><li>*The .pfx file did not open: wrong TLS_PFX_PASSPHRASE?*: check the password.</li><li>*needs both TLS_CERT_FILE and TLS_KEY_FILE*: give both, or use `TLS_PFX_FILE`.</li><li>*no such file*: the folder is not mounted (`-v C:\mission-zero\certs:/certs:ro`), or the file name differs.</li></ul> |
+| **HTTPS:** the browser warns "Your connection is not private" | <ul><li>Self-signed: expected; trust it, or use your company's certificate.</li><li>Company certificate: the address you typed is not a name in the certificate (*Subject Alternative Name*); open the right name, or ask IT to add it.</li><li>The chain is missing intermediates: ask IT for the full chain in `server.crt`.</li></ul> |
+| **HTTPS:** "permission denied" when starting on ports 80 / 443 | Podman on Windows: `podman machine stop`, `podman machine set --rootful`, `podman machine start`. Or use `-p 8443:3000 -e HTTPS_PUBLIC_PORT=8443`. |
+| **HTTPS:** Let's Encrypt (Caddy) gets no certificate | `podman logs mz-caddy` says why. Usually the DNS name does not point at this machine yet, or port 80 is blocked from the internet. |
+| **HTTPS:** a renewed certificate is not being used | Wait 5 minutes. If the log says *The changed certificate could not be used*, the new files do not fit together; the old certificate stays in use meanwhile. |
+| **HTTPS:** reports cannot reach the server after the switch | Reports sent before carry the old address. In the report, click **Change** next to the reminder server and enter the `https://` address. Check **Settings → Reminder server address** shows it too. |
 | Anything else | Logs page → **Download troubleshooting log** and send it to your maintainer. |
