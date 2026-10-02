@@ -37,6 +37,7 @@ import { sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
 import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, isVerified, parseAddressList, publicSettings, smtpFingerprint } from './settings.js';
 import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
 import { SECRET_VARIABLES, parseEnvText, settingsFromEnv } from './env-import.js';
+import { inlineScriptHashes, sameOriginGuard, securityHeaders } from './security.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
 import {
@@ -269,7 +270,12 @@ const escapeHtml = (text) => String(text ?? '')
   .replace(/'/g, '&#39;');
 
 const app = express();
+// Security headers on every response, including the static pages (src/security.js).
+app.disable('x-powered-by');
+app.use(securityHeaders({ scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')) }));
 app.use(express.json({ limit: '4mb' }));
+// A browser request that changes state must come from this server's own pages.
+app.use('/api', sameOriginGuard({ exempt: ['/relay'] }));
 app.use(express.static(publicDir));
 
 /**
@@ -1484,6 +1490,53 @@ async function withoutNotExploitable(session, risks) {
 }
 
 /**
+ * The findings a reminder covers: the selected projects (all when none),
+ * narrowed to the projects whose latest scan the picked initiators ran,
+ * without anything not exploitable.
+ */
+async function reminderScope(session, scan, { projectIds = null, buckets = [], severities = null, initiators = null } = {}) {
+  const initiatorsByProject = scan.initiators ?? {};
+  let scoped = Array.isArray(projectIds) && projectIds.length ? projectIds.map(String) : null;
+  // Narrowing by initiator is a project-level filter: a finding belongs to
+  // whoever ran that project's latest scan.
+  if (Array.isArray(initiators) && initiators.length > 0) {
+    const wanted = new Set(initiators.map(String));
+    const matching = Object.entries(initiatorsByProject)
+      .filter(([, info]) => wanted.has(info.email) || wanted.has(info.initiator))
+      .map(([projectId]) => projectId);
+    scoped = scoped ? matching.filter((id) => scoped.includes(id)) : matching;
+  }
+  const risks = await withoutNotExploitable(session, selectRisks(scan.projects, {
+    projectIds: scoped,
+    buckets: Array.isArray(buckets) ? buckets : [],
+    severities,
+  }));
+  return { risks, initiatorsByProject };
+}
+
+/** Who ran a project's latest scan, as reminders are addressed: their email, else their username. */
+const initiatorKey = (info = {}) => info.email || info.initiator || '';
+
+/**
+ * One group per scan initiator ('initiator') or per project ('project'). A
+ * person is only ever sent projects whose latest scan they ran: checked here
+ * for every group, so no format or caller can mail anyone a project that is
+ * not theirs.
+ */
+function initiatorGroups(risks, initiatorsByProject, groupBy) {
+  const groups = groupBy === 'project' ? groupRisksByProject(risks, initiatorsByProject) : groupRisksByInitiator(risks, initiatorsByProject);
+  for (const group of groups) {
+    const key = group.email || group.initiator || '';
+    const stray = group.risks.find((r) => !group.projectIds.includes(r.projectId) || initiatorKey(initiatorsByProject[r.projectId]) !== key);
+    if (stray) {
+      throw Object.assign(new Error(`Refused to send: ${stray.projectName} is not a project ${key || 'this person'} scanned.`), { status: 500 });
+    }
+    group.projectNames = [...new Set(group.risks.map((r) => r.projectName))].sort();
+  }
+  return groups;
+}
+
+/**
  * Build and send (or preview, with dryRun) reminders for findings of `scan`
  * — the dashboard's last fetch, or a tracked report's open findings.
  * Resolves {status, body} for the caller to send.
@@ -1502,31 +1555,12 @@ async function runReminder(session, scan, input) {
     } = input;
 
     const { connection } = session;
-    const lastScan = scan;
     const settings = sendingSettings();
 
     // An empty bucket list means "no age filter", so a selection of projects or
     // initiators is enough on its own to send.
     const ageBuckets = Array.isArray(buckets) ? buckets : [];
-
-    const initiatorsByProject = lastScan.initiators ?? {};
-
-    // Narrowing by initiator is a project-level filter: a finding belongs to
-    // whoever ran that project's latest scan.
-    let scopedProjectIds = projectIds;
-    if (Array.isArray(wantedInitiators) && wantedInitiators.length > 0) {
-      const wanted = new Set(wantedInitiators);
-      const matching = Object.entries(initiatorsByProject)
-        .filter(([, info]) => wanted.has(info.email) || wanted.has(info.initiator))
-        .map(([projectId]) => projectId);
-      scopedProjectIds = projectIds ? matching.filter((id) => projectIds.includes(id)) : matching;
-    }
-
-    const risks = await withoutNotExploitable(session, selectRisks(lastScan.projects, {
-      projectIds: scopedProjectIds,
-      buckets: ageBuckets,
-      severities,
-    }));
+    const { risks, initiatorsByProject } = await reminderScope(session, scan, { projectIds, buckets: ageBuckets, severities, initiators: wantedInitiators });
     if (risks.length === 0) {
       return reply(400, { error: 'No vulnerabilities match that selection.' });
     }
@@ -1542,10 +1576,7 @@ async function runReminder(session, scan, input) {
 
     // ---- One email per scan initiator -------------------------------------
     if (groupBy === 'initiator' || groupBy === 'project') {
-      const groups =
-        groupBy === 'project'
-          ? groupRisksByProject(risks, initiatorsByProject)
-          : groupRisksByInitiator(risks, initiatorsByProject);
+      const groups = initiatorGroups(risks, initiatorsByProject, groupBy);
       const sendable = groups.filter((group) => group.email);
       const skipped = groups
         .filter((group) => !group.email)
@@ -1560,7 +1591,7 @@ async function runReminder(session, scan, input) {
 
       const prepared = sendable.map((group) => ({
         group,
-        reminder: buildReminder(risks.filter((r) => group.projectIds.includes(r.projectId)), settings.template, {
+        reminder: buildReminder(group.risks, settings.template, {
           ...common,
           initiator: group,
         }),
@@ -1588,6 +1619,7 @@ async function runReminder(session, scan, input) {
             email: group.email,
             via: group.via,
             projectCount: group.projectCount,
+            projects: group.projectNames,
             riskCount: group.risks.length,
             subject: reminder.subject,
             html: reminder.html,
@@ -1607,7 +1639,10 @@ async function runReminder(session, scan, input) {
       const failed = [];
       for (const { group, reminder } of prepared) {
         try {
+          // Exactly these addresses: without `exact`, an empty Cc/Bcc would fall
+          // back to the configured list and copy everyone on this person's projects.
           const result = await sendReminderMail(settings, reminder, {
+            exact: true,
             to: [group.email],
             cc: settings.initiators.copyConfiguredRecipients ? settings.recipients.cc : [],
             bcc: settings.initiators.copyConfiguredRecipients ? settings.recipients.bcc : [],
@@ -1618,6 +1653,7 @@ async function runReminder(session, scan, input) {
             email: group.email,
             riskCount: group.risks.length,
             projectCount: group.projectCount,
+            projects: group.projectNames,
             messageId: result.messageId,
           });
         } catch (error) {
@@ -1633,6 +1669,7 @@ async function runReminder(session, scan, input) {
             email: result.recipients.to.join(', '),
             riskCount: risks.length,
             projectCount: new Set(risks.map((risk) => risk.projectId)).size,
+            projects: [...new Set(risks.map((risk) => risk.projectName))].sort(),
             messageId: result.messageId,
           });
         } catch (error) {
@@ -3184,7 +3221,10 @@ async function remindTrackedReport(session, report, options, relayUrl, { automat
   const result = onlyTo.length
     ? await sendReportOnlyTo(session, report, scan, onlyTo, { attachHtml, dryRun, relayUrl })
     : attachHtml && !dryRun
-      ? await runHtmlReminder(session, scan, {}, relayUrl)
+      ? await runHtmlReminder(session, scan, {
+          groupBy: sendTo === 'list' ? 'none' : emailContent === 'per-project' ? 'project' : 'initiator',
+          alsoConsolidated: sendTo === 'both',
+        }, relayUrl)
       : await runReminder(session, scan, {
           groupBy: sendTo === 'list' ? 'none' : emailContent === 'per-project' ? 'project' : 'initiator',
           alsoConsolidated: sendTo === 'both',
@@ -3643,6 +3683,9 @@ main{max-width:520px;margin:24px;padding:28px;border-radius:14px;background:#fff
 <body><main><h1>${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p></main></body></html>`;
 }
 
+/** Text for inside an HTML comment: letters, digits and a few separators only, so it can never close the comment. */
+const commentSafe = (text) => String(text).replace(/[^\w ,.+-]/g, '').replace(/-{2,}/g, '-').slice(0, 200);
+
 /**
  * The email's "Let's start fixing the vulnerabilities" button: downloads the
  * interactive report that was attached to that email. The signed link is the
@@ -3701,8 +3744,8 @@ app.post(
         <!-- Diagnostic Info -->
         <!-- Projects selected: ${projectIds?.length ?? 0} -->
         <!-- Total risks in session: ${lastScan.projects.reduce((sum, p) => sum + (p.totalRisks ?? 0), 0)} -->
-        <!-- Buckets filter: ${buckets.length > 0 ? buckets.join(', ') : 'none (include all)'} -->
-        <!-- Severities filter: ${severities?.length > 0 ? severities.join(', ') : 'none (include all)'} -->
+        <!-- Buckets filter: ${buckets.length > 0 ? commentSafe(buckets.join(', ')) : 'none (include all)'} -->
+        <!-- Severities filter: ${severities?.length > 0 ? commentSafe(severities.join(', ')) : 'none (include all)'} -->
         `
       : '';
 
@@ -3723,103 +3766,104 @@ app.post(
 /** Send each scan initiator an email with the interactive HTML report attached. */
 async function runHtmlReminder(session, scan, input, relayUrl) {
   const reply = (status, payload) => ({ status, body: payload });
-    const { projectIds = null, buckets = [], severities = null } = input;
-    const lastScan = scan;
-    const settings = sendingSettings();
+  const { projectIds = null, buckets = [], severities = null, initiators = null, alsoConsolidated = false } = input;
+  const groupBy = ['initiator', 'project', 'none'].includes(input.groupBy) ? input.groupBy : 'initiator';
+  const settings = sendingSettings();
 
-
-    if (!isVerified(settings)) {
-      return reply(400, {
-        error:
-          'Test the SMTP connection on the Settings page before sending. ' +
-          'Changing any connection detail clears a previous successful test.',
-      });
-    }
-
-    const risks = await withoutNotExploitable(session, selectRisks(lastScan.projects, {
-      projectIds: projectIds?.length ? projectIds : null,
-      buckets,
-      severities,
-    }));
-
-    if (risks.length === 0) {
-      return reply(400, { error: 'No vulnerabilities match that selection.' });
-    }
-
-    const initiatorsByProject = lastScan.initiators ?? {};
-    const groups = groupRisksByInitiator(risks, initiatorsByProject);
-
-    const sendable = groups.filter((group) => group.email);
-    const skipped = groups
-      .filter((group) => !group.email)
-      .map((group) => ({
-        initiator: group.initiator || '(unknown)',
-        riskCount: group.risks.length,
-      }));
-
-    const sent = [];
-    const errors = [];
-
-    for (const group of sendable) {
-      try {
-        const attachmentName = `vulnerability-report-${new Date().toISOString().split('T')[0]}.html`;
-        const { reportData, findings, html: htmlReport, downloadUrl } = await buildInteractiveReport(session, group.risks, {
-          buckets,
-          settings,
-          relayUrl,
-          initiatorsByProject,
-          initiator: group,
-          audience: { recipient: group.email, purpose: 'emailed to the scan initiator' },
-          publish: attachmentName,
-        });
-        const body = buildReportEmail(reportData, {
-          greeting: `Hi ${group.initiator || 'there'}`,
-          topCount: findings.length,
-          downloadUrl,
-        });
-        const message = {
-          subject: `${group.risks.length} open vulnerabilities to triage`,
-          html: body.html,
-          text: body.text,
-        };
-
-        const result = await sendReminderMail(settings, message, {
-          to: [group.email],
-          cc: [],
-          bcc: [],
-          attachments: [
-            {
-              filename: attachmentName,
-              content: htmlReport,
-              contentType: 'text/html',
-            },
-          ],
-        });
-
-        sent.push({
-          initiator: group.initiator,
-          email: group.email,
-          riskCount: group.risks.length,
-          projectCount: group.projectIds.size,
-          messageId: result.messageId,
-        });
-      } catch (error) {
-        errors.push({
-          initiator: group.initiator,
-          email: group.email,
-          error: error.message,
-        });
-      }
-    }
-
-    return reply(200, {
-      delivered: sent.length > 0,
-      sent,
-      skipped,
-      errors: errors.length > 0 ? errors : undefined,
-      summary: `Sent HTML reports to ${sent.length} person(s), skipped ${skipped.length}`,
+  if (!isVerified(settings)) {
+    return reply(400, {
+      error:
+        'Test the SMTP connection on the Settings page before sending. ' +
+        'Changing any connection detail clears a previous successful test.',
     });
   }
+
+  const { risks, initiatorsByProject } = await reminderScope(session, scan, { projectIds, buckets, severities, initiators });
+  if (risks.length === 0) {
+    return reply(400, { error: 'No vulnerabilities match that selection.' });
+  }
+
+  const attachmentName = `vulnerability-report-${new Date().toISOString().split('T')[0]}.html`;
+  /** One email with its own interactive report of exactly `findings`. */
+  const sendReport = async (findings, { to, cc = [], bcc = [], greeting, initiator = null, purpose }) => {
+    const { reportData, findings: shown, html, downloadUrl } = await buildInteractiveReport(session, findings, {
+      buckets,
+      settings,
+      relayUrl,
+      initiatorsByProject,
+      initiator,
+      audience: { recipient: to.join(', '), purpose },
+      publish: attachmentName,
+    });
+    const body = buildReportEmail(reportData, { greeting, topCount: shown.length, downloadUrl });
+    const projects = [...new Set(findings.map((r) => r.projectName))].sort();
+    const message = {
+      subject: `${findings.length} open vulnerabilities to triage${projects.length === 1 ? ` in ${projects[0]}` : ''}`,
+      html: body.html,
+      text: body.text,
+    };
+    const result = await sendReminderMail(settings, message, {
+      exact: true,
+      to,
+      cc,
+      bcc,
+      attachments: [{ filename: attachmentName, content: html, contentType: 'text/html' }],
+    });
+    return { messageId: result.messageId, projects };
+  };
+
+  const sent = [];
+  const errors = [];
+  let skipped = [];
+  if (groupBy === 'initiator' || groupBy === 'project') {
+    const groups = initiatorGroups(risks, initiatorsByProject, groupBy);
+    skipped = groups
+      .filter((group) => !group.email)
+      .map((group) => ({ initiator: group.initiator || '(unknown)', riskCount: group.risks.length, projects: group.projectNames }));
+    for (const group of groups.filter((g) => g.email)) {
+      try {
+        const result = await sendReport(group.risks, {
+          to: [group.email],
+          cc: settings.initiators.copyConfiguredRecipients ? settings.recipients.cc : [],
+          bcc: settings.initiators.copyConfiguredRecipients ? settings.recipients.bcc : [],
+          greeting: `Hi ${group.initiator || 'there'}`,
+          initiator: group,
+          purpose: `emailed to the scan initiator (${group.projectNames.join(', ')})`,
+        });
+        sent.push({ initiator: group.initiator, email: group.email, riskCount: group.risks.length, projectCount: group.projectCount, ...result });
+      } catch (error) {
+        errors.push({ initiator: group.initiator, email: group.email, error: error.message });
+      }
+    }
+  }
+  // The recipient list: everything selected, in one report (a lead's overview).
+  if (groupBy === 'none' || alsoConsolidated) {
+    const { to, cc, bcc } = settings.recipients;
+    if (!to.length && !cc.length && !bcc.length) {
+      errors.push({ initiator: 'recipient list', email: '', error: 'The recipient list is empty: add addresses under Send reminder → Recipient list.' });
+    } else {
+      try {
+        const result = await sendReport(risks, { to, cc, bcc, greeting: 'Hi', purpose: 'emailed to the recipient list' });
+        sent.push({ initiator: 'recipient list', email: [...to, ...cc, ...bcc].join(', '), riskCount: risks.length, projectCount: result.projects.length, consolidated: true, ...result });
+      } catch (error) {
+        errors.push({ initiator: 'recipient list', email: to.join(', '), error: error.message });
+      }
+    }
+  }
+
+  const people = sent.filter((entry) => !entry.consolidated).length;
+  return reply(sent.length || !errors.length ? 200 : 502, {
+    delivered: sent.length > 0,
+    groupBy,
+    sent,
+    skipped,
+    errors: errors.length > 0 ? errors : undefined,
+    error: !sent.length && errors.length ? errors[0].error : undefined,
+    summary: groupBy === 'none'
+      ? `Sent the HTML report to the recipient list${errors.length ? ' — failed' : ''}.`
+      : `Sent HTML reports to ${people} person(s)${sent.some((e) => e.consolidated) ? ', plus the full report to the recipient list' : ''}, skipped ${skipped.length}.`,
+  });
+}
 
 app.post(
   '/api/reminders/send-html-by-initiator',
@@ -3829,81 +3873,6 @@ app.post(
     const settings = settingsStore.get();
     const { status, body } = await runHtmlReminder(req.session, req.session.lastScan, req.body ?? {}, reportServerUrl(req, settings));
     res.status(status).json(body);
-  }),
-);
-
-app.post(
-  '/api/reminders/with-attachment',
-  requirePermission('reminders.send'),
-  asyncRoute(async (req, res) => {
-    const { htmlReport, recipients } = req.body ?? {};
-    const settings = sendingSettings();
-
-    if (!htmlReport) {
-      return res.status(400).json({ error: 'htmlReport is required.' });
-    }
-
-    if (!isVerified(settings)) {
-      return res.status(400).json({
-        error:
-          'Test the SMTP connection on the Settings page before sending. ' +
-          'Changing any connection detail clears a previous successful test.',
-      });
-    }
-
-    // Use provided recipients or fall back to configured recipients
-    const to = (recipients?.to?.length ? recipients.to : settings.recipients?.to) || [];
-    const cc = (recipients?.cc?.length ? recipients.cc : settings.recipients?.cc) || [];
-    const bcc = (recipients?.bcc?.length ? recipients.bcc : settings.recipients?.bcc) || [];
-
-    if (to.length + cc.length + bcc.length === 0) {
-      return res.status(400).json({ error: 'No recipients configured.' });
-    }
-
-    const message = {
-      subject: `Vulnerability Report - Interactive Report Attached`,
-      html:
-        `<p>Hi,</p>` +
-        `<p>Please review the attached interactive vulnerability report. You can triage and remediate findings directly from the HTML file.</p>` +
-        `<p><strong>Features:</strong></p>` +
-        `<ul><li>Click "Triage" or "Remediate" buttons to update finding status</li>` +
-        `<li>Use bulk actions to triage all critical or high-severity findings at once</li>` +
-        `<li>Status updates in real-time in the report</li></ul>` +
-        `<p>Simply open the attached HTML file in your browser to get started.</p>`,
-      text:
-        `Hi,\n\nPlease review the attached interactive vulnerability report. ` +
-        `You can triage and remediate findings directly from the HTML file.\n\n` +
-        `Features:\n` +
-        `- Click "Triage" or "Remediate" buttons to update finding status\n` +
-        `- Use bulk actions to triage all critical or high-severity findings at once\n` +
-        `- Status updates in real-time in the report\n\n` +
-        `Simply open the attached HTML file in your browser to get started.`,
-    };
-
-    try {
-      const result = await sendReminderMail(settings, message, {
-        to,
-        cc,
-        bcc,
-        attachments: [
-          {
-            filename: `vulnerability-report-${new Date().toISOString().split('T')[0]}.html`,
-            content: htmlReport,
-            contentType: 'text/html',
-          },
-        ],
-      });
-
-      res.json({
-        delivered: true,
-        messageId: result.messageId,
-        recipients: { to, cc, bcc },
-        attachment: 'vulnerability-report.html',
-        status: 'Email sent with interactive HTML report attached.',
-      });
-    } catch (error) {
-      res.status(error.status || 500).json({ error: error.message });
-    }
   }),
 );
 

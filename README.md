@@ -139,6 +139,20 @@ Either of the per-person modes can add **…plus a consolidated copy to the list
 developers get their own messages *and* a lead gets the whole picture in one. The
 recipient list is its own block below, so it is clear when it applies.
 
+**A scan initiator only ever gets their own projects.** Select four projects where Sudha
+ran the latest scan of two and Sean of the other two: Sudha's email — its summary, and the
+interactive report attached to it — covers her two projects only, and Sean's his two. This
+holds for every combination: summary or one per project, with or without the attached
+report, from the Dashboard, from a tracked report's follow-up and from automatic
+reminders, and with people picked in the Scan initiators panel (only they are mailed).
+- The server checks every email before it goes: a message that would hold a project its
+  recipient did not scan is refused, not sent.
+- The configured **Cc / Bcc are not copied** on initiators' emails unless *Copy the
+  configured Cc/Bcc on per-initiator emails* is ticked (Settings → Scan initiators).
+- After sending, **who got which projects** is listed under the Send button.
+- `test/initiator-scope.e2e.test.js` sends through a fake mail server and reads every
+  message (and its attached report) back, for each of those combinations.
+
 Anyone still without an address is reported as skipped — with their finding count —
 rather than silently dropped.
 
@@ -687,6 +701,29 @@ deployment-level settings (port, bind address, concurrency, on-prem URL override
 and an optional `CX_API_KEY` bootstrap for headless deployments).
 
 ---
+
+## Security
+
+- **Dependencies:** `npm audit` reports no known vulnerabilities; the image installs
+  production dependencies only, and the runtime image carries no package manager.
+- **Headers on every response:** a Content Security Policy that allows only this
+  server's own scripts (the one inline snippet is allowed by its hash), no framing
+  (`frame-ancestors 'none'`, `X-Frame-Options: DENY`), `nosniff`, `same-origin`
+  referrers, a restrictive `Permissions-Policy`, HSTS over HTTPS, no `X-Powered-By`.
+- **Cross-site requests:** besides the `SameSite=Lax`, `HttpOnly` session cookie
+  (`Secure` over HTTPS), a request that changes anything must come from this server's
+  own pages — a POST/PUT/PATCH/DELETE whose `Origin` (or `Referer`) names another site
+  is refused. The report relay is exempt by design: it is called from reports opened
+  from disk, and every action there needs a signed per-finding grant instead.
+- **Input:** role ids and initiator overrides never resolve to an object's built-in
+  properties (`__proto__`, `constructor`); email checks are capped at 254 characters so
+  no input can make them backtrack; links built from Checkmarx One or relay data are
+  `http(s)` only; template triple braces render raw only when balanced.
+- **Container and CI:** the image runs as `node`, is built in two stages, takes the
+  latest Alpine fixes (`apk upgrade`), and runs in CI with a read-only root, no Linux
+  capabilities and `no-new-privileges` (as `compose.yaml` does). GitHub Actions are
+  pinned to commit SHAs, with read-only permissions except where publishing needs
+  `packages: write`, and checkouts do not keep credentials.
 
 ## Operational notes
 

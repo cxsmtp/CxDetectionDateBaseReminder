@@ -18,7 +18,7 @@ import { extractItems } from './client.js';
  * the data.
  */
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^(?=[^]{3,254}$)[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Service-account and tooling prefixes that are not part of a person's name. */
 const NOISE_PREFIXES = ['cx-', 'cx_', 'svc-', 'svc_', 'sa-', 'sa_', 'ast-'];

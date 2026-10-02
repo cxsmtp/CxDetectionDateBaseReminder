@@ -766,9 +766,25 @@
   // AI Remediation
   // ---------------------------------------------------------------------------
 
+  /** Only web and blob links: a URL from a server response is never allowed to be javascript: or data:. */
+  function safeHref(href) {
+    try {
+      const url = new URL(String(href), location.href);
+      return ['http:', 'https:', 'blob:', 'mailto:'].includes(url.protocol) ? url.href : '';
+    } catch {
+      return '';
+    }
+  }
+
   function link(text, href, download) {
     const a = document.createElement('a');
-    a.href = href;
+    const safe = safeHref(href);
+    if (!safe) {
+      const span = document.createElement('span');
+      span.textContent = text;
+      return span;
+    }
+    a.href = safe;
     a.textContent = text;
     if (download) a.download = download;
     else {
@@ -793,7 +809,8 @@
     return {
       summary: data?.summary || data?.analysis?.what || '',
       how: data?.analysis?.how || '',
-      prUrl: r.autoPr?.url || '',
+      // From Checkmarx One via the relay: only an http(s) address becomes a link.
+      prUrl: /^https?:\/\//i.test(String(r.autoPr?.url || '')) ? String(r.autoPr.url) : '',
       prStatus: String(r.autoPr?.status || ''),
       prError: r.autoPr?.error_msg || '',
       patch,

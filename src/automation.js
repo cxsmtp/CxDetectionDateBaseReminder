@@ -249,7 +249,16 @@ export async function runOnce({
         continue;
       }
       const reminder = buildReminder(group.risks, settings.template, { ...common, initiator: group });
-      messages.push({ to: [group.email], reminder, riskCount: group.risks.length, label: group.initiator });
+      // Exactly this person (plus the list's Cc/Bcc only when that is switched on): never
+      // the configured list by default, which would copy them on someone else's projects.
+      const copy = settings.initiators?.copyConfiguredRecipients === true;
+      messages.push({
+        to: [group.email],
+        overrides: { exact: true, to: [group.email], cc: copy ? settings.recipients.cc : [], bcc: copy ? settings.recipients.bcc : [] },
+        reminder,
+        riskCount: group.risks.length,
+        label: group.initiator,
+      });
     }
   } else {
     const reminder = buildReminder(crossed, settings.template, common);
@@ -263,7 +272,7 @@ export async function runOnce({
       continue;
     }
     try {
-      await sendReminderMail(settings, message.reminder, { to: message.to });
+      await sendReminderMail(settings, message.reminder, message.overrides ?? { to: message.to });
       sent += 1;
     } catch (error) {
       failures.push({ to: message.to.join(', '), error: error.message });

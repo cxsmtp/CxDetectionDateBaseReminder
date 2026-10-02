@@ -10,7 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^(?=[^]{3,254}$)[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_ENTRIES = 20_000;
 
 export class KnownAddresses {

@@ -26,7 +26,7 @@ import { promisify } from 'node:util';
 import { mapWithConcurrency } from '../cxone/client.js';
 
 const run = promisify(execFile);
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^(?=[^]{3,254}$)[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const NOREPLY_RE = /^(?:(\d+)\+)?([a-z\d](?:[a-z\d-]{0,38}))@users\.noreply\.(?:github\.com|[\w.-]+)$/i;
 const LOGIN_RE = /^[a-z\d](?:[a-z\d-]{0,38})$/i;
 

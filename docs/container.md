@@ -128,4 +128,11 @@ docker build --secret id=ca,src=company-ca.pem -t mission-zero .
   handling) and `tzdata`.
 - It runs as the unprivileged `node` user, listens on port 3000, and has a
   health check on `/api/health`.
+- Built in two stages: npm installs the dependencies in the first, and the
+  runtime image gets only `node_modules` — no npm, npx, corepack or yarn. OS
+  packages are upgraded to their latest fixes at build time.
+- It runs with a read-only root filesystem, no Linux capabilities and no
+  privilege escalation (`compose.yaml` sets this; CI tests the image the same
+  way). With `docker run`, add the same:
+  `--read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true`.
 - The state folder is created `0700`, so only that user can read it.

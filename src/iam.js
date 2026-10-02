@@ -85,7 +85,7 @@ export const DEFAULT_ROLES = {
 export const MIN_PASSWORD_LENGTH = 12;
 const MAX_FAILED = 5;
 const LOCK_MS = 15 * 60 * 1000;
-const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
+const EMAIL = /^(?=[^]{3,254}$)[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 
 const fail = (status, message, extra = {}) => Object.assign(new Error(message), { status, ...extra });
 const norm = (value) => String(value ?? '').trim().toLowerCase();
@@ -162,7 +162,7 @@ export class IamStore {
       };
     }
     for (const [id, role] of Object.entries(raw.roles ?? {})) {
-      if (DEFAULT_ROLES[id]) continue;
+      if (DEFAULT_ROLES[id] || ['__proto__', 'constructor', 'prototype'].includes(id)) continue;
       roles[id] = { name: String(role.name ?? id), description: String(role.description ?? ''), permissions: validPermissions(role.permissions), builtin: false };
     }
     const users = Array.isArray(raw.users) ? raw.users.filter((u) => u?.id && u?.email) : [];
@@ -195,8 +195,13 @@ export class IamStore {
     }));
   }
 
+  /** A role by id: only the roles themselves, never a property every object has ("constructor", "__proto__"). */
+  #role(id) {
+    return Object.hasOwn(this.#state.roles, String(id)) ? this.#state.roles[String(id)] : null;
+  }
+
   role(id) {
-    const role = this.#state.roles[id];
+    const role = this.#role(id);
     return role ? { id, ...role } : null;
   }
 
@@ -231,7 +236,7 @@ export class IamStore {
   /** The permissions a user holds right now (a role change applies at once). */
   permissionsOf(user) {
     if (!user || user.disabled) return new Set();
-    return new Set(this.#state.roles[user.role]?.permissions ?? []);
+    return new Set(this.#role(user.role)?.permissions ?? []);
   }
 
   // -------------------------------------------------------------------------
@@ -244,7 +249,7 @@ export class IamStore {
   }
 
   #assertCanGrantRole(actorPerms, roleId) {
-    const role = this.#state.roles[roleId];
+    const role = this.#role(roleId);
     if (!role) throw fail(400, 'That role does not exist.');
     if (!this.canGrant(actorPerms, role.permissions)) {
       throw fail(403, `You cannot assign "${role.name}": it holds permissions you do not have.`);
@@ -264,7 +269,7 @@ export class IamStore {
     if (!EMAIL.test(address)) throw fail(400, 'Enter a valid email address.');
     if (this.findByEmail(address)) throw fail(409, `${address} already has access.`);
     if (actorPerms) this.#assertCanGrantRole(actorPerms, role);
-    else if (!this.#state.roles[role]) throw fail(400, 'That role does not exist.');
+    else if (!this.#role(role)) throw fail(400, 'That role does not exist.');
     const aliases = cleanAliases(cxoneIdentities);
     this.#assertAliasesFree(aliases, null);
     if (password) {
@@ -403,7 +408,7 @@ export class IamStore {
 
   /** Create (no id) or change a role. Returns {before, after}. */
   saveRole(id, { name, description = '', permissions }, { actorPerms }) {
-    const existing = id ? this.#state.roles[id] : null;
+    const existing = id ? this.#role(id) : null;
     if (id && !existing) throw fail(404, 'No such role.');
     if (existing?.locked) throw fail(400, `${existing.name} always holds every permission and cannot be changed.`);
     const perms = validPermissions(permissions);
@@ -429,7 +434,7 @@ export class IamStore {
   }
 
   deleteRole(id, { actorPerms }) {
-    const role = this.#state.roles[id];
+    const role = this.#role(id);
     if (!role) throw fail(404, 'No such role.');
     if (role.builtin) throw fail(400, `${role.name} is built in and cannot be removed.`);
     if (!this.canGrant(actorPerms, role.permissions)) throw fail(403, `You cannot remove "${role.name}": it holds permissions you do not have.`);

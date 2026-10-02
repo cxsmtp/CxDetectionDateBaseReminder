@@ -13,20 +13,27 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least privilege: read-only by default; only publishing may write packages.
 permissions:
   contents: read
-  packages: write
 
 jobs:
   smoke-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Build
         run: docker build -t mission-zero:test .
       - name: Start, turn healthy, print the first sign-in
         run: |
-          docker run -d --name mz -p 3000:3000 -v mz-data:/data -e TZ=Asia/Dubai mission-zero:test
+          # Run as hardened as compose.yaml does: read-only root, no capabilities, no privilege escalation.
+          docker run -d --name mz -p 3000:3000 -v mz-data:/data -e TZ=Asia/Dubai \
+            --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true \
+            mission-zero:test
           for i in $(seq 1 30); do
             [ "$(docker inspect -f '{{.State.Health.Status}}' mz)" = healthy ] && break
             sleep 2
@@ -39,6 +46,11 @@ jobs:
             -d "{\"email\":\"admin@mission-zero.local\",\"password\":\"$PW\"}" \
             http://127.0.0.1:3000/api/session/password | grep -q '"signedIn":true'
           docker exec mz git --version
+          # The runtime image carries no package manager (fewer components, fewer CVEs).
+          if docker exec mz sh -c 'command -v npm || command -v npx || command -v yarn'; then echo 'a package manager is still in the image'; exit 1; fi
+          # Security headers on the pages.
+          curl -sfI http://127.0.0.1:3000/ | grep -qi "content-security-policy: .*frame-ancestors 'none'"
+          curl -sfI http://127.0.0.1:3000/ | grep -qi 'x-frame-options: DENY'
           docker exec mz node scripts/reset-admin.mjs | grep -q 'Password: '
           docker restart mz && sleep 5
           test "$(docker logs --since 5s mz 2>&1 | grep -c 'Password:')" = 0
@@ -47,17 +59,22 @@ jobs:
     needs: smoke-test
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ghcr.io/${{ github.repository }}
           # main / master publish :latest, whichever branch is the repository's default.
@@ -65,7 +82,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
             type=semver,pattern={{version}}
             type=sha
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
