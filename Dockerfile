@@ -4,8 +4,8 @@
 #   docker run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 #   podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 #
-# The first start creates an administrator; their one-time password is in /data:
-#   docker exec mission-zero cat /data/first-admin-password.txt
+# The first start prints the administrator's sign-in in the container log:
+#   docker logs mission-zero
 
 # Both stages start from plain Alpine and add Alpine's own Node.js packages, so
 # no image carries the npm that official node images bundle (and its CVEs).

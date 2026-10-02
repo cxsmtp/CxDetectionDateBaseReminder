@@ -1,7 +1,7 @@
 # Run from this folder with one command — Docker or Podman:
 #   docker compose up -d        (or: podman compose up -d)
-# The first start creates an administrator; their one-time password:
-#   docker compose exec mission-zero cat /data/first-admin-password.txt
+# The first start prints the administrator's sign-in:
+#   docker compose logs mission-zero
 services:
   mission-zero:
     build: .                      # built from this folder the first time

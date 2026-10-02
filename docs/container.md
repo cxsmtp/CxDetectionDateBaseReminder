@@ -38,29 +38,29 @@ Then open <http://localhost:3000>.
 
 ## The administrator's sign-in
 
-The first start creates an administrator, `admin@mission-zero.local`, with a
-generated one-time password. The password is never written to the log, which
-is often shipped to other systems. It is saved in the data volume, readable
-only by the server's own user:
+The first start creates an administrator and prints the sign-in once in the
+container log:
 
 ```
-docker exec mission-zero cat /data/first-admin-password.txt
-# or: podman exec … / docker compose exec mission-zero cat /data/first-admin-password.txt
+docker logs mission-zero        # or: podman logs mission-zero / docker compose logs
 ```
-
-The container log only says where to look:
 
 ```
 ================================================================
-  First start: an administrator was created.
-      Email:  admin@mission-zero.local
-      Their one-time password is in /data/first-admin-password.txt
-  ...
+  First start: an administrator was created. Sign in with:
+      Email:    admin@mission-zero.local
+      Password: xxxxx-xxxxx-xxxxx-xxxxx
+  You choose your own password at first sign-in. This is shown only once;
+  until then it is also in /data/first-admin-password.txt.
 ================================================================
 ```
 
-- The file is deleted as soon as the administrator chooses their own password,
-  and is never part of a backup.
+- It is printed only on the very first start of a new data volume. A volume
+  from an earlier run already has its administrator, so nothing is printed:
+  use **Lost it?** below.
+- Scrolled out of the log? `docker exec mission-zero cat /data/first-admin-password.txt`
+  shows it until the administrator chooses their own password (the file is
+  then deleted, and is never part of a backup).
 - The administrator chooses their own password at first sign-in, then adds the
   team under **Access**.
 - To use your own email for this account, add `-e ADMIN_EMAIL=appsec-lead@company.com`

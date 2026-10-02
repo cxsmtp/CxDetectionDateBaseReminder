@@ -26,8 +26,7 @@ Swap `docker` for `podman` to use Podman. From a checkout you can instead run
 `docker compose up -d` (or `podman compose up -d`).
 
 Open <http://localhost:3000> and sign in with the administrator's email and
-one-time password, which `docker exec mission-zero cat /data/first-admin-password.txt`
-shows (it is never written to the log). See
+password, which `docker logs mission-zero` shows once, at first start. See
 [docs/container.md](docs/container.md) for options, backups, upgrades and
 proxies.
 
