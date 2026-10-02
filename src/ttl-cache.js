@@ -48,7 +48,7 @@ export class TtlCache {
       this.hits += 1;
       return { value: entry.value, fresh: true };
     }
-    if (loader) this.wrap(key, loader, ttl).catch(() => {});
+    if (loader) this.wrap(key, loader, ttl, { background: true }).catch(() => {});
     return entry ? { value: entry.value, fresh: false } : undefined;
   }
 
@@ -61,28 +61,35 @@ export class TtlCache {
     for (const key of this.#entries.keys()) if (key.startsWith(prefix)) this.#entries.delete(key);
   }
 
-  async wrap(key, loader, ttl) {
+  /**
+   * `background`: the load was started by a background refresh (peek), whose upstream call
+   * may wait behind everything else. A person waiting (not background) never joins such a
+   * load: they start their own, and later callers join theirs.
+   */
+  async wrap(key, loader, ttl, { background = false } = {}) {
     const cached = this.get(key);
     if (cached !== undefined) {
       this.hits += 1;
       return cached;
     }
-    if (this.#inFlight.has(key)) {
+    const running = this.#inFlight.get(key);
+    if (running && (background || !running.background)) {
       this.hits += 1;
-      return this.#inFlight.get(key);
+      return running.promise;
     }
     this.misses += 1;
-    const pending = (async () => {
+    const entry = { background, promise: null };
+    entry.promise = (async () => {
       try {
         const value = await loader();
         this.set(key, value, typeof ttl === 'function' ? ttl(value) : ttl);
         return value;
       } finally {
-        this.#inFlight.delete(key);
+        if (this.#inFlight.get(key) === entry) this.#inFlight.delete(key);
       }
     })();
-    this.#inFlight.set(key, pending);
-    return pending;
+    this.#inFlight.set(key, entry);
+    return entry.promise;
   }
 
   get size() {
