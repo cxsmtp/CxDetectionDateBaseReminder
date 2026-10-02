@@ -32,11 +32,16 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 512
+    # Size for up to 3000 people at once (docs/performance.md): uncomment to cap
+    # the container at 2 CPUs / 3 GB, and keep NODE_OPTIONS below in step.
+    # cpus: 2
+    # mem_limit: 3g
     environment:
       # Optional — all of these can also be set in the utility (Settings).
       TZ: ${TZ:-UTC}                                # time zone for automatic reminders, e.g. Asia/Dubai
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}                 # first administrator's email (default admin@mission-zero.local)
       REPORT_SERVER_URL: ${REPORT_SERVER_URL:-}     # address people use to reach this server, put in every report
       CX_API_KEY: ${CX_API_KEY:-}                   # Checkmarx One integration key (or store it in Settings)
+      NODE_OPTIONS: ${NODE_OPTIONS:-}               # e.g. --max-old-space-size=2048 with a 3 GB memory limit
 volumes:
   mission-zero-data:

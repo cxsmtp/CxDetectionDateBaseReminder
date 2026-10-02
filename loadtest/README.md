@@ -1,3 +1,10 @@
+# Load tests
+
+**Mixed benchmark (everything at once):** `loadtest/benchmark.sh 3000 120` —
+emailed reports, Dashboard users fetching, reminders, analytics, credits and
+administrators. See [docs/performance.md](../docs/performance.md) for what it
+does, the results, and the recommended server size.
+
 # Relay load test
 
 Emailed reports run AI Triage and AI Remediation through this server's relay,

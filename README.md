@@ -381,12 +381,28 @@ under the server's account.
   path that reaches it, so a report can show, say, 12 critical/high rows that
   are 10 results. AI Triage works on the result: those rows are triaged
   together and charged once (10 credits, not 12). Everywhere a count is shown —
-  the interactive report (rows marked **Same result**, its "Triage all" buttons
+  the interactive report (rows marked **Same result R1**, **R2**, … — see below — its "Triage all" buttons
   and confirmations), the Dashboard's credits panel and per-project editor,
   tracked reports and the projects table — it says how many findings and how
   many results, so the difference is never a surprise.
   - One finding here means one Checkmarx One result: rows that share a result,
     such as the same vulnerability listed twice, are triaged and counted once.
+  - **Which rows go together.** Each shared result gets its own label and colour
+    (**Same result R1**, **R2**, …, with a matching bar down the row's edge), so
+    two pairs of look-alike rows are never confused.
+    - Each row links to its twin (**below ↓** / **above ↑**). Hovering a row
+      lights up every row of its result.
+    - **why?** explains: Checkmarx One gave the rows the same result ID (shown),
+      because it lists a result once per code path into the vulnerable code.
+- **Why it was confirmed.** Under a **Confirmed** (or Urgent) state, the report says
+  in two short lines **Why** it is a real vulnerability and how to **Fix** it.
+  - **why?** opens the details: AI Triage's own explanation and verdict
+    (reachable / exploitable, confidence) when Checkmarx One has one; the
+    possible solution; and what Remediate will do.
+  - When AI Triage gives no explanation, the note says what this kind of finding
+    (e.g. Reflected_XSS, Poor_Database_Access_Control) means and how it is
+    usually fixed (`src/fix-advice.js`).
+  - It updates as soon as triage confirms a finding.
 - **Allocations.** A project can spend only what someone allocated to it on the
   Dashboard (see *Credits on the Dashboard*); nothing is allocated on its own.
   What it *needs* follows the severities its rule covers (critical and high by default):
@@ -808,6 +824,13 @@ and an optional `CX_API_KEY` bootstrap for headless deployments).
 
 ## Operational notes
 
+- **Sizing.** One server on **2 vCPU and 4 GB RAM** handled 3000 people at once in
+  a mixed benchmark: emailed reports triaging and polling, people fetching,
+  reminders, analytics and administrators. It answered 2,970 simultaneous
+  requests with none failing, and served 518 requests/s for two minutes. Results,
+  the sizing table and the Podman command with resource limits are in
+  [docs/performance.md](docs/performance.md); rerun it with
+  `loadtest/benchmark.sh 3000 120`.
 - **Everyone signs in.** There is no shared session: even with `CX_API_KEY` set,
   the UI does nothing until someone signs in, and each person can do only what
   their role allows (see [Access control](#access-control)). Serve it over HTTPS

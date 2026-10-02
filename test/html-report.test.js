@@ -69,6 +69,7 @@ test('AI actions are enabled only for SAST/SCA findings whose Checkmarx One ids 
     relayUrl: '',
     allowRetriage: false,
     allowReremediation: false,
+    remediateHere: false,
     adminContact: '',
   });
   assert.ok(!/apiKey|refresh_token"\s*:/.test(JSON.stringify(island(html))), 'no credential is embedded');
@@ -206,9 +207,47 @@ test('rows that are one Checkmarx One result are marked, and the report says how
   const html = generateHtmlReport(buildReportData(risks, { tenant: 't' }));
   assert.match(html, /3 findings here are 2 Checkmarx One results/);
   assert.equal((html.match(/class="shared-note"/g) ?? []).length, 2, 'both rows of the shared result are marked');
-  assert.match(html, /One Checkmarx One result with 1 other row here: triaged together, 1 credit/);
+  assert.match(html, /Same result R1<\/span> also listed <a class="shared-link" href="#row-\d" data-twin="\d">(below ↓|above ↑)<\/a>/);
+  assert.match(html, /triaged together, 1 credit/);
+  assert.match(html, /<summary>why\?<\/summary><p>Checkmarx One gave these 2 rows the same result ID \(<code>ALT-A<\/code>\)/);
 
   const unique = generateHtmlReport(buildReportData([risk(4, 'HIGH'), risk(5, 'HIGH')], { tenant: 't' }));
   assert.ok(!unique.includes('class="shared-explainer"'), 'no note when every row is its own result');
   assert.ok(!unique.includes('class="shared-note"'));
+});
+
+test('two shared results are told apart: each has its own label and colour, and each row links to its own twin', () => {
+  // As in a real report: two Reflected_XSS results, each listed twice, interleaved.
+  const at = (i, alt, location) => ({ ...risk(i, 'HIGH'), title: 'Reflected_XSS', alternateId: alt, groupId: `g-${alt}`, location });
+  const risks = [at(1, 'h75gg1234567', 'session.js :: render'), at(2, 'hoHyR7654321', 'contributions.js :: render'), at(3, 'h75gg1234567', 'session.js :: render'), at(4, 'solo', 'memos.js :: render'), at(5, 'hoHyR7654321', 'contributions.js :: render')];
+  const html = generateHtmlReport(buildReportData(risks, { tenant: 't' }));
+  const row = (key) => html.slice(html.indexOf(`<tr data-key="${key}"`), html.indexOf('</tr>', html.indexOf(`<tr data-key="${key}"`)));
+  const keyOf = (n) => String(island(html).findings.findIndex((f) => f.riskId === `r${n}`));
+  const [k1, k2, k3, k4, k5] = [1, 2, 3, 4, 5].map(keyOf);
+  const label = (key) => /data-result="(R\d)"/.exec(row(key))?.[1];
+  assert.equal(label(k1), label(k3), 'rows 1 and 3 are one result');
+  assert.equal(label(k2), label(k5), 'rows 2 and 5 are one result');
+  assert.notEqual(label(k1), label(k2), 'the two results have different labels');
+  assert.notEqual(/shared-c\d/.exec(row(k1))[0], /shared-c\d/.exec(row(k2))[0], 'and different colours');
+  assert.equal(label(k4), undefined, 'a result listed once is not marked');
+  assert.match(row(k1), new RegExp(`href="#row-${k3}"`), 'row 1 links to row 3');
+  assert.match(row(k5), new RegExp(`href="#row-${k2}"`), 'row 5 links to row 2');
+  assert.ok(!row(k1).includes(`href="#row-${k2}"`), 'and not to the other result');
+  assert.match(row(k1), /Here every path ends at session\.js :: render/);
+  assert.match(html, /5 findings here are 3 Checkmarx One results/);
+});
+
+test('a confirmed finding says why and how to fix it, with "why?" for the details', () => {
+  const confirmed = { ...risk(1, 'HIGH'), title: 'Reflected_XSS', state: 'CONFIRMED', alternateId: 'a1', groupId: 'g1', url: 'https://eu.ast.checkmarx.net/r/1' };
+  const open = { ...risk(2, 'HIGH'), title: 'Reflected_XSS', state: 'TO_VERIFY', alternateId: 'a2', groupId: 'g2' };
+  const html = generateHtmlReport(buildReportData([confirmed, open], { tenant: 't' }), { remediationViaRelay: true });
+  const row = (n) => {
+    const key = island(html).findings.findIndex((f) => f.riskId === `r${n}`);
+    return html.slice(html.indexOf(`<tr data-key="${key}"`), html.indexOf('</tr>', html.indexOf(`<tr data-key="${key}"`)));
+  };
+  assert.match(row(1), /<b>Why:<\/b> Input from the request is written into the page without encoding/);
+  assert.match(row(1), /<b>Fix:<\/b> Encode output for its context \(HTML, attribute, JavaScript…<\/p>/, 'short: the full fix is under "why?"');
+  assert.match(row(1), /<summary>why\?<\/summary>[\s\S]*Possible solution[\s\S]*AI Remediation/);
+  assert.ok(!row(2).includes('Why:'), 'only confirmed findings get the note');
+  assert.ok(island(html).findings.every((f) => f.advice?.fix), 'the script gets the advice too, to render it after triage');
 });
