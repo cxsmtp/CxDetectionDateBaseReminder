@@ -73,7 +73,7 @@ The password is also kept in `/data/first-admin-password.txt` until it is change
 Click one for its details: tenant and URLs, mail server and sender, the GitHub account, and what to do when it is red. They update as soon as settings are saved or a .env file is uploaded.
 
 **Progress flares, bottom right.** Whatever you start shows a flare while it runs:
-- **Amber, with a running mouse:** in progress. The button and the part of the page it came from are paused, so nothing is started twice.
+- **Amber, with a flying hero:** in progress. The button and the part of the page it came from are paused, so nothing is started twice.
 - **Green:** done.
 - **Red:** it did not finish, and says why.
 
