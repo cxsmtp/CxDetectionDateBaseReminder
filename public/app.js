@@ -1,4 +1,9 @@
 const $ = (id) => document.getElementById(id);
+/** "10 Checkmarx One results (12 findings — rows sharing a result count once)": why the rows and the credits differ. */
+function resultsText(results, rows) {
+  const r = `${results} Checkmarx One result${results === 1 ? '' : 's'}`;
+  return rows > results ? `${r} (${rows} findings — rows that share one result are triaged, and charged, once)` : r;
+}
 /** How long a "confirmed twice with Checkmarx One" count stays good for. */
 const VERIFY_TTL_MS = 10 * 60 * 1000;
 const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
@@ -2140,6 +2145,7 @@ function creditEditorRow(p) {
   const r = c.remediation ?? { allocated: 0, used: 0, remaining: 0 };
   const sev = c.severities ?? [];
   const toTriage = sev.reduce((n, s) => n + (c.toTriage?.[s] ?? 0), 0);
+  const toTriageRows = sev.reduce((n, s) => n + (c.toTriageRows?.[s] ?? c.toTriage?.[s] ?? 0), 0);
   const id = escapeHtml(p.projectId);
   return `<tr class="credit-editor" data-editor="${id}"><td colspan="${projectColspan()}">
     <div class="credit-editor-grid">
@@ -2147,7 +2153,7 @@ function creditEditorRow(p) {
         <span class="hint">needs are for ${escapeHtml(sev.map((s) => s.toLowerCase()).join(', ') || 'no severities')} · extra credits come out of the credit pool and stay until you change them</span></div>
       <div class="credit-kind">
         <span class="label">AI Triage</span>
-        <span class="need">${toTriage} needed ·</span>
+        <span class="need" title="${escapeHtml(`For ${resultsText(toTriage, toTriageRows)}.`)}">${toTriage} needed${toTriageRows > toTriage ? ` <span class="hint">(${toTriageRows} findings = ${toTriage} results)</span>` : ''} ·</span>
         <label class="inline"><input type="number" min="0" step="1" class="small-num" data-extra="triage" value="${c.extraTriage ?? 0}" /> extra</label>
         <span class="hint">${t.remaining} left of ${t.allocated} · ${t.used} used</span>
       </div>
@@ -2407,7 +2413,9 @@ function followUp(r) {
           ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
             .map((sev) => {
               const n = r.latest?.toTriage?.[sev];
-              return `<label class="check"><input type="checkbox" data-sev="${sev}" data-keep ${['CRITICAL', 'HIGH'].includes(sev) ? 'checked' : ''} /> ${sev[0] + sev.slice(1).toLowerCase()}${n === undefined ? '' : ` <span class="hint">(${n})</span>`}</label>`;
+              const results = r.latest?.toTriageResults?.[sev] ?? n;
+              const count = n === undefined ? '' : results < n ? ` <span class="hint" title="${n} findings are ${results} Checkmarx One results: rows that share one are triaged, and charged, once">(${n} = ${results} results)</span>` : ` <span class="hint">(${n})</span>`;
+              return `<label class="check"><input type="checkbox" data-sev="${sev}" data-keep ${['CRITICAL', 'HIGH'].includes(sev) ? 'checked' : ''} /> ${sev[0] + sev.slice(1).toLowerCase()}${count}</label>`;
             })
             .join('')}
         </div>
@@ -2418,7 +2426,7 @@ function followUp(r) {
           <span class="alloc-extra${can('credits.allocate') ? '' : ' perm-hidden'}">+ <input type="number" min="0" max="100000" data-field="triageAdd" data-keep class="small-num" placeholder="0" /> triage
             + <input type="number" min="0" max="100000" data-field="remediationAdd" data-keep class="small-num" placeholder="0" /> remediation</span>
         </div>
-        <p class="hint">Triage now runs AI Triage from here. Allocate credits gives the projects what these severities need — 1 per finding to triage, 3 per confirmed finding to remediate — plus any extra credits you enter, so their developers can act from their own reports. Nothing is allocated until you click it.</p>
+        <p class="hint">Triage now runs AI Triage from here. Allocate credits gives the projects what these severities need — 1 per Checkmarx One result to triage (rows that share one result count once), 3 per confirmed result to remediate — plus any extra credits you enter, so their developers can act from their own reports. Nothing is allocated until you click it.</p>
       </fieldset>
     </div>
     <p class="status" data-follow-status="${id}"></p>
@@ -2446,9 +2454,10 @@ function serverTime(iso) {
 function triageNeedText(r, severities = ['CRITICAL', 'HIGH']) {
   const counts = r.latest?.toTriage;
   const c = r.credits?.triage;
-  const needed = counts ? severities.reduce((n, sev) => n + (counts[sev] ?? 0), 0) : null;
+  const rows = counts ? severities.reduce((n, sev) => n + (counts[sev] ?? 0), 0) : null;
+  const results = counts ? severities.reduce((n, sev) => n + (r.latest?.toTriageResults?.[sev] ?? counts[sev] ?? 0), 0) : null;
   const parts = [];
-  if (needed !== null) parts.push(`${needed} finding${needed === 1 ? '' : 's'} awaiting triage at these severities (${needed} credit${needed === 1 ? '' : 's'})`);
+  if (rows !== null) parts.push(`${resultsText(results, rows)} awaiting triage at these severities (${results} credit${results === 1 ? '' : 's'})`);
   if (c) parts.push(`projects have ${c.remaining} of ${c.allocated} triage credits left (${c.used} used)`);
   if (r.credits?.remediation?.allocated) {
     const m = r.credits.remediation;
@@ -2545,7 +2554,7 @@ async function followUpAction(event) {
       }
       const sev = options.severities.map((s) => s.toLowerCase()).join(', ');
       const extras = [options.triageAdd && `${options.triageAdd} extra triage`, options.remediationAdd && `${options.remediationAdd} extra remediation`].filter(Boolean).join(' and ');
-      if (!confirm(`Allocate from the credit pool to this report's projects: ${sev ? `what their ${sev} findings need (1 per finding to triage, 3 per confirmed finding to remediate)` : ''}${sev && extras ? ', plus ' : ''}${extras ? `${extras} credit(s) each` : ''}?`)) return true;
+      if (!confirm(`Allocate from the credit pool to this report's projects: ${sev ? `what their ${sev} findings need (1 per Checkmarx One result to triage — rows that share one count once — 3 per confirmed result to remediate)` : ''}${sev && extras ? ', plus ' : ''}${extras ? `${extras} credit(s) each` : ''}?`)) return true;
       followStatus(id, 'Allocating…');
       const { report } = await api(`/api/tracked-reports/${encodeURIComponent(id)}/allocate`, {
         method: 'POST',
@@ -2695,7 +2704,10 @@ function creditCell(project, kind) {
   const title = [
     `${c.remaining} left of ${c.allocated} allocated, ${c.used} used`,
     kind === 'triage'
-      ? `needs ${need} for ${credits.toTriage ? Object.entries(credits.toTriage).filter(([s]) => (credits.severities ?? []).includes(s)).reduce((n, [, v]) => n + v, 0) : 0} finding(s) still to triage (${(credits.severities ?? []).map((s) => s.toLowerCase()).join(', ') || 'no severities'})`
+      ? `needs ${need} for ${resultsText(
+          Object.entries(credits.toTriage ?? {}).filter(([s]) => (credits.severities ?? []).includes(s)).reduce((n, [, v]) => n + v, 0),
+          Object.entries(credits.toTriageRows ?? credits.toTriage ?? {}).filter(([s]) => (credits.severities ?? []).includes(s)).reduce((n, [, v]) => n + v, 0),
+        )} still to triage (${(credits.severities ?? []).map((s) => s.toLowerCase()).join(', ') || 'no severities'})`
       : `needs ${need} for ${credits.toRemediate ?? 0} confirmed finding(s) to remediate (3 credits each)`,
     short ? `${short} more needed than allocated — allocate it on purpose` : '',
     extra ? `includes ${extra} extra credit(s) you added` : '',
@@ -2730,6 +2742,7 @@ function allocationTotals(scope = allocationScope(), severities = allocSeveritie
   const sum = (fn) => scope.reduce((n, p) => n + (fn(p) || 0), 0);
   return {
     toTriage: sum((p) => severities.reduce((n, s) => n + (p.credits?.toTriage?.[s] ?? 0), 0)),
+    toTriageRows: sum((p) => severities.reduce((n, s) => n + (p.credits?.toTriageRows?.[s] ?? p.credits?.toTriage?.[s] ?? 0), 0)),
     toRemediate: sum((p) => severities.reduce((n, s) => n + (p.credits?.toRemediateBySeverity?.[s] ?? 0), 0)),
     triageLeft: sum((p) => p.credits?.triage?.remaining),
     remediationLeft: sum((p) => p.credits?.remediation?.remaining),
@@ -2760,7 +2773,7 @@ function renderAllocation() {
   $('alloc-scope').textContent = `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'}`;
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   $('alloc-needed').innerHTML = severities.length
-    ? `<b>${plural(t.toTriage, 'Checkmarx One result')}</b> to triage (${plural(t.toTriage, 'credit')}) · <b>${t.triageLeft}</b> allocated and not used${t.triageShort ? ` · <span class="short">${t.triageShort} more needed</span>` : ''}`
+    ? `<b>${plural(t.toTriage, 'Checkmarx One result')}</b> to triage (${plural(t.toTriage, 'credit')})${t.toTriageRows > t.toTriage ? ` <span class="hint">— from ${t.toTriageRows} findings: rows that share one result are triaged, and charged, once</span>` : ''} · <b>${t.triageLeft}</b> allocated and not used${t.triageShort ? ` · <span class="short">${t.triageShort} more needed</span>` : ''}`
     : 'Tick at least one severity.';
   $('remediate-needed').innerHTML = severities.length
     ? `<b>${plural(t.toRemediate, 'confirmed result')}</b> to remediate (${plural(t.toRemediate * 3, 'credit')}, 3 each) · <b>${t.remediationLeft}</b> allocated and not used${t.remediationShort ? ` · <span class="short">${t.remediationShort} more needed</span>` : ''}${t.toRemediate ? '' : ' — triage first: remediation needs findings it confirmed'}`
@@ -2780,7 +2793,7 @@ async function allocateNeeded(kind) {
   const credits = kind === 'triage' ? t.triageShort : t.remediationShort;
   if (!credits) return;
   const what = kind === 'triage'
-    ? `${t.toTriage} finding(s) still to triage`
+    ? `${resultsText(t.toTriage, t.toTriageRows)} still to triage`
     : `${t.toRemediate} confirmed finding(s) to remediate (3 credits each)`;
   if (!confirm(`Allocate ${credits} ${kind === 'triage' ? 'AI Triage' : 'AI Remediation'} credit(s) from the credit pool to ${scope.length} project(s), for ${what}?`)) return;
   await allocateCredits({ allocate: [kind] }, (n) => `Allocated ${credits} ${kind} credit(s) to ${n} project(s).`);

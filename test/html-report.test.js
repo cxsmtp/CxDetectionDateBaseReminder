@@ -196,3 +196,19 @@ test('findings AI cannot act on (IaC) say so, and offer a fix in Checkmarx One i
   assert.match(row, />Fix in Checkmarx One</);
   assert.ok(!/data-action="triage"|data-action="remediate"/.test(row));
 });
+
+test('rows that are one Checkmarx One result are marked, and the report says how many results there are', () => {
+  const risks = [
+    { ...risk(1, 'HIGH'), alternateId: 'ALT-A', groupId: 'g1' },
+    { ...risk(2, 'HIGH'), alternateId: 'ALT-A', groupId: 'g1' }, // another code path of the same result
+    { ...risk(3, 'HIGH'), alternateId: 'ALT-B', groupId: 'g2' },
+  ];
+  const html = generateHtmlReport(buildReportData(risks, { tenant: 't' }));
+  assert.match(html, /3 findings here are 2 Checkmarx One results/);
+  assert.equal((html.match(/class="shared-note"/g) ?? []).length, 2, 'both rows of the shared result are marked');
+  assert.match(html, /One Checkmarx One result with 1 other row here: triaged together, 1 credit/);
+
+  const unique = generateHtmlReport(buildReportData([risk(4, 'HIGH'), risk(5, 'HIGH')], { tenant: 't' }));
+  assert.ok(!unique.includes('class="shared-explainer"'), 'no note when every row is its own result');
+  assert.ok(!unique.includes('class="shared-note"'));
+});

@@ -18,6 +18,19 @@
   const config = DATA.config;
   const findings = DATA.findings;
   const byKey = new Map(findings.map((f) => [f.key, f]));
+  // One Checkmarx One result can be listed once per code path. AI Triage works on
+  // the result, so rows sharing one are triaged together and charged once.
+  const resultKey = (f) =>
+    f.alternateId ? `${f.projectId}|a:${f.alternateId}` : f.groupId ? `${f.projectId}|g:${f.groupId}` : `${f.projectId}|r:${f.riskId}`;
+  const sameResult = new Map();
+  for (const f of findings) {
+    if (f.aiUnavailable) continue;
+    if (!sameResult.has(resultKey(f))) sameResult.set(resultKey(f), []);
+    sameResult.get(resultKey(f)).push(f);
+  }
+  /** The rows that are the same Checkmarx One result as `f` (itself included). */
+  const sameAs = (f) => sameResult.get(resultKey(f)) ?? [f];
+  const resultCount = (list) => new Set(list.map(resultKey)).size;
 
   const STORE = 'cxReportConnection';
   // The address the report was sent with; a reader's correction is kept in
@@ -390,17 +403,22 @@
     for (const btn of bulkButtons()) {
       const severity = btn.dataset.severity;
       const label = SEVERITY_LABELS[severity];
-      const n = triageCandidates(severity).length;
+      const candidates = triageCandidates(severity);
+      const n = candidates.length;
+      const results = resultCount(candidates);
       const busy = findings.some((f) => f.severity === severity && isRunning(f));
       const any = findings.some((f) => f.severity === severity);
       btn.textContent = n
-        ? `Triage all ${label} (${n})`
+        ? results < n
+          ? `Triage all ${label} (${n} findings · ${results} results)`
+          : `Triage all ${label} (${n})`
         : busy
           ? `Triaging ${label}…`
           : any
             ? `All ${label} triaged`
             : `No ${label} findings`;
       btn.disabled = bulkRunning || n === 0;
+      btn.title = results < n ? `${n} findings here are ${results} Checkmarx One results: rows sharing a result are triaged together and charged once, so this uses ${results} credit(s).` : '';
     }
     // Critical/high findings AI cannot act on (IaC, …): say so, rather than leave them looking forgotten.
     const manual = findings.filter((f) => f.shown && !f.hidden && f.aiUnavailable && (f.severity === 'CRITICAL' || f.severity === 'HIGH')).length;
@@ -422,8 +440,8 @@
     if (!backend) return;
     $('bulk-credits').textContent =
       remaining === null || remaining === undefined
-        ? 'AI Triage uses 1 credit per finding, AI Remediation 3.'
-        : `AI Triage uses 1 credit per finding, AI Remediation 3 · ${remaining} left this month across all projects.`;
+        ? 'AI Triage uses 1 credit per Checkmarx One result (rows that share one count once), AI Remediation 3.'
+        : `AI Triage uses 1 credit per Checkmarx One result (rows that share one count once), AI Remediation 3 · ${remaining} left this month across all projects.`;
   }
 
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -487,7 +505,7 @@
         name.textContent = projectNames.get(id) || id;
         card.append(
           name,
-          line('AI Triage', c.triage, (n) => plural(n, 'finding')),
+          line('AI Triage', c.triage, (n) => plural(n, 'result')),
           line('AI Remediation', c.remediation, (n) => plural(Math.floor(n / 3), 'remediation')),
         );
         return card;
@@ -497,8 +515,14 @@
 
   /** "Payments: 5 left → 1 after" for a request's cost per project, for confirmations. */
   function afterText(list, kind, perFinding) {
+    // Charged per Checkmarx One result, not per row: rows sharing a result count once.
     const cost = new Map();
-    for (const f of list) cost.set(f.projectId, (cost.get(f.projectId) ?? 0) + perFinding);
+    const seen = new Set();
+    for (const f of list) {
+      if (seen.has(resultKey(f))) continue;
+      seen.add(resultKey(f));
+      cost.set(f.projectId, (cost.get(f.projectId) ?? 0) + perFinding);
+    }
     const lines = [...cost].map(([id, n]) => {
       const left = credits[id]?.[kind]?.remaining;
       const name = projectNames.get(id) || id;
@@ -634,7 +658,9 @@
     const label = SEVERITY_LABELS[severity];
     const projects = new Set(list.map((f) => f.projectId)).size;
     const where = projects > 1 ? ` across ${projects} projects` : '';
-    if (!confirm(`Run AI Triage on all ${list.length} ${label} finding(s)${where}? This uses ${list.length} Checkmarx One credit(s).${afterText(list, 'triage', 1)}`)) return;
+    const results = resultCount(list);
+    const shared = results < list.length ? ` They are ${results} Checkmarx One results: rows sharing a result are triaged together and charged once.` : '';
+    if (!confirm(`Run AI Triage on all ${list.length} ${label} finding(s)${where}?${shared} This uses ${results} Checkmarx One credit(s).${afterText(list, 'triage', 1)}`)) return;
     bulkRunning = true;
     updateBulk();
     try {
@@ -1152,7 +1178,7 @@
     const f = byKey.get(btn.closest('tr').dataset.key);
     if (!f || f.aiUnavailable) return;
     if (btn.dataset.action === 'remediate') requireConnection(() => remediate(f));
-    else requireConnection(() => (hasVerdict(f) && !retriageAllowed() ? renderTriage(f) : triage([f]).catch(handleActionError)));
+    else requireConnection(() => (hasVerdict(f) && !retriageAllowed() ? renderTriage(f) : triage(sameAs(f)).catch(handleActionError)));
   });
 
   setConnectedUI();

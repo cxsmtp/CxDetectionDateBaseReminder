@@ -57,11 +57,15 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
     for (const risk of risks) current.set(`${projectId}|${risk.riskId}`, risk);
   }
 
-  // Open findings AI Triage can still act on, by severity.
+  // Open findings AI Triage can still act on, by severity: rows, and the Checkmarx
+  // One results they are (rows sharing a result are triaged, and charged, once).
   const toTriage = {};
+  const resultsBySeverity = {};
   const countToTriage = (risk) => {
     if (outcomeOf(risk) === 'awaiting' && AI_SCANNERS.has(String(risk.scanner || '').toUpperCase())) {
       toTriage[risk.severity] = (toTriage[risk.severity] ?? 0) + 1;
+      const key = `${risk.projectId}|${risk.alternateId ? `a:${risk.alternateId}` : risk.groupId ? `g:${risk.groupId}` : `r:${risk.riskId}`}`;
+      (resultsBySeverity[risk.severity] ??= new Set()).add(key);
     }
   };
 
@@ -113,6 +117,7 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
     newFindings,
     currentMatching,
     toTriage,
+    toTriageResults: Object.fromEntries(Object.entries(resultsBySeverity).map(([severity, keys]) => [severity, keys.size])),
     aiActions: aiActions(report.projects.map((p) => p.projectId), report.createdAt),
     byProject: [...byProject.values()].sort((a, b) => b.baseline - a.baseline),
   };
