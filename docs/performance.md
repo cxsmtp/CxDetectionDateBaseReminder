@@ -49,6 +49,39 @@ It also gives the server, VM or container size to run.
 - The mock tenant and the load generator ran on the same machine. For the sized runs the server was pinned to its own CPUs with `taskset`, and everything else to the remaining CPUs.
 - The generator itself competes for CPU, so real servers do somewhat better than these numbers.
 
+## MZ-01.00.21: profiled, and the slow tail removed
+
+A CPU profile of the server under the full load showed where its single thread went besides real work. What changed:
+- **A click never waits behind a background read.** The report's status polls start low-priority reads in the background. A person who then clicked (AI Remediation details), or a Dashboard HTML report or reminder that needed the same finding's triage verdict, joined that read and waited behind every bulk fetch. They now read at their own, normal priority. This removed the 60 s timeouts.
+- **Saving a person's fetched data:** at once, then at most every 30 s while it keeps changing (`SESSION_SAVE_SECONDS`), instead of turning a large fetch into JSON on every change. A stop or update still writes everything at once.
+- **Checkmarx One records shared by recent reads** are turned into the tool's form once per record, project and day, not once per person per fetch.
+- **Report permissions** (the signed grants in every report) are checked once, then remembered for exactly the same fields and expiry.
+- **The audit log** keeps what it has already parsed, and reads only lines added since. The part already read is hash-checked on every read, so an edited or removed entry is still seen at once by the integrity check.
+- **Credit ledger lookups** hand out read-only views instead of copies.
+
+Same machine, same load (3000 users, 120 s, server pinned to 2 vCPU), same load generator for both.
+
+| Sustained load | Before (MZ-01.00.20) | After (MZ-01.00.21) |
+| --- | --- | --- |
+| **Failed requests** | 34 of 61,773 | **0 of 63,324** |
+| Requests per second | 462 | **505** |
+| **Report opens, all states known** (p50 / p95 / p99) | 96 ms / 11.0 s / 15.3 s | **60 ms / 6.2 s / 7.6 s** |
+| Report polls: triage results (p50 / p95) | 28 ms / 1.3 s | **19 ms / 0.7 s** |
+| Report: AI Remediation details (p95 / p99) | 284 ms / 2.1 s | **192 ms / 1.8 s** |
+| **Dashboard: build HTML report** (p50 / p95 / failed) | 4.1 s / 60 s / 9 | **2.5 s / 8.4 s / 0** |
+| **Reminder: HTML report to initiators** (p95 / p99 / failed) | 38.6 s / 60 s / 5 | **7.5 s / 10.1 s / 0** |
+| Reminder: email initiators (p95 / p99) | 10.0 s / 50.9 s | **5.7 s / 8.3 s** |
+| Refresh & verify credits (p50) | 4.3 s | **3.3 s** |
+| Fetch, whole tenant (p50 / p95) | 23.5 s / 35.0 s | **17.2 s / 28.0 s** |
+| Audit log: browse (p99) | 12.2 s | **1.7 s** |
+| Pages: who am I, settings, health (p50 / p99) | 42 ms / 7.0 s | **26 ms / 2.9–4.9 s** |
+| Server health check (worst) | 14.1 s | **5.9 s** |
+| Checkmarx One calls | 31,931 | 32,548 |
+
+**Burst** (2,970 requests at the same instant): 0 failed both times, all answered in 10.2 s (12.4 s before).
+
+The server's one thread is still the limit at this load (about one core busy on average), so beyond it, give it more resources or run separate instances for separate tenants; see [Recommended size](#recommended-size).
+
 ## MZ-01.00.17: faster fetches and report opening
 
 What changed:
@@ -179,7 +212,7 @@ Other figures from the same run:
 
 **Everywhere**
 - **Disk:** 10 GB for the `/data` volume. Settings, users, the credit ledger, the audit log and backups are small, but the audit log grows with use.
-- **Network:** one HTTPS route to Checkmarx One (up to ~300 calls/s at this load) and one to the mail server. Readers' reports reach the server over HTTPS, so put a reverse proxy with TLS in front (see the README).
+- **Network:** one HTTPS route to Checkmarx One (up to ~300 calls/s at this load) and one to the mail server. Readers' reports reach the server over HTTPS: the container serves it by default; give it your certificate or put a reverse proxy in front ([HTTPS and hosting](https-and-hosting.md)).
 - **One instance per data folder.** Credits, the ledger and the duplicate-send guard live in one process. To serve more, give that instance more resources (scale up), or run separate instances for separate tenants or business units, each with its own volume. Never run two copies on one volume.
 
 ### Podman: run it at the recommended size (2 vCPU, 4 GB host)
@@ -204,6 +237,7 @@ podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -e TZ=
 | `CX_PAGES_AT_ONCE` | 4 | Pages of one big project read at once, once its size is known. |
 | `HTTP_COMPRESSION`, `HTTP_COMPRESSION_MIN_KB` | on, 32 | Compress replies of at least this many KB (brotli or gzip). `off` when a reverse proxy compresses. |
 | `CX_FETCH_CACHE_SECONDS` | 120 | How long a project someone fetched is reused by the next fetch on the same key (see [How it works](how-it-works.md)). Longer means fewer calls and staler states; `0` reads everything every time. |
+| `SESSION_SAVE_SECONDS` | 30 | How often, at most, a person's changing fetched data is saved to disk (the first save is at once). Lower is closer to the last second after a crash; higher saves more CPU. |
 | `RELAY_MAX_IN_FLIGHT` | 300 | Report requests handled at once before answering "busy, retry". Raise it on 4 vCPU. |
 | `RELAY_BACKGROUND_QUEUE` | 2000 | Background lookups allowed to queue. |
 | `NODE_OPTIONS=--max-old-space-size=N` | Node's default | About two-thirds of the container's memory limit, in MB. |
