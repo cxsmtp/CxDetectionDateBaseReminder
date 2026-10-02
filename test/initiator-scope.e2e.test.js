@@ -253,3 +253,40 @@ test('fetch only named projects or the projects named people last scanned', asyn
   const all = await admin('GET', '/api/scan');
   assert.equal(all.body.projects.length, 4, 'nothing named: every project, as before');
 });
+
+test('acting on their behalf: each scan initiator is told, about their own projects only', async () => {
+  smtp.messages.length = 0;
+  const r = await admin('POST', '/api/triage/run', { projectIds: EVERY_PROJECT, severities: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.ok(r.body.started > 0);
+  assert.equal(r.body.notified.emailed, 2, JSON.stringify(r.body.notified));
+  await sleep(200);
+  const mail = assertScoped(sentMail());
+  assert.equal(mail.length, 2);
+  for (const m of mail) {
+    assert.match(m.subject, /AI Triage was started on your behalf/);
+    assert.ok(!m.to.includes('lead@acme.io') && !m.to.includes('sean@acme.io'), 'only the initiator, not the configured list');
+  }
+
+  // Switched off: nobody is emailed.
+  smtp.messages.length = 0;
+  const quiet = await admin('POST', '/api/triage/run', { projectIds: EVERY_PROJECT, severities: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'], notifyInitiators: false });
+  assert.equal(quiet.body.notified ?? null, null);
+  await sleep(200);
+  assert.equal(smtp.messages.length, 0);
+});
+
+test('taking back unused credits returns them to the pool, never below what was used', async () => {
+  const add = await admin('POST', '/api/credits/allocate', { projectIds: ['p0'], triageAdd: 5, remediationAdd: 6 });
+  assert.equal(add.status, 200, JSON.stringify(add.body));
+  const before = add.body.projects.p0;
+  assert.ok(before.triage.remaining >= 5);
+  const back = await admin('POST', '/api/credits/allocate', { projectIds: ['p0'], reclaimUnused: ['triage', 'remediation'] });
+  assert.equal(back.status, 200, JSON.stringify(back.body));
+  assert.equal(back.body.reclaimed, before.triage.remaining + before.remediation.remaining);
+  const after = back.body.projects.p0;
+  assert.equal(after.triage.remaining, 0);
+  assert.equal(after.remediation.remaining, 0);
+  assert.equal(after.triage.allocated, after.triage.used, 'down to what was used, not below');
+  assert.equal(after.extraTriage, 0);
+});

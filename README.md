@@ -411,6 +411,18 @@ under the server's account.
     once (e.g. 12 rows can be 10 results, so 10 credits).
     `test/verified-credits.e2e.test.js` covers agreement, the exact allocation,
     and a refusal while results change between reads.
+  - **Taking credits back.** "Take back unused credits" (Dashboard → credits
+    panel → *Extra credits, and taking credits back*) returns what the chosen
+    projects were allocated and did not use to the credit pool — never below
+    what was used or is in flight — and records it in the audit log.
+  - **Acting on their behalf.** Triage or remediation run from the Dashboard
+    or a tracked report emails each scan initiator about their own projects
+    only: what was started on their behalf, and what to do next (fetch the
+    changes in their report; review and approve the pull requests). Untick
+    "Email each scan initiator…" to skip it.
+  - **Allocate checks first.** Allocate for triage / remediation first runs
+    Refresh & verify, so its confirmation shows numbers Checkmarx One just
+    confirmed twice; the server reads twice again as it allocates.
   - **Never two requests for one vulnerability.** Every path that sends AI
     Triage or AI Remediation (the Dashboard, tracked reports, the emailed
     report, any number of people or tabs at once) first claims the findings on

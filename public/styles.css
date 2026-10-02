@@ -1252,3 +1252,5 @@ body.fetching [data-needs-data] { opacity: 0.45; cursor: not-allowed; }
 .privacy-ok { margin: 10px 0 0; color: #15803d; font-weight: 600; font-size: 13px; }
 :root[data-theme="dark"] .privacy-ok { color: #4ade80; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .privacy-ok { color: #4ade80; } }
+
+.notify-row { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 0; font-size: 13px; color: var(--muted); }

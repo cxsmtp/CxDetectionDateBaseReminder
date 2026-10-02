@@ -2958,6 +2958,73 @@ const cleanSeverities = (list) =>
   [...new Set((Array.isArray(list) ? list : []).map((s) => String(s).toUpperCase()))].filter((s) => SEVERITIES.includes(s));
 
 // ---------------------------------------------------------------------------
+// Acting on a developer's behalf: tell them, about their own projects only
+// ---------------------------------------------------------------------------
+
+const KIND_TITLES = { triage: 'AI Triage', remediation: 'AI Remediation' };
+
+/**
+ * After the administrator ran AI Triage or Remediation from the Dashboard or a
+ * tracked report, each scan initiator gets one email about their own projects:
+ * what was started on their behalf, and what to do next (fetch the changes in
+ * their report, review and approve the pull requests).
+ */
+async function notifyOnBehalf(session, kind, started, initiatorsByProject, actor) {
+  const out = { emailed: 0, recipients: [], noAddress: [], failed: 0 };
+  if (!started.length) return out;
+  const settings = settingsStore.get();
+  const byProject = new Map();
+  for (const f of started) {
+    const p = byProject.get(f.projectId) ?? { name: f.projectName || f.projectId, results: new Set(), severities: new Set() };
+    p.results.add(f.alternateId || f.groupId || f.riskId);
+    p.severities.add(String(f.severity || '').toLowerCase());
+    byProject.set(f.projectId, p);
+  }
+  const byPerson = new Map();
+  for (const [projectId, p] of byProject) {
+    const email = initiatorsByProject?.[projectId]?.email || '';
+    if (!email) {
+      out.noAddress.push(p.name);
+      continue;
+    }
+    if (!byPerson.has(email)) byPerson.set(email, []);
+    byPerson.get(email).push(p);
+  }
+  const title = KIND_TITLES[kind];
+  const by = actor?.user ? `${actor.user}` : 'Your security team';
+  const next = kind === 'remediation'
+    ? ['Open your Mission Zero report for these projects and click Refresh to fetch the suggested fixes.', 'Review and approve the pull requests AI Remediation opens in your repository (or apply the fix shown in Checkmarx One).']
+    : ['Open your Mission Zero report for these projects and click Refresh to see the verdicts.', 'Confirmed findings can then be remediated from the report; proposed not exploitable ones drop out of it.'];
+  for (const [email, projects] of byPerson) {
+    const total = projects.reduce((n, p) => n + p.results.size, 0);
+    const lines = projects.map((p) => `${p.name}: ${p.results.size} finding${p.results.size === 1 ? '' : 's'} (${[...p.severities].filter(Boolean).join(', ')})`);
+    const subject = `${title} was started on your behalf: ${total} finding${total === 1 ? '' : 's'}`;
+    const text = `Hello,\n\n${by} started Checkmarx One ${title} on your behalf, using the credits allocated to these projects you last scanned:\n\n${lines.map((l) => `  - ${l}`).join('\n')}\n\nWhat to do now:\n${next.map((l) => `  - ${l}`).join('\n')}\n\nNothing more is needed to start it, and no credits of yours were spent beyond these.\n`;
+    const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111827;max-width:640px">
+      <h2 style="margin:0 0 12px;font-size:18px">${escapeHtmlText(title)} was started on your behalf</h2>
+      <p>${escapeHtmlText(by)} started Checkmarx One ${escapeHtmlText(title)} on your behalf, using the credits allocated to these projects you last scanned:</p>
+      <ul>${lines.map((l) => `<li>${escapeHtmlText(l)}</li>`).join('')}</ul>
+      <p><strong>What to do now</strong></p>
+      <ul>${next.map((l) => `<li>${escapeHtmlText(l)}</li>`).join('')}</ul>
+      <p style="color:#6b7280;font-size:12px">Nothing more is needed to start it, and no credits of yours were spent beyond these.</p>
+    </div>`;
+    try {
+      await sendReminderMail(settings, { subject, text, html }, { exact: true, to: [email] });
+      out.emailed += 1;
+      out.recipients.push(email);
+    } catch (error) {
+      out.failed += 1;
+      console.warn(`[on behalf] could not email a scan initiator: ${logSafe(error.message)}`);
+    }
+  }
+  audit.record({
+    type: kind, outcome: 'changed', actor,
+    reason: `Told ${out.emailed} scan initiator(s) that ${title} was started on their behalf${out.noAddress.length ? `; no address for ${out.noAddress.length} project(s)` : ''}${out.failed ? `; ${out.failed} email(s) failed` : ''}.`,
+  });
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Verified credit needs: confirmed with Checkmarx One twice before any demand
 // ---------------------------------------------------------------------------
 
@@ -3091,6 +3158,24 @@ app.post(
 app.post('/api/credits/allocate', requirePermission('credits.allocate'), afterFetch, asyncRoute(async (req, res) => {
   if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
   const { projectIds, ruleChanges, triageAdd = 0, remediationAdd = 0, clearExtras = false, setExtra = null } = req.body ?? {};
+  // Take back what projects were given and did not use (people did not act on it).
+  const reclaim = (Array.isArray(req.body?.reclaimUnused) ? req.body.reclaimUnused : []).filter((k) => k === 'triage' || k === 'remediation');
+  if (reclaim.length) {
+    const projects = scanProjects(req, projectIds);
+    const actor = await adminActor(req);
+    let total = 0;
+    for (const p of projects) {
+      const before = allocationSnapshot(p.projectId);
+      const back = allocations.reclaimUnused(p.projectId, reclaim);
+      const n = back.triage + back.remediation;
+      if (!n) continue;
+      total += n;
+      auditAllocation({ actor, projectId: p.projectId, projectName: p.projectName, before, change: { reclaimed: back }, reason: `Took back ${n} unused credit${n === 1 ? '' : 's'} (${[back.triage && `${back.triage} triage`, back.remediation && `${back.remediation} remediation`].filter(Boolean).join(', ')}) to the credit pool.` });
+    }
+    allocations.save();
+    for (const p of projects) p.credits = creditView(p);
+    return res.json({ reclaimed: total, projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])), pool: creditPool() });
+  }
   const changes = (Array.isArray(ruleChanges) ? ruleChanges : [])
     .map((c) => ({ severity: String(c?.severity ?? '').toUpperCase(), include: c?.include === true }))
     .filter((c) => SEVERITIES.includes(c.severity));
@@ -3376,7 +3461,8 @@ app.post(
     for (const f of outcome.startedFindings) originals.get(f).triageRequestedAt = Date.now();
     for (const p of projects) p.credits = creditView(p);
     const { startedFindings, ...summary } = outcome;
-    res.json({ ...summary, projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
+    const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'triage', startedFindings, req.session.lastScan.initiators ?? {}, await adminActor(req));
+    res.json({ ...summary, notified, projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
   }),
 );
 
@@ -3523,7 +3609,8 @@ app.post(
     });
     for (const p of projects) p.credits = creditView(p);
     const { startedFindings, ...summary } = outcome;
-    res.json({ ...summary, notConfirmed, projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
+    const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'remediation', startedFindings, req.session.lastScan.initiators ?? {}, await adminActor(req));
+    res.json({ ...summary, notConfirmed, notified, projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
   }),
 );
 
@@ -3938,7 +4025,8 @@ app.post(
       actor: await adminActor(req),
       origin: `Tracked report "${report.name}": triage the open findings`,
     });
-    res.json({ ...summary, report: trackedView(report) });
+    const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'triage', startedFindings, scan.initiators, await adminActor(req));
+    res.json({ ...summary, notified, report: trackedView(report) });
   }),
 );
 

@@ -270,6 +270,28 @@ export class CreditAllocations {
     entry.extraRemediation = 0;
   }
 
+  /**
+   * Take back what was allocated and not used (nor in flight right now): the
+   * allocation drops to what has been spent. Extra credits of that kind go too.
+   * Returns the credits taken back, by kind.
+   */
+  reclaimUnused(projectId, kinds = KINDS) {
+    const entry = this.#projects[projectId];
+    const back = { triage: 0, remediation: 0 };
+    if (!entry) return back;
+    for (const kind of kinds.filter((k) => KINDS.includes(k))) {
+      const floor = this.#ledger.usedBy(projectId, kind) + this.#ledger.reservedFor(projectId, kind);
+      const allocated = Number(entry[kind]) || 0;
+      if (allocated > floor) {
+        back[kind] = allocated - floor;
+        entry[kind] = floor;
+      }
+      entry[EXTRA[kind]] = 0;
+    }
+    entry.updatedAt = new Date().toISOString();
+    return back;
+  }
+
   /** Extra credits: allocated on top of what the findings need, and shown as such. */
   add(projectId, projectName, kind, credits) {
     if (!KINDS.includes(kind)) throw new Error(`Unknown credit kind: ${kind}`);
