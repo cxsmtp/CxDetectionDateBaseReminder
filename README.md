@@ -104,7 +104,7 @@ itself.
 report only work out what each project *needs* for the ticked severities; the credit
 columns show it as "N more needed". Credits move only when someone confirms it:
 
-1. **AI Triage** — 1 credit per finding still to verify. **Allocate N for triage** gives the
+1. **AI Triage** — 1 credit per Checkmarx One result still to verify (see **One result, several rows** below). **Allocate N for triage** gives the
    selected projects (or all shown) exactly what they lack; **Triage selected now** runs it.
    If you triage beyond what is allocated, the confirmation says how many credits you are
    allocating by confirming, and the audit log records them as yours.
@@ -357,7 +357,15 @@ under the server's account.
   and is enforced before each request (concurrent requests cannot overrun it
   together). Whether Remediate runs AI Remediation is fixed
   when a report is generated; the server re-checks the switch on every request.
-- **Costs.** AI Triage uses 1 credit per finding, AI Remediation 3.
+- **Costs.** AI Triage uses 1 credit per Checkmarx One result, AI Remediation 3.
+- **One result, several rows.** Checkmarx One can list one result once per code
+  path that reaches it, so a report can show, say, 12 critical/high rows that
+  are 10 results. AI Triage works on the result: those rows are triaged
+  together and charged once (10 credits, not 12). Everywhere a count is shown —
+  the interactive report (rows marked **Same result**, its "Triage all" buttons
+  and confirmations), the Dashboard's credits panel and per-project editor,
+  tracked reports and the projects table — it says how many findings and how
+  many results, so the difference is never a surprise.
   - One finding here means one Checkmarx One result: rows that share a result,
     such as the same vulnerability listed twice, are triaged and counted once.
 - **Allocations.** A project can spend only what someone allocated to it on the

@@ -186,6 +186,8 @@ function creditView(summary) {
   return {
     ...allocations.balance(summary.projectId),
     toTriage: Object.fromEntries(SEVERITIES.map((s) => [s, toTriageCount(summary.risks ?? [], [s], Date.now(), creditLedger.triagedAt(summary.projectId))])),
+    // The rows behind those results: rows sharing one Checkmarx One result are triaged, and charged, once.
+    toTriageRows: Object.fromEntries(SEVERITIES.map((s) => [s, triageRows(summary.risks ?? [], [s], Date.now(), creditLedger.triagedAt(summary.projectId)).length])),
     // Confirmed findings to remediate, by severity, so any choice of severities can be costed.
     toRemediateBySeverity: Object.fromEntries(SEVERITIES.map((s) => [s, remediationCandidates(summary.risks ?? [], [s], creditLedger.remediatedIds(summary.projectId)).length])),
     toRemediate,

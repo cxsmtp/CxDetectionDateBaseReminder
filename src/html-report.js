@@ -13,6 +13,10 @@ import { readFileSync } from 'node:fs';
 
 import { AI_SCANNERS } from './cxone/ai-assist.js';
 
+/** One Checkmarx One result: rows with the same key are triaged together, and charged once. */
+export const resultKey = (f) =>
+  f.alternateId ? `${f.projectId}|a:${f.alternateId}` : f.groupId ? `${f.projectId}|g:${f.groupId}` : `${f.projectId}|r:${f.riskId}`;
+
 export const REPORT_TOP_N = 50;
 /** Severities that get a "triage all" action covering every finding, not just the top ones. */
 export const BULK_SEVERITIES = ['CRITICAL', 'HIGH'];
@@ -108,6 +112,21 @@ export function generateHtmlReport(reportData, options = {}) {
     };
     return options.sign && !client.aiUnavailable ? { ...client, ...options.sign(client) } : client;
   });
+
+  // Rows that are one Checkmarx One result: the risks API can list a result once
+  // per code path, but AI Triage acts on (and charges) the result, once.
+  const sharing = new Map();
+  for (const c of clientFindings) {
+    if (!c.shown || c.aiUnavailable) continue;
+    const k = resultKey(c);
+    sharing.set(k, (sharing.get(k) ?? 0) + 1);
+  }
+  const shownAi = clientFindings.filter((c) => c.shown && !c.aiUnavailable);
+  const resultsShown = new Set(shownAi.map(resultKey)).size;
+  const sharedNote = (c) => {
+    const n = c.aiUnavailable ? 0 : (sharing.get(resultKey(c)) ?? 0) - 1;
+    return n > 0 ? n : 0;
+  };
 
   const payload = {
     config: {
@@ -218,6 +237,9 @@ export function generateHtmlReport(reportData, options = {}) {
         ? 'Remediate runs Checkmarx One AI Remediation and links to the suggested fix (or its pull request).'
         : 'Remediate opens the finding in Checkmarx One Risk Hub.'}
       ${remediateHere ? 'Triage and Remediate go' : 'Triage goes'} through the reminder server shown above, which must be reachable from this computer (company network or VPN).</p>
+    ${resultsShown < shownAi.length
+      ? `<p class="shared-explainer"><strong>${shownAi.length} findings here are ${resultsShown} Checkmarx One results.</strong> Checkmarx One can list one result once per code path that reaches it; AI Triage works on the result, so those rows are triaged together and charged once. They are marked <span class="shared-chip">Same result</span> below.</p>`
+      : ''}
   </section>
 
   <div class="table-wrap">
@@ -226,7 +248,7 @@ export function generateHtmlReport(reportData, options = {}) {
         <tr><th>Severity</th><th>Finding</th><th>Engine</th><th>Age</th><th title="Checkmarx One state — updates once connected">State</th><th title="AI Triage verdict, or the finding\'s Checkmarx One state once triaged">Triage result</th><th>Actions</th></tr>
       </thead>
       <tbody>
-${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere)).join('\n')}
+${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere, sharedNote(clientFindings[index]))).join('\n')}
       </tbody>
     </table>
   </div>
@@ -276,7 +298,7 @@ function aiUnavailableReason(finding) {
 /** AI Remediation only ever runs on a confirmed finding — never one proposed not exploitable. */
 const NOT_CONFIRMED_TITLE = 'Remediate works once triage has confirmed this finding (state Confirmed).';
 
-function findingRow(finding, client, remediateHere) {
+function findingRow(finding, client, remediateHere, sharedWith = 0) {
   const severity = String(finding.severity || 'UNKNOWN').toUpperCase();
   const url = safeHttpUrl(finding.url);
   const title = url
@@ -290,7 +312,9 @@ function findingRow(finding, client, remediateHere) {
   return `<tr data-key="${client.key}">
   <td class="sev-cell"><span class="sev sev-${escapeHtml(severity.toLowerCase())}">${escapeHtml(severity)}</span></td>
   <td class="finding"><div class="finding-title">${title}</div>
-    <div class="sub">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</div></td>
+    <div class="sub">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</div>${sharedWith
+      ? `\n    <div class="shared-note"><span class="shared-chip">Same result</span> One Checkmarx One result with ${sharedWith} other row${sharedWith === 1 ? '' : 's'} here: triaged together, 1 credit.</div>`
+      : ''}</td>
   <td class="meta-cell" data-label="Engine">${escapeHtml(finding.scanner || '—')}</td>
   <td class="meta-cell" data-label="Age">${age}</td>
   <td class="state-cell" data-label="State">${escapeHtml(stateLabel)}</td>
@@ -397,6 +421,9 @@ tr:last-child td { border-bottom: 0; }
 .finding { min-width: 240px; }
 .finding-title { font-weight: 600; overflow-wrap: anywhere; }
 .sub { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.shared-note { margin-top: 4px; font-size: 12px; color: var(--muted); }
+.shared-chip { display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 999px; background: var(--busy-bg); color: var(--busy); font-size: 11px; font-weight: 700; }
+.shared-explainer { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--busy-bg); color: var(--busy); font-size: 13px; }
 .sev { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 4px; padding: 2px 8px; color: #fff; background: #98a2b3; white-space: nowrap; }
 .sev-critical { background: #b42318; } .sev-high { background: #e04f16; } .sev-medium { background: #b54708; } .sev-low { background: #1570ef; }
 .chip { display: inline-block; border-radius: 999px; padding: 1px 10px; font-size: 12px; font-weight: 600; }
