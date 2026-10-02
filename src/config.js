@@ -63,6 +63,10 @@ export function loadConfig(env = process.env) {
     // configured in the UI and persisted by SettingsStore -- not env vars.
     settingsFile: env.SETTINGS_FILE?.trim() || '',
 
+    // How report readers' browsers reach this server (put into every report).
+    // The Settings page overrides it.
+    reportServerUrl: (env.REPORT_SERVER_URL?.trim() || env.PUBLIC_URL?.trim() || '').replace(/\/+$/, ''),
+
     session: { idleMs: int(env.SESSION_IDLE_MINUTES, 480) * 60_000 },
     concurrency: Math.max(1, int(env.CX_FETCH_CONCURRENCY, 5)),
     port: int(env.PORT, 3000),

@@ -152,10 +152,10 @@ export async function sendTestEmail(smtp, to) {
     const info = await transport.sendMail({
       from: fromAddress(smtp),
       to,
-      subject: 'Checkmarx reminder utility — test message',
-      text: 'This is a test message from the Checkmarx detection-date reminder utility. SMTP is working.',
+      subject: 'Mission Zero — test message',
+      text: 'This is a test message from Mission Zero, the Checkmarx One reminder utility. SMTP is working.',
       html:
-        '<p>This is a test message from the <strong>Checkmarx detection-date reminder</strong> utility.</p>' +
+        '<p>This is a test message from <strong>Mission Zero</strong>, the Checkmarx One reminder utility.</p>' +
         '<p>SMTP is working.</p>',
     });
     return { ok: true, messageId: info.messageId, accepted: info.accepted ?? [] };
@@ -181,9 +181,11 @@ export async function sendReminderMail(settings, message, overrides = {}) {
     );
   }
 
-  const to = overrides.to?.length ? overrides.to : settings.recipients.to;
-  const cc = overrides.cc?.length ? overrides.cc : settings.recipients.cc;
-  const bcc = overrides.bcc?.length ? overrides.bcc : settings.recipients.bcc;
+  // `exact` sends to the given addresses only, never the configured list.
+  const pick = (kind) => (overrides.exact ? overrides[kind] ?? [] : overrides[kind]?.length ? overrides[kind] : settings.recipients[kind]);
+  const to = pick('to');
+  const cc = pick('cc');
+  const bcc = pick('bcc');
 
   if (to.length + cc.length + bcc.length === 0) {
     throw new MailError('No recipients are configured. Add at least one on the Settings page.');

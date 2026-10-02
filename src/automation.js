@@ -8,6 +8,7 @@ import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from '.
 import { buildReminder } from './reminder.js';
 import { sendReminderMail } from './mailer.js';
 import { DEFAULT_AUTOMATION } from './automation-config.js';
+import { knownAddresses } from './known-addresses.js';
 
 export { DEFAULT_AUTOMATION, mergeAutomation, parseThresholds } from './automation-config.js';
 
@@ -194,12 +195,17 @@ export async function runOnce({
     rules: settings.initiators,
     useDirectory: settings.initiators.useDirectory,
     concurrency: config.concurrency,
+    memory: knownAddresses,
   });
 
   const wantedSeverities = automation.severities.length ? new Set(automation.severities) : null;
+  // Findings triaged as not exploitable (proposed or confirmed) are left out,
+  // unless the administrator switched that off.
+  const skipNotExploitable = settings.aiTriage?.skipNotExploitable !== false;
   const open = scan.projects
     .flatMap((summary) => summary.risks)
-    .filter((risk) => !wantedSeverities || wantedSeverities.has(risk.severity));
+    .filter((risk) => !wantedSeverities || wantedSeverities.has(risk.severity))
+    .filter((risk) => !skipNotExploitable || !['NOT_EXPLOITABLE', 'PROPOSED_NOT_EXPLOITABLE'].includes(risk.state));
 
   const { crossed, seen } = findCrossings(open, automation.thresholds, state.ledger, { mode: automation.mode });
 

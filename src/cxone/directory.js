@@ -58,6 +58,12 @@ export function dominantDomain(emails) {
 
 // ---------------------------------------------------------------------------
 
+// The tenant's user directory changes rarely, and every fetch needs it.
+const DIRECTORY_FRESH_MS = 15 * 60 * 1000;
+const DIRECTORY_STALE_MS = 24 * 60 * 60 * 1000;
+// Per client, so one API key never sees a directory read with another's rights.
+let directoryCache = new WeakMap();
+
 /**
  * Every user in the tenant's IAM realm, fetched once.
  *
@@ -65,10 +71,16 @@ export function dominantDomain(emails) {
  * with IAM read access, so being refused is an ordinary outcome: the caller
  * falls back to pattern matching, which needs no extra permission.
  */
-export async function fetchDirectory(client, connection, { max = 2000 } = {}) {
+export async function fetchDirectory(client, connection, { max = 50_000, retries = 3, cacheMs = DIRECTORY_FRESH_MS, now = Date.now() } = {}) {
   if (!connection?.iamUrl || !connection?.tenant) {
     return { users: [], note: 'No IAM URL for this connection, so the user directory was not read.' };
   }
+
+  const key = `${connection.iamUrl}|${connection.tenant}`;
+  if (!directoryCache.has(client)) directoryCache.set(client, new Map());
+  const cache = directoryCache.get(client);
+  const cached = cache.get(key);
+  if (cached && now - cached.at < cacheMs) return { users: cached.users, note: null };
 
   const base = `${connection.iamUrl}/auth/admin/realms/${encodeURIComponent(connection.tenant)}/users`;
   const users = [];
@@ -76,9 +88,7 @@ export async function fetchDirectory(client, connection, { max = 2000 } = {}) {
 
   try {
     for (let first = 0; first < max; first += pageSize) {
-      const page = await client.request(`${base}?first=${first}&max=${pageSize}&briefRepresentation=true`, {
-        retries: 0,
-      });
+      const page = await client.request(`${base}?first=${first}&max=${pageSize}&briefRepresentation=true`, { retries });
       const batch = extractItems(page);
       if (batch.length === 0) break;
 
@@ -93,14 +103,26 @@ export async function fetchDirectory(client, connection, { max = 2000 } = {}) {
       }
       if (batch.length < pageSize) break;
     }
+    cache.set(key, { at: now, users });
     return { users, note: null };
   } catch (error) {
+    // A hiccup part-way through must not cost everyone their address: use the
+    // last complete copy (with anything newer this attempt did read) instead.
+    if (cached && now - cached.at < DIRECTORY_STALE_MS) {
+      const seen = new Set(users.map((u) => u.username));
+      return { users: [...users, ...cached.users.filter((u) => !seen.has(u.username))], note: null };
+    }
     const reason =
       error.status === 401 || error.status === 403
         ? 'The API key does not have IAM read access, so usernames were matched by pattern instead.'
         : `The IAM user directory could not be read (${error.message}), so usernames were matched by pattern instead.`;
-    return { users, note: reason };
+    return { users, note: reason, partial: users.length > 0, denied: error.status === 401 || error.status === 403 };
   }
+}
+
+/** Forget cached directories (tests, or after a connection changes). */
+export function clearDirectoryCache() {
+  directoryCache = new WeakMap();
 }
 
 /** Index a directory for the lookups below. */

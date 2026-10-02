@@ -1,4 +1,4 @@
-# Checkmarx One — Detection Date Reminder
+# Mission Zero — Checkmarx One reminders, triage and tracking
 
 A small self-hosted utility that answers one question: **which vulnerabilities have
 been sitting unfixed, and for how long?** — then emails the right people about them
@@ -15,6 +15,20 @@ and set everything else up on the Settings page.
 Run the tests with `npm test`.
 
 ---
+
+## Run it anywhere (Docker or Podman)
+
+```
+docker run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+Swap `docker` for `podman` to use Podman. From a checkout you can instead run
+`docker compose up -d` (or `podman compose up -d`).
+
+Open <http://localhost:3000> and sign in with the administrator's email and
+password, which `docker logs mission-zero` shows once, at first start. See
+[docs/container.md](docs/container.md) for options, backups, upgrades and
+proxies.
 
 ## The two pages
 
@@ -179,7 +193,7 @@ paste one into, so it needs a credential that outlives a session. Two ways:
 
 - **`CX_API_KEY` in the environment** — preferred. The key stays out of the settings file
   and out of the UI.
-- **Arm with current key** — stores this session's key in `data/settings.json`
+- **Arm with current key** — stores this session's key in `settings.json` in the state folder
   (owner-only, gitignored) so runs can authenticate. **Forget stored key** revokes it.
 
 Without either, the schedule still runs but every pass is skipped with that reason
@@ -188,33 +202,173 @@ The panel states plainly which of the three situations you are in.
 
 ---
 
+## Triage from the emailed report
+
+The report attached to reminder mails lists the top 50 findings with their
+Checkmarx One state. **Triage**, **Triage all critical** and **Triage all high**
+run Checkmarx One AI Triage; the "all" buttons cover every critical or high
+finding in the report, across all of its projects, and skip findings already
+triaged in Checkmarx One. **Remediate** runs Checkmarx One AI Remediation and
+then offers the suggested fix: its summary, the pull request Checkmarx One opened
+(for repository-connected projects), a link to the finding in Risk Hub, and the
+code change as a downloadable patch. When remediation is not allowed, Remediate
+simply opens the finding in Risk Hub.
+
+Checkmarx One refuses API calls from a page opened as a file, so the report
+goes through this server, which runs AI Triage and AI Remediation on its own
+stored Checkmarx One connection (`CX_API_KEY`, or the key an Admin stored).
+Readers need no key and nothing to install; Checkmarx One records the triage
+under the server's account.
+
+**From the email to fixing.**
+- **The button.** The email's **Let's start fixing the vulnerabilities** button
+  downloads the same interactive report that is attached. Mail clients cannot
+  link to an attachment, so the server keeps each emailed report and the button
+  downloads it through a signed link.
+  - The link works for 30 days, the life of the report's permissions.
+  - A changed or made-up link gets nothing.
+  - Each download is recorded in the audit log.
+  - Without a reminder server address, the button opens the project in Checkmarx
+    One instead.
+- **Opening the report.** The downloaded file, or the attachment itself, connects
+  to the reminder server as soon as it is opened.
+  - If it cannot, it says why and offers **Connect** to try again, or **Change
+    address** if the server moved.
+  - **Connect to CxONE for action** in the header does the same.
+
+- **Administrator control.** Nothing runs until allowed under **Settings → AI
+  Triage & Remediation from reports**, with separate switches for triage and
+  for remediation (which can open pull requests). An optional **monthly credit
+  limit** covers both and is enforced before each request (concurrent requests
+  cannot overrun it together). Whether Remediate runs AI Remediation is fixed
+  when a report is generated; the server re-checks the switch on every request.
+- **Costs.** AI Triage uses 1 credit per finding, AI Remediation 3.
+  - One finding here means one Checkmarx One result: rows that share a result,
+    such as the same vulnerability listed twice, are triaged and counted once.
+- **Allocations.** Each project gets credits for the severities its rule covers
+  (critical and high by default):
+  - **Triage:** credits already used, plus 1 for each finding still to triage.
+  - **Remediation:** credits already used, plus 3 for each **confirmed** finding
+    not yet remediated.
+  - **Triaged findings are never counted again.** A finding sent for AI Triage
+    stays "To verify" while it runs, and after a vulnerable verdict. The credit
+    ledger records every result sent for triage, so it is not counted as "still
+    to triage" again and the allocation does not jump while AI Triage runs.
+  - **Re-triage is refused while re-triage is off,** from the report, the
+    dashboard and tracked reports alike, so it is never charged twice.
+  - `test/credits-lifecycle.e2e.test.js` checks allocation, use and the audit
+    trail after every stage: fetch, triage, a second triage attempt, verdicts,
+    remediation and its repeat, duplicate rows, the monthly limit, and
+    reconciliation.
+- **Not exploitable is left out.** Findings marked not exploitable, or proposed
+  not exploitable, never appear in HTML reports or reminders, including
+  automatic ones.
+  - This covers the live Checkmarx One state, and AI Triage's verdict while the
+    state still reads "To verify".
+  - A finding triaged from an open report disappears from it as soon as that
+    verdict arrives, and the report counts how many it has hidden.
+  - Switch this off under the same Settings panel.
+- **No verdict.** If Checkmarx One has produced no AI Triage result for a finding
+  6 minutes after it was sent, the report says "No verdict" instead of
+  "Triaging…" forever, and keeps checking.
+  - An SCA finding is only triaged as its own package version. If the latest
+    scan only has that vulnerability in another version, it is reported as not
+    found rather than triaged (and charged) as the other version.
+- **Live usage.** The same panel lists the credits used per project for any
+  month — triage, remediation and total — refreshing every 15 seconds while it
+  is open. This is the utility's own
+  count — one credit per finding in each request Checkmarx One accepted as a new
+  job — kept in `triage-credits.json` in the state folder; it is not Checkmarx One's billing.
+- **Results.** The report shows AI Triage's verdict and each finding's live
+  Checkmarx One state — the one Risk Hub shows — which is what settles when AI
+  Triage finishes (its own record can lag behind, or be missing for grouped SAST
+  findings).
+- **Reminder server address.** Every report carries the address readers'
+  browsers use to reach this server, shown at the top of the report.
+  - **Where it comes from:** **Settings → Reminder server address**, else
+    `REPORT_SERVER_URL`, else the address the dashboard is open on. Automatic
+    reminders use the same address, falling back to the last one an
+    administrator used.
+  - **Warnings:** the Settings page and the dashboard warn when the address is
+    `localhost` (no one else can reach it) or plain http. **Test** checks that
+    it answers as this server.
+  - **In the report:** readers can enter or correct the address (**Change** /
+    **Enter address**). The report checks that it really is a reminder server
+    before using it. The correction is remembered in that browser for every
+    report sent with the same original address, so a moved server is fixed
+    once. A report sent without an address can still be connected this way.
+  - **Private networks:** browsers that ask before a page opened from disk
+    calls a company-network address get the server's consent header.
+    Use HTTPS.
+- **Scope.** Each finding in a report carries a signed grant, valid for 30 days;
+  the server acts only on findings with a valid grant, so it cannot be used to
+  triage anything a report did not list. The signing key is kept in
+  `report-signing.key` in the state folder, or set `REPORT_SIGNING_KEY`.
+
+## Tracked reports
+
+**Save as tracked report** (under the project table) saves the current scope —
+the project and first-detection windows, the selected projects (or every shown
+one), and the severity and age filters — with a baseline of the findings it
+covers. The **Tracked reports** tab then follows each report:
+
+- what happened to the baseline findings, from their live Checkmarx One state:
+  awaiting triage, confirmed, not exploitable (proposed or confirmed), or no
+  longer detected — with the share triaged or resolved and how many changed
+  since the report was saved;
+- how many findings the same filters match now, and how many of those are new
+  (relative windows such as "last 90 days" are re-evaluated each time);
+- AI Triage / Remediation credits used on its projects since it was saved;
+- a per-project breakdown and a history of readings.
+
+Each report also has **Follow up**:
+
+- **Send a reminder** about its open findings (baseline findings awaiting
+  triage or confirmed, plus new ones its filters match) — to scan initiators,
+  the recipient list, or both; one summary per person or one email per project;
+  optionally with the interactive HTML report attached. **Preview** first.
+- **Automatic reminders** every N days at a set hour (UTC), with the same
+  options, only while something is still open. Each send is listed with the
+  report.
+- **Triage now**: AI Triage on its findings still awaiting triage, for the
+  chosen severities, within each project's credits.
+
+Reports update hourly, and every few minutes for half an hour after anyone
+triages or remediates in one of their projects (from a report or the
+dashboard); the tab refreshes itself while open. Background updates use the
+server's stored connection (`CX_API_KEY`, or automation armed); **Refresh**
+works any time. Data is kept in `tracked-reports.json` in the state folder.
+
 ## Links into Checkmarx One
 
 Every finding in the reminder is a hyperlink straight to it in the platform, so the mail
-is a ready reckoner: click a row and start fixing. Project names link to the project
-overview, in the mail and in the dashboard table. The plain-text part carries the same
-URLs, for clients that strip HTML.
+is a ready reckoner: click a row and start fixing. Links open **Risk Hub**, where findings
+are triaged and remediated: project names open the project's Risk Hub, and each finding
+opens Risk Hub with that finding's details panel open. Recipients sign in with their normal
+Checkmarx One login. The plain-text part carries the same URLs, for clients that strip HTML.
 
 The web app's routes are **not** part of the published API reference, so the defaults
 below are best-effort and a tenant may differ:
 
 | | Default |
 | --- | --- |
-| Project | `{baseUrl}/projects/{projectId}/overview` |
-| Finding | `{baseUrl}/results/{scanId}/{projectId}/{engine}?result-id={riskId}` |
+| Project | `{baseUrl}/riskhub/{projectId}` |
+| Finding | `{baseUrl}/riskhub/{projectId}?pagination=…&grouping=…&resultId={riskId}` |
 
 Both are editable under **Settings → Links into Checkmarx One**, which renders a worked
 example as you type — so if a link lands in the wrong place, you can see and fix it
-without sending a mail to find out. `{baseUrl}` defaults to the API host your key
-resolved to; set it explicitly if your UI is served elsewhere. Available placeholders
-are `{baseUrl}`, `{projectId}`, `{scanId}`, `{engine}` and `{riskId}`.
+without sending a mail to find out. Settings saved with the earlier defaults (the
+`/projects/…/overview` and `/results/…` routes) move to these automatically; customised
+links are kept. `{baseUrl}` defaults to the API host your key resolved to; set it
+explicitly if your UI is served elsewhere. Available placeholders are `{baseUrl}`,
+`{projectId}`, `{scanId}`, `{engine}` and `{riskId}`.
 
 Engine names map to the UI's tabs (`SAST`→`sast`, `SCA`→`sca`, `IAC`→`kics`). Every
 substituted value is URL-encoded, which matters because a risk id such as
 `cye0DZkmtm6xwMN4J1Td3BKw03o=` contains `/`, `+` and `=`. Only `http`/`https` links are
-ever emitted. A finding with no scan falls back to its project overview, and if no base
-URL can be resolved the mail still renders — just without links, rather than with broken
-ones.
+ever emitted. With a template that uses `{scanId}`, a finding with no scan falls back to its
+project link, and if no base URL can be resolved the mail still renders — just without
+links, rather than with broken ones.
 
 ---
 
@@ -296,21 +450,112 @@ from each project's latest completed scan, for tenants without the risks service
 
 ---
 
+## Access control
+
+Every person signs in, and has one **role**: a set of permissions covering every
+part of the utility. Admins and Security Analysts manage people and roles on the
+**Access** page; it is hidden from Users.
+
+| Role | Can |
+| --- | --- |
+| **Admin** | Everything, including the Admin-only permissions below |
+| **Security Analyst** | Everything except the Admin-only permissions, including people and roles |
+| **User** | Fetch findings, send reminders, follow tracked reports and send their follow-ups, see credits; Settings read-only; no Access, Audit or Beta |
+
+The Admin-only permissions are:
+
+- **Checkmarx One integration:** the server's own API key and endpoints.
+- **Email server (SMTP).**
+- **Utility-wide monthly credit limit:** the bulk credit budget on the Settings page.
+- **Download and restore backups:** a backup holds the SMTP password, the
+  integration key and every user, so handing it out is as powerful as the other three.
+
+Analysts still allocate credits to projects, within the budget.
+
+**Permissions.** There are 29 of them, in groups: Dashboard, Tracked reports,
+AI & credits, Settings (one per section), Integrations, Audit & data, Beta and
+Access.
+- Every API route checks them on the server; the screens only hide what the server
+  would refuse anyway.
+- A settings save keeps only the sections the person may change.
+- The **Access** page shows a matrix of permissions against roles. You can change
+  what Security Analyst and User may do, or create your own roles. The Admin role
+  is fixed and always holds everything.
+
+**Nobody can grant more than they hold.**
+- A person can only assign a role, or build one, whose permissions they all have.
+- They can only change or remove people whose role they could have assigned.
+- So an analyst can manage Users and other analysts, but cannot create an Admin,
+  promote anyone to Admin, or touch an Admin's account.
+- Nobody can change their own role or disable themselves, and there is always at
+  least one active Admin.
+
+**Signing in.**
+- **Email and password.**
+  - Passwords are hashed with scrypt and need at least 12 characters.
+  - Five wrong attempts lock the account for 15 minutes, and a single address is
+    slowed down after 30 attempts.
+  - When an Admin or Analyst sets a temporary password, the person must choose
+    their own at next sign-in.
+  - People who sign in this way reach Checkmarx One through the server's
+    integration (**Settings → Checkmarx One**, Admin).
+- **Checkmarx One API key.**
+  - The key's identity (email, username or client id) must be listed against a
+    person on the Access page. The person's email always counts.
+  - The key must be for the integration's tenant.
+  - The session then calls Checkmarx One with that person's own key.
+
+Disabling or removing someone ends their sessions at once, and a role change
+applies on their next click.
+
+**First start.**
+- With no users yet, the server creates an administrator and prints its email and
+  a generated password once in its log (or the container log). The administrator
+  chooses their own password at first sign-in.
+- `ADMIN_EMAIL` sets that email. `ADMIN_PASSWORD` sets the password instead of
+  generating one.
+- Lost it? `node scripts/reset-admin.mjs` sets a new temporary one. It works
+  while the server runs, and the reset is audited.
+- `FIRST_ADMIN=setup-code` restores the older flow: create the first
+  administrator in the browser with a one-time code from the log.
+
+**Audit.** Sign-ins (and refusals and lockouts), people and role changes, and
+integration changes are recorded in the audit log (types `access` and `iam`).
+Credit events carry the person's email, role and how they signed in.
+
 ## Where things are stored
 
-| | Where | Survives restart |
+All state lives in **one folder outside the project**, so redeploying or
+replacing the code never touches it and one backup rebuilds the server:
+`DATA_DIR`, default `~/.mission-zero` (the service user's home). The first start
+after upgrading copies an old in-project `data/` folder there once, and leaves the
+old copy in place.
+
+| | File in the state folder | Survives restart |
 | --- | --- | --- |
-| Checkmarx API key | server memory, per session | no |
-| SMTP password | `data/settings.json`, mode `0600` | yes |
-| Recipients, template, endpoint | `data/settings.json` | yes |
+| A person's own Checkmarx One API key (key sign-in) | server memory, per session | no |
+| SMTP password, recipients, template, credit settings, the integration key | `settings.json`, mode `0600` | yes |
+| **Users, roles and permissions** (passwords as scrypt hashes) | `iam.json` | yes |
+| Credit ledger (every credit spent) | `triage-credits.json` | yes |
+| Per-project credit allocations | `credit-allocations.json` | yes |
+| **Audit log** (append-only, hash-chained) | `audit/audit-YYYY-MM.jsonl` + `audit.key` | yes |
+| Tracked reports | `tracked-reports.json` | yes |
+| Resolved initiator addresses | `known-initiators.json` | yes |
+| Report signing key | `report-signing.key` | yes |
+| Automation state | `automation-state.json` | yes |
 | Scan results | server memory, per session | no |
 
-The API key is never written to disk, never logged, and never sent back to the
-browser — the browser holds only an opaque `HttpOnly` session cookie. **Disconnect**
-destroys the session; idle sessions expire after `SESSION_IDLE_MINUTES` (default 8h).
+See [docs/audit-and-backup.md](docs/audit-and-backup.md) for the audit log,
+backups and rebuilding a server from scratch.
+
+A key someone signs in with is never written to disk, never logged, and never sent
+back to the browser — the browser holds only an opaque `HttpOnly` session cookie.
+**Sign out** ends the session; idle sessions expire after `SESSION_IDLE_MINUTES`
+(default 8h). The server's own integration key, which an Admin stores under
+**Settings → Checkmarx One**, is kept in `settings.json` like the SMTP password.
 
 The SMTP password *is* stored, because a mail server has to be reachable without
-someone re-typing it. `data/` is gitignored and written owner-only. The password is
+someone re-typing it. The state folder is created `0700` and its files `0600`. The password is
 never returned to the browser: the settings form shows only whether one is set, and
 saving an unrelated field leaves it untouched.
 
@@ -338,9 +583,11 @@ and an optional `CX_API_KEY` bootstrap for headless deployments).
 
 ## Operational notes
 
-- **No authentication in front of the UI.** It binds to `127.0.0.1` for that reason.
-  Anyone who can reach the port can use a connected session and send mail as your
-  SMTP user, so put it behind a reverse proxy with auth before exposing it.
+- **Everyone signs in.** There is no shared session: even with `CX_API_KEY` set,
+  the UI does nothing until someone signs in, and each person can do only what
+  their role allows (see [Access control](#access-control)). Serve it over HTTPS
+  (a reverse proxy) when it leaves `127.0.0.1`, so passwords and session cookies
+  are encrypted in transit.
 - **A project whose risks cannot be read is reported inline** in its table row, rather
   than failing the whole fetch.
 - **Scan results are held in memory** between fetching and sending, so a reminder

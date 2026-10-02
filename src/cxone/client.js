@@ -1,4 +1,8 @@
+import { Semaphore } from '../ttl-cache.js';
 import { TokenProvider } from './auth.js';
+
+/** Calls to Checkmarx One in flight at once, per connection; the rest queue. */
+const MAX_CONCURRENT = Math.max(1, Number(process.env.CX_MAX_CONCURRENCY) || 24);
 
 export class CxApiError extends Error {
   constructor(message, { status = 0, path = '', body = '' } = {}) {
@@ -11,6 +15,29 @@ export class CxApiError extends Error {
 }
 
 const RETRYABLE = new Set([429, 502, 503, 504]);
+// One request may not hang the caller for minutes (Node's fetch has no overall timeout).
+const REQUEST_TIMEOUT_MS = Math.max(5_000, Number(process.env.CX_REQUEST_TIMEOUT_MS) || 60_000);
+
+/** "fetch failed" says nothing: name the host and the network reason (timeout, DNS, TLS, refused…). */
+export function networkReason(error) {
+  if (error?.name === 'TimeoutError' || error?.name === 'AbortError') return `no answer within ${Math.round(REQUEST_TIMEOUT_MS / 1000)} s`;
+  const cause = error?.cause;
+  const code = cause?.code || error?.code || '';
+  const known = {
+    ENOTFOUND: 'host name not found (DNS)',
+    EAI_AGAIN: 'DNS lookup failed temporarily',
+    ECONNREFUSED: 'connection refused',
+    ECONNRESET: 'connection reset',
+    ETIMEDOUT: 'connection timed out',
+    UND_ERR_CONNECT_TIMEOUT: 'connection timed out',
+    UND_ERR_SOCKET: 'connection closed unexpectedly',
+    CERT_HAS_EXPIRED: 'TLS certificate expired',
+    UNABLE_TO_VERIFY_LEAF_SIGNATURE: 'TLS certificate not trusted (proxy or missing CA — see NODE_EXTRA_CA_CERTS)',
+    SELF_SIGNED_CERT_IN_CHAIN: 'TLS certificate not trusted (proxy or missing CA — see NODE_EXTRA_CA_CERTS)',
+    DEPTH_ZERO_SELF_SIGNED_CERT: 'self-signed TLS certificate',
+  };
+  return known[code] || [code, cause?.message || error?.message].filter(Boolean).join(': ') || 'network error';
+}
 
 /**
  * Checkmarx One negotiates API versions through the Accept header and answers
@@ -29,9 +56,35 @@ export class CxClient {
    *   Per-session connection descriptor, built from the API key the operator
    *   pasted into the portal.
    */
+  #limit = new Semaphore(MAX_CONCURRENT);
+
   constructor(connection, tokenProvider = new TokenProvider(connection)) {
     this.#connection = connection;
     this.#tokens = tokenProvider;
+  }
+
+  /**
+   * Who this connection acts as, from the access token's claims (username,
+   * email, name), for the audit log. Never throws.
+   */
+  async identity() {
+    try {
+      const token = await this.#tokens.getToken();
+      const claims = JSON.parse(Buffer.from(String(token).split('.')[1] ?? '', 'base64url').toString('utf8'));
+      return {
+        user: claims.preferred_username || claims.email || claims.name || claims.sub || '',
+        email: claims.email || '',
+        name: claims.name || [claims.given_name, claims.family_name].filter(Boolean).join(' '),
+        clientId: claims.azp || '',
+      };
+    } catch {
+      return { user: '', email: '', name: '', clientId: '' };
+    }
+  }
+
+  /** Requests running and queued against Checkmarx One right now. */
+  get load() {
+    return { active: this.#limit.active, waiting: this.#limit.waiting, waitingBackground: this.#limit.waitingLow, limit: this.#limit.limit };
   }
 
   get baseUrl() {
@@ -47,7 +100,7 @@ export class CxClient {
    * @param {string} [options.accept]
    * @param {number} [options.retries]
    */
-  async request(path, { method = 'GET', query, body, accept = ACCEPT, retries = 3 } = {}) {
+  async request(path, { method = 'GET', query, body, accept = ACCEPT, retries = 3, background = false } = {}) {
     if (!this.baseUrl) throw new CxApiError('Checkmarx One API URL is not configured.', { path });
 
     const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
@@ -60,20 +113,33 @@ export class CxClient {
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       const token = await this.#tokens.getToken();
-      const response = await fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: accept,
-          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
+      let response;
+      let text = '';
+      try {
+        // Only the network round trip holds a slot; back-off waits do not.
+        [response, text] = await this.#limit.run(async () => {
+          const r = await fetch(url, {
+            method,
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: accept,
+              ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+            },
+            body: body === undefined ? undefined : JSON.stringify(body),
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          });
+          return [r, await r.text().catch(() => '')];
+        }, { low: background });
+      } catch (error) {
+        // A dropped connection or DNS hiccup: as retryable as a 503.
+        lastError = new CxApiError(`Could not reach Checkmarx One at ${url.host}: ${networkReason(error)}.`, { status: 502, path: url.pathname });
+        if (attempt === retries) throw lastError;
+        await sleep(2 ** attempt * 500);
+        continue;
+      }
 
       if (response.ok) {
-        if (response.status === 204) return null;
-        const text = await response.text();
-        if (!text) return null;
+        if (response.status === 204 || !text) return null;
         try {
           return JSON.parse(text);
         } catch {
@@ -81,7 +147,7 @@ export class CxClient {
         }
       }
 
-      const detail = (await response.text().catch(() => '')).slice(0, 1000);
+      const detail = text.slice(0, 1000);
 
       // A 401 usually means the cached token aged out mid-flight; retry once
       // with a fresh one before giving up.
@@ -108,7 +174,7 @@ export class CxClient {
    * Walk an offset/limit paginated collection.  Checkmarx One is not entirely
    * consistent about the envelope key, so the caller says where the rows live.
    */
-  async *paginate(path, { query = {}, itemsKey, limit = 100, maxItems = 10_000 } = {}) {
+  async *paginate(path, { query = {}, itemsKey, limit = 100, maxItems = 10_000, offsetIsPage = false } = {}) {
     let offset = 0;
     let fetched = 0;
 
@@ -130,6 +196,13 @@ export class CxClient {
           page?.metaData?.totalResults,
       );
       if (items.length < limit) return;
+      // GET /api/results numbers pages rather than rows, and its totalCount
+      // has been seen reporting only the first page, so a short page is the
+      // only reliable end marker there.
+      if (offsetIsPage) {
+        offset += 1;
+        continue;
+      }
       if (Number.isFinite(total) && fetched >= total) return;
       offset += limit;
     }

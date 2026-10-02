@@ -1,1285 +1,522 @@
 /**
- * Interactive HTML report generator for vulnerability triage and remediation.
- * Generates a self-contained HTML file with real-time status updates.
+ * The interactive HTML report attached to reminder mails.
+ *
+ * It lists the top findings (worst severity first, then oldest) with their
+ * current Checkmarx One state. Triage and Remediate run Checkmarx One AI
+ * Triage and AI Remediation through this server's relay, which uses the
+ * server's own connection and acts only on findings carrying a signed grant
+ * (see report-grants.js). When the administrator has not allowed remediation,
+ * Remediate opens the finding in Checkmarx One Risk Hub instead.
  */
 
-export function generateHtmlReport(reminderData, options = {}) {
-  const {
-    apiBaseUrl = '',
-    sessionCookie = '',
-    branding = {},
-  } = options;
+import { readFileSync } from 'node:fs';
 
-  const {
-    projects = [],
-    totalRisks = 0,
-    criticalCount = 0,
-    highCount = 0,
-    mediumCount = 0,
-    lowCount = 0,
-    oldestFirstDetected = '',
-    projectName = '',
-    multipleProjects = false,
-  } = reminderData;
+import { AI_SCANNERS } from './cxone/ai-assist.js';
 
-  // Filter for critical and high findings only
-  const filterByPriority = (proj) => ({
-    ...proj,
-    risks: (proj.risks || []).filter(r => ['CRITICAL', 'HIGH'].includes(r.severity))
+export const REPORT_TOP_N = 50;
+/** Severities that get a "triage all" action covering every finding, not just the top ones. */
+export const BULK_SEVERITIES = ['CRITICAL', 'HIGH'];
+
+const CLIENT_SCRIPT = readFileSync(new URL('./report/report.client.js', import.meta.url), 'utf8');
+
+const SEVERITY_RANK = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO', 'UNKNOWN'];
+const rank = (severity) => {
+  const index = SEVERITY_RANK.indexOf(String(severity).toUpperCase());
+  return index === -1 ? SEVERITY_RANK.length : index;
+};
+
+const STATE_LABELS = {
+  TO_VERIFY: 'To verify',
+  CONFIRMED: 'Confirmed',
+  URGENT: 'Urgent',
+  NOT_EXPLOITABLE: 'Not exploitable',
+  PROPOSED_NOT_EXPLOITABLE: 'Proposed not exploitable',
+};
+
+/**
+ * The findings the report shows: worst severity first, then oldest.
+ * Returned objects are copies carrying their project's id and name, so the
+ * caller can enrich them (AI ids) without touching the report data.
+ */
+export function selectTopFindings(reportData, limit = REPORT_TOP_N) {
+  const all = [];
+  for (const project of reportData.projects ?? []) {
+    for (const risk of project.risks ?? []) {
+      all.push({
+        ...risk,
+        projectId: risk.projectId || project.projectId,
+        projectName: risk.projectName || project.projectName,
+      });
+    }
+  }
+  all.sort((a, b) => rank(a.severity) - rank(b.severity) || (b.ageDays ?? -1) - (a.ageDays ?? -1));
+  return all.slice(0, limit);
+}
+
+/**
+ * @param {object} reportData  from buildReportData()
+ * @param {object} options
+ * @param {Array}  [options.findings]    top findings, already enriched by resolveAiIds()
+ * @param {Array}  [options.bulkFindings] critical/high findings beyond the top ones, for "triage all"
+ * @param {object} [options.connection]  {baseUrl, iamUrl, tenant} — never the API key
+ * @param {string} [options.portalUrl]   Checkmarx One web UI host, if not the API host
+ * @param {string} [options.relayUrl]    where the report reaches this server's relay
+ * @param {boolean} [options.remediationViaRelay]  Remediate runs AI Remediation through the relay
+ * @param {(finding) => {exp, grant}} [options.sign]  signs a finding for the relay
+ * @param {object} [options.branding]
+ * @param {boolean} [options.allowRetriage]  findings with a verdict may be triaged again
+ * @param {boolean} [options.allowReremediation]  remediated findings may be remediated again
+ * @param {string} [options.adminContact]  who readers ask for more credits
+ */
+export function generateHtmlReport(reportData, options = {}) {
+  const { connection = {}, branding = {} } = options;
+  const findings = options.findings ?? selectTopFindings(reportData);
+  const bulkFindings =
+    options.bulkFindings ??
+    selectTopFindings(reportData, Infinity)
+      .slice(findings.length)
+      .filter((f) => BULK_SEVERITIES.includes(f.severity));
+  const projects = reportData.projects ?? [];
+  const total = projects.reduce((sum, p) => sum + (p.risks?.length ?? 0), 0);
+  const accent = /^#[0-9a-f]{3,8}$/i.test(branding.accentColor ?? '') ? branding.accentColor : '#5b4bdb';
+
+  const counts = {};
+  for (const project of projects) {
+    for (const risk of project.risks ?? []) counts[risk.severity] = (counts[risk.severity] ?? 0) + 1;
+  }
+
+  const relayUrl = safeHttpUrl(options.relayUrl);
+  // Signed and relay-ready even without an address: a reader can enter the
+  // reminder server's address in the report and still triage.
+  const remediateHere = Boolean(options.remediationViaRelay);
+  const clientFindings = [...findings, ...bulkFindings].map((f, index) => {
+    const client = {
+      key: String(index),
+      shown: index < findings.length,
+      severity: String(f.severity || '').toUpperCase(),
+      title: String(f.title ?? ''),
+      projectId: String(f.projectId ?? ''),
+      projectName: String(f.projectName ?? ''),
+      riskId: String(f.riskId ?? f.id ?? ''),
+      state: String(f.state || '').toUpperCase(),
+      scanId: String(f.scanId || ''),
+      scanner: String(f.scanner || '').toUpperCase(),
+      alternateId: String(f.alternateId || ''),
+      groupId: String(f.groupId || ''),
+      url: safeHttpUrl(f.url),
+      aiUnavailable: aiUnavailableReason(f),
+    };
+    return options.sign && !client.aiUnavailable ? { ...client, ...options.sign(client) } : client;
   });
-  const priorityProjects = projects.map(filterByPriority).filter(p => p.risks.length > 0);
-  const priorityFindingsCount = criticalCount + highCount;
 
-  // Extract top 5 critical vulnerabilities across all projects
-  const topCriticals = extractTopVulnerabilities(projects, 'CRITICAL', 5);
-  const topHighs = extractTopVulnerabilities(projects, 'HIGH', 5);
+  const payload = {
+    config: {
+      tenant: connection.tenant ?? '',
+      iamUrl: connection.iamUrl ?? '',
+      apiBaseUrl: connection.baseUrl ?? '',
+      portalUrl: safeHttpUrl(options.portalUrl) || connection.baseUrl || '',
+      relayUrl,
+      allowRetriage: options.allowRetriage === true,
+      ...(options.reportToken ? { report: options.reportToken } : {}),
+      allowReremediation: options.allowReremediation === true,
+      adminContact: /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(options.adminContact ?? '') ? options.adminContact : '',
+    },
+    findings: clientFindings,
+  };
 
-  const logoHtml = branding.logoUrl
-    ? `<img src="${sanitizeUrl(branding.logoUrl)}" alt="${branding.companyName || 'Company'}" height="${branding.logoHeight || 60}" style="max-width: 300px;">`
-    : `<div style="font-size: 20px; font-weight: bold; color: ${branding.accentColor || '#0066cc'};">${branding.companyName || 'Company'}</div>`;
+  const title = projects.length === 1 ? `${projects[0].projectName} — vulnerability report` : 'Vulnerability report';
+  const logoUrl = safeLogo(branding.logoUrl);
+  const logo = logoUrl
+    ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(branding.companyName || 'Logo')}" height="${Number(branding.logoHeight) || 32}">`
+    : branding.companyName
+      ? `<span class="brand-name">${escapeHtml(branding.companyName)}</span>`
+      : '';
 
-  const accentColor = branding.accentColor || '#0066cc';
+
+  const projectLinks = projects
+    .map((p) => {
+      const url = safeHttpUrl(p.url);
+      return url
+        ? `<a class="btn btn-outline" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(p.projectName)} (${p.risks?.length ?? 0}) →</a>`
+        : '';
+    })
+    .join('');
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vulnerability Report - Interactive Triage & Remediation</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            line-height: 1.6;
-        }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .header {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .logo { margin-bottom: 20px; }
-        .title { font-size: 28px; font-weight: bold; margin: 20px 0 10px; }
-        .subtitle { color: #666; margin-bottom: 20px; }
-        .summary-band {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .summary-card {
-            background: white;
-            border-left: 4px solid #999;
-            padding: 15px;
-            border-radius: 4px;
-            text-align: center;
-        }
-        .summary-card.critical { border-left-color: #d32f2f; }
-        .summary-card.high { border-left-color: #f57c00; }
-        .summary-card.medium { border-left-color: #fbc02d; }
-        .summary-card.low { border-left-color: #388e3c; }
-        .summary-count { font-size: 32px; font-weight: bold; color: ${accentColor}; }
-        .summary-label { font-size: 12px; color: #666; text-transform: uppercase; margin-top: 5px; }
-
-        .actions-section {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .actions-title { font-weight: bold; margin-bottom: 15px; font-size: 16px; }
-        .action-buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .action-btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.2s;
-            background: ${accentColor};
-            color: white;
-        }
-        .action-btn:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .action-btn-secondary {
-            background: #f5f5f5;
-            color: #333;
-            border: 1px solid #ddd;
-        }
-        .action-btn-secondary:hover { background: #efefef; }
-
-        .top-findings {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .findings-title { font-weight: bold; margin-bottom: 15px; font-size: 16px; }
-        .finding-summary {
-            display: flex;
-            align-items: center;
-            padding: 12px;
-            margin-bottom: 10px;
-            background: #f9f9f9;
-            border-left: 3px solid #999;
-            border-radius: 4px;
-        }
-        .finding-summary.critical { border-left-color: #d32f2f; background: #ffebee; }
-        .finding-summary.high { border-left-color: #f57c00; background: #fff3e0; }
-        .finding-summary.medium { border-left-color: #fbc02d; background: #fffde7; }
-        .finding-summary.low { border-left-color: #388e3c; background: #e8f5e9; }
-        .finding-severity {
-            font-weight: bold;
-            font-size: 12px;
-            padding: 4px 8px;
-            border-radius: 3px;
-            margin-right: 10px;
-            min-width: 70px;
-            text-align: center;
-            text-transform: uppercase;
-        }
-        .finding-severity.critical { background: #d32f2f; color: white; }
-        .finding-severity.high { background: #f57c00; color: white; }
-        .finding-severity.medium { background: #fbc02d; color: #333; }
-        .finding-severity.low { background: #388e3c; color: white; }
-        .finding-title { flex: 1; margin: 0 10px; }
-        .finding-title-text { font-weight: 500; }
-        .finding-meta { font-size: 12px; color: #666; margin-top: 4px; }
-        .finding-age { color: #d32f2f; font-weight: bold; }
-
-        .all-findings {
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .findings-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-        }
-        .finding-card {
-            border-bottom: 1px solid #eee;
-            padding: 8px;
-            background: #fafafa;
-            display: grid;
-            grid-template-columns: 70px 1fr 80px 80px 70px 120px;
-            gap: 10px;
-            align-items: center;
-            font-size: 12px;
-        }
-        .finding-card:hover { background: #f0f0f0; }
-        .finding-card.triaged { background: #e8f5e9; }
-        .finding-card.remediated { background: #c8e6c9; }
-        .finding-card-header-row {
-            display: grid;
-            grid-template-columns: 70px 1fr 80px 80px 70px 120px;
-            gap: 10px;
-            padding: 8px;
-            background: #f5f5f5;
-            font-weight: bold;
-            font-size: 11px;
-            border-bottom: 2px solid #ddd;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            text-transform: uppercase;
-            color: #666;
-        }
-
-        .finding-header {
-            display: contents;
-        }
-        .finding-card-severity {
-            font-weight: bold;
-            font-size: 11px;
-            padding: 3px 6px;
-            border-radius: 3px;
-            text-transform: uppercase;
-            text-align: center;
-            min-width: 60px;
-        }
-        .finding-card-severity.critical { background: #d32f2f; color: white; }
-        .finding-card-severity.high { background: #f57c00; color: white; }
-        .finding-card-severity.medium { background: #fbc02d; color: #333; }
-        .finding-card-severity.low { background: #388e3c; color: white; }
-
-        .finding-details {
-            display: contents;
-        }
-        .finding-title-card {
-            font-weight: 600;
-            color: #000;
-            text-decoration: none;
-        }
-        .finding-title-card a {
-            color: #1d4ed8;
-            text-decoration: none;
-        }
-        .finding-title-card a:hover {
-            text-decoration: underline;
-        }
-        .finding-info { display: none; }
-        .finding-info-item { display: none; }
-        .finding-info-label { display: none; }
-
-        .finding-age-cell {
-            font-weight: 600;
-            color: #d32f2f;
-        }
-        .finding-ai-cell {
-            font-size: 11px;
-            font-weight: 500;
-        }
-        .finding-ai-high { color: #d32f2f; }
-        .finding-ai-medium { color: #f57c00; }
-        .finding-actions {
-            display: flex;
-            gap: 4px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-        .finding-btn {
-            padding: 3px 8px;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 10px;
-            font-weight: 500;
-            transition: all 0.2s;
-            white-space: nowrap;
-        }
-        .finding-btn-triage {
-            background: #2196f3;
-            color: white;
-        }
-        .finding-btn-triage:hover { background: #1976d2; }
-        .finding-btn-remediate {
-            background: #4caf50;
-            color: white;
-        }
-        .finding-btn-remediate:hover { background: #388e3c; }
-        .finding-btn-disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .finding-status {
-            font-size: 12px;
-            padding: 4px 8px;
-            border-radius: 3px;
-            display: inline-block;
-            margin-left: 10px;
-        }
-        .finding-status.triaged {
-            background: #bbdefb;
-            color: #0d47a1;
-        }
-        .finding-status.remediated {
-            background: #c8e6c9;
-            color: #1b5e20;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 14px;
-            height: 14px;
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid ${accentColor};
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-            vertical-align: middle;
-            margin-right: 5px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        .call-to-action {
-            background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
-        }
-        .cta-title { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
-        .cta-subtitle { font-size: 14px; opacity: 0.95; margin-bottom: 15px; }
-        .cta-metrics {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.3);
-        }
-        .cta-metric { text-align: center; }
-        .cta-metric-value { font-size: 32px; font-weight: bold; }
-        .cta-metric-label { font-size: 12px; opacity: 0.9; text-transform: uppercase; }
-
-        .remediation-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            animation: fadeIn 0.2s;
-        }
-        .remediation-modal.show { display: flex; }
-        .remediation-content {
-            background-color: white;
-            margin: auto;
-            padding: 30px;
-            border-radius: 8px;
-            max-width: 800px;
-            max-height: 85vh;
-            overflow-y: auto;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
-        }
-        .remediation-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px; }
-        .remediation-title { font-size: 20px; font-weight: bold; }
-        .remediation-close {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #666;
-        }
-        .remediation-section { margin-bottom: 20px; }
-        .remediation-section-title { font-weight: bold; font-size: 14px; color: #d32f2f; text-transform: uppercase; margin-bottom: 10px; }
-        .remediation-section-content { font-size: 14px; line-height: 1.6; color: #333; }
-        .code-block {
-            background: #f5f5f5;
-            border-left: 3px solid #d32f2f;
-            padding: 12px;
-            margin: 10px 0;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            overflow-x: auto;
-        }
-        .remediation-actions { margin-top: 20px; display: flex; gap: 10px; }
-        .btn-close-modal { background: #f5f5f5; border: 1px solid #ddd; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
-        .btn-close-modal:hover { background: #efefef; }
-
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .activity-section {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .activity-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #f0f0f0;
-        }
-        .activity-tab {
-            padding: 10px 15px;
-            border: none;
-            background: none;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            color: #999;
-            border-bottom: 3px solid transparent;
-            transition: all 0.2s;
-        }
-        .activity-tab.active {
-            color: ${accentColor};
-            border-bottom-color: ${accentColor};
-        }
-        .activity-tab:hover { color: #333; }
-
-        .activity-log {
-            max-height: 300px;
-            overflow-y: auto;
-            font-size: 13px;
-            font-family: 'Courier New', monospace;
-        }
-        .activity-item {
-            padding: 8px;
-            margin-bottom: 5px;
-            border-radius: 3px;
-            display: flex;
-            gap: 10px;
-            align-items: flex-start;
-        }
-        .activity-item.pending {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-        .activity-item.success {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-        .activity-item.error {
-            background: #ffebee;
-            color: #c62828;
-        }
-        .activity-icon {
-            min-width: 20px;
-            font-weight: bold;
-        }
-        .activity-text {
-            flex: 1;
-            word-break: break-word;
-        }
-        .activity-time {
-            font-size: 11px;
-            opacity: 0.7;
-            min-width: 60px;
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-            margin-left: 10px;
-        }
-        .status-badge.pending { background: #bbdefb; color: #0d47a1; }
-        .status-badge.success { background: #c8e6c9; color: #1b5e20; }
-        .status-badge.error { background: #ffcdd2; color: #b71c1c; }
-
-        @media (max-width: 600px) {
-            .summary-band { grid-template-columns: 1fr 1fr; }
-            .action-buttons { flex-direction: column; }
-            .action-btn { width: 100%; }
-            .finding-header { flex-direction: column; }
-            .cta-metrics { grid-template-columns: 1fr; }
-            .remediation-content { padding: 20px; max-width: 95vw; }
-            .activity-tabs { flex-wrap: wrap; }
-        }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>${escapeHtml(title)}</title>
+<style>${styles(accent)}</style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <div class="logo">${logoHtml}</div>
-            <div class="title">Vulnerability Report</div>
-            <div class="subtitle">
-                ${totalRisks} findings ${multipleProjects ? 'across projects' : 'in ' + projectName} |
-                Oldest: <span class="finding-age">${oldestFirstDetected || 'Unknown'}</span>
-            </div>
-
-            <!-- Summary Band -->
-            <div class="summary-band">
-                <div class="summary-card critical">
-                    <div class="summary-count">${criticalCount}</div>
-                    <div class="summary-label">Critical</div>
-                </div>
-                <div class="summary-card high">
-                    <div class="summary-count">${highCount}</div>
-                    <div class="summary-label">High</div>
-                </div>
-                <div class="summary-card medium">
-                    <div class="summary-count">${mediumCount}</div>
-                    <div class="summary-label">Medium</div>
-                </div>
-                <div class="summary-card low">
-                    <div class="summary-count">${lowCount}</div>
-                    <div class="summary-label">Low</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Critical CTA Section -->
-        <div class="call-to-action">
-            <div class="cta-title">⚠️ Immediate Action Required</div>
-            <div class="cta-subtitle">Review and remediate critical and high-severity vulnerabilities</div>
-            <div class="cta-metrics">
-                <div class="cta-metric">
-                    <div class="cta-metric-value">${criticalCount}</div>
-                    <div class="cta-metric-label">Critical Issues</div>
-                </div>
-                <div class="cta-metric">
-                    <div class="cta-metric-value">${highCount}</div>
-                    <div class="cta-metric-label">High Severity</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Call to Action Custom -->
-        ${branding.callToAction ? `<div class="call-to-action" style="background: white; color: #333; border-top: 2px solid #d32f2f; padding: 20px;">${escapeHtml(branding.callToAction)}</div>` : ''}
-
-        <!-- Authentication Section -->
-        <div class="actions-section" id="authSection">
-            <div class="actions-title">Enable Interactive Features</div>
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <input type="password" id="apiKeyInput" placeholder="Paste your Checkmarx API key here to enable interactive triage"
-                       style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-width: 300px;">
-                <button class="action-btn" onclick="authenticateWithApiKey()">Authenticate</button>
-                <button class="action-btn action-btn-secondary" onclick="clearApiKey()" id="clearKeyBtn" style="display:none;">Clear</button>
-                <span id="authStatus" style="font-size: 12px; color: #666;"></span>
-            </div>
-        </div>
-
-        <!-- Bulk Actions -->
-        <div class="actions-section">
-            <div class="actions-title">Quick Actions</div>
-            <div class="action-buttons">
-                <button class="action-btn" onclick="triageAll('CRITICAL')" id="triageAllCriticalBtn" disabled>Triage All Critical (${criticalCount})</button>
-                <button class="action-btn" onclick="triageAll('HIGH')" id="triageAllHighBtn" disabled>Triage All High (${highCount})</button>
-                <button class="action-btn action-btn-secondary" onclick="toggleAllFinding('remediate')" id="remediateAllBtn" disabled>Mark All as Remediated</button>
-                <button class="action-btn action-btn-secondary" onclick="refreshReport()">🔄 Refresh Status</button>
-            </div>
-            <div style="font-size: 12px; color: #666; margin-top: 10px;">
-                ℹ️ Authenticate with your API key to enable interactive triage and remediation
-            </div>
-        </div>
-
-        <!-- Top Findings Summary -->
-        ${topCriticals.length > 0 ? `
-            <div class="top-findings">
-                <div class="findings-title">Top Critical Findings</div>
-                ${topCriticals.map(f => `
-                    <div class="finding-summary critical">
-                        <span class="finding-severity critical">${f.severity}</span>
-                        <div class="finding-title">
-                            <div class="finding-title-text">${escapeHtml(f.title)}</div>
-                            <div class="finding-meta">
-                                <span class="finding-age">${ageLabel(f.ageDays)} old</span> ·
-                                Project: ${escapeHtml(f.projectName)} ·
-                                Engine: ${escapeHtml(f.scanner || f.engine)}
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        ` : ''}
-
-        ${topHighs.length > 0 ? `
-            <div class="top-findings">
-                <div class="findings-title">Top High-Severity Findings</div>
-                ${topHighs.map(f => `
-                    <div class="finding-summary high">
-                        <span class="finding-severity high">${f.severity}</span>
-                        <div class="finding-title">
-                            <div class="finding-title-text">${escapeHtml(f.title)}</div>
-                            <div class="finding-meta">
-                                <span>${ageLabel(f.ageDays)} old</span> ·
-                                Project: ${escapeHtml(f.projectName)} ·
-                                Engine: ${escapeHtml(f.scanner || f.engine)}
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        ` : ''}
-
-        <!-- Priority Findings (Critical + High Only) - Compact Table View -->
-        <div class="all-findings">
-            <div class="findings-title">Priority Vulnerabilities to Address (${priorityFindingsCount})</div>
-            <div style="overflow-x: auto;">
-                <div class="finding-card-header-row">
-                    <div>Severity</div>
-                    <div>Finding / Location</div>
-                    <div>Age (days)</div>
-                    <div>AI Analysis</div>
-                    <div>Engine</div>
-                    <div>Actions</div>
-                </div>
-                <div class="findings-grid" id="findings-grid">
-                    ${generateFindingCards(priorityProjects)}
-                </div>
-            </div>
-        </div>
-
-        <!-- Activity & Status Tab -->
-        <div class="activity-section" id="activitySection">
-            <div class="activity-tabs">
-                <button class="activity-tab active" onclick="switchActivityTab('overview')">📊 Overview</button>
-                <button class="activity-tab" onclick="switchActivityTab('activity')">📝 Activity Log</button>
-            </div>
-            <div id="overviewPanel" class="activity-tab-content">
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
-                    <div style="padding: 15px; background: #f5f5f5; border-radius: 4px;">
-                        <div style="font-size: 24px; font-weight: bold; color: #d32f2f;" id="triageCount">0</div>
-                        <div style="font-size: 12px; color: #666; margin-top: 5px;">Triaged Today</div>
-                    </div>
-                    <div style="padding: 15px; background: #f5f5f5; border-radius: 4px;">
-                        <div style="font-size: 24px; font-weight: bold; color: #4caf50;" id="remediateCount">0</div>
-                        <div style="font-size: 12px; color: #666; margin-top: 5px;">Remediated</div>
-                    </div>
-                    <div style="padding: 15px; background: #f5f5f5; border-radius: 4px;">
-                        <div style="font-size: 24px; font-weight: bold; color: #f57c00;" id="pendingCount">0</div>
-                        <div style="font-size: 12px; color: #666; margin-top: 5px;">Pending Action</div>
-                    </div>
-                </div>
-            </div>
-            <div id="activityPanel" class="activity-log" style="display: none;">
-                <div id="activityLog"></div>
-            </div>
-        </div>
-
-        <!-- Remediation Modal -->
-        <div id="remediationModal" class="remediation-modal">
-            <div class="remediation-content">
-                <div class="remediation-header">
-                    <div class="remediation-title" id="modalTitle">Remediation Guidance</div>
-                    <button class="remediation-close" onclick="closeRemediationModal()">&times;</button>
-                </div>
-                <div id="remediationBody"></div>
-                <div class="remediation-actions">
-                    <button class="btn-close-modal" onclick="closeRemediationModal()">Close</button>
-                </div>
-            </div>
-        </div>
+<header class="top">
+  <div class="top-inner">
+    <div>
+      ${logo ? `<div class="brand">${logo}</div>` : ''}
+      <h1>${escapeHtml(title)}</h1>
+      <p class="meta">${total} open finding${total === 1 ? '' : 's'}${projects.length > 1 ? ` across ${projects.length} projects` : ''}
+        · top ${findings.length} shown (worst severity, then oldest)
+        · generated ${escapeHtml(reportData.generatedAt ?? '')} UTC${connection.tenant ? ` · tenant ${escapeHtml(connection.tenant)}` : ''}</p>
     </div>
-
-    <script>
-        // Configuration from server
-        const apiBaseUrl = '${sanitizeJsString(apiBaseUrl)}';
-        const sessionCookie = '${sanitizeJsString(sessionCookie)}';
-        let userApiKey = null;
-
-        // Track finding states locally
-        const findingStates = {};
-
-        // Activity logging system
-        const activityLog = [];
-
-        // API Key Management
-        function authenticateWithApiKey() {
-          const keyInput = document.getElementById('apiKeyInput');
-          const key = keyInput.value?.trim();
-
-          if (!key) {
-            logActivity('API key is required', 'error');
-            return;
-          }
-
-          userApiKey = key;
-          sessionStorage.setItem('cxApiKey', key);
-
-          updateAuthUI();
-          logActivity('✓ API key stored. Interactive features are now enabled.', 'success');
-
-          // Enable buttons
-          enableInteractiveButtons();
-        }
-
-        function clearApiKey() {
-          userApiKey = null;
-          sessionStorage.removeItem('cxApiKey');
-          document.getElementById('apiKeyInput').value = '';
-          updateAuthUI();
-          logActivity('API key cleared', 'info');
-          disableInteractiveButtons();
-        }
-
-        function updateAuthUI() {
-          const status = document.getElementById('authStatus');
-          const clearBtn = document.getElementById('clearKeyBtn');
-
-          if (userApiKey) {
-            status.textContent = '✓ Authenticated';
-            status.style.color = '#2e7d32';
-            clearBtn.style.display = 'inline-block';
-          } else {
-            status.textContent = '';
-            clearBtn.style.display = 'none';
-          }
-        }
-
-        function enableInteractiveButtons() {
-          document.getElementById('triageAllCriticalBtn').disabled = false;
-          document.getElementById('triageAllHighBtn').disabled = false;
-          document.getElementById('remediateAllBtn').disabled = false;
-
-          // Enable individual finding buttons
-          document.querySelectorAll('[data-action="triage"], [data-action="remediate"]').forEach(btn => {
-            btn.disabled = false;
-          });
-        }
-
-        function disableInteractiveButtons() {
-          document.getElementById('triageAllCriticalBtn').disabled = true;
-          document.getElementById('triageAllHighBtn').disabled = true;
-          document.getElementById('remediateAllBtn').disabled = true;
-
-          // Disable individual finding buttons
-          document.querySelectorAll('[data-action="triage"], [data-action="remediate"]').forEach(btn => {
-            btn.disabled = true;
-          });
-        }
-
-        // Check if API key is in sessionStorage on page load
-        function restoreApiKey() {
-          const stored = sessionStorage.getItem('cxApiKey');
-          if (stored) {
-            userApiKey = stored;
-            document.getElementById('apiKeyInput').value = stored;
-            updateAuthUI();
-            enableInteractiveButtons();
-            logActivity('✓ API key restored from session', 'info');
-          }
-        }
-
-        function getTimeString() {
-          const now = new Date();
-          return now.toLocaleTimeString('en-US', { hour12: false });
-        }
-
-        function logActivity(message, type = 'info') {
-          const entry = {
-            timestamp: getTimeString(),
-            message,
-            type
-          };
-          activityLog.push(entry);
-          updateActivityUI();
-        }
-
-        function updateActivityUI() {
-          const activityDiv = document.getElementById('activityLog');
-          if (!activityDiv) return;
-
-          activityDiv.innerHTML = activityLog.map(entry => \`
-            <div class="activity-item \${entry.type}">
-              <div class="activity-icon">
-                \${entry.type === 'success' ? '✓' : entry.type === 'error' ? '✕' : entry.type === 'pending' ? '⟳' : 'ℹ'}
-              </div>
-              <div class="activity-text">\${escapeHtml(entry.message)}</div>
-              <div class="activity-time">\${entry.timestamp}</div>
-            </div>
-          \`).join('');
-
-          // Auto-scroll to bottom
-          activityDiv.scrollTop = activityDiv.scrollHeight;
-
-          // Update overview counters
-          const triaged = activityLog.filter(l => l.message.includes('Triaged') && l.type === 'success').length;
-          const remediated = activityLog.filter(l => l.message.includes('Remediated') && l.type === 'success').length;
-          const pending = document.querySelectorAll('[data-severity="CRITICAL"], [data-severity="HIGH"]').length - triaged - remediated;
-
-          document.getElementById('triageCount').textContent = triaged;
-          document.getElementById('remediateCount').textContent = remediated;
-          document.getElementById('pendingCount').textContent = Math.max(0, pending);
-        }
-
-        function switchActivityTab(tab) {
-          const overviewPanel = document.getElementById('overviewPanel');
-          const activityPanel = document.getElementById('activityPanel');
-          const tabs = document.querySelectorAll('.activity-tab');
-
-          tabs.forEach(t => t.classList.remove('active'));
-          event.target.classList.add('active');
-
-          if (tab === 'overview') {
-            overviewPanel.style.display = 'block';
-            activityPanel.style.display = 'none';
-          } else {
-            overviewPanel.style.display = 'none';
-            activityPanel.style.display = 'block';
-          }
-        }
-
-        // Remediation guidance database
-        const remediationGuide = {
-          'SQL_INJECTION': {
-            title: 'SQL Injection',
-            description: 'SQL Injection vulnerabilities occur when user input is directly concatenated into SQL queries without proper parameterization, allowing attackers to execute arbitrary database commands.',
-            risk: 'An attacker could read, modify, or delete sensitive data; bypass authentication; or execute administrative operations.',
-            remediation: [
-              'Use parameterized queries (prepared statements) for all database operations',
-              'Implement input validation and sanitization on the server side',
-              'Apply the principle of least privilege to database user accounts',
-              'Use an ORM framework that handles parameterization automatically',
-              'Enable SQL query logging and monitoring'
-            ],
-            examples: {
-              'JavaScript/Node.js': 'const result = await db.query("SELECT * FROM users WHERE id = ?", [userId]);',
-              'Python': 'cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))',
-              'Java': 'PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE id = ?");',
-              'PHP': '$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");'
-            }
-          },
-          'CROSS_SITE_SCRIPTING': {
-            title: 'Cross-Site Scripting (XSS)',
-            description: 'XSS vulnerabilities allow attackers to inject malicious scripts into web pages viewed by other users, compromising user data and session tokens.',
-            risk: 'Session hijacking, credential theft, malware distribution, website defacement, or unauthorized actions on behalf of users.',
-            remediation: [
-              'Encode all user input when rendering in HTML context',
-              'Use Content Security Policy (CSP) headers to restrict script execution',
-              'Implement input validation on the server side',
-              'Use templating engines with automatic escaping enabled',
-              'Keep all client-side libraries and frameworks up to date'
-            ],
-            examples: {
-              'JavaScript': 'element.textContent = userInput; // Always use textContent, not innerHTML',
-              'React': '{userInput} // JSX auto-escapes by default',
-              'HTML5': '<script nonce="random123">// Use nonce attributes for inline scripts</script>',
-              'Headers': 'Content-Security-Policy: default-src \'self\'; script-src \'self\''
-            }
-          },
-          'INSECURE_DIRECT_OBJECT_REFERENCE': {
-            title: 'Insecure Direct Object Reference (IDOR)',
-            description: 'IDOR vulnerabilities occur when an application exposes internal object references (IDs) without proper access control, allowing unauthorized users to access others\' data.',
-            risk: 'Unauthorized access to sensitive information, data manipulation, or complete account takeover.',
-            remediation: [
-              'Implement proper access control checks on every resource access',
-              'Use role-based access control (RBAC) or attribute-based access control (ABAC)',
-              'Verify the current user has permission to access the requested resource',
-              'Use indirect references instead of direct IDs when possible',
-              'Log and monitor access to sensitive resources'
-            ],
-            examples: {
-              'Node.js': 'if (req.user.id !== userId) { return res.status(403).send("Forbidden"); }',
-              'Python/Flask': '@login_required def get_user(user_id):\\n    if current_user.id != user_id:\\n        abort(403)',
-              'Java/Spring': '@PreAuthorize("#user.id == authentication.principal.id")',
-              'General': 'Always verify: req.user.id == resource.owner_id'
-            }
-          },
-          'INSECURE_DESERIALIZATION': {
-            title: 'Insecure Deserialization',
-            description: 'Insecure deserialization occurs when an application unserializes untrusted data without validation, potentially allowing remote code execution.',
-            risk: 'Remote code execution, arbitrary command execution, denial of service attacks, or complete system compromise.',
-            remediation: [
-              'Avoid deserializing untrusted data',
-              'Use data formats like JSON instead of native serialization',
-              'Implement integrity checks (HMAC) on serialized data',
-              'Use whitelist validation for allowed classes during deserialization',
-              'Keep serialization libraries patched and updated'
-            ],
-            examples: {
-              'Python': 'import json; data = json.loads(user_input) # Use JSON instead of pickle',
-              'Java': '// Avoid: ObjectInputStream ois = new ObjectInputStream(is);',
-              'PHP': '$data = json_decode($user_input); // Use JSON, not unserialize()',
-              'General': 'Principle: Never deserialize untrusted data with object instantiation'
-            }
-          },
-          'DEFAULT': {
-            title: 'Security Vulnerability',
-            description: 'This finding identifies a potential security vulnerability that requires attention and remediation.',
-            risk: 'The vulnerability could potentially be exploited by an attacker to compromise the security or integrity of the application.',
-            remediation: [
-              'Review the detailed finding information and location in your codebase',
-              'Consult with your security team to understand the impact',
-              'Implement the recommended fix for this vulnerability type',
-              'Test thoroughly to ensure the fix doesn\'t introduce new issues',
-              'Document the remediation in your change log'
-            ],
-            examples: {}
-          }
-        };
-
-        function getRemediationContent(risk) {
-          const type = risk.title?.toUpperCase()?.replace(/[^A-Z0-9_]/g, '_') || 'DEFAULT';
-          const guide = remediationGuide[type] || remediationGuide.DEFAULT;
-
-          let html = \`<div class="remediation-section">
-            <div class="remediation-section-title">Vulnerability Type</div>
-            <div class="remediation-section-content">\${escapeHtml(guide.title)}</div>
-          </div>
-
-          <div class="remediation-section">
-            <div class="remediation-section-title">Description</div>
-            <div class="remediation-section-content">\${escapeHtml(guide.description)}</div>
-          </div>
-
-          <div class="remediation-section">
-            <div class="remediation-section-title">Risk Impact</div>
-            <div class="remediation-section-content">\${escapeHtml(guide.risk)}</div>
-          </div>\`;
-
-          if (risk.location) {
-            html += \`<div class="remediation-section">
-              <div class="remediation-section-title">Location</div>
-              <div class="remediation-section-content"><strong>File/Path:</strong> \${escapeHtml(risk.location)}</div>
-            </div>\`;
-          }
-
-          html += \`<div class="remediation-section">
-            <div class="remediation-section-title">Remediation Steps</div>
-            <div class="remediation-section-content">
-              <ol style="margin-left: 20px;">
-                \${guide.remediation.map(step => \`<li style="margin-bottom: 8px;">\${escapeHtml(step)}</li>\`).join('')}
-              </ol>
-            </div>
-          </div>\`;
-
-          if (Object.keys(guide.examples).length > 0) {
-            html += \`<div class="remediation-section">
-              <div class="remediation-section-title">Code Examples</div>
-              <div class="remediation-section-content">
-                \${Object.entries(guide.examples).map(([lang, code]) =>
-                  \`<div style="margin-bottom: 15px;">
-                    <strong>\${escapeHtml(lang)}:</strong>
-                    <div class="code-block">\${escapeHtml(code)}</div>
-                  </div>\`
-                ).join('')}
-              </div>
-            </div>\`;
-          }
-
-          return html;
-        }
-
-        function showRemediationModal(riskId) {
-          const card = document.querySelector(\`[data-risk-id="\${riskId}"]\`);
-          if (!card) return;
-
-          const risk = {
-            title: card.querySelector('.finding-title-card')?.textContent || 'Unknown',
-            location: card.querySelector('[data-finding-location]')?.textContent || '',
-            severity: card.getAttribute('data-severity')
-          };
-
-          document.getElementById('modalTitle').textContent = \`Remediation: \${escapeHtml(risk.title)}\`;
-          document.getElementById('remediationBody').innerHTML = getRemediationContent(risk);
-          document.getElementById('remediationModal').classList.add('show');
-        }
-
-        function closeRemediationModal() {
-          document.getElementById('remediationModal').classList.remove('show');
-        }
-
-        window.addEventListener('click', (e) => {
-          const modal = document.getElementById('remediationModal');
-          if (e.target === modal) modal.classList.remove('show');
-        });
-
-        async function triageAll(severity) {
-            if (!confirm(\`Triage all \${severity} vulnerabilities?\`)) return;
-
-            const findings = document.querySelectorAll(\`[data-severity="\${severity}"]\`);
-            if (findings.length === 0) {
-                logActivity(\`No \${severity} vulnerabilities found\`, 'info');
-                return;
-            }
-
-            logActivity(\`Starting batch triage of \${findings.length} \${severity} findings...\`, 'pending');
-
-            const buttons = Array.from(document.querySelectorAll('button')).filter(b =>
-                b.textContent.includes('Triage') || b.textContent.includes('Remediated')
-            );
-            buttons.forEach(b => b.disabled = true);
-
-            let triaged = 0;
-            for (const finding of findings) {
-                const riskId = finding.getAttribute('data-risk-id');
-                const projectId = finding.getAttribute('data-project-id');
-                const scanId = finding.getAttribute('data-scan-id');
-
-                if (!findingStates[riskId] || !findingStates[riskId].triaged) {
-                    await triageFinding(riskId, projectId, scanId, finding);
-                    triaged++;
-                }
-            }
-
-            buttons.forEach(b => b.disabled = false);
-            logActivity(\`Batch triage complete: \${triaged} findings processed\`, 'success');
-        }
-
-        async function toggleAllFinding(action) {
-            if (!confirm(\`Mark all findings as \${action}?\`)) return;
-
-            const findings = document.querySelectorAll('[data-risk-id]');
-            if (findings.length === 0) {
-                logActivity(\`No findings to \${action}\`, 'info');
-                return;
-            }
-
-            logActivity(\`Starting batch \${action} of \${findings.length} findings...\`, 'pending');
-
-            const buttons = Array.from(document.querySelectorAll('button'));
-            buttons.forEach(b => b.disabled = true);
-
-            let processed = 0;
-            for (const finding of findings) {
-                const riskId = finding.getAttribute('data-risk-id');
-                const projectId = finding.getAttribute('data-project-id');
-                const scanId = finding.getAttribute('data-scan-id');
-
-                if (action === 'remediate') {
-                    await remediateFinding(riskId, projectId, scanId, finding);
-                    processed++;
-                }
-            }
-
-            buttons.forEach(b => b.disabled = false);
-            logActivity(\`Batch \${action} complete: \${processed} findings processed\`, 'success');
-        }
-
-        function refreshReport() {
-            logActivity('Refreshing report data from server...', 'pending');
-            setTimeout(() => {
-                location.reload();
-            }, 500);
-        }
-
-        async function triageFinding(riskId, projectId, scanId, cardElement) {
-            const btn = cardElement.querySelector('[data-action="triage"]');
-            if (!btn) return;
-
-            if (!userApiKey) {
-                logActivity('API key required. Please authenticate first.', 'error');
-                return;
-            }
-
-            const findingTitle = cardElement.querySelector('.finding-title-card')?.textContent || riskId;
-            logActivity(\`Triaging: \${findingTitle}\`, 'pending');
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span>Triaging...';
-
-            try {
-                const response = await fetch(apiBaseUrl + '/api/risks/triage', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-API-Key': userApiKey
-                    },
-                    body: JSON.stringify({ riskId, projectId, scanId, action: 'triage' })
-                });
-
-                if (response.ok) {
-                    findingStates[riskId] = { ...findingStates[riskId], triaged: true };
-                    updateFindingCard(cardElement, 'triaged');
-                    btn.innerHTML = '✓ Triaged';
-                    btn.classList.add('finding-btn-disabled');
-                    logActivity(\`Successfully triaged: \${findingTitle}\`, 'success');
-                } else {
-                    const error = await response.text();
-                    btn.innerHTML = '⚠ Retry';
-                    btn.disabled = false;
-                    if (response.status === 401) {
-                        logActivity(\`Authentication failed - API key may be invalid\`, 'error');
-                    } else {
-                        logActivity(\`Failed to triage \${findingTitle}: \${error || 'API error'}\`, 'error');
-                    }
-                }
-            } catch (error) {
-                btn.innerHTML = '✕ Error';
-                btn.disabled = false;
-                logActivity(\`Error triaging \${findingTitle}: \${error.message}\`, 'error');
-                console.error('Triage error:', error);
-            }
-        }
-
-        async function remediateFinding(riskId, projectId, scanId, cardElement) {
-            const btn = cardElement.querySelector('[data-action="remediate"]');
-            if (!btn) return;
-
-            if (!userApiKey) {
-                logActivity('API key required. Please authenticate first.', 'error');
-                return;
-            }
-
-            const findingTitle = cardElement.querySelector('.finding-title-card')?.textContent || riskId;
-            logActivity(\`Remediating: \${findingTitle}\`, 'pending');
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span>Remediating...';
-
-            try {
-                const response = await fetch(apiBaseUrl + '/api/risks/remediate', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-API-Key': userApiKey
-                    },
-                    body: JSON.stringify({ riskId, projectId, scanId, action: 'remediate' })
-                });
-
-                if (response.ok) {
-                    findingStates[riskId] = { ...findingStates[riskId], remediated: true };
-                    updateFindingCard(cardElement, 'remediated');
-                    btn.innerHTML = '✓ Remediated';
-                    btn.classList.add('finding-btn-disabled');
-                    logActivity(\`Successfully remediated: \${findingTitle}\`, 'success');
-                } else {
-                    const error = await response.text();
-                    btn.innerHTML = '⚠ Retry';
-                    btn.disabled = false;
-                    if (response.status === 401) {
-                        logActivity(\`Authentication failed - API key may be invalid\`, 'error');
-                    } else {
-                        logActivity(\`Failed to remediate \${findingTitle}: \${error || 'API error'}\`, 'error');
-                    }
-                }
-            } catch (error) {
-                btn.innerHTML = '✕ Error';
-                btn.disabled = false;
-                logActivity(\`Error remediating \${findingTitle}: \${error.message}\`, 'error');
-                console.error('Remediate error:', error);
-            }
-        }
-
-        function updateFindingCard(cardElement, status) {
-            if (status === 'triaged') {
-                cardElement.classList.add('triaged');
-            } else if (status === 'remediated') {
-                cardElement.classList.add('remediated', 'triaged');
-            }
-        }
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('Report loaded. API base:', apiBaseUrl);
-            restoreApiKey();
-            logActivity('Report initialized successfully', 'success');
-            updateActivityUI();
-
-            // Display AI triage recommendations
-            document.querySelectorAll('[data-risk-id]').forEach(card => {
-                const exploitability = card.querySelector('[data-exploitability]')?.textContent;
-                const reachability = card.querySelector('[data-reachability]')?.textContent;
-                if (exploitability || reachability) {
-                    displayAiTriageRecommendation(card, exploitability, reachability);
-                }
-            });
-        });
-
-        function displayAiTriageRecommendation(card, exploitability, reachability) {
-            // Create a recommendation banner based on AI analysis
-            if (exploitability || reachability) {
-                const rec = document.createElement('div');
-                rec.style.cssText = 'background: #fff3e0; border-left: 3px solid #ff9800; padding: 10px; margin-top: 10px; border-radius: 3px; font-size: 12px;';
-                rec.innerHTML = '<strong>🤖 AI Recommendation:</strong> ';
-
-                const factors = [];
-                if (exploitability === 'HIGH') factors.push('High exploitability');
-                if (reachability === 'HIGH') factors.push('Highly reachable');
-
-                if (factors.length > 0) {
-                    rec.innerHTML += factors.join(' · ') + ' - Prioritize for remediation';
-                } else {
-                    rec.innerHTML += 'Review for context';
-                }
-
-                const actionDiv = card.querySelector('.finding-actions');
-                if (actionDiv) {
-                    actionDiv.parentNode.insertBefore(rec, actionDiv);
-                }
-            }
-        }
-    </script>
+    <button id="connect" class="btn btn-light" type="button">Connect to CxONE for action</button>
+  </div>
+  <div class="counts">
+    ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+      .map((s) => `<span class="count"><b>${counts[s] ?? 0}</b> ${s.toLowerCase()}</span>`)
+      .join('')}
+  </div>
+</header>
+
+<main>
+  <div id="banner" class="banner" hidden></div>
+
+  <section class="server" id="server" aria-label="Reminder server">
+    <div class="server-row">
+      <span class="server-label">Reminder server</span>
+      <code id="server-url" class="server-url">${relayUrl ? escapeHtml(relayUrl.replace(/\/+$/, '')) : 'not set'}</code>
+      <span id="server-state" class="server-state"></span>
+      <button id="server-change" class="btn btn-outline btn-small" type="button">${relayUrl ? 'Change' : 'Enter address'}</button>
+    </div>
+    <div id="server-prompt" class="server-prompt" hidden role="status">
+      <p id="server-prompt-text"></p>
+      <div class="server-form-row">
+        <button id="server-connect" class="btn" type="button">Connect</button>
+        <button id="server-fix" class="btn btn-outline" type="button">Change address</button>
+      </div>
+    </div>
+    <form id="server-form" class="server-form" hidden>
+      <label for="server-input" class="muted">Address of your reminder server — ask whoever sent this report if you do not know it.</label>
+      <div class="server-form-row">
+        <input id="server-input" type="text" inputmode="url" autocomplete="url" spellcheck="false" placeholder="https://cx-reminder.example.com" required />
+        <button class="btn" type="submit">Check &amp; connect</button>
+        <button id="server-reset" class="btn btn-outline" type="button"${relayUrl ? '' : ' hidden'}>Use the report's address</button>
+        <button id="server-cancel" class="btn btn-outline" type="button">Cancel</button>
+      </div>
+      <p id="server-error" class="server-error" hidden></p>
+    </form>
+  </section>
+
+  <section class="actions">
+    <div class="bulk-row">
+      ${BULK_SEVERITIES.map((severity) => {
+        const label = severity.toLowerCase();
+        const count = counts[severity] ?? 0;
+        return `<button class="btn btn-primary bulk" type="button" data-severity="${severity}"${count ? '' : ' disabled'}>Triage all ${label} (${count})</button>`;
+      }).join('\n      ')}
+      <span id="bulk-progress" class="muted"></span>
+      <span class="refresh-box"><span id="last-refresh" class="muted"></span> <button id="refresh-now" class="btn btn-outline btn-small" type="button">Refresh</button></span>
+    </div>
+    <div id="credit-balance" class="credit-balance" hidden>
+      <div class="credit-balance-head"><strong>Your credits</strong> <span id="bulk-credits" class="muted"></span></div>
+      <div id="credit-projects" class="credit-projects"></div>
+    </div>
+    <p class="muted">Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or
+      high finding in this report, across all its projects. ${remediateHere
+        ? 'Remediate runs Checkmarx One AI Remediation and links to the suggested fix (or its pull request).'
+        : 'Remediate opens the finding in Checkmarx One Risk Hub.'}
+      ${remediateHere ? 'Triage and Remediate go' : 'Triage goes'} through the reminder server shown above, which must be reachable from this computer (company network or VPN).</p>
+  </section>
+
+  <div class="table-wrap">
+    <table id="findings">
+      <thead>
+        <tr><th>Severity</th><th>Finding</th><th>Engine</th><th>Age</th><th title="Checkmarx One state — updates once connected">State</th><th title="AI Triage verdict, or the finding\'s Checkmarx One state once triaged">Triage result</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere)).join('\n')}
+      </tbody>
+    </table>
+  </div>
+
+  <section class="more">
+    <p>${total > findings.length ? `Showing ${findings.length} of ${total} findings. See every finding in Checkmarx One:` : 'Open in Checkmarx One:'}</p>
+    <div class="more-links">${projectLinks}</div>
+  </section>
+
+  <p id="hidden-note" class="muted hidden-note" hidden></p>
+
+  <details id="activity" class="activity">
+    <summary>Activity (<span id="activity-count">0</span>)</summary>
+    <ul id="activity-list"></ul>
+  </details>
+</main>
+<dialog id="credit-dialog" class="dialog" aria-labelledby="credit-dialog-title">
+  <form method="dialog">
+    <h2 id="credit-dialog-title">No credits left</h2>
+    <p id="credit-dialog-text"></p>
+    <p class="dialog-hint">Your administrator allocates Checkmarx One credits for AI Triage and AI Remediation from reports. Send them a request and try again once they have added credits.</p>
+    <p id="credit-dialog-to" class="dialog-hint"></p>
+    <div class="dialog-actions">
+      <button class="btn btn-outline" value="close" type="submit">Close</button>
+      <a id="credit-dialog-mail" class="btn btn-primary" href="#">Ask the administrator</a>
+    </div>
+  </form>
+</dialog>
+<script type="application/json" id="report-data">${jsonForScript(payload)}</script>
+<script>${CLIENT_SCRIPT.replace(/<\/script/gi, '<\\/script')}</script>
 </body>
 </html>`;
 }
 
-function extractTopVulnerabilities(projects, severity, limit) {
-  const findings = [];
-  for (const project of projects) {
-    for (const risk of project.risks || []) {
-      if (risk.severity === severity) {
-        findings.push({
-          ...risk,
-          projectName: project.projectName,
-        });
-      }
-    }
+function aiUnavailableReason(finding) {
+  if (finding.aiUnavailable) return finding.aiUnavailable;
+  const scanner = String(finding.scanner || '').toUpperCase();
+  if (!AI_SCANNERS.has(scanner)) {
+    return `AI Triage and Remediation support SAST and SCA only (this is ${scanner || 'an unknown engine'}).`;
   }
-  return findings.sort((a, b) => (b.ageDays ?? -1) - (a.ageDays ?? -1)).slice(0, limit);
-}
-
-const SEVERITY_RANK = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO', 'UNKNOWN'];
-
-function ageLabel(days) {
-  return days === null || days === undefined ? 'age unknown' : `${days}d`;
-}
-
-function generateFindingCards(projects) {
-  const all = [];
-  for (const project of projects) {
-    for (const risk of project.risks || []) all.push({ project, risk });
+  if (!finding.alternateId || !finding.groupId || !finding.scanId) {
+    return 'Checkmarx One identifiers for this finding are not available.';
   }
-
-  // Worst first, then oldest, so the top of the list is what to fix next.
-  all.sort((a, b) => {
-    const bySeverity = SEVERITY_RANK.indexOf(a.risk.severity) - SEVERITY_RANK.indexOf(b.risk.severity);
-    if (bySeverity !== 0) return bySeverity;
-    return (b.risk.ageDays ?? -1) - (a.risk.ageDays ?? -1);
-  });
-
-  return all
-    .map(({ project, risk }) => {
-      const severity = String(risk.severity || 'UNKNOWN');
-      const title = risk.url
-        ? `<a href="${escapeHtml(risk.url)}" target="_blank" rel="noopener">${escapeHtml(risk.title)}</a>`
-        : escapeHtml(risk.title);
-      const location = risk.location && risk.location !== '—' ? risk.location : '';
-      const titleWithLocation = location ? `${title} · <span style="color: #999;">@${escapeHtml(location)}</span>` : title;
-      
-      const args = `'${escapeHtml(risk.riskId)}', '${escapeHtml(project.projectId)}', '${escapeHtml(risk.scanId)}', this.closest('.finding-card')`;
-
-      // AI Analysis summary
-      let aiAnalysis = '';
-      if (risk.aiExploitability || risk.aiReachability) {
-        const parts = [];
-        if (risk.aiExploitability) {
-          const cls = risk.aiExploitability === 'HIGH' ? 'finding-ai-high' : 'finding-ai-medium';
-          parts.push(`<span class="${cls}">E: ${risk.aiExploitability}</span>`);
-        }
-        if (risk.aiReachability) {
-          const cls = risk.aiReachability === 'HIGH' ? 'finding-ai-high' : 'finding-ai-medium';
-          parts.push(`<span class="${cls}">R: ${risk.aiReachability}</span>`);
-        }
-        aiAnalysis = `<div class="finding-ai-cell">${parts.join(' ')}</div>`;
-      } else {
-        aiAnalysis = '<div class="finding-ai-cell" style="color: #999;">—</div>';
-      }
-
-      const engine = risk.scanner || risk.engine || '—';
-
-      return `
-        <div class="finding-card" data-risk-id="${escapeHtml(risk.riskId)}" data-project-id="${escapeHtml(project.projectId)}" data-scan-id="${escapeHtml(risk.scanId)}" data-severity="${escapeHtml(severity)}" data-exploitability="${escapeHtml(risk.aiExploitability)}" data-reachability="${escapeHtml(risk.aiReachability)}">
-          <span class="finding-card-severity ${severity.toLowerCase()}">${escapeHtml(severity)}</span>
-          <div class="finding-title-card">${titleWithLocation}</div>
-          <div class="finding-age-cell">${ageLabel(risk.ageDays)}</div>
-          ${aiAnalysis}
-          <div style="font-size: 11px; color: #666;"><span style="color: #999;">Engine:</span> ${escapeHtml(engine)}</div>
-          <div class="finding-actions">
-            <button class="finding-btn finding-btn-remediate" data-action="remediate" onclick="showRemediationModal('${escapeHtml(risk.riskId)}')" disabled>Guide</button>
-            <button class="finding-btn finding-btn-triage" data-action="triage" onclick="triageFinding(${args})" disabled>Triage</button>
-          </div>
-        </div>
-      `;
-    })
-    .join('');
-}
-
-function escapeHtml(text) {
-  if (!text) return '';
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;',
-  };
-  return String(text).replace(/[&<>"']/g, (m) => map[m]);
-}
-
-function sanitizeUrl(url) {
-  if (!url) return '';
-  if (url.startsWith('data:')) return url;
-  if (url.startsWith('https://')) return escapeHtml(url);
   return '';
 }
 
-function sanitizeJsString(str) {
-  if (!str) return '';
-  return escapeHtml(str).replace(/'/g, "\\'");
+function findingRow(finding, client, remediateHere) {
+  const severity = String(finding.severity || 'UNKNOWN').toUpperCase();
+  const url = safeHttpUrl(finding.url);
+  const title = url
+    ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(finding.title)}</a>`
+    : escapeHtml(finding.title);
+  const location = finding.location && finding.location !== '—' ? escapeHtml(finding.location) : '';
+  const state = String(finding.state || '').toUpperCase();
+  const stateLabel = STATE_LABELS[state] ?? (state ? state.replace(/_/g, ' ').toLowerCase() : '—');
+  const age = finding.ageDays === null || finding.ageDays === undefined ? '—' : `${finding.ageDays}d`;
+
+  return `<tr data-key="${client.key}">
+  <td class="sev-cell"><span class="sev sev-${escapeHtml(severity.toLowerCase())}">${escapeHtml(severity)}</span></td>
+  <td class="finding"><div class="finding-title">${title}</div>
+    <div class="sub">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</div></td>
+  <td class="meta-cell" data-label="Engine">${escapeHtml(finding.scanner || '—')}</td>
+  <td class="meta-cell" data-label="Age">${age}</td>
+  <td class="state-cell" data-label="State">${escapeHtml(stateLabel)}</td>
+  <td class="ai-cell" data-label="Triage result">${client.aiUnavailable ? manualCell(finding, client.aiUnavailable) : '—'}</td>
+  <td class="actions-cell">
+    ${client.aiUnavailable
+      ? url
+        ? `<a class="btn btn-small btn-outline" data-action="remediate-link" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="AI Triage and Remediation are not available for this finding: fix it in Checkmarx One">Fix in Checkmarx One</a>`
+        : ''
+      : `<button class="btn btn-small" type="button" data-action="triage">Triage</button>
+    ${remediateHere
+      ? '<button class="btn btn-small btn-outline" type="button" data-action="remediate">Remediate</button>'
+      : url
+        ? `<a class="btn btn-small btn-outline" data-action="remediate-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">Remediate</a>`
+        : ''}`}
+    <div class="fix-cell"></div>
+  </td>
+</tr>`;
+}
+
+/** Why AI cannot act on this finding, in a few words, with the full reason on hover. */
+function manualCell(finding, reason) {
+  const engine = String(finding.scanner || '').toUpperCase();
+  const short = engine && !['SAST', 'SCA'].includes(engine) ? `No AI for ${['KICS', 'IAC'].includes(engine) ? 'IaC' : engine} findings` : 'AI not available';
+  return `<span class="chip chip-muted" title="${escapeHtml(reason)}">Manual fix</span><div class="sub">${escapeHtml(short)} — fix it in Checkmarx One</div>`;
+}
+
+function styles(accent) {
+  return `
+:root {
+  --accent: ${accent}; --ink: #1f2330; --muted: #667085; --line: #e6e8ef; --bg: #f6f7fb;
+  --surface: #fff; --surface-2: #fafbfc; --focus: ${accent}55; --link: ${accent}; --outline-line: var(--line);
+  --bad-bg: #fee4e2; --bad: #b42318; --good-bg: #d1fadf; --good: #067647;
+  --warn-bg: #fef0c7; --warn: #93370d; --muted-bg: #f2f4f7; --muted-ink: #475467; --busy-bg: #ebe9fe; --busy: #5925dc;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --link: #a4bcfd; --outline-line: #3b4557;
+    --ink: #e6e8ef; --muted: #98a2b3; --line: #2a3140; --bg: #0f131a; --surface: #161b24; --surface-2: #1b212c;
+    --bad-bg: #55160c; --bad: #fda29b; --good-bg: #053321; --good: #75e0a7;
+    --warn-bg: #4e1d09; --warn: #fec84b; --muted-bg: #222936; --muted-ink: #cfd4dc; --busy-bg: #27115f; --busy: #bdb4fe;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { margin: 0; font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: var(--ink); background: var(--bg); }
+a { color: var(--link); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.top { background: linear-gradient(135deg, var(--accent), #7c3aed); color: #fff;
+  padding: 20px max(24px, env(safe-area-inset-right)) 14px max(24px, env(safe-area-inset-left)); }
+.top a { color: #fff; }
+.top-inner { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; max-width: 1280px; margin: 0 auto; }
+.top-inner > div { min-width: 0; }
+.brand { margin-bottom: 6px; }
+.brand img { display: block; max-width: 180px; height: auto; max-height: 40px; background: #fff; border-radius: 4px; padding: 2px 6px; }
+.brand-name { font-weight: 600; opacity: .9; }
+h1 { margin: 0; font-size: clamp(18px, 2.4vw, 24px); line-height: 1.25; overflow-wrap: anywhere; }
+.meta { margin: 4px 0 0; opacity: .85; font-size: 13px; }
+.counts { display: flex; gap: 8px; flex-wrap: wrap; max-width: 1280px; margin: 12px auto 0; }
+.count { background: rgba(255,255,255,.16); border-radius: 999px; padding: 2px 12px; font-size: 13px; text-transform: capitalize; }
+main { max-width: 1280px; margin: 0 auto; padding: 16px max(24px, env(safe-area-inset-right)) 40px max(24px, env(safe-area-inset-left)); }
+.btn { font: inherit; font-weight: 600; border: 1px solid transparent; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+  background: var(--accent); color: #fff; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  line-height: 1.3; touch-action: manipulation; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-light { background: #fff; color: var(--accent); white-space: nowrap; }
+.btn-light.connected { background: #12b76a; color: #fff; }
+[hidden] { display: none !important; }
+.btn-outline { background: var(--surface); color: var(--link); border-color: var(--outline-line); }
+.btn-small { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+.muted { color: var(--muted); font-size: 13px; }
+.actions { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+.bulk-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.actions p { margin: 8px 0 0; }
+.server { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; margin-bottom: 12px; }
+.server-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.server-label { font-weight: 600; }
+.server-url { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--muted-bg); color: var(--muted-ink);
+  padding: 2px 8px; border-radius: 6px; overflow-wrap: anywhere; user-select: all; }
+.server-state { font-size: 12px; font-weight: 600; }
+.server-state.good { color: var(--good); }
+.server-state.bad { color: var(--bad); }
+.server-state.warn { color: var(--warn); }
+.server-form { margin-top: 10px; display: grid; gap: 6px; }
+.refresh-box { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+.server-prompt { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); display: grid; gap: 8px; }
+.server-prompt p { margin: 0; overflow-wrap: anywhere; }
+.server-form-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.server-form input { flex: 1 1 260px; min-width: 0; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--outline-line);
+  background: var(--surface-2); color: var(--ink); }
+.server-error { margin: 0; color: var(--bad); font-size: 13px; overflow-wrap: anywhere; }
+.banner { border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; overflow-wrap: anywhere; }
+.banner-error { background: var(--bad-bg); color: var(--bad); border: 1px solid transparent; }
+.banner-warn { background: var(--warn-bg); color: var(--warn); border: 1px solid transparent; }
+.table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); background: var(--surface-2);
+  padding: 10px; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 1; }
+td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+.finding { min-width: 240px; }
+.finding-title { font-weight: 600; overflow-wrap: anywhere; }
+.sub { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.sev { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 4px; padding: 2px 8px; color: #fff; background: #98a2b3; white-space: nowrap; }
+.sev-critical { background: #b42318; } .sev-high { background: #e04f16; } .sev-medium { background: #b54708; } .sev-low { background: #1570ef; }
+.chip { display: inline-block; border-radius: 999px; padding: 1px 10px; font-size: 12px; font-weight: 600; }
+.chip-bad { background: var(--bad-bg); color: var(--bad); } .chip-good { background: var(--good-bg); color: var(--good); }
+.chip-warn { background: var(--warn-bg); color: var(--warn); } .chip-muted { background: var(--muted-bg); color: var(--muted-ink); } .chip-busy { background: var(--busy-bg); color: var(--busy); }
+.ai-cell details { font-size: 12px; } .ai-cell summary { cursor: pointer; color: var(--link); }
+.actions-cell { white-space: nowrap; }
+.actions-cell .btn + .btn { margin-left: 4px; }
+.fix-cell { white-space: normal; font-size: 12px; max-width: 300px; overflow-wrap: anywhere; }
+.fix-cell:not(:empty) { margin-top: 6px; }
+.fix-cell a { display: block; } .fix-cell p { margin: 0 0 4px; }
+.fix-failed { color: var(--bad); }
+.fix-headline { font-weight: 600; color: var(--good); }
+.more { margin-top: 16px; } .more p { margin: 0 0 8px; }
+.more-links { display: flex; gap: 8px; flex-wrap: wrap; }
+.more-links .btn { max-width: 100%; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.activity { margin-top: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; }
+.activity summary { cursor: pointer; font-weight: 600; }
+.activity ul { list-style: none; padding: 0; margin: 8px 0 0; font-size: 13px; max-height: 260px; overflow: auto; }
+.activity li { padding: 3px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; } .activity time { color: var(--muted); margin-right: 6px; }
+.log-error { color: var(--bad); } .log-success { color: var(--good); }
+.hidden-note { display: block; margin: 12px 0 0; }
+.credit-balance { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.credit-balance-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 8px; }
+.credit-projects { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.credit-card { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--surface-2); min-width: 0; }
+.credit-card .name { font-weight: 600; font-size: 13px; overflow-wrap: anywhere; }
+.credit-line { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; margin-top: 4px; }
+.credit-line b { font-variant-numeric: tabular-nums; }
+.credit-line .out { color: var(--bad); }
+.credit-bar { height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; margin-top: 3px; }
+.credit-bar span { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.credit-flash { animation: credit-flash 1.2s ease-out; }
+@keyframes credit-flash { from { background: var(--busy-bg); } to { background: var(--surface-2); } }
+.dialog { border: 0; border-radius: 12px; padding: 0; max-width: 440px; width: calc(100% - 32px); background: var(--surface); color: var(--ink);
+  box-shadow: 0 20px 50px rgba(16,24,40,.25); }
+.dialog::backdrop { background: rgba(16,24,40,.55); }
+.dialog form { padding: 20px 22px 18px; }
+.dialog h2 { margin: 0 0 8px; font-size: 18px; }
+.dialog p { margin: 0 0 10px; overflow-wrap: anywhere; }
+.dialog-hint { color: var(--muted); font-size: 13px; }
+.dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.dialog-actions .btn { white-space: nowrap; }
+
+/* Tablets and small laptops: tighter table, actions stacked so nothing is cut off. */
+@media (max-width: 1100px) {
+  td, th { padding: 8px; }
+  .finding { min-width: 180px; }
+  .actions-cell { white-space: normal; width: 1%; }
+  .actions-cell .btn { display: flex; width: 100%; min-width: 104px; }
+  .actions-cell .btn + .btn { margin: 6px 0 0; }
+  .fix-cell { max-width: 220px; }
+  th { white-space: nowrap; }
+}
+
+/* Phones: every finding becomes a card, actions are full-width and easy to tap. */
+@media (max-width: 760px) {
+  body { font-size: 15px; }
+  .top-inner { flex-direction: column; align-items: stretch; }
+  #connect { width: 100%; }
+  main { padding-top: 12px; padding-bottom: 28px; }
+  .actions { padding: 12px; }
+  .bulk-row > .btn { flex: 1 1 calc(50% - 10px); }
+  .table-wrap { background: transparent; border: 0; overflow: visible; }
+  #findings, #findings tbody { display: block; }
+  #findings thead { display: none; }
+  #findings tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  #findings td { display: block; padding: 0; border: 0; min-width: 0; }
+  #findings td.sev-cell, #findings td.finding, #findings td.ai-cell, #findings td.actions-cell { flex: 1 1 100%; }
+  #findings td.finding { min-width: 0; }
+  #findings td.meta-cell, #findings td.state-cell, #findings td.ai-cell { font-size: 13px; }
+  #findings td[data-label]::before { content: attr(data-label) ' '; color: var(--muted); font-size: 12px; font-weight: 600; }
+  #findings td.ai-cell { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+  #findings td.ai-cell details { flex-basis: 100%; }
+  #findings td.actions-cell { white-space: normal; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  #findings td.actions-cell .btn { flex: 1 1 0; margin: 0; min-height: 40px; font-size: 14px; }
+  #findings td.actions-cell .fix-cell { flex-basis: 100%; max-width: none; font-size: 13px; }
+  .more-links .btn { flex: 1 1 100%; }
+  .dialog-actions .btn { flex: 1 1 auto; }
+}
+@media (max-width: 380px) {
+  .bulk-row > .btn { flex-basis: 100%; }
+}
+
+/* Touch screens: bigger targets. */
+@media (pointer: coarse) {
+  .btn-small { min-height: 36px; padding: 6px 12px; }
+  .ai-cell summary { padding: 4px 0; }
+}
+
+@media print {
+  body { background: #fff; color: #000; }
+  .top { background: none; color: #000; border-bottom: 2px solid #000; padding: 0 0 8px; }
+  .count { background: none; border: 1px solid #999; }
+  #connect, .actions, .actions-cell, .activity, .banner, .dialog, .hidden-note { display: none !important; }
+  .table-wrap { border: 0; overflow: visible; }
+  th { position: static; background: none; }
+  tr { break-inside: avoid; }
+  a { color: #000; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+`;
+}
+
+/** JSON for a <script type="application/json"> island: nothing in it can close the tag. */
+function jsonForScript(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+function safeHttpUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.toString() : '';
+  } catch {
+    return '';
+  }
+}
+
+function safeLogo(url) {
+  if (!url) return '';
+  if (/^data:image\/(png|jpe?g|gif|webp);/i.test(url)) return url;
+  return url.startsWith('https://') ? safeHttpUrl(url) : '';
+}
+
+function escapeHtml(text) {
+  return String(text ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }

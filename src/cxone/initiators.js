@@ -21,6 +21,7 @@ import { dominantDomain, fetchDirectory, indexDirectory, suggestEmail } from './
  */
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_TARGETED_LOOKUPS = 200;
 
 const pick = (source, keys) => {
   for (const key of keys) {
@@ -84,7 +85,7 @@ export function applyDefaultDomain(initiator, rules = {}) {
  * API key with IAM read access, so a 401/403 is an ordinary outcome, not a
  * failure worth aborting the whole fetch for.
  */
-export async function lookupDirectoryEmail(client, connection, username) {
+export async function lookupDirectoryEmail(client, connection, username, { retries = 0 } = {}) {
   if (!connection?.iamUrl || !connection?.tenant || !username) return '';
 
   const url =
@@ -92,7 +93,7 @@ export async function lookupDirectoryEmail(client, connection, username) {
     `?username=${encodeURIComponent(username)}&exact=true&briefRepresentation=true&max=1`;
 
   try {
-    const response = await client.request(url, { retries: 0 });
+    const response = await client.request(url, { retries });
     const [user] = extractItems(response);
     const email = String(user?.email ?? '').trim();
     return EMAIL_RE.test(email) ? email : '';
@@ -154,7 +155,9 @@ export async function overviewInitiators(client, projectIds) {
  *   byProject maps project id -> {initiator, email, via, scanId, scanDate}.
  */
 export async function collectInitiators(client, connection, projects, options = {}) {
-  const { rules = {}, useDirectory = true, concurrency = 5 } = options;
+  // `memory` remembers addresses resolved before ({get(username), remember(username, email)}),
+  // so a directory that cannot be read right now does not lose anyone.
+  const { rules = {}, useDirectory = true, concurrency = 5, memory = null } = options;
   const notes = [];
   const byProject = {};
   const projectIds = projects.map((project) => project.id);
@@ -232,9 +235,11 @@ export async function collectInitiators(client, connection, projects, options = 
 
   // One directory fetch for the whole tenant, rather than a call per username.
   let index = null;
+  let directoryDenied = false;
   if (useDirectory && Object.values(byProject).some((entry) => entry.initiator && !entry.email)) {
-    const { users, note } = await fetchDirectory(client, connection);
+    const { users, note, denied } = await fetchDirectory(client, connection);
     if (note) notes.push(note);
+    directoryDenied = Boolean(denied);
     if (users.length > 0) index = indexDirectory(users);
   }
 
@@ -262,6 +267,35 @@ export async function collectInitiators(client, connection, projects, options = 
     entry.suggestionVia = hit.via;
     entry.confidence = hit.confidence;
     entry.via = 'unresolved';
+  }
+
+  // Anyone still without an address: ask the directory for that exact
+  // username (the full listing may have been cut short, or be older than the user).
+  if (useDirectory && connection?.iamUrl && !directoryDenied) {
+    const pending = [...new Set(Object.values(byProject).filter((e) => e.initiator && !e.email).map((e) => e.initiator))];
+    const found = new Map();
+    await mapWithConcurrency(pending.slice(0, MAX_TARGETED_LOOKUPS), 4, async (name) => {
+      const email = await lookupDirectoryEmail(client, connection, name, { retries: 2 });
+      if (email) found.set(name, email);
+    });
+    for (const entry of Object.values(byProject)) {
+      const email = !entry.email && found.get(entry.initiator);
+      if (!email) continue;
+      Object.assign(entry, { email, via: 'directory', confidence: 'exact', suggestedEmail: '', suggestionVia: '' });
+    }
+  }
+
+  // Last resort: the address this username resolved to before.
+  if (memory) {
+    for (const entry of Object.values(byProject)) {
+      if (!entry.initiator) continue;
+      if (entry.email) {
+        if (['directory', 'scan', 'username', 'override', 'default-domain'].includes(entry.via)) memory.remember(entry.initiator, entry.email);
+        continue;
+      }
+      const email = memory.get(entry.initiator);
+      if (email) Object.assign(entry, { email, via: 'remembered', confidence: 'exact', suggestedEmail: '', suggestionVia: '' });
+    }
   }
 
   const unresolved = [...new Set(

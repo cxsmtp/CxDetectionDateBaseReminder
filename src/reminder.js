@@ -162,7 +162,11 @@ export function buildReportData(risks, options = {}) {
   }
 
   const projects = [...groups.values()]
-    .map((group) => ({ ...group, risks: sortRisks(group.risks) }))
+    .map((group) => ({
+      ...group,
+      risks: sortRisks(group.risks),
+      url: links ? projectUrl(group, connection, links) : '',
+    }))
     .sort((a, b) => b.risks.length - a.risks.length);
 
   return { ...data, projects };
@@ -210,4 +214,71 @@ export function buildReminder(risks, template, options = {}) {
   const html = render(template.html, { ...data, subject });
 
   return { subject, html, text: buildText(data), data, projects: data.projects };
+}
+
+const escapeHtml = (text) =>
+  String(text ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+export const FIX_LABEL = "Let's start fixing the vulnerabilities";
+
+/**
+ * The mail that carries the report. Its button downloads the same interactive
+ * report from the reminder server (mail clients cannot link to an attachment);
+ * opened, the report connects to the reminder server by itself. Without a
+ * download link, the button opens the project in Checkmarx One instead.
+ */
+export function buildReportEmail(reportData, { greeting = 'Hi', topCount = 0, downloadUrl = '' } = {}) {
+  const accent = /^#[0-9a-f]{3,8}$/i.test(reportData.accentColor ?? '') ? reportData.accentColor : '#5b4bdb';
+  const projects = reportData.projects ?? [];
+  const total = projects.reduce((sum, p) => sum + p.risks.length, 0);
+  const summary = reportData.severitySummary ? ` (${reportData.severitySummary})` : '';
+  const button = (url, label) =>
+    `<a href="${escapeHtml(url)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;` +
+    `font-weight:600;padding:12px 20px;border-radius:6px;margin:4px 8px 4px 0">${escapeHtml(label)}</a>`;
+  const link = (url, label) => `<a href="${escapeHtml(url)}" style="color:${accent}">${escapeHtml(label)}</a>`;
+  const withUrls = projects.filter((p) => p.url);
+  const download = /^https?:\/\//i.test(downloadUrl) ? downloadUrl : '';
+
+  let action;
+  if (download) {
+    action =
+      `<p>${button(download, FIX_LABEL)}</p>` +
+      `<p style="color:#667085;font-size:13px">Downloads your interactive report — the same file as attached. Open it in your browser: ` +
+      `it connects to the reminder server by itself, and you can run AI Triage and Remediation from there.</p>` +
+      (withUrls.length
+        ? `<p style="color:#667085;font-size:13px">Or open in Checkmarx One: ${withUrls.map((p) => link(p.url, p.projectName)).join(' · ')}</p>`
+        : '');
+  } else {
+    action = withUrls.length === 1
+      ? `<p>${button(withUrls[0].url, FIX_LABEL)}</p>`
+      : withUrls.length
+        ? `<p>${withUrls.map((p) => button(p.url, `${FIX_LABEL} — ${p.projectName}`)).join('')}</p>`
+        : '';
+    if (action) action += `<p style="color:#667085;font-size:13px">Opens the project in Checkmarx One, where you can launch AI Triage on its findings.</p>`;
+  }
+
+  const html =
+    `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:14px;color:#1f2330;line-height:1.5">` +
+    `<p>${escapeHtml(greeting)},</p>` +
+    `<p>You have <b>${total}</b> open finding${total === 1 ? '' : 's'}${escapeHtml(summary)} ` +
+    `across ${projects.length} project${projects.length === 1 ? '' : 's'}.</p>` +
+    action +
+    `<p>The attached report lists your top ${topCount} findings. Open it in your browser — it connects to the reminder ` +
+    `server on its own (or asks you to) — and triage every critical or high finding across all your projects in one click.</p>` +
+    `</div>`;
+
+  const text = [
+    `${greeting},`,
+    '',
+    `You have ${total} open finding(s)${summary} across ${projects.length} project(s).`,
+    '',
+    ...(download
+      ? [`${FIX_LABEL} (downloads your interactive report): ${download}`, ...withUrls.map((p) => `Open ${p.projectName} in Checkmarx One: ${p.url}`)]
+      : withUrls.map((p) => `${FIX_LABEL} — ${p.projectName}: ${p.url}`)),
+    '',
+    `The attached report lists your top ${topCount} findings. Open it in your browser: it connects to the reminder server ` +
+      'on its own (or asks you to), and you can triage every critical or high finding across all your projects in one click.',
+  ].join('\n');
+
+  return { html, text };
 }

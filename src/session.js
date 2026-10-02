@@ -48,10 +48,40 @@ export class SessionStore {
     return session;
   }
 
+  /**
+   * A session for someone who signed in with a password: it has no key of its
+   * own and uses the server's Checkmarx One integration — whatever `link()`
+   * returns at the time of each call, so reconnecting the integration applies
+   * to everyone at once.
+   */
+  createLinked(link) {
+    const id = randomUUID();
+    const integration = () => {
+      const target = link();
+      if (!target) {
+        throw Object.assign(new Error('Checkmarx One is not connected on this server yet. An administrator connects it under Settings → Connection.'), { status: 503 });
+      }
+      return target;
+    };
+    const session = { id, linked: true, lastScan: null, createdAt: Date.now(), lastUsedAt: Date.now() };
+    Object.defineProperties(session, {
+      connection: { get: () => integration().connection },
+      client: { get: () => integration().client },
+    });
+    this.#sessions.set(id, session);
+    return session;
+  }
+
+  /** Sessions matching a test (e.g. every session of one user). */
+  filter(test) {
+    return [...this.#sessions.values()].filter(test);
+  }
+
   get(id) {
     const session = id ? this.#sessions.get(id) : undefined;
     if (!session) return null;
-    if (Date.now() - session.lastUsedAt > this.#idleMs) {
+    // The server's own integration session never idles out.
+    if (!session.pinned && Date.now() - session.lastUsedAt > this.#idleMs) {
       this.#sessions.delete(id);
       return null;
     }
@@ -66,7 +96,7 @@ export class SessionStore {
   sweep() {
     const cutoff = Date.now() - this.#idleMs;
     for (const [id, session] of this.#sessions) {
-      if (session.lastUsedAt < cutoff) this.#sessions.delete(id);
+      if (!session.pinned && session.lastUsedAt < cutoff) this.#sessions.delete(id);
     }
   }
 
@@ -77,9 +107,16 @@ export class SessionStore {
 
 /** Session details the browser is allowed to see (never the API key). */
 export function describeSession(session) {
+  let connection = null;
+  try {
+    connection = publicConnection(session.connection);
+  } catch {
+    // Signed in, but the server's Checkmarx One integration is not connected.
+  }
   return {
-    connected: true,
-    connection: publicConnection(session.connection),
+    connected: Boolean(connection),
+    signedIn: true,
+    connection,
     hasScan: Boolean(session.lastScan),
     connectedAt: new Date(session.createdAt).toISOString(),
   };

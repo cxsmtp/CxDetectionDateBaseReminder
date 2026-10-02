@@ -92,7 +92,7 @@ export function normalizeRisk(raw, project, now = new Date()) {
     severity: String(pick(raw, ['severity', 'riskSeverity', 'severityLevel']) ?? 'UNKNOWN').toUpperCase(),
     state: String(pick(raw, ['state', 'resultState']) ?? '').toUpperCase(),
     status: String(pick(raw, ['status', 'resultStatus']) ?? '').toUpperCase(),
-    scanner: String(pick(raw, ['engine', 'scannerType', 'sourceEngine', 'scanType']) ?? '').toUpperCase(),
+    scanner: String(pick(raw, ['engine', 'scannerType', 'sourceEngine', 'scanType', 'type']) ?? '').toUpperCase(),
     location: buildLocation(raw),
     assetType: String(pick(raw, ['assetType']) ?? ''),
     origin: String(pick(raw, ['origin']) ?? ''),
@@ -105,6 +105,11 @@ export function normalizeRisk(raw, project, now = new Date()) {
     aiExploitability: aiTriage?.exploitability ?? '',
     aiReachability: aiTriage?.reachability ?? '',
     remediationStatus: raw?.remediation?.status ?? '',
+    // Identifiers the AI Triage / AI Remediation APIs key on.
+    groupId: String(pick(raw, ['groupId']) ?? ''),
+    similarityId: String(pick(raw, ['similarityId']) ?? ''),
+    alternateId: String(pick(raw, ['alternateId']) ?? ''),
+    packageIdentifier: String(raw?.data?.packageIdentifier ?? pick(raw, ['packageIdentifier']) ?? ''),
   };
 }
 
@@ -242,6 +247,7 @@ class ScanResultsSource {
       query: { 'scan-id': scanId },
       limit: 100,
       maxItems: 20_000,
+      offsetIsPage: true,
     })) {
       items.push(item);
     }
@@ -321,6 +327,7 @@ export function summariseProject(project, risks, error = null) {
     projectId: project.id,
     projectName: project.name,
     repoUrl: project.repoUrl,
+    mainBranch: project.mainBranch ?? '',
     tags: project.tags,
     totalRisks: risks.length,
     counts,
