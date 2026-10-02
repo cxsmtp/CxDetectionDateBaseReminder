@@ -1070,6 +1070,15 @@ label.button {
 label.button:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
 input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); outline-offset: 2px; }
 .env-drop { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 16px; border: 1.5px dashed var(--border-strong); border-radius: 12px; background: var(--surface-2); margin-bottom: 10px; }
+.env-steps { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 8px; }
+.env-steps li { padding-left: 4px; }
+.env-steps a.button {
+  display: inline-flex; align-items: center; min-height: var(--control-h); padding: 0 14px; margin-right: 8px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+  font-weight: 550; text-decoration: none; box-shadow: var(--shadow-sm);
+}
+.env-steps a.button:hover { border-color: var(--accent); }
+.env-steps .hint { display: inline; }
 .env-drop.over { border-color: var(--accent); background: var(--accent-soft); }
 .env-drop .hint { margin: 0; }
 .env-result { display: grid; gap: 6px; margin-top: 10px; font-size: 13px; }

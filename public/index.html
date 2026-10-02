@@ -456,13 +456,16 @@
             <section class="panel" id="set-import" data-perm="integration.cxone integration.smtp settings.links">
               <h2>Quick setup from a .env file</h2>
               <p class="hint wide">
-                Upload a <code>.env</code> file to fill in the Checkmarx One connection (<code>CX_API_KEY</code>,
-                <code>CX_BASE_URL</code>, <code>CX_IAM_URL</code>, <code>CX_TENANT</code>), the mail server
-                (<code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_SECURE</code>, <code>SMTP_USER</code>,
-                <code>SMTP_PASS</code>, <code>SMTP_FROM</code>, <code>SMTP_FROM_NAME</code>) and <code>REPORT_SERVER_URL</code>.
-                Each connection is checked straight away; one that does not work goes back to the last known good settings
-                when you leave this page.
+                Set the Checkmarx One connection, the mail server and the reminder server address from one file, the same file the
+                container can start with (<code>--env-file</code>). Each connection is checked straight away; one that does not work goes
+                back to the last known good settings when you leave this page.
               </p>
+              <ol class="env-steps">
+                <li><a class="button" id="env-sample" href="sample.env" download="mission-zero.env">Download the sample .env</a>
+                  <span class="hint">Every setting, explained, with blanks to fill in. Blank values keep what is set now.</span></li>
+                <li>Fill it in with a text editor (Notepad is fine) and save it.</li>
+                <li>Upload it here.</li>
+              </ol>
               <div class="env-drop" id="env-drop">
                 <input type="file" id="env-file" accept=".env,.txt,text/plain" class="sr-only" />
                 <label for="env-file" class="button primary">Choose a .env file</label>

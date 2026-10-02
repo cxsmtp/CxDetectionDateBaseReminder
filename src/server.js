@@ -39,7 +39,7 @@ import { publicConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
 import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, isVerified, parseAddressList, publicSettings, smtpFingerprint } from './settings.js';
 import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
-import { SECRET_VARIABLES, parseEnvText, settingsFromEnv } from './env-import.js';
+import { ENV_SETTINGS, SECRET_VARIABLES, parseEnvText, settingsFromEnv } from './env-import.js';
 import { inlineScriptHashes, sameOriginGuard, securityHeaders } from './security.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
@@ -1073,7 +1073,13 @@ app.post(
     const { changes, applied, refused, ignored } = settingsFromEnv(vars, (permission) => can(req, permission));
     if (!applied.length) {
       if (refused.length) return res.status(403).json({ error: `Your role cannot set ${refused.join(', ')}.`, applied, refused, ignored });
-      return res.status(400).json({ error: 'No setting this page understands was found in that file.', applied, refused, ignored });
+      const blank = Object.keys(vars).some((name) => ENV_SETTINGS[name]);
+      return res.status(400).json({
+        error: blank
+          ? 'Every setting in that file is blank, so nothing changed. Fill in the values you want to set (blank ones keep what is set now) and upload it again.'
+          : 'No setting this page understands was found in that file.',
+        applied, refused, ignored,
+      });
     }
     if (changes.cxone) {
       const current = settingsStore.get();
