@@ -105,14 +105,18 @@ const FAILED_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" 
 const flares = new Map();
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let flareSeq = 0;
-/** Show or update the flare `key`: kind busy | done | failed. */
-function flare(key, kind, text, hint = '') {
+/**
+ * Show or update the flare `key`: kind busy | done | failed. `spoken` is what a
+ * screen reader announces instead of the lines on screen, for a busy flare whose
+ * lines change every second.
+ */
+function flare(key, kind, text, hint = '', spoken = '') {
   let el = flares.get(key);
   if (!el) {
     el = document.createElement('div');
     el.setAttribute('role', 'status');
     if (key === 'fetch') el.id = 'fetch-flare';
-    el.innerHTML = '<span class="flare-icon"></span><span class="flare-text"><span class="flare-main"></span><small></small></span>';
+    el.innerHTML = '<span class="flare-icon"></span><span class="flare-text"><span class="flare-main"></span><small></small><span class="sr-only flare-sr"></span></span>';
     $('flares').append(el);
     flares.set(key, el);
   }
@@ -144,6 +148,9 @@ function flare(key, kind, text, hint = '') {
   el.querySelector('.flare-main').textContent = text;
   el.querySelector('small').textContent = hint;
   el.querySelector('small').hidden = !hint;
+  for (const line of el.querySelectorAll('.flare-main, small')) line.toggleAttribute('aria-hidden', Boolean(spoken));
+  const sr = el.querySelector('.flare-sr');
+  if (sr.textContent !== spoken) sr.textContent = spoken;
   if (kind !== 'busy') {
     el.hideTimer = setTimeout(() => {
       el.remove();
@@ -195,6 +202,57 @@ const ACTIVITIES = [
   ['GET', /^\/api\/audit\/verify/, 'Verifying the audit log…', 'Audit log verified'],
   ['GET', /^\/api\/audit\/reconcile/, 'Reconciling with the credit ledger…', 'Reconciled'],
 ];
+/**
+ * While an action runs, its flare says something light-hearted (a new line every
+ * few seconds, themed to the action) over a live line: what it is doing, for how
+ * many projects, and for how long. Like a spinner, but you can read it.
+ */
+const QUIPS = [
+  [/^\/api\/(credits\/verify|tracked-reports\/[^/]+\/refresh)/, ['Reading it twice, trusting it once…', 'Comparing notes with Checkmarx One…', 'Counting results, then counting them again…', 'Making sure nobody moved the goalposts…', 'Spotting what changed since you looked…', 'Matching every finding to its result…']],
+  [/^\/api\/(triage|tracked-reports\/[^/]+\/triage)/, ['Waking up the AI…', 'Weighing true against false positives…', 'Reading the code so you do not have to…', 'Booking one credit per result, not per row…', 'Asking the hard questions…', 'Following the data flow…']],
+  [/^\/api\/remediation/, ['Waking up the AI…', 'Sharpening the fix…', 'Teaching the bug some manners…', 'Drafting the pull request…', 'Booking one credit per result, not per row…', 'Following the data flow…']],
+  [/^\/api\/(credits|tracked-reports\/[^/]+\/allocate)/, ['Balancing the books…', 'Counting credits twice…', 'Nothing spent that is not needed…', 'Checking the pool is big enough…', 'Writing it into the audit log…']],
+  [/^\/api\/(reminders|tracked-reports\/[^/]+\/remind|beta\/authors\/notify|settings\/smtp\/send-test)/, ['Licking the stamps…', 'Addressing the envelopes…', 'Only their own projects, nobody else\'s…', 'Finding the right inboxes…', 'Sending at the speed of SMTP…', 'Folding the reports neatly…']],
+  [/^\/api\/(integration|settings)/, ['Testing the wires…', 'Shaking hands with the server…', 'Turning the dials…', 'Checking every connection…', 'Keeping the last good settings handy…']],
+  [/^\/api\/(backup|audit)/, ['Following the hash chain…', 'Checking every link…', 'Packing everything neatly…', 'Nothing missing, nothing changed…']],
+  [/^\/api\/beta/, ['Digging through the history…', 'Asking git who wrote this…', 'Matching names to faces…']],
+  [/./, ['Revving up…', 'On it…', 'Moving fast, breaking nothing…', 'Putting things in order…', 'Almost there…']],
+];
+const SLOW_QUIPS = ['Still on it — a big one…', 'Taking the scenic route…', 'Worth the wait…'];
+
+/** "12 projects" when the request names projects. */
+function scopeOf(body) {
+  try {
+    const ids = JSON.parse(body ?? '{}')?.projectIds;
+    return Array.isArray(ids) && ids.length ? `${ids.length} project${ids.length === 1 ? '' : 's'}` : '';
+  } catch {
+    return '';
+  }
+}
+
+/** Keep the busy flare `key` alive: a new quip every 3 s, the clock every second. Returns stop(). */
+function startBusyFlare(key, path, activity, body) {
+  const route = path.split('?')[0];
+  const quips = QUIPS.find(([pattern]) => pattern.test(route))[1];
+  const label = activity.busy.replace(/…$/, '');
+  const scope = scopeOf(body);
+  const started = Date.now();
+  let turn = Math.floor(Math.random() * quips.length);
+  let shown = '';
+  const draw = () => {
+    const seconds = Math.floor((Date.now() - started) / 1000);
+    const quip = seconds >= 15 && Math.floor(seconds / 3) % 2 ? SLOW_QUIPS[Math.floor(seconds / 6) % SLOW_QUIPS.length] : quips[(turn + Math.floor(seconds / 3)) % quips.length];
+    flare(key, 'busy', quip, [label, scope, `${seconds}s`].filter(Boolean).join(' · '), activity.busy);
+    if (quip !== shown && shown && !reducedMotion.matches) {
+      flares.get(key)?.querySelector('.flare-main').animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'ease-out' });
+    }
+    shown = quip;
+  };
+  draw();
+  const timer = setInterval(draw, 1000);
+  return () => clearInterval(timer);
+}
+
 const NO_FLARE = /^\/api\/(session|diagnostics\/client-error|settings\/notices\/ack)/;
 
 function activityFor(method, path) {
@@ -231,13 +289,15 @@ async function api(path, options = {}) {
   if (!activity || activity.quiet) return apiCall(path, options);
   const key = activity.key ?? `act-${++flareSeq}`;
   const resume = activity.lock === false ? () => {} : pauseOrigin();
-  flare(key, 'busy', activity.busy, activity.lock === false ? '' : 'In progress: this part of the page is paused until it finishes.');
+  const stop = startBusyFlare(key, path, activity, options.body);
   try {
     const result = await apiCall(path, options);
+    stop();
     flare(key, 'done', activity.done);
     if (method !== 'GET' && /^\/api\/(settings|integration|beta)/.test(path)) refreshConnectionsSoon();
     return result;
   } catch (error) {
+    stop();
     flare(key, 'failed', `${activity.busy.replace(/…$/, '')} did not finish`, error.message);
     if (/^\/api\/(settings|integration)/.test(path)) refreshConnectionsSoon();
     throw error;
