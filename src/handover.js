@@ -43,6 +43,10 @@ export class SessionPersistence {
   #legacy;
   #pending = new Map(); // key -> latest scan to write (coalesced)
   #writing = null;
+  #latest = new Map(); // key -> scan waiting for its turn
+  #timers = new Map(); // key -> timer
+  #savedAt = new Map(); // key -> when it was last queued for writing
+  #saveEveryMs = Math.max(0, Number(process.env.SESSION_SAVE_SECONDS ?? 30)) * 1000;
 
   constructor(dataDir) {
     this.#dir = path.join(dataDir, 'sessions');
@@ -94,15 +98,34 @@ export class SessionPersistence {
     fs.renameSync(`${file}.tmp`, file);
     const keep = new Set(entries.map((e) => `${e.key}.scan.json.gz`));
     for (const name of fs.readdirSync(this.#dir)) {
-      if (name.endsWith('.scan.json.gz') && !keep.has(name) && !this.#pending.has(name.slice(0, 64))) fs.rmSync(path.join(this.#dir, name), { force: true });
+      if (name.endsWith('.scan.json.gz') && !keep.has(name) && !this.#pending.has(name.slice(0, 64)) && !this.#latest.has(name.slice(0, 64))) fs.rmSync(path.join(this.#dir, name), { force: true });
     }
   }
 
-  /** Save a session's fetched data in the background (the latest one wins if several are queued). */
+  /**
+   * Save a session's fetched data in the background: at once the first time, then at most
+   * every SESSION_SAVE_SECONDS (30) per session, the latest one winning. Turning a large
+   * fetch into JSON blocks the server for a moment, and people who re-fetch often paid it
+   * every time. A stop or update writes everything still waiting at once (flushSync).
+   */
   saveScan(key, scan) {
     if (!scan) return;
-    this.#pending.set(key, scan);
-    this.#writing ??= this.#drain().finally(() => (this.#writing = null));
+    this.#latest.set(key, scan);
+    if (this.#timers.has(key)) return; // already due
+    const wait = Math.max(0, (this.#savedAt.get(key) ?? 0) + this.#saveEveryMs - Date.now());
+    const due = () => {
+      this.#timers.delete(key);
+      const latest = this.#latest.get(key);
+      this.#latest.delete(key);
+      if (!latest) return;
+      this.#savedAt.set(key, Date.now());
+      this.#pending.set(key, latest);
+      this.#writing ??= this.#drain().finally(() => (this.#writing = null));
+    };
+    if (!wait) return due();
+    const timer = setTimeout(due, wait);
+    timer.unref?.();
+    this.#timers.set(key, timer);
   }
 
   async #drain() {
@@ -120,6 +143,10 @@ export class SessionPersistence {
 
   /** Write everything still queued, now (on stop). Also saves the given scans: [{key, scan}]. */
   flushSync(scans = []) {
+    for (const timer of this.#timers.values()) clearTimeout(timer);
+    this.#timers.clear();
+    for (const [key, scan] of this.#latest) this.#pending.set(key, scan);
+    this.#latest.clear();
     for (const { key, scan } of scans) if (scan) this.#pending.set(key, scan);
     for (const [key, scan] of this.#pending) {
       try {
@@ -134,6 +161,10 @@ export class SessionPersistence {
   /** A session ended: its fetched data goes too. */
   forget(key) {
     this.#pending.delete(key);
+    this.#latest.delete(key);
+    this.#savedAt.delete(key);
+    clearTimeout(this.#timers.get(key));
+    this.#timers.delete(key);
     fs.rmSync(this.#scanFile(key), { force: true });
   }
 

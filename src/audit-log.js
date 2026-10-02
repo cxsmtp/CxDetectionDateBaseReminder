@@ -24,7 +24,7 @@
  * (sent, and Checkmarx One or the network failed), changed, info.
  */
 
-import { createHmac, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -61,6 +61,7 @@ function canonical(value) {
 export class AuditLog {
   #dir;
   #key;
+  #cache = new Map(); // month file -> {size, hash of those bytes, entries}
   #seq = 0;
   #lastMac = GENESIS;
   #unwritten = [];
@@ -189,21 +190,52 @@ export class AuditLog {
     this.flushSync();
   }
 
+  /**
+   * A month file's entries, parsed. Parsing every line on every browse and check grew with
+   * the log, so the parsed entries are kept and only lines appended since are parsed. The
+   * part already parsed must still be byte for byte what it was (its hash is compared on
+   * every call), so an edited, removed or reordered entry is always read again and seen by
+   * the integrity check. Entries are shared between callers, so they are frozen.
+   */
+  #parsed(file) {
+    let buffer;
+    try {
+      buffer = fs.readFileSync(path.join(this.#dir, file));
+    } catch {
+      return [];
+    }
+    const parseLine = (line) => {
+      try {
+        return Object.freeze(JSON.parse(line));
+      } catch {
+        return Object.freeze({ corrupt: true, file, line: line.slice(0, 200) });
+      }
+    };
+    let cached = this.#cache.get(file);
+    const prefixHash = (length) => createHash('sha256').update(buffer.subarray(0, length)).digest('base64');
+    if (!cached || buffer.length < cached.size || prefixHash(cached.size) !== cached.hash) cached = { size: 0, hash: prefixHash(0), entries: [] };
+    if (buffer.length > cached.size) {
+      // Only whole lines are kept; a last line without its newline is shown but parsed again next time.
+      const end = buffer.lastIndexOf(0x0a) + 1;
+      const entries = cached.entries.slice();
+      if (end > cached.size) {
+        for (const line of buffer.subarray(cached.size, end).toString('utf8').split('\n')) if (line) entries.push(parseLine(line));
+        cached = { size: end, hash: prefixHash(end), entries };
+        this.#cache.set(file, cached);
+      }
+      const tail = buffer.subarray(Math.max(end, cached.size)).toString('utf8');
+      if (tail.trim()) return [...cached.entries, parseLine(tail)];
+    }
+    return cached.entries;
+  }
+
   /** Every entry of the months overlapping [from, to], oldest first. */
   *entries({ from = '', to = '' } = {}) {
     for (const file of this.files()) {
       const month = file.slice(6, 13);
       if (from && month < from.slice(0, 7)) continue;
       if (to && month > to.slice(0, 7)) continue;
-      const text = fs.readFileSync(path.join(this.#dir, file), 'utf8');
-      for (const line of text.split('\n')) {
-        if (!line) continue;
-        try {
-          yield JSON.parse(line);
-        } catch {
-          yield { corrupt: true, file, line: line.slice(0, 200) };
-        }
-      }
+      yield* this.#parsed(file);
     }
   }
 

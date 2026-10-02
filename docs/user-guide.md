@@ -113,6 +113,14 @@ Settings **save as you type**; there is no Save button.
 
 Do this before anyone else signs in or receives a report. Over HTTPS, sign-ins, findings and triage requests cross the network encrypted. Plain http sends them as readable text to anyone on the way.
 
+**HTTPS is already on.** The container image serves HTTPS by default (`HTTPS=on`). Until you give it a certificate it uses a self-signed one (way C below), so browsers warn. Giving it your company's certificate (way A) or putting Caddy in front (way B) removes the warning.
+
+**Plain http on your own machine:** add `-e HTTPS=off` and open `http://localhost:3000`:
+
+```
+podman run --replace -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e HTTPS=off --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
 You need access to the machine that runs the container (Podman or Docker). The commands are for Windows cmd, one line each. In every command, replace `mz.company.com` with your server's name.
 
 ### 1. Choose how
@@ -121,7 +129,7 @@ You need access to the machine that runs the container (Podman or Docker). The c
 | --- | --- | --- |
 | **A. Your company's certificate** | CxMissionZero runs inside the company network or VPN. This is the usual case, and the safest. | A certificate for its name from IT, and a DNS name pointing at the machine |
 | **B. Automatic certificate** (Let's Encrypt) | It has a public name the internet can reach | A public DNS name pointing at the machine, with ports 80 and 443 open to it |
-| **C. Self-signed** | Trying it out, or a lab | Nothing. Browsers warn about it until you trust it |
+| **C. Self-signed** (the default) | Trying it out, or a lab | Nothing. Browsers warn about it until you trust it |
 
 ### 2A. With your company's certificate
 
@@ -144,14 +152,14 @@ podman run --replace -d --name mission-zero -p 443:3000 -p 80:8080 -v mission-ze
 
 ### 2B. With an automatic certificate (public name)
 
-Caddy, a small web server, gets a free certificate from Let's Encrypt, renews it by itself, and passes requests on to CxMissionZero. CxMissionZero itself then has no open port.
+Caddy, a small web server, gets a free certificate from Let's Encrypt, renews it by itself, and passes requests on to CxMissionZero over plain http on their private network. That is why CxMissionZero runs with `-e HTTPS=off` here. CxMissionZero itself then has no open port.
 
 ```
 podman network create mz-net
 ```
 
 ```
-podman run --replace -d --name mission-zero --network mz-net -v mission-zero-data:/data -e TZ=Asia/Dubai -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+podman run --replace -d --name mission-zero --network mz-net -v mission-zero-data:/data -e TZ=Asia/Dubai -e HTTPS=off -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 ```
 
 ```
@@ -163,12 +171,13 @@ Let's Encrypt checks that it really reaches your name on port 80, so the DNS nam
 ### 2C. Self-signed (to try it out)
 
 ```
-podman run --replace -d --name mission-zero -p 3443:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e TLS_SELF_SIGNED=1 -e TLS_HOSTNAMES=mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+podman run --replace -d --name mission-zero -p 3443:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e TLS_HOSTNAMES=mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 ```
 
 Open <https://localhost:3443>.
 
 **The certificate**
+- This is what the image does whenever no certificate is given; `TLS_HOSTNAMES` adds names to it.
 - CxMissionZero makes it at the first start and keeps it in the data volume. It covers `localhost`, the machine's name and the names in `TLS_HOSTNAMES`.
 - The browser warns once ("Your connection is not private"), because no authority vouches for it. Click **Advanced**, then the link that continues to the site.
 
@@ -204,13 +213,13 @@ For everyday use, switch to way A or B instead: every reader's machine would hav
 - **Reports emailed before the switch** still point at the old address.
   - A reader clicks **Change** next to *Reminder server* at the top of the report, enters `https://mz.company.com`, and the report remembers it.
   - Alternatively, send new reports.
-- **Updating** works as before: `podman pull`, then the same command you started with, **including its HTTPS options**. If you run the plain-http command instead, the server goes back to http.
+- **Updating** works as before: `podman pull`, then the same command you started with, **including its HTTPS options**. Without a certificate option it still serves HTTPS, with the self-signed certificate.
 - **Ports 80 and 443 on Windows:** Podman may refuse them ("permission denied"). Either:
   - run `podman machine stop`, then `podman machine set --rootful`, then `podman machine start`; or
   - use another port, e.g. `-p 8443:3000 -e HTTPS_PUBLIC_PORT=8443`, with the address `https://mz.company.com:8443`.
 
 **Behind a reverse proxy you already have** (nginx, IIS, an F5, a cloud load balancer):
-- Let it handle HTTPS and forward to port 3000, with the `X-Forwarded-Proto`, `X-Forwarded-For` and `X-Forwarded-Host` headers.
+- Let it handle HTTPS and forward to port 3000, with the `X-Forwarded-Proto`, `X-Forwarded-For` and `X-Forwarded-Host` headers. Start CxMissionZero with `-e HTTPS=off`, so the proxy speaks plain http to it.
 - If the proxy is on another machine outside a private network, add `-e TRUST_PROXY=<its address>`. Otherwise those headers are not believed.
 
 All the options, and a checklist for hosting CxMissionZero safely: [HTTPS and hosting](https-and-hosting.md).
@@ -634,6 +643,9 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 | Credits refused | The project has no credits left. Allocate on the Dashboard, or raise the credit pool (Admin). |
 | **HTTPS:** the container stops; the log says "HTTPS is not set up correctly: …" | It tells you what is wrong:<ul><li>*The private key does not belong to the certificate*: the two files are from different requests. Ask IT for the matching pair.</li><li>*The .pfx file did not open: wrong TLS_PFX_PASSPHRASE?*: check the password.</li><li>*needs both TLS_CERT_FILE and TLS_KEY_FILE*: give both, or use `TLS_PFX_FILE`.</li><li>*no such file*: the folder is not mounted (`-v C:\mission-zero\certs:/certs:ro`), or the file name differs.</li></ul> |
 | **HTTPS:** the browser warns "Your connection is not private" | <ul><li>Self-signed: expected; trust it, or use your company's certificate.</li><li>Company certificate: the address you typed is not a name in the certificate (*Subject Alternative Name*); open the right name, or ask IT to add it.</li><li>The chain is missing intermediates: ask IT for the full chain in `server.crt`.</li></ul> |
+| **HTTPS:** after updating, `http://localhost:3000` no longer opens ("This page isn't working", "connection was reset") | Since MZ-01.00.21 the image serves HTTPS by default. Open `https://localhost:3000` instead, or add `-e HTTPS=off` to your `podman run` line to keep plain http. |
+| **HTTPS:** a reverse proxy (Caddy, nginx) answers 502 Bad Gateway | CxMissionZero serves HTTPS by default, and the proxy speaks http to it. Add `-e HTTPS=off` to CxMissionZero's `podman run` line. |
+| **HTTPS:** "HTTPS must be on or off" in the log | `HTTPS` takes `on` or `off` only (also `true`/`false`, `yes`/`no`, `1`/`0`). |
 | **HTTPS:** "permission denied" when starting on ports 80 / 443 | Podman on Windows: `podman machine stop`, `podman machine set --rootful`, `podman machine start`. Or use `-p 8443:3000 -e HTTPS_PUBLIC_PORT=8443`. |
 | **HTTPS:** Let's Encrypt (Caddy) gets no certificate | `podman logs mz-caddy` says why. Usually the DNS name does not point at this machine yet, or port 80 is blocked from the internet. |
 | **HTTPS:** a renewed certificate is not being used | Wait 5 minutes. If the log says *The changed certificate could not be used*, the new files do not fit together; the old certificate stays in use meanwhile. |

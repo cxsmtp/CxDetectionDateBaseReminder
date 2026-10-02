@@ -15,7 +15,7 @@ podman run --replace -d --name mission-zero -p 3000:3000 -v mission-zero-data:/d
 **What each line does**
 - **Line 1** downloads the new version while the current one keeps running. Nothing is interrupted.
 - **Line 2** replaces the running container with the new version, using the same name, port, volume and options.
-  - Use exactly the options you started it with. For example, add `--cpus 2 --memory 3g -e NODE_OPTIONS=--max-old-space-size=2048` if you run it sized, or `--env-file mission-zero.env`, or `-p 3001:3000` for another port.
+  - Use exactly the options you started it with. For example, add `-e HTTPS=off` if you use plain http (the image serves HTTPS by default since MZ-01.00.21), your certificate options if you gave one, add `--cpus 2 --memory 3g -e NODE_OPTIONS=--max-old-space-size=2048` if you run it sized, or `--env-file mission-zero.env`, or `-p 3001:3000` for another port.
   - If your Podman version does not know `--replace`, run `podman stop mission-zero`, then `podman rm mission-zero`, then the same `podman run` line without `--replace`.
 
 **Check it.** The bottom-left corner of the app shows the new version (`MZ-xx.xx.xx`). Or run `podman logs mission-zero`; the start of the log shows the version and says how many sign-ins were picked up.

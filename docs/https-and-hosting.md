@@ -2,13 +2,15 @@
 
 Everything people send to CxMissionZero is sensitive: sign-ins, the vulnerabilities in reports, and triage and remediation requests. Serve it over HTTPS only. Then nobody on the network can read it or change it on the way.
 
+The container image serves HTTPS by default (`HTTPS=on`): with your certificate when you give one, otherwise with a self-signed one it makes (way C). A production release never serves plain http by accident. `HTTPS=off` turns it off: for your own machine, or behind a reverse proxy that does HTTPS (way B).
+
 Pick one of the three ways below. All the commands are for Windows cmd, one line each, and work the same in PowerShell and bash.
 
 | Way | Use it when | You need |
 | --- | --- | --- |
 | **A. Your company's certificate**, served by CxMissionZero itself | It runs inside the company network or VPN (the usual case) | A certificate for its name from your company CA or IT: `server.crt` and `server.key`, or one `.pfx` and its password |
 | **B. Automatic certificates** (Let's Encrypt, through Caddy) | It has a public name that the internet can reach | A DNS name (e.g. `mz.company.com`) pointing at the host, with ports 80 and 443 open to it |
-| **C. Self-signed**, made by CxMissionZero | Trying it out, or a closed lab | Nothing. Browsers warn until the certificate is trusted |
+| **C. Self-signed**, made by CxMissionZero (the default) | Trying it out, or a closed lab | Nothing. Browsers warn until the certificate is trusted |
 
 ## A. Your company's certificate
 
@@ -47,7 +49,7 @@ podman network create mz-net
 ```
 
 ```
-podman run --replace -d --name mission-zero --network mz-net -v mission-zero-data:/data -e TZ=Asia/Dubai -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+podman run --replace -d --name mission-zero --network mz-net -v mission-zero-data:/data -e TZ=Asia/Dubai -e HTTPS=off -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 ```
 
 ```
@@ -57,33 +59,36 @@ podman run --replace -d --name mz-caddy --network mz-net -p 80:80 -p 443:443 -v 
 Replace `mz.company.com` with your name, in both places. Then open `https://mz.company.com`.
 
 How it fits together:
+- Caddy does HTTPS and speaks plain http to CxMissionZero on their private network, hence `HTTPS=off`. Without it, Caddy would reach a self-signed HTTPS server and fail.
 - Caddy tells CxMissionZero the real client address and that the request was HTTPS.
 - CxMissionZero believes those headers only from a proxy on its private network, which is the default (`TRUST_PROXY`). So cookies are `Secure`, HSTS is on, and the audit log shows real addresses.
 - Updating CxMissionZero works as before: `podman pull`, then the same `podman run` line. Caddy keeps running.
 
 **Another reverse proxy** (nginx, IIS / ARR, an F5, a cloud load balancer) works the same way:
-- Terminate HTTPS there and forward to port 3000.
+- Terminate HTTPS there and forward to port 3000, with `-e HTTPS=off` on CxMissionZero (or forward to `https://…:3000` and have the proxy accept its certificate).
 - Pass on `X-Forwarded-Proto`, `X-Forwarded-For` and `X-Forwarded-Host`.
 - If the proxy is not on the same machine or a private network, set `TRUST_PROXY` to its address, e.g. `-e TRUST_PROXY=10.20.0.15`.
 
 ## C. Self-signed (trying it out)
 
 ```
-podman run --replace -d --name mission-zero -p 3443:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e TLS_SELF_SIGNED=1 -e TLS_HOSTNAMES=mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+podman run --replace -d --name mission-zero -p 3443:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e TLS_HOSTNAMES=mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 ```
 
-Open `https://localhost:3443`. The browser warns once, because nobody vouches for the certificate.
+This is what the image does when no certificate is given; `TLS_HOSTNAMES` only adds names. Open `https://localhost:3443`. The browser warns once, because nobody vouches for the certificate.
 - **The certificate.** CxMissionZero makes it at the first start and keeps it in the data volume (`/data/tls/self-signed.crt`) for about 13 months. It covers `localhost`, the host's name, and the names in `TLS_HOSTNAMES`. It is remade when the names change or it nears expiry.
+- **No HSTS.** With a self-signed certificate CxMissionZero does not send HSTS, so a browser is never locked out of a site it can't verify. The log warns at every start that it is self-signed.
 - **To stop the warning on your machines,** import that `.crt` as a trusted certificate. In practice it's simpler to switch to way A or B.
 
 ## Settings
 
 | Option | Default | What for |
 | --- | --- | --- |
+| `HTTPS` | `on` in the image; unset with `npm start` | `on`: always HTTPS (your certificate, else self-signed). `off`: plain http. Unset: HTTPS only when a certificate option is given. |
 | `TLS_CERT_FILE`, `TLS_KEY_FILE` | — | PEM certificate (with its chain) and key. CxMissionZero then serves HTTPS. |
 | `TLS_KEY_PASSPHRASE` | — | If the key is encrypted. |
 | `TLS_PFX_FILE`, `TLS_PFX_PASSPHRASE` | — | A `.pfx` / `.p12`, instead of the two PEM files. |
-| `TLS_SELF_SIGNED` | off | `1`: make and use a self-signed certificate. |
+| `TLS_SELF_SIGNED` | off | `1`: make and use a self-signed certificate (what `HTTPS=on` does without a certificate). |
 | `TLS_HOSTNAMES` | — | Extra names for the self-signed certificate (comma-separated). |
 | `HTTP_REDIRECT_PORT` | — | Also listen for plain http on this port and redirect it to https. |
 | `HTTPS_PUBLIC_PORT` | 443 | The https port people use, for that redirect. |
@@ -128,7 +133,8 @@ Open `https://localhost:3443`. The browser warns once, because nobody vouches fo
   - `/api/health` is there for your monitoring.
 
 **Already built in, nothing to do:**
-- HSTS and a strict Content Security Policy.
+- HTTPS by default in the container image.
+- HSTS (with a real certificate) and a strict Content Security Policy.
 - No framing, no MIME sniffing.
 - Same-origin checks on every change.
 - `HttpOnly`, `SameSite`, `Secure` session cookies.

@@ -40,6 +40,7 @@ services:
     # mem_limit: 3g
     environment:
       # Optional — all of these can also be set in the utility (Settings).
+      HTTPS: ${HTTPS:-on}                           # on (default): HTTPS, self-signed unless TLS_CERT_FILE/TLS_KEY_FILE are given; off: plain http
       TZ: ${TZ:-UTC}                                # time zone for automatic reminders, e.g. Asia/Dubai
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}                 # first administrator's email (default admin@mission-zero.local)
       REPORT_SERVER_URL: ${REPORT_SERVER_URL:-}     # address people use to reach this server, put in every report

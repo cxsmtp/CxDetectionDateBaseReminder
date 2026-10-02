@@ -43,7 +43,15 @@ podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -e TZ=
 podman logs mission-zero
 ```
 
-The log prints the first administrator's email and password, once. Open <http://localhost:3000>, sign in, and choose your own password.
+The log prints the first administrator's email and password, once. Open <https://localhost:3000>, sign in, and choose your own password.
+
+**HTTPS is the default.** With no certificate given, the server makes a self-signed one, so the browser warns once ("Your connection is not private": **Advanced**, then continue). For a real certificate, see [HTTPS](#https).
+
+**Plain http on your own machine:** add `-e HTTPS=off`, then open <http://localhost:3000>:
+
+```
+podman run --replace -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e HTTPS=off --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
 
 **Docker:** the same commands with `docker` in place of `podman`.
 
@@ -59,9 +67,9 @@ podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data --env-
 podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e NODE_OPTIONS=--max-old-space-size=2048 --cpus 2 --memory 3g --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 ```
 
-**Another port** (e.g. 3001): change the left side only, `-p 3001:3000`, and open <http://localhost:3001>.
+**Another port** (e.g. 3001): change the left side only, `-p 3001:3000`, and open <https://localhost:3001> (or <http://localhost:3001> with `HTTPS=off`).
 
-**Update without losing anything:** download first, then swap. If you serve HTTPS, use your [HTTPS](#https) command instead of the second one.
+**Update without losing anything:** download first, then swap. Use the command you started with: add `-e HTTPS=off` if you run plain http, or use your [HTTPS](#https) command if you gave a certificate.
 
 ```
 podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
@@ -86,13 +94,20 @@ More container options: [docs/container.md](docs/container.md).
 
 ## HTTPS
 
-Serve CxMissionZero over HTTPS before anyone else uses it. Sign-ins, findings and triage requests then cross the network encrypted, and the sign-in cookie is marked `Secure`, so browsers never send it over plain http. Pick one way:
+The container image serves HTTPS by default (`HTTPS=on`), so a production release never runs plain http by accident. Sign-ins, findings and triage requests cross the network encrypted, and the sign-in cookie is marked `Secure`, so browsers never send it over plain http.
+
+| `HTTPS` | What it serves |
+| --- | --- |
+| `on` (the image's default) | HTTPS: your certificate when given (way A), else a self-signed one (way C) |
+| `off` | Plain http: your own machine, or behind a reverse proxy that does HTTPS (way B) |
+
+Without a container (`npm start`), it serves http unless `HTTPS=on` or a certificate is given. Pick one way:
 
 | Way | Use it when | You need |
 | --- | --- | --- |
 | **A. Your company's certificate** | It runs inside the company network or VPN (the usual case) | A certificate for its name from IT: `server.crt` + `server.key`, or a `.pfx` and its password |
 | **B. Automatic certificate** (Let's Encrypt, through Caddy) | It has a public name the internet can reach | A DNS name pointing at the host, with ports 80 and 443 open to it |
-| **C. Self-signed** | Trying it out | Nothing. Browsers warn until you trust it |
+| **C. Self-signed** (the default) | Trying it out | Nothing. Browsers warn until you trust it |
 
 In every command below, replace `mz.company.com` with your server's name.
 
@@ -106,28 +121,28 @@ podman run --replace -d --name mission-zero -p 443:3000 -p 80:8080 -v mission-ze
 - **Port 80** (`-p 80:8080` and `HTTP_REDIRECT_PORT`) only sends `http://` visitors to `https://`.
 - **Renewals:** copy the renewed files over the old ones. It switches over within 5 minutes, with no restart.
 
-**B. Automatic certificate** (public name). Caddy fetches and renews the certificate; CxMissionZero has no port of its own:
+**B. Automatic certificate** (public name). Caddy fetches and renews the certificate and speaks plain http to CxMissionZero on their private network (hence `HTTPS=off`); CxMissionZero has no port of its own:
 
 ```
 podman network create mz-net
 ```
 
 ```
-podman run --replace -d --name mission-zero --network mz-net -v mission-zero-data:/data -e TZ=Asia/Dubai -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+podman run --replace -d --name mission-zero --network mz-net -v mission-zero-data:/data -e TZ=Asia/Dubai -e HTTPS=off -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 ```
 
 ```
 podman run --replace -d --name mz-caddy --network mz-net -p 80:80 -p 443:443 -v caddy-data:/data docker.io/library/caddy:2 caddy reverse-proxy --from mz.company.com --to mission-zero:3000
 ```
 
-**C. Self-signed** (try it out), then open <https://localhost:3443>:
+**C. Self-signed** (try it out): what the image does when no certificate is given. `TLS_HOSTNAMES` adds names to it. Then open <https://localhost:3443>:
 
 ```
-podman run --replace -d --name mission-zero -p 3443:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e TLS_SELF_SIGNED=1 --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+podman run --replace -d --name mission-zero -p 3443:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e TLS_HOSTNAMES=mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 ```
 
 **Check it worked**
-- `podman logs mission-zero` shows `running on https://…`, and for A and C the certificate's name and expiry date. A certificate that does not fit its key, or a wrong `.pfx` password, stops the start with the reason; it never falls back to plain http.
+- `podman logs mission-zero` shows `running on https://…`, and for A and C the certificate's name and expiry date. Self-signed also logs a warning: fine to try it out, not for everyday use. A certificate that does not fit its key, or a wrong `.pfx` password, stops the start with the reason; it never falls back to plain http.
 - The browser shows the padlock at `https://mz.company.com`.
 - **Settings → Reminder server address** shows the `https://` address, so new emailed reports use it. It comes from `REPORT_SERVER_URL`, unless an address was saved on that page before: then change it there, and click **Test**.
 
@@ -166,10 +181,12 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | The first administrator, created on first start. Default `admin@mission-zero.local` with a generated password printed in the log. |
 | `FIRST_ADMIN=setup-code` | Create the first administrator in the browser with a code from the log instead. |
 | `SESSION_IDLE_MINUTES` (480) | Idle sign-ins end after this. |
+| `SESSION_SAVE_SECONDS` (30) | A signed-in person's fetched data is saved at once, then at most this often while it keeps changing (it survives updates and restarts). |
 | **GitHub (Beta)** | |
 | `GITHUB_TOKEN` ⬆ | A GitHub token for the Beta features (code authors, username matching). |
 | `GITHUB_API_URL`, `GITHUB_ORG` ⬆ | GitHub Enterprise API (e.g. `https://github.company.com/api/v3`), and your organisation. |
 | **Server** | |
+| `HTTPS` (`on` in the image) | `on`: always HTTPS (self-signed when no certificate is given). `off`: plain http, for your own machine or behind a reverse proxy. |
 | `TLS_CERT_FILE`, `TLS_KEY_FILE` (or `TLS_PFX_FILE`, `TLS_PFX_PASSPHRASE`), `TLS_SELF_SIGNED` | Serve HTTPS: your certificate, a `.pfx`, or a self-signed one ([HTTPS and hosting](docs/https-and-hosting.md)). |
 | `HTTP_REDIRECT_PORT`, `HTTPS_PUBLIC_PORT` (443), `TRUST_PROXY` | Redirect plain http to https; whose `X-Forwarded-*` headers to believe (private networks by default; nobody when serving HTTPS itself). |
 | `TZ` | Time zone for automation and email dates, e.g. `Asia/Dubai`. Default UTC. |
