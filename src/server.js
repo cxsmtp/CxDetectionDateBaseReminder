@@ -5,6 +5,7 @@ import express from 'express';
 
 import { config, configProblems } from './config.js';
 import { APP_VERSION } from './version.js';
+import { SendGuard } from './send-guard.js';
 import { filterProjectsByActivity, getLastScans, lastScanDate, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, selectRisks, summariseProject } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
@@ -119,6 +120,10 @@ const idList = (value, max = 5000) => (Array.isArray(value) ? [...new Set(value.
 // ---------------------------------------------------------------------------
 // Users, roles and permissions (src/iam.js)
 // ---------------------------------------------------------------------------
+
+/** One request at a time per vulnerability, across every path that sends AI Triage or Remediation. */
+const sendGuard = new SendGuard();
+const BUSY_REASON = 'Already being sent by another request (another report, user or tab); not sent twice.';
 
 const iam = new IamStore({ file: path.join(dataDir, 'iam.json') });
 let setupCode = '';
@@ -2382,75 +2387,92 @@ app.post(
       }
     }
 
-    let stopped = '';
-    for (const group of buckets.values()) {
-      const { scanId, scanner, projectId, projectName } = group[0];
-      const alternateIds = [...new Set(group.map((f) => f.alternateId))];
-      const before = balanceOf(projectId, 'triage');
-      const base = { type: 'triage', actor, findings: group, kind: 'triage', requested: alternateIds.length, before };
-
-      if (stopped) {
-        results.push({ alternateIds, ok: false, status: 409, error: stopped });
-        auditCredit({ ...base, outcome: 'refused', reason: `Not sent: ${stopped}` });
-        continue;
-      }
-      const refusal = creditRefusal(projectId, projectName, 'triage', alternateIds.length, limit);
-      if (refusal) {
-        results.push({ alternateIds, ok: false, status: 402, error: refusal, credits: creditNeed(projectId, projectName, 'triage', alternateIds.length) });
-        auditCredit({ ...base, outcome: 'refused', reason: refusal });
-        continue;
-      }
-      const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), {
-        period: poolPeriod(),
-        projectId,
-        kind: 'triage',
-        allowance: allocations.balance(projectId).triage.allocated,
-      });
-      if (!reservation) {
-        results.push({ alternateIds, ok: false, status: 402, error: 'Credits are busy with another request; try again in a moment.' });
-        auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
-        continue;
-      }
-      const started = Date.now();
-      try {
-        const body = await session.client.request('/api/ai-triage/triage', {
-          method: 'POST',
-          body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
-          retries: 1,
-        });
-        const published = body?.published !== false;
-        const upstream = { call: 'POST /api/ai-triage/triage', status: 200, published, jobId: body?.triageID ?? body?.id ?? '', ms: Date.now() - started };
-        // Checkmarx One only starts (and charges for) a new job when published.
-        if (published) {
-          const riskIds = [...new Set(group.map((f) => f.riskId))];
-          const covered = await coveredCount(session, projectId, 'triage', riskIds);
-          // Ledger first (so the balance after is right), linked to its audit entry both ways.
-          const auditId = randomUUID();
-          reservation.release();
-          creditLedger.record({
-            projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', riskIds, alternateIds,
-            groupIds: [...new Set(group.map((f) => f.groupId).filter(Boolean))], covered: Math.min(covered, alternateIds.length), auditId,
-          });
-          auditCredit({ ...base, id: auditId, outcome: 'charged', charged: alternateIds.length, upstream, details: { covered: Math.min(covered, alternateIds.length) } });
-        } else {
-          auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this triage job; no new credits.', upstream });
-        }
-        actedOn('triage', group);
-        touchProject(projectId);
-        results.push({ alternateIds, ok: true, published });
-      } catch (error) {
-        results.push({ alternateIds, ok: false, status: error.status ?? 0, error: relayError(error) });
-        auditCredit({
-          ...base, outcome: 'failed', reason: error.message,
-          upstream: { call: 'POST /api/ai-triage/triage', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
-        });
-        // No credits or no permission: every further request would fail the same way.
-        if (error.status === 402 || error.status === 403) stopped = `Checkmarx One refused an earlier request (${error.status}).`;
-      } finally {
-        reservation.release();
-      }
+    // Fail-safe: claim everything about to be sent; anything another request is
+    // sending right now is answered, not sent twice.
+    const claim = sendGuard.claim('triage', [...buckets.values()].flat());
+    if (claim.busy.length) {
+      results.push({ alternateIds: [...new Set(claim.busy.map((f) => f.alternateId))], ok: false, status: 409, busy: true, error: BUSY_REASON });
+      auditRefusedRequest('triage', actor, claim.busy, BUSY_REASON);
     }
-    res.json({ results, creditsRemaining: creditsRemaining(), projects: projectCredits(findings.map((f) => f.projectId)) });
+    const sentNow = allowRetriage ? new Map() : new Map([...new Set(findings.map((f) => f.projectId))].map((id) => [id, creditLedger.triagedAt(id)]));
+    for (const [key, group] of buckets) {
+      const rest = group.filter((f) => claim.claimed.includes(f) && !alreadySent(f, sentNow.get(f.projectId)));
+      if (rest.length) buckets.set(key, rest);
+      else buckets.delete(key);
+    }
+    try {
+      let stopped = '';
+      for (const group of buckets.values()) {
+        const { scanId, scanner, projectId, projectName } = group[0];
+        const alternateIds = [...new Set(group.map((f) => f.alternateId))];
+        const before = balanceOf(projectId, 'triage');
+        const base = { type: 'triage', actor, findings: group, kind: 'triage', requested: alternateIds.length, before };
+
+        if (stopped) {
+          results.push({ alternateIds, ok: false, status: 409, error: stopped });
+          auditCredit({ ...base, outcome: 'refused', reason: `Not sent: ${stopped}` });
+          continue;
+        }
+        const refusal = creditRefusal(projectId, projectName, 'triage', alternateIds.length, limit);
+        if (refusal) {
+          results.push({ alternateIds, ok: false, status: 402, error: refusal, credits: creditNeed(projectId, projectName, 'triage', alternateIds.length) });
+          auditCredit({ ...base, outcome: 'refused', reason: refusal });
+          continue;
+        }
+        const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), {
+          period: poolPeriod(),
+          projectId,
+          kind: 'triage',
+          allowance: allocations.balance(projectId).triage.allocated,
+        });
+        if (!reservation) {
+          results.push({ alternateIds, ok: false, status: 402, error: 'Credits are busy with another request; try again in a moment.' });
+          auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
+          continue;
+        }
+        const started = Date.now();
+        try {
+          const body = await session.client.request('/api/ai-triage/triage', {
+            method: 'POST',
+            body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
+            retries: 1,
+          });
+          const published = body?.published !== false;
+          const upstream = { call: 'POST /api/ai-triage/triage', status: 200, published, jobId: body?.triageID ?? body?.id ?? '', ms: Date.now() - started };
+          // Checkmarx One only starts (and charges for) a new job when published.
+          if (published) {
+            const riskIds = [...new Set(group.map((f) => f.riskId))];
+            const covered = await coveredCount(session, projectId, 'triage', riskIds);
+            // Ledger first (so the balance after is right), linked to its audit entry both ways.
+            const auditId = randomUUID();
+            reservation.release();
+            creditLedger.record({
+              projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', riskIds, alternateIds,
+              groupIds: [...new Set(group.map((f) => f.groupId).filter(Boolean))], covered: Math.min(covered, alternateIds.length), auditId,
+            });
+            auditCredit({ ...base, id: auditId, outcome: 'charged', charged: alternateIds.length, upstream, details: { covered: Math.min(covered, alternateIds.length) } });
+          } else {
+            auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this triage job; no new credits.', upstream });
+          }
+          actedOn('triage', group);
+          touchProject(projectId);
+          results.push({ alternateIds, ok: true, published });
+        } catch (error) {
+          results.push({ alternateIds, ok: false, status: error.status ?? 0, error: relayError(error) });
+          auditCredit({
+            ...base, outcome: 'failed', reason: error.message,
+            upstream: { call: 'POST /api/ai-triage/triage', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
+          });
+          // No credits or no permission: every further request would fail the same way.
+          if (error.status === 402 || error.status === 403) stopped = `Checkmarx One refused an earlier request (${error.status}).`;
+        } finally {
+          reservation.release();
+        }
+      }
+      res.json({ results, creditsRemaining: creditsRemaining(), projects: projectCredits(findings.map((f) => f.projectId)) });
+    } finally {
+      claim.release();
+    }
   }),
 );
 
@@ -2717,117 +2739,127 @@ app.post(
       return;
     }
 
-    const [finding] = findings;
-    const { monthlyCreditLimit: limit = 0, allowReremediation = false } = settingsStore.get().aiTriage ?? {};
-    const cost = CREDIT_COST.remediation;
-    const before = balanceOf(finding.projectId, 'remediation');
-    const base = { type: 'remediation', actor, findings: [finding], kind: 'remediation', requested: cost, before };
-
-    // The fence: AI Remediation only for a finding triaged and confirmed — never one proposed
-    // not exploitable or still to verify. Read live, whatever the report says.
-    const state = await liveState(session, finding);
-    if (state !== REMEDIABLE_STATE) {
-      const reason = state
-        ? `AI Remediation runs only on confirmed findings; this one is ${stateName(state)}.`
-        : 'Could not confirm this finding is confirmed in Checkmarx One, so AI Remediation was not started.';
-      auditCredit({ ...base, outcome: 'refused', reason, details: { state: state || 'unknown' } });
-      return res.status(409).json({ error: reason, notConfirmed: true, state: state || null });
+    // Fail-safe: one request at a time per vulnerability.
+    const claim = sendGuard.claim('remediation', findings);
+    if (claim.busy.length) {
+      auditRefusedRequest('remediation', actor, findings, BUSY_REASON);
+      return res.status(409).json({ busy: true, error: BUSY_REASON });
     }
-
-    // A finding already remediated is only remediated again when the
-    // administrator allows it: every run spends credits and may open another pull request.
-    let current = { status: 'none', body: null };
     try {
-      current = await remediationState(session, finding);
-    } catch (error) {
-      console.warn(`[relay] could not read the remediation state of ${logSafe(finding.riskId)}: ${logSafe(error.message)}`);
-    }
-    if (current.status === 'running') {
-      auditCredit({ ...base, outcome: 'refused', reason: 'AI Remediation already running for this finding; followed it instead.' });
-      return res.status(409).json({ running: true, body: current.body, error: 'AI Remediation is already running for this finding.' });
-    }
-    if (current.status === 'done' && !allowReremediation) {
-      auditCredit({ ...base, outcome: 'refused', reason: 'Already remediated; re-remediation is switched off.' });
-      return res.status(409).json({
-        remediated: true,
-        body: current.body,
-        error: 'This finding is already remediated. Remediating again is switched off by your administrator.',
-      });
-    }
-    const refusal = creditRefusal(finding.projectId, finding.projectName, 'remediation', cost, limit);
-    if (refusal) {
-      auditCredit({ ...base, outcome: 'refused', reason: refusal });
-      return res.status(402).json({
-        error: refusal,
-        credits: creditNeed(finding.projectId, finding.projectName, 'remediation', cost),
-        creditsRemaining: creditsRemaining(),
-        projects: projectCredits([finding.projectId]),
-      });
-    }
-    const reservation = creditLedger.reserve(cost, limit, new Date(), {
-      period: poolPeriod(),
-      projectId: finding.projectId,
-      kind: 'remediation',
-      allowance: allocations.balance(finding.projectId).remediation.allocated,
-    });
-    if (!reservation) {
-      auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
-      return res.status(402).json({ error: 'Credits are busy with another request; try again in a moment.' });
-    }
-    const started = Date.now();
-    try {
-      const body = await session.client.request('/api/remediation/remediate', {
-        method: 'POST',
-        body: {
-          scanID: finding.scanId,
-          buckets: [{ scannerType: finding.scanner.toLowerCase(), resultIDs: [finding.alternateId] }],
-        },
-        retries: 1,
-      });
-      const published = body?.published !== false;
-      const upstream = { call: 'POST /api/remediation/remediate', status: 200, published, jobId: body?.remediationJobId ?? '', ms: Date.now() - started };
-      if (published) {
-        const covered = (await coveredCount(session, finding.projectId, 'remediation', [finding.riskId])) ? cost : 0;
-        const auditId = randomUUID();
-        reservation.release();
-        creditLedger.record({
-          projectId: finding.projectId,
-          projectName: finding.projectName,
-          credits: cost,
-          scanId: finding.scanId,
-          kind: 'remediation',
-          riskIds: [finding.riskId],
-          covered,
-          auditId,
-        });
-        auditCredit({ ...base, id: auditId, outcome: 'charged', charged: cost, upstream, details: { covered, existingState: body?.existingState ?? null } });
-      } else {
-        auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this remediation job; no new credits.', upstream });
+      const [finding] = findings;
+      const { monthlyCreditLimit: limit = 0, allowReremediation = false } = settingsStore.get().aiTriage ?? {};
+      const cost = CREDIT_COST.remediation;
+      const before = balanceOf(finding.projectId, 'remediation');
+      const base = { type: 'remediation', actor, findings: [finding], kind: 'remediation', requested: cost, before };
+
+      // The fence: AI Remediation only for a finding triaged and confirmed — never one proposed
+      // not exploitable or still to verify. Read live, whatever the report says.
+      const state = await liveState(session, finding);
+      if (state !== REMEDIABLE_STATE) {
+        const reason = state
+          ? `AI Remediation runs only on confirmed findings; this one is ${stateName(state)}.`
+          : 'Could not confirm this finding is confirmed in Checkmarx One, so AI Remediation was not started.';
+        auditCredit({ ...base, outcome: 'refused', reason, details: { state: state || 'unknown' } });
+        return res.status(409).json({ error: reason, notConfirmed: true, state: state || null });
       }
-      actedOn('remediation', [finding]);
-      touchProject(finding.projectId);
-      reservation.release();
-      res.json({
-        ok: true,
-        published,
-        existingState: body?.existingState ?? null,
-        creditsRemaining: creditsRemaining(),
-        projects: projectCredits([finding.projectId]),
+
+      // A finding already remediated is only remediated again when the
+      // administrator allows it: every run spends credits and may open another pull request.
+      let current = { status: 'none', body: null };
+      try {
+        current = await remediationState(session, finding);
+      } catch (error) {
+        console.warn(`[relay] could not read the remediation state of ${logSafe(finding.riskId)}: ${logSafe(error.message)}`);
+      }
+      if (current.status === 'running') {
+        auditCredit({ ...base, outcome: 'refused', reason: 'AI Remediation already running for this finding; followed it instead.' });
+        return res.status(409).json({ running: true, body: current.body, error: 'AI Remediation is already running for this finding.' });
+      }
+      if (current.status === 'done' && !allowReremediation) {
+        auditCredit({ ...base, outcome: 'refused', reason: 'Already remediated; re-remediation is switched off.' });
+        return res.status(409).json({
+          remediated: true,
+          body: current.body,
+          error: 'This finding is already remediated. Remediating again is switched off by your administrator.',
+        });
+      }
+      const refusal = creditRefusal(finding.projectId, finding.projectName, 'remediation', cost, limit);
+      if (refusal) {
+        auditCredit({ ...base, outcome: 'refused', reason: refusal });
+        return res.status(402).json({
+          error: refusal,
+          credits: creditNeed(finding.projectId, finding.projectName, 'remediation', cost),
+          creditsRemaining: creditsRemaining(),
+          projects: projectCredits([finding.projectId]),
+        });
+      }
+      const reservation = creditLedger.reserve(cost, limit, new Date(), {
+        period: poolPeriod(),
+        projectId: finding.projectId,
+        kind: 'remediation',
+        allowance: allocations.balance(finding.projectId).remediation.allocated,
       });
-    } catch (error) {
-      auditCredit({
-        ...base, outcome: 'failed', reason: error.message,
-        upstream: { call: 'POST /api/remediation/remediate', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
-      });
-      res.status(error.status && error.status >= 400 ? error.status : 502).json({
-        error: error.status === 402
-          ? 'Checkmarx One has no credits left for AI Remediation.'
-          : error.status === 403
-            ? "The reminder server's Checkmarx One account is not allowed to run AI Remediation."
-            : `AI Remediation could not start: ${relayError(error)}`,
-      });
+      if (!reservation) {
+        auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
+        return res.status(402).json({ error: 'Credits are busy with another request; try again in a moment.' });
+      }
+      const started = Date.now();
+      try {
+        const body = await session.client.request('/api/remediation/remediate', {
+          method: 'POST',
+          body: {
+            scanID: finding.scanId,
+            buckets: [{ scannerType: finding.scanner.toLowerCase(), resultIDs: [finding.alternateId] }],
+          },
+          retries: 1,
+        });
+        const published = body?.published !== false;
+        const upstream = { call: 'POST /api/remediation/remediate', status: 200, published, jobId: body?.remediationJobId ?? '', ms: Date.now() - started };
+        if (published) {
+          const covered = (await coveredCount(session, finding.projectId, 'remediation', [finding.riskId])) ? cost : 0;
+          const auditId = randomUUID();
+          reservation.release();
+          creditLedger.record({
+            projectId: finding.projectId,
+            projectName: finding.projectName,
+            credits: cost,
+            scanId: finding.scanId,
+            kind: 'remediation',
+            riskIds: [finding.riskId],
+            covered,
+            auditId,
+          });
+          auditCredit({ ...base, id: auditId, outcome: 'charged', charged: cost, upstream, details: { covered, existingState: body?.existingState ?? null } });
+        } else {
+          auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this remediation job; no new credits.', upstream });
+        }
+        actedOn('remediation', [finding]);
+        touchProject(finding.projectId);
+        reservation.release();
+        res.json({
+          ok: true,
+          published,
+          existingState: body?.existingState ?? null,
+          creditsRemaining: creditsRemaining(),
+          projects: projectCredits([finding.projectId]),
+        });
+      } catch (error) {
+        auditCredit({
+          ...base, outcome: 'failed', reason: error.message,
+          upstream: { call: 'POST /api/remediation/remediate', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
+        });
+        res.status(error.status && error.status >= 400 ? error.status : 502).json({
+          error: error.status === 402
+            ? 'Checkmarx One has no credits left for AI Remediation.'
+            : error.status === 403
+              ? "The reminder server's Checkmarx One account is not allowed to run AI Remediation."
+              : `AI Remediation could not start: ${relayError(error)}`,
+        });
+      } finally {
+        reservation.release();
+      }
     } finally {
-      reservation.release();
+      claim.release();
     }
   }),
 );
@@ -2976,87 +3008,103 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
     }
   }
 
-  const buckets = new Map();
-  for (const f of eligible) {
-    const key = `${f.scanId}|${f.scanner}`;
-    if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key).push(f);
+  // Fail-safe: claim before sending; then look again at what was sent, since a
+  // request that just finished has recorded it.
+  const claim = sendGuard.claim('triage', eligible);
+  if (claim.busy.length) auditRefusedRequest('triage', actor, claim.busy, BUSY_REASON);
+  eligible = claim.claimed;
+  if (!settingsStore.get().aiTriage?.allowRetriage) {
+    const sentNow = eligible.filter((f) => alreadySent(f, creditLedger.triagedAt(f.projectId)));
+    if (sentNow.length) {
+      alreadyTriaged += sentNow.length;
+      eligible = eligible.filter((f) => !sentNow.includes(f));
+    }
   }
+  try {
+    const buckets = new Map();
+    for (const f of eligible) {
+      const key = `${f.scanId}|${f.scanner}`;
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(f);
+    }
 
-  const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
-  let failed = 0;
-  const errors = [];
-  const startedFindings = [];
-  let stopped = '';
-  for (const group of buckets.values()) {
-    const { scanId, scanner, projectId, projectName } = group[0];
-    const alternateIds = [...new Set(group.map((f) => f.alternateId))];
-    const base = { type: 'triage', actor, findings: group, kind: 'triage', requested: alternateIds.length, before: balanceOf(projectId, 'triage'), details: { origin } };
-    if (stopped) {
-      failed += group.length;
-      auditCredit({ ...base, outcome: 'refused', reason: `Not sent: ${stopped}` });
-      continue;
-    }
-    const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), { period: poolPeriod() });
-    if (!reservation) {
-      failed += group.length;
-      errors.push(`${projectName}: ${poolName(limit)} is used up (credit limit reached).`);
-      auditCredit({ ...base, outcome: 'refused', reason: `${poolName(limit)} is used up (credit limit reached).` });
-      continue;
-    }
-    const started = Date.now();
-    try {
-      const body = await session.client.request('/api/ai-triage/triage', {
-        method: 'POST',
-        body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
-        retries: 1,
-      });
-      const upstream = { call: 'POST /api/ai-triage/triage', status: 200, published: body?.published !== false, jobId: body?.triageID ?? body?.id ?? '', ms: Date.now() - started };
-      if (body?.published !== false) {
-        // The person who confirmed this run allocated what it needed beyond what the project had: recorded as theirs.
-        const balance = allocations.balance(projectId).triage;
-        const raised = Math.max(0, alternateIds.length - balance.remaining);
-        if (raised) {
-          const snapshot = allocationSnapshot(projectId);
-          allocations.grant(projectId, projectName, 'triage', raised);
-          auditAllocation({ actor, projectId, projectName, before: snapshot, change: { allocatedForRun: raised }, reason: `Allocated ${raised} triage credit${raised === 1 ? '' : 's'} for the AI Triage run ${actor?.user || 'the administrator'} confirmed.` });
-        }
-        // The administrator's own triage never uses up the developers' extras.
-        const auditId = randomUUID();
-        reservation.release();
-        creditLedger.record({
-          projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', covered: alternateIds.length,
-          riskIds: [...new Set(group.map((f) => f.riskId))], alternateIds, groupIds: [...new Set(group.map((f) => f.groupId).filter(Boolean))], auditId,
-        });
-        auditCredit({ ...base, id: auditId, outcome: 'charged', charged: alternateIds.length, upstream, details: { origin, allocationRaisedBy: raised || undefined } });
-      } else {
-        auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this triage job; no new credits.', upstream });
+    const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
+    let failed = 0;
+    const errors = [];
+    const startedFindings = [];
+    let stopped = '';
+    for (const group of buckets.values()) {
+      const { scanId, scanner, projectId, projectName } = group[0];
+      const alternateIds = [...new Set(group.map((f) => f.alternateId))];
+      const base = { type: 'triage', actor, findings: group, kind: 'triage', requested: alternateIds.length, before: balanceOf(projectId, 'triage'), details: { origin } };
+      if (stopped) {
+        failed += group.length;
+        auditCredit({ ...base, outcome: 'refused', reason: `Not sent: ${stopped}` });
+        continue;
       }
-      actedOn('triage', group);
-      touchProject(projectId);
-      startedFindings.push(...group);
-    } catch (error) {
-      failed += group.length;
-      errors.push(`${projectName}: ${error.message}`);
-      auditCredit({
-        ...base, outcome: 'failed', reason: error.message,
-        upstream: { call: 'POST /api/ai-triage/triage', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
-      });
-      if (error.status === 402 || error.status === 403) stopped = `Checkmarx One refused an earlier request (${error.status}).`;
-    } finally {
-      reservation.release();
+      const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), { period: poolPeriod() });
+      if (!reservation) {
+        failed += group.length;
+        errors.push(`${projectName}: ${poolName(limit)} is used up (credit limit reached).`);
+        auditCredit({ ...base, outcome: 'refused', reason: `${poolName(limit)} is used up (credit limit reached).` });
+        continue;
+      }
+      const started = Date.now();
+      try {
+        const body = await session.client.request('/api/ai-triage/triage', {
+          method: 'POST',
+          body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
+          retries: 1,
+        });
+        const upstream = { call: 'POST /api/ai-triage/triage', status: 200, published: body?.published !== false, jobId: body?.triageID ?? body?.id ?? '', ms: Date.now() - started };
+        if (body?.published !== false) {
+          // The person who confirmed this run allocated what it needed beyond what the project had: recorded as theirs.
+          const balance = allocations.balance(projectId).triage;
+          const raised = Math.max(0, alternateIds.length - balance.remaining);
+          if (raised) {
+            const snapshot = allocationSnapshot(projectId);
+            allocations.grant(projectId, projectName, 'triage', raised);
+            auditAllocation({ actor, projectId, projectName, before: snapshot, change: { allocatedForRun: raised }, reason: `Allocated ${raised} triage credit${raised === 1 ? '' : 's'} for the AI Triage run ${actor?.user || 'the administrator'} confirmed.` });
+          }
+          // The administrator's own triage never uses up the developers' extras.
+          const auditId = randomUUID();
+          reservation.release();
+          creditLedger.record({
+            projectId, projectName, credits: alternateIds.length, scanId, kind: 'triage', covered: alternateIds.length,
+            riskIds: [...new Set(group.map((f) => f.riskId))], alternateIds, groupIds: [...new Set(group.map((f) => f.groupId).filter(Boolean))], auditId,
+          });
+          auditCredit({ ...base, id: auditId, outcome: 'charged', charged: alternateIds.length, upstream, details: { origin, allocationRaisedBy: raised || undefined } });
+        } else {
+          auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this triage job; no new credits.', upstream });
+        }
+        actedOn('triage', group);
+        touchProject(projectId);
+        startedFindings.push(...group);
+      } catch (error) {
+        failed += group.length;
+        errors.push(`${projectName}: ${error.message}`);
+        auditCredit({
+          ...base, outcome: 'failed', reason: error.message,
+          upstream: { call: 'POST /api/ai-triage/triage', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
+        });
+        if (error.status === 402 || error.status === 403) stopped = `Checkmarx One refused an earlier request (${error.status}).`;
+      } finally {
+        reservation.release();
+      }
     }
+    allocations.save();
+    return {
+      requested: findings.length,
+      started: startedFindings.length,
+      failed,
+      skipped: findings.length - eligible.length,
+      alreadyTriaged,
+      errors,
+      startedFindings,
+    };
+  } finally {
+    claim.release();
   }
-  allocations.save();
-  return {
-    requested: findings.length,
-    started: startedFindings.length,
-    failed,
-    skipped: findings.length - eligible.length,
-    alreadyTriaged,
-    errors,
-    startedFindings,
-  };
 }
 
 /**
@@ -3148,74 +3196,85 @@ app.post(
 async function adminRemediate(session, findings, initiatorsByProject = {}, { actor = { kind: 'admin' }, origin = '' } = {}) {
   const cost = CREDIT_COST.remediation;
   await resolveAiIds(session.client, findings, (f) => initiatorsByProject[f.projectId]?.scanId ?? '');
-  const eligible = findings.filter((f) => !f.aiUnavailable);
+  let eligible = findings.filter((f) => !f.aiUnavailable);
   const ineligible = findings.filter((f) => f.aiUnavailable);
   if (ineligible.length) auditRefusedRequest('remediation', actor, ineligible, `Not eligible for AI Remediation (${ineligible[0].aiUnavailable})`);
 
-  const buckets = new Map();
-  for (const f of eligible) {
-    const key = `${f.projectId}|${f.scanId}|${f.scanner}`;
-    if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key).push(f);
+  // Fail-safe: claim before sending; then drop what has been remediated meanwhile.
+  const claim = sendGuard.claim('remediation', eligible);
+  if (claim.busy.length) auditRefusedRequest('remediation', actor, claim.busy, BUSY_REASON);
+  eligible = claim.claimed;
+  if (!settingsStore.get().aiTriage?.allowReremediation) {
+    eligible = eligible.filter((f) => !creditLedger.remediatedIds(f.projectId).has(f.riskId));
   }
-  const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
-  let failed = 0;
-  let notAllocated = 0;
-  const errors = [];
-  const startedFindings = [];
-  for (const group of buckets.values()) {
-    const { scanId, scanner, projectId, projectName } = group[0];
-    const alternateIds = [...new Set(group.map((f) => f.alternateId))];
-    const credits = cost * alternateIds.length;
-    const base = { type: 'remediation', actor, findings: group, kind: 'remediation', requested: credits, before: balanceOf(projectId, 'remediation'), details: { origin } };
-    // Allocated first, on purpose: remediation spends only what was given to the project.
-    const refusal = creditRefusal(projectId, projectName, 'remediation', credits, limit);
-    if (refusal) {
-      failed += group.length;
-      if (/credits? left/.test(refusal) && !/pool/.test(refusal)) notAllocated += credits - allocations.balance(projectId).remediation.remaining;
-      errors.push(refusal);
-      auditCredit({ ...base, outcome: 'refused', reason: refusal });
-      continue;
+  try {
+    const buckets = new Map();
+    for (const f of eligible) {
+      const key = `${f.projectId}|${f.scanId}|${f.scanner}`;
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(f);
     }
-    const reservation = creditLedger.reserve(credits, limit, new Date(), { period: poolPeriod(), projectId, kind: 'remediation', allowance: allocations.balance(projectId).remediation.allocated });
-    if (!reservation) {
-      failed += group.length;
-      errors.push(`${projectName}: credits are busy with another request; try again in a moment.`);
-      auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
-      continue;
-    }
-    const started = Date.now();
-    try {
-      const body = await session.client.request('/api/remediation/remediate', {
-        method: 'POST',
-        body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
-        retries: 1,
-      });
-      const published = body?.published !== false;
-      const upstream = { call: 'POST /api/remediation/remediate', status: 200, published, jobId: body?.remediationJobId ?? '', ms: Date.now() - started };
-      if (published) {
-        const auditId = randomUUID();
-        reservation.release();
-        creditLedger.record({ projectId, projectName, credits, scanId, kind: 'remediation', riskIds: [...new Set(group.map((f) => f.riskId))], covered: credits, auditId });
-        auditCredit({ ...base, id: auditId, outcome: 'charged', charged: credits, upstream });
-      } else {
-        auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this remediation job; no new credits.', upstream });
+    const limit = settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0;
+    let failed = 0;
+    let notAllocated = 0;
+    const errors = [];
+    const startedFindings = [];
+    for (const group of buckets.values()) {
+      const { scanId, scanner, projectId, projectName } = group[0];
+      const alternateIds = [...new Set(group.map((f) => f.alternateId))];
+      const credits = cost * alternateIds.length;
+      const base = { type: 'remediation', actor, findings: group, kind: 'remediation', requested: credits, before: balanceOf(projectId, 'remediation'), details: { origin } };
+      // Allocated first, on purpose: remediation spends only what was given to the project.
+      const refusal = creditRefusal(projectId, projectName, 'remediation', credits, limit);
+      if (refusal) {
+        failed += group.length;
+        if (/credits? left/.test(refusal) && !/pool/.test(refusal)) notAllocated += credits - allocations.balance(projectId).remediation.remaining;
+        errors.push(refusal);
+        auditCredit({ ...base, outcome: 'refused', reason: refusal });
+        continue;
       }
-      actedOn('remediation', group);
-      touchProject(projectId);
-      startedFindings.push(...group);
-    } catch (error) {
-      failed += group.length;
-      errors.push(`${projectName}: ${error.status === 402 ? 'Checkmarx One has no credits left for AI Remediation' : error.message}`);
-      auditCredit({
-        ...base, outcome: 'failed', reason: error.message,
-        upstream: { call: 'POST /api/remediation/remediate', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
-      });
-    } finally {
-      reservation.release();
+      const reservation = creditLedger.reserve(credits, limit, new Date(), { period: poolPeriod(), projectId, kind: 'remediation', allowance: allocations.balance(projectId).remediation.allocated });
+      if (!reservation) {
+        failed += group.length;
+        errors.push(`${projectName}: credits are busy with another request; try again in a moment.`);
+        auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
+        continue;
+      }
+      const started = Date.now();
+      try {
+        const body = await session.client.request('/api/remediation/remediate', {
+          method: 'POST',
+          body: { scanID: scanId, buckets: [{ scannerType: scanner.toLowerCase(), resultIDs: alternateIds }] },
+          retries: 1,
+        });
+        const published = body?.published !== false;
+        const upstream = { call: 'POST /api/remediation/remediate', status: 200, published, jobId: body?.remediationJobId ?? '', ms: Date.now() - started };
+        if (published) {
+          const auditId = randomUUID();
+          reservation.release();
+          creditLedger.record({ projectId, projectName, credits, scanId, kind: 'remediation', riskIds: [...new Set(group.map((f) => f.riskId))], covered: credits, auditId });
+          auditCredit({ ...base, id: auditId, outcome: 'charged', charged: credits, upstream });
+        } else {
+          auditCredit({ ...base, outcome: 'not-charged', reason: 'Checkmarx One already had this remediation job; no new credits.', upstream });
+        }
+        actedOn('remediation', group);
+        touchProject(projectId);
+        startedFindings.push(...group);
+      } catch (error) {
+        failed += group.length;
+        errors.push(`${projectName}: ${error.status === 402 ? 'Checkmarx One has no credits left for AI Remediation' : error.message}`);
+        auditCredit({
+          ...base, outcome: 'failed', reason: error.message,
+          upstream: { call: 'POST /api/remediation/remediate', status: error.status ?? 0, error: String(error.body || error.message).slice(0, 500), ms: Date.now() - started },
+        });
+      } finally {
+        reservation.release();
+      }
     }
+    return { requested: findings.length, started: startedFindings.length, failed, busy: claim.busy.length, skipped: ineligible.length, notAllocated, errors: [...new Set(errors)], startedFindings };
+  } finally {
+    claim.release();
   }
-  return { requested: findings.length, started: startedFindings.length, failed, skipped: ineligible.length, notAllocated, errors: [...new Set(errors)], startedFindings };
 }
 
 /**
