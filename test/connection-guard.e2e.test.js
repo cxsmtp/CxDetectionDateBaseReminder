@@ -183,6 +183,22 @@ test('a .env file configures the connections, and says what it could not use', a
   assert.equal((await admin('POST', '/api/settings/import-env', { text: 'NOTHING=1' })).status, 400);
 });
 
+test('the Settings page offers a sample .env that lists every setting an upload applies, and uploading it unfilled changes nothing', async () => {
+  const r = await fetch(`${BASE}/sample.env`);
+  assert.equal(r.status, 200);
+  const sample = await r.text();
+  for (const name of ['CX_API_KEY', 'CX_BASE_URL', 'CX_IAM_URL', 'CX_TENANT', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_REQUIRE_AUTH', 'SMTP_REJECT_UNAUTHORIZED', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM', 'SMTP_FROM_NAME', 'REPORT_SERVER_URL']) {
+    assert.match(sample, new RegExp(`^${name}=$`, 'm'), `${name} is there, blank, ready to fill in`);
+  }
+  assert.equal(sample, fs.readFileSync('.env.example', 'utf8'), '.env.example is the same file');
+  assert.match(fs.readFileSync('public/index.html', 'utf8'), /href="sample\.env" download="mission-zero\.env"/);
+  const before = (await admin('GET', '/api/settings')).body.smtp;
+  const blank = await admin('POST', '/api/settings/import-env', { text: sample });
+  assert.equal(blank.status, 400);
+  assert.match(blank.body.error, /Every setting in that file is blank/);
+  assert.deepEqual((await admin('GET', '/api/settings')).body.smtp, before, 'nothing changed');
+});
+
 test('the credit pool is the master limit: projects are never given more than it has free', async () => {
   assert.equal((await admin('GET', '/api/scan')).status, 200);
   await admin('PUT', '/api/settings', { aiTriage: { monthlyCreditLimit: 1000, poolPeriod: 'all' } });

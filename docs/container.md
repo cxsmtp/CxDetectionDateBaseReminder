@@ -80,17 +80,16 @@ docker logs mission-zero        # or: podman logs mission-zero / docker compose 
 
 ## Options
 
-Add any of these to `docker run` / `podman run` as `-e NAME=value`, or put them in a `.env` file next to `compose.yaml`.
+Every option is listed, with what it is for, in the README's [Configure](../README.md#configure) table. Three ways to set them:
 
-| Variable | What for |
-| --- | --- |
-| `TZ` | Time zone for automatic reminders, e.g. `Asia/Dubai`. Default UTC. |
-| `ADMIN_EMAIL` | The first administrator's email (default `admin@mission-zero.local`). |
-| `REPORT_SERVER_URL` | The address people use to reach this server, put in every report (e.g. `https://cx-reminder.company.com`). |
-| `CX_API_KEY` | Checkmarx One integration key; an Admin can store one in Settings instead. |
-| `BACKUP_DIR`, `BACKUP_INTERVAL_HOURS`, `BACKUP_KEEP`, `BACKUP_PASSPHRASE` | Scheduled backups — see [audit-and-backup.md](audit-and-backup.md). |
-| `NODE_OPTIONS` | e.g. `--max-old-space-size=2048` alongside `--memory 3g`; see [performance.md](performance.md) for sizing. |
-| `NODE_EXTRA_CA_CERTS` | A company CA file (mounted into the container) when a proxy inspects TLS to Checkmarx One or your mail server. |
+- `-e NAME=value` on `docker run` / `podman run`, e.g. `-e TZ=Asia/Dubai`.
+- **A settings file:** download the sample from **Settings → Quick setup from a .env file** (or use [`public/sample.env`](../public/sample.env)), fill it in, and add `--env-file mission-zero.env`.
+  ```
+  podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data --env-file mission-zero.env ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+  ```
+- With compose, a `.env` file next to `compose.yaml` (copy `.env.example`, which is the same sample). Compose passes on the variables `compose.yaml` lists (`TZ`, `ADMIN_EMAIL`, `REPORT_SERVER_URL`, `CX_API_KEY`, `NODE_OPTIONS`, plus `BIND_ADDRESS` and `PORT` for the published port). Upload the same file on the Settings page for the mail server.
+
+The connection settings in the file (Checkmarx One, mail server, reminder server address) can also be uploaded later on the Settings page, without restarting.
 
 To publish on another port, change the left side: `-p 8080:3000`.
 
