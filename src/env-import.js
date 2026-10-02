@@ -65,17 +65,21 @@ export const ENV_SETTINGS = {
   SMTP_FROM_NAME: { part: 'smtp', permission: 'integration.smtp', apply: (s, v) => (s.smtp.fromName = v) },
   REPORT_SERVER_URL: { part: 'links', permission: 'settings.links', apply: (s, v) => (s.links.reportServerUrl = v) },
   PUBLIC_URL: { part: 'links', permission: 'settings.links', apply: (s, v) => (s.links.reportServerUrl ||= v) },
+  // Beta: the GitHub connection (blame, username matching).
+  GITHUB_TOKEN: { part: 'github', permission: 'beta.use', apply: (s, v) => (s.github.token = v) },
+  GITHUB_API_URL: { part: 'github', permission: 'beta.use', apply: (s, v) => (s.github.apiUrl = v) },
+  GITHUB_ORG: { part: 'github', permission: 'beta.use', apply: (s, v) => (s.github.org = v) },
 };
 
 /** Secrets: reported by name only, never echoed back. */
-export const SECRET_VARIABLES = new Set(['CX_API_KEY', 'SMTP_PASS', 'SMTP_PASSWORD']);
+export const SECRET_VARIABLES = new Set(['CX_API_KEY', 'SMTP_PASS', 'SMTP_PASSWORD', 'GITHUB_TOKEN']);
 
 /**
  * Turn parsed variables into setting changes this person may make.
  * Returns {changes: {cxone?, smtp?, links?}, applied: [names], refused: [names], ignored: [names]}.
  */
 export function settingsFromEnv(vars, may = () => true) {
-  const draft = { cxone: {}, smtp: {}, links: {} };
+  const draft = { cxone: {}, smtp: {}, links: {}, github: {} };
   const applied = [];
   const refused = [];
   const ignored = [];

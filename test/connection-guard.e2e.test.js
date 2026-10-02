@@ -52,7 +52,7 @@ test.before(async () => {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, BACKUP_INTERVAL_HOURS: '0',
       CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', REPORT_SIGNING_KEY: 'guard-test',
       ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', CONNECTION_CHECK_TIMEOUT_MS: '1500',
-      SMTP_HOST: '', SMTP_USER: '', SMTP_PASS: '',
+      SMTP_HOST: '', SMTP_USER: '', SMTP_PASS: '', GITHUB_TOKEN: '', GITHUB_API_URL: '', GITHUB_ORG: '',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -181,6 +181,18 @@ test('a .env file configures the connections, and says what it could not use', a
   assert.equal(r.body.settings.verified, true);
   assert.doesNotMatch(JSON.stringify(r.body), /SMTP_PASS=|not-a-real-key/);
   assert.equal((await admin('POST', '/api/settings/import-env', { text: 'NOTHING=1' })).status, 400);
+});
+
+test('the header shows each connection: Checkmarx One and the tested mail server green, GitHub red until a token answers', async () => {
+  const status = (await admin('GET', '/api/connections')).body;
+  assert.equal(status.cxone.ok, true);
+  assert.equal(status.cxone.tenant, 'acme');
+  assert.equal(status.smtp.ok, true, JSON.stringify(status.smtp));
+  assert.equal(status.smtp.host, '127.0.0.1');
+  assert.equal(status.github.ok, false);
+  assert.match(status.github.reason, /GITHUB_TOKEN/);
+  assert.doesNotMatch(JSON.stringify(status), /not-a-real-key|password/i, 'no secret in the status');
+  assert.equal((await fetch(`${BASE}/api/connections`)).status, 401, 'signed-in people only');
 });
 
 test('the Settings page offers a sample .env that lists every setting an upload applies, and uploading it unfilled changes nothing', async () => {

@@ -62,6 +62,23 @@ The password is also kept in `/data/first-admin-password.txt` until it is change
 
 **Locked out?** Five wrong passwords lock an account for 15 minutes. An Admin or Analyst can set a new temporary password for you on the Access page (**Set password**).
 
+**Connections, top right.** Three indicators show whether Mission Zero can reach what it needs:
+
+| Indicator | Green when | Red until |
+| --- | --- | --- |
+| **Checkmarx One** | The server's integration is connected. | An Admin connects it (Settings, `CX_API_KEY`, or the .env upload). |
+| **Email** | The mail server passed its test with the current settings. | It is set and tested (Settings → Email server → Test connection, or the .env upload, which tests it). |
+| **GitHub** | The GitHub token answers (checked every 5 minutes, and whenever it changes). | `GITHUB_TOKEN` is set (in the .env file, or on the Beta page). |
+
+Click one for its details: tenant and URLs, mail server and sender, the GitHub account, and what to do when it is red. They update as soon as settings are saved or a .env file is uploaded.
+
+**Progress flares, bottom right.** Whatever you start shows a flare while it runs:
+- **Amber, with a running mouse:** in progress. The button and the part of the page it came from are paused, so nothing is started twice.
+- **Green:** done.
+- **Red:** it did not finish, and says why.
+
+Several actions can run at once, each with its own flare.
+
 **Sign out** is under your name, top right. Idle sessions end after 8 hours (`SESSION_IDLE_MINUTES`).
 
 **Staying signed in.** Reloading the page, an update of Mission Zero, or a server restart never signs you out, or loses the data you fetched and the scope you chose. Only signing out, 8 idle hours, or an administrator changing your access does.
@@ -435,7 +452,7 @@ See [audit-and-backup.md](audit-and-backup.md) for encrypted backups and moving 
 Early features: check what they find before relying on them. Details are in [beta-features.md](beta-features.md).
 - **Email the authors of vulnerable code.** Uses `git blame` on the vulnerable line to find who wrote it, and emails them.
 - **Match GitHub usernames to email addresses**, four ways, with a confidence for each.
-- **GitHub connection:** a token, the API URL (GitHub Enterprise too), the organisation and repositories.
+- **GitHub connection:** a token, the API URL (GitHub Enterprise too), the organisation and repositories. The token can also come from the .env file (`GITHUB_TOKEN`, `GITHUB_API_URL`, `GITHUB_ORG`), uploaded on Settings or used at start-up. The **GitHub** indicator, top right, turns green when it works.
 
 ---
 
