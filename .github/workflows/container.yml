@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
       - name: Build
         run: docker build -t mission-zero:test .
-      - name: Start, turn healthy, print the first sign-in
+      - name: Start, turn healthy, sign in
         run: |
           # Run as hardened as compose.yaml does: read-only root, no capabilities, no privilege escalation.
           docker run -d --name mz -p 3000:3000 -v mz-data:/data -e TZ=Asia/Dubai \
@@ -40,12 +40,16 @@ jobs:
           done
           docker logs mz
           test "$(docker inspect -f '{{.State.Health.Status}}' mz)" = healthy
-          docker logs mz 2>&1 | grep -q 'Password: '
-          PW=$(docker logs mz 2>&1 | sed -n 's/.*Password: //p' | head -1)
+          # The one-time password is in a private file in /data, never in the log.
+          PW=$(docker exec mz cat /data/first-admin-password.txt)
+          test -n "$PW"
+          if docker logs mz 2>&1 | grep -qF "$PW"; then echo 'the first password is in the log'; exit 1; fi
           curl -sf -H 'Content-Type: application/json' \
             -d "{\"email\":\"admin@mission-zero.local\",\"password\":\"$PW\"}" \
             http://127.0.0.1:3000/api/session/password | grep -q '"signedIn":true'
           docker exec mz git --version
+          # TZ works from the ICU data Node.js carries (the image has no tzdata).
+          docker exec mz node -e "process.exit(Intl.DateTimeFormat().resolvedOptions().timeZone === 'Asia/Dubai' ? 0 : 1)"
           # The runtime image carries no package manager (fewer components, fewer CVEs).
           if docker exec mz sh -c 'command -v npm || command -v npx || command -v yarn'; then echo 'a package manager is still in the image'; exit 1; fi
           # Security headers on the pages.

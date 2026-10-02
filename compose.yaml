@@ -1,17 +1,27 @@
 # Run from this folder with one command — Docker or Podman:
 #   docker compose up -d        (or: podman compose up -d)
-# The first start prints the administrator's sign-in:
-#   docker compose logs mission-zero
+# The first start creates an administrator; their one-time password:
+#   docker compose exec mission-zero cat /data/first-admin-password.txt
 services:
   mission-zero:
     build: .                      # built from this folder the first time
     image: mission-zero:local
     container_name: mission-zero
     restart: unless-stopped
+    # Reachable from this machine only by default. To serve other machines, set
+    # BIND_ADDRESS=0.0.0.0 (or one interface's address), ideally behind HTTPS.
     ports:
-      - "${PORT:-3000}:3000"
+      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3000}:3000"
     volumes:
-      - mission-zero-data:/data
+      - type: volume
+        source: mission-zero-data
+        target: /data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     # Hardened: nothing in the image can be changed at run time (only /data and a
     # scratch /tmp are writable), no Linux capabilities, no privilege escalation.
     read_only: true

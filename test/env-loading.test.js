@@ -11,15 +11,15 @@ test('Environment Loading and Credential Validation', async (t) => {
   
   await t.test('CX_API_KEY is loaded from environment without corruption', () => {
     // Simulate what happens during app startup
-    const testKey = 'test_api_key_12345_xyz';
+    const sample = 'not-a-real-value-12345';
     
     // Test trimming (our envValue function)
-    const trimmed = String(testKey)
+    const trimmed = String(sample)
       .replace(/\r\n/g, '\n')
       .replace(/[\r\n]+/g, '')
       .trim();
     
-    assert.equal(trimmed, testKey, 'API key should be trimmed correctly');
+    assert.equal(trimmed, sample, 'the value should be trimmed correctly');
     assert.ok(!trimmed.includes('\r'), 'No carriage returns');
     assert.ok(!trimmed.includes('\n'), 'No newlines');
   });

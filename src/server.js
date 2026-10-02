@@ -115,6 +115,8 @@ if (restoredAtStart) {
 
 const iam = new IamStore({ file: path.join(dataDir, 'iam.json') });
 let setupCode = '';
+/** The generated first administrator's one-time password, until they choose their own. */
+const firstAdminFile = path.join(dataDir, 'first-admin-password.txt');
 
 async function prepareAccess() {
   if (iam.hasUsers()) return;
@@ -139,19 +141,22 @@ async function prepareAccess() {
     console.log('');
     return;
   }
-  // Default (and in containers): generate the first administrator and print the
-  // sign-in once, in this log. They must choose their own password at first sign-in.
+  // Default (and in containers): generate the first administrator. The password
+  // never goes to the log (logs are often shipped elsewhere): it is written to a
+  // file only this server's user can read, removed once they choose their own.
   const adminEmail = email || 'admin@mission-zero.local';
   const generated = generatePassword();
   const admin = await iam.createUser({ email: adminEmail, name: 'Administrator', role: 'admin', password: generated, mustChangePassword: true });
-  audit.record({ type: 'iam', outcome: 'changed', reason: `First administrator ${admin.email} created with a generated password (printed in the server log once).`, actor: SYSTEM_ACTOR, details: { user: admin } });
+  fs.writeFileSync(firstAdminFile, `${generated}\n`, { mode: 0o600 });
+  audit.record({ type: 'iam', outcome: 'changed', reason: `First administrator ${admin.email} created with a generated password (saved to ${path.basename(firstAdminFile)}).`, actor: SYSTEM_ACTOR, details: { user: admin } });
   const line = '='.repeat(64);
   console.log(`\n${line}`);
-  console.log('  First start: an administrator was created. Sign in with:');
-  console.log(`      Email:    ${admin.email}`);
-  console.log(`      Password: ${generated}`);
-  console.log('  You choose your own password at first sign-in. This is shown only once;');
-  console.log('  lost it? Run: node scripts/reset-admin.mjs  (in a container: docker exec <name> node scripts/reset-admin.mjs)');
+  console.log('  First start: an administrator was created.');
+  console.log(`      Email:  ${admin.email}`);
+  console.log(`      Their one-time password is in ${firstAdminFile}`);
+  console.log(`      In a container: docker exec <name> cat ${firstAdminFile}`);
+  console.log('  You choose your own password at first sign-in, and the file is then deleted.');
+  console.log('  Lost it? Run: node scripts/reset-admin.mjs  (in a container: docker exec <name> node scripts/reset-admin.mjs)');
   console.log(`${line}\n`);
 }
 
@@ -607,6 +612,7 @@ app.post(
     }
     if (String(req.body?.next ?? '') === String(req.body?.current ?? '')) return res.status(400).json({ error: 'Choose a password different from the current one.' });
     await iam.setPassword(user.id, String(req.body?.next ?? ''), { mustChange: false });
+    fs.rmSync(firstAdminFile, { force: true });
     audit.record({ type: 'iam', outcome: 'changed', reason: `${user.email} changed their password.`, actor: await adminActor(req) });
     res.json(describeMe(req.session, iam.user(user.id)));
   }),
