@@ -5,6 +5,8 @@ const state = {
   settings: null,
   health: null,
   projects: [],
+  // True while a fetch is streaming in: triage, remediation and allocation wait.
+  fetching: false,
   selected: new Set(),
   sort: { key: '60+', dir: 'desc' },
   // Set once the operator opens a fully-resolved list on purpose.
@@ -58,8 +60,18 @@ const logger = {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Actions that work on the fetched data, so they wait until a fetch is complete. */
+const NEEDS_FETCHED_DATA = /^\/api\/(credits\/allocate|triage\/run|remediation\/run|tracked-reports\/[^/]+\/(allocate|triage))(\?|$)/;
+const FETCHING_MESSAGE = 'Data is still being fetched. Triage, remediation and credit allocation unlock when the fetch is complete.';
+
 async function api(path, options = {}) {
   const method = options.method || 'GET';
+  if (method !== 'GET' && state.fetching && NEEDS_FETCHED_DATA.test(path)) {
+    const error = new Error(FETCHING_MESSAGE);
+    error.status = 409;
+    toast(FETCHING_MESSAGE, 'bad');
+    throw error;
+  }
   logger.apiCall(method, path);
 
   try {
@@ -1734,6 +1746,10 @@ function visibleProjects() {
 
 /** Who ran the latest scan, and whether we could reach them. */
 function renderInitiator(project) {
+  // Rows streamed in during a fetch get their initiator with the final result.
+  if (state.fetching && !project.initiatorEmail) {
+    return project.initiator ? `${escapeHtml(project.initiator)}<span class="zero">resolving…</span>` : '<span class="zero">resolving…</span>';
+  }
   if (!project.initiator && !project.initiatorEmail) {
     return '<span class="zero">no initiator recorded</span>';
   }
@@ -2394,8 +2410,8 @@ function followUp(r) {
         </div>
         <p class="hint" data-need="${id}">${triageNeedText(r)}</p>
         <div class="actions compact">
-          ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary">Triage now</button>` : ''}
-          ${can('credits.allocate') ? `<button type="button" data-report-allocate="${id}">Allocate credits</button>` : ''}
+          ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary" data-needs-data>Triage now</button>` : ''}
+          ${can('credits.allocate') ? `<button type="button" data-report-allocate="${id}" data-needs-data>Allocate credits</button>` : ''}
           <span class="alloc-extra${can('credits.allocate') ? '' : ' perm-hidden'}">+ <input type="number" min="0" max="100000" data-field="triageAdd" data-keep class="small-num" placeholder="0" /> triage
             + <input type="number" min="0" max="100000" data-field="remediationAdd" data-keep class="small-num" placeholder="0" /> remediation</span>
         </div>
@@ -2725,6 +2741,13 @@ function renderAllocation() {
   const scope = allocationScope();
   syncAllocationBoxes(scope);
   const severities = allocSeverities();
+  if (state.fetching) {
+    // Credit needs are only ever shown for complete data, never for a half-loaded list.
+    $('alloc-scope').textContent = `${scope.length} project${scope.length === 1 ? '' : 's'} so far`;
+    $('alloc-needed').textContent = 'Credits needed are worked out when the data fetch is complete.';
+    $('remediate-needed').textContent = 'Credits needed are worked out when the data fetch is complete.';
+    return;
+  }
   const t = allocationTotals(scope, severities);
   $('alloc-scope').textContent = `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'}`;
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -2906,19 +2929,124 @@ function renderTotals(totals) {
     .join('');
 }
 
+/**
+ * Read the NDJSON stream from /api/scan?stream=1: calls on.start / on.project
+ * as events arrive and resolves with the final ("done") result.
+ */
+async function streamScan(path, on = {}) {
+  logger.apiCall('GET', path);
+  const response = await fetch(path, { credentials: 'same-origin' });
+  if (!response.ok || !response.body) {
+    const payload = await response.json().catch(() => ({}));
+    const error = new Error(payload.error || `${response.status} ${response.statusText}`);
+    error.status = response.status;
+    logger.apiError('GET', path, error);
+    throw error;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let done = null;
+  const handle = (line) => {
+    if (!line.trim()) return;
+    const event = JSON.parse(line);
+    if (event.type === 'start') on.start?.(event);
+    else if (event.type === 'project') on.project?.(event.project);
+    else if (event.type === 'done') done = event;
+    else if (event.type === 'error') {
+      const error = new Error(event.error || 'The fetch failed.');
+      error.status = event.status;
+      throw error;
+    }
+  };
+  for (;;) {
+    const { value, done: ended } = await reader.read();
+    if (ended) break;
+    buffer += decoder.decode(value, { stream: true });
+    let newline;
+    while ((newline = buffer.indexOf('\n')) >= 0) {
+      handle(buffer.slice(0, newline));
+      buffer = buffer.slice(newline + 1);
+    }
+  }
+  handle(buffer + decoder.decode());
+  if (!done) throw new Error('The connection closed before the fetch finished. Fetch again.');
+  logger.apiSuccess('GET', path, 200);
+  return done;
+}
+
+/** The flare in the bottom-right corner: amber while fetching, green when complete, red if it failed. */
+let flareTimer = null;
+function fetchFlare(kind, text) {
+  const flare = $('fetch-flare');
+  clearTimeout(flareTimer);
+  flare.className = `fetch-flare ${kind}`;
+  $('fetch-flare-text').textContent = text;
+  flare.hidden = false;
+  if (kind === 'done') flareTimer = setTimeout(() => (flare.hidden = true), 8000);
+}
+
+/** Totals from the rows that have arrived so far. */
+function totalsOf(projects) {
+  const totals = { projects: 0, risks: 0, counts: {}, severities: {} };
+  for (const p of projects) {
+    totals.projects += 1;
+    totals.risks += p.totalRisks ?? 0;
+    for (const [bucket, count] of Object.entries(p.counts ?? {})) totals.counts[bucket] = (totals.counts[bucket] ?? 0) + count;
+    for (const [severity, count] of Object.entries(p.bySeverity ?? {})) totals.severities[severity] = (totals.severities[severity] ?? 0) + count;
+  }
+  return totals;
+}
+
+function setFetching(on) {
+  state.fetching = on;
+  document.body.classList.toggle('fetching', on);
+  for (const el of document.querySelectorAll('[data-needs-data]')) el.setAttribute('aria-disabled', on ? 'true' : 'false');
+}
+
 async function fetchProjects() {
   const button = $('fetch');
   button.disabled = true;
   button.textContent = 'Fetching…';
   setStatus('status', '');
 
+  // Rows appear as each project is read; actions on the data wait for the end.
+  setFetching(true);
+  state.lastScan = null;
+  state.projects = [];
+  state.selected.clear();
+  state.showAllInitiators = false;
+  $('select-all').checked = false;
+  let total = 0;
+  let pending = null;
+  const paint = () => {
+    pending = null;
+    if (!state.fetching) return; // the final result already painted
+    renderTotals(totalsOf(state.projects));
+    renderProjects();
+    fetchFlare('busy', `Data fetching is still in progress — ${state.projects.length}${total ? ` of ${total}` : ''} project(s) loaded`);
+  };
+  const schedule = () => {
+    pending ??= setTimeout(paint, 150);
+  };
+  fetchFlare('busy', 'Data fetching is still in progress — finding projects…');
+  renderProjects();
+
   try {
-    const result = await api(`/api/scan?${windowParams()}`);
+    const result = await streamScan(`/api/scan?stream=1&${windowParams()}`, {
+      start: (event) => {
+        total = event.total;
+        schedule();
+      },
+      project: (row) => {
+        state.projects.push(row);
+        schedule();
+      },
+    });
+    clearTimeout(pending);
+    setFetching(false);
     state.lastScan = result;
     state.projects = result.projects;
-    state.selected.clear();
-    state.showAllInitiators = false;
-    $('select-all').checked = false;
     renderTotals(result.totals);
     collectInitiators();
     renderInitiatorList();
@@ -2943,9 +3071,13 @@ async function fetchProjects() {
       failed ? 'error' : 'ok',
     );
     if (result.warning) console.warn(result.warning);
+    fetchFlare('done', `Data fetch complete — ${result.totals.projects} project(s), ${result.totals.risks} finding(s)`);
   } catch (error) {
+    clearTimeout(pending);
+    fetchFlare('failed', `Data fetch stopped: ${error.message}`);
     if (!handleAuthLoss(error)) showError('status', error);
   } finally {
+    setFetching(false);
     button.disabled = false;
     button.textContent = 'Fetch vulnerability data';
   }

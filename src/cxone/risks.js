@@ -277,12 +277,15 @@ export async function collectProjectRisks(
   client,
   config,
   projects,
-  { now = new Date(), detectionWindow = null } = {},
+  { now = new Date(), detectionWindow = null, onProject = null } = {},
 ) {
   const source = createRiskSource(client, config);
   await source.prime?.(projects);
 
-  const rows = await mapWithConcurrency(projects, config.concurrency, async (project) => {
+  // Each project's summary is handed to onProject as soon as it is read, so a
+  // caller can show it straight away instead of waiting for every project.
+  const summaries = await mapWithConcurrency(projects, config.concurrency, async (project) => {
+    let summary;
     try {
       const raw = await source.fetchForProject(project, { detectionWindow });
       const risks = raw
@@ -290,10 +293,12 @@ export async function collectProjectRisks(
         // The server already applied the window where it could; this also
         // covers the fallback source and any record with an unusable date.
         .filter((risk) => withinWindow(detectionWindow, risk.firstDetectedAt));
-      return { project, risks, error: null };
+      summary = summariseProject(project, risks, null);
     } catch (error) {
-      return { project, risks: [], error: error.message ?? String(error) };
+      summary = summariseProject(project, [], error.message ?? String(error));
     }
+    onProject?.(summary);
+    return summary;
   });
 
   return {
@@ -301,7 +306,7 @@ export async function collectProjectRisks(
     resolvedPath: source.resolvedPath,
     stats: source.stats ?? null,
     generatedAt: now.toISOString(),
-    projects: rows.map(({ project, risks, error }) => summariseProject(project, risks, error)),
+    projects: summaries,
   };
 }
 

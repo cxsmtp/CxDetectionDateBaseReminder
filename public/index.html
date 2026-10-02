@@ -255,16 +255,16 @@
                   <div class="step-head"><span class="step-no">1</span><strong>AI Triage</strong></div>
                   <p class="step-need" id="alloc-needed"></p>
                   <div class="step-actions">
-                    <button id="alloc-triage" type="button" data-perm="credits.allocate">Allocate for triage</button>
-                    <button id="run-triage" type="button" class="primary" data-perm="triage.run">Triage selected now</button>
+                    <button id="alloc-triage" type="button" data-perm="credits.allocate" data-needs-data>Allocate for triage</button>
+                    <button id="run-triage" type="button" class="primary" data-perm="triage.run" data-needs-data>Triage selected now</button>
                   </div>
                 </div>
                 <div class="alloc-step" id="step-remediation">
                   <div class="step-head"><span class="step-no">2</span><strong>AI Remediation</strong> <span class="hint">confirmed findings only</span></div>
                   <p class="step-need" id="remediate-needed"></p>
                   <div class="step-actions">
-                    <button id="alloc-remediation" type="button" data-perm="credits.allocate">Allocate for remediation</button>
-                    <button id="run-remediation" type="button" class="primary" data-perm="triage.run">Remediate selected</button>
+                    <button id="alloc-remediation" type="button" data-perm="credits.allocate" data-needs-data>Allocate for remediation</button>
+                    <button id="run-remediation" type="button" class="primary" data-perm="triage.run" data-needs-data>Remediate selected</button>
                   </div>
                 </div>
               </div>
@@ -273,8 +273,8 @@
                 <div class="alloc-row alloc-extras">
                   <label class="inline">Triage <input id="alloc-extra-triage" type="number" min="0" step="1" value="0" class="small-num" /></label>
                   <label class="inline">Remediation <input id="alloc-extra-remediation" type="number" min="0" step="3" value="0" class="small-num" /> <span class="hint inline-hint">(3 per remediation)</span></label>
-                  <button id="alloc-add" type="button">Add extra credits</button>
-                  <button id="alloc-clear" type="button" class="link">Take back extra credits</button>
+                  <button id="alloc-add" type="button" data-needs-data>Add extra credits</button>
+                  <button id="alloc-clear" type="button" class="link" data-needs-data>Take back extra credits</button>
                 </div>
               </details>
               <p class="status" id="alloc-status"></p>
@@ -1236,5 +1236,6 @@
     </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <div id="app-version" class="app-version" title="Mission Zero version" hidden></div>
+    <div id="fetch-flare" class="fetch-flare" role="status" aria-live="polite" hidden><span class="fetch-flare-dot" aria-hidden="true"></span><span id="fetch-flare-text"></span></div>
 </body>
 </html>

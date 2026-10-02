@@ -48,6 +48,13 @@ bucketed by how long ago each finding was *first detected*:
 | `31–60 days` | first detected 31–60 days ago |
 | `> 60 days` | first detected more than 60 days ago — nobody has touched these |
 
+Rows appear as each project is read, so you can start looking straight away. An
+amber flare in the bottom-right corner says the fetch is still in progress (and
+how many projects are in); it turns green, **Data fetch complete**, when the last
+one is in. Until then, triage, remediation and credit allocation are switched off
+(the server refuses them too), and credit needs are only worked out on the
+complete data.
+
 Two independent scope filters narrow the work before the fetch runs:
 
 - **Projects last scanned in** — skips projects with no scan in the window, so the

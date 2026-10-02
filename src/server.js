@@ -5,7 +5,7 @@ import express from 'express';
 
 import { config, configProblems } from './config.js';
 import { APP_VERSION } from './version.js';
-import { filterProjectsByActivity, getLastScans, listProjects } from './cxone/projects.js';
+import { filterProjectsByActivity, getLastScans, lastScanDate, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, selectRisks, summariseProject } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject, projectsInScope, scanInitiator, scanInitiatorEmail } from './cxone/initiators.js';
@@ -1421,99 +1421,187 @@ app.get(
   }),
 );
 
+/** A fetch older than this is treated as abandoned, so a lost one never locks the session for good. */
+const FETCH_LOCK_MS = 30 * 60 * 1000;
+const fetchInProgress = (session) => Boolean(session?.fetching && Date.now() - session.fetching.startedAt < FETCH_LOCK_MS);
+
+/** Triage, remediation and credit allocation wait until the data being fetched is complete. */
+function afterFetch(req, res, next) {
+  if (!fetchInProgress(req.session)) return next();
+  res.status(409).json({
+    error: 'Data is still being fetched. Triage, remediation and credit allocation unlock when the fetch is complete.',
+    fetching: true,
+  });
+}
+
+/** The project row the page shows: the summary without its findings (they stay in the session). */
+const projectRow = ({ risks, ...summary }) => summary;
+
+/**
+ * Fetch projects and findings. `onStart` hears how many projects will be read;
+ * `onProject` gets each project's row as soon as it is read.
+ */
+async function runScan(req, { onStart, onProject } = {}) {
+  const { client } = req.session;
+  const active = activeConfig();
+
+  const activityWindow = resolveWindow(
+    { preset: req.query.activityPreset, from: req.query.activityFrom, to: req.query.activityTo },
+    'Project activity',
+  );
+  const detectionWindow = resolveWindow(
+    { preset: req.query.detectionPreset, from: req.query.detectionFrom, to: req.query.detectionTo },
+    'First detection',
+  );
+
+  const started = Date.now();
+  const settings = settingsStore.get();
+  const allProjects = await listProjects(client);
+  // Named projects or people: fetched whatever their last scan date (they were
+  // asked for by hand); otherwise the activity window decides.
+  const scope = fetchScope(req.query);
+  let projects, skipped, warning, lastScans;
+  if (scope.projectIds.length || scope.initiators.length) {
+    lastScans = scope.initiators.length ? await getLastScans(client, allProjects.map((p) => p.id)) : {};
+    projects = projectsInScope(allProjects, scope, lastScans, (username) => initiatorEmailOf(username, settings));
+    skipped = allProjects.length - projects.length;
+    warning = projects.length ? null : 'No project matches the projects or people named in the scope.';
+  } else {
+    ({ projects, skipped, warning, lastScans } = await filterProjectsByActivity(client, allProjects, activityWindow));
+  }
+  onStart?.({ total: projects.length, projectsTotal: allProjects.length, projectsSkipped: skipped });
+
+  // Rows shown while the rest is still being read: the initiator comes from the
+  // latest scan already in hand; addresses and confidence follow with the result.
+  const earlyRow = (summary) => {
+    const scan = lastScans?.[summary.projectId];
+    return projectRow({
+      ...summary,
+      initiator: scan ? scanInitiator(scan) ?? '' : '',
+      initiatorEmail: scan ? scanInitiatorEmail(scan) ?? '' : '',
+      initiatorVia: 'none',
+      initiatorSuggestion: '',
+      initiatorConfidence: 'none',
+      lastScanDate: scan ? lastScanDate(scan) : null,
+      url: projectUrl(summary, req.session.connection, settings.links),
+      credits: creditView(summary),
+    });
+  };
+
+  // Who ran each project's *latest* scan (so a rescan moves the reminder to
+  // whoever ran it most recently), and the findings: independent, so both at once.
+  const [initiators, result] = await Promise.all([
+    collectInitiators(client, req.session.connection, projects, {
+      rules: settings.initiators,
+      useDirectory: settings.initiators.useDirectory,
+      concurrency: config.concurrency,
+      lastScans: Object.keys(lastScans ?? {}).length ? lastScans : undefined,
+      memory: knownAddresses,
+    }),
+    collectProjectRisks(client, active, projects, {
+      detectionWindow,
+      onProject: onProject ? (summary) => onProject(earlyRow(summary)) : null,
+    }),
+  ]);
+  for (const summary of result.projects) {
+    const info = initiators.byProject[summary.projectId] ?? {};
+    summary.initiator = info.initiator ?? '';
+    summary.initiatorEmail = info.email ?? '';
+    summary.initiatorVia = info.via ?? 'none';
+    summary.initiatorSuggestion = info.suggestedEmail ?? '';
+    summary.initiatorConfidence = info.confidence ?? 'none';
+    summary.lastScanDate = info.scanDate ?? null;
+    summary.url = projectUrl(summary, req.session.connection, settings.links);
+  }
+  result.initiators = initiators.byProject;
+  // Fetching shows what the findings need; it never allocates anything.
+  for (const summary of result.projects) summary.credits = creditView(summary);
+  req.session.lastScan = result;
+
+  return {
+    ...result,
+    // The findings themselves stay here, in the session: the page shows the
+    // summaries, and sending every finding made the reply many megabytes.
+    projects: result.projects.map(projectRow),
+    windows: {
+      activity: describeWindow(activityWindow),
+      detection: describeWindow(detectionWindow),
+    },
+    projectsTotal: allProjects.length,
+    projectsSkipped: skipped,
+    scope: { projects: scope.projectIds.length, initiators: scope.initiators },
+    warning,
+    initiatorNotes: initiators.notes,
+    unresolvedInitiators: initiators.unresolved,
+    suggestedInitiators: initiators.suggested,
+    initiatorDomain: initiators.domain,
+    directorySize: initiators.directorySize,
+    elapsedMs: Date.now() - started,
+    totals: result.projects.reduce(
+      (acc, summary) => {
+        acc.projects += 1;
+        acc.risks += summary.totalRisks;
+        for (const [bucket, count] of Object.entries(summary.counts)) {
+          acc.counts[bucket] = (acc.counts[bucket] ?? 0) + count;
+        }
+        for (const [severity, count] of Object.entries(summary.bySeverity)) {
+          acc.severities[severity] = (acc.severities[severity] ?? 0) + count;
+        }
+        return acc;
+      },
+      { projects: 0, risks: 0, counts: {}, severities: {} },
+    ),
+  };
+}
+
+/**
+ * Fetch the data. With ?stream=1 the reply is NDJSON, one line per event:
+ * {type:"start", total}, then {type:"project", project} as each project is
+ * read, then {type:"done", ...the full result} (or {type:"error", error}).
+ * While a fetch runs, triage, remediation and credit allocation wait (afterFetch).
+ */
 app.get(
   '/api/scan',
   requirePermission('findings.fetch'),
   asyncRoute(async (req, res) => {
-    const { client } = req.session;
-    const active = activeConfig();
-
-    const activityWindow = resolveWindow(
-      { preset: req.query.activityPreset, from: req.query.activityFrom, to: req.query.activityTo },
-      'Project activity',
-    );
-    const detectionWindow = resolveWindow(
-      { preset: req.query.detectionPreset, from: req.query.detectionFrom, to: req.query.detectionTo },
-      'First detection',
-    );
-
-    const started = Date.now();
-    const settings = settingsStore.get();
-    const allProjects = await listProjects(client);
-    // Named projects or people: fetched whatever their last scan date (they were
-    // asked for by hand); otherwise the activity window decides.
-    const scope = fetchScope(req.query);
-    let projects, skipped, warning, lastScans;
-    if (scope.projectIds.length || scope.initiators.length) {
-      lastScans = scope.initiators.length ? await getLastScans(client, allProjects.map((p) => p.id)) : {};
-      projects = projectsInScope(allProjects, scope, lastScans, (username) => initiatorEmailOf(username, settings));
-      skipped = allProjects.length - projects.length;
-      warning = projects.length ? null : 'No project matches the projects or people named in the scope.';
-    } else {
-      ({ projects, skipped, warning, lastScans } = await filterProjectsByActivity(client, allProjects, activityWindow));
+    const id = randomUUID();
+    req.session.fetching = { id, startedAt: Date.now() };
+    const release = () => {
+      if (req.session.fetching?.id === id) delete req.session.fetching;
+    };
+    if (req.query.stream !== '1') {
+      try {
+        return res.json(await runScan(req));
+      } finally {
+        release();
+      }
     }
 
-    // Who ran each project's *latest* scan (so a rescan moves the reminder to
-    // whoever ran it most recently), and the findings: independent, so both at once.
-    const [initiators, result] = await Promise.all([
-      collectInitiators(client, req.session.connection, projects, {
-        rules: settings.initiators,
-        useDirectory: settings.initiators.useDirectory,
-        concurrency: config.concurrency,
-        lastScans: Object.keys(lastScans ?? {}).length ? lastScans : undefined,
-        memory: knownAddresses,
-      }),
-      collectProjectRisks(client, active, projects, { detectionWindow }),
-    ]);
-    for (const summary of result.projects) {
-      const info = initiators.byProject[summary.projectId] ?? {};
-      summary.initiator = info.initiator ?? '';
-      summary.initiatorEmail = info.email ?? '';
-      summary.initiatorVia = info.via ?? 'none';
-      summary.initiatorSuggestion = info.suggestedEmail ?? '';
-      summary.initiatorConfidence = info.confidence ?? 'none';
-      summary.lastScanDate = info.scanDate ?? null;
-      summary.url = projectUrl(summary, req.session.connection, settings.links);
-    }
-    result.initiators = initiators.byProject;
-    // Fetching shows what the findings need; it never allocates anything.
-    for (const summary of result.projects) summary.credits = creditView(summary);
-    req.session.lastScan = result;
-
-    res.json({
-      ...result,
-      // The findings themselves stay here, in the session: the page shows the
-      // summaries, and sending every finding made the reply many megabytes.
-      projects: result.projects.map(({ risks, ...summary }) => summary),
-      windows: {
-        activity: describeWindow(activityWindow),
-        detection: describeWindow(detectionWindow),
-      },
-      projectsTotal: allProjects.length,
-      projectsSkipped: skipped,
-      scope: { projects: scope.projectIds.length, initiators: scope.initiators },
-      warning,
-      initiatorNotes: initiators.notes,
-      unresolvedInitiators: initiators.unresolved,
-      suggestedInitiators: initiators.suggested,
-      initiatorDomain: initiators.domain,
-      directorySize: initiators.directorySize,
-      elapsedMs: Date.now() - started,
-      totals: result.projects.reduce(
-        (acc, summary) => {
-          acc.projects += 1;
-          acc.risks += summary.totalRisks;
-          for (const [bucket, count] of Object.entries(summary.counts)) {
-            acc.counts[bucket] = (acc.counts[bucket] ?? 0) + count;
-          }
-          for (const [severity, count] of Object.entries(summary.bySeverity)) {
-            acc.severities[severity] = (acc.severities[severity] ?? 0) + count;
-          }
-          return acc;
-        },
-        { projects: 0, risks: 0, counts: {}, severities: {} },
-      ),
+    res.status(200).set({
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Accel-Buffering': 'no',
     });
+    res.flushHeaders();
+    const send = (event) => {
+      if (!res.writableEnded) res.write(`${JSON.stringify(event)}\n`);
+    };
+    try {
+      const result = await runScan(req, {
+        onStart: (info) => send({ type: 'start', ...info }),
+        onProject: (project) => send({ type: 'project', project }),
+      });
+      release();
+      send({ type: 'done', ...result });
+    } catch (error) {
+      release();
+      const expected = Number.isInteger(error.status) && error.status >= 400 && error.status < 600;
+      console.error(`GET /api/scan (stream) -> ${logSafe(expected ? error.message : error.stack ?? error.message)}`);
+      send({ type: 'error', status: expected ? error.status : 500, error: expected ? error.message : 'Something went wrong on the server. The details are in its log.' });
+    } finally {
+      release();
+      res.end();
+    }
   }),
 );
 
@@ -2786,7 +2874,7 @@ const cleanSeverities = (list) =>
  *   ruleChanges                          which severities the projects' needs cover (allocates nothing)
  * Everything given comes out of the credit pool, and never more than it has free.
  */
-app.post('/api/credits/allocate', requirePermission('credits.allocate'), asyncRoute(async (req, res) => {
+app.post('/api/credits/allocate', requirePermission('credits.allocate'), afterFetch, asyncRoute(async (req, res) => {
   if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
   const { projectIds, ruleChanges, triageAdd = 0, remediationAdd = 0, clearExtras = false, setExtra = null } = req.body ?? {};
   const changes = (Array.isArray(ruleChanges) ? ruleChanges : [])
@@ -3011,6 +3099,7 @@ app.post(
 app.post(
   '/api/triage/run',
   requirePermission('triage.run'),
+  afterFetch,
   asyncRoute(async (req, res) => {
     if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
     const wanted = cleanSeverities(req.body?.severities);
@@ -3138,6 +3227,7 @@ async function adminRemediate(session, findings, initiatorsByProject = {}, { act
 app.post(
   '/api/remediation/run',
   requirePermission('triage.run'),
+  afterFetch,
   asyncRoute(async (req, res) => {
     if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
     const wanted = cleanSeverities(req.body?.severities);
@@ -3502,6 +3592,7 @@ app.get(
 app.post(
   '/api/tracked-reports/:id/allocate',
   requirePermission('credits.allocate'),
+  afterFetch,
   asyncRoute(async (req, res) => {
     const report = trackedReports.get(req.params.id);
     if (!report) return res.status(404).json({ error: 'No such report.' });
@@ -3552,6 +3643,7 @@ app.post(
 app.post(
   '/api/tracked-reports/:id/triage',
   requirePermission('triage.run'),
+  afterFetch,
   asyncRoute(async (req, res) => {
     const report = trackedReports.get(req.params.id);
     if (!report) return res.status(404).json({ error: 'No such report.' });
