@@ -283,6 +283,8 @@ Each finding falls into an age bucket by when it was **first detected**:
 - **Remediation:** 3 credits per **confirmed** finding not yet remediated.
 
 **Why rows and credits can differ.** Checkmarx One can list one result once per code path. For example, 12 rows can be 10 results: those rows are triaged together and charged once, so the need is 10 credits, not 12. Counts always show both.
+- **Why fewer results than findings** (in the panel and in each project's credit editor) lists them: each Checkmarx One result that covers more than one finding, its severity and title, how many findings, and where each code path ends (file and method).
+- Those findings are one vulnerable piece of code reached by several data flows. They are triaged once, for 1 credit, and **one fix closes them all**, so fix them in one go.
 
 | Button | What it does |
 | --- | --- |

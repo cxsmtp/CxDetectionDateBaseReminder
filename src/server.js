@@ -242,7 +242,36 @@ function creditView(summary) {
     toRemediate,
     need,
     shortfall,
+    sharedResults: sharedResults(summary),
   };
+}
+
+/**
+ * Findings still to triage that are one Checkmarx One result (several code
+ * paths, or data flows, into the same vulnerable code): triaged, charged and
+ * fixed together. Named so people can see which ones, and why.
+ */
+function sharedResults(summary) {
+  const rows = triageRows(summary.risks ?? [], SEVERITIES, Date.now(), creditLedger.triagedAt(summary.projectId));
+  const groups = new Map();
+  for (const r of rows) {
+    const unit = billingUnit(r);
+    if (!groups.has(unit)) groups.set(unit, []);
+    groups.get(unit).push(r);
+  }
+  const place = (location) => String(location ?? '').replace(/^.*[\\/]/, '');
+  return [...groups.entries()]
+    .filter(([, list]) => list.length > 1)
+    .slice(0, 30)
+    .map(([unit, list]) => ({
+      severity: list[0].severity,
+      title: list[0].title,
+      findings: list.length,
+      places: [...new Set(list.map((r) => place(r.location)).filter(Boolean))].slice(0, 4),
+      // How Checkmarx One ties them: one result id (listed once per code path), or one similarity group (the same vulnerable code).
+      tie: unit.startsWith('a:') ? 'result' : 'group',
+      id: unit.slice(2, 10),
+    }));
 }
 
 const reportGrants = new ReportGrants({
