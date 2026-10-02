@@ -122,6 +122,9 @@ const MATRIX = [
   ['GET', '/api/tracked-reports', null, true, true, true],
   ['POST', '/api/reports/html', {}, true, true, true],
   ['GET', '/api/automation', null, true, true, true],
+  ['GET', '/api/credits/usage', null, true, true, true],
+  ['GET', '/api/settings/connections', null, true, true, true],
+  ['POST', '/api/settings/notices/ack', {}, true, true, true],
   ['POST', '/api/tracked-reports', {}, true, true, false],
   ['POST', '/api/triage/run', {}, true, true, false],
   ['POST', '/api/credits/allocate', {}, true, true, false],
@@ -138,6 +141,10 @@ const MATRIX = [
   ['POST', '/api/integration/cxone', { apiKey: '' }, true, false, false],
   ['POST', '/api/discover', {}, true, false, false],
   ['POST', '/api/automation/arm', {}, true, false, false],
+  ['POST', '/api/settings/connections/check', {}, true, false, false],
+  ['PUT', '/api/integration/cxone/draft', {}, true, false, false],
+  ['PUT', '/api/settings', { aiTriage: { poolPeriod: 'all' } }, true, false, false],
+  ['POST', '/api/settings/import-env', { text: 'SMTP_HOST=mail.acme.io' }, true, false, false],
   ['GET', '/api/backup/download', null, true, false, false],
 ];
 

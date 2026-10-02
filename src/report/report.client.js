@@ -371,6 +371,8 @@
         btn.textContent = busy ? 'Triaging…' : locked ? 'Triaged' : done ? 'Re-triage' : 'Triage';
         btn.title = locked ? 'Already triaged. Triaging again is switched off by your administrator.' : '';
       }
+      // A verdict may have just confirmed it: Remediate follows.
+      if (tr.querySelector('[data-action="remediate"]')) renderRemediation(f);
     }
     updateBulk();
   }
@@ -816,9 +818,13 @@
     if (btn) {
       const done = isRemediated(f);
       const locked = done && !reremediationAllowed();
-      btn.disabled = r?.running === true || locked;
+      // The fence: only a finding triaged and confirmed can be remediated.
+      const fenced = !done && !r?.running && !isConfirmed(f);
+      btn.disabled = r?.running === true || locked || fenced;
       btn.textContent = r?.running ? 'Remediating…' : locked ? 'Remediated' : done ? 'Re-remediate' : 'Remediate';
-      btn.title = locked ? 'Already remediated. Remediating again is switched off by your administrator.' : '';
+      btn.title = locked
+        ? 'Already remediated. Remediating again is switched off by your administrator.'
+        : fenced ? 'Remediate works once triage has confirmed this finding (state Confirmed).' : '';
     }
     if (!r) return;
     if (r.running) {
@@ -882,8 +888,12 @@
     renderRemediation(f);
   }
 
+  /** Confirmed in Checkmarx One: the only state AI Remediation runs on. */
+  const isConfirmed = (f) => f.state === 'CONFIRMED';
+
   async function remediate(f) {
     if (f.remediation?.running) return;
+    if (!isConfirmed(f)) return renderRemediation(f);
     if (isRemediated(f) && !reremediationAllowed()) return renderRemediation(f);
     if (backend.remediationAllowed === false) {
       // The administrator may have allowed it since this report connected.
@@ -917,8 +927,11 @@
         renderRemediation(f);
         return showCreditDialog([{ error: error.message, credits: error.body?.credits }]);
       } else {
+        // Not confirmed in Checkmarx One after all: show its real state; Remediate stays locked.
+        if (error.body?.notConfirmed && error.body.state) f.state = error.body.state;
         f.remediation = { failed: error.message };
         log(error.message, 'error');
+        renderTriage(f);
         return renderRemediation(f);
       }
     }
