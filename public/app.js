@@ -91,26 +91,32 @@ const NEEDS_FETCHED_DATA = /^\/api\/(credits\/allocate|triage\/run|remediation\/
 const FETCHING_MESSAGE = 'Data is still being fetched. Triage, remediation and credit allocation unlock when the fetch is complete.';
 
 // ---------------------------------------------------------------------------
-// Flares, bottom right: amber with a running mouse while an action is in
+// Flares, bottom right: amber with a flying hero while an action is in
 // progress (and the part of the page it came from is paused), green when it
 // is done, red when it failed. One per action, so several can run at once.
 // ---------------------------------------------------------------------------
 
-const MOUSE_SVG = `<svg viewBox="0 0 48 30" aria-hidden="true">
-  <g class="mouse-dust"><circle cx="5" cy="25" r="1.6" fill="#a16207" /></g><g class="mouse-dust b"><circle cx="9" cy="27" r="1.2" fill="#a16207" /></g>
-  <g class="mouse-body">
-    <path class="mouse-tail" d="M12 17 C6 16 4 10 8 8" fill="none" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round" />
-    <line class="mouse-leg" x1="16" y1="21" x2="15" y2="26" stroke="#4b5563" stroke-width="1.8" stroke-linecap="round" />
-    <line class="mouse-leg b" x1="20" y1="22" x2="20" y2="27" stroke="#4b5563" stroke-width="1.8" stroke-linecap="round" />
-    <line class="mouse-leg b" x1="27" y1="22" x2="27" y2="27" stroke="#4b5563" stroke-width="1.8" stroke-linecap="round" />
-    <line class="mouse-leg" x1="31" y1="21" x2="32" y2="26" stroke="#4b5563" stroke-width="1.8" stroke-linecap="round" />
-    <ellipse cx="23" cy="17" rx="11" ry="6.5" fill="#9ca3af" />
-    <circle cx="35" cy="13.5" r="5.5" fill="#9ca3af" />
-    <circle cx="33" cy="8" r="3.6" fill="#9ca3af" /><circle cx="33" cy="8" r="2" fill="#f9a8d4" />
-    <circle cx="36.8" cy="12.5" r="0.95" fill="#111827" />
-    <circle cx="40.6" cy="14.6" r="1.15" fill="#f472b6" />
-    <path d="M39 16 l4 -0.6 M39 16.4 l3.8 1" stroke="#6b7280" stroke-width="0.6" />
-  </g></svg>`;
+// An original caped speedster (no logo; not any existing character), flying flat out.
+const HERO_SVG = `<svg viewBox="0 0 64 32" aria-hidden="true">
+  <g class="hero-streaks" stroke-linecap="round">
+    <line class="hero-streak" x1="2" y1="11" x2="16" y2="11" stroke="#b45309" stroke-width="1.6" />
+    <line class="hero-streak b" x1="0" y1="17" x2="18" y2="17" stroke="#d97706" stroke-width="2" />
+    <line class="hero-streak c" x1="4" y1="23" x2="15" y2="23" stroke="#b45309" stroke-width="1.4" />
+  </g>
+  <g class="hero-body">
+    <path class="hero-cape" d="M44 13 C36 6 27 5 18 8 C24 11 27 15 22 21 C30 19 37 18 42 17 Z" fill="#ea580c" />
+    <path d="M24 16 L15 15.2 M24 19 L16 20.5" stroke="#4c1d95" stroke-width="3.2" stroke-linecap="round" />
+    <path d="M15.6 15.1 l-2.4 -0.2 M16.6 20.4 l-2.4 0.5" stroke="#111827" stroke-width="3.4" stroke-linecap="round" />
+    <rect x="23" y="12.6" width="21" height="8" rx="4" fill="#6d28d9" />
+    <rect x="23" y="16.4" width="21" height="1.6" fill="#ffffff" />
+    <path d="M43 14 L56 11.5" stroke="#6d28d9" stroke-width="3.2" stroke-linecap="round" />
+    <circle cx="57.4" cy="11.2" r="2" fill="#f1c27d" />
+    <circle cx="48.4" cy="13.4" r="4.6" fill="#f1c27d" />
+    <path d="M44.2 12.6 C44.8 8.4 50.6 7.6 52.6 10.6 C50.4 10 47.4 10.6 46 13.2 Z" fill="#1f2937" />
+    <path d="M47.6 13.2 h4" stroke="#1f2937" stroke-width="1.6" stroke-linecap="round" />
+  </g>
+  <g class="hero-spark"><path d="M61 6 l-2.6 4 h2.4 l-2.2 4.2" fill="none" stroke="#f59e0b" stroke-width="1.4" stroke-linejoin="round" /></g>
+</svg>`;
 const DONE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#16a34a" /><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>';
 const FAILED_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#dc2626" /><path d="M8 8l8 8M16 8l-8 8" stroke="#fff" stroke-width="2.4" stroke-linecap="round" /></svg>';
 
@@ -128,7 +134,7 @@ function flare(key, kind, text, hint = '') {
     flares.set(key, el);
   }
   clearTimeout(el.hideTimer);
-  if (el.dataset.kind !== kind) el.querySelector('.flare-icon').innerHTML = kind === 'busy' ? MOUSE_SVG : kind === 'done' ? DONE_SVG : FAILED_SVG;
+  if (el.dataset.kind !== kind) el.querySelector('.flare-icon').innerHTML = kind === 'busy' ? HERO_SVG : kind === 'done' ? DONE_SVG : FAILED_SVG;
   el.dataset.kind = kind;
   el.className = `flare ${kind}`;
   el.querySelector('.flare-main').textContent = text;
