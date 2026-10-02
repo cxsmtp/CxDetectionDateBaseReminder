@@ -121,3 +121,24 @@ test('a project missing from the initiator map still groups without throwing', (
   assert.equal(groups[0].email, '');
   assert.equal(groups[0].risks.length, 1);
 });
+
+test('projects in scope: named by id, or by who ran the latest scan (username or email)', async () => {
+  const { projectsInScope } = await import('../src/cxone/initiators.js');
+  const projects = [{ id: 'p1', name: 'Payments' }, { id: 'p2', name: 'Web' }, { id: 'p3', name: 'Mobile' }, { id: 'p4', name: 'Infra' }];
+  const scans = {
+    p1: { initiator: 'sudha' },
+    p2: { initiator: 'sean@acme.io' },
+    p3: { initiator: 'cx-raj', initiatorEmail: 'raj@acme.io' },
+    p4: { initiator: 'Sudha' },
+  };
+  const ids = (list) => list.map((p) => p.id).sort();
+  assert.deepEqual(ids(projectsInScope(projects, { projectIds: ['p2'] }, scans)), ['p2']);
+  assert.deepEqual(ids(projectsInScope(projects, { initiators: ['SUDHA'] }, scans)), ['p1', 'p4'], 'case does not matter');
+  assert.deepEqual(ids(projectsInScope(projects, { initiators: ['sudha@acme.io'] }, scans)), ['p1', 'p4'], 'an address matches its username');
+  assert.deepEqual(ids(projectsInScope(projects, { initiators: ['sean'] }, scans)), ['p2'], 'a username matches an address-shaped initiator');
+  assert.deepEqual(ids(projectsInScope(projects, { initiators: ['raj@acme.io'] }, scans)), ['p3'], 'the email on the scan record');
+  assert.deepEqual(ids(projectsInScope(projects, { initiators: ['r.k@acme.io'] }, scans, (u) => (u === 'cx-raj' ? 'r.k@acme.io' : ''))), ['p3'], 'a known address (override)');
+  assert.deepEqual(ids(projectsInScope(projects, { projectIds: ['p3'], initiators: ['sean'] }, scans)), ['p2', 'p3'], 'either list: a project in either is kept');
+  assert.deepEqual(projectsInScope(projects, { initiators: ['nobody'] }, scans), []);
+  assert.deepEqual(projectsInScope(projects, {}, scans), [], 'nothing named: nothing in scope');
+});

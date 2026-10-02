@@ -4,10 +4,10 @@ import path from 'node:path';
 import express from 'express';
 
 import { config, configProblems } from './config.js';
-import { filterProjectsByActivity, listProjects } from './cxone/projects.js';
+import { filterProjectsByActivity, getLastScans, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, selectRisks, summariseProject } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
-import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
+import { collectInitiators, groupRisksByInitiator, groupRisksByProject, projectsInScope, scanInitiator, scanInitiatorEmail } from './cxone/initiators.js';
 import { resolveAiIds, resultRowsFor } from './cxone/ai-assist.js';
 import { mapWithConcurrency } from './cxone/client.js';
 import { ReportGrants } from './report-grants.js';
@@ -1354,6 +1354,58 @@ app.post('/api/automation/reset', requirePermission('settings.automation'), (req
 // Dashboard data
 // ---------------------------------------------------------------------------
 
+/** Projects (by id) and people the dashboard named to fetch, from repeated query parameters. */
+function fetchScope(query) {
+  const list = (value, max) =>
+    [...new Set([].concat(value ?? []).map((v) => String(v).trim()).filter(Boolean))].slice(0, max).map((v) => v.slice(0, 200));
+  return { projectIds: list(query.project, 500), initiators: list(query.initiator, 100) };
+}
+
+/** A scan initiator's known address: an administrator's override, else one remembered from earlier fetches. */
+function initiatorEmailOf(username, settings = settingsStore.get()) {
+  const overrides = settings.initiators?.overrides ?? {};
+  return (Object.hasOwn(overrides, username) ? overrides[username] : '') || knownAddresses.get(username) || '';
+}
+
+/**
+ * What the Scope panel can name before anything is fetched: every project's
+ * name, and who ran each project's latest scan. Kept for five minutes per session.
+ */
+app.get(
+  '/api/scope/options',
+  requirePermission('findings.fetch'),
+  asyncRoute(async (req, res) => {
+    const cached = req.session.scopeOptions;
+    if (cached && req.query.refresh !== '1' && Date.now() - cached.at < 5 * 60_000) return res.json(cached.data);
+    const { client } = req.session;
+    const projects = await listProjects(client);
+    let scans = {};
+    let warning = null;
+    try {
+      scans = await getLastScans(client, projects.map((p) => p.id));
+    } catch (error) {
+      warning = `Who ran each project's latest scan could not be read: ${error.message}`;
+    }
+    const settings = settingsStore.get();
+    const people = new Map();
+    for (const project of projects) {
+      const scan = scans[project.id];
+      const initiator = scanInitiator(scan);
+      if (!initiator) continue;
+      const entry = people.get(initiator.toLowerCase()) ?? { initiator, email: scanInitiatorEmail(scan) || initiatorEmailOf(initiator, settings), projects: 0 };
+      entry.projects += 1;
+      people.set(initiator.toLowerCase(), entry);
+    }
+    const data = {
+      projects: projects.map((p) => ({ id: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name)),
+      initiators: [...people.values()].sort((a, b) => b.projects - a.projects || a.initiator.localeCompare(b.initiator)),
+      warning,
+    };
+    req.session.scopeOptions = { at: Date.now(), data };
+    res.json(data);
+  }),
+);
+
 app.get(
   '/api/scan',
   requirePermission('findings.fetch'),
@@ -1373,11 +1425,18 @@ app.get(
     const started = Date.now();
     const settings = settingsStore.get();
     const allProjects = await listProjects(client);
-    const { projects, skipped, warning, lastScans } = await filterProjectsByActivity(
-      client,
-      allProjects,
-      activityWindow,
-    );
+    // Named projects or people: fetched whatever their last scan date (they were
+    // asked for by hand); otherwise the activity window decides.
+    const scope = fetchScope(req.query);
+    let projects, skipped, warning, lastScans;
+    if (scope.projectIds.length || scope.initiators.length) {
+      lastScans = scope.initiators.length ? await getLastScans(client, allProjects.map((p) => p.id)) : {};
+      projects = projectsInScope(allProjects, scope, lastScans, (username) => initiatorEmailOf(username, settings));
+      skipped = allProjects.length - projects.length;
+      warning = projects.length ? null : 'No project matches the projects or people named in the scope.';
+    } else {
+      ({ projects, skipped, warning, lastScans } = await filterProjectsByActivity(client, allProjects, activityWindow));
+    }
 
     // Who ran each project's *latest* scan (so a rescan moves the reminder to
     // whoever ran it most recently), and the findings: independent, so both at once.
@@ -1417,6 +1476,7 @@ app.get(
       },
       projectsTotal: allProjects.length,
       projectsSkipped: skipped,
+      scope: { projects: scope.projectIds.length, initiators: scope.initiators },
       warning,
       initiatorNotes: initiators.notes,
       unresolvedInitiators: initiators.unresolved,

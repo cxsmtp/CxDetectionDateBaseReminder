@@ -54,6 +54,16 @@ Both offer last week / last month / last 90 days / last year / custom range. A s
 detection window empties the older age buckets by definition; the UI says so when you
 pick one.
 
+**Only these projects or people.** A third row fetches just what you name instead of every
+project: **Projects, by name** (suggestions as you type; Enter adds every project whose name
+contains the text) and **People who ran the latest scan** (a username or an email address —
+`sudha@acme.io` also finds scans recorded as `sudha`, and an override or a remembered address
+counts too). A project named in either list is fetched. Named projects are fetched whatever
+their last scan date, so *Projects last scanned in* is set aside while anything is named;
+*Findings first detected in* still applies. Only the named projects' findings are read, so
+this is also the quickest fetch. The names come from `GET /api/scope/options` (one project
+listing plus one last-scan lookup per 50 projects, kept for five minutes).
+
 The project table can then be searched by name, filtered by severity or age bucket,
 sorted by any column, and used to select a subset. A reminder covers the selected
 projects, or all of them if none are selected.

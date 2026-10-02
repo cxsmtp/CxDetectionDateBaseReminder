@@ -221,3 +221,35 @@ test('automatic reminders are scoped the same way, and never copy the configured
   const mail = assertScoped(sentMail());
   assert.ok(mail.every((m) => !m.to.includes('sean@acme.io')), 'the configured Cc is not copied');
 });
+
+test('fetch only named projects or the projects named people last scanned', async () => {
+  const options = await admin('GET', '/api/scope/options');
+  assert.equal(options.status, 200, JSON.stringify(options.body));
+  assert.deepEqual(options.body.projects.map((p) => p.name), ['Project 0', 'Project 1', 'Project 2', 'Project 3']);
+  assert.deepEqual(options.body.initiators.map((i) => [i.initiator, i.projects]), [['dev0@acme.com', 2], ['dev1@acme.com', 2]]);
+
+  const names = (body) => body.projects.map((p) => p.projectName).sort();
+  const byProject = await admin('GET', '/api/scan?project=p1&project=p3');
+  assert.equal(byProject.status, 200);
+  assert.deepEqual(names(byProject.body), ['Project 1', 'Project 3']);
+  assert.equal(byProject.body.scope.projects, 2);
+
+  const byPerson = await admin('GET', `/api/scan?initiator=${encodeURIComponent('DEV0@acme.com')}`);
+  assert.deepEqual(names(byPerson.body), ['Project 0', 'Project 2'], 'case does not matter');
+  const byUsername = await admin('GET', '/api/scan?initiator=dev1');
+  assert.deepEqual(names(byUsername.body), ['Project 1', 'Project 3'], 'a username finds the address-shaped initiator');
+
+  const either = await admin('GET', '/api/scan?project=p0&initiator=dev1@acme.com');
+  assert.deepEqual(names(either.body), ['Project 0', 'Project 1', 'Project 3']);
+
+  // Named projects are fetched whatever the "last scanned in" window says.
+  const old = await admin('GET', '/api/scan?project=p2&activityPreset=custom&activityFrom=2001-01-01&activityTo=2001-01-31');
+  assert.deepEqual(names(old.body), ['Project 2']);
+
+  const none = await admin('GET', '/api/scan?initiator=nobody@acme.com');
+  assert.deepEqual(none.body.projects, []);
+  assert.match(none.body.warning, /No project matches/);
+
+  const all = await admin('GET', '/api/scan');
+  assert.equal(all.body.projects.length, 4, 'nothing named: every project, as before');
+});

@@ -367,3 +367,28 @@ export function groupRisksByInitiator(risks, byProject) {
     .map((group) => ({ ...group, projectIds: [...group.projectIds], projectCount: group.projectIds.size }))
     .sort((a, b) => b.risks.length - a.risks.length);
 }
+
+const normIdentity = (value) => String(value ?? '').trim().toLowerCase();
+
+/**
+ * The projects someone asked for by hand: by id (picked by name), or by who
+ * ran their latest scan. `initiators` may be usernames or email addresses: a
+ * name matches the scan's initiator, its email (from the scan, or `emailOf`,
+ * e.g. an override or a remembered address), or an address whose local part
+ * is that username. Either list may be empty; a project in either is kept.
+ */
+export function projectsInScope(projects, { projectIds = [], initiators = [] } = {}, lastScans = {}, emailOf = () => '') {
+  const ids = new Set(projectIds.map(String));
+  const wanted = [...new Set(initiators.map(normIdentity).filter(Boolean))];
+  const local = (value) => value.split('@')[0];
+  const ranBy = (scan) => {
+    if (!wanted.length || !scan) return false;
+    const who = normIdentity(scanInitiator(scan));
+    if (!who) return false;
+    const emails = [scanInitiatorEmail(scan), emailOf(scanInitiator(scan))].map(normIdentity).filter(Boolean);
+    return wanted.some(
+      (w) => w === who || emails.includes(w) || (w.includes('@') && !who.includes('@') && local(w) === who) || (who.includes('@') && !w.includes('@') && local(who) === w),
+    );
+  };
+  return projects.filter((project) => ids.has(String(project.id)) || ranBy(lastScans[project.id]));
+}
