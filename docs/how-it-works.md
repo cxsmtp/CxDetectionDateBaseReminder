@@ -45,7 +45,7 @@ The technical reference: what happens under each feature, where data lives, and 
   Changes made directly in Checkmarx One show up within those 2 minutes, or at once with **Read everything fresh**. The page says how many projects were reused. Verify, credits, triage and remediation never use these reads: they always ask Checkmarx One.
 - Every Checkmarx One call shares a cap of 24 in flight (`CX_MAX_CONCURRENCY`). Interactive work goes ahead of background refreshes.
 - The page receives per-project summaries. The findings themselves stay on the server, for reminders and reports.
-- **Compressed.** Replies to the page and to reports are compressed (brotli or gzip, whichever the browser accepts), the fetch stream line by line. JSON shrinks several times over, which is what a VPN or a remote office notices.
+- **Compressed when it pays.** Replies of 32 KB and more (the page itself, the fetch stream, full results, downloads) are compressed with brotli or gzip, whichever the browser accepts; the fetch stream line by line. A 200-project fetch stream goes from 445 KB to 11 KB. Small, frequent replies such as report polls are not: on a 2 vCPU server that costs more than it saves ([performance](performance.md)).
 
 **AI Triage and AI Remediation**
 - **IDs.** AI Triage is keyed by the result's `alternateId` (resolved from the scan results by similarity id). AI Remediation is keyed by scan and result.
