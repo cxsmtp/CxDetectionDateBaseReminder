@@ -163,7 +163,7 @@ code { font: 12px var(--mono); background: var(--surface-3); padding: 1px 5px; b
 .tab svg { width: 19px; height: 19px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .tab:hover { background: var(--surface-2); color: var(--text); }
 .tab.active { background: var(--accent-soft); color: var(--accent); }
-.sidebar-foot { margin: auto 8px 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
+.sidebar-foot { margin: auto 8px 30px; font-size: 11px; color: var(--muted); line-height: 1.4; }
 
 .content { min-width: 0; display: flex; flex-direction: column; }
 
@@ -1219,3 +1219,9 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 .scope-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
 .scope-chip button { min-height: 0; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; box-shadow: none; color: var(--muted); font-size: 15px; line-height: 1; }
 .scope-chip button:hover:not(:disabled) { background: var(--surface-3); color: var(--text); }
+
+/* Version, bottom-left on every screen: bold black on a light chip, legible in both themes. */
+.app-version { position: fixed; left: 12px; bottom: 10px; z-index: 40; padding: 2px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.85); color: #000; font-weight: 700; font-size: 12px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; user-select: all; }
+@media (max-width: 760px) {
+  .app-version { bottom: calc(72px + env(safe-area-inset-bottom)); }
+}

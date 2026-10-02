@@ -30,6 +30,11 @@ password, which `docker logs mission-zero` shows once, at first start. See
 [docs/container.md](docs/container.md) for options, backups, upgrades and
 proxies.
 
+**Version.** Every screen shows the running version in its bottom-left corner,
+as `MZ-xx.xx.xx` (from `version` in `package.json`, bumped with every change
+merged to `main`). The server log prints it at start, and `/api/health` returns
+it, so you can tell which image a container runs.
+
 ## The pages
 
 ### Dashboard
