@@ -67,6 +67,12 @@ docker logs mission-zero        # or: podman logs mission-zero / docker compose 
   docker exec mission-zero node scripts/reset-admin.mjs
   ```
 
+**`manifest unknown`** when pulling means that tag has not been published yet.
+- Images are published by the "Container image" workflow on every push to
+  `main` (as `:latest` and `:sha-<commit>`), and on version tags `v*`.
+- Check the repository's **Actions** tab, or pull a published `:sha-<commit>`
+  tag instead.
+
 ## Options
 
 Add any of these to `docker run` / `podman run` as `-e NAME=value`, or put them in a `.env` file next to `compose.yaml`.
