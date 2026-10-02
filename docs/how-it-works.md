@@ -35,8 +35,17 @@ The technical reference: what happens under each feature, where data lives, and 
 
 **Fetch speed**
 - Initiators and findings are fetched at the same time, with findings for 10 projects at once (`CX_FETCH_CONCURRENCY`).
+- **Big projects, a few pages at once.** The first page of findings says how many there are; the remaining pages are read 4 at a time (`CX_PAGES_AT_ONCE`) and kept in order. Last-scan lookups go out a few chunks at once too.
+- **Shared recent reads.** A project read in the last 2 minutes (`CX_FETCH_CACHE_SECONDS`, 0 switches it off) is reused by the next fetch instead of read again, when all of these hold:
+  - it is the same Checkmarx One key on the same tenant (people on different keys never share what they can see);
+  - its latest scan is still the one it was read for;
+  - nobody triaged or remediated it from Mission Zero in the last 30 minutes (those are read fresh every time while Checkmarx One works through them);
+  - **Read everything fresh** is not ticked.
+
+  Changes made directly in Checkmarx One show up within those 2 minutes, or at once with **Read everything fresh**. The page says how many projects were reused. Verify, credits, triage and remediation never use these reads: they always ask Checkmarx One.
 - Every Checkmarx One call shares a cap of 24 in flight (`CX_MAX_CONCURRENCY`). Interactive work goes ahead of background refreshes.
 - The page receives per-project summaries. The findings themselves stay on the server, for reminders and reports.
+- **Compressed.** Replies to the page and to reports are compressed (brotli or gzip, whichever the browser accepts), the fetch stream line by line. JSON shrinks several times over, which is what a VPN or a remote office notices.
 
 **AI Triage and AI Remediation**
 - **IDs.** AI Triage is keyed by the result's `alternateId` (resolved from the scan results by similarity id). AI Remediation is keyed by scan and result.
@@ -50,6 +59,7 @@ The technical reference: what happens under each feature, where data lives, and 
 - **Shared answers.** Risk states, AI Triage records and AI Remediation details are cached and shared across reports. Concurrent asks for the same thing wait on one call.
 - **Never waiting on a backlog.** Unknown answers come back `pending` at once, while lookups run in the background.
 - **Admission control.** Past `RELAY_MAX_IN_FLIGHT` (300) requests in flight, the server answers "busy, retry in N s" at once, and reports back off and retry. The background queue is capped by `RELAY_BACKGROUND_QUEUE` (2000).
+- **One call to open.** A report opens with `/api/relay/hello`: the status, its projects' credits, and where AI Triage and AI Remediation stand for every finding, in one round trip instead of four. Against an older server (no `/hello`) it asks the separate questions, so reports and servers of any version work together.
 - **Polling.** Reports poll with jitter and slow down (up to 30 s) while nothing changes.
 - **Measured.** 3000 people at once on 2 vCPU: see [performance.md](performance.md).
 

@@ -256,6 +256,7 @@ Where findings are read from. The default is `/api/risks/`.
 - Rows appear as each project is read.
 - An **amber flare** (bottom-right) says the fetch is in progress, with how many projects are in so far. It turns **green, Data fetch complete**, when the last one arrives.
 - Until then, triage, remediation and credit allocation are switched off, so nothing is decided on half the data.
+- **Faster when someone just fetched.** A project read by anyone in the last couple of minutes is reused, unless it was rescanned or triaged from Mission Zero since. Under the button it says how many were reused. Tick **Read everything fresh from Checkmarx One** to read every project again, for example right after changing findings directly in Checkmarx One.
 
 Each finding falls into an age bucket by when it was **first detected**:
 

@@ -159,6 +159,8 @@ podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -e TZ=
 | --- | --- | --- |
 | `CX_MAX_CONCURRENCY` | 24 | Calls to Checkmarx One at once. Raise it (e.g. 48) only if your tenant's rate limits allow; it shortens fetch, verify and report times under load. |
 | `CX_FETCH_CONCURRENCY` | 10 | Projects read at once by one fetch. |
+| `CX_PAGES_AT_ONCE` | 4 | Pages of one big project read at once, once its size is known. |
+| `CX_FETCH_CACHE_SECONDS` | 120 | How long a project someone fetched is reused by the next fetch on the same key (see [How it works](how-it-works.md)). Longer means fewer calls and staler states; `0` reads everything every time. |
 | `RELAY_MAX_IN_FLIGHT` | 300 | Report requests handled at once before answering "busy, retry". Raise it on 4 vCPU. |
 | `RELAY_BACKGROUND_QUEUE` | 2000 | Background lookups allowed to queue. |
 | `NODE_OPTIONS=--max-old-space-size=N` | Node's default | About two-thirds of the container's memory limit, in MB. |

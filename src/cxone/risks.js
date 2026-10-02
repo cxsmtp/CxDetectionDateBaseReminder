@@ -2,6 +2,7 @@ import { CxApiError, mapWithConcurrency } from './client.js';
 import { RISK_PATH_CANDIDATES, isProbeMiss } from './discovery.js';
 import { getLastScans } from './projects.js';
 import { withinWindow } from '../window.js';
+import { TtlCache } from '../ttl-cache.js';
 
 export const AGE_BUCKETS = [
   { id: '0-30', label: 'Last 30 days', min: 0, max: 30 },
@@ -273,21 +274,97 @@ const emptyCounts = () =>
  * A project whose risks cannot be read is reported with an `error` rather than
  * failing the whole run.
  */
+// ---------------------------------------------------------------------------
+// Recent reads, shared
+// ---------------------------------------------------------------------------
+
+/**
+ * How long a project's findings, once read, serve everyone else who fetches
+ * the same project through the same Checkmarx One key (CX_FETCH_CACHE_SECONDS,
+ * 0 switches it off). A read is reused only while the project's latest scan
+ * is still the one it was read for. A project triaged or remediated from here
+ * is read afresh every time for the next 30 minutes, while Checkmarx One works
+ * through it and its states change. "fresh" skips the reuse altogether.
+ */
+const READ_TTL_MS = Math.max(0, Number(process.env.CX_FETCH_CACHE_SECONDS ?? 120) || 0) * 1000;
+const reads = new TtlCache({ max: 20_000 });
+const VOLATILE_MS = 30 * 60 * 1000;
+const volatileUntil = new Map(); // projectId -> time
+let reused = 0;
+let read = 0;
+
+export const projectReads = {
+  get stats() {
+    return { reused, read, ttlSeconds: READ_TTL_MS / 1000 };
+  },
+  /** Triage, remediation or a state change on this project: read it afresh next time. */
+  forget(projectId, now = Date.now()) {
+    reads.deletePrefix(`${projectId}\u0000`);
+    volatileUntil.set(String(projectId), now + VOLATILE_MS);
+    if (volatileUntil.size > 10_000) for (const [id, until] of volatileUntil) if (until <= now) volatileUntil.delete(id);
+  },
+  clear() {
+    reads.deletePrefix('');
+    volatileUntil.clear();
+  },
+};
+
+/** The latest completed scan a last-scan record names. */
+const scanIdOf = (scan) => String(scan?.id ?? scan?.scanId ?? '');
+
+/**
+ * A project's raw findings: a recent read by anyone on the same key when it is
+ * still current, else one read from Checkmarx One (shared with anyone asking
+ * for the same project at the same moment). Resolves {items, reused}.
+ */
+async function readProject(source, project, detectionWindow, shared) {
+  const load = () => source.fetchForProject(project, { detectionWindow });
+  const changing = (volatileUntil.get(String(project.id)) ?? 0) > Date.now();
+  if (!shared?.identity || !(READ_TTL_MS > 0) || changing) {
+    read += 1;
+    return { items: await load(), reused: false };
+  }
+  const scanId = scanIdOf(shared.lastScans?.[project.id]);
+  const key = [project.id, shared.identity, source.name, detectionWindow?.from?.toISOString?.() ?? '', detectionWindow?.to?.toISOString?.() ?? ''].join('\u0000');
+  if (shared.fresh) reads.delete(key);
+  const known = reads.get(key);
+  if (known && scanId && known.scanId && known.scanId !== scanId) reads.delete(key); // rescanned since
+  let loaded = false;
+  const entry = await reads.wrap(
+    key,
+    async () => {
+      loaded = true;
+      return { scanId, items: await load() };
+    },
+    READ_TTL_MS,
+  );
+  if (loaded) read += 1;
+  else reused += 1;
+  return { items: entry.items, reused: !loaded };
+}
+
+/**
+ * Read and summarise `projects`. With `shared` ({identity, lastScans, fresh}),
+ * recent reads by others on the same Checkmarx One key are reused (see
+ * projectReads); `reused` in the result counts them.
+ */
 export async function collectProjectRisks(
   client,
   config,
   projects,
-  { now = new Date(), detectionWindow = null, onProject = null } = {},
+  { now = new Date(), detectionWindow = null, onProject = null, shared = null } = {},
 ) {
   const source = createRiskSource(client, config);
   await source.prime?.(projects);
+  let reusedHere = 0;
 
   // Each project's summary is handed to onProject as soon as it is read, so a
   // caller can show it straight away instead of waiting for every project.
   const summaries = await mapWithConcurrency(projects, config.concurrency, async (project) => {
     let summary;
     try {
-      const raw = await source.fetchForProject(project, { detectionWindow });
+      const { items: raw, reused: wasReused } = await readProject(source, project, detectionWindow, shared);
+      if (wasReused) reusedHere += 1;
       const risks = raw
         .map((item) => normalizeRisk(item, project, now))
         // The server already applied the window where it could; this also
@@ -305,6 +382,7 @@ export async function collectProjectRisks(
     source: source.name,
     resolvedPath: source.resolvedPath,
     stats: source.stats ?? null,
+    reused: reusedHere,
     generatedAt: now.toISOString(),
     projects: summaries,
   };

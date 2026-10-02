@@ -96,7 +96,8 @@ For production, put an HTTPS reverse proxy in front and set the **Reminder serve
 | `CX_API_KEY` ⬆ | The integration key: password sign-ins, report triage, automation. An Admin can also store it in Settings. |
 | `CX_BASE_URL`, `CX_IAM_URL`, `CX_TENANT` ⬆ | Single-tenant / on-prem only. Otherwise worked out from the key. |
 | `CX_RISK_SOURCE`, `CX_RISKS_PATH` | Where findings come from (`risk-insights` with `/api/risks/`, or `scan-results`). `/api/risks/ai-insights` adds AI status. |
-| `CX_MAX_CONCURRENCY` (24), `CX_FETCH_CONCURRENCY` (10) | Calls to Checkmarx One at once; projects read at once per fetch. |
+| `CX_MAX_CONCURRENCY` (24), `CX_FETCH_CONCURRENCY` (10), `CX_PAGES_AT_ONCE` (4) | Calls to Checkmarx One at once; projects read at once per fetch; pages of one big project read at once. |
+| `CX_FETCH_CACHE_SECONDS` (120) | A project someone fetched this recently is reused by the next fetch (same key, same latest scan, not triaged from here since). `0` switches it off. |
 | **Email** | |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` ⬆ | The mail server. 465 needs `SMTP_SECURE=true`; 587 / 25 / 2525 need `false`. |
 | `SMTP_USER`, `SMTP_PASS` ⬆ | The sending account (Gmail: an App Password). |

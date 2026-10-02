@@ -238,17 +238,74 @@
       return parsed;
     }
 
+    // Answers that came with the opening call, used once by the first ask for
+    // each finding (and only for a few seconds), so opening is one round trip.
+    const early = { triage: new Map(), remediation: new Map(), credits: null };
+    let earlyUntil = 0;
+    const takeEarly = (map, list) => {
+      const out = new Array(list.length);
+      const rest = [];
+      const valid = Date.now() < earlyUntil;
+      list.forEach((f, i) => {
+        if (valid && map.has(f)) out[i] = map.get(f);
+        else rest.push(i);
+        map.delete(f);
+      });
+      return { out, rest };
+    };
+    async function batched(path, list, map) {
+      const { out, rest } = takeEarly(map, list);
+      for (let i = 0; i < rest.length; i += 200) {
+        const part = rest.slice(i, i + 200);
+        const answer = await post(path, { findings: part.map((index) => wire(list[index])) });
+        part.forEach((index, k) => (out[index] = answer.results[k]));
+      }
+      return out;
+    }
+    // One signed finding per project is enough to ask about that project.
+    const perProject = () => {
+      const one = new Map();
+      for (const f of findings) if (f.grant && !one.has(f.projectId)) one.set(f.projectId, f);
+      return [...one.values()];
+    };
+
     return {
-      connect() {
+      async connect() {
         // Bounded: an address that never answers must not leave the report "connecting" for minutes.
-        return post('/api/relay/status', {}, 0, 15000);
+        // One call brings the status, the credits and where every finding stands. A server
+        // from before that call answers 404, and the report asks the separate questions instead.
+        const triageList = findings.filter((f) => !f.aiUnavailable && f.grant).slice(0, 500);
+        const remediationList = remediationCandidates().filter((f) => f.grant).slice(0, 500);
+        const creditList = perProject().slice(0, 500);
+        let hello;
+        try {
+          hello = await post('/api/relay/hello', {
+            credits: creditList.map(wire),
+            findings: triageList.map(wire),
+            remediation: remediationList.map(wire),
+          }, 0, 15000);
+        } catch (error) {
+          // An older server (404), or a list it turned down: ask the separate questions, as reports always did.
+          if (!(error.status >= 400 && error.status < 500 && error.status !== 429)) throw error;
+          return post('/api/relay/status', {}, 0, 15000);
+        }
+        earlyUntil = Date.now() + 10_000;
+        hello.triageResults?.results?.forEach((answer, i) => early.triage.set(triageList[i], answer));
+        hello.remediationStatus?.results?.forEach((answer, i) => early.remediation.set(remediationList[i], answer));
+        if (hello.projects) early.credits = { projects: hello.projects, creditsRemaining: hello.creditsRemaining };
+        return hello;
       },
       async credits() {
-        // One signed finding per project is enough to ask about that project.
-        const perProject = new Map();
-        for (const f of findings) if (f.grant && !perProject.has(f.projectId)) perProject.set(f.projectId, f);
-        if (!perProject.size) return;
-        const answer = await post('/api/relay/credits', { findings: [...perProject.values()].map(wire) });
+        if (early.credits && Date.now() < earlyUntil) {
+          const answer = early.credits;
+          early.credits = null;
+          updateCredits(answer.projects);
+          showCredits(answer.creditsRemaining);
+          return;
+        }
+        const list = perProject();
+        if (!list.length) return;
+        const answer = await post('/api/relay/credits', { findings: list.map(wire) });
         updateCredits(answer.projects);
         showCredits(answer.creditsRemaining);
       },
@@ -258,12 +315,8 @@
         updateCredits(answer.projects, true);
         return answer.results;
       },
-      async results(list) {
-        const out = [];
-        for (let i = 0; i < list.length; i += 200) {
-          out.push(...(await post('/api/relay/triage-results', { findings: list.slice(i, i + 200).map(wire) })).results);
-        }
-        return out;
+      results(list) {
+        return batched('/api/relay/triage-results', list, early.triage);
       },
       async remediate(f) {
         const answer = await post('/api/relay/remediate', { findings: [wire(f)] });
@@ -274,12 +327,8 @@
       remediationDetails(f) {
         return post('/api/relay/remediation-details', { findings: [wire(f)] });
       },
-      async remediationStatus(list) {
-        const out = [];
-        for (let i = 0; i < list.length; i += 200) {
-          out.push(...(await post('/api/relay/remediation-status', { findings: list.slice(i, i + 200).map(wire) })).results);
-        }
-        return out;
+      remediationStatus(list) {
+        return batched('/api/relay/remediation-status', list, early.remediation);
       },
     };
   }
@@ -1061,8 +1110,13 @@
   }
 
   /** Show remediations already done (or running) for the findings in this report. */
+  /** The findings whose remediation state the report shows. */
+  function remediationCandidates() {
+    return findings.filter((f) => f.shown && !f.hidden && !f.aiUnavailable && row(f)?.querySelector('[data-action="remediate"]'));
+  }
+
   async function loadExistingRemediation() {
-    const eligible = findings.filter((f) => f.shown && !f.hidden && !f.aiUnavailable && row(f)?.querySelector('[data-action="remediate"]'));
+    const eligible = remediationCandidates();
     if (!eligible.length) return;
     let done = 0;
     await askUntilKnown(eligible, (list) => backend.remediationStatus(list), (f, a) => {

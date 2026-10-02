@@ -3580,7 +3580,7 @@ async function fetchProjects() {
   renderProjects();
 
   try {
-    const result = await streamScan(`/api/scan?stream=1&${windowParams()}`, {
+    const result = await streamScan(`/api/scan?stream=1&${windowParams()}${$('fetch-fresh')?.checked ? '&fresh=1' : ''}`, {
       start: (event) => {
         total = event.total;
         schedule();
@@ -3610,7 +3610,8 @@ async function fetchProjects() {
         : '';
     $('fetch-meta').textContent =
       `${result.totals.risks} finding(s) in ${(result.elapsedMs / 1000).toFixed(1)}s via ${result.resolvedPath}` +
-      (result.stats?.requests ? ` · ${result.stats.requests} API request(s)` : '');
+      (result.stats?.requests ? ` · ${result.stats.requests} API request(s)` : '') +
+      (result.reused ? ` · ${result.reused} project(s) reused from a read made moments ago` : '');
     setStatus(
       'status',
       `Loaded ${result.totals.projects} project(s)${skipped}.` +

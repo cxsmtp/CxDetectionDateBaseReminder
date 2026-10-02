@@ -1,3 +1,4 @@
+import { mapWithConcurrency } from './client.js';
 import { withinWindow } from '../window.js';
 
 /** Projects API: GET /api/projects (offset/limit paginated). */
@@ -40,13 +41,14 @@ const chunk = (items, size) => {
 export async function getLastScans(client, projectIds) {
   if (projectIds.length === 0) return {};
 
-  const merged = {};
-  for (const ids of chunk(projectIds, LAST_SCAN_CHUNK)) {
-    const response = await client.request('/api/projects/last-scan', {
+  // The chunks are independent: a few at once.
+  const answers = await mapWithConcurrency(chunk(projectIds, LAST_SCAN_CHUNK), 4, (ids) =>
+    client.request('/api/projects/last-scan', {
       query: { 'project-ids': ids, 'scan-status': 'Completed' },
-    });
-    if (response && typeof response === 'object') Object.assign(merged, response);
-  }
+    }),
+  );
+  const merged = {};
+  for (const response of answers) if (response && typeof response === 'object') Object.assign(merged, response);
   return merged;
 }
 

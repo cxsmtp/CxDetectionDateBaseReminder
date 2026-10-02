@@ -204,6 +204,7 @@ const someProjects = (n) => Array.from({ length: n }, () => pick(projectIds));
 const OPS = {
   // Emailed HTML reports, through the relay
   'report: connect': () => call('report: connect', 'POST', '/api/relay/status', { body: {} }),
+  'report: hello': (p) => call('report: hello', 'POST', '/api/relay/hello', { body: { credits: [reportFindings[p][0]], findings: reportFindings[p], remediation: reportFindings[p] } }),
   'report: credits': (p = pick([...Array(PROJECTS).keys()])) => call('report: credits', 'POST', '/api/relay/credits', { body: { findings: [reportFindings[p][0]] } }),
   'report: remediation state': (p = pick([...Array(PROJECTS).keys()])) => call('report: remediation state', 'POST', '/api/relay/remediation-status', { body: { findings: reportFindings[p] } }),
   'report: triage results': (p = pick([...Array(PROJECTS).keys()])) => call('report: triage results', 'POST', '/api/relay/triage-results', { body: { findings: reportFindings[p] } }),
@@ -302,15 +303,25 @@ const until = async (fn) => {
 /** Think time that never runs past the end of the phase. */
 const nap = (ms) => sleep(Math.max(0, Math.min(ms, end - Date.now())));
 
+// An older server has no /api/relay/hello: its readers open the way reports did before it.
+const helloMissing = (await fetch(`${BASE}/api/relay/hello`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status === 404;
+console.log(`Reports open with ${helloMissing ? 'status + credits + triage results + remediation state (no /hello on this server)' : 'one /api/relay/hello call'}.`);
 const ROLES = {
   // Someone with an emailed HTML report open: connects, reads credits and remediation
   // state, sometimes triages or remediates, and polls triage results while open.
   async reader(n) {
     const p = n % PROJECTS;
     await nap(Math.random() * POLL);
-    await OPS['report: connect']();
-    await OPS['report: credits'](p);
-    await OPS['report: remediation state'](p);
+    // Opening, as the report does: one call where the server has it; otherwise the
+    // status, then credits, triage results and remediation state side by side.
+    const opened = performance.now();
+    if (helloMissing) {
+      await OPS['report: connect']();
+      await Promise.all([OPS['report: credits'](p), OPS['report: triage results'](p), OPS['report: remediation state'](p)]);
+    } else {
+      await OPS['report: hello'](p);
+    }
+    record('report: open (all states known)', performance.now() - opened, 200);
     if (n % 5 === 0) await OPS['report: triage'](p);
     if (n % 20 === 0) await OPS['report: remediate'](p);
     let polls = 0;

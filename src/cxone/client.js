@@ -15,6 +15,8 @@ export class CxApiError extends Error {
 }
 
 const RETRYABLE = new Set([429, 502, 503, 504]);
+// Pages of one collection read at once once its size is known (CX_PAGES_AT_ONCE).
+const PAGES_AT_ONCE = Math.max(1, Number(process.env.CX_PAGES_AT_ONCE) || 4);
 // One request may not hang the caller for minutes (Node's fetch has no overall timeout).
 const REQUEST_TIMEOUT_MS = Math.max(5_000, Number(process.env.CX_REQUEST_TIMEOUT_MS) || 60_000);
 
@@ -173,13 +175,19 @@ export class CxClient {
   /**
    * Walk an offset/limit paginated collection.  Checkmarx One is not entirely
    * consistent about the envelope key, so the caller says where the rows live.
+   *
+   * When the first page says how many rows there are, the remaining pages are
+   * read a few at a time instead of one after another (still within the
+   * shared limit on calls to Checkmarx One), and handed out in order. The end
+   * is where it always was: the total, or the first short page.
    */
-  async *paginate(path, { query = {}, itemsKey, limit = 100, maxItems = 10_000, offsetIsPage = false } = {}) {
+  async *paginate(path, { query = {}, itemsKey, limit = 100, maxItems = 10_000, offsetIsPage = false, parallel = PAGES_AT_ONCE } = {}) {
     let offset = 0;
     let fetched = 0;
+    const read = (at) => this.request(path, { query: { ...query, offset: at, limit } });
 
     while (fetched < maxItems) {
-      const page = await this.request(path, { query: { ...query, offset, limit } });
+      const page = await read(offset);
       const items = extractItems(page, itemsKey);
       if (items.length === 0) return;
 
@@ -205,6 +213,36 @@ export class CxClient {
       }
       if (Number.isFinite(total) && fetched >= total) return;
       offset += limit;
+
+      // The rest at once (a few ahead), now that the size is known.
+      if (parallel > 1 && Number.isFinite(total) && total > fetched) {
+        const offsets = [];
+        for (let at = offset; at < Math.min(total, offset + (maxItems - fetched)); at += limit) offsets.push(at);
+        // Marked handled when asked for: a page that fails while an earlier one
+        // is still awaited must not count as an unhandled rejection. Awaiting it
+        // still throws.
+        const ask = (at) => {
+          const pending = read(at);
+          pending.catch(() => {});
+          return pending;
+        };
+        const ahead = offsets.slice(0, parallel).map(ask);
+        let next = ahead.length;
+        let lastFull = true;
+        for (let i = 0; i < offsets.length && lastFull; i++) {
+          const rows = extractItems(await ahead[i], itemsKey);
+          if (next < offsets.length) ahead.push(ask(offsets[next++]));
+          for (const item of rows) {
+            yield item;
+            fetched += 1;
+            if (fetched >= maxItems) return;
+          }
+          // Ran out early: the total was generous.
+          lastFull = rows.length >= limit;
+        }
+        if (!lastFull || fetched >= total) return;
+        offset = offsets.length ? offsets[offsets.length - 1] + limit : offset;
+      }
     }
   }
 }
