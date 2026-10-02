@@ -6,6 +6,7 @@ import express from 'express';
 import { config, configProblems } from './config.js';
 import { APP_VERSION } from './version.js';
 import { SendGuard } from './send-guard.js';
+import { Diagnostics } from './diagnostics.js';
 import { filterProjectsByActivity, getLastScans, lastScanDate, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, selectRisks, summariseProject } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
@@ -35,7 +36,7 @@ import { buildReminder, buildReportData, buildReportEmail } from './reminder.js'
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
 import { publicConnection } from './cxone/endpoints.js';
-import { sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
+import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
 import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, isVerified, parseAddressList, publicSettings, smtpFingerprint } from './settings.js';
 import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
 import { SECRET_VARIABLES, parseEnvText, settingsFromEnv } from './env-import.js';
@@ -123,7 +124,12 @@ const idList = (value, max = 5000) => (Array.isArray(value) ? [...new Set(value.
 
 /** One request at a time per vulnerability, across every path that sends AI Triage or Remediation. */
 const sendGuard = new SendGuard();
+/** Usage, errors and discrepancies, privacy-safe, for the Logs page's troubleshooting download. */
+const diagnostics = new Diagnostics({ file: path.join(dataDir, 'diagnostics.jsonl'), version: APP_VERSION });
+onMailFailure((error) => diagnostics.error('mail-failed', error));
+process.on('exit', () => diagnostics.flush());
 const BUSY_REASON = 'Already being sent by another request (another report, user or tab); not sent twice.';
+const noteBusy = (kind, busy) => busy.length && diagnostics.discrepancy('send-busy', { kind, count: busy.length });
 
 const iam = new IamStore({ file: path.join(dataDir, 'iam.json') });
 let setupCode = '';
@@ -296,6 +302,15 @@ app.use(securityHeaders({ scriptHashes: inlineScriptHashes(path.join(publicDir, 
 app.use(express.json({ limit: '4mb' }));
 // A browser request that changes state must come from this server's own pages.
 app.use('/api', sameOriginGuard({ exempt: ['/relay'] }));
+app.use('/api', (req, res, next) => {
+  const started = Date.now();
+  res.on('finish', () => {
+    const route = req.route ? `${req.baseUrl}${req.route.path}` : '(unmatched)';
+    if (route === '/api/health' || route === '/api/diagnostics/client-error') return;
+    diagnostics.usage(`${req.method} ${route}`, { status: res.statusCode, ms: Date.now() - started });
+  });
+  next();
+});
 app.use(express.static(publicDir));
 
 /**
@@ -418,6 +433,41 @@ app.get('/api/health', (req, res) => {
 });
 
 /** Load and cache figures, for whoever operates this server. */
+/**
+ * The troubleshooting log, for whoever maintains this server: which features
+ * are used, where errors and discrepancies happen, and recommended fixes.
+ * Holds no personal data, keys, findings or code (see src/diagnostics.js).
+ */
+app.get('/api/diagnostics/download', requirePermission('diagnostics.export'), async (req, res) => {
+  const actor = await adminActor(req);
+  const report = diagnostics.report({
+    extra: {
+      configuration: {
+        riskSource: config.risks.source,
+        fetchConcurrency: config.concurrency,
+        dataDirFrom: dataDirSource,
+        cxoneConnected: Boolean(integrationSession()),
+        smtpVerified: Boolean(settingsStore.get().verifiedFingerprint),
+        users: iam.users().length,
+        trackedReports: trackedReports.list?.().length ?? null,
+      },
+    },
+  });
+  audit.record({ type: 'audit', outcome: 'changed', reason: 'Troubleshooting log downloaded (no personal data, keys or findings).', actor });
+  const name = `mission-zero-troubleshooting-${APP_VERSION}-${new Date().toISOString().slice(0, 10)}.json`;
+  res.set('Content-Disposition', `attachment; filename="${name}"`).type('application/json').send(JSON.stringify(report, null, 2));
+});
+
+/** Script errors in the page, so bugs in the browser show up in the troubleshooting log too. */
+app.post('/api/diagnostics/client-error', requireSession, (req, res) => {
+  const b = req.body ?? {};
+  const page = String(b.page ?? '').replace(/[^#/a-z-]/gi, '').slice(0, 40);
+  diagnostics.record('client-error', 'page-script-error', {
+    message: b.message, source: String(b.source ?? '').split('/').pop(), line: Number(b.line) || 0, column: Number(b.column) || 0, page, detail: b.stack,
+  });
+  res.status(204).end();
+});
+
 app.get('/api/metrics', requirePermission('system.metrics'), async (req, res) => {
   const session = await resolveAutomationSession();
   const memory = process.memoryUsage();
@@ -1522,6 +1572,10 @@ async function runScan(req, { onStart, onProject } = {}) {
   }
   result.initiators = initiators.byProject;
   result.detectionWindow = detectionWindow;
+  for (const summary of result.projects) {
+    if (summary.error) diagnostics.discrepancy('project-read-failed', { project: summary.projectId, message: summary.error });
+  }
+  diagnostics.usage('fetch-complete', { projects: result.projects.length, findings: result.projects.reduce((n, p) => n + p.totalRisks, 0), ms: Date.now() - started });
   // Fetching shows what the findings need; it never allocates anything.
   for (const summary of result.projects) summary.credits = creditView(summary);
   req.session.lastScan = result;
@@ -1605,6 +1659,7 @@ app.get(
       release();
       const expected = Number.isInteger(error.status) && error.status >= 400 && error.status < 600;
       console.error(`GET /api/scan (stream) -> ${logSafe(expected ? error.message : error.stack ?? error.message)}`);
+      diagnostics.error('fetch-failed', error, { status: expected ? error.status : 500 });
       send({ type: 'error', status: expected ? error.status : 500, error: expected ? error.message : 'Something went wrong on the server. The details are in its log.' });
     } finally {
       release();
@@ -2260,6 +2315,7 @@ function creditRefusal(projectId, projectName, kind, credits, limit) {
   const project = projectName || projectId;
   const left = allocations.balance(projectId)[kind].remaining;
   if (credits > left) {
+    diagnostics.discrepancy('credit-refused', { kind, credits, project: projectId, reason: left === 0 ? 'none allocated' : 'too few allocated' });
     return left === 0
       ? `${project} has no ${KIND_NAMES[kind]} credits left (${credits} needed). Ask your administrator to allocate more.`
       : `${project} has ${left} ${KIND_NAMES[kind]} credit${left === 1 ? '' : 's'} left, ${credits} needed. Ask your administrator to allocate more.`;
@@ -2396,6 +2452,7 @@ app.post(
     if (claim.busy.length) {
       results.push({ alternateIds: [...new Set(claim.busy.map((f) => f.alternateId))], ok: false, status: 409, busy: true, error: BUSY_REASON });
       auditRefusedRequest('triage', actor, claim.busy, BUSY_REASON);
+      noteBusy('triage', claim.busy);
     }
     const sentNow = allowRetriage ? new Map() : new Map([...new Set(findings.map((f) => f.projectId))].map((id) => [id, creditLedger.triagedAt(id)]));
     for (const [key, group] of buckets) {
@@ -2746,6 +2803,7 @@ app.post(
     const claim = sendGuard.claim('remediation', findings);
     if (claim.busy.length) {
       auditRefusedRequest('remediation', actor, findings, BUSY_REASON);
+      noteBusy('remediation', claim.busy);
       return res.status(409).json({ busy: true, error: BUSY_REASON });
     }
     try {
@@ -2978,14 +3036,17 @@ async function verifyNeeds(session, projects, { severities = null } = {}) {
         if (sameRule && (need.toTriage !== verified.triage.results || need.toRemediate !== verified.remediation.results)) {
           verified.agreed = false;
           verified.reason = 'The credit count did not match the verified Checkmarx One results.';
+          diagnostics.discrepancy('credit-count-mismatch', { project: p.projectId, results: verified.triage.results, credits: need.toTriage });
         }
       } else {
         verified.reason = DISAGREED;
+        diagnostics.discrepancy('credit-verify-disagreed', { project: p.projectId, reads: [first.triage.results.length, second.triage.results.length] });
       }
       p.verified = verified;
       return { projectId: p.projectId, ...verified };
     } catch (error) {
       p.verified = { at: Date.now(), agreed: false, reason: `Could not read Checkmarx One: ${error.message}` };
+      diagnostics.error('verify-read-failed', error, { project: p.projectId });
       return { projectId: p.projectId, ...p.verified };
     }
   });
@@ -3146,6 +3207,7 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
   // request that just finished has recorded it.
   const claim = sendGuard.claim('triage', eligible);
   if (claim.busy.length) auditRefusedRequest('triage', actor, claim.busy, BUSY_REASON);
+  noteBusy('triage', claim.busy);
   eligible = claim.claimed;
   if (!settingsStore.get().aiTriage?.allowRetriage) {
     const sentNow = eligible.filter((f) => alreadySent(f, creditLedger.triagedAt(f.projectId)));
@@ -3337,6 +3399,7 @@ async function adminRemediate(session, findings, initiatorsByProject = {}, { act
   // Fail-safe: claim before sending; then drop what has been remediated meanwhile.
   const claim = sendGuard.claim('remediation', eligible);
   if (claim.busy.length) auditRefusedRequest('remediation', actor, claim.busy, BUSY_REASON);
+  noteBusy('remediation', claim.busy);
   eligible = claim.claimed;
   if (!settingsStore.get().aiTriage?.allowReremediation) {
     eligible = eligible.filter((f) => !creditLedger.remediatedIds(f.projectId).has(f.riskId));
@@ -4852,7 +4915,11 @@ app.use((error, req, res, next) => {
   // in the server log, and the browser gets a plain message.
   const expected = Number.isInteger(error.status) && error.status >= 400 && error.status < 600;
   console.error(`${logSafe(req.method)} ${logSafe(req.path)} ->`, logSafe(expected ? error.message : error.stack ?? error.message));
-  if (!expected) return res.status(500).json({ error: 'Something went wrong on the server. The details are in its log.' });
+  if (!expected) {
+    diagnostics.error('unexpected-error', error, { route: req.route ? `${req.baseUrl}${req.route.path}` : '(unmatched)', method: req.method });
+    return res.status(500).json({ error: 'Something went wrong on the server. The details are in its log.' });
+  }
+  if (error.status >= 500) diagnostics.error('upstream-error', error, { route: req.route ? `${req.baseUrl}${req.route.path}` : '(unmatched)', status: error.status });
   res.status(error.status).json({ error: error.message ?? 'Unexpected error.', detail: error.body ?? undefined });
 });
 

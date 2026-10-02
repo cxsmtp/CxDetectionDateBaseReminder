@@ -1,4 +1,22 @@
 const $ = (id) => document.getElementById(id);
+
+// Script errors go to the server's troubleshooting log (scrubbed there; at most 20 per page load).
+let reportedErrors = 0;
+function reportClientError(message, source = '', line = 0, column = 0, stack = '') {
+  if (reportedErrors++ >= 20) return;
+  fetch('/api/diagnostics/client-error', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: String(message).slice(0, 300), source, line, column, stack: String(stack).slice(0, 300), page: location.hash }),
+  }).catch(() => {});
+}
+window.addEventListener('error', (e) => reportClientError(e.message, e.filename, e.lineno, e.colno, e.error?.stack));
+window.addEventListener('unhandledrejection', (e) => reportClientError(e.reason?.message ?? e.reason, '', 0, 0, e.reason?.stack));
+$('download-diagnostics')?.addEventListener('click', () => {
+  // A plain download: the server sends it as an attachment.
+  location.href = '/api/diagnostics/download';
+});
 /** "10 Checkmarx One results (12 findings — rows sharing a result count once)": why the rows and the credits differ. */
 function resultsText(results, rows) {
   const r = `${results} Checkmarx One result${results === 1 ? '' : 's'}`;

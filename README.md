@@ -37,6 +37,25 @@ it, so you can tell which image a container runs.
 
 ## The pages
 
+### Troubleshooting log (Logs page)
+
+The server keeps a usage and troubleshooting log: which features are used and
+how fast, where errors happen (server and browser), and where numbers disagree
+— Checkmarx One answering differently on two reads, requests refused for lack
+of credits, a finding already being sent, a project that could not be read,
+mail that failed. **Download troubleshooting log** on the Logs page gives it
+as one JSON file, with recommended fixes worked out from it, to send to whoever
+maintains Mission Zero.
+
+It captures no sensitive information: no names, email addresses, passwords,
+keys, tokens, hosts, URLs, findings or code. Entries keep only feature names,
+route templates, counts, timings, status codes and error types; any error text
+is scrubbed of addresses, URLs, IPs, tokens and paths, and project ids become
+one-way codes. It is kept in `/data/diagnostics.jsonl` (newest 20,000 entries)
+and downloading it needs the **Download troubleshooting logs** permission
+(Admins and Security Analysts). `test/diagnostics.test.js` and the end-to-end
+check in `test/verified-credits.e2e.test.js` confirm nothing sensitive gets in.
+
 ### Dashboard
 
 Pick a **scope**, click **Fetch vulnerability data**, and every project comes back
