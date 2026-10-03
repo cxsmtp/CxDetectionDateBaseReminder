@@ -4896,7 +4896,7 @@ document.addEventListener('keydown', (event) => {
 });
 
 function renderAbout() {
-  $('about-version').textContent = state.health?.version ? `MZ-${state.health.version.split('.').map((n) => n.padStart(2, '0')).join('.')}` : '—';
+  $('about-version').textContent = state.health?.version || '—';
   const t = state.me?.terms;
   $('about-terms-state').textContent = t ? `Version ${t.version}${t.accepted ? ' — accepted by you' : ''}${t.organisationAccepted ? ', and for the organisation' : ''}` : '—';
 }
