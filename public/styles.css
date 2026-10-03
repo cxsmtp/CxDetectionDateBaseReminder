@@ -1421,3 +1421,11 @@ body.fetching [data-needs-data] { opacity: 0.45; cursor: not-allowed; }
   .terms-head, .terms-text, .terms-foot { padding-left: 14px; padding-right: 14px; }
   .terms-link { bottom: calc(74px + env(safe-area-inset-bottom)); }
 }
+
+/* ---------------- Beta: source-code hosts ---------------- */
+.id-hosts { margin: 4px 0 12px; flex-wrap: wrap; }
+.host-box { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-top: 10px; background: var(--surface); }
+.host-box[open] { background: var(--surface-2); }
+.host-box summary { cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.host-box summary .chip.ok { color: var(--ok); background: var(--ok-soft); }
+.host-box > .hint { margin: 8px 0; }

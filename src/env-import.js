@@ -69,17 +69,27 @@ export const ENV_SETTINGS = {
   GITHUB_TOKEN: { part: 'github', permission: 'beta.use', apply: (s, v) => (s.github.token = v) },
   GITHUB_API_URL: { part: 'github', permission: 'beta.use', apply: (s, v) => (s.github.apiUrl = v) },
   GITHUB_ORG: { part: 'github', permission: 'beta.use', apply: (s, v) => (s.github.org = v) },
+  // Beta: GitLab, Azure DevOps and Bitbucket (blame, username matching).
+  GITLAB_URL: { part: 'gitlab', permission: 'beta.use', apply: (s, v) => (s.gitlab.apiUrl = v) },
+  GITLAB_TOKEN: { part: 'gitlab', permission: 'beta.use', apply: (s, v) => (s.gitlab.token = v) },
+  GITLAB_GROUP: { part: 'gitlab', permission: 'beta.use', apply: (s, v) => (s.gitlab.group = v) },
+  AZURE_DEVOPS_ORG_URL: { part: 'azure', permission: 'beta.use', apply: (s, v) => (s.azure.orgUrl = v) },
+  AZURE_DEVOPS_TOKEN: { part: 'azure', permission: 'beta.use', apply: (s, v) => (s.azure.token = v) },
+  BITBUCKET_URL: { part: 'bitbucket', permission: 'beta.use', apply: (s, v) => Object.assign(s.bitbucket, { apiUrl: v, kind: /bitbucket\.org/.test(v) ? 'cloud' : 'server' }) },
+  BITBUCKET_USERNAME: { part: 'bitbucket', permission: 'beta.use', apply: (s, v) => (s.bitbucket.username = v) },
+  BITBUCKET_TOKEN: { part: 'bitbucket', permission: 'beta.use', apply: (s, v) => (s.bitbucket.token = v) },
+  BITBUCKET_WORKSPACE: { part: 'bitbucket', permission: 'beta.use', apply: (s, v) => (s.bitbucket.workspace = v) },
 };
 
 /** Secrets: reported by name only, never echoed back. */
-export const SECRET_VARIABLES = new Set(['CX_API_KEY', 'SMTP_PASS', 'SMTP_PASSWORD', 'GITHUB_TOKEN']);
+export const SECRET_VARIABLES = new Set(['CX_API_KEY', 'SMTP_PASS', 'SMTP_PASSWORD', 'GITHUB_TOKEN', 'GITLAB_TOKEN', 'AZURE_DEVOPS_TOKEN', 'BITBUCKET_TOKEN']);
 
 /**
  * Turn parsed variables into setting changes this person may make.
  * Returns {changes: {cxone?, smtp?, links?}, applied: [names], refused: [names], ignored: [names]}.
  */
 export function settingsFromEnv(vars, may = () => true) {
-  const draft = { cxone: {}, smtp: {}, links: {}, github: {} };
+  const draft = { cxone: {}, smtp: {}, links: {}, github: {}, gitlab: {}, azure: {}, bitbucket: {} };
   const applied = [];
   const refused = [];
   const ignored = [];

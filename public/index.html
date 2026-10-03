@@ -1038,14 +1038,14 @@
           <div id="page-beta" class="page beta" hidden>
             <div class="beta-banner">
               <span class="badge warn">Beta</span>
-              <span>Experimental features. They read your repositories' git history and, optionally, GitHub's API — check results before relying on them.</span>
+              <span>Experimental features. They read your repositories' git history and, optionally, the APIs of GitHub, GitLab, Azure DevOps and Bitbucket — check results before relying on them.</span>
             </div>
 
             <section class="panel" id="beta-authors">
               <div class="panel-head">
                 <div>
                   <h2>Email the authors of vulnerable code</h2>
-                  <p class="hint">For each finding: its exact file and line from Checkmarx One, who last changed that line (git blame at the scanned commit), and their real address.</p>
+                  <p class="hint">For each finding: its exact file and line from Checkmarx One, who last changed that line at the scanned commit (through the GitHub, GitLab or Bitbucket Data Center API, or git blame on any host, with that host's token for private repositories), and their real address.</p>
                 </div>
                 <span class="chip" id="authors-scope"></span>
               </div>
@@ -1080,11 +1080,17 @@
             <section class="panel" id="beta-identity">
               <div class="panel-head">
                 <div>
-                  <h2>Match GitHub usernames to email addresses</h2>
-                  <p class="hint">Scan initiators are often GitHub usernames. Run the four methods side by side on your own usernames and keep the matches you trust.</p>
+                  <h2>Match usernames to email addresses</h2>
+                  <p class="hint">Scan initiators are often usernames on your source-code host. Pick the host, run its methods side by side on your own usernames, and keep the matches you trust.</p>
                 </div>
               </div>
-              <div class="method-grid">
+              <div class="segmented id-hosts" role="radiogroup" aria-label="Source-code host">
+                <label class="mode"><input type="radio" name="idHost" value="github" checked /> <span>GitHub</span></label>
+                <label class="mode"><input type="radio" name="idHost" value="gitlab" /> <span>GitLab</span></label>
+                <label class="mode"><input type="radio" name="idHost" value="azure" /> <span>Azure DevOps</span></label>
+                <label class="mode"><input type="radio" name="idHost" value="bitbucket" /> <span>Bitbucket</span></label>
+              </div>
+              <div class="method-grid" id="id-methods">
                 <label class="method-card"><input type="checkbox" class="gh-method" value="localGit" checked />
                   <span><strong>Local git history</strong><small>Noreply commits and author names in repositories you name. No API calls.</small></span></label>
                 <label class="method-card"><input type="checkbox" class="gh-method" value="graphql" checked />
@@ -1095,7 +1101,7 @@
                   <span><strong>Public profile</strong><small>The email on their GitHub profile, if public. One request each.</small></span></label>
               </div>
               <label class="field">
-                <span>GitHub usernames to match — one per line <button id="gh-load-logins" type="button" class="link">Load scan initiators</button></span>
+                <span><span id="id-logins-label">GitHub usernames</span> to match — one per line <button id="gh-load-logins" type="button" class="link">Load scan initiators</button></span>
                 <textarea id="gh-logins" rows="4" spellcheck="false" class="code" placeholder="octocat"></textarea>
               </label>
               <div class="actions compact">
@@ -1130,16 +1136,72 @@
                 <label class="field"><span>Organisation</span><input id="gh-org" spellcheck="false" placeholder="acme" /></label>
                 <label class="field"><span>Repositories for commit lookups — owner/name, one per line</span><textarea id="gh-repos" rows="2" spellcheck="false" class="code" placeholder="acme/payments-api"></textarea></label>
               </div>
-              <label class="field"><span>Local repositories — paths on this server, or https clone URLs (cloned without file contents)</span><textarea id="gh-local" rows="2" spellcheck="false" class="code" placeholder="https://github.com/acme/payments-api.git"></textarea></label>
+              <label class="field"><span>Local repositories, for any host — paths on this server, or https clone URLs (cloned without file contents, with that host's token)</span><textarea id="gh-local" rows="2" spellcheck="false" class="code" placeholder="https://github.com/acme/payments-api.git"></textarea></label>
               <div class="toggle-list compact">
-                <label class="switch"><input type="checkbox" id="gh-blame-github" /> <span><strong>Blame through GitHub</strong><small>One GraphQL request per file, for repositories on this GitHub</small></span></label>
-                <label class="switch"><input type="checkbox" id="gh-blame-local" /> <span><strong>Blame with local git</strong><small>Clones each repository once (cached) — works for any host: GitLab, Bitbucket, Azure DevOps</small></span></label>
+                <label class="switch"><input type="checkbox" id="gh-blame-github" /> <span><strong>Blame through the host's API</strong><small>One request per file: GitHub (GraphQL), GitLab and Bitbucket Data Center (REST), when their token is set</small></span></label>
+                <label class="switch"><input type="checkbox" id="gh-blame-local" /> <span><strong>Blame with local git</strong><small>Clones each repository once (cached), with that host's token for private ones — works for any host: Azure DevOps and Bitbucket Cloud (no blame API), GitLab, GitHub…</small></span></label>
               </div>
               <div class="actions compact">
                 <button id="gh-save" type="button" class="primary">Save</button>
                 <button id="gh-clear-token" type="button" class="link">Remove stored token</button>
                 <span class="status" id="gh-save-status"></span>
               </div>
+            </section>
+            <section class="panel" id="beta-hosts">
+              <h2>GitLab, Azure DevOps and Bitbucket</h2>
+              <p class="hint wide">Each token is stored on this server like the SMTP password, never shown again, and only ever sent to its own host. Read-only scopes are enough. Or set them in the .env file (<code>GITLAB_TOKEN</code>, <code>AZURE_DEVOPS_TOKEN</code>, <code>BITBUCKET_TOKEN</code>…).</p>
+
+              <details class="host-box" id="host-gitlab">
+                <summary><strong>GitLab</strong> <span class="chip" data-host-state="gitlab"></span></summary>
+                <p class="hint">A personal, group or project access token with <code>read_api</code> and <code>read_repository</code>. Blame through the API, GraphQL user batches, profiles, and commits by name.</p>
+                <div class="grid2">
+                  <label class="field"><span>Token <span class="muted" data-token-state="gitlab"></span></span><input id="gl-token" type="password" autocomplete="new-password" placeholder="Leave blank to keep the stored one" /></label>
+                  <label class="field"><span>Address — self-managed: https://gitlab.acme.com</span><input id="gl-url" spellcheck="false" placeholder="https://gitlab.com" /></label>
+                  <label class="field"><span>Group (optional)</span><input id="gl-group" spellcheck="false" placeholder="acme" /></label>
+                  <label class="field"><span>Projects for commit lookups — group/project, one per line</span><textarea id="gl-projects" rows="2" spellcheck="false" class="code" placeholder="acme/payments-api"></textarea></label>
+                </div>
+                <div class="actions compact">
+                  <button type="button" class="primary" data-host-save="gitlab">Save</button>
+                  <button type="button" data-host-test="gitlab">Test</button>
+                  <button type="button" class="link" data-host-clear="gitlab">Remove stored token</button>
+                  <span class="status" data-host-status="gitlab"></span>
+                </div>
+              </details>
+
+              <details class="host-box" id="host-azure">
+                <summary><strong>Azure DevOps</strong> <span class="chip" data-host-state="azure"></span></summary>
+                <p class="hint">A personal access token with <strong>Code (read)</strong>, <strong>Graph (read)</strong> and <strong>Identity (read)</strong>. Azure DevOps has no blame API: blame uses git on a clone made with this token. Usernames: the organisation directory, identity search, commits.</p>
+                <div class="grid2">
+                  <label class="field"><span>Token <span class="muted" data-token-state="azure"></span></span><input id="az-token" type="password" autocomplete="new-password" placeholder="Leave blank to keep the stored one" /></label>
+                  <label class="field"><span>Organisation — https://dev.azure.com/acme (Server: https://tfs.acme.com/tfs/DefaultCollection)</span><input id="az-org" spellcheck="false" placeholder="https://dev.azure.com/acme" /></label>
+                  <label class="field"><span>Repositories for commit lookups — project/repository, one per line</span><textarea id="az-repos" rows="2" spellcheck="false" class="code" placeholder="Payments/payments-api"></textarea></label>
+                </div>
+                <div class="actions compact">
+                  <button type="button" class="primary" data-host-save="azure">Save</button>
+                  <button type="button" data-host-test="azure">Test</button>
+                  <button type="button" class="link" data-host-clear="azure">Remove stored token</button>
+                  <span class="status" data-host-status="azure"></span>
+                </div>
+              </details>
+
+              <details class="host-box" id="host-bitbucket">
+                <summary><strong>Bitbucket</strong> <span class="chip" data-host-state="bitbucket"></span></summary>
+                <p class="hint"><strong>Cloud:</strong> an app password (with your username) or a workspace/repository access token, read access to repositories and the workspace. Bitbucket Cloud has no blame API, and never shows users' email: blame uses git, and usernames are matched through commit authors. <strong>Data Center:</strong> an HTTP access token; blame through its API, and its user directory.</p>
+                <div class="grid2">
+                  <label class="field"><span>Kind</span><select id="bb-kind"><option value="cloud">Bitbucket Cloud (bitbucket.org)</option><option value="server">Bitbucket Data Center / Server</option></select></label>
+                  <label class="field"><span>Data Center address</span><input id="bb-url" spellcheck="false" placeholder="https://bitbucket.acme.com" /></label>
+                  <label class="field"><span>Username — only with an app password</span><input id="bb-user" spellcheck="false" autocomplete="off" /></label>
+                  <label class="field"><span>Token or app password <span class="muted" data-token-state="bitbucket"></span></span><input id="bb-token" type="password" autocomplete="new-password" placeholder="Leave blank to keep the stored one" /></label>
+                  <label class="field"><span>Workspace (Cloud)</span><input id="bb-workspace" spellcheck="false" placeholder="acme" /></label>
+                  <label class="field"><span>Repositories for commit authors — workspace/repo (Cloud) or PROJECT/repo, one per line</span><textarea id="bb-repos" rows="2" spellcheck="false" class="code" placeholder="acme/payments-api"></textarea></label>
+                </div>
+                <div class="actions compact">
+                  <button type="button" class="primary" data-host-save="bitbucket">Save</button>
+                  <button type="button" data-host-test="bitbucket">Test</button>
+                  <button type="button" class="link" data-host-clear="bitbucket">Remove stored token</button>
+                  <span class="status" data-host-status="bitbucket"></span>
+                </div>
+              </details>
             </section>
           </div>
 

@@ -1,7 +1,8 @@
 # Beta features
 
 Both features live on the **Beta** tab. They read git history and, optionally,
-GitHub's API; check what they find before relying on it.
+the APIs of GitHub, GitLab, Azure DevOps and Bitbucket; check what they find before
+relying on it.
 
 ## Email the authors of vulnerable code
 
@@ -13,14 +14,20 @@ For each finding in the current Dashboard scope (severities and a maximum you ch
 2. **Which code** — the scan's commit when Checkmarx One recorded one, else its
    branch, else the project's main branch. The repository comes from the scan
    (`metadata.Handler.GitHandler.repo_url`) or the project's `repoUrl`.
-3. **Who** — `git blame` of that line: through GitHub GraphQL for repositories
-   on your GitHub (one request per file, however many findings are in it), or
-   `git blame` on a local clone for any host (GitLab, Bitbucket, Azure DevOps,
-   GitHub without a token). Clones are cached under `git-cache/` in the state folder (never backed up) and
-   refreshed at most every 10 minutes.
-4. **Their address** — the commit's author email; if it is a GitHub noreply
-   address, the login is resolved with the identity methods below, starting
-   with the history of the repository just cloned.
+3. **Who** — blame of that line, one request per file however many findings are
+   in it:
+   - **Through the host's API:** GitHub GraphQL, GitLab REST (`…/files/:path/blame`), or Bitbucket Data Center REST (`browse/:path?blame=true`), when that host's token is set.
+   - **Otherwise `git blame` on a local clone:** Azure DevOps and Bitbucket Cloud (they have no blame API), any other host, or a host without a token.
+   - **Credentials:** a clone of a private repository uses that host's own token, sent as an HTTP header in the environment, never in arguments or on disk:
+     - GitHub `x-access-token`;
+     - GitLab `oauth2`;
+     - Azure DevOps a PAT;
+     - Bitbucket an app password or an access token.
+   - **Cache:** clones are kept under `git-cache/` in the state folder (never backed up) and refreshed at most every 10 minutes.
+4. **Their address** — the commit's author email. When it is hidden behind a noreply
+   address (GitHub's `ID+login@users.noreply…`, GitLab's `ID-username@users.noreply…`)
+   or is not usable, the username is resolved with that host's methods below,
+   cheapest first, starting with the history of the repository just cloned.
 
 Each author gets one email listing the findings on lines they last changed,
 with links to the finding in Checkmarx One and to their commit. Preview first.
@@ -80,11 +87,71 @@ does exactly this):
 Matches you tick are saved as initiator overrides (`username = email`) and used
 from the next fetch. Medium-confidence matches (name-based) are left unticked.
 
+## GitLab, Azure DevOps and Bitbucket
+
+Each host gives an address a different way, so each has its own methods, run side by side
+on the Beta page (**Match usernames to email addresses**, pick the host) and cheapest first
+when resolving code authors. Every method reports what it found, how sure it is, and the
+requests it cost.
+
+| Host | Method | How | Cost |
+|---|---|---|---|
+| **GitLab** | Local git history | `git log` of named repositories: GitLab's noreply commits name the user; the same author's other commits give the real address. Also usernames matched to author names and addresses. | 0 requests |
+| | GraphQL batch | `users(usernames: …)`: public email and commit email | 1 request / 100 users |
+| | User profile | `GET /users?username=`: public email (every email with an admin token) | 1 request / user |
+| | Commits by their name | The name from their profile, then the address on their commits in the projects you name | ~2 requests / user |
+| **Azure DevOps** | Local git history | As above | 0 requests |
+| | Organisation directory | Graph `/_apis/graph/users`: sign-in name, mail address and display name of everyone, matched by any of them (or a form of the name) | 1 request / ~500 users |
+| | Identity search | `/_apis/identities?searchFilter=General`: works on Azure DevOps Server too | 1 request / user |
+| | Commit author | Commits by that author in repositories you name | 1 request / user / repository |
+| **Bitbucket Cloud** | Local git history | As above | 0 requests |
+| | Commit authors | Recent commits of repositories you name: each ties the Bitbucket user (nickname, account id) to the address in its author line. Bitbucket Cloud never shows a user's email otherwise. | 1 request / 100 commits |
+| | Workspace members + local history | Members give each username a display name; local history gives that name an address | 1 request / 100 members |
+| **Bitbucket Data Center** | Local git history, Commit authors | As above, from its REST API | |
+| | User directory | `/rest/api/1.0/users`, with each person's email | 1 request / 1000 users |
+| | User search | `/rest/api/1.0/users?filter=` | 1 request / user |
+
+**Not guessing.** A username matched by a *form* of a name (`jdoe` → Jane Doe) is medium
+confidence and left unticked; a name or key shared by two different addresses is never
+matched at all.
+
+**Tokens.** Read-only is enough:
+- **GitLab:** `read_api`, `read_repository`.
+- **Azure DevOps:** a personal access token with Code, Graph and Identity (read).
+- **Bitbucket Cloud:** an app password with your username, or a workspace or repository access token.
+- **Bitbucket Data Center:** an HTTP access token.
+
+Each token is stored like the SMTP password, never sent back to the browser, and only ever
+sent to its own host. An Azure DevOps token goes only to repositories of its own organisation.
+
+**Tested** against API doubles of each host, which answer like the real APIs and count
+requests:
+- **GitLab:** 251 usernames resolved in 3 GraphQL requests; older GitLab without `commitEmail` is asked again without it.
+- **Azure DevOps:** the whole organisation directory in 2 requests.
+- **Bitbucket Cloud:** 2 people from one repository's commits in 2 requests.
+- **Bitbucket Data Center:** the directory in 2 requests.
+
+Run **Compare methods** on your own usernames to see each host's real hit rate.
+
 ## Settings
+
+**Beta → GitLab, Azure DevOps and Bitbucket**:
+- **GitLab:** token, address (self-managed), group, and projects for commit lookups.
+- **Azure DevOps:** token, organisation address, and repositories for commit lookups (project/repository).
+- **Bitbucket:**
+  - Cloud or Data Center;
+  - the Data Center address;
+  - a username (only with an app password);
+  - the token, the workspace, and repositories for commit authors.
+
+**Test** checks each token. The .env file can set them too:
+- `GITLAB_TOKEN`, `GITLAB_URL`, `GITLAB_GROUP`;
+- `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_ORG_URL`;
+- `BITBUCKET_TOKEN`, `BITBUCKET_USERNAME`, `BITBUCKET_WORKSPACE`, `BITBUCKET_URL`.
 
 **Beta → GitHub connection**: token (stored like the SMTP password, never sent
 back; `repo` read access, `read:org` for verified-domain emails), API URL
 (GitHub Enterprise: `https://github.example.com/api/v3`), organisation,
-repositories for commit lookups, local repositories / clone URLs, and whether
-to blame through GitHub and/or local git. The token is only ever sent to its
-own GitHub host.
+repositories for commit lookups, local repositories / clone URLs (for any host),
+and whether to blame through the hosts' APIs and/or local git. The token is only
+ever sent to its own GitHub host.

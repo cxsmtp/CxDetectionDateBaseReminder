@@ -31,6 +31,8 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypt
 import { GitHubClient } from './github/client.js';
 import { METHODS as GITHUB_METHODS, ensureClone, evaluate as evaluateGithub, loginFromNoreply, resolveLogins, usableEmail, validLogin } from './github/identity.js';
 import { blameFindings, codeVersion, locationOf, parseRepoUrl } from './github/blame.js';
+import { SCM_LABELS, SCM_PROVIDERS, checkConnections as checkScmConnections, methodsFor, providerOf, scmClients, scmConfigs } from './scm/providers.js';
+import { addressesAsThemselves, evaluateMethods, resolveWith, validUsername } from './scm/identity.js';
 import { TrackedReports, computeProgress, matchesFilters, reportSummary } from './tracked-reports.js';
 import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
@@ -1309,6 +1311,7 @@ app.post(
     if (changes.smtp) settingsStore.save({ smtp: changes.smtp });
     if (changes.links) settingsStore.save({ links: changes.links });
     if (changes.github) settingsStore.save({ beta: { github: changes.github } });
+    for (const host of ['gitlab', 'azure', 'bitbucket']) if (changes[host]) settingsStore.save({ beta: { [host]: changes[host] } });
     guard.touch();
     const actor = await adminActor(req);
     audit.record({ type: 'settings', outcome: 'changed', reason: `Settings imported from a .env file: ${applied.join(', ')}.`, actor, details: { applied, refused, ignored, secrets: applied.filter((n) => SECRET_VARIABLES.has(n)) } });
@@ -5305,6 +5308,12 @@ function githubConfig(settings = settingsStore.get()) {
   };
 }
 
+/** GitLab, Azure DevOps and Bitbucket: their connections and API clients (built per use: settings may change). */
+function scmHosts(settings = settingsStore.get()) {
+  const configs = scmConfigs(settings);
+  return { configs, clients: scmClients(configs) };
+}
+
 function githubClient(settings = settingsStore.get()) {
   const github = githubConfig(settings);
   return new GitHubClient({ token: github.token, apiUrl: github.apiUrl });
@@ -5424,6 +5433,78 @@ app.post('/api/beta/github/apply', requirePermission('beta.use'), (req, res) => 
   res.json({ applied: mappings.length, overrides: Object.keys(saved.initiators.overrides ?? {}).length });
 });
 
+/**
+ * Usernames → addresses on any host. GitHub keeps its own four methods (above); GitLab,
+ * Azure DevOps and Bitbucket have theirs (src/scm). Scan initiators are offered for the
+ * host their project's repository is on (all of them when that is not known).
+ */
+app.get('/api/beta/scm/logins', requirePermission('beta.use'), (req, res) => {
+  const provider = SCM_PROVIDERS.includes(req.query.provider) ? req.query.provider : 'github';
+  const lastScan = req.session.lastScan;
+  const settings = settingsStore.get();
+  const configs = scmConfigs(settings);
+  const projects = new Map((lastScan?.projects ?? []).map((p) => [p.projectId, p]));
+  const out = new Map();
+  for (const [projectId, info] of Object.entries(lastScan?.initiators ?? {})) {
+    const name = String(info?.initiator ?? '').trim();
+    if (!name || name.includes('@') || !validUsername(provider, name)) continue;
+    const on = providerOf(parseRepoUrl(projects.get(projectId)?.repoUrl ?? ''), configs, githubConfig(settings).apiUrl);
+    if (on && on !== provider) continue;
+    const entry = out.get(name) ?? { login: name, unresolved: false, onHost: false };
+    entry.unresolved ||= !info.email;
+    entry.onHost ||= on === provider;
+    out.set(name, entry);
+  }
+  res.json({ logins: [...out.values()] });
+});
+
+app.post(
+  '/api/beta/scm/evaluate',
+  requirePermission('beta.use'),
+  asyncRoute(async (req, res) => {
+    const provider = String(req.body?.provider ?? '');
+    if (!SCM_PROVIDERS.includes(provider) || provider === 'github') return res.status(400).json({ error: 'Choose GitLab, Azure DevOps or Bitbucket (GitHub has its own comparison).' });
+    const settings = settingsStore.get();
+    const logins = [...new Set((Array.isArray(req.body?.logins) ? req.body.logins : []).map((l) => String(l).trim()).filter((l) => validUsername(provider, l) || usableEmail(l)))].slice(0, 500);
+    if (!logins.length) return res.status(400).json({ error: `No ${SCM_LABELS[provider]} usernames to match. Load the scan initiators, or type them in.` });
+    const { configs, clients } = scmHosts(settings);
+    const methods = methodsFor(provider, clients, configs, { localSources: settingsStore.get().beta?.github?.localRepos ?? [], cacheDir: gitCacheDir });
+    const chosen = Array.isArray(req.body?.methods) && req.body.methods.length ? req.body.methods.map(String) : null;
+    const report = await evaluateMethods({ methods, logins, client: clients[provider], chosen });
+    // Usernames that are already addresses need no method.
+    for (const [login, hit] of Object.entries(addressesAsThemselves(logins))) report.combined[login] ??= { ...hit, method: 'address' };
+    report.resolved = Object.keys(report.combined).length;
+    report.provider = provider;
+    res.json(report);
+  }),
+);
+
+app.post('/api/beta/scm/apply', requirePermission('beta.use'), (req, res) => {
+  const provider = SCM_PROVIDERS.includes(req.body?.provider) ? req.body.provider : 'github';
+  const mappings = (Array.isArray(req.body?.mappings) ? req.body.mappings : [])
+    .map((m) => ({ login: String(m?.login ?? '').trim(), email: String(m?.email ?? '').trim().toLowerCase() }))
+    .filter((m) => validUsername(provider, m.login) && usableEmail(m.email));
+  if (!mappings.length) return res.status(400).json({ error: 'Pick at least one match to use.' });
+  const current = settingsStore.get().initiators;
+  const overrides = { ...(current.overrides ?? {}) };
+  for (const { login, email } of mappings) overrides[login] = email;
+  const saved = settingsStore.save({ initiators: { ...current, overrides } });
+  res.json({ applied: mappings.length, overrides: Object.keys(saved.initiators.overrides ?? {}).length });
+});
+
+/** Are the GitLab, Azure DevOps and Bitbucket tokens accepted? */
+app.post(
+  '/api/beta/scm/check',
+  requirePermission('beta.use'),
+  asyncRoute(async (req, res) => {
+    const { configs, clients } = scmHosts();
+    const only = SCM_PROVIDERS.includes(req.body?.provider) ? [req.body.provider] : SCM_PROVIDERS;
+    const results = await checkScmConnections(clients, configs, only);
+    for (const id of only) if (id !== 'github' && !results[id]) results[id] = { ok: false, reason: `No ${SCM_LABELS[id]} token set.` };
+    res.json(results);
+  }),
+);
+
 const AUTHOR_LIMIT_MAX = 300;
 
 /**
@@ -5492,6 +5573,7 @@ app.post(
     });
 
     const gh = githubClient(settings);
+    const hosts = scmHosts(settings);
     await blameFindings(items, {
       gh,
       apiUrl: github.apiUrl,
@@ -5499,15 +5581,32 @@ app.post(
       token: github.token,
       useGithub: settings.beta?.authors?.useGithubBlame !== false,
       useLocal: settings.beta?.authors?.useLocalBlame !== false,
+      scm: hosts,
     });
 
     // Authors who hid their address behind GitHub's noreply one: resolve the
     // login, starting with the history of the repositories just cloned.
     const logins = new Set();
     for (const item of items) {
-      if (!item.blame) continue;
+      if (!item.blame || (item.provider && item.provider !== 'github')) continue;
       const login = item.blame.login || loginFromNoreply(item.blame.authorEmail);
       if (login && !usableEmail(item.blame.authorEmail)) logins.add(login);
+    }
+    // On GitLab, Azure DevOps or Bitbucket: that host's own methods, cheapest first.
+    const elsewhere = new Map(); // provider -> Set of usernames
+    for (const item of items) {
+      if (!item.blame || !item.provider || item.provider === 'github' || usableEmail(item.blame.authorEmail)) continue;
+      const login = item.blame.login || loginFromNoreply(item.blame.authorEmail) || item.blame.authorName;
+      if (!login) continue;
+      if (!elsewhere.has(item.provider)) elsewhere.set(item.provider, new Set());
+      elsewhere.get(item.provider).add(login);
+    }
+    const resolvedElsewhere = {};
+    for (const [provider, names] of elsewhere) {
+      const clones = [...new Set(items.filter((i) => i.provider === provider && i.repo).map((i) => i.repo.cloneUrl))];
+      const methods = methodsFor(provider, hosts.clients, hosts.configs, { localSources: [...clones, ...(github.localRepos ?? [])], cacheDir: gitCacheDir });
+      const found = await resolveWith(methods, [...names]);
+      for (const [login, hit] of Object.entries(found)) resolvedElsewhere[`${provider}|${login}`] = hit;
     }
     let resolved = {};
     if (logins.size) {
@@ -5540,8 +5639,10 @@ app.post(
         problem: item.problem ?? '',
       };
       if (item.blame) {
+        const onGithub = !item.provider || item.provider === 'github';
         const login = item.blame.login || loginFromNoreply(item.blame.authorEmail);
-        const email = usableEmail(item.blame.authorEmail) ? item.blame.authorEmail : resolved[login]?.email ?? '';
+        const found = onGithub ? resolved[login] : resolvedElsewhere[`${item.provider}|${login || item.blame.authorName}`];
+        const email = usableEmail(item.blame.authorEmail) ? item.blame.authorEmail : found?.email ?? '';
         Object.assign(out, {
           commit: item.blame.commit,
           commitUrl: item.blame.url || (item.repo?.host === 'github.com' ? `https://github.com/${item.repo.owner}/${item.repo.repo}/commit/${item.blame.commit}` : ''),
@@ -5552,8 +5653,9 @@ app.post(
             name: item.blame.authorName,
             login,
             email,
-            emailVia: usableEmail(item.blame.authorEmail) ? 'commit' : resolved[login] ? resolved[login].method : '',
+            emailVia: usableEmail(item.blame.authorEmail) ? 'commit' : found ? `${onGithub ? '' : `${SCM_LABELS[item.provider]}: `}${found.method}` : '',
           },
+          host: SCM_LABELS[item.provider] ?? item.repo?.host ?? '',
         });
         if (!email) out.problem = `Author ${item.blame.authorName || login} hides their email address and it could not be resolved.`;
       }
@@ -5570,6 +5672,7 @@ app.post(
         withEmail: withEmail.length,
         authors: new Set(withEmail.map((r) => r.author.email)).size,
         githubRequests: gh.totalRequests,
+        hostRequests: Object.fromEntries(Object.entries(hosts.clients).filter(([, c]) => c?.totalRequests).map(([id, c]) => [id, c.totalRequests])),
       },
     });
   }),

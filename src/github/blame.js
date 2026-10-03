@@ -6,9 +6,10 @@
  *      of a SAST data flow (where the vulnerable call is), or the KICS line.
  *   2. Code version: the scan's commit when Checkmarx One recorded one, else
  *      its branch, else the project's main branch.
- *   3. Blame: GitHub GraphQL blame for GitHub repositories (one request per
- *      file, whatever the number of findings in it), or `git blame` on a
- *      partial clone for any other host (GitLab, Bitbucket, Azure DevOps…).
+ *   3. Blame through the host's API, one request per file whatever the number
+ *      of findings in it: GitHub GraphQL, GitLab REST, Bitbucket Data Center
+ *      REST. Otherwise `git blame` on a clone, made with that host's own token
+ *      (Azure DevOps, Bitbucket Cloud, any host without a token…).
  */
 
 import { execFile } from 'node:child_process';
@@ -16,6 +17,7 @@ import { promisify } from 'node:util';
 
 import { mapWithConcurrency } from '../cxone/client.js';
 import { ensureClone } from './identity.js';
+import { apiBlamer, cloneAuthFor, commitUrl, providerOf } from '../scm/providers.js';
 
 const run = promisify(execFile);
 
@@ -126,11 +128,11 @@ export function parsePorcelain(text) {
 }
 
 /** `git blame` of one line on a partial clone (file contents are fetched on demand). */
-export async function localBlame({ cloneUrl, ref, path, line, cacheDir, token = '' }) {
+export async function localBlame({ cloneUrl, ref, path, line, cacheDir, token = '', authHeader = '' }) {
   // A ref from scan data must never be read as a git option ("--output=…").
   const safeRef = (r) => r && /^[\w./@{}^~-]+$/.test(r) && !r.startsWith('-');
   if (!path || path.startsWith('-') || !(line > 0)) return null;
-  const { dir, env } = await ensureClone(cloneUrl, { cacheDir, token, blobs: true });
+  const { dir, env } = await ensureClone(cloneUrl, { cacheDir, token, authHeader, blobs: true });
   const opts = { env, timeout: 120_000, maxBuffer: 16 * 1024 * 1024 };
   for (const candidate of [ref, 'HEAD'].filter(safeRef)) {
     try {
@@ -146,34 +148,40 @@ export async function localBlame({ cloneUrl, ref, path, line, cacheDir, token = 
 
 /**
  * Blame every located finding. `items`: [{finding, location, version, repo}].
- * GitHub files are blamed once each via GraphQL; the rest with local git.
- * Returns the items with `blame` (or `problem`) filled in.
+ * Files on a host with a blame API are blamed once each through it; the rest
+ * with local git, cloned with that host's own token. `scm`: {configs, clients}
+ * for GitLab, Azure DevOps and Bitbucket (src/scm/providers.js).
+ * Returns the items with `provider`, and `blame` (or `problem`), filled in.
  */
-export async function blameFindings(items, { gh, apiUrl, cacheDir, token = '', useGithub = true, useLocal = true }) {
-  const githubFiles = new Map();
+export async function blameFindings(items, { gh, apiUrl, cacheDir, token = '', useGithub = true, useLocal = true, scm = null }) {
+  const files = new Map();
   for (const item of items) {
     if (item.problem) continue;
     const { repo, version, location } = item;
-    if (useGithub && gh?.hasToken && onGitHub(repo, apiUrl)) {
-      const refs = [version.commit, version.branch].filter(Boolean);
-      const key = `${repo.owner}/${repo.repo}|${refs.join(',')}|${location.path}`;
-      if (!githubFiles.has(key)) githubFiles.set(key, { repo, refs, path: location.path, items: [] });
-      githubFiles.get(key).items.push(item);
-    }
+    item.provider = scm ? providerOf(repo, scm.configs, apiUrl) : onGitHub(repo, apiUrl) ? 'github' : '';
+    // useGithub: "blame through the host's API" (the setting predates the other hosts).
+    let blamer = null;
+    if (useGithub && item.provider === 'github' && gh?.hasToken && onGitHub(repo, apiUrl)) blamer = { via: 'GitHub blame', blame: (args) => githubBlameRanges(gh, args) };
+    else if (useGithub && scm) blamer = apiBlamer(item.provider, scm.clients, scm.configs);
+    if (!blamer) continue;
+    const refs = [version.commit, version.branch].filter(Boolean);
+    const key = `${item.provider}|${repo.host}/${repo.owner}/${repo.repo}|${refs.join(',')}|${location.path}`;
+    if (!files.has(key)) files.set(key, { repo, refs, path: location.path, blamer, items: [] });
+    files.get(key).items.push(item);
   }
 
-  await mapWithConcurrency([...githubFiles.values()], 4, async (file) => {
+  await mapWithConcurrency([...files.values()], 4, async (file) => {
     for (const ref of file.refs.length ? file.refs : ['HEAD']) {
       let ranges = null;
       try {
-        ranges = await githubBlameRanges(gh, { owner: file.repo.owner, repo: file.repo.repo, ref, path: file.path });
+        ranges = await file.blamer.blame({ owner: file.repo.owner, repo: file.repo.repo, ref, path: file.path });
       } catch (error) {
-        for (const item of file.items) item.githubError = error.message;
+        for (const item of file.items) item.apiError = `${file.blamer.via}: ${error.message}`;
       }
       if (!ranges) continue;
       for (const item of file.items) {
         const hit = ranges.find((r) => item.location.line >= r.start && item.location.line <= r.end);
-        if (hit) item.blame = { ...hit, ref, via: 'GitHub blame' };
+        if (hit) item.blame = { ...hit, ref, via: file.blamer.via };
       }
       break;
     }
@@ -182,7 +190,7 @@ export async function blameFindings(items, { gh, apiUrl, cacheDir, token = '', u
   const rest = items.filter((item) => !item.problem && !item.blame);
   await mapWithConcurrency(rest, 2, async (item) => {
     if (!useLocal) {
-      item.problem = item.githubError || 'Not on the configured GitHub, and local git blame is switched off.';
+      item.problem = item.apiError || 'No blame through this host\'s API, and local git blame is switched off.';
       return;
     }
     try {
@@ -193,9 +201,10 @@ export async function blameFindings(items, { gh, apiUrl, cacheDir, token = '', u
         line: item.location.line,
         cacheDir,
         token: onGitHub(item.repo, apiUrl) ? token : '',
+        authHeader: scm && item.provider !== 'github' ? cloneAuthFor(item.repo.cloneUrl, scm.configs) : '',
       });
-      if (found) item.blame = { ...found, via: 'git blame' };
-      else item.problem = `${item.location.path}:${item.location.line} not found in the repository${item.githubError ? ` (GitHub: ${item.githubError})` : ''}.`;
+      if (found) item.blame = { ...found, via: 'git blame', url: scm ? commitUrl(item.provider, item.repo, found.commit, scm.configs) : '' };
+      else item.problem = `${item.location.path}:${item.location.line} not found in the repository${item.apiError ? ` (${item.apiError})` : ''}.`;
     } catch (error) {
       item.problem = `Could not read the repository: ${String(error.stderr || error.message).trim().split('\n')[0]}`;
     }
