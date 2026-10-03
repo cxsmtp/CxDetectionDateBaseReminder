@@ -167,6 +167,9 @@ test('an Admin moves a running server from http to HTTPS from the Settings page,
   const page = await call(`${HTTP}/dashboard?x=1`);
   assert.equal(page.status, 308);
   assert.equal(page.headers.location, `https://127.0.0.1:${port}/dashboard?x=1`);
+  const forged = await call(`${HTTP}/dashboard`, { headers: { Host: `evil.example:${port}` } });
+  assert.equal(forged.status, 308);
+  assert.ok(!forged.headers.location.includes('evil.example'), 'a forged Host header never chooses where the redirect goes');
   const relay = await call(`${HTTP}/api/relay/hello`, { method: 'POST', body: {}, headers: { Origin: 'null' } });
   assert.equal(relay.status, 426);
   assert.equal(relay.json.movedTo, `https://127.0.0.1:${port}`);

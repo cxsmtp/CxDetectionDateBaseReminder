@@ -359,6 +359,7 @@ export class HttpsManager {
   #stamp = '';
   #active = null; // {source, files, load, selfSigned}
   #certStamp = '';
+  #names = null;
   #report = null; // inspection of the active certificate, by its stamp and hosts
   #secureServers = new Set();
   #listeners = new Set();
@@ -478,6 +479,28 @@ export class HttpsManager {
     return this.#active;
   }
 
+  /**
+   * The names the certificate in use covers (its Subject Alternative Names), so a
+   * redirect to HTTPS only ever goes to an address this server can answer for.
+   */
+  servedNames() {
+    const active = this.#certificate({ make: false });
+    if (!active) return [];
+    const stamp = this.#certificateStamp();
+    if (this.#names?.stamp === stamp) return this.#names.names;
+    let names = [];
+    try {
+      const loaded = active.load();
+      if (loaded.cert) names = sanNames(new X509Certificate(loaded.cert));
+      else names = this.#state.uploaded?.names ?? [];
+    } catch {
+      names = [];
+    }
+    names = names.map((n) => String(n).toLowerCase());
+    this.#names = { stamp, names };
+    return names;
+  }
+
   get selfSigned() {
     return Boolean(this.#certificate({ make: false })?.selfSigned ?? this.#state.mode !== 'http');
   }
@@ -578,6 +601,7 @@ export class HttpsManager {
       at: new Date().toISOString(),
       by,
       subject: report.summary.subject,
+      names: (report.summary.names ?? []).slice(0, 100),
       validTo: report.summary.validTo,
       fingerprint: report.summary.fingerprint,
     };

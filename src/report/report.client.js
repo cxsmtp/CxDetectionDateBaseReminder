@@ -1167,6 +1167,10 @@
     }
     const tab = window.open('', '_blank');
     if (tab) {
+      // The new tab gets no way back to this report (reverse tabnabbing).
+      try {
+        tab.opener = null;
+      } catch {}
       try {
         tab.document.title = `${p.projectName} — building the report…`;
         tab.document.body.innerHTML = '<p style="font:16px system-ui,sans-serif;padding:32px;color:#374151">Building the report…</p>';

@@ -5981,8 +5981,16 @@ function httpsOrigin(req, { port } = {}) {
     const configured = new URL(settingsStore.get().links.reportServerUrl || config.reportServerUrl || '');
     if (configured.protocol === 'https:') return configured.origin;
   } catch {}
-  const header = String(req.headers.host ?? '');
-  const host = /^([\w.-]+|\[[0-9a-f:.]+\])(:\d{1,5})?$/i.test(header) ? header : 'localhost';
+  // With a real certificate, only to a name it covers (or this machine itself): a
+  // request's Host header never chooses another site for the redirect.
+  const header = requestHost(req);
+  const hostname = header.replace(/^\[(.*)\](:\d+)?$/, '$1').replace(/^([^:]+):\d+$/, '$1').toLowerCase();
+  const served = httpsManager.servedNames();
+  const covered = (name) => served.some((n) => n === name || (n.startsWith('*.') && name.endsWith(n.slice(1)) && !name.slice(0, -n.length + 1).includes('.')));
+  const local = ['localhost', '127.0.0.1', '::1'].includes(hostname);
+  const fallback = served.find((n) => !n.startsWith('*.')) || 'localhost';
+  // A self-signed certificate warns at every name anyway: people reach it by any address.
+  const host = header && (local || httpsManager.selfSigned || covered(hostname)) ? header : fallback;
   if (port === undefined) return `https://${host}`;
   return `https://${host.replace(/:\d+$/, '')}${port === 443 ? '' : `:${port}`}`;
 }
