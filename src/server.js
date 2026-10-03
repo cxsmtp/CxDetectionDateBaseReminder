@@ -29,7 +29,7 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { GitHubClient } from './github/client.js';
-import { METHODS as GITHUB_METHODS, ensureClone, evaluate as evaluateGithub, loginFromNoreply, resolveLogins, usableEmail, validLogin } from './github/identity.js';
+import { METHODS as GITHUB_METHODS, ensureClone, evaluate as evaluateGithub, gitHostOf, loginFromNoreply, resolveLogins, setCloneHostCheck, usableEmail, validLogin } from './github/identity.js';
 import { blameFindings, codeVersion, locationOf, parseRepoUrl } from './github/blame.js';
 import { SCM_LABELS, SCM_PROVIDERS, checkConnections as checkScmConnections, methodsFor, providerOf, scmClients, scmConfigs } from './scm/providers.js';
 import { addressesAsThemselves, evaluateMethods, resolveWith, validUsername } from './scm/identity.js';
@@ -5414,6 +5414,24 @@ function githubConfig(settings = settingsStore.get()) {
     org: github.org || env('GITHUB_ORG'),
   };
 }
+
+/**
+ * The hosts repositories are cloned from: the public GitHub, GitLab, Bitbucket and Azure DevOps,
+ * the hosts connected on the Beta page or in the environment, and SCM_ALLOWED_HOSTS. A
+ * repository address from a project or a setting never makes the server call anything else.
+ */
+const PUBLIC_SCM_HOSTS = ['github.com', 'gitlab.com', 'bitbucket.org', 'dev.azure.com'];
+function cloneHostAllowed(host) {
+  const name = String(host ?? '').toLowerCase();
+  if (PUBLIC_SCM_HOSTS.includes(name) || name.endsWith('.visualstudio.com')) return true;
+  const settings = settingsStore.get();
+  const scm = scmConfigs(settings);
+  const hostname = (value) => String(value ?? '').toLowerCase().replace(/:\d+$/, '');
+  const known = [gitHostOf(githubConfig(settings).apiUrl), scm.gitlab.host, scm.azure.host, scm.bitbucket.host].map(hostname);
+  const extra = String(process.env.SCM_ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
+  return known.includes(name) || extra.includes(name);
+}
+setCloneHostCheck(cloneHostAllowed);
 
 /** GitLab, Azure DevOps and Bitbucket: their connections and API clients (built per use: settings may change). */
 function scmHosts(settings = settingsStore.get()) {

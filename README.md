@@ -189,6 +189,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `GITLAB_TOKEN`, `GITLAB_URL`, `GITLAB_GROUP` ⬆ | GitLab (gitlab.com or self-managed) for the Beta features. |
 | `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_ORG_URL` ⬆ | Azure DevOps (e.g. `https://dev.azure.com/acme`) for the Beta features. |
 | `BITBUCKET_TOKEN`, `BITBUCKET_USERNAME`, `BITBUCKET_WORKSPACE`, `BITBUCKET_URL` ⬆ | Bitbucket Cloud (app password with username, or an access token), or Data Center (its address and an HTTP access token), for the Beta features. |
+| `SCM_ALLOWED_HOSTS` | Other git hosts (comma-separated) whose repositories the Beta features may clone. github.com, gitlab.com, bitbucket.org, dev.azure.com and the connected hosts are always allowed; nothing else is cloned. |
 | **Server** | |
 | `HTTPS` (`on` in the image) | How it starts: `on` HTTPS only (self-signed when no certificate is given), `off` plain http (your own machine, or behind a reverse proxy), `both` side by side. **Settings → HTTPS** changes it while running. |
 | `TLS_CERT_FILE`, `TLS_KEY_FILE` (or `TLS_PFX_FILE`, `TLS_PFX_PASSPHRASE`), `TLS_SELF_SIGNED` | Serve HTTPS: your certificate, a `.pfx`, or a self-signed one ([HTTPS and hosting](docs/https-and-hosting.md)). |

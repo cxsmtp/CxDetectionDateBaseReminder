@@ -23,6 +23,7 @@ For each finding in the current Dashboard scope (severities and a maximum you ch
      - GitLab `oauth2`;
      - Azure DevOps a PAT;
      - Bitbucket an app password or an access token.
+   - **Which hosts:** only github.com, gitlab.com, bitbucket.org, dev.azure.com, the hosts connected on this page, and any named in `SCM_ALLOWED_HOSTS` (comma-separated, set when the container starts). A repository address on any other host is refused, so a project's repository URL can never make the server call an internal address.
    - **Cache:** clones are kept under `git-cache/` in the state folder (never backed up) and refreshed at most every 10 minutes.
 4. **Their address** — the commit's author email. When it is hidden behind a noreply
    address (GitHub's `ID+login@users.noreply…`, GitLab's `ID-username@users.noreply…`)

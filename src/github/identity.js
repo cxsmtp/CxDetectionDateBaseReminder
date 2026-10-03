@@ -413,8 +413,17 @@ async function cloneOrFetch(url, { cacheDir, authHeader = '', blobs = false } = 
   }
 }
 
+/** Which hosts repositories may be cloned from: the server sets it from its connections. */
+let cloneHostAllowed = () => true;
+export function setCloneHostCheck(check) {
+  cloneHostAllowed = typeof check === 'function' ? check : () => true;
+}
+
 async function cloneOnce(url, { cacheDir, authHeader = '', blobs = false } = {}) {
   if (!/^https:\/\/[\w.-]+(:\d+)?\/[\w.\-/]+$/.test(url)) throw new Error(`Not an https repository address: ${url}`);
+  // Never a request to an arbitrary host (an internal service, say) because a project named it.
+  const host = new URL(url).hostname.toLowerCase();
+  if (!cloneHostAllowed(host)) throw new Error(`Repositories on ${host} are not cloned: connect that host on the Beta page, or add it to SCM_ALLOWED_HOSTS.`);
   const dir = path.join(cacheDir, `${createHash('sha256').update(url).digest('hex').slice(0, 16)}${blobs ? '-full' : ''}`);
   // Credentials go in an environment-only header: never in arguments, never on disk.
   const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };

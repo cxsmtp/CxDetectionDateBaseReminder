@@ -28,9 +28,15 @@ const risksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
   const state = t && Date.now() - t > FLIP_MS ? (i % 3 ? 'PROPOSED_NOT_EXPLOITABLE' : 'CONFIRMED') : 'TO_VERIFY';
   return { id, riskName: SHARED ? `Finding ${twin}` : `Finding ${id}`, severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: 'SAST', state, firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}` };
 });
+// Access tokens are only the ones this mock handed out; request bodies are small.
+const issued = new Set();
+const MAX_BODY = 1024 * 1024;
 http.createServer((req, res) => {
   let b = '';
-  req.on('data', (c) => (b += c));
+  req.on('data', (c) => {
+    b += c;
+    if (b.length > MAX_BODY) req.destroy();
+  });
   req.on('end', () => {
     inFlight++; peak = Math.max(peak, inFlight);
     setTimeout(() => {
@@ -46,9 +52,12 @@ http.createServer((req, res) => {
         let claims = {};
         try { claims = JSON.parse(Buffer.from(new URLSearchParams(b).get('refresh_token').split('.')[1], 'base64url')); } catch {}
         const who = { email: claims.email, preferred_username: claims.preferred_username, azp: claims.azp };
-        return send(200, { access_token: `h.${Buffer.from(JSON.stringify(who)).toString('base64url')}.tok`, expires_in: 3600 });
+        const token = `h.${Buffer.from(JSON.stringify(who)).toString('base64url')}.tok`;
+        if (issued.size > 100_000) issued.clear();
+        issued.add(token);
+        return send(200, { access_token: token, expires_in: 3600 });
       }
-      if (!/^Bearer h\.[\w-]*\.tok$/.test(req.headers.authorization || '')) return send(401, {});
+      if (!issued.has(String(req.headers.authorization || '').replace(/^Bearer /, ''))) return send(401, {});
       const offset = Number(u.searchParams.get('offset') || 0);
       if (u.pathname === '/api/projects') { bump('projects'); const all = Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}` })); const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: PROJECTS }); }
       if (u.pathname === '/api/projects/last-scan') { bump('last-scan'); return send(200, Object.fromEntries(Array.from({ length: PROJECTS }, (_, i) => [`p${i}`, { id: `scan-p${i}`, updatedAt: day(1), initiator: `dev${i % INITIATORS}@acme.com` }]))); }

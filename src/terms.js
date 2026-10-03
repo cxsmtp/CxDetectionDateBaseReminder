@@ -8,7 +8,7 @@
  * this installation (for automated setups), recorded with that name.
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -39,8 +39,8 @@ export class Terms {
 
   #save() {
     fs.mkdirSync(path.dirname(this.#file), { recursive: true });
-    const temp = `${this.#file}.${process.pid}.tmp`;
-    fs.writeFileSync(temp, JSON.stringify(this.#state, null, 2), { mode: 0o600 });
+    const temp = `${this.#file}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
+    fs.writeFileSync(temp, JSON.stringify(this.#state, null, 2), { mode: 0o600, flag: 'wx' });
     fs.renameSync(temp, this.#file);
   }
 

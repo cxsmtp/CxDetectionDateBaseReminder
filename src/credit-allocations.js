@@ -262,7 +262,7 @@ export class CreditAllocations {
 
   /** Take back the extra credits added (never below what was used). */
   clearExtras(projectId) {
-    const entry = this.#projects[projectId];
+    const entry = Object.hasOwn(this.#projects, projectId) ? this.#projects[projectId] : undefined;
     if (!entry) return;
     entry.triage = Math.max(this.#ledger.usedBy(projectId, 'triage'), (Number(entry.triage) || 0) - (Number(entry.extraTriage) || 0));
     entry.remediation = Math.max(this.#ledger.usedBy(projectId, 'remediation'), (Number(entry.remediation) || 0) - (Number(entry.extraRemediation) || 0));

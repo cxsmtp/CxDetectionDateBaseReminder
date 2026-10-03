@@ -676,7 +676,7 @@
     ].filter(Boolean);
     const details = el('details', { className: 'why-more' }, el('summary', { textContent: 'why?' }), ...more.map((text) => el('p', { textContent: text })));
     const next = el('p', {}, config.remediateHere ? 'Remediate asks Checkmarx One AI Remediation for the code change (a pull request when the project is connected to its repository).' : 'Checkmarx One shows the full data flow.');
-    if (f.url) next.append(' ', el('a', { href: f.url, target: '_blank', rel: 'noopener', textContent: 'Open in Checkmarx One' }));
+    if (/^https?:\/\//i.test(f.url || '')) next.append(' ', el('a', { href: f.url, target: '_blank', rel: 'noopener', textContent: 'Open in Checkmarx One' }));
     details.append(next);
     box.replaceChildren(para('Why:', why, 'why-line'), para('Fix:', fix, 'why-line'), details);
   }

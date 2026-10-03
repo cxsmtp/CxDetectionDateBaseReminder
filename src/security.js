@@ -40,7 +40,7 @@ export function contentSecurityPolicy(scriptHashes = []) {
     // Logos may be https URLs or pasted data: images.
     "img-src 'self' data: blob: https:",
     // "Test" checks the reminder server address readers use, which may be another host.
-    "connect-src 'self' https: http:",
+    "connect-src 'self' https:",
     "font-src 'self' data:",
     "frame-src 'self'",
     "object-src 'none'",

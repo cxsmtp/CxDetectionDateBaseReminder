@@ -12,6 +12,7 @@
 // Checks as well as timings: no request may fail outright (5xx other than the
 // relay's "busy, retry", network errors, timeouts), and no finding may be sent
 // to Checkmarx One for triage more than once, however many people ask at once.
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
 import { ReportGrants } from '../src/report-grants.js';
@@ -26,7 +27,10 @@ const POLL = Number(process.env.POLL || 6000);
 const SERVER_PID = Number(process.env.SERVER_PID || 0);
 const OUT = process.env.BENCH_OUT || '';
 const LABEL = process.env.LABEL || '';
-const ADMIN = { email: 'admin@bench.io', password: 'temporary password 1', next: 'benchmark admin pass 1' };
+// Passwords for this run's throwaway server: from benchmark.sh, or made up now; never written in the source.
+const runPassword = () => `bench-${randomBytes(12).toString('base64url')}`;
+const ADMIN = { email: 'admin@bench.io', password: process.env.BENCH_ADMIN_PASSWORD || '', next: runPassword() };
+if (!ADMIN.password) throw new Error('Set BENCH_ADMIN_PASSWORD to the ADMIN_PASSWORD the server was started with (loadtest/benchmark.sh does).');
 const ANALYST_SESSIONS = Number(process.env.ANALYST_SESSIONS || 12);
 const FETCHER_SESSIONS = Number(process.env.FETCHER_SESSIONS || 8);
 // Who the virtual users are (shares of VUS).
@@ -170,7 +174,7 @@ if (put.status !== 200) throw new Error(`settings: ${put.status} ${JSON.stringif
 const check = await call('setup:smtp-check', 'POST', '/api/settings/connections/check', { cookie: admin, body: { rollback: false } });
 if (!check.json?.smtp?.ok) throw new Error(`smtp check: ${JSON.stringify(check.json)}`);
 
-const people = Array.from({ length: ANALYST_SESSIONS + FETCHER_SESSIONS }, (_, i) => ({ email: `analyst${i}@bench.io`, password: `bench temporary ${i} pw`, next: `bench analyst ${i} password` }));
+const people = Array.from({ length: ANALYST_SESSIONS + FETCHER_SESSIONS }, (_, i) => ({ email: `analyst${i}@bench.io`, password: runPassword(), next: runPassword() }));
 for (const p of people) {
   const r = await call('setup:add-user', 'POST', '/api/iam/users', { cookie: admin, body: { email: p.email, name: `Analyst ${p.email}`, role: 'analyst', password: p.password } });
   if (r.status !== 201) throw new Error(`add user: ${r.status} ${JSON.stringify(r.json)}`);
