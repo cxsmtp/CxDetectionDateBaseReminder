@@ -1019,19 +1019,42 @@
             </section>
           </div>
 
-          <div id="page-reports" class="page" hidden>
-            <section class="panel">
-              <div class="panel-head">
-                <h2>Tracked reports</h2>
-                <span class="hint" id="reports-meta"></span>
-              </div>
-              <p class="hint wide">
-                Each report keeps the findings its scope covered when saved and follows what happened to them — triaged,
-                confirmed, proposed not exploitable, or no longer detected — plus how many findings the same filters match
-                today. Save one from the Dashboard with <strong>Save as tracked report</strong>.
-              </p>
-              <div id="reports-list"><p class="hint">Loading…</p></div>
-            </section>
+          <div id="page-reports" class="page rp" hidden>
+            <section class="rp-portfolio" id="rp-portfolio" aria-label="All tracked reports"></section>
+
+            <div class="rp-layout">
+              <section class="panel rp-main" aria-label="Tracked reports">
+                <div class="rp-toolbar">
+                  <div class="segmented rp-filters" role="radiogroup" aria-label="Show">
+                    <label class="mode"><input type="radio" name="rpFilter" value="all" checked /> <span>All <em data-count="all"></em></span></label>
+                    <label class="mode"><input type="radio" name="rpFilter" value="attention" /> <span>Needs attention <em data-count="attention"></em></span></label>
+                    <label class="mode"><input type="radio" name="rpFilter" value="scheduled" /> <span>Scheduled <em data-count="scheduled"></em></span></label>
+                    <label class="mode"><input type="radio" name="rpFilter" value="complete" /> <span>Complete <em data-count="complete"></em></span></label>
+                  </div>
+                  <div class="rp-tools">
+                    <input type="search" id="rp-search" placeholder="Search reports" aria-label="Search reports" />
+                    <select id="rp-sort" aria-label="Sort by">
+                      <option value="open">Most open</option>
+                      <option value="progress">Least progress</option>
+                      <option value="updated">Recently updated</option>
+                      <option value="name">Name</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="reports-list" class="rp-list"><p class="hint">Loading…</p></div>
+                <p class="hint rp-foot" id="reports-meta"></p>
+              </section>
+
+              <aside class="panel rp-upcoming" aria-labelledby="rp-upcoming-title">
+                <h2 id="rp-upcoming-title">Upcoming follow-ups</h2>
+                <ol class="rp-agenda" id="rp-upcoming"></ol>
+              </aside>
+            </div>
+
+            <div class="rp-drawer" id="rp-drawer" hidden>
+              <div class="rp-scrim" data-rp-close></div>
+              <section class="rp-sheet" id="rp-sheet" role="dialog" aria-modal="true" aria-labelledby="rp-d-title"></section>
+            </div>
           </div>
 
           <!-- ================= Beta features ================= -->

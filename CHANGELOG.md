@@ -2,6 +2,14 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
+## MZ-01.00.25 — 2026-10-03 11:30 UTC · [#48](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/48)
+- **A redesigned Reports page.** Built for a security team tracking many scopes: the whole picture first, then one report at a time, with far less on screen at once.
+- **Portfolio at a glance.** Tiles across every tracked report: findings tracked, % actioned, open now, new since saved, follow-ups scheduled (and the next one), AI credits used.
+- **One row per report.** Progress bar, open and new counts, a trend line of open findings, and a status (Complete, On schedule, Needs follow-up, Update failed); filter, search and sort.
+- **Upcoming follow-ups.** Every scheduled reminder, soonest first, with who it goes to; one click opens its schedule.
+- **A panel per report with tabs.** Overview (outcomes, trend with values on hover, by project), Remind, Schedule, Triage and History: every action from before, out of the way until needed.
+- **Accessible and responsive.** Outcome colours checked for colour-blind separation in light and dark mode, keyboard tabs, and a layout for phones.
+
 ## MZ-01.00.24 — 2026-10-03 11:18 UTC · [#47](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/47)
 - **GitLab, Azure DevOps and Bitbucket in the Beta features.** Finding who wrote vulnerable code, and matching usernames to email addresses, now work for repositories on these hosts too (cloud or self-hosted), next to GitHub.
 - **Blame through each host's API.** GitLab and Bitbucket Data Center are asked directly, one request per file; Azure DevOps and Bitbucket Cloud (no blame API) use git blame on a clone made with that host's own token, so private repositories work.
