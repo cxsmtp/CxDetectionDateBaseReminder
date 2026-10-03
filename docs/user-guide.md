@@ -570,22 +570,45 @@ Your report can only act on the findings it lists: each one carries a signature 
 
 ## Reports: tracked reports
 
-Save a scope from the Dashboard (**Save as tracked report**) and follow it over time.
+Save a scope from the Dashboard (**Save as tracked report**) and follow it over time. The Reports page is laid out for a security team that tracks many scopes at once: the whole picture first, then one report at a time.
 
-**Each tracked report shows**
-- **Baseline findings and what happened to them:** awaiting triage, confirmed, not exploitable, no longer detected. Also the share triaged or resolved, and what changed since it was saved.
-- **Matching now:** how many findings the same filters match today, and how many of them are new.
-- **AI credits used** on its projects since it was saved.
-- A per-project breakdown and a history of readings.
+**At the top: every report together**
 
-| Action | What it does |
+| Tile | What it counts |
 | --- | --- |
-| **Refresh** | Re-reads now. Reports also update hourly, and every few minutes after someone triages or remediates. |
-| **Download HTML report** | The interactive report for its open findings. |
-| Follow up → **Send a reminder about the open findings** | Chooses: <ul><li>who: initiators, list or both;</li><li>content: summary or one per project;</li><li>whether to attach the report.</li></ul>**Preview** first, then **Send reminder now**. |
-| Follow up → **Automatic reminders** | Every N days at a set hour, only while something is still open. **Save schedule**. Each send is listed. |
-| Follow up → **Triage the open findings now** | AI Triage for the chosen severities, within each project's credits (**Allocate credits** first if needed). |
-| **Delete** | Removes the tracked report. History in the audit log stays. |
+| **Findings tracked** | The findings all reports covered when saved. |
+| **Actioned** | The share triaged (confirmed or not exploitable) or no longer detected. |
+| **Open now** | Awaiting triage, confirmed, or new. |
+| **New since saved** | New findings matching the reports' filters. |
+| **Follow-ups scheduled** | How many reports send reminders by themselves, and when the next one goes out. |
+| **AI credits used** | Triage / remediation, on the reports' projects since they were saved. |
+
+**The list: one row per report**
+- **Progress:** a bar of what happened to its findings (aqua: no longer detected, blue: not exploitable, orange: confirmed; the grey rest is still open) and the % actioned.
+- **Open, New** and a small **trend** line of open findings over its readings.
+- **Status:**
+  - **Complete:** nothing left open.
+  - **On schedule:** automatic reminders are on.
+  - **Needs follow-up:** open findings and no schedule.
+  - **Update failed** or **Reminder failed:** the last refresh or send went wrong.
+- **Find a report:**
+  - **Filter:** All, Needs attention, Scheduled, Complete, with counts.
+  - **Search** by name.
+  - **Sort** by most open, least progress, recently updated or name.
+
+**Upcoming follow-ups** (right, or below on a narrow screen): every scheduled reminder, soonest first, with who it goes to. Click one to open that report's **Schedule**.
+
+**Click a report** to open its panel (Escape or ✕ closes it):
+
+| Tab | What is in it |
+| --- | --- |
+| **Overview** | The % actioned with the outcome bar and counts; open, new, matching now, credits used; the **trend** of open findings (hover for each reading); and a by-project table, most open first. |
+| **Remind** | Who (scan initiators, recipient list, both, or only some addresses), the content (one summary per person, or one email per project), and whether to attach the interactive report. **Preview**, then **Send reminder now**. The sends so far are listed. |
+| **Schedule** | **Automatic reminders** every N days at a set hour (the server's time zone), only while something is still open; they use the Remind options. Shows the next and last send. **Save schedule**. |
+| **Triage** | AI Triage for the chosen severities (**Triage now**), or **Allocate credits** so developers can triage from their own reports, with what it needs and what is left. |
+| **History** | Every reading: awaiting, confirmed, not exploitable, no longer detected, new, matching now. |
+
+At the top of the panel: **Refresh** (re-reads now; reports also update hourly, and every few minutes after someone triages or remediates), **Download HTML** (the interactive report for its open findings) and **Delete** (its history in the audit log stays).
 
 ---
 

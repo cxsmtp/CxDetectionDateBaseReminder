@@ -506,7 +506,7 @@ function route() {
 const PAGE_TITLES = {
   connect: ['Sign in', 'Checkmarx One reminders, triage & credits for your security team'],
   dashboard: ['Dashboard', 'Find ageing findings, allocate credits and remind their owners'],
-  reports: ['Tracked reports', 'Follow progress on saved scopes and send follow-ups'],
+  reports: ['Reports', 'Track progress, schedule follow-ups and act on every tracked scope'],
   credits: ['Credits', 'The credit pool, what each project was allocated and used, and usage over time'],
   settings: ['Settings', 'Connections, email, templates, automation, the credit pool and branding — saved as you type'],
   logs: ['Logs', 'API calls and results from this browser session'],
@@ -2661,13 +2661,7 @@ async function loadTrackedReports() {
   try {
     const data = await api('/api/tracked-reports');
     if (data.timeZone) serverZone = data.timeZone;
-    const kept = captureReportsState();
     renderTrackedReports(data);
-    restoreReportsState(kept);
-    for (const card of document.querySelectorAll('#reports-list [data-report]')) {
-      syncSendTo(card);
-      updateNeed(card);
-    }
   } catch (error) {
     if (handleAuthLoss(error)) return;
     $('reports-list').innerHTML = `<p class="status error">${escapeHtml(error.message)}</p>`;
@@ -2677,168 +2671,445 @@ async function loadTrackedReports() {
 
 const OUTCOME_LABELS = {
   resolved: 'No longer detected',
-  notExploitable: 'Not exploitable (proposed or confirmed)',
+  notExploitable: 'Not exploitable',
   confirmed: 'Confirmed',
   awaiting: 'Awaiting triage',
 };
 
-function progressBar(outcomes, total) {
-  if (!total) return '<div class="progress-bar"></div>';
-  return `<div class="progress-bar">${Object.keys(OUTCOME_LABELS)
-    .map((key) => (outcomes[key] ? `<span class="seg-${key}" style="width:${(outcomes[key] / total) * 100}%" title="${escapeHtml(OUTCOME_LABELS[key])}: ${outcomes[key]}"></span>` : ''))
-    .join('')}</div>
-    <div class="legend">${Object.entries(OUTCOME_LABELS)
-      .map(([key, label]) => `<span><i class="seg-${key}"></i>${escapeHtml(label)}: <b>${outcomes[key] ?? 0}</b></span>`)
-      .join('')}</div>`;
+/** Outcomes as one bar: what was dealt with, in colour, on a neutral track that is what is left. */
+function progressBar(outcomes, total, { legend = true } = {}) {
+  if (!total) return '<div class="rp-bar" role="img" aria-label="Nothing to track"></div>';
+  const done = ['resolved', 'notExploitable', 'confirmed'];
+  const label = done.map((k) => `${OUTCOME_LABELS[k]} ${outcomes[k] ?? 0}`).join(', ');
+  const rest = Math.max(0, total - done.reduce((n, k) => n + (outcomes[k] ?? 0), 0));
+  return `<div class="rp-bar" role="img" aria-label="${escapeHtml(`${label}, awaiting triage ${outcomes.awaiting ?? 0}, of ${total}`)}">${done
+    .map((key) => (outcomes[key] ? `<span class="out-${key}" style="flex:${outcomes[key]} 1 0" title="${escapeHtml(OUTCOME_LABELS[key])}: ${outcomes[key]}"></span>` : ''))
+    .join('')}${rest ? `<span class="out-track" style="flex:${rest} 1 0" title="Still open: ${rest}"></span>` : ''}</div>${legend ? `<div class="rp-legend">${Object.entries(OUTCOME_LABELS)
+    .map(([key, text]) => `<span><i class="out-${key}"></i>${escapeHtml(text)} <b>${outcomes[key] ?? 0}</b></span>`)
+    .join('')}</div>` : ''}`;
 }
 
 const trackedById = new Map();
+const rpState = { filter: 'all', search: '', sort: 'open', open: '', tab: 'overview', data: null };
 
-function renderTrackedReports({ reports, autoRefresh }) {
+/** Open findings at each reading: awaiting triage, confirmed or new. */
+const openSeries = (r) => {
+  const points = (r.history ?? []).map((h) => ({ at: h.at, open: (h.awaiting ?? 0) + (h.confirmed ?? 0) + (h.newFindings ?? 0) }));
+  if (r.latest && (!points.length || points.at(-1).at !== r.latest.at)) points.push({ at: r.latest.at, open: r.latest.open ?? 0 });
+  return points;
+};
+
+/** Where a report stands, in one word: tells the team where to look first. */
+function reportStatus(r) {
+  const l = r.latest;
+  if (r.lastError) return { key: 'attention', tone: 'critical', label: 'Update failed', icon: '!' };
+  if (r.automation?.lastError) return { key: 'attention', tone: 'critical', label: 'Reminder failed', icon: '!' };
+  if (!l) return { key: 'pending', tone: 'neutral', label: 'Not measured yet', icon: '…' };
+  if (l.baseline && !l.open) return { key: 'complete', tone: 'good', label: 'Complete', icon: '✓' };
+  if (r.automation?.enabled) return { key: 'scheduled', tone: 'info', label: 'On schedule', icon: '⟳' };
+  return { key: 'attention', tone: 'warning', label: 'Needs follow-up', icon: '!' };
+}
+
+function relativeTime(iso) {
+  if (!iso) return '';
+  const ms = Date.parse(iso) - Date.now();
+  const abs = Math.abs(ms);
+  const units = [['day', 86_400_000], ['hour', 3_600_000], ['minute', 60_000]];
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  for (const [unit, size] of units) if (abs >= size || unit === 'minute') return rtf.format(Math.round(ms / size), unit);
+  return '';
+}
+
+/** A tiny line of open findings over the readings (no axes: the row says the numbers). */
+function sparkline(points) {
+  if (points.length < 2) return '<span class="rp-spark empty" aria-hidden="true"></span>';
+  const w = 96;
+  const h = 28;
+  const max = Math.max(1, ...points.map((p) => p.open));
+  const xy = points.map((p, i) => [(i / (points.length - 1)) * (w - 4) + 2, h - 3 - (p.open / max) * (h - 6)]);
+  const d = xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const [lx, ly] = xy.at(-1);
+  const first = points[0].open;
+  const last = points.at(-1).open;
+  return `<svg class="rp-spark" viewBox="0 0 ${w} ${h}" role="img" aria-label="Open findings: ${first} to ${last} over ${points.length} readings"><title>Open findings: ${first} → ${last} over ${points.length} readings</title>
+    <path d="${d}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${lx}" cy="${ly}" r="3" fill="currentColor" stroke="var(--surface)" stroke-width="2"/></svg>`;
+}
+
+function statusChip(status) {
+  return `<span class="rp-chip tone-${status.tone}"><span aria-hidden="true">${status.icon}</span>${escapeHtml(status.label)}</span>`;
+}
+
+function scheduleText(auto, { short = false } = {}) {
+  if (!auto?.enabled) return short ? 'Not scheduled' : 'No automatic reminders';
+  const every = auto.everyDays === 1 ? 'daily' : `every ${auto.everyDays} days`;
+  return short ? `${every[0].toUpperCase()}${every.slice(1)}` : `Every ${auto.everyDays === 1 ? 'day' : `${auto.everyDays} days`} at ${String(auto.hour ?? 9).padStart(2, '0')}:00`;
+}
+
+function renderTrackedReports(data) {
+  rpState.data = data;
+  const { reports, autoRefresh } = data;
   trackedById.clear();
   for (const r of reports) trackedById.set(r.id, r);
   $('reports-meta').textContent = autoRefresh
-    ? 'Updates automatically: hourly, and every few minutes after anyone triages or remediates'
-    : 'Automatic updates need a stored Checkmarx One connection (CX_API_KEY, or arm automation in Settings); use Refresh meanwhile';
-  if (!reports.length) {
-    $('reports-list').innerHTML = '<p class="hint">No tracked reports yet.</p>';
-    return;
+    ? 'Updates automatically: hourly, and every few minutes after anyone triages or remediates.'
+    : 'Automatic updates need a stored Checkmarx One connection (CX_API_KEY, or arm automation in Settings); use Refresh meanwhile.';
+  renderPortfolio(reports);
+  renderUpcoming(reports);
+  renderReportList();
+  if (rpState.open) {
+    if (trackedById.has(rpState.open)) renderReportDetail(rpState.open);
+    else closeReportDetail();
   }
-  $('reports-list').innerHTML = reports
-    .map((r) => {
-      const l = r.latest;
-      const stats = l
-        ? `<div class="report-stats">
-            <div><span class="value">${l.baseline}</span><span class="label">findings when saved</span></div>
-            <div><span class="value">${l.percentActioned}%</span><span class="label">triaged or resolved (${l.actioned})</span></div>
-            <div><span class="value">${l.changed ?? 0}</span><span class="label">changed since saved</span></div>
-            <div><span class="value">${l.outcomes.awaiting}</span><span class="label">still awaiting triage</span></div>
-            <div><span class="value">${l.newFindings}</span><span class="label">new, matching the filters</span></div>
-            <div><span class="value">${l.currentMatching}</span><span class="label">matching the filters now</span></div>
-            <div><span class="value">${l.aiActions.triage} / ${l.aiActions.remediation}</span><span class="label">AI triage / remediation credits used</span></div>
-          </div>${progressBar(l.outcomes, l.baseline)}`
-        : '<p class="hint">Not measured yet.</p>';
-      const projects = l?.byProject?.length
-        ? `<details><summary>By project (${l.byProject.length})</summary>
-            <div class="table-wrap"><table class="probe">
-              <thead><tr><th>Project</th><th class="num">When saved</th><th class="num">Awaiting</th><th class="num">Confirmed</th><th class="num">Not exploitable</th><th class="num">No longer detected</th><th class="num">New</th><th class="num">Matching now</th></tr></thead>
-              <tbody>${l.byProject
-                .map((p) => `<tr><td>${escapeHtml(p.projectName || p.projectId)}</td><td class="num">${p.baseline}</td><td class="num">${p.awaiting}</td><td class="num">${p.confirmed}</td><td class="num">${p.notExploitable}</td><td class="num">${p.resolved}</td><td class="num">${p.newFindings}</td><td class="num">${p.currentMatching}</td></tr>`)
-                .join('')}</tbody>
-            </table></div></details>`
-        : '';
-      const history = r.history?.length > 1
-        ? `<details><summary>History (${r.history.length} readings)</summary>
-            <div class="table-wrap"><table class="probe">
-              <thead><tr><th>When</th><th class="num">Awaiting</th><th class="num">Confirmed</th><th class="num">Not exploitable</th><th class="num">No longer detected</th><th class="num">New</th><th class="num">Matching now</th></tr></thead>
-              <tbody>${r.history
-                .slice()
-                .reverse()
-                .map((h) => `<tr><td>${escapeHtml(new Date(h.at).toLocaleString())}</td><td class="num">${h.awaiting}</td><td class="num">${h.confirmed}</td><td class="num">${h.notExploitable}</td><td class="num">${h.resolved}</td><td class="num">${h.newFindings}</td><td class="num">${h.currentMatching}</td></tr>`)
-                .join('')}</tbody>
-            </table></div></details>`
-        : '';
-      return `<article class="report-card" data-report="${escapeHtml(r.id)}">
-        <div class="report-head">
-          <div>
-            <h3>${escapeHtml(r.name)}</h3>
-            <div class="report-meta">${escapeHtml(r.scopeLabel || '')}</div>
-            <div class="report-meta">Saved ${escapeHtml(new Date(r.createdAt).toLocaleString())} · ${
-              l ? `updated ${escapeHtml(new Date(l.at).toLocaleString())}` : 'not updated yet'
-            }${r.lastError ? ` · <span class="status error">last update failed: ${escapeHtml(r.lastError)}</span>` : ''}</div>
-          </div>
-          <div class="actions compact">
-            <button type="button" data-report-refresh="${escapeHtml(r.id)}">Refresh</button>
-            ${can('reports.manage') ? `<button type="button" data-report-delete="${escapeHtml(r.id)}" class="link">Delete</button>` : ''}
-          </div>
-        </div>
-        ${stats}${followUp(r)}${projects}${history}
-      </article>`;
-    })
-    .join('');
 }
 
-/** Reminder, schedule and triage controls for one tracked report. */
-function followUp(r) {
+function renderPortfolio(reports) {
+  const measured = reports.filter((r) => r.latest);
+  const sum = (fn) => measured.reduce((n, r) => n + (fn(r) || 0), 0);
+  const baseline = sum((r) => r.latest.baseline);
+  const actioned = sum((r) => r.latest.actioned);
+  const pct = baseline ? Math.round((actioned / baseline) * 100) : 0;
+  const scheduled = reports.filter((r) => r.automation?.enabled);
+  const next = scheduled.map((r) => r.automation.nextRunAt).filter(Boolean).sort()[0];
+  const tile = (label, value, sub, extra = '') => `<div class="rp-tile"><span class="rp-tile-label">${escapeHtml(label)}</span><span class="rp-tile-value">${value}</span>${extra}<span class="rp-tile-sub">${sub}</span></div>`;
+  $('rp-portfolio').innerHTML = !reports.length
+    ? ''
+    : [
+        tile('Findings tracked', baseline.toLocaleString(), `across ${reports.length} report${reports.length === 1 ? '' : 's'}`),
+        tile('Actioned', `${pct}%`, `${actioned.toLocaleString()} triaged or no longer detected`, `<span class="rp-meter" role="img" aria-label="${pct}% actioned"><span style="width:${pct}%"></span></span>`),
+        tile('Open now', sum((r) => r.latest.open).toLocaleString(), 'awaiting triage, confirmed or new'),
+        tile('New since saved', sum((r) => r.latest.newFindings).toLocaleString(), 'matching the same filters'),
+        tile('Follow-ups scheduled', `${scheduled.length}<small> of ${reports.length}</small>`, next ? `next ${escapeHtml(serverTime(next))}` : 'none due'),
+        tile('AI credits used', `${sum((r) => r.latest.aiActions?.triage).toLocaleString()}<small> / ${sum((r) => r.latest.aiActions?.remediation).toLocaleString()}</small>`, 'triage / remediation'),
+      ].join('');
+}
+
+function renderUpcoming(reports) {
+  const due = reports
+    .filter((r) => r.automation?.enabled && r.automation.nextRunAt)
+    .sort((a, b) => Date.parse(a.automation.nextRunAt) - Date.parse(b.automation.nextRunAt));
+  const to = (a) => (a.onlyTo?.length ? `only ${a.onlyTo.join(', ')}` : { initiator: 'scan initiators', list: 'recipient list', both: 'initiators and list' }[a.sendTo] ?? 'scan initiators');
+  $('rp-upcoming').innerHTML = due.length
+    ? due
+        .map((r) => {
+          const at = new Date(r.automation.nextRunAt);
+          const day = at.toLocaleDateString(undefined, { day: 'numeric', ...(serverZone.name ? { timeZone: serverZone.name } : {}) });
+          const month = at.toLocaleDateString(undefined, { month: 'short', ...(serverZone.name ? { timeZone: serverZone.name } : {}) });
+          return `<li><button type="button" class="rp-agenda-item" data-open-report="${escapeHtml(r.id)}" data-tab="schedule">
+            <span class="rp-date"><b>${escapeHtml(day)}</b>${escapeHtml(month)}</span>
+            <span class="rp-agenda-text"><span class="rp-name">${escapeHtml(r.name)}</span>
+              <span class="rp-sub">${escapeHtml(relativeTime(r.automation.nextRunAt))} · ${escapeHtml(scheduleText(r.automation, { short: true }).toLowerCase())} · to ${escapeHtml(to(r.automation))}${r.automation.attachHtml ? ' · HTML report' : ''}</span></span>
+          </button></li>`;
+        })
+        .join('')
+    : `<li class="rp-empty-small">Nothing scheduled. Open a report, then <strong>Schedule</strong>, to send its follow-ups automatically.</li>`;
+}
+
+function renderReportList() {
+  const reports = rpState.data?.reports ?? [];
+  const counts = { all: reports.length, attention: 0, scheduled: 0, complete: 0 };
+  for (const r of reports) {
+    const key = reportStatus(r).key;
+    if (key in counts && key !== 'all') counts[key] += 1;
+  }
+  for (const [key, n] of Object.entries(counts)) {
+    const el = document.querySelector(`[data-count="${key}"]`);
+    if (el) el.textContent = n;
+  }
+  if (!reports.length) {
+    $('reports-list').innerHTML = `<div class="rp-empty">
+      <h3>No tracked reports yet</h3>
+      <p>Choose a scope on the Dashboard (projects, people, time windows), fetch, then <strong>Save as tracked report</strong>.
+        Each report keeps the findings it covered and follows what happens to them: triaged, confirmed, not exploitable or no longer detected.</p>
+      <a class="button primary" href="#/dashboard">Go to the Dashboard</a></div>`;
+    return;
+  }
+  const term = rpState.search.trim().toLowerCase();
+  const shown = reports
+    .filter((r) => rpState.filter === 'all' || reportStatus(r).key === rpState.filter)
+    .filter((r) => !term || `${r.name} ${r.scopeLabel ?? ''}`.toLowerCase().includes(term))
+    .sort((a, b) => {
+      if (rpState.sort === 'name') return a.name.localeCompare(b.name);
+      if (rpState.sort === 'updated') return Date.parse(b.latest?.at ?? 0) - Date.parse(a.latest?.at ?? 0);
+      if (rpState.sort === 'progress') return (a.latest?.percentActioned ?? 0) - (b.latest?.percentActioned ?? 0);
+      return (b.latest?.open ?? 0) - (a.latest?.open ?? 0);
+    });
+  $('reports-list').innerHTML = shown.length
+    ? `<div class="rp-head" aria-hidden="true"><span>Report</span><span>Progress</span><span class="num">Open</span><span class="num">New</span><span>Trend</span><span>Status</span></div>${shown
+        .map((r) => {
+          const l = r.latest;
+          const status = reportStatus(r);
+          const projects = r.projects?.length ?? l?.byProject?.length ?? 0;
+          return `<button type="button" class="rp-row${rpState.open === r.id ? ' active' : ''}" data-open-report="${escapeHtml(r.id)}">
+            <span class="rp-cell rp-title"><span class="rp-name">${escapeHtml(r.name)}</span>
+              <span class="rp-sub">${projects ? `${projects} project${projects === 1 ? '' : 's'} · ` : ''}${l ? `updated ${escapeHtml(relativeTime(l.at))}` : 'not measured yet'}</span></span>
+            <span class="rp-cell rp-progress">${l ? progressBar(l.outcomes, l.baseline, { legend: false }) : ''}<span class="rp-pct">${l ? `${l.percentActioned}% actioned` : '—'}</span></span>
+            <span class="rp-cell num" data-label="Open"><b>${l?.open ?? '—'}</b></span>
+            <span class="rp-cell num" data-label="New"><b class="${l?.newFindings ? 'up' : ''}">${l ? (l.newFindings ? `+${l.newFindings}` : '0') : '—'}</b></span>
+            <span class="rp-cell rp-trend">${sparkline(openSeries(r))}</span>
+            <span class="rp-cell rp-status">${statusChip(status)}<span class="rp-sched${r.automation?.enabled ? ' on' : ''}">${escapeHtml(scheduleText(r.automation, { short: true }))}</span></span>
+          </button>`;
+        })
+        .join('')}`
+    : '<p class="rp-empty-small">No report matches. Clear the search or pick another filter.</p>';
+}
+
+/** Open findings over the readings, with a crosshair and the values on hover. */
+function trendChart(points) {
+  if (points.length < 2) return '<p class="hint">The trend appears after the second reading (hourly, or Refresh).</p>';
+  const w = 640;
+  const h = 170;
+  const pad = { l: 8, r: 8, t: 12, b: 8 };
+  const max = Math.max(1, ...points.map((p) => p.open));
+  const x = (i) => pad.l + (i / (points.length - 1)) * (w - pad.l - pad.r);
+  const y = (v) => pad.t + (1 - v / max) * (h - pad.t - pad.b);
+  const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.open).toFixed(1)}`).join(' ');
+  const area = `${line} L${x(points.length - 1).toFixed(1)},${h - pad.b} L${x(0).toFixed(1)},${h - pad.b} Z`;
+  const fmt = (iso) => new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return `<figure class="rp-trend-chart" data-points='${escapeHtml(JSON.stringify(points.map((p, i) => ({ x: x(i) / w, y: y(p.open) / h, open: p.open, at: fmt(p.at) }))))}'>
+    <figcaption><span>Open findings</span><span class="rp-sub">${points[0].open} → ${points.at(-1).open} over ${points.length} readings</span></figcaption>
+    <div class="rp-plot">
+      <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="Open findings from ${points[0].open} to ${points.at(-1).open}">
+        <line x1="${pad.l}" x2="${w - pad.r}" y1="${y(max)}" y2="${y(max)}" class="grid"/>
+        <line x1="${pad.l}" x2="${w - pad.r}" y1="${y(max / 2)}" y2="${y(max / 2)}" class="grid"/>
+        <line x1="${pad.l}" x2="${w - pad.r}" y1="${h - pad.b}" y2="${h - pad.b}" class="axis"/>
+        <path d="${area}" class="area"/>
+        <path d="${line}" class="line" vector-effect="non-scaling-stroke"/>
+      </svg>
+      <span class="rp-y rp-y-max">${max}</span><span class="rp-y rp-y-mid">${Math.round(max / 2)}</span>
+      <span class="rp-cross" hidden></span><span class="rp-dot" hidden></span><span class="rp-tip" hidden></span>
+    </div>
+    <div class="rp-x"><span>${escapeHtml(fmt(points[0].at))}</span><span>${escapeHtml(fmt(points.at(-1).at))}</span></div>
+  </figure>`;
+}
+
+function bindTrendChart(root) {
+  const fig = root.querySelector('.rp-trend-chart');
+  if (!fig) return;
+  const points = JSON.parse(fig.dataset.points);
+  const plot = fig.querySelector('.rp-plot');
+  const [cross, dot, tip] = ['.rp-cross', '.rp-dot', '.rp-tip'].map((sel) => plot.querySelector(sel));
+  const show = (clientX) => {
+    const box = plot.getBoundingClientRect();
+    const rel = (clientX - box.left) / box.width;
+    const p = points.reduce((best, q) => (Math.abs(q.x - rel) < Math.abs(best.x - rel) ? q : best), points[0]);
+    for (const el of [cross, dot, tip]) el.hidden = false;
+    cross.style.left = `${p.x * 100}%`;
+    dot.style.left = `${p.x * 100}%`;
+    dot.style.top = `${p.y * 100}%`;
+    tip.innerHTML = `<b>${p.open}</b> open<br><span>${escapeHtml(p.at)}</span>`;
+    tip.style.left = `${Math.min(Math.max(p.x * 100, 12), 88)}%`;
+  };
+  plot.addEventListener('pointermove', (event) => show(event.clientX));
+  plot.addEventListener('pointerleave', () => {
+    for (const el of [cross, dot, tip]) el.hidden = true;
+  });
+}
+
+const RP_TABS = [
+  ['overview', 'Overview'],
+  ['remind', 'Remind'],
+  ['schedule', 'Schedule'],
+  ['triage', 'Triage'],
+  ['history', 'History'],
+];
+
+function openReportDetail(id, tab = 'overview') {
+  rpState.open = id;
+  rpState.tab = tab;
+  $('rp-sheet').innerHTML = '';
+  renderReportDetail(id);
+  $('rp-drawer').hidden = false;
+  document.body.classList.add('rp-locked');
+  renderReportList();
+  $('rp-sheet').querySelector('.rp-tabs [aria-selected="true"]')?.focus();
+}
+
+function closeReportDetail() {
+  const id = rpState.open;
+  rpState.open = '';
+  $('rp-drawer').hidden = true;
+  document.body.classList.remove('rp-locked');
+  renderReportList();
+  document.querySelector(`.rp-row[data-open-report="${CSS.escape(id)}"]`)?.focus();
+}
+
+function renderReportDetail(id) {
+  const r = trackedById.get(id);
+  if (!r) return;
+  const kept = captureReportsState();
+  const sheet = $('rp-sheet');
+  const scroll = sheet.querySelector('.rp-body')?.scrollTop ?? 0;
+  const l = r.latest;
+  const status = reportStatus(r);
+  const rid = escapeHtml(r.id);
+  const tabs = RP_TABS.map(([key, label]) => `<button type="button" role="tab" id="rp-tab-${key}" aria-controls="rp-panel-${key}" aria-selected="${rpState.tab === key}" tabindex="${rpState.tab === key ? 0 : -1}" data-rp-tab="${key}">${label}${key === 'schedule' && r.automation?.enabled ? ' <i class="rp-on" aria-label="on"></i>' : ''}</button>`).join('');
+  const panel = (key, html) => `<div class="rp-panel" role="tabpanel" id="rp-panel-${key}" aria-labelledby="rp-tab-${key}" ${rpState.tab === key ? '' : 'hidden'}>${html}</div>`;
+  const kpi = (label, value, sub = '') => `<div class="rp-kpi"><span class="rp-tile-label">${escapeHtml(label)}</span><span class="rp-kpi-value">${value}</span>${sub ? `<span class="rp-tile-sub">${sub}</span>` : ''}</div>`;
+  const overview = l
+    ? `<div class="rp-hero">
+        <div class="rp-hero-number"><span class="rp-big">${l.percentActioned}%</span><span class="rp-sub">actioned · ${l.actioned} of ${l.baseline} findings triaged or no longer detected</span></div>
+        ${progressBar(l.outcomes, l.baseline)}
+      </div>
+      <div class="rp-kpis">
+        ${kpi('Open now', l.open ?? 0, 'awaiting, confirmed or new')}
+        ${kpi('New since saved', l.newFindings, 'matching the filters')}
+        ${kpi('Matching now', l.currentMatching, `was ${l.baseline} when saved`)}
+        ${kpi('AI credits used', `${l.aiActions.triage} <small>/ ${l.aiActions.remediation}</small>`, 'triage / remediation')}
+      </div>
+      ${trendChart(openSeries(r))}
+      ${l.byProject?.length ? `<h3 class="rp-h3">By project</h3><div class="table-wrap"><table class="data-table rp-table">
+        <thead><tr><th>Project</th><th>Progress</th><th class="num">Open</th><th class="num">Confirmed</th><th class="num">New</th><th class="num">Now</th></tr></thead>
+        <tbody>${l.byProject
+          .slice()
+          .sort((a, b) => b.awaiting + b.confirmed + b.newFindings - (a.awaiting + a.confirmed + a.newFindings))
+          .map((p) => `<tr><td>${escapeHtml(p.projectName || p.projectId)}</td>
+            <td class="rp-mini">${progressBar({ resolved: p.resolved, notExploitable: p.notExploitable, confirmed: p.confirmed, awaiting: p.awaiting }, p.baseline, { legend: false })}</td>
+            <td class="num">${p.awaiting + p.confirmed + p.newFindings}</td><td class="num">${p.confirmed}</td><td class="num">${p.newFindings}</td><td class="num">${p.currentMatching}</td></tr>`)
+          .join('')}</tbody></table></div>` : ''}`
+    : '<p class="hint">Not measured yet: Refresh reads Checkmarx One now.</p>';
+  const history = r.history?.length
+    ? `<div class="table-wrap"><table class="data-table rp-table">
+        <thead><tr><th>Reading</th><th class="num">Awaiting</th><th class="num">Confirmed</th><th class="num">Not exploitable</th><th class="num">No longer detected</th><th class="num">New</th><th class="num">Matching now</th></tr></thead>
+        <tbody>${r.history
+          .slice()
+          .reverse()
+          .map((h) => `<tr><td>${escapeHtml(new Date(h.at).toLocaleString())}</td><td class="num">${h.awaiting}</td><td class="num">${h.confirmed}</td><td class="num">${h.notExploitable}</td><td class="num">${h.resolved}</td><td class="num">${h.newFindings}</td><td class="num">${h.currentMatching}</td></tr>`)
+          .join('')}</tbody></table></div>`
+    : '<p class="hint">No readings yet.</p>';
+  sheet.innerHTML = `<article class="rp-detail" data-report="${rid}">
+    <header class="rp-d-head">
+      <div class="rp-d-title">
+        <span class="rp-eyebrow">Tracked report ${statusChip(status)}</span>
+        <h2 id="rp-d-title">${escapeHtml(r.name)}</h2>
+        <p class="rp-sub">${escapeHtml(r.scopeLabel || '')}</p>
+        <p class="rp-sub">Saved ${escapeHtml(new Date(r.createdAt).toLocaleDateString())} · ${l ? `updated ${escapeHtml(relativeTime(l.at))}` : 'not updated yet'}${r.lastError ? ` · <span class="status error">last update failed: ${escapeHtml(r.lastError)}</span>` : ''}</p>
+      </div>
+      <div class="rp-d-actions">
+        <button type="button" data-report-refresh="${rid}">Refresh</button>
+        <button type="button" data-report-html="${rid}">Download HTML</button>
+        ${can('reports.manage') ? `<button type="button" class="link danger" data-report-delete="${rid}">Delete</button>` : ''}
+        <button type="button" class="ghost rp-close" data-rp-close aria-label="Close">✕</button>
+      </div>
+    </header>
+    <nav class="rp-tabs" role="tablist" aria-label="Report sections">${tabs}</nav>
+    <div class="rp-body">
+      ${panel('overview', overview)}
+      ${panel('remind', remindSection(r))}
+      ${panel('schedule', scheduleSection(r))}
+      ${panel('triage', triageSection(r))}
+      ${panel('history', history)}
+      <p class="status" data-follow-status="${rid}"></p>
+    </div>
+  </article>`;
+  restoreReportsState(kept);
+  const card = sheet.querySelector('[data-report]');
+  syncSendTo(card);
+  updateNeed(card);
+  bindTrendChart(sheet);
+  sheet.querySelector('.rp-body').scrollTop = scroll;
+}
+
+const radioFor = (id) => (name, value, label, current) =>
+  `<label class="check"><input type="radio" name="${name}-${id}" value="${value}" data-keep ${current === value ? 'checked' : ''} /> ${label}</label>`;
+
+/** Who gets a reminder, and what: used by "Send now" and by the schedule. */
+function remindSection(r) {
   const id = escapeHtml(r.id);
   const auto = r.automation ?? {};
-  const open = r.latest?.open ?? 0;
-  const radio = (name, value, label, current) =>
-    `<label class="check"><input type="radio" name="${name}-${id}" value="${value}" data-keep ${current === value ? 'checked' : ''} /> ${label}</label>`;
-  const reminders = (r.reminders ?? []).slice(0, 10);
+  const radio = radioFor(id);
   const onlyTo = auto.onlyTo?.length ? auto.onlyTo.join(', ') : '';
   const sendTo = onlyTo ? 'only' : auto.sendTo ?? 'initiator';
-  return `<details class="follow-up" data-keep-open="${id}">
-    <summary><strong>Follow up</strong> — ${open} open finding${open === 1 ? '' : 's'} (awaiting triage, confirmed or new)</summary>
-    <div class="follow-grid">
-      <fieldset>
-        <legend>Send a reminder about the open findings</legend>
-        <div class="alloc-row">
-          <span>To</span>
-          ${radio('sendTo', 'initiator', 'Scan initiators', sendTo)}
-          ${radio('sendTo', 'list', 'Recipient list', sendTo)}
-          ${radio('sendTo', 'both', 'Both', sendTo)}
-          ${radio('sendTo', 'only', 'Only to', sendTo)}
-          <input type="text" class="only-to" data-field="onlyTo" data-keep value="${escapeHtml(onlyTo)}" placeholder="name@company.com, …" aria-label="Send only to these addresses" />
-        </div>
-        <div class="alloc-row" data-content-row>
-          <span>Content</span>
-          ${radio('content', 'summary', 'One summary per person', auto.emailContent ?? 'summary')}
-          ${radio('content', 'per-project', 'One email per project', auto.emailContent)}
-        </div>
-        <label class="check"><input type="checkbox" data-field="attachHtml" data-keep ${auto.attachHtml ? 'checked' : ''} /> Attach the interactive HTML report</label>
-        <div class="actions compact">
-          ${can('reports.remind') ? `<button type="button" data-remind="${id}" data-dry="1">Preview</button>` : ''}
-          <button type="button" data-report-html="${id}">Download HTML report</button>
-          ${can('reports.remind') ? `<button type="button" data-remind="${id}" class="primary">Send reminder now</button>` : ''}
-        </div>
-      </fieldset>
-      <fieldset${can('reports.manage') ? '' : ' hidden'}>
-        <legend>Automatic reminders</legend>
-        <div class="alloc-row">
-          <label class="check"><input type="checkbox" data-field="autoEnabled" data-keep ${auto.enabled ? 'checked' : ''} /> Send automatically every</label>
-          <input type="number" min="1" max="90" data-field="everyDays" data-keep value="${auto.everyDays ?? 7}" class="small-num" /> days at
-          <input type="number" min="0" max="23" data-field="hour" data-keep value="${auto.hour ?? 9}" class="small-num" />:00
-          <span class="hint" title="Time zone of the machine running ${escapeHtml(state.health?.app?.name || 'CxMissionZero')}">${escapeHtml(zoneLabel())}</span>
-        </div>
-        <p class="hint">Uses the send options above, and only while something is still open.
-          ${auto.enabled && auto.nextRunAt ? `Next: ${escapeHtml(serverTime(auto.nextRunAt))}.` : ''}
-          ${auto.lastRunAt ? `Last: ${escapeHtml(serverTime(auto.lastRunAt))}.` : ''}
-          ${auto.lastError ? `<span class="status error">${escapeHtml(auto.lastError)}</span>` : ''}</p>
-        <div class="actions compact"><button type="button" data-schedule="${id}">Save schedule</button></div>
-      </fieldset>
-      <fieldset${can('triage.run') || can('credits.allocate') ? '' : ' hidden'}>
-        <legend>Triage the open findings now</legend>
-        <div class="alloc-row">
-          ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
-            .map((sev) => {
-              const n = r.latest?.toTriage?.[sev];
-              const results = r.latest?.toTriageResults?.[sev] ?? n;
-              const count = n === undefined ? '' : results < n ? ` <span class="hint" title="${n} findings are ${results} Checkmarx One results: rows that share one are triaged, and charged, once">(${n} = ${results} results)</span>` : ` <span class="hint">(${n})</span>`;
-              return `<label class="check"><input type="checkbox" data-sev="${sev}" data-keep ${['CRITICAL', 'HIGH'].includes(sev) ? 'checked' : ''} /> ${sev[0] + sev.slice(1).toLowerCase()}${count}</label>`;
-            })
-            .join('')}
-        </div>
-        <p class="hint" data-need="${id}">${triageNeedText(r)}</p>
-        <div class="actions compact">
-          ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary" data-needs-data>Triage now</button>` : ''}
-          ${can('credits.allocate') ? `<button type="button" data-report-allocate="${id}" data-needs-data>Allocate credits</button>` : ''}
-          <span class="alloc-extra${can('credits.allocate') ? '' : ' perm-hidden'}">+ <input type="number" min="0" max="100000" data-field="triageAdd" data-keep class="small-num" placeholder="0" /> triage
-            + <input type="number" min="0" max="100000" data-field="remediationAdd" data-keep class="small-num" placeholder="0" /> remediation</span>
-        </div>
-        <p class="hint">Triage now runs AI Triage from here. Allocate credits gives the projects what these severities need — 1 per Checkmarx One result to triage (rows that share one result count once), 3 per confirmed result to remediate — plus any extra credits you enter, so their developers can act from their own reports. Nothing is allocated until you click it.</p>
-      </fieldset>
+  const open = r.latest?.open ?? 0;
+  const reminders = (r.reminders ?? []).slice(0, 10);
+  return `<p class="rp-lead">${open} open finding${open === 1 ? '' : 's'} (awaiting triage, confirmed or new). Remind the people who can act on them.</p>
+    <div class="rp-form">
+      <div class="rp-field"><span class="rp-label">Send to</span><div class="rp-options">
+        ${radio('sendTo', 'initiator', 'Scan initiators', sendTo)}
+        ${radio('sendTo', 'list', 'Recipient list', sendTo)}
+        ${radio('sendTo', 'both', 'Both', sendTo)}
+        ${radio('sendTo', 'only', 'Only to', sendTo)}
+        <input type="text" class="only-to" data-field="onlyTo" data-keep value="${escapeHtml(onlyTo)}" placeholder="name@company.com, …" aria-label="Send only to these addresses" />
+      </div></div>
+      <div class="rp-field" data-content-row><span class="rp-label">Content</span><div class="rp-options">
+        ${radio('content', 'summary', 'One summary per person', auto.emailContent ?? 'summary')}
+        ${radio('content', 'per-project', 'One email per project', auto.emailContent)}
+      </div></div>
+      <div class="rp-field"><span class="rp-label">Attachment</span><div class="rp-options">
+        <label class="check"><input type="checkbox" data-field="attachHtml" data-keep ${auto.attachHtml ? 'checked' : ''} /> Interactive HTML report (triage and remediate from it)</label>
+      </div></div>
     </div>
-    <p class="status" data-follow-status="${id}"></p>
-    ${reminders.length ? `<div class="table-wrap"><table class="probe">
-      <thead><tr><th>Reminder sent</th><th>How</th><th class="num">Open findings</th><th class="num">Emails</th><th>Result</th></tr></thead>
-      <tbody>${reminders
-        .map((m) => `<tr><td>${escapeHtml(new Date(m.at).toLocaleString())}${m.automatic ? ' <span class="hint">(automatic)</span>' : ''}</td>
-          <td>${m.sendTo === 'only' ? `Only to ${escapeHtml((m.onlyTo ?? []).join(', '))}` : escapeHtml({ initiator: 'Scan initiators', list: 'Recipient list', both: 'Initiators + list' }[m.sendTo] ?? m.sendTo)}${m.attachHtml ? ' · HTML report' : ''}</td>
-          <td class="num">${m.openFindings}</td><td class="num">${m.sent}</td>
-          <td>${m.error ? `<span class="status error">${escapeHtml(m.error)}</span>` : 'Sent'}</td></tr>`)
-        .join('')}</tbody></table></div>` : ''}
-  </details>`;
+    <div class="actions compact">
+      ${can('reports.remind') ? `<button type="button" data-remind="${id}" data-dry="1">Preview</button><button type="button" data-remind="${id}" class="primary">Send reminder now</button>` : '<span class="hint">Your role cannot send reminders.</span>'}
+    </div>
+    <p class="hint">These options are also what automatic reminders use (Schedule).</p>
+    ${reminders.length ? `<h3 class="rp-h3">Sent</h3>${remindersTable(reminders)}` : ''}`;
+}
+
+function remindersTable(reminders) {
+  return `<div class="table-wrap"><table class="data-table rp-table">
+    <thead><tr><th>Sent</th><th>To</th><th class="num">Open</th><th class="num">Emails</th><th>Result</th></tr></thead>
+    <tbody>${reminders
+      .map((m) => `<tr><td>${escapeHtml(new Date(m.at).toLocaleString())}${m.automatic ? ' <span class="rp-tag">automatic</span>' : ''}</td>
+        <td>${m.sendTo === 'only' ? `Only ${escapeHtml((m.onlyTo ?? []).join(', '))}` : escapeHtml({ initiator: 'Scan initiators', list: 'Recipient list', both: 'Initiators + list' }[m.sendTo] ?? m.sendTo)}${m.attachHtml ? ' · HTML' : ''}</td>
+        <td class="num">${m.openFindings}</td><td class="num">${m.sent}</td>
+        <td>${m.error ? `<span class="status error">${escapeHtml(m.error)}</span>` : 'Sent'}</td></tr>`)
+      .join('')}</tbody></table></div>`;
+}
+
+function scheduleSection(r) {
+  const id = escapeHtml(r.id);
+  const auto = r.automation ?? {};
+  const manage = can('reports.manage');
+  const reminders = (r.reminders ?? []).filter((m) => m.automatic).slice(0, 10);
+  return `<div class="rp-schedule-state ${auto.enabled ? 'on' : ''}">
+      <span class="rp-big-icon" aria-hidden="true">${auto.enabled ? '⟳' : '○'}</span>
+      <div><strong>${escapeHtml(scheduleText(auto))}${auto.enabled ? ` ${escapeHtml(zoneLabel())}` : ''}</strong>
+        <span class="rp-sub">${auto.enabled && auto.nextRunAt ? `Next ${escapeHtml(serverTime(auto.nextRunAt))} (${escapeHtml(relativeTime(auto.nextRunAt))})` : 'Turn it on to follow up without anyone remembering to.'}${auto.lastRunAt ? ` · last ${escapeHtml(serverTime(auto.lastRunAt))}` : ''}</span>
+        ${auto.lastError ? `<span class="status error">${escapeHtml(auto.lastError)}</span>` : ''}</div>
+    </div>
+    <div class="rp-form"${manage ? '' : ' hidden'}>
+      <div class="rp-field"><span class="rp-label">Automatic reminders</span><div class="rp-options">
+        <label class="switch"><input type="checkbox" data-field="autoEnabled" data-keep ${auto.enabled ? 'checked' : ''} /> <span><strong>On</strong><small>Only while something is still open</small></span></label>
+      </div></div>
+      <div class="rp-field"><span class="rp-label">Every</span><div class="rp-options">
+        <input type="number" min="1" max="90" data-field="everyDays" data-keep value="${auto.everyDays ?? 7}" class="small-num" aria-label="Every how many days" /> days at
+        <input type="number" min="0" max="23" data-field="hour" data-keep value="${auto.hour ?? 9}" class="small-num" aria-label="Hour" />:00
+        <span class="hint" title="Time zone of the machine running ${escapeHtml(state.health?.app?.name || 'CxMissionZero')}">${escapeHtml(zoneLabel())}</span>
+      </div></div>
+    </div>
+    <p class="hint">Sends to the people and with the content chosen under <button type="button" class="link" data-rp-tab="remind">Remind</button>.</p>
+    ${manage ? `<div class="actions compact"><button type="button" class="primary" data-schedule="${id}">Save schedule</button></div>` : '<p class="hint">Your role cannot change schedules.</p>'}
+    ${reminders.length ? `<h3 class="rp-h3">Sent automatically</h3>${remindersTable(reminders)}` : ''}`;
+}
+
+function triageSection(r) {
+  const id = escapeHtml(r.id);
+  const allowed = can('triage.run') || can('credits.allocate');
+  if (!allowed) return '<p class="hint">Your role cannot run AI Triage or allocate credits.</p>';
+  return `<p class="rp-lead">Run AI Triage on what is still awaiting triage, or give the projects the credits their developers need to do it from their own reports.</p>
+    <div class="rp-form">
+      <div class="rp-field"><span class="rp-label">Severities</span><div class="rp-options">
+      ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+        .map((sev) => {
+          const n = r.latest?.toTriage?.[sev];
+          const results = r.latest?.toTriageResults?.[sev] ?? n;
+          const count = n === undefined ? '' : results < n ? ` <span class="hint" title="${n} findings are ${results} Checkmarx One results: rows that share one are triaged, and charged, once">(${n} = ${results} results)</span>` : ` <span class="hint">(${n})</span>`;
+          return `<label class="check"><input type="checkbox" data-sev="${sev}" data-keep ${['CRITICAL', 'HIGH'].includes(sev) ? 'checked' : ''} /> ${sev[0] + sev.slice(1).toLowerCase()}${count}</label>`;
+        })
+        .join('')}
+      </div></div>
+      <div class="rp-field${can('credits.allocate') ? '' : ' perm-hidden'}"><span class="rp-label">Extra credits</span><div class="rp-options alloc-extra">
+        + <input type="number" min="0" max="100000" data-field="triageAdd" data-keep class="small-num" placeholder="0" aria-label="Extra triage credits" /> triage
+        + <input type="number" min="0" max="100000" data-field="remediationAdd" data-keep class="small-num" placeholder="0" aria-label="Extra remediation credits" /> remediation
+      </div></div>
+    </div>
+    <p class="rp-need" data-need="${id}">${triageNeedText(r)}</p>
+    <div class="actions compact">
+      ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary" data-needs-data>Triage now</button>` : ''}
+      ${can('credits.allocate') ? `<button type="button" data-report-allocate="${id}" data-needs-data>Allocate credits</button>` : ''}
+    </div>
+    <p class="hint">Allocate gives the projects what these severities need: 1 credit per Checkmarx One result to triage (rows that share one count once), 3 per confirmed result to remediate, plus any extra entered. Nothing is allocated until you click it.</p>`;
 }
 
 /** A time as the reminder server's clock shows it. */
@@ -3039,23 +3310,23 @@ function keepKey(el) {
 /** Remember form state and opened sections across the periodic re-render. */
 function captureReportsState() {
   const values = new Map();
-  for (const el of document.querySelectorAll('#reports-list [data-keep]')) {
+  for (const el of document.querySelectorAll('#rp-sheet [data-keep]')) {
     const key = keepKey(el);
     values.set(key, el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value);
   }
-  const open = new Set([...document.querySelectorAll('#reports-list details[open]')].map((d) => d.dataset.keepOpen || d.querySelector('summary')?.textContent));
+  const open = new Set([...document.querySelectorAll('#rp-sheet details[open]')].map((d) => d.dataset.keepOpen || d.querySelector('summary')?.textContent));
   const statuses = new Map([...document.querySelectorAll('[data-follow-status]')].map((el) => [el.dataset.followStatus, [el.textContent, el.className]]));
   return { values, open, statuses };
 }
 
 function restoreReportsState({ values, open, statuses }) {
-  for (const el of document.querySelectorAll('#reports-list [data-keep]')) {
+  for (const el of document.querySelectorAll('#rp-sheet [data-keep]')) {
     const key = keepKey(el);
     if (!values.has(key)) continue;
     if (el.type === 'checkbox' || el.type === 'radio') el.checked = values.get(key);
     else el.value = values.get(key);
   }
-  for (const d of document.querySelectorAll('#reports-list details')) {
+  for (const d of document.querySelectorAll('#rp-sheet details')) {
     if (open.has(d.dataset.keepOpen || d.querySelector('summary')?.textContent)) d.open = true;
   }
   for (const [id, [text, className]] of statuses) {
@@ -3081,6 +3352,7 @@ async function trackedReportAction(event) {
     }
     loadTrackedReports();
   } else if (remove && confirm('Delete this tracked report? Its history is lost.')) {
+    closeReportDetail();
     try {
       await api(`/api/tracked-reports/${encodeURIComponent(remove.dataset.reportDelete)}`, { method: 'DELETE' });
     } catch (error) {
@@ -4147,15 +4419,48 @@ async function verifyWithCheckmarx({ before = '' } = {}) {
 }
 $('alloc-remediation').addEventListener('click', () => guardedAction('Allocating for remediation', () => allocateNeeded('remediation')));
 $('track-save').addEventListener('click', saveTrackedReport);
-$('reports-list').addEventListener('click', trackedReportAction);
-$('reports-list').addEventListener('change', (event) => {
+// Reports page: rows and agenda open a report; the detail panel holds every action.
+for (const id of ['reports-list', 'rp-upcoming']) {
+  $(id).addEventListener('click', (event) => {
+    const row = event.target.closest('[data-open-report]');
+    if (row) openReportDetail(row.dataset.openReport, row.dataset.tab || 'overview');
+  });
+}
+function selectReportTab(tab) {
+  rpState.tab = tab;
+  for (const button of document.querySelectorAll('#rp-sheet [role="tab"]')) {
+    const on = button.dataset.rpTab === tab;
+    button.setAttribute('aria-selected', String(on));
+    button.tabIndex = on ? 0 : -1;
+    if (on) button.focus();
+  }
+  for (const panel of document.querySelectorAll('#rp-sheet [role="tabpanel"]')) panel.hidden = panel.id !== `rp-panel-${tab}`;
+}
+$('rp-drawer').addEventListener('click', (event) => {
+  if (event.target.closest('[data-rp-close]')) return closeReportDetail();
+  const tab = event.target.closest('[data-rp-tab]');
+  if (tab) return selectReportTab(tab.dataset.rpTab);
+  trackedReportAction(event);
+});
+$('rp-sheet').addEventListener('keydown', (event) => {
+  if (!event.target.matches('[role="tab"]') || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  const keys = RP_TABS.map(([key]) => key);
+  const at = keys.indexOf(rpState.tab);
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? keys.length - 1 : (at + (event.key === 'ArrowRight' ? 1 : -1) + keys.length) % keys.length;
+  event.preventDefault();
+  selectReportTab(keys[next]);
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !$('rp-drawer').hidden && $('terms-overlay').hidden) closeReportDetail();
+});
+$('rp-sheet').addEventListener('change', (event) => {
   const card = event.target.closest('[data-report]');
   if (!card) return;
   if (event.target.matches('[data-sev]')) updateNeed(card);
   if (event.target.name?.startsWith('sendTo-')) syncSendTo(card);
 });
 // Typing an address picks "Only to".
-$('reports-list').addEventListener('input', (event) => {
+$('rp-sheet').addEventListener('input', (event) => {
   if (!event.target.matches('[data-field="onlyTo"]')) return;
   const card = event.target.closest('[data-report]');
   const only = card.querySelector('input[value="only"]');
@@ -4163,6 +4468,20 @@ $('reports-list').addEventListener('input', (event) => {
     only.checked = true;
     syncSendTo(card);
   }
+});
+for (const radio of document.querySelectorAll('input[name="rpFilter"]')) {
+  radio.addEventListener('change', () => {
+    rpState.filter = radio.value;
+    renderReportList();
+  });
+}
+$('rp-search').addEventListener('input', () => {
+  rpState.search = $('rp-search').value;
+  renderReportList();
+});
+$('rp-sort').addEventListener('change', () => {
+  rpState.sort = $('rp-sort').value;
+  renderReportList();
 });
 
 $('select-all').addEventListener('change', (event) => {
