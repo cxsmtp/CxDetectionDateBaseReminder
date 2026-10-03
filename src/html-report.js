@@ -89,6 +89,8 @@ export function generateHtmlReport(reportData, options = {}) {
   const total = projects.reduce((sum, p) => sum + (p.risks?.length ?? 0), 0);
   const accent = /^#[0-9a-f]{3,8}$/i.test(branding.accentColor ?? '') ? branding.accentColor : '#5b4bdb';
 
+  const ages = findings.map((f) => f.ageDays).filter((d) => Number.isFinite(d));
+  const oldest = ages.length ? Math.max(...ages) : null;
   const counts = {};
   for (const project of projects) {
     for (const risk of project.risks ?? []) counts[risk.severity] = (counts[risk.severity] ?? 0) + 1;
@@ -226,11 +228,18 @@ export function generateHtmlReport(reportData, options = {}) {
     </div>
     <button id="connect" class="btn btn-light" type="button">Connect to CxONE for action</button>
   </div>
-  <div class="counts">
+  <div class="counts summary">
+    <span class="count count-total"><b>${total}</b> open</span>
     ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
-      .map((s) => `<span class="count"><b>${counts[s] ?? 0}</b> ${s.toLowerCase()}</span>`)
+      .map((s) => `<span class="count count-${s.toLowerCase()}"><i aria-hidden="true"></i><b>${counts[s] ?? 0}</b> ${s.toLowerCase()}</span>`)
       .join('')}
+    ${oldest !== null ? `<span class="count count-age"><b>${oldest}d</b> oldest</span>` : ''}
   </div>
+  <ol class="lifecycle" aria-label="Detect, eliminate, govern">
+    <li class="lc-detect"><b>Detect</b> Found by Checkmarx One</li>
+    <li class="lc-eliminate"><b>Eliminate</b> Triage and remediate here</li>
+    <li class="lc-govern"><b>Govern</b> Every credit is audited</li>
+  </ol>
 </header>
 
 <main>
@@ -276,15 +285,32 @@ export function generateHtmlReport(reportData, options = {}) {
       <div class="credit-balance-head"><strong>Your credits</strong> <span id="bulk-credits" class="muted"></span></div>
       <div id="credit-projects" class="credit-projects"></div>
     </div>
+    <details class="how">
+    <summary>How this report works</summary>
     <p class="muted">Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or
       high finding in this report, across all its projects. ${remediateHere
         ? 'Remediate runs Checkmarx One AI Remediation and links to the suggested fix (or its pull request).'
         : 'Remediate opens the finding in Checkmarx One Risk Hub.'}
       ${remediateHere ? 'Triage and Remediate go' : 'Triage goes'} through the reminder server shown above, which must be reachable from this computer (company network or VPN).</p>
+    </details>
     ${resultsShown < shownAi.length
       ? `<p class="shared-explainer"><strong>${shownAi.length} findings here are ${resultsShown} Checkmarx One results.</strong> Checkmarx One can list one result once per code path that reaches it; AI Triage works on the result, so those rows are triaged together and charged once. Rows that are the same result carry the same label and colour (${[...labels.values()].slice(0, 3).map((n) => `<span class="shared-chip shared-c${n % SHARED_COLOURS}">R${n + 1}</span>`).join(' ')}${labels.size > 3 ? ' …' : ''}), and each one links to the other rows of its result.</p>`
       : ''}
   </section>
+
+  <div class="toolbar" id="report-filters" role="search" aria-label="Filter findings">
+    <div class="seg" role="group" aria-label="Severity">
+      <button type="button" class="seg-btn on" data-filter-sev="" aria-pressed="true">All <em>${findings.length}</em></button>
+      ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+        .map((sev) => [sev, findings.filter((f) => String(f.severity || '').toUpperCase() === sev).length])
+        .filter(([, n]) => n > 0)
+        .map(([sev, n]) => `<button type="button" class="seg-btn" data-filter-sev="${sev}" aria-pressed="false"><i class="dot dot-${sev.toLowerCase()}" aria-hidden="true"></i>${sev[0]}${sev.slice(1).toLowerCase()} <em>${n}</em></button>`)
+        .join('\n      ')}
+    </div>
+    <input type="search" id="report-search" placeholder="Search findings, projects, files" aria-label="Search findings" />
+    <label class="check"><input type="checkbox" id="report-actionable" /> Only what AI can act on</label>
+    <span id="filter-count" class="muted" role="status"></span>
+  </div>
 
   <div class="table-wrap">
     <table id="findings">
@@ -357,7 +383,7 @@ function findingRow(finding, client, remediateHere, shared = null) {
   const stateLabel = STATE_LABELS[state] ?? (state ? state.replace(/_/g, ' ').toLowerCase() : '—');
   const age = finding.ageDays === null || finding.ageDays === undefined ? '—' : `${finding.ageDays}d`;
 
-  return `<tr data-key="${client.key}" id="row-${client.key}"${shared ? ` class="shared-row shared-c${shared.color}" data-result="${shared.label}"` : ''}>
+  return `<tr data-key="${client.key}" id="row-${client.key}" data-sev="${escapeHtml(severity)}"${shared ? ` class="shared-row shared-c${shared.color}" data-result="${shared.label}"` : ''}>
   <td class="sev-cell"><span class="sev sev-${escapeHtml(severity.toLowerCase())}">${escapeHtml(severity)}</span></td>
   <td class="finding"><div class="finding-title">${title}</div>
     <div class="sub">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</div>${shared ? `\n    ${sharedNoteHtml(shared)}` : ''}</td>
@@ -657,6 +683,50 @@ tr.shared-row.twin-hi > td, tr.shared-row:target > td { background: color-mix(in
   a { color: #000; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+
+/* Detect · Eliminate · Govern: summary tiles, the lifecycle strip, filters, calmer rows. */
+:root { --detect: #2a78d6; --eliminate: #d9480f; --govern: #0e9f6e; }
+@media (prefers-color-scheme: dark) { :root { --detect: #5b9df0; --eliminate: #f08a5a; --govern: #34c79a; } }
+.top { padding-bottom: 18px; background: radial-gradient(1200px 300px at 85% -40%, rgba(255,255,255,.18), transparent 60%), linear-gradient(135deg, var(--accent), #6d28d9); }
+.summary { gap: 10px; }
+.summary .count { display: inline-flex; align-items: baseline; gap: 6px; padding: 8px 14px; border-radius: 12px; background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.2); font-size: 12.5px; backdrop-filter: blur(6px); }
+.summary .count b { font-size: 20px; letter-spacing: -.01em; }
+.summary .count i { align-self: center; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+.count-critical i { background: #ff8a80 !important; } .count-high i { background: #ffb26b !important; } .count-medium i { background: #ffd666 !important; } .count-low i { background: #9ec5ff !important; }
+.lifecycle { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; max-width: 1280px; margin: 12px auto 0; padding: 0; font-size: 12px; }
+.lifecycle li { display: inline-flex; gap: 6px; align-items: center; padding: 3px 12px 3px 8px; border-radius: 999px; background: rgba(0,0,0,.14); color: rgba(255,255,255,.9); }
+.lifecycle li::before { content: ""; width: 8px; height: 8px; border-radius: 3px; }
+.lc-detect::before { background: #9ec5ff; } .lc-eliminate::before { background: #ffb26b; } .lc-govern::before { background: #7ee2b8; }
+.lifecycle li + li { position: relative; }
+main { padding-top: 18px; }
+.server, .actions, .table-wrap, .activity { border-radius: 14px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+.how { margin-top: 10px; }
+.how summary { cursor: pointer; color: var(--link); font-size: 13px; font-weight: 600; }
+.how p { margin: 8px 0 0; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 10px; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 10px; background: var(--muted-bg); border: 1px solid var(--line); }
+.seg-btn { font: inherit; font-size: 13px; font-weight: 600; border: 0; background: transparent; color: var(--muted-ink); padding: 5px 12px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.seg-btn em { font-style: normal; font-size: 11px; color: var(--muted); }
+.seg-btn.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(16,24,40,.12); }
+.dot { width: 8px; height: 8px; border-radius: 50%; } .dot-critical { background: #b42318; } .dot-high { background: #e04f16; } .dot-medium { background: #b54708; } .dot-low { background: #1570ef; }
+#report-search { flex: 1 1 220px; max-width: 360px; font: inherit; padding: 7px 11px; border-radius: 9px; border: 1px solid var(--outline-line); background: var(--surface); color: var(--ink); }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted-ink); cursor: pointer; }
+tr.filtered-out { display: none; }
+#findings tbody tr:hover > td { background: color-mix(in srgb, var(--accent) 4%, transparent); }
+td { vertical-align: middle; }
+td.state-cell, td.finding { vertical-align: top; }
+.why-line { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.state-why { max-width: 320px; }
+@media (max-width: 760px) {
+  .summary .count { flex: 1 1 calc(33% - 10px); justify-content: center; padding: 6px 8px; }
+  .lifecycle { display: none; }
+  .toolbar { align-items: stretch; }
+  .seg { width: 100%; } .seg-btn { flex: 1 1 auto; justify-content: center; }
+  #report-search { max-width: none; flex-basis: 100%; }
+  #findings tr.filtered-out { display: none; }
+}
+@media print { .toolbar, .lifecycle { display: none !important; } tr.filtered-out { display: table-row; } }
 `;
 }
 

@@ -17,10 +17,13 @@ import { createHash } from 'node:crypto';
 
 const KINDS = new Set(['usage', 'error', 'discrepancy', 'client-error']);
 const MAX_TEXT = 300;
+// Text is cut to this before scrubbing, so a huge message cannot make the patterns crawl.
+const MAX_INPUT = 2000;
 
 /** Remove anything that could identify a person, a system or a secret. */
 export function scrub(value) {
   return String(value ?? '')
+    .slice(0, MAX_INPUT)
     .replace(/[\u0000-\u001f\u007f]+/g, ' ')
     .replace(/[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+/g, '<email>')
     .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, '<url>')

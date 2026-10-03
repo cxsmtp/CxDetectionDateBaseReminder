@@ -338,10 +338,46 @@ export function ensureClone(url, { cacheDir, token = '', authHeader = '', blobs 
   const key = `${cacheDir}|${url}|${blobs}`;
   const known = clones.get(key);
   if (known && Date.now() - known.at < CLONE_FRESH_MS) return known.promise;
+  pruneStaleClones(cacheDir);
   const promise = cloneOrFetch(url, { cacheDir, authHeader: authHeader || (token ? githubAuth(token) : ''), blobs });
   clones.set(key, { at: Date.now(), promise });
   promise.catch(() => clones.delete(key));
   return promise;
+}
+
+/** Clones nobody has used for this long are removed (they are made again if needed). */
+export const CLONE_MAX_IDLE_MS = 30 * 24 * 60 * 60_000;
+const PRUNE_EVERY_MS = 6 * 60 * 60_000;
+const lastPruned = new Map();
+
+/**
+ * Remove clones in `cacheDir` not used for CLONE_MAX_IDLE_MS (each clone's folder is touched
+ * whenever it is cloned or fetched). Only folders this cache names (a hash, maybe "-full")
+ * are considered, at most every few hours, and any problem is ignored: it is housekeeping.
+ */
+export function pruneStaleClones(cacheDir, { now = Date.now(), maxIdleMs = CLONE_MAX_IDLE_MS, force = false } = {}) {
+  if (!cacheDir) return 0;
+  if (!force && now - (lastPruned.get(cacheDir) ?? 0) < PRUNE_EVERY_MS) return 0;
+  lastPruned.set(cacheDir, now);
+  let removed = 0;
+  let entries = [];
+  try {
+    entries = fs.readdirSync(cacheDir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !/^[0-9a-f]{16}(-full)?$/.test(entry.name)) continue;
+    const dir = path.join(cacheDir, entry.name);
+    try {
+      if (now - fs.statSync(dir).mtimeMs < maxIdleMs) continue;
+      fs.rmSync(dir, { recursive: true, force: true });
+      removed += 1;
+    } catch {
+      /* in use or already gone: try again next time */
+    }
+  }
+  return removed;
 }
 
 /** The git host a GitHub API address belongs to: api.github.com → github.com, ghe.acme.com/api/v3 → ghe.acme.com. */
@@ -377,8 +413,17 @@ async function cloneOrFetch(url, { cacheDir, authHeader = '', blobs = false } = 
   }
 }
 
+/** Which hosts repositories may be cloned from: the server sets it from its connections. */
+let cloneHostAllowed = () => true;
+export function setCloneHostCheck(check) {
+  cloneHostAllowed = typeof check === 'function' ? check : () => true;
+}
+
 async function cloneOnce(url, { cacheDir, authHeader = '', blobs = false } = {}) {
   if (!/^https:\/\/[\w.-]+(:\d+)?\/[\w.\-/]+$/.test(url)) throw new Error(`Not an https repository address: ${url}`);
+  // Never a request to an arbitrary host (an internal service, say) because a project named it.
+  const host = new URL(url).hostname.toLowerCase();
+  if (!cloneHostAllowed(host)) throw new Error(`Repositories on ${host} are not cloned: connect that host on the Beta page, or add it to SCM_ALLOWED_HOSTS.`);
   const dir = path.join(cacheDir, `${createHash('sha256').update(url).digest('hex').slice(0, 16)}${blobs ? '-full' : ''}`);
   // Credentials go in an environment-only header: never in arguments, never on disk.
   const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
@@ -398,6 +443,11 @@ async function cloneOnce(url, { cacheDir, authHeader = '', blobs = false } = {})
     // one by one: clone fully for blame; history-only (no files) for identities.
     await run('git', ['clone', '--quiet', '--bare', ...(blobs ? [] : ['--filter=tree:0']), url, dir], opts);
   }
+  // Marks the clone as used, for pruneStaleClones.
+  try {
+    const now = new Date();
+    fs.utimesSync(dir, now, now);
+  } catch {}
   return { dir, env };
 }
 

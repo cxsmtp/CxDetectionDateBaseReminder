@@ -53,7 +53,9 @@ export function buildTransport(smtp) {
 export function fromAddress(smtp) {
   const address = smtp.fromAddress || smtp.user;
   if (!address) return '';
-  return smtp.fromName ? `"${smtp.fromName.replace(/"/g, '')}" <${address}>` : address;
+  // No line breaks, quotes or angle brackets: nothing can end the header and start another.
+  const clean = (value) => String(value).replace(/[\r\n"<>]/g, '').trim();
+  return smtp.fromName ? `"${clean(smtp.fromName)}" <${clean(address)}>` : clean(address);
 }
 
 /** Ports that expect plaintext first and upgrade via STARTTLS. */

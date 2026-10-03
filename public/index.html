@@ -29,49 +29,66 @@
           <strong id="app-name" class="app-name">CxMissionZero</strong>
         </div>
         <nav class="nav" id="nav" aria-label="Main" hidden>
-          <a href="#/dashboard" data-route="dashboard" class="tab">
+          <p class="nav-group" data-stage="detect" title="Find ageing findings and who owns them"><i aria-hidden="true"></i>Detect</p>
+          <a href="#/dashboard" data-route="dashboard" class="tab" data-stage="detect">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
             <span>Dashboard</span>
           </a>
-          <a href="#/reports" data-route="reports" class="tab" data-perm="reports.view">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5" /><path d="M4 19h16" /><path d="M7 15l4-4 3 3 5-6" /></svg>
-            <span>Reports</span>
-          </a>
-          <a href="#/credits" data-route="credits" class="tab" data-perm="credits.view">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></svg>
-            <span>Credits</span>
-          </a>
-          <a href="#/audit" data-route="audit" class="tab" data-perm="audit.view backup.view">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
-            <span>Audit</span>
-          </a>
-          <a href="#/settings" data-route="settings" class="tab" data-perm="settings.view">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
-            <span>Settings</span>
-          </a>
-          <a href="#/access" data-route="access" class="tab" data-perm="iam.view">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5" /></svg>
-            <span>Access</span>
-          </a>
-          <a href="#/beta" data-route="beta" class="tab" data-perm="beta.use">
+          <a href="#/beta" data-route="beta" class="tab" data-stage="detect" data-perm="beta.use">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.5L4.6 18.2A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.8L14 9.5V3" /><path d="M7.5 15h9" /></svg>
             <span>Beta</span>
           </a>
-          <a href="#/logs" data-route="logs" class="tab">
+          <p class="nav-group" data-stage="eliminate" data-perm="reports.view credits.view" title="Drive findings to zero: follow-ups, AI triage and remediation"><i aria-hidden="true"></i>Eliminate</p>
+          <a href="#/reports" data-route="reports" class="tab" data-stage="eliminate" data-perm="reports.view">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5" /><path d="M4 19h16" /><path d="M7 15l4-4 3 3 5-6" /></svg>
+            <span>Reports</span>
+          </a>
+          <a href="#/credits" data-route="credits" class="tab" data-stage="eliminate" data-perm="credits.view">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></svg>
+            <span>Credit Control</span>
+          </a>
+          <p class="nav-group" data-stage="govern" title="Audit, access, configuration and logs"><i aria-hidden="true"></i>Govern</p>
+          <a href="#/audit" data-route="audit" class="tab" data-stage="govern" data-perm="audit.view backup.view">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
+            <span>Audit</span>
+          </a>
+          <a href="#/access" data-route="access" class="tab" data-stage="govern" data-perm="iam.view">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5" /></svg>
+            <span>IAM</span>
+          </a>
+          <a href="#/settings" data-route="settings" class="tab" data-stage="govern" data-perm="settings.view">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+            <span>Settings</span>
+          </a>
+          <a href="#/logs" data-route="logs" class="tab" data-stage="govern">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>
             <span>Logs</span>
           </a>
         </nav>
-        <p class="sidebar-foot">Checkmarx One reminders, triage &amp; remediation</p>
+        <div class="sidebar-tools" id="sidebar-tools" hidden>
+          <button type="button" id="app-refresh" class="side-btn" title="Start over: reload CxMissionZero and clear everything in progress on every page">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></svg>
+            <span>Refresh</span>
+          </button>
+        </div>
+        <p class="sidebar-foot">Detect · Eliminate · Govern vulnerabilities</p>
+        <a href="#/settings/about" id="app-version" class="app-version" title="CxMissionZero version — about and terms of use" hidden></a>
       </aside>
 
       <div class="content">
         <header class="topbar">
           <div class="topbar-title">
-            <h1 id="page-title">Connect</h1>
+            <div class="title-row"><span id="page-stage" class="stage-chip" hidden></span><h1 id="page-title">Connect</h1></div>
             <p id="page-sub" class="page-sub"></p>
           </div>
           <div class="topbar-actions">
+            <button type="button" id="palette-open" class="jump-btn" hidden aria-haspopup="dialog" title="Go to any page, setting or action">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+              <span>Jump to…</span><kbd>Ctrl K</kbd>
+            </button>
+            <button type="button" id="page-reload" class="icon-btn" hidden title="Reload this page's data (keeps your filters and tabs)" aria-label="Reload this page's data">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.4-6.4L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-15.4 6.4L3 16" /><path d="M3 21v-5h5" /></svg>
+            </button>
             <span class="sub conn-pill" id="connection">Starting…</span>
             <div class="conn-group" id="conn-group" hidden>
               <button type="button" class="conn-chip" data-conn="cxone" aria-haspopup="dialog" aria-label="Checkmarx One connection">
@@ -98,6 +115,7 @@
               <div class="user-menu-body">
                 <p class="hint" id="me-detail"></p>
                 <button type="button" id="me-password">Change password</button>
+                <button type="button" id="me-refresh" class="ghost">Refresh — start over</button>
                 <button type="button" id="disconnect" class="ghost">Sign out</button>
               </div>
             </details>
@@ -188,13 +206,15 @@
           </section>
 
           <!-- ================= Dashboard ================= -->
-          <div id="page-dashboard" class="page" hidden>
+          <div id="page-dashboard" class="page dash" hidden>
+            <section class="panel gs" id="getting-started" aria-labelledby="gs-title" hidden></section>
+
             <section class="panel scope">
-              <div class="panel-head">
-                <h2>Scope</h2>
-                <span class="hint" id="scope-summary"></span>
+              <div class="panel-head scope-head">
+                <div class="scope-title"><h2>Scope</h2><span class="hint" id="scope-summary"></span></div>
+                <button type="button" class="link narrow-toggle" id="narrow-toggle" aria-expanded="false" aria-controls="scope-pick">Narrow to projects or people</button>
               </div>
-              <div class="controls">
+              <div class="controls scope-row">
                 <fieldset>
                   <legend>Projects last scanned in</legend>
                   <select id="activity-preset"></select>
@@ -249,62 +269,8 @@
               <div class="totals" id="totals"></div>
             </section>
 
-            <section class="panel" id="credits-panel" data-perm="credits.view" hidden>
-              <div class="panel-head">
-                <h2>AI Triage &amp; Remediation credits</h2>
-                <span class="chip" id="alloc-scope"></span>
-              </div>
-              <p class="hint wide" data-perm="credits.allocate">
-                Nothing is allocated until you confirm it. For the ticked severities the table shows what each project
-                <em>needs</em>: 1 credit per Checkmarx One result still to triage (several finding rows can be one result: triaged, and charged, once), then — once triage has confirmed findings — 3 per
-                confirmed finding to remediate. Allocate it, then triage or remediate. Applies to the selected projects, or
-                to all shown projects when none is selected; every credit comes out of the credit pool.
-              </p>
-              <div class="alloc-row sev-picks" data-perm="credits.allocate">
-                <span class="label-sm">Severities</span>
-                <label class="pill-check"><input type="checkbox" class="alloc-sev" value="CRITICAL" checked /> <span>Critical</span></label>
-                <label class="pill-check"><input type="checkbox" class="alloc-sev" value="HIGH" checked /> <span>High</span></label>
-                <label class="pill-check"><input type="checkbox" class="alloc-sev" value="MEDIUM" /> <span>Medium</span></label>
-                <label class="pill-check"><input type="checkbox" class="alloc-sev" value="LOW" /> <span>Low</span></label>
-              </div>
-              <div class="alloc-row verify-row">
-                <button id="alloc-verify" type="button" data-needs-data>Refresh &amp; verify with Checkmarx One</button>
-                <span class="hint" id="alloc-verified">Re-reads the findings (someone may be working on them) and confirms the credits needed with Checkmarx One twice. Every button below runs it first, and stops if anything changed.</span>
-              </div>
-              <div class="alloc-steps">
-                <div class="alloc-step" id="step-triage">
-                  <div class="step-head"><span class="step-no">1</span><strong>AI Triage</strong></div>
-                  <div class="step-need" id="alloc-needed"></div>
-                  <div class="step-actions">
-                    <button id="alloc-triage" type="button" data-perm="credits.allocate" data-needs-data>Allocate for triage</button>
-                    <button id="run-triage" type="button" class="primary" data-perm="triage.run" data-needs-data>Triage selected now</button>
-                  </div>
-                </div>
-                <div class="alloc-step" id="step-remediation">
-                  <div class="step-head"><span class="step-no">2</span><strong>AI Remediation</strong> <span class="hint">confirmed findings only</span></div>
-                  <p class="step-need" id="remediate-needed"></p>
-                  <div class="step-actions">
-                    <button id="alloc-remediation" type="button" data-perm="credits.allocate" data-needs-data>Allocate for remediation</button>
-                    <button id="run-remediation" type="button" class="primary" data-perm="triage.run" data-needs-data>Remediate selected</button>
-                  </div>
-                </div>
-              </div>
-              <label class="check notify-row" data-perm="triage.run"><input type="checkbox" id="notify-on-behalf" checked />
-                Email each scan initiator when I triage or remediate on their behalf (their own projects only: fetch the changes in their report, review and approve the pull requests)</label>
-              <details class="disclosure alloc-more" data-perm="credits.allocate">
-                <summary>Extra credits, and taking credits back</summary>
-                <div class="alloc-row alloc-extras">
-                  <label class="inline">Triage <input id="alloc-extra-triage" type="number" min="0" step="1" value="0" class="small-num" /></label>
-                  <label class="inline">Remediation <input id="alloc-extra-remediation" type="number" min="0" step="3" value="0" class="small-num" /> <span class="hint inline-hint">(3 per remediation)</span></label>
-                  <button id="alloc-add" type="button" data-needs-data>Add extra credits</button>
-                  <button id="alloc-clear" type="button" class="link" data-needs-data>Take back extra credits</button>
-                  <button id="alloc-reclaim" type="button" data-needs-data title="Allocated but not used (people did not act on it): back to the credit pool">Take back unused credits</button>
-                </div>
-              </details>
-              <p class="status" id="alloc-status"></p>
-            </section>
-
-            <section class="panel">
+            <div class="wb">
+              <section class="panel wb-main" aria-label="Projects">
               <div class="panel-head">
                 <h2>Projects</h2>
                 <div class="filters">
@@ -334,6 +300,15 @@
                 </div>
               </div>
 
+              <div class="act-bar" id="act-bar">
+                <span class="act-scope" id="act-scope">Fetch vulnerability data to act on it.</span>
+                <div class="act-buttons">
+                  <button type="button" class="sm" data-rail-open="remind" data-perm="reminders.send"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>Remind</button>
+                  <button type="button" class="sm" data-rail-open="people"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /></svg>People</button>
+                  <button type="button" class="sm" data-rail-open="credits" data-perm="credits.view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z" /></svg>AI credits</button>
+                  <button type="button" class="sm" data-rail-open="track" data-perm="reports.manage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5" /><path d="M4 19h16" /><path d="M7 15l4-4 3 3 5-6" /></svg>Track</button>
+                </div>
+              </div>
               <div class="table-wrap">
                 <table id="projects" class="data-table">
                   <thead>
@@ -354,41 +329,19 @@
                 </table>
               </div>
               <p class="hint" id="table-meta"></p>
-              <div class="track-row" id="track-row" hidden>
-                <label class="inline grow-1"><span class="label-sm">Track this scope as</span> <input id="track-name" placeholder="e.g. Q4 critical & high — Payments" class="track-name" /></label>
-                <button id="track-save" type="button" data-perm="reports.manage">Save as tracked report</button>
-                <span class="hint" id="track-scope"></span>
-                <span class="status" id="track-status"></span>
-              </div>
-            </section>
-
-            <div class="split">
-              <section class="panel people">
-                <div class="panel-head">
-                  <div>
-                    <h2>Scan initiators</h2>
-                    <p class="hint" id="initiator-summary">Fetch data to list initiators.</p>
-                  </div>
-                  <div class="people-stats" id="people-stats"></div>
-                </div>
-                <p class="resolved-note" id="initiator-resolved" hidden></p>
-                <div class="people-toolbar" id="initiator-actions">
-                  <input type="search" id="initiator-search" placeholder="Search people or emails…" aria-label="Search people" />
-                  <div class="segmented" role="radiogroup" aria-label="Show">
-                    <label class="mode"><input type="radio" name="initiatorView" value="all" checked /> <span>All</span></label>
-                    <label class="mode"><input type="radio" name="initiatorView" value="selected" /> <span>Selected</span></label>
-                    <label class="mode"><input type="radio" name="initiatorView" value="missing" /> <span>Missing email</span></label>
-                  </div>
-                  <div class="people-bulk">
-                    <button id="init-all" type="button" class="sm ghost">Select all</button>
-                    <button id="init-none" type="button" class="sm ghost">Clear</button>
-                    <button id="init-unresolved" type="button" class="sm ghost">Pick missing</button>
-                  </div>
-                </div>
-                <div id="initiator-list" class="people-list" role="list"></div>
               </section>
 
-              <section class="panel composer" data-perm="reminders.send">
+              <aside class="panel wb-rail" id="wb-rail" aria-label="Act on the selection">
+                <button type="button" class="icon-btn rail-close" id="rail-close" aria-label="Close the action panel" title="Close (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+                <div class="ptabs" role="tablist" aria-label="Act on the selection" data-ptabs="dash">
+                  <button type="button" role="tab" class="ptab" data-pt="remind" data-perm="reminders.send">Remind</button>
+                  <button type="button" role="tab" class="ptab" data-pt="people">People <em class="ptab-count" id="people-count"></em></button>
+                  <button type="button" role="tab" class="ptab" data-pt="credits" data-perm="credits.view">AI credits</button>
+                  <button type="button" role="tab" class="ptab" data-pt="track" data-perm="reports.manage">Track</button>
+                </div>
+                <p class="rail-scope" id="rail-scope"></p>
+                <div class="ptpanel" data-ptpanel="dash:remind" role="tabpanel">
+              <section class="panel composer rail-section" data-perm="reminders.send">
                 <div class="panel-head">
                   <h2>Send reminder</h2>
                   <span class="chip" id="audience-chip"></span>
@@ -436,11 +389,112 @@
                 <span id="status" class="status"></span>
                 <details class="disclosure deliveries" id="send-deliveries" hidden></details>
               </section>
+                </div>
+                <div class="ptpanel" data-ptpanel="dash:people" role="tabpanel" hidden>
+              <section class="panel people rail-section">
+                <div class="panel-head">
+                  <div>
+                    <h2>Scan initiators</h2>
+                    <p class="hint" id="initiator-summary">Fetch data to list initiators.</p>
+                  </div>
+                  <div class="people-stats" id="people-stats"></div>
+                </div>
+                <p class="resolved-note" id="initiator-resolved" hidden></p>
+                <div class="people-toolbar" id="initiator-actions">
+                  <input type="search" id="initiator-search" placeholder="Search people or emails…" aria-label="Search people" />
+                  <div class="segmented" role="radiogroup" aria-label="Show">
+                    <label class="mode"><input type="radio" name="initiatorView" value="all" checked /> <span>All</span></label>
+                    <label class="mode"><input type="radio" name="initiatorView" value="selected" /> <span>Selected</span></label>
+                    <label class="mode"><input type="radio" name="initiatorView" value="missing" /> <span>Missing email</span></label>
+                  </div>
+                  <div class="people-bulk">
+                    <button id="init-all" type="button" class="sm ghost">Select all</button>
+                    <button id="init-none" type="button" class="sm ghost">Clear</button>
+                    <button id="init-unresolved" type="button" class="sm ghost">Pick missing</button>
+                  </div>
+                </div>
+                <div id="initiator-list" class="people-list" role="list"></div>
+              </section>
+                </div>
+                <div class="ptpanel" data-ptpanel="dash:credits" role="tabpanel" hidden>
+            <section class="panel rail-section" id="credits-panel" data-perm="credits.view" hidden>
+              <div class="panel-head">
+                <h2>AI Triage &amp; Remediation credits</h2>
+                <span class="chip" id="alloc-scope"></span>
+              </div>
+              <details class="disclosure how-to" data-perm="credits.allocate">
+                <summary>How allocation works</summary>
+                <p class="hint wide">Nothing is allocated until you confirm it. For the ticked severities the table shows what each project
+                <em>needs</em>: 1 credit per Checkmarx One result still to triage (several finding rows can be one result: triaged, and charged, once), then — once triage has confirmed findings — 3 per
+                confirmed finding to remediate. Allocate it, then triage or remediate. Applies to the selected projects, or
+                to all shown projects when none is selected; every credit comes out of the credit pool.</p>
+              </details>
+              <div class="alloc-row sev-picks" data-perm="credits.allocate">
+                <span class="label-sm">Severities</span>
+                <label class="pill-check"><input type="checkbox" class="alloc-sev" value="CRITICAL" checked /> <span>Critical</span></label>
+                <label class="pill-check"><input type="checkbox" class="alloc-sev" value="HIGH" checked /> <span>High</span></label>
+                <label class="pill-check"><input type="checkbox" class="alloc-sev" value="MEDIUM" /> <span>Medium</span></label>
+                <label class="pill-check"><input type="checkbox" class="alloc-sev" value="LOW" /> <span>Low</span></label>
+              </div>
+              <div class="alloc-row verify-row">
+                <button id="alloc-verify" type="button" data-needs-data>Refresh &amp; verify with Checkmarx One</button>
+                <span class="hint" id="alloc-verified">Re-reads the findings (someone may be working on them) and confirms the credits needed with Checkmarx One twice. Every button below runs it first, and stops if anything changed.</span>
+              </div>
+              <div class="alloc-steps">
+                <div class="alloc-step" id="step-triage">
+                  <div class="step-head"><span class="step-no">1</span><strong>AI Triage</strong></div>
+                  <div class="step-need" id="alloc-needed"></div>
+                  <div class="step-actions">
+                    <button id="alloc-triage" type="button" data-perm="credits.allocate" data-needs-data>Allocate for triage</button>
+                    <button id="run-triage" type="button" class="primary" data-perm="triage.run" data-needs-data>Triage selected now</button>
+                  </div>
+                </div>
+                <div class="alloc-step" id="step-remediation">
+                  <div class="step-head"><span class="step-no">2</span><strong>AI Remediation</strong> <span class="hint">confirmed findings only</span></div>
+                  <p class="step-need" id="remediate-needed"></p>
+                  <div class="step-actions">
+                    <button id="alloc-remediation" type="button" data-perm="credits.allocate" data-needs-data>Allocate for remediation</button>
+                    <button id="run-remediation" type="button" class="primary" data-perm="triage.run" data-needs-data>Remediate selected</button>
+                  </div>
+                </div>
+              </div>
+              <label class="check notify-row" data-perm="triage.run"><input type="checkbox" id="notify-on-behalf" checked />
+                Email each scan initiator when I triage or remediate on their behalf (their own projects only: fetch the changes in their report, review and approve the pull requests)</label>
+              <details class="disclosure alloc-more" data-perm="credits.allocate">
+                <summary>Extra credits, and taking credits back</summary>
+                <div class="alloc-row alloc-extras">
+                  <label class="inline">Triage <input id="alloc-extra-triage" type="number" min="0" step="1" value="0" class="small-num" /></label>
+                  <label class="inline">Remediation <input id="alloc-extra-remediation" type="number" min="0" step="3" value="0" class="small-num" /> <span class="hint inline-hint">(3 per remediation)</span></label>
+                  <button id="alloc-add" type="button" data-needs-data>Add extra credits</button>
+                  <button id="alloc-clear" type="button" class="link" data-needs-data>Take back extra credits</button>
+                  <button id="alloc-reclaim" type="button" data-needs-data title="Allocated but not used (people did not act on it): back to the credit pool">Take back unused credits</button>
+                </div>
+              </details>
+              <p class="status" id="alloc-status"></p>
+            </section>
+                  <p class="tab-empty" id="credits-empty">Fetch vulnerability data first: this shows what the selected projects need for AI Triage and Remediation, and lets you allocate and run it.</p>
+                </div>
+                <div class="ptpanel" data-ptpanel="dash:track" role="tabpanel" hidden>
+                  <div class="rail-section">
+                    <h2>Track this scope</h2>
+                    <p class="hint">Save what is on screen as a tracked report: the findings it covers are followed as people triage, confirm or fix them, with scheduled follow-ups on the <a href="#/reports">Reports</a> page.</p>
+              <div class="track-row" id="track-row" hidden>
+                <label class="inline grow-1"><span class="label-sm">Track this scope as</span> <input id="track-name" placeholder="e.g. Q4 critical & high — Payments" class="track-name" /></label>
+                <button id="track-save" type="button" data-perm="reports.manage">Save as tracked report</button>
+                <span class="hint" id="track-scope"></span>
+                <span class="status" id="track-status"></span>
+              </div>
+                    <p class="tab-empty" id="track-empty">Fetch vulnerability data first, then save the scope you see.</p>
+                  </div>
+                </div>
+              </aside>
             </div>
 
-            <section class="panel" id="preview-panel" hidden>
+            <div class="sheet-scrim rail-scrim" id="rail-scrim" hidden></div>
+            <div class="sheet-scrim" id="preview-scrim" hidden></div>
+            <section class="panel preview-sheet" id="preview-panel" role="dialog" aria-modal="true" aria-labelledby="preview-title" hidden>
               <div class="panel-head">
-                <h2>Preview</h2>
+                <h2 id="preview-title">Preview</h2>
                 <button id="close-preview" class="link">Close</button>
               </div>
               <p class="hint" id="preview-meta"></p>
@@ -450,20 +504,32 @@
 
           <!-- ================= Settings ================= -->
           <div id="page-settings" class="page settings" hidden>
-            <nav class="section-nav" aria-label="Settings sections">
-              <a href="#set-import" data-perm="integration.cxone integration.smtp settings.links">Quick setup</a>
-              <a href="#set-connection">Checkmarx One</a>
-              <a href="#set-smtp">Email server</a>
-              <a href="#set-initiators">Initiators</a>
-              <a href="#set-template">Template</a>
-              <a href="#set-automation">Automation</a>
-              <a href="#set-ai">AI &amp; credits</a>
-              <a href="#set-branding">Branding</a>
-              <a href="#set-links">Links</a>
-              <a href="#set-server">Server address</a>
-              <a href="#set-https" data-perm="security.https">HTTPS</a>
-              <a href="#set-endpoint">Risks endpoint</a>
-            </nav>
+            <div class="set-layout">
+              <nav class="set-nav" id="set-nav" aria-label="Settings sections">
+                <div class="set-nav-list">
+                <p class="set-group" data-perm="integration.cxone integration.smtp settings.links beta.use">Start</p>
+                  <a href="#/settings/import" data-set="import" data-perm="integration.cxone integration.smtp settings.links beta.use">Quick setup (.env)</a>
+                <p class="set-group">Connections</p>
+                  <a href="#/settings/connection" data-set="connection">Checkmarx One</a>
+                  <a href="#/settings/smtp" data-set="smtp">Email server</a>
+                  <a href="#/settings/endpoint" data-set="endpoint">Risks endpoint</a>
+                <p class="set-group">Reminders</p>
+                  <a href="#/settings/initiators" data-set="initiators">Scan initiators</a>
+                  <a href="#/settings/template" data-set="template">Mail template</a>
+                  <a href="#/settings/automation" data-set="automation">Automation</a>
+                <p class="set-group">AI &amp; credits</p>
+                  <a href="#/settings/ai" data-set="ai">AI &amp; credit pool</a>
+                <p class="set-group">Reports &amp; brand</p>
+                  <a href="#/settings/server" data-set="server">Server address</a>
+                  <a href="#/settings/links" data-set="links">Links into Checkmarx One</a>
+                  <a href="#/settings/branding" data-set="branding">Branding</a>
+                <p class="set-group" data-perm="security.https">Security</p>
+                  <a href="#/settings/https" data-set="https" data-perm="security.https">HTTPS</a>
+                <p class="set-group">About</p>
+                  <a href="#/settings/about" data-set="about">About &amp; terms of use</a>
+                </div>
+              </nav>
+              <div class="set-content" id="set-content">
 
             <div class="autosave-note" id="autosave-note" data-perm="integration.smtp settings.recipients settings.initiators settings.template settings.branding settings.links settings.ai settings.automation integration.cxone credits.limit">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10" /></svg>
@@ -934,14 +1000,40 @@
               <div id="probe-results" hidden></div>
             </section>
 
+            <section class="panel" id="set-about">
+              <h2>About CxMissionZero</h2>
+              <p class="hint wide">Detect, eliminate and govern vulnerabilities in Checkmarx One: find ageing findings and who owns them, drive them to zero with reminders, follow-ups, AI Triage and AI Remediation, and keep an audit trail of every credit.</p>
+              <dl class="about-facts">
+                <div><dt>Version</dt><dd id="about-version">—</dd></div>
+                <div><dt>Licence</dt><dd>PolyForm Internal Use 1.0.0 — see <code>LICENSE</code></dd></div>
+                <div><dt>Project</dt><dd><a href="https://github.com/cxsmtp/CxDetectionDateBaseReminder" target="_blank" rel="noopener noreferrer">github.com/cxsmtp/CxDetectionDateBaseReminder</a> — contributions welcome</dd></div>
+                <div><dt>Terms accepted</dt><dd id="about-terms-state">—</dd></div>
+              </dl>
+              <div class="terms-card">
+                <h3>Terms of use</h3>
+                <p class="hint">An independent project, not a Checkmarx product, provided as is: no warranty, support or bug fixing. Checkmarx and the author are not responsible for its use or for any credit discrepancy. Audit figures support your own calculation only.</p>
+                <div class="actions compact">
+                  <button type="button" class="primary" data-terms-open>Read the terms of use</button>
+                </div>
+              </div>
+            </section>
+
             <div class="save-bar" data-perm="integration.smtp settings.recipients settings.initiators settings.template settings.branding settings.links settings.ai settings.automation integration.cxone credits.limit">
               <span id="save-status" class="status">All changes are saved.</span>
+            </div>
+              </div>
             </div>
           </div>
 
           <!-- ================= Tracked reports ================= -->
           <!-- ================= Credits ================= -->
           <div id="page-credits" class="page credits viz" hidden>
+            <div class="cc-head">
+              <div class="ptabs" role="tablist" aria-label="Credit Control" data-ptabs="credits">
+                <button type="button" role="tab" class="ptab" data-pt="overview">Overview</button>
+                <button type="button" role="tab" class="ptab" data-pt="projects">By project</button>
+                <button type="button" role="tab" class="ptab" data-pt="allocations">Allocated vs used</button>
+              </div>
             <form class="filter-row panel" id="usage-filters" aria-label="Period and project">
               <label class="field">
                 <span>Period</span>
@@ -955,24 +1047,29 @@
                   <option value="custom">Custom range…</option>
                 </select>
               </label>
-              <label class="field" id="usage-from-field" hidden><span>From</span><input type="date" id="usage-from" /></label>
-              <label class="field" id="usage-to-field" hidden><span>To</span><input type="date" id="usage-to" /></label>
+              <label class="field" id="usage-from-field" hidden><span>From</span><input type="date" id="usage-from" title="From" /></label>
+              <label class="field" id="usage-to-field" hidden><span>To</span><input type="date" id="usage-to" title="To" /></label>
               <label class="field">
                 <span>Group by</span>
                 <select id="usage-bucket">
-                  <option value="">Automatic</option>
-                  <option value="day">Day</option>
-                  <option value="week">Week</option>
-                  <option value="month">Month</option>
+                  <option value="">Group automatically</option>
+                  <option value="day">By day</option>
+                  <option value="week">By week</option>
+                  <option value="month">By month</option>
                 </select>
               </label>
               <label class="field grow">
                 <span>Project</span>
                 <select id="usage-project"><option value="">All projects</option></select>
               </label>
-              <button type="button" id="usage-export" class="ghost">Export CSV</button>
+              <div class="filter-actions">
+                <button type="button" id="usage-export" class="ghost">Export CSV</button>
+                <a href="#/settings/ai" class="button-like pool-settings-link" data-perm="credits.limit settings.ai">Pool &amp; AI settings</a>
+              </div>
             </form>
+            </div>
 
+            <div class="ptpanel cc-overview" data-ptpanel="credits:overview" role="tabpanel">
             <section class="panel">
               <div class="panel-head">
                 <h2>Credit pool</h2>
@@ -980,7 +1077,6 @@
               </div>
               <div id="credits-pool"><p class="hint">Loading…</p></div>
             </section>
-
             <section class="panel" id="usage-panel">
               <div class="panel-head">
                 <h2>Credits used over time</h2>
@@ -997,7 +1093,8 @@
                 <div id="usage-table"></div>
               </details>
             </section>
-
+            </div>
+            <div class="ptpanel" data-ptpanel="credits:projects" role="tabpanel" hidden>
             <section class="panel">
               <div class="panel-head">
                 <h2>By project, in this period</h2>
@@ -1005,7 +1102,8 @@
               </div>
               <div id="usage-projects"><p class="hint">Loading…</p></div>
             </section>
-
+            </div>
+            <div class="ptpanel" data-ptpanel="credits:allocations" role="tabpanel" hidden>
             <section class="panel">
               <div class="panel-head">
                 <h2>Allocated vs used</h2>
@@ -1017,6 +1115,7 @@
                 and what is left. Allocations are given out of the credit pool.
               </p>
             </section>
+            </div>
           </div>
 
           <div id="page-reports" class="page rp" hidden>
@@ -1059,16 +1158,20 @@
 
           <!-- ================= Beta features ================= -->
           <div id="page-beta" class="page beta" hidden>
-            <div class="beta-banner">
-              <span class="badge warn">Beta</span>
-              <span>Experimental features. They read your repositories' git history and, optionally, the APIs of GitHub, GitLab, Azure DevOps and Bitbucket — check results before relying on them.</span>
+            <div class="page-head">
+              <div class="ptabs" role="tablist" aria-label="Beta features" data-ptabs="beta">
+                <button type="button" role="tab" class="ptab" data-pt="authors">Code authors</button>
+                <button type="button" role="tab" class="ptab" data-pt="identity">Match usernames</button>
+                <button type="button" role="tab" class="ptab" data-pt="hosts">Source-code hosts <em class="ptab-count" id="hosts-count"></em></button>
+              </div>
+              <p class="beta-banner"><span class="badge warn">Beta</span> Reads your repositories' git history and, if connected, the GitHub, GitLab, Azure DevOps and Bitbucket APIs. Check results before relying on them.</p>
             </div>
-
+            <div class="ptpanel" data-ptpanel="beta:authors" role="tabpanel">
             <section class="panel" id="beta-authors">
               <div class="panel-head">
                 <div>
                   <h2>Email the authors of vulnerable code</h2>
-                  <p class="hint">For each finding: its exact file and line from Checkmarx One, who last changed that line at the scanned commit (through the GitHub, GitLab or Bitbucket Data Center API, or git blame on any host, with that host's token for private repositories), and their real address.</p>
+                  <p class="hint">For each finding: its file and line from Checkmarx One, who last changed that line at the scanned commit (host API or git blame), and their real address. Connect hosts under <a href="#/beta/hosts">Source-code hosts</a>.</p>
                 </div>
                 <span class="chip" id="authors-scope"></span>
               </div>
@@ -1099,7 +1202,8 @@
                 <iframe id="authors-preview-frame" title="Author email preview" sandbox=""></iframe>
               </div>
             </section>
-
+            </div>
+            <div class="ptpanel" data-ptpanel="beta:identity" role="tabpanel" hidden>
             <section class="panel" id="beta-identity">
               <div class="panel-head">
                 <div>
@@ -1149,9 +1253,10 @@
                 </div>
               </div>
             </section>
-
+            </div>
+            <div class="ptpanel hosts-grid" data-ptpanel="beta:hosts" role="tabpanel" hidden>
             <section class="panel" id="beta-github">
-              <h2>GitHub connection</h2>
+              <h2>GitHub</h2>
               <p class="hint wide">A token with read access to the repositories (and <code>read:org</code> for verified-domain emails). Stored on this server like the SMTP password, and never shown again.</p>
               <div class="grid2">
                 <label class="field"><span>Token <span class="muted" id="gh-token-state"></span></span><input id="gh-token" type="password" autocomplete="new-password" placeholder="Leave blank to keep the stored one" /></label>
@@ -1226,6 +1331,7 @@
                 </div>
               </details>
             </section>
+            </div>
           </div>
 
           <!-- ================= Audit ================= -->
@@ -1233,12 +1339,17 @@
             <section class="kpis" data-perm="audit.view">
               <div class="totals audit-totals" id="audit-totals"></div>
             </section>
-
-            <section class="panel" data-perm="audit.view">
+            <div class="ptabs" role="tablist" aria-label="Audit" data-ptabs="audit">
+              <button type="button" role="tab" class="ptab" data-pt="log" data-perm="audit.view">Credit audit log</button>
+              <button type="button" role="tab" class="ptab" data-pt="checks" data-perm="audit.view">Integrity &amp; reconcile</button>
+              <button type="button" role="tab" class="ptab" data-pt="backups" data-perm="backup.view">State &amp; backups</button>
+            </div>
+            <div class="ptpanel" data-ptpanel="audit:log" role="tabpanel">
+            <section class="panel audit-log" data-perm="audit.view">
               <div class="panel-head">
                 <div>
                   <h2>Credit audit log</h2>
-                  <p class="hint">Every triage and remediation request (charged, refused, failed or not charged), every allocation and credit-setting change, report issued and backup — who, when, from where, which findings, the balance before and after, and Checkmarx One's answer. Append-only and hash-chained.</p>
+                  <p class="hint">Every AI request (charged, refused, failed or not), allocation, credit setting, report and backup — who, when, from where, the balance after and Checkmarx One's answer. Append-only and hash-chained; open <b>Details</b> for the full entry.</p>
                   <p class="hint supporting-notice"><strong>Supporting information only.</strong> This log and its exports help your own calculation. Checkmarx's records are authoritative: do not use or share them with Checkmarx as evidence in any claim, dispute or credit request (see the <a href="#" data-terms-open>terms of use</a>).</p>
                 </div>
                 <div class="log-actions">
@@ -1290,13 +1401,19 @@
                   <tbody id="audit-body"><tr><td colspan="9" class="hint">Loading…</td></tr></tbody>
                 </table>
               </div>
-              <div class="actions compact">
-                <button id="audit-more" type="button" hidden>Load older entries</button>
+              <div class="pager" id="audit-pager">
                 <span class="hint" id="audit-count"></span>
+                <div class="pager-buttons">
+                  <button type="button" class="sm" id="audit-prev" disabled>Newer</button>
+                  <span class="pager-page" id="audit-page"></span>
+                  <button type="button" class="sm" id="audit-next" disabled>Older</button>
+                  <button id="audit-more" type="button" hidden>Load older entries</button>
+                </div>
               </div>
             </section>
-
-            <div class="audit-grid" data-perm="audit.view">
+            </div>
+            <div class="ptpanel" data-ptpanel="audit:checks" role="tabpanel" hidden>
+            <div class="audit-grid">
               <section class="panel">
                 <div class="panel-head">
                   <div>
@@ -1324,7 +1441,8 @@
                 <div id="audit-reconcile-result" class="audit-result" hidden></div>
               </section>
             </div>
-
+            </div>
+            <div class="ptpanel" data-ptpanel="audit:backups" role="tabpanel" hidden>
             <section class="panel" id="audit-backup" data-perm="backup.view">
               <div class="panel-head">
                 <div>
@@ -1347,10 +1465,16 @@
                 </table>
               </div>
             </section>
+            </div>
           </div>
 
           <!-- ================= Access (users & roles) ================= -->
           <div id="page-access" class="page access" hidden>
+            <div class="ptabs" role="tablist" aria-label="Identity and access" data-ptabs="access">
+              <button type="button" role="tab" class="ptab" data-pt="people">People <em class="ptab-count" id="iam-people-count"></em></button>
+              <button type="button" role="tab" class="ptab" data-pt="roles">Roles &amp; permissions <em class="ptab-count" id="iam-roles-count"></em></button>
+            </div>
+            <div class="ptpanel" data-ptpanel="access:people" role="tabpanel">
             <section class="panel">
               <div class="panel-head">
                 <div>
@@ -1374,6 +1498,18 @@
                 </div>
                 <p class="status" id="iam-add-status"></p>
               </form>
+              <div class="iam-toolbar">
+                <input type="search" id="iam-search" placeholder="Search people, emails or identities" aria-label="Search people" />
+                <select id="iam-role-filter" aria-label="Role"><option value="">All roles</option></select>
+                <select id="iam-status-filter" aria-label="Status">
+                  <option value="">Any status</option>
+                  <option value="active">Active</option>
+                  <option value="locked">Locked</option>
+                  <option value="disabled">Disabled</option>
+                  <option value="pending">Must set password</option>
+                </select>
+                <span class="hint" id="iam-count"></span>
+              </div>
               <p class="status" id="iam-status"></p>
               <div class="table-wrap">
                 <table class="data-table iam-table">
@@ -1381,8 +1517,16 @@
                   <tbody id="iam-users"><tr><td colspan="6" class="hint">Loading…</td></tr></tbody>
                 </table>
               </div>
+              <div class="pager" id="iam-pager" hidden>
+                <span class="hint" id="iam-page-info"></span>
+                <div class="pager-buttons">
+                  <button type="button" class="sm" id="iam-prev">Previous</button>
+                  <button type="button" class="sm" id="iam-next">Next</button>
+                </div>
+              </div>
             </section>
-
+            </div>
+            <div class="ptpanel" data-ptpanel="access:roles" role="tabpanel" hidden>
             <section class="panel">
               <div class="panel-head">
                 <div>
@@ -1399,6 +1543,10 @@
                 </div>
                 <div class="actions compact"><button type="submit" class="primary">Create role</button><span class="hint inline-hint">Then tick its permissions in the matrix.</span><span class="status" id="iam-role-status"></span></div>
               </form>
+              <div class="iam-toolbar">
+                <input type="search" id="iam-perm-search" placeholder="Find a permission" aria-label="Find a permission" />
+                <button type="button" class="sm ghost" id="iam-groups-toggle">Collapse all</button>
+              </div>
               <div class="table-wrap matrix-wrap">
                 <table class="data-table iam-matrix" id="iam-matrix"></table>
               </div>
@@ -1408,10 +1556,47 @@
                 <span class="status" id="iam-matrix-status"></span>
               </div>
             </section>
+            </div>
           </div>
 
           <!-- ================= Logs ================= -->
-          <div id="page-logs" class="page" hidden>
+          <div id="page-logs" class="page logs-page" hidden>
+            <div class="ptabs" role="tablist" aria-label="Logs" data-ptabs="logs">
+              <button type="button" role="tab" class="ptab" data-pt="activity">Activity in this browser</button>
+              <button type="button" role="tab" class="ptab" data-pt="troubleshooting" data-perm="diagnostics.export">Troubleshooting log</button>
+            </div>
+            <div class="ptpanel" data-ptpanel="logs:activity" role="tabpanel">
+            <section class="panel activity-log">
+              <div class="panel-head">
+                <h2>Activity log</h2>
+                <span class="hint" id="logs-summary"></span>
+              </div>
+              <div class="log-toolbar">
+                <div class="segmented log-filters">
+                  <label class="mode" title="Each request as it is sent; its answer shows under Success or Errors"><input type="checkbox" id="log-filter-api" /> <span>Sent <em data-log-count="api"></em></span></label>
+                  <label class="mode"><input type="checkbox" id="log-filter-errors" checked /> <span>Errors <em data-log-count="error"></em></span></label>
+                  <label class="mode"><input type="checkbox" id="log-filter-success" checked /> <span>Success <em data-log-count="success"></em></span></label>
+                </div>
+                <input type="search" id="log-search" placeholder="Search logs…" aria-label="Search logs" />
+                <div class="log-actions">
+                  <button id="export-logs" class="sm">Export</button>
+                  <button id="clear-logs" class="sm ghost">Clear</button>
+                </div>
+              </div>
+              <div id="logs-container" class="logs">
+                <div id="logs-empty" class="logs-empty">No logs yet. Fetch data to start capturing logs.</div>
+                <div id="logs-list"></div>
+              </div>
+              <div class="pager" id="logs-pager" hidden>
+                <span class="hint" id="logs-page-info"></span>
+                <div class="pager-buttons">
+                  <button type="button" class="sm" id="logs-prev">Newer</button>
+                  <button type="button" class="sm" id="logs-next">Older</button>
+                </div>
+              </div>
+            </section>
+            </div>
+            <div class="ptpanel" data-ptpanel="logs:troubleshooting" role="tabpanel" hidden>
             <section class="panel troubleshooting" data-perm="diagnostics.export">
               <div class="panel-head">
                 <h2>Troubleshooting log</h2>
@@ -1424,28 +1609,7 @@
                 passwords, keys, tokens, hosts, URLs, findings or code. Only feature names, counts, timings, status codes and
                 error types, and project ids replaced by one-way codes.</p>
             </section>
-            <section class="panel">
-              <div class="panel-head">
-                <h2>Activity log</h2>
-                <span class="hint" id="logs-summary"></span>
-              </div>
-              <div class="log-toolbar">
-                <div class="segmented log-filters">
-                  <label class="mode"><input type="checkbox" id="log-filter-api" checked /> <span>API calls</span></label>
-                  <label class="mode"><input type="checkbox" id="log-filter-errors" checked /> <span>Errors</span></label>
-                  <label class="mode"><input type="checkbox" id="log-filter-success" checked /> <span>Success</span></label>
-                </div>
-                <input type="search" id="log-search" placeholder="Search logs…" aria-label="Search logs" />
-                <div class="log-actions">
-                  <button id="export-logs" class="sm">Export</button>
-                  <button id="clear-logs" class="sm ghost">Clear</button>
-                </div>
-              </div>
-              <div id="logs-container" class="logs">
-                <div id="logs-empty" class="logs-empty">No logs yet. Fetch data to start capturing logs.</div>
-                <div id="logs-list"></div>
-              </div>
-            </section>
+            </div>
           </div>
         </main>
       </div>
@@ -1478,9 +1642,17 @@
         </div>
       </form>
     </dialog>
+    <dialog id="palette" class="palette" aria-label="Jump to">
+      <div class="palette-box">
+        <div class="palette-search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+          <input id="palette-q" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list" autocomplete="off" spellcheck="false" placeholder="Jump to a page, tab, setting or action…" />
+          <kbd>Esc</kbd>
+        </div>
+        <ul id="palette-list" class="palette-list" role="listbox" aria-label="Destinations"></ul>
+      </div>
+    </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <div id="app-version" class="app-version" title="CxMissionZero version" hidden></div>
-    <a href="#" class="terms-link" data-terms-open>Terms of use</a>
 
     <div id="terms-overlay" class="terms-overlay" role="dialog" aria-modal="true" aria-labelledby="terms-title" hidden>
       <div class="terms-box">

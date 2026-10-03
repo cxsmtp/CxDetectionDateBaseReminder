@@ -2,6 +2,16 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
+## MZ-01.00.26 — 2026-10-03 16:47 UTC · [#49](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/49)
+- **Detect · Eliminate · Govern.** The sidebar groups every page by stage: Detect (Dashboard, Beta), Eliminate (Reports, Credit Control), and Govern (Audit, IAM, Settings, Logs). Each page shows its stage, and Ctrl/Cmd+K jumps to any page or setting.
+- **Pages keep their place.** Tabs, filters, scroll position and the open Settings section survive moving between pages. ↻ reloads the current page, and "Refresh & reset" in the sidebar starts everything afresh.
+- **A calmer dashboard.** A getting-started checklist, a compact scope bar, and projects beside one action panel (Remind, People, Credits, Track) that docks on wide screens and slides in on smaller ones.
+- **No more endless lists.** Credits is renamed Credit Control and Access is renamed IAM. Credit Control, Audit, IAM, Beta and Logs are split into tabs and paged. Settings shows one section at a time, and the terms of use are under Settings → About.
+- **The HTML report matches.** It now has summary tiles, a lifecycle strip, and filters by severity, search and "actionable only", with the explanation folded away until needed.
+- **Fits any screen.** The layout adjusts from phone to ultra-wide, with no sideways scrolling.
+- **Hardened after a Checkmarx One scan with every engine.** Repositories are cloned only from known git hosts (`SCM_ALLOWED_HOSTS` adds others). Checkmarx One addresses must be https. Further fixes cover redirects to unlisted names, mail header injection and prototype pollution. A locked account no longer reveals itself, audit entries can't choose their own file, and inputs are bounded more tightly.
+- **Benchmark on every change.** The benchmark works again with the terms of use, and docs/performance.md now has a before-and-after row for each version.
+
 ## MZ-01.00.25 — 2026-10-03 11:30 UTC · [#48](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/48)
 - **A redesigned Reports page.** Built for a security team tracking many scopes: the whole picture first, then one report at a time, with far less on screen at once.
 - **Portfolio at a glance.** Tiles across every tracked report: findings tracked, % actioned, open now, new since saved, follow-ups scheduled (and the next one), AI credits used.

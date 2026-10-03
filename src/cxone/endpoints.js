@@ -77,6 +77,16 @@ export class ConnectionError extends Error {
  * @param {string} apiKey
  * @param {{baseUrl?: string, iamUrl?: string, tenant?: string}} [overrides]
  */
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+function secureOrLocal(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || (parsed.protocol === 'http:' && LOOPBACK.has(parsed.hostname));
+  } catch {
+    return false;
+  }
+}
+
 export function deriveConnection(apiKey, overrides = {}) {
   const key = String(apiKey ?? '').trim();
   if (!key) throw new ConnectionError('Paste your Checkmarx One API key to connect.');
@@ -98,6 +108,10 @@ export function deriveConnection(apiKey, overrides = {}) {
   }
   if (!baseUrl) {
     throw new ConnectionError('Could not work out the API URL. Open "Advanced" and enter it manually.');
+  }
+  // The key and its tokens only travel over https (plain http only to this machine, for a local mock).
+  for (const [label, url] of [['IAM URL', iamUrl], ['API URL', baseUrl]]) {
+    if (!secureOrLocal(url)) throw new ConnectionError(`The Checkmarx One ${label} must be an https address: ${url}`);
   }
 
   const region = regionFromHost(new URL(iamUrl).host);

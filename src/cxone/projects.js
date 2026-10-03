@@ -47,8 +47,12 @@ export async function getLastScans(client, projectIds) {
       query: { 'project-ids': ids, 'scan-status': 'Completed' },
     }),
   );
-  const merged = {};
-  for (const response of answers) if (response && typeof response === 'object') Object.assign(merged, response);
+  // Keyed by project id from Checkmarx One's answer: never a key that reaches Object.prototype.
+  const merged = Object.create(null);
+  for (const response of answers) {
+    if (!response || typeof response !== 'object') continue;
+    for (const [id, scan] of Object.entries(response)) if (id !== '__proto__' && id !== 'constructor' && id !== 'prototype') merged[id] = scan;
+  }
   return merged;
 }
 

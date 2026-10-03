@@ -381,6 +381,9 @@ export class IamStore {
     const ok = await checkPassword(password, user?.passwordHash);
     if (!user || !user.passwordHash) throw fail(401, 'Wrong email or password.');
     if (user.lockedUntil > now) {
+      // Only someone who knows the password learns the account is locked: to anyone
+      // else a locked account looks like any wrong password, so nothing gives it away.
+      if (!ok) throw fail(401, 'Wrong email or password.', { userId: user.id, locked: true });
       throw fail(423, `Too many failed attempts: try again after ${new Date(user.lockedUntil).toLocaleTimeString()}, or ask an administrator.`, { userId: user.id });
     }
     if (!ok) {

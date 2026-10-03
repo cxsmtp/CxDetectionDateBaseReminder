@@ -13,9 +13,12 @@ import path from 'node:path';
 const EMAIL_RE = /^(?=[^]{3,254}$)[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_ENTRIES = 20_000;
 
+/** Keys that would reach Object.prototype on a plain object. */
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 export class KnownAddresses {
   #file;
-  #entries = {};
+  #entries = Object.create(null);
   #dirty = false;
   #timer = null;
 
@@ -26,11 +29,13 @@ export class KnownAddresses {
   /** Point the store at a file (loading what it holds). */
   configure(file) {
     this.#file = file;
-    this.#entries = {};
+    this.#entries = Object.create(null);
     if (!file) return;
     try {
       const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-      if (raw && typeof raw.addresses === 'object') this.#entries = raw.addresses;
+      if (raw && typeof raw.addresses === 'object') {
+        for (const [key, value] of Object.entries(raw.addresses)) if (!UNSAFE_KEYS.has(key)) this.#entries[key] = value;
+      }
     } catch {}
   }
 
@@ -41,7 +46,7 @@ export class KnownAddresses {
   remember(username, email) {
     const key = String(username ?? '').trim().toLowerCase();
     const value = String(email ?? '').trim();
-    if (!key || !EMAIL_RE.test(value) || this.#entries[key]?.email === value) return;
+    if (!key || UNSAFE_KEYS.has(key) || !EMAIL_RE.test(value) || this.#entries[key]?.email === value) return;
     this.#entries[key] = { email: value, at: new Date().toISOString() };
     const keys = Object.keys(this.#entries);
     if (keys.length > MAX_ENTRIES) {

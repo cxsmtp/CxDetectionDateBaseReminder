@@ -202,7 +202,12 @@ export function readSessionCookie(req) {
   if (!header) return null;
   for (const part of header.split(';')) {
     const [name, ...rest] = part.trim().split('=');
-    if (name === SESSION_COOKIE) return decodeURIComponent(rest.join('='));
+    if (name !== SESSION_COOKIE) continue;
+    try {
+      return decodeURIComponent(rest.join('='));
+    } catch {
+      return null; // a malformed cookie is no session, not a server error
+    }
   }
   return null;
 }

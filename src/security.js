@@ -40,7 +40,7 @@ export function contentSecurityPolicy(scriptHashes = []) {
     // Logos may be https URLs or pasted data: images.
     "img-src 'self' data: blob: https:",
     // "Test" checks the reminder server address readers use, which may be another host.
-    "connect-src 'self' https: http:",
+    "connect-src 'self' https:",
     "font-src 'self' data:",
     "frame-src 'self'",
     "object-src 'none'",
@@ -48,6 +48,38 @@ export function contentSecurityPolicy(scriptHashes = []) {
     "form-action 'self'",
     "frame-ancestors 'none'",
   ].join('; ');
+}
+
+/**
+ * Whose X-Forwarded-For / -Proto / -Host to believe (TRUST_PROXY, as Express reads it:
+ * "loopback", IPs or CIDRs, a hop count, on or off). By default only a proxy on this
+ * machine: on a company network anyone else could send those headers and pass as any
+ * address, so a proxy elsewhere (another container, another machine) is named in
+ * TRUST_PROXY. Nobody when this server does HTTPS itself, because then it faces the
+ * clients directly.
+ */
+export function trustProxySetting(value, servingHttps) {
+  const text = String(value ?? '').trim();
+  if (!text) return servingHttps ? false : 'loopback';
+  if (/^(off|false|no|0|none)$/i.test(text)) return false;
+  if (/^(on|true|yes|all)$/i.test(text)) return true;
+  if (/^\d+$/.test(text)) return Number(text);
+  return text;
+}
+
+/**
+ * Keep a map of attempt times per address (oldest-touched first) under `max` entries:
+ * first drop addresses whose attempts are all older than the window, then, if still too
+ * many, the least recently seen. Never the whole map, which would hand a guesser a fresh
+ * start just by sending from enough addresses.
+ */
+export function pruneAttempts(attempts, now = Date.now(), { windowMs, max }) {
+  if (attempts.size <= max) return;
+  for (const [key, times] of attempts) if (!times.some((t) => now - t < windowMs)) attempts.delete(key);
+  for (const key of attempts.keys()) {
+    if (attempts.size <= max) break;
+    attempts.delete(key);
+  }
 }
 
 /**

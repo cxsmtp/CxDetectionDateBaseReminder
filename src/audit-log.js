@@ -32,7 +32,11 @@ const GENESIS = 'genesis';
 export const OUTCOMES = ['charged', 'not-charged', 'refused', 'failed', 'changed', 'info'];
 export const TYPES = ['triage', 'remediation', 'allocation', 'settings', 'report', 'backup', 'audit', 'access', 'iam'];
 
-const monthOf = (iso) => iso.slice(0, 7);
+const monthOf = (iso) => {
+  const month = String(iso).slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error(`Not an audit month: ${month}`);
+  return month;
+};
 
 function loadOrCreateKey(file) {
   try {
@@ -129,7 +133,10 @@ export class AuditLog {
     // Another process (e.g. an admin command run next to the server) may have
     // appended since: carry on the chain from what is really on disk.
     if (!this.#unwritten.length && this.#changedOnDisk()) this.#resume();
-    const entry = { seq: this.#seq + 1, id: randomUUID(), at: now.toISOString(), ...event };
+    // Number and time are the log's own (the time names the file). An event may bring the id
+    // it was linked by beforehand (the credit ledger does), as long as it is a UUID.
+    const id = typeof event.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(event.id) ? event.id : randomUUID();
+    const entry = { ...event, seq: this.#seq + 1, id, at: now.toISOString() };
     entry.prev = this.#lastMac;
     entry.mac = this.#mac(entry, this.#lastMac);
     this.#seq = entry.seq;
