@@ -139,6 +139,7 @@
                 <label class="mode"><input type="radio" name="signinMode" value="cxone" /> <span>Checkmarx One API key</span></label>
               </div>
 
+              <p class="hint terms-signin">Use of CxMissionZero is subject to its <a href="#" data-terms-open>terms of use</a>: an independent project, not a Checkmarx product, provided as is.</p>
               <form id="password-form" autocomplete="on">
                 <label class="field"><span>Email</span><input id="signin-email" type="email" autocomplete="username" required /></label>
                 <label class="field"><span>Password</span><input id="signin-password" type="password" autocomplete="current-password" required /></label>
@@ -1153,6 +1154,7 @@
                 <div>
                   <h2>Credit audit log</h2>
                   <p class="hint">Every triage and remediation request (charged, refused, failed or not charged), every allocation and credit-setting change, report issued and backup — who, when, from where, which findings, the balance before and after, and Checkmarx One's answer. Append-only and hash-chained.</p>
+                  <p class="hint supporting-notice"><strong>Supporting information only.</strong> This log and its exports help your own calculation. Checkmarx's records are authoritative: do not use or share them with Checkmarx as evidence in any claim, dispute or credit request (see the <a href="#" data-terms-open>terms of use</a>).</p>
                 </div>
                 <div class="log-actions">
                   <button id="audit-export-csv" type="button" class="sm" data-perm="audit.export">Export CSV</button>
@@ -1393,6 +1395,29 @@
     </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <div id="app-version" class="app-version" title="CxMissionZero version" hidden></div>
+    <a href="#" class="terms-link" data-terms-open>Terms of use</a>
+
+    <div id="terms-overlay" class="terms-overlay" role="dialog" aria-modal="true" aria-labelledby="terms-title" hidden>
+      <div class="terms-box">
+        <header class="terms-head">
+          <h2 id="terms-title">Terms of use</h2>
+          <p class="hint" id="terms-sub">CxMissionZero is an independent project, not a Checkmarx product.</p>
+        </header>
+        <div class="terms-text" id="terms-text" tabindex="0"></div>
+        <div class="terms-foot">
+          <p class="hint" id="terms-scroll-hint">Read to the end to accept.</p>
+          <p class="https-note warn" id="terms-wait" hidden>An administrator must accept these terms for your organisation before CxMissionZero can be used. Ask them to sign in, then try again.</p>
+          <label class="check" id="terms-check-label"><input type="checkbox" id="terms-check" disabled /> <span id="terms-check-text">I have read these terms and accept them.</span></label>
+          <div class="actions compact">
+            <button type="button" class="primary" id="terms-accept" disabled>Accept and continue</button>
+            <button type="button" id="terms-retry" hidden>Check again</button>
+            <button type="button" class="ghost" id="terms-decline">Decline and sign out</button>
+            <button type="button" class="ghost" id="terms-close" hidden>Close</button>
+            <span class="status" id="terms-status"></span>
+          </div>
+        </div>
+      </div>
+    </div>
     <div id="flares" class="flares" aria-live="polite"></div>
 </body>
 </html>

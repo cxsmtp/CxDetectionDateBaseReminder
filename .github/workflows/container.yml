@@ -73,6 +73,9 @@ jobs:
           curl -s -o /dev/null -w '%{redirect_url}' http://127.0.0.1:3000/dashboard | grep -q '^https://127.0.0.1:3000/dashboard'
           # Settings → HTTPS needs the Admin: signed out it is refused.
           test "$(curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1:3000/api/https)" = 401
+          # The terms of use ship in the image, and hold everything back until an Admin accepts them.
+          curl -skf https://127.0.0.1:3000/api/terms | grep -q 'Not a Checkmarx product'
+          docker exec mz test -f LICENSE
       - name: HTTPS=off serves plain http (a laptop, or behind a reverse proxy)
         run: |
           docker run -d --name mz-http -p 3001:3000 -e HTTPS=off --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true mission-zero:test

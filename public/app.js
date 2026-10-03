@@ -648,6 +648,11 @@ function renderDetected() {
 
 /** Signed in: show the workspace this person may use. */
 async function showConnected(me) {
+  // The terms of use come first: an Admin accepts them for the organisation, then each person.
+  if (me.terms && !me.terms.accepted) {
+    me = await termsGate(me);
+    if (!me) return;
+  }
   state.me = me;
   state.connection = me.connection;
   for (const box of ['setup-box', 'signin-box', 'change-box']) $(box).hidden = true;
@@ -5867,4 +5872,163 @@ $('https-harden-save').addEventListener('click', async () => {
   } catch (error) {
     if (!handleAuthLoss(error)) setStatus('https-harden-status', error.message, 'error');
   }
+});
+
+// ---------------------------------------------------------------------------
+// Terms of use (TERMS.md): accepted by an Admin for the organisation, then by each person
+// ---------------------------------------------------------------------------
+
+/** The terms' Markdown, as safe HTML: headings, paragraphs, two levels of lists, bold and code. */
+function termsHtml(markdown) {
+  const inline = (text) => escapeHtml(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  const out = [];
+  const lists = [];
+  let paragraph = [];
+  const flush = () => {
+    if (paragraph.length) out.push(`<p>${inline(paragraph.join(' '))}</p>`);
+    paragraph = [];
+  };
+  const closeLists = (depth = 0) => {
+    while (lists.length > depth) {
+      out.push('</li></ul>');
+      lists.pop();
+    }
+  };
+  for (const line of markdown.split('\n')) {
+    const item = line.match(/^(\s*)- (.*)$/);
+    if (item) {
+      flush();
+      const depth = Math.floor(item[1].length / 2) + 1;
+      if (lists.length < depth) {
+        out.push('<ul><li>');
+        lists.push(depth);
+      } else {
+        closeLists(depth);
+        out.push('</li><li>');
+      }
+      out.push(inline(item[2]));
+      continue;
+    }
+    if (!line.trim()) {
+      flush();
+      closeLists();
+      continue;
+    }
+    const heading = line.match(/^(#{1,3}) (.*)$/);
+    if (heading) {
+      flush();
+      closeLists();
+      if (heading[1].length > 1) out.push(`<h${heading[1].length + 1}>${inline(heading[2])}</h${heading[1].length + 1}>`);
+      continue;
+    }
+    if (lists.length && /^\s+\S/.test(line)) out.push(` ${inline(line.trim())}`);
+    else paragraph.push(line.trim());
+  }
+  flush();
+  closeLists();
+  return out.join('').replace(/<ul><li><\/li><li>/g, '<ul><li>');
+}
+
+/**
+ * Show the terms. 'gate': before using the app; resolves with the updated "me" once accepted,
+ * or null when declined (signed out). 'view': read only.
+ */
+function showTermsOverlay({ mode = 'view', me = null } = {}) {
+  return new Promise((resolve) => {
+    const overlay = $('terms-overlay');
+    const text = $('terms-text');
+    const check = $('terms-check');
+    const accept = $('terms-accept');
+    const t = me?.terms;
+    const waiting = mode === 'gate' && !t.organisationAccepted && !t.canAcceptForOrganisation;
+    const forOrganisation = mode === 'gate' && !t.organisationAccepted && t.canAcceptForOrganisation;
+    let version = '';
+    $('terms-wait').hidden = !waiting;
+    $('terms-retry').hidden = !waiting;
+    $('terms-check-label').hidden = mode !== 'gate' || waiting;
+    $('terms-scroll-hint').hidden = mode !== 'gate' || waiting;
+    accept.hidden = mode !== 'gate' || waiting;
+    $('terms-decline').hidden = mode !== 'gate';
+    $('terms-close').hidden = mode === 'gate';
+    $('terms-check-text').textContent = forOrganisation
+      ? 'I have read these terms and accept them for myself and on behalf of my organisation. Until they are accepted, nobody can use CxMissionZero.'
+      : 'I have read these terms and accept them.';
+    check.checked = false;
+    check.disabled = true;
+    accept.disabled = true;
+    setStatus('terms-status', '');
+    text.innerHTML = '<p class="hint">Loading…</p>';
+    overlay.hidden = false;
+
+    const reachedEnd = () => text.scrollTop + text.clientHeight >= text.scrollHeight - 24;
+    const onScroll = () => {
+      if (!reachedEnd()) return;
+      check.disabled = false;
+      $('terms-scroll-hint').hidden = true;
+    };
+    const onCheck = () => (accept.disabled = !check.checked);
+    const finish = (value) => {
+      overlay.hidden = true;
+      text.removeEventListener('scroll', onScroll);
+      check.removeEventListener('change', onCheck);
+      accept.onclick = $('terms-decline').onclick = $('terms-close').onclick = $('terms-retry').onclick = null;
+      resolve(value);
+    };
+    text.addEventListener('scroll', onScroll);
+    check.addEventListener('change', onCheck);
+
+    fetch('/api/terms', { credentials: 'same-origin', cache: 'no-store' })
+      .then((r) => r.json())
+      .then((terms) => {
+        version = terms.version;
+        $('terms-title').textContent = `Terms of use · version ${terms.version}`;
+        const org = terms.organisation;
+        $('terms-sub').textContent = `CxMissionZero is an independent project, not a Checkmarx product.${org ? ` Accepted for the organisation by ${org.by} on ${new Date(org.at).toLocaleDateString()}.` : ''}`;
+        text.innerHTML = termsHtml(terms.text);
+        text.scrollTop = 0;
+        requestAnimationFrame(onScroll); // short enough to need no scrolling
+        text.focus();
+      })
+      .catch(() => (text.innerHTML = '<p class="status error">The terms could not be loaded. Reload the page.</p>'));
+
+    accept.onclick = async () => {
+      accept.disabled = true;
+      try {
+        const updated = await api('/api/terms/accept', { method: 'POST', quiet: true, body: JSON.stringify({ version, forOrganisation }) });
+        finish(updated);
+      } catch (error) {
+        setStatus('terms-status', error.message, 'error');
+        accept.disabled = false;
+      }
+    };
+    $('terms-decline').onclick = async () => {
+      finish(null);
+      await disconnect();
+      setStatus('signin-status', 'You declined the terms of use, so you were signed out.', 'error');
+    };
+    $('terms-retry').onclick = async () => {
+      try {
+        const fresh = await api('/api/me', { quiet: true });
+        if (fresh.terms?.organisationAccepted) {
+          finish(null);
+          showConnected(fresh);
+        } else setStatus('terms-status', 'Not accepted yet.', 'error');
+      } catch (error) {
+        setStatus('terms-status', error.message, 'error');
+      }
+    };
+    $('terms-close').onclick = () => finish(null);
+  });
+}
+
+const termsGate = (me) => showTermsOverlay({ mode: 'gate', me });
+
+document.addEventListener('click', (event) => {
+  const link = event.target.closest?.('[data-terms-open]');
+  if (!link) return;
+  event.preventDefault();
+  if ($('terms-overlay').hidden) showTermsOverlay({ mode: 'view' });
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !$('terms-overlay').hidden && !$('terms-close').hidden) $('terms-close').click();
 });

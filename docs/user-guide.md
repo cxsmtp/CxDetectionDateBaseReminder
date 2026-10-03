@@ -8,7 +8,7 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 
 **Contents**
 1. [Who can do what](#who-can-do-what)
-2. [Sign in](#sign-in)
+2. [Sign in](#sign-in), and the [terms of use](#terms-of-use)
 3. [Set up in 10 minutes](#set-up-in-10-minutes) (Admin)
 4. [Turn on HTTPS](#turn-on-https) (Admin)
 5. [Settings, option by option](#settings-option-by-option)
@@ -84,6 +84,31 @@ Several actions can run at once, each with its own flare.
 
 **Staying signed in.** Reloading the page, an update of CxMissionZero, or a server restart never signs you out, or loses the data you fetched and the scope you chose. Only signing out, 8 idle hours, or an administrator changing your access does.
 - If you signed in with your own Checkmarx One API key, you sign in again after a restart: that key is never written to disk.
+
+---
+
+## Terms of use
+
+CxMissionZero is an independent project, not a Checkmarx product. Using it means accepting its [terms of use](../TERMS.md):
+- **As is.** No warranty, and no promise of support or bug fixes.
+- **No responsibility.** Neither its author nor Checkmarx is responsible for how it is used, or for any credit discrepancy.
+- **Supporting information only.** Its credit figures, audit log and reports help your own calculation. They are never evidence in a claim or dispute with Checkmarx, whose records are authoritative.
+
+**When they are asked for**
+- **The first Admin**, right after choosing a password at the first sign-in. The terms show in full: scroll to the end, tick **I have read these terms and accept them for myself and on behalf of my organisation**, then **Accept and continue**. Until then nothing can be used, by anyone:
+  - the Dashboard and Settings;
+  - emailed reports (they say the server is not in use yet);
+  - automatic reminders.
+- **Everyone else**, once, at their first sign-in. Before an Admin has accepted, they see **An administrator must accept these terms…**, with **Check again**.
+- **Declining** signs you out.
+- **When the terms change,** everyone is asked again.
+- **On record.** Each acceptance (who, when, from which address, which version) is in the **Audit log**.
+
+**Read them any time:** **Terms of use**, bottom left, next to the version; or the link on the sign-in page.
+
+**Automated setups:** `ACCEPT_TERMS=you@company.com` in the container options accepts the terms for the organisation and everyone, under your name (in the log and the audit log). Anything but an email address stops the start.
+
+**Licence.** [PolyForm Internal Use 1.0.0](../LICENSE): use and adapt it inside your own organisation; do not sell it, distribute it, or run it as a service for others. Improvements are welcome: [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ---
 
@@ -589,9 +614,10 @@ How the credit pool is being used. Everyone with **credits.view** sees it.
   - outcome;
   - project;
   - free-text search (user, email, IP, finding id, error).
-- **Export CSV** or **Export JSON Lines**.
+- **Export CSV** or **Export JSON Lines**. Each export starts with a notice line: it is supporting information only.
 - **Verify integrity** recomputes the hash chain: any edited, removed or reordered entry is reported by number.
 - **Reconcile** checks that a month's charged credits in the audit log match the credit ledger.
+- **Supporting information only.** The audit log and its exports help your own calculation of credits. Checkmarx's own records are authoritative, so do not use or share them with Checkmarx as evidence in any claim, dispute or credit request ([Terms of use](#terms-of-use)).
 
 **State folder & backups.** Everything lives in one folder (`/data` in the container), and one backup file rebuilds the server.
 
@@ -699,6 +725,8 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 | **HTTPS:** after updating, `http://localhost:3000` no longer opens ("This page isn't working", "connection was reset") | Since MZ-01.00.21 the image serves HTTPS by default. Open `https://localhost:3000` instead, or add `-e HTTPS=off` to your `podman run` line to keep plain http. |
 | **HTTPS:** a reverse proxy (Caddy, nginx) answers 502 Bad Gateway | CxMissionZero serves HTTPS by default, and the proxy speaks http to it. Add `-e HTTPS=off` to CxMissionZero's `podman run` line. |
 | **HTTPS:** "HTTPS must be on, off or both" in the log | `HTTPS` takes `on`, `off` or `both` (also `true`/`false`, `yes`/`no`, `1`/`0`). |
+| "Accept the terms of use to continue" / "An administrator must accept the terms of use" | An Admin signs in and accepts the terms for the organisation, then each person accepts them once ([Terms of use](#terms-of-use)). |
+| A report says "This reminder server is not in use yet" | An Admin has not accepted the terms of use yet. Once they do, the report works (reload it). |
 | **HTTPS:** locked out of the Settings page after a change | On the server: `podman exec mission-zero node scripts/https.mjs both`. Within 5 seconds http works next to HTTPS again, with HSTS off. |
 | **HTTPS:** **Switch to HTTPS only** is greyed out | Open the page over HTTPS (the link under the button) and switch there. It also needs **HTTP + HTTPS side by side** first (step 2). |
 | **HTTPS:** "The private key is missing" | Add the `.key` file IT gave with the certificate, or upload a `.pfx` that holds both. If the request was made on this page, the key is already on the server: upload the certificate IT sent for *that* request. |
