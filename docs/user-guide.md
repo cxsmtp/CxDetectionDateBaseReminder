@@ -230,14 +230,14 @@ podman run --replace -d --name mission-zero -p 443:3000 -p 80:8080 -v mission-ze
 
 #### 2B. With an automatic certificate (public name)
 
-Caddy, a small web server, gets a free certificate from Let's Encrypt, renews it by itself, and passes requests on to CxMissionZero over plain http on their private network. That is why CxMissionZero runs with `-e HTTPS=off` here. CxMissionZero itself then has no open port.
+Caddy, a small web server, gets a free certificate from Let's Encrypt, renews it by itself, and passes requests on to CxMissionZero over plain http on their private network. That is why CxMissionZero runs with `-e HTTPS=off` here. CxMissionZero itself then has no open port. `-e TRUST_PROXY=uniquelocal` lets it believe what Caddy says about each visitor (their address, and that they used HTTPS); that is safe here because only Caddy can reach it.
 
 ```
 podman network create mz-net
 ```
 
 ```
-podman run --replace -d --name mission-zero --network mz-net -v mission-zero-data:/data -e TZ=Asia/Dubai -e HTTPS=off -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+podman run --replace -d --name mission-zero --network mz-net -v mission-zero-data:/data -e TZ=Asia/Dubai -e HTTPS=off -e TRUST_PROXY=uniquelocal -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 ```
 
 ```
@@ -298,7 +298,7 @@ For everyday use, switch to way A or B instead: every reader's machine would hav
 
 **Behind a reverse proxy you already have** (nginx, IIS, an F5, a cloud load balancer):
 - Let it handle HTTPS and forward to port 3000, with the `X-Forwarded-Proto`, `X-Forwarded-For` and `X-Forwarded-Host` headers. Start CxMissionZero with `-e HTTPS=off`, so the proxy speaks plain http to it.
-- If the proxy is on another machine outside a private network, add `-e TRUST_PROXY=<its address>`. Otherwise those headers are not believed.
+- Unless the proxy runs on the same machine, add `-e TRUST_PROXY=<its address>`. Otherwise those headers are not believed: by default only a proxy on this machine is.
 
 All the options, and a checklist for hosting CxMissionZero safely: [HTTPS and hosting](https-and-hosting.md).
 
@@ -332,7 +332,7 @@ The server's own connection to Checkmarx One. It is used for:
 | Field | Meaning |
 | --- | --- |
 | API key | Create one in Checkmarx One under Identity and Access Management → API Keys. Its role must allow reading projects and results, and running AI Triage / AI Remediation if you use them. Leave blank to use the key you signed in with. |
-| Single-tenant / on-prem overrides | IAM URL, API URL and tenant. Only needed when they cannot be worked out from the key (single-tenant or on-prem). |
+| Single-tenant / on-prem overrides | IAM URL, API URL and tenant. Only needed when they cannot be worked out from the key (single-tenant or on-prem). Pointing the IAM or API URL at another host clears the stored key: paste it again with the new address. |
 | **Connect & store** | Checks the key (token exchange plus one project call) and stores it. |
 | **Remove stored key** | Removes the stored key. If the server was started with `CX_API_KEY`, it falls back to that key. |
 
@@ -343,7 +343,7 @@ The server's own connection to Checkmarx One. It is used for:
 | Implicit TLS | On only for port 465. |
 | Server requires authentication | Usually on. |
 | Verify TLS certificate | Leave on. Turn off only for an internal relay with a self-signed certificate. |
-| Username, Password | The sending account. The password is stored on the server and never shown again. |
+| Username, Password | The sending account. The password is stored on the server and never shown again. Changing the host clears it: type it again for the new server. |
 | From name, From address | Who the reminders come from. A blank address uses the username. |
 | **Test connection** | Connects and logs in without sending anything. |
 | **Send test email** | Sends a real email to the address you type. |
@@ -432,6 +432,7 @@ The address people's browsers use to reach this server, put into every emailed r
 - **Test** checks that it answers as this server.
 - You are warned if it is `localhost` (nobody else can reach it) or plain `http`.
 - Use the `https://` name in your certificate ([Turn on HTTPS](#turn-on-https)). `REPORT_SERVER_URL` fills it in when the page has none saved.
+- With neither set, reports sent with nobody at the dashboard (scheduled ones) use the last address someone who may change this setting opened the dashboard on. Behind a reverse proxy that is often an internal name, so set the address here.
 
 ### Risks endpoint
 Where findings are read from. The default is `/api/risks/`.
@@ -702,6 +703,7 @@ Early features: check what they find before relying on them. Details are in [bet
   - The **GitHub** indicator, top right, turns green when it works.
 - **GitLab, Azure DevOps and Bitbucket:** one box each, with a token, the address (self-hosted too), and the projects or repositories to read. **Test** says whether the token is accepted.
   - **Tokens:** stored like the SMTP password, never shown again, and only ever sent to their own host. An Azure DevOps token goes only to its own organisation.
+  - **Changing an address to another host** clears that host's saved token (GitHub's too): enter the token again with the new address. A token from the .env file is only used for the host the file names (or the public service when it names none).
   - **Or from the .env file:**
     - `GITLAB_TOKEN`, `GITLAB_URL`, `GITLAB_GROUP`;
     - `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_ORG_URL`;

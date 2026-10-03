@@ -74,7 +74,22 @@ export class TemplateError extends Error {
  *   template, where HTML escaping would only corrupt the output.
  */
 export function render(source, data, { escape = true } = {}) {
-  return renderWithStack(source, [data], escape);
+  return renderWithStack(source, [data], escape, { items: 0, chars: 0 }, 0);
+}
+
+// Limits on one render, so a template of sections nested inside sections over
+// long lists cannot multiply into millions of rows and stall the server.
+const MAX_DEPTH = 4;
+const MAX_ITEMS = 50_000;
+const MAX_CHARS = 5 * 1024 * 1024;
+
+/** Count output against the render's budget; throw once it is spent. */
+function spend(budget, text) {
+  budget.chars += text.length;
+  if (budget.chars > MAX_CHARS) {
+    throw new TemplateError('The rendered message is too large (over 5 MB). Simplify the template or narrow the reminder.');
+  }
+  return text;
 }
 
 /**
@@ -82,7 +97,7 @@ export function render(source, data, { escape = true } = {}) {
  * a section body can see both the current item and everything outside it, and
  * `{{.}}` resolves to the item itself even when it is a primitive.
  */
-function renderWithStack(source, stack, escape) {
+function renderWithStack(source, stack, escape, budget, depth) {
   // Compiled per call: a shared /g regex would have its lastIndex clobbered by
   // the inner render and restart the outer scan from zero, looping forever.
   const token = new RegExp(TOKEN_SOURCE, 'g');
@@ -99,9 +114,12 @@ function renderWithStack(source, stack, escape) {
     const text = source.slice(cursor, match.index);
     cursor = match.index + raw.length;
 
-    if (sections.length === 0) out.push(text);
+    if (sections.length === 0) out.push(spend(budget, text));
 
     if (sigil === '#' || sigil === '^') {
+      if (depth + sections.length >= MAX_DEPTH) {
+        throw new TemplateError(`{{${sigil}${name}}} is nested too deeply: sections can be nested at most ${MAX_DEPTH} levels.`);
+      }
       sections.push({ name, inverted: sigil === '^', start: cursor });
       continue;
     }
@@ -117,16 +135,28 @@ function renderWithStack(source, stack, escape) {
       const body = source.slice(open.start, match.index);
       const value = lookup(stack, open.name);
 
+      // Every body rendered counts against the budget, as does every character written.
+      const renderBody = () => {
+        budget.items += 1;
+        if (budget.items > MAX_ITEMS) {
+          throw new TemplateError(`The template is too large to render: its sections repeat more than ${MAX_ITEMS.toLocaleString('en')} times. Simplify the template or narrow the reminder.`);
+        }
+        return renderWithStack(body, stack, escape, budget, depth + 1);
+      };
+
       if (open.inverted) {
-        if (isEmpty(value)) out.push(renderWithStack(body, stack, escape));
+        if (isEmpty(value)) out.push(renderBody());
         continue;
       }
 
       if (isEmpty(value)) continue;
       for (const item of Array.isArray(value) ? value : [value]) {
         stack.push(item);
-        out.push(renderWithStack(body, stack, escape));
-        stack.pop();
+        try {
+          out.push(renderBody());
+        } finally {
+          stack.pop();
+        }
       }
       continue;
     }
@@ -135,14 +165,14 @@ function renderWithStack(source, stack, escape) {
 
     const value = lookup(stack, name);
     if (value === undefined || value === null) continue;
-    out.push(brace === '{' || !escape ? String(value) : escapeHtml(value));
+    out.push(spend(budget, brace === '{' || !escape ? String(value) : escapeHtml(value)));
   }
 
   if (sections.length > 0) {
     throw new TemplateError(`{{#${sections[0].name}}} is never closed.`);
   }
 
-  out.push(source.slice(cursor));
+  out.push(spend(budget, source.slice(cursor)));
   return out.join('');
 }
 

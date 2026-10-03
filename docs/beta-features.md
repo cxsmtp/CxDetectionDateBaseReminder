@@ -123,6 +123,12 @@ matched at all.
 
 Each token is stored like the SMTP password, never sent back to the browser, and only ever
 sent to its own host. An Azure DevOps token goes only to repositories of its own organisation.
+- **Changing a host's address to another host drops its saved token,** unless a new token is
+  entered with it, so a token is never sent to an address someone else typed.
+- **A token from the .env file** goes only to the host the file names (`GITHUB_API_URL`,
+  `GITLAB_URL`, `AZURE_DEVOPS_ORG_URL`, `BITBUCKET_URL`), or, when it names none, to the public
+  service (api.github.com, gitlab.com, dev.azure.com, Bitbucket Cloud). An address set on the
+  Beta page for another host does not get it: enter a token there too.
 
 **Tested** against API doubles of each host, which answer like the real APIs and count
 requests:

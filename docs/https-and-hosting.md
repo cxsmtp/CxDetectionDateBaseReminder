@@ -60,7 +60,7 @@ podman network create mz-net
 ```
 
 ```
-podman run --replace -d --name mission-zero --network mz-net -v mission-zero-data:/data -e TZ=Asia/Dubai -e HTTPS=off -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+podman run --replace -d --name mission-zero --network mz-net -v mission-zero-data:/data -e TZ=Asia/Dubai -e HTTPS=off -e TRUST_PROXY=uniquelocal -e REPORT_SERVER_URL=https://mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
 ```
 
 ```
@@ -72,13 +72,15 @@ Replace `mz.company.com` with your name, in both places. Then open `https://mz.c
 How it fits together:
 - Caddy does HTTPS and speaks plain http to CxMissionZero on their private network, hence `HTTPS=off`. Without it, Caddy would reach a self-signed HTTPS server and fail.
 - Caddy tells CxMissionZero the real client address and that the request was HTTPS.
-- CxMissionZero believes those headers only from a proxy on its private network, which is the default (`TRUST_PROXY`). So cookies are `Secure`, HSTS is on, and the audit log shows real addresses.
+- CxMissionZero believes those headers only from a proxy it is told to trust (`TRUST_PROXY`). Here that is `uniquelocal`: the private container network, which only Caddy can reach because CxMissionZero publishes no port. So cookies are `Secure`, HSTS is on, and the audit log shows real addresses.
 - Updating CxMissionZero works as before: `podman pull`, then the same `podman run` line. Caddy keeps running.
 
 **Another reverse proxy** (nginx, IIS / ARR, an F5, a cloud load balancer) works the same way:
 - Terminate HTTPS there and forward to port 3000, with `-e HTTPS=off` on CxMissionZero (or forward to `https://…:3000` and have the proxy accept its certificate).
 - Pass on `X-Forwarded-Proto`, `X-Forwarded-For` and `X-Forwarded-Host`.
-- If the proxy is not on the same machine or a private network, set `TRUST_PROXY` to its address, e.g. `-e TRUST_PROXY=10.20.0.15`.
+- Unless the proxy runs on the same machine (and reaches CxMissionZero over `localhost`), set `TRUST_PROXY` to its address, e.g. `-e TRUST_PROXY=10.20.0.15`. Without it the proxy's headers are not believed: cookies are not marked `Secure` and the audit log shows the proxy's address.
+
+**Why not trust the whole private network by default.** On a company network most people's computers have private addresses too. If every private address were trusted, anyone could send `X-Forwarded-For` and appear as any address in the audit log (and spread their sign-in attempts over made-up addresses). So by default only a proxy on this machine (`loopback`) is believed. Name your proxy's address, or its network (a CIDR such as `10.89.0.0/24`), and only if no one else can reach CxMissionZero directly from that network use `uniquelocal`.
 
 ## C. Self-signed (trying it out)
 
@@ -103,7 +105,7 @@ This is what the image does when no certificate is given; `TLS_HOSTNAMES` only a
 | `TLS_HOSTNAMES` | — | Extra names for the self-signed certificate (comma-separated). |
 | `HTTP_REDIRECT_PORT` | — | Also listen for plain http on this port: redirected to https while HTTPS only. Rarely needed now: `-p 80:3000` does the same through the main port. |
 | `HTTPS_PUBLIC_PORT` | 443 | The https port people use, for that redirect. |
-| `TRUST_PROXY` | private networks; nobody when CxMissionZero serves HTTPS itself | Whose `X-Forwarded-*` headers to believe: `off`, `on`, an address, a CIDR, or `loopback`. |
+| `TRUST_PROXY` | `loopback` (a proxy on this machine); nobody when CxMissionZero serves HTTPS itself | Whose `X-Forwarded-*` headers to believe: `off`, `on`, an address, a CIDR (comma-separated for several), `loopback`, or `uniquelocal` (every private address). Set it to your reverse proxy's address when the proxy runs in another container or on another machine. |
 | `REPORT_SERVER_URL` | — | The `https://` address put into every emailed report. Set it to the name in the certificate. |
 
 ## What I need from you

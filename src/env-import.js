@@ -97,7 +97,7 @@ export function settingsFromEnv(vars, may = () => true) {
   const order = Object.keys(vars).sort((a, b) => (a === 'SMTP_USER' ? -1 : b === 'SMTP_USER' ? 1 : 0));
   for (const name of order) {
     const value = String(vars[name] ?? '').trim();
-    const rule = ENV_SETTINGS[name];
+    const rule = Object.hasOwn(ENV_SETTINGS, name) ? ENV_SETTINGS[name] : undefined;
     if (!rule) {
       ignored.push(name);
       continue;

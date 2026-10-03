@@ -166,6 +166,7 @@ Anything already in the state folder is moved to `replaced-<time>/`, never delet
 You can also restore a running server from **Audit → Restore from backup…**:
 
 - The backup is checked, and the page shows what it holds.
+- The upload is limited to 200 MB. A larger backup is restored with `npm run restore`, as above.
 - The restore is staged, and applied at the next restart before anything loads.
   Otherwise the running server would write its in-memory state over the restored
   files.
