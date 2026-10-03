@@ -24,7 +24,7 @@ function start(env) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'https-'));
   let log = '';
   const child = spawn(process.execPath, ['src/server.js'], {
-    env: { ...process.env, HOST: '127.0.0.1', DATA_DIR: dataDir, BACKUP_INTERVAL_HOURS: '0', REPORT_SIGNING_KEY: 'https-test', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', ...env },
+    env: { ...process.env, HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', REPORT_SIGNING_KEY: 'https-test', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.stdout.on('data', (d) => (log += d));

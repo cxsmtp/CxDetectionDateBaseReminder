@@ -47,6 +47,7 @@ import { InstanceLock } from './instance-lock.js';
 import { inlineScriptHashes, sameOriginGuard, securityHeaders, viaTrustedProxy } from './security.js';
 import { describeCertificate } from './tls.js';
 import { HSTS_AGES, HttpsManager } from './https-manager.js';
+import { SUPPORTING_NOTICE, Terms } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
 import {
@@ -154,6 +155,19 @@ const trackedReports = new TrackedReports({ file: path.join(dataDir, 'tracked-re
 const reportFiles = new ReportFiles({ dir: path.join(dataDir, 'report-files'), ttlDays: 30 });
 const guard = new ConnectionGuard({ file: path.join(dataDir, 'connection-guard.json') });
 const audit = new AuditLog({ dir: path.join(dataDir, 'audit'), keyFile: path.join(dataDir, 'audit.key') });
+
+// The terms of use (TERMS.md): an Admin accepts them for the organisation before anyone can use
+// the utility (reports and automation included), then each person before they first use it.
+const terms = new Terms({ file: path.join(dataDir, 'terms.json'), textFile: path.join(projectDir, 'TERMS.md') });
+try {
+  if (terms.acceptFromEnvironment(process.env.ACCEPT_TERMS)) {
+    audit.record({ type: 'access', outcome: 'changed', reason: `Terms of use v${terms.version} accepted for the organisation and everyone using this installation by ${terms.organisation().by} (ACCEPT_TERMS).`, actor: { kind: 'system', user: terms.organisation().by }, details: { terms: { version: terms.version, hash: terms.hash, via: 'ACCEPT_TERMS' } } });
+    console.log(`[terms] Terms of use v${terms.version} accepted for the organisation by ${terms.organisation().by} (ACCEPT_TERMS).`);
+  }
+} catch (error) {
+  console.error(`! ${error.message}`);
+  process.exit(1);
+}
 if (restoredAtStart) {
   audit.record({
     type: 'backup',
@@ -361,7 +375,8 @@ async function resolveAutomationSession() {
 const scheduler = new Scheduler({
   // The scheduler is synchronous about session lookup, so a key armed while
   // the process is running is picked up by the refresh below rather than here.
-  resolveSession: () => sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId),
+  // Nothing runs on its own until an Admin has accepted the terms of use.
+  resolveSession: () => (terms.organisation() ? sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId) : null),
   state: automationState,
   // Runs send through the last known good mail server while a change waits to be checked.
   settingsStore: { get: () => sendingSettings() },
@@ -490,6 +505,9 @@ app.use('/api/relay', (req, res, next) => {
 const RELAY_MAX_IN_FLIGHT = Math.max(10, Number(process.env.RELAY_MAX_IN_FLIGHT) || 300);
 const relayStats = { inFlight: 0, peak: 0, served: 0, shed: 0 };
 app.use('/api/relay', (req, res, next) => {
+  if (!terms.organisation() && req.path !== '/ping') {
+    return res.status(403).json({ error: 'This reminder server is not in use yet: an administrator must first accept its terms of use.' });
+  }
   if (relayStats.inFlight >= RELAY_MAX_IN_FLIGHT) {
     relayStats.shed += 1;
     const retryAfter = 2 + Math.floor(Math.random() * 4);
@@ -520,6 +538,8 @@ const currentSession = (req) => {
 
 /** Routes someone who must change their password may still use. */
 const PASSWORD_CHANGE_ROUTES = new Set(['/api/me/password', '/api/session', '/api/me']);
+/** Routes usable before the terms of use are accepted: reading and accepting them, and signing in and out. */
+const TERMS_ROUTES = new Set(['/api/me/password', '/api/session', '/api/me', '/api/terms', '/api/terms/accept']);
 
 /** Gate for every signed-in route: a live session of an active user. */
 function requireSession(req, res, next) {
@@ -531,6 +551,12 @@ function requireSession(req, res, next) {
   }
   if (user.mustChangePassword && session.via === 'password' && !PASSWORD_CHANGE_ROUTES.has(req.path)) {
     return res.status(403).json({ error: 'Choose a new password before continuing.', mustChangePassword: true });
+  }
+  if (!TERMS_ROUTES.has(req.path) && (!terms.organisation() || !terms.acceptedBy(user.id))) {
+    return res.status(403).json({
+      error: terms.organisation() ? 'Accept the terms of use to continue.' : user.role === 'admin' ? 'Accept the terms of use for your organisation to continue.' : 'An administrator must accept the terms of use before CxMissionZero can be used.',
+      termsRequired: true,
+    });
   }
   req.session = session;
   req.user = user;
@@ -640,7 +666,14 @@ function describeMe(session, user) {
   try {
     tenant = integration?.connection?.tenant ?? '';
   } catch {}
+  const organisation = terms.organisation();
   return {
+    terms: {
+      version: terms.version,
+      organisationAccepted: Boolean(organisation),
+      accepted: Boolean(organisation) && terms.acceptedBy(user.id),
+      canAcceptForOrganisation: user.role === 'admin',
+    },
     ...describeSession(session),
     user: publicUser(user),
     role: { id: user.role, name: iam.role(user.role)?.name ?? user.role },
@@ -816,6 +849,37 @@ app.delete('/api/session', (req, res) => {
 });
 
 app.get('/api/me', requireSession, (req, res) => res.json(describeMe(req.session, req.user)));
+
+/** The terms of use: readable by anyone (also before signing in), with where this person stands. */
+app.get('/api/terms', (req, res) => {
+  const session = currentSession(req);
+  const user = session ? iam.user(session.userId) : null;
+  const organisation = terms.organisation();
+  const mine = user ? terms.userAcceptance(user.id) : null;
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    version: terms.version,
+    text: terms.text,
+    organisation: organisation ? { at: organisation.at, by: organisation.by, via: organisation.via } : null,
+    ...(user ? { you: { accepted: Boolean(organisation) && terms.acceptedBy(user.id), at: mine?.at ?? (organisation?.everyone ? organisation.at : null), canAcceptForOrganisation: user.role === 'admin' } } : {}),
+  });
+});
+
+/** Accept the terms: an Admin for the organisation (first), then each person for themselves. */
+app.post('/api/terms/accept', requireSession, asyncRoute(async (req, res) => {
+  if (String(req.body?.version ?? '') !== terms.version) return res.status(409).json({ error: 'The terms changed while you were reading them: read the current version, then accept.' });
+  const actor = { kind: 'user', user: req.user.email, ip: clientIp(req), userAgent: String(req.get('user-agent') ?? '').slice(0, 200) };
+  if (!terms.organisation()) {
+    if (req.user.role !== 'admin' || !req.body?.forOrganisation) return res.status(403).json({ error: 'An administrator must accept the terms of use for the organisation first.' });
+    terms.acceptForOrganisation({ by: req.user.email, ip: clientIp(req) });
+    audit.record({ type: 'access', outcome: 'changed', reason: `Terms of use v${terms.version} accepted for the organisation by ${req.user.email}.`, actor, details: { terms: { version: terms.version, hash: terms.hash, scope: 'organisation' } } });
+  }
+  if (!terms.acceptedBy(req.user.id)) {
+    terms.acceptForUser({ userId: req.user.id, email: req.user.email, ip: clientIp(req) });
+    audit.record({ type: 'access', outcome: 'changed', reason: `Terms of use v${terms.version} accepted by ${req.user.email}.`, actor, details: { terms: { version: terms.version, hash: terms.hash, scope: 'user' } } });
+  }
+  res.json(describeMe(req.session, req.user));
+}));
 
 /** Change one's own password (required after an administrator reset). */
 app.post(
@@ -5017,10 +5081,10 @@ app.get('/api/audit/export', requirePermission('audit.export'), async (req, res)
   res.setHeader('Content-Disposition', `attachment; filename="audit-${stamp}.${format}"`);
   if (format === 'jsonl') {
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
-    return res.send(entries.map((e) => JSON.stringify(e)).join('\n') + '\n');
+    return res.send([JSON.stringify({ notice: SUPPORTING_NOTICE }), ...entries.map((e) => JSON.stringify(e))].join('\n') + '\n');
   }
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.send([CSV_COLUMNS.map(([name]) => name).join(','), ...entries.map((e) => CSV_COLUMNS.map(([, get]) => csvCell(get(e))).join(','))].join('\n') + '\n');
+  res.send([csvCell(`Notice: ${SUPPORTING_NOTICE}`), CSV_COLUMNS.map(([name]) => name).join(','), ...entries.map((e) => CSV_COLUMNS.map(([, get]) => csvCell(get(e))).join(','))].join('\n') + '\n');
 });
 
 /** Walk the hash chain: any edited, removed or reordered entry is found. */

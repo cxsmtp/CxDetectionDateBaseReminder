@@ -2,6 +2,14 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
+## MZ-01.00.23 — 2026-10-03 11:03 UTC · [#46](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/46)
+- **Licence.** CxMissionZero is now licensed under the PolyForm Internal Use License 1.0.0: any organisation, every Checkmarx One customer included, may run and adapt it for its own internal business, but not sell, distribute or host it for others.
+- **Terms of use and disclaimer (TERMS.md).** An independent project, not a Checkmarx product; as is, with no warranty, support or fixes; neither the author nor Checkmarx is responsible for its use or for credit discrepancies; its figures and audit reports are supporting information only, not for claims or disputes with Checkmarx.
+- **Accepted before anything works.** After the first sign-in an Admin accepts the terms for the organisation; until then the app, emailed reports and automation are closed. Each person then accepts them once, changed terms are asked for again, and every acceptance is in the audit log.
+- **`ACCEPT_TERMS=<email>`.** Automated setups accept the terms by name, on record.
+- **Notices where figures appear.** HTML reports, the audit log page and every audit export say the figures are supporting information only.
+- **Contributing guide.** CONTRIBUTING.md explains how to propose improvements and what contributors agree to.
+
 ## MZ-01.00.22 — 2026-10-03 10:54 UTC · [#45](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/45)
 - **HTTPS from the Settings page.** Admins move a running server to HTTPS in five steps (certificate, HTTPS next to http, test, HTTPS only, harden), with no new container command and no restart.
 - **One port, both protocols.** http:// and https:// are answered on the same port, so HTTPS can run next to http while it is tested; once HTTPS only, plain http redirects instead of failing.

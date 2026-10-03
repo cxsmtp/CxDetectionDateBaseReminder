@@ -4,6 +4,8 @@
 
 Self-hosted, one container, nothing to install for developers.
 
+> **An independent project, not a Checkmarx product.** Free for Checkmarx One customers to use inside their own organisation ([PolyForm Internal Use 1.0.0](LICENSE)). It comes as is, with no warranty and no promise of support or fixes, and neither its author nor Checkmarx is responsible for how it is used or for any credit discrepancy. Its credit figures and audit reports are supporting information only, never evidence in a dispute with Checkmarx. Using it means accepting the [terms of use](TERMS.md), which an Admin accepts for the organisation at the first sign-in.
+
 | You get | How |
 | --- | --- |
 | **Know what is ageing** | Every project's findings bucketed by first detection (≤ 30, 31–60, > 60 days), streamed in as they are read. |
@@ -177,6 +179,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | **People** | |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | The first administrator, created on first start. Default `admin@mission-zero.local` with a generated password printed in the log. |
 | `FIRST_ADMIN=setup-code` | Create the first administrator in the browser with a code from the log instead. |
+| `ACCEPT_TERMS` | Your email address: you accept the [terms of use](TERMS.md) for the organisation and everyone using this installation (for automated setups; recorded under your name). Unset, an Admin accepts them in the app at the first sign-in. |
 | `SESSION_IDLE_MINUTES` (480) | Idle sign-ins end after this. |
 | `SESSION_SAVE_SECONDS` (30) | A signed-in person's fetched data is saved at once, then at most this often while it keeps changing (it survives updates and restarts). |
 | **GitHub (Beta)** | |
@@ -206,6 +209,19 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | [Performance and sizing](docs/performance.md) | The 3000-user benchmark and the recommended server size. |
 | [Audit log and backups](docs/audit-and-backup.md) | The tamper-evident audit log, backups, restore, moving servers. |
 | [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code; GitHub username matching. |
+
+## Licence, terms of use and contributing
+
+- **[LICENSE](LICENSE): PolyForm Internal Use License 1.0.0.** Any organisation, every Checkmarx One customer included, may run and adapt CxMissionZero for its own internal business. Selling it, sublicensing it, distributing it or running it as a service for others is not allowed.
+- **[TERMS.md](TERMS.md): the terms of use and disclaimer.**
+  - It is independent of Checkmarx, and comes as is, with no warranty, support or fixes.
+  - Neither the author nor Checkmarx is liable for its use or for credit discrepancies.
+  - Credit figures, the audit log and reports are supporting information only, not for claims or disputes with Checkmarx.
+- **Who accepts, and when.**
+  - **In the app:** after the first sign-in, an Admin accepts the terms for the organisation before anything can be used, including emailed reports and automation. Each person then accepts them once. Changed terms are asked for again, and every acceptance is in the audit log.
+  - **Automated setups:** `ACCEPT_TERMS=<your email>` accepts them for the organisation and everyone, on record under that name.
+- **[CONTRIBUTING.md](CONTRIBUTING.md):** improvements are welcome, as issues and pull requests.
+- **[CHANGELOG.md](CHANGELOG.md):** every version, when it was released, and what it brought.
 
 ## Develop
 

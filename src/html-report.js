@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 
 import { AI_SCANNERS } from './cxone/ai-assist.js';
 import { fixAdvice } from './fix-advice.js';
+import { SUPPORTING_NOTICE } from './terms.js';
 
 /** One Checkmarx One result: rows with the same key are triaged together, and charged once. */
 export const resultKey = (f) =>
@@ -310,6 +311,7 @@ ${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere,
     <summary>Activity (<span id="activity-count">0</span>)</summary>
     <ul id="activity-list"></ul>
   </details>
+  <p class="muted disclaimer">${escapeHtml(SUPPORTING_NOTICE)} Triaging or remediating from this report means accepting those terms.</p>
 </main>
 <dialog id="credit-dialog" class="dialog" aria-labelledby="credit-dialog-title">
   <form method="dialog">
@@ -568,6 +570,7 @@ tr.shared-row.twin-hi > td, tr.shared-row:target > td { background: color-mix(in
 .more { margin-top: 16px; } .more p { margin: 0 0 8px; }
 .more-links { display: flex; gap: 8px; flex-wrap: wrap; }
 .more-links .btn { max-width: 100%; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.disclaimer { margin: 18px 0 0; font-size: 12px; line-height: 1.5; }
 .activity { margin-top: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; }
 .activity summary { cursor: pointer; font-weight: 600; }
 .activity ul { list-style: none; padding: 0; margin: 8px 0 0; font-size: 13px; max-height: 260px; overflow: auto; }

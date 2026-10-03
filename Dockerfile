@@ -46,6 +46,7 @@ COPY package.json package-lock.json ./
 COPY src ./src
 COPY public ./public
 COPY scripts ./scripts
+COPY LICENSE TERMS.md CHANGELOG.md ./
 
 # State (settings, users, credit ledger, audit log, backups) in one volume.
 RUN mkdir -p /data && chown -R node:node /data

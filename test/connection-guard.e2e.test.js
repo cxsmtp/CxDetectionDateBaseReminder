@@ -49,7 +49,7 @@ test.before(async () => {
   children.push(spawn(process.execPath, ['loadtest/mock-cxone.mjs'], { env: { ...process.env, PORT: String(MOCK_PORT), LAT: '1', PROJECTS: '2', RISKS: '6' }, stdio: 'ignore' }));
   const server = spawn(process.execPath, ['src/server.js'], {
     env: {
-      ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, BACKUP_INTERVAL_HOURS: '0',
+      ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
       CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', REPORT_SIGNING_KEY: 'guard-test',
       ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', CONNECTION_CHECK_TIMEOUT_MS: '1500',
       SMTP_HOST: '', SMTP_USER: '', SMTP_PASS: '', GITHUB_TOKEN: '', GITHUB_API_URL: '', GITHUB_ORG: '',

@@ -5,6 +5,12 @@ credit event is recorded in an audit log so any consumption, and any failure, ca
 traced to who did it, when, from where, on which findings, and what Checkmarx One
 answered.
 
+> **Supporting information only.** The audit log, its exports and the credit figures help
+> your own calculation. They are worked out from Checkmarx One data at a moment in time and
+> may be incomplete or wrong. Checkmarx's own records are authoritative: do not use or share
+> them with Checkmarx as evidence in any claim, dispute or credit request. CxMissionZero is
+> an independent project, not a Checkmarx product ([terms of use](../TERMS.md)).
+
 ## What is recorded
 
 One entry per event, in `audit/audit-YYYY-MM.jsonl` in the state folder:

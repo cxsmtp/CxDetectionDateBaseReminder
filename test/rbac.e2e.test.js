@@ -58,7 +58,7 @@ test.before(async () => {
       ...process.env,
       PORT: String(PORT),
       HOST: '127.0.0.1',
-      DATA_DIR: dataDir,
+      DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io',
       BACKUP_INTERVAL_HOURS: '0',
       CX_API_KEY: key({ azp: 'integration' }),
       CX_BASE_URL: MOCK,
