@@ -49,6 +49,30 @@ It also gives the server, VM or container size to run.
 - The mock tenant and the load generator ran on the same machine. For the sized runs the server was pinned to its own CPUs with `taskset`, and everything else to the remaining CPUs.
 - The generator itself competes for CPU, so real servers do somewhat better than these numbers.
 
+## Every version, before and after
+
+Every change is benchmarked on main before it and on its branch after it: 3000 people, a burst then 120 s sustained, server on 2 CPUs (`SERVER_CPUS=0-1 GEN_CPUS=2-3`). Failed = no answer, a timeout or a server error (see above).
+
+| Version | Run | Burst: time / failed | Sustained: requests / failed | Requests per second | Report opens p50 / p95 | Triage results p50 / p95 | Sent for triage twice |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.25 (main) | 1 | 10.6 s / 0 | 63,069 / 2 | 518 | 69 / 6,980 ms | 19 / 763 ms | none |
+| MZ-01.00.25 (main) | 2 | 9.2 s / 0 | 63,372 / 0 | 501 | 69 / 6,235 ms | 16 / 689 ms | none |
+| MZ-01.00.26 | 1 | 10.4 s / 0 | 62,992 / 0 | 510 | 63 / 7,246 ms | 18 / 911 ms | none |
+| MZ-01.00.26 | 2 | 15.8 s / 0 | 62,108 / 144 | 501 | 76 / 10,825 ms | 17 / 801 ms | none |
+| MZ-01.00.26 | 3 (event-loop monitor on) | 15.9 s / 0 | 63,013 / 0 | 502 | — | — | none |
+
+**MZ-01.00.26: what the differences were.**
+- **The 144 failures in run 2 were not the server.** A third run with an event-loop monitor inside the server found the loop never blocked for more than 0.5 s. Run 2's failures were report opens and status polls that hit the load generator's timeout while its own CPUs were saturated.
+- **The slower bursts (15.8 s) were the load generator's pace, not a slowdown.** Six short burst runs, alternating main and the branch with nothing else on the machine:
+
+  | Burst of 2970 | Run 1 | Run 2 | Run 3 |
+  | --- | --- | --- | --- |
+  | main | 9.9 s | 7.6 s | 9.0 s |
+  | MZ-01.00.26 | 8.8 s | 11.1 s | 9.1 s |
+
+  Both vary over the same range, all with 0 failures. When the generator fires fast enough, more than 300 report requests arrive at once and the server answers some "busy, retry" (main run 3: 638; MZ-01.00.26 run 1: 127). When it fires slower, none are turned away and the last ones simply wait longer.
+- **The changes on the server's hot paths cost nothing measurable.** Template rendering counts its work, a Checkmarx One sign-in is shared between concurrent requests, and a few more inputs are capped.
+
 ## MZ-01.00.21: profiled, and the slow tail removed
 
 A CPU profile of the server under the full load showed where its single thread went besides real work. What changed:
