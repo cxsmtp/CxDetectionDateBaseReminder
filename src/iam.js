@@ -47,6 +47,7 @@ export const PERMISSIONS = [
   { id: 'settings.automation', group: 'Settings', label: 'Automation', description: 'Change, run and reset automatic reminders.' },
   { id: 'integration.cxone', group: 'Integrations', label: 'Checkmarx One integration', description: 'Connect the server to Checkmarx One (its API key and endpoints).', special: true },
   { id: 'integration.smtp', group: 'Integrations', label: 'Email server (SMTP)', description: 'Configure and test the mail server.', special: true },
+  { id: 'security.https', group: 'Integrations', label: 'HTTPS and certificates', description: 'Upload and replace the server certificate, and move the server from http to HTTPS.', special: true },
   { id: 'audit.view', group: 'Audit & data', label: 'View the audit log', description: 'Browse, verify and reconcile the credit audit log.' },
   { id: 'audit.export', group: 'Audit & data', label: 'Export the audit log', description: 'Download the audit log as CSV or JSON Lines.' },
   { id: 'backup.view', group: 'Audit & data', label: 'View backup status', description: 'See the state folder and backups.' },

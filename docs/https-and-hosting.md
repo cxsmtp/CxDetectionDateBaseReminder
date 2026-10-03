@@ -4,7 +4,18 @@ Everything people send to CxMissionZero is sensitive: sign-ins, the vulnerabilit
 
 The container image serves HTTPS by default (`HTTPS=on`): with your certificate when you give one, otherwise with a self-signed one it makes (way C). A production release never serves plain http by accident. `HTTPS=off` turns it off: for your own machine, or behind a reverse proxy that does HTTPS (way B).
 
-Pick one of the three ways below. All the commands are for Windows cmd, one line each, and work the same in PowerShell and bash.
+**The easiest way: Settings → HTTPS** (Admin). On the running server, with no new command:
+1. upload the certificate (or create a request for IT there), checked like a browser would;
+2. turn on HTTPS next to http, on the same address and port;
+3. test it; emailed reports switch to HTTPS by themselves where it works;
+4. switch to HTTPS only;
+5. add HSTS.
+
+Replacing a certificate works the same way, and the previous one can be put back in one click. Step by step: [User guide → Turn on HTTPS](user-guide.md#turn-on-https). Way B (a reverse proxy in front) stays a container choice.
+
+**One port, both protocols.** Every connection's first byte tells a TLS handshake from plain http, so `http://` and `https://` are answered on the same port. The published port never has to change, and http on an HTTPS-only server gets a redirect instead of an error.
+
+Or pick one of the three ways below, from the container options. All the commands are for Windows cmd, one line each, and work the same in PowerShell and bash.
 
 | Way | Use it when | You need |
 | --- | --- | --- |
@@ -84,13 +95,13 @@ This is what the image does when no certificate is given; `TLS_HOSTNAMES` only a
 
 | Option | Default | What for |
 | --- | --- | --- |
-| `HTTPS` | `on` in the image; unset with `npm start` | `on`: always HTTPS (your certificate, else self-signed). `off`: plain http. Unset: HTTPS only when a certificate option is given. |
+| `HTTPS` | `on` in the image; unset with `npm start` | How it starts: `on` HTTPS only (your certificate, else self-signed; plain http on the same port redirects), `off` plain http, `both` side by side. Unset: HTTPS only when a certificate option is given. Once changed under **Settings → HTTPS**, the page's choice wins. |
 | `TLS_CERT_FILE`, `TLS_KEY_FILE` | — | PEM certificate (with its chain) and key. CxMissionZero then serves HTTPS. |
 | `TLS_KEY_PASSPHRASE` | — | If the key is encrypted. |
 | `TLS_PFX_FILE`, `TLS_PFX_PASSPHRASE` | — | A `.pfx` / `.p12`, instead of the two PEM files. |
 | `TLS_SELF_SIGNED` | off | `1`: make and use a self-signed certificate (what `HTTPS=on` does without a certificate). |
 | `TLS_HOSTNAMES` | — | Extra names for the self-signed certificate (comma-separated). |
-| `HTTP_REDIRECT_PORT` | — | Also listen for plain http on this port and redirect it to https. |
+| `HTTP_REDIRECT_PORT` | — | Also listen for plain http on this port: redirected to https while HTTPS only. Rarely needed now: `-p 80:3000` does the same through the main port. |
 | `HTTPS_PUBLIC_PORT` | 443 | The https port people use, for that redirect. |
 | `TRUST_PROXY` | private networks; nobody when CxMissionZero serves HTTPS itself | Whose `X-Forwarded-*` headers to believe: `off`, `on`, an address, a CIDR, or `loopback`. |
 | `REPORT_SERVER_URL` | — | The `https://` address put into every emailed report. Set it to the name in the certificate. |
@@ -133,7 +144,8 @@ This is what the image does when no certificate is given; `TLS_HOSTNAMES` only a
   - `/api/health` is there for your monitoring.
 
 **Already built in, nothing to do:**
-- HTTPS by default in the container image.
+- HTTPS by default in the container image, and run from **Settings → HTTPS** while it runs.
+- Every certificate checked before use; the way back in: `podman exec mission-zero node scripts/https.mjs both`.
 - HSTS (with a real certificate) and a strict Content Security Policy.
 - No framing, no MIME sniffing.
 - Same-origin checks on every change.

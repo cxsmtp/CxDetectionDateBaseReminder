@@ -25,34 +25,60 @@ import path from 'node:path';
 
 const readFile = (file) => fs.readFileSync(file);
 
-/** null when HTTPS is not configured; otherwise what https.createServer needs, plus how to reload it. */
-export function tlsConfig(env = process.env, dataDir = '') {
+/**
+ * How the server starts when nothing was chosen on the Settings page yet: 'http', 'both'
+ * (http and https on the same port) or 'https' (http only redirects). From HTTPS (on, off,
+ * both); unset means 'https' when a certificate is given, else 'http'.
+ */
+export function startMode(env = process.env) {
   const mode = String(env.HTTPS ?? '').trim().toLowerCase();
-  if (/^(off|false|no|0)$/.test(mode)) return null;
-  if (mode && !/^(on|true|yes|1)$/.test(mode)) throw new Error(`HTTPS must be on or off, not "${env.HTTPS}".`);
+  if (/^(off|false|no|0)$/.test(mode)) return 'http';
+  if (mode === 'both') return 'both';
+  if (/^(on|true|yes|1)$/.test(mode)) return 'https';
+  if (mode) throw new Error(`HTTPS must be on, off or both, not "${env.HTTPS}".`);
+  return env.TLS_CERT_FILE?.trim() || env.TLS_KEY_FILE?.trim() || env.TLS_PFX_FILE?.trim() || /^(1|true|yes|on)$/i.test(env.TLS_SELF_SIGNED ?? '') ? 'https' : 'http';
+}
+
+/** The certificate the container names (TLS_CERT_FILE + TLS_KEY_FILE, or TLS_PFX_FILE), or null. */
+export function environmentCertificate(env = process.env) {
   const certFile = env.TLS_CERT_FILE?.trim();
   const keyFile = env.TLS_KEY_FILE?.trim();
   const pfxFile = env.TLS_PFX_FILE?.trim();
-  let files;
-  let load;
   if (certFile || keyFile) {
     if (!certFile || !keyFile) throw new Error('HTTPS needs both TLS_CERT_FILE and TLS_KEY_FILE.');
-    files = [certFile, keyFile];
-    load = () => ({ cert: readFile(certFile), key: readFile(keyFile), passphrase: env.TLS_KEY_PASSPHRASE || undefined });
-  } else if (pfxFile) {
-    files = [pfxFile];
-    load = () => ({ pfx: readFile(pfxFile), passphrase: env.TLS_PFX_PASSPHRASE || undefined });
-  } else if (mode || /^(1|true|yes|on)$/i.test(env.TLS_SELF_SIGNED ?? '')) {
-    const names = selfSignedNames(env);
-    const { cert, key } = ensureSelfSigned(path.join(dataDir || '.', 'tls'), names);
+    return { files: [certFile, keyFile], load: () => ({ cert: readFile(certFile), key: readFile(keyFile), passphrase: env.TLS_KEY_PASSPHRASE || undefined }) };
+  }
+  if (pfxFile) return { files: [pfxFile], load: () => ({ pfx: readFile(pfxFile), passphrase: env.TLS_PFX_PASSPHRASE || undefined }) };
+  return null;
+}
+
+/** The names a self-signed certificate covers: this machine, TLS_HOSTNAMES, REPORT_SERVER_URL and `extra`. */
+export function selfSignedNames(env = process.env, extra = []) {
+  const names = new Set(['localhost', '127.0.0.1', os.hostname()]);
+  for (const name of [...String(env.TLS_HOSTNAMES ?? '').split(','), ...extra]) if (String(name).trim()) names.add(String(name).trim().toLowerCase());
+  try {
+    if (env.REPORT_SERVER_URL) names.add(new URL(env.REPORT_SERVER_URL).hostname.toLowerCase());
+  } catch {}
+  return [...names].filter(Boolean).sort();
+}
+
+/** null when HTTPS is not configured; otherwise what https.createServer needs, plus how to reload it. */
+export function tlsConfig(env = process.env, dataDir = '') {
+  const mode = startMode(env);
+  if (mode === 'http') return null;
+  const given = environmentCertificate(env);
+  let files;
+  let load;
+  if (given) {
+    ({ files, load } = given);
+  } else {
+    const { cert, key } = ensureSelfSigned(path.join(dataDir || '.', 'tls'), selfSignedNames(env));
     files = [cert, key];
     load = () => ({ cert: readFile(cert), key: readFile(key) });
-  } else {
-    return null;
   }
   const options = { ...load(), minVersion: 'TLSv1.2' };
   describeCertificate(options); // fails early, with a readable reason, on a wrong file or passphrase
-  return { options, files, load: () => ({ ...load(), minVersion: 'TLSv1.2' }), selfSigned: !certFile && !keyFile && !pfxFile };
+  return { options, files, load: () => ({ ...load(), minVersion: 'TLSv1.2' }), selfSigned: !given };
 }
 
 /** "CN=mz.acme.io, valid until 2027-05-01 (DNS:mz.acme.io)" for the log. */
@@ -102,15 +128,6 @@ export function watchCertificate(server, tls, { intervalMs = 5 * 60 * 1000, log 
 // Self-signed certificate, made with node:crypto alone (no openssl needed)
 // ---------------------------------------------------------------------------
 
-function selfSignedNames(env) {
-  const names = new Set(['localhost', '127.0.0.1', os.hostname()]);
-  for (const name of String(env.TLS_HOSTNAMES ?? '').split(',')) if (name.trim()) names.add(name.trim().toLowerCase());
-  try {
-    if (env.REPORT_SERVER_URL) names.add(new URL(env.REPORT_SERVER_URL).hostname.toLowerCase());
-  } catch {}
-  return [...names].filter(Boolean).sort();
-}
-
 /** The self-signed certificate in `dir`, made (again) when missing, expiring or for other names. */
 export function ensureSelfSigned(dir, names, now = Date.now()) {
   const cert = path.join(dir, 'self-signed.crt');
@@ -128,39 +145,73 @@ export function ensureSelfSigned(dir, names, now = Date.now()) {
   return { cert, key };
 }
 
-const isIp = (name) => /^\d{1,3}(\.\d{1,3}){3}$/.test(name) || name.includes(':');
+export const isIp = (name) => /^\d{1,3}(\.\d{1,3}){3}$/.test(name) || name.includes(':');
 
 /** A self-signed ECDSA P-256 certificate for `names` (DNS names and IP addresses), valid for 397 days. */
 export function selfSignedCertificate(names, now = Date.now()) {
   const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
   const cn = names.find((n) => !isIp(n)) ?? 'localhost';
-  const name = seq(set(seq(oid('2.5.4.3'), utf8(cn))), set(seq(oid('2.5.4.10'), utf8('CxMissionZero (self-signed)'))));
-  const ecdsaSha256 = seq(oid('1.2.840.10045.4.3.2'));
-  const san = seq(
-    ...names.map((n) => (isIp(n) ? tagged(0x87, ipBytes(n)) : tagged(0x82, Buffer.from(n, 'ascii')))),
-  );
-  const extensions = seq(
-    seq(oid('2.5.29.17'), octets(san)), // subjectAltName
-    seq(oid('2.5.29.19'), bool(true), octets(seq())), // basicConstraints: not a CA
-    seq(oid('2.5.29.15'), bool(true), octets(bitString(Buffer.from([0x80]), 7))), // keyUsage: digitalSignature
-    seq(oid('2.5.29.37'), octets(seq(oid('1.3.6.1.5.5.7.3.1')))), // extKeyUsage: serverAuth
-  );
+  const cert = makeCertificate({ subject: { cn, o: 'CxMissionZero (self-signed)' }, names, publicKey, signerKey: privateKey, now });
+  return { cert, key: privateKey.export({ type: 'pkcs8', format: 'pem' }) };
+}
+
+/**
+ * A certificate for `publicKey`, signed by `signerKey` on behalf of `issuer` (itself when
+ * left out: self-signed). `ca` makes a certificate authority. For self-signed certificates,
+ * and in tests for whole chains (root, intermediate, server).
+ */
+export function makeCertificate({ subject, issuer = subject, names = [], publicKey, signerKey, ca = false, now = Date.now(), days = 397, notBefore = now - 60_000 }) {
+  const algorithm = signerKey.asymmetricKeyType === 'rsa' ? seq(oid('1.2.840.113549.1.1.11'), tagged(0x05, Buffer.alloc(0))) : seq(oid('1.2.840.10045.4.3.2'));
+  const extensions = [
+    ...(names.length ? [seq(oid('2.5.29.17'), octets(subjectAltNames(names)))] : []),
+    seq(oid('2.5.29.19'), bool(true), octets(ca ? seq(bool(true)) : seq())), // basicConstraints
+    seq(oid('2.5.29.15'), bool(true), octets(ca ? bitString(Buffer.from([0x06]), 1) : bitString(Buffer.from([0x80]), 7))), // keyUsage
+    ...(ca ? [] : [seq(oid('2.5.29.37'), octets(seq(oid('1.3.6.1.5.5.7.3.1'))))]), // extKeyUsage: serverAuth
+  ];
   const serial = randomBytes(16);
   serial[0] = (serial[0] & 0x7f) || 1; // positive, and no leading zero byte (DER is strict about both)
   const tbs = seq(
     tagged(0xa0, integer(Buffer.from([2]))), // v3
     integer(serial),
-    ecdsaSha256,
-    name,
-    seq(time(now - 60_000), time(now + 397 * 86_400_000)),
-    name,
+    algorithm,
+    distinguishedName(issuer),
+    seq(time(notBefore), time(now + days * 86_400_000)),
+    distinguishedName(subject),
     publicKey.export({ type: 'spki', format: 'der' }),
-    tagged(0xa3, extensions),
+    tagged(0xa3, seq(...extensions)),
   );
-  const signature = sign('sha256', tbs, privateKey); // DER-encoded ECDSA signature
-  const der = seq(tbs, ecdsaSha256, bitString(signature));
-  const pem = `-----BEGIN CERTIFICATE-----\n${der.toString('base64').match(/.{1,64}/g).join('\n')}\n-----END CERTIFICATE-----\n`;
-  return { cert: pem, key: privateKey.export({ type: 'pkcs8', format: 'pem' }) };
+  const der = seq(tbs, algorithm, bitString(sign('sha256', tbs, signerKey)));
+  return toPem(der, 'CERTIFICATE');
+}
+
+/**
+ * A certificate signing request (CSR) for IT or a certificate authority: a new RSA 2048 key
+ * (kept on this server) and a request for `names`, the first one as its common name.
+ */
+export function certificateRequest(names, { organization = '' } = {}) {
+  const clean = [...new Set(names.map((n) => String(n).trim().toLowerCase()).filter(Boolean))];
+  if (!clean.length) throw new Error('Give at least one name, e.g. mz.company.com.');
+  for (const name of clean) {
+    if (!isIp(name) && !/^(\*\.)?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/.test(name)) throw new Error(`"${name}" is not a server name.`);
+  }
+  const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const cn = clean.find((n) => !isIp(n)) ?? clean[0];
+  const extensionRequest = seq(oid('1.2.840.113549.1.9.14'), set(seq(seq(oid('2.5.29.17'), octets(subjectAltNames(clean))))));
+  const info = seq(
+    integer(Buffer.from([0])),
+    distinguishedName({ cn, o: organization }),
+    publicKey.export({ type: 'spki', format: 'der' }),
+    tagged(0xa0, extensionRequest),
+  );
+  const algorithm = seq(oid('1.2.840.113549.1.1.11'), tagged(0x05, Buffer.alloc(0)));
+  const der = seq(info, algorithm, bitString(sign('sha256', info, privateKey)));
+  return { csr: toPem(der, 'CERTIFICATE REQUEST'), key: privateKey.export({ type: 'pkcs8', format: 'pem' }), names: clean };
+}
+
+const toPem = (der, label) => `-----BEGIN ${label}-----\n${der.toString('base64').match(/.{1,64}/g).join('\n')}\n-----END ${label}-----\n`;
+const subjectAltNames = (names) => seq(...names.map((n) => (isIp(n) ? tagged(0x87, ipBytes(n)) : tagged(0x82, Buffer.from(n, 'ascii')))));
+function distinguishedName({ cn, o = '' }) {
+  return seq(set(seq(oid('2.5.4.3'), utf8(cn))), ...(o ? [set(seq(oid('2.5.4.10'), utf8(o)))] : []));
 }
 
 // Minimal DER encoding: just what a certificate needs.

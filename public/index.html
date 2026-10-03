@@ -460,6 +460,7 @@
               <a href="#set-branding">Branding</a>
               <a href="#set-links">Links</a>
               <a href="#set-server">Server address</a>
+              <a href="#set-https" data-perm="security.https">HTTPS</a>
               <a href="#set-endpoint">Risks endpoint</a>
             </nav>
 
@@ -796,6 +797,124 @@
                 <button id="test-report-server" type="button">Test</button>
               </div>
               <div class="server-effective" id="server-effective"></div>
+            </section>
+
+            <section class="panel" id="set-https" data-perm="security.https">
+              <div class="panel-head">
+                <h2>HTTPS</h2>
+                <span class="https-badge" id="https-badge"></span>
+              </div>
+              <p class="hint wide">
+                Encrypts sign-ins, findings and triage requests on the way. Move this server from http to HTTPS here, while it runs:
+                HTTPS starts <strong>next to</strong> http on the same address and port, you test it, then switch http off. Nobody is cut
+                off and nothing restarts. Replacing a certificate later (a renewal, or another one) works the same way.
+              </p>
+              <div class="https-now" id="https-now"></div>
+
+              <ol class="https-steps">
+                <li class="https-step" id="https-step-cert">
+                  <h3><span class="step-num">1</span> Certificate</h3>
+                  <div id="https-cert-current"></div>
+                  <div class="env-drop" id="https-drop">
+                    <input type="file" id="https-files" multiple accept=".crt,.cer,.pem,.key,.pfx,.p12,.txt,.p7b" class="sr-only" />
+                    <label for="https-files" class="button primary" id="https-files-label">Choose certificate files</label>
+                    <span class="hint">or drop them here: the certificate (<code>.crt</code> / <code>.cer</code> / <code>.pem</code>), its chain or bundle,
+                      and the private key (<code>.key</code>), or one <code>.pfx</code> / <code>.p12</code>. Any names, any order. Checked first; nothing changes until you say so.</span>
+                  </div>
+                  <label class="field https-pass" id="https-pass-field" hidden>
+                    <span>Password of the .pfx or the private key</span>
+                    <input type="password" id="https-passphrase" autocomplete="off" />
+                  </label>
+                  <div id="https-candidate"></div>
+                  <details class="disclosure" id="https-csr">
+                    <summary>No certificate yet? Create a request (CSR) for IT</summary>
+                    <p class="hint">The private key is made and kept on this server. Send IT the request; when the certificate comes back,
+                      upload just that file above (and its chain, if they send one). It pairs with the key by itself.</p>
+                    <div class="grid2">
+                      <label class="field"><span>Server names people use, comma-separated</span><input id="https-csr-names" spellcheck="false" placeholder="mz.company.com" /></label>
+                      <label class="field"><span>Organisation (optional)</span><input id="https-csr-org" placeholder="Acme Ltd" /></label>
+                    </div>
+                    <div class="actions compact">
+                      <button type="button" id="https-csr-create">Create the request</button>
+                      <a class="button" id="https-csr-download" href="api/https/request.csr" download="cxmissionzero.csr" hidden>Download the request (.csr)</a>
+                      <span class="status" id="https-csr-status"></span>
+                    </div>
+                  </details>
+                  <div class="actions compact" id="https-cert-actions"></div>
+                </li>
+
+                <li class="https-step" id="https-step-both">
+                  <h3><span class="step-num">2</span> Turn on HTTPS next to http</h3>
+                  <p class="hint">Same address and port, with <code>https://</code>. Everyone on http carries on as before.</p>
+                  <div class="actions compact">
+                    <button type="button" id="https-both">Turn on HTTPS next to http</button>
+                    <span class="status" id="https-both-status"></span>
+                  </div>
+                </li>
+
+                <li class="https-step" id="https-step-test">
+                  <h3><span class="step-num">3</span> Test it</h3>
+                  <div class="actions compact">
+                    <a class="button" id="https-open" target="_blank" rel="noopener">Open the HTTPS address</a>
+                    <button type="button" id="https-check-browser">Check this browser accepts it</button>
+                  </div>
+                  <div id="https-browser-result"></div>
+                  <p class="hint" id="https-reports-hint"></p>
+                </li>
+
+                <li class="https-step" id="https-step-switch">
+                  <h3><span class="step-num">4</span> Switch to HTTPS only</h3>
+                  <p class="hint">Then plain http answers with a redirect to https, and reports switch to the new address by themselves.</p>
+                  <label class="check"><input type="checkbox" id="https-update-address" checked /> <span id="https-update-address-label">Also put the https address into new reports (Reminder server address)</span></label>
+                  <div class="actions compact">
+                    <button type="button" class="primary" id="https-switch">Switch to HTTPS only</button>
+                    <button type="button" class="link" id="https-undo" hidden>Back to http and HTTPS side by side</button>
+                    <span class="status" id="https-switch-status"></span>
+                  </div>
+                  <div class="https-note" id="https-switch-hint"></div>
+                </li>
+
+                <li class="https-step" id="https-step-harden">
+                  <h3><span class="step-num">5</span> Harden</h3>
+                  <label class="check"><input type="checkbox" id="https-hsts" /> HSTS: browsers that visited once use only HTTPS here, and never show a "continue anyway" link</label>
+                  <div class="grid2">
+                    <label class="field"><span>Remembered by browsers for</span>
+                      <select id="https-hsts-age">
+                        <option value="86400">1 day (try it first)</option>
+                        <option value="604800">1 week</option>
+                        <option value="15768000">6 months</option>
+                        <option value="31536000">1 year</option>
+                      </select>
+                    </label>
+                    <label class="field"><span>Lowest TLS version</span>
+                      <select id="https-min-version">
+                        <option value="TLSv1.2">TLS 1.2 (every browser)</option>
+                        <option value="TLSv1.3">TLS 1.3 only (current browsers)</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label class="check"><input type="checkbox" id="https-hsts-sub" /> Include subdomains (only when every subdomain has HTTPS)</label>
+                  <div class="actions compact">
+                    <button type="button" id="https-harden-save">Apply</button>
+                    <span class="status" id="https-harden-status"></span>
+                  </div>
+                  <ul class="https-always">
+                    <li>Always on over HTTPS: session cookies are <code>Secure</code>, <code>HttpOnly</code> and <code>SameSite</code>.</li>
+                    <li>A strict Content Security Policy, no framing and no MIME sniffing, on every page.</li>
+                  </ul>
+                </li>
+              </ol>
+
+              <details class="disclosure">
+                <summary>Standard ports (443, and 80 for http), and the way back in</summary>
+                <p class="hint">Both protocols share one port inside the container, so publish both outside ports to it, once
+                  (Windows cmd, one line). <code>http://</code> on 80 then redirects to <code>https://</code> on 443:</p>
+                <pre class="https-cmd" id="https-ports-cmd"></pre>
+                <p class="hint">Locked out (a certificate no browser accepts, HSTS…)? On the server, this puts http back next to
+                  HTTPS within 5 seconds, with no restart:</p>
+                <pre class="https-cmd">podman exec mission-zero node scripts/https.mjs both</pre>
+              </details>
+              <span class="status" id="https-status"></span>
             </section>
 
             <section class="panel" id="set-endpoint" data-edit-perm="integration.cxone">

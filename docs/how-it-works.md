@@ -137,13 +137,19 @@ See [audit-and-backup.md](audit-and-backup.md) for backups and rebuilding a serv
   - Five failures lock an account for 15 minutes, and an address is slowed after 30 attempts.
   - Sessions are opaque `HttpOnly`, `SameSite=Lax` cookies (`Secure` over HTTPS).
   - API keys never reach the browser, the logs or the disk.
-- **Permissions.** 29 permissions, checked on every API route. Nobody can grant more than they hold, and there is always one active Admin.
+- **Permissions.** 30 permissions, checked on every API route. Nobody can grant more than they hold, and there is always one active Admin.
 - **Cross-site requests.** Changing requests must come from this server's own pages (an `Origin`/`Referer` check). The report relay is exempt, and needs a signed grant per finding instead.
 - **Headers**
   - A Content Security Policy allowing only this server's scripts.
   - No framing.
   - `nosniff`, same-origin referrers and a restrictive `Permissions-Policy`.
-  - HSTS over HTTPS, and no `X-Powered-By`.
+  - HSTS over HTTPS when an Admin turns it on (never with a self-signed certificate), and no `X-Powered-By`.
+- **HTTPS** (src/https-manager.js)
+  - One port answers both protocols: each connection's first byte tells a TLS handshake (`0x16`) from plain http. So HTTPS can start next to http, and http can be switched off, without changing the published port or restarting.
+  - Three modes: http only, both, HTTPS only. In HTTPS only, plain http gets a 308 redirect for pages and a `426` with the new address (`movedTo`) for API calls, which the Dashboard and reports follow.
+  - Every certificate is served on a private loopback port and connected to before use, the way a browser would. That checks the key, the chain (a missing intermediate, a company or public authority), the names in use, the dates, the key strength and its purpose.
+  - The previous certificate is kept to put back. The choices live in `DATA_DIR/https.json` (0600) and are reloaded within 5 s when `scripts/https.mjs` changes them.
+  - Switching to HTTPS only is accepted only over HTTPS: proof that it works from the Admin's browser.
 - **Input**
   - Ids never resolve to built-in object properties.
   - Email checks are length-capped.

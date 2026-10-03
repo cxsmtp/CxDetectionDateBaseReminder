@@ -85,7 +85,7 @@ test('HTTPS=on is HTTPS whatever else is set (the image default), HTTPS=off is p
   assert.equal(own.selfSigned, false, 'a given certificate wins');
   assert.equal(tlsConfig({ HTTPS: 'off', TLS_SELF_SIGNED: '1' }, dataDir), null, 'off wins');
   assert.equal(tlsConfig({}, dataDir), null, 'unset and nothing given: plain http, as for npm start');
-  assert.throws(() => tlsConfig({ HTTPS: 'maybe' }, dataDir), /HTTPS must be on or off/);
+  assert.throws(() => tlsConfig({ HTTPS: 'maybe' }, dataDir), /HTTPS must be on, off or both/);
 });
 
 test('over self-signed HTTPS: health, no HSTS, Secure cookie, http redirects, faked forwarded headers ignored', async () => {
@@ -130,7 +130,7 @@ test('the company\'s own certificate (PEM), checked at start: a key that does no
 
   const port = await freePort();
   const good = start({ PORT: String(port), TLS_CERT_FILE: path.join(dir, 'server.crt'), TLS_KEY_FILE: path.join(dir, 'server.key') });
-  await until(() => /\[https\] Certificate: CN=localhost/.test(good.log()));
+  await until(() => /\[https\] Certificate \(from the container options\): CN=localhost/.test(good.log()));
   const ownHealth = await request(`https://127.0.0.1:${port}/api/health`, { ca: own.cert });
   assert.equal(ownHealth.status, 200);
   assert.match(ownHealth.headers['strict-transport-security'], /max-age=31536000/, 'HSTS with a real certificate');

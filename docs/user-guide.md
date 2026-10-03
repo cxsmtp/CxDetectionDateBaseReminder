@@ -113,7 +113,60 @@ Settings **save as you type**; there is no Save button.
 
 Do this before anyone else signs in or receives a report. Over HTTPS, sign-ins, findings and triage requests cross the network encrypted. Plain http sends them as readable text to anyone on the way.
 
-**HTTPS is already on.** The container image serves HTTPS by default (`HTTPS=on`). Until you give it a certificate it uses a self-signed one (way C below), so browsers warn. Giving it your company's certificate (way A) or putting Caddy in front (way B) removes the warning.
+### From the Settings page (recommended)
+
+Admins only: **Settings → HTTPS**. It moves the running server from http to HTTPS in five steps, with no new command, no restart, and nobody cut off. The badge top right shows where it stands: **HTTP only**, **HTTP + HTTPS side by side**, or **HTTPS only**.
+
+1. **Certificate.**
+   - **Get one from IT.** No certificate yet? Open **No certificate yet? Create a request (CSR) for IT**, enter the name people use (e.g. `mz.company.com`), and click **Create the request**. A `cxmissionzero.csr` file downloads: send it to IT. The private key is made and kept on the server, so IT only sends a certificate back.
+   - **Upload it.** Click **Choose certificate files**, or drop them on the box. Give everything IT sent, in any order and with any names: the certificate (`.crt`, `.cer` or `.pem`), the chain or bundle, and the key (`.key`). Or give one `.pfx` / `.p12`, then its password when asked.
+   - **Read the check.** Nothing changes yet. Each line is a tick (fine), **!** (works, but some people may see a warning) or **✕** (cannot be used, and why):
+     - the key belongs to the certificate;
+     - the dates;
+     - the names it covers, compared with the address you are using and the Reminder server address;
+     - who issued it: a public authority, your company's, or self-signed. Missing intermediate certificates are spotted here;
+     - the key's strength and purpose.
+   - **Use it.** Click **Use this certificate**. It goes into use at once; the one it replaces is kept.
+2. **Turn on HTTPS next to http.** The same address and port now answer both `http://` and `https://`. Everyone on http carries on as before. If no certificate was uploaded yet, a self-signed one is used until you upload yours.
+3. **Test it.**
+   - **Open the HTTPS address**: no warning should appear, and the padlock shows.
+   - **Check this browser accepts it**: connects in the background and says yes or no.
+   - **Reports.** Emailed reports opened from now on try HTTPS and keep to it on machines where it works. The page shows how many reports were opened over each in the last 24 hours: when http keeps falling, it is time for step 4.
+4. **Switch to HTTPS only.**
+   - **Do it from the HTTPS address.** The button works only on a page opened over HTTPS: that proves HTTPS works from your browser before http goes away.
+   - **New reports.** Keep **Also put the https address into new reports** ticked, so new reports carry the https address.
+   - **Afterwards:**
+     - plain `http://` redirects to `https://`;
+     - the Dashboard, if open over http, moves itself to HTTPS;
+     - reports that still use the old http address are told the new one, and switch by themselves (reports emailed before this version show the new address to enter under **Change**).
+   - **Undo.** **Back to http and HTTPS side by side** puts http back at any time.
+5. **Harden.**
+   - **HSTS** makes browsers that visited once use only HTTPS here. Start with **1 day**, then lengthen it to a week, six months, a year. It needs a certificate from IT or a public authority (not self-signed). While it is on, the server cannot go back to plain http (turn it off first, and wait that long).
+   - **Lowest TLS version:** 1.2 works with every browser; 1.3 only with current ones.
+   - **Always on over HTTPS:** `Secure`, `HttpOnly` and `SameSite` session cookies, a strict Content Security Policy, and no framing.
+
+**Replacing a certificate.** A renewal, or a different certificate: upload it in step 1 (**Choose files to replace it**). It is checked first, then goes into use at once, with no restart; open connections carry on.
+- **Undo:** **Put the previous certificate back** returns the one before, in one click.
+- **Expiry warning:** 30 days before expiry, step 1 and the status tiles warn.
+- **With HTTPS only on,** a replacement with warnings asks you to confirm.
+
+**Standard ports (443, and 80 for http).** Both protocols share one port inside the container. To use the standard ports, publish both to it, once. `http://` on port 80 then redirects to `https://` on 443. The page shows the command, e.g.:
+
+```
+podman run --replace -d --name mission-zero -p 443:3000 -p 80:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+**Locked out?** For example, nobody's browser accepts the certificate, or HSTS was turned on with a bad certificate. On the server, run:
+
+```
+podman exec mission-zero node scripts/https.mjs both
+```
+
+Within 5 seconds http works again next to HTTPS, HSTS is off, and no restart is needed. Then fix the certificate on the page. Every change, from the page or this command, is in the **Audit log**.
+
+### From the container options
+
+The image starts with `HTTPS=on`: HTTPS only, self-signed until a certificate is given. `HTTPS=off` starts with plain http, `HTTPS=both` with both side by side. These only set the starting point: once an Admin changes it on the Settings page, the page's choice is kept across restarts and updates.
 
 **Plain http on your own machine:** add `-e HTTPS=off` and open `http://localhost:3000`:
 
@@ -123,7 +176,7 @@ podman run --replace -d --name mission-zero -p 3000:3000 -v mission-zero-data:/d
 
 You need access to the machine that runs the container (Podman or Docker). The commands are for Windows cmd, one line each. In every command, replace `mz.company.com` with your server's name.
 
-### 1. Choose how
+#### 1. Choose how
 
 | Way | Use it when | You need |
 | --- | --- | --- |
@@ -131,7 +184,7 @@ You need access to the machine that runs the container (Podman or Docker). The c
 | **B. Automatic certificate** (Let's Encrypt) | It has a public name the internet can reach | A public DNS name pointing at the machine, with ports 80 and 443 open to it |
 | **C. Self-signed** (the default) | Trying it out, or a lab | Nothing. Browsers warn about it until you trust it |
 
-### 2A. With your company's certificate
+#### 2A. With your company's certificate
 
 1. **Ask IT for a server certificate** for the name people will use, e.g. `mz.company.com`.
    - The name must be in the certificate's *Subject Alternative Name*.
@@ -146,11 +199,11 @@ podman run --replace -d --name mission-zero -p 443:3000 -p 80:8080 -v mission-ze
 
    - **With a `.pfx`:** replace `-e TLS_CERT_FILE=/certs/server.crt -e TLS_KEY_FILE=/certs/server.key` with `-e TLS_PFX_FILE=/certs/server.pfx -e TLS_PFX_PASSPHRASE=yourpassword`. To keep the password off the command line, put that line in your settings file and use `--env-file`.
    - **`-p 80:8080` and `HTTP_REDIRECT_PORT=8080`** send anyone who types `http://` to `https://`. Leave both out if you don't want port 80.
-4. **Check it** (see [step 3](#3-check-it-worked)).
+4. **Check it** (see [Check it worked](#3-check-it-worked)).
 
 **When the certificate is renewed,** copy the new files over the old ones in the folder. CxMissionZero switches to them within 5 minutes, with no restart. If a new file is broken, it keeps serving the old certificate and says why in its log.
 
-### 2B. With an automatic certificate (public name)
+#### 2B. With an automatic certificate (public name)
 
 Caddy, a small web server, gets a free certificate from Let's Encrypt, renews it by itself, and passes requests on to CxMissionZero over plain http on their private network. That is why CxMissionZero runs with `-e HTTPS=off` here. CxMissionZero itself then has no open port.
 
@@ -168,7 +221,7 @@ podman run --replace -d --name mz-caddy --network mz-net -p 80:80 -p 443:443 -v 
 
 Let's Encrypt checks that it really reaches your name on port 80, so the DNS name must point at this machine before you start. `podman logs mz-caddy` shows the certificate being obtained.
 
-### 2C. Self-signed (to try it out)
+#### 2C. Self-signed (to try it out)
 
 ```
 podman run --replace -d --name mission-zero -p 3443:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e TLS_HOSTNAMES=mz.company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
@@ -195,7 +248,7 @@ Firefox keeps its own list: **Settings → Certificates → View Certificates �
 
 For everyday use, switch to way A or B instead: every reader's machine would have to trust a self-signed certificate.
 
-### 3. Check it worked
+#### 3. Check it worked
 
 1. **The log:** run `podman logs mission-zero`. You should see:
    - `running on https://…`;
@@ -207,7 +260,7 @@ For everyday use, switch to way A or B instead: every reader's machine would hav
    - The address comes from `REPORT_SERVER_URL`. If one was saved on this page before, that one wins: change it here.
    - New emailed reports carry this address.
 
-### 4. After the switch
+#### 4. After the switch
 
 - **Everyone signs in once** at the new address. A browser keeps its sign-in per address, and the old `http://` one is no longer used.
 - **Reports emailed before the switch** still point at the old address.
@@ -645,7 +698,12 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 | **HTTPS:** the browser warns "Your connection is not private" | <ul><li>Self-signed: expected; trust it, or use your company's certificate.</li><li>Company certificate: the address you typed is not a name in the certificate (*Subject Alternative Name*); open the right name, or ask IT to add it.</li><li>The chain is missing intermediates: ask IT for the full chain in `server.crt`.</li></ul> |
 | **HTTPS:** after updating, `http://localhost:3000` no longer opens ("This page isn't working", "connection was reset") | Since MZ-01.00.21 the image serves HTTPS by default. Open `https://localhost:3000` instead, or add `-e HTTPS=off` to your `podman run` line to keep plain http. |
 | **HTTPS:** a reverse proxy (Caddy, nginx) answers 502 Bad Gateway | CxMissionZero serves HTTPS by default, and the proxy speaks http to it. Add `-e HTTPS=off` to CxMissionZero's `podman run` line. |
-| **HTTPS:** "HTTPS must be on or off" in the log | `HTTPS` takes `on` or `off` only (also `true`/`false`, `yes`/`no`, `1`/`0`). |
+| **HTTPS:** "HTTPS must be on, off or both" in the log | `HTTPS` takes `on`, `off` or `both` (also `true`/`false`, `yes`/`no`, `1`/`0`). |
+| **HTTPS:** locked out of the Settings page after a change | On the server: `podman exec mission-zero node scripts/https.mjs both`. Within 5 seconds http works next to HTTPS again, with HSTS off. |
+| **HTTPS:** **Switch to HTTPS only** is greyed out | Open the page over HTTPS (the link under the button) and switch there. It also needs **HTTP + HTTPS side by side** first (step 2). |
+| **HTTPS:** "The private key is missing" | Add the `.key` file IT gave with the certificate, or upload a `.pfx` that holds both. If the request was made on this page, the key is already on the server: upload the certificate IT sent for *that* request. |
+| **HTTPS:** "Issued by …, but its chain is missing" | Add the intermediate certificates IT sent (a "chain", "bundle" or "CA" file) in the same upload. |
+| **HTTPS:** "Does not cover …" | The address in the warning is not a name in the certificate. Use one of the names it lists, or ask IT for a certificate that adds it. `localhost` never matters. |
 | **HTTPS:** "permission denied" when starting on ports 80 / 443 | Podman on Windows: `podman machine stop`, `podman machine set --rootful`, `podman machine start`. Or use `-p 8443:3000 -e HTTPS_PUBLIC_PORT=8443`. |
 | **HTTPS:** Let's Encrypt (Caddy) gets no certificate | `podman logs mz-caddy` says why. Usually the DNS name does not point at this machine yet, or port 80 is blocked from the internet. |
 | **HTTPS:** a renewed certificate is not being used | Wait 5 minutes. If the log says *The changed certificate could not be used*, the new files do not fit together; the old certificate stays in use meanwhile. |
