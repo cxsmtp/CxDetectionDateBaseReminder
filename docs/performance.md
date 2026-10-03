@@ -62,7 +62,7 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.26 | 3 (event-loop monitor on) | 15.9 s / 0 | 63,013 / 0 | 502 | — | — | none |
 
 **MZ-01.00.26: what the differences were.**
-- **The 144 failures in run 2 were not the server.** A third run with an event-loop monitor inside the server found the loop never blocked for more than 0.5 s. Run 2's failures were report opens and status polls that hit the load generator's timeout while its own CPUs were saturated.
+- **The 144 failures in run 2 did not come back.** They were report opens and status polls that timed out, and the health check once waited 30 s. A third run with an event-loop monitor inside the server, and six more runs alternating with main, had no failures, and the monitor saw the loop block for at most 0.5 s. Run 2 was not traced itself, so its cause is not proven: the likeliest is the load generator, which shares its two CPUs with the mock Checkmarx One.
 - **The slower bursts (15.8 s) were the load generator's pace, not a slowdown.** Six short burst runs, alternating main and the branch with nothing else on the machine:
 
   | Burst of 2970 | Run 1 | Run 2 | Run 3 |
