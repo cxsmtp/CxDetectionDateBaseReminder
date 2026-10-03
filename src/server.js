@@ -2,7 +2,6 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import http from 'node:http';
-import https from 'node:https';
 import express from 'express';
 import compression from 'compression';
 
@@ -46,7 +45,8 @@ import { ENV_SETTINGS, SECRET_VARIABLES, parseEnvText, settingsFromEnv } from '.
 import { SessionPersistence, sessionKey } from './handover.js';
 import { InstanceLock } from './instance-lock.js';
 import { inlineScriptHashes, sameOriginGuard, securityHeaders, viaTrustedProxy } from './security.js';
-import { describeCertificate, tlsConfig, watchCertificate } from './tls.js';
+import { describeCertificate } from './tls.js';
+import { HSTS_AGES, HttpsManager } from './https-manager.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
 import {
@@ -378,11 +378,13 @@ const escapeHtml = (text) => String(text ?? '')
 
 const app = express();
 
-// HTTPS served here (src/tls.js), unless a reverse proxy in front does it. A wrong
-// certificate stops the start, rather than quietly serving plain http.
-let tls = null;
+// HTTPS served here (src/https-manager.js: http and https on one port, run from Settings →
+// HTTPS), unless a reverse proxy in front does it. A wrong certificate stops the start,
+// rather than quietly serving plain http.
+let httpsManager;
 try {
-  tls = tlsConfig(process.env, dataDir);
+  httpsManager = new HttpsManager({ dataDir });
+  if (httpsManager.mode !== 'http') httpsManager.check();
 } catch (error) {
   console.error(`! HTTPS is not set up correctly: ${error.message}`);
   process.exit(1);
@@ -402,10 +404,11 @@ function trustProxySetting(value, servingHttps) {
   if (/^\d+$/.test(text)) return Number(text);
   return text;
 }
-app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY, Boolean(tls)));
+app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY, httpsManager.mode !== 'http'));
+httpsManager.onChange((mode) => app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY, mode !== 'http')));
 // Security headers on every response, including the static pages (src/security.js).
 app.disable('x-powered-by');
-app.use(securityHeaders({ scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')), hsts: !tls?.selfSigned }));
+app.use(securityHeaders({ scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')), hsts: () => httpsManager.hstsHeader() }));
 // Big replies (the page's script, the fetch stream, full results, downloads) shrink
 // 5-10x for a remote office or VPN: brotli or gzip at a quick level, the fetch stream
 // flushed line by line. Small, frequent ones (report polls) are left alone: compressing
@@ -463,15 +466,18 @@ app.use(express.static(publicDir));
  * relay are cross-origin. No cookies are involved: every relay action is
  * authorised by the signed grants the report carries.
  */
-app.use('/api/relay', (req, res, next) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
-  res.set('Access-Control-Max-Age', '600');
-  res.set('Access-Control-Expose-Headers', 'Retry-After');
+function relayCors(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '600');
+  res.setHeader('Access-Control-Expose-Headers', 'Retry-After');
   // A report opened from disk calling a server on the company network: browsers
   // that enforce Private Network Access ask first, and this is the yes.
-  if (req.get('access-control-request-private-network')) res.set('Access-Control-Allow-Private-Network', 'true');
+  if (req.headers['access-control-request-private-network']) res.setHeader('Access-Control-Allow-Private-Network', 'true');
+}
+app.use('/api/relay', (req, res, next) => {
+  relayCors(req, res);
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
@@ -2196,8 +2202,8 @@ function reportServerWarnings(url) {
   try {
     const parsed = new URL(url);
     if (LOOPBACK.test(parsed.hostname)) warnings.push(`${parsed.hostname} only works on the computer running this server. Set the address others use to reach it.`);
-    if (parsed.protocol === 'http:' && !LOOPBACK.test(parsed.hostname)) warnings.push('Plain http: triage requests cross the network unencrypted. Serve HTTPS (docs/https-and-hosting.md).');
-    if (parsed.protocol === 'https:' && tls?.selfSigned && !LOOPBACK.test(parsed.hostname)) warnings.push('This server uses a self-signed certificate: reports reach it only from machines that trust it. Install your company certificate.');
+    if (parsed.protocol === 'http:' && !LOOPBACK.test(parsed.hostname)) warnings.push('Plain http: triage requests cross the network unencrypted. Turn on HTTPS under Settings → HTTPS.');
+    if (parsed.protocol === 'https:' && httpsManager.mode !== 'http' && httpsManager.selfSigned && !LOOPBACK.test(parsed.hostname)) warnings.push('This server uses a self-signed certificate: reports reach it only from machines that trust it. Upload your company certificate under Settings → HTTPS.');
   } catch {
     warnings.push('Not a valid address.');
   }
@@ -2538,6 +2544,173 @@ app.get('/api/relay/ping', (req, res) => {
   res.json({ service: 'mission-zero-relay', ok: true });
 });
 
+// ---------------------------------------------------------------------------
+// HTTPS (Settings → HTTPS, Admin only): see src/https-manager.js
+// ---------------------------------------------------------------------------
+
+/** Reports opened over http and over https, by hour, for the last day: shows when http can go. */
+const reportOpens = {
+  hours: new Map(),
+  record(secure) {
+    const hour = Math.floor(Date.now() / 3_600_000);
+    const bucket = this.hours.get(hour) ?? { http: 0, https: 0 };
+    bucket[secure ? 'https' : 'http'] += 1;
+    this.hours.set(hour, bucket);
+    for (const key of this.hours.keys()) if (key < hour - 24) this.hours.delete(key);
+  },
+  lastDay() {
+    const since = Math.floor(Date.now() / 3_600_000) - 23;
+    const total = { http: 0, https: 0 };
+    for (const [hour, bucket] of this.hours) {
+      if (hour < since) continue;
+      total.http += bucket.http;
+      total.https += bucket.https;
+    }
+    return total;
+  },
+};
+
+/** The host[:port] this request was sent to, when it is a plain name or address (else ''). */
+function requestHost(req) {
+  const header = String(req.headers.host ?? '');
+  return /^([\w.-]+|\[[0-9a-f:.]+\])(:\d{1,5})?$/i.test(header) ? header : '';
+}
+
+/** The names people use to reach this server: this page's, the reminder server address's, and any given. */
+function httpsHosts(req, extra = []) {
+  const hosts = new Set();
+  const add = (value) => {
+    const host = String(value ?? '').trim().toLowerCase().replace(/^\[(.*)\](:\d+)?$/, '$1').replace(/^([^:]+):\d+$/, '$1');
+    if (host && host.length < 254 && /^[a-z0-9.:*-]+$/.test(host)) hosts.add(host);
+  };
+  add(requestHost(req));
+  try {
+    add(new URL(resolveReportServer(null, settingsStore.get()).url).hostname);
+  } catch {}
+  for (const host of Array.isArray(extra) ? extra.slice(0, 10) : []) add(host);
+  return [...hosts];
+}
+
+/** Errors from the HTTPS settings carry what the page needs to ask next (confirm, a password, open https). */
+const httpsRoute = (handler) => asyncRoute(async (req, res) => {
+  try {
+    await handler(req, res);
+  } catch (error) {
+    if (!error.status) throw error;
+    const { status, report, needsConfirm, needsHttps, needsPassphrase } = error;
+    res.status(status).json({ error: error.message, ...(report ? { report } : {}), ...(needsConfirm ? { needsConfirm } : {}), ...(needsHttps ? { needsHttps } : {}), ...(needsPassphrase ? { needsPassphrase } : {}) });
+  }
+});
+
+function auditHttps(req, actor, reason, details) {
+  audit.record({ type: 'settings', outcome: 'changed', reason, actor, ...(details ? { details: { https: details } } : {}) });
+}
+
+async function httpsStatus(req) {
+  const host = requestHost(req) || `localhost:${config.port}`;
+  return {
+    ...(await httpsManager.status(httpsHosts(req))),
+    viewing: { secure: Boolean(req.secure), host, httpUrl: `http://${host}`, httpsUrl: `https://${host}` },
+    reminderServer: resolveReportServer(req),
+    reportOpens: reportOpens.lastDay(),
+    hstsAges: HSTS_AGES,
+    behindProxy: Boolean(req.get('x-forwarded-proto')) && viaTrustedProxy(req),
+  };
+}
+
+app.get('/api/https', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(await httpsStatus(req));
+}));
+
+app.post('/api/https/inspect', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  const { files, passphrase, hosts } = req.body ?? {};
+  res.json(await httpsManager.inspect({ files, passphrase: String(passphrase ?? ''), hosts: httpsHosts(req, hosts) }));
+}));
+
+app.post('/api/https/certificate', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  const { files, passphrase, hosts, confirm } = req.body ?? {};
+  const actor = await adminActor(req);
+  const report = await httpsManager.install({ files, passphrase: String(passphrase ?? ''), hosts: httpsHosts(req, hosts), confirm: Boolean(confirm), by: actor.user });
+  auditHttps(req, actor, `HTTPS certificate for ${report.summary.subject} put to use (valid until ${report.summary.validTo.slice(0, 10)}).`, { subject: report.summary.subject, names: report.summary.names, issuer: report.summary.issuer, validTo: report.summary.validTo, fingerprint: report.summary.fingerprint });
+  console.log(`[https] Certificate for ${logSafe(report.summary.subject)} put to use by ${logSafe(actor.user)}.`);
+  res.json({ report, status: await httpsStatus(req) });
+}));
+
+app.post('/api/https/certificate/previous', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  const actor = await adminActor(req);
+  httpsManager.restorePrevious({ by: actor.user });
+  auditHttps(req, actor, 'Previous HTTPS certificate put back.');
+  res.json(await httpsStatus(req));
+}));
+
+app.delete('/api/https/certificate', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  const actor = await adminActor(req);
+  const fallback = httpsManager.removeUploaded({ confirm: req.query.confirm === '1', by: actor.user });
+  auditHttps(req, actor, `Uploaded HTTPS certificate no longer used (now ${fallback === 'environment' ? "the container's certificate" : 'a self-signed one'}).`);
+  res.json(await httpsStatus(req));
+}));
+
+app.post('/api/https/self-signed', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  const actor = await adminActor(req);
+  const names = httpsHosts(req, req.body?.names);
+  httpsManager.selfSign({ names, by: actor.user });
+  auditHttps(req, actor, `Self-signed certificate made for ${names.join(', ')}.`);
+  res.json(await httpsStatus(req));
+}));
+
+app.post('/api/https/request', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  const actor = await adminActor(req);
+  const names = Array.isArray(req.body?.names) ? req.body.names.slice(0, 20) : [];
+  const csr = httpsManager.createRequest({ names, organization: req.body?.organization ?? '', by: actor.user });
+  auditHttps(req, actor, `Certificate request created for ${names.join(', ')}.`);
+  res.json({ csr, status: await httpsStatus(req) });
+}));
+
+app.get('/api/https/request.csr', requirePermission('security.https'), (req, res) => {
+  const csr = httpsManager.requestCsr();
+  if (!csr) return res.status(404).json({ error: 'No certificate request was made here.' });
+  res.set('Content-Type', 'application/pkcs10');
+  res.set('Content-Disposition', 'attachment; filename="cxmissionzero.csr"');
+  res.send(csr);
+});
+
+app.post('/api/https/mode', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  const actor = await adminActor(req);
+  const mode = String(req.body?.mode ?? '');
+  const from = httpsManager.mode;
+  httpsManager.setMode(mode, { secure: Boolean(req.secure), confirm: Boolean(req.body?.confirm), by: actor.user });
+  // Emailed reports carry the reminder server address: the https one from now on.
+  let addressChanged = '';
+  if (mode === 'https' && req.body?.updateAddress) {
+    const current = settingsStore.get().links.reportServerUrl;
+    const host = requestHost(req);
+    if (host && !/^https:/i.test(current || '')) {
+      addressChanged = `https://${host}`;
+      settingsStore.save({ links: { reportServerUrl: addressChanged } });
+    }
+  }
+  const names = { http: 'HTTP only', both: 'HTTP and HTTPS side by side', https: 'HTTPS only (http redirects to https)' };
+  auditHttps(req, actor, `Server switched from ${names[from]} to ${names[mode]}.${addressChanged ? ` Reminder server address set to ${addressChanged}.` : ''}`, { from, to: mode });
+  console.log(`[https] ${names[mode]}, switched by ${logSafe(actor.user)}.`);
+  res.json({ ...(await httpsStatus(req)), addressChanged });
+}));
+
+app.post('/api/https/hardening', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  const actor = await adminActor(req);
+  const { hsts, minVersion } = req.body ?? {};
+  httpsManager.setHardening({ ...(hsts ? { hsts } : {}), ...(minVersion ? { minVersion } : {}) }, { by: actor.user });
+  const status = await httpsStatus(req);
+  auditHttps(req, actor, `HTTPS hardening: HSTS ${status.hsts.enabled ? `on (${status.hsts.maxAge} s${status.hsts.includeSubDomains ? ', subdomains' : ''})` : 'off'}, lowest TLS version ${status.minVersion}.`, { hsts: status.hsts, minVersion: status.minVersion });
+  res.json(status);
+}));
+
+app.post('/api/https/browser-check', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  const actor = await adminActor(req);
+  httpsManager.recordBrowserCheck({ ok: req.body?.ok, url: req.body?.url, by: actor.user });
+  res.json({ ok: true });
+}));
+
 app.get('/api/report-server', requireSession, (req, res) => {
   const settings = settingsStore.get();
   const effective = resolveReportServer(req, settings);
@@ -2603,6 +2776,9 @@ app.post(
       if (!lists[key]) return;
     }
     const answer = relayStatus(session, aiTriage);
+    reportOpens.record(req.secure);
+    // HTTP and HTTPS side by side: the report tries HTTPS, and keeps to it when it works from the reader's machine.
+    if (!req.secure && httpsManager.mode === 'both') answer.httpsUrl = httpsOrigin(req);
     if (lists.credits) answer.projects = projectCredits(lists.credits.map((f) => f.projectId));
     if (lists.remediation) answer.remediationStatus = remediationStatusFor(session, lists.remediation);
     if (lists.findings) answer.triageResults = await triageResultsFor(session, lists.findings);
@@ -5513,15 +5689,61 @@ if (restoredAtStart) {
   }
 }
 
-const server = (tls ? https.createServer(tls.options, app) : http.createServer(app)).listen(config.port, config.host, async () => {
-  console.log(`CxMissionZero ${APP_VERSION} running on ${tls ? 'https' : 'http'}://${config.host}:${config.port}`);
-  if (tls) {
-    console.log(`[https] ${tls.selfSigned ? 'Self-signed certificate (browsers warn until it is trusted)' : 'Certificate'}: ${describeCertificate(tls.options)}`);
-    if (tls.selfSigned) {
-      console.warn('! [https] Self-signed: traffic is encrypted, but browsers warn, and emailed reports reach this server only from machines that trust the certificate. For production give it your certificate (TLS_CERT_FILE and TLS_KEY_FILE, or TLS_PFX_FILE); for plain http on a laptop, HTTPS=off. See docs/https-and-hosting.md.');
+/**
+ * The https:// address for a request that came over plain http: the reminder server address
+ * when it is an https one, else the same host (and port) on https. `port`: the https port
+ * people use, when the request came to another port (HTTP_REDIRECT_PORT).
+ */
+function httpsOrigin(req, { port } = {}) {
+  try {
+    const configured = new URL(settingsStore.get().links.reportServerUrl || config.reportServerUrl || '');
+    if (configured.protocol === 'https:') return configured.origin;
+  } catch {}
+  const header = String(req.headers.host ?? '');
+  const host = /^([\w.-]+|\[[0-9a-f:.]+\])(:\d{1,5})?$/i.test(header) ? header : 'localhost';
+  if (port === undefined) return `https://${host}`;
+  return `https://${host.replace(/:\d+$/, '')}${port === 443 ? '' : `:${port}`}`;
+}
+
+/**
+ * Plain http while the server is HTTPS only: pages are redirected (308 keeps the method), and
+ * API calls are told the new address (`movedTo`): the Dashboard opens it, and reports switch
+ * to it by themselves (older reports show the message, with the address to enter).
+ */
+function httpsOnlyAnswer(req, res, { port } = {}) {
+  const origin = httpsOrigin(req, { port });
+  const url = req.url?.startsWith('/') ? req.url : '/';
+  res.setHeader('Cache-Control', 'no-store');
+  if (url.startsWith('/api/')) {
+    if (url.startsWith('/api/relay')) {
+      relayCors(req, res);
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        return res.end();
+      }
     }
-    watchCertificate(server, tls);
+    res.writeHead(426, { 'Content-Type': 'application/json; charset=utf-8' });
+    return res.end(JSON.stringify({ error: `This reminder server now uses HTTPS only. Its address is ${origin}`, movedTo: origin }));
   }
+  res.writeHead(308, { Location: `${origin}${url}` });
+  return res.end();
+}
+
+const server = httpsManager.listen({ app, httpsOnly: httpsOnlyAnswer, port: config.port, host: config.host }, async () => {
+  const mode = httpsManager.mode;
+  const where = `${config.host}:${config.port}`;
+  console.log(`CxMissionZero ${APP_VERSION} running on ${mode === 'http' ? `http://${where}` : mode === 'https' ? `https://${where}` : `http://${where} and https://${where}`}`);
+  if (mode === 'https') console.log('[https] HTTPS only: plain http on the same port is redirected to https.');
+  if (mode === 'both') console.log('[https] HTTP and HTTPS side by side on the same port. Switch to HTTPS only under Settings → HTTPS once it works.');
+  const options = mode === 'http' ? null : httpsManager.contextOptions();
+  if (options) {
+    const { source, selfSigned } = httpsManager.describe();
+    console.log(`[https] ${selfSigned ? 'Self-signed certificate (browsers warn until it is trusted)' : `Certificate (${source === 'uploaded' ? 'uploaded under Settings → HTTPS' : 'from the container options'})`}: ${describeCertificate(options)}`);
+    if (selfSigned) {
+      console.warn('! [https] Self-signed: traffic is encrypted, but browsers warn, and emailed reports reach this server only from machines that trust the certificate. For production upload your certificate under Settings → HTTPS (or give TLS_CERT_FILE and TLS_KEY_FILE); for plain http on a laptop, HTTPS=off. See docs/https-and-hosting.md.');
+    }
+  }
+  httpsManager.watch();
   console.log(`Settings file: ${settingsStore.file}`);
   for (const problem of configProblems(config)) console.warn(`! ${problem}`);
   await prepareAccess();
@@ -5544,31 +5766,16 @@ const server = (tls ? https.createServer(tls.options, app) : http.createServer(a
 });
 
 /**
- * Plain http on HTTP_REDIRECT_PORT, when this server does HTTPS: every request is
- * sent to the https address (308 keeps the method), so old bookmarks and typed
- * addresses still land on the encrypted site. HTTPS_PUBLIC_PORT is the port
- * people use for https (443 by default, so it is left out of the address).
+ * Plain http on HTTP_REDIRECT_PORT too (e.g. -p 80:8080): while HTTPS only, every request is
+ * sent to the https address (HTTPS_PUBLIC_PORT, 443 by default, so it is left out of the
+ * address); otherwise it serves the site like the main port.
  */
 const REDIRECT_PORT = Number(process.env.HTTP_REDIRECT_PORT) || 0;
 const PUBLIC_HTTPS_PORT = Number(process.env.HTTPS_PUBLIC_PORT) || 443;
-const redirectServer = tls && REDIRECT_PORT
+const redirectServer = REDIRECT_PORT
   ? http
-      .createServer((req, res) => {
-        // The configured public https address when there is one; otherwise this host on HTTPS_PUBLIC_PORT.
-        const path = req.url?.startsWith('/') ? req.url : '/';
-        let origin = '';
-        try {
-          const configured = new URL(settingsStore.get().links.reportServerUrl || config.reportServerUrl || '');
-          if (configured.protocol === 'https:') origin = configured.origin;
-        } catch {}
-        if (!origin) {
-          const host = String(req.headers.host ?? '').replace(/:\d+$/, '').replace(/[^\w.\-[\]:]/g, '') || 'localhost';
-          origin = `https://${host}${PUBLIC_HTTPS_PORT === 443 ? '' : `:${PUBLIC_HTTPS_PORT}`}`;
-        }
-        res.writeHead(308, { Location: `${origin}${path}`, 'Cache-Control': 'no-store' });
-        res.end();
-      })
-      .listen(REDIRECT_PORT, config.host, () => console.log(`[https] http on port ${REDIRECT_PORT} redirects to https.`))
+      .createServer((req, res) => (httpsManager.mode === 'https' ? httpsOnlyAnswer(req, res, { port: PUBLIC_HTTPS_PORT }) : app(req, res)))
+      .listen(REDIRECT_PORT, config.host, () => console.log(`[https] http on port ${REDIRECT_PORT} too (redirected to https while HTTPS only).`))
   : null;
 
 /**
@@ -5585,7 +5792,8 @@ const shutdown = async (signal) => {
   draining = true;
   scheduler.stop();
   server.close();
-  server.closeIdleConnections?.();
+  server.closeIdleConnections();
+  httpsManager.stop();
   redirectServer?.close();
   console.log(`[update] ${signal}: finishing ${inFlight} request(s) in progress…`);
   const until = Date.now() + DRAIN_MS;

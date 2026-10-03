@@ -171,6 +171,14 @@ const ACTIVITIES = [
   ['POST', /^\/api\/settings\/smtp\/send-test$/, 'Sending a test email…', 'Test email sent'],
   ['POST', /^\/api\/settings\/template\/preview$/, 'Rendering the preview…', 'Preview ready', { quiet: true }],
   ['POST', /^\/api\/integration\/cxone$/, 'Connecting to Checkmarx One…', 'Connected to Checkmarx One'],
+  ['POST', /^\/api\/https\/inspect$/, 'Checking the certificate the way a browser would…', 'Certificate checked'],
+  ['POST', /^\/api\/https\/certificate$/, 'Putting the certificate to use…', 'Certificate in use'],
+  ['POST', /^\/api\/https\/certificate\/previous$/, 'Putting the previous certificate back…', 'Previous certificate in use'],
+  ['DELETE', /^\/api\/https\/certificate/, 'Removing the uploaded certificate…', 'Uploaded certificate removed'],
+  ['POST', /^\/api\/https\/self-signed$/, 'Making a self-signed certificate…', 'Self-signed certificate made'],
+  ['POST', /^\/api\/https\/request$/, 'Creating the certificate request…', 'Request ready to send to IT'],
+  ['POST', /^\/api\/https\/mode$/, 'Switching…', 'Switched'],
+  ['POST', /^\/api\/https\/hardening$/, 'Applying the security settings…', 'Security settings applied'],
   ['DELETE', /^\/api\/integration\/cxone$/, 'Removing the stored Checkmarx One key…', 'Key removed'],
   ['POST', /^\/api\/credits\/verify$/, 'Checking with Checkmarx One (two independent reads)…', 'Confirmed with Checkmarx One'],
   ['POST', /^\/api\/credits\/refresh$/, 'Refreshing credits…', 'Credits refreshed', { quiet: true }],
@@ -346,10 +354,15 @@ async function apiCall(path, options = {}) {
       }
       break;
     }
+    // The server went HTTPS only while this page was open over http: continue there.
+    if (response.status === 426 && /^https:\/\//.test(payload.movedTo || '')) {
+      location.href = `${payload.movedTo}${location.pathname}${location.search}${location.hash}`;
+    }
     if (!response.ok) {
       const error = new Error(payload.error || `${response.status} ${response.statusText}`);
       error.status = response.status;
       error.detail = payload.detail || '';
+      error.body = payload;
       logger.apiError(method, path, error);
       throw error;
     }
@@ -474,6 +487,7 @@ function route() {
     renderSettings();
     loadAutomation();
     loadPool();
+    loadHttps();
   } else if (target === 'credits') {
     loadUsage();
   } else if (target === 'logs') {
@@ -1389,7 +1403,7 @@ const NOT_SAVED = new Set(['test-to', 'env-file', 'brand-logo-file']);
 
 /** Which save an edit belongs to: the settings form, automation, the integration draft, or none. */
 function autosaveKind(el) {
-  if (!el?.id || NOT_SAVED.has(el.id) || el.disabled || el.closest('[hidden]')?.id === 'probe-results') return '';
+  if (!el?.id || NOT_SAVED.has(el.id) || el.disabled || el.closest('[hidden]')?.id === 'probe-results' || el.closest('#set-https')) return '';
   if (INTEGRATION_FIELDS.has(el.id)) return 'draft';
   if (el.closest('#set-automation')) return 'automation';
   if (el.matches('input, select, textarea')) return 'settings';
@@ -5530,4 +5544,327 @@ let usageResize = null;
 window.addEventListener('resize', () => {
   clearTimeout(usageResize);
   usageResize = setTimeout(() => usage.data && !$('page-credits').hidden && drawUsageChart(usage.data), 150);
+});
+
+// ---------------------------------------------------------------------------
+// Settings → HTTPS (Admin): http → http and HTTPS side by side → HTTPS only, on the
+// running server, with every certificate checked the way a browser would before use
+// ---------------------------------------------------------------------------
+
+const httpsUi = { status: null, files: [], candidate: null };
+const HTTPS_MODES = { http: 'HTTP only', both: 'HTTP + HTTPS side by side', https: 'HTTPS only' };
+const CERT_SOURCES = { uploaded: 'uploaded here', environment: 'from the container options', 'self-signed': 'self-signed, made here' };
+const day = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
+
+async function loadHttps() {
+  if (!can('security.https')) return;
+  try {
+    renderHttps(await api('/api/https', { quiet: true }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('https-status', error);
+  }
+}
+
+function certCard(report, { title, candidate = false } = {}) {
+  if (!report?.summary) {
+    return `<div class="https-cert"><ul class="https-checks"><li class="error"><span>${escapeHtml(report?.error || 'The certificate could not be read.')}</span></li></ul></div>`;
+  }
+  const s = report.summary;
+  const meta = [CERT_SOURCES[report.source], s.keyType, report.kind === 'pfx' ? '.pfx' : ''].filter(Boolean).join(' · ');
+  const chain = s.chain.length > 1 ? `<div class="chain">Chain: ${s.chain.map((c) => escapeHtml(c.subject)).join(' → ')}</div>` : '';
+  const notes = report.notes?.length ? `<ul class="notes">${report.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>` : '';
+  return `<div class="https-cert${candidate ? ' candidate' : ''}">
+    <div class="title">${escapeHtml(title)}: ${escapeHtml(s.subject)} <small>${escapeHtml(meta)}</small></div>
+    ${chain}
+    <ul class="https-checks">${report.checks.map((c) => `<li class="${c.level}"><span>${escapeHtml(c.title)}${c.detail ? `<small>${escapeHtml(c.detail)}</small>` : ''}</span></li>`).join('')}</ul>
+    ${notes}
+  </div>`;
+}
+
+function renderHttps(s) {
+  httpsUi.status = s;
+  const cert = s.certificate;
+  const realCert = Boolean(cert?.summary && cert.source !== 'self-signed');
+  const badge = $('https-badge');
+  badge.className = `https-badge ${s.mode}`;
+  badge.textContent = HTTPS_MODES[s.mode];
+
+  const tile = (label, value) => `<div class="tile"><b>${escapeHtml(label)}</b><span>${value}</span></div>`;
+  const reminder = s.reminderServer?.url || '';
+  $('https-now').innerHTML = [
+    tile('This page is open over', s.viewing.secure ? `<strong>HTTPS</strong> (${escapeHtml(s.viewing.host)})` : `http (${escapeHtml(s.viewing.host)})`),
+    tile('Certificate', cert?.summary ? `${escapeHtml(cert.summary.subject)}, until ${escapeHtml(day(cert.summary.validTo))}${cert.summary.daysLeft < 30 ? ` <strong class="https-note warn">(${cert.summary.daysLeft} days left)</strong>` : ''}` : 'None yet'),
+    tile('Reports opened, last 24 h', `${s.reportOpens.https} over HTTPS · ${s.reportOpens.http} over http`),
+    tile('Reports point readers to', reminder ? `<code>${escapeHtml(reminder)}</code>` : 'no address yet'),
+    tile('Last change', s.changedAt ? `${escapeHtml(day(s.changedAt))} by ${escapeHtml(s.changedBy || 'the server')}` : `Container start setting (HTTPS=${escapeHtml(s.startMode === 'http' ? 'off' : s.startMode === 'https' ? 'on' : 'both')})`),
+  ].join('');
+
+  // 1. Certificate
+  $('https-cert-current').innerHTML = cert ? certCard(cert, { title: 'In use' }) : '<p class="hint">None yet. Turning HTTPS on makes a self-signed one to start with; upload your company certificate to replace it.</p>';
+  $('https-files-label').textContent = realCert ? 'Choose files to replace it' : 'Choose certificate files';
+  const actions = [];
+  if (s.previous) actions.push(`<button type="button" id="https-previous">Put the previous certificate back (${escapeHtml(s.previous.subject)}, until ${escapeHtml(day(s.previous.validTo))})</button>`);
+  if (s.uploaded) actions.push(`<button type="button" class="link" id="https-remove">Stop using the uploaded certificate</button>`);
+  if (cert?.source === 'self-signed') actions.push(`<button type="button" class="link" id="https-selfsign">Make a new self-signed one for the names in use</button>`);
+  $('https-cert-actions').innerHTML = actions.join('');
+  if (!$('https-csr-names').value) {
+    const names = new Set();
+    for (const value of [s.viewing.host, reminder]) {
+      try {
+        const host = new URL(/^https?:/.test(value) ? value : `http://${value}`).hostname;
+        if (host && !/^(localhost|127\.|\[?::1)/.test(host)) names.add(host);
+      } catch {}
+    }
+    $('https-csr-names').value = [...names].join(', ');
+  }
+  $('https-csr-download').hidden = !s.request?.available;
+  if (s.request) setStatus('https-csr-status', `Request for ${s.request.names.join(', ')} made ${day(s.request.at)}: waiting for the certificate from IT.`);
+
+  // 2. Side by side
+  $('https-both').disabled = s.mode !== 'http';
+  $('https-both').textContent = s.mode === 'http' ? 'Turn on HTTPS next to http' : 'HTTPS is on';
+  setStatus('https-both-status', s.mode === 'http' ? '' : `Answering at ${s.viewing.httpsUrl}${s.mode === 'both' ? ` and ${s.viewing.httpUrl}` : ''}.`, s.mode === 'http' ? '' : 'ok');
+
+  // 3. Test
+  $('https-open').href = `${s.viewing.httpsUrl}/#/settings`;
+  $('https-open').classList.toggle('disabled', s.mode === 'http');
+  $('https-check-browser').disabled = s.mode === 'http';
+  const check = s.lastBrowserCheck;
+  if (check && !$('https-browser-result').dataset.fresh) {
+    $('https-browser-result').className = `https-browser ${check.ok ? 'good' : 'bad'}`;
+    $('https-browser-result').textContent = `${check.ok ? '✓ Accepted' : '✕ Refused'} by ${check.by || 'a browser'} on ${day(check.at)} (${check.url}).`;
+  }
+  $('https-reports-hint').textContent = s.mode === 'both'
+    ? `Emailed reports opened from now on try HTTPS and keep to it on machines where it works. Last 24 hours: ${s.reportOpens.https} opened over HTTPS, ${s.reportOpens.http} over http. When http keeps falling, it is time for step 4.`
+    : s.mode === 'https' ? 'Reports that still use the old http address are told the new one, and switch by themselves.' : '';
+
+  // 4. HTTPS only
+  const switchButton = $('https-switch');
+  switchButton.disabled = s.mode !== 'both' || !s.viewing.secure;
+  switchButton.textContent = s.mode === 'https' ? 'HTTPS only is on' : 'Switch to HTTPS only';
+  $('https-undo').hidden = s.mode !== 'https';
+  const addressHttps = /^https:/i.test(reminder);
+  $('https-update-address').closest('label').hidden = addressHttps || s.mode === 'https';
+  $('https-update-address-label').textContent = `Also put ${s.viewing.httpsUrl} into new reports, as the Reminder server address (now ${reminder || 'none'})`;
+  const hint = $('https-switch-hint');
+  hint.className = 'https-note';
+  if (s.mode === 'both' && !s.viewing.secure) {
+    hint.className = 'https-note warn';
+    hint.innerHTML = `Open this page over HTTPS to switch: <a href="${escapeHtml(s.viewing.httpsUrl)}/#/settings">${escapeHtml(s.viewing.httpsUrl)}</a>. That proves HTTPS works from your browser before http goes away.`;
+  } else if (s.mode === 'both' && cert?.trust === 'self-signed') {
+    hint.className = 'https-note warn';
+    hint.textContent = 'The certificate is self-signed: after the switch every browser warns. Upload your company certificate first (step 1).';
+  } else if (s.mode === 'https') {
+    hint.textContent = `http://${s.viewing.host.replace(/^https?:\/\//, '')} now redirects to HTTPS.`;
+  } else hint.textContent = '';
+
+  // 5. Harden
+  const canHarden = s.mode === 'https' && realCert;
+  for (const id of ['https-hsts', 'https-hsts-age', 'https-hsts-sub', 'https-min-version', 'https-harden-save']) $(id).disabled = id === 'https-min-version' || id === 'https-harden-save' ? s.mode === 'http' : !canHarden;
+  $('https-hsts').checked = Boolean(s.hsts.enabled);
+  $('https-hsts-age').value = String(s.hsts.maxAge);
+  $('https-hsts-sub').checked = Boolean(s.hsts.includeSubDomains);
+  $('https-min-version').value = s.minVersion;
+  if (!canHarden && s.mode === 'https') setStatus('https-harden-status', 'HSTS needs a certificate from IT or a public authority, not a self-signed one.');
+
+  // Where the Admin is in the five steps.
+  const done = {
+    'https-step-cert': realCert && cert.usable,
+    'https-step-both': s.mode !== 'http',
+    'https-step-test': s.mode === 'https' || Boolean(check?.ok),
+    'https-step-switch': s.mode === 'https',
+    'https-step-harden': Boolean(s.hstsActive),
+  };
+  const locked = { 'https-step-test': s.mode === 'http', 'https-step-switch': s.mode === 'http', 'https-step-harden': s.mode !== 'https' };
+  let current = '';
+  for (const id of Object.keys(done)) {
+    if (!current && !done[id] && !locked[id]) current = id;
+    $(id).classList.toggle('done', done[id]);
+    $(id).classList.toggle('locked', Boolean(locked[id]));
+  }
+  for (const id of Object.keys(done)) $(id).classList.toggle('current', id === current);
+
+  let zone = 'UTC';
+  try {
+    zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {}
+  $('https-ports-cmd').textContent = `podman run --replace -d --name mission-zero -p 443:3000 -p 80:3000 -v mission-zero-data:/data -e TZ=${zone} --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest`;
+}
+
+function toBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let text = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(text);
+}
+
+async function chooseHttpsFiles(list) {
+  const files = [...(list ?? [])].slice(0, 10);
+  if (!files.length) return;
+  const big = files.find((f) => f.size > 256 * 1024);
+  if (big) {
+    $('https-candidate').innerHTML = `<p class="status error">${escapeHtml(big.name)} is larger than 256 KB, so it is not a certificate file.</p>`;
+    return;
+  }
+  httpsUi.files = await Promise.all(files.map(async (f) => ({ name: f.name, data: toBase64(await f.arrayBuffer()) })));
+  if (files.some((f) => /\.(pfx|p12)$/i.test(f.name))) $('https-pass-field').hidden = false;
+  await inspectHttps();
+}
+
+async function inspectHttps() {
+  const box = $('https-candidate');
+  if (!httpsUi.files.length) return;
+  box.innerHTML = `<p class="status">Checking ${escapeHtml(httpsUi.files.map((f) => f.name).join(', '))}…</p>`;
+  try {
+    const report = await api('/api/https/inspect', { method: 'POST', body: JSON.stringify({ files: httpsUi.files, passphrase: $('https-passphrase').value }) });
+    httpsUi.candidate = report;
+    const replacing = httpsUi.status?.certificate?.source && httpsUi.status.certificate.source !== 'self-signed';
+    const warnings = report.checks.filter((c) => c.level === 'warn').length;
+    box.innerHTML = `${certCard(report, { title: replacing ? 'Replacement' : 'New certificate', candidate: true })}
+      <div class="actions compact">
+        <button type="button" class="primary" id="https-use">${replacing ? 'Replace the certificate in use' : 'Use this certificate'}</button>
+        <button type="button" class="link" id="https-discard">Choose other files</button>
+        <span class="hint">${warnings ? 'It works; the warnings are what some people may see.' : 'Goes into use at once, with no restart. The one it replaces is kept, to put back in one click.'}</span>
+      </div>`;
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    if (error.body?.needsPassphrase) {
+      $('https-pass-field').hidden = false;
+      $('https-passphrase').focus();
+    }
+    box.innerHTML = `<div class="https-cert"><ul class="https-checks"><li class="error"><span>${escapeHtml(error.message)}</span></li></ul></div>`;
+  }
+}
+
+async function installHttps(confirmed = false) {
+  try {
+    const result = await api('/api/https/certificate', { method: 'POST', body: JSON.stringify({ files: httpsUi.files, passphrase: $('https-passphrase').value, confirm: confirmed }) });
+    httpsUi.files = [];
+    httpsUi.candidate = null;
+    $('https-passphrase').value = '';
+    $('https-pass-field').hidden = true;
+    $('https-candidate').innerHTML = `<p class="status ok">In use now: ${escapeHtml(result.report.summary.subject)}, until ${escapeHtml(day(result.report.summary.validTo))}.</p>`;
+    renderHttps(result.status);
+    toast('The new certificate is in use. Nothing restarted.', 'good');
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    if (error.body?.needsConfirm && confirm(error.message)) return installHttps(true);
+    $('https-candidate').insertAdjacentHTML('beforeend', `<p class="status error">${escapeHtml(error.message)}</p>`);
+  }
+}
+
+async function setHttpsMode(mode, extra = {}, statusId = 'https-switch-status') {
+  try {
+    const result = await api('/api/https/mode', { method: 'POST', body: JSON.stringify({ mode, ...extra }) });
+    renderHttps(result);
+    if (result.addressChanged) {
+      loadReportServer();
+      toast(`New reports use ${result.addressChanged}.`, 'good');
+    }
+    setStatus(statusId, '');
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    if (error.body?.needsConfirm && confirm(error.message)) return setHttpsMode(mode, { ...extra, confirm: true }, statusId);
+    setStatus(statusId, error.message, 'error');
+  }
+}
+
+async function httpsAction(request, okMessage) {
+  try {
+    renderHttps(await request());
+    if (okMessage) toast(okMessage, 'good');
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    setStatus('https-status', error.message, 'error');
+  }
+}
+
+$('https-files').addEventListener('change', () => {
+  chooseHttpsFiles($('https-files').files).finally(() => ($('https-files').value = ''));
+});
+for (const type of ['dragenter', 'dragover']) {
+  $('https-drop').addEventListener(type, (event) => {
+    event.preventDefault();
+    $('https-drop').classList.add('over');
+  });
+}
+for (const type of ['dragleave', 'drop']) $('https-drop').addEventListener(type, () => $('https-drop').classList.remove('over'));
+$('https-drop').addEventListener('drop', (event) => {
+  event.preventDefault();
+  chooseHttpsFiles(event.dataTransfer?.files);
+});
+$('https-passphrase').addEventListener('change', () => inspectHttps());
+$('https-candidate').addEventListener('click', (event) => {
+  if (event.target.id === 'https-use') installHttps();
+  if (event.target.id === 'https-discard') {
+    httpsUi.files = [];
+    $('https-candidate').innerHTML = '';
+  }
+});
+$('https-cert-actions').addEventListener('click', (event) => {
+  if (event.target.id === 'https-previous') httpsAction(() => api('/api/https/certificate/previous', { method: 'POST' }), 'The previous certificate is in use again.');
+  if (event.target.id === 'https-selfsign') httpsAction(() => api('/api/https/self-signed', { method: 'POST', body: JSON.stringify({ names: [] }) }), 'A new self-signed certificate is in use.');
+  if (event.target.id === 'https-remove') {
+    const remove = (confirmed) => api(`/api/https/certificate${confirmed ? '?confirm=1' : ''}`, { method: 'DELETE' });
+    httpsAction(async () => {
+      try {
+        return await remove(false);
+      } catch (error) {
+        if (error.body?.needsConfirm && confirm(error.message)) return remove(true);
+        throw error;
+      }
+    }, 'The uploaded certificate is no longer used.');
+  }
+});
+$('https-csr-create').addEventListener('click', async () => {
+  const names = $('https-csr-names').value.split(/[\s,;]+/).filter(Boolean);
+  if (!names.length) {
+    setStatus('https-csr-status', 'Enter the name people use to reach this server, e.g. mz.company.com.', 'error');
+    return;
+  }
+  try {
+    const result = await api('/api/https/request', { method: 'POST', body: JSON.stringify({ names, organization: $('https-csr-org').value.trim() }) });
+    renderHttps(result.status);
+    setStatus('https-csr-status', 'Downloaded. Send cxmissionzero.csr to IT and ask for a server certificate with its chain.', 'ok');
+    $('https-csr-download').click();
+  } catch (error) {
+    if (!handleAuthLoss(error)) setStatus('https-csr-status', error.message, 'error');
+  }
+});
+$('https-both').addEventListener('click', () => setHttpsMode('both', {}, 'https-both-status'));
+$('https-switch').addEventListener('click', () => {
+  const s = httpsUi.status;
+  if (!confirm(`Switch to HTTPS only? Plain http (${s.viewing.httpUrl}) will redirect to ${s.viewing.httpsUrl}. You can go back to both at any time.`)) return;
+  setHttpsMode('https', { updateAddress: !$('https-update-address').closest('label').hidden && $('https-update-address').checked });
+});
+$('https-undo').addEventListener('click', () => setHttpsMode('both'));
+$('https-check-browser').addEventListener('click', async () => {
+  const s = httpsUi.status;
+  const url = s.viewing.httpsUrl;
+  const out = $('https-browser-result');
+  out.dataset.fresh = '1';
+  out.className = 'https-browser';
+  out.textContent = `Connecting to ${url} from this browser…`;
+  let ok = false;
+  try {
+    const response = await fetch(`${url}/api/relay/ping`, { cache: 'no-store' });
+    ok = (await response.json()).service === 'mission-zero-relay';
+  } catch {}
+  out.className = `https-browser ${ok ? 'good' : 'bad'}`;
+  out.textContent = ok
+    ? `✓ This browser connects to ${url} with no certificate error.${s.viewing.secure ? ' (If you clicked past a warning on this page earlier, that counts too: check the padlock.)' : ''}`
+    : `✕ This browser refused ${url}: it does not trust the certificate${s.certificate?.trust === 'self-signed' ? ' (self-signed)' : ''}, or the address is not a name in it. Open it to see the browser's reason.`;
+  api('/api/https/browser-check', { method: 'POST', quiet: true, body: JSON.stringify({ ok, url }) }).catch(() => {});
+  if (ok) $('https-step-test').classList.add('done');
+});
+$('https-harden-save').addEventListener('click', async () => {
+  const hsts = { enabled: $('https-hsts').checked, maxAge: Number($('https-hsts-age').value), includeSubDomains: $('https-hsts-sub').checked };
+  const label = $('https-hsts-age').selectedOptions[0]?.textContent.replace(/ \(.*\)$/, '') ?? '';
+  if (hsts.enabled && !httpsUi.status.hsts.enabled && !confirm(`Turn on HSTS? Browsers that visit will use only HTTPS here for ${label}, even if this server goes back to http. Start short (1 day), then lengthen it.`)) return;
+  try {
+    renderHttps(await api('/api/https/hardening', { method: 'POST', body: JSON.stringify({ hsts, minVersion: $('https-min-version').value }) }));
+    setStatus('https-harden-status', 'Applied.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) setStatus('https-harden-status', error.message, 'error');
+  }
 });

@@ -63,8 +63,9 @@ export function viaTrustedProxy(req) {
 const isHttps = (req) => Boolean(req.secure);
 
 /**
- * `hsts: false` when the certificate is self-signed: pinning browsers to HTTPS for a
- * certificate nobody vouches for only locks them out if the server later goes back to http.
+ * `hsts`: true (a year, with subdomains), false, or a function giving the header value per
+ * response ('' for none): the HTTPS settings decide, and never with a self-signed certificate,
+ * where pinning browsers to HTTPS would only lock them out if the server goes back to http.
  */
 export function securityHeaders({ scriptHashes = [], hsts = true } = {}) {
   const csp = contentSecurityPolicy(scriptHashes);
@@ -75,7 +76,8 @@ export function securityHeaders({ scriptHashes = [], hsts = true } = {}) {
     res.set('Cross-Origin-Opener-Policy', 'same-origin');
     res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
     res.set('Content-Security-Policy', csp);
-    if (hsts && isHttps(req)) res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    const value = typeof hsts === 'function' ? hsts() : hsts ? 'max-age=31536000; includeSubDomains' : '';
+    if (value && isHttps(req)) res.set('Strict-Transport-Security', value);
     next();
   };
 }

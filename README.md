@@ -94,20 +94,17 @@ More container options: [docs/container.md](docs/container.md).
 
 ## HTTPS
 
-The container image serves HTTPS by default (`HTTPS=on`), so a production release never runs plain http by accident. Sign-ins, findings and triage requests cross the network encrypted, and the sign-in cookie is marked `Secure`, so browsers never send it over plain http.
+**From the Settings page (recommended).** An Admin moves a running server to HTTPS under **Settings → HTTPS**, with no new command and no restart:
 
-| `HTTPS` | What it serves |
-| --- | --- |
-| `on` (the image's default) | HTTPS: your certificate when given (way A), else a self-signed one (way C) |
-| `off` | Plain http: your own machine, or behind a reverse proxy that does HTTPS (way B) |
+1. **Certificate.** Drop in the files from IT (certificate, chain, key, or one `.pfx`). It is checked the way a browser would before anything changes: the key, the chain, the names people use, the dates. No certificate yet? **Create a request (CSR) for IT** there; the key stays on the server.
+2. **Turn on HTTPS next to http.** The same address and port answer both `http://` and `https://`. Nobody is cut off.
+3. **Test it.** Open the https address, and check your browser accepts it. Emailed reports switch to HTTPS by themselves where it works, and the page counts report opens over each.
+4. **Switch to HTTPS only,** from a page open over HTTPS. Plain http then redirects to https, and older reports are told the new address.
+5. **Harden:** HSTS (start with 1 day), and TLS 1.3 only if you want.
 
-Without a container (`npm start`), it serves http unless `HTTPS=on` or a certificate is given. Pick one way:
+**Replacing a certificate** (a renewal, or another one) works the same way: upload it, it is checked, and it goes into use at once. The previous one is kept, to put back in one click. **Locked out?** `podman exec mission-zero node scripts/https.mjs both` brings http back next to HTTPS within 5 seconds.
 
-| Way | Use it when | You need |
-| --- | --- | --- |
-| **A. Your company's certificate** | It runs inside the company network or VPN (the usual case) | A certificate for its name from IT: `server.crt` + `server.key`, or a `.pfx` and its password |
-| **B. Automatic certificate** (Let's Encrypt, through Caddy) | It has a public name the internet can reach | A DNS name pointing at the host, with ports 80 and 443 open to it |
-| **C. Self-signed** (the default) | Trying it out | Nothing. Browsers warn until you trust it |
+**From the container options** instead: the image starts with `HTTPS=on` (HTTPS only, self-signed until a certificate is given). `HTTPS=off` starts with plain http, `HTTPS=both` with both. Once an Admin changes it on the Settings page, the page's choice is kept across restarts and updates. Ways to give the certificate on the command line:
 
 In every command below, replace `mz.company.com` with your server's name.
 
@@ -186,7 +183,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `GITHUB_TOKEN` ⬆ | A GitHub token for the Beta features (code authors, username matching). |
 | `GITHUB_API_URL`, `GITHUB_ORG` ⬆ | GitHub Enterprise API (e.g. `https://github.company.com/api/v3`), and your organisation. |
 | **Server** | |
-| `HTTPS` (`on` in the image) | `on`: always HTTPS (self-signed when no certificate is given). `off`: plain http, for your own machine or behind a reverse proxy. |
+| `HTTPS` (`on` in the image) | How it starts: `on` HTTPS only (self-signed when no certificate is given), `off` plain http (your own machine, or behind a reverse proxy), `both` side by side. **Settings → HTTPS** changes it while running. |
 | `TLS_CERT_FILE`, `TLS_KEY_FILE` (or `TLS_PFX_FILE`, `TLS_PFX_PASSPHRASE`), `TLS_SELF_SIGNED` | Serve HTTPS: your certificate, a `.pfx`, or a self-signed one ([HTTPS and hosting](docs/https-and-hosting.md)). |
 | `HTTP_REDIRECT_PORT`, `HTTPS_PUBLIC_PORT` (443), `TRUST_PROXY` | Redirect plain http to https; whose `X-Forwarded-*` headers to believe (private networks by default; nobody when serving HTTPS itself). |
 | `TZ` | Time zone for automation and email dates, e.g. `Asia/Dubai`. Default UTC. |

@@ -68,7 +68,11 @@ jobs:
           docker logs mz 2>&1 | grep -q 'running on https://'
           docker logs mz 2>&1 | grep -q 'Self-signed: traffic is encrypted'
           if curl -skfI https://127.0.0.1:3000/ | grep -qi 'strict-transport-security'; then echo 'HSTS with a self-signed certificate'; exit 1; fi
-          if curl -sf http://127.0.0.1:3000/api/health > /dev/null 2>&1; then echo 'plain http answered on the https port'; exit 1; fi
+          # Plain http on the same port is redirected to https (one port answers both; HTTPS only redirects).
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/)" = 308
+          curl -s -o /dev/null -w '%{redirect_url}' http://127.0.0.1:3000/dashboard | grep -q '^https://127.0.0.1:3000/dashboard'
+          # Settings → HTTPS needs the Admin: signed out it is refused.
+          test "$(curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1:3000/api/https)" = 401
       - name: HTTPS=off serves plain http (a laptop, or behind a reverse proxy)
         run: |
           docker run -d --name mz-http -p 3001:3000 -e HTTPS=off --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true mission-zero:test
@@ -80,6 +84,11 @@ jobs:
           test "$(docker inspect -f '{{.State.Health.Status}}' mz-http)" = healthy
           curl -sf http://127.0.0.1:3001/api/health | grep -q '"version":"MZ-'
           docker logs mz-http 2>&1 | grep -q 'running on http://'
+          # The way back in, from the command line: http and https side by side within seconds.
+          docker exec mz-http node scripts/https.mjs both | grep -q 'HTTPS mode is now: both'
+          for i in $(seq 1 20); do curl -skf https://127.0.0.1:3001/api/health > /dev/null && break; sleep 1; done
+          curl -skf https://127.0.0.1:3001/api/health | grep -q '"version":"MZ-'
+          curl -sf http://127.0.0.1:3001/api/health | grep -q '"version":"MZ-'
 
   publish:
     needs: smoke-test

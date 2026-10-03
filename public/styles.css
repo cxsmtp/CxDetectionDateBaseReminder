@@ -1354,3 +1354,47 @@ body.fetching [data-needs-data] { opacity: 0.45; cursor: not-allowed; }
 
 .notify-row { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 0; font-size: 13px; color: var(--muted); }
 .fetch-fresh { display: flex; margin-top: 8px; font-size: 12px; color: var(--muted); }
+
+/* ---------------- Settings → HTTPS ---------------- */
+.https-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--surface-3); color: var(--muted); }
+.https-badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.https-badge.http { color: var(--warn); background: rgb(217 119 6 / 0.1); }
+.https-badge.both { color: var(--accent); background: var(--accent-soft); }
+.https-badge.https { color: var(--ok); background: var(--ok-soft); }
+.https-now { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 4px 0 16px; }
+.https-now .tile { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); min-width: 0; }
+.https-now .tile b { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
+.https-now .tile span { display: block; overflow-wrap: anywhere; }
+.https-steps { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 12px; }
+.https-step { position: relative; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.https-step h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font-size: 15px; }
+.https-step .step-num { display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--surface-3); color: var(--muted); font-size: 12px; font-weight: 700; }
+.https-step.current { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.https-step.current .step-num { background: var(--accent); color: var(--accent-ink); }
+.https-step.done .step-num { background: var(--ok); color: #fff; font-size: 0; }
+.https-step.done .step-num::after { content: "✓"; font-size: 13px; }
+.https-step.locked > :not(h3) { opacity: 0.55; }
+.https-step .hint { margin: 0 0 8px; }
+.https-checks { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.https-checks li { display: grid; grid-template-columns: 20px 1fr; gap: 6px; font-size: 13px; }
+.https-checks li::before { content: "✓"; font-weight: 700; color: var(--ok); text-align: center; }
+.https-checks li.warn::before { content: "!"; color: var(--warn); }
+.https-checks li.error::before { content: "✕"; color: var(--danger); }
+.https-checks li small { display: block; color: var(--muted); font-size: 12px; margin-top: 1px; }
+.https-cert { padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); margin-bottom: 10px; }
+.https-cert.candidate { border-color: var(--accent); background: var(--accent-soft); }
+.https-cert .title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-weight: 600; }
+.https-cert .title small { font-weight: 400; color: var(--muted); }
+.https-cert .chain { margin: 6px 0 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.https-cert .notes { margin: 8px 0 0; padding-left: 18px; font-size: 12px; color: var(--muted); }
+.https-note { margin-top: 8px; font-size: 13px; }
+.https-note.warn, .https-browser.warn { color: var(--warn); }
+.https-note.bad, .https-browser.bad { color: var(--danger); }
+.https-browser { margin-top: 8px; font-size: 13px; }
+.https-browser.good { color: var(--ok); }
+.https-pass { max-width: 360px; }
+.https-always { margin: 10px 0 0; padding-left: 18px; font-size: 12px; color: var(--muted); }
+.https-cmd { margin: 6px 0 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface-3); font: 12px var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
+@media (max-width: 640px) {
+  .https-step { padding: 12px; }
+}

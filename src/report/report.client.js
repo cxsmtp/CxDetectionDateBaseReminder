@@ -1215,9 +1215,18 @@
   // Connect
   // ---------------------------------------------------------------------------
 
-  async function connect({ quiet = false } = {}) {
+  async function connect({ quiet = false, moved = false } = {}) {
     const candidate = relayBackend();
-    const status = await candidate.connect();
+    let status;
+    try {
+      status = await candidate.connect();
+    } catch (error) {
+      // The server went HTTPS only, and says where: follow it (once), when it answers there.
+      if (!moved && error.status === 426 && error.body?.movedTo && (await switchServer(error.body.movedTo, 'The reminder server now uses HTTPS'))) {
+        return connect({ quiet, moved: true });
+      }
+      throw error;
+    }
     candidate.remediationAllowed = status.remediation !== false;
     candidate.retriageAllowed = status.retriage === true;
     candidate.reremediationAllowed = status.reremediation === true;
@@ -1238,6 +1247,30 @@
     loadExistingTriage().catch(reportError);
     loadExistingRemediation().catch(reportError);
     candidate.credits().catch((error) => log(`Could not read credits: ${error.message}`, 'error'));
+    // The server answers on HTTPS too: use it from now on, if it works from this computer.
+    if (status.httpsUrl && /^http:/i.test(String(config.relayUrl || ''))) {
+      switchServer(status.httpsUrl, 'A secure (HTTPS) connection to the reminder server works from this computer')
+        .then((switched) => (switched ? connect({ quiet: true, moved: true }) : null))
+        .catch(() => {});
+    }
+  }
+
+  /** Use another address for the reminder server (kept in this browser), when it answers there. */
+  async function switchServer(url, reason) {
+    let base;
+    try {
+      base = await checkServer(url);
+    } catch {
+      return false;
+    }
+    config.relayUrl = base;
+    try {
+      if (base !== ORIGINAL_SERVER) localStorage.setItem(SERVER_STORE, base);
+      else localStorage.removeItem(SERVER_STORE);
+    } catch {}
+    showServer();
+    log(`${reason}: now using ${base}.`, 'info');
+    return true;
   }
 
   function disconnect() {
@@ -1283,6 +1316,7 @@
     $('server-change').textContent = url ? 'Change' : 'Enter address';
     $('server-reset').hidden = !ORIGINAL_SERVER || url === ORIGINAL_SERVER;
     if (!url) serverState('Needed to triage from this report', 'warn');
+    else if (url !== ORIGINAL_SERVER && /^https:/i.test(url) && /^http:/i.test(ORIGINAL_SERVER)) serverState('Switched to HTTPS', 'good');
     else if (url !== ORIGINAL_SERVER) serverState('Changed in this browser', 'warn');
     else {
       try {
@@ -1303,7 +1337,7 @@
   }
 
   /** Is this address a reminder server? Resolves with the clean address, or throws a readable reason. */
-  async function checkServer(value) {
+  async function checkServer(value, followed = false) {
     let url;
     try {
       url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
@@ -1323,6 +1357,8 @@
     } finally {
       if (timer) clearTimeout(timer);
     }
+    // An old http address of a server that is HTTPS only now: it says where it went.
+    if (body?.movedTo && !followed) return checkServer(String(body.movedTo), true);
     if (body?.service !== 'mission-zero-relay') throw new CxError(`${base} answered, but it is not a reminder server. Check the address.`);
     return base;
   }
