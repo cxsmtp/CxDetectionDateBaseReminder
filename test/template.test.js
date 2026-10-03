@@ -183,3 +183,19 @@ test('only balanced triple braces render raw: an unbalanced {{{name}} stays esca
   assert.doesNotMatch(render('{{name}}}', data), /<img/);
   assert.equal(render('{{name}}', data), '&lt;img src=x onerror=alert(1)&gt;');
 });
+
+test('a template of sections nested over long lists is refused quickly, not rendered for minutes', () => {
+  const list = Array.from({ length: 200 }, (_, i) => i);
+  const started = Date.now();
+  // Four levels over 200 items would be 1.6 billion rows: the budget stops it.
+  assert.throws(() => render('{{#a}}{{#a}}{{#a}}{{#a}}x{{/a}}{{/a}}{{/a}}{{/a}}', { a: list }), (error) => error instanceof TemplateError && /too large/.test(error.message));
+  // Few repeats but a lot of text: the output limit stops it.
+  const big = 'y'.repeat(100_000);
+  assert.throws(() => render('{{#a}}{{#a}}{{big}}{{/a}}{{/a}}', { a: list, big }), (error) => error instanceof TemplateError && /too large/.test(error.message));
+  assert.ok(Date.now() - started < 2000, 'the refusal should be quick');
+});
+
+test('sections nest at most four levels deep', () => {
+  assert.equal(render('{{#a}}{{#a}}{{#a}}{{#a}}x{{/a}}{{/a}}{{/a}}{{/a}}', { a: true }), 'x');
+  assert.throws(() => render('{{#a}}{{#a}}{{#a}}{{#a}}{{^b}}x{{/b}}{{/a}}{{/a}}{{/a}}{{/a}}', { a: true }), (error) => error instanceof TemplateError && /nested too deeply/.test(error.message));
+});

@@ -39,14 +39,14 @@ import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } 
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
-import { publicConnection } from './cxone/endpoints.js';
+import { deriveConnection, publicConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
-import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, isVerified, parseAddressList, publicSettings, smtpFingerprint } from './settings.js';
+import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, hostOfUrl, isVerified, parseAddressList, publicSettings, smtpFingerprint } from './settings.js';
 import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
 import { ENV_SETTINGS, SECRET_VARIABLES, parseEnvText, settingsFromEnv } from './env-import.js';
 import { SessionPersistence, sessionKey } from './handover.js';
 import { InstanceLock } from './instance-lock.js';
-import { inlineScriptHashes, sameOriginGuard, securityHeaders, viaTrustedProxy } from './security.js';
+import { inlineScriptHashes, pruneAttempts, sameOriginGuard, securityHeaders, trustProxySetting, viaTrustedProxy } from './security.js';
 import { describeCertificate } from './tls.js';
 import { HSTS_AGES, HttpsManager } from './https-manager.js';
 import { SUPPORTING_NOTICE, Terms } from './terms.js';
@@ -335,6 +335,33 @@ function integrationSession() {
   return sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId);
 }
 
+/**
+ * The IAM and API hosts the stored key would be sent to with these endpoints (the key's
+ * own issuer where none is set), so a change of host can be told from a change of tenant.
+ */
+function cxoneHosts(key, overrides = {}) {
+  const effective = {
+    baseUrl: overrides.baseUrl || config.overrides.baseUrl,
+    iamUrl: overrides.iamUrl || config.overrides.iamUrl,
+    tenant: overrides.tenant || config.overrides.tenant,
+  };
+  let { iamUrl, baseUrl } = effective;
+  try {
+    ({ iamUrl, baseUrl } = deriveConnection(key, effective));
+  } catch {
+    /* not a key we can read: compare the addresses as given */
+  }
+  return `${hostOfUrl(iamUrl)} ${hostOfUrl(baseUrl)}`;
+}
+
+/** The stored key, unless the endpoints now point at another host and no new key came with them. */
+function keyForEndpoints(current, overrides, newKey) {
+  if (newKey) return newKey;
+  const key = current.automationApiKey;
+  if (!key) return key;
+  return cxoneHosts(key, current.integrationOverrides ?? {}) === cxoneHosts(key, overrides) ? key : '';
+}
+
 /** Which key and endpoints a connection was made from (to tell a changed configuration from the running one). */
 const cxoneFingerprint = (key, overrides = {}) =>
   createHash('sha256').update(JSON.stringify([key ?? '', overrides.baseUrl ?? '', overrides.iamUrl ?? '', overrides.tenant ?? ''])).digest('hex');
@@ -350,11 +377,20 @@ function activateIntegration(session, key, overrides = {}) {
   const previous = automationSessionId;
   automationSessionId = session.id;
   integrationFingerprint = cxoneFingerprint(key, overrides);
+  integrationFailure = { fingerprint: null, until: 0 };
   if (previous && previous !== session.id && previous !== bootstrapSessionId) sessions.destroy(previous);
   const { tenant, baseUrl, iamUrl } = session.connection;
   guard.recordGood('cxone', { apiKey: key, overrides: { baseUrl: overrides.baseUrl ?? '', iamUrl: overrides.iamUrl ?? '', tenant: overrides.tenant ?? '' }, connection: { tenant, baseUrl, iamUrl } });
   scheduler.sync();
 }
+
+/**
+ * Signing in with the stored key: one attempt at a time however many requests are waiting
+ * for it, and after a failure none for a while (30-60 s), so a wrong key or an unreachable
+ * IAM is not asked again on every request. A changed key or endpoints are tried at once.
+ */
+let integrationAttempt = null;
+let integrationFailure = { fingerprint: null, until: 0 };
 
 async function resolveAutomationSession() {
   const existing = integrationSession();
@@ -364,14 +400,26 @@ async function resolveAutomationSession() {
   const storedKey = settings.automationApiKey;
   if (!storedKey) return null;
 
-  try {
-    const session = await sessions.create(storedKey, integrationOverrides(settings));
-    activateIntegration(session, storedKey, settings.integrationOverrides ?? {});
-    return session;
-  } catch (error) {
-    console.warn(`! Stored automation key could not be used: ${error.message}`);
-    return null;
-  }
+  const fingerprint = cxoneFingerprint(storedKey, settings.integrationOverrides ?? {});
+  if (integrationFailure.fingerprint === fingerprint && Date.now() < integrationFailure.until) return null;
+  if (integrationAttempt?.fingerprint === fingerprint) return integrationAttempt.promise;
+
+  const promise = (async () => {
+    try {
+      const session = await sessions.create(storedKey, integrationOverrides(settings));
+      activateIntegration(session, storedKey, settings.integrationOverrides ?? {});
+      integrationFailure = { fingerprint: null, until: 0 };
+      return session;
+    } catch (error) {
+      console.warn(`! Stored automation key could not be used: ${error.message}`);
+      integrationFailure = { fingerprint, until: Date.now() + 30_000 + Math.floor(Math.random() * 30_000) };
+      return null;
+    } finally {
+      if (integrationAttempt?.promise === promise) integrationAttempt = null;
+    }
+  })();
+  integrationAttempt = { fingerprint, promise };
+  return promise;
 }
 
 const scheduler = new Scheduler({
@@ -407,20 +455,7 @@ try {
   process.exit(1);
 }
 
-/**
- * Whose X-Forwarded-For / -Proto / -Host to believe (TRUST_PROXY, as Express reads it:
- * "loopback", IPs or CIDRs, a hop count, on or off). By default a proxy on this machine
- * or a private network (a reverse proxy in the same compose network); nobody when this
- * server does HTTPS itself, because then it faces the clients directly.
- */
-function trustProxySetting(value, servingHttps) {
-  const text = String(value ?? '').trim();
-  if (!text) return servingHttps ? false : 'loopback, linklocal, uniquelocal';
-  if (/^(off|false|no|0|none)$/i.test(text)) return false;
-  if (/^(on|true|yes|all)$/i.test(text)) return true;
-  if (/^\d+$/.test(text)) return Number(text);
-  return text;
-}
+// Whose X-Forwarded-* headers to believe: TRUST_PROXY (src/security.js, trustProxySetting).
 app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY, httpsManager.mode !== 'http'));
 httpsManager.onChange((mode) => app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY, mode !== 'http')));
 // Security headers on every response, including the static pages (src/security.js).
@@ -464,6 +499,8 @@ app.use((req, res, next) => {
   res.on('close', end);
   next();
 });
+// A page's script error is a few lines of text: no reason to accept megabytes of it.
+app.use('/api/diagnostics/client-error', express.json({ limit: '16kb' }));
 app.use(express.json({ limit: '4mb' }));
 // A browser request that changes state must come from this server's own pages.
 app.use('/api', sameOriginGuard({ exempt: ['/relay'] }));
@@ -642,7 +679,12 @@ app.post('/api/diagnostics/client-error', requireSession, (req, res) => {
   const b = req.body ?? {};
   const page = String(b.page ?? '').replace(/[^#/a-z-]/gi, '').slice(0, 40);
   diagnostics.record('client-error', 'page-script-error', {
-    message: b.message, source: String(b.source ?? '').split('/').pop(), line: Number(b.line) || 0, column: Number(b.column) || 0, page, detail: b.stack,
+    message: String(b.message ?? '').slice(0, 500),
+    source: String(b.source ?? '').slice(0, 2000).split('/').pop(),
+    line: Number(b.line) || 0,
+    column: Number(b.column) || 0,
+    page,
+    detail: String(b.stack ?? '').slice(0, 2000),
   });
   res.status(204).end();
 });
@@ -700,14 +742,19 @@ app.get('/api/session', (req, res) => {
 });
 
 /** Sign-in attempts per address, to slow down guessing across many accounts. */
+const SIGN_IN_WINDOW_MS = 10 * 60 * 1000;
 const signInAttempts = new Map();
 function throttleSignIn(req, res) {
   const ip = clientIp(req);
   const now = Date.now();
-  const recent = (signInAttempts.get(ip) ?? []).filter((t) => now - t < 10 * 60 * 1000);
+  const recent = (signInAttempts.get(ip) ?? []).filter((t) => now - t < SIGN_IN_WINDOW_MS);
   recent.push(now);
+  // Re-inserted, so the map stays in order of last attempt (oldest first).
+  signInAttempts.delete(ip);
   signInAttempts.set(ip, recent);
-  if (signInAttempts.size > 10_000) signInAttempts.clear();
+  // Many addresses: forget the ones whose attempts have all expired, never the whole map
+  // (that would hand a guesser a fresh start just by sending from enough addresses).
+  pruneAttempts(signInAttempts, now, { windowMs: SIGN_IN_WINDOW_MS, max: 10_000 });
   if (recent.length > 30) {
     res.status(429).json({ error: 'Too many sign-in attempts from this address. Wait a few minutes.' });
     return true;
@@ -898,6 +945,8 @@ app.post(
     }
     if (String(req.body?.next ?? '') === String(req.body?.current ?? '')) return res.status(400).json({ error: 'Choose a password different from the current one.' });
     await iam.setPassword(user.id, String(req.body?.next ?? ''), { mustChange: false });
+    // Anyone else signed in with the old password is signed out; this browser stays signed in.
+    endSessionsOf(user.id, req.session.id);
     fs.rmSync(firstAdminFile, { force: true });
     audit.record({ type: 'iam', outcome: 'changed', reason: `${user.email} changed their password.`, actor: await adminActor(req) });
     res.json(describeMe(req.session, iam.user(user.id)));
@@ -923,10 +972,11 @@ async function auditIam(req, reason, details) {
   audit.record({ type: 'iam', outcome: 'changed', reason, actor: await adminActor(req), details });
 }
 
-/** Sign out every session of a user whose access was removed. */
-function endSessionsOf(userId) {
+/** Sign out every session of a user whose access was removed (all but `keep`, when given). */
+function endSessionsOf(userId, keep = null) {
   // Saved sign-ins nobody has come back for since a restart end too.
-  sessions.endWhere((s) => s.userId === userId);
+  const keepKey = keep ? sessionKey(keep) : null;
+  sessions.endWhere((s) => s.userId === userId && !(keep && (s.id === keep || s.key === keepKey)));
 }
 
 app.get('/api/iam', requirePermission('iam.view'), (req, res) => res.json(iamView(req)));
@@ -1278,7 +1328,8 @@ app.put(
     for (const field of ['baseUrl', 'iamUrl', 'tenant']) if (field in body) overrides[field] = clean(body[field]);
     const key = String(body.apiKey ?? '').trim();
     const before = cxoneFingerprint(current.automationApiKey, current.integrationOverrides ?? {});
-    settingsStore.save({ ...(key ? { automationApiKey: key } : {}), integrationOverrides: overrides });
+    // The stored key is never sent to another host: new IAM or API hosts need the key pasted again.
+    settingsStore.save({ automationApiKey: keyForEndpoints(current, overrides, key), integrationOverrides: overrides });
     const after = settingsStore.get();
     if (cxoneFingerprint(after.automationApiKey, after.integrationOverrides ?? {}) !== before) guard.touch();
     res.json(integrationStatus());
@@ -1294,7 +1345,7 @@ app.post(
     const { changes, applied, refused, ignored } = settingsFromEnv(vars, (permission) => can(req, permission));
     if (!applied.length) {
       if (refused.length) return res.status(403).json({ error: `Your role cannot set ${refused.join(', ')}.`, applied, refused, ignored });
-      const blank = Object.keys(vars).some((name) => ENV_SETTINGS[name]);
+      const blank = Object.keys(vars).some((name) => Object.hasOwn(ENV_SETTINGS, name));
       return res.status(400).json({
         error: blank
           ? 'Every setting in that file is blank, so nothing changed. Fill in the values you want to set (blank ones keep what is set now) and upload it again.'
@@ -1306,7 +1357,9 @@ app.post(
       const current = settingsStore.get();
       const { apiKey, ...endpoints } = changes.cxone;
       // Endpoints the file leaves out are derived from the key, as at start-up.
-      settingsStore.save({ ...(apiKey ? { automationApiKey: apiKey } : {}), integrationOverrides: { baseUrl: '', iamUrl: '', tenant: '', ...(apiKey ? {} : current.integrationOverrides ?? {}), ...endpoints } });
+      const overrides = { baseUrl: '', iamUrl: '', tenant: '', ...(apiKey ? {} : current.integrationOverrides ?? {}), ...endpoints };
+      // The stored key is never sent to another host: new IAM or API hosts need the key in the file too.
+      settingsStore.save({ automationApiKey: keyForEndpoints(current, overrides, apiKey), integrationOverrides: overrides });
     }
     if (changes.smtp) settingsStore.save({ smtp: changes.smtp });
     if (changes.links) settingsStore.save({ links: changes.links });
@@ -1382,13 +1435,22 @@ function settingsFor(req, settings) {
   return view;
 }
 
+/** The Checkmarx One connection, or null while none is set up: settings and previews work without it. */
+const connectionOrNull = (session) => {
+  try {
+    return session?.connection ?? null;
+  } catch {
+    return null;
+  }
+};
+
 app.get('/api/settings', requireSession, (req, res) => {
   const settings = settingsStore.get();
   res.json({
     ...settingsFor(req, settings),
     // Rendered from the current templates so a wrong UI route is visible
     // without having to send a mail to find out.
-    linkExamples: exampleLinks(req.session.connection, settings.links),
+    linkExamples: exampleLinks(connectionOrNull(req.session), settings.links),
   });
 });
 
@@ -1409,7 +1471,7 @@ app.put(
     res.json({
       ...settingsFor(req, saved),
       ignored,
-      linkExamples: exampleLinks(req.session.connection, saved.links),
+      linkExamples: exampleLinks(connectionOrNull(req.session), saved.links),
     });
   }),
 );
@@ -1447,10 +1509,13 @@ app.post(
   requirePermission('settings.template', 'reminders.send', 'settings.view'),
   asyncRoute(async (req, res) => {
     const settings = settingsStore.get();
+    // Only someone who may edit the template previews unsaved markup; anyone else sees the saved one.
+    const editing = can(req, 'settings.template');
     const template = {
-      subject: req.body?.subject ?? settings.template.subject,
-      html: req.body?.html ?? settings.template.html,
+      subject: (editing ? req.body?.subject : undefined) ?? settings.template.subject,
+      html: (editing ? req.body?.html : undefined) ?? settings.template.html,
     };
+    const connection = connectionOrNull(req.session);
 
     const risks = req.session.lastScan
       ? selectRisks(req.session.lastScan.projects, { buckets: [] }).slice(0, 12)
@@ -1458,9 +1523,9 @@ app.post(
 
     const reminder = buildReminder(risks.length ? risks : SAMPLE_RISKS, template, {
       buckets: ['60+'],
-      tenant: req.session.connection.tenant,
+      tenant: connection?.tenant ?? '',
       links: settings.links,
-      connection: req.session.connection,
+      connection,
       branding: settings.branding,
       initiatorsByProject: req.session.lastScan?.initiators ?? {},
     });
@@ -1545,9 +1610,14 @@ app.post(
     const [email] = parseAddressList(req.body?.email ?? '');
 
     if (!initiator) return res.status(400).json({ error: 'Which initiator is this address for?' });
-    if (!email) return res.status(400).json({ error: `"${req.body?.email ?? ''}" is not a valid email address.` });
+    if (initiator.length > 200) return res.status(400).json({ error: 'That initiator name is too long (200 characters at most).' });
+    if (!email) return res.status(400).json({ error: `"${String(req.body?.email ?? '').slice(0, 200)}" is not a valid email address.` });
 
     const current = settingsStore.get().initiators.overrides;
+    // Tagging fills in a missing address; changing one already set is for whoever manages initiator addresses.
+    if (Object.hasOwn(current, initiator) && current[initiator] !== email && !can(req, 'settings.initiators')) {
+      return res.status(409).json({ error: `${initiator} already has an address (${current[initiator]}). Ask someone who manages initiator addresses in Settings to change it.` });
+    }
     const saved = settingsStore.save({
       // Merge, so tagging one person never clears the others.
       initiators: { overrides: { ...current, [initiator]: email } },
@@ -2243,14 +2313,27 @@ let lastDashboardOrigin = '';
 
 function requestOrigin(req) {
   const forwardedHost = viaTrustedProxy(req) ? String(req.get('x-forwarded-host') ?? '').split(',')[0].trim() : '';
-  const origin = `${req.protocol}://${forwardedHost || req.get('host')}`;
+  return `${req.protocol}://${forwardedHost || req.get('host')}`;
+}
+
+/**
+ * Remember the address the dashboard is open on, for reports sent with nobody there.
+ * Only from someone signed in who may set the links (an Admin, as a rule), and only the
+ * plain Host they used, never X-Forwarded-Host: a report reader, or anyone able to send a
+ * request, cannot point every automatic report at an address of their choosing.
+ */
+function noteDashboardOrigin(req) {
+  if (!req.user || !can(req, 'settings.links')) return;
+  const host = requestHost(req);
+  if (!host) return;
   try {
+    const origin = `${req.protocol}://${host}`;
     if (!LOOPBACK.test(new URL(origin).hostname)) lastDashboardOrigin = origin;
   } catch {}
-  return origin;
 }
 
 function resolveReportServer(req = null, settings = settingsStore.get()) {
+  if (req) noteDashboardOrigin(req);
   if (settings.links.reportServerUrl) return { url: settings.links.reportServerUrl, source: 'settings' };
   if (config.reportServerUrl) return { url: config.reportServerUrl, source: 'environment' };
   if (req) return { url: requestOrigin(req), source: 'this page' };
@@ -4858,7 +4941,16 @@ app.post(
   '/api/reports/html',
   requirePermission('reminders.send'),
   asyncRoute(async (req, res) => {
-    const { buckets = [], severities = null } = req.body ?? {};
+    const given = req.body ?? {};
+    for (const field of ['buckets', 'severities']) {
+      if (given[field] !== undefined && given[field] !== null && !Array.isArray(given[field])) {
+        return res.status(400).json({ error: `${field} must be a list.` });
+      }
+    }
+    // Only known age buckets and severities, as for tracked reports.
+    const buckets = (given.buckets ?? []).map(String).filter((b) => AGE_BUCKETS.some((a) => a.id === b));
+    const wantedSeverities = (given.severities ?? []).map((v) => String(v).toUpperCase()).filter((v) => PROJECT_REPORT_SEVERITIES.has(v));
+    const severities = wantedSeverities.length ? wantedSeverities : null;
     const projectIds = idList(req.body?.projectIds);
     const { lastScan } = req.session;
     const settings = settingsStore.get();
@@ -5251,7 +5343,7 @@ app.post('/api/backup/now', requirePermission('backup.run'), asyncRoute(async (r
 app.post(
   '/api/backup/restore',
   requirePermission('backup.manage'),
-  express.raw({ type: () => true, limit: '1gb' }),
+  express.raw({ type: () => true, limit: '200mb' }),
   asyncRoute(async (req, res) => {
     const actor = await adminActor(req);
     let bundle;
@@ -5299,11 +5391,15 @@ function githubConfig(settings = settingsStore.get()) {
   const github = settings.beta?.github ?? {};
   const env = (name) => String(process.env[name] ?? '').trim();
   const defaultApi = !github.apiUrl || github.apiUrl === 'https://api.github.com';
+  const apiUrl = defaultApi && env('GITHUB_API_URL') ? env('GITHUB_API_URL').replace(/\/+$/, '') : github.apiUrl || 'https://api.github.com';
+  // GITHUB_TOKEN goes only to the host GITHUB_API_URL names (else api.github.com):
+  // pointing the API address elsewhere on the Beta page never sends it there.
+  const envToken = env('GITHUB_TOKEN') && hostOfUrl(apiUrl) === (hostOfUrl(env('GITHUB_API_URL')) || 'api.github.com') ? env('GITHUB_TOKEN') : '';
   return {
     ...github,
-    token: github.token || env('GITHUB_TOKEN'),
-    tokenSource: github.token ? 'settings' : env('GITHUB_TOKEN') ? 'environment' : 'none',
-    apiUrl: defaultApi && env('GITHUB_API_URL') ? env('GITHUB_API_URL').replace(/\/+$/, '') : github.apiUrl || 'https://api.github.com',
+    token: github.token || envToken,
+    tokenSource: github.token ? 'settings' : envToken ? 'environment' : 'none',
+    apiUrl,
     org: github.org || env('GITHUB_ORG'),
   };
 }
@@ -5754,6 +5850,14 @@ function authorMessage(author, items, settings) {
 
 // eslint-disable-next-line no-unused-vars -- Express identifies error handlers by arity.
 app.use((error, req, res, next) => {
+  // A body over its route's size limit: said plainly, not as a parser message.
+  if (error.type === 'entity.too.large') {
+    return res.status(413).json({
+      error: req.path === '/api/backup/restore'
+        ? 'That backup is too large to upload here (200 MB at most). Restore it on the server itself with npm run restore (see docs/audit-and-backup.md).'
+        : 'That request is too large.',
+    });
+  }
   // An error raised on purpose carries its HTTP status and a message meant for
   // the user. Anything else is unexpected: its details (paths, internals) stay
   // in the server log, and the browser gets a plain message.

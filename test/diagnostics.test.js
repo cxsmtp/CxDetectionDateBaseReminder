@@ -31,3 +31,11 @@ test('only safe fields are kept, project ids are one-way codes, and the report r
 test('nothing recorded: the recommendation says so', () => {
   assert.equal(recommend({ features: {}, errors: [], discrepancies: [] })[0].severity, 'info');
 });
+
+test('scrub cuts huge text before scrubbing, so a 4 MB message costs next to nothing', () => {
+  const huge = 'a.b-'.repeat(1024 * 1024);
+  const started = performance.now();
+  const clean = scrub(huge);
+  assert.ok(performance.now() - started < 200, 'scrubbing 4 MB took too long');
+  assert.ok(clean.length <= 300);
+});

@@ -33,10 +33,14 @@ function gitRepo(authors) {
 
 test('settings and environment give each host its connection; the right host is found for a repository', () => {
   const configs = scmConfigs({ beta: { gitlab: { apiUrl: 'https://git.acme.io' } } }, {
-    GITLAB_TOKEN: 'glpat', AZURE_DEVOPS_ORG_URL: 'https://dev.azure.com/acme', AZURE_DEVOPS_TOKEN: 'pat', BITBUCKET_URL: 'https://bitbucket.acme.io', BITBUCKET_TOKEN: 'bbt',
+    GITLAB_TOKEN: 'glpat', GITLAB_URL: 'https://git.acme.io', AZURE_DEVOPS_ORG_URL: 'https://dev.azure.com/acme', AZURE_DEVOPS_TOKEN: 'pat', BITBUCKET_URL: 'https://bitbucket.acme.io', BITBUCKET_TOKEN: 'bbt',
   });
   assert.equal(configs.gitlab.apiUrl, 'https://git.acme.io/api/v4');
   assert.equal(configs.gitlab.tokenSource, 'environment');
+  // GITLAB_TOKEN alone belongs to gitlab.com: an address set in Settings does not get it.
+  const elsewhere = scmConfigs({ beta: { gitlab: { apiUrl: 'https://git.acme.io' } } }, { GITLAB_TOKEN: 'glpat' });
+  assert.equal(elsewhere.gitlab.token, '');
+  assert.equal(elsewhere.gitlab.tokenSource, 'none');
   assert.equal(configs.bitbucket.kind, 'server');
   const on = (url) => providerOf(parseRepoUrl(url), configs, 'https://api.github.com');
   assert.equal(on('https://github.com/acme/api.git'), 'github');

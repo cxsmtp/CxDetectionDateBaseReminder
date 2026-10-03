@@ -23,6 +23,20 @@ const hostOf = (url) => {
 };
 const env = (source, name) => String(source[name] ?? '').trim();
 
+/**
+ * A token from the environment goes only to the host the environment names (or, when it names
+ * none, the provider's public host): changing the address in Settings never redirects it.
+ */
+const sameHost = (a, b) => {
+  const norm = (h) => (h === 'bitbucket.org' ? 'api.bitbucket.org' : h);
+  return Boolean(a) && norm(a) === norm(b);
+};
+function environmentToken(source, tokenName, urlName, defaultHost, effectiveUrl) {
+  const token = env(source, tokenName);
+  if (!token) return '';
+  return sameHost(hostOf(effectiveUrl), hostOf(env(source, urlName)) || defaultHost) ? token : '';
+}
+
 /** Each host's connection: what Settings stores, else the environment. Tokens included (server side only). */
 export function scmConfigs(settings, source = process.env) {
   const beta = settings.beta ?? {};
@@ -30,18 +44,22 @@ export function scmConfigs(settings, source = process.env) {
   const az = beta.azure ?? {};
   const bb = beta.bitbucket ?? {};
   const gitlabApi = (gl.apiUrl || env(source, 'GITLAB_URL') || 'https://gitlab.com').replace(/\/+$/, '');
+  const gitlabUrl = /\/api\/v4$/.test(gitlabApi) ? gitlabApi : `${gitlabApi}/api/v4`;
+  const gitlabEnvToken = environmentToken(source, 'GITLAB_TOKEN', 'GITLAB_URL', 'gitlab.com', gitlabUrl);
   const gitlab = {
-    apiUrl: /\/api\/v4$/.test(gitlabApi) ? gitlabApi : `${gitlabApi}/api/v4`,
-    token: gl.token || env(source, 'GITLAB_TOKEN'),
-    tokenSource: gl.token ? 'settings' : env(source, 'GITLAB_TOKEN') ? 'environment' : 'none',
+    apiUrl: gitlabUrl,
+    token: gl.token || gitlabEnvToken,
+    tokenSource: gl.token ? 'settings' : gitlabEnvToken ? 'environment' : 'none',
     group: gl.group || env(source, 'GITLAB_GROUP'),
     projects: gl.projects ?? [],
   };
   gitlab.host = hostOf(gitlab.apiUrl);
+  const azureUrl = (az.orgUrl || env(source, 'AZURE_DEVOPS_ORG_URL')).replace(/\/+$/, '');
+  const azureEnvToken = environmentToken(source, 'AZURE_DEVOPS_TOKEN', 'AZURE_DEVOPS_ORG_URL', 'dev.azure.com', azureUrl);
   const azure = {
-    orgUrl: (az.orgUrl || env(source, 'AZURE_DEVOPS_ORG_URL')).replace(/\/+$/, ''),
-    token: az.token || env(source, 'AZURE_DEVOPS_TOKEN'),
-    tokenSource: az.token ? 'settings' : env(source, 'AZURE_DEVOPS_TOKEN') ? 'environment' : 'none',
+    orgUrl: azureUrl,
+    token: az.token || azureEnvToken,
+    tokenSource: az.token ? 'settings' : azureEnvToken ? 'environment' : 'none',
     repos: az.repos ?? [],
   };
   azure.host = hostOf(azure.orgUrl);
@@ -50,12 +68,14 @@ export function scmConfigs(settings, source = process.env) {
     kind,
     apiUrl: (bb.apiUrl || env(source, 'BITBUCKET_URL') || 'https://api.bitbucket.org/2.0').replace(/\/+$/, ''),
     username: bb.username || env(source, 'BITBUCKET_USERNAME'),
-    token: bb.token || env(source, 'BITBUCKET_TOKEN'),
-    tokenSource: bb.token ? 'settings' : env(source, 'BITBUCKET_TOKEN') ? 'environment' : 'none',
+    token: bb.token,
     workspace: bb.workspace || env(source, 'BITBUCKET_WORKSPACE'),
     repos: bb.repos ?? [],
   };
   if (kind === 'cloud' && /bitbucket\.org$/.test(hostOf(bitbucket.apiUrl)) && !/api\.bitbucket\.org/.test(bitbucket.apiUrl)) bitbucket.apiUrl = 'https://api.bitbucket.org/2.0';
+  const bitbucketEnvToken = environmentToken(source, 'BITBUCKET_TOKEN', 'BITBUCKET_URL', 'api.bitbucket.org', bitbucket.apiUrl);
+  bitbucket.token = bb.token || bitbucketEnvToken;
+  bitbucket.tokenSource = bb.token ? 'settings' : bitbucketEnvToken ? 'environment' : 'none';
   bitbucket.host = kind === 'cloud' ? 'bitbucket.org' : hostOf(bitbucket.apiUrl);
   const configs = { gitlab, azure, bitbucket };
   for (const [id, cfg] of Object.entries(configs)) cfg.authFor = (url) => cloneAuthFor(url, configs, id);

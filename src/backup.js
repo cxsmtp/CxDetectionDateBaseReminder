@@ -109,14 +109,21 @@ function unseal(buffer, passphrase) {
   }
 }
 
+/** The most a backup may unpack to. */
+export const MAX_UNPACKED_BYTES = 512 * 1024 * 1024;
+
 /** Read and check a backup. Throws with a readable reason; returns the bundle. */
-export function readBackup(buffer, { passphrase = '' } = {}) {
+export function readBackup(buffer, { passphrase = '', maxUnpackedBytes = MAX_UNPACKED_BYTES } = {}) {
   let data = Buffer.from(buffer);
   if (data.subarray(0, MAGIC_SEALED.length).equals(MAGIC_SEALED)) data = unseal(data, passphrase);
   let bundle;
   try {
-    bundle = JSON.parse(zlib.gunzipSync(data).toString('utf8'));
-  } catch {
+    // Capped, so a small file that unpacks to gigabytes cannot exhaust the server's memory.
+    bundle = JSON.parse(zlib.gunzipSync(data, { maxOutputLength: maxUnpackedBytes }).toString('utf8'));
+  } catch (error) {
+    if (error?.code === 'ERR_BUFFER_TOO_LARGE') {
+      throw new Error(`This backup unpacks to more than ${Math.round(maxUnpackedBytes / 1024 / 1024)} MB, more than any CxMissionZero backup holds. It is damaged or not a CxMissionZero backup.`);
+    }
     throw new Error('Not a CxMissionZero backup (or the file is damaged).');
   }
   if (bundle?.format !== BACKUP_FORMAT || typeof bundle.files !== 'object') throw new Error('Not a CxMissionZero backup.');
