@@ -60,8 +60,10 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.26 | 1 | 10.4 s / 0 | 62,992 / 0 | 510 | 63 / 7,246 ms | 18 / 911 ms | none |
 | MZ-01.00.26 | 2 | 15.8 s / 0 | 62,108 / 144 | 501 | 76 / 10,825 ms | 17 / 801 ms | none |
 | MZ-01.00.26 | 3 (event-loop monitor on) | 15.9 s / 0 | 63,013 / 0 | 502 | — | — | none |
+| MZ-01.00.26 + Checkmarx One fixes | 4 | 9.4 s / 0 | 62,597 / 0 | 506 | 89 / 8,235 ms | 14 / 793 ms | none |
 
 **MZ-01.00.26: what the differences were.**
+- **The Checkmarx One fixes (run 4) cost nothing measurable.** They sit on paths the load barely touches: git clone, sign-in, the mail From header, and one id check per audit entry. Run 4 had no failures, and its tail (report opens p95 8.2 s) is inside the range of the runs before it, main included (6.2 to 10.8 s).
 - **The 144 failures in run 2 did not come back.** They were report opens and status polls that timed out, and the health check once waited 30 s. A third run with an event-loop monitor inside the server, and six more runs alternating with main, had no failures, and the monitor saw the loop block for at most 0.5 s. Run 2 was not traced itself, so its cause is not proven: the likeliest is the load generator, which shares its two CPUs with the mock Checkmarx One.
 - **The slower bursts (15.8 s) were the load generator's pace, not a slowdown.** Six short burst runs, alternating main and the branch with nothing else on the machine:
 
