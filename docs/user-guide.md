@@ -7,6 +7,7 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 - Administrators setting it up start with [Set up in 10 minutes](#set-up-in-10-minutes), and serve it over HTTPS: [Turn on HTTPS](#turn-on-https).
 
 **Contents**
+1. [Find your way: Detect, Eliminate, Govern](#find-your-way)
 1. [Who can do what](#who-can-do-what)
 2. [Sign in](#sign-in), and the [terms of use](#terms-of-use)
 3. [Set up in 10 minutes](#set-up-in-10-minutes) (Admin)
@@ -15,15 +16,39 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 6. [Dashboard: fetch, credits, remind](#dashboard)
 7. [The emailed report](#the-emailed-report) (for developers)
 8. [Reports: tracked reports](#reports-tracked-reports)
-9. [Credits page](#credits-page)
+9. [Credit Control](#credit-control)
 10. [Audit page: credit audit log and backups](#audit-page)
-11. [Access page: people and roles](#access-page)
+11. [IAM: people and roles](#iam)
 12. [Beta page](#beta-page)
 13. [Logs page](#logs-page)
 14. [Everyday recipes](#everyday-recipes)
 15. [Troubleshooting](#troubleshooting)
 
-The running version is shown in the bottom-left corner of every screen, as `MZ-xx.xx.xx`.
+The running version is shown at the bottom of the sidebar, as `MZ-xx.xx.xx`. Click it for Settings → About.
+
+---
+
+## Find your way
+
+The sidebar follows a vulnerability from finding it to closing it:
+
+| Stage | Pages | What you do there |
+| --- | --- | --- |
+| **Detect** | Dashboard, Beta | Fetch ageing findings, see who owns them, find who wrote the vulnerable code. |
+| **Eliminate** | Reports, Credit Control | Follow tracked scopes down to zero, schedule follow-ups, give and track AI Triage and Remediation credits. |
+| **Govern** | Audit, IAM, Settings, Logs | The credit audit log and backups, people and roles, configuration, troubleshooting. |
+
+The coloured label next to each page title says which stage you are in.
+
+**Every page keeps what you were doing.** Go to another page and come back: your filters, tabs, selections, open rows, typed text and unsaved role changes are still there, and so is the scroll position.
+- **↻** (top right) reloads the data of the page you are on and keeps your filters and tabs.
+- **Refresh** (bottom of the sidebar; in the menu under your name on a phone) starts over: CxMissionZero reloads and every page opens as new. Saved settings, reports and credits are not affected.
+
+**Jump to (Ctrl K, or ⌘K on a Mac)** goes to any page, tab, Settings section or common action: type a few letters (for example *smtp*, *allocated*, *backups*) and press Enter.
+
+**Tabs instead of long pages.** Most pages have tabs at the top (for example Audit: *Credit audit log*, *Integrity & reconcile*, *State & backups*). The tab you last used opens next time. The address bar follows the tab, so `#/audit/backups` or `#/settings/smtp` opens that place directly.
+
+**Any screen.** The layout adapts to the screen: a full sidebar on a desktop, an icon rail on a tablet, a bottom bar on a phone, and wide screens use their full width.
 
 ---
 
@@ -37,7 +62,7 @@ Everyone signs in and has one role. Tabs and buttons you are not allowed to use 
 | **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, beta. |
 | **User** | Fetch findings, send reminders, follow tracked reports, see credits. Settings are read-only. No Access, Audit or Beta. |
 
-Admins and Analysts can change what Security Analyst and User may do, or create new roles, on the [Access page](#access-page).
+Admins and Analysts can change what Security Analyst and User may do, or create new roles, on the [IAM page](#iam).
 
 ---
 
@@ -46,7 +71,7 @@ Admins and Analysts can change what Security Analyst and User may do, or create 
 **Email and password.** Use the address and password you were given. The first time, you must choose your own password: at least 12 characters.
 
 **Checkmarx One API key** (optional). Paste your own key on the sign-in screen.
-- It works only if an administrator listed your Checkmarx One identity (your email, username or client id) against your account on the Access page.
+- It works only if an administrator listed your Checkmarx One identity (your email, username or client id) against your account on the IAM page.
 - The key must be for the same tenant as the server.
 - Checkmarx One then sees your actions as yours.
 
@@ -61,7 +86,7 @@ The password is also kept in `/data/first-admin-password.txt` until it is change
 - To set a new temporary password, run `podman exec mission-zero node scripts/reset-admin.mjs`.
 - To start from scratch, remove the volume (`podman volume rm mission-zero-data`). This deletes every setting and the audit log.
 
-**Locked out?** Five wrong passwords lock an account for 15 minutes. An Admin or Analyst can set a new temporary password for you on the Access page (**Set password**).
+**Locked out?** Five wrong passwords lock an account for 15 minutes. An Admin or Analyst can set a new temporary password for you on the IAM page (**Set password**).
 
 **Connections, top right.** Three indicators show whether CxMissionZero can reach what it needs:
 
@@ -104,7 +129,7 @@ CxMissionZero is an independent project, not a Checkmarx product. Using it means
 - **When the terms change,** everyone is asked again.
 - **On record.** Each acceptance (who, when, from which address, which version) is in the **Audit log**.
 
-**Read them any time:** **Terms of use**, bottom left, next to the version; or the link on the sign-in page.
+**Read them any time:** **Settings → About & terms of use** (or click the version at the bottom of the sidebar); or the link on the sign-in page.
 
 **Automated setups:** `ACCEPT_TERMS=you@company.com` in the container options accepts the terms for the organisation and everyone, under your name (in the log and the audit log). Anything but an email address stops the start.
 
@@ -306,7 +331,10 @@ All the options, and a checklist for hosting CxMissionZero safely: [HTTPS and ho
 
 ## Settings, option by option
 
-Use the section links at the top of Settings to jump to a section. Sections your role cannot change are shown read-only.
+Settings shows one section at a time: pick it from the list on the left (a strip across the top on a tablet or phone). The groups are **Start**, **Connections**, **Reminders**, **AI & credits**, **Reports & brand**, **Security** and **About**. Sections your role cannot change are shown read-only. Everything saves as you type.
+
+### About & terms of use
+The version, the licence, the project's address, which version of the terms you accepted, and **Read the terms of use**.
 
 ### Quick setup from a .env file
 Sets the connections from one file, the same file you can start the container with.
@@ -442,12 +470,27 @@ Where findings are read from. The default is `/api/risks/`.
 
 ## Dashboard
 
+**Get started.** Until the basics are in place, a short checklist at the top shows what is left: connect Checkmarx One, fetch vulnerabilities, set up email, give reports a reachable address, cap AI credits, invite your team. Each item has its button; **Hide** puts the list away.
+
+**How the page is laid out.** Scope and **Fetch** at the top, then the totals, then the projects. Everything you do with the projects is in the **action panel**, with four tabs:
+
+| Tab | What is in it |
+| --- | --- |
+| **Remind** | Send a reminder (step 6 below). |
+| **People** | The scan initiators (step 5 below). |
+| **AI credits** | Allocate, triage and remediate (step 4 below). |
+| **Track** | Save the scope as a tracked report. |
+
+- **Wide screens (1600 px and more):** the panel stays beside the projects.
+- **Smaller screens:** the projects use the full width, and the bar above them (**Remind**, **People**, **AI credits**, **Track**) opens the panel from the right. Close it with **✕**, **Esc** or a click outside. It keeps whatever you were doing in it.
+- The line at the top of the panel says what its actions apply to: the ticked projects, or every shown project.
+
 ### 1. Scope: what to fetch
 | Option | Meaning |
 | --- | --- |
 | Projects last scanned in | Skips projects with no scan in this window, so fewer calls are made. Choose from last week, month, 90 days or year, or a custom range. |
 | Findings first detected in | Only findings first detected in this window. Checkmarx One filters them. |
-| Only these projects or people | Optional. **Projects, by name**: type to pick, or press Enter to add every project whose name contains the text. **People who ran the latest scan**: a username or an email. Only those projects are fetched, which is the fastest fetch. |
+| Only these projects or people | Optional; open it with **Narrow to projects or people**. **Projects, by name**: type to pick, or press Enter to add every project whose name contains the text. **People who ran the latest scan**: a username or an email. Only those projects are fetched, which is the fastest fetch. |
 
 ### 2. Fetch vulnerability data
 - Rows appear as each project is read.
@@ -473,10 +516,10 @@ Each finding falls into an age bucket by when it was **first detected**:
 | Tick boxes | Select projects. Reminders, credits and tracking apply to the selection, or to every shown project when none is selected. |
 | Latest scan by | Who ran the project's latest scan, and the email it resolved to. |
 | Triage / Remediation credits | Left / allocated, and how many more are needed. |
-| Track this scope as … → **Save as tracked report** | Follow these projects and filters over time (see [Reports](#reports-tracked-reports)). |
+| Action panel → **Track** → **Save as tracked report** | Follow these projects and filters over time (see [Reports](#reports-tracked-reports)). |
 
 ### 4. AI Triage & Remediation credits
-**Nothing is allocated until you confirm it.** For the ticked severities (Critical and High by default), the panel shows what the selected projects **need**:
+*Action panel → **AI credits**.* **Nothing is allocated until you confirm it.** (**How allocation works** opens the rules below.) For the ticked severities (Critical and High by default), the panel shows what the selected projects **need**:
 - **Triage:** 1 credit per Checkmarx One result still to triage.
 - **Remediation:** 3 credits per **confirmed** finding not yet remediated.
 
@@ -507,12 +550,14 @@ Each finding falls into an age bucket by when it was **first detected**:
 - Every credit movement is in the audit log.
 
 ### 5. Scan initiators
-Everyone who ran a latest scan, with their email.
+*Action panel → **People**.* Everyone who ran a latest scan, with their email.
 - **Missing an address?** Type it and **Save**. It is used at once and remembered for later fetches.
 - **Suggested address?** Click **Confirm**. A suggestion is never used until someone confirms it.
 - **Pick who gets the reminder:** tick people, or use **Select all**, **Clear** or **Pick missing**. **All / Selected / Missing email** filter the list.
 
 ### 6. Send reminder
+*Action panel → **Remind**.* **Preview email** and **Preview report** open over the page; close them with **Close**, **Esc** or a click outside.
+
 | Option | Meaning |
 | --- | --- |
 | Send to | **Recipient list**, **Scan initiators**, or **Both**. A scan initiator only ever gets their own projects; the server refuses any email that would show someone a project they did not scan. |
@@ -536,7 +581,10 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
    - If it cannot, it says why. Click **Connect** to try again.
    - If the server moved, click **Change address**. The report checks that the new address really is the reminder server, and remembers it.
    - You need to be on the company network or VPN.
-3. **Read the list.** It shows the top 50 findings: worst severity first, then oldest. Each one shows:
+3. **Read the list.** The header sums it up: open findings, how many critical, high, medium and low, and the oldest. It shows the top 50 findings: worst severity first, then oldest.
+   - **Filter it:** pick a severity, search (finding, project, file), or tick **Only what AI can act on**.
+   - **How this report works** explains Triage, Remediate and the reminder server.
+   - Each finding shows:
    - its live Checkmarx One state;
    - a link into Checkmarx One.
 4. **Triage** runs Checkmarx One AI Triage on a finding. The verdict appears in the row within a few minutes.
@@ -612,24 +660,27 @@ At the top of the panel: **Refresh** (re-reads now; reports also update hourly, 
 
 ---
 
-## Credits page
+## Credit Control
 
-How the credit pool is being used. Everyone with **credits.view** sees it.
+How the credit pool is being used, in three tabs. Everyone with **credits.view** sees it. The period, grouping and project, top right, apply to every tab.
 
 | Part | Meaning |
 | --- | --- |
 | Filters | <ul><li>Period: last 7 / 30 / 90 days, this or last month, last 12 months, or a custom range.</li><li>Group by day, week or month.</li><li>One project, or all.</li></ul> |
-| Credit pool | Size; used (triage / remediation); remaining; given to projects but not used; free to give. |
-| Credits used over time | Columns per day / week / month: triage at the base, remediation on top. Hover for numbers. **Show as a table** gives exact figures. |
-| By project, in this period | Each project's triage and remediation credits, with its share. |
-| Allocated vs used | Per project, all time. |
+| **Overview** → Credit pool | Size; used (triage / remediation); remaining; given to projects but not used; free to give. |
+| **Overview** → Credits used over time | Columns per day / week / month: triage at the base, remediation on top. Hover for numbers. **Show as a table** gives exact figures. |
+| **By project** | Each project's triage and remediation credits in the period, with its share. |
+| **Allocated vs used** | Per project, all time. |
 | **Export CSV** | Everything above, for the chosen period. |
+| **Pool & AI settings** | Opens Settings → AI & credit pool, to change the pool size and what reports may do (Admin). |
 
 ---
 
 ## Audit page
 
-**Credit audit log.** Every triage and remediation request (charged, refused, failed or not charged), allocation, settings change, report issued, backup and sign-in.
+Totals at the top, then three tabs: **Credit audit log**, **Integrity & reconcile**, **State & backups**.
+
+**Credit audit log.** 25 entries a page, newest first: **Older** and **Newer** move between pages, and older entries are read from the server as you go. **Details** opens an entry in full. Every triage and remediation request (charged, refused, failed or not charged), allocation, settings change, report issued, backup and sign-in.
 - Each entry records who, when, from where, and which findings, with the balance before and after.
 - **Filters:**
   - from / to;
@@ -654,9 +705,11 @@ See [audit-and-backup.md](audit-and-backup.md) for encrypted backups and moving 
 
 ---
 
-## Access page
+## IAM
 
-**People**
+Identity and access management, in two tabs.
+
+**People.** Search by name, email or Checkmarx One identity, and filter by role or status (active, locked, disabled, must set password). 20 people a page.
 
 | Action | What it does |
 | --- | --- |
@@ -667,7 +720,8 @@ See [audit-and-backup.md](audit-and-backup.md) for encrypted backups and moving 
 | **Remove** | Deletes the account. |
 
 **Roles & permissions** is a matrix of permissions against roles.
-- Tick or untick boxes, then **Save role changes** (or **Discard**).
+- **Find a permission** narrows the matrix; click a group name to fold it, or **Collapse all**. Each group row shows how many of its permissions each role has.
+- Tick or untick boxes, then **Save role changes** (or **Discard**). Unsaved changes are kept if you go to another page and come back.
 - **New role** builds your own role.
 - The Admin role is fixed. Permissions marked **Admin** are Admin-only by default.
 - You can never grant a permission you do not have yourself, or touch an Admin's account unless you are an Admin.
@@ -677,7 +731,7 @@ See [audit-and-backup.md](audit-and-backup.md) for encrypted backups and moving 
 
 ## Beta page
 
-Early features: check what they find before relying on them. Details are in [beta-features.md](beta-features.md).
+Early features: check what they find before relying on them. Details are in [beta-features.md](beta-features.md). Three tabs: **Code authors**, **Match usernames**, **Source-code hosts** (the connections: GitHub, GitLab, Azure DevOps, Bitbucket).
 - **Email the authors of vulnerable code.** Finds who last changed the vulnerable line, and emails them.
   - **Where the code is:** GitHub, GitLab, Azure DevOps or Bitbucket.
   - **Through the host's API** where it has one: GitHub, GitLab and Bitbucket Data Center, one request per file.
@@ -711,6 +765,8 @@ Early features: check what they find before relying on them. Details are in [bet
 
 ## Logs page
 
+Two tabs: **Activity in this browser** and **Troubleshooting log**.
+
 **Troubleshooting log.** **Download troubleshooting log** gives one file covering:
 - which features are used and how fast;
 - where errors happen;
@@ -719,7 +775,7 @@ Early features: check what they find before relying on them. Details are in [bet
 
 Send it to whoever maintains CxMissionZero when something goes wrong. **It captures no sensitive information:** no names, email addresses, passwords, keys, tokens, hosts, URLs, findings or code.
 
-**Activity log.** What this browser did, filtered by API calls, errors and successes, and searchable. **Export** saves it; **Clear** empties it.
+**Activity log.** What this browser asked the server, newest first, 100 lines a page. By default it shows each answer (**Success** and **Errors**, with counts); tick **Sent** to see each request as it goes out too. Searchable. **Export** saves it; **Clear** empties it.
 
 ---
 

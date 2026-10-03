@@ -4928,7 +4928,8 @@ async function renderGettingStarted() {
     steps.push({ stage: 'govern', done: people > 1, title: 'Invite your team', text: 'Add people and give each the role they need.', href: '#/access/people', action: 'Invite' });
   }
   const left = steps.filter((s) => !s.done).length;
-  if (hidden || !left || state.page === null) {
+  // A checklist of one is not a checklist: people who only fetch never see it.
+  if (hidden || !left || steps.length < 2 || state.page === null) {
     box.hidden = true;
     return;
   }

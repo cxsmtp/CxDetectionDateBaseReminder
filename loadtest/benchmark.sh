@@ -34,7 +34,7 @@ sleep 0.5
 HEAP=${SERVER_MEMORY_MB:+--max-old-space-size=$SERVER_MEMORY_MB}
 PORT=3997 HOST=127.0.0.1 DATA_DIR=$DATA BACKUP_INTERVAL_HOURS=0 REPORT_SIGNING_KEY=loadtest \
   CX_API_KEY=$KEY CX_BASE_URL=http://127.0.0.1:4101 CX_IAM_URL=http://127.0.0.1:4101 CX_TENANT=acme \
-  ADMIN_EMAIL=admin@bench.io ADMIN_PASSWORD='temporary password 1' SMTP_HOST= SMTP_USER= SMTP_PASS= \
+  ADMIN_EMAIL=admin@bench.io ADMIN_PASSWORD='temporary password 1' ACCEPT_TERMS=admin@bench.io SMTP_HOST= SMTP_USER= SMTP_PASS= \
   $(pin "${SERVER_CPUS:-}") node $HEAP src/server.js > "$DATA/server.log" 2>&1 & SERVER=$!
 for _ in $(seq 1 100); do grep -q 'Successfully authenticated' "$DATA/server.log" 2>/dev/null && break; sleep 0.2; done
 

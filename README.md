@@ -1,6 +1,6 @@
 # CxMissionZero
 
-**Drive Checkmarx One findings to zero.** CxMissionZero shows which vulnerabilities have sat unfixed and for how long, and emails each developer *their own* findings. Developers can then triage and fix them with Checkmarx One AI straight from that email, with every credit accounted for.
+**Detect, eliminate and govern vulnerabilities: drive Checkmarx One findings to zero.** CxMissionZero shows which vulnerabilities have sat unfixed and for how long, and emails each developer *their own* findings. Developers can then triage and fix them with Checkmarx One AI straight from that email, with every credit accounted for.
 
 Self-hosted, one container, nothing to install for developers.
 
@@ -14,6 +14,7 @@ Self-hosted, one container, nothing to install for developers.
 | **Credits under control** | A credit pool, and per-project allocations. Every action re-checks Checkmarx One twice first and stops if anyone changed the findings meanwhile. Never two requests for one vulnerability, and unused credits are taken back. |
 | **Hands-off follow-up** | Age-threshold automation that never nags twice, and tracked reports that measure progress and send follow-ups. |
 | **Accountable** | A hash-chained audit log of every credit and change, role-based access, one-file backups, and a privacy-safe troubleshooting log. |
+| **Easy to work in** | Pages grouped as Detect, Eliminate and Govern, in tabs instead of long scrolls; every page keeps your work when you switch; Jump to (Ctrl K); a layout that fits phone, tablet, laptop and wide screens. |
 | **Scales** | 3000 people at once on 2 vCPU / 4 GB, 6 failed of 64,320 requests; a report opens in 53 ms (p50) ([benchmark](docs/performance.md)). |
 
 ## Architecture
@@ -27,7 +28,7 @@ Self-hosted, one container, nothing to install for developers.
 4. **AI runs.** CxMissionZero calls Checkmarx One AI Triage or AI Remediation. However many people click at once, one vulnerability is sent only once.
 5. **Fix lands.** AI Remediation opens a pull request on the developer's repository.
 
-Every credit and change is recorded in the audit log. The Dashboard, tracked reports and the Credits page show progress toward zero.
+Every credit and change is recorded in the audit log. The Dashboard, tracked reports and Credit Control show progress toward zero.
 
 More detail: [How it works](docs/how-it-works.md).
 
@@ -220,6 +221,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
   - It is independent of Checkmarx, and comes as is, with no warranty, support or fixes.
   - Neither the author nor Checkmarx is liable for its use or for credit discrepancies.
   - Credit figures, the audit log and reports are supporting information only, not for claims or disputes with Checkmarx.
+- **Read them in the app:** Settings → About & terms of use.
 - **Who accepts, and when.**
   - **In the app:** after the first sign-in, an Admin accepts the terms for the organisation before anything can be used, including emailed reports and automation. Each person then accepts them once. Changed terms are asked for again, and every acceptance is in the audit log.
   - **Automated setups:** `ACCEPT_TERMS=<your email>` accepts them for the organisation and everyone, on record under that name.

@@ -2044,7 +2044,8 @@ body.sheet-open { overflow: hidden; }
 /* Version: in the sidebar, under the tagline (opens Settings → About). */
 .sidebar .app-version { position: static; align-self: flex-start; margin: 0 8px; padding: 2px 8px; border-radius: 6px; background: var(--surface-3); color: var(--text); text-decoration: none; font-size: 11.5px; }
 .sidebar .app-version:hover { background: var(--accent-soft); color: var(--accent); }
-.sidebar-foot { margin: 0 8px; }
+.sidebar-foot { margin: auto 8px 0; }
+.sidebar-tools:not([hidden]) ~ .sidebar-foot { margin-top: 0; }
 @media (max-width: 1100px) { .sidebar .app-version { margin: 0 auto; font-size: 10px; padding: 2px 4px; } }
 @media (max-width: 760px) { .sidebar .app-version { display: none; } }
 
