@@ -2,7 +2,7 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
-## MZ-01.00.26 — 2026-10-03 HH:MM UTC · [#49](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/49)
+## MZ-01.00.26 — 2026-10-03 16:47 UTC · [#49](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/49)
 - **Detect · Eliminate · Govern.** The sidebar groups every page by stage: Detect (Dashboard, Beta), Eliminate (Reports, Credit Control), and Govern (Audit, IAM, Settings, Logs). Each page shows its stage, and Ctrl/Cmd+K jumps to any page or setting.
 - **Pages keep their place.** Tabs, filters, scroll position and the open Settings section survive moving between pages. ↻ reloads the current page, and "Refresh & reset" in the sidebar starts everything afresh.
 - **A calmer dashboard.** A getting-started checklist, a compact scope bar, and projects beside one action panel (Remind, People, Credits, Track) that docks on wide screens and slides in on smaller ones.
