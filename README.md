@@ -192,7 +192,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | **Server** | |
 | `HTTPS` (`on` in the image) | How it starts: `on` HTTPS only (self-signed when no certificate is given), `off` plain http (your own machine, or behind a reverse proxy), `both` side by side. **Settings → HTTPS** changes it while running. |
 | `TLS_CERT_FILE`, `TLS_KEY_FILE` (or `TLS_PFX_FILE`, `TLS_PFX_PASSPHRASE`), `TLS_SELF_SIGNED` | Serve HTTPS: your certificate, a `.pfx`, or a self-signed one ([HTTPS and hosting](docs/https-and-hosting.md)). |
-| `HTTP_REDIRECT_PORT`, `HTTPS_PUBLIC_PORT` (443), `TRUST_PROXY` | Redirect plain http to https; whose `X-Forwarded-*` headers to believe (private networks by default; nobody when serving HTTPS itself). |
+| `HTTP_REDIRECT_PORT`, `HTTPS_PUBLIC_PORT` (443), `TRUST_PROXY` | Redirect plain http to https; whose `X-Forwarded-*` headers to believe (a proxy on this machine, loopback, by default; nobody when serving HTTPS itself; name a proxy in another container or machine, e.g. `uniquelocal` or its address). |
 | `TZ` | Time zone for automation and email dates, e.g. `Asia/Dubai`. Default UTC. |
 | `NODE_OPTIONS` | e.g. `--max-old-space-size=2048` with `--memory 3g`. |
 | `NODE_EXTRA_CA_CERTS` | A company CA, when a proxy inspects TLS. |

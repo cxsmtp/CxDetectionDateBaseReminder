@@ -1432,6 +1432,17 @@ function settingsFor(req, settings) {
   const view = publicSettings(settings);
   if (!can(req, 'settings.view') && !can(req, 'integration.smtp')) view.smtp = { passwordSet: view.smtp.passwordSet };
   if (!can(req, 'beta.use')) delete view.beta;
+  else {
+    // Whether a token is in use, as the server would use it: an environment token
+    // counts only for the host its environment address names.
+    const scm = scmConfigs(settings);
+    const sources = { github: githubConfig(settings).tokenSource, gitlab: scm.gitlab.tokenSource, azure: scm.azure.tokenSource, bitbucket: scm.bitbucket.tokenSource };
+    for (const [id, source] of Object.entries(sources)) {
+      if (!view.beta[id]) continue;
+      view.beta[id].tokenSet = source !== 'none';
+      view.beta[id].tokenFromEnvironment = source === 'environment';
+    }
+  }
   return view;
 }
 
