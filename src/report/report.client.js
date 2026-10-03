@@ -1476,3 +1476,42 @@
 
   autoConnect();
 })();
+
+// Filters: severity, text and "only what AI can act on". Rows the report hides
+// itself (triaged not exploitable) stay hidden whatever the filter says.
+(() => {
+  const bar = document.getElementById('report-filters');
+  if (!bar) return;
+  const rows = [...document.querySelectorAll('#findings tbody tr[data-key]')];
+  const search = document.getElementById('report-search');
+  const actionable = document.getElementById('report-actionable');
+  const count = document.getElementById('filter-count');
+  let severity = '';
+  const text = new Map(rows.map((tr) => [tr, tr.querySelector('.finding')?.textContent.toLowerCase() ?? '']));
+  function apply() {
+    const words = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const tr of rows) {
+      const match =
+        (!severity || tr.dataset.sev === severity) &&
+        words.every((w) => text.get(tr).includes(w)) &&
+        (!actionable.checked || Boolean(tr.querySelector('[data-action="triage"]:not(:disabled), [data-action="remediate"]:not(:disabled)')));
+      tr.classList.toggle('filtered-out', !match);
+      if (match && !tr.hidden) shown += 1;
+    }
+    const filtering = severity || words.length || actionable.checked;
+    count.textContent = filtering ? `${shown} of ${rows.filter((tr) => !tr.hidden).length} shown` : '';
+  }
+  bar.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-filter-sev]');
+    if (!button) return;
+    severity = button.dataset.filterSev;
+    for (const b of bar.querySelectorAll('[data-filter-sev]')) {
+      b.classList.toggle('on', b === button);
+      b.setAttribute('aria-pressed', String(b === button));
+    }
+    apply();
+  });
+  search.addEventListener('input', apply);
+  actionable.addEventListener('change', apply);
+})();
