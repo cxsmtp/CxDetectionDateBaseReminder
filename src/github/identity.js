@@ -38,9 +38,12 @@ export const METHOD_LABELS = {
   localGit: 'Local git history',
 };
 
-/** The GitHub login in a noreply address, or ''. */
+/** The username in a noreply address, or '': GitHub's ID+login@users.noreply…, GitLab's ID-username@users.noreply…. */
 export function loginFromNoreply(email) {
-  const match = NOREPLY_RE.exec(String(email || '').trim());
+  const value = String(email || '').trim();
+  const gitlab = /^\d+-([\w.-]+)@users\.noreply\.(?!github\.com$)[\w.-]+$/i.exec(value);
+  if (gitlab) return gitlab[1];
+  const match = NOREPLY_RE.exec(value);
   return match ? match[2] : '';
 }
 
@@ -331,11 +334,11 @@ const clones = new Map();
  * A local clone for a repository URL, created or refreshed — at most once
  * every 10 minutes, and once for concurrent callers.
  */
-export function ensureClone(url, { cacheDir, token = '', blobs = false } = {}) {
+export function ensureClone(url, { cacheDir, token = '', authHeader = '', blobs = false } = {}) {
   const key = `${cacheDir}|${url}|${blobs}`;
   const known = clones.get(key);
   if (known && Date.now() - known.at < CLONE_FRESH_MS) return known.promise;
-  const promise = cloneOrFetch(url, { cacheDir, token, blobs });
+  const promise = cloneOrFetch(url, { cacheDir, authHeader: authHeader || (token ? githubAuth(token) : ''), blobs });
   clones.set(key, { at: Date.now(), promise });
   promise.catch(() => clones.delete(key));
   return promise;
@@ -361,26 +364,29 @@ export function tokenFor(url, gh) {
   }
 }
 
-async function cloneOrFetch(url, { cacheDir, token = '', blobs = false } = {}) {
+/** GitHub's form of a token for git over https. */
+const githubAuth = (token) => `Basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`;
+
+async function cloneOrFetch(url, { cacheDir, authHeader = '', blobs = false } = {}) {
   try {
-    return await cloneOnce(url, { cacheDir, token, blobs });
+    return await cloneOnce(url, { cacheDir, authHeader, blobs });
   } catch (error) {
-    // A token the host does not accept: public repositories still clone without it.
-    if (!token) throw error;
-    return cloneOnce(url, { cacheDir, token: '', blobs });
+    // Credentials the host does not accept: public repositories still clone without them.
+    if (!authHeader) throw error;
+    return cloneOnce(url, { cacheDir, authHeader: '', blobs });
   }
 }
 
-async function cloneOnce(url, { cacheDir, token = '', blobs = false } = {}) {
+async function cloneOnce(url, { cacheDir, authHeader = '', blobs = false } = {}) {
   if (!/^https:\/\/[\w.-]+(:\d+)?\/[\w.\-/]+$/.test(url)) throw new Error(`Not an https repository address: ${url}`);
   const dir = path.join(cacheDir, `${createHash('sha256').update(url).digest('hex').slice(0, 16)}${blobs ? '-full' : ''}`);
-  // The token goes in an environment-only header: never in arguments, never on disk.
+  // Credentials go in an environment-only header: never in arguments, never on disk.
   const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
-  if (token) {
+  if (authHeader) {
     Object.assign(env, {
       GIT_CONFIG_COUNT: '1',
       GIT_CONFIG_KEY_0: 'http.extraHeader',
-      GIT_CONFIG_VALUE_0: `Authorization: Basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`,
+      GIT_CONFIG_VALUE_0: `Authorization: ${authHeader}`,
     });
   }
   const opts = { env, timeout: 10 * 60_000, maxBuffer: 64 * 1024 * 1024 };
@@ -399,12 +405,14 @@ async function cloneOnce(url, { cacheDir, token = '', blobs = false } = {}) {
  * Local git history for `sources`: paths to existing clones, or https URLs
  * (cloned into `cacheDir` without file contents).
  */
-export async function byLocalGit(logins, sources, { cacheDir, token = '', gh = null, since = '' } = {}) {
+export async function byLocalGit(logins, sources, { cacheDir, token = '', gh = null, since = '', authFor = null } = {}) {
   const errors = [];
   const commits = [];
   for (const source of sources) {
     try {
-      const repo = /^https:\/\//.test(source) ? (await ensureClone(source, { cacheDir, token: gh ? tokenFor(source, gh) : token })).dir : source;
+      // Each host's own credentials (authFor), the GitHub token for GitHub, or none.
+      const auth = authFor?.(source) || '';
+      const repo = /^https:\/\//.test(source) ? (await ensureClone(source, { cacheDir, authHeader: auth, token: auth ? '' : gh ? tokenFor(source, gh) : token })).dir : source;
       const args = ['-C', repo, 'log', '--all', '--format=%an%x1f%ae%x1f%at'];
       if (since) args.push(`--since=${since}`);
       const { stdout } = await run('git', args, { maxBuffer: 256 * 1024 * 1024, timeout: 5 * 60_000 });

@@ -655,9 +655,34 @@ See [audit-and-backup.md](audit-and-backup.md) for encrypted backups and moving 
 ## Beta page
 
 Early features: check what they find before relying on them. Details are in [beta-features.md](beta-features.md).
-- **Email the authors of vulnerable code.** Uses `git blame` on the vulnerable line to find who wrote it, and emails them.
-- **Match GitHub usernames to email addresses**, four ways, with a confidence for each.
-- **GitHub connection:** a token, the API URL (GitHub Enterprise too), the organisation and repositories. The token can also come from the .env file (`GITHUB_TOKEN`, `GITHUB_API_URL`, `GITHUB_ORG`), uploaded on Settings or used at start-up. The **GitHub** indicator, top right, turns green when it works.
+- **Email the authors of vulnerable code.** Finds who last changed the vulnerable line, and emails them.
+  - **Where the code is:** GitHub, GitLab, Azure DevOps or Bitbucket.
+  - **Through the host's API** where it has one: GitHub, GitLab and Bitbucket Data Center, one request per file.
+  - **Otherwise `git blame`** on a clone, made with that host's own token: Azure DevOps, Bitbucket Cloud, or any host.
+  - **The Commit column** shows which host and way it used.
+- **Match usernames to email addresses.**
+  - **Pick the host:** GitHub, GitLab, Azure DevOps or Bitbucket.
+  - **Load scan initiators:** offers the usernames from projects on that host.
+  - **Compare methods:** runs that host's methods side by side, with coverage, requests, time and a recommendation.
+  - **Use selected matches:** saves the ones you tick as initiator overrides.
+
+  | Host | Methods, cheapest first |
+  | --- | --- |
+  | GitHub | Local git history, GraphQL batch, commit author, public profile |
+  | GitLab | Local git history (also GitLab's noreply addresses), GraphQL batch (100 a request), user profile, commits by their name |
+  | Azure DevOps | Local git history, organisation directory (everyone in a few requests), identity search, commit author |
+  | Bitbucket Cloud | Local git history, commit authors (each user tied to the address on their commits), workspace members joined to local history |
+  | Bitbucket Data Center | Local git history, commit authors, user directory (1000 a request), user search |
+- **GitHub connection:**
+  - A token, the API URL (GitHub Enterprise too), the organisation and repositories.
+  - The token can also come from the .env file (`GITHUB_TOKEN`, `GITHUB_API_URL`, `GITHUB_ORG`), uploaded on Settings or used at start-up.
+  - The **GitHub** indicator, top right, turns green when it works.
+- **GitLab, Azure DevOps and Bitbucket:** one box each, with a token, the address (self-hosted too), and the projects or repositories to read. **Test** says whether the token is accepted.
+  - **Tokens:** stored like the SMTP password, never shown again, and only ever sent to their own host. An Azure DevOps token goes only to its own organisation.
+  - **Or from the .env file:**
+    - `GITLAB_TOKEN`, `GITLAB_URL`, `GITLAB_GROUP`;
+    - `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_ORG_URL`;
+    - `BITBUCKET_TOKEN`, `BITBUCKET_USERNAME`, `BITBUCKET_WORKSPACE`, `BITBUCKET_URL`.
 
 ---
 

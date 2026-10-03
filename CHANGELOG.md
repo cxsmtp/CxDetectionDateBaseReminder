@@ -2,6 +2,13 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
+## MZ-01.00.24 — 2026-10-03 11:18 UTC · [#47](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/47)
+- **GitLab, Azure DevOps and Bitbucket in the Beta features.** Finding who wrote vulnerable code, and matching usernames to email addresses, now work for repositories on these hosts too (cloud or self-hosted), next to GitHub.
+- **Blame through each host's API.** GitLab and Bitbucket Data Center are asked directly, one request per file; Azure DevOps and Bitbucket Cloud (no blame API) use git blame on a clone made with that host's own token, so private repositories work.
+- **Every way each host offers to find an address.** GitLab: GraphQL batches of 100, profiles, commits by name, its noreply addresses. Azure DevOps: the whole organisation directory in a few requests, identity search, commits. Bitbucket: commit authors (Cloud never shows emails otherwise), workspace members joined to local history, the Data Center user directory.
+- **Compared side by side.** Pick the host on the Beta page and compare its methods on your own usernames, with coverage, requests and a recommendation; code authors are resolved cheapest method first.
+- **Tokens stay with their host.** Each is stored like the SMTP password, never sent back, and only ever sent to its own host (an Azure DevOps token only to its organisation); also settable from the .env file.
+
 ## MZ-01.00.23 — 2026-10-03 11:03 UTC · [#46](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/46)
 - **Licence.** CxMissionZero is now licensed under the PolyForm Internal Use License 1.0.0: any organisation, every Checkmarx One customer included, may run and adapt it for its own internal business, but not sell, distribute or host it for others.
 - **Terms of use and disclaimer (TERMS.md).** An independent project, not a Checkmarx product; as is, with no warranty, support or fixes; neither the author nor Checkmarx is responsible for its use or for credit discrepancies; its figures and audit reports are supporting information only, not for claims or disputes with Checkmarx.

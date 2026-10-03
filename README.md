@@ -185,6 +185,9 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | **GitHub (Beta)** | |
 | `GITHUB_TOKEN` ⬆ | A GitHub token for the Beta features (code authors, username matching). |
 | `GITHUB_API_URL`, `GITHUB_ORG` ⬆ | GitHub Enterprise API (e.g. `https://github.company.com/api/v3`), and your organisation. |
+| `GITLAB_TOKEN`, `GITLAB_URL`, `GITLAB_GROUP` ⬆ | GitLab (gitlab.com or self-managed) for the Beta features. |
+| `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_ORG_URL` ⬆ | Azure DevOps (e.g. `https://dev.azure.com/acme`) for the Beta features. |
+| `BITBUCKET_TOKEN`, `BITBUCKET_USERNAME`, `BITBUCKET_WORKSPACE`, `BITBUCKET_URL` ⬆ | Bitbucket Cloud (app password with username, or an access token), or Data Center (its address and an HTTP access token), for the Beta features. |
 | **Server** | |
 | `HTTPS` (`on` in the image) | How it starts: `on` HTTPS only (self-signed when no certificate is given), `off` plain http (your own machine, or behind a reverse proxy), `both` side by side. **Settings → HTTPS** changes it while running. |
 | `TLS_CERT_FILE`, `TLS_KEY_FILE` (or `TLS_PFX_FILE`, `TLS_PFX_PASSPHRASE`), `TLS_SELF_SIGNED` | Serve HTTPS: your certificate, a `.pfx`, or a self-signed one ([HTTPS and hosting](docs/https-and-hosting.md)). |
@@ -208,7 +211,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | [Containers](docs/container.md) | Docker / Podman / Compose options, proxies. |
 | [Performance and sizing](docs/performance.md) | The 3000-user benchmark and the recommended server size. |
 | [Audit log and backups](docs/audit-and-backup.md) | The tamper-evident audit log, backups, restore, moving servers. |
-| [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code; GitHub username matching. |
+| [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code, and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket. |
 
 ## Licence, terms of use and contributing
 

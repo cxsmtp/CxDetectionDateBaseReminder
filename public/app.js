@@ -4353,7 +4353,7 @@ $('brand-logo-file').addEventListener('change', () => {
 // Beta: code authors and GitHub identities
 // ---------------------------------------------------------------------------
 
-const METHOD_NAMES = {
+const METHOD_NAMES_GITHUB = {
   localGit: 'Local git history',
   graphql: 'GraphQL batch',
   commits: 'Commit author',
@@ -4371,6 +4371,28 @@ function renderBeta() {
   $('gh-local').value = (github.localRepos ?? []).join('\n');
   $('gh-blame-github').checked = authors.useGithubBlame !== false;
   $('gh-blame-local').checked = authors.useLocalBlame !== false;
+  const beta = state.settings?.beta ?? {};
+  const gl = beta.gitlab ?? {};
+  const az = beta.azure ?? {};
+  const bb = beta.bitbucket ?? {};
+  $('gl-url').value = gl.apiUrl ?? '';
+  $('gl-group').value = gl.group ?? '';
+  $('gl-projects').value = (gl.projects ?? []).join('\n');
+  $('az-org').value = az.orgUrl ?? '';
+  $('az-repos').value = (az.repos ?? []).join('\n');
+  $('bb-kind').value = bb.kind || (bb.apiUrl && !/bitbucket\.org/.test(bb.apiUrl) ? 'server' : 'cloud');
+  $('bb-url').value = $('bb-kind').value === 'server' ? bb.apiUrl ?? '' : '';
+  $('bb-url').disabled = $('bb-kind').value !== 'server';
+  $('bb-user').value = bb.username ?? '';
+  $('bb-workspace').value = bb.workspace ?? '';
+  $('bb-repos').value = (bb.repos ?? []).join('\n');
+  for (const [id, host] of Object.entries({ gitlab: gl, azure: az, bitbucket: bb })) {
+    document.querySelector(`[data-token-state="${id}"]`).textContent = host.tokenSet ? (host.tokenFromEnvironment ? '(from the .env)' : '(stored)') : '(not set)';
+    const chip = document.querySelector(`[data-host-state="${id}"]`);
+    chip.textContent = host.tokenSet ? 'token set' : 'not set up';
+    chip.className = `chip ${host.tokenSet ? 'ok' : ''}`;
+  }
+  renderIdentityMethods();
   const scope = allocationScope();
   $('authors-scope').textContent = state.projects.length
     ? `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'} on the Dashboard`
@@ -4406,9 +4428,64 @@ $('gh-clear-token').addEventListener('click', () => {
   if (confirm('Remove the stored GitHub token?')) saveGithubSettings({ token: null });
 });
 
+// ---- Usernames → addresses, per source-code host -------------------------------
+
+const HOST_METHODS = {
+  github: [
+    ['localGit', 'Local git history', 'Noreply commits and author names in repositories you name. No API calls.'],
+    ['graphql', 'GraphQL batch', "50 users per request; includes your organisation's verified-domain emails. Needs a token."],
+    ['commits', 'Commit author', 'Email on their own commits: in the repositories listed below, or by commit search (30 a minute).'],
+    ['profile', 'Public profile', 'The email on their GitHub profile, if public. One request each.'],
+  ],
+  gitlab: [
+    ['localGit', 'Local git history', 'GitLab noreply commits (ID-username@users.noreply…) and author names in repositories you name. No API calls.'],
+    ['graphql', 'GraphQL batch', '100 users per request: public email and commit email. Needs a token.'],
+    ['users', 'User profile', 'The email on their GitLab profile (every email with an admin token). One request each.'],
+    ['commits', 'Commits by their name', 'Their name from the profile, then the address on their commits in the projects you name.'],
+  ],
+  azure: [
+    ['localGit', 'Local git history', 'Author names and addresses in repositories you name. No API calls.'],
+    ['graph', 'Organisation directory', 'Everyone in the organisation in a few requests: sign-in name, mail and display name (Azure DevOps Services).'],
+    ['identities', 'Identity search', 'One request per user; also on Azure DevOps Server.'],
+    ['commits', 'Commit author', 'Commits by that author in the repositories you name.'],
+  ],
+  bitbucketCloud: [
+    ['localGit', 'Local git history', 'Author names and addresses in repositories you name. No API calls.'],
+    ['commits', 'Commit authors', 'Recent commits of the repositories you name: each ties the Bitbucket user to the address in its author line. Many people per request.'],
+    ['members', 'Workspace members + local history', 'Members give each username a display name; local history gives that name an address.'],
+  ],
+  bitbucketServer: [
+    ['localGit', 'Local git history', 'Author names and addresses in repositories you name. No API calls.'],
+    ['commits', 'Commit authors', 'Recent commits of the repositories you name, with each author\'s Bitbucket user and address.'],
+    ['directory', 'User directory', 'Up to 1000 people per request, with their email.'],
+    ['users', 'User search', 'One request per user.'],
+  ],
+};
+const HOST_NAMES = { github: 'GitHub', gitlab: 'GitLab', azure: 'Azure DevOps', bitbucket: 'Bitbucket' };
+let identityHost = 'github';
+const hostMethods = () => (identityHost === 'bitbucket' ? (($('bb-kind').value || 'cloud') === 'server' ? HOST_METHODS.bitbucketServer : HOST_METHODS.bitbucketCloud) : HOST_METHODS[identityHost]);
+
+function renderIdentityMethods() {
+  $('id-methods').innerHTML = hostMethods()
+    .map(([id, title, detail]) => `<label class="method-card"><input type="checkbox" class="gh-method" value="${id}" checked />
+      <span><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></span></label>`)
+    .join('');
+  $('id-logins-label').textContent = `${HOST_NAMES[identityHost]} usernames`;
+}
+
+for (const radio of document.querySelectorAll('input[name="idHost"]')) {
+  radio.addEventListener('change', () => {
+    identityHost = radio.value;
+    identityReport = null;
+    $('gh-results').hidden = true;
+    setStatus('gh-status', '');
+    renderIdentityMethods();
+  });
+}
+
 $('gh-load-logins').addEventListener('click', async () => {
   try {
-    const { logins } = await api('/api/beta/github/logins');
+    const { logins } = await api(`/api/beta/scm/logins?provider=${identityHost}`);
     if (!logins.length) return setStatus('gh-status', 'No usernames among the scan initiators — fetch projects on the Dashboard, or type them in.', 'error');
     // Unresolved ones first: those are the ones worth matching.
     logins.sort((a, b) => Number(b.unresolved) - Number(a.unresolved));
@@ -4428,9 +4505,9 @@ $('gh-evaluate').addEventListener('click', async () => {
   button.disabled = true;
   setStatus('gh-status', 'Comparing methods… (local clones can take a minute the first time)');
   try {
-    identityReport = await api('/api/beta/github/evaluate', {
+    identityReport = await api(identityHost === 'github' ? '/api/beta/github/evaluate' : '/api/beta/scm/evaluate', {
       method: 'POST',
-      body: JSON.stringify({ logins: lines($('gh-logins').value), methods }),
+      body: JSON.stringify({ provider: identityHost, logins: lines($('gh-logins').value), methods }),
     });
     renderIdentityReport(identityReport);
     setStatus('gh-status', `Matched ${identityReport.resolved} of ${identityReport.logins.length} username(s).`, 'ok');
@@ -4442,6 +4519,7 @@ $('gh-evaluate').addEventListener('click', async () => {
 });
 
 function renderIdentityReport(report) {
+  const METHOD_NAMES = { ...METHOD_NAMES_GITHUB, ...(report.labels ?? {}), address: 'Already an address' };
   $('gh-results').hidden = false;
   $('gh-recommendation').innerHTML = `<strong>Recommendation</strong><ul>${report.recommendation.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`;
   $('gh-methods').innerHTML = Object.entries(report.methods)
@@ -4487,7 +4565,7 @@ $('gh-apply').addEventListener('click', async () => {
   }));
   if (!mappings.length) return setStatus('gh-apply-status', 'Tick the matches to use.', 'error');
   try {
-    const result = await api('/api/beta/github/apply', { method: 'POST', body: JSON.stringify({ mappings }) });
+    const result = await api('/api/beta/scm/apply', { method: 'POST', body: JSON.stringify({ provider: identityHost, mappings }) });
     setStatus('gh-apply-status', `${result.applied} saved. Fetch again on the Dashboard to use them.`, 'ok');
   } catch (error) {
     if (!handleAuthLoss(error)) showError('gh-apply-status', error);
@@ -4532,7 +4610,7 @@ function renderAuthors() {
       const sev = String(i.severity || '').toLowerCase();
       const where = i.location ? `${i.location.path}:${i.location.line}` : '';
       const author = i.author
-        ? `<div class="person-main">${avatar(i.author.name || i.author.login || i.author.email)}<span class="person-text"><span class="person-name">${escapeHtml(i.author.name || i.author.login)}</span><span class="person-mail">${escapeHtml(i.author.email || 'no address')}${i.author.emailVia && i.author.emailVia !== 'commit' ? ` · via ${escapeHtml(METHOD_NAMES[i.author.emailVia] || i.author.emailVia)}` : ''}</span></span></div>`
+        ? `<div class="person-main">${avatar(i.author.name || i.author.login || i.author.email)}<span class="person-text"><span class="person-name">${escapeHtml(i.author.name || i.author.login)}</span><span class="person-mail">${escapeHtml(i.author.email || 'no address')}${i.author.emailVia && i.author.emailVia !== 'commit' ? ` · via ${escapeHtml(METHOD_NAMES_GITHUB[i.author.emailVia] || i.author.emailVia)}` : ''}</span></span></div>`
         : '';
       return `<tr class="${i.author?.email ? '' : 'dim-row'}">
         <td class="checkbox"><input type="checkbox" data-author-key="${escapeHtml(i.key)}" ${i.author?.email ? 'checked' : 'disabled'} /></td>
@@ -4540,7 +4618,7 @@ function renderAuthors() {
           <div class="hint">${escapeHtml(i.projectName)} · ${escapeHtml(i.scanner)}${i.ageDays != null ? ` · ${i.ageDays}d` : ''}</div></td>
         <td class="mono where">${escapeHtml(where)}${i.problem ? `<div class="hint error-hint">${escapeHtml(i.problem)}</div>` : ''}</td>
         <td>${author}</td>
-        <td class="mono">${i.commit ? `${i.commitUrl ? `<a href="${escapeHtml(i.commitUrl)}" target="_blank" rel="noopener">${escapeHtml(i.commit.slice(0, 8))}</a>` : escapeHtml(i.commit.slice(0, 8))}<div class="hint">${escapeHtml((i.committedAt || '').slice(0, 10))} · ${escapeHtml(i.via || '')}</div>` : ''}</td>
+        <td class="mono">${i.commit ? `${i.commitUrl ? `<a href="${escapeHtml(i.commitUrl)}" target="_blank" rel="noopener">${escapeHtml(i.commit.slice(0, 8))}</a>` : escapeHtml(i.commit.slice(0, 8))}<div class="hint">${escapeHtml((i.committedAt || '').slice(0, 10))} · ${escapeHtml([i.host, i.via].filter(Boolean).join(' · '))}</div>` : ''}</td>
       </tr>`;
     })
     .join('');
@@ -6031,4 +6109,65 @@ document.addEventListener('click', (event) => {
 });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !$('terms-overlay').hidden && !$('terms-close').hidden) $('terms-close').click();
+});
+
+// ---- GitLab, Azure DevOps and Bitbucket connections --------------------------
+
+function hostSettings(id) {
+  if (id === 'gitlab') return { apiUrl: $('gl-url').value.trim(), group: $('gl-group').value.trim(), projects: lines($('gl-projects').value), token: $('gl-token').value.trim() };
+  if (id === 'azure') return { orgUrl: $('az-org').value.trim(), repos: lines($('az-repos').value), token: $('az-token').value.trim() };
+  const kind = $('bb-kind').value;
+  return { kind, apiUrl: kind === 'server' ? $('bb-url').value.trim() : '', username: $('bb-user').value.trim(), workspace: $('bb-workspace').value.trim(), repos: lines($('bb-repos').value), token: $('bb-token').value.trim() };
+}
+const TOKEN_FIELDS = { gitlab: 'gl-token', azure: 'az-token', bitbucket: 'bb-token' };
+
+async function saveHost(id, extra = {}) {
+  const status = document.querySelector(`[data-host-status="${id}"]`);
+  const settings = { ...hostSettings(id), ...extra };
+  if (!settings.token && extra.token !== null) delete settings.token;
+  status.textContent = 'Saving…';
+  status.className = 'status';
+  try {
+    state.settings = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ beta: { [id]: settings } }) });
+    $(TOKEN_FIELDS[id]).value = '';
+    renderBeta();
+    status.textContent = 'Saved.';
+    status.className = 'status ok';
+    return true;
+  } catch (error) {
+    if (!handleAuthLoss(error)) {
+      status.textContent = error.message;
+      status.className = 'status error';
+    }
+    return false;
+  }
+}
+
+document.addEventListener('click', async (event) => {
+  const save = event.target.closest?.('[data-host-save]');
+  const test = event.target.closest?.('[data-host-test]');
+  const clear = event.target.closest?.('[data-host-clear]');
+  if (save) saveHost(save.dataset.hostSave);
+  if (clear && confirm(`Remove the stored ${HOST_NAMES[clear.dataset.hostClear]} token?`)) saveHost(clear.dataset.hostClear, { token: null });
+  if (test) {
+    const id = test.dataset.hostTest;
+    const status = document.querySelector(`[data-host-status="${id}"]`);
+    if ($(TOKEN_FIELDS[id]).value.trim() && !(await saveHost(id))) return;
+    status.textContent = 'Testing…';
+    status.className = 'status';
+    try {
+      const result = (await api('/api/beta/scm/check', { method: 'POST', body: JSON.stringify({ provider: id }) }))[id];
+      status.textContent = result?.ok ? `Connected${result.who ? ` as ${result.who}` : ''}.` : result?.reason ?? 'Not connected.';
+      status.className = `status ${result?.ok ? 'ok' : 'error'}`;
+    } catch (error) {
+      if (!handleAuthLoss(error)) {
+        status.textContent = error.message;
+        status.className = 'status error';
+      }
+    }
+  }
+});
+$('bb-kind').addEventListener('change', () => {
+  $('bb-url').disabled = $('bb-kind').value !== 'server';
+  if (identityHost === 'bitbucket') renderIdentityMethods();
 });
