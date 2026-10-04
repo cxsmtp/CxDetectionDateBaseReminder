@@ -2,6 +2,14 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
+## MZ-01.00.29 — 2026-10-04 05:52 UTC · [#52](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/52)
+- **Your tools, chosen once.** At the top of every report, the developer picks where code opens (VS Code, Cursor, Kiro, Windsurf, Antigravity, a JetBrains IDE or the browser) and what fixes it (Claude Code, OpenAI Codex, Gemini CLI, GitHub Copilot, Cursor, Kiro, Windsurf, Antigravity, Apply in my workspace, git apply, or any other assistant). It is remembered in that browser, for every report.
+- **One click per finding.** Each finding shows **Open in …** and **Fix with …** for those choices. **▾** picks another way for that one finding only.
+- **AI assistants, directly.**
+  - **Command line assistants** get a ready one-line command for the repository folder. Once AI Remediation has written the fix, the command also downloads it, so the assistant applies it where the code now lives.
+  - **IDE assistants** open at the file, with the prompt copied for their chat.
+- **Nothing can run from a finding's text.** The finding text in a command is reduced to plain letters and punctuation, which a test checks against a real shell.
+
 ## MZ-01.00.28 — 2026-10-04 05:47 UTC · [#51](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/51)
 - **Prove the fixes with a rescan.** A tracked report's new **Verify** tab shows when everything in its scope has been dealt with (triaged not exploitable, or confirmed and sent for remediation). **Rescan now** then has Checkmarx One scan each project again, with the same repository, branch and engines.
 - **Or automatically.** With one tick, the rescan starts by itself the moment the scope is closed, once per round.

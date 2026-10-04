@@ -1477,10 +1477,13 @@
   // pick the folder and see the changes; or applied with git from a command.
   // ---------------------------------------------------------------------------
 
+  // VS Code and the editors built on it open vscode://-style links under their own name.
   const IDES = [
     { name: 'VS Code', scheme: 'vscode' },
     { name: 'Cursor', scheme: 'cursor' },
     { name: 'Kiro', scheme: 'kiro' },
+    { name: 'Windsurf', scheme: 'windsurf' },
+    { name: 'Antigravity', scheme: 'antigravity' },
   ];
   const JETBRAINS = {
     idea: 'IntelliJ IDEA',
@@ -1672,6 +1675,23 @@
 
   function fillIdeMenu(f, list) {
     list.replaceChildren();
+    if (f.loc?.path) fillOpenOptions(f, list);
+    const sub = document.createElement('p');
+    sub.className = 'ide-sub';
+    sub.textContent = 'Fix this finding with';
+    list.append(sub);
+    for (const fixer of FIXERS) {
+      const b = textLink(fixer.name, (event) => fixFinding(f, fixer.id, event.currentTarget));
+      b.className = 'link-button ide-fix';
+      list.append(b);
+    }
+  }
+
+  function fillOpenOptions(f, list) {
+    const sub = document.createElement('p');
+    sub.className = 'ide-sub';
+    sub.textContent = 'Open this finding in';
+    list.append(sub);
     const where = document.createElement('p');
     where.className = 'ide-where';
     where.textContent = `${f.loc.path}${f.loc.line ? `, line ${f.loc.line}` : ''}`;
@@ -1679,11 +1699,7 @@
     for (const ide of IDES) {
       list.append(
         smallButton(ide.name, () => {
-          const folder = folderFor(f) || (askCodeRoot(f) && folderFor(f));
-          if (folder) {
-            openInIde(fileLink(ide.scheme, folder, f.loc));
-            saveWorkspacePrefs({ ...workspacePrefs(), ide: ide.scheme });
-          }
+          openFinding(f, ide.scheme);
           fillIdeMenu(f, list);
         }),
       );
@@ -1697,11 +1713,8 @@
     const jetbrains = document.createElement('div');
     jetbrains.className = 'ide-jb';
     jetbrains.append(
-      smallButton('JetBrains', () => {
-        // JetBrains finds the file by the name of the project it has open: no folder needed.
-        const project = (workspacePrefs().folders?.[folderKey(f)] || '').split(/[\\/]/).pop() || repoName(f);
-        openInIde(jetbrainsLink(select.value, project, f.loc));
-      }),
+      // JetBrains finds the file by the name of the project it has open: no folder needed.
+      smallButton('JetBrains', () => openFinding(f, 'jetbrains')),
       select,
     );
     list.append(jetbrains);
@@ -1728,22 +1741,15 @@
       const web = webLink(f);
       if (web) list.append(link(web.label, web.url));
     }
-
-    const ai = smallButton('Copy prompt for your AI assistant', async () => {
-      const copied = await copyText(aiPrompt(f));
-      ai.textContent = copied ? 'Copied: paste it into Claude Code, Copilot, Cursor or Kiro' : 'Could not copy: your browser blocked it';
-      setTimeout(() => (ai.textContent = 'Copy prompt for your AI assistant'), 4000);
-    });
-    ai.title = 'The finding, its file and line, and the fix when there is one: your IDE\'s AI assistant finds the file and makes the change.';
-    list.append(ai);
   }
 
   function ideMenu(f) {
     const menu = document.createElement('details');
     menu.className = 'ide-menu';
     const summary = document.createElement('summary');
-    summary.textContent = 'Open in IDE';
-    summary.title = `${f.loc.path}${f.loc.line ? `:${f.loc.line}` : ''}`;
+    summary.textContent = '▾';
+    summary.title = 'Other ways to open or fix this finding';
+    summary.setAttribute('aria-label', summary.title);
     const list = document.createElement('div');
     list.className = 'ide-list';
     menu.append(summary, list);
@@ -1753,10 +1759,156 @@
     return menu;
   }
 
+  // ---- Your tools: chosen once at the top, one click on every finding ----
+
+  /** AI assistants: a command line agent gets a one-line command, an IDE's assistant the file plus a prompt. */
+  const FIXERS = [
+    { id: 'claude', name: 'Claude Code', cli: 'claude' },
+    { id: 'codex', name: 'OpenAI Codex', cli: 'codex' },
+    { id: 'gemini', name: 'Gemini CLI', cli: 'gemini -i' },
+    { id: 'copilot', name: 'GitHub Copilot', ide: 'vscode' },
+    { id: 'cursor', name: 'Cursor', ide: 'cursor' },
+    { id: 'kiro', name: 'Kiro', ide: 'kiro' },
+    { id: 'windsurf', name: 'Windsurf', ide: 'windsurf' },
+    { id: 'antigravity', name: 'Antigravity', ide: 'antigravity' },
+    { id: 'workspace', name: 'Apply in my workspace', needsFix: true },
+    { id: 'git', name: 'git apply', needsFix: true },
+    { id: 'prompt', name: 'Another AI assistant (copy prompt)' },
+  ];
+  const OPENERS = [...IDES.map((ide) => ({ id: ide.scheme, name: ide.name })), { id: 'jetbrains', name: 'JetBrains IDE' }, { id: 'web', name: 'The browser (github.dev, GitLab…)' }];
+  const defaultIde = () => (OPENERS.some((o) => o.id === workspacePrefs().ide) ? workspacePrefs().ide : 'vscode');
+  const defaultFix = () => (FIXERS.some((x) => x.id === workspacePrefs().fix) ? workspacePrefs().fix : 'claude');
+  const nameOf = (list, id) => list.find((x) => x.id === id)?.name ?? id;
+  const jetbrainsProject = (f) => (workspacePrefs().folders?.[folderKey(f)] || '').split(/[\\/]/).pop() || repoName(f);
+  const jetbrainsTool = () => (JETBRAINS[workspacePrefs().jetbrains] ? workspacePrefs().jetbrains : 'idea');
+
+  function openFinding(f, ideId = defaultIde()) {
+    if (!f.loc?.path) return;
+    if (ideId === 'jetbrains') return openInIde(jetbrainsLink(jetbrainsTool(), jetbrainsProject(f), f.loc));
+    if (ideId === 'web') {
+      const web = webLink(f);
+      if (web) window.open(web.url, '_blank', 'noopener');
+      else log('This repository has no browser editor link (only GitHub, GitLab, Bitbucket and Azure Repos do).', 'error');
+      return;
+    }
+    const ide = IDES.find((i) => i.scheme === ideId) ?? IDES[0];
+    const folder = folderFor(f) || (askCodeRoot(f) && folderFor(f));
+    if (folder) openInIde(fileLink(ide.scheme, folder, f.loc));
+  }
+
+  const shellSafe = MZPatch.shellSafe;
+
+  /** The short task a command line agent starts with. */
+  function cliPrompt(f, withPatch) {
+    const at = f.loc?.path ? `${f.loc.path}${f.loc.line ? ` line ${f.loc.line}` : ''}` : `project ${f.projectName}`;
+    const parts = [`Fix the Checkmarx One finding ${f.title} (${f.severity.toLowerCase()} severity) at ${at}.`];
+    if (withPatch) parts.push('Checkmarx One AI Remediation wrote the fix in mz-fix.patch: apply it to the current code; where the code moved since the scan, make the same change where it now lives; then delete mz-fix.patch.');
+    else if (f.advice?.fix) parts.push(`Usual fix: ${f.advice.fix}`);
+    parts.push('Explain the change in two sentences and keep my other edits. Do not commit.');
+    return shellSafe(parts.join(' '));
+  }
+
+  function showToolOutput(f, lines, command = '') {
+    const out = row(f)?.querySelector('.tool-out');
+    if (!out) return;
+    out.replaceChildren();
+    for (const text of lines) {
+      const p = document.createElement('p');
+      p.textContent = text;
+      out.append(p);
+    }
+    if (command) {
+      const code = document.createElement('code');
+      code.textContent = command;
+      out.append(code);
+    }
+  }
+
+  async function fixFinding(f, fixId = defaultFix(), button = null) {
+    const fixer = FIXERS.find((x) => x.id === fixId) ?? FIXERS[0];
+    const hasFix = Boolean(f.remediation?.changes?.length);
+    if (fixer.needsFix && !hasFix) {
+      return showToolOutput(f, [`${fixer.name} needs the fix from AI Remediation: Remediate this finding first (once it is confirmed), or choose an AI assistant.`]);
+    }
+    if (fixer.id === 'workspace') return applyInWorkspace(f).catch((error) => log(`Could not apply the fix: ${error.message}`, 'error'));
+    if (fixer.id === 'git') return requireConnection(() => copyGitCommand(f, button ?? document.createElement('button')));
+    if (fixer.cli) {
+      let prefix = '';
+      if (hasFix && backend) {
+        try {
+          const { url } = await backend.patchLink(f);
+          if (/^https?:\/\/[^\s"]+$/i.test(url)) prefix = `curl -fsSL "${url}" -o mz-fix.patch && `;
+        } catch {}
+      }
+      const command = `${prefix}${fixer.cli} "${cliPrompt(f, Boolean(prefix))}"`;
+      const copied = await copyText(command);
+      showToolOutput(
+        f,
+        [`${copied ? 'Copied. ' : ''}Run it in the repository's folder (cmd, PowerShell or a shell): ${fixer.name} starts with this finding${prefix ? ' and its fix' : ''}${f.loc?.path ? ', and finds the file itself' : ''}.`],
+        command,
+      );
+      if (!copied) getSelection()?.selectAllChildren(row(f)?.querySelector('.tool-out code'));
+      return;
+    }
+    const copied = await copyText(aiPrompt(f));
+    if (fixer.ide && f.loc?.path) openFinding(f, fixer.ide);
+    showToolOutput(f, [
+      copied
+        ? `Prompt copied: paste it into ${fixer.ide ? `${fixer.name}'s chat${fixer.ide === 'vscode' ? ' (Copilot Chat)' : ''}` : 'your AI assistant'}${fixer.ide && f.loc?.path ? ', which opens at the file' : ''}.`
+        : 'Could not copy the prompt: your browser blocked it.',
+    ]);
+  }
+
+  /** One click per finding: open it in your IDE, fix it with your assistant; ▾ for anything else. */
+  const rowButtons = [];
+  function rowTools(f) {
+    const box = document.createElement('div');
+    box.className = 'row-tools';
+    let open = null;
+    if (f.loc?.path) {
+      open = smallButton('', () => openFinding(f));
+      open.title = `${f.loc.path}${f.loc.line ? `:${f.loc.line}` : ''}`;
+      box.append(open);
+    }
+    const fix = smallButton('', (event) => fixFinding(f, defaultFix(), event.currentTarget), false);
+    box.append(fix, ideMenu(f));
+    const out = document.createElement('div');
+    out.className = 'tool-out';
+    box.append(out);
+    rowButtons.push({ open, fix });
+    return box;
+  }
+  function labelRowButtons() {
+    for (const { open, fix } of rowButtons) {
+      if (open) open.textContent = `Open in ${nameOf(OPENERS, defaultIde()).replace(/ \(.*$/, '').replace(/^The browser$/, 'the browser')}`;
+      fix.textContent = `Fix with ${nameOf(FIXERS, defaultFix()).replace(/ \(.*$/, '')}`;
+    }
+    const folder = codeRoot();
+    $('tool-folder').textContent = folder ? `Code folder: ${folder}` : '';
+  }
+
   for (const f of findings) {
-    if (!f.shown || !f.loc?.path) continue;
+    if (!f.shown) continue;
     const cell = row(f)?.querySelector('.actions-cell');
-    if (cell) cell.insertBefore(ideMenu(f), cell.querySelector('.fix-cell'));
+    if (cell) cell.insertBefore(rowTools(f), cell.querySelector('.fix-cell'));
+  }
+  if (rowButtons.length) {
+    const ideSelect = $('tool-ide');
+    const fixSelect = $('tool-fix');
+    for (const o of OPENERS) ideSelect.append(new Option(o.name, o.id));
+    for (const x of FIXERS) fixSelect.append(new Option(x.name, x.id));
+    ideSelect.value = defaultIde();
+    fixSelect.value = defaultFix();
+    ideSelect.addEventListener('change', () => {
+      saveWorkspacePrefs({ ...workspacePrefs(), ide: ideSelect.value });
+      labelRowButtons();
+    });
+    fixSelect.addEventListener('change', () => {
+      saveWorkspacePrefs({ ...workspacePrefs(), fix: fixSelect.value });
+      labelRowButtons();
+    });
+    $('my-tools').hidden = false;
+    labelRowButtons();
   }
 
   /** The remote addresses of a picked folder's git checkout: [] when unknown, null when it is not one. */
@@ -1953,12 +2105,6 @@
         ),
       );
     }
-    const ai = smallButton('Copy AI prompt', async () => {
-      const copied = await copyText(aiPrompt(f));
-      log(copied ? `Prompt for ${f.title} copied: paste it into your IDE's AI assistant.` : 'Could not copy the prompt: your browser blocked it.', copied ? 'success' : 'error');
-    });
-    ai.title = 'The fix as a prompt for Claude Code, Copilot, Cursor or Kiro: it finds the file and places the change even where the code moved.';
-    box.append(ai);
     const git = smallButton('Copy git command', () => requireConnection(() => copyGitCommand(f, git)));
     git.title = 'A one-line command that downloads this fix and applies it with git, run in the repository folder.';
     box.append(git);
