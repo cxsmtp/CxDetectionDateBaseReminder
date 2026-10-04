@@ -6,7 +6,10 @@ import express from 'express';
 import compression from 'compression';
 
 import { config, configProblems } from './config.js';
-import { APP_VERSION } from './version.js';
+import { APP_VERSION, PACKAGE_VERSION } from './version.js';
+import { DEFAULT_IMAGE } from './updates/registry.js';
+import { UpdateService } from './updates/service.js';
+import { VersionStore } from './updates/store.js';
 import { SendGuard } from './send-guard.js';
 import { Diagnostics } from './diagnostics.js';
 import { filterProjectsByActivity, getLastScans, lastScanDate, listProjects } from './cxone/projects.js';
@@ -5660,6 +5663,116 @@ if (backupConfig.intervalHours > 0) {
   }, 60_000).unref();
 }
 
+// ---------------------------------------------------------------------------
+// Settings → Update & recovery (Admin): new versions, rollback, restart, troubleshooting
+// ---------------------------------------------------------------------------
+
+const updateStore = new VersionStore({
+  dataDir,
+  builtInDir: process.env.MZ_BUILTIN_DIR || projectDir,
+  builtInVersion: process.env.MZ_BUILTIN_VERSION || PACKAGE_VERSION,
+});
+const updates = new UpdateService({
+  store: updateStore,
+  runningVersion: PACKAGE_VERSION,
+  image: process.env.UPDATE_IMAGE?.trim() || DEFAULT_IMAGE,
+  token: process.env.UPDATE_REGISTRY_TOKEN?.trim() || '',
+  supervised: process.env.MZ_SUPERVISOR === '1' && typeof process.send === 'function',
+  record: ({ outcome, reason, by, details }) =>
+    audit.record({ type: 'system', outcome, reason, actor: by && by !== 'auto-update' ? { kind: 'user', user: by } : SYSTEM_ACTOR, details }),
+  beforeSwitch: (version) => backupToFolder(SYSTEM_ACTOR, `Before switching to ${version === 'built-in' ? 'the image’s own version' : `MZ-${version}`}`),
+  switchTo: (message) => process.send?.(message),
+});
+// Auto-update (off until an Admin turns it on): looked at every 15 minutes, acts in its hour.
+setInterval(() => updates.autoUpdate().catch((error) => console.warn(`[update] auto-update: ${logSafe(error.message)}`)), 15 * 60_000).unref();
+
+const updateError = (res, error) => res.status(error.status ?? 500).json({ error: error.message });
+
+app.get('/api/system/update', requirePermission('system.update'), (req, res) => res.json(updates.status()));
+
+app.post(
+  '/api/system/update/check',
+  requirePermission('system.update'),
+  asyncRoute(async (req, res) => res.json(await updates.check())),
+);
+
+app.post('/api/system/update/install', requirePermission('system.update'), (req, res) => {
+  const ref = String(req.body?.ref ?? '').trim();
+  if (!ref) return res.status(400).json({ error: 'Choose a version.' });
+  try {
+    updates.install(ref, { by: req.user?.email ?? '' });
+    res.status(202).json(updates.status());
+  } catch (error) {
+    updateError(res, error);
+  }
+});
+
+app.post(
+  '/api/system/update/switch',
+  requirePermission('system.update'),
+  asyncRoute(async (req, res) => {
+    try {
+      await updates.switch(String(req.body?.version ?? ''), { by: req.user?.email ?? '' });
+      res.json(updates.status());
+    } catch (error) {
+      updateError(res, error);
+    }
+  }),
+);
+
+app.post('/api/system/update/restart', requirePermission('system.update'), (req, res) => {
+  try {
+    res.json(updates.restart(req.user?.email ?? ''));
+  } catch (error) {
+    updateError(res, error);
+  }
+});
+
+app.put('/api/system/update/settings', requirePermission('system.update'), (req, res) => {
+  const auto = req.body?.auto === true;
+  const hour = req.body?.windowHour;
+  const windowHour = hour === null || hour === '' || hour === undefined ? null : Number(hour);
+  if (windowHour !== null && !(Number.isInteger(windowHour) && windowHour >= 0 && windowHour <= 23)) return res.status(400).json({ error: 'The hour is 0 to 23, or any time.' });
+  updates.saveSettings({ auto, windowHour });
+  audit.record({ type: 'system', outcome: 'changed', reason: `Auto-update ${auto ? `on${windowHour === null ? '' : `, at ${String(windowHour).padStart(2, '0')}:00`}` : 'off'}.`, actor: { kind: 'user', user: req.user?.email ?? '' }, details: { auto, windowHour } });
+  res.json(updates.status());
+});
+
+/** Everything worth knowing when something is wrong, without secrets: for the Admin, or to send to whoever helps. */
+app.get('/api/system/report', requirePermission('system.update'), (req, res) => {
+  const memory = process.memoryUsage();
+  const status = updates.status();
+  let disk = null;
+  try {
+    const s = fs.statfsSync(dataDir);
+    disk = { freeMB: Math.round((s.bavail * s.bsize) / 1048576), totalMB: Math.round((s.blocks * s.bsize) / 1048576) };
+  } catch {}
+  const report = {
+    generatedAt: new Date().toISOString(),
+    version: APP_VERSION,
+    image: status.image,
+    running: status.running,
+    builtIn: status.builtIn,
+    supervised: status.supervised,
+    installed: status.installed.map(({ version, tag, installedAt }) => ({ version, tag, installedAt })),
+    events: status.events,
+    node: process.versions.node,
+    platform: `${process.platform}/${process.arch}`,
+    uptimeSeconds: Math.round(process.uptime()),
+    memoryMB: { rss: Math.round(memory.rss / 1048576), heapUsed: Math.round(memory.heapUsed / 1048576) },
+    disk,
+    https: { mode: httpsManager.mode, selfSigned: httpsManager.selfSigned },
+    checkmarxOne: { connected: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId)), pending: cxonePending() },
+    smtp: { pending: smtpPending() },
+    lastBackup,
+    relay: { ...relayStats },
+    timeZone: serverTimeZone(),
+  };
+  audit.record({ type: 'system', outcome: 'info', reason: 'Troubleshooting report downloaded.', actor: { kind: 'user', user: req.user?.email ?? '' } });
+  res.set('Content-Disposition', `attachment; filename="cxmissionzero-report-${report.generatedAt.slice(0, 10)}.json"`);
+  res.json(report);
+});
+
 app.get('/api/backup', requirePermission('backup.view'), (req, res) => {
   const files = collectStateFiles(dataDir, config.settingsFile);
   const bytes = files.reduce((sum, f) => sum + fs.statSync(f.path).size, 0);
@@ -6419,6 +6532,8 @@ const server = httpsManager.listen({ app, httpsOnly: httpsOnlyAnswer, port: conf
   await resolveAutomationSession();
   seedLastKnownGood();
   scheduler.sync();
+  // Under the launcher (src/launch.js): this version is up, so an update to it has worked.
+  if (process.env.MZ_SUPERVISOR === '1') process.send?.({ type: 'ready', version: APP_VERSION });
   // Settings changed and left unchecked before a restart (or a timeout): check them now, rolling back what fails.
   if (cxonePending() || smtpPending()) {
     checkConnections({ rollback: true, trigger: 'server start' }).catch((error) => console.warn(`! [settings] Connection check failed: ${error.message}`));

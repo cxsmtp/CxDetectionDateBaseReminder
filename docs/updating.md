@@ -2,6 +2,38 @@
 
 New versions are applied **without losing data, sign-ins or work in progress**. The service is unavailable for only the few seconds the new container takes to start, and the browsers and reports wait through that by themselves.
 
+## From the app: Settings → Update & recovery (Admins, from MZ-01.00.30)
+
+No server sign-in after deployment: everything an update needs is on this page.
+
+- **Check for updates** lists every published version: version, when it was built, and whether it is installed here or running.
+- **Update now** (or **Install and switch** on any version) does the rest:
+  1. Downloads only CxMissionZero's own files from its image (about 1.5 MB, not the 40 MB of the whole image), and checks each piece against the image's sha256 digests.
+  2. Keeps them in the data volume (`/data/app/versions/`).
+  3. Takes a backup.
+  4. Switches. The running server finishes its work and saves, exactly as for a container update; the new version starts and picks everyone up. People see "reconnecting…" for a few seconds. The page reloads itself on the new version.
+- **A version that does not start is rolled back by itself.** If it does not come up within 150 s, or stops within 2 minutes of starting, the launcher goes back to the version that ran before. It is recorded under **Recent events** and marked **Failed to start**.
+- **Go back to any version.** **Switch to** an installed one, **Install and switch** to any published one, or **Switch to** the image's own version. Going back to an older version can leave newer data it does not know. The backup taken before every switch is under Audit → Backups.
+- **Auto-update** (off until an Admin turns it on): every 15 minutes the server looks for a newer release and installs it the same way. **at** limits this to one hour of the day (server time), for example 02:00. A version that once failed to start is never installed automatically again.
+- **Restart the server**, and **Download troubleshooting report**:
+  - versions, recent events, memory, disk, HTTPS mode and connection state;
+  - the last backup and relay load;
+  - no secrets.
+- **Every action is in the audit log** (type **Updates & system**).
+
+**What it needs**
+- **The launcher.** The image's own start command runs it (`node src/launch.js`, since MZ-01.00.30). Start the container without a command after the image name. **The first update to MZ-01.00.30 is a `podman pull` (below)**; after that, updates come from the page.
+- **Outbound HTTPS** to `ghcr.io` and `pkg-containers.githubusercontent.com` (where GitHub serves image layers). Nothing else is sent: the request carries no data from the tool.
+- **A private copy** of the image: `UPDATE_IMAGE=ghcr.io/your-org/your-image` and `UPDATE_REGISTRY_TOKEN=<a read-only token>`.
+
+**When the image itself must be replaced.** Rarely, a release needs a newer Node.js or OS base. The page then says so, and the update is the two lines below. A full image update from the page (a companion container) comes in a later release.
+
+| Variable | Default | |
+| --- | --- | --- |
+| `UPDATE_IMAGE` | `ghcr.io/cxsmtp/cxdetectiondatebasereminder` | Where updates come from. |
+| `UPDATE_REGISTRY_TOKEN` | (none) | Only for a private image: a token that can read it. |
+| `UPDATE_START_TIMEOUT_SECONDS` | 150 | How long a new version may take to come up before it is rolled back. |
+
 ## Update (Podman, Windows cmd, two lines)
 
 ```

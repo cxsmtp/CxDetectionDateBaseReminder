@@ -333,6 +333,17 @@ All the options, and a checklist for hosting CxMissionZero safely: [HTTPS and ho
 
 Settings shows one section at a time: pick it from the list on the left (a strip across the top on a tablet or phone). The groups are **Start**, **Connections**, **Reminders**, **AI & credits**, **Reports & brand**, **Security** and **About**. Sections your role cannot change are shown read-only. Everything saves as you type.
 
+### Update & recovery (Admin)
+
+Install a new version, go back to any version, turn on auto-update, restart the server, or download a troubleshooting report, all without signing in to the server. How it works and what it needs: [Updating](updating.md).
+
+- **Running** and **Latest published**, with **Update now** when there is a newer one.
+- **Auto-update:** off until you tick it. **at** limits it to one hour of the day. A version that failed to start once is never installed by itself again.
+- **Every version:** **Install and switch** (any published version) or **Switch to** (an installed one, or the image's own).
+  - A backup is taken before every switch.
+  - A version that does not start is rolled back by itself.
+- **Recent events:** switches, starts, automatic rollbacks, restarts.
+
 ### About & terms of use
 The version, the licence, the project's address, which version of the terms you accepted, and **Read the terms of use**.
 

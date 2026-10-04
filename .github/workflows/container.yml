@@ -50,6 +50,9 @@ jobs:
           docker exec mz git --version
           # The version is in the log and on /api/health (shown bottom-left in the app).
           docker logs mz 2>&1 | grep -qE 'CxMissionZero MZ-[0-9]{2}\.[0-9]{2}\.[0-9]{2} running'
+          # Started by the launcher (Settings → Update & recovery switches versions through it).
+          docker logs mz 2>&1 | grep -q '\[launch\] Starting MZ-'
+          docker exec mz test -s .node-version
           curl -skf https://127.0.0.1:3000/api/health | grep -qE '"version":"MZ-[0-9]{2}\.[0-9]{2}\.[0-9]{2}"'
           # TZ works from the ICU data Node.js carries (the image has no tzdata).
           docker exec mz node -e "process.exit(Intl.DateTimeFormat().resolvedOptions().timeZone === 'Asia/Dubai' ? 0 : 1)"
@@ -111,15 +114,21 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # The version in package.json: a tag per release (for Settings → Update & recovery to list and roll back to) and a label.
+      - id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
       - id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ghcr.io/${{ github.repository }}
-          # main / master publish :latest, whichever branch is the repository's default.
+          # main / master publish :latest and :<version>, whichever branch is the repository's default.
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
             type=semver,pattern={{version}}
             type=sha
+          labels: |
+            io.cxmissionzero.version=${{ steps.version.outputs.version }}
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .

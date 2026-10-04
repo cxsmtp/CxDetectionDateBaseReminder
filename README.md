@@ -4,7 +4,7 @@
 
 Self-hosted, one container, nothing to install for developers.
 
-> <span style="color:#065f46">**On premise, your data stays yours.** Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</span>
+> <span style="color:#065f46">**On premise, your data stays yours.** Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add; and, only when an Admin checks for or installs updates, the registry its own image comes from). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</span>
 >
 > **An independent project, not a Checkmarx product.** Free for Checkmarx One customers to use inside their own organisation ([PolyForm Internal Use 1.0.0](LICENSE)). It comes as is, with no warranty and no promise of support or fixes, and neither its author nor Checkmarx is responsible for how it is used or for any credit discrepancy. Its credit figures and audit reports are supporting information only, never evidence in a dispute with Checkmarx. Using it means accepting the [terms of use](TERMS.md), which an Admin accepts for the organisation at the first sign-in.
 
@@ -15,6 +15,7 @@ Self-hosted, one container, nothing to install for developers.
 | **Fix from the inbox** | An interactive report in every email: **Triage** and **Remediate** with Checkmarx One AI, see the verdict, open the pull request. Developers pick their IDE and AI assistant once (VS Code, Cursor, Kiro, Windsurf, Antigravity, JetBrains; Claude Code, OpenAI Codex, Gemini CLI, Copilot…). Then every finding is **Open in …** and **Fix with …**, one click each, and the fix lands in their own checkout even when there is no pull request. |
 | **Credits under control** | A credit pool, and per-project allocations. Every action re-checks Checkmarx One twice first and stops if anyone changed the findings meanwhile. Never two requests for one vulnerability, and unused credits are taken back. |
 | **Prove it with a rescan** | When a tracked scope's findings are all dealt with, CxMissionZero rescans in Checkmarx One (by hand or automatically) and shows what is really fixed, which fixes did not work, and what is new. Then it starts the next round, for example medium and low, until everything is at zero, and keeps watching it stays there. |
+| **Updates itself** | Settings → Update & recovery: update to any published version (or back) in one click, or let it auto-update in a quiet hour. Each download is checked against the image's digests, a backup is taken first, and a version that does not start is rolled back by itself. Nobody signs in to the server. |
 | **Hands-off follow-up** | Age-threshold automation that never nags twice, and tracked reports that measure progress and send follow-ups. |
 | **Accountable** | A hash-chained audit log of every credit and change, role-based access, one-file backups, and a privacy-safe troubleshooting log. |
 | **Easy to work in** | Pages grouped as Detect, Eliminate and Govern, in tabs instead of long scrolls; every page keeps your work when you switch; Jump to (Ctrl K); a layout that fits phone, tablet, laptop and wide screens. |
@@ -193,6 +194,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_ORG_URL` ⬆ | Azure DevOps (e.g. `https://dev.azure.com/acme`) for the Beta features. |
 | `BITBUCKET_TOKEN`, `BITBUCKET_USERNAME`, `BITBUCKET_WORKSPACE`, `BITBUCKET_URL` ⬆ | Bitbucket Cloud (app password with username, or an access token), or Data Center (its address and an HTTP access token), for the Beta features. |
 | `SCM_ALLOWED_HOSTS` | Other git hosts (comma-separated) whose repositories the Beta features may clone. github.com, gitlab.com, bitbucket.org, dev.azure.com and the connected hosts are always allowed; nothing else is cloned. |
+| `UPDATE_IMAGE`, `UPDATE_REGISTRY_TOKEN`, `UPDATE_START_TIMEOUT_SECONDS` (150) | Settings → Update & recovery: where updates come from (a private copy of the image, and a token that can read it), and how long a new version may take to start before it is rolled back. |
 | **Server** | |
 | `HTTPS` (`on` in the image) | How it starts: `on` HTTPS only (self-signed when no certificate is given), `off` plain http (your own machine, or behind a reverse proxy), `both` side by side. **Settings → HTTPS** changes it while running. |
 | `TLS_CERT_FILE`, `TLS_KEY_FILE` (or `TLS_PFX_FILE`, `TLS_PFX_PASSPHRASE`), `TLS_SELF_SIGNED` | Serve HTTPS: your certificate, a `.pfx`, or a self-signed one ([HTTPS and hosting](docs/https-and-hosting.md)). |

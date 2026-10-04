@@ -14,7 +14,7 @@ import path from 'node:path';
 
 /** First, in green, wherever the terms or the report's notice appear: what the utility talks to, and nothing else. */
 export const ON_PREMISE_NOTICE =
-  'Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add). ' +
+  'Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add; and, only when an Admin checks for or installs updates, the registry its own image comes from). ' +
   'No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.';
 
 /** One line for reports, the audit log and exports. */
