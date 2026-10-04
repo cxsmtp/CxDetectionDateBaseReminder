@@ -591,11 +591,13 @@ const reloadSettingsPage = () => {
   loadUpdates();
 };
 
-/** A page's data, loaded the first time it opens (and by ↻). */
+/**
+ * A page's data, loaded the first time it opens (and by ↻). The Dashboard
+ * loads nothing by itself: what was fetched is restored from the server, and
+ * reading Checkmarx One again only ever starts from a click (Load findings, or ↻).
+ */
 const PAGE_LOADERS = {
-  dashboard: () => {
-    if (state.projects.length && !$('fetch').disabled && can('findings.fetch')) $('fetch').click();
-  },
+  dashboard: () => {},
   settings: reloadSettingsPage,
   credits: () => loadUsage(),
   logs: () => renderLogsPage(),
@@ -610,6 +612,14 @@ const PAGE_LOADERS = {
  * Settings shows what is saved (every edit there saves as it is typed); the
  * Reports page keeps the open report, its tab and its form; charts redraw.
  */
+/** ↻ where it does more than the first visit: on the Dashboard, read the findings again with the scope shown. */
+const PAGE_RELOAD = {
+  dashboard: () => {
+    if (state.projects.length && !$('fetch').disabled && can('findings.fetch')) $('fetch').click();
+  },
+};
+const reloaderOf = (page) => PAGE_RELOAD[page] ?? PAGE_LOADERS[page];
+
 const PAGE_RETURN = {
   settings: reloadSettingsPage,
   credits: () => loadUsage(),
@@ -636,7 +646,7 @@ function route() {
   setPageTitle(target);
   state.page = target;
   document.body.dataset.stage = STAGES[target] ?? '';
-  $('page-reload').hidden = !PAGE_LOADERS[target];
+  $('page-reload').hidden = !reloaderOf(target);
   if (target === 'settings') showSettingsSection(view);
   else if (view && PAGE_TABS[target]) activateTab(PAGE_TABS[target], view, { remember: true });
   if (previous === target) return;
@@ -653,7 +663,7 @@ function route() {
 }
 
 $('page-reload').addEventListener('click', () => {
-  const load = PAGE_LOADERS[state.page];
+  const load = reloaderOf(state.page);
   if (!load) return;
   const icon = $('page-reload');
   icon.classList.remove('spin');
