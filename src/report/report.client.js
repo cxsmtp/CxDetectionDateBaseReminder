@@ -54,11 +54,11 @@
 
   const VERDICTS = {
     VULNERABLE: ['Vulnerable', 'bad'],
-    PROPOSED_NOT_EXPLOITABLE: ['Proposed not exploitable', 'good'],
+    PROPOSED_NOT_EXPLOITABLE: ['Probably safe (AI)', 'good'],
     NOT_EXPLOITABLE: ['Not exploitable', 'good'],
     UNCERTAIN: ['Uncertain', 'warn'],
     RISK_ACCEPTED: ['Risk accepted', 'muted'],
-    TO_VERIFY: ['To verify', 'muted'],
+    TO_VERIFY: ['Not checked yet', 'muted'],
     CONFIRMED: ['Confirmed', 'bad'],
     URGENT: ['Urgent', 'bad'],
     FAILED: ['Triage failed', 'bad'],
@@ -72,11 +72,11 @@
   };
   const SEVERITY_LABELS = { CRITICAL: 'critical', HIGH: 'high' };
   const STATE_LABELS = {
-    TO_VERIFY: 'To verify',
+    TO_VERIFY: 'Not checked yet',
     CONFIRMED: 'Confirmed',
     URGENT: 'Urgent',
     NOT_EXPLOITABLE: 'Not exploitable',
-    PROPOSED_NOT_EXPLOITABLE: 'Proposed not exploitable',
+    PROPOSED_NOT_EXPLOITABLE: 'Probably safe (AI)',
   };
 
   let backend = null;
@@ -506,7 +506,7 @@
 
   function setConnectedUI(tenant) {
     const btn = $('connect');
-    btn.textContent = backend ? `✓ Connected to CxONE · ${tenant}` : 'Connect to CxONE for action';
+    btn.textContent = backend ? `✓ Connected to Checkmarx One · ${tenant}` : 'Connect to act on these findings';
     btn.classList.toggle('connected', Boolean(backend));
     if (!backend) $('bulk-credits').textContent = '';
   }

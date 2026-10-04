@@ -2343,7 +2343,7 @@ app.post(
   requirePermission('reminders.send'),
   asyncRoute(async (req, res) => {
     if (!req.session.lastScan) {
-      return res.status(409).json({ error: 'Fetch the project list first, then send a reminder.' });
+      return res.status(409).json({ error: 'Load findings on the Dashboard first, then send a reminder.' });
     }
     const { status, body } = await runReminder(req.session, req.session.lastScan, req.body ?? {});
     res.status(status).json(body);
@@ -3809,7 +3809,7 @@ app.post(
   requirePermission('credits.view'),
   afterFetch,
   asyncRoute(async (req, res) => {
-    if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
     const projects = scanProjects(req, req.body?.projectIds);
     for (const p of projects) stateCache.delete(p.projectId);
     const severities = cleanSeverities(req.body?.severities);
@@ -3832,7 +3832,7 @@ app.post(
  * Everything given comes out of the credit pool, and never more than it has free.
  */
 app.post('/api/credits/allocate', requirePermission('credits.allocate'), afterFetch, asyncRoute(async (req, res) => {
-  if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+  if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
   const { projectIds, ruleChanges, triageAdd = 0, remediationAdd = 0, clearExtras = false, setExtra = null } = req.body ?? {};
   // Take back what projects were given and did not use (people did not act on it).
   const reclaim = (Array.isArray(req.body?.reclaimUnused) ? req.body.reclaimUnused : []).filter((k) => k === 'triage' || k === 'remediation');
@@ -4073,7 +4073,7 @@ app.post(
   '/api/credits/refresh',
   requirePermission('credits.view'),
   asyncRoute(async (req, res) => {
-    if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
     const projects = scanProjects(req, req.body?.projectIds);
     await mapWithConcurrency(projects, 3, async (p) => {
       stateCache.delete(p.projectId);
@@ -4106,7 +4106,7 @@ app.post(
   requirePermission('triage.run'),
   afterFetch,
   asyncRoute(async (req, res) => {
-    if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
     const wanted = cleanSeverities(req.body?.severities);
     if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to triage.' });
 
@@ -4247,7 +4247,7 @@ app.post(
   requirePermission('triage.run'),
   afterFetch,
   asyncRoute(async (req, res) => {
-    if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
     const wanted = cleanSeverities(req.body?.severities);
     if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to remediate.' });
     const { allowReremediation = false } = settingsStore.get().aiTriage ?? {};
@@ -4833,7 +4833,7 @@ async function runDueTrackedReminders(session) {
     auto.nextRunAt = next.toISOString();
     trackedReports.save();
     if (!isVerified(settings)) {
-      auto.lastError = 'SMTP has not passed a connection test, so nothing was sent.';
+      auto.lastError = 'Email is not set up yet (Settings → Email server), so nothing was sent.';
       trackedReports.save();
       continue;
     }
@@ -5034,7 +5034,7 @@ app.get('/api/tracked-reports', requirePermission('reports.view'), async (req, r
 
 app.post('/api/tracked-reports', requirePermission('reports.manage'), (req, res) => {
   const { lastScan } = req.session;
-  if (!lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+  if (!lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
   const { name, severities = null, buckets = [], windows = {}, scopeLabel = '' } = req.body ?? {};
   const projectIds = idList(req.body?.projectIds);
   if (!String(name ?? '').trim()) return res.status(400).json({ error: 'Give the report a name.' });
@@ -5631,7 +5631,7 @@ app.post(
     const settings = settingsStore.get();
 
     if (!lastScan) {
-      return res.status(409).json({ error: 'Fetch the project list first.' });
+      return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
     }
 
     // For HTML reports, get all risks (no bucket filtering) unless specific buckets requested
@@ -5775,7 +5775,7 @@ app.post(
   '/api/reminders/send-html-by-initiator',
   requirePermission('reminders.send'),
   asyncRoute(async (req, res) => {
-    if (!req.session.lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
     const settings = settingsStore.get();
     const { status, body } = await runHtmlReminder(req.session, req.session.lastScan, req.body ?? {}, reportServerUrl(req, settings));
     res.status(status).json(body);
@@ -6452,7 +6452,7 @@ app.post(
   requireFeature('codeAuthors'),
   asyncRoute(async (req, res) => {
     const { lastScan, client, connection } = req.session;
-    if (!lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
+    if (!lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
     const settings = settingsStore.get();
     const { severities = null } = req.body ?? {};
     const projectIds = idList(req.body?.projectIds);

@@ -438,6 +438,30 @@ const PAGE_PERMS = {
  * Show only what this person may use: [data-perm] elements need any one of
  * the listed permissions; [data-edit-perm] panels turn read-only without it.
  */
+// ---- Simple by default: fine-tuning most people never need is shown on request ----
+const ADVANCED_KEY = 'mz-advanced';
+function advancedOn() {
+  try {
+    return localStorage.getItem(ADVANCED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function applyAdvanced(on = advancedOn()) {
+  document.body.classList.toggle('simple', !on);
+  const box = document.getElementById('me-advanced');
+  if (box) box.checked = on;
+}
+applyAdvanced();
+document.getElementById('me-advanced')?.addEventListener('change', (event) => {
+  try {
+    localStorage.setItem(ADVANCED_KEY, event.target.checked ? '1' : '0');
+  } catch {}
+  applyAdvanced(event.target.checked);
+  if (state.page === 'settings') showSettingsSection(location.hash.split('/')[2] || '');
+  toast(event.target.checked ? 'Advanced options shown.' : 'Advanced options hidden: the essentials only.', 'ok', 2500);
+});
+
 function applyPermissions() {
   for (const el of document.querySelectorAll('[data-perm]')) el.classList.toggle('perm-hidden', !canAny(el.dataset.perm));
   renderFeatureStages();
@@ -733,7 +757,7 @@ const SETTINGS_KEY = 'mz-settings-section';
 
 function showSettingsSection(id) {
   const links = [...document.querySelectorAll('#set-nav [data-set]')];
-  const usable = links.filter((a) => !a.classList.contains('perm-hidden'));
+  const usable = links.filter((a) => !a.classList.contains('perm-hidden') && !(a.hasAttribute('data-advanced') && document.body.classList.contains('simple')));
   let saved = '';
   try {
     saved = localStorage.getItem(SETTINGS_KEY) || '';
@@ -761,7 +785,7 @@ const PAGE_TITLES = {
   credits: ['Credit Control', 'The credit pool, what each project was given and used, and spending over time'],
   settings: ['Settings', 'Connections, reminders, AI and credits, reports, security — saved as you type'],
   logs: ['Logs', 'What this browser asked the server, and the troubleshooting log'],
-  access: ['IAM', 'Identity & access: who can sign in, their roles, and what each role may do'],
+  access: ['People & roles', 'Who can sign in, and what each role may do'],
   audit: ['Audit', 'Every credit spent, refused or failed — who, when, where, and the balance after'],
   beta: ['Beta', 'Find who wrote the vulnerable code, and match usernames to email addresses'],
 };
@@ -1179,7 +1203,7 @@ async function saveInlineRecipients() {
     });
     fillInlineRecipients();
     renderRecipientHint();
-    setStatus('status', 'Recipient list saved.', 'ok');
+    setStatus('status', 'The fixed list is saved.', 'ok');
   } catch (error) {
     if (!handleAuthLoss(error)) showError('status', error);
   }
@@ -1342,11 +1366,11 @@ function renderAutomation() {
     ready = false;
     lines.push('✗ Checkmarx One: not connected. Connect the server under "Checkmarx One integration" above — unattended runs use that connection.');
   }
-  if (integration.pending) lines.push('… A changed integration key is saved but not in use yet: runs keep using the last known good connection until it works.');
+  if (integration.pending) lines.push('… A changed integration key is saved but not in use yet: runs keep using the previous working connection until it works.');
   if (a.smtpVerified) {
     lines.push('✓ Mail server: connection test passed. Automation can send.');
   } else if (a.connections?.lastGood?.smtp) {
-    lines.push('… Mail server: changed settings are not tested yet. They are checked when you leave Settings; the last known good ones come back if they fail.');
+    lines.push('… Mail server: changed settings are not tested yet. They are checked when you leave Settings; the previous working ones come back if they fail.');
   } else {
     ready = false;
     lines.push(a.smtpConfigured
@@ -1784,26 +1808,26 @@ function renderConnectionGuard(status, result = autosave.lastCheck) {
   if (!status) return;
   const { pending, lastGood } = status;
   const cx = lastGood.cxone;
-  const cxGood = cx ? `Last known good: tenant ${cx.tenant || '—'}${cx.source === 'environment' ? ' (CX_API_KEY on the server)' : ''}${goodSince(cx)}.` : '';
+  const cxGood = cx ? `Previous working setup: tenant ${cx.tenant || '—'}${cx.source === 'environment' ? ' (CX_API_KEY on the server)' : ''}${goodSince(cx)}.` : '';
   if (pending.cxone) {
     const failed = result?.cxone && result.cxone.ok === false && !result.cxone.superseded;
     renderGuardLine('integration-guard', failed ? 'bad' : 'warn',
       failed ? `Not working: ${result.cxone.error}` : 'Saved — not checked yet.',
       cx ? `${cxGood} It comes back when you leave Settings if this still fails.` : 'There is no earlier working connection to go back to.');
   } else if (result?.cxone?.ok) {
-    renderGuardLine('integration-guard', 'ok', `Checked and in use: tenant ${result.cxone.tenant}.`, 'This is now the last known good connection.');
+    renderGuardLine('integration-guard', 'ok', `Checked and in use: tenant ${result.cxone.tenant}.`, 'This is now the working connection.');
   } else {
     renderGuardLine('integration-guard', '', cxGood);
   }
   const mail = lastGood.smtp;
-  const mailGood = mail ? `Last known good: ${mail.host}:${mail.port}${mail.fromAddress ? `, from ${mail.fromAddress}` : ''}${goodSince(mail)}.` : '';
+  const mailGood = mail ? `Previous working setup: ${mail.host}:${mail.port}${mail.fromAddress ? `, from ${mail.fromAddress}` : ''}${goodSince(mail)}.` : '';
   if (pending.smtp) {
     const failed = result?.smtp && result.smtp.ok === false && !result.smtp.superseded;
     renderGuardLine('smtp-guard', failed ? 'bad' : 'warn',
       failed ? `Not working: ${result.smtp.error}` : 'Saved — not tested yet.',
       mail ? `${mailGood} It comes back when you leave Settings if this still fails.` : 'There is no earlier working mail server to go back to.');
   } else if (result?.smtp?.ok) {
-    renderGuardLine('smtp-guard', 'ok', `Connection test passed: ${result.smtp.host}.`, 'This is now the last known good mail server.');
+    renderGuardLine('smtp-guard', 'ok', `Connection test passed: ${result.smtp.host}.`, 'This is now the working mail server.');
   } else {
     renderGuardLine('smtp-guard', '', mailGood);
   }
@@ -1910,7 +1934,7 @@ function noticeHtml(notice) {
       return `<div class="notice-item">
         <h3>${isCx ? 'Checkmarx One connection' : 'Email server (SMTP)'}</h3>
         <p class="why">${part.timedOut ? 'The connection timed out' : 'It did not work'} with the new settings (${escapeHtml(tried)}): ${escapeHtml(part.error)}</p>
-        <p>Back in use — the last known good configuration${part.restoredAt ? `, working since ${escapeHtml(new Date(part.restoredAt).toLocaleString())}` : ''}:</p>
+        <p>Back in use: the previous working setup${part.restoredAt ? `, working since ${escapeHtml(new Date(part.restoredAt).toLocaleString())}` : ''}:</p>
         <div class="kv">${rows.map(([k, v]) => `<div><span class="k">${k}</span><span class="v">${escapeHtml(v || '—')}</span></div>`).join('')}</div>
       </div>`;
     })
@@ -2104,9 +2128,9 @@ function renderRecipientHint() {
   if (sendTo === 'list') {
     hint = `The recipient list gets one email covering every selected project${attached}.`;
   } else if (sendTo === 'initiator') {
-    hint = `Each scan initiator gets ${theirs}${attached} — never anyone else's projects.`;
+    hint = `Each developer gets ${theirs}${attached}, never anyone else's projects.`;
   } else {
-    hint = `Each scan initiator gets ${theirs}${attached}; the recipient list gets one covering everything selected.`;
+    hint = `Each developer gets ${theirs}${attached}; the fixed list gets one covering everything selected.`;
   }
 
   if ($('groupby-hint')) {
@@ -2130,7 +2154,7 @@ function renderRecipientHint() {
   $('audience-chip').textContent = parts.join(' + ');
 
   if (!s.verified) {
-    el.textContent = 'SMTP has not passed a connection test — sending is disabled.';
+    el.textContent = 'Email is not set up yet: test it under Settings → Email server.';
     el.className = 'hint error-hint';
   } else if (sendTo === 'initiator' && total === 0) {
     el.textContent = 'Not used in this mode — each message is addressed to its own recipient.';
@@ -2456,7 +2480,7 @@ function renderInitiatorList() {
   const stats = $('people-stats');
 
   if (state.initiators.length === 0) {
-    list.innerHTML = '<p class="hint">No scan initiator was recorded for any project in these results.</p>';
+    list.innerHTML = '<p class="hint">Checkmarx One did not record who ran the scans of these projects.</p>';
     $('initiator-summary').textContent = 'None found.';
     stats.innerHTML = '';
     note.hidden = true;
@@ -3033,7 +3057,7 @@ function renderUpcoming(reports) {
   const due = reports
     .filter((r) => r.automation?.enabled && r.automation.nextRunAt)
     .sort((a, b) => Date.parse(a.automation.nextRunAt) - Date.parse(b.automation.nextRunAt));
-  const to = (a) => (a.onlyTo?.length ? `only ${a.onlyTo.join(', ')}` : { initiator: 'scan initiators', list: 'recipient list', both: 'initiators and list' }[a.sendTo] ?? 'scan initiators');
+  const to = (a) => (a.onlyTo?.length ? `only ${a.onlyTo.join(', ')}` : { initiator: 'each developer', list: 'the fixed list', both: 'developers and list' }[a.sendTo] ?? 'each developer');
   $('rp-upcoming').innerHTML = due.length
     ? due
         .map((r) => {
@@ -3272,8 +3296,8 @@ function remindSection(r) {
   return `<p class="rp-lead">${open} open finding${open === 1 ? '' : 's'} (awaiting triage, confirmed or new). Remind the people who can act on them.</p>
     <div class="rp-form">
       <div class="rp-field"><span class="rp-label">Send to</span><div class="rp-options">
-        ${radio('sendTo', 'initiator', 'Scan initiators', sendTo)}
-        ${radio('sendTo', 'list', 'Recipient list', sendTo)}
+        ${radio('sendTo', 'initiator', 'Each developer', sendTo)}
+        ${radio('sendTo', 'list', 'A fixed list', sendTo)}
         ${radio('sendTo', 'both', 'Both', sendTo)}
         ${radio('sendTo', 'only', 'Only to', sendTo)}
         <input type="text" class="only-to" data-field="onlyTo" data-keep value="${escapeHtml(onlyTo)}" placeholder="name@company.com, …" aria-label="Send only to these addresses" />
@@ -3298,7 +3322,7 @@ function remindersTable(reminders) {
     <thead><tr><th>Sent</th><th>To</th><th class="num">Open</th><th class="num">Emails</th><th>Result</th></tr></thead>
     <tbody>${reminders
       .map((m) => `<tr><td>${escapeHtml(new Date(m.at).toLocaleString())}${m.automatic ? ' <span class="rp-tag">automatic</span>' : ''}</td>
-        <td>${m.sendTo === 'only' ? `Only ${escapeHtml((m.onlyTo ?? []).join(', '))}` : escapeHtml({ initiator: 'Scan initiators', list: 'Recipient list', both: 'Initiators + list' }[m.sendTo] ?? m.sendTo)}${m.attachHtml ? ' · HTML' : ''}</td>
+        <td>${m.sendTo === 'only' ? `Only ${escapeHtml((m.onlyTo ?? []).join(', '))}` : escapeHtml({ initiator: 'Each developer', list: 'Fixed list', both: 'Developers + list' }[m.sendTo] ?? m.sendTo)}${m.attachHtml ? ' · HTML' : ''}</td>
         <td class="num">${m.openFindings}</td><td class="num">${m.sent}</td>
         <td>${m.error ? `<span class="status error">${escapeHtml(m.error)}</span>` : 'Sent'}</td></tr>`)
       .join('')}</tbody></table></div>`;
@@ -3356,7 +3380,7 @@ function triageSection(r) {
       ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary" data-needs-data>Triage now</button>` : ''}
       ${can('credits.allocate') ? `<button type="button" data-report-allocate="${id}" data-needs-data>Allocate credits</button>` : ''}
     </div>
-    <p class="hint">Allocate gives the projects what these severities need: 1 credit per Checkmarx One result to triage (rows that share one count once), 3 per confirmed result to remediate, plus any extra entered. Nothing is allocated until you click it.</p>`;
+    <p class="hint">1 credit to check a finding with AI, 3 to fix it. Nothing is given until you click.</p>`;
 }
 
 const SEV_NAMES = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' };
@@ -3382,7 +3406,7 @@ function verifySection(r) {
   const closure = c
     ? `<div class="vf-closure ${c.closed ? 'is-closed' : ''}">
         <span class="vf-badge">${c.closed ? '✓ Ready to verify' : `${c.open} still open`}</span>
-        <span>${c.inScope - c.open} of ${c.inScope} dealt with: ${c.gone} no longer detected, ${c.notExploitable} not exploitable, ${c.remediated} sent for remediation.${c.open ? ` Still open: ${c.awaiting} awaiting triage, ${c.confirmedNotRemediated} confirmed but not remediated.` : ''}</span>
+        <span title="${escapeHtml(`${c.gone} no longer found, ${c.notExploitable} not exploitable, ${c.remediated} sent for an AI fix${c.open ? `; still open: ${c.awaiting} not checked yet, ${c.confirmedNotRemediated} confirmed but not fixed` : ''}`)}">${c.inScope - c.open} of ${c.inScope} dealt with${c.open ? `: ${c.awaiting ? `${c.awaiting} to check` : ''}${c.awaiting && c.confirmedNotRemediated ? ', ' : ''}${c.confirmedNotRemediated ? `${c.confirmedNotRemediated} to fix` : ''}` : ''}.</span>
       </div>`
     : '<p class="hint">Refresh to see where this round stands.</p>';
   // The developers' turn to rescan (the round's scope is closed, nobody rescanned yet).
@@ -3428,12 +3452,12 @@ function verifySection(r) {
         <label class="check"><input type="checkbox" data-verify-auto="${id}" ${r.verify?.auto ? 'checked' : ''} /> If the developers have not rescanned within</label>
         <label class="inline"><input type="number" class="small-num" min="24" max="336" step="12" data-verify-grace="${id}" value="${escapeHtml(String(r.verify?.graceHours ?? 48))}" /> hours, rescan on their behalf</label>
       </div>
-      <p class="hint">When every finding in scope is dealt with, the developers who fixed them go first: their report shows <b>Rescan now</b>, and they get it by email, for 24 hours to 14 days (48 by default). If nobody has rescanned by then, the rescan starts on their behalf, and they are told. Everyone gets the updated report with the result.</p>
-      <p class="hint">Each project is scanned again in Checkmarx One like its last scan: same repository, branch and engines. Projects scanned from uploaded code cannot be fetched by Checkmarx One; their next scan from your pipeline verifies them. "Sent for remediation" counts AI Remediation sent from CxMissionZero; a fix made any other way shows up when the rescan no longer finds it.</p>`
+      <p class="hint">When everything is dealt with, the developers get the Rescan button first. If they don't use it in time, it is rescanned for them.</p>
+      <details class="disclosure" data-advanced><summary>How the rescan works</summary><p class="hint">Each project is scanned again like its last scan: same repository, branch and engines. Code uploaded from a pipeline is checked by its next scan instead. A fix made outside CxMissionZero counts once the rescan no longer finds it.</p></details>`
     : '<p class="hint">Your role can follow verification; rescans and new rounds need “Manage tracked reports”.</p>';
   const nextRound = manage
     ? `<h3 class="rp-h3">Next round</h3>
-      <p class="hint">Start the next round on what Checkmarx One reports now: this round is kept below, and the new scope becomes the target, for example medium and low once critical and high are at zero.</p>
+      <p class="hint">Next target, for example medium and low once critical and high are at zero. This round is kept below.</p>
       <div class="rp-options">${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
         .map((s) => `<label class="check"><input type="checkbox" data-next-sev="${s}" data-field="next-${s}" data-keep ${nextSevs.includes(s) ? 'checked' : ''} /> ${SEV_NAMES[s]}</label>`)
         .join('')}</div>
@@ -3852,7 +3876,7 @@ function syncAllocationBoxes(scope) {
 function onBehalfText(notified) {
   if (!notified) return [];
   const out = [];
-  if (notified.emailed) out.push(`emailed ${notified.emailed} scan initiator(s) that it was done on their behalf`);
+  if (notified.emailed) out.push(`told ${notified.emailed} developer(s) by email`);
   if (notified.noAddress?.length) out.push(`no address to tell for ${notified.noAddress.length} project(s)`);
   if (notified.failed) out.push(`${notified.failed} email(s) failed — check the mail server`);
   return out;
@@ -4352,7 +4376,7 @@ async function restoreLastScan() {
   renderProjects();
   renderAllocation();
   const at = new Date(result.fetchedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
-  $('fetch-meta').textContent = `Showing the data fetched ${at}. Fetch vulnerability data for the latest.`;
+  $('fetch-meta').textContent = `Showing the data fetched ${at}. Load findings again for the latest.`;
   setStatus('status', `Loaded ${state.projects.length} project(s) as fetched ${at}.`, 'ok');
 }
 
@@ -4451,7 +4475,7 @@ async function fetchProjects() {
   } finally {
     setFetching(false);
     button.disabled = false;
-    button.textContent = 'Fetch vulnerability data';
+    button.textContent = 'Load findings';
   }
 }
 
@@ -4646,7 +4670,7 @@ function renderDeliveries(entries = []) {
   $('send-deliveries').hidden = !list.length;
   $('send-deliveries').innerHTML = list.length
     ? `<summary>${list.length} email${list.length === 1 ? '' : 's'} — who got which projects</summary><ul>${list
-        .map((e) => `<li><strong>${escapeHtml(e.consolidated || e.initiator === 'consolidated' ? `Recipient list (${e.email})` : e.email)}</strong> — ${escapeHtml(e.projects.join(', '))} · ${e.riskCount} finding${e.riskCount === 1 ? '' : 's'}</li>`)
+        .map((e) => `<li><strong>${escapeHtml(e.consolidated || e.initiator === 'consolidated' ? `Fixed list (${e.email})` : e.email)}</strong> — ${escapeHtml(e.projects.join(', '))} · ${e.riskCount} finding${e.riskCount === 1 ? '' : 's'}</li>`)
         .join('')}</ul>`
     : '';
 }
@@ -5201,7 +5225,7 @@ $('brand-logo-file').addEventListener('change', () => {
 function renderRailScope() {
   const el = $('rail-scope');
   if (!state.projects.length) {
-    el.textContent = 'Fetch vulnerability data to act on it.';
+    el.textContent = 'Load findings to act on them.';
     el.className = 'rail-scope empty';
   } else {
     const shown = visibleProjects().filter((p) => !p.error).length;
@@ -5518,7 +5542,7 @@ function paletteEntries() {
       entries.push({ label: `Settings → ${a.textContent.trim()}`, group: 'Govern', href: a.getAttribute('href') });
     }
   }
-  if (can('findings.fetch')) entries.push({ label: 'Fetch vulnerability data', group: 'Action', run: () => $('fetch').click() });
+  if (can('findings.fetch')) entries.push({ label: 'Load findings', group: 'Action', run: () => $('fetch').click() });
   entries.push({ label: 'Switch theme', group: 'Action', run: () => $('theme-toggle').click() });
   entries.push({ label: 'Read the terms of use', group: 'Action', run: () => showTermsOverlay({ mode: 'view' }) });
   entries.push({ label: 'Refresh — start over', group: 'Action', run: () => $('app-refresh').click() });
@@ -5682,7 +5706,7 @@ function renderBetaScope() {
   const scope = allocationScope();
   $('authors-scope').textContent = state.projects.length
     ? `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'} on the Dashboard`
-    : 'Fetch projects on the Dashboard first';
+    : 'Load findings on the Dashboard first';
   $('authors-find').disabled = !state.projects.length;
 }
 
@@ -5772,11 +5796,11 @@ for (const radio of document.querySelectorAll('input[name="idHost"]')) {
 $('gh-load-logins').addEventListener('click', async () => {
   try {
     const { logins } = await api(`/api/beta/scm/logins?provider=${identityHost}`);
-    if (!logins.length) return setStatus('gh-status', 'No usernames among the scan initiators — fetch projects on the Dashboard, or type them in.', 'error');
+    if (!logins.length) return setStatus('gh-status', 'No usernames among the developers: load findings on the Dashboard, or type them in.', 'error');
     // Unresolved ones first: those are the ones worth matching.
     logins.sort((a, b) => Number(b.unresolved) - Number(a.unresolved));
     $('gh-logins').value = logins.map((l) => l.login).join('\n');
-    setStatus('gh-status', `${logins.length} username(s) from the scan initiators, ${logins.filter((l) => l.unresolved).length} without an email.`, 'ok');
+    setStatus('gh-status', `${logins.length} username(s) from the developers, ${logins.filter((l) => l.unresolved).length} without an email.`, 'ok');
   } catch (error) {
     if (!handleAuthLoss(error)) showError('gh-status', error);
   }

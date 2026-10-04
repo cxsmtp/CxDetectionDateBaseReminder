@@ -27,7 +27,7 @@ Self-hosted, one container, nothing to install for developers.
 ![CxMissionZero architecture: people use the web app; CxMissionZero reads Checkmarx One, emails each developer their own projects, and developers triage and remediate from the report through CxMissionZero, which calls Checkmarx One AI; fixes land as pull requests](docs/architecture.svg)
 
 **How a finding gets fixed** (the numbers match the diagram)
-1. **Fetch.** CxMissionZero reads projects, scan initiators and findings from Checkmarx One with one integration key, and ages each finding.
+1. **Fetch.** CxMissionZero reads projects, developers and findings from Checkmarx One with one integration key, and ages each finding.
 2. **Remind.** A reminder emails each developer their own projects through your SMTP server, with the interactive report attached. It is sent by hand, by automation, or from a tracked report.
 3. **Act from the report.** The developer clicks **Triage** or **Remediate**. The report calls CxMissionZero, never Checkmarx One directly, and CxMissionZero checks the finding's signed grant and its project's credits.
 4. **AI runs.** CxMissionZero calls Checkmarx One AI Triage or AI Remediation. However many people click at once, one vulnerability is sent only once.
@@ -214,7 +214,8 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.33** | 511/s, **0 failed** | 3.9 s | 172 ms | 407 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.34** | 514/s, **0 failed** | 4.2 s | 122 ms | 407 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.33 | 511/s, 0 failed | 3.9 s | 172 ms | 407 pass | 0 vulnerabilities | same |
 | MZ-01.00.32 | 511/s, 0 failed | 2.5 s | 145 ms | 402 pass | 0 vulnerabilities | same |
 | MZ-01.00.31 | 524/s, 0 failed | 2.5 s | 106 ms | 388 pass | 0 vulnerabilities | same |
 | MZ-01.00.30 | 524/s, 0 failed | 4.1 s | 371 ms | 386 pass | 0 vulnerabilities | same |
