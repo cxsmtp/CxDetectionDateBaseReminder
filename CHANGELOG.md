@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.41 | 519/s, 0 | 0.9 s | 171 ms | 455 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.42 | — (page only) | — | — | 455 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.41 | 519/s, 0 | 0.9 s | 171 ms | 455 | 0 | same |
 | MZ-01.00.40 | 516/s, 0 | 5.9 s | 183 ms | 445 | 0 | same |
 | MZ-01.00.39 | 512/s, 0 | 5.7 s | 240 ms | 439 | 0 | same |
 | MZ-01.00.38 | 518/s, 0 | 0.6 s | 146 ms | 430 | 0 | same |
@@ -27,6 +28,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.42 — 2026-10-04 HH:MM UTC · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+- **Download HTML is back.** It sits next to **Preview email** and **Preview report** under Remind again. It no longer hides behind *Show advanced options* or the attachment switch.
+- **Take back unused credits, at the top.** The AI credits panel shows it next to **Check the numbers again**, with how many it would return ("Take back 36 unused credits").
+- **Last week by default.** *Projects last scanned in* and *Findings first found in* start at **Last week** instead of any time. After a load, the page keeps the scope you used.
+- **Severities in one row.** Critical, High, Medium and Low no longer leave Low on a line of its own.
+- **Report names in full.** On the Reports page, a narrower window no longer cuts off the first letters of each report's name.
+- **Status.** The server is unchanged from MZ-01.00.41; this version changes only the page. 455 tests pass and `npm audit` finds 0 vulnerabilities. The benchmark ran on a slower machine where main failed requests too, so it is shown as "—" (details in docs/performance.md). The last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.41 — 2026-10-04 13:58 UTC · [#64](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/64)
 - **Replace the whole image from the Update page (Beta).** For the rare release that needs a new Node.js or OS base: pick **latest** or a version under **Settings → Update & recovery → Replace the whole image**, and click **Replace the image**. A backup is taken first.
