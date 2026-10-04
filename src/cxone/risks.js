@@ -37,6 +37,7 @@ function buildLocation(raw) {
 /** Parse a date from any of the shapes CxONE uses, returning null if unusable. */
 export function parseDate(value) {
   if (value === undefined || value === null || value === '') return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
   // firstDetectionDate is documented as RFC3339 *or* a unix timestamp in seconds.
   if (typeof value === 'number' || /^\d+$/.test(String(value))) {
     const numeric = Number(value);
@@ -83,9 +84,11 @@ export function normalizeRisk(raw, project, now = new Date()) {
   const days = parsed ? ageInDays(parsed, now) : null;
   const aiTriage = raw?.aiTriage ?? null;
 
+  const id = String(pick(raw, ['id', 'riskId', 'similarityId', 'resultId']) ?? cryptoId());
+
   return {
-    id: String(pick(raw, ['id', 'riskId', 'similarityId', 'resultId']) ?? cryptoId()),
-    riskId: String(pick(raw, ['id', 'riskId', 'similarityId', 'resultId']) ?? cryptoId()),
+    id,
+    riskId: id,
     scanId: String(pick(raw, ['scanId', 'scan_id']) ?? ''),
     projectId: project.id,
     projectName: project.name,

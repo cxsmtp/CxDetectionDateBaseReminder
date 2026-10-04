@@ -127,7 +127,7 @@ test('emailed reports are kept for download, expire after their lifetime, and id
   const dir = path.join(tmpDir(), 'report-files');
   const files = new ReportFiles({ dir, ttlDays: 30 });
   const id = '0f8fad5b-d9cb-469f-a165-70867728950e';
-  files.save(id, '<html>report</html>', { filename: 'Payments-2026-10-01.html' });
+  await files.save(id, '<html>report</html>', { filename: 'Payments-2026-10-01.html' });
   assert.deepEqual([files.get(id).html, files.get(id).filename], ['<html>report</html>', 'Payments-2026-10-01.html']);
   assert.equal(files.get(id, Date.now() + 31 * 86400000), null);
   assert.equal(files.get('../../etc/passwd'), null);

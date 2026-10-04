@@ -95,6 +95,36 @@ export function toRemediateCount(risks, severities, remediated = new Set()) {
   return remediationCandidates(risks, severities, remediated).length;
 }
 
+/**
+ * Everything the credit figures of one project need, from one pass over its
+ * findings (the same rules as triageRows and remediationCandidates). Working
+ * them out per severity re-read every finding a dozen times, on every fetch.
+ */
+export function creditFigures(risks, { now = Date.now(), triaged = new Map(), remediated = new Set() } = {}) {
+  const triage = [];
+  const remediate = [];
+  for (const r of risks) {
+    if (!aiScanner(r)) continue;
+    if (r.state === REMEDIABLE_STATE) {
+      if (!remediated.has(r.riskId)) remediate.push(r);
+    } else if ((!r.state || r.state === 'TO_VERIFY') && !alreadySent(r, triaged) && !(r.triageRequestedAt && now - r.triageRequestedAt < RECENTLY_REQUESTED_MS)) {
+      triage.push(r);
+    }
+  }
+  const of = (rows, severities) => {
+    const wanted = new Set(severities.map((s) => String(s).toUpperCase()));
+    return rows.filter((r) => wanted.has(r.severity));
+  };
+  return {
+    /** Rows still to triage, of these severities. */
+    triageRows: (severities) => of(triage, severities),
+    /** Results (billing units) still to triage, of these severities. */
+    toTriage: (severities) => unique(of(triage, severities)),
+    /** Confirmed results to remediate, of these severities. */
+    toRemediate: (severities) => unique(of(remediate, severities)),
+  };
+}
+
 export class CreditAllocations {
   #file;
   #projects;
@@ -206,10 +236,10 @@ export class CreditAllocations {
    * What a project needs from its findings and its rule (see the top of this
    * file), and how much of it is not allocated yet. Never changes anything.
    */
-  need(projectId, risks) {
+  need(projectId, risks, figures = null) {
     const rule = this.severitiesOf(projectId);
-    const toTriage = toTriageCount(risks, rule, Date.now(), this.#ledger.triagedAt?.(projectId) ?? new Map());
-    const toRemediate = toRemediateCount(risks, rule, this.#ledger.remediatedIds?.(projectId) ?? new Set());
+    const toTriage = figures ? figures.toTriage(rule) : toTriageCount(risks, rule, Date.now(), this.#ledger.triagedAt?.(projectId) ?? new Map());
+    const toRemediate = figures ? figures.toRemediate(rule) : toRemediateCount(risks, rule, this.#ledger.remediatedIds?.(projectId) ?? new Set());
     const need = { triage: toTriage, remediation: CREDIT_COST.remediation * toRemediate };
     // Spendable now: allocated minus used and in flight — below zero when a project
     // used more than it was allocated (older data), so allocating still leaves it `need`.
