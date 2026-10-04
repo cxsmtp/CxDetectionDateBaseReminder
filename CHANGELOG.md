@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.39 | 512/s, 0 | 5.7 s | 240 ms | 439 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.40 | 516/s, 0 | 5.9 s | 183 ms | 445 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.39 | 512/s, 0 | 5.7 s | 240 ms | 439 | 0 | same |
 | MZ-01.00.38 | 518/s, 0 | 0.6 s | 146 ms | 430 | 0 | same |
 | MZ-01.00.37 | 508/s, 0 | 5.1 s | 179 ms | 427 | 0 | same |
 | MZ-01.00.36 | 492/s, 0 | 2.3 s | 118 ms | 421 | 0 | same |
@@ -25,6 +26,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.40 — 2026-10-04 HH:MM UTC · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+- **Past SLA, in the repository too (Beta).** Turn on **Settings → SLAs → Also open an issue in the repository**. Each scheduled run then opens one issue in each project's repository listing its findings that went past their SLA, with severity, where, how far past and a link to Checkmarx One.
+- **Once per finding.** A finding goes into an issue once, kept separately from the email escalation, so either can be used alone. A fixed finding that comes back is listed again.
+- **Never published.** Issues are opened only in private and internal repositories (on GitLab as confidential issues), and a public one is skipped. Text from findings cannot mention anyone or add links.
+- **GitHub and GitLab.** It uses the token connected under Beta → Source-code hosts, which needs permission to create issues. Azure DevOps and Bitbucket repositories are skipped, with the reason shown.
+- **Visible in the run history.** Each run says how many issues it opened, or would open in test mode, and which projects were skipped and why. **Also running by itself** on the Automation page shows it is on.
+- **Status.** 516 requests a second with 3000 people at once and 0 failed (main 509 and 520). One of three branch runs stalled and had 9 failed requests; the other two had none, and the change is not on any path the benchmark uses (see docs/performance.md). Report opens are 5.9 s and triage polls 183 ms at p95; 445 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.39 — 2026-10-04 13:14 UTC · [#62](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/62)
 - **Code owners next to the author.** Code authors shows the owners the repository's `CODEOWNERS` file gives each file, read the way GitHub and GitLab read it (including GitLab sections), at the scanned version.
