@@ -3385,6 +3385,14 @@ function verifySection(r) {
         <span>${c.inScope - c.open} of ${c.inScope} dealt with: ${c.gone} no longer detected, ${c.notExploitable} not exploitable, ${c.remediated} sent for remediation.${c.open ? ` Still open: ${c.awaiting} awaiting triage, ${c.confirmedNotRemediated} confirmed but not remediated.` : ''}</span>
       </div>`
     : '<p class="hint">Refresh to see where this round stands.</p>';
+  // The developers' turn to rescan (the round's scope is closed, nobody rescanned yet).
+  const w = r.verifyWindow && r.verifyWindow.round === round ? r.verifyWindow : null;
+  const windowHtml = w && !(v && v.round === round)
+    ? `<div class="vf-window">
+        <span class="vf-badge">⟳ Developers' turn</span>
+        <span>${w.developers?.length ? `${escapeHtml(w.developers.map((d) => d.name || d.email).join(', '))} ${w.developers.length === 1 ? 'has' : 'have'}` : 'The developers have'} until <b>${escapeHtml(new Date(w.dueAt).toLocaleString())}</b> to rescan from their report or the emailed link${r.verify?.auto ? '. After that it is rescanned on their behalf, and they are told.' : '. Automatic rescan is off: after that, rescan here.'}${w.notified?.ready ? '' : ' (Email is not set up, so they were not told: send them the report.)'}</span>
+      </div>`
+    : '';
   const result = v?.result;
   const tile = (label, value, sub, tone = '') => `<div class="rp-kpi ${tone}"><span class="rp-tile-label">${escapeHtml(label)}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${escapeHtml(sub)}</span></div>`;
   const resultHtml = result
@@ -3415,8 +3423,10 @@ function verifySection(r) {
   const controls = manage
     ? `<div class="actions compact">
         <button type="button" class="${c?.closed && !scanning ? 'primary' : ''}" data-report-verify="${id}" ${scanning ? 'disabled' : ''}>${scanning ? 'Rescanning…' : 'Rescan now to verify'}</button>
-        <label class="check"><input type="checkbox" data-verify-auto="${id}" ${r.verify?.auto ? 'checked' : ''} /> Rescan automatically the moment every finding in scope is dealt with</label>
+        <label class="check"><input type="checkbox" data-verify-auto="${id}" ${r.verify?.auto ? 'checked' : ''} /> If the developers have not rescanned within</label>
+        <label class="inline"><input type="number" class="small-num" min="24" max="336" step="12" data-verify-grace="${id}" value="${escapeHtml(String(r.verify?.graceHours ?? 48))}" /> hours, rescan on their behalf</label>
       </div>
+      <p class="hint">When every finding in scope is dealt with, the developers who fixed them go first: their report shows <b>Rescan now</b>, and they get it by email, for 24 hours to 14 days (48 by default). If nobody has rescanned by then, the rescan starts on their behalf, and they are told. Everyone gets the updated report with the result.</p>
       <p class="hint">Each project is scanned again in Checkmarx One like its last scan: same repository, branch and engines. Projects scanned from uploaded code cannot be fetched by Checkmarx One; their next scan from your pipeline verifies them. "Sent for remediation" counts AI Remediation sent from CxMissionZero; a fix made any other way shows up when the rescan no longer finds it.</p>`
     : '<p class="hint">Your role can follow verification; rescans and new rounds need “Manage tracked reports”.</p>';
   const nextRound = manage
@@ -3438,7 +3448,7 @@ function verifySection(r) {
         .join('')}</tbody></table></div>`
     : '';
   return `<p class="rp-lead">Round ${round} · ${escapeHtml(sevList(r.filters?.severities))} · ${r.baselineCount} finding${r.baselineCount === 1 ? '' : 's'} in scope. Prove the fixes: once everything is dealt with, a rescan in Checkmarx One shows what is really fixed.</p>
-    ${closure}
+    ${closure}${windowHtml}
     ${controls}
     ${scans}
     ${nextRound}
@@ -3489,9 +3499,24 @@ async function verifyAutoChange(event) {
   try {
     const report = await api(`/api/tracked-reports/${encodeURIComponent(id)}/verify-settings`, { method: 'PUT', body: JSON.stringify({ auto: box.checked }) });
     trackedById.set(id, report);
-    followStatus(id, box.checked ? 'On: the rescan starts by itself the moment every finding in scope is dealt with.' : 'Off: rescan by hand.', 'ok');
+    followStatus(id, box.checked ? `On: if the developers have not rescanned within ${report.verify?.graceHours ?? 48} hours, it is rescanned on their behalf.` : 'Off: after the developers\' turn, rescan by hand.', 'ok');
   } catch (error) {
     box.checked = !box.checked;
+    if (!handleAuthLoss(error)) followStatus(id, error.message, 'error');
+  }
+}
+
+/** How long the developers have to rescan themselves (24 hours to 14 days). */
+async function verifyGraceChange(event) {
+  const input = event.target.closest('[data-verify-grace]');
+  if (!input) return;
+  const id = input.dataset.verifyGrace;
+  try {
+    const report = await api(`/api/tracked-reports/${encodeURIComponent(id)}/verify-settings`, { method: 'PUT', body: JSON.stringify({ graceHours: Number(input.value) }) });
+    trackedById.set(id, report);
+    input.value = report.verify?.graceHours ?? 48;
+    followStatus(id, `Developers have ${report.verify?.graceHours ?? 48} hours to rescan themselves.`, 'ok');
+  } catch (error) {
     if (!handleAuthLoss(error)) followStatus(id, error.message, 'error');
   }
 }
@@ -4156,33 +4181,48 @@ function renderJourney() {
   const r = journeyReports;
   const reportsKnown = can('reports.view') && r.at;
   const steps = [
-    { id: 'detect', label: 'Detect', value: t.open, unit: 'open', hint: `${t.projects} project${t.projects === 1 ? '' : 's'} fetched${t.notExploitable ? ` · ${t.notExploitable} not exploitable` : ''}`, done: !t.open },
-    { id: 'triage', label: 'Triage', value: t.toTriage, unit: 'to verify', hint: 'AI Triage or a person decides: real or not', done: !t.toTriage, rail: 'credits' },
-    { id: 'remediate', label: 'Remediate', value: t.toRemediate, unit: 'confirmed', hint: 'Confirmed and waiting for a fix', done: !t.toRemediate, rail: 'credits' },
-    { id: 'fix', label: 'Fix & rescan', value: t.fixing, unit: 'fixing', hint: 'A fix was asked for: merge it, then rescan', done: !t.fixing, href: '#/reports' },
+    { id: 'detect', label: 'Detect', value: t.open, hint: `${t.open} open finding${t.open === 1 ? '' : 's'} in ${t.projects} project${t.projects === 1 ? '' : 's'}${t.notExploitable ? `; ${t.notExploitable} not exploitable` : ''}`, clear: !t.open },
+    { id: 'triage', label: 'Triage', value: t.toTriage, hint: `${t.toTriage} to verify: AI Triage or a person decides whether each is real`, clear: !t.toTriage, rail: 'credits' },
+    { id: 'remediate', label: 'Remediate', value: t.toRemediate, hint: `${t.toRemediate} confirmed, waiting for a fix`, clear: !t.toRemediate, rail: 'credits' },
+    { id: 'fix', label: 'Fix', value: t.fixing, hint: `${t.fixing} with a fix asked for: merge it, then rescan`, clear: !t.fixing, href: '#/reports' },
     {
-      id: 'verify', label: 'Verify', value: reportsKnown ? r.verified : '—', unit: 'verified at zero',
-      hint: reportsKnown ? `${r.verifying ? `${r.verifying} verifying · ` : ''}${r.leftZero ? `${r.leftZero} left zero · ` : ''}${r.total} tracked report${r.total === 1 ? '' : 's'}` : 'A rescan proves the fixes (Reports → Verify)',
-      done: reportsKnown && r.total > 0 && !r.leftZero && r.verified === r.total, warn: reportsKnown && r.leftZero > 0, href: '#/reports',
+      id: 'verify', label: 'Verify', value: reportsKnown ? r.verified : '–',
+      hint: reportsKnown ? `${r.verified} of ${r.total} tracked report${r.total === 1 ? '' : 's'} verified at zero by a rescan${r.verifying ? `; ${r.verifying} verifying` : ''}${r.leftZero ? `; ${r.leftZero} left zero` : ''}` : 'A rescan proves the fixes (Reports → Verify)',
+      clear: reportsKnown && r.total > 0 && !r.leftZero && r.verified === r.total, alert: reportsKnown && r.leftZero > 0, href: '#/reports',
     },
-    { id: 'zero', label: 'Mission Zero', value: t.atZero, unit: `of ${t.projects} projects`, hint: t.atZero === t.projects ? 'Every project here is at zero. Keep it there.' : 'Projects with nothing open', done: t.atZero === t.projects, zero: true },
   ];
-  // A stage is clear only when it and every stage before it are: nothing is "done" while work is still upstream.
-  let upstreamClear = true;
+  // A stage is clear only when it and every stage before it are; the first one that is not is where to act.
+  let upstream = true;
   for (const step of steps) {
-    step.done = upstreamClear && step.done;
-    if (step.id !== 'verify') upstreamClear = upstreamClear && step.done;
+    step.done = upstream && step.clear;
+    if (step.id !== 'verify') upstream = step.done;
   }
+  const next = steps.find((s) => !s.done);
+  const reached = steps.filter((s) => s.done).length;
+  // The green line runs up to the stage to act on next (nodes are evenly spaced along the track).
+  panel.style.setProperty('--jfill', String(Math.min(reached, steps.length - 1) / (steps.length - 1)));
+
+  const pct = t.projects ? Math.round((t.atZero / t.projects) * 100) : 0;
+  const C = 2 * Math.PI * 21;
+  $('journey-zero').innerHTML = `
+    <svg viewBox="0 0 52 52" class="jz-ring" aria-hidden="true">
+      <circle cx="26" cy="26" r="21" class="jz-bg" />
+      <circle cx="26" cy="26" r="21" class="jz-fg" stroke-dasharray="${((pct / 100) * C).toFixed(1)} ${C.toFixed(1)}" />
+    </svg>
+    <span class="jz-pct">${pct}%</span>
+    <span class="jz-text"><b>Mission Zero</b><small>${t.atZero} of ${t.projects} project${t.projects === 1 ? '' : 's'} at zero</small></span>`;
+  $('journey-zero').classList.toggle('all', t.atZero === t.projects);
+  $('journey-zero').title = t.atZero === t.projects ? 'Every project here is at zero. Keep it there.' : 'Projects with nothing open, of those fetched';
+
   $('journey-steps').innerHTML = steps
     .map((s) => {
-      const tag = s.href ? `a href="${s.href}"` : s.rail ? `button type="button" data-rail-open="${s.rail}"` : 'div';
-      const end = s.href ? 'a' : s.rail ? 'button' : 'div';
-      return `<li class="journey-step${s.done ? ' done' : ''}${s.warn ? ' warn' : ''}${s.zero ? ' zero' : ''}" data-step="${s.id}">
-        <${tag} class="journey-card" title="${escapeHtml(s.hint)}">
-          <span class="journey-label">${s.done ? '✓ ' : ''}${escapeHtml(s.label)}</span>
-          <span class="journey-value">${escapeHtml(String(s.value))}</span>
-          <span class="journey-unit">${escapeHtml(s.unit)}</span>
-          <span class="journey-hint">${escapeHtml(s.hint)}</span>
+      const state = s.alert ? 'alert' : s.done ? 'done' : s === next ? 'now' : 'todo';
+      const tag = s.href ? `a href="${s.href}"` : s.rail ? `button type="button" data-rail-open="${s.rail}"` : 'span';
+      const end = s.href ? 'a' : s.rail ? 'button' : 'span';
+      return `<li class="jstep is-${state}" data-step="${s.id}">
+        <${tag} class="jnode" title="${escapeHtml(s.hint)}" aria-label="${escapeHtml(`${s.label}: ${s.hint}`)}">
+          <span class="jdot">${state === 'done' ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" /></svg>' : escapeHtml(String(s.value))}</span>
+          <span class="jlabel">${escapeHtml(s.label)}</span>
         </${end}>
       </li>`;
     })
@@ -4922,6 +4962,7 @@ $('rp-sheet').addEventListener('change', (event) => {
   if (event.target.matches('[data-sev]')) updateNeed(card);
   if (event.target.name?.startsWith('sendTo-')) syncSendTo(card);
   if (event.target.matches('[data-verify-auto]')) verifyAutoChange(event);
+  if (event.target.matches('[data-verify-grace]')) verifyGraceChange(event);
 });
 // Typing an address picks "Only to".
 $('rp-sheet').addEventListener('input', (event) => {

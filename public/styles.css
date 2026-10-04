@@ -2123,21 +2123,37 @@ main { max-width: none; }
 .code-authors-cta { margin: 12px 0 0; font-size: 13px; }
 .feat-caution { margin-top: 10px; font-size: 13px; }
 
-/* The way to Mission Zero: one card per stage, arrows between, green when a stage is clear. */
-.journey { margin: 0 0 16px; }
-.journey-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
-.journey-step { position: relative; min-width: 0; }
-.journey-step:not(:last-child)::after { content: "→"; position: absolute; right: -9px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 12px; z-index: 1; }
-.journey-card { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; width: 100%; height: 100%; min-height: 0; white-space: normal; box-shadow: none; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); text-align: left; text-decoration: none; font: inherit; cursor: default; }
-a.journey-card, button.journey-card { cursor: pointer; }
-a.journey-card:hover, button.journey-card:hover { border-color: var(--accent); }
-.journey-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
-.journey-value { font-size: 22px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
-.journey-unit { font-size: 12px; color: var(--muted); }
-.journey-hint { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.journey-step.done .journey-card { border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); background: var(--ok-soft); }
-.journey-step.done .journey-label { color: var(--ok); }
-.journey-step.warn .journey-card { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); background: var(--danger-soft); }
-.journey-step.zero.done .journey-value { color: var(--ok); }
-@media (max-width: 1100px) { .journey-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); } .journey-step:nth-child(3n)::after { content: none; } }
-@media (max-width: 560px) { .journey-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } .journey-step::after { content: none !important; } }
+/* The way to Mission Zero: a ring for the goal, one slim track for the stages. */
+.journey { display: flex; align-items: center; gap: 28px; margin: 0 0 16px; padding: 14px 22px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); }
+.jz { position: relative; display: flex; align-items: center; gap: 12px; flex: none; padding-right: 26px; border-right: 1px solid var(--border); }
+.jz-ring { width: 52px; height: 52px; transform: rotate(-90deg); }
+.jz-bg { fill: none; stroke: var(--surface-3); stroke-width: 5; }
+.jz-fg { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
+.jz.all .jz-fg { stroke: var(--ok); }
+.jz-pct { position: absolute; left: 0; width: 52px; text-align: center; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.jz-text { display: flex; flex-direction: column; line-height: 1.25; }
+.jz-text b { font-size: 14px; }
+.jz-text small { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.jtrack { position: relative; flex: 1; display: flex; justify-content: space-between; list-style: none; margin: 0; padding: 0; min-width: 0; }
+.jtrack::before, .jtrack::after { content: ""; position: absolute; top: 15px; left: 16px; height: 2px; border-radius: 2px; }
+.jtrack::before { right: 16px; background: var(--surface-3); }
+.jtrack::after { width: calc((100% - 32px) * var(--jfill, 0)); background: linear-gradient(90deg, var(--ok), color-mix(in srgb, var(--ok) 60%, var(--accent))); transition: width 0.6s ease; }
+.jstep { position: relative; z-index: 1; display: flex; justify-content: center; }
+.jnode { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 0; padding: 0; border: 0; background: none; box-shadow: none; color: var(--text); font: inherit; text-decoration: none; cursor: default; }
+a.jnode, button.jnode { cursor: pointer; }
+.jdot { display: grid; place-items: center; min-width: 32px; height: 32px; padding: 0 8px; border-radius: 999px; background: var(--surface); border: 2px solid var(--border-strong); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; transition: transform 0.15s ease, border-color 0.15s ease; }
+.jdot svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+a.jnode:hover .jdot, button.jnode:hover .jdot { transform: scale(1.08); border-color: var(--accent); }
+.jlabel { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.jstep.is-done .jdot { background: var(--ok); border-color: var(--ok); color: #fff; }
+.jstep.is-now .jdot { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 5px var(--accent-soft); }
+.jstep.is-now .jlabel { color: var(--accent); }
+.jstep.is-alert .jdot { background: var(--danger); border-color: var(--danger); color: #fff; box-shadow: 0 0 0 5px var(--danger-soft); }
+.jstep.is-todo .jdot { color: var(--muted); }
+@media (max-width: 720px) {
+  .journey { flex-direction: column; align-items: stretch; gap: 14px; padding: 14px 16px; }
+  .jz { padding-right: 0; padding-bottom: 12px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .jlabel { font-size: 10px; letter-spacing: 0.02em; }
+}
+.vf-window { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); background: var(--accent-soft); margin: 0 0 12px; font-size: 13px; }
+.vf-window .vf-badge { font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); white-space: nowrap; color: var(--accent); }

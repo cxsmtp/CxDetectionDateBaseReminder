@@ -34,9 +34,9 @@ async function admin(method, url, body) {
 }
 
 /** Act in "Checkmarx One" directly, as a developer or AI would: triage or remediate results. */
-async function inCheckmarxOne(path, resultIDs) {
+async function inCheckmarxOne(path, resultIDs, scanID = 'scan-p0') {
   const token = await fetch(`${MOCK}/auth/realms/acme/protocol/openid-connect/token`, { method: 'POST', body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: KEY }) }).then((r) => r.json());
-  const r = await fetch(MOCK + path, { method: 'POST', headers: { Authorization: `Bearer ${token.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ scanID: 'scan-p0', buckets: [{ scannerType: 'sast', resultIDs }] }) });
+  const r = await fetch(MOCK + path, { method: 'POST', headers: { Authorization: `Bearer ${token.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ scanID, buckets: [{ scannerType: 'sast', resultIDs }] }) });
   assert.ok(r.ok, `${path}: ${r.status}`);
 }
 
@@ -49,12 +49,14 @@ const refresh = async (id) => {
 test.before(async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-'));
   // 2 projects × 4 findings: r0 critical, r1 high, r2 medium, r3 low. p1 was scanned from uploaded code.
-  children.push(spawn(process.execPath, ['loadtest/mock-cxone.mjs'], { env: { ...process.env, PORT: String(MOCK_PORT), LAT: '1', PROJECTS: '2', RISKS: '4', FLIP_MS: String(FLIP_MS), RESCAN_MS: String(RESCAN_MS), INEFFECTIVE: 'p0-r1', UPLOAD_PROJECTS: 'p1' }, stdio: 'ignore' }));
+  children.push(spawn(process.execPath, ['loadtest/mock-cxone.mjs'], { env: { ...process.env, PORT: String(MOCK_PORT), LAT: '1', PROJECTS: '3', RISKS: '4', FLIP_MS: String(FLIP_MS), RESCAN_MS: String(RESCAN_MS), INEFFECTIVE: 'p0-r1', UPLOAD_PROJECTS: 'p1' }, stdio: 'ignore' }));
   const server = spawn(process.execPath, ['src/server.js'], {
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
       CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme',
       ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1',
+      // A developer's window is 24 hours at least: here an "hour" lasts 50 ms, so 24 hours pass in 1.2 s.
+      VERIFY_HOUR_MS: '50', REPORT_SERVER_URL: BASE,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -130,27 +132,74 @@ test('a rescan stays credited to the developer whose work it verifies, not to th
   assert.equal(p0.initiator, 'dev0@acme.com');
 });
 
-test('automatic: the moment every finding in scope is dealt with, the rescan starts by itself', async () => {
+test('the developer goes first: once everything in scope is dealt with, they rescan their own fixes', async () => {
   const created = await admin('POST', '/api/tracked-reports', { name: 'Medium in p0', severities: ['MEDIUM'], projectIds: ['p0'] });
   assert.equal(created.status, 201);
   const id = created.body.id;
-  assert.equal((await admin('PUT', `/api/tracked-reports/${id}/verify-settings`, { auto: true })).body.verify.auto, true);
-  assert.equal((await refresh(id)).verification ?? null, null, 'not closed yet: no rescan');
+  assert.equal((await admin('GET', `/api/tracked-reports/${id}/rescan-links`)).status, 409, 'not closed yet: no rescan for anyone');
 
   // AI Triage judges p0-r2 not exploitable: nothing in scope is left open.
   await inCheckmarxOne('/api/ai-triage/triage', ['alt-p0-r2']);
   await sleep(FLIP_MS + 200);
   const closed = await refresh(id);
   assert.equal(closed.latest.closure.closed, true);
-  assert.equal(closed.verification.automatic, true);
-  assert.match(closed.verification.projects[0].scanId, /^rescan-p0-/);
+  assert.equal(closed.verification ?? null, null, 'nothing rescans by itself: it is the developer\'s turn');
+  assert.equal(closed.verifyWindow.graceHours, 48);
+  assert.deepEqual(closed.verifyWindow.developers.map((d) => d.email), ['dev0@acme.com']);
+
+  // Their link: a page with one button, and the same grant works from their report.
+  const { links } = (await admin('GET', `/api/tracked-reports/${id}/rescan-links`)).body;
+  const grant = new URL(links[0].link).searchParams.get('g');
+  const page = await fetch(links[0].link).then((r) => r.text());
+  assert.match(page, /Rescan now/);
+  assert.match(page, /48 hours left/);
+  const state = await fetch(`${BASE}/api/relay/rescan-state`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ grant }) }).then((r) => r.json());
+  assert.equal(state.state, 'ready');
+  const forged = await fetch(`${BASE}/api/relay/rescan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ grant: `${grant.split('.')[0]}.x` }) });
+  assert.equal(forged.status, 403);
+
+  const started = await fetch(`${BASE}/api/relay/rescan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ grant }) });
+  assert.equal(started.status, 200);
+  assert.equal((await started.json()).state, 'scanning');
+  const again = await fetch(`${BASE}/api/relay/rescan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ grant }) });
+  assert.equal(again.status, 409, 'once per round');
+
+  const scanning = await refresh(id);
+  assert.equal(scanning.verification.by, 'dev0@acme.com');
+  assert.equal(scanning.verification.automatic, false);
+  assert.equal(scanning.verifyWindow.startedBy, 'dev0@acme.com');
+  const sent = await fetch(`${MOCK}/__rescans`).then((r) => r.json());
+  const tags = Object.values(sent).at(-1).tags;
+  assert.equal(tags['requested-by'], 'dev0@acme.com', 'started by the developer');
+  assert.equal(tags['verifies-work-of'], 'dev0@acme.com');
 
   await sleep(RESCAN_MS + 300);
   const done = await refresh(id);
   assert.equal(done.verification.result.accepted, 1);
   assert.equal(done.verification.result.zero, true, 'nothing left in scope: at zero');
-  assert.ok(done.verification.finishedAt);
-  assert.equal((await refresh(id)).verification.round, 1, 'one automatic rescan per round, not one a minute');
+  assert.match(await fetch(links[0].link).then((r) => r.text()), /verified at zero/);
+});
+
+test('nobody rescans in time: it is rescanned on the developers\' behalf, once', async () => {
+  const created = await admin('POST', '/api/tracked-reports', { name: 'Medium in p2', severities: ['MEDIUM'], projectIds: ['p2'] });
+  assert.equal(created.status, 201);
+  const id = created.body.id;
+  const settings = await admin('PUT', `/api/tracked-reports/${id}/verify-settings`, { auto: true, graceHours: 2 });
+  assert.equal(settings.body.verify.auto, true);
+  assert.equal(settings.body.verify.graceHours, 24, 'never less than 24 hours');
+
+  await inCheckmarxOne('/api/ai-triage/triage', ['alt-p2-r2'], 'scan-p2');
+  await sleep(FLIP_MS + 200);
+  const opened = await refresh(id);
+  assert.ok(opened.verifyWindow, 'the developers\' turn');
+  assert.equal(opened.verification ?? null, null);
+
+  await sleep(24 * 50 + 300); // 24 "hours"
+  const behalf = await refresh(id);
+  assert.equal(behalf.verification.automatic, true);
+  assert.match(behalf.verification.projects[0].scanId, /^rescan-p2-/);
+  assert.ok(behalf.verifyWindow.startedAt);
+  assert.equal((await refresh(id)).verification.round, 1, 'one rescan per round, not one a minute');
 });
 
 test('the next round starts on the new scan with a new scope, and the round so far is kept', async () => {
@@ -170,6 +219,8 @@ test('the next round starts on the new scan with a new scope, and the round so f
   const reasons = (audit.body?.entries ?? audit.body?.events ?? []).map((e) => e.reason).join('\n');
   assert.match(reasons, /Verification rescan of "Critical and high" \(round 1\) started/);
   assert.match(reasons, /1 fixed, 1 still found/);
-  assert.match(reasons, /started automatically/);
+  assert.match(reasons, /started by dev0@acme\.com, who fixed the findings/);
+  assert.match(reasons, /on its developers' behalf: nobody rescanned within 24 hours/);
+  assert.match(reasons, /its developers have until/);
   assert.match(reasons, /moved to round 2/);
 });
