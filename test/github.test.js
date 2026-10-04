@@ -166,8 +166,8 @@ test('blame helpers: repository URLs, locations, code version and porcelain outp
   assert.ok(onGitHub(parseRepoUrl('https://ghe.acme.com/a/b'), 'https://ghe.acme.com/api/v3'));
   assert.ok(!onGitHub(parseRepoUrl('https://gitlab.com/a/b'), 'https://api.github.com'));
 
-  const sast = { data: { nodes: [{ fileName: '/src/in.js', line: 3 }, { fileName: '/src/db.js', line: 42 }] } };
-  assert.deepEqual(locationOf(sast), { path: 'src/db.js', line: 42, column: 0, source: { path: 'src/in.js', line: 3 } });
+  const sast = { data: { nodes: [{ fileName: '/src/in.js', line: 3 }, { fileName: '/src/db.js', line: 42, name: 'query' }] } };
+  assert.deepEqual(locationOf(sast), { path: 'src/db.js', line: 42, column: 0, name: 'query', source: { path: 'src/in.js', line: 3 } });
   assert.deepEqual(locationOf({ data: { filename: 'infra/main.tf', line: 7 } }), { path: 'infra/main.tf', line: 7, column: 0, source: null });
   assert.equal(locationOf({ data: { packageIdentifier: 'npm-lodash-4' } }), null);
 
@@ -176,7 +176,7 @@ test('blame helpers: repository URLs, locations, code version and porcelain outp
   assert.deepEqual(codeVersion(null, { repoUrl: 'https://github.com/acme/api', mainBranch: 'dev' }).branch, 'dev');
 
   const porcelain = `${'a'.repeat(40)} 10 10 1\nauthor Jane Doe\nauthor-mail <Jane@Corp.com>\nauthor-time 1700000000\nsummary Fix it\n\tcode`;
-  assert.deepEqual(parsePorcelain(porcelain), { commit: 'a'.repeat(40), authorName: 'Jane Doe', authorEmail: 'jane@corp.com', date: '2023-11-14T22:13:20.000Z', message: 'Fix it', login: '' });
+  assert.deepEqual(parsePorcelain(porcelain), { commit: 'a'.repeat(40), authorName: 'Jane Doe', authorEmail: 'jane@corp.com', date: '2023-11-14T22:13:20.000Z', message: 'Fix it', login: '', content: 'code' });
 });
 
 test('local blame never passes an option-like ref or path to git', async () => {
