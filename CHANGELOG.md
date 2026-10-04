@@ -26,7 +26,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.39 — 2026-10-04 HH:MM UTC · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+## MZ-01.00.39 — 2026-10-04 13:14 UTC · [#62](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/62)
 - **Code owners next to the author.** Code authors shows the owners the repository's `CODEOWNERS` file gives each file, read the way GitHub and GitLab read it (including GitLab sections), at the scanned version.
 - **The change request behind a line.** For each blamed commit on GitHub or GitLab, the Commit column shows the pull or merge request it came in through, who opened it and who approved it; a reviewer who approved and then asked for changes is not counted.
 - **In the authors' email too.** Each code author's email now lists the file's code owners and links the pull or merge request for each finding.
