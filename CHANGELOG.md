@@ -18,6 +18,13 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.32 — 2026-10-04 HH:MM UTC · [#55](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/55)
+- **Beta features can be made final.** Admins have a new **Settings → Beta features** page: **Make final** gives a feature to everyone holding its own permission and drops its Beta label, and **Back to Beta** undoes it. Every change is in the audit log.
+- **Code authors, for everyone who sends reminders.** Once final, git blame finds the exact developer who last changed each vulnerable line, for anyone who may send reminders. The sidebar entry is renamed **Code authors**, and the Dashboard's Remind panel links to it.
+- **Scheduled reminders reach the developer too.** With **Code authors** final, **Settings → Automation → Also email the code authors** makes each run email the developer behind every finding that just crossed a threshold, as well as the scan initiator (up to 200 findings a run).
+- **Match usernames, for the people who manage addresses.** Once final, anyone who may change initiator addresses can run and apply the matching.
+- **Status.** STATUS_LINE
+
 ## MZ-01.00.31 — 2026-10-04 06:30 UTC · [#54](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/54)
 - **Rescans keep the developer's name.** Checkmarx One records whoever owns the API key as the initiator of a scan this server starts. Verification rescans are now credited to the developer whose work they verify, so reminders, reports and the Dashboard still name that developer, not the server's account. In Checkmarx One the rescan is tagged `verifies-work-of` and `requested-by`.
 - **Faster again.** Under the 3000-user benchmark, reports open in 2.5 s at p95 (5.1 s for MZ-01.00.30 on the same machine), and an open report's status checks answer in 106 ms at p95 (350 ms). The server also uses less CPU, with no failed requests.

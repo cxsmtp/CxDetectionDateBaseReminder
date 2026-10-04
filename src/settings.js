@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { DEFAULT_AUTOMATION, mergeAutomation } from './automation-config.js';
+import { mergeFeatures } from './features.js';
 import { DEFAULT_LINK_TEMPLATES, PREVIOUS_LINK_DEFAULTS } from './links.js';
 import { DEFAULT_TEMPLATE } from './template.js';
 
@@ -315,7 +316,10 @@ export function mergeSettings(current, incoming = {}) {
 
   const beta = mergeBeta(current.beta, incoming.beta);
 
-  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta };
+  // Beta or final: set only through its own route (the Admin's), never by the settings form.
+  const features = mergeFeatures(current.features, incoming.features);
+
+  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta, features };
 
   // The automation credential is set through its own route, not this form.
   if (typeof incoming.automationApiKey === 'string') next.automationApiKey = incoming.automationApiKey.trim();
@@ -458,6 +462,7 @@ export function publicSettings(settings) {
         authors: settings.beta?.authors ?? DEFAULT_SETTINGS.beta.authors,
       };
     })(),
+    features: mergeFeatures(settings.features),
     verifiedAt: settings.verifiedAt,
     verified: isVerified(settings),
   };
@@ -525,6 +530,7 @@ export class SettingsStore {
         endpoints: { ...DEFAULT_SETTINGS.endpoints, ...(raw.endpoints ?? {}) },
         aiTriage: { ...DEFAULT_SETTINGS.aiTriage, ...(raw.aiTriage ?? {}) },
         beta: mergeBeta(raw.beta, null),
+        features: mergeFeatures(raw.features),
       };
     } catch {
       return structuredClone(DEFAULT_SETTINGS);

@@ -34,9 +34,9 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
             <span>Dashboard</span>
           </a>
-          <a href="#/beta" data-route="beta" class="tab" data-stage="detect" data-perm="beta.use">
+          <a href="#/beta" data-route="beta" class="tab" data-stage="detect" data-perm="beta.use feature.codeAuthors feature.identityMatching">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.5L4.6 18.2A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.8L14 9.5V3" /><path d="M7.5 15h9" /></svg>
-            <span>Beta</span>
+            <span id="nav-beta-label">Beta</span>
           </a>
           <p class="nav-group" data-stage="eliminate" data-perm="reports.view credits.view" title="Drive findings to zero: follow-ups, AI triage and remediation"><i aria-hidden="true"></i>Eliminate</p>
           <a href="#/reports" data-route="reports" class="tab" data-stage="eliminate" data-perm="reports.view">
@@ -389,6 +389,7 @@
                 </div>
                 <span id="status" class="status"></span>
                 <details class="disclosure deliveries" id="send-deliveries" hidden></details>
+                <p class="code-authors-cta" data-perm="feature.codeAuthors"><a href="#/beta/authors">Email the developers who wrote the vulnerable code →</a> <span class="hint">git blame finds who last changed each line, in these projects.</span></p>
               </section>
                 </div>
                 <div class="ptpanel" data-ptpanel="dash:people" role="tabpanel" hidden>
@@ -527,6 +528,7 @@
                 <p class="set-group" data-perm="security.https">Security</p>
                   <a href="#/settings/https" data-set="https" data-perm="security.https">HTTPS</a>
                 <p class="set-group">About</p>
+                  <a href="#/settings/features" data-set="features" data-perm="features.manage">Beta features</a>
                   <a href="#/settings/update" data-set="update" data-perm="system.update">Update &amp; recovery</a>
                   <a href="#/settings/about" data-set="about">About &amp; terms of use</a>
                 </div>
@@ -713,6 +715,7 @@
               <div class="checks">
                 <label class="check"><input type="checkbox" id="auto-enabled" /> Run automatically</label>
                 <label class="check"><input type="checkbox" id="auto-dry" /> Dry run — decide and log, but send nothing</label>
+                <label class="check" id="auto-authors-row" hidden><input type="checkbox" id="auto-authors" /> Also email the code authors: the developer who last changed each vulnerable line gets the findings in their code</label>
               </div>
 
               <div class="grid2">
@@ -1002,6 +1005,12 @@
               <div id="probe-results" hidden></div>
             </section>
 
+            <section class="panel" id="set-features" data-perm="features.manage">
+              <h2>Beta features</h2>
+              <p class="hint wide">A feature starts in Beta, for people whose role holds "Beta features". When you trust it, make it final: it loses its Beta label, everyone holding its own permission can use it, and what it adds elsewhere turns on. You can put it back in Beta at any time. Every change is in the audit log.</p>
+              <div class="feat-list" id="feat-list"><p class="hint">Loading…</p></div>
+              <p class="status" id="feat-status"></p>
+            </section>
             <section class="panel" id="set-update" data-perm="system.update">
               <h2>Update &amp; recovery</h2>
               <p class="hint wide">Keep CxMissionZero up to date without signing in to the server: install a new version, go back to any version, turn on auto-update, restart, or download a troubleshooting report. Every switch is backed up first, and a version that does not start is rolled back by itself.</p>
@@ -1205,11 +1214,11 @@
           <div id="page-beta" class="page beta" hidden>
             <div class="page-head">
               <div class="ptabs" role="tablist" aria-label="Beta features" data-ptabs="beta">
-                <button type="button" role="tab" class="ptab" data-pt="authors">Code authors</button>
-                <button type="button" role="tab" class="ptab" data-pt="identity">Match usernames</button>
-                <button type="button" role="tab" class="ptab" data-pt="hosts">Source-code hosts <em class="ptab-count" id="hosts-count"></em></button>
+                <button type="button" role="tab" class="ptab" data-pt="authors" data-perm="beta.use feature.codeAuthors">Code authors <span class="badge warn" data-beta-badge="codeAuthors">Beta</span></button>
+                <button type="button" role="tab" class="ptab" data-pt="identity" data-perm="beta.use feature.identityMatching">Match usernames <span class="badge warn" data-beta-badge="identityMatching">Beta</span></button>
+                <button type="button" role="tab" class="ptab" data-pt="hosts" data-perm="beta.use">Source-code hosts <em class="ptab-count" id="hosts-count"></em></button>
               </div>
-              <p class="beta-banner"><span class="badge warn">Beta</span> Reads your repositories' git history and, if connected, the GitHub, GitLab, Azure DevOps and Bitbucket APIs. Check results before relying on them.</p>
+              <p class="beta-banner" id="beta-banner"><span class="badge warn">Beta</span> Reads your repositories' git history and, if connected, the GitHub, GitLab, Azure DevOps and Bitbucket APIs. Check results before relying on them.</p>
             </div>
             <div class="ptpanel" data-ptpanel="beta:authors" role="tabpanel">
             <section class="panel" id="beta-authors">

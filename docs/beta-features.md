@@ -1,5 +1,11 @@
 # Beta features
 
+**Beta or final.** Each feature starts in Beta, for roles holding "Beta features". An Admin makes it final under **Settings → Beta features** (permission "Make Beta features final"), and can put it back:
+- **Code authors, once final:** anyone who may send reminders can use it, and scheduled reminders (Settings → Automation → *Also email the code authors*) email the developer who last changed the line of each finding that just crossed a threshold, up to 200 findings a run.
+- **Matching usernames, once final:** anyone who may change initiator addresses can run and apply it.
+
+Every change of stage is in the audit log.
+
 Both features live on the **Beta** tab. They read git history and, optionally,
 the APIs of GitHub, GitLab, Azure DevOps and Bitbucket; check what they find before
 relying on it.

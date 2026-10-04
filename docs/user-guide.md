@@ -345,6 +345,19 @@ Install a new version, go back to any version, turn on auto-update, restart the 
   - A version that does not start is rolled back by itself.
 - **Recent events:** switches, starts, automatic rollbacks, restarts.
 
+### Beta features (Admin)
+
+A feature starts in Beta: only roles holding **Beta features** see it. When you trust it, **Make final**:
+- it loses its Beta label, and anyone holding the feature's own permission can use it;
+- what it adds elsewhere turns on.
+
+**Back to Beta** undoes it. Every change is in the audit log (type **System**), with who made it.
+
+| Feature | Once final |
+| --- | --- |
+| **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Dashboard's Remind panel links to it, and Settings → Automation can email code authors on every run. |
+| **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
+
 ### About & terms of use
 The version, the licence, the project's address, which version of the terms you accepted, and **Read the terms of use**.
 
@@ -430,12 +443,13 @@ Watches findings on a timer and emails the moment one crosses an age threshold. 
 | Address to | Each scan initiator (their own projects only), or the configured recipient list. |
 | Severities | For example `CRITICAL, HIGH`. Blank means all. |
 | Mode | **Report each threshold once** (recommended), or **digest**: re-report everything past a threshold on every run. |
+| Also email the code authors | Shown once an Admin has made **Code authors** final. Each run also emails the developer who last changed the line of each finding that just crossed (SAST and KICS, most severe first, up to 200 a run), with the findings in their code. Scan initiators are still emailed as before. In digest mode the authors are emailed on every run too. |
 | **Run once now** | Runs a pass immediately. |
 | **Reset history** | Forgets what was reported, so the next run reports everything again. |
 
 The panel shows:
 - whether the Checkmarx One connection and the mail server are ready;
-- the last runs (scanned, crossed, sent).
+- the last runs (scanned, crossed, sent, and how many code authors were emailed).
 
 ### AI Triage & Remediation from reports
 | Option | Meaning |
@@ -791,9 +805,9 @@ Identity and access management, in two tabs.
 
 ---
 
-## Beta page
+## Beta page (Code authors)
 
-Early features: check what they find before relying on them. Details are in [beta-features.md](beta-features.md). Three tabs: **Code authors**, **Match usernames**, **Source-code hosts** (the connections: GitHub, GitLab, Azure DevOps, Bitbucket).
+Early features: check what they find before relying on them. A feature an Admin made final ([Settings → Beta features](#beta-features-admin)) loses its Beta label, and the page is called **Code authors** in the sidebar once that one is final. Details are in [beta-features.md](beta-features.md). Three tabs: **Code authors**, **Match usernames**, **Source-code hosts** (the connections: GitHub, GitLab, Azure DevOps, Bitbucket).
 - **Email the authors of vulnerable code.** Finds who last changed the vulnerable line, and emails them.
   - **Where the code is:** GitHub, GitLab, Azure DevOps or Bitbucket.
   - **Through the host's API** where it has one: GitHub, GitLab and Bitbucket Data Center, one request per file.

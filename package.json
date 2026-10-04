@@ -1,6 +1,6 @@
 {
   "name": "cx-detection-date-reminder",
-  "version": "1.0.31",
+  "version": "1.0.32",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "description": "Utility that lists Checkmarx One projects with vulnerability first-detection dates and sends ageing reminders through a configured CxONE Feedback App.",

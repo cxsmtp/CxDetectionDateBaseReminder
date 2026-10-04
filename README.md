@@ -232,7 +232,7 @@ How it is measured, and what is open and why: [Performance and security status](
 | [Performance and sizing](docs/performance.md) | The 3000-user benchmark and the recommended server size. |
 | [Performance and security status](docs/status.md) | Every version's benchmark, tests, dependency audit and Checkmarx One scan result. |
 | [Audit log and backups](docs/audit-and-backup.md) | The tamper-evident audit log, backups, restore, moving servers. |
-| [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code, and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket. |
+| [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code (git blame, down to the exact developer), and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket. An Admin makes each one final when it has proved itself. |
 
 ## Licence, terms of use and contributing
 
