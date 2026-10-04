@@ -4109,6 +4109,10 @@ function renderAllocation() {
     return;
   }
   const t = allocationTotals(scope, severities);
+  // Take back: what the projects in scope were given and have not used, whatever the severities.
+  const unused = scope.reduce((n, p) => n + (p.credits?.triage?.remaining ?? 0) + (p.credits?.remediation?.remaining ?? 0), 0);
+  $('alloc-reclaim').textContent = unused ? `Take back ${unused} unused credit${unused === 1 ? '' : 's'}` : 'No unused credits to take back';
+  $('alloc-reclaim').classList.toggle('is-empty', !unused);
   const verifiedAll = scope.length && scope.every((p) => isVerified(p, severities));
   const rows = scope.reduce((n, p) => n + (isVerified(p, severities) ? p.verified.triage.rows : 0), 0);
   $('alloc-verified').innerHTML = verifiedAll
@@ -5034,7 +5038,6 @@ if ($('attach-html-report')) {
     renderRecipientHint();
     const checked = $('attach-html-report').checked;
     if ($('preview-html')) $('preview-html').hidden = !checked;
-    if ($('download-html')) $('download-html').hidden = !checked;
   };
 
   $('attach-html-report').addEventListener('change', updateHtmlReportButtonsVisibility);
@@ -6021,8 +6024,9 @@ document.addEventListener('keydown', (event) => {
     applyAppBranding(state.health.app);
     for (const problem of state.health.problems) console.warn(problem);
     syncNarrow();
-    fillPresets('activity-preset', 'any');
-    fillPresets('detection-preset', 'any');
+    // Last week by default: quick on a large tenant; widen it when you need more.
+    fillPresets('activity-preset', '7d');
+    fillPresets('detection-preset', '7d');
     updateScopeSummary();
   } catch {
     /* health is advisory only */

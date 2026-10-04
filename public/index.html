@@ -396,7 +396,7 @@
                   <div class="composer-secondary">
                     <button id="preview" class="sm">Preview email</button>
                     <button id="preview-html" class="sm" hidden>Preview report</button>
-                    <button id="download-html" class="sm" data-advanced hidden>Download HTML</button>
+                    <button id="download-html" class="sm">Download HTML</button>
                   </div>
                   <button id="send" class="primary big">Send reminders</button>
                 </div>
@@ -450,6 +450,7 @@
               </div>
               <div class="alloc-row verify-row">
                 <button id="alloc-verify" type="button" data-needs-data>Check the numbers again</button>
+                <button id="alloc-reclaim" type="button" class="danger-soft" data-perm="credits.allocate" data-needs-data title="Credits given to the selected projects and not used yet go back to the credit pool. Used credits stay counted.">Take back unused credits</button>
                 <span class="hint" id="alloc-verified">Every button below re-checks with Checkmarx One first, and stops if anything changed.</span>
               </div>
               <div class="alloc-steps">
@@ -482,8 +483,7 @@
                 </div>
               </details>
               <div class="alloc-row takeback-row" data-perm="credits.allocate">
-                <button id="alloc-reclaim" type="button" class="sm danger-soft" data-needs-data title="Allocated but not used (people did not act on it): back to the credit pool">Take back unused credits</button>
-                <a href="#/credits/allocations" class="hint">Every project: Credit Control →</a>
+                <a href="#/credits/allocations" class="hint">Take back credits from every project: Credit Control →</a>
               </div>
               <p class="status" id="alloc-status"></p>
             </section>
