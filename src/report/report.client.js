@@ -974,6 +974,9 @@
       prError: r.autoPr?.error_msg || '',
       patch,
       files: (data?.file_changes || []).length,
+      why: data?.analysis?.why || '',
+      // Tests Checkmarx One wrote for the fix: they arrive among the file changes.
+      tests: (data?.test_creation?.test_files || []).map((t) => String(t?.file_path || '')).filter(Boolean),
       // Per file, for "Apply fix in my workspace".
       changes: (data?.file_changes || [])
         .filter((c) => typeof c.diff === 'string' && /^@@ /m.test(c.diff) && MZPatch.segments(c.file_path))
@@ -1038,6 +1041,28 @@
     if (r.summary) {
       const p = document.createElement('p');
       p.textContent = r.summary;
+      out.append(p);
+    }
+    if (r.why || r.how) {
+      const more = document.createElement('details');
+      more.className = 'fix-more';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Why and how';
+      more.append(summary);
+      for (const [label, text] of [['Why', r.why], ['How', r.how]]) {
+        if (!text) continue;
+        const p = document.createElement('p');
+        const b = document.createElement('b');
+        b.textContent = `${label}: `;
+        p.append(b, text);
+        more.append(p);
+      }
+      out.append(more);
+    }
+    if (r.tests?.length) {
+      const p = document.createElement('p');
+      p.className = 'muted';
+      p.textContent = `Includes ${r.tests.length} test file${r.tests.length === 1 ? '' : 's'} Checkmarx One wrote for the fix: ${r.tests.join(', ')}.`;
       out.append(p);
     }
     if (f.url) out.append(link('View the fix in Checkmarx One', f.url));
@@ -1487,27 +1512,51 @@
   const repoOf = (f) => config.repositories?.[f.projectId] ?? null;
   const repoName = (f) => (repoOf(f) ? MZPatch.repoKey(repoOf(f).url).split('/').pop() : '') || f.projectName;
   const folderKey = (f) => (repoOf(f) ? `repo:${MZPatch.repoKey(repoOf(f).url)}` : `project:${f.projectId}`);
-  const folderFor = (f) => {
-    const folder = workspacePrefs().folders?.[folderKey(f)];
-    return typeof folder === 'string' ? folder : '';
-  };
   const absolute = (folder) => /^([A-Za-z]:[\\/]|\/)/.test(folder);
+  const joinPath = (root, name) => `${root}${/^[A-Za-z]:/.test(root) ? '\\' : '/'}${name}`;
+  const cleanFolder = (text) => String(text ?? '').trim().replace(/^"(.*)"$/, '$1').replace(/[\\/]+$/, '');
+  /** Where this computer keeps its code (asked once, for every repository and report). */
+  const codeRoot = () => {
+    const root = workspacePrefs().parent;
+    return typeof root === 'string' && absolute(root) ? root : '';
+  };
+  /** This repository's folder: its own, if the reader set one, else <code folder>/<repository name>. */
+  const folderFor = (f) => {
+    const own = workspacePrefs().folders?.[folderKey(f)];
+    if (typeof own === 'string' && own) return own;
+    return codeRoot() ? joinPath(codeRoot(), repoName(f)) : '';
+  };
 
-  /** Ask once where this repository is checked out; remembered in this browser. */
-  function askFolder(f) {
-    const prefs = workspacePrefs();
+  /** The one question: where repositories are checked out on this computer. */
+  function askCodeRoot(f) {
     const name = repoName(f);
-    const parent = typeof prefs.parent === 'string' ? prefs.parent : '';
-    const guess = folderFor(f) || (parent ? `${parent}${/^[A-Za-z]:/.test(parent) ? '\\' : '/'}${name}` : '');
-    const answer = prompt(`Where is ${name} checked out on this computer? Its full folder path, for example C:\\src\\${name} or /home/you/src/${name}.`, guess);
+    const answer = prompt(
+      `Where do you keep your code on this computer? Asked once: each repository then opens from that folder by its name (${name} → <folder>${/Win/.test(navigator.platform) ? '\\' : '/'}${name}).\n\nFor example C:\\src or /home/you/src`,
+      codeRoot(),
+    );
     if (answer === null) return '';
-    const folder = answer.trim().replace(/^"(.*)"$/, '$1').replace(/[\\/]+$/, '');
+    const root = cleanFolder(answer);
+    if (!absolute(root)) {
+      alert('Enter the full path of the folder: starting with a drive letter (C:\\…) or with /.');
+      return '';
+    }
+    saveWorkspacePrefs({ ...workspacePrefs(), parent: root });
+    return root;
+  }
+
+  /** A repository kept somewhere else, or under another name. */
+  function askFolder(f) {
+    const name = repoName(f);
+    const answer = prompt(`Where is ${name} on this computer? Its full folder path.`, folderFor(f) || (codeRoot() ? joinPath(codeRoot(), name) : ''));
+    if (answer === null) return '';
+    const folder = cleanFolder(answer);
     if (!absolute(folder)) {
       alert('Enter the full path of the folder: starting with a drive letter (C:\\…) or with /.');
       return '';
     }
+    const prefs = workspacePrefs();
     prefs.folders = { ...(prefs.folders && typeof prefs.folders === 'object' ? prefs.folders : {}), [folderKey(f)]: folder };
-    prefs.parent = folder.replace(/[\\/][^\\/]+$/, '');
+    if (!codeRoot()) prefs.parent = folder.replace(/[\\/][^\\/]+$/, '');
     saveWorkspacePrefs(prefs);
     return folder;
   }
@@ -1530,6 +1579,68 @@
     return `jetbrains://${tool}/navigate/reference?project=${encodeURIComponent(project)}&path=${path}${at}`;
   }
 
+  /** Not on this computer yet: the IDE asks where to clone it, then opens it. */
+  const cloneLink = (scheme, url) => `${scheme}://vscode.git/clone?url=${encodeURIComponent(url)}`;
+  const jetbrainsCloneLink = (tool, url) => `jetbrains://${tool}/checkout/git?checkout.repo=${encodeURIComponent(url)}&idea.required.plugins.id=Git4Idea`;
+
+  /** The file at its line in the code host's browser editor (or its file view): nothing local needed. */
+  function webLink(f) {
+    const repo = repoOf(f);
+    if (!repo || !/^https:\/\//i.test(repo.url)) return null;
+    const [host, ...rest] = MZPatch.repoKey(repo.url).split('/');
+    const project = rest.join('/');
+    const branch = (repo.branch || 'HEAD').split('/').map(encodeURIComponent).join('/');
+    const file = f.loc.path.split('/').map(encodeURIComponent).join('/');
+    const line = f.loc.line || 1;
+    if (!project) return null;
+    if (host === 'github.com') return { label: 'github.dev (in the browser)', url: `https://github.dev/${project}/blob/${branch}/${file}#L${line}` };
+    if (/(^|\.)gitlab\./.test(host)) return { label: 'GitLab Web IDE', url: `https://${host}/-/ide/project/${project}/edit/${branch}/-/${file}` };
+    if (host === 'bitbucket.org') return { label: 'View on Bitbucket', url: `https://bitbucket.org/${project}/src/${branch}/${file}#lines-${line}` };
+    if (host === 'dev.azure.com') {
+      return { label: 'View in Azure Repos', url: `https://dev.azure.com/${project}?path=/${file}&version=GB${branch}&line=${line}&lineEnd=${line}&lineStartColumn=1&lineEndColumn=1&_a=contents` };
+    }
+    return null;
+  }
+
+  /** A prompt for the AI assistant in the reader's IDE (Claude Code, Copilot, Cursor, Kiro): it finds the file itself. */
+  function aiPrompt(f) {
+    const at = f.loc?.path ? `${f.loc.path}${f.loc.line ? `:${f.loc.line}` : ''}` : f.projectName;
+    const lines = [`Fix the Checkmarx One finding "${f.title}" (${f.severity.toLowerCase()} severity) at ${at} in this repository.`];
+    if (f.advice?.what) lines.push(`Why it is a vulnerability: ${f.advice.what}`);
+    const changes = f.remediation?.changes ?? [];
+    if (changes.length) {
+      lines.push(
+        'Checkmarx One AI Remediation proposed the change below. Apply it to the current code. If the code moved or changed since the scan, make the same change where it now lives, keep my other edits, and tell me which parts you placed by hand. Do not commit.',
+        '',
+        ...changes.map((c) => `# ${c.path}\n${c.diff}`),
+      );
+    } else {
+      if (f.advice?.fix) lines.push(`How it is usually fixed: ${f.advice.fix}`);
+      lines.push('Open the file at that line, explain the vulnerable path in two sentences, then make the smallest safe fix as an edit I can review. Do not commit.');
+    }
+    return lines.join('\n');
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.append(area);
+      area.select();
+      let copied = false;
+      try {
+        copied = document.execCommand('copy');
+      } catch {}
+      area.remove();
+      return copied;
+    }
+  }
+
   /** Hand a link to the IDE registered for it (no new tab is left behind). */
   function openInIde(url) {
     const a = document.createElement('a');
@@ -1550,6 +1661,15 @@
     return button;
   }
 
+  function textLink(text, onClick) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'link-button';
+    button.textContent = text;
+    button.addEventListener('click', onClick);
+    return button;
+  }
+
   function fillIdeMenu(f, list) {
     list.replaceChildren();
     const where = document.createElement('p');
@@ -1559,8 +1679,11 @@
     for (const ide of IDES) {
       list.append(
         smallButton(ide.name, () => {
-          const folder = folderFor(f) || askFolder(f);
-          if (folder) openInIde(fileLink(ide.scheme, folder, f.loc));
+          const folder = folderFor(f) || (askCodeRoot(f) && folderFor(f));
+          if (folder) {
+            openInIde(fileLink(ide.scheme, folder, f.loc));
+            saveWorkspacePrefs({ ...workspacePrefs(), ide: ide.scheme });
+          }
           fillIdeMenu(f, list);
         }),
       );
@@ -1575,19 +1698,44 @@
     jetbrains.className = 'ide-jb';
     jetbrains.append(
       smallButton('JetBrains', () => {
-        // JetBrains finds the file by the project's name, as opened in the IDE: its folder's name.
-        const project = folderFor(f).split(/[\\/]/).pop() || repoName(f);
+        // JetBrains finds the file by the name of the project it has open: no folder needed.
+        const project = (workspacePrefs().folders?.[folderKey(f)] || '').split(/[\\/]/).pop() || repoName(f);
         openInIde(jetbrainsLink(select.value, project, f.loc));
       }),
       select,
     );
     list.append(jetbrains);
+
     const folder = folderFor(f);
-    const change = smallButton(folder ? `Folder: ${folder} · change` : 'Set where this repository is…', () => {
-      if (askFolder(f)) fillIdeMenu(f, list);
+    const note = document.createElement('p');
+    note.className = 'ide-note';
+    if (folder) {
+      note.append(`Opens ${joinPath(folder, f.loc.path.replace(/\//g, /^[A-Za-z]:/.test(folder) ? '\\' : '/'))}. `);
+      note.append(textLink('Somewhere else?', () => askFolder(f) && fillIdeMenu(f, list)));
+    } else {
+      note.append('The first time, it asks where you keep your code; after that it is one click.');
+    }
+    list.append(note);
+
+    const repo = repoOf(f);
+    if (repo) {
+      const clone = document.createElement('p');
+      clone.className = 'ide-note';
+      clone.append('Not on this computer yet? Clone and open: ');
+      for (const ide of IDES) clone.append(textLink(ide.name, () => openInIde(cloneLink(ide.scheme, repo.url))), ' · ');
+      clone.append(textLink('JetBrains', () => openInIde(jetbrainsCloneLink(select.value, repo.url))));
+      list.append(clone);
+      const web = webLink(f);
+      if (web) list.append(link(web.label, web.url));
+    }
+
+    const ai = smallButton('Copy prompt for your AI assistant', async () => {
+      const copied = await copyText(aiPrompt(f));
+      ai.textContent = copied ? 'Copied: paste it into Claude Code, Copilot, Cursor or Kiro' : 'Could not copy: your browser blocked it';
+      setTimeout(() => (ai.textContent = 'Copy prompt for your AI assistant'), 4000);
     });
-    change.classList.add('ide-folder');
-    list.append(change);
+    ai.title = 'The finding, its file and line, and the fix when there is one: your IDE\'s AI assistant finds the file and makes the change.';
+    list.append(ai);
   }
 
   function ideMenu(f) {
@@ -1757,6 +1905,13 @@
     done.className = 'fix-written';
     done.textContent = `✓ Written to ${dir.name} (${files}). Review with git diff, then commit.`;
     row(f)?.querySelector('.ws-actions')?.append(done);
+    // Straight to the change, in the IDE this reader uses (when the report knows where the folder is).
+    const ide = IDES.find((i) => i.scheme === workspacePrefs().ide) ?? IDES[0];
+    const folder = folderFor(f);
+    if (folder && folder.split(/[\\/]/).pop() === dir.name) {
+      const first = plans[0].path === f.loc?.path ? f.loc : { path: plans[0].path, line: 0, column: 0 };
+      done.append(' ', textLink(`Open it in ${ide.name}`, () => openInIde(fileLink(ide.scheme, folder, first))));
+    }
   }
 
   async function copyGitCommand(f, button) {
@@ -1765,11 +1920,7 @@
       const { url } = await backend.patchLink(f);
       if (!safeHref(url) || !/^https?:/i.test(url) || /["\s]/.test(url)) throw new Error('The server sent an address that is not a web link.');
       const command = `curl -fsSL "${url}" -o mz-fix.patch && git apply --recount mz-fix.patch`;
-      let copied = false;
-      try {
-        await navigator.clipboard.writeText(command);
-        copied = true;
-      } catch {}
+      const copied = await copyText(command);
       const box = row(f)?.querySelector('.ws-actions');
       box?.querySelector('.git-command')?.remove();
       const shown = document.createElement('div');
@@ -1802,6 +1953,12 @@
         ),
       );
     }
+    const ai = smallButton('Copy AI prompt', async () => {
+      const copied = await copyText(aiPrompt(f));
+      log(copied ? `Prompt for ${f.title} copied: paste it into your IDE's AI assistant.` : 'Could not copy the prompt: your browser blocked it.', copied ? 'success' : 'error');
+    });
+    ai.title = 'The fix as a prompt for Claude Code, Copilot, Cursor or Kiro: it finds the file and places the change even where the code moved.';
+    box.append(ai);
     const git = smallButton('Copy git command', () => requireConnection(() => copyGitCommand(f, git)));
     git.title = 'A one-line command that downloads this fix and applies it with git, run in the repository folder.';
     box.append(git);

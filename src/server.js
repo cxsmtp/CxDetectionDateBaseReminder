@@ -4902,7 +4902,12 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   await resolveAiIds(session.client, [...findings, ...bulkFindings], scanIdOf, resultsCache);
   // Where each shown finding is in its repository: the report's "Open in IDE" and "Apply fix in my workspace".
   const locatable = findings.filter((f) => LOCATABLE_SCANNERS.has(f.scanner));
+  for (const scanId of new Set(locatable.map((f) => f.scanId || scanIdOf(f)))) {
+    const known = scanLocations.get(scanId);
+    if (known && !resultsCache.has(scanId)) resultsCache.set(scanId, Promise.resolve(known));
+  }
   const rows = locatable.length ? await resultRowsFor(session.client, locatable, scanIdOf, resultsCache) : new Map();
+  await rememberScanLocations(resultsCache);
   for (const [finding, row] of rows) {
     const at = locationOf(row);
     if (at?.path) finding.codeLocation = { path: at.path, line: at.line, column: at.column };
@@ -4961,6 +4966,36 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
 
 /** Engines whose findings sit at a file and line. */
 const LOCATABLE_SCANNERS = new Set(['SAST', 'KICS', 'IAC']);
+
+/**
+ * Where a completed scan's results are never changes, so report builds share
+ * it: per scan, only what finding a row and its location need (no states),
+ * for the 40 scans used last, for 30 minutes.
+ */
+const scanLocations = new TtlCache({ max: 40 });
+const SCAN_LOCATIONS_TTL_MS = 30 * 60_000;
+const slimRow = (row) => {
+  const nodes = Array.isArray(row?.data?.nodes) ? row.data.nodes : [];
+  const node = (n) => ({ fileName: n?.fileName ?? n?.fullName ?? '', line: n?.line, column: n?.column });
+  return {
+    type: row?.type,
+    alternateId: row?.alternateId,
+    similarityId: row?.similarityId,
+    data: {
+      ...(nodes.length ? { nodes: nodes.length > 1 ? [node(nodes[0]), node(nodes.at(-1))] : [node(nodes[0])] } : {}),
+      ...(row?.data?.filename || row?.data?.fileName ? { filename: row.data.filename ?? row.data.fileName, line: row.data.line } : {}),
+    },
+  };
+};
+async function rememberScanLocations(resultsCache) {
+  for (const [scanId, pending] of resultsCache) {
+    if (scanLocations.get(scanId)) continue;
+    try {
+      const rows = await pending;
+      if (Array.isArray(rows)) scanLocations.set(scanId, rows.map(slimRow), SCAN_LOCATIONS_TTL_MS);
+    } catch {}
+  }
+}
 
 /** A repository address safe to put in a report: http(s), ssh or git@host:path, never with credentials. */
 function publicRepoUrl(url) {

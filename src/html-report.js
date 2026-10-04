@@ -610,6 +610,11 @@ tr.shared-row.twin-hi > td, tr.shared-row:target > td { background: color-mix(in
 .ide-jb { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
 .ide-jb select { font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
 .ide-list .ide-folder { font-weight: 500; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.ide-note { margin: 0; font-size: 12px; color: var(--muted); white-space: normal; overflow-wrap: anywhere; }
+.ide-list > a { font-size: 12px; font-weight: 600; }
+.link-button { font: inherit; color: var(--link); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.fix-more summary { cursor: pointer; color: var(--link); font-weight: 600; }
+.fix-more p { margin: 4px 0 0; }
 .ws-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .ws-actions p { flex-basis: 100%; }
 .git-command { flex-basis: 100%; }
