@@ -38,7 +38,14 @@ export function groupIdFor(finding) {
   return similarityId;
 }
 
-async function fetchScanResults(client, scanId) {
+/** A scan's /api/results rows; `cache` (scanId → promise) lets one report build read each scan once. */
+function fetchScanResults(client, scanId, cache = null) {
+  if (!cache) return readScanResults(client, scanId);
+  if (!cache.has(scanId)) cache.set(scanId, readScanResults(client, scanId));
+  return cache.get(scanId);
+}
+
+async function readScanResults(client, scanId) {
   const rows = [];
   for await (const row of client.paginate('/api/results/', {
     itemsKey: 'results',
@@ -82,7 +89,7 @@ function findRow(rows, finding) {
  * @param {Array} findings        normalised risks (at most a few dozen)
  * @param {(finding) => string} latestScanId  fallback scan per project
  */
-export async function resolveAiIds(client, findings, latestScanId = () => '') {
+export async function resolveAiIds(client, findings, latestScanId = () => '', cache = null) {
   const pending = [];
   for (const finding of findings) {
     if (!AI_SCANNERS.has(finding.scanner)) {
@@ -107,7 +114,7 @@ export async function resolveAiIds(client, findings, latestScanId = () => '') {
   await mapWithConcurrency([...byScan.entries()], 3, async ([scanId, group]) => {
     let rows;
     try {
-      rows = await fetchScanResults(client, scanId);
+      rows = await fetchScanResults(client, scanId, cache);
     } catch (error) {
       for (const finding of group) finding.aiUnavailable = `Could not read scan results: ${error.message}`;
       return;
@@ -140,7 +147,7 @@ export async function resolveAiIds(client, findings, latestScanId = () => '') {
  * row with the finding's own alternate id, then one in the finding's file.
  * Returns Map(finding → row); findings without a row are left out.
  */
-export async function resultRowsFor(client, findings, latestScanId = () => '') {
+export async function resultRowsFor(client, findings, latestScanId = () => '', cache = null) {
   const byScan = new Map();
   for (const finding of findings) {
     const scanId = finding.scanId || latestScanId(finding);
@@ -152,7 +159,7 @@ export async function resultRowsFor(client, findings, latestScanId = () => '') {
   await mapWithConcurrency([...byScan.entries()], 3, async ([scanId, group]) => {
     let all;
     try {
-      all = await fetchScanResults(client, scanId);
+      all = await fetchScanResults(client, scanId, cache);
     } catch {
       return;
     }

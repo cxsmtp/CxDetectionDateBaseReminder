@@ -61,6 +61,14 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.26 | 2 | 15.8 s / 0 | 62,108 / 144 | 501 | 76 / 10,825 ms | 17 / 801 ms | none |
 | MZ-01.00.26 | 3 (event-loop monitor on) | 15.9 s / 0 | 63,013 / 0 | 502 | — | — | none |
 | MZ-01.00.26 + Checkmarx One fixes | 4 | 9.4 s / 0 | 62,597 / 0 | 506 | 89 / 8,235 ms | 14 / 793 ms | none |
+| MZ-01.00.26 (main) | 5 | 9.2 s / 0 | 64,321 / 0 | 506 | 54 / 4,356 ms | 6 / 237 ms | none |
+| MZ-01.00.27 (no location cache) | 1 | 15.8 s / 0 | 64,465 / 0 | 520 | 69 / 2,768 ms | 8 / 253 ms | none |
+| MZ-01.00.27 | 2 | 8.2 s / 0 | 64,140 / 0 | 518 | 47 / 4,991 ms | 10 / 289 ms | none |
+
+**MZ-01.00.27: what the differences were.**
+- **Building a report costs a little more, by design.** Each finding now gets its file and line ("Open in IDE"), read from the scan's results. Run 1 read them on every build: the dashboard's "build HTML report" went from 1.41 s to 2.15 s (p50).
+- **A completed scan's locations never change, so they are now cached** (30 minutes, the last 40 scans, file and line only). Run 2 builds in 1.65 s (p50); p95 8.7 s against main's 9.7 s. The first build after a fetch still reads the scan once, which is what the burst shows (7.2 s against 4.4 s for its 30 builds at once).
+- **Nothing else moved.** No failed requests, the same request rate, report opens and triage polls within the runs before, and no finding sent twice. Run 1's slower burst (15.8 s) is the load generator's pace, seen before (MZ-01.00.26 below).
 
 **MZ-01.00.26: what the differences were.**
 - **The Checkmarx One fixes (run 4) cost nothing measurable.** They sit on paths the load barely touches: git clone, sign-in, the mail From header, and one id check per audit entry. Run 4 had no failures, and its tail (report opens p95 8.2 s) is inside the range of the runs before it, main included (6.2 to 10.8 s).

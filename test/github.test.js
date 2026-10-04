@@ -167,8 +167,8 @@ test('blame helpers: repository URLs, locations, code version and porcelain outp
   assert.ok(!onGitHub(parseRepoUrl('https://gitlab.com/a/b'), 'https://api.github.com'));
 
   const sast = { data: { nodes: [{ fileName: '/src/in.js', line: 3 }, { fileName: '/src/db.js', line: 42 }] } };
-  assert.deepEqual(locationOf(sast), { path: 'src/db.js', line: 42, source: { path: 'src/in.js', line: 3 } });
-  assert.deepEqual(locationOf({ data: { filename: 'infra/main.tf', line: 7 } }), { path: 'infra/main.tf', line: 7, source: null });
+  assert.deepEqual(locationOf(sast), { path: 'src/db.js', line: 42, column: 0, source: { path: 'src/in.js', line: 3 } });
+  assert.deepEqual(locationOf({ data: { filename: 'infra/main.tf', line: 7 } }), { path: 'infra/main.tf', line: 7, column: 0, source: null });
   assert.equal(locationOf({ data: { packageIdentifier: 'npm-lodash-4' } }), null);
 
   const scan = { branch: 'main', metadata: { Handler: { GitHandler: { repo_url: 'https://github.com/acme/api', commit_id: 'abc123' } } } };

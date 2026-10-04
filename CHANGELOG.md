@@ -2,6 +2,18 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
+## MZ-01.00.27 — 2026-10-04 05:30 UTC · [#50](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/50)
+- **Open in IDE from the report, in one click.** Each code finding opens at its file and line in VS Code, Cursor, Kiro or a JetBrains IDE (IntelliJ IDEA, WebStorm, PyCharm, GoLand and others), with nothing to install.
+  - The report asks once per computer where the code lives, and from then on every repository opens by name. JetBrains needs no folder at all.
+  - A repository that isn't on the computer yet can be cloned and opened by the IDE itself, or opened at the line in github.dev or the GitLab Web IDE.
+- **A prompt for your AI assistant.** **Copy prompt** gives Claude Code, Copilot, Cursor or Kiro the finding, its file and line and the fix, so the assistant finds the file and places the change even where the code moved (an idea from cx-findings-to-fix).
+- **More of the fix.** The fix now shows why and how it works, and the test files Checkmarx One wrote for it.
+- **Apply fix in my workspace.** When AI Remediation has written a fix but there is no pull request, or it failed, the developer picks their checkout in Chrome or Edge and the report puts the fix in.
+  - It checks the folder is that project's repository, shows every change first, and writes nothing until they confirm.
+  - A change still lands if lines were added above it since the scan. If the code there itself changed, that file is refused and nothing is written.
+- **Or one git line.** **Copy git command** gives `curl … -o mz-fix.patch && git apply --recount mz-fix.patch` for cmd, PowerShell or a shell. The link is signed for that one finding, works for 7 days, and each download is in the audit log.
+- **Built once.** Each scan's results are read once per report, for both the AI ids and the code locations, and repository addresses are never put in a report with credentials in them.
+
 ## MZ-01.00.26 — 2026-10-03 16:47 UTC · [#49](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/49)
 - **Detect · Eliminate · Govern.** The sidebar groups every page by stage: Detect (Dashboard, Beta), Eliminate (Reports, Credit Control), and Govern (Audit, IAM, Settings, Logs). Each page shows its stage, and Ctrl/Cmd+K jumps to any page or setting.
 - **Pages keep their place.** Tabs, filters, scroll position and the open Settings section survive moving between pages. ↻ reloads the current page, and "Refresh & reset" in the sidebar starts everything afresh.

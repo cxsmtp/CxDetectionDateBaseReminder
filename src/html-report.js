@@ -23,7 +23,10 @@ export const REPORT_TOP_N = 50;
 /** Severities that get a "triage all" action covering every finding, not just the top ones. */
 export const BULK_SEVERITIES = ['CRITICAL', 'HIGH'];
 
-const CLIENT_SCRIPT = readFileSync(new URL('./report/report.client.js', import.meta.url), 'utf8');
+// The patcher first (it defines MZPatch), then the report's own script.
+const CLIENT_SCRIPT = ['./report/patch.client.js', './report/report.client.js']
+  .map((file) => readFileSync(new URL(file, import.meta.url), 'utf8'))
+  .join('\n');
 
 const SEVERITY_RANK = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO', 'UNKNOWN'];
 const rank = (severity) => {
@@ -128,6 +131,7 @@ export function generateHtmlReport(reportData, options = {}) {
       alternateId: String(f.alternateId || ''),
       groupId: String(f.groupId || ''),
       url: safeHttpUrl(f.url),
+      ...(codeLocation(f.codeLocation) ? { loc: codeLocation(f.codeLocation) } : {}),
       aiUnavailable: aiUnavailableReason(f),
       ...(index < findings.length ? { advice: fixAdvice(f) } : {}),
     };
@@ -175,6 +179,7 @@ export function generateHtmlReport(reportData, options = {}) {
       ...(options.reportToken ? { report: options.reportToken } : {}),
       allowReremediation: options.allowReremediation === true,
       remediateHere,
+      repositories: repositoriesFor(options.repositories),
       adminContact: /^(?=[^]{3,254}$)[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(options.adminContact ?? '') ? options.adminContact : '',
     },
     findings: clientFindings,
@@ -593,6 +598,33 @@ tr.shared-row.twin-hi > td, tr.shared-row:target > td { background: color-mix(in
 .fix-cell a { display: block; } .fix-cell p { margin: 0 0 4px; }
 .fix-failed { color: var(--bad); }
 .fix-headline { font-weight: 600; color: var(--good); }
+.ide-menu { margin-top: 6px; font-size: 12px; }
+.ide-menu > summary { cursor: pointer; color: var(--link); font-weight: 600; list-style: none; }
+.ide-menu > summary::-webkit-details-marker { display: none; }
+.ide-menu > summary::after { content: ' ▾'; }
+.ide-menu[open] > summary::after { content: ' ▴'; }
+.ide-list { display: grid; gap: 6px; margin-top: 6px; padding: 8px; max-width: 260px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+#findings .ide-list .btn, #findings .ws-actions .btn { margin: 0; }
+.ide-list .btn { justify-content: flex-start; width: 100%; }
+.ide-where { margin: 0; color: var(--muted); overflow-wrap: anywhere; white-space: normal; }
+.ide-jb { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+.ide-jb select { font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.ide-list .ide-folder { font-weight: 500; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.ide-note { margin: 0; font-size: 12px; color: var(--muted); white-space: normal; overflow-wrap: anywhere; }
+.ide-list > a { font-size: 12px; font-weight: 600; }
+.link-button { font: inherit; color: var(--link); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.fix-more summary { cursor: pointer; color: var(--link); font-weight: 600; }
+.fix-more p { margin: 4px 0 0; }
+.ws-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ws-actions p { flex-basis: 100%; }
+.git-command { flex-basis: 100%; }
+.git-command code { display: block; padding: 6px 8px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); font-size: 11px; overflow-wrap: anywhere; user-select: all; }
+.fix-written { color: var(--good); font-weight: 600; }
+.apply-dialog { max-width: 640px; }
+.apply-list { margin: 0 0 10px; padding-left: 18px; font-size: 13px; }
+.apply-list li { margin-bottom: 4px; overflow-wrap: anywhere; }
+.apply-ok { color: var(--good); } .apply-bad { color: var(--bad); }
+.apply-diff { max-height: 40vh; overflow: auto; font-size: 12px; padding: 8px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); white-space: pre; }
 .more { margin-top: 16px; } .more p { margin: 0 0 8px; }
 .more-links { display: flex; gap: 8px; flex-wrap: wrap; }
 .more-links .btn { max-width: 100%; white-space: normal; text-align: left; overflow-wrap: anywhere; }
@@ -733,6 +765,23 @@ td.state-cell, td.finding { vertical-align: top; }
 /** JSON for a <script type="application/json"> island: nothing in it can close the tag. */
 function jsonForScript(value) {
   return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+/** A finding's repository-relative file, line and column, or null. */
+function codeLocation(at) {
+  const path = String(at?.path ?? '').replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!path || path.length > 1000 || path.split('/').some((part) => part === '..' || part === '.git')) return null;
+  const whole = (n) => (Number.isInteger(Number(n)) && Number(n) > 0 ? Number(n) : 0);
+  return { path, line: whole(at.line), column: whole(at.column) };
+}
+
+/** projectId → {url, branch}: only the plain strings the server already checked. */
+function repositoriesFor(given) {
+  const out = {};
+  for (const [projectId, repo] of Object.entries(given ?? {})) {
+    if (typeof repo?.url === 'string' && repo.url) out[String(projectId)] = { url: repo.url, branch: String(repo.branch ?? '') };
+  }
+  return out;
 }
 
 function safeHttpUrl(url) {
