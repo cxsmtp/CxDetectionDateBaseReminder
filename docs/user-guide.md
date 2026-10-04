@@ -592,16 +592,21 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
    - **Triage all critical / Triage all high** cover every critical or high finding in the report, across its projects, and skip ones already triaged.
    - A finding judged **not exploitable** disappears from the report, which counts how many it has hidden.
    - **Open in IDE** (SAST and IaC findings) opens the file at the finding's line in **VS Code**, **Cursor**, **Kiro** or a **JetBrains** IDE (pick yours: IntelliJ IDEA, WebStorm, PyCharm, GoLand, PhpStorm, Rider, CLion, RubyMine). Nothing to install: the IDE opens its own link.
-     - The first time, the report asks where that repository is on your computer (for example `C:\src\payments-api`). It remembers it in this browser, and suggests the same parent folder for the next repository. **Folder: … · change** corrects it.
-     - JetBrains finds the file by project name: open the repository in it once, as a project named after its folder.
+     - **One question, once per computer:** where you keep your code (for example `C:\src`). Every repository then opens from there by its name (`C:\src\payments-api`), in every report, with one click. **Somewhere else?** sets a different folder for one repository.
+     - **JetBrains** needs no folder at all: it opens the file in the project of that name you have open or opened before.
+     - **Not on this computer yet?** **Clone and open** hands the repository to the IDE, which asks where to clone it and opens it.
+     - **github.dev** (GitHub) or the **GitLab Web IDE** opens the file at its line in the browser, with nothing local; Bitbucket and Azure Repos show the file at its line.
+     - **Copy prompt for your AI assistant** copies the finding, its file and line (and the fix, once there is one) as a prompt for Claude Code, Copilot, Cursor or Kiro: paste it in, and the assistant finds the file and makes the change.
 5. **Remediate** works once a finding is **Confirmed**. It runs AI Remediation and then offers the fix:
    - a summary;
    - the pull request (for repository-connected projects);
    - a downloadable patch;
    - a link to Risk Hub.
 6. **Apply the fix in your own checkout** (no pull request, a failed one, or you'd rather see it locally first):
-   - **Apply fix in my workspace** (Chrome or Edge): pick the repository's folder. The report checks the folder's git remote is that project's repository and asks first if it isn't. It then shows each file and the change. **Nothing is written until you click Write changes**; then review with `git diff` and commit as usual.
+   - The fix shows what it changes, **Why and how**, and the test files Checkmarx One wrote for it (they are applied with it).
+   - **Apply fix in my workspace** (Chrome or Edge): pick the repository's folder. The report checks the folder's git remote is that project's repository and asks first if it isn't. It then shows each file and the change. **Nothing is written until you click Write changes**; then review with `git diff` and commit as usual. **Open it in VS Code** (or the IDE you last used) then jumps to the change.
      - A change is found even if lines were added above it since the scan. If the code there was itself changed, that file is refused and nothing is written: pull the latest code, or use the git command.
+   - **Copy AI prompt** copies the fix for your IDE's AI assistant, which places it even where the code has moved since the scan.
    - **Copy git command** copies one line to run in the repository folder (cmd, PowerShell or a shell): `curl -fsSL "<link>" -o mz-fix.patch && git apply --recount mz-fix.patch`. The link is signed for that one finding and works for 7 days; each download is in the audit log.
 7. **Refresh** re-reads states at any time. The report also refreshes by itself.
 8. **One project's own report.** A report covering several projects lists them at the bottom.
