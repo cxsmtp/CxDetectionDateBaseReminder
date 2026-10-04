@@ -123,5 +123,14 @@ const MZPatch = (() => {
     return [...String(config ?? '').matchAll(/^\s*url\s*=\s*(.+?)\s*$/gm)].map((m) => m[1]);
   }
 
-  return { parse, apply, segments, repoKey, remotes };
+  /**
+   * Text that is safe inside double quotes in cmd, PowerShell and a POSIX shell
+   * (a finding's title comes from Checkmarx One): letters, digits and plain
+   * punctuation only, so nothing can expand, escape or end the quote.
+   */
+  function shellSafe(text) {
+    return String(text ?? '').replace(/[^\w .,:;/()+#@=?-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1200);
+  }
+
+  return { parse, apply, segments, repoKey, remotes, shellSafe };
 })();

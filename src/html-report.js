@@ -303,6 +303,14 @@ export function generateHtmlReport(reportData, options = {}) {
       : ''}
   </section>
 
+  <section class="my-tools" id="my-tools" aria-label="Your tools" hidden>
+    <span class="my-tools-title">Your tools</span>
+    <label>Open code in <select id="tool-ide"></select></label>
+    <label>Fix with <select id="tool-fix"></select></label>
+    <span id="tool-folder" class="muted"></span>
+    <span class="muted my-tools-note">Chosen once, remembered in this browser: each finding then opens and fixes in one click. ▾ on a finding picks another way, for that finding only.</span>
+  </section>
+
   <div class="toolbar" id="report-filters" role="search" aria-label="Filter findings">
     <div class="seg" role="group" aria-label="Severity">
       <button type="button" class="seg-btn on" data-filter-sev="" aria-pressed="true">All <em>${findings.length}</em></button>
@@ -599,13 +607,29 @@ tr.shared-row.twin-hi > td, tr.shared-row:target > td { background: color-mix(in
 .fix-cell a { display: block; } .fix-cell p { margin: 0 0 4px; }
 .fix-failed { color: var(--bad); }
 .fix-headline { font-weight: 600; color: var(--good); }
+.my-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 13px; }
+.my-tools-title { font-weight: 700; }
+.my-tools label { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.my-tools select { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.my-tools-note { flex-basis: 100%; font-size: 12px; }
+.row-tools { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; margin-top: 6px; }
+.row-tools .ide-menu { margin-top: 0; }
+.row-tools .ide-menu > summary { padding: 3px 8px; border: 1px solid var(--outline-line); border-radius: 6px; background: var(--surface); }
+.row-tools .ide-menu > summary::after, .row-tools .ide-menu[open] > summary::after { content: none; }
+.row-tools .ide-list { position: absolute; right: 0; z-index: 5; min-width: 240px; box-shadow: 0 10px 30px rgba(16,24,40,.18); }
+@media (max-width: 760px) { .row-tools .ide-menu { position: static; flex-basis: 100%; } .row-tools .ide-menu > summary { display: inline-block; } .row-tools .ide-list { position: static; max-width: none; box-shadow: none; } }
+.row-tools .ide-menu { position: relative; }
+.tool-out { flex-basis: 100%; }
+.tool-out code { display: block; padding: 6px 8px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); font-size: 11px; overflow-wrap: anywhere; user-select: all; }
+.tool-out p { margin: 4px 0; font-size: 12px; }
+.ide-sub { margin: 6px 0 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
 .ide-menu { margin-top: 6px; font-size: 12px; }
 .ide-menu > summary { cursor: pointer; color: var(--link); font-weight: 600; list-style: none; }
 .ide-menu > summary::-webkit-details-marker { display: none; }
 .ide-menu > summary::after { content: ' ▾'; }
 .ide-menu[open] > summary::after { content: ' ▴'; }
 .ide-list { display: grid; gap: 6px; margin-top: 6px; padding: 8px; max-width: 260px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
-#findings .ide-list .btn, #findings .ws-actions .btn { margin: 0; }
+#findings .ide-list .btn, #findings .ws-actions .btn, #findings .row-tools .btn { margin: 0; }
 .ide-list .btn { justify-content: flex-start; width: 100%; }
 .ide-where { margin: 0; color: var(--muted); overflow-wrap: anywhere; white-space: normal; }
 .ide-jb { display: grid; grid-template-columns: 1fr auto; gap: 6px; }

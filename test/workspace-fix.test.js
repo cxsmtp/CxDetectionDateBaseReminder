@@ -124,3 +124,14 @@ test('patch links are signed, name one finding and expire', () => {
   assert.equal(links.verify(`${payload}.${sig}.x`), null);
   assert.equal(links.verify(''), null);
 });
+
+test('a command for an AI assistant cannot run anything a finding title smuggles in', () => {
+  const hostile = 'XSS"; rm -rf / `whoami` $(id) %PATH% ^& | > out & echo \\ \'x\' !hist\nnext';
+  const safe = MZPatch.shellSafe(hostile);
+  assert.doesNotMatch(safe, /["'`$%^&|<>\\!\n]/);
+  assert.match(safe, /^XSS ; rm -rf \/ whoami \(id\) PATH out echo x hist next$/);
+  // Run it for real: inside double quotes it is one inert argument.
+  const echoed = execFileSync('sh', ['-c', `printf %s "${safe}"`]).toString();
+  assert.equal(echoed, safe);
+  assert.equal(MZPatch.shellSafe('a'.repeat(5000)).length, 1200);
+});
