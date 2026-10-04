@@ -72,7 +72,16 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.31 (main) | 2 | 7.8 s / 0 | 64,243 / 0 | 516 | 52 / 3,439 ms | 6 / 125 ms | none |
 | MZ-01.00.32 (Beta → final only) | 1 | 11.1 s / 0 | 64,259 / 0 | 509 | 64 / 4,550 ms | 5 / 141 ms | none |
 | MZ-01.00.32 (Beta → final only) | 2 | 7.5 s / 0 | 64,380 / 0 | 511 | 51 / 3,051 ms | 6 / 114 ms | none |
-| **MZ-01.00.32** | 3 | 9.4 s / 0 | 64,589 / 0 | 511 | 46 / **2,470 ms** | 6 / 145 ms | none |
+| MZ-01.00.32 | 3 | 9.4 s / 0 | 64,589 / 0 | 511 | 46 / 2,470 ms | 6 / 145 ms | none |
+| MZ-01.00.32 (main) | 4 | 9.3 s / 0 | 64,689 / 0 | 516 | 51 / 542 ms | 7 / 119 ms | none |
+| MZ-01.00.33 (journey line only) | 1 | 8.3 s / 0 | 64,764 / 0 | 527 | 52 / 407 ms | 7 / 97 ms | none |
+| MZ-01.00.33 | 2 | 9.6 s / 0 | 64,159 / 0 | 517 | 53 / 5,216 ms | 9 / 157 ms | none |
+| MZ-01.00.33 | 3 | 9.3 s / 0 | 64,296 / 0 | 511 | 52 / 3,902 ms | 8 / 172 ms | none |
+| MZ-01.00.32 (main) | 5 | 7.7 s / 0 | 64,053 / 0 | 513 | 59 / 5,184 ms | 7 / 139 ms | none |
+
+**MZ-01.00.33: what the differences were.** None from the change. The developer's rescan window, its links and emails only do anything when a tracked report's round is closed, and the benchmark's tracked report (20 projects) never is. Email volume was the same as main's (1,076 to 1,129 a run).
+- **Report opens:** the tail (p95) moved between 0.4 and 5.2 s from run to run, for main and the branch alike. Main itself gave 542 ms in run 4 and 5,184 ms in run 5, an hour apart. Run back to back, the branch had 3.9 s and main 5.2 s.
+- **No failures:** every run had 0 failed requests, and no finding was sent for triage twice.
 
 **MZ-01.00.32: what the differences were.** None that matters. Making a Beta feature final, and the hardened git blame, only run when someone uses the Beta page, or on a scheduled run with *Also email the code authors* switched on. The mixed load does neither. Each request to `/api/me` now also lists the feature stages, which is a lookup in memory.
 - **Run 1 was slower** (report opens p95 4.6 s, and the burst took 11.1 s with 795 busy retries). It ran right after the container restarted. Main and the branch were then run back to back from clean worktrees:

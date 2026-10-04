@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.32 | 511/s, 0 | 2.5 s | 145 ms | 402 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.33 | 511/s, 0 | 3.9 s | 172 ms | 407 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.32 | 511/s, 0 | 2.5 s | 145 ms | 402 | 0 | same |
 | MZ-01.00.31 | 524/s, 0 | 2.5 s | 106 ms | 388 | 0 | same |
 | MZ-01.00.30 | 524/s, 0 | 4.1 s | 371 ms | 386 | 0 | same |
 | MZ-01.00.29 | 508/s, 0 | 2.6 s | 206 ms | 375 | 0 | same |
@@ -19,13 +20,13 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.33 — 2026-10-04 HH:MM UTC · [#56](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/56)
+## MZ-01.00.33 — 2026-10-04 08:55 UTC · [#56](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/56)
 - **The developer rescans first.** When every finding in a tracked report's round is dealt with, the developers who fixed them get **Rescan now** in their report and by email, for 24 hours to 14 days (48 by default). The rescan they start is recorded as theirs.
 - **Then on their behalf, and they are told.** If nobody rescans in time and automatic rescan is on, CxMissionZero starts it and emails them. Everyone gets the result, and the updated report of whatever is still open.
 - **The button waits for clean.** Until everything in scope is dealt with, the report's Rescan card shows how many findings are left, and its button stays off.
 - **Send the links yourself.** **Their rescan links**, on the Verify tab, gives each developer's link to send by hand when email is not set up.
 - **The way to Mission Zero, on the Dashboard.** One slim line shows how many projects are at zero, then **Detect → Triage → Remediate → Fix → Verify** with a count at each stage. The stage to act on next is highlighted, and the green line runs up to it.
-- **Status.** STATUS_LINE
+- **Status.** 511 requests a second with 0 failed for 3000 people at once on 2 vCPU. Reports open in 3.9 s at p95, inside the run-to-run spread of main (0.5 to 5.2 s today). All 407 tests pass, and `npm audit` finds 0 vulnerabilities. The last Checkmarx One scan leaves no critical, high or medium finding open.
 
 ## MZ-01.00.32 — 2026-10-04 08:25 UTC · [#55](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/55)
 - **Beta features can be made final.** Admins have a new **Settings → Beta features** page: **Make final** gives a feature to everyone holding its own permission and drops its Beta label, and **Back to Beta** undoes it. Every change is in the audit log.
