@@ -118,3 +118,70 @@ test('the plain (non-streaming) fetch still answers with one JSON reply', async 
   assert.equal(r.body.projects.length, 6);
   assert.equal(r.body.totals.projects, 6);
 });
+
+/** Read a streamed fetch, calling `onEvent` for each line; resolves with every event. */
+async function readStream(response, onEvent) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const events = [];
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let newline;
+    while ((newline = buffer.indexOf('\n')) >= 0) {
+      const event = JSON.parse(buffer.slice(0, newline));
+      buffer = buffer.slice(newline + 1);
+      events.push(event);
+      await onEvent?.(event, events);
+    }
+  }
+  return events;
+}
+
+test('Stop: no more projects are read, what was loaded is kept, and actions work on it', async () => {
+  assert.equal((await admin('POST', '/api/scan/stop')).body.stopping, false, 'nothing to stop');
+  const response = await fetch(`${BASE}/api/scan?stream=1&fresh=1`, { headers: { Cookie: cookie } });
+  let stopped = false;
+  const events = await readStream(response, async (event, all) => {
+    if (!stopped && event.type === 'project' && all.filter((e) => e.type === 'project').length === 1) {
+      stopped = true;
+      assert.equal((await admin('POST', '/api/scan/stop')).body.stopping, true);
+    }
+  });
+  const done = events.at(-1);
+  assert.equal(done.type, 'done', JSON.stringify(done).slice(0, 300));
+  assert.equal(done.stopped, true);
+  assert.equal(done.projectsPlanned, 6);
+  const rows = events.filter((e) => e.type === 'project').map((e) => e.project);
+  assert.ok(rows.length < 6, `stopped before the end (${rows.length} read)`);
+  assert.equal(done.projects.length, rows.length, 'the result holds exactly the projects read');
+  assert.equal(done.projectsNotRead, 6 - rows.length);
+  assert.equal(done.totals.projects, rows.length);
+  assert.deepEqual(Object.keys(done.initiators).sort(), rows.map((r) => r.projectId).sort(), 'initiators only for projects read');
+
+  // The stopped fetch is the data now: a reload shows it, and actions are no longer locked.
+  const last = await admin('GET', '/api/scan/last');
+  assert.equal(last.body.projects.length, rows.length);
+  assert.equal(last.body.stopped, true);
+  const after = await admin('POST', '/api/credits/allocate', { projectIds: [rows[0].projectId], triageAdd: 1 });
+  assert.notEqual(after.body?.fetching, true, 'not locked after a stop');
+});
+
+test('leaving the page mid-fetch stops it too, and keeps what was read', async () => {
+  const controller = new AbortController();
+  const response = await fetch(`${BASE}/api/scan?stream=1&fresh=1`, { headers: { Cookie: cookie }, signal: controller.signal });
+  await readStream(response, (event) => {
+    if (event.type === 'project') controller.abort();
+  }).catch((error) => assert.equal(error.name, 'AbortError'));
+  // The server finishes the projects in flight, then keeps the data and unlocks.
+  let last;
+  for (let i = 0; i < 50; i++) {
+    last = await admin('GET', '/api/scan/last');
+    if (last.status === 200 && last.body.stopped) break;
+    await sleep(100);
+  }
+  assert.equal(last.body.stopped, true, JSON.stringify(last.body ?? {}).slice(0, 200));
+  assert.ok(last.body.projects.length >= 1 && last.body.projects.length < 6);
+});

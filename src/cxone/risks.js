@@ -372,15 +372,21 @@ export async function collectProjectRisks(
   client,
   config,
   projects,
-  { now = new Date(), detectionWindow = null, onProject = null, shared = null } = {},
+  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null } = {},
 ) {
   const source = createRiskSource(client, config);
   await source.prime?.(projects);
   let reusedHere = 0;
+  let notRead = 0;
 
   // Each project's summary is handed to onProject as soon as it is read, so a
   // caller can show it straight away instead of waiting for every project.
+  // Stopped (someone pressed Stop): projects already being read finish, the rest are not read.
   const summaries = await mapWithConcurrency(projects, config.concurrency, async (project) => {
+    if (shouldStop?.()) {
+      notRead += 1;
+      return null;
+    }
     let summary;
     try {
       const { items: raw, reused: wasReused } = await readProject(source, project, detectionWindow, shared);
@@ -404,7 +410,8 @@ export async function collectProjectRisks(
     stats: source.stats ?? null,
     reused: reusedHere,
     generatedAt: now.toISOString(),
-    projects: summaries,
+    projects: summaries.filter(Boolean),
+    notRead,
   };
 }
 

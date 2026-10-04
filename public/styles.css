@@ -2214,3 +2214,10 @@ button.danger-soft { border-color: color-mix(in srgb, var(--danger) 45%, var(--b
 button.danger-soft:hover:not(:disabled) { background: var(--danger-soft); border-color: var(--danger); }
 .takeback-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .code-block { font: 12px/1.6 var(--mono); padding: 10px 12px; margin: 8px 0 12px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); overflow-x: auto; white-space: pre; }
+/* Load findings: Stop sits beside it while a fetch runs, and keeps what is loaded. */
+.fetch-actions { display: flex; gap: 8px; }
+.fetch-actions #fetch { flex: 1 1 auto; width: auto; }
+.stop-btn { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); background: var(--surface); }
+.stop-btn:hover:not(:disabled) { background: var(--danger-soft); border-color: var(--danger); }
+.stop-btn svg { width: 14px; height: 14px; fill: currentColor; }
+.stop-btn[hidden] { display: none; }

@@ -4351,7 +4351,7 @@ function renderJourney() {
  */
 async function streamScan(path, on = {}) {
   logger.apiCall('GET', path);
-  const response = await fetch(path, { credentials: 'same-origin' });
+  const response = await fetch(path, { credentials: 'same-origin', signal: on.signal });
   if (!response.ok || !response.body) {
     const payload = await response.json().catch(() => ({}));
     const error = new Error(payload.error || `${response.status} ${response.statusText}`);
@@ -4419,15 +4419,15 @@ function setFetching(on) {
  * and the scope that produced it, from the server's copy (Checkmarx One is not
  * read again; Fetch gets the latest).
  */
-async function restoreLastScan() {
-  if (state.projects.length || state.fetching || !can('findings.fetch')) return;
+async function restoreLastScan({ force = false } = {}) {
+  if ((state.projects.length && !force) || state.fetching || !can('findings.fetch')) return;
   let result;
   try {
     result = await api('/api/scan/last');
   } catch {
     return;
   }
-  if (!result?.projects || state.projects.length || state.fetching) return;
+  if (!result?.projects || (state.projects.length && !force) || state.fetching) return;
   restoreScope(result.request, result.projects);
   state.lastScan = result;
   state.projects = result.projects;
@@ -4460,10 +4460,36 @@ function restoreScope(request, projects) {
   renderScopeChips();
 }
 
+/**
+ * Stop the fetch: the server reads no more projects, finishes the ones it is
+ * reading, and ends the fetch with what it has. Those projects are kept and
+ * every action works on them, as after a complete fetch.
+ */
+async function stopFetch() {
+  const stop = $('fetch-stop');
+  if (!state.fetching || stop.disabled) return;
+  stop.disabled = true;
+  stop.querySelector('span').textContent = 'Stopping…';
+  fetchFlare('busy', `Stopping — keeping the ${state.projects.length} project(s) loaded so far…`);
+  try {
+    await api('/api/scan/stop', { method: 'POST', quiet: true });
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    // The server could not be told: end the stream from here; it stops when the page goes away.
+    fetchAbort?.abort();
+  }
+}
+let fetchAbort = null;
+$('fetch-stop').addEventListener('click', stopFetch);
+
 async function fetchProjects() {
   const button = $('fetch');
+  const stop = $('fetch-stop');
   button.disabled = true;
-  button.textContent = 'Fetching…';
+  button.textContent = 'Loading…';
+  stop.hidden = false;
+  stop.disabled = false;
+  stop.querySelector('span').textContent = 'Stop';
   setStatus('status', '');
 
   // Rows appear as each project is read; actions on the data wait for the end.
@@ -4489,7 +4515,9 @@ async function fetchProjects() {
   renderProjects();
 
   try {
+    fetchAbort = new AbortController();
     const result = await streamScan(`/api/scan?stream=1&${windowParams()}${$('fetch-fresh')?.checked ? '&fresh=1' : ''}`, {
+      signal: fetchAbort.signal,
       start: (event) => {
         total = event.total;
         schedule();
@@ -4512,29 +4540,44 @@ async function fetchProjects() {
 
     const failed = result.projects.filter((p) => p.error).length;
     const named = result.scope?.projects || result.scope?.initiators?.length;
-    const skipped = named
-      ? ` of ${result.projectsTotal}: only the projects and people named in the scope`
-      : result.projectsSkipped
-        ? `, ${result.projectsSkipped} of ${result.projectsTotal} skipped (not scanned in ${result.windows.activity.label.toLowerCase()})`
-        : '';
+    const skipped = result.stopped
+      ? ` of ${result.projectsPlanned}: stopped before the other ${result.projectsNotRead} were read. Everything here works on these projects; Load findings again for the rest`
+      : named
+        ? ` of ${result.projectsTotal}: only the projects and people named in the scope`
+        : result.projectsSkipped
+          ? `, ${result.projectsSkipped} of ${result.projectsTotal} skipped (not scanned in ${result.windows.activity.label.toLowerCase()})`
+          : '';
     $('fetch-meta').textContent =
       `${result.totals.risks} finding(s) in ${(result.elapsedMs / 1000).toFixed(1)}s via ${result.resolvedPath}` +
       (result.stats?.requests ? ` · ${result.stats.requests} API request(s)` : '') +
-      (result.reused ? ` · ${result.reused} project(s) reused from a read made moments ago` : '');
+      (result.reused ? ` · ${result.reused} project(s) reused from a read made moments ago` : '') +
+      (result.stopped ? ` · stopped at ${result.totals.projects} of ${result.projectsPlanned} project(s)` : '');
     setStatus(
       'status',
       `Loaded ${result.totals.projects} project(s)${skipped}.` +
         (failed ? ` ${failed} could not be read — check the risks endpoint in Settings.` : ''),
-      failed ? 'error' : 'ok',
+      failed ? 'error' : result.stopped ? 'warn' : 'ok',
     );
     if (result.warning) console.warn(result.warning);
-    fetchFlare('done', `Data fetch complete — ${result.totals.projects} project(s), ${result.totals.risks} finding(s)`);
+    fetchFlare('done', result.stopped
+      ? `Stopped — kept ${result.totals.projects} of ${result.projectsPlanned} project(s), ${result.totals.risks} finding(s)`
+      : `Data fetch complete — ${result.totals.projects} project(s), ${result.totals.risks} finding(s)`);
   } catch (error) {
     clearTimeout(pending);
-    fetchFlare('failed', `Data fetch stopped: ${error.message}`);
-    if (!handleAuthLoss(error)) showError('status', error);
+    if (error.name === 'AbortError') {
+      // Ended from this page: the server keeps what it read; show it once it has finished.
+      fetchFlare('done', `Stopped — ${state.projects.length} project(s) loaded`);
+      setStatus('status', `Stopped after ${state.projects.length} project(s). Getting what was loaded…`, 'warn');
+      setFetching(false);
+      setTimeout(() => restoreLastScan({ force: true }), 1500);
+    } else {
+      fetchFlare('failed', `Data fetch stopped: ${error.message}`);
+      if (!handleAuthLoss(error)) showError('status', error);
+    }
   } finally {
     setFetching(false);
+    fetchAbort = null;
+    stop.hidden = true;
     button.disabled = false;
     button.textContent = 'Load findings';
   }

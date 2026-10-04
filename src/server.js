@@ -1855,7 +1855,7 @@ function readerIdentity(session) {
   return apiKey ? createHash('sha256').update(`${baseUrl}\u0000${tenant}\u0000${apiKey}`).digest('base64url').slice(0, 22) : '';
 }
 
-async function runScan(req, { onStart, onProject } = {}) {
+async function runScan(req, { onStart, onProject, shouldStop = () => false } = {}) {
   const { client } = req.session;
   const active = activeConfig();
 
@@ -1923,8 +1923,14 @@ async function runScan(req, { onStart, onProject } = {}) {
       detectionWindow,
       onProject: onProject ? (summary) => onProject(earlyRow(summary)) : null,
       shared: { identity: readerIdentity(req.session), lastScans, fresh: req.query.fresh === '1' },
+      shouldStop,
     }),
   ]);
+  // Stopped part-way: what was read is the data, and only its projects keep their initiators.
+  if (result.notRead) {
+    const read = new Set(result.projects.map((p) => p.projectId));
+    for (const id of Object.keys(initiators.byProject)) if (!read.has(id)) delete initiators.byProject[id];
+  }
   for (const summary of result.projects) {
     const info = initiators.byProject[summary.projectId] ?? {};
     summary.initiator = info.initiator ?? '';
@@ -1940,7 +1946,7 @@ async function runScan(req, { onStart, onProject } = {}) {
   for (const summary of result.projects) {
     if (summary.error) diagnostics.discrepancy('project-read-failed', { project: summary.projectId, message: summary.error });
   }
-  diagnostics.usage('fetch-complete', { projects: result.projects.length, reused: result.reused ?? 0, findings: result.projects.reduce((n, p) => n + p.totalRisks, 0), ms: Date.now() - started });
+  diagnostics.usage(result.notRead ? 'fetch-stopped' : 'fetch-complete', { projects: result.projects.length, notRead: result.notRead ?? 0, reused: result.reused ?? 0, findings: result.projects.reduce((n, p) => n + p.totalRisks, 0), ms: Date.now() - started });
   // Fetching shows what the findings need; it never allocates anything.
   for (const summary of result.projects) summary.credits ??= creditView(summary);
   req.session.lastScan = result;
@@ -1956,6 +1962,10 @@ async function runScan(req, { onStart, onProject } = {}) {
     },
     projectsTotal: allProjects.length,
     projectsSkipped: skipped,
+    // Stop pressed: how many of the projects in scope were read before it, and how many were not.
+    stopped: result.notRead > 0,
+    projectsPlanned: projects.length,
+    projectsNotRead: result.notRead ?? 0,
     scope: { projects: scope.projectIds.length, initiators: scope.initiators },
     warning,
     initiatorNotes: initiators.notes,
@@ -2020,10 +2030,15 @@ app.get(
   requirePermission('findings.fetch'),
   asyncRoute(async (req, res) => {
     const id = randomUUID();
-    req.session.fetching = { id, startedAt: Date.now() };
+    req.session.fetching = { id, startedAt: Date.now(), stop: false };
     const release = () => {
       if (req.session.fetching?.id === id) delete req.session.fetching;
     };
+    // Stop (POST /api/scan/stop), or the page went away: no more projects are read; what was read is kept.
+    const shouldStop = () => req.session.fetching?.id === id && req.session.fetching.stop === true;
+    res.on('close', () => {
+      if (!res.writableFinished && req.session.fetching?.id === id) req.session.fetching.stop = true;
+    });
     if (req.query.stream !== '1') {
       try {
         return res.json(await runScan(req));
@@ -2047,6 +2062,7 @@ app.get(
       const result = await runScan(req, {
         onStart: (info) => send({ type: 'start', ...info }),
         onProject: (project) => send({ type: 'project', project }),
+        shouldStop,
       });
       release();
       send({ type: 'done', ...result });
@@ -2062,6 +2078,17 @@ app.get(
     }
   }),
 );
+
+/**
+ * Stop the fetch running for this person: projects already being read finish,
+ * the rest are not read, and the fetch ends with what it has (stopped: true).
+ * That data is kept like a finished fetch, so every action works on it.
+ */
+app.post('/api/scan/stop', requirePermission('findings.fetch'), (req, res) => {
+  if (!fetchInProgress(req.session)) return res.json({ stopping: false });
+  req.session.fetching.stop = true;
+  res.json({ stopping: true });
+});
 
 // ---------------------------------------------------------------------------
 // Reminders

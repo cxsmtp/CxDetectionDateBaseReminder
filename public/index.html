@@ -239,7 +239,13 @@
 
                 <fieldset class="grow fetch-box">
                   <legend class="sr-only">Fetch</legend>
-                  <button id="fetch" class="primary big" data-perm="findings.fetch">Load findings</button>
+                  <div class="fetch-actions">
+                    <button id="fetch" class="primary big" data-perm="findings.fetch">Load findings</button>
+                    <button id="fetch-stop" type="button" class="big stop-btn" hidden title="Stop loading. Projects already loaded are kept, and you can work with them straight away.">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                      <span>Stop</span>
+                    </button>
+                  </div>
                   <label class="check fetch-fresh" data-advanced title="Projects someone fetched in the last couple of minutes are normally reused when nothing was rescanned or triaged from here since. Tick to read every project from Checkmarx One again."><input type="checkbox" id="fetch-fresh" /> Read everything fresh from Checkmarx One</label>
                   <p class="hint" id="fetch-meta"></p>
                 </fieldset>

@@ -8,7 +8,7 @@ The technical reference: what happens under each feature, where data lives, and 
    - the projects;
    - who ran each project's latest scan;
    - each project's findings.
-2. **Ageing.** Findings are aged by `firstDetectionDate`, and summaries stream to the page as each project arrives.
+2. **Ageing.** Findings are aged by `firstDetectionDate`, and summaries stream to the page as each project arrives. **Stop** (`POST /api/scan/stop`, or the page closing the stream) tells the fetch to start no more projects: those being read finish, and the fetch ends with what it has (`stopped: true`), kept as the person's data like a full fetch.
 3. **Reminders.** A reminder renders the mail template per recipient. Each scan initiator only ever gets their own projects, and the server re-checks every message before it goes. It is sent through your SMTP server, with the interactive report attached.
 4. **The emailed report** calls this server's report relay, never Checkmarx One directly: browsers refuse API calls from a page opened as a file. The relay acts only on findings carrying a valid signed grant, and calls AI Triage / AI Remediation with the server's own connection.
 5. **Credits.** Every request is checked against the project's allocation and the credit pool, then recorded in the credit ledger and the hash-chained audit log.
