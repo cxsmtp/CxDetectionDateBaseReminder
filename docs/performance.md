@@ -67,6 +67,30 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.28 | 1 | 8.3 s / 0 | 64,244 / 0 | 522 | 54 / 1,321 ms | 8 / 316 ms | none |
 | MZ-01.00.29 | 1 | 8.4 s / 0 | 64,440 / 0 | 508 | 58 / 2,575 ms | 8 / 206 ms | none |
 | MZ-01.00.30 | 1 | 7.4 s / 0 | 64,211 / 0 | 524 | 53 / 4,136 ms | 8 / 371 ms | none |
+| MZ-01.00.30 (main) | 2 | 8.4 s / 0 | 64,118 / 0 | 517 | 62 / 5,149 ms | 9 / 350 ms | none |
+| **MZ-01.00.31** | 1 | 8.8 s / 0 | 64,421 / 0 | 524 | 55 / **2,528 ms** | 5 / **106 ms** | none |
+
+**MZ-01.00.31: profiled, and faster again.** Main (MZ-01.00.30 run 2) and the branch were run back to back on the same machine. A CPU profile under the full load found no single long block: the server's one thread was simply busy, and report opens waited behind it. What changed:
+- **Report opens no longer wait on Checkmarx One for finding states.** The states are kept 30 s. When they ran out, the next open report waited for a fresh read, queued behind every fetch. Now it is answered from the last states known while they are read again in the background, so p95 went from 5.1 s to 2.5 s. An action from a report still reads the state fresh.
+- **Credit figures are worked out in one pass per project.** Before, it took a dozen passes, twice per project on every fetch.
+- **Emailed reports are compressed off the main thread.** A report of several megabytes used to be gzipped in line.
+- **API calls skip the static-file lookup**, which was one disk `stat` per request.
+- **Dates are no longer turned back into text and parsed again**, once per finding per fetch.
+
+| Sustained, same machine | Main (MZ-01.00.30) | MZ-01.00.31 |
+| --- | --- | --- |
+| Failed requests | 0 of 64,118 | **0 of 64,421** |
+| Requests per second | 517 | **524** |
+| Report opens (p50 / p95) | 62 ms / 5.1 s | **55 ms / 2.5 s** |
+| Report polls: triage results (p50 / p95 / p99) | 9 / 350 / 1,728 ms | **5 / 106 / 1,209 ms** |
+| Report: triage (p95) | 5.5 s | **4.0 s** |
+| Dashboard: build HTML report (p95 / p99) | 9.6 s / 12.8 s | **7.4 s / 10.9 s** |
+| Reminder: HTML report to initiators (p95) | 7.1 s | **5.4 s** |
+| Reminder: email initiators (p95) | 5.4 s | **4.4 s** |
+| Pages: health (p50 / p95) | 11 / 108 ms | **4 / 65 ms** |
+| Server CPU (average) | 101% | 97% |
+
+Two operations were slightly slower at p95: tracked-report refresh (6.9 s against 6.4 s) and Refresh & verify credits (6.4 s against 6.1 s). Both wait on Checkmarx One, and the branch made more upstream calls in the same time (36,048 against 35,041). The difference is within the spread between runs of the same code (see MZ-01.00.28). No finding was sent for triage twice.
 
 **MZ-01.00.30: what the differences were.** None that matters: Update & recovery only does work when an Admin uses it (and auto-update looks every 15 minutes, off by default). In production the server now runs under the launcher; that adds one small process and nothing per request. The benchmark runs the server directly, as before.
 

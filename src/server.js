@@ -21,7 +21,7 @@ import { mapWithConcurrency } from './cxone/client.js';
 import { ReportGrants } from './report-grants.js';
 import { gitPatch, patchLinks } from './remediation-patch.js';
 import { CREDIT_COST, CreditLedger, monthOf } from './credits.js';
-import { CreditAllocations, REMEDIABLE_STATE, alreadySent, billingUnit, remediable, remediationCandidates, toTriageCount, triageRows } from './credit-allocations.js';
+import { CreditAllocations, creditFigures, REMEDIABLE_STATE, alreadySent, billingUnit, remediable, remediationCandidates, triageRows } from './credit-allocations.js';
 import { poolSummary, resolveRange, usageSeries } from './credit-usage.js';
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
@@ -39,6 +39,7 @@ import { SCM_LABELS, SCM_PROVIDERS, checkConnections as checkScmConnections, met
 import { addressesAsThemselves, evaluateMethods, resolveWith, validUsername } from './scm/identity.js';
 import { TrackedReports, computeProgress, matchesFilters, outcomeOf, reportSummary } from './tracked-reports.js';
 import { TERMINAL, closure, newerThan, rescanRequest, verificationResult } from './verification.js';
+import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
@@ -261,18 +262,20 @@ const touchProject = (projectId) => touchedProjects.set(projectId, Date.now());
  * the findings need (never allocated until someone confirms it).
  */
 function creditView(summary) {
-  const { toRemediate, need, shortfall } = allocations.need(summary.projectId, summary.risks ?? []);
+  const risks = summary.risks ?? [];
+  const figures = creditFigures(risks, { triaged: creditLedger.triagedAt(summary.projectId), remediated: creditLedger.remediatedIds(summary.projectId) });
+  const { toRemediate, need, shortfall } = allocations.need(summary.projectId, risks, figures);
   return {
     ...allocations.balance(summary.projectId),
-    toTriage: Object.fromEntries(SEVERITIES.map((s) => [s, toTriageCount(summary.risks ?? [], [s], Date.now(), creditLedger.triagedAt(summary.projectId))])),
+    toTriage: Object.fromEntries(SEVERITIES.map((s) => [s, figures.toTriage([s])])),
     // The rows behind those results: rows sharing one Checkmarx One result are triaged, and charged, once.
-    toTriageRows: Object.fromEntries(SEVERITIES.map((s) => [s, triageRows(summary.risks ?? [], [s], Date.now(), creditLedger.triagedAt(summary.projectId)).length])),
+    toTriageRows: Object.fromEntries(SEVERITIES.map((s) => [s, figures.triageRows([s]).length])),
     // Confirmed findings to remediate, by severity, so any choice of severities can be costed.
-    toRemediateBySeverity: Object.fromEntries(SEVERITIES.map((s) => [s, remediationCandidates(summary.risks ?? [], [s], creditLedger.remediatedIds(summary.projectId)).length])),
+    toRemediateBySeverity: Object.fromEntries(SEVERITIES.map((s) => [s, figures.toRemediate([s])])),
     toRemediate,
     need,
     shortfall,
-    sharedResults: sharedResults(summary),
+    sharedResults: sharedResults(figures.triageRows(SEVERITIES)),
   };
 }
 
@@ -281,8 +284,7 @@ function creditView(summary) {
  * paths, or data flows, into the same vulnerable code): triaged, charged and
  * fixed together. Named so people can see which ones, and why.
  */
-function sharedResults(summary) {
-  const rows = triageRows(summary.risks ?? [], SEVERITIES, Date.now(), creditLedger.triagedAt(summary.projectId));
+function sharedResults(rows) {
   const groups = new Map();
   for (const r of rows) {
     const unit = billingUnit(r);
@@ -520,7 +522,9 @@ app.use('/api', (req, res, next) => {
   });
   next();
 });
-app.use(express.static(publicDir));
+// The page's files; API calls never touch the disk looking for one (a stat per request, under load).
+const staticFiles = express.static(publicDir);
+app.use((req, res, next) => (req.path.startsWith('/api/') ? next() : staticFiles(req, res, next)));
 
 /**
  * The emailed report is opened from disk (origin "null"), so its calls to the
@@ -1778,7 +1782,7 @@ app.get(
     const settings = settingsStore.get();
     const people = new Map();
     for (const project of projects) {
-      const scan = scans[project.id];
+      const scan = credited(scans[project.id]);
       const initiator = scanInitiator(scan);
       if (!initiator) continue;
       const entry = people.get(initiator.toLowerCase()) ?? { initiator, email: scanInitiatorEmail(scan) || initiatorEmailOf(initiator, settings), projects: 0 };
@@ -1862,7 +1866,7 @@ async function runScan(req, { onStart, onProject } = {}) {
   // Rows shown while the rest is still being read: the initiator comes from the
   // latest scan already in hand; addresses and confidence follow with the result.
   const earlyRow = (summary) => {
-    const scan = lastScans?.[summary.projectId];
+    const scan = credited(lastScans?.[summary.projectId]);
     return projectRow({
       ...summary,
       initiator: scan ? scanInitiator(scan) ?? '' : '',
@@ -1872,7 +1876,8 @@ async function runScan(req, { onStart, onProject } = {}) {
       initiatorConfidence: 'none',
       lastScanDate: scan ? lastScanDate(scan) : null,
       url: projectUrl(summary, req.session.connection, settings.links),
-      credits: creditView(summary),
+      // Worked out once: the finished fetch below reuses it.
+      credits: (summary.credits = creditView(summary)),
     });
   };
 
@@ -1885,6 +1890,7 @@ async function runScan(req, { onStart, onProject } = {}) {
       concurrency: config.concurrency,
       lastScans: Object.keys(lastScans ?? {}).length ? lastScans : undefined,
       memory: knownAddresses,
+      attributed: creditFor,
     }),
     collectProjectRisks(client, active, projects, {
       detectionWindow,
@@ -1909,7 +1915,7 @@ async function runScan(req, { onStart, onProject } = {}) {
   }
   diagnostics.usage('fetch-complete', { projects: result.projects.length, reused: result.reused ?? 0, findings: result.projects.reduce((n, p) => n + p.totalRisks, 0), ms: Date.now() - started });
   // Fetching shows what the findings need; it never allocates anything.
-  for (const summary of result.projects) summary.credits = creditView(summary);
+  for (const summary of result.projects) summary.credits ??= creditView(summary);
   req.session.lastScan = result;
 
   const response = {
@@ -3286,7 +3292,10 @@ async function triageResultsFor(session, findings) {
   const sentBefore = new Map(projectIds.map((id) => [id, creditLedger.triagedAt(id)]));
   await mapWithConcurrency(projectIds, 3, async (projectId) => {
     try {
-      statesByProject.set(projectId, await projectStates(session, projectId));
+      // States read in the last 30 s, or (while they are read again in the background) the last
+      // ones known: a report polling every few seconds never waits on Checkmarx One for them.
+      const known = relayCache.peek(`risks|${projectId}`, () => loadRiskInfo(session, projectId), STATE_CACHE_MS);
+      statesByProject.set(projectId, known ? known.value.states : await projectStates(session, projectId));
     } catch (error) {
       stateErrors.set(projectId, relayError(error));
       console.warn(`[relay] could not read risk states for project ${logSafe(projectId)}: ${logSafe(error.message)}`);
@@ -4260,6 +4269,15 @@ app.post(
 // Tracked reports: saved scopes whose progress is followed over time
 // ---------------------------------------------------------------------------
 
+/** Rescans this server started are credited to the developer they verify (see src/scan-attribution.js). */
+const scanAttribution = new ScanAttribution({ dataDir });
+const creditFor = (scanId) => scanAttribution.get(scanId);
+/** A last-scan record, with a verification rescan credited to whose work it verifies. */
+const credited = (scan) => {
+  const credit = scan && creditFor(scan.id ?? scan.scanId);
+  return credit ? { ...scan, initiator: credit.initiator, initiatorEmail: credit.email || undefined, startedBy: scanInitiator(scan) } : scan;
+};
+
 const TRACK_REFRESH_MS = 60 * 60 * 1000;
 const TRACK_TOUCHED_WINDOW_MS = 30 * 60 * 1000;
 const TRACK_TOUCHED_EVERY_MS = 3 * 60 * 1000;
@@ -4364,7 +4382,16 @@ async function startVerification(report, session, { by = '', automatic = false }
     }
     try {
       const scan = await session.client.request(`/api/scans/${encodeURIComponent(entry.lastScanId)}`, { retries: 1 });
-      const request = rescanRequest(entry.projectId, scan, known.get(entry.projectId) ?? {});
+      // Whose work this verifies: the last scan's initiator (or, after an earlier rescan, the developer it was credited to).
+      const summary = last[entry.projectId];
+      const earlier = creditFor(entry.lastScanId);
+      const resolved = session.lastScan?.initiators?.[entry.projectId];
+      const owner = earlier ?? {
+        initiator: scanInitiator(summary) || scanInitiator(scan),
+        email: scanInitiatorEmail(summary) || (resolved?.scanId === entry.lastScanId ? resolved.email : '') || '',
+      };
+      entry.creditedTo = owner.initiator;
+      const request = rescanRequest(entry.projectId, scan, known.get(entry.projectId) ?? {}, { initiator: owner.email || owner.initiator, requestedBy: by || 'automatic verification' });
       if (request.waiting) {
         entry.status = 'waiting';
         entry.error = request.reason;
@@ -4373,6 +4400,7 @@ async function startVerification(report, session, { by = '', automatic = false }
       const created = await session.client.request('/api/scans', { method: 'POST', body: request.body, retries: 1 });
       entry.scanId = String(created?.id ?? '');
       entry.status = String(created?.status || 'Queued');
+      scanAttribution.record(entry.scanId, { projectId: entry.projectId, initiator: owner.initiator, email: owner.email, requestedBy: by || 'automatic verification', reason: `verification of "${report.name}"` });
       entry.branch = request.branch;
       entry.engines = request.engines;
       if (!entry.scanId) throw new Error('Checkmarx One did not return a scan id.');
@@ -4500,7 +4528,7 @@ async function openScanFor(session, report) {
     session.client,
     session.connection,
     report.projects.map((p) => ({ id: p.projectId, name: p.projectName })),
-    { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency, memory: knownAddresses },
+    { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency, memory: knownAddresses, attributed: creditFor },
   );
   return { projects, initiators: initiators.byProject };
 }
@@ -4975,6 +5003,7 @@ app.delete('/api/tracked-reports/:id', requirePermission('reports.manage'), (req
 app.get('/api/credits', requirePermission('credits.view'), (req, res) => {
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
   const { aiTriage } = settingsStore.get();
+  const list = allocations.list();
   res.json({
     ...creditLedger.summary(month),
     months: [...new Set([monthOf(), ...creditLedger.months()])],
@@ -4982,21 +5011,21 @@ app.get('/api/credits', requirePermission('credits.view'), (req, res) => {
     remediationEnabled: Boolean(aiTriage?.remediationEnabled),
     monthlyCreditLimit: aiTriage?.monthlyCreditLimit ?? 0,
     remaining: month === monthOf() ? creditsRemaining() : null,
-    pool: creditPool(),
-    allocations: allocations.list(),
+    pool: creditPool(undefined, list),
+    allocations: list,
     relayConnected: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId) ?? settingsStore.get().automationApiKey),
   });
 });
 
 /** The credit pool now: size, used (triage / remediation), left, given to projects, free to give. */
-function creditPool(settings = settingsStore.get()) {
+function creditPool(settings = settingsStore.get(), list = allocations.list()) {
   const period = poolPeriod(settings);
   return poolSummary({
     size: settings.aiTriage?.monthlyCreditLimit ?? 0,
     period,
     used: creditLedger.usedInPeriod(period),
     reserved: creditLedger.reserved,
-    allocations: allocations.list(),
+    allocations: list,
   });
 }
 
@@ -5011,7 +5040,7 @@ app.get('/api/credits/usage', requirePermission('credits.view'), (req, res) => {
     ...usage,
     days: range.days,
     projectId,
-    pool: creditPool(),
+    pool: creditPool(undefined, list),
     allocations: projectId ? list.filter((p) => p.projectId === projectId) : list,
     projects: list.map((p) => ({ projectId: p.projectId, projectName: p.projectName })),
   });
@@ -5083,6 +5112,7 @@ app.post(
         concurrency: config.concurrency,
         lastScans,
         memory: knownAddresses,
+        attributed: creditFor,
       }),
     ]);
     const summary = read.projects[0];
@@ -5191,7 +5221,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   // For email: keep the file, so the email's button can download exactly this report.
   let downloadUrl = '';
   if (publish && relayUrl) {
-    reportFiles.save(reportToken.id, html, { filename: publish });
+    await reportFiles.save(reportToken.id, html, { filename: publish });
     downloadUrl = reportDownloadUrl(relayUrl, reportToken.id);
   }
   return { reportData, findings, html, downloadUrl, reportId: reportToken.id };

@@ -207,6 +207,19 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `CONNECTION_CHECK_TIMEOUT_MS` (25000), `CONFIG_ROLLBACK_IDLE_MINUTES` (10) | When a changed connection counts as failed, and when an unattended one is rolled back. |
 | `PORT` (3000), `HOST`, `DATA_DIR` | Outside a container only; the image sets them. |
 
+## Performance and security status
+
+Every release is load-tested and checked before it ships. These are the latest; [every version since the first](docs/status.md) is kept.
+
+| Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
+| --- | --- | --- | --- | --- | --- | --- |
+| **MZ-01.00.31** | 524/s, **0 failed** | **2.5 s** | **106 ms** | 388 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.30 | 524/s, 0 failed | 4.1 s | 371 ms | 386 pass | 0 vulnerabilities | same |
+| MZ-01.00.29 | 508/s, 0 failed | 2.6 s | 206 ms | 375 pass | 0 vulnerabilities | same |
+| MZ-01.00.26 | 506/s, 0 failed | 4.4 s | 237 ms | 359 pass | 0 vulnerabilities | Scanned (617100eb): the 1 high was fixed before release |
+
+How it is measured, and what is open and why: [Performance and security status](docs/status.md). Sizing: [Performance and sizing](docs/performance.md).
+
 ## Documentation
 
 | | |
@@ -217,6 +230,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | [HTTPS and hosting](docs/https-and-hosting.md) | Your certificate, automatic Let's Encrypt, or self-signed; and a checklist for hosting it safely. |
 | [Containers](docs/container.md) | Docker / Podman / Compose options, proxies. |
 | [Performance and sizing](docs/performance.md) | The 3000-user benchmark and the recommended server size. |
+| [Performance and security status](docs/status.md) | Every version's benchmark, tests, dependency audit and Checkmarx One scan result. |
 | [Audit log and backups](docs/audit-and-backup.md) | The tamper-evident audit log, backups, restore, moving servers. |
 | [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code, and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket. |
 

@@ -93,7 +93,6 @@ test('a rescan by hand: what is gone is fixed, a remediated finding still there 
   assert.equal(started.status, 200, JSON.stringify(started.body));
   const [p0, p1] = started.body.verification.projects;
   assert.equal(p0.status, 'Queued');
-  assert.match(p0.scanId, /^rescan-p0-/);
   assert.equal(p0.branch, 'main');
   assert.deepEqual(p0.engines, ['sast', 'sca', 'kics']);
   assert.equal(p1.status, 'waiting');
@@ -111,6 +110,24 @@ test('a rescan by hand: what is gone is fixed, a remediated finding still there 
   assert.equal(v.result.zero, false);
   assert.equal(v.finishedAt, null, 'still watching p1');
   assert.equal(after.latest.outcomes.resolved, 1);
+});
+
+test('a rescan stays credited to the developer whose work it verifies, not to the API key that started it', async () => {
+  const sent = await fetch(`${MOCK}/__rescans`).then((r) => r.json());
+  const [, first] = Object.entries(sent).find(([id]) => id.startsWith('rescan-p0-'));
+  assert.equal(first.tags.cxmissionzero, 'verification');
+  assert.equal(first.tags['verifies-work-of'], 'dev0@acme.com');
+  assert.equal(first.tags['requested-by'], 'admin@acme.io');
+  // Checkmarx One now says the latest scan of p0 was started by this server's key...
+  const latest = await (async () => {
+    const token = await fetch(`${MOCK}/auth/realms/acme/protocol/openid-connect/token`, { method: 'POST', body: new URLSearchParams({ refresh_token: KEY }) }).then((r) => r.json());
+    return fetch(`${MOCK}/api/projects/last-scan`, { headers: { Authorization: `Bearer ${token.access_token}` } }).then((r) => r.json());
+  })();
+  assert.equal(latest.p0.initiator, 'cxmissionzero');
+  // ...but reminders, reports and the dashboard still name the developer.
+  const fetched = await admin('GET', '/api/scan');
+  const p0 = fetched.body.projects.find((p) => p.projectId === 'p0');
+  assert.equal(p0.initiator, 'dev0@acme.com');
 });
 
 test('automatic: the moment every finding in scope is dealt with, the rescan starts by itself', async () => {

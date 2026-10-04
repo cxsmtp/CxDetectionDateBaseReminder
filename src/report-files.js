@@ -30,15 +30,22 @@ export class ReportFiles {
     return path.join(this.#dir, `${id.toLowerCase()}.html.gz`);
   }
 
+  /**
+   * Keep a report (resolves when written). Compressing a report of several megabytes
+   * runs off the main thread, so the server keeps answering while it is saved.
+   */
   save(id, html, { filename = '' } = {}) {
     const file = this.#file(id);
     if (!file) throw new Error('Invalid report id.');
-    fs.mkdirSync(this.#dir, { recursive: true, mode: 0o700 });
-    const tmp = `${file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, zlib.gzipSync(Buffer.from(String(html))), { mode: 0o600 });
-    fs.renameSync(tmp, file);
-    if (filename) fs.writeFileSync(`${file}.name`, String(filename).slice(0, 120), { mode: 0o600 });
-    this.purge();
+    return (async () => {
+      await fs.promises.mkdir(this.#dir, { recursive: true, mode: 0o700 });
+      const body = await new Promise((resolve, reject) => zlib.gzip(Buffer.from(String(html)), (error, out) => (error ? reject(error) : resolve(out))));
+      const tmp = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+      await fs.promises.writeFile(tmp, body, { mode: 0o600 });
+      await fs.promises.rename(tmp, file);
+      if (filename) await fs.promises.writeFile(`${file}.name`, String(filename).slice(0, 120), { mode: 0o600 });
+      this.purge();
+    })();
   }
 
   /** {html, filename, savedAt} or null when unknown or expired. */

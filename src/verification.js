@@ -17,6 +17,7 @@
  */
 
 import { codeVersion } from './github/blame.js';
+import { tagValue } from './scan-attribution.js';
 import { outcomeOf } from './tracked-reports.js';
 
 export const TERMINAL = new Set(['Completed', 'Failed', 'Partial', 'Canceled']);
@@ -84,7 +85,7 @@ export function verificationResult(report, currentByProject, { verifiedProjects,
 }
 
 /** The body that rescans a project like its last scan (same repository, branch and engines), or a reason it cannot. */
-export function rescanRequest(projectId, lastScan, project = {}) {
+export function rescanRequest(projectId, lastScan, project = {}, { initiator = '', requestedBy = '' } = {}) {
   const { repoUrl, branch } = codeVersion(lastScan, project);
   const type = String(lastScan?.sourceType || lastScan?.type || '').toLowerCase();
   if (!/^https?:\/\//i.test(repoUrl) || !branch || /upload|zip/.test(type)) {
@@ -98,7 +99,12 @@ export function rescanRequest(projectId, lastScan, project = {}) {
       type: 'git',
       handler: { repoUrl, branch },
       config,
-      tags: { cxmissionzero: 'verification' },
+      // Checkmarx One records this server's key as the initiator: the tags say whose work it verifies, and who asked.
+      tags: {
+        cxmissionzero: 'verification',
+        ...(initiator ? { 'verifies-work-of': tagValue(initiator) } : {}),
+        ...(requestedBy ? { 'requested-by': tagValue(requestedBy) } : {}),
+      },
     },
     repoUrl,
     branch,
