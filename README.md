@@ -4,6 +4,8 @@
 
 Self-hosted, one container, nothing to install for developers.
 
+> <span style="color:#065f46">**On premise, your data stays yours.** Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</span>
+>
 > **An independent project, not a Checkmarx product.** Free for Checkmarx One customers to use inside their own organisation ([PolyForm Internal Use 1.0.0](LICENSE)). It comes as is, with no warranty and no promise of support or fixes, and neither its author nor Checkmarx is responsible for how it is used or for any credit discrepancy. Its credit figures and audit reports are supporting information only, never evidence in a dispute with Checkmarx. Using it means accepting the [terms of use](TERMS.md), which an Admin accepts for the organisation at the first sign-in.
 
 | You get | How |
@@ -12,6 +14,7 @@ Self-hosted, one container, nothing to install for developers.
 | **The right person, only their projects** | Reminders go to whoever ran each project's latest scan, by email, as a summary or one per project. The server refuses any email that would show someone a project they did not scan. |
 | **Fix from the inbox** | An interactive report in every email: **Triage** and **Remediate** with Checkmarx One AI, see the verdict, open the pull request. **Open in IDE** jumps to the line in VS Code, Cursor, Kiro or JetBrains, and **Apply fix in my workspace** (or one `git apply` line) puts the fix in your own checkout when there is no pull request. |
 | **Credits under control** | A credit pool, and per-project allocations. Every action re-checks Checkmarx One twice first and stops if anyone changed the findings meanwhile. Never two requests for one vulnerability, and unused credits are taken back. |
+| **Prove it with a rescan** | When a tracked scope's findings are all dealt with, CxMissionZero rescans in Checkmarx One (by hand or automatically) and shows what is really fixed, which fixes did not work, and what is new. Then it starts the next round, for example medium and low, until everything is at zero, and keeps watching it stays there. |
 | **Hands-off follow-up** | Age-threshold automation that never nags twice, and tracked reports that measure progress and send follow-ups. |
 | **Accountable** | A hash-chained audit log of every credit and change, role-based access, one-file backups, and a privacy-safe troubleshooting log. |
 | **Easy to work in** | Pages grouped as Detect, Eliminate and Govern, in tabs instead of long scrolls; every page keeps your work when you switch; Jump to (Ctrl K); a layout that fits phone, tablet, laptop and wide screens. |

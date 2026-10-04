@@ -157,6 +157,7 @@
                 <label class="mode"><input type="radio" name="signinMode" value="cxone" /> <span>Checkmarx One API key</span></label>
               </div>
 
+              <p class="onprem-note">Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
               <p class="hint terms-signin">Use of CxMissionZero is subject to its <a href="#" data-terms-open>terms of use</a>: an independent project, not a Checkmarx product, provided as is.</p>
               <form id="password-form" autocomplete="on">
                 <label class="field"><span>Email</span><input id="signin-email" type="email" autocomplete="username" required /></label>
@@ -1009,6 +1010,7 @@
                 <div><dt>Project</dt><dd><a href="https://github.com/cxsmtp/CxDetectionDateBaseReminder" target="_blank" rel="noopener noreferrer">github.com/cxsmtp/CxDetectionDateBaseReminder</a> — contributions welcome</dd></div>
                 <div><dt>Terms accepted</dt><dd id="about-terms-state">—</dd></div>
               </dl>
+              <p class="onprem-note"><b>On premise, your data stays yours.</b> Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
               <div class="terms-card">
                 <h3>Terms of use</h3>
                 <p class="hint">An independent project, not a Checkmarx product, provided as is: no warranty, support or bug fixing. Checkmarx and the author are not responsible for its use or for any credit discrepancy. Audit figures support your own calculation only.</p>
@@ -1369,6 +1371,7 @@
                     <option value="allocation">Allocation changes</option>
                     <option value="settings">Credit settings</option>
                     <option value="report">Reports issued</option>
+                    <option value="verification">Verification rescans</option>
                     <option value="backup">Backup &amp; restore</option>
                     <option value="audit">Audit checks</option>
                     <option value="access">Sign-ins</option>
@@ -1657,6 +1660,7 @@
     <div id="terms-overlay" class="terms-overlay" role="dialog" aria-modal="true" aria-labelledby="terms-title" hidden>
       <div class="terms-box">
         <header class="terms-head">
+          <p class="onprem-note"><b>On premise, your data stays yours.</b> Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
           <h2 id="terms-title">Terms of use</h2>
           <p class="hint" id="terms-sub">CxMissionZero is an independent project, not a Checkmarx product.</p>
         </header>

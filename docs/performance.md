@@ -64,6 +64,9 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.26 (main) | 5 | 9.2 s / 0 | 64,321 / 0 | 506 | 54 / 4,356 ms | 6 / 237 ms | none |
 | MZ-01.00.27 (no location cache) | 1 | 15.8 s / 0 | 64,465 / 0 | 520 | 69 / 2,768 ms | 8 / 253 ms | none |
 | MZ-01.00.27 | 2 | 8.2 s / 0 | 64,140 / 0 | 518 | 47 / 4,991 ms | 10 / 289 ms | none |
+| MZ-01.00.28 | 1 | 8.3 s / 0 | 64,244 / 0 | 522 | 54 / 1,321 ms | 8 / 316 ms | none |
+
+**MZ-01.00.28: what the differences were.** Nothing that matters. Verification adds a closure count to each tracked-report reading (a pass over its findings already in memory), and rescans only run when someone verifies, so the mixed load never starts one. Tracked-report refresh p50 1.48 s against 1.87 s, p95 8.4 s against 6.8 s, which is within the spread between runs. No failed requests, and no finding sent twice. The "before" is MZ-01.00.27 run 2, the same code as main.
 
 **MZ-01.00.27: what the differences were.**
 - **Building a report costs a little more, by design.** Each finding now gets its file and line ("Open in IDE"), read from the scan's results. Run 1 read them on every build: the dashboard's "build HTML report" went from 1.41 s to 2.15 s (p50).

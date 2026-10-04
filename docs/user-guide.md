@@ -648,6 +648,9 @@ Save a scope from the Dashboard (**Save as tracked report**) and follow it over 
 - **Progress:** a bar of what happened to its findings (aqua: no longer detected, blue: not exploitable, orange: confirmed; the grey rest is still open) and the % actioned.
 - **Open, New** and a small **trend** line of open findings over its readings.
 - **Status:**
+  - **Verified at zero · round N:** a rescan proved everything in the round's scope fixed (or triaged not exploitable).
+  - **Left zero:** it was verified at zero, and new findings in scope have appeared since.
+  - **Verifying…:** rescans are running in Checkmarx One.
   - **Complete:** nothing left open.
   - **On schedule:** automatic reminders are on.
   - **Needs follow-up:** open findings and no schedule.
@@ -667,9 +670,31 @@ Save a scope from the Dashboard (**Save as tracked report**) and follow it over 
 | **Remind** | Who (scan initiators, recipient list, both, or only some addresses), the content (one summary per person, or one email per project), and whether to attach the interactive report. **Preview**, then **Send reminder now**. The sends so far are listed. |
 | **Schedule** | **Automatic reminders** every N days at a set hour (the server's time zone), only while something is still open; they use the Remind options. Shows the next and last send. **Save schedule**. |
 | **Triage** | AI Triage for the chosen severities (**Triage now**), or **Allocate credits** so developers can triage from their own reports, with what it needs and what is left. |
+| **Verify** | Prove the fixes with a Checkmarx One rescan, then start the next round (below). |
 | **History** | Every reading: awaiting, confirmed, not exploitable, no longer detected, new, matching now. |
 
 At the top of the panel: **Refresh** (re-reads now; reports also update hourly, and every few minutes after someone triages or remediates), **Download HTML** (the interactive report for its open findings) and **Delete** (its history in the audit log stays).
+
+### Verify: rescan, see what is really fixed, next round
+
+A tracked report is worked in **rounds**. Round 1 is the scope it was saved with (for example critical and high). The **Verify** tab closes the loop:
+
+1. **Is the round closed?** It shows how many findings in scope are dealt with: no longer detected, triaged not exploitable, or confirmed and sent for AI Remediation. What is still open is split into awaiting triage and confirmed but not remediated. **✓ Ready to verify** appears when nothing is open.
+2. **Rescan.**
+   - **Rescan now to verify** asks Checkmarx One to scan each project again, like its last scan: same repository, same branch, same engines. It uses scans, not AI credits.
+   - **Rescan automatically** (one tick) does it by itself the moment the round is closed, once per round.
+   - Projects Checkmarx One cannot fetch (code uploaded from a pipeline or the CLI) **wait for their next scan**: whichever scan comes next, from your pipeline or Checkmarx One, verifies them, for up to 30 days.
+3. **See what it proved,** per project and in total:
+   - **Verified fixed:** gone after the rescan.
+   - **Still found:** still reported. **After AI Remediation** means the fix did not work. These are listed.
+   - **Accepted:** triaged not exploitable.
+   - **New in scope:** found since the round started.
+   - When nothing is still found or new: **✓ Mission Zero for this scope**, and the report shows **Verified at zero**. If new findings appear later, it shows **Left zero** at once.
+4. **Next round.** Pick the next scope (for example medium and low) and **Start round N**. It starts from what Checkmarx One reports now, after the rescan. The round just finished, with its verification result, stays in **Earlier rounds**.
+
+Who: anyone with **Manage tracked reports** (Admins and Security Analysts by default). Every rescan, result, switch and new round is in the audit log (type **Verification rescans**).
+
+"Sent for remediation" counts AI Remediation sent from CxMissionZero. A fix made any other way (by hand, or remediated directly in Checkmarx One) counts as fixed when the rescan no longer finds it. **Rescan now** is always there for that.
 
 ---
 

@@ -32,7 +32,7 @@ export const PERMISSIONS = [
   { id: 'initiators.tag', group: 'Dashboard', label: 'Tag initiator addresses', description: 'Give a scan initiator without an address an email address, from the dashboard.' },
   { id: 'reports.view', group: 'Tracked reports', label: 'View tracked reports', description: 'See tracked reports, their progress, and download them.' },
   { id: 'reports.remind', group: 'Tracked reports', label: 'Send follow-ups', description: 'Send a tracked report’s follow-up reminder.' },
-  { id: 'reports.manage', group: 'Tracked reports', label: 'Manage tracked reports', description: 'Save, schedule and delete tracked reports.' },
+  { id: 'reports.manage', group: 'Tracked reports', label: 'Manage tracked reports', description: 'Save, schedule and delete tracked reports, and verify their fixes with a Checkmarx One rescan (starts scans).' },
   { id: 'triage.run', group: 'AI & credits', label: 'Run AI Triage & Remediation', description: 'Start AI Triage or Remediation from the dashboard or a tracked report (spends credits).' },
   { id: 'credits.view', group: 'AI & credits', label: 'View credits', description: 'See credit balances and usage.' },
   { id: 'credits.allocate', group: 'AI & credits', label: 'Allocate credits to projects', description: 'Give projects credits out of the credit pool, or take extra credits back.' },

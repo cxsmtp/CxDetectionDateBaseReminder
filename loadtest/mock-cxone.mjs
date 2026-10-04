@@ -16,11 +16,22 @@ const sentCount = new Map(); // alternateId -> times it was sent for AI Triage
 let changing = false; // /__changing?on=1: scan results differ on every read
 let reads = 0;
 const remediated = new Map();
+// Verification rescans (POST /api/scans): Queued, then Running, then Completed after RESCAN_MS.
+// A completed rescan no longer reports the findings remediated before it, except INEFFECTIVE ones
+// (risk ids whose fix did not work). UPLOAD_PROJECTS were scanned from uploaded code (no repository).
+const RESCAN_MS = Number(process.env.RESCAN_MS || 3000);
+const INEFFECTIVE = new Set(String(process.env.INEFFECTIVE || '').split(',').filter(Boolean));
+const UPLOADS = new Set(String(process.env.UPLOAD_PROJECTS || '').split(',').filter(Boolean));
+const rescans = new Map(); // scanId -> {projectId, at}
+const rescanStatus = (scan) => { const age = Date.now() - scan.at; return age < 300 ? 'Queued' : age < RESCAN_MS ? 'Running' : 'Completed'; };
+const latestRescan = (pid) => [...rescans.entries()].filter(([, s]) => s.projectId === pid && rescanStatus(s) === 'Completed').sort((a, b) => b[1].at - a[1].at)[0];
+const fixedByRescan = (pid, alt, riskId) => { const last = latestRescan(pid); const t = remediated.get(alt); return Boolean(last && t && t < last[1].at && !INEFFECTIVE.has(riskId)); };
 const day = (n) => new Date(Date.now() - n * 86400000).toISOString();
 // SHARED=1: like a real tenant, some findings are another code path into the same vulnerable code
 // (risk i+4 shares risk i's similarity group, for i in 0–3, 8–11, …), so they are one result.
 const SHARED = process.env.SHARED === '1';
-const risksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
+const risksFor = (pid) => allRisksFor(pid).filter((r) => !fixedByRescan(pid, `alt-${r.groupId.replace(/^sim-/, '')}`, r.id));
+const allRisksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
   const id = `${pid}-r${i}`;
   const twin = SHARED && Math.floor(i / 4) % 2 === 1 ? `${pid}-r${i - 4}` : id;
   const alt = `alt-${twin}`;
@@ -60,8 +71,33 @@ http.createServer((req, res) => {
       if (!issued.has(String(req.headers.authorization || '').replace(/^Bearer /, ''))) return send(401, {});
       const offset = Number(u.searchParams.get('offset') || 0);
       if (u.pathname === '/api/projects') { bump('projects'); const all = Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}` })); const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: PROJECTS }); }
-      if (u.pathname === '/api/projects/last-scan') { bump('last-scan'); return send(200, Object.fromEntries(Array.from({ length: PROJECTS }, (_, i) => [`p${i}`, { id: `scan-p${i}`, updatedAt: day(1), initiator: `dev${i % INITIATORS}@acme.com` }]))); }
+      if (u.pathname === '/api/projects/last-scan') {
+        bump('last-scan');
+        return send(200, Object.fromEntries(Array.from({ length: PROJECTS }, (_, i) => {
+          const latest = latestRescan(`p${i}`);
+          return [`p${i}`, latest ? { id: latest[0], updatedAt: new Date(latest[1].at + RESCAN_MS).toISOString(), initiator: 'cxmissionzero' } : { id: `scan-p${i}`, updatedAt: day(1), initiator: `dev${i % INITIATORS}@acme.com` }];
+        })));
+      }
+      if (req.method === 'POST' && u.pathname === '/api/scans') {
+        bump('scan-post');
+        const body = JSON.parse(b || '{}');
+        const pid = body.project?.id;
+        if (!pid || body.type !== 'git' || !body.handler?.repoUrl || !body.handler?.branch || !Array.isArray(body.config)) return send(400, { message: 'bad scan request' });
+        const id = `rescan-${pid}-${rescans.size + 1}`;
+        rescans.set(id, { projectId: pid, at: Date.now() });
+        return send(201, { id, status: 'Queued' });
+      }
       if (u.pathname === '/api/scans') { bump('scans'); return send(200, { scans: [] }); }
+      let sm;
+      if ((sm = u.pathname.match(/^\/api\/scans\/([^/]+)$/))) {
+        bump('scan-get');
+        const id = decodeURIComponent(sm[1]);
+        const re = rescans.get(id);
+        if (re) return send(200, { id, projectId: re.projectId, status: rescanStatus(re), branch: 'main', engines: ['sast', 'sca', 'kics'], metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${re.projectId}`, branch: 'main' } } } });
+        const pid = id.replace(/^scan-/, '');
+        if (UPLOADS.has(pid)) return send(200, { id, projectId: pid, status: 'Completed', sourceType: 'upload', engines: ['sast'] });
+        return send(200, { id, projectId: pid, status: 'Completed', branch: 'main', engines: ['sast', 'sca', 'kics'], metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch: 'main', commit_id: 'abc123' } } } });
+      }
       if (u.pathname === '/api/risks/' || u.pathname === '/api/risks') {
         bump('risks');
         const pid = u.searchParams.get('projectId');
@@ -98,7 +134,7 @@ http.createServer((req, res) => {
       }
       if (req.method === 'POST' && u.pathname === '/api/remediation/remediate') {
         bump('remediate-post');
-        remediated.set(JSON.parse(b).buckets[0].resultIDs[0], Date.now());
+        for (const bk of JSON.parse(b).buckets) for (const id of bk.resultIDs) remediated.set(id, Date.now());
         return send(202, { published: true });
       }
       if ((m = u.pathname.match(/^\/api\/remediation\/remediation-details\/([^/]+)\/(.+)$/))) {

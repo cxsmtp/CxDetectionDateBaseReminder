@@ -12,6 +12,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+/** First, in green, wherever the terms or the report's notice appear: what the utility talks to, and nothing else. */
+export const ON_PREMISE_NOTICE =
+  'Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add). ' +
+  'No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.';
+
 /** One line for reports, the audit log and exports. */
 export const SUPPORTING_NOTICE =
   'Supporting information only: figures here are worked out from Checkmarx One data at a moment in time and may be incomplete or wrong. ' +

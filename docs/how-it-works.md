@@ -54,6 +54,14 @@ The technical reference: what happens under each feature, where data lives, and 
 - **"Needed" is read twice.** Credit need is confirmed by two independent reads of Checkmarx One (findings plus the result ids AI Triage would be sent). Allocation goes ahead only when both reads agree, result for result.
 - **Remediation is fenced to Confirmed.** The report's button is disabled for any other state, and the server re-reads the state and refuses anything else.
 
+## Verification rescans
+- **Closed round.** `src/verification.js` decides when a tracked report's round is closed: every baseline finding is gone, triaged not exploitable, or confirmed and in the ledger as sent for AI Remediation.
+- **Rescan.** For each project: the last completed scan (`/api/projects/last-scan`), its details (`GET /api/scans/{id}`: repository, branch, engines), then `POST /api/scans` with a git handler for the same repository and branch and the same engines, tagged `cxmissionzero: verification`. The rescan relies on what Checkmarx One already holds to fetch the repository; no code-host token is ever sent to it.
+- **Uploaded code.** A scan of uploaded code (or a request Checkmarx One refuses) waits for the project's next completed scan from anywhere.
+- **Following and proving.** Every minute, and on each Refresh, scan statuses are read. When none is still queued or running, the findings are read again, and each baseline finding is fixed (gone), accepted (not exploitable) or still found (remediated or not).
+- **Recorded.** The result, and each start, switch and next round, goes into the report and the audit log (`verification`).
+- **Automatic** verification starts once per round.
+
 ## Report relay
 - **Grants.** Each finding in a report carries a grant signed with `report-signing.key` (or `REPORT_SIGNING_KEY`), valid for 30 days. The relay acts on nothing else.
 - **Shared answers.** Risk states, AI Triage records and AI Remediation details are cached and shared across reports. Concurrent asks for the same thing wait on one call.
