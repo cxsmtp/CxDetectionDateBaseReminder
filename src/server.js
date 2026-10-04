@@ -34,7 +34,8 @@ import { METHODS as GITHUB_METHODS, ensureClone, evaluate as evaluateGithub, git
 import { blameFindings, codeVersion, locationOf, parseRepoUrl } from './github/blame.js';
 import { SCM_LABELS, SCM_PROVIDERS, checkConnections as checkScmConnections, methodsFor, providerOf, scmClients, scmConfigs } from './scm/providers.js';
 import { addressesAsThemselves, evaluateMethods, resolveWith, validUsername } from './scm/identity.js';
-import { TrackedReports, computeProgress, matchesFilters, reportSummary } from './tracked-reports.js';
+import { TrackedReports, computeProgress, matchesFilters, outcomeOf, reportSummary } from './tracked-reports.js';
+import { TERMINAL, closure, newerThan, rescanRequest, verificationResult } from './verification.js';
 import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
@@ -4281,7 +4282,10 @@ function progressFor(report, byProject) {
   try {
     detection = resolveWindow(report.filters.detection, 'First detection');
   } catch {}
-  return computeProgress(report, byProject, detection, (ids, since) => creditLedger.usedSince(ids, since));
+  const progress = computeProgress(report, byProject, detection, (ids, since) => creditLedger.usedSince(ids, since));
+  // Whether the round's scope is closed (every finding dealt with): ready for a verification rescan.
+  progress.closure = closure(report, byProject, remediatedOf);
+  return progress;
 }
 
 /** Refresh one report (collapsing concurrent refreshes of the same report). */
@@ -4323,6 +4327,7 @@ async function backgroundRefresh() {
 setInterval(() => {
   backgroundRefresh().catch(() => {});
   resolveAutomationSession()
+    .then((session) => session && runVerifications(session).then(() => session))
     .then((session) => session && runDueTrackedReminders(session))
     .catch((error) => console.warn(`[tracked reminders] ${error.message}`));
 }, 60 * 1000).unref?.();
@@ -4330,6 +4335,137 @@ setInterval(() => {
 // ---- Follow-up reminders, schedules and triage for a tracked report -------
 
 const DAY_MS = 86_400_000;
+// ---- Verification: rescan to prove a round's fixes, then the next round ----
+
+/** Projects whose rescan could not start wait this long for a scan from elsewhere (a pipeline). */
+const VERIFY_WAIT_MS = 30 * DAY_MS;
+const remediatedOf = (projectId) => creditLedger.remediatedIds(projectId);
+const cxErrorText = (error) => `${error?.status ? `HTTP ${error.status}: ` : ''}${String(error?.body?.message ?? error?.message ?? error).slice(0, 200)}`;
+const scanIdOfSummary = (scan) => String(scan?.id ?? scan?.scanId ?? '');
+
+/** Ask Checkmarx One to scan each of the report's projects again, like its last scan. */
+async function startVerification(report, session, { by = '', automatic = false } = {}) {
+  if (report.verification && !report.verification.finishedAt) {
+    throw Object.assign(new Error('A verification is already running for this report.'), { status: 409 });
+  }
+  const last = await getLastScans(session.client, report.projects.map((p) => p.projectId));
+  const known = new Map((session.lastScan?.projects ?? []).map((p) => [p.projectId, p]));
+  const requestedAt = new Date().toISOString();
+  const projects = report.projects.map((p) => ({ projectId: p.projectId, projectName: p.projectName, status: 'Queued', scanId: '', lastScanId: '', error: '' }));
+  await mapWithConcurrency(projects, 3, async (entry) => {
+    entry.lastScanId = scanIdOfSummary(last[entry.projectId]);
+    if (!entry.lastScanId) {
+      entry.status = 'waiting';
+      entry.error = 'No completed scan yet: the first one verifies it.';
+      return;
+    }
+    try {
+      const scan = await session.client.request(`/api/scans/${encodeURIComponent(entry.lastScanId)}`, { retries: 1 });
+      const request = rescanRequest(entry.projectId, scan, known.get(entry.projectId) ?? {});
+      if (request.waiting) {
+        entry.status = 'waiting';
+        entry.error = request.reason;
+        return;
+      }
+      const created = await session.client.request('/api/scans', { method: 'POST', body: request.body, retries: 1 });
+      entry.scanId = String(created?.id ?? '');
+      entry.status = String(created?.status || 'Queued');
+      entry.branch = request.branch;
+      entry.engines = request.engines;
+      if (!entry.scanId) throw new Error('Checkmarx One did not return a scan id.');
+    } catch (error) {
+      entry.status = 'waiting';
+      entry.error = `Checkmarx One did not start a scan (${cxErrorText(error)}): the next scan of this project, from your pipeline or Checkmarx One, verifies it.`;
+    }
+  });
+  const round = report.round ?? 1;
+  report.verification = { round, requestedAt, by, automatic, projects, finishedAt: null, result: null };
+  audit.record({
+    type: 'verification',
+    outcome: 'info',
+    reason: `Verification rescan of "${report.name}" (round ${round}) ${automatic ? 'started automatically: every finding in scope was dealt with' : 'started'}.`,
+    actor: automatic ? SYSTEM_ACTOR : { kind: 'user', user: by },
+    details: { reportId: report.id, round, scans: projects.map(({ projectName, status, scanId, error }) => ({ projectName, status, scanId, error })) },
+  });
+  trackedReports.save();
+  return report.verification;
+}
+
+/** Follow a running verification: scan statuses, scans from elsewhere, and the result once scans are done. */
+async function advanceVerification(report, session) {
+  const v = report.verification;
+  if (!v || v.finishedAt) return;
+  const now = new Date().toISOString();
+  let changed = false;
+  const waiting = v.projects.filter((e) => e.status === 'waiting');
+  if (waiting.length) {
+    const last = await getLastScans(session.client, waiting.map((e) => e.projectId)).catch(() => ({}));
+    for (const entry of waiting) {
+      const scan = last[entry.projectId];
+      if (scan && scanIdOfSummary(scan) !== entry.lastScanId && newerThan(scan, v.requestedAt)) {
+        Object.assign(entry, { scanId: scanIdOfSummary(scan), status: 'Completed', completedAt: now, error: '', fromElsewhere: true });
+        changed = true;
+      }
+    }
+  }
+  for (const entry of v.projects) {
+    if (entry.status === 'waiting' || TERMINAL.has(entry.status) || !entry.scanId) continue;
+    try {
+      const scan = await session.client.request(`/api/scans/${encodeURIComponent(entry.scanId)}`, { retries: 1, background: true });
+      const status = String(scan?.status ?? '');
+      if (status && status !== entry.status) {
+        entry.status = status;
+        if (TERMINAL.has(status)) entry.completedAt = now;
+        changed = true;
+      }
+    } catch (error) {
+      entry.error = `Could not read the scan's status (${cxErrorText(error)}).`;
+    }
+  }
+  const scanning = v.projects.some((e) => e.status !== 'waiting' && !TERMINAL.has(e.status));
+  const verified = v.projects.filter((e) => e.status === 'Completed' || e.status === 'Partial');
+  const stillWaiting = v.projects.some((e) => e.status === 'waiting');
+  if (changed && !scanning && verified.length) {
+    const byProject = await currentFindings(session, report.projects);
+    trackedReports.record(report, progressFor(report, byProject));
+    v.result = verificationResult(report, byProject, {
+      verifiedProjects: new Set(verified.map((e) => e.projectId)),
+      remediated: remediatedOf,
+      newInScope: report.latest?.newFindings ?? 0,
+    });
+    v.checkedAt = now;
+    const r = v.result;
+    audit.record({
+      type: 'verification',
+      outcome: r.zero ? 'success' : 'info',
+      reason: `Verification of "${report.name}" (round ${v.round}): ${r.fixed} fixed, ${r.stillFound.length} still found${r.ineffective ? ` (${r.ineffective} after AI Remediation)` : ''}, ${r.newInScope} new in scope${r.zero ? ' — the scope is at zero' : ''}.`,
+      actor: SYSTEM_ACTOR,
+      details: { reportId: report.id, round: v.round, fixed: r.fixed, stillFound: r.stillFound.length, ineffective: r.ineffective, accepted: r.accepted, newInScope: r.newInScope, notChecked: r.notChecked },
+    });
+  }
+  const expired = Date.now() - Date.parse(v.requestedAt) > VERIFY_WAIT_MS;
+  if (!scanning && (!stillWaiting || expired)) {
+    v.finishedAt = now;
+    changed = true;
+  }
+  if (changed) trackedReports.save();
+}
+
+/** Follow a report's verification, and start one when its scope is closed and automatic verification is on. */
+async function verificationStep(report, session) {
+  await advanceVerification(report, session);
+  const closed = report.latest?.closure?.closed;
+  const doneForRound = report.verification?.round === (report.round ?? 1);
+  if (report.verify?.auto && closed && !doneForRound) await startVerification(report, session, { automatic: true });
+}
+
+/** Every minute, for every report (and on each Refresh, for that one). */
+async function runVerifications(session) {
+  for (const report of trackedReports.list()) {
+    await verificationStep(report, session).catch((error) => console.warn(`[verification] ${logSafe(report.name)}: ${logSafe(error.message)}`));
+  }
+}
+
 const MAX_REMINDERS_KEPT = 50;
 
 /**
@@ -4729,6 +4865,100 @@ app.post(
     const report = trackedReports.get(req.params.id);
     if (!report) return res.status(404).json({ error: 'No such report.' });
     await refreshTrackedReport(report, req.session);
+    await verificationStep(report, req.session).catch((error) => {
+      report.lastError = `Verification: ${error.message}`;
+    });
+    res.json(trackedView(report));
+  }),
+);
+
+/** Rescan the report's projects in Checkmarx One to verify the round's fixes. */
+app.post(
+  '/api/tracked-reports/:id/verify',
+  requirePermission('reports.manage'),
+  asyncRoute(async (req, res) => {
+    const report = trackedReports.get(req.params.id);
+    if (!report) return res.status(404).json({ error: 'No such report.' });
+    const session = req.session?.client ? req.session : await resolveAutomationSession();
+    if (!session) return res.status(409).json({ error: 'Connect to Checkmarx One first.' });
+    await startVerification(report, session, { by: req.user?.email ?? '' });
+    res.json(trackedView(report));
+  }),
+);
+
+/** Verify automatically: rescan the moment every finding in the round's scope has been dealt with. */
+app.put('/api/tracked-reports/:id/verify-settings', requirePermission('reports.manage'), (req, res) => {
+  const report = trackedReports.get(req.params.id);
+  if (!report) return res.status(404).json({ error: 'No such report.' });
+  const auto = req.body?.auto === true;
+  report.verify = { ...(report.verify ?? {}), auto };
+  trackedReports.save();
+  audit.record({ type: 'verification', outcome: 'changed', reason: `Automatic verification of "${report.name}" ${auto ? 'on' : 'off'}.`, actor: { kind: 'user', user: req.user?.email ?? '' }, details: { reportId: report.id, auto } });
+  res.json(trackedView(report));
+});
+
+/**
+ * The next round: the round so far is kept in the report's history, and a new
+ * baseline is taken from the findings Checkmarx One reports now (after the
+ * rescan), with a new scope, e.g. medium and low once critical and high are at zero.
+ */
+app.post(
+  '/api/tracked-reports/:id/next-round',
+  requirePermission('reports.manage'),
+  asyncRoute(async (req, res) => {
+    const report = trackedReports.get(req.params.id);
+    if (!report) return res.status(404).json({ error: 'No such report.' });
+    if (report.verification && !report.verification.finishedAt && report.verification.projects.some((e) => e.status !== 'waiting' && !TERMINAL.has(e.status))) {
+      return res.status(409).json({ error: 'Wait for the verification scans to finish first.' });
+    }
+    const severities = (Array.isArray(req.body?.severities) ? req.body.severities : []).map((x) => String(x).toUpperCase()).filter((x) => SEVERITIES.includes(x));
+    const buckets = (Array.isArray(req.body?.buckets) ? req.body.buckets : []).map(String).filter((b) => AGE_BUCKETS.some((a) => a.id === b));
+    if (!severities.length) return res.status(400).json({ error: 'Choose the severities for the next round.' });
+    const session = req.session?.client ? req.session : await resolveAutomationSession();
+    if (!session) return res.status(409).json({ error: 'Connect to Checkmarx One first.' });
+    const byProject = await currentFindings(session, report.projects);
+    const filters = { ...report.filters, severities, buckets };
+    let detection = null;
+    try {
+      detection = resolveWindow(filters.detection, 'First detection');
+    } catch {}
+    const findings = [];
+    for (const [, risks] of byProject) {
+      for (const r of risks) if (matchesFilters(r, filters, detection) && outcomeOf(r) !== 'notExploitable') findings.push(r);
+    }
+    const round = report.round ?? 1;
+    const latest = report.latest ?? {};
+    report.rounds = [
+      ...(report.rounds ?? []),
+      {
+        round,
+        severities: report.filters.severities,
+        buckets: report.filters.buckets,
+        startedAt: report.roundStartedAt ?? report.createdAt,
+        endedAt: new Date().toISOString(),
+        baseline: report.baseline.findings.length,
+        outcomes: latest.outcomes ?? null,
+        verification: report.verification
+          ? { requestedAt: report.verification.requestedAt, automatic: report.verification.automatic, result: report.verification.result ? { ...report.verification.result, stillFound: report.verification.result.stillFound.slice(0, 50) } : null }
+          : null,
+      },
+    ].slice(-50);
+    report.round = round + 1;
+    report.roundStartedAt = new Date().toISOString();
+    report.filters = filters;
+    report.baseline = {
+      at: report.roundStartedAt,
+      findings: findings.map((r) => ({ projectId: r.projectId, riskId: r.riskId, severity: r.severity, state: r.state, title: r.title, scanner: r.scanner })),
+    };
+    report.verification = null;
+    trackedReports.record(report, progressFor(report, byProject));
+    audit.record({
+      type: 'verification',
+      outcome: 'changed',
+      reason: `"${report.name}" moved to round ${report.round}: ${severities.join(', ').toLowerCase()} (${findings.length} findings in scope).`,
+      actor: { kind: 'user', user: req.user?.email ?? '' },
+      details: { reportId: report.id, round: report.round, severities, buckets, baseline: findings.length },
+    });
     res.json(trackedView(report));
   }),
 );

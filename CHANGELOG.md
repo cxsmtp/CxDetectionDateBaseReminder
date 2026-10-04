@@ -2,6 +2,20 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
+## MZ-01.00.28 — 2026-10-04 HH:MM UTC · [#51](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/51)
+- **Prove the fixes with a rescan.** A tracked report's new **Verify** tab shows when everything in its scope has been dealt with (triaged not exploitable, or confirmed and sent for remediation). **Rescan now** then has Checkmarx One scan each project again, with the same repository, branch and engines.
+- **Or automatically.** With one tick, the rescan starts by itself the moment the scope is closed, once per round.
+- **What the rescan proved.**
+  - Verified fixed (gone).
+  - Still found, with the fixes that did not work after AI Remediation listed.
+  - Accepted as not exploitable.
+  - New in scope.
+  - When nothing is left: **✓ Mission Zero for this scope**, and the report shows **Verified at zero**. If new findings appear later, it shows **Left zero**.
+- **Rounds.** **Start round 2** takes a new scope (for example medium and low) from what Checkmarx One reports after the rescan, and the finished round is kept with its result.
+- **Uploaded code too.** Projects Checkmarx One cannot fetch (code uploaded by a pipeline or the CLI) are verified by their next scan from anywhere, for up to 30 days.
+- **Governed.** Every rescan, result, switch and new round is in the audit log, under the new type **Verification rescans**.
+- **On premise, your data stays yours.** A dark-green line now comes first in the terms dialog, on the sign-in page, in Settings → About, the README and every emailed report. It says the tool runs on your servers and connects only to Checkmarx One, your email server and the code hosts you add, with no telemetry. This was checked against every connection the code makes.
+
 ## MZ-01.00.27 — 2026-10-04 05:30 UTC · [#50](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/50)
 - **Open in IDE from the report, in one click.** Each code finding opens at its file and line in VS Code, Cursor, Kiro or a JetBrains IDE (IntelliJ IDEA, WebStorm, PyCharm, GoLand and others), with nothing to install.
   - The report asks once per computer where the code lives, and from then on every repository opens by name. JetBrains needs no folder at all.

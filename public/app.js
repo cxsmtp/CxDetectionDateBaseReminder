@@ -195,6 +195,9 @@ const ACTIVITIES = [
   ['POST', /^\/api\/tracked-reports\/[^/]+\/triage$/, 'Starting AI Triage for the tracked report…', 'AI Triage started'],
   ['POST', /^\/api\/tracked-reports\/[^/]+\/allocate$/, 'Allocating credits for the tracked report…', 'Credits allocated'],
   ['PUT', /^\/api\/tracked-reports\/[^/]+\/automation$/, 'Saving the follow-up schedule…', 'Schedule saved'],
+  ['POST', /^\/api\/tracked-reports\/[^/]+\/verify$/, 'Asking Checkmarx One to rescan…', 'Verification rescan started'],
+  ['PUT', /^\/api\/tracked-reports\/[^/]+\/verify-settings$/, 'Saving automatic verification…', 'Saved'],
+  ['POST', /^\/api\/tracked-reports\/[^/]+\/next-round$/, 'Starting the next round…', 'Next round started'],
   ['DELETE', /^\/api\/tracked-reports\/[^/]+$/, 'Deleting the tracked report…', 'Tracked report deleted'],
   ['POST', /^\/api\/automation\/run$/, 'Running automation…', 'Automation run finished'],
   ['POST', /^\/api\/automation\/reset$/, 'Resetting automation history…', 'History reset'],
@@ -2864,6 +2867,10 @@ function reportStatus(r) {
   if (r.lastError) return { key: 'attention', tone: 'critical', label: 'Update failed', icon: '!' };
   if (r.automation?.lastError) return { key: 'attention', tone: 'critical', label: 'Reminder failed', icon: '!' };
   if (!l) return { key: 'pending', tone: 'neutral', label: 'Not measured yet', icon: '…' };
+  // Verified at zero, and kept there: new findings in scope after that are called out at once.
+  if (r.verification?.result?.zero && l.open) return { key: 'attention', tone: 'critical', label: `Left zero: ${l.open} open again`, icon: '!' };
+  if (r.verification?.result?.zero) return { key: 'complete', tone: 'good', label: `Verified at zero · round ${r.verification.round}`, icon: '✓' };
+  if (r.verification && !r.verification.finishedAt && !r.verification.result) return { key: 'scheduled', tone: 'info', label: 'Verifying…', icon: '⟳' };
   if (l.baseline && !l.open) return { key: 'complete', tone: 'good', label: 'Complete', icon: '✓' };
   if (r.automation?.enabled) return { key: 'scheduled', tone: 'info', label: 'On schedule', icon: '⟳' };
   return { key: 'attention', tone: 'warning', label: 'Needs follow-up', icon: '!' };
@@ -3070,6 +3077,7 @@ const RP_TABS = [
   ['remind', 'Remind'],
   ['schedule', 'Schedule'],
   ['triage', 'Triage'],
+  ['verify', 'Verify'],
   ['history', 'History'],
 ];
 
@@ -3102,7 +3110,7 @@ function renderReportDetail(id) {
   const l = r.latest;
   const status = reportStatus(r);
   const rid = escapeHtml(r.id);
-  const tabs = RP_TABS.map(([key, label]) => `<button type="button" role="tab" id="rp-tab-${key}" aria-controls="rp-panel-${key}" aria-selected="${rpState.tab === key}" tabindex="${rpState.tab === key ? 0 : -1}" data-rp-tab="${key}">${label}${key === 'schedule' && r.automation?.enabled ? ' <i class="rp-on" aria-label="on"></i>' : ''}</button>`).join('');
+  const tabs = RP_TABS.map(([key, label]) => `<button type="button" role="tab" id="rp-tab-${key}" aria-controls="rp-panel-${key}" aria-selected="${rpState.tab === key}" tabindex="${rpState.tab === key ? 0 : -1}" data-rp-tab="${key}">${label}${(key === 'schedule' && r.automation?.enabled) || (key === 'verify' && r.verify?.auto) ? ' <i class="rp-on" aria-label="on"></i>' : ''}${key === 'verify' && r.verification?.result?.zero ? ' ✓' : ''}</button>`).join('');
   const panel = (key, html) => `<div class="rp-panel" role="tabpanel" id="rp-panel-${key}" aria-labelledby="rp-tab-${key}" ${rpState.tab === key ? '' : 'hidden'}>${html}</div>`;
   const kpi = (label, value, sub = '') => `<div class="rp-kpi"><span class="rp-tile-label">${escapeHtml(label)}</span><span class="rp-kpi-value">${value}</span>${sub ? `<span class="rp-tile-sub">${sub}</span>` : ''}</div>`;
   const overview = l
@@ -3157,6 +3165,7 @@ function renderReportDetail(id) {
       ${panel('remind', remindSection(r))}
       ${panel('schedule', scheduleSection(r))}
       ${panel('triage', triageSection(r))}
+      ${panel('verify', verifySection(r))}
       ${panel('history', history)}
       <p class="status" data-follow-status="${rid}"></p>
     </div>
@@ -3269,6 +3278,143 @@ function triageSection(r) {
       ${can('credits.allocate') ? `<button type="button" data-report-allocate="${id}" data-needs-data>Allocate credits</button>` : ''}
     </div>
     <p class="hint">Allocate gives the projects what these severities need: 1 credit per Checkmarx One result to triage (rows that share one count once), 3 per confirmed result to remediate, plus any extra entered. Nothing is allocated until you click it.</p>`;
+}
+
+const SEV_NAMES = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' };
+const sevList = (list) => (list?.length ? list.map((s) => SEV_NAMES[s] ?? s).join(', ') : 'every severity');
+const VERIFY_STATUS = {
+  Queued: ['Queued in Checkmarx One', 'info'],
+  Running: ['Scanning…', 'info'],
+  Completed: ['Scanned', 'good'],
+  Partial: ['Scanned (partly)', 'warning'],
+  Failed: ['Scan failed', 'critical'],
+  Canceled: ['Scan cancelled', 'critical'],
+  waiting: ['Waiting for its next scan', 'neutral'],
+};
+
+/** Verify: prove the round's fixes with a Checkmarx One rescan, then start the next round. */
+function verifySection(r) {
+  const id = escapeHtml(r.id);
+  const round = r.round ?? 1;
+  const c = r.latest?.closure;
+  const v = r.verification;
+  const manage = can('reports.manage');
+  const scanning = v && !v.finishedAt && v.projects.some((p) => p.status !== 'waiting' && !['Completed', 'Partial', 'Failed', 'Canceled'].includes(p.status));
+  const closure = c
+    ? `<div class="vf-closure ${c.closed ? 'is-closed' : ''}">
+        <span class="vf-badge">${c.closed ? '✓ Ready to verify' : `${c.open} still open`}</span>
+        <span>${c.inScope - c.open} of ${c.inScope} dealt with: ${c.gone} no longer detected, ${c.notExploitable} not exploitable, ${c.remediated} sent for remediation.${c.open ? ` Still open: ${c.awaiting} awaiting triage, ${c.confirmedNotRemediated} confirmed but not remediated.` : ''}</span>
+      </div>`
+    : '<p class="hint">Refresh to see where this round stands.</p>';
+  const result = v?.result;
+  const tile = (label, value, sub, tone = '') => `<div class="rp-kpi ${tone}"><span class="rp-tile-label">${escapeHtml(label)}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${escapeHtml(sub)}</span></div>`;
+  const resultHtml = result
+    ? `${result.zero ? `<p class="vf-zero">✓ Mission Zero for this scope: everything in round ${v.round} is verified fixed by a rescan.</p>` : ''}
+      <div class="rp-kpis">
+        ${tile('Verified fixed', result.fixed, 'gone after the rescan', 'tone-good')}
+        ${tile('Still found', result.stillFound.length, result.ineffective ? `${result.ineffective} after AI Remediation: the fix did not work` : 'still reported by Checkmarx One', result.stillFound.length ? 'tone-critical' : '')}
+        ${tile('Accepted', result.accepted, 'triaged not exploitable')}
+        ${tile('New in scope', result.newInScope, 'found since the round started', result.newInScope ? 'tone-warning' : '')}
+      </div>
+      ${result.notChecked ? `<p class="hint">${result.notChecked} finding(s) in projects still waiting for a scan are not checked yet.</p>` : ''}
+      ${result.stillFound.length ? `<details class="vf-still"><summary>Still found (${result.stillFound.length})</summary><ul>${result.stillFound
+        .slice(0, 50)
+        .map((f) => `<li><b>${escapeHtml(SEV_NAMES[f.severity] ?? f.severity)}</b> ${escapeHtml(f.title)} <span class="hint">· ${escapeHtml(f.projectName)}${f.remediated ? ' · remediated, still found' : ''}</span></li>`)
+        .join('')}</ul></details>` : ''}`
+    : '';
+  const scans = v
+    ? `<h3 class="rp-h3">Verification ${v.automatic ? '(started automatically)' : ''} · ${escapeHtml(new Date(v.requestedAt).toLocaleString())}</h3>
+      <div class="table-wrap"><table class="data-table rp-table"><thead><tr><th>Project</th><th>Rescan</th><th>Branch</th></tr></thead><tbody>${v.projects
+        .map((p) => {
+          const [label, tone] = VERIFY_STATUS[p.status] ?? [p.status, 'neutral'];
+          return `<tr><td>${escapeHtml(p.projectName || p.projectId)}</td><td><span class="rp-chip tone-${tone}">${escapeHtml(label)}</span>${p.fromElsewhere ? ' <span class="hint">(a scan from elsewhere)</span>' : ''}${p.error ? `<div class="hint vf-why">${escapeHtml(p.error)}</div>` : ''}</td><td>${escapeHtml(p.branch ?? '')}</td></tr>`;
+        })
+        .join('')}</tbody></table></div>
+      ${resultHtml}`
+    : '';
+  const nextSevs = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].filter((s) => !(r.filters?.severities ?? []).includes(s));
+  const controls = manage
+    ? `<div class="actions compact">
+        <button type="button" class="${c?.closed && !scanning ? 'primary' : ''}" data-report-verify="${id}" ${scanning ? 'disabled' : ''}>${scanning ? 'Rescanning…' : 'Rescan now to verify'}</button>
+        <label class="check"><input type="checkbox" data-verify-auto="${id}" ${r.verify?.auto ? 'checked' : ''} /> Rescan automatically the moment every finding in scope is dealt with</label>
+      </div>
+      <p class="hint">Each project is scanned again in Checkmarx One like its last scan: same repository, branch and engines. Projects scanned from uploaded code cannot be fetched by Checkmarx One; their next scan from your pipeline verifies them. "Sent for remediation" counts AI Remediation sent from CxMissionZero; a fix made any other way shows up when the rescan no longer finds it.</p>`
+    : '<p class="hint">Your role can follow verification; rescans and new rounds need “Manage tracked reports”.</p>';
+  const nextRound = manage
+    ? `<h3 class="rp-h3">Next round</h3>
+      <p class="hint">Start the next round on what Checkmarx One reports now: this round is kept below, and the new scope becomes the target, for example medium and low once critical and high are at zero.</p>
+      <div class="rp-options">${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+        .map((s) => `<label class="check"><input type="checkbox" data-next-sev="${s}" data-field="next-${s}" data-keep ${nextSevs.includes(s) ? 'checked' : ''} /> ${SEV_NAMES[s]}</label>`)
+        .join('')}</div>
+      <div class="actions compact"><button type="button" data-next-round="${id}" ${scanning ? 'disabled' : ''}>Start round ${round + 1}</button></div>`
+    : '';
+  const rounds = r.rounds?.length
+    ? `<h3 class="rp-h3">Earlier rounds</h3><div class="table-wrap"><table class="data-table rp-table"><thead><tr><th>Round</th><th>Scope</th><th class="num">In scope</th><th class="num">Verified fixed</th><th class="num">Still found</th><th>Result</th></tr></thead><tbody>${r.rounds
+        .slice()
+        .reverse()
+        .map((x) => {
+          const res = x.verification?.result;
+          return `<tr><td>${x.round}</td><td>${escapeHtml(sevList(x.severities))}</td><td class="num">${x.baseline}</td><td class="num">${res ? res.fixed : '—'}</td><td class="num">${res ? res.stillFound.length : '—'}</td><td>${res?.zero ? '<span class="rp-chip tone-good">✓ At zero</span>' : res ? 'Verified' : 'Not verified'}</td></tr>`;
+        })
+        .join('')}</tbody></table></div>`
+    : '';
+  return `<p class="rp-lead">Round ${round} · ${escapeHtml(sevList(r.filters?.severities))} · ${r.baselineCount} finding${r.baselineCount === 1 ? '' : 's'} in scope. Prove the fixes: once everything is dealt with, a rescan in Checkmarx One shows what is really fixed.</p>
+    ${closure}
+    ${controls}
+    ${scans}
+    ${nextRound}
+    ${rounds}`;
+}
+
+/** Rescan, automatic verification and next round, from the Verify tab. */
+async function verifyAction(event) {
+  const verify = event.target.closest('[data-report-verify]');
+  const next = event.target.closest('[data-next-round]');
+  if (!verify && !next) return false;
+  const button = verify || next;
+  const id = verify ? verify.dataset.reportVerify : next.dataset.nextRound;
+  const card = button.closest('[data-report]');
+  button.disabled = true;
+  try {
+    if (verify) {
+      const c = trackedById.get(id)?.latest?.closure;
+      if (c && !c.closed && !confirm(`${c.open} finding(s) in this round are still open. Rescan anyway? Checkmarx One scans each project again (this uses scans, not AI credits).`)) return true;
+      followStatus(id, 'Asking Checkmarx One to rescan…');
+      const report = await api(`/api/tracked-reports/${encodeURIComponent(id)}/verify`, { method: 'POST', body: '{}' });
+      trackedById.set(id, report);
+      const started = report.verification.projects.filter((p) => p.scanId).length;
+      followStatus(id, `${started} rescan(s) started${report.verification.projects.length > started ? `; ${report.verification.projects.length - started} project(s) wait for their next scan` : ''}. Results appear here when the scans finish.`, 'ok');
+    } else {
+      const severities = [...card.querySelectorAll('[data-next-sev]:checked')].map((x) => x.dataset.nextSev);
+      if (!severities.length) return followStatus(id, 'Choose the severities for the next round.', 'error'), true;
+      if (!confirm(`Start the next round with ${sevList(severities).toLowerCase()} findings, on what Checkmarx One reports now? This round is kept in the report.`)) return true;
+      followStatus(id, 'Reading Checkmarx One for the new round…');
+      const report = await api(`/api/tracked-reports/${encodeURIComponent(id)}/next-round`, { method: 'POST', body: JSON.stringify({ severities }) });
+      trackedById.set(id, report);
+      followStatus(id, `Round ${report.round} started: ${report.baselineCount} finding(s) in scope.`, 'ok');
+    }
+    renderReportDetail(id);
+  } catch (error) {
+    if (!handleAuthLoss(error)) followStatus(id, error.message, 'error');
+  } finally {
+    button.disabled = false;
+  }
+  return true;
+}
+
+/** The automatic-verification switch. */
+async function verifyAutoChange(event) {
+  const box = event.target.closest('[data-verify-auto]');
+  if (!box) return;
+  const id = box.dataset.verifyAuto;
+  try {
+    const report = await api(`/api/tracked-reports/${encodeURIComponent(id)}/verify-settings`, { method: 'PUT', body: JSON.stringify({ auto: box.checked }) });
+    trackedById.set(id, report);
+    followStatus(id, box.checked ? 'On: the rescan starts by itself the moment every finding in scope is dealt with.' : 'Off: rescan by hand.', 'ok');
+  } catch (error) {
+    box.checked = !box.checked;
+    if (!handleAuthLoss(error)) followStatus(id, error.message, 'error');
+  }
 }
 
 /** A time as the reminder server's clock shows it. */
@@ -3498,6 +3644,7 @@ function restoreReportsState({ values, open, statuses }) {
 }
 
 async function trackedReportAction(event) {
+  if (await verifyAction(event)) return;
   if (await followUpAction(event)) return;
   const refresh = event.target.closest('[data-report-refresh]');
   const remove = event.target.closest('[data-report-delete]');
@@ -4619,6 +4766,7 @@ $('rp-sheet').addEventListener('change', (event) => {
   if (!card) return;
   if (event.target.matches('[data-sev]')) updateNeed(card);
   if (event.target.name?.startsWith('sendTo-')) syncSendTo(card);
+  if (event.target.matches('[data-verify-auto]')) verifyAutoChange(event);
 });
 // Typing an address picks "Only to".
 $('rp-sheet').addEventListener('input', (event) => {

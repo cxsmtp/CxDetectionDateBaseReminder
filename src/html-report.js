@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 
 import { AI_SCANNERS } from './cxone/ai-assist.js';
 import { fixAdvice } from './fix-advice.js';
-import { SUPPORTING_NOTICE } from './terms.js';
+import { ON_PREMISE_NOTICE, SUPPORTING_NOTICE } from './terms.js';
 
 /** One Checkmarx One result: rows with the same key are triaged together, and charged once. */
 export const resultKey = (f) =>
@@ -342,6 +342,7 @@ ${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere,
     <summary>Activity (<span id="activity-count">0</span>)</summary>
     <ul id="activity-list"></ul>
   </details>
+  <p class="onprem-note"><b>This report talks only to your organisation's reminder server.</b> ${escapeHtml(ON_PREMISE_NOTICE)}</p>
   <p class="muted disclaimer">${escapeHtml(SUPPORTING_NOTICE)} Triaging or remediating from this report means accepting those terms.</p>
 </main>
 <dialog id="credit-dialog" class="dialog" aria-labelledby="credit-dialog-title">
@@ -610,6 +611,9 @@ tr.shared-row.twin-hi > td, tr.shared-row:target > td { background: color-mix(in
 .ide-jb { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
 .ide-jb select { font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
 .ide-list .ide-folder { font-weight: 500; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.onprem-note { margin: 16px 0 6px; padding: 8px 12px; border-radius: 10px; border: 1px solid #a7f3d0; background: #ecfdf5; color: #065f46; font-size: 13px; }
+.onprem-note b { color: #064e3b; }
+@media (prefers-color-scheme: dark) { .onprem-note { background: rgba(6,95,70,.22); border-color: rgba(52,211,153,.35); color: #6ee7b7; } .onprem-note b { color: #a7f3d0; } }
 .ide-note { margin: 0; font-size: 12px; color: var(--muted); white-space: normal; overflow-wrap: anywhere; }
 .ide-list > a { font-size: 12px; font-weight: 600; }
 .link-button { font: inherit; color: var(--link); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }

@@ -2070,3 +2070,25 @@ main { max-width: none; }
   .cc-head { grid-template-columns: minmax(0, 1fr); }
   .cc-head .filter-row.panel { justify-content: flex-start; flex-wrap: wrap; }
 }
+
+/* The on-premise statement: the first thing in the terms, sign-in and About, in dark green. */
+.onprem-note { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; border: 1px solid #a7f3d0; background: #ecfdf5; color: #065f46; font-size: 13px; line-height: 1.45; }
+.onprem-note b { color: #064e3b; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .onprem-note { background: rgb(6 95 70 / 0.22); border-color: rgb(52 211 153 / 0.35); color: #6ee7b7; } :root:not([data-theme="light"]) .onprem-note b { color: #a7f3d0; } }
+:root[data-theme="dark"] .onprem-note { background: rgb(6 95 70 / 0.22); border-color: rgb(52 211 153 / 0.35); color: #6ee7b7; }
+:root[data-theme="dark"] .onprem-note b { color: #a7f3d0; }
+
+/* Verify tab: closure, the zero banner and the rescan results. */
+.vf-closure { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); margin: 0 0 12px; font-size: 13px; }
+.vf-closure .vf-badge { font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); white-space: nowrap; }
+.vf-closure.is-closed { border-color: #a7f3d0; background: #ecfdf5; color: #065f46; }
+.vf-closure.is-closed .vf-badge { border-color: #6ee7b7; color: #065f46; }
+.vf-zero { margin: 12px 0; padding: 10px 14px; border-radius: 10px; background: #065f46; color: #fff; font-weight: 700; }
+.vf-still ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+.rp-kpi.tone-good .rp-kpi-value { color: var(--ok, #067647); }
+.rp-kpi.tone-critical .rp-kpi-value { color: var(--danger, #b42318); }
+.rp-kpi.tone-warning .rp-kpi-value { color: #b54708; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .vf-closure.is-closed { background: rgb(6 95 70 / 0.22); border-color: rgb(52 211 153 / 0.35); color: #6ee7b7; } :root:not([data-theme="light"]) .vf-closure.is-closed .vf-badge { color: #6ee7b7; } }
+:root[data-theme="dark"] .vf-closure.is-closed { background: rgb(6 95 70 / 0.22); border-color: rgb(52 211 153 / 0.35); color: #6ee7b7; }
+:root[data-theme="dark"] .vf-closure.is-closed .vf-badge { color: #6ee7b7; }
+.rp-table .vf-why { white-space: normal; max-width: 60ch; margin-top: 4px; }
