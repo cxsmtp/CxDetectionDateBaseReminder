@@ -2,7 +2,7 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
-## MZ-01.00.29 — 2026-10-04 HH:MM UTC · [#52](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/52)
+## MZ-01.00.29 — 2026-10-04 05:52 UTC · [#52](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/52)
 - **Your tools, chosen once.** At the top of every report, the developer picks where code opens (VS Code, Cursor, Kiro, Windsurf, Antigravity, a JetBrains IDE or the browser) and what fixes it (Claude Code, OpenAI Codex, Gemini CLI, GitHub Copilot, Cursor, Kiro, Windsurf, Antigravity, Apply in my workspace, git apply, or any other assistant). It is remembered in that browser, for every report.
 - **One click per finding.** Each finding shows **Open in …** and **Fix with …** for those choices. **▾** picks another way for that one finding only.
 - **AI assistants, directly.**

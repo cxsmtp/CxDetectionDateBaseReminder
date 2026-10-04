@@ -65,6 +65,9 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.27 (no location cache) | 1 | 15.8 s / 0 | 64,465 / 0 | 520 | 69 / 2,768 ms | 8 / 253 ms | none |
 | MZ-01.00.27 | 2 | 8.2 s / 0 | 64,140 / 0 | 518 | 47 / 4,991 ms | 10 / 289 ms | none |
 | MZ-01.00.28 | 1 | 8.3 s / 0 | 64,244 / 0 | 522 | 54 / 1,321 ms | 8 / 316 ms | none |
+| MZ-01.00.29 | 1 | 8.4 s / 0 | 64,440 / 0 | 508 | 58 / 2,575 ms | 8 / 206 ms | none |
+
+**MZ-01.00.29: what the differences were.** None expected, and none seen: the change is in the emailed report's own page (the tools bar and the row buttons), not on the server. The "before" is MZ-01.00.28 run 1.
 
 **MZ-01.00.28: what the differences were.** Nothing that matters. Verification adds a closure count to each tracked-report reading (a pass over its findings already in memory), and rescans only run when someone verifies, so the mixed load never starts one. Tracked-report refresh p50 1.48 s against 1.87 s, p95 8.4 s against 6.8 s, which is within the spread between runs. No failed requests, and no finding sent twice. The "before" is MZ-01.00.27 run 2, the same code as main.
 
