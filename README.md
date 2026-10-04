@@ -216,7 +216,8 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.40** | 516/s, **0 failed** | 5.9 s | 183 ms | 445 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.41** | 519/s, **0 failed** | 0.9 s | 171 ms | 455 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.40 | 516/s, 0 failed | 5.9 s | 183 ms | 445 pass | 0 vulnerabilities | same |
 | MZ-01.00.39 | 512/s, 0 failed | 5.7 s | 240 ms | 439 pass | 0 vulnerabilities | same |
 | MZ-01.00.38 | 518/s, 0 failed | 0.6 s | 146 ms | 430 pass | 0 vulnerabilities | same |
 | MZ-01.00.37 | 508/s, 0 failed | 5.1 s | 179 ms | 427 pass | 0 vulnerabilities | same |

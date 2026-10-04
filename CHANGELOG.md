@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.40 | 516/s, 0 | 5.9 s | 183 ms | 445 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.41 | 519/s, 0 | 0.9 s | 171 ms | 455 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.40 | 516/s, 0 | 5.9 s | 183 ms | 445 | 0 | same |
 | MZ-01.00.39 | 512/s, 0 | 5.7 s | 240 ms | 439 | 0 | same |
 | MZ-01.00.38 | 518/s, 0 | 0.6 s | 146 ms | 430 | 0 | same |
 | MZ-01.00.37 | 508/s, 0 | 5.1 s | 179 ms | 427 | 0 | same |
@@ -26,6 +27,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.41 — 2026-10-04 HH:MM UTC · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+- **Replace the whole image from the Update page (Beta).** For the rare release that needs a new Node.js or OS base: pick **latest** or a version under **Settings → Update & recovery → Replace the whole image**, and click **Replace the image**. A backup is taken first.
+- **The update companion does it.** It is a second small container you start once; the command is on the page and in docs/updating.md, for Podman on Windows cmd. It downloads the image while the server keeps running, stops the server (which saves first), and starts the same container on the new image with the same ports, volume, environment, limits and security options.
+- **Back by itself if it fails.** If the new server does not say it started within 150 s, or stops soon after, the companion removes it and starts the previous container again. A download that fails changes nothing.
+- **Kept to one job.** Only the companion gets the Podman socket, never the app. It opens no port and replaces only the one container, and only with this app's image at a version, `latest` or a commit tag. A request cannot name another image or change how the container starts.
+- **Tested on a real engine.** Clicking **Replace the image** moved the real app from a 1.0.90 image to 1.0.91 in about 20 s with its data and hardening options kept, and the page reloaded on the new version. A crashing image was rolled back.
+- **Status.** 519 requests a second with 3000 people at once and 0 failed (main 520); report opens 0.9 s and triage polls 171 ms at p95 (the first of two pairs was 6.4 s and 370 ms against main's 6.5 s and 273 ms; see docs/performance.md). 455 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.40 — 2026-10-04 13:32 UTC · [#63](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/63)
 - **Past SLA, in the repository too (Beta).** Turn on **Settings → SLAs → Also open an issue in the repository**. Each scheduled run then opens one issue in each project's repository listing its findings that went past their SLA, with severity, where, how far past and a link to Checkmarx One.
