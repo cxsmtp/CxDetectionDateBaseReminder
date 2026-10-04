@@ -20,6 +20,8 @@ export const FEATURES = [
       'Scheduled reminders can also email the developer who last changed each vulnerable line (Settings → Automation).',
       'The Dashboard\'s Remind panel links straight to it.',
     ],
+    // What to have seen before making it final.
+    beforeFinal: 'Keep it in Beta until it has been right on your own repositories: run Find code authors on real findings and check that the "Sure" answers name the right developers. Unattended runs only ever email "Sure" answers.',
   },
   {
     id: 'identityMatching',

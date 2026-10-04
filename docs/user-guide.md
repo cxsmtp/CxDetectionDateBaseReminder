@@ -813,6 +813,7 @@ Early features: check what they find before relying on them. A feature an Admin 
   - **Through the host's API** where it has one: GitHub, GitLab and Bitbucket Data Center, one request per file.
   - **Otherwise `git blame`** on a clone, made with that host's own token: Azure DevOps, Bitbucket Cloud, or any host.
   - **The Commit column** shows which host and way it used.
+  - **How sure:** each answer is **Sure**, **Check** or **Unsure**, with the reason. Only Sure answers are ticked for sending; scheduled reminders only email Sure ones. Whitespace changes, moved code, `.git-blame-ignore-revs` and bot commits are looked past. Details: [beta-features.md](beta-features.md).
 - **Match usernames to email addresses.**
   - **Pick the host:** GitHub, GitLab, Azure DevOps or Bitbucket.
   - **Load scan initiators:** offers the usernames from projects on that host.

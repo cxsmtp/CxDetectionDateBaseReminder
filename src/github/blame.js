@@ -10,6 +10,11 @@
  *      of findings in it: GitHub GraphQL, GitLab REST, Bitbucket Data Center
  *      REST. Otherwise `git blame` on a clone, made with that host's own token
  *      (Azure DevOps, Bitbucket Cloud, any host without a token…).
+ *   4. Never the wrong person: git blame ignores whitespace-only changes and
+ *      code that was only moved, honours the repository's
+ *      .git-blame-ignore-revs, and looks past commits made by bots. Each answer
+ *      says how sure it is (see confidenceOf); only a sure one is ever emailed
+ *      without someone choosing it.
  */
 
 import { execFile } from 'node:child_process';
@@ -59,6 +64,8 @@ export function locationOf(row) {
       path: String(sink.fileName ?? sink.fullName ?? '').replace(/^\/+/, ''),
       line: Number(sink.line) || 0,
       column: Number(sink.column) || 0,
+      // What the vulnerable code says there (a call or variable name): checked against the blamed line.
+      name: String(sink.name ?? '').slice(0, 200),
       source: source && source !== sink ? { path: String(source.fileName ?? '').replace(/^\/+/, ''), line: Number(source.line) || 0 } : null,
     };
   }
@@ -112,7 +119,7 @@ export async function githubBlameRanges(gh, { owner, repo, ref, path }) {
   }));
 }
 
-/** Parse `git blame --porcelain` output for one line. */
+/** Parse `git blame --porcelain` output for one line (with the line's own text, `content`). */
 export function parsePorcelain(text) {
   const lines = String(text).split('\n');
   const header = /^([0-9a-f]{40})\s/.exec(lines[0] || '');
@@ -125,26 +132,104 @@ export function parsePorcelain(text) {
     date: field('author-time') ? new Date(Number(field('author-time')) * 1000).toISOString() : '',
     message: field('summary'),
     login: '',
+    content: (lines.find((l) => l.startsWith('\t')) ?? '').slice(1),
   };
 }
 
-/** `git blame` of one line on a partial clone (file contents are fetched on demand). */
-export async function localBlame({ cloneUrl, ref, path, line, cacheDir, token = '', authHeader = '' }) {
-  // A ref from scan data must never be read as a git option ("--output=…").
-  const safeRef = (r) => r && /^[\w./@{}^~-]+$/.test(r) && !r.startsWith('-');
+/** Commits made by automation, never by the developer who wrote the code: dependabot, renovate, CI… */
+export function isBot(name = '', email = '') {
+  const who = `${name} ${email}`.toLowerCase();
+  return /\[bot\]|(^|[^a-z])(dependabot|renovate|github-actions|gitlab-bot|snyk-bot|greenkeeper|mergify|pre-commit-ci|azure-pipelines|bitbucket-pipelines)([^a-z]|$)/.test(who) || /^(noreply|no-reply|bot|ci|build)@/.test(String(email).toLowerCase());
+}
+
+/** Commits that only reformat code (an API blame cannot skip them; local blame does with -w and ignore-revs). */
+export const looksLikeFormatting = (message = '') => /\b(re-?format|prettier|black|gofmt|clang-format|eslint --fix|lint fix|whitespace|indentation|code style)\b/i.test(message);
+
+const safeRef = (r) => Boolean(r) && /^[\w./@{}^~-]+$/.test(r) && !r.startsWith('-');
+const HASH = /^[0-9a-f]{40}$/;
+const MAX_BOT_SKIPS = 3;
+
+/**
+ * `git blame` of one line in a clone at `dir`, the way a careful person would:
+ *   - at the scanned commit when it is there (`exact`), else the branch, else HEAD;
+ *   - ignoring whitespace-only changes and moved or copied code (-w -M -C);
+ *   - skipping the commits listed in the repository's .git-blame-ignore-revs (mass reformatting);
+ *   - looking past up to 3 commits made by bots, to the person who wrote the line.
+ * `expect`: what the vulnerable code says there (the scan's sink name); `matches` tells
+ * whether the blamed line still contains it (null when nothing to compare).
+ */
+export async function blameInDir(dir, { refs = [], path, line, expect = '', env = process.env }) {
   if (!path || path.startsWith('-') || !(line > 0)) return null;
-  const { dir, env } = await ensureClone(cloneUrl, { cacheDir, token, authHeader, blobs: true });
   const opts = { env, timeout: 120_000, maxBuffer: 16 * 1024 * 1024 };
-  for (const candidate of [ref, 'HEAD'].filter(safeRef)) {
+  const candidates = [...new Set([...refs, 'HEAD'].filter(safeRef))];
+  for (const [index, ref] of candidates.entries()) {
+    const ignore = new Set();
     try {
-      const { stdout } = await run('git', ['-C', dir, 'blame', '--porcelain', '-L', `${line},${line}`, candidate, '--', path], opts);
-      const parsed = parsePorcelain(stdout);
-      if (parsed) return { ...parsed, ref: candidate };
+      const { stdout } = await run('git', ['-C', dir, 'show', `${ref}:.git-blame-ignore-revs`], opts);
+      for (const entry of stdout.split('\n')) {
+        const hash = entry.trim().split(/\s/)[0];
+        if (HASH.test(hash) && ignore.size < 500) ignore.add(hash);
+      }
     } catch {
-      // Ref or path unknown at that ref: try the next candidate.
+      /* the repository has none */
+    }
+    const skippedBots = [];
+    for (let attempt = 0; attempt <= MAX_BOT_SKIPS; attempt += 1) {
+      let parsed;
+      try {
+        const args = ['-C', dir, 'blame', '--porcelain', '-w', '-M', '-C', ...[...ignore].flatMap((h) => ['--ignore-rev', h]), '-L', `${line},${line}`, ref, '--', path];
+        parsed = parsePorcelain((await run('git', args, opts)).stdout);
+      } catch {
+        parsed = null; // ref or path unknown at that ref (or an ignored revision git could not use)
+      }
+      if (!parsed) break;
+      if (isBot(parsed.authorName, parsed.authorEmail) && attempt < MAX_BOT_SKIPS && !ignore.has(parsed.commit)) {
+        skippedBots.push({ commit: parsed.commit, author: parsed.authorName });
+        ignore.add(parsed.commit);
+        continue;
+      }
+      const wanted = String(expect || '').trim();
+      return {
+        ...parsed,
+        ref,
+        exact: index === 0 && refs[0] === ref && HASH.test(ref),
+        fallback: index > 0,
+        matches: wanted ? parsed.content.includes(wanted) : null,
+        skippedBots,
+        ignoredRevs: ignore.size,
+      };
     }
   }
   return null;
+}
+
+/** `git blame` of one line on a partial clone (file contents are fetched on demand). */
+export async function localBlame({ cloneUrl, ref, refs = null, path, line, expect = '', cacheDir, token = '', authHeader = '' }) {
+  if (!path || path.startsWith('-') || !(line > 0)) return null;
+  const wanted = (refs ?? [ref]).filter(safeRef);
+  if ((refs ?? [ref]).some((r) => r && !safeRef(r))) return null; // a ref from scan data must never be read as a git option
+  const { dir, env } = await ensureClone(cloneUrl, { cacheDir, token, authHeader, blobs: true });
+  return blameInDir(dir, { refs: wanted, path, line, expect, env });
+}
+
+/**
+ * How sure an answer is, and why. Only 'high' is ever emailed without someone choosing it:
+ *   high    blamed at the exact scanned commit, by a person (not a bot), and the line still
+ *           holds the vulnerable code where that can be checked;
+ *   medium  the scan recorded no commit, so the branch was blamed and the line still matches;
+ *           or a host API answered with a commit that looks like reformatting;
+ *   low     the line no longer holds the vulnerable code, the scanned commit is gone (blamed
+ *           at a later version), or the last change was made by a bot.
+ */
+export function confidenceOf(blame, { scannedCommit = '' } = {}) {
+  if (!blame) return { level: 'none', reason: '' };
+  if (isBot(blame.authorName, blame.authorEmail)) return { level: 'low', reason: 'The last change to this line was made by a bot.' };
+  if (blame.matches === false) return { level: 'low', reason: 'The line no longer holds the vulnerable code: it moved or changed after the scan.' };
+  const atScan = blame.exact || (scannedCommit && blame.ref === scannedCommit);
+  if (!atScan && scannedCommit) return { level: 'low', reason: 'The scanned commit is not in the repository any more: blamed at a later version.' };
+  if (!atScan) return blame.matches ? { level: 'medium', reason: 'The scan recorded no commit: blamed on its branch, and the line still matches.' } : { level: 'low', reason: 'The scan recorded no commit, and the line could not be checked.' };
+  if (blame.via !== 'git blame' && looksLikeFormatting(blame.message)) return { level: 'medium', reason: 'The last change looks like reformatting, which the host\'s blame cannot skip.' };
+  return { level: 'high', reason: blame.skippedBots?.length ? `Looked past ${blame.skippedBots.length} bot commit${blame.skippedBots.length === 1 ? '' : 's'}.` : '' };
 }
 
 /**
@@ -182,7 +267,10 @@ export async function blameFindings(items, { gh, apiUrl, cacheDir, token = '', u
       if (!ranges) continue;
       for (const item of file.items) {
         const hit = ranges.find((r) => item.location.line >= r.start && item.location.line <= r.end);
-        if (hit) item.blame = { ...hit, ref, via: file.blamer.via };
+        if (!hit) continue;
+        // A bot's commit, or one that only reformatted: the host's blame cannot look past it, local git can.
+        if (useLocal && (isBot(hit.authorName, hit.authorEmail) || looksLikeFormatting(hit.message))) item.recheck = { ...hit, ref, via: file.blamer.via };
+        else item.blame = { ...hit, ref, exact: ref === item.version.commit && HASH.test(ref), via: file.blamer.via };
       }
       break;
     }
@@ -197,18 +285,25 @@ export async function blameFindings(items, { gh, apiUrl, cacheDir, token = '', u
     try {
       const found = await localBlame({
         cloneUrl: item.repo.cloneUrl,
-        ref: item.version.commit || item.version.branch,
+        refs: [item.version.commit, item.version.branch].filter(Boolean),
         path: item.location.path,
         line: item.location.line,
+        expect: item.location.name,
         cacheDir,
         token: onGitHub(item.repo, apiUrl) ? token : '',
         authHeader: scm && item.provider !== 'github' ? cloneAuthFor(item.repo.cloneUrl, scm.configs) : '',
       });
       if (found) item.blame = { ...found, via: 'git blame', url: scm ? commitUrl(item.provider, item.repo, found.commit, scm.configs) : '' };
+      else if (item.recheck) item.blame = item.recheck;
       else item.problem = `${item.location.path}:${item.location.line} not found in the repository${item.apiError ? ` (${item.apiError})` : ''}.`;
     } catch (error) {
-      item.problem = `Could not read the repository: ${String(error.stderr || error.message).trim().split('\n')[0]}`;
+      if (item.recheck) item.blame = item.recheck;
+      else item.problem = `Could not read the repository: ${String(error.stderr || error.message).trim().split('\n')[0]}`;
     }
   });
+  for (const item of items) {
+    delete item.recheck;
+    if (item.blame) item.confidence = confidenceOf(item.blame, { scannedCommit: item.version?.commit ?? '' });
+  }
   return items;
 }

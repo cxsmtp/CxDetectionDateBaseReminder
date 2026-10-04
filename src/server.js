@@ -6351,6 +6351,10 @@ async function findCodeAuthors(risks, { client, connection, settings, projects: 
           emailVia: usableEmail(item.blame.authorEmail) ? 'commit' : found ? `${onGithub ? '' : `${SCM_LABELS[item.provider]}: `}${found.method}` : '',
         },
         host: SCM_LABELS[item.provider] ?? item.repo?.host ?? '',
+        // How sure the answer is (src/github/blame.js, confidenceOf): only 'high' is emailed without someone choosing it.
+        confidence: item.confidence?.level ?? 'low',
+        confidenceReason: item.confidence?.reason ?? '',
+        skippedBots: item.blame.skippedBots?.length ?? 0,
       });
       if (!email) out.problem = `Author ${item.blame.authorName || login} hides their email address and it could not be resolved.`;
     }
@@ -6363,6 +6367,8 @@ async function findCodeAuthors(risks, { client, connection, settings, projects: 
     summary: {
       findings: result.length,
       blamed: result.filter((r) => r.commit).length,
+      sure: result.filter((r) => r.commit && r.confidence === 'high').length,
+      unsure: result.filter((r) => r.commit && r.confidence !== 'high').length,
       withEmail: withEmail.length,
       authors: new Set(withEmail.map((r) => r.author.email)).size,
       githubRequests: gh.totalRequests,
@@ -6388,9 +6394,10 @@ async function notifyCodeAuthors(crossed, { client, connection, projects, initia
     .slice(0, AUTOMATION_AUTHOR_LIMIT);
   if (!risks.length) return { findings: 0, authors: 0, emailed: 0 };
   const { items } = await findCodeAuthors(risks, { client, connection, settings, projects, initiators });
+  // Unattended: only answers git blame is sure of. An unsure one waits for someone to look at it.
   const byAuthor = new Map();
   for (const item of items) {
-    if (!item.author?.email) continue;
+    if (!item.author?.email || item.confidence !== 'high') continue;
     if (!byAuthor.has(item.author.email)) byAuthor.set(item.author.email, { author: item.author, items: [] });
     byAuthor.get(item.author.email).items.push(item);
   }
@@ -6408,7 +6415,7 @@ async function notifyCodeAuthors(crossed, { client, connection, projects, initia
       failures.push({ to: author.email, error: error.message });
     }
   }
-  return { findings: risks.length, blamed: items.filter((i) => i.commit).length, authors: byAuthor.size, emailed, failures };
+  return { findings: risks.length, blamed: items.filter((i) => i.commit).length, unsure: items.filter((i) => i.commit && i.confidence !== 'high').length, authors: byAuthor.size, emailed, failures };
 }
 
 /** Email each code author the vulnerable code they wrote (or preview it). */

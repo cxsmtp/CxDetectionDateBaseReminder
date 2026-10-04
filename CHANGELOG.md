@@ -20,9 +20,9 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 ## MZ-01.00.32 — 2026-10-04 HH:MM UTC · [#55](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/55)
 - **Beta features can be made final.** Admins have a new **Settings → Beta features** page: **Make final** gives a feature to everyone holding its own permission and drops its Beta label, and **Back to Beta** undoes it. Every change is in the audit log.
-- **Code authors, for everyone who sends reminders.** Once final, git blame finds the exact developer who last changed each vulnerable line, for anyone who may send reminders. The sidebar entry is renamed **Code authors**, and the Dashboard's Remind panel links to it.
-- **Scheduled reminders reach the developer too.** With **Code authors** final, **Settings → Automation → Also email the code authors** makes each run email the developer behind every finding that just crossed a threshold, as well as the scan initiator (up to 200 findings a run).
-- **Match usernames, for the people who manage addresses.** Once final, anyone who may change initiator addresses can run and apply the matching.
+- **Code authors (git blame) stays in Beta.** It is not made final until it is fully reliable. Once an Admin does make it final: anyone who may send reminders can use it, the sidebar entry becomes **Code authors**, the Dashboard's Remind panel links to it, and **Settings → Automation → Also email the code authors** emails the developer behind every finding that just crossed a threshold (up to 200 a run).
+- **Git blame: never the wrong developer.** It looks past whitespace-only changes, moved code, the commits listed in `.git-blame-ignore-revs` and bot commits (Dependabot, Renovate…). Each answer is now **Sure**, **Check** or **Unsure**, with the reason. Only Sure answers are ticked for sending, and scheduled reminders only email Sure ones.
+- **Match usernames, once final:** anyone who may change initiator addresses can run and apply the matching.
 - **Status.** STATUS_LINE
 
 ## MZ-01.00.31 — 2026-10-04 06:30 UTC · [#54](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/54)
