@@ -78,6 +78,10 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.33 | 2 | 9.6 s / 0 | 64,159 / 0 | 517 | 53 / 5,216 ms | 9 / 157 ms | none |
 | MZ-01.00.33 | 3 | 9.3 s / 0 | 64,296 / 0 | 511 | 52 / 3,902 ms | 8 / 172 ms | none |
 | MZ-01.00.32 (main) | 5 | 7.7 s / 0 | 64,053 / 0 | 513 | 59 / 5,184 ms | 7 / 139 ms | none |
+| MZ-01.00.33 (main) | 4 | 9.4 s / 0 | 64,189 / 0 | 518 | 60 / 4,810 ms | 7 / 150 ms | none |
+| **MZ-01.00.34** | 1 | 11.2 s / 0 | 64,230 / 0 | 514 | 57 / **4,184 ms** | 7 / **122 ms** | none |
+
+**MZ-01.00.34: what the differences were.** None from the change. Making the page simpler is all in the browser: a switch hides advanced options, and the words changed. The server only got two clearer error messages. Run back to back with main, report opens and triage polls were a little faster, with 0 failed requests and no finding sent twice. The burst took 11.2 s against 9.4 s; burst times have ranged from 7.4 to 15.8 s with the same code.
 
 **MZ-01.00.33: what the differences were.** None from the change. The developer's rescan window, its links and emails only do anything when a tracked report's round is closed, and the benchmark's tracked report (20 projects) never is. Email volume was the same as main's (1,076 to 1,129 a run).
 - **Report opens:** the tail (p95) moved between 0.4 and 5.2 s from run to run, for main and the branch alike. Main itself gave 542 ms in run 4 and 5,184 ms in run 5, an hour apart. Run back to back, the branch had 3.9 s and main 5.2 s.
