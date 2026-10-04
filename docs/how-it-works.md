@@ -57,6 +57,9 @@ The technical reference: what happens under each feature, where data lives, and 
 ## Verification rescans
 - **Closed round.** `src/verification.js` decides when a tracked report's round is closed: every baseline finding is gone, triaged not exploitable, or confirmed and in the ledger as sent for AI Remediation.
 - **Rescan.** For each project: the last completed scan (`/api/projects/last-scan`), its details (`GET /api/scans/{id}`: repository, branch, engines), then `POST /api/scans` with a git handler for the same repository and branch and the same engines, tagged `cxmissionzero: verification`. The rescan relies on what Checkmarx One already holds to fetch the repository; no code-host token is ever sent to it.
+- **Attribution.** Checkmarx One records the API key's owner as a scan's initiator. Each rescan is therefore recorded in `scan-attribution.json`, which is in backups: the scan id, the developer it verifies (the previous scan's initiator, or whoever an earlier rescan was credited to) and who asked.
+  - Wherever the latest scan's initiator is read (fetch, Dashboard rows, the initiator list, tracked-report reminders, one project's report), a scan found there is credited to that developer.
+  - The rescan also carries the Checkmarx One tags `verifies-work-of` and `requested-by`.
 - **Uploaded code.** A scan of uploaded code (or a request Checkmarx One refuses) waits for the project's next completed scan from anywhere.
 - **Following and proving.** Every minute, and on each Refresh, scan statuses are read. When none is still queued or running, the findings are read again, and each baseline finding is fixed (gone), accepted (not exploitable) or still found (remediated or not).
 - **Recorded.** The result, and each start, switch and next round, goes into the report and the audit log (`verification`).

@@ -39,6 +39,7 @@ import { SCM_LABELS, SCM_PROVIDERS, checkConnections as checkScmConnections, met
 import { addressesAsThemselves, evaluateMethods, resolveWith, validUsername } from './scm/identity.js';
 import { TrackedReports, computeProgress, matchesFilters, outcomeOf, reportSummary } from './tracked-reports.js';
 import { TERMINAL, closure, newerThan, rescanRequest, verificationResult } from './verification.js';
+import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
@@ -1778,7 +1779,7 @@ app.get(
     const settings = settingsStore.get();
     const people = new Map();
     for (const project of projects) {
-      const scan = scans[project.id];
+      const scan = credited(scans[project.id]);
       const initiator = scanInitiator(scan);
       if (!initiator) continue;
       const entry = people.get(initiator.toLowerCase()) ?? { initiator, email: scanInitiatorEmail(scan) || initiatorEmailOf(initiator, settings), projects: 0 };
@@ -1862,7 +1863,7 @@ async function runScan(req, { onStart, onProject } = {}) {
   // Rows shown while the rest is still being read: the initiator comes from the
   // latest scan already in hand; addresses and confidence follow with the result.
   const earlyRow = (summary) => {
-    const scan = lastScans?.[summary.projectId];
+    const scan = credited(lastScans?.[summary.projectId]);
     return projectRow({
       ...summary,
       initiator: scan ? scanInitiator(scan) ?? '' : '',
@@ -1885,6 +1886,7 @@ async function runScan(req, { onStart, onProject } = {}) {
       concurrency: config.concurrency,
       lastScans: Object.keys(lastScans ?? {}).length ? lastScans : undefined,
       memory: knownAddresses,
+      attributed: creditFor,
     }),
     collectProjectRisks(client, active, projects, {
       detectionWindow,
@@ -4260,6 +4262,15 @@ app.post(
 // Tracked reports: saved scopes whose progress is followed over time
 // ---------------------------------------------------------------------------
 
+/** Rescans this server started are credited to the developer they verify (see src/scan-attribution.js). */
+const scanAttribution = new ScanAttribution({ dataDir });
+const creditFor = (scanId) => scanAttribution.get(scanId);
+/** A last-scan record, with a verification rescan credited to whose work it verifies. */
+const credited = (scan) => {
+  const credit = scan && creditFor(scan.id ?? scan.scanId);
+  return credit ? { ...scan, initiator: credit.initiator, initiatorEmail: credit.email || undefined, startedBy: scanInitiator(scan) } : scan;
+};
+
 const TRACK_REFRESH_MS = 60 * 60 * 1000;
 const TRACK_TOUCHED_WINDOW_MS = 30 * 60 * 1000;
 const TRACK_TOUCHED_EVERY_MS = 3 * 60 * 1000;
@@ -4364,7 +4375,16 @@ async function startVerification(report, session, { by = '', automatic = false }
     }
     try {
       const scan = await session.client.request(`/api/scans/${encodeURIComponent(entry.lastScanId)}`, { retries: 1 });
-      const request = rescanRequest(entry.projectId, scan, known.get(entry.projectId) ?? {});
+      // Whose work this verifies: the last scan's initiator (or, after an earlier rescan, the developer it was credited to).
+      const summary = last[entry.projectId];
+      const earlier = creditFor(entry.lastScanId);
+      const resolved = session.lastScan?.initiators?.[entry.projectId];
+      const owner = earlier ?? {
+        initiator: scanInitiator(summary) || scanInitiator(scan),
+        email: scanInitiatorEmail(summary) || (resolved?.scanId === entry.lastScanId ? resolved.email : '') || '',
+      };
+      entry.creditedTo = owner.initiator;
+      const request = rescanRequest(entry.projectId, scan, known.get(entry.projectId) ?? {}, { initiator: owner.email || owner.initiator, requestedBy: by || 'automatic verification' });
       if (request.waiting) {
         entry.status = 'waiting';
         entry.error = request.reason;
@@ -4373,6 +4393,7 @@ async function startVerification(report, session, { by = '', automatic = false }
       const created = await session.client.request('/api/scans', { method: 'POST', body: request.body, retries: 1 });
       entry.scanId = String(created?.id ?? '');
       entry.status = String(created?.status || 'Queued');
+      scanAttribution.record(entry.scanId, { projectId: entry.projectId, initiator: owner.initiator, email: owner.email, requestedBy: by || 'automatic verification', reason: `verification of "${report.name}"` });
       entry.branch = request.branch;
       entry.engines = request.engines;
       if (!entry.scanId) throw new Error('Checkmarx One did not return a scan id.');
@@ -4500,7 +4521,7 @@ async function openScanFor(session, report) {
     session.client,
     session.connection,
     report.projects.map((p) => ({ id: p.projectId, name: p.projectName })),
-    { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency, memory: knownAddresses },
+    { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency, memory: knownAddresses, attributed: creditFor },
   );
   return { projects, initiators: initiators.byProject };
 }
@@ -5083,6 +5104,7 @@ app.post(
         concurrency: config.concurrency,
         lastScans,
         memory: knownAddresses,
+        attributed: creditFor,
       }),
     ]);
     const summary = read.projects[0];

@@ -711,6 +711,10 @@ A tracked report is worked in **rounds**. Round 1 is the scope it was saved with
    - When nothing is still found or new: **✓ Mission Zero for this scope**, and the report shows **Verified at zero**. If new findings appear later, it shows **Left zero** at once.
 4. **Next round.** Pick the next scope (for example medium and low) and **Start round N**. It starts from what Checkmarx One reports now, after the rescan. The round just finished, with its verification result, stays in **Earlier rounds**.
 
+**Rescans stay with the developer.** Checkmarx One records whoever owns the API key as a scan's initiator, so on its own every verification rescan would look like the administrator's.
+- **In CxMissionZero:** it remembers, for each rescan it starts, whose work it verifies (the initiator of the scan before it) and who asked. Reminders, reports, tracked reports and the Dashboard go on naming that developer.
+- **In Checkmarx One:** the rescan carries the tags `verifies-work-of` (the developer) and `requested-by` (you, or "automatic verification").
+
 Who: anyone with **Manage tracked reports** (Admins and Security Analysts by default). Every rescan, result, switch and new round is in the audit log (type **Verification rescans**).
 
 "Sent for remediation" counts AI Remediation sent from CxMissionZero. A fix made any other way (by hand, or remediated directly in Checkmarx One) counts as fixed when the rescan no longer finds it. **Rescan now** is always there for that.

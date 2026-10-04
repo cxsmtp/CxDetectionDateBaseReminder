@@ -181,6 +181,13 @@ export async function collectInitiators(client, connection, projects, options = 
     else if (scan && scanInitiator(scan)) lastScans[projectId] = scan;
   }
 
+  // A rescan this server started (to verify fixes) is credited to the developer it verifies, not to its API key.
+  for (const project of projects) {
+    const scan = lastScans[project.id];
+    const credit = scan && options.attributed?.(scan.id ?? scan.scanId);
+    if (credit) lastScans[project.id] = { ...scan, initiator: credit.initiator, initiatorEmail: credit.email || undefined, startedBy: scanInitiator(scan) };
+  }
+
   for (const project of projects) {
     const scan = lastScans[project.id];
     byProject[project.id] = {
@@ -192,6 +199,7 @@ export async function collectInitiators(client, connection, projects, options = 
       suggestionVia: '',
       scanId: scan?.id ?? scan?.scanId ?? '',
       scanDate: lastScanDate(scan),
+      ...(scan?.startedBy ? { rescanBy: scan.startedBy } : {}),
     };
   }
 

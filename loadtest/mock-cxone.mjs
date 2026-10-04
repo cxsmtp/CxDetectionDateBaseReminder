@@ -56,6 +56,7 @@ http.createServer((req, res) => {
       const send = (s, o) => { res.writeHead(s, { 'Content-Type': 'application/json', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' }); res.end(JSON.stringify(o ?? {})); };
       if (u.pathname === '/__stats') return send(200, { counts, peak, maxSendsPerResult: Math.max(0, ...sentCount.values()), resultsSent: sentCount.size });
       if (u.pathname === '/__changing') { changing = u.searchParams.get('on') === '1'; return send(200, { changing }); }
+      if (u.pathname === '/__rescans') return send(200, Object.fromEntries(rescans));
       if (u.pathname === '/__reset') { for (const k of Object.keys(counts)) delete counts[k]; peak = 0; return send(200, {}); }
       if (u.pathname.endsWith('/openid-connect/token')) {
         bump('token');
@@ -84,7 +85,7 @@ http.createServer((req, res) => {
         const pid = body.project?.id;
         if (!pid || body.type !== 'git' || !body.handler?.repoUrl || !body.handler?.branch || !Array.isArray(body.config)) return send(400, { message: 'bad scan request' });
         const id = `rescan-${pid}-${rescans.size + 1}`;
-        rescans.set(id, { projectId: pid, at: Date.now() });
+        rescans.set(id, { projectId: pid, at: Date.now(), tags: body.tags ?? {} });
         return send(201, { id, status: 'Queued' });
       }
       if (u.pathname === '/api/scans') { bump('scans'); return send(200, { scans: [] }); }

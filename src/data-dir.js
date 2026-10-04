@@ -30,6 +30,7 @@ export const STATE_FILES = [
   'automation-state.json',
   'settings-automation.json',
   'connection-guard.json',
+  'scan-attribution.json',
 ];
 export const STATE_DIRS = ['audit'];
 

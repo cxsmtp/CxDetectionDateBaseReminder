@@ -10,6 +10,7 @@
 #   SERVER_CPUS=0-1     pin the server to these CPUs (taskset), to size a VM
 #   GEN_CPUS=2-3        pin the mock tenant and the load generator elsewhere
 #   SERVER_MEMORY_MB=   cap the server's JavaScript heap (--max-old-space-size)
+#   SERVER_NODE_FLAGS=  extra node flags for the server, e.g. "--cpu-prof --cpu-prof-dir=/tmp/prof" to profile it
 #   BENCH_OUT=file.json write the results there as well
 #   LABEL=text          a name for this run in the results
 set -euo pipefail
@@ -38,7 +39,7 @@ HEAP=${SERVER_MEMORY_MB:+--max-old-space-size=$SERVER_MEMORY_MB}
 PORT=3997 HOST=127.0.0.1 DATA_DIR=$DATA BACKUP_INTERVAL_HOURS=0 REPORT_SIGNING_KEY=loadtest \
   CX_API_KEY=$KEY CX_BASE_URL=http://127.0.0.1:4101 CX_IAM_URL=http://127.0.0.1:4101 CX_TENANT=acme \
   ADMIN_EMAIL=admin@bench.io ADMIN_PASSWORD="$BENCH_ADMIN_PASSWORD" ACCEPT_TERMS=admin@bench.io SMTP_HOST= SMTP_USER= SMTP_PASS= \
-  $(pin "${SERVER_CPUS:-}") node $HEAP src/server.js > "$DATA/server.log" 2>&1 & SERVER=$!
+  $(pin "${SERVER_CPUS:-}") node $HEAP ${SERVER_NODE_FLAGS:-} src/server.js > "$DATA/server.log" 2>&1 & SERVER=$!
 for _ in $(seq 1 100); do grep -q 'Successfully authenticated' "$DATA/server.log" 2>/dev/null && break; sleep 0.2; done
 
 SERVER_PID=$SERVER REPORT_SIGNING_KEY=loadtest VUS=$VUS DURATION=$SECONDS_ PROJECTS=$PROJECTS \
