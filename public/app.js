@@ -5493,7 +5493,7 @@ function renderUpdates() {
   $('upd-latest-sub').textContent = s.lastCheck
     ? s.lastCheck.error
       ? `Check failed: ${s.lastCheck.error}`
-      : `${s.updateAvailable ? 'Newer than what runs. ' : 'Up to date. '}Checked ${new Date(s.lastCheck.at).toLocaleString()}${s.lastCheck.warning ? ` — ${s.lastCheck.warning}` : ''}`
+      : `${s.updateAvailable ? 'Newer than what runs. ' : 'Up to date. '}Checked ${new Date(s.lastCheck.at).toLocaleString()}${s.lastCheck.warning ? ' · see the note below' : ''}`
     : 'Not checked yet';
   $('upd-latest-card').classList.toggle('upd-new', Boolean(s.updateAvailable));
   const install = $('upd-install-latest');
@@ -5506,6 +5506,10 @@ function renderUpdates() {
   $('upd-auto-sub').textContent = s.settings.auto
     ? `Checked every 15 minutes${s.settings.windowHour === null ? '' : `, installed only at ${String(s.settings.windowHour).padStart(2, '0')}:00`}. A version that failed to start is never installed again by itself.${s.settings.lastAutoResult ? ` Last: ${s.settings.lastAutoResult}.` : ''}`
     : 'Off: you install updates here.';
+  // What the check could not do (a blocked download host, older builds not named), in full, under the cards.
+  const note = $('upd-check-note');
+  note.hidden = !s.lastCheck?.warning;
+  note.textContent = s.lastCheck?.warning ?? '';
   const warn = $('upd-warn');
   warn.hidden = s.supervised;
   warn.className = 'status warn';
@@ -5600,7 +5604,7 @@ $('upd-more').addEventListener('click', () => {
   updShown += UPD_PAGE;
   renderUpdates();
 });
-$('upd-check').addEventListener('click', () => updateAction('/api/system/update/check', {}, 'Checking the registry for published versions…').then(() => ($('upd-status').textContent = updState?.lastCheck?.error ? `Check failed: ${updState.lastCheck.error}` : `Checked: ${updState?.lastCheck?.versions?.length ?? 0} versions published${updState?.updateAvailable ? `, the newest is ${mzVersion(updState.latest.version)}` : ', nothing newer than what runs'}.${updState?.lastCheck?.warning ? ` ${updState.lastCheck.warning}` : ''}`)));
+$('upd-check').addEventListener('click', () => updateAction('/api/system/update/check', {}, 'Checking the registry for published versions…').then(() => ($('upd-status').textContent = updState?.lastCheck?.error ? `Check failed: ${updState.lastCheck.error}` : `Checked: ${updState?.lastCheck?.versions?.length ?? 0} versions published${updState?.updateAvailable ? `, the newest is ${mzVersion(updState.latest.version)}` : ', nothing newer than what runs'}.`)));
 $('upd-install-latest').addEventListener('click', () => {
   const latest = updState?.latest;
   if (!latest || !confirm(`Update to ${mzVersion(latest.version)}? A backup is taken first. People see "reconnecting…" for a few seconds, and if it does not start, the current version comes back by itself.`)) return;

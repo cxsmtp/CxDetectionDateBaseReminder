@@ -2229,3 +2229,4 @@ button.danger-soft:hover:not(:disabled) { background: var(--danger-soft); border
 label.button-like.sm { cursor: pointer; }
 .upd-more-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .upd-more-row .hint:empty { display: none; }
+.upd-check-note { margin: 12px 0 0; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid color-mix(in srgb, #d97706 40%, var(--border)); background: color-mix(in srgb, #d97706 8%, var(--surface)); font-weight: 500; }
