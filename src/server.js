@@ -38,6 +38,7 @@ import { blameFindings, codeVersion, locationOf, onGitHub, parseRepoUrl } from '
 import { SCM_LABELS, SCM_PROVIDERS, checkConnections as checkScmConnections, cloneAuthFor, methodsFor, providerOf, scmClients, scmConfigs } from './scm/providers.js';
 import { addressesAsThemselves, evaluateMethods, resolveWith, validUsername } from './scm/identity.js';
 import { addOwnership } from './scm/ownership.js';
+import { acknowledgeStart, companionState, requestFullUpdate } from './updates/companion.js';
 import { githubIssues, gitlabIssues, openSlaIssues } from './sla-issues.js';
 import { TrackedReports, computeProgress, matchesFilters, outcomeOf, reportSummary } from './tracked-reports.js';
 import { TERMINAL, closure, newerThan, rescanRequest, verificationResult } from './verification.js';
@@ -6140,12 +6141,42 @@ setInterval(() => updates.autoUpdate().catch((error) => console.warn(`[update] a
 
 const updateError = (res, error) => res.status(error.status ?? 500).json({ error: error.message });
 
-app.get('/api/system/update', requirePermission('system.update'), (req, res) => res.json(updates.status()));
+const updateStatus = () => ({ ...updates.status(), companion: companionState(dataDir) });
+
+app.get('/api/system/update', requirePermission('system.update'), (req, res) => res.json(updateStatus()));
+
+/**
+ * Full image update (Beta): ask the update companion to replace this container with the same
+ * container on another image tag. A backup is taken first; the companion does the rest
+ * (src/companion/main.js) and this server is stopped by it, as for any update.
+ */
+app.post(
+  '/api/system/update/full',
+  requirePermission('system.update'),
+  asyncRoute(async (req, res) => {
+    const tag = String(req.body?.tag ?? '').trim();
+    const by = req.user?.email ?? '';
+    try {
+      const state = companionState(dataDir);
+      if (!state.connected) throw Object.assign(new Error('The update companion is not running: start it (the command is on this page), or update with podman pull.'), { status: 409 });
+      if (state.busy) throw Object.assign(new Error('A full image update is already under way.'), { status: 409 });
+      await backupToFolder(SYSTEM_ACTOR, `Before replacing the image with ${tag}`);
+      const request = requestFullUpdate(dataDir, { tag, by });
+      audit.record({ type: 'system', outcome: 'changed', reason: `Full image update to ${tag} asked of the update companion.`, actor: { kind: 'user', user: by }, details: { tag, id: request.id } });
+      res.status(202).json(updateStatus());
+    } catch (error) {
+      updateError(res, error);
+    }
+  }),
+);
 
 app.post(
   '/api/system/update/check',
   requirePermission('system.update'),
-  asyncRoute(async (req, res) => res.json(await updates.check())),
+  asyncRoute(async (req, res) => {
+    await updates.check();
+    res.json(updateStatus());
+  }),
 );
 
 app.post('/api/system/update/install', requirePermission('system.update'), (req, res) => {
@@ -6153,7 +6184,7 @@ app.post('/api/system/update/install', requirePermission('system.update'), (req,
   if (!ref) return res.status(400).json({ error: 'Choose a version.' });
   try {
     updates.install(ref, { by: req.user?.email ?? '' });
-    res.status(202).json(updates.status());
+    res.status(202).json(updateStatus());
   } catch (error) {
     updateError(res, error);
   }
@@ -6165,7 +6196,7 @@ app.post(
   asyncRoute(async (req, res) => {
     try {
       await updates.switch(String(req.body?.version ?? ''), { by: req.user?.email ?? '' });
-      res.json(updates.status());
+      res.json(updateStatus());
     } catch (error) {
       updateError(res, error);
     }
@@ -6187,7 +6218,7 @@ app.put('/api/system/update/settings', requirePermission('system.update'), (req,
   if (windowHour !== null && !(Number.isInteger(windowHour) && windowHour >= 0 && windowHour <= 23)) return res.status(400).json({ error: 'The hour is 0 to 23, or any time.' });
   updates.saveSettings({ auto, windowHour });
   audit.record({ type: 'system', outcome: 'changed', reason: `Auto-update ${auto ? `on${windowHour === null ? '' : `, at ${String(windowHour).padStart(2, '0')}:00`}` : 'off'}.`, actor: { kind: 'user', user: req.user?.email ?? '' }, details: { auto, windowHour } });
-  res.json(updates.status());
+  res.json(updateStatus());
 });
 
 // ---------------------------------------------------------------------------
@@ -7176,6 +7207,8 @@ const server = httpsManager.listen({ app, httpsOnly: httpsOnlyAnswer, port: conf
   const mode = httpsManager.mode;
   const where = `${config.host}:${config.port}`;
   console.log(`CxMissionZero ${APP_VERSION} running on ${mode === 'http' ? `http://${where}` : mode === 'https' ? `https://${where}` : `http://${where} and https://${where}`}`);
+  // For the update companion (full image updates): this version is up.
+  acknowledgeStart(dataDir, { version: PACKAGE_VERSION, builtIn: process.env.MZ_BUILTIN_VERSION || PACKAGE_VERSION });
   if (mode === 'https') console.log('[https] HTTPS only: plain http on the same port is redirected to https.');
   if (mode === 'both') console.log('[https] HTTP and HTTPS side by side on the same port. Switch to HTTPS only under Settings → HTTPS once it works.');
   const options = mode === 'http' ? null : httpsManager.contextOptions();

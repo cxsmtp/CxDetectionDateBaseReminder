@@ -351,6 +351,13 @@ Install a new version, go back to any version, turn on auto-update, restart the 
   - A backup is taken before every switch.
   - A version that does not start is rolled back by itself.
 - **Recent events:** switches, starts, automatic rollbacks, restarts.
+- **Replace the whole image (Beta).** For the rare release that needs a new Node.js or OS base. The **update companion**, a second small container you start once, replaces the container itself:
+  1. It downloads the image while the server keeps running.
+  2. It stops the server, which saves first, as for any update.
+  3. It starts the same container on the new image, with the same ports, volume, environment, limits and security options.
+  4. If the new server does not say it started within 150 s, or stops soon after, it goes back to the old container.
+
+  The chip on the section says whether the companion is ready. Choose **latest** or a version, then **Replace the image**; a backup is taken first. The page shows each step and how it ended. Starting the companion is one line, shown on the page and in [Updating](updating.md#full-image-update-from-the-page-beta).
 
 ### Beta features (Admin)
 
@@ -904,7 +911,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.40** | 516/s, **0 failed** | 5.9 s | 183 ms | 445 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.41** | 519/s, **0 failed** | 0.9 s | 171 ms | 455 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.40 | 516/s, 0 failed | 5.9 s | 183 ms | 445 pass | 0 vulnerabilities | same |
 | MZ-01.00.39 | 512/s, 0 failed | 5.7 s | 240 ms | 439 pass | 0 vulnerabilities | same |
 | MZ-01.00.38 | 518/s, 0 failed | 0.6 s | 146 ms | 430 pass | 0 vulnerabilities | same |
 | MZ-01.00.37 | 508/s, 0 failed | 5.1 s | 179 ms | 427 pass | 0 vulnerabilities | same |

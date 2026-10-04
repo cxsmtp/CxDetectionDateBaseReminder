@@ -5725,9 +5725,62 @@ function renderUpdates() {
         .join('')
     : '<li class="hint">Nothing yet.</li>';
 
+  renderFullUpdate(s, sorted);
+
   clearTimeout(updPoll);
-  if (busy) updPoll = setTimeout(followUpdate, 2000);
+  if (busy || s.companion?.busy) updPoll = setTimeout(followUpdate, 2000);
 }
+
+const FULL_STATES = { running: 'Under way', done: 'Done', unchanged: 'Nothing to change', 'rolled-back': 'Went back to the previous container', failed: 'Failed', refused: 'Refused' };
+
+/** The update companion (Beta): is it running, the image to replace with, and the last full update. */
+function renderFullUpdate(s, versions) {
+  const c = s.companion ?? {};
+  const chip = $('upd-full-chip');
+  const engineProblem = c.connected && c.heartbeat?.engineError;
+  chip.textContent = !c.connected ? 'Companion not running' : engineProblem ? 'Companion: needs attention' : c.busy ? 'Replacing the image…' : 'Companion ready';
+  chip.className = `rp-chip ${!c.connected ? '' : engineProblem ? 'tone-critical' : 'tone-good'}`;
+  $('upd-full-on').hidden = !c.connected;
+  $('upd-full-off').hidden = Boolean(c.connected);
+  if (c.busy) $('upd-full').open = true;
+  const select = $('upd-full-tag');
+  const wanted = versions.map((v) => (v.tags ?? []).find((t) => /^\d+\.\d+\.\d+$/.test(t))).filter(Boolean);
+  const current = select.value;
+  select.innerHTML = ['latest', ...wanted].map((t) => `<option value="${escapeHtml(t)}">${t === 'latest' ? 'latest' : escapeHtml(mzVersion(t))}</option>`).join('');
+  if (current && [...select.options].some((o) => o.value === current)) select.value = current;
+  $('upd-full-go').disabled = !c.connected || c.busy || Boolean(engineProblem);
+  const st = c.status;
+  const lines = [];
+  if (engineProblem) lines.push(`The companion cannot work: ${c.heartbeat.engineError}`);
+  if (c.pending) lines.push(`Asked for ${c.pending.tag}: the companion picks it up within a few seconds.`);
+  // While a new request waits, the last update's outcome is not news.
+  if (st && !c.pending) {
+    const when = st.finishedAt || st.at;
+    lines.push(`${FULL_STATES[st.state] ?? st.state}: ${st.tag}${st.step ? ` · ${st.step}` : ''}${st.error ? ` · ${st.error}` : ''}${st.reason ? ` · ${st.reason}` : ''}${when ? ` (${new Date(when).toLocaleString()})` : ''}`);
+  }
+  $('upd-full-status').textContent = lines.join(' ');
+}
+
+$('upd-full-copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('upd-full-cmd').textContent.trim());
+    toast('Copied: run it on the server.');
+  } catch {
+    toast('Select the command and copy it.');
+  }
+});
+$('upd-full-go').addEventListener('click', () => {
+  const tag = $('upd-full-tag').value;
+  if (!tag || !confirm(`Replace the whole image with ${tag === 'latest' ? 'the latest one' : mzVersion(tag)}? A backup is taken first. The server stops for the switch (people see "reconnecting…" for up to a minute), and if the new container does not start, the companion goes back to this one.`)) return;
+  $('upd-full-status').textContent = 'Asking the companion…';
+  api('/api/system/update/full', { method: 'POST', body: JSON.stringify({ tag }) })
+    .then((status) => {
+      updState = status;
+      renderUpdates();
+      updPoll = setTimeout(followUpdate, 3000);
+    })
+    .catch((error) => !handleAuthLoss(error) && ($('upd-full-status').textContent = error.message));
+});
 
 /** While an update or switch runs: follow it, through the restart, to the new version. */
 async function followUpdate() {
