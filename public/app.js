@@ -3390,7 +3390,9 @@ function verifySection(r) {
   const windowHtml = w && !(v && v.round === round)
     ? `<div class="vf-window">
         <span class="vf-badge">⟳ Developers' turn</span>
-        <span>${w.developers?.length ? `${escapeHtml(w.developers.map((d) => d.name || d.email).join(', '))} ${w.developers.length === 1 ? 'has' : 'have'}` : 'The developers have'} until <b>${escapeHtml(new Date(w.dueAt).toLocaleString())}</b> to rescan from their report or the emailed link${r.verify?.auto ? '. After that it is rescanned on their behalf, and they are told.' : '. Automatic rescan is off: after that, rescan here.'}${w.notified?.ready ? '' : ' (Email is not set up, so they were not told: send them the report.)'}</span>
+        <span>${w.developers?.length ? `${escapeHtml(w.developers.map((d) => d.name || d.email).join(', '))} ${w.developers.length === 1 ? 'has' : 'have'}` : 'The developers have'} until <b>${escapeHtml(new Date(w.dueAt).toLocaleString())}</b> to rescan from their report or the emailed link${r.verify?.auto ? '. After that it is rescanned on their behalf, and they are told.' : '. Automatic rescan is off: after that, rescan here.'}${w.notified?.ready ? '' : ' Email is not set up, so they were not told: send them their links.'}</span>
+        ${can('reports.manage') ? `<button type="button" class="link" data-rescan-links="${id}">Their rescan links</button>` : ''}
+        <div class="vf-links" data-rescan-links-out="${id}" hidden></div>
       </div>`
     : '';
   const result = v?.result;
@@ -3505,6 +3507,33 @@ async function verifyAutoChange(event) {
     if (!handleAuthLoss(error)) followStatus(id, error.message, 'error');
   }
 }
+
+/** Each developer's own rescan link, to send by hand. */
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-rescan-links]');
+  if (!button) return;
+  const id = button.dataset.rescanLinks;
+  const out = document.querySelector(`[data-rescan-links-out="${CSS.escape(id)}"]`);
+  try {
+    const { links } = await api(`/api/tracked-reports/${encodeURIComponent(id)}/rescan-links`);
+    out.innerHTML = links
+      .map((l) => `<div class="vf-link"><span><b>${escapeHtml(l.name || l.email)}</b> <span class="hint">${escapeHtml(l.email)} · ${escapeHtml(l.projects.join(', '))}</span></span><button type="button" class="sm" data-copy-link="${escapeHtml(l.link)}">Copy link</button></div>`)
+      .join('') || '<p class="hint">No developer with an address: tag their addresses on the Dashboard (People).</p>';
+    out.hidden = false;
+  } catch (error) {
+    if (!handleAuthLoss(error)) followStatus(id, error.message, 'error');
+  }
+});
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-copy-link]');
+  if (!button) return;
+  try {
+    await navigator.clipboard.writeText(button.dataset.copyLink);
+    button.textContent = 'Copied';
+  } catch {
+    prompt('Copy this link', button.dataset.copyLink);
+  }
+});
 
 /** How long the developers have to rescan themselves (24 hours to 14 days). */
 async function verifyGraceChange(event) {
@@ -4181,7 +4210,8 @@ function renderJourney() {
   const r = journeyReports;
   const reportsKnown = can('reports.view') && r.at;
   const steps = [
-    { id: 'detect', label: 'Detect', value: t.open, hint: `${t.open} open finding${t.open === 1 ? '' : 's'} in ${t.projects} project${t.projects === 1 ? '' : 's'}${t.notExploitable ? `; ${t.notExploitable} not exploitable` : ''}`, clear: !t.open },
+    // Detected: done by the fetch itself. Its number is what is open; the work starts at Triage.
+    { id: 'detect', label: 'Detect', value: t.open, hint: `${t.open} open finding${t.open === 1 ? '' : 's'} in ${t.projects} project${t.projects === 1 ? '' : 's'}${t.notExploitable ? `; ${t.notExploitable} not exploitable` : ''}`, clear: true, count: true },
     { id: 'triage', label: 'Triage', value: t.toTriage, hint: `${t.toTriage} to verify: AI Triage or a person decides whether each is real`, clear: !t.toTriage, rail: 'credits' },
     { id: 'remediate', label: 'Remediate', value: t.toRemediate, hint: `${t.toRemediate} confirmed, waiting for a fix`, clear: !t.toRemediate, rail: 'credits' },
     { id: 'fix', label: 'Fix', value: t.fixing, hint: `${t.fixing} with a fix asked for: merge it, then rescan`, clear: !t.fixing, href: '#/reports' },
@@ -4221,7 +4251,7 @@ function renderJourney() {
       const end = s.href ? 'a' : s.rail ? 'button' : 'span';
       return `<li class="jstep is-${state}" data-step="${s.id}">
         <${tag} class="jnode" title="${escapeHtml(s.hint)}" aria-label="${escapeHtml(`${s.label}: ${s.hint}`)}">
-          <span class="jdot">${state === 'done' ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" /></svg>' : escapeHtml(String(s.value))}</span>
+          <span class="jdot">${state === 'done' && !s.count ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" /></svg>' : escapeHtml(String(s.value))}</span>
           <span class="jlabel">${escapeHtml(s.label)}</span>
         </${end}>
       </li>`;

@@ -20,9 +20,11 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
 ## MZ-01.00.33 — 2026-10-04 HH:MM UTC · [#56](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/56)
-- **The way to Mission Zero, on the Dashboard.** After a fetch, one card per stage shows where every finding stands: **Detect** (open), **Triage** (to verify), **Remediate** (confirmed), **Fix & rescan** (a fix was asked for), **Verify** (tracked reports verified at zero by a rescan) and **Mission Zero** (projects with nothing open).
-- **Green only when it is really clear.** A stage turns green with ✓ only when it and every stage before it are clear, and **Verify** turns red when a report verified at zero has findings again.
-- **One click to move it on.** **Triage** and **Remediate** open the AI credits panel; **Fix & rescan** and **Verify** open Reports.
+- **The developer rescans first.** When every finding in a tracked report's round is dealt with, the developers who fixed them get **Rescan now** in their report and by email, for 24 hours to 14 days (48 by default). The rescan they start is recorded as theirs.
+- **Then on their behalf, and they are told.** If nobody rescans in time and automatic rescan is on, CxMissionZero starts it and emails them. Everyone gets the result, and the updated report of whatever is still open.
+- **The button waits for clean.** Until everything in scope is dealt with, the report's Rescan card shows how many findings are left, and its button stays off.
+- **Send the links yourself.** **Their rescan links**, on the Verify tab, gives each developer's link to send by hand when email is not set up.
+- **The way to Mission Zero, on the Dashboard.** One slim line shows how many projects are at zero, then **Detect → Triage → Remediate → Fix → Verify** with a count at each stage. The stage to act on next is highlighted, and the green line runs up to it.
 - **Status.** STATUS_LINE
 
 ## MZ-01.00.32 — 2026-10-04 08:25 UTC · [#55](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/55)

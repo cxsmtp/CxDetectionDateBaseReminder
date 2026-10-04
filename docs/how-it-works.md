@@ -55,6 +55,11 @@ The technical reference: what happens under each feature, where data lives, and 
 - **Remediation is fenced to Confirmed.** The report's button is disabled for any other state, and the server re-reads the state and refuses anything else.
 
 ## Verification rescans
+
+- **The developers go first.** When every finding in a round's scope is dealt with, a window opens: 24 hours to 14 days, 48 by default (`src/rescan-window.js`). The developers of the report's projects get a **Rescan now** link by email, and their emailed report shows the same button.
+  - **Signed grants:** each link or button carries a grant naming the tracked report, the round and the developer, signed with the report-signing key and expiring. The page behind the link (`/rescan`) has no script: one form, one button.
+  - **On their behalf:** when the window ends without a rescan and automatic verification is on, the server starts it, and emails the developers.
+  - **The result goes back to them:** a result email, then the updated interactive report of what is still open.
 - **Closed round.** `src/verification.js` decides when a tracked report's round is closed: every baseline finding is gone, triaged not exploitable, or confirmed and in the ledger as sent for AI Remediation.
 - **Rescan.** For each project: the last completed scan (`/api/projects/last-scan`), its details (`GET /api/scans/{id}`: repository, branch, engines), then `POST /api/scans` with a git handler for the same repository and branch and the same engines, tagged `cxmissionzero: verification`. The rescan relies on what Checkmarx One already holds to fetch the repository; no code-host token is ever sent to it.
 - **Attribution.** Checkmarx One records the API key's owner as a scan's initiator. Each rescan is therefore recorded in `scan-attribution.json`, which is in backups: the scan id, the developer it verifies (the previous scan's initiator, or whoever an earlier rescan was credited to) and who asked.

@@ -499,18 +499,16 @@ Where findings are read from. The default is `/api/risks/`.
 
 **Get started.** Until the basics are in place, a short checklist at the top shows what is left: connect Checkmarx One, fetch vulnerabilities, set up email, give reports a reachable address, cap AI credits, invite your team. Each item has its button; **Hide** puts the list away.
 
-**The way to Mission Zero.** Under the totals, one card per stage shows where the fetched findings stand:
-
-| Stage | Counts | Click |
-| --- | --- | --- |
-| **Detect** | Open findings (not exploitable ones are counted apart). | |
-| **Triage** | Still to verify: AI Triage or a person decides whether each is real. | Opens **AI credits**. |
-| **Remediate** | Confirmed, and waiting for a fix. | Opens **AI credits**. |
-| **Fix & rescan** | A fix was asked for (AI Remediation): merge it, then rescan. | Reports |
-| **Verify** | Tracked reports verified at zero by a rescan, with how many are verifying or left zero. | Reports |
-| **Mission Zero** | Projects with nothing open, of those fetched. | |
-
-A stage turns green with ✓ only when it, and every stage before it, is clear. **Verify** turns red when a report verified at zero has findings again.
+**The way to Mission Zero.** Under the totals, one line shows where the fetched findings stand:
+- **Mission Zero:** a ring with how many projects have nothing open.
+- **Detect → Triage → Remediate → Fix → Verify:** the number at each stage.
+  - **Detect:** open findings.
+  - **Triage:** findings still to verify.
+  - **Remediate:** confirmed findings.
+  - **Fix:** findings with a fix asked for, waiting to be merged and rescanned.
+  - **Verify:** tracked reports verified at zero by a rescan.
+- **What is next:** the stage to act on is highlighted, and the green line runs up to it. A stage turns green only when it, and every stage before it, is clear. **Verify** turns red when a report verified at zero has findings again.
+- **Hover** a stage for the detail. **Triage** and **Remediate** open **AI credits**; **Fix** and **Verify** open Reports.
 
 **How the page is laid out.** Scope and **Fetch** at the top, then the totals and the way to Mission Zero, then the projects. Everything you do with the projects is in the **action panel**, with four tabs:
 
@@ -727,17 +725,22 @@ At the top of the panel: **Refresh** (re-reads now; reports also update hourly, 
 A tracked report is worked in **rounds**. Round 1 is the scope it was saved with (for example critical and high). The **Verify** tab closes the loop:
 
 1. **Is the round closed?** It shows how many findings in scope are dealt with: no longer detected, triaged not exploitable, or confirmed and sent for AI Remediation. What is still open is split into awaiting triage and confirmed but not remediated. **✓ Ready to verify** appears when nothing is open.
-2. **Rescan.**
-   - **Rescan now to verify** asks Checkmarx One to scan each project again, like its last scan: same repository, same branch, same engines. It uses scans, not AI credits.
-   - **Rescan automatically** (one tick) does it by itself the moment the round is closed, once per round.
+2. **The developers rescan first.** When the round is closed, the developers who fixed it get the first chance to prove it:
+   - **In their report:** a **Rescan now** card appears. Until everything in scope is dealt with, it shows how many findings are left, and the button stays off.
+   - **By email,** when email is set up: a **Rescan now** link that opens a one-button page. **Their rescan links**, on the Verify tab, gives you each developer's link to send by hand.
+   - **Their turn lasts 24 hours to 14 days** (48 hours by default; set it on the Verify tab). A rescan they start is theirs: Checkmarx One records them in `requested-by`.
+   - **If nobody rescans in time** and **rescan on their behalf** is ticked, CxMissionZero starts it, and tells them by email.
+   - **Either way, they get the result by email,** and the updated report of whatever is still open.
+3. **Rescan by hand.**
+   - **Rescan now to verify** asks Checkmarx One to scan each project again, like its last scan: same repository, same branch, same engines. It is there at any time, and uses scans, not AI credits.
    - Projects Checkmarx One cannot fetch (code uploaded from a pipeline or the CLI) **wait for their next scan**: whichever scan comes next, from your pipeline or Checkmarx One, verifies them, for up to 30 days.
-3. **See what it proved,** per project and in total:
+4. **See what it proved,** per project and in total:
    - **Verified fixed:** gone after the rescan.
    - **Still found:** still reported. **After AI Remediation** means the fix did not work. These are listed.
    - **Accepted:** triaged not exploitable.
    - **New in scope:** found since the round started.
    - When nothing is still found or new: **✓ Mission Zero for this scope**, and the report shows **Verified at zero**. If new findings appear later, it shows **Left zero** at once.
-4. **Next round.** Pick the next scope (for example medium and low) and **Start round N**. It starts from what Checkmarx One reports now, after the rescan. The round just finished, with its verification result, stays in **Earlier rounds**.
+5. **Next round.** Pick the next scope (for example medium and low) and **Start round N**. It starts from what Checkmarx One reports now, after the rescan. The round just finished, with its verification result, stays in **Earlier rounds**.
 
 **Rescans stay with the developer.** Checkmarx One records whoever owns the API key as a scan's initiator, so on its own every verification rescan would look like the administrator's.
 - **In CxMissionZero:** it remembers, for each rescan it starts, whose work it verifies (the initiator of the scan before it) and who asked. Reminders, reports, tracked reports and the Dashboard go on naming that developer.
