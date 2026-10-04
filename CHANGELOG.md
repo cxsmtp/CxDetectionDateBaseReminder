@@ -25,7 +25,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.38 — 2026-10-04 HH:MM UTC · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+## MZ-01.00.38 — 2026-10-04 13:03 UTC · [#61](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/61)
 - **Who gets reminders: one choice.** **Dashboard → Remind → Send to** (each developer, the fixed list, or both) now decides it everywhere: reminders sent by hand, scheduled runs and tracked reports' follow-ups. Settings → Automation shows the choice instead of asking again, and an older setup keeps sending to whoever its scheduled runs did.
 - **Both, now for everyone.** **Both** is no longer an advanced option. If the fixed list is empty, a scheduled run says so instead of quietly sending to nobody.
 - **A tracked report's follow-up sits with its reminder.** The Schedule tab is gone: its **Automatic follow-up** is under the Remind tab, and the Upcoming follow-ups list opens it there. **Only for this report…** still gives one report its own recipients.
