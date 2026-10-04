@@ -554,8 +554,8 @@ Where findings are read from. The default is `/api/risks/`.
 ### 1. Scope: what to fetch
 | Option | Meaning |
 | --- | --- |
-| Projects last scanned in | Skips projects with no scan in this window, so fewer calls are made. Choose from last week, month, 90 days or year, or a custom range. |
-| Findings first detected in | Only findings first detected in this window. Checkmarx One filters them. |
+| Projects last scanned in | Skips projects with no scan in this window, so fewer calls are made. **Last week** by default; choose any time, last week, month, 90 days or year, or a custom range. After a load, the page keeps the scope you used. |
+| Findings first detected in | Only findings first detected in this window. Checkmarx One filters them. **Last week** by default. |
 | Only these projects or people | Optional; open it with **Narrow to projects or people**. **Projects, by name**: type to pick, or press Enter to add every project whose name contains the text. **People who ran the latest scan**: a username or an email. Only those projects are fetched, which is the fastest fetch. |
 
 ### 2. Load findings
@@ -602,7 +602,7 @@ Each finding falls into an age bucket by when it was **first detected**:
 | **Give credits** (AI fix) | The same, for confirmed findings. |
 | **Fix with AI now** | Lists each project's confirmed findings and the cost, then runs AI Remediation after you confirm. Each finding is re-checked first; anything no longer confirmed is left alone. |
 | Email each scan initiator… | On by default. When you triage or remediate for someone, each scan initiator gets one email about their own projects: what was started on their behalf, and what to do next (refresh their report, review and approve the pull requests). |
-| **Take back unused credits** | Returns everything the selected projects were given and did not use (people did not act on it) to the pool. It never goes below what was used or is in flight. **Every project: Credit Control →** takes back from all projects at once. |
+| **Take back N unused credits** (top of the panel, next to **Check the numbers again**) | Returns everything the selected projects were given and did not use (people did not act on it) to the pool; the button says how many. It never goes below what was used or is in flight. **Every project: Credit Control →** takes back from all projects at once. |
 | Extra credits → **Add extra credits** | Gives every selected project a fixed extra amount. |
 | Extra credits → **Take back extra credits** | Returns the extras. |
 
@@ -631,7 +631,7 @@ Each finding falls into an age bucket by when it was **first detected**:
 | Content | **One summary** (one email per person, all their projects), or **One per project**. |
 | Attach the interactive HTML report | On by default. Developers can triage and remediate straight from it. |
 | Fixed list | To / Cc / Bcc, edited here. **Save list** keeps it. |
-| **Preview email**, **Preview report**, **Download HTML** | Check before sending. |
+| **Preview email**, **Preview report**, **Download HTML** | Check before sending. **Download HTML** is always there: it saves the interactive report of the selected projects, to share it yourself. |
 | **Send reminder** | Sends, then lists who got which projects and who was skipped (for example, no address). |
 
 The age filter is the Scope's job: a reminder covers the findings in scope.
@@ -911,7 +911,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.41** | 519/s, **0 failed** | 0.9 s | 171 ms | 455 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.42** | — (page-only change; see performance) | — | — | 455 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.41 | 519/s, 0 failed | 0.9 s | 171 ms | 455 pass | 0 vulnerabilities | same |
 | MZ-01.00.40 | 516/s, 0 failed | 5.9 s | 183 ms | 445 pass | 0 vulnerabilities | same |
 | MZ-01.00.39 | 512/s, 0 failed | 5.7 s | 240 ms | 439 pass | 0 vulnerabilities | same |
 | MZ-01.00.38 | 518/s, 0 failed | 0.6 s | 146 ms | 430 pass | 0 vulnerabilities | same |

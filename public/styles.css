@@ -466,7 +466,10 @@ fieldset select { width: 100%; }
 
 /* Credits panel */
 .alloc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 10px 0; font-size: 13px; }
-.sev-picks .label-sm { margin-right: 4px; }
+/* Severities: the label on its own line, then the four in one even row (never one left over below). */
+.alloc-row.sev-picks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.sev-picks .label-sm { grid-column: 1 / -1; margin: 0; }
+.sev-picks .pill-check { justify-content: center; gap: 6px; padding: 0 8px; min-width: 0; }
 .alloc-summary {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
   padding: 12px 14px; margin: 6px 0 12px; border-radius: 12px; background: var(--accent-soft); font-size: 13.5px;
@@ -1494,7 +1497,9 @@ body.fetching [data-needs-data] { opacity: 0.45; cursor: not-allowed; }
 .rp-tools { display: flex; gap: 8px; flex-wrap: wrap; }
 .rp-tools input[type="search"] { width: 220px; max-width: 100%; }
 .rp-list { display: block; }
-.rp-head, .rp-row { display: grid; grid-template-columns: minmax(200px, 2.3fr) minmax(150px, 1.5fr) 64px 64px 104px minmax(150px, 1.1fr); gap: 14px; align-items: center; padding: 0 16px; }
+/* The columns shrink to fit: a row (a button) wider than the list would centre its content
+   and cut the first letters of the report's name off on the left. */
+.rp-head, .rp-row { display: grid; grid-template-columns: minmax(120px, 2.3fr) minmax(110px, 1.5fr) 56px 48px 96px minmax(130px, 1.1fr); gap: 14px; align-items: center; padding: 0 16px; }
 .rp-head { padding-top: 10px; padding-bottom: 8px; font-size: 11.5px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); }
 .rp-head .num, .rp-row .num { text-align: right; }
 .rp-row { width: 100%; min-height: 64px; padding-top: 10px; padding-bottom: 10px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; box-shadow: inset 3px 0 0 transparent; }
