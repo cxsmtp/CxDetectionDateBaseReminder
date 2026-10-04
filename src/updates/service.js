@@ -104,7 +104,7 @@ export class UpdateService {
       choice: this.store.choice(),
       installed,
       events: this.store.events(30),
-      lastCheck: this.lastCheck ? { at: this.lastCheck.at, error: this.lastCheck.error ?? '', versions: this.lastCheck.versions ?? [] } : null,
+      lastCheck: this.lastCheck ? { at: this.lastCheck.at, error: this.lastCheck.error ?? '', warning: this.lastCheck.warning ?? '', versions: this.lastCheck.versions ?? [] } : null,
       updateAvailable: Boolean(latest && compareVersions(latest.version, this.runningVersion) > 0),
       latest,
       settings: this.settings(),
@@ -123,28 +123,56 @@ export class UpdateService {
     const registry = this.#registry();
     try {
       const tags = await registry.tags();
-      // Newest builds first: version tags, then commit tags, then latest.
-      const wanted = [...new Set(['latest', ...tags.filter((t) => VERSION.test(t)).reverse(), ...tags.filter((t) => /^sha-/.test(t)).reverse()])].slice(0, LIST_LIMIT);
+      // Version tags name their version: listed from the registry alone, newest first. Then latest and
+      // commit builds, matched to a version by digest (or, when image files can be read, by their label).
+      const versionTags = tags.filter((t) => VERSION.test(t)).sort((a, b) => compareVersions(b, a));
+      const wanted = [...new Set([...versionTags, 'latest', ...tags.filter((t) => /^sha-/.test(t)).reverse()])].slice(0, LIST_LIMIT);
       const known = new Map((this.lastCheck?.versions ?? []).flatMap((v) => (v.digest ? [[v.digest, v]] : [])));
       const byVersion = new Map();
+      const versionOf = new Map();
+      const problems = [];
+      let filesError = '';
       for (const tag of wanted) {
-        let image;
+        let digest;
         try {
-          image = await registry.image(tag);
-        } catch {
+          ({ digest } = await registry.manifest(tag));
+        } catch (error) {
+          problems.push(error.message);
           continue;
         }
-        const cached = known.get(image.digest);
-        let version = cached?.version || String(image.labels?.[VERSION_LABEL] ?? '');
-        if (!VERSION.test(version)) version = await this.#versionFromLayers(registry, image).catch(() => '');
+        const cached = known.get(digest);
+        let version = VERSION.test(tag) ? tag : versionOf.get(digest) || cached?.version || '';
+        let created = cached?.created || '';
+        let revision = cached?.revision || '';
+        // The build date and commit (and, for latest or a commit tag, the version) are in the image files.
+        // One failed read is enough: the rest would fail the same way, and the versions are already known.
+        if ((!version || !created) && !filesError) {
+          try {
+            const image = await registry.image(digest);
+            if (!VERSION.test(version)) version = String(image.labels?.[VERSION_LABEL] ?? '');
+            if (!VERSION.test(version)) version = await this.#versionFromLayers(registry, image).catch(() => '');
+            created = image.created;
+            revision = String(image.labels?.['org.opencontainers.image.revision'] ?? '').slice(0, 12);
+          } catch (error) {
+            filesError = error.message;
+          }
+        }
         if (!VERSION.test(version)) continue;
-        const row = byVersion.get(version);
-        const entry = row ?? { version, digest: image.digest, created: image.created, tags: [], revision: String(image.labels?.['org.opencontainers.image.revision'] ?? '').slice(0, 12) };
+        versionOf.set(digest, version);
+        const entry = byVersion.get(version) ?? { version, digest, created, tags: [], revision };
+        entry.created ||= created;
         entry.tags.push(tag);
         byVersion.set(version, entry);
       }
       const versions = [...byVersion.values()].sort((a, b) => compareVersions(b.version, a.version));
-      this.lastCheck = { at: new Date().toISOString(), versions };
+      this.lastCheck = {
+        at: new Date().toISOString(),
+        versions,
+        // Nothing found is never "up to date": it says why.
+        error: versions.length ? '' : filesError || problems[0] || (tags.length ? 'No published version could be read.' : 'No versions are published for this image.'),
+        // Listed, but installing reads the same image files.
+        warning: versions.length && filesError ? `The versions are listed, but this server could not read the image files: ${filesError} Installing from this page needs that; until then, update with podman pull.` : '',
+      };
     } catch (error) {
       this.lastCheck = { ...(this.lastCheck ?? { versions: [] }), at: new Date().toISOString(), error: error.message };
     }

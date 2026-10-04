@@ -188,3 +188,18 @@ test('SMTP values from the environment are trimmed and unquoted', () => {
     }
   }
 });
+
+test('the browser icon: MZ0 by default; an uploaded image (up to 100 KB) or an https address; anything else refused', () => {
+  assert.equal(base().branding.iconUrl, '', 'empty: CxMissionZero\'s own MZ0');
+  const png = `data:image/png;base64,${Buffer.from('fake png').toString('base64')}`;
+  assert.equal(mergeSettings(base(), { branding: { iconUrl: png } }).branding.iconUrl, png);
+  assert.equal(mergeSettings(base(), { branding: { iconUrl: 'https://acme.com/icon.svg' } }).branding.iconUrl, 'https://acme.com/icon.svg');
+  const ico = `data:image/x-icon;base64,${Buffer.from('ico').toString('base64')}`;
+  assert.equal(mergeSettings(base(), { branding: { iconUrl: ico } }).branding.iconUrl, ico);
+  for (const bad of ['http://acme.com/icon.png', 'javascript:alert(1)', 'data:text/html;base64,PGI+', `data:image/png;base64,${'A'.repeat(150_000)}`]) {
+    assert.throws(() => mergeSettings(base(), { branding: { iconUrl: bad } }), /browser icon/, bad.slice(0, 30));
+  }
+  const set = mergeSettings(base(), { branding: { iconUrl: png } });
+  assert.equal(mergeSettings(set, { branding: { iconUrl: '' } }).branding.iconUrl, '', 'back to MZ0');
+  assert.equal(mergeSettings(set, { branding: { appName: 'X' } }).branding.iconUrl, png, 'other branding changes keep it');
+});

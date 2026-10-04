@@ -1313,6 +1313,8 @@ function renderSettings() {
   $('brand-app').value = s.branding.appName || 'CxMissionZero';
   $('brand-name').value = s.branding.companyName;
   $('brand-logo').value = s.branding.logoUrl;
+  $('brand-icon').value = s.branding.iconUrl ?? '';
+  renderIconPreview();
   $('brand-height').value = s.branding.logoHeight;
   $('brand-accent').value = /^#[0-9a-f]{6}$/i.test(s.branding.accentColor) ? s.branding.accentColor : '#1d4ed8';
   $('brand-cta').value = s.branding.callToAction;
@@ -1615,6 +1617,7 @@ function settingsPayload() {
       appName: $('brand-app').value,
       companyName: $('brand-name').value,
       logoUrl: $('brand-logo').value,
+      iconUrl: $('brand-icon').value,
       logoHeight: $('brand-height').value,
       accentColor: $('brand-accent').value,
       callToAction: $('brand-cta').value,
@@ -1729,7 +1732,7 @@ const DRAFT_MS = 1200;
 const CHECK_MS = 2500;
 const autosave = { settings: null, automation: null, draft: null, check: null, running: new Set(), lastCheck: null, connectionEdited: false };
 const INTEGRATION_FIELDS = new Set(['integration-key', 'integration-base', 'integration-iam', 'integration-tenant']);
-const NOT_SAVED = new Set(['test-to', 'env-file', 'brand-logo-file']);
+const NOT_SAVED = new Set(['test-to', 'env-file', 'brand-logo-file', 'brand-icon-file']);
 
 /** Which save an edit belongs to: the settings form, automation, the integration draft, or none. */
 function autosaveKind(el) {
@@ -1801,7 +1804,7 @@ async function saveSettings() {
     renderLinkExamples(saved.linkExamples);
     renderRecipientHint();
     $('password-state').textContent = saved.smtp.passwordSet ? '(stored)' : '(not set)';
-    applyAppBranding({ name: saved.branding.appName, logoUrl: saved.branding.logoUrl });
+    applyAppBranding({ name: saved.branding.appName, logoUrl: saved.branding.logoUrl, iconVersion: iconKey(saved.branding.iconUrl) });
     if (JSON.stringify(before?.links) !== JSON.stringify(saved.links)) loadReportServer();
     if (JSON.stringify(before?.aiTriage) !== JSON.stringify(saved.aiTriage)) loadPool();
     if (payload.smtp && !saved.verified && saved.smtp.host) {
@@ -5292,7 +5295,44 @@ if ($('log-search')) {
 }
 
 /** The app's own name and logo, in the header and the browser tab. */
-function applyAppBranding({ name, logoUrl } = {}) {
+/** Changes whenever the icon setting does (no need to match the server's fingerprint: it only busts the cache). */
+const iconKey = (url = '') => (url ? `${url.length}${url.slice(-16).replace(/[^\w]/g, '')}` : '');
+
+/** The tab's icon: reloaded when it changes (the server serves the one set in Branding, else MZ0). */
+function applyAppIcon(version = '') {
+  const link = document.getElementById('app-icon');
+  if (link && link.dataset.version !== String(version)) {
+    link.dataset.version = String(version);
+    link.href = `/app-icon${version ? `?v=${encodeURIComponent(version)}` : ''}`;
+  }
+}
+
+/** Settings → Branding: what the icon will look like, as typed or uploaded (empty: MZ0). */
+function renderIconPreview() {
+  const value = $('brand-icon').value.trim();
+  $('brand-icon-preview').src = value && (/^data:image\//i.test(value) || /^https:\/\//i.test(value)) ? value : '/favicon.svg';
+}
+
+$('brand-icon').addEventListener('input', renderIconPreview);
+$('brand-icon-default').addEventListener('click', () => {
+  $('brand-icon').value = '';
+  $('brand-icon').dispatchEvent(new Event('input', { bubbles: true }));
+});
+$('brand-icon-file').addEventListener('change', () => {
+  const file = $('brand-icon-file').files[0];
+  $('brand-icon-file').value = '';
+  if (!file) return;
+  if (file.size > 100 * 1024) return alert('That image is larger than 100 KB. Please use a smaller icon.');
+  const reader = new FileReader();
+  reader.onload = () => {
+    $('brand-icon').value = reader.result;
+    $('brand-icon').dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  reader.readAsDataURL(file);
+});
+
+function applyAppBranding({ name, logoUrl, iconVersion } = {}) {
+  if (iconVersion !== undefined) applyAppIcon(iconVersion);
   const appName = name || 'CxMissionZero';
   $('app-name').textContent = appName;
   document.title = appName;
@@ -5433,7 +5473,7 @@ function renderUpdates() {
   $('upd-latest-sub').textContent = s.lastCheck
     ? s.lastCheck.error
       ? `Check failed: ${s.lastCheck.error}`
-      : `${s.updateAvailable ? 'Newer than what runs. ' : 'Up to date. '}Checked ${new Date(s.lastCheck.at).toLocaleString()}`
+      : `${s.updateAvailable ? 'Newer than what runs. ' : 'Up to date. '}Checked ${new Date(s.lastCheck.at).toLocaleString()}${s.lastCheck.warning ? ` — ${s.lastCheck.warning}` : ''}`
     : 'Not checked yet';
   $('upd-latest-card').classList.toggle('upd-new', Boolean(s.updateAvailable));
   const install = $('upd-install-latest');
@@ -5528,7 +5568,7 @@ async function updateAction(path, body, message) {
   }
 }
 
-$('upd-check').addEventListener('click', () => updateAction('/api/system/update/check', {}, 'Checking the registry for published versions…').then(() => ($('upd-status').textContent = updState?.lastCheck?.error ? `Check failed: ${updState.lastCheck.error}` : `Checked: ${updState?.lastCheck?.versions?.length ?? 0} versions published.`)));
+$('upd-check').addEventListener('click', () => updateAction('/api/system/update/check', {}, 'Checking the registry for published versions…').then(() => ($('upd-status').textContent = updState?.lastCheck?.error ? `Check failed: ${updState.lastCheck.error}` : `Checked: ${updState?.lastCheck?.versions?.length ?? 0} versions published${updState?.updateAvailable ? `, the newest is ${mzVersion(updState.latest.version)}` : ', nothing newer than what runs'}.${updState?.lastCheck?.warning ? ` ${updState.lastCheck.warning}` : ''}`)));
 $('upd-install-latest').addEventListener('click', () => {
   const latest = updState?.latest;
   if (!latest || !confirm(`Update to ${mzVersion(latest.version)}? A backup is taken first. People see "reconnecting…" for a few seconds, and if it does not start, the current version comes back by itself.`)) return;

@@ -163,3 +163,34 @@ test('auto-update: off by default; installs a newer release in its hour, never o
   assert.ok(!store.list().some((v) => v.version === '1.9.0'), 'never an older one');
   server.close();
 });
+
+test('the check lists versions from their tags even when image files cannot be read, and says why', async (t) => {
+  const files = (version) => layer({ 'package.json': JSON.stringify({ version }), 'src/server.js': '' });
+  const server = await fakeRegistry([
+    { tags: ['3.0.10', 'latest', 'sha-bbb'], layers: [{ createdBy: 'COPY . . # buildkit', data: files('3.0.10') }], labels: { 'io.cxmissionzero.version': '3.0.10' } },
+    { tags: ['3.0.9', 'sha-aaa'], layers: [{ createdBy: 'COPY . . # buildkit', data: files('3.0.9') }], labels: { 'io.cxmissionzero.version': '3.0.9' } },
+  ]);
+  t.after(() => server.close());
+  const port = server.address().port;
+  const store = new VersionStore({ dataDir: temp('check'), builtInDir: '/app', builtInVersion: '3.0.9' });
+  // Image files (blobs) refused, as a proxy that blocks the registry's file host does.
+  const blocked = (url, options) => (String(url).includes('/blobs/') ? Promise.resolve(new Response('denied', { status: 403 })) : fetch(url, options));
+  const service = new UpdateService({ store, runningVersion: '3.0.9', image: `127.0.0.1:${port}/acme/mz`, arch: 'x64', fetch: blocked });
+  const status = await service.check();
+  assert.deepEqual(status.lastCheck.versions.map((v) => v.version), ['3.0.10', '3.0.9'], '3.0.10 is newer than 3.0.9 (not compared as text)');
+  assert.deepEqual(status.lastCheck.versions[0].tags.sort(), ['3.0.10', 'latest', 'sha-bbb'], 'latest and the commit tag matched to their version by digest');
+  assert.equal(status.updateAvailable, true);
+  assert.equal(status.lastCheck.error, '');
+  assert.match(status.lastCheck.warning, /could not read the image files: .*answered 403.*podman pull/);
+
+  // Nothing readable at all is never "up to date": the reason is given.
+  const nothing = new UpdateService({ store, runningVersion: '3.0.9', image: `127.0.0.1:${port}/acme/mz`, arch: 'x64', fetch: (url, o) => (String(url).includes('/manifests/') ? Promise.resolve(new Response('', { status: 403 })) : fetch(url, o)) });
+  const none = await nothing.check();
+  assert.equal(none.updateAvailable, false);
+  assert.match(none.lastCheck.error, /answered 403/);
+
+  // Readable: build dates and commits come from the image files, as before.
+  const open = await new UpdateService({ store, runningVersion: '3.0.9', image: `127.0.0.1:${port}/acme/mz`, arch: 'x64' }).check();
+  assert.equal(open.lastCheck.warning, '');
+  assert.equal(open.lastCheck.versions[0].created, '2026-10-04T05:00:00Z');
+});

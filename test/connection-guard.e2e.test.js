@@ -243,3 +243,32 @@ test('usage over a period, for the Credits page', async () => {
   assert.ok(r.body.pool);
   assert.equal((await admin('GET', '/api/credits/usage?from=2026-02-01&to=2026-01-01')).status, 400);
 });
+
+test('the browser icon: MZ0 for everyone (signed in or not), the one set in Branding when there is one', async () => {
+  const builtIn = await fetch(`${BASE}/app-icon`);
+  assert.equal(builtIn.status, 200);
+  assert.match(builtIn.headers.get('content-type'), /image\/svg\+xml/);
+  assert.match(await builtIn.text(), /<title>MZ0<\/title>/);
+  assert.equal((await fetch(`${BASE}/api/health`).then((r) => r.json())).app.iconVersion, '');
+
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+  const put = await admin('PUT', '/api/settings', { branding: { iconUrl: `data:image/png;base64,${png.toString('base64')}` } });
+  assert.equal(put.status, 200, JSON.stringify(put.body));
+  const custom = await fetch(`${BASE}/app-icon`);
+  assert.match(custom.headers.get('content-type'), /image\/png/);
+  assert.deepEqual(Buffer.from(await custom.arrayBuffer()), png);
+  assert.match(custom.headers.get('content-security-policy'), /sandbox/, 'an uploaded SVG could never run script from here');
+  const version = (await fetch(`${BASE}/api/health`).then((r) => r.json())).app.iconVersion;
+  assert.ok(version);
+  assert.equal((await fetch(`${BASE}/app-icon`, { headers: { 'If-None-Match': `"${version}"` } })).status, 304);
+
+  assert.equal((await admin('PUT', '/api/settings', { branding: { iconUrl: 'http://plain.example/icon.png' } })).status, 400);
+  const linked = await fetch(`${BASE}/app-icon`, { redirect: 'manual' });
+  assert.equal(linked.status, 200, 'a refused change keeps the icon that was set');
+  await admin('PUT', '/api/settings', { branding: { iconUrl: 'https://acme.example/icon.png' } });
+  const redirect = await fetch(`${BASE}/app-icon`, { redirect: 'manual' });
+  assert.equal(redirect.status, 302);
+  assert.equal(redirect.headers.get('location'), 'https://acme.example/icon.png');
+  await admin('PUT', '/api/settings', { branding: { iconUrl: '' } });
+  assert.match(await fetch(`${BASE}/app-icon`).then((r) => r.text()), /MZ0/, 'back to MZ0');
+});

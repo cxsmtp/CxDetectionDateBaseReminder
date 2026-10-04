@@ -342,7 +342,8 @@ Settings shows one section at a time: pick it from the list on the left (a strip
 
 Install a new version, go back to any version, turn on auto-update, restart the server, or download a troubleshooting report, all without signing in to the server. How it works and what it needs: [Updating](updating.md).
 
-- **Running** and **Latest published**, with **Update now** when there is a newer one.
+- **Running** and **Latest published**, with **Update now** when there is a newer one. **Check for updates** reads the registry again and says how many versions are published and whether one is newer.
+- **Versions come from their tags**, so a newer one is always listed. Installing downloads the image files, which ghcr.io serves from `pkg-containers.githubusercontent.com`. If a proxy or firewall blocks that host, the page says so (*the versions are listed, but this server could not read the image files…*): allow it over HTTPS, or update with `podman pull`. A check never reports "up to date" when it could not read the registry; it says why.
 - **Auto-update:** off until you tick it. **at** limits it to one hour of the day. A version that failed to start once is never installed by itself again.
 - **Every version:** **Install and switch** (any published version) or **Switch to** (an installed one, or the image's own).
   - A backup is taken before every switch.
@@ -473,6 +474,7 @@ The panel shows:
 | Field | Meaning |
 | --- | --- |
 | App name | Shown in this app's header. |
+| Browser icon | The icon in the browser tab, bookmarks and the developer pages. Empty is CxMissionZero's own **MZ0** (a white MZ inside a green zero). Paste an `https` address, or **Upload an icon** (SVG, PNG, ICO, WebP or JPG, up to 100 KB; square works best); **Use MZ0 (the default)** puts it back. It changes for everyone as soon as it is saved. |
 | Company name, Company logo | Head every email and report. An `https` logo URL works best, because mail clients block embedded images. You can also upload a PNG, JPG, SVG or WebP up to 200 KB. |
 | Logo height | 16–200 pixels. |
 | Accent colour | Buttons and headings in emails and reports. |

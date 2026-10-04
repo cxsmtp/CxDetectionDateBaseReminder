@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#f5f6fa" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0c0f16" media="(prefers-color-scheme: dark)" />
     <title>CxMissionZero</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%234f46e5'/%3E%3Cpath d='M8 4v4.4l2.8 1.7' stroke='white' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
+    <link rel="icon" id="app-icon" href="/app-icon" />
     <script>
       // Apply the saved theme before first paint, so the page never flashes the wrong one.
       try {
@@ -815,6 +815,19 @@
                 <label class="field"><span>Upload a logo (PNG, JPG, SVG or WebP, up to 200 KB)</span><input id="brand-logo-file" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" /></label>
                 <label class="field" data-advanced><span>Logo height, in pixels</span><input id="brand-height" type="number" min="16" max="200" /></label>
                 <label class="field"><span>Accent colour</span><input id="brand-accent" type="color" /></label>
+              </div>
+
+              <div class="brand-icon-row">
+                <img id="brand-icon-preview" class="brand-icon-preview" src="/app-icon" alt="Browser icon" width="48" height="48" />
+                <div class="brand-icon-fields">
+                  <label class="field"><span>Browser icon — the tab's icon; empty is CxMissionZero's own MZ0</span><input id="brand-icon" spellcheck="false" placeholder="https://acme.com/icon.png, or upload one" /></label>
+                  <div class="actions compact">
+                    <label class="button-like sm" for="brand-icon-file">Upload an icon</label>
+                    <input id="brand-icon-file" class="sr-only" type="file" accept="image/png,image/svg+xml,image/x-icon,image/vnd.microsoft.icon,image/webp,image/jpeg" />
+                    <button type="button" id="brand-icon-default" class="sm ghost">Use MZ0 (the default)</button>
+                    <span class="hint inline-hint">Square works best: SVG, or PNG 64×64 or larger, up to 100 KB.</span>
+                  </div>
+                </div>
               </div>
 
               <label class="field">

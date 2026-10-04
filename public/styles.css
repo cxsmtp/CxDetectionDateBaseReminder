@@ -2221,3 +2221,9 @@ button.danger-soft:hover:not(:disabled) { background: var(--danger-soft); border
 .stop-btn:hover:not(:disabled) { background: var(--danger-soft); border-color: var(--danger); }
 .stop-btn svg { width: 14px; height: 14px; fill: currentColor; }
 .stop-btn[hidden] { display: none; }
+/* Branding: the browser icon, with its preview. */
+.brand-icon-row { display: flex; gap: 16px; align-items: flex-start; margin: 4px 0 14px; }
+.brand-icon-preview { width: 48px; height: 48px; flex: none; border-radius: 12px; object-fit: contain; background: var(--surface-2); border: 1px solid var(--border); padding: 4px; box-sizing: content-box; }
+.brand-icon-fields { flex: 1 1 auto; min-width: 0; display: grid; gap: 6px; }
+.brand-icon-fields .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+label.button-like.sm { cursor: pointer; }
