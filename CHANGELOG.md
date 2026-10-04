@@ -24,7 +24,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.37 — 2026-10-04 12:50 UTC · [#60](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/60)
+## MZ-01.00.37 — 2026-10-04 12:45 UTC · [#60](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/60)
 - **SLAs, in Beta.** Each severity has a number of days to be fixed, counted from first detection: critical 7, high 30, medium 90 and low 180, unless you change them under **Settings → SLAs**. Findings triaged as not exploitable have none.
 - **Past SLA on the Dashboard.** A red tile shows how many open findings are past their SLA, with how many more are due within 7 days under it. Each project has a **Past SLA** column (**Due ≤ 7d** under **Columns**), and both are in the CSV export.
 - **Escalation, once per finding.** Switch it on and name who to escalate to. Each scheduled run then emails one list of the findings that went past their SLA since the last run, with the project, severity, how far past and who ran the latest scan. A fixed finding that comes back is escalated again, and test mode counts without sending.
