@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.35 | 529/s, 0 | 0.6 s | 113 ms | 414 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.36 | 492/s, 0 | 2.3 s | 118 ms | 421 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.35 | 529/s, 0 | 0.6 s | 113 ms | 414 | 0 | same |
 | MZ-01.00.34 | 514/s, 0 | 4.2 s | 122 ms | 407 | 0 | same |
 | MZ-01.00.33 | 511/s, 0 | 3.9 s | 172 ms | 407 | 0 | same |
 | MZ-01.00.32 | 511/s, 0 | 2.5 s | 145 ms | 402 | 0 | same |
@@ -21,6 +22,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.36 — 2026-10-04 12:10 UTC · [#59](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/59)
+- **Stop while loading findings.** A **Stop** button sits beside **Load findings** while it loads. Projects already being read finish, the rest are skipped, and what has loaded is kept and ready to use, as after a full load. Leaving the page mid-load stops it the same way.
+- **Your own browser icon.** Settings → Branding has a **Browser icon**: paste an https address or upload an image, up to 100 KB. By default it is CxMissionZero's new **MZ0** icon, a white MZ inside a green zero, which also appears on the sign-in and developer pages.
+- **The Dashboard never loads findings by itself.** Going back to the Dashboard after the page reloaded elsewhere (for example after an update) started a full load with the scope shown. Now only **Load findings**, the Dashboard's reload button or Jump to start one.
+- **Updates are listed again.** If this server could not download image files (ghcr.io serves them from `pkg-containers.githubusercontent.com`), the check listed nothing and said "up to date". Now newer versions are always listed, and the page names the blocked host. The update check also read only the newest 40 tags, so older versions dropped off the list as releases came out; now every version is listed.
+- **Every version: newest 3, then Load 10 more.** The version running here is always shown. The page checks again by itself when it opens and the last check is over 10 minutes old.
+- **Auto-update waits instead of failing.** When the image files cannot be downloaded, it says why rather than trying, and failing, every 15 minutes.
+- **Status.** 64,423 requests with 0 failed for 3000 people at once on 2 vCPU, and no finding sent twice. Report opens took 2.3 s at p95 (main 0.6 s in the same pair, 5.5 s in the pair before; see docs/performance.md). All 421 tests pass, and `npm audit` finds 0 vulnerabilities. The last Checkmarx One scan leaves no critical, high or medium finding open.
 
 ## MZ-01.00.35 — 2026-10-04 11:20 UTC · [#58](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/58)
 - **One Git indicator for every host.** The header's GitHub chip is now **Git**, with one small logo per connection (GitHub, GitLab, Azure DevOps, Bitbucket). Each logo is ringed green when its token works and red when it does not, so you can see at a glance how many hosts are connected. Click it for each connection's host, account and token source, and the variable that connects each missing host.
