@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.34 | 514/s, 0 | 4.2 s | 122 ms | 407 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.35 | 529/s, 0 | 0.6 s | 113 ms | 414 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.34 | 514/s, 0 | 4.2 s | 122 ms | 407 | 0 | same |
 | MZ-01.00.33 | 511/s, 0 | 3.9 s | 172 ms | 407 | 0 | same |
 | MZ-01.00.32 | 511/s, 0 | 2.5 s | 145 ms | 402 | 0 | same |
 | MZ-01.00.31 | 524/s, 0 | 2.5 s | 106 ms | 388 | 0 | same |
@@ -20,6 +21,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.35 — 2026-10-04 11:20 UTC · [#58](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/58)
+- **One Git indicator for every host.** The header's GitHub chip is now **Git**, with one small logo per connection (GitHub, GitLab, Azure DevOps, Bitbucket). Each logo is ringed green when its token works and red when it does not, so you can see at a glance how many hosts are connected. Click it for each connection's host, account and token source, and the variable that connects each missing host.
+- **More than one connection per host.** A second GitHub, GitLab, Azure DevOps organisation or Bitbucket comes from the same .env variables with a number, `_2` to `_9` (for example `GITHUB_TOKEN_2` with `GITHUB_API_URL_2`). They are set at start-up or by uploading the .env file. Code authors are found with the connection for each repository's host and organisation, and each token only ever goes to its own address.
+- **Take credits back, from every project at once.** Credit Control → Allocated vs used has **Take back all unused credits** for a clean slate, without loading findings, and **Take back** on each project's row. The Dashboard's **Take back unused credits** is visible again (1.0.34 had hidden it under advanced options). Used credits stay counted, and every take-back is in the audit log.
+- **Get started in one row.** The six setup steps are one slim line of steps, joined by a green line as each is done.
+- **Fix.** Local git blame now clones with a `GITHUB_TOKEN` set only in the .env file. Before, it used only a token saved on the Beta page.
+- **Status.** 529 requests a second with 0 failed for 3000 people at once on 2 vCPU. Report opens took 0.55 s at p95 (main 0.39 s, in the third of three back-to-back pairs; see docs/performance.md). All 414 tests pass, and `npm audit` finds 0 vulnerabilities. The last Checkmarx One scan leaves no critical, high or medium finding open.
 
 ## MZ-01.00.34 — 2026-10-04 09:05 UTC · [#57](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/57)
 - **Simple by default.** Fine-tuning most people never need is hidden until someone turns on **Show advanced options** in their menu (top right). That includes the reminder format, extra credits, mail and link templates, the risks endpoint, mail certificate checks and HTTPS hardening. Settings shows 13 sections instead of 16.
