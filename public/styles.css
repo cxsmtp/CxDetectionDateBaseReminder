@@ -2109,3 +2109,16 @@ main { max-width: none; }
 :root[data-theme="dark"] .upd-card.upd-new { background: rgb(6 95 70 / 0.22); border-color: rgb(52 211 153 / 0.35); }
 :root[data-theme="dark"] .upd-job.failed { background: rgb(180 35 24 / 0.18); color: #fda29b; }
 :root[data-theme="dark"] .upd-job.switching, :root[data-theme="dark"] .upd-job.running { background: rgb(46 144 250 / 0.15); }
+
+/* Settings → Beta features: one card per feature, Beta or final. */
+.feat-list { display: grid; gap: 12px; margin-top: 12px; }
+.feat-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; background: var(--surface); }
+.feat-card.is-final { border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
+.feat-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.feat-head h3 { margin: 0; font-size: 15px; }
+.feat-card p { margin: 8px 0 0; }
+.feat-effects { margin: 4px 0 0; padding-left: 20px; }
+.feat-effects li { margin: 2px 0; }
+.ptab .badge { margin-left: 4px; font-size: 10px; vertical-align: 1px; }
+.code-authors-cta { margin: 12px 0 0; font-size: 13px; }
+.feat-caution { margin-top: 10px; font-size: 13px; }

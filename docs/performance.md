@@ -69,6 +69,17 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.30 | 1 | 7.4 s / 0 | 64,211 / 0 | 524 | 53 / 4,136 ms | 8 / 371 ms | none |
 | MZ-01.00.30 (main) | 2 | 8.4 s / 0 | 64,118 / 0 | 517 | 62 / 5,149 ms | 9 / 350 ms | none |
 | **MZ-01.00.31** | 1 | 8.8 s / 0 | 64,421 / 0 | 524 | 55 / **2,528 ms** | 5 / **106 ms** | none |
+| MZ-01.00.31 (main) | 2 | 7.8 s / 0 | 64,243 / 0 | 516 | 52 / 3,439 ms | 6 / 125 ms | none |
+| MZ-01.00.32 (Beta → final only) | 1 | 11.1 s / 0 | 64,259 / 0 | 509 | 64 / 4,550 ms | 5 / 141 ms | none |
+| MZ-01.00.32 (Beta → final only) | 2 | 7.5 s / 0 | 64,380 / 0 | 511 | 51 / 3,051 ms | 6 / 114 ms | none |
+| **MZ-01.00.32** | 3 | 9.4 s / 0 | 64,589 / 0 | 511 | 46 / **2,470 ms** | 6 / 145 ms | none |
+
+**MZ-01.00.32: what the differences were.** None that matters. Making a Beta feature final, and the hardened git blame, only run when someone uses the Beta page, or on a scheduled run with *Also email the code authors* switched on. The mixed load does neither. Each request to `/api/me` now also lists the feature stages, which is a lookup in memory.
+- **Run 1 was slower** (report opens p95 4.6 s, and the burst took 11.1 s with 795 busy retries). It ran right after the container restarted. Main and the branch were then run back to back from clean worktrees:
+  - main (MZ-01.00.31) run 2: 3.4 s;
+  - the branch: 3.1 s;
+  - the final code (run 3): 2.5 s.
+- **All three are inside the spread** of the same code seen before (1.3 to 7 s). Every run had 0 failed requests, and no finding was sent for triage twice.
 
 **MZ-01.00.31: profiled, and faster again.** Main (MZ-01.00.30 run 2) and the branch were run back to back on the same machine. A CPU profile under the full load found no single long block: the server's one thread was simply busy, and report opens waited behind it. What changed:
 - **Report opens no longer wait on Checkmarx One for finding states.** The states are kept 30 s. When they ran out, the next open report waited for a fresh read, queued behind every fetch. Now it is answered from the last states known while they are read again in the background, so p95 went from 5.1 s to 2.5 s. An action from a report still reads the state fresh.

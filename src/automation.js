@@ -177,6 +177,7 @@ export async function runOnce({
   verified = false,
   now = new Date(),
   force = false,
+  notifyAuthors = null,
 }) {
   const automation = settings.automation;
   const started = Date.now();
@@ -284,6 +285,17 @@ export async function runOnce({
   const { pruned } = applyLedger(state.ledger, dryRun ? [] : reported, seen, now);
   state.persist();
 
+  // The developer who last changed each vulnerable line, as well (when switched on): never
+  // a reason for the run to fail, and never repeated for a finding (only what just crossed).
+  let codeAuthors;
+  if (automation.notifyCodeAuthors && notifyAuthors) {
+    try {
+      codeAuthors = await notifyAuthors(crossed, { client, connection, projects: scan.projects, initiators: initiators.byProject, dryRun });
+    } catch (error) {
+      codeAuthors = { error: error.message };
+    }
+  }
+
   return {
     ok: failures.length === 0,
     dryRun,
@@ -294,6 +306,7 @@ export async function runOnce({
     failures,
     elapsedMs: Date.now() - started,
     thresholds: automation.thresholds,
+    ...(codeAuthors ? { codeAuthors } : {}),
   };
 }
 
@@ -318,7 +331,10 @@ export class Scheduler {
 
   #verified;
 
-  constructor({ resolveSession, state, settingsStore, config, isVerified }) {
+  #notifyAuthors;
+
+  constructor({ resolveSession, state, settingsStore, config, isVerified, notifyAuthors = null }) {
+    this.#notifyAuthors = notifyAuthors;
     this.#resolve = resolveSession;
     this.#state = state;
     this.#settingsStore = settingsStore;
@@ -380,6 +396,7 @@ export class Scheduler {
         state: this.#state,
         verified: this.#verified(this.#settingsStore.get()),
         force,
+        notifyAuthors: this.#notifyAuthors,
       });
       return this.#state.recordRun(result);
     } catch (error) {

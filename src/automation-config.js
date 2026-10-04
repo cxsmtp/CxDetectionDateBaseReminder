@@ -17,6 +17,8 @@ export const DEFAULT_AUTOMATION = {
   groupBy: 'initiator',
   // Kept so a run can be rehearsed in production without mailing anyone.
   dryRun: false,
+  // Also email the developer who last changed each vulnerable line (once "Code authors" is final).
+  notifyCodeAuthors: false,
 };
 
 export class AutomationError extends Error {
@@ -33,6 +35,7 @@ export function mergeAutomation(current, incoming = {}) {
 
   if ('enabled' in incoming) next.enabled = Boolean(incoming.enabled);
   if ('dryRun' in incoming) next.dryRun = Boolean(incoming.dryRun);
+  if ('notifyCodeAuthors' in incoming) next.notifyCodeAuthors = incoming.notifyCodeAuthors === true;
   if ('mode' in incoming) next.mode = incoming.mode === 'digest' ? 'digest' : 'crossing';
   if ('groupBy' in incoming) {
     next.groupBy = ['none', 'initiator', 'project'].includes(incoming.groupBy) ? incoming.groupBy : 'initiator';

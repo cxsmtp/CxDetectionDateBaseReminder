@@ -430,7 +430,7 @@ const PAGE_PERMS = {
   audit: 'audit.view backup.view',
   settings: 'settings.view',
   access: 'iam.view',
-  beta: 'beta.use',
+  beta: 'beta.use feature.codeAuthors feature.identityMatching',
   logs: '',
 };
 
@@ -440,6 +440,7 @@ const PAGE_PERMS = {
  */
 function applyPermissions() {
   for (const el of document.querySelectorAll('[data-perm]')) el.classList.toggle('perm-hidden', !canAny(el.dataset.perm));
+  renderFeatureStages();
   for (const panel of document.querySelectorAll('[data-edit-perm]')) {
     const editable = canAny(panel.dataset.editPerm);
     panel.classList.toggle('read-only', !editable);
@@ -484,7 +485,80 @@ function parseRoute() {
   return { name: ROUTE_ALIASES[raw] ?? (raw || 'dashboard'), view: decodeURIComponent(view) };
 }
 
+// ---- Beta features, and making them final -----------------------------------
+
+const FEATURE_TABS = { codeAuthors: 'Code authors', identityMatching: 'Match usernames' };
+
+/** Beta labels only on what is still Beta; the sidebar names the page after what it holds. */
+function renderFeatureStages() {
+  const stages = state.me?.features ?? {};
+  for (const badge of document.querySelectorAll('[data-beta-badge]')) badge.hidden = stages[badge.dataset.betaBadge] === 'final';
+  const beta = Object.keys(FEATURE_TABS).filter((id) => stages[id] !== 'final');
+  const banner = document.getElementById('beta-banner');
+  if (banner) banner.hidden = beta.length === 0;
+  if (banner) {
+    const names = beta.map((id) => FEATURE_TABS[id]);
+    banner.lastChild.textContent = ` ${names.join(' and ')} ${names.length === 1 ? 'is' : 'are'} still in Beta: ${names.length === 1 ? 'it reads' : 'they read'} git history and, if connected, the GitHub, GitLab, Azure DevOps and Bitbucket APIs. Check results before relying on them.`;
+  }
+  const name = stages.codeAuthors === 'final' ? 'Code authors' : 'Beta';
+  const label = document.getElementById('nav-beta-label');
+  if (label) label.textContent = name;
+  PAGE_TITLES.beta[0] = name;
+  if (state.page === 'beta') setPageTitle('beta');
+  const authorsRow = document.getElementById('auto-authors-row');
+  if (authorsRow) authorsRow.hidden = stages.codeAuthors !== 'final';
+}
+
+async function loadFeatures() {
+  if (!can('features.manage')) return;
+  try {
+    renderFeatures(await api('/api/features'));
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('feat-status', error);
+  }
+}
+
+function renderFeatures({ features }) {
+  $('feat-list').innerHTML = features
+    .map((f) => {
+      const final = f.stage === 'final';
+      const since = f.changedAt ? ` · since ${new Date(f.changedAt).toLocaleDateString()}${f.changedBy ? ` by ${f.changedBy}` : ''}` : '';
+      return `<article class="feat-card ${final ? 'is-final' : ''}">
+        <div class="feat-head">
+          <h3>${escapeHtml(f.name)} <span class="badge ${final ? 'ok' : 'warn'}">${final ? 'Final' : 'Beta'}</span></h3>
+          <button type="button" class="${final ? '' : 'primary'}" data-feature-stage="${escapeHtml(f.id)}" data-to="${final ? 'beta' : 'final'}">${final ? 'Back to Beta' : 'Make final'}</button>
+        </div>
+        <p>${escapeHtml(f.summary)}</p>
+        <p class="hint">${final ? 'Now' : 'Once final'}:</p>
+        <ul class="feat-effects">${f.whenFinal.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>
+        ${!final && f.beforeFinal ? `<p class="feat-caution"><span class="badge warn">Before making it final</span> ${escapeHtml(f.beforeFinal)}</p>` : ''}
+        <p class="hint">${final ? 'Final' : 'In Beta'}${escapeHtml(since)}</p>
+      </article>`;
+    })
+    .join('');
+}
+
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-feature-stage]');
+  if (!button) return;
+  const to = button.dataset.to;
+  const name = button.closest('.feat-card')?.querySelector('h3')?.firstChild?.textContent?.trim() ?? 'this feature';
+  if (!confirm(to === 'final' ? `Make “${name}” final for everyone in your organisation?` : `Put “${name}” back in Beta? People without “Beta features” lose access to it.`)) return;
+  button.disabled = true;
+  setStatus('feat-status', 'Saving…');
+  try {
+    renderFeatures(await api(`/api/features/${encodeURIComponent(button.dataset.featureStage)}`, { method: 'PUT', body: JSON.stringify({ stage: to }) }));
+    state.me = await api('/api/me');
+    applyPermissions();
+    setStatus('feat-status', to === 'final' ? `“${name}” is final.` : `“${name}” is back in Beta.`, 'ok');
+  } catch (error) {
+    button.disabled = false;
+    if (!handleAuthLoss(error)) showError('feat-status', error);
+  }
+});
+
 const reloadSettingsPage = () => {
+  loadFeatures();
   renderSettings();
   loadAutomation();
   loadPool();
@@ -1242,6 +1316,7 @@ function renderAutomation() {
 
   $('auto-enabled').checked = a.config.enabled;
   $('auto-dry').checked = a.config.dryRun;
+  $('auto-authors').checked = a.config.notifyCodeAuthors === true;
   $('auto-thresholds').value = a.config.thresholds.join(', ');
   $('auto-interval').value = a.config.intervalMinutes;
   $('auto-groupby').value = a.config.groupBy;
@@ -1292,7 +1367,8 @@ function renderAutomation() {
               <td class="num">${run.crossed ?? '—'}</td>
               <td class="num">${run.sent ?? 0}${run.dryRun ? ' (dry)' : ''}</td>
               <td class="snippet">${escapeHtml(
-                run.error || run.reason || (run.failures?.length ? `${run.failures.length} failed` : 'ok'),
+                (run.error || run.reason || (run.failures?.length ? `${run.failures.length} failed` : 'ok')) +
+                  (run.codeAuthors?.emailed ? ` · ${run.codeAuthors.emailed} code author${run.codeAuthors.emailed === 1 ? '' : 's'} ${run.dryRun ? 'would be ' : ''}emailed` : run.codeAuthors?.error ? ` · code authors: ${run.codeAuthors.error}` : ''),
               )}</td>
             </tr>`,
           )
@@ -1305,6 +1381,8 @@ function automationPayload() {
   return {
     enabled: $('auto-enabled').checked,
     dryRun: $('auto-dry').checked,
+    // Only offered once "Code authors" is final; otherwise left as it is.
+    ...(state.me?.features?.codeAuthors === 'final' ? { notifyCodeAuthors: $('auto-authors').checked } : {}),
     thresholds: $('auto-thresholds').value,
     intervalMinutes: $('auto-interval').value,
     groupBy: $('auto-groupby').value,
@@ -5648,6 +5726,7 @@ $('authors-find').addEventListener('click', async () => {
     $('authors-stats').innerHTML = `
       <span class="stat"><b>${s.findings}</b> findings</span>
       <span class="stat"><b>${s.blamed}</b> traced to a commit</span>
+      <span class="stat ok"><b>${s.sure ?? 0}</b> sure</span>${s.unsure ? `<span class="stat"><b>${s.unsure}</b> to check (not ticked)</span>` : ''}
       <span class="stat ok"><b>${s.authors}</b> author${s.authors === 1 ? '' : 's'} with email</span>
       <span class="stat"><b>${s.githubRequests}</b> GitHub API call${s.githubRequests === 1 ? '' : 's'}</span>`;
     renderAuthors();
@@ -5669,12 +5748,17 @@ function renderAuthors() {
       const author = i.author
         ? `<div class="person-main">${avatar(i.author.name || i.author.login || i.author.email)}<span class="person-text"><span class="person-name">${escapeHtml(i.author.name || i.author.login)}</span><span class="person-mail">${escapeHtml(i.author.email || 'no address')}${i.author.emailVia && i.author.emailVia !== 'commit' ? ` · via ${escapeHtml(METHOD_NAMES_GITHUB[i.author.emailVia] || i.author.emailVia)}` : ''}</span></span></div>`
         : '';
+      // Only answers git blame is sure of are ticked; an unsure one is there to look at, and to tick on purpose.
+      const sure = i.confidence === 'high';
+      const confidence = i.commit
+        ? `<span class="badge ${sure ? '' : i.confidence === 'medium' ? 'warn' : 'bad'}" title="${escapeHtml(i.confidenceReason || '')}">${sure ? 'Sure' : i.confidence === 'medium' ? 'Check' : 'Unsure'}</span>${i.confidenceReason ? `<div class="hint">${escapeHtml(i.confidenceReason)}</div>` : ''}`
+        : '';
       return `<tr class="${i.author?.email ? '' : 'dim-row'}">
-        <td class="checkbox"><input type="checkbox" data-author-key="${escapeHtml(i.key)}" ${i.author?.email ? 'checked' : 'disabled'} /></td>
+        <td class="checkbox"><input type="checkbox" data-author-key="${escapeHtml(i.key)}" ${!i.author?.email ? 'disabled' : sure ? 'checked' : ''} /></td>
         <td class="finding-cell"><span class="sev-dot sev-${escapeHtml(sev)}"></span>${i.url ? `<a href="${escapeHtml(i.url)}" target="_blank" rel="noopener">${escapeHtml(i.title)}</a>` : escapeHtml(i.title)}
           <div class="hint">${escapeHtml(i.projectName)} · ${escapeHtml(i.scanner)}${i.ageDays != null ? ` · ${i.ageDays}d` : ''}</div></td>
         <td class="mono where">${escapeHtml(where)}${i.problem ? `<div class="hint error-hint">${escapeHtml(i.problem)}</div>` : ''}</td>
-        <td>${author}</td>
+        <td>${author}${confidence}</td>
         <td class="mono">${i.commit ? `${i.commitUrl ? `<a href="${escapeHtml(i.commitUrl)}" target="_blank" rel="noopener">${escapeHtml(i.commit.slice(0, 8))}</a>` : escapeHtml(i.commit.slice(0, 8))}<div class="hint">${escapeHtml((i.committedAt || '').slice(0, 10))} · ${escapeHtml([i.host, i.via].filter(Boolean).join(' · '))}</div>` : ''}</td>
       </tr>`;
     })

@@ -1,5 +1,11 @@
 # Beta features
 
+**Beta or final.** Each feature starts in Beta, for roles holding "Beta features". An Admin makes it final under **Settings → Beta features** (permission "Make Beta features final"), and can put it back:
+- **Code authors, once final:** anyone who may send reminders can use it, and scheduled reminders (Settings → Automation → *Also email the code authors*) email the developer who last changed the line of each finding that just crossed a threshold, up to 200 findings a run.
+- **Matching usernames, once final:** anyone who may change initiator addresses can run and apply it.
+
+Every change of stage is in the audit log.
+
 Both features live on the **Beta** tab. They read git history and, optionally,
 the APIs of GitHub, GitLab, Azure DevOps and Bitbucket; check what they find before
 relying on it.
@@ -29,6 +35,27 @@ For each finding in the current Dashboard scope (severities and a maximum you ch
    address (GitHub's `ID+login@users.noreply…`, GitLab's `ID-username@users.noreply…`)
    or is not usable, the username is resolved with that host's methods below,
    cheapest first, starting with the history of the repository just cloned.
+
+5. **Never the wrong person.** Local `git blame` ignores whitespace-only changes and code that
+   was only moved (`-w -M -C`), skips the commits the repository lists in
+   `.git-blame-ignore-revs` (mass reformatting), and looks past up to 3 commits made by bots
+   (Dependabot, Renovate, GitHub Actions, any `[bot]` account) to the person who wrote the line.
+   When a host's blame API answers with a bot or a commit that looks like reformatting, the line
+   is blamed again locally. Each answer then says how sure it is:
+
+   | Shown as | When | Ticked for sending? |
+   |---|---|---|
+   | **Sure** | Blamed at the exact commit Checkmarx One scanned, by a person, and the line still holds the vulnerable code where that can be checked. | Yes |
+   | **Check** | The scan recorded no commit, so its branch was blamed and the line still matches; or the host's blame named a commit that looks like reformatting. | No |
+   | **Unsure** | The line no longer holds the vulnerable code (it moved or changed after the scan), the scanned commit is gone so a later version was blamed, or the last change was a bot's. | No |
+
+   Unsure and Check answers are shown with the reason, and are only emailed if you tick them
+   yourself. Scheduled reminders only ever email **Sure** answers.
+
+   Tested on real git repositories: a whitespace-only change, a reformatting commit listed in
+   `.git-blame-ignore-revs`, a Dependabot commit on the line, and code moved down the file all
+   still name the original author; a line replaced after the scan, and a scanned commit that is
+   gone, are reported as Unsure.
 
 Each author gets one email listing the findings on lines they last changed,
 with links to the finding in Checkmarx One and to their commit. Preview first.

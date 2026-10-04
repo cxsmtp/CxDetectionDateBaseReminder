@@ -57,6 +57,7 @@ import { describeCertificate } from './tls.js';
 import { HSTS_AGES, HttpsManager } from './https-manager.js';
 import { SUPPORTING_NOTICE, Terms } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
+import { featureById, featureList, isFinal, mayUse } from './features.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
 import {
   SessionStore,
@@ -441,6 +442,8 @@ const scheduler = new Scheduler({
   settingsStore: { get: () => sendingSettings() },
   config: () => activeConfig(),
   isVerified,
+  // Scheduled reminders can also email the code authors, once that feature is final.
+  notifyAuthors: (crossed, context) => notifyCodeAuthors(crossed, context),
 });
 
 const escapeHtml = (text) => String(text ?? '')
@@ -632,6 +635,20 @@ function requirePermission(...permissions) {
     });
 }
 
+/**
+ * A Beta feature: for people with Beta access, and, once an Admin made it final,
+ * for everyone holding the feature's own permission too (src/features.js).
+ */
+function requireFeature(id) {
+  return (req, res, next) =>
+    requireSession(req, res, (error) => {
+      if (error) return next(error);
+      if (mayUse(settingsStore.get(), id, req.permissions)) return next();
+      const feature = featureById(id);
+      res.status(403).json({ error: `“${feature?.name ?? id}” is a Beta feature: your role needs “Beta features”${isFinal(settingsStore.get(), id) ? '' : ' until an Admin makes it final'}.`, permission: 'beta.use' });
+    });
+}
+
 /** Deployment config with the administrator's pinned risks path layered on. */
 function activeConfig() {
   const pinned = settingsStore.get().endpoints.risksPath;
@@ -715,7 +732,10 @@ app.get('/api/metrics', requirePermission('system.metrics'), async (req, res) =>
 
 /** What this browser may see about itself: who is signed in, what they may do, and the connection. */
 function describeMe(session, user) {
-  const permissions = [...iam.permissionsOf(user)];
+  const held = iam.permissionsOf(user);
+  const settings = settingsStore.get();
+  // "feature.<id>": what the page shows for each Beta feature this person may use (never checked by the server).
+  const permissions = [...held, ...featureList(settings).filter((f) => mayUse(settings, f.id, held)).map((f) => `feature.${f.id}`)];
   const integration = integrationSession();
   let tenant = '';
   try {
@@ -733,6 +753,7 @@ function describeMe(session, user) {
     user: publicUser(user),
     role: { id: user.role, name: iam.role(user.role)?.name ?? user.role },
     permissions,
+    features: Object.fromEntries(featureList(settings).map((f) => [f.id, f.stage])),
     via: session.via,
     integration: { connected: Boolean(integration), tenant },
     // Connection settings put back because new ones did not work: shown once to each administrator.
@@ -5768,6 +5789,41 @@ app.put('/api/system/update/settings', requirePermission('system.update'), (req,
   res.json(updates.status());
 });
 
+// ---------------------------------------------------------------------------
+// Beta features, and making them final (src/features.js)
+// ---------------------------------------------------------------------------
+
+/** Every Beta feature, its stage, and whether this person may use it and change it. */
+app.get('/api/features', requireSession, (req, res) => {
+  const settings = settingsStore.get();
+  res.json({
+    features: featureList(settings).map((f) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })),
+    canManage: can(req, 'features.manage'),
+  });
+});
+
+/** The Admin's switch: a feature becomes final for everyone (or goes back to Beta). Audited. */
+app.put('/api/features/:id', requirePermission('features.manage'), (req, res) => {
+  const feature = featureById(req.params.id);
+  if (!feature) return res.status(404).json({ error: 'No such feature.' });
+  const stage = req.body?.stage === 'final' ? 'final' : req.body?.stage === 'beta' ? 'beta' : '';
+  if (!stage) return res.status(400).json({ error: 'The stage must be "beta" or "final".' });
+  const before = isFinal(settingsStore.get(), feature.id) ? 'final' : 'beta';
+  if (before !== stage) {
+    settingsStore.save({ features: { [feature.id]: { stage, at: new Date().toISOString(), by: req.user?.email ?? '' } } });
+    audit.record({
+      type: 'system',
+      outcome: 'changed',
+      reason: stage === 'final' ? `“${feature.name}” made final: no longer Beta, for everyone holding its permission.` : `“${feature.name}” put back in Beta.`,
+      actor: { kind: 'user', user: req.user?.email ?? '' },
+      details: { feature: feature.id, from: before, to: stage },
+    });
+    scheduler.sync();
+  }
+  const settings = settingsStore.get();
+  res.json({ features: featureList(settings).map((f) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })), canManage: true });
+});
+
 /** Everything worth knowing when something is wrong, without secrets: for the Admin, or to send to whoever helps. */
 app.get('/api/system/report', requirePermission('system.update'), (req, res) => {
   const memory = process.memoryUsage();
@@ -6012,7 +6068,7 @@ function initiatorLogins(lastScan) {
   return [...logins];
 }
 
-app.get('/api/beta/github/logins', requirePermission('beta.use'), (req, res) => {
+app.get('/api/beta/github/logins', requireFeature('identityMatching'), (req, res) => {
   const lastScan = req.session.lastScan;
   const unresolved = new Set(
     Object.values(lastScan?.initiators ?? {})
@@ -6025,7 +6081,7 @@ app.get('/api/beta/github/logins', requirePermission('beta.use'), (req, res) => 
 /** Run the identity methods side by side on real logins and compare them. */
 app.post(
   '/api/beta/github/evaluate',
-  requirePermission('beta.use'),
+  requireFeature('identityMatching'),
   asyncRoute(async (req, res) => {
     const settings = settingsStore.get();
     const github = settings.beta?.github ?? {};
@@ -6048,7 +6104,7 @@ app.post(
 );
 
 /** Save chosen matches as initiator overrides (username = email), used from the next fetch. */
-app.post('/api/beta/github/apply', requirePermission('beta.use'), (req, res) => {
+app.post('/api/beta/github/apply', requireFeature('identityMatching'), (req, res) => {
   const mappings = (Array.isArray(req.body?.mappings) ? req.body.mappings : [])
     .map((m) => ({ login: String(m?.login ?? '').trim(), email: String(m?.email ?? '').trim().toLowerCase() }))
     .filter((m) => validLogin(m.login) && usableEmail(m.email));
@@ -6065,7 +6121,7 @@ app.post('/api/beta/github/apply', requirePermission('beta.use'), (req, res) => 
  * Azure DevOps and Bitbucket have theirs (src/scm). Scan initiators are offered for the
  * host their project's repository is on (all of them when that is not known).
  */
-app.get('/api/beta/scm/logins', requirePermission('beta.use'), (req, res) => {
+app.get('/api/beta/scm/logins', requireFeature('identityMatching'), (req, res) => {
   const provider = SCM_PROVIDERS.includes(req.query.provider) ? req.query.provider : 'github';
   const lastScan = req.session.lastScan;
   const settings = settingsStore.get();
@@ -6087,7 +6143,7 @@ app.get('/api/beta/scm/logins', requirePermission('beta.use'), (req, res) => {
 
 app.post(
   '/api/beta/scm/evaluate',
-  requirePermission('beta.use'),
+  requireFeature('identityMatching'),
   asyncRoute(async (req, res) => {
     const provider = String(req.body?.provider ?? '');
     if (!SCM_PROVIDERS.includes(provider) || provider === 'github') return res.status(400).json({ error: 'Choose GitLab, Azure DevOps or Bitbucket (GitHub has its own comparison).' });
@@ -6106,7 +6162,7 @@ app.post(
   }),
 );
 
-app.post('/api/beta/scm/apply', requirePermission('beta.use'), (req, res) => {
+app.post('/api/beta/scm/apply', requireFeature('identityMatching'), (req, res) => {
   const provider = SCM_PROVIDERS.includes(req.body?.provider) ? req.body.provider : 'github';
   const mappings = (Array.isArray(req.body?.mappings) ? req.body.mappings : [])
     .map((m) => ({ login: String(m?.login ?? '').trim(), email: String(m?.email ?? '').trim().toLowerCase() }))
@@ -6141,12 +6197,11 @@ const AUTHOR_LIMIT_MAX = 300;
  */
 app.post(
   '/api/beta/authors/find',
-  requirePermission('beta.use'),
+  requireFeature('codeAuthors'),
   asyncRoute(async (req, res) => {
     const { lastScan, client, connection } = req.session;
     if (!lastScan) return res.status(409).json({ error: 'Fetch the project list first.' });
     const settings = settingsStore.get();
-    const github = settings.beta?.github ?? {};
     const { severities = null } = req.body ?? {};
     const projectIds = idList(req.body?.projectIds);
     const limit = Math.min(AUTHOR_LIMIT_MAX, Math.max(1, Number(req.body?.limit) || 50));
@@ -6163,152 +6218,210 @@ app.post(
       .map((r) => ({ ...r }));
     if (!risks.length) return res.status(400).json({ error: 'No findings match that selection.' });
 
-    const projects = new Map(lastScan.projects.map((p) => [p.projectId, p]));
-    const scanIdOf = (f) => f.scanId || lastScan.initiators?.[f.projectId]?.scanId || '';
-    const locatable = risks.filter((r) => r.scanner === 'SAST' || r.scanner === 'KICS' || r.scanner === 'IAC');
-    const rows = await resultRowsFor(client, locatable, scanIdOf);
-
-    const scans = new Map();
-    await mapWithConcurrency([...new Set(locatable.map(scanIdOf).filter(Boolean))], 4, async (scanId) => {
-      try {
-        scans.set(scanId, await client.request(`/api/scans/${encodeURIComponent(scanId)}`, { retries: 1 }));
-      } catch {
-        scans.set(scanId, null);
-      }
-    });
-
-    const items = risks.map((finding) => {
-      const project = projects.get(finding.projectId) ?? {};
-      const item = {
-        finding,
-        url: riskUrl(finding, connection, settings.links, scanIdOf(finding)),
-      };
-      if (!locatable.includes(finding)) {
-        item.problem = finding.scanner === 'SCA' ? 'Open-source package: no line of your code to blame.' : `${finding.scanner} findings have no code line.`;
-        return item;
-      }
-      const row = rows.get(finding);
-      item.location = row ? locationOf(row) : null;
-      if (!item.location?.path || !item.location.line) {
-        item.problem = 'Checkmarx One gave no file and line for this finding.';
-        return item;
-      }
-      item.version = codeVersion(scans.get(scanIdOf(finding)), project);
-      item.repo = parseRepoUrl(item.version.repoUrl);
-      if (!item.repo) item.problem = 'No repository is linked to this project in Checkmarx One (scan uploaded without a repository URL).';
-      return item;
-    });
-
-    const gh = githubClient(settings);
-    const hosts = scmHosts(settings);
-    await blameFindings(items, {
-      gh,
-      apiUrl: github.apiUrl,
-      cacheDir: gitCacheDir,
-      token: github.token,
-      useGithub: settings.beta?.authors?.useGithubBlame !== false,
-      useLocal: settings.beta?.authors?.useLocalBlame !== false,
-      scm: hosts,
-    });
-
-    // Authors who hid their address behind GitHub's noreply one: resolve the
-    // login, starting with the history of the repositories just cloned.
-    const logins = new Set();
-    for (const item of items) {
-      if (!item.blame || (item.provider && item.provider !== 'github')) continue;
-      const login = item.blame.login || loginFromNoreply(item.blame.authorEmail);
-      if (login && !usableEmail(item.blame.authorEmail)) logins.add(login);
-    }
-    // On GitLab, Azure DevOps or Bitbucket: that host's own methods, cheapest first.
-    const elsewhere = new Map(); // provider -> Set of usernames
-    for (const item of items) {
-      if (!item.blame || !item.provider || item.provider === 'github' || usableEmail(item.blame.authorEmail)) continue;
-      const login = item.blame.login || loginFromNoreply(item.blame.authorEmail) || item.blame.authorName;
-      if (!login) continue;
-      if (!elsewhere.has(item.provider)) elsewhere.set(item.provider, new Set());
-      elsewhere.get(item.provider).add(login);
-    }
-    const resolvedElsewhere = {};
-    for (const [provider, names] of elsewhere) {
-      const clones = [...new Set(items.filter((i) => i.provider === provider && i.repo).map((i) => i.repo.cloneUrl))];
-      const methods = methodsFor(provider, hosts.clients, hosts.configs, { localSources: [...clones, ...(github.localRepos ?? [])], cacheDir: gitCacheDir });
-      const found = await resolveWith(methods, [...names]);
-      for (const [login, hit] of Object.entries(found)) resolvedElsewhere[`${provider}|${login}`] = hit;
-    }
-    let resolved = {};
-    if (logins.size) {
-      const clones = [];
-      for (const url of new Set(items.filter((i) => i.repo).map((i) => i.repo.cloneUrl))) {
-        try {
-          clones.push((await ensureClone(url, { cacheDir: gitCacheDir, blobs: true })).dir);
-        } catch {}
-      }
-      resolved = await resolveLogins(gh, [...logins], {
-        org: github.org,
-        repos: github.repos ?? [],
-        localSources: [...clones, ...(github.localRepos ?? [])],
-        cacheDir: gitCacheDir,
-      });
-    }
-
-    const result = items.map((item) => {
-      const f = item.finding;
-      const out = {
-        key: `${f.projectId}|${f.riskId}`,
-        projectId: f.projectId,
-        projectName: f.projectName,
-        title: f.title,
-        severity: f.severity,
-        scanner: f.scanner,
-        ageDays: f.ageDays,
-        url: item.url,
-        location: item.location ?? null,
-        problem: item.problem ?? '',
-      };
-      if (item.blame) {
-        const onGithub = !item.provider || item.provider === 'github';
-        const login = item.blame.login || loginFromNoreply(item.blame.authorEmail);
-        const found = onGithub ? resolved[login] : resolvedElsewhere[`${item.provider}|${login || item.blame.authorName}`];
-        const email = usableEmail(item.blame.authorEmail) ? item.blame.authorEmail : found?.email ?? '';
-        Object.assign(out, {
-          commit: item.blame.commit,
-          commitUrl: item.blame.url || (item.repo?.host === 'github.com' ? `https://github.com/${item.repo.owner}/${item.repo.repo}/commit/${item.blame.commit}` : ''),
-          committedAt: item.blame.date,
-          via: item.blame.via,
-          ref: item.blame.ref,
-          author: {
-            name: item.blame.authorName,
-            login,
-            email,
-            emailVia: usableEmail(item.blame.authorEmail) ? 'commit' : found ? `${onGithub ? '' : `${SCM_LABELS[item.provider]}: `}${found.method}` : '',
-          },
-          host: SCM_LABELS[item.provider] ?? item.repo?.host ?? '',
-        });
-        if (!email) out.problem = `Author ${item.blame.authorName || login} hides their email address and it could not be resolved.`;
-      }
-      return out;
-    });
-
+    const { items: result, summary } = await findCodeAuthors(risks, { client, connection, settings, projects: lastScan.projects, initiators: lastScan.initiators });
     req.session.lastAuthors = result;
-    const withEmail = result.filter((r) => r.author?.email);
-    res.json({
-      items: result,
-      summary: {
-        findings: result.length,
-        blamed: result.filter((r) => r.commit).length,
-        withEmail: withEmail.length,
-        authors: new Set(withEmail.map((r) => r.author.email)).size,
-        githubRequests: gh.totalRequests,
-        hostRequests: Object.fromEntries(Object.entries(hosts.clients).filter(([, c]) => c?.totalRequests).map(([id, c]) => [id, c.totalRequests])),
-      },
-    });
+    res.json({ items: result, summary });
   }),
 );
+
+/**
+ * Who last changed the line of each finding (SAST and KICS), at the scanned commit, and
+ * their real address: [{key, finding fields, location, commit, author: {name, login, email}}]
+ * with a summary. Used by the Code authors page and by scheduled reminders.
+ */
+async function findCodeAuthors(risks, { client, connection, settings, projects: projectList, initiators = {} }) {
+  const github = settings.beta?.github ?? {};
+  const projects = new Map(projectList.map((p) => [p.projectId, p]));
+  const scanIdOf = (f) => f.scanId || initiators?.[f.projectId]?.scanId || '';
+  const locatable = risks.filter((r) => r.scanner === 'SAST' || r.scanner === 'KICS' || r.scanner === 'IAC');
+  const rows = await resultRowsFor(client, locatable, scanIdOf);
+
+  const scans = new Map();
+  await mapWithConcurrency([...new Set(locatable.map(scanIdOf).filter(Boolean))], 4, async (scanId) => {
+    try {
+      scans.set(scanId, await client.request(`/api/scans/${encodeURIComponent(scanId)}`, { retries: 1 }));
+    } catch {
+      scans.set(scanId, null);
+    }
+  });
+
+  const items = risks.map((finding) => {
+    const project = projects.get(finding.projectId) ?? {};
+    const item = {
+      finding,
+      url: riskUrl(finding, connection, settings.links, scanIdOf(finding)),
+    };
+    if (!locatable.includes(finding)) {
+      item.problem = finding.scanner === 'SCA' ? 'Open-source package: no line of your code to blame.' : `${finding.scanner} findings have no code line.`;
+      return item;
+    }
+    const row = rows.get(finding);
+    item.location = row ? locationOf(row) : null;
+    if (!item.location?.path || !item.location.line) {
+      item.problem = 'Checkmarx One gave no file and line for this finding.';
+      return item;
+    }
+    item.version = codeVersion(scans.get(scanIdOf(finding)), project);
+    item.repo = parseRepoUrl(item.version.repoUrl);
+    if (!item.repo) item.problem = 'No repository is linked to this project in Checkmarx One (scan uploaded without a repository URL).';
+    return item;
+  });
+
+  const gh = githubClient(settings);
+  const hosts = scmHosts(settings);
+  await blameFindings(items, {
+    gh,
+    apiUrl: github.apiUrl,
+    cacheDir: gitCacheDir,
+    token: github.token,
+    useGithub: settings.beta?.authors?.useGithubBlame !== false,
+    useLocal: settings.beta?.authors?.useLocalBlame !== false,
+    scm: hosts,
+  });
+
+  // Authors who hid their address behind GitHub's noreply one: resolve the
+  // login, starting with the history of the repositories just cloned.
+  const logins = new Set();
+  for (const item of items) {
+    if (!item.blame || (item.provider && item.provider !== 'github')) continue;
+    const login = item.blame.login || loginFromNoreply(item.blame.authorEmail);
+    if (login && !usableEmail(item.blame.authorEmail)) logins.add(login);
+  }
+  // On GitLab, Azure DevOps or Bitbucket: that host's own methods, cheapest first.
+  const elsewhere = new Map(); // provider -> Set of usernames
+  for (const item of items) {
+    if (!item.blame || !item.provider || item.provider === 'github' || usableEmail(item.blame.authorEmail)) continue;
+    const login = item.blame.login || loginFromNoreply(item.blame.authorEmail) || item.blame.authorName;
+    if (!login) continue;
+    if (!elsewhere.has(item.provider)) elsewhere.set(item.provider, new Set());
+    elsewhere.get(item.provider).add(login);
+  }
+  const resolvedElsewhere = {};
+  for (const [provider, names] of elsewhere) {
+    const clones = [...new Set(items.filter((i) => i.provider === provider && i.repo).map((i) => i.repo.cloneUrl))];
+    const methods = methodsFor(provider, hosts.clients, hosts.configs, { localSources: [...clones, ...(github.localRepos ?? [])], cacheDir: gitCacheDir });
+    const found = await resolveWith(methods, [...names]);
+    for (const [login, hit] of Object.entries(found)) resolvedElsewhere[`${provider}|${login}`] = hit;
+  }
+  let resolved = {};
+  if (logins.size) {
+    const clones = [];
+    for (const url of new Set(items.filter((i) => i.repo).map((i) => i.repo.cloneUrl))) {
+      try {
+        clones.push((await ensureClone(url, { cacheDir: gitCacheDir, blobs: true })).dir);
+      } catch {}
+    }
+    resolved = await resolveLogins(gh, [...logins], {
+      org: github.org,
+      repos: github.repos ?? [],
+      localSources: [...clones, ...(github.localRepos ?? [])],
+      cacheDir: gitCacheDir,
+    });
+  }
+
+  const result = items.map((item) => {
+    const f = item.finding;
+    const out = {
+      key: `${f.projectId}|${f.riskId}`,
+      projectId: f.projectId,
+      projectName: f.projectName,
+      title: f.title,
+      severity: f.severity,
+      scanner: f.scanner,
+      ageDays: f.ageDays,
+      url: item.url,
+      location: item.location ?? null,
+      problem: item.problem ?? '',
+    };
+    if (item.blame) {
+      const onGithub = !item.provider || item.provider === 'github';
+      const login = item.blame.login || loginFromNoreply(item.blame.authorEmail);
+      const found = onGithub ? resolved[login] : resolvedElsewhere[`${item.provider}|${login || item.blame.authorName}`];
+      const email = usableEmail(item.blame.authorEmail) ? item.blame.authorEmail : found?.email ?? '';
+      Object.assign(out, {
+        commit: item.blame.commit,
+        commitUrl: item.blame.url || (item.repo?.host === 'github.com' ? `https://github.com/${item.repo.owner}/${item.repo.repo}/commit/${item.blame.commit}` : ''),
+        committedAt: item.blame.date,
+        via: item.blame.via,
+        ref: item.blame.ref,
+        author: {
+          name: item.blame.authorName,
+          login,
+          email,
+          emailVia: usableEmail(item.blame.authorEmail) ? 'commit' : found ? `${onGithub ? '' : `${SCM_LABELS[item.provider]}: `}${found.method}` : '',
+        },
+        host: SCM_LABELS[item.provider] ?? item.repo?.host ?? '',
+        // How sure the answer is (src/github/blame.js, confidenceOf): only 'high' is emailed without someone choosing it.
+        confidence: item.confidence?.level ?? 'low',
+        confidenceReason: item.confidence?.reason ?? '',
+        skippedBots: item.blame.skippedBots?.length ?? 0,
+      });
+      if (!email) out.problem = `Author ${item.blame.authorName || login} hides their email address and it could not be resolved.`;
+    }
+    return out;
+  });
+
+  const withEmail = result.filter((r) => r.author?.email);
+  return {
+    items: result,
+    summary: {
+      findings: result.length,
+      blamed: result.filter((r) => r.commit).length,
+      sure: result.filter((r) => r.commit && r.confidence === 'high').length,
+      unsure: result.filter((r) => r.commit && r.confidence !== 'high').length,
+      withEmail: withEmail.length,
+      authors: new Set(withEmail.map((r) => r.author.email)).size,
+      githubRequests: gh.totalRequests,
+      hostRequests: Object.fromEntries(Object.entries(hosts.clients).filter(([, c]) => c?.totalRequests).map(([id, c]) => [id, c.totalRequests])),
+    },
+  };
+}
+
+const AUTOMATION_AUTHOR_LIMIT = 200;
+
+/**
+ * Scheduled reminders, the code authors' part: the developer who last changed the line of
+ * each finding that just crossed a threshold gets one email with theirs. Only once "Code
+ * authors" is final; the most severe first, up to 200 findings a run.
+ */
+async function notifyCodeAuthors(crossed, { client, connection, projects, initiators, dryRun }) {
+  const settings = sendingSettings();
+  if (!isFinal(settings, 'codeAuthors')) return { skipped: 'Code authors is still a Beta feature.' };
+  const rank = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+  const risks = crossed
+    .filter((r) => LOCATABLE_SCANNERS.has(r.scanner))
+    .sort((a, b) => (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9) || (b.ageDays ?? 0) - (a.ageDays ?? 0))
+    .slice(0, AUTOMATION_AUTHOR_LIMIT);
+  if (!risks.length) return { findings: 0, authors: 0, emailed: 0 };
+  const { items } = await findCodeAuthors(risks, { client, connection, settings, projects, initiators });
+  // Unattended: only answers git blame is sure of. An unsure one waits for someone to look at it.
+  const byAuthor = new Map();
+  for (const item of items) {
+    if (!item.author?.email || item.confidence !== 'high') continue;
+    if (!byAuthor.has(item.author.email)) byAuthor.set(item.author.email, { author: item.author, items: [] });
+    byAuthor.get(item.author.email).items.push(item);
+  }
+  const failures = [];
+  let emailed = 0;
+  for (const { author, items: list } of byAuthor.values()) {
+    if (dryRun) {
+      emailed += 1;
+      continue;
+    }
+    try {
+      await sendReminderMail(settings, authorMessage(author, list, settings), { exact: true, to: [author.email] });
+      emailed += 1;
+    } catch (error) {
+      failures.push({ to: author.email, error: error.message });
+    }
+  }
+  return { findings: risks.length, blamed: items.filter((i) => i.commit).length, unsure: items.filter((i) => i.commit && i.confidence !== 'high').length, authors: byAuthor.size, emailed, failures };
+}
 
 /** Email each code author the vulnerable code they wrote (or preview it). */
 app.post(
   '/api/beta/authors/notify',
-  requirePermission('beta.use'),
+  requireFeature('codeAuthors'),
   asyncRoute(async (req, res) => {
     const items = req.session.lastAuthors;
     if (!items?.length) return res.status(409).json({ error: 'Find the code authors first.' });
