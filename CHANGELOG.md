@@ -23,7 +23,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.36 — 2026-10-04 12:10 UTC · [#59](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/59)
+## MZ-01.00.36 — 2026-10-04 11:55 UTC · [#59](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/59)
 - **Stop while loading findings.** A **Stop** button sits beside **Load findings** while it loads. Projects already being read finish, the rest are skipped, and what has loaded is kept and ready to use, as after a full load. Leaving the page mid-load stops it the same way.
 - **Your own browser icon.** Settings → Branding has a **Browser icon**: paste an https address or upload an image, up to 100 KB. By default it is CxMissionZero's new **MZ0** icon, a white MZ inside a green zero, which also appears on the sign-in and developer pages.
 - **The Dashboard never loads findings by itself.** Going back to the Dashboard after the page reloaded elsewhere (for example after an update) started a full load with the scope shown. Now only **Load findings**, the Dashboard's reload button or Jump to start one.
