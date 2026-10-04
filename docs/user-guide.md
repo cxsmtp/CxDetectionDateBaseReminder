@@ -351,6 +351,13 @@ Install a new version, go back to any version, turn on auto-update, restart the 
   - A backup is taken before every switch.
   - A version that does not start is rolled back by itself.
 - **Recent events:** switches, starts, automatic rollbacks, restarts.
+- **Replace the whole image (Beta).** For the rare release that needs a new Node.js or OS base. The **update companion**, a second small container you start once, replaces the container itself:
+  1. It downloads the image while the server keeps running.
+  2. It stops the server, which saves first, as for any update.
+  3. It starts the same container on the new image, with the same ports, volume, environment, limits and security options.
+  4. If the new server does not say it started within 150 s, or stops soon after, it goes back to the old container.
+
+  The chip on the section says whether the companion is ready. Choose **latest** or a version, then **Replace the image**; a backup is taken first. The page shows each step and how it ended. Starting the companion is one line, shown on the page and in [Updating](updating.md#full-image-update-from-the-page-beta).
 
 ### Beta features (Admin)
 

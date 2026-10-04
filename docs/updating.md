@@ -30,13 +30,52 @@ No server sign-in after deployment: everything an update needs is on this page.
 - **Outbound HTTPS** to `ghcr.io` and `pkg-containers.githubusercontent.com` (where GitHub serves image layers). Nothing else is sent: the request carries no data from the tool.
 - **A private copy** of the image: `UPDATE_IMAGE=ghcr.io/your-org/your-image` and `UPDATE_REGISTRY_TOKEN=<a read-only token>`.
 
-**When the image itself must be replaced.** Rarely, a release needs a newer Node.js or OS base. The page then says so, and the update is the two lines below. A full image update from the page (a companion container) comes in a later release.
+**When the image itself must be replaced.** Rarely, a release needs a newer Node.js or OS base. The page then says so. Replace it from the page with the update companion (below), or with the two lines further down.
 
 | Variable | Default | |
 | --- | --- | --- |
 | `UPDATE_IMAGE` | `ghcr.io/cxsmtp/cxdetectiondatebasereminder` | Where updates come from. |
 | `UPDATE_REGISTRY_TOKEN` | (none) | Only for a private image: a token that can read it. |
 | `UPDATE_START_TIMEOUT_SECONDS` | 150 | How long a new version may take to come up before it is rolled back. |
+
+## Full image update from the page (Beta)
+
+The **update companion** is a second container, started once, that can replace the CxMissionZero container with the same container on a new image. It is for the rare release that needs a new Node.js or OS base; ordinary updates do not need it.
+
+**Start it** (Podman, Windows cmd, one line):
+
+```
+podman run -d --name mission-zero-updater --user root --restart=always --security-opt label=disable -v mission-zero-data:/data -v /run/podman/podman.sock:/run/podman/podman.sock ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest node src/companion/main.js
+```
+
+- Use your own volume name if it is not `mission-zero-data`. The companion looks after the container named `mission-zero`; add `-e TARGET_CONTAINER=<name>` if yours has another name. For a private copy of the image, add the same `-e UPDATE_IMAGE=…` and `-e UPDATE_REGISTRY_TOKEN=…` as the app.
+- **Which socket.** On Windows and macOS, containers run inside the Podman machine. A rootful machine (`podman machine set --rootful`) has its socket at `/run/podman/podman.sock`. A rootless one has it at `/run/user/1000/podman/podman.sock`: use that path on both sides of the second `-v`. `podman machine inspect` shows it. On Linux, enable it with `systemctl enable --now podman.socket` (or `systemctl --user …` for rootless).
+- **Check it.** Within a minute, **Settings → Update & recovery → Replace the whole image** shows **Companion ready**. `podman logs mission-zero-updater` says which container and image it looks after.
+
+**What happens when you click Replace the image**
+
+| Step | |
+| --- | --- |
+| 1. Backup | The server takes a backup (Audit → Backups) and writes the request to `updater/request.json` in the data volume. |
+| 2. Download | The companion pulls `UPDATE_IMAGE:<version or latest>` while the server keeps running. A failed download changes nothing. |
+| 3. Stop | It stops the server, giving it 30 s to finish its work and save, exactly as for any update, and keeps it as `mission-zero-previous`. |
+| 4. Start | It creates the same container on the new image: the same ports, volume, environment, limits, security options, restart policy and networks. Only what you gave when starting it is carried over; the new image brings its own defaults. |
+| 5. Check | The new server writes `updater/ack.json` when it starts. If that does not come within `UPDATE_START_TIMEOUT_SECONDS` (150), or the container stops within 15 s, the companion removes it, renames the previous one back and starts it. |
+
+The page follows each step, reconnects by itself, and reloads on the new version. `mission-zero-previous` stays (stopped) until the next full update, as a way back by hand.
+
+**Tested** against a real container engine (Docker 29, through the same Docker-compatible API Podman serves):
+- **Clicked on the Update page:** the real app went from a 1.0.90 image to 1.0.91 in about 20 s. The old server stopped cleanly and saved. The new one kept the port, the volume and its data (the first administrator was not created again), `--read-only`, `--cap-drop ALL`, `no-new-privileges`, the memory limit, the restart policy and a network alias. The page reloaded on the new version.
+- **A crashing image** was removed, and the previous container was put back under its name and started.
+- **A tag that does not exist** failed at the download and changed nothing.
+
+**The trade-off.** The Podman socket can manage every container on the machine, so the companion is kept to one job:
+- it never opens a port, and takes no instruction but `updater/request.json`;
+- it only ever replaces the one container it was told about;
+- it replaces it only when that container already runs this app's image (`UPDATE_IMAGE`), and only with that image;
+- it accepts only a version, `latest` or a commit tag. A request cannot name another image, add a mount or change how the container starts.
+
+The app container itself never gets the socket. If you do not want a container with the socket on the machine, leave the companion out and use the two lines below.
 
 ## Update (Podman, Windows cmd, two lines)
 

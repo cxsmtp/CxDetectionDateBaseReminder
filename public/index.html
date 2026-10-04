@@ -1068,9 +1068,22 @@
               <div class="upd-more-row"><span class="hint" id="upd-count"></span><button type="button" id="upd-more" class="sm" hidden>Load 10 more</button></div>
               <h3>Recent events</h3>
               <ul class="upd-events" id="upd-events"></ul>
-              <details class="disclosure" data-advanced>
-                <summary>Replacing the whole image (a new Node.js or OS base)</summary>
-                <p class="hint">Updates from this page replace CxMissionZero's own files. Rarely, a release needs a new base image; the page then says so. Run, on the server: <code>podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest</code>, then your usual <code>podman run --replace …</code> line. The full image update from this page (a companion container) comes in a later release.</p>
+              <details class="disclosure upd-full" id="upd-full">
+                <summary>Replace the whole image (a new Node.js or OS base) <span class="badge warn">Beta</span> <span class="rp-chip" id="upd-full-chip">Companion not running</span></summary>
+                <p class="hint">Updates above replace CxMissionZero's own files. Rarely, a release needs a new base image, and the page says so. The <b>update companion</b>, a second small container, can then replace the whole image from here. It downloads the image while this server keeps running, stops this server (which saves first, as for any update), and starts the same container on the new image with the same settings. If the new one does not start, it goes back to the old one.</p>
+                <div id="upd-full-on" hidden>
+                  <div class="actions compact">
+                    <label class="inline">Image <select id="upd-full-tag"></select></label>
+                    <button type="button" class="primary" id="upd-full-go">Replace the image</button>
+                  </div>
+                  <p class="status" id="upd-full-status" role="status"></p>
+                </div>
+                <div id="upd-full-off">
+                  <p class="hint"><b>Start the companion once</b>, on the server (Windows cmd, one line):</p>
+                  <pre class="https-cmd" id="upd-full-cmd">podman run -d --name mission-zero-updater --user root --restart=always --security-opt label=disable -v mission-zero-data:/data -v /run/podman/podman.sock:/run/podman/podman.sock ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest node src/companion/main.js</pre>
+                  <button type="button" class="sm" id="upd-full-copy">Copy command</button>
+                  <p class="hint">It needs the Podman socket, which can manage every container on the machine, so it does one thing only: it replaces the container named <code>mission-zero</code>, and only with this app's own image (<code>UPDATE_IMAGE</code>), at the version chosen here. It opens no port. Use your own volume name if it is not <code>mission-zero-data</code>; on a rootless Podman machine the socket is <code>/run/user/1000/podman/podman.sock</code>. Without the companion: <code>podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest</code>, then your usual <code>podman run --replace …</code> line.</p>
+                </div>
               </details>
             </section>
 

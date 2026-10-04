@@ -35,8 +35,10 @@ function browser() {
 const admin = browser();
 const user = browser();
 
+let dataDir = '';
+
 test.before(async () => {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'features-'));
+  dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'features-'));
   children.push(spawn(process.execPath, ['loadtest/mock-cxone.mjs'], { env: { ...process.env, PORT: String(MOCK_PORT), LAT: '1', PROJECTS: '2', RISKS: '4' }, stdio: 'ignore' }));
   const server = spawn(process.execPath, ['src/server.js'], {
     env: {
@@ -174,4 +176,28 @@ test('who gets reminders is one choice: scheduled runs follow it, and "both" wit
   const theirs = await user('PUT', '/api/settings', { reminders: { audience: 'list' } });
   assert.notEqual(theirs.body?.reminders?.audience, 'list');
   await admin('PUT', '/api/settings', { reminders: { audience: 'initiator' } });
+});
+
+test('full image update (Beta): the server says it started, and asks the companion only when it is there, once at a time', async () => {
+  const dir = path.join(dataDir, 'updater');
+  const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+  const ack = JSON.parse(fs.readFileSync(path.join(dir, 'ack.json'), 'utf8'));
+  assert.equal(ack.version, version, 'written at start, for the companion');
+
+  assert.equal((await user('POST', '/api/system/update/full', { tag: 'latest' })).status, 403, 'Admins only');
+  const before = await admin('GET', '/api/system/update');
+  assert.equal(before.body.companion.connected, false);
+  const refused = await admin('POST', '/api/system/update/full', { tag: 'latest' });
+  assert.equal(refused.status, 409);
+  assert.match(refused.body.error, /not running/);
+
+  fs.writeFileSync(path.join(dir, 'companion.json'), JSON.stringify({ at: new Date().toISOString(), engine: 'ok', container: 'mission-zero' }));
+  assert.equal((await admin('POST', '/api/system/update/full', { tag: 'latest; reboot' })).status, 400);
+  const asked = await admin('POST', '/api/system/update/full', { tag: 'latest' });
+  assert.equal(asked.status, 202, JSON.stringify(asked.body));
+  assert.equal(asked.body.companion.pending.tag, 'latest');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'request.json'), 'utf8')).tag, 'latest');
+  assert.equal((await admin('POST', '/api/system/update/full', { tag: 'latest' })).status, 409, 'one at a time');
+  fs.rmSync(path.join(dir, 'request.json'));
+  fs.rmSync(path.join(dir, 'companion.json'));
 });
