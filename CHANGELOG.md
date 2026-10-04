@@ -19,6 +19,12 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.33 — 2026-10-04 HH:MM UTC · [#56](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/56)
+- **The way to Mission Zero, on the Dashboard.** After a fetch, one card per stage shows where every finding stands: **Detect** (open), **Triage** (to verify), **Remediate** (confirmed), **Fix & rescan** (a fix was asked for), **Verify** (tracked reports verified at zero by a rescan) and **Mission Zero** (projects with nothing open).
+- **Green only when it is really clear.** A stage turns green with ✓ only when it and every stage before it are clear, and **Verify** turns red when a report verified at zero has findings again.
+- **One click to move it on.** **Triage** and **Remediate** open the AI credits panel; **Fix & rescan** and **Verify** open Reports.
+- **Status.** STATUS_LINE
+
 ## MZ-01.00.32 — 2026-10-04 08:25 UTC · [#55](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/55)
 - **Beta features can be made final.** Admins have a new **Settings → Beta features** page: **Make final** gives a feature to everyone holding its own permission and drops its Beta label, and **Back to Beta** undoes it. Every change is in the audit log.
 - **Code authors (git blame) stays in Beta.** It is not made final until it is fully reliable. Once an Admin does make it final: anyone who may send reminders can use it, the sidebar entry becomes **Code authors**, the Dashboard's Remind panel links to it, and **Settings → Automation → Also email the code authors** emails the developer behind every finding that just crossed a threshold (up to 200 a run).
