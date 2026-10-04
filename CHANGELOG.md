@@ -27,7 +27,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.40 — 2026-10-04 HH:MM UTC · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+## MZ-01.00.40 — 2026-10-04 13:32 UTC · [#63](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/63)
 - **Past SLA, in the repository too (Beta).** Turn on **Settings → SLAs → Also open an issue in the repository**. Each scheduled run then opens one issue in each project's repository listing its findings that went past their SLA, with severity, where, how far past and a link to Checkmarx One.
 - **Once per finding.** A finding goes into an issue once, kept separately from the email escalation, so either can be used alone. A fixed finding that comes back is listed again.
 - **Never published.** Issues are opened only in private and internal repositories (on GitLab as confidential issues), and a public one is skipped. Text from findings cannot mention anyone or add links.
