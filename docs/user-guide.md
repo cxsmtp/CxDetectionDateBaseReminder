@@ -644,8 +644,9 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
    - **Filter it:** pick a severity, search (finding, project, file), or tick **Only what AI can act on**.
    - **How this report works** explains Triage, Remediate and the reminder server.
    - Each finding shows:
-   - its live Checkmarx One state;
-   - a link into Checkmarx One.
+     - its live Checkmarx One state;
+     - a link into Checkmarx One;
+     - for an open-source package, **upgrade to …**: the version Checkmarx One recommends, when it gives one.
 4. **Triage** runs Checkmarx One AI Triage on a finding. The verdict appears in the row within a few minutes.
    - **Triage all critical / Triage all high** cover every critical or high finding in the report, across its projects, and skip ones already triaged.
    - A finding judged **not exploitable** disappears from the report, which counts how many it has hidden.
@@ -849,7 +850,8 @@ Early features: check what they find before relying on them. A feature an Admin 
   - **Where the code is:** GitHub, GitLab, Azure DevOps or Bitbucket.
   - **Through the host's API** where it has one: GitHub, GitLab and Bitbucket Data Center, one request per file.
   - **Otherwise `git blame`** on a clone, made with that host's own token: Azure DevOps, Bitbucket Cloud, or any host.
-  - **The Commit column** shows which host and way it used.
+  - **The Commit column** shows which host and way it used, and the pull or merge request the commit came in through (GitHub and GitLab), with who opened it and who approved it.
+  - **Code owners** of the file, from the repository's `CODEOWNERS`, are shown under **Where**. Both are for information: who is emailed is still the author.
   - **How sure:** each answer is **Sure**, **Check** or **Unsure**, with the reason. Only Sure answers are ticked for sending; scheduled reminders only email Sure ones. Whitespace changes, moved code, `.git-blame-ignore-revs` and bot commits are looked past. Details: [beta-features.md](beta-features.md).
 - **Match usernames to email addresses.**
   - **Pick the host:** GitHub, GitLab, Azure DevOps or Bitbucket.
@@ -901,7 +903,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.38** | 518/s, **0 failed** | 0.6 s | 146 ms | 430 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.39** | 512/s, **0 failed** | 5.7 s | 240 ms | 439 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.38 | 518/s, 0 failed | 0.6 s | 146 ms | 430 pass | 0 vulnerabilities | same |
 | MZ-01.00.37 | 508/s, 0 failed | 5.1 s | 179 ms | 427 pass | 0 vulnerabilities | same |
 | MZ-01.00.36 | 492/s, 0 failed | 2.3 s | 118 ms | 421 pass | 0 vulnerabilities | same |
 | MZ-01.00.35 | 529/s, 0 failed | 0.6 s | 113 ms | 414 pass | 0 vulnerabilities | same |

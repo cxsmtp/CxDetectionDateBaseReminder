@@ -83,3 +83,11 @@ test('selectRisks filters by bucket, project and severity', () => {
   assert.equal(selectRisks(summaries, { buckets: ['60+'], projectIds: ['p1'] }).length, 1);
   assert.equal(selectRisks(summaries, { buckets: ['60+'], severities: ['high'] }).length, 1);
 });
+
+test('open-source findings carry the version Checkmarx One recommends, when it gives one', () => {
+  const project = { id: 'p', name: 'P' };
+  assert.equal(normalizeRisk({ id: 'a', engine: 'SCA', data: { recommendedVersion: '4.17.21' } }, project).fixVersion, '4.17.21');
+  assert.equal(normalizeRisk({ id: 'b', engine: 'SCA', fixedVersion: '2.0.0-rc.1' }, project).fixVersion, '2.0.0-rc.1');
+  assert.equal(normalizeRisk({ id: 'c', engine: 'SAST' }, project).fixVersion, '');
+  assert.equal(normalizeRisk({ id: 'd', engine: 'SCA', recommendedVersion: '<img src=x>' }, project).fixVersion, '', 'anything that is not a version is dropped');
+});

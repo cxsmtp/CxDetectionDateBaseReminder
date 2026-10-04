@@ -408,7 +408,7 @@ function findingRow(finding, client, remediateHere, shared = null) {
   return `<tr data-key="${client.key}" id="row-${client.key}" data-sev="${escapeHtml(severity)}"${shared ? ` class="shared-row shared-c${shared.color}" data-result="${shared.label}"` : ''}>
   <td class="sev-cell"><span class="sev sev-${escapeHtml(severity.toLowerCase())}">${escapeHtml(severity)}</span></td>
   <td class="finding"><div class="finding-title">${title}</div>
-    <div class="sub">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</div>${shared ? `\n    ${sharedNoteHtml(shared)}` : ''}</td>
+    <div class="sub">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}${finding.fixVersion ? ` · <span class="fix-version" title="The version Checkmarx One recommends">upgrade to ${escapeHtml(finding.fixVersion)}</span>` : ''}</div>${shared ? `\n    ${sharedNoteHtml(shared)}` : ''}</td>
   <td class="meta-cell" data-label="Type" title="${escapeHtml(finding.scanner || '')}">${escapeHtml(engineLabel(finding.scanner))}</td>
   <td class="meta-cell" data-label="Age">${age}</td>
   <td class="state-cell" data-label="State"><span class="state-label">${escapeHtml(stateLabel)}</span><div class="state-why">${CONFIRMED_STATES.has(state) && !client.aiUnavailable ? confirmedWhyHtml(client.advice ?? fixAdvice(finding), { ...aiFromRisk(finding), scanner: finding.scanner, url, remediateHere }) : ''}</div></td>
@@ -589,6 +589,8 @@ tr:last-child td { border-bottom: 0; }
 .finding { min-width: 240px; }
 .finding-title { font-weight: 600; overflow-wrap: anywhere; }
 .sub { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.fix-version { color: #047857; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .fix-version { color: #6ee7b7; } }
 .shared-note { margin-top: 4px; font-size: 12px; color: var(--muted); }
 .shared-chip { display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 999px; background: var(--busy-bg); color: var(--busy); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .shared-c0 { --twin: #6941c6; } .shared-c1 { --twin: #0e7090; } .shared-c2 { --twin: #b54708; } .shared-c3 { --twin: #c11574; } .shared-c4 { --twin: #3e7d1e; } .shared-c5 { --twin: #155eef; }

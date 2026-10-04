@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.38 | 518/s, 0 | 0.6 s | 146 ms | 430 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.39 | 512/s, 0 | 5.7 s | 240 ms | 439 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.38 | 518/s, 0 | 0.6 s | 146 ms | 430 | 0 | same |
 | MZ-01.00.37 | 508/s, 0 | 5.1 s | 179 ms | 427 | 0 | same |
 | MZ-01.00.36 | 492/s, 0 | 2.3 s | 118 ms | 421 | 0 | same |
 | MZ-01.00.35 | 529/s, 0 | 0.6 s | 113 ms | 414 | 0 | same |
@@ -24,6 +25,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.39 — 2026-10-04 13:14 UTC · [#62](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/62)
+- **Code owners next to the author.** Code authors shows the owners the repository's `CODEOWNERS` file gives each file, read the way GitHub and GitLab read it (including GitLab sections), at the scanned version.
+- **The change request behind a line.** For each blamed commit on GitHub or GitLab, the Commit column shows the pull or merge request it came in through, who opened it and who approved it; a reviewer who approved and then asked for changes is not counted.
+- **In the authors' email too.** Each code author's email now lists the file's code owners and links the pull or merge request for each finding.
+- **Which version to upgrade to.** In the emailed report, an open-source package finding says **upgrade to …** when Checkmarx One gives a recommended version.
+- **Read-only, and nothing new to set up.** These use the host tokens you already connected: at most 3 requests a repository for `CODEOWNERS` and 2 per commit for its change request. Azure DevOps and Bitbucket show code owners from the clone git blame already made, and never get a new clone just for this.
+- **Status.** 512 requests a second with 3000 people at once and 0 failed (main 526); report opens 5.7 s at p95 on both this version and main, and triage polls 240 ms; 439 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.38 — 2026-10-04 13:03 UTC · [#61](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/61)
 - **Who gets reminders: one choice.** **Dashboard → Remind → Send to** (each developer, the fixed list, or both) now decides it everywhere: reminders sent by hand, scheduled runs and tracked reports' follow-ups. Settings → Automation shows the choice instead of asking again, and an older setup keeps sending to whoever its scheduled runs did.

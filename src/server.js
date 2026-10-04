@@ -34,9 +34,10 @@ import zlib from 'node:zlib';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { GitHubClient } from './github/client.js';
 import { METHODS as GITHUB_METHODS, ensureClone, evaluate as evaluateGithub, gitHostOf, loginFromNoreply, resolveLogins, setCloneHostCheck, usableEmail, validLogin } from './github/identity.js';
-import { blameFindings, codeVersion, locationOf, parseRepoUrl } from './github/blame.js';
-import { SCM_LABELS, SCM_PROVIDERS, checkConnections as checkScmConnections, methodsFor, providerOf, scmClients, scmConfigs } from './scm/providers.js';
+import { blameFindings, codeVersion, locationOf, onGitHub, parseRepoUrl } from './github/blame.js';
+import { SCM_LABELS, SCM_PROVIDERS, checkConnections as checkScmConnections, cloneAuthFor, methodsFor, providerOf, scmClients, scmConfigs } from './scm/providers.js';
 import { addressesAsThemselves, evaluateMethods, resolveWith, validUsername } from './scm/identity.js';
+import { addOwnership } from './scm/ownership.js';
 import { TrackedReports, computeProgress, matchesFilters, outcomeOf, reportSummary } from './tracked-reports.js';
 import { TERMINAL, closure, newerThan, rescanRequest, verificationResult } from './verification.js';
 import { ScanAttribution } from './scan-attribution.js';
@@ -6724,15 +6725,33 @@ async function findCodeAuthors(risks, { client, connection, settings, projects: 
   for (const [set, group] of bySet) {
     if (!group.length) continue;
     const first = set.n === 1;
+    const setGh = first ? gh : new GitHubClient({ token: set.github.token, apiUrl: set.github.apiUrl });
+    const setScm = first ? hosts : { configs: set.scm, clients: scmClients(set.scm) };
     await blameFindings(group, {
-      gh: first ? gh : new GitHubClient({ token: set.github.token, apiUrl: set.github.apiUrl }),
+      gh: setGh,
       apiUrl: set.github.apiUrl,
       cacheDir: gitCacheDir,
       token: set.github.token,
       useGithub: settings.beta?.authors?.useGithubBlame !== false,
       useLocal: settings.beta?.authors?.useLocalBlame !== false,
-      scm: first ? hosts : { configs: set.scm, clients: scmClients(set.scm) },
+      scm: setScm,
     });
+    // Read-only extras: the file's code owners (CODEOWNERS), and the pull or merge request the
+    // blamed commit came in through, with who approved it. Missing ones are simply left out.
+    await addOwnership(group.filter((i) => i.blame), {
+      github: (repo) => (setGh.hasToken && onGitHub(repo, set.github.apiUrl) ? setGh : null),
+      gitlab: (repo) => (setScm.configs.gitlab?.token && repo.host === setScm.configs.gitlab.host ? setScm.clients.gitlab : null),
+      // Only a clone git blame already made is read: never a new clone just for this.
+      clone: (item) =>
+        item.blame?.via === 'git blame' && item.repo?.cloneUrl
+          ? ensureClone(item.repo.cloneUrl, {
+              cacheDir: gitCacheDir,
+              blobs: true,
+              token: onGitHub(item.repo, set.github.apiUrl) ? set.github.token : '',
+              authHeader: item.provider && item.provider !== 'github' ? cloneAuthFor(item.repo.cloneUrl, setScm.configs) : '',
+            })
+          : null,
+    }).catch(() => {});
   }
 
   // Authors who hid their address behind GitHub's noreply one: resolve the
@@ -6811,6 +6830,8 @@ async function findCodeAuthors(risks, { client, connection, settings, projects: 
         confidence: item.confidence?.level ?? 'low',
         confidenceReason: item.confidence?.reason ?? '',
         skippedBots: item.blame.skippedBots?.length ?? 0,
+        owners: item.owners ?? null,
+        change: item.change ?? null,
       });
       if (!email) out.problem = `Author ${item.blame.authorName || login} hides their email address and it could not be resolved.`;
     }
@@ -6925,8 +6946,8 @@ function authorMessage(author, items, settings) {
       return `<tr>
         <td style="padding:8px;border-bottom:1px solid #e5e7eb"><strong>${escapeHtmlText(i.severity)}</strong></td>
         <td style="padding:8px;border-bottom:1px solid #e5e7eb">${i.url ? `<a href="${escapeHtmlText(i.url)}" style="color:${accent}">${escapeHtmlText(i.title)}</a>` : escapeHtmlText(i.title)}<br><span style="color:#6b7280;font-size:12px">${escapeHtmlText(i.projectName)}</span></td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:12px">${escapeHtmlText(where)}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:12px">${i.commitUrl ? `<a href="${escapeHtmlText(i.commitUrl)}" style="color:${accent}">${escapeHtmlText(commit)}</a>` : escapeHtmlText(commit)}<br><span style="color:#6b7280">${escapeHtmlText((i.committedAt || '').slice(0, 10))}</span></td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:12px">${escapeHtmlText(where)}${i.owners?.list?.length ? `<br><span style="color:#6b7280;font-family:system-ui,sans-serif">Code owners: ${escapeHtmlText(i.owners.list.join(', '))}</span>` : ''}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:12px">${i.commitUrl ? `<a href="${escapeHtmlText(i.commitUrl)}" style="color:${accent}">${escapeHtmlText(commit)}</a>` : escapeHtmlText(commit)}<br><span style="color:#6b7280">${escapeHtmlText((i.committedAt || '').slice(0, 10))}</span>${i.change?.number ? `<br><span style="font-family:system-ui,sans-serif">${i.change.url ? `<a href="${escapeHtmlText(i.change.url)}" style="color:${accent}">${i.change.kind === 'merge request' ? '!' : '#'}${escapeHtmlText(i.change.number)}</a>` : `${i.change.kind === 'merge request' ? '!' : '#'}${escapeHtmlText(i.change.number)}`}</span>` : ''}</td>
       </tr>`;
     })
     .join('');

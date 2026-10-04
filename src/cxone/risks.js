@@ -114,7 +114,17 @@ export function normalizeRisk(raw, project, now = new Date()) {
     similarityId: String(pick(raw, ['similarityId']) ?? ''),
     alternateId: String(pick(raw, ['alternateId']) ?? ''),
     packageIdentifier: String(raw?.data?.packageIdentifier ?? pick(raw, ['packageIdentifier']) ?? ''),
+    // Open-source packages: the version Checkmarx One recommends upgrading to, when it gives one.
+    fixVersion: fixVersionOf(raw),
   };
+}
+
+/** The recommended (fixed) package version, from whichever field this API variant uses; '' if none. */
+function fixVersionOf(raw) {
+  const value =
+    raw?.data?.recommendedVersion ?? raw?.recommendedVersion ?? raw?.data?.fixedVersion ?? raw?.fixedVersion ?? raw?.fixVersion ?? raw?.recommendation?.recommendedVersion ?? raw?.packageData?.recommendedVersion ?? '';
+  const text = String(value ?? '').trim();
+  return /^[\w.+:~^-]{1,64}$/.test(text) ? text : '';
 }
 
 let counter = 0;
