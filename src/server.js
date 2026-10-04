@@ -58,6 +58,7 @@ import { HSTS_AGES, HttpsManager } from './https-manager.js';
 import { SUPPORTING_NOTICE, Terms } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
+import { journeyOf } from './journey.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
 import {
   SessionStore,
@@ -277,6 +278,8 @@ function creditView(summary) {
     need,
     shortfall,
     sharedResults: sharedResults(figures.triageRows(SEVERITIES)),
+    // Where its findings stand on the way to Mission Zero (src/journey.js).
+    journey: journeyOf(risks, creditLedger.remediatedIds(summary.projectId)),
   };
 }
 

@@ -499,7 +499,20 @@ Where findings are read from. The default is `/api/risks/`.
 
 **Get started.** Until the basics are in place, a short checklist at the top shows what is left: connect Checkmarx One, fetch vulnerabilities, set up email, give reports a reachable address, cap AI credits, invite your team. Each item has its button; **Hide** puts the list away.
 
-**How the page is laid out.** Scope and **Fetch** at the top, then the totals, then the projects. Everything you do with the projects is in the **action panel**, with four tabs:
+**The way to Mission Zero.** Under the totals, one card per stage shows where the fetched findings stand:
+
+| Stage | Counts | Click |
+| --- | --- | --- |
+| **Detect** | Open findings (not exploitable ones are counted apart). | |
+| **Triage** | Still to verify: AI Triage or a person decides whether each is real. | Opens **AI credits**. |
+| **Remediate** | Confirmed, and waiting for a fix. | Opens **AI credits**. |
+| **Fix & rescan** | A fix was asked for (AI Remediation): merge it, then rescan. | Reports |
+| **Verify** | Tracked reports verified at zero by a rescan, with how many are verifying or left zero. | Reports |
+| **Mission Zero** | Projects with nothing open, of those fetched. | |
+
+A stage turns green with ✓ only when it, and every stage before it, is clear. **Verify** turns red when a report verified at zero has findings again.
+
+**How the page is laid out.** Scope and **Fetch** at the top, then the totals and the way to Mission Zero, then the projects. Everything you do with the projects is in the **action panel**, with four tabs:
 
 | Tab | What is in it |
 | --- | --- |

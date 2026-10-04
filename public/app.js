@@ -4112,6 +4112,82 @@ function renderTotals(totals) {
     .map(([label, v]) => `<div><span class="value">${v}</span><span class="label">${label}</span></div>`)
     .join('');
   if (!$('getting-started').hidden) renderGettingStarted();
+  renderJourney();
+}
+
+// ---- The way to Mission Zero: Detect → Triage → Remediate → Fix & rescan → Verify → Zero ----
+
+/** Tracked reports' verification rounds, read at most once a minute for the strip. */
+const journeyReports = { at: 0, verified: 0, verifying: 0, leftZero: 0, total: 0, loading: false };
+
+async function loadJourneyReports() {
+  if (!can('reports.view') || journeyReports.loading || Date.now() - journeyReports.at < 60_000) return;
+  journeyReports.loading = true;
+  try {
+    const data = await api('/api/tracked-reports');
+    const reports = data.reports ?? data.items ?? [];
+    Object.assign(journeyReports, {
+      at: Date.now(),
+      total: reports.length,
+      verified: reports.filter((r) => r.verification?.result?.zero && !r.latest?.open).length,
+      leftZero: reports.filter((r) => r.verification?.result?.zero && r.latest?.open).length,
+      verifying: reports.filter((r) => r.verification && !r.verification.finishedAt && !r.verification.result).length,
+    });
+    renderJourney();
+  } catch {
+    /* the strip still shows the findings; the reports part waits for the next fetch */
+  } finally {
+    journeyReports.loading = false;
+  }
+}
+
+function renderJourney() {
+  const panel = $('journey-panel');
+  const projects = state.projects ?? [];
+  const journeys = projects.map((p) => p.credits?.journey).filter(Boolean);
+  panel.hidden = !journeys.length;
+  if (!journeys.length) return;
+  const t = { projects: 0, atZero: 0, open: 0, toTriage: 0, toRemediate: 0, fixing: 0, notExploitable: 0 };
+  for (const j of journeys) {
+    t.projects += 1;
+    if (!j.open) t.atZero += 1;
+    for (const key of ['open', 'toTriage', 'toRemediate', 'fixing', 'notExploitable']) t[key] += j[key] ?? 0;
+  }
+  const r = journeyReports;
+  const reportsKnown = can('reports.view') && r.at;
+  const steps = [
+    { id: 'detect', label: 'Detect', value: t.open, unit: 'open', hint: `${t.projects} project${t.projects === 1 ? '' : 's'} fetched${t.notExploitable ? ` · ${t.notExploitable} not exploitable` : ''}`, done: !t.open },
+    { id: 'triage', label: 'Triage', value: t.toTriage, unit: 'to verify', hint: 'AI Triage or a person decides: real or not', done: !t.toTriage, rail: 'credits' },
+    { id: 'remediate', label: 'Remediate', value: t.toRemediate, unit: 'confirmed', hint: 'Confirmed and waiting for a fix', done: !t.toRemediate, rail: 'credits' },
+    { id: 'fix', label: 'Fix & rescan', value: t.fixing, unit: 'fixing', hint: 'A fix was asked for: merge it, then rescan', done: !t.fixing, href: '#/reports' },
+    {
+      id: 'verify', label: 'Verify', value: reportsKnown ? r.verified : '—', unit: 'verified at zero',
+      hint: reportsKnown ? `${r.verifying ? `${r.verifying} verifying · ` : ''}${r.leftZero ? `${r.leftZero} left zero · ` : ''}${r.total} tracked report${r.total === 1 ? '' : 's'}` : 'A rescan proves the fixes (Reports → Verify)',
+      done: reportsKnown && r.total > 0 && !r.leftZero && r.verified === r.total, warn: reportsKnown && r.leftZero > 0, href: '#/reports',
+    },
+    { id: 'zero', label: 'Mission Zero', value: t.atZero, unit: `of ${t.projects} projects`, hint: t.atZero === t.projects ? 'Every project here is at zero. Keep it there.' : 'Projects with nothing open', done: t.atZero === t.projects, zero: true },
+  ];
+  // A stage is clear only when it and every stage before it are: nothing is "done" while work is still upstream.
+  let upstreamClear = true;
+  for (const step of steps) {
+    step.done = upstreamClear && step.done;
+    if (step.id !== 'verify') upstreamClear = upstreamClear && step.done;
+  }
+  $('journey-steps').innerHTML = steps
+    .map((s) => {
+      const tag = s.href ? `a href="${s.href}"` : s.rail ? `button type="button" data-rail-open="${s.rail}"` : 'div';
+      const end = s.href ? 'a' : s.rail ? 'button' : 'div';
+      return `<li class="journey-step${s.done ? ' done' : ''}${s.warn ? ' warn' : ''}${s.zero ? ' zero' : ''}" data-step="${s.id}">
+        <${tag} class="journey-card" title="${escapeHtml(s.hint)}">
+          <span class="journey-label">${s.done ? '✓ ' : ''}${escapeHtml(s.label)}</span>
+          <span class="journey-value">${escapeHtml(String(s.value))}</span>
+          <span class="journey-unit">${escapeHtml(s.unit)}</span>
+          <span class="journey-hint">${escapeHtml(s.hint)}</span>
+        </${end}>
+      </li>`;
+    })
+    .join('');
+  loadJourneyReports();
 }
 
 /**
@@ -5086,6 +5162,10 @@ function closeRail() {
   document.body.classList.remove('sheet-open');
 }
 $('act-bar').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-rail-open]');
+  if (button) openRail(button.dataset.railOpen);
+});
+$('journey-steps').addEventListener('click', (event) => {
   const button = event.target.closest('[data-rail-open]');
   if (button) openRail(button.dataset.railOpen);
 });
