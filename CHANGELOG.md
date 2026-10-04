@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.31 | 524/s, 0 | 2.5 s | 106 ms | 388 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.32 | 511/s, 0 | 2.5 s | 145 ms | 402 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.31 | 524/s, 0 | 2.5 s | 106 ms | 388 | 0 | same |
 | MZ-01.00.30 | 524/s, 0 | 4.1 s | 371 ms | 386 | 0 | same |
 | MZ-01.00.29 | 508/s, 0 | 2.6 s | 206 ms | 375 | 0 | same |
 | MZ-01.00.28 | 522/s, 0 | 1.3 s | 316 ms | 374 | 0 | same |
@@ -18,12 +19,12 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.32 — 2026-10-04 HH:MM UTC · [#55](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/55)
+## MZ-01.00.32 — 2026-10-04 08:50 UTC · [#55](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/55)
 - **Beta features can be made final.** Admins have a new **Settings → Beta features** page: **Make final** gives a feature to everyone holding its own permission and drops its Beta label, and **Back to Beta** undoes it. Every change is in the audit log.
 - **Code authors (git blame) stays in Beta.** It is not made final until it is fully reliable. Once an Admin does make it final: anyone who may send reminders can use it, the sidebar entry becomes **Code authors**, the Dashboard's Remind panel links to it, and **Settings → Automation → Also email the code authors** emails the developer behind every finding that just crossed a threshold (up to 200 a run).
 - **Git blame: never the wrong developer.** It looks past whitespace-only changes, moved code, the commits listed in `.git-blame-ignore-revs` and bot commits (Dependabot, Renovate…). Each answer is now **Sure**, **Check** or **Unsure**, with the reason. Only Sure answers are ticked for sending, and scheduled reminders only email Sure ones.
 - **Match usernames, once final:** anyone who may change initiator addresses can run and apply the matching.
-- **Status.** STATUS_LINE
+- **Status.** 511 requests a second with 0 failed for 3000 people at once on 2 vCPU, and reports open in 2.5 s at p95. All 402 tests pass, and `npm audit` finds 0 vulnerabilities. The last Checkmarx One scan leaves no critical, high or medium finding open.
 
 ## MZ-01.00.31 — 2026-10-04 06:30 UTC · [#54](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/54)
 - **Rescans keep the developer's name.** Checkmarx One records whoever owns the API key as the initiator of a scan this server starts. Verification rescans are now credited to the developer whose work they verify, so reminders, reports and the Dashboard still name that developer, not the server's account. In Checkmarx One the rescan is tagged `verifies-work-of` and `requested-by`.
