@@ -531,6 +531,7 @@
                   <a href="#/settings/initiators" data-set="initiators">Developer addresses</a>
                   <a href="#/settings/template" data-set="template" data-advanced>Mail template</a>
                   <a href="#/settings/automation" data-set="automation">Automation</a>
+                  <a href="#/settings/sla" data-set="sla" data-perm="feature.sla">SLAs <span class="badge warn" data-beta-badge="sla">Beta</span></a>
                 <p class="set-group">AI &amp; credits</p>
                   <a href="#/settings/ai" data-set="ai">AI &amp; credit pool</a>
                 <p class="set-group">Reports &amp; brand</p>
@@ -704,6 +705,21 @@
                 <p class="hint" id="template-subject-preview"></p>
                 <iframe id="template-preview" title="Template preview" sandbox=""></iframe>
               </div>
+            </section>
+
+            <section class="panel" id="set-sla" data-perm="feature.sla" data-edit-perm="settings.automation">
+              <h2>SLAs <span class="badge warn" data-beta-badge="sla">Beta</span></h2>
+              <p class="hint wide">How many days each severity has to be fixed, counted from when the finding was first detected. The Dashboard shows what is past its SLA and what is due within 7 days, in total and for each project. Findings triaged as not exploitable have no SLA. 0 means no SLA for that severity.</p>
+              <div class="sla-days">
+                <label class="field"><span><span class="sev-dot sev-critical"></span>Critical</span><span class="with-unit"><input id="sla-CRITICAL" type="number" min="0" max="3650" step="1" /> days</span></label>
+                <label class="field"><span><span class="sev-dot sev-high"></span>High</span><span class="with-unit"><input id="sla-HIGH" type="number" min="0" max="3650" step="1" /> days</span></label>
+                <label class="field"><span><span class="sev-dot sev-medium"></span>Medium</span><span class="with-unit"><input id="sla-MEDIUM" type="number" min="0" max="3650" step="1" /> days</span></label>
+                <label class="field"><span><span class="sev-dot sev-low"></span>Low</span><span class="with-unit"><input id="sla-LOW" type="number" min="0" max="3650" step="1" /> days</span></label>
+              </div>
+              <h3>Escalation</h3>
+              <label class="switch"><input type="checkbox" id="sla-escalate" /> <span><strong>Escalate findings that go past their SLA, once each</strong><small>Each scheduled run (Settings → Automation) emails the people below one list of the findings that went past their SLA since the last run: project, severity, how far past, and who ran the latest scan. A finding is escalated only once; if it is fixed and comes back, again. Test mode in Automation applies.</small></span></label>
+              <label class="field"><span>Escalate to — addresses, one per line</span><textarea id="sla-escalate-to" rows="2" spellcheck="false" class="code" placeholder="appsec-lead@acme.com"></textarea></label>
+              <p class="status" id="sla-status"></p>
             </section>
 
             <section class="panel" id="set-automation" data-edit-perm="settings.automation">

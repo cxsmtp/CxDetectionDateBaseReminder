@@ -9,6 +9,7 @@ import { buildReminder } from './reminder.js';
 import { sendReminderMail } from './mailer.js';
 import { DEFAULT_AUTOMATION } from './automation-config.js';
 import { knownAddresses } from './known-addresses.js';
+import { escalationMail, newlyOverdue, pruneEscalated, riskKey as slaKey } from './sla.js';
 
 export { DEFAULT_AUTOMATION, mergeAutomation, parseThresholds } from './automation-config.js';
 
@@ -124,9 +125,9 @@ export class AutomationState {
   #load() {
     try {
       const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      return { notified: raw.notified ?? {}, runs: Array.isArray(raw.runs) ? raw.runs : [] };
+      return { notified: raw.notified ?? {}, escalated: raw.escalated ?? {}, runs: Array.isArray(raw.runs) ? raw.runs : [] };
     } catch {
-      return { notified: {}, runs: [] };
+      return { notified: {}, escalated: {}, runs: [] };
     }
   }
 
@@ -208,6 +209,9 @@ export async function runOnce({
     .filter((risk) => !wantedSeverities || wantedSeverities.has(risk.severity))
     .filter((risk) => !skipNotExploitable || !['NOT_EXPLOITABLE', 'PROPOSED_NOT_EXPLOITABLE'].includes(risk.state));
 
+  // SLAs (Beta): findings that went past their SLA since the last run, escalated once each.
+  const escalation = await escalateOverdue({ open, settings, state, initiators, dryRun, now });
+
   const { crossed, seen } = findCrossings(open, automation.thresholds, state.ledger, { mode: automation.mode });
 
   if (crossed.length === 0) {
@@ -222,6 +226,7 @@ export async function runOnce({
       pruned,
       elapsedMs: Date.now() - started,
       reason: 'Nothing new crossed a threshold.',
+      ...(escalation ? { escalation } : {}),
     };
   }
 
@@ -307,7 +312,36 @@ export async function runOnce({
     elapsedMs: Date.now() - started,
     thresholds: automation.thresholds,
     ...(codeAuthors ? { codeAuthors } : {}),
+    ...(escalation ? { escalation } : {}),
   };
+}
+
+/**
+ * Escalate what went past its SLA since the last run (Settings → SLAs): one
+ * email to the escalation list, each finding only once. A failed send is tried
+ * again next run; in test mode nothing is sent or remembered. Never a reason
+ * for the run to fail. Returns {escalated, sent} or null when escalation is off.
+ */
+async function escalateOverdue({ open, settings, state, initiators, dryRun, now }) {
+  const sla = settings.sla;
+  if (!sla?.escalate || !sla.escalateTo?.length) return null;
+  const escalated = (state.ledger.escalated ??= {});
+  const pruned = pruneEscalated(escalated, open);
+  const items = newlyOverdue(open, sla, escalated, now.getTime());
+  if (!items.length) {
+    if (pruned) state.persist();
+    return { escalated: 0, sent: false };
+  }
+  const message = escalationMail(items, { appName: settings.branding?.appName, companyName: settings.branding?.companyName, initiators: initiators.byProject });
+  if (dryRun) return { escalated: items.length, sent: false, dryRun: true };
+  try {
+    await sendReminderMail(settings, message, { exact: true, to: sla.escalateTo, cc: [], bcc: [] });
+  } catch (error) {
+    return { escalated: items.length, sent: false, error: error.message };
+  }
+  for (const { risk } of items) escalated[slaKey(risk)] = now.toISOString();
+  state.persist();
+  return { escalated: items.length, sent: true, to: sla.escalateTo.length };
 }
 
 /** Whether the message carrying this finding was delivered. */

@@ -438,6 +438,17 @@ Checkmarx One records who ran a scan as a username, which is not always an email
 - `{{#projects}}…{{/projects}}` repeats a block for each item.
 - `{{^projects}}…{{/projects}}` shows a block only when the list is empty.
 
+### SLAs (Beta)
+How many days each severity has to be fixed, counted from when the finding was **first detected**. Shown to roles holding **Beta features** while it is in Beta, and to everyone who loads findings once an Admin makes it final (Settings → Beta features).
+
+| Option | Meaning |
+| --- | --- |
+| Critical / High / Medium / Low | Days to fix. Defaults: 7, 30, 90 and 180. **0** means no SLA for that severity. |
+| Escalate findings that go past their SLA, once each | Each scheduled run (Settings → Automation must be on) emails the people below one list of the findings that went past their SLA since the last run: project, severity, how far past, and who ran the latest scan. A finding is escalated once; if it is fixed and comes back, it is escalated again. **Test mode** in Automation counts them without sending. |
+| Escalate to | The addresses that get the escalation, one per line. |
+
+Findings triaged as not exploitable (proposed or confirmed) have no SLA. On the **Dashboard**, **Past SLA** shows how many open findings are past their SLA (red), with how many more are due within 7 days under it (amber). The projects table has a **Past SLA** column, shown by default, and **Due ≤ 7d** under **Columns**; both are in the CSV export. The automation's run history says how many were escalated.
+
 ### Automation
 Watches findings on a timer and emails the moment one crosses an age threshold. Each finding is reported **once per threshold**, so a daily run does not nag.
 

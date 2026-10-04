@@ -11,6 +11,7 @@ Self-hosted, one container, nothing to install for developers.
 | You get | How |
 | --- | --- |
 | **Know what is ageing** | Every project's findings bucketed by first detection (≤ 30, 31–60, > 60 days), streamed in as they are read. **Stop** part-way keeps what has loaded, ready to use. |
+| **SLAs (Beta)** | Days to fix each severity: what is past its SLA and due within 7 days, in total and per project, and one escalation email per finding that goes past it. |
 | **The right person, only their projects** | Reminders go to whoever ran each project's latest scan, by email, as a summary or one per project. The server refuses any email that would show someone a project they did not scan. |
 | **Fix from the inbox** | An interactive report in every email: **Triage** and **Remediate** with Checkmarx One AI, see the verdict, open the pull request. Developers pick their IDE and AI assistant once (VS Code, Cursor, Kiro, Windsurf, Antigravity, JetBrains; Claude Code, OpenAI Codex, Gemini CLI, Copilot…). Then every finding is **Open in …** and **Fix with …**, one click each, and the fix lands in their own checkout even when there is no pull request. |
 | **Credits under control** | A credit pool, and per-project allocations. Every action re-checks Checkmarx One twice first and stops if anyone changed the findings meanwhile. Never two requests for one vulnerability, and unused credits are taken back. |

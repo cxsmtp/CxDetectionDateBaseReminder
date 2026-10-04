@@ -24,6 +24,18 @@ export const FEATURES = [
     beforeFinal: 'Keep it in Beta until it has been right on your own repositories: run Find code authors on real findings and check that the "Sure" answers name the right developers. Unattended runs only ever email "Sure" answers.',
   },
   {
+    id: 'sla',
+    name: 'SLAs and escalation',
+    summary: 'Days to fix each severity, counted from first detection: what is overdue or due soon on the Dashboard, and one escalation email per finding that goes past its SLA.',
+    // Once final: everyone who can see findings sees the SLA figures.
+    permission: 'findings.fetch',
+    whenFinal: [
+      'Everyone who loads findings sees what is overdue and due soon, on the Dashboard and in each project (no Beta permission needed).',
+      'Escalation stays as set under Settings → SLAs: off until an Admin names who to escalate to.',
+    ],
+    beforeFinal: 'Keep it in Beta until the due days match your policy and the overdue counts look right on your own findings.',
+  },
+  {
     id: 'identityMatching',
     name: 'Match usernames to email addresses',
     summary: 'Turn the usernames of scan initiators on GitHub, GitLab, Azure DevOps or Bitbucket into email addresses.',
