@@ -179,6 +179,7 @@ export async function runOnce({
   now = new Date(),
   force = false,
   notifyAuthors = null,
+  openIssues = null,
 }) {
   const automation = settings.automation;
   const started = Date.now();
@@ -210,7 +211,7 @@ export async function runOnce({
     .filter((risk) => !skipNotExploitable || !['NOT_EXPLOITABLE', 'PROPOSED_NOT_EXPLOITABLE'].includes(risk.state));
 
   // SLAs (Beta): findings that went past their SLA since the last run, escalated once each.
-  const escalation = await escalateOverdue({ open, settings, state, initiators, dryRun, now });
+  const escalation = await escalateOverdue({ open, settings, state, initiators, dryRun, now, openIssues, context: { client, connection, projects, initiators: initiators.byProject } });
 
   const { crossed, seen } = findCrossings(open, automation.thresholds, state.ledger, { mode: automation.mode });
 
@@ -333,26 +334,61 @@ export async function runOnce({
  * again next run; in test mode nothing is sent or remembered. Never a reason
  * for the run to fail. Returns {escalated, sent} or null when escalation is off.
  */
-async function escalateOverdue({ open, settings, state, initiators, dryRun, now }) {
+async function escalateOverdue({ open, settings, state, initiators, dryRun, now, openIssues = null, context = {} }) {
   const sla = settings.sla;
-  if (!sla?.escalate || !sla.escalateTo?.length) return null;
-  const escalated = (state.ledger.escalated ??= {});
-  const pruned = pruneEscalated(escalated, open);
-  const items = newlyOverdue(open, sla, escalated, now.getTime());
-  if (!items.length) {
-    if (pruned) state.persist();
-    return { escalated: 0, sent: false };
+  const mail = Boolean(sla?.escalate && sla.escalateTo?.length);
+  const issues = Boolean(sla?.openIssues && openIssues);
+  if (!mail && !issues) return null;
+  const result = {};
+  let changed = false;
+
+  if (mail) {
+    const escalated = (state.ledger.escalated ??= {});
+    if (pruneEscalated(escalated, open)) changed = true;
+    const items = newlyOverdue(open, sla, escalated, now.getTime());
+    Object.assign(result, { escalated: items.length, sent: false });
+    if (items.length && dryRun) result.dryRun = true;
+    else if (items.length) {
+      const message = escalationMail(items, { appName: settings.branding?.appName, companyName: settings.branding?.companyName, initiators: initiators.byProject });
+      try {
+        await sendReminderMail(settings, message, { exact: true, to: sla.escalateTo, cc: [], bcc: [] });
+        for (const { risk } of items) escalated[slaKey(risk)] = now.toISOString();
+        Object.assign(result, { sent: true, to: sla.escalateTo.length });
+        changed = true;
+      } catch (error) {
+        result.error = error.message;
+      }
+    }
   }
-  const message = escalationMail(items, { appName: settings.branding?.appName, companyName: settings.branding?.companyName, initiators: initiators.byProject });
-  if (dryRun) return { escalated: items.length, sent: false, dryRun: true };
-  try {
-    await sendReminderMail(settings, message, { exact: true, to: sla.escalateTo, cc: [], bcc: [] });
-  } catch (error) {
-    return { escalated: items.length, sent: false, error: error.message };
+
+  // The same findings, once each, as an issue in their project's repository (its own record,
+  // so turning one on later does not skip what the other already covered).
+  if (issues) {
+    const issued = (state.ledger.issued ??= {});
+    if (pruneEscalated(issued, open)) changed = true;
+    const items = newlyOverdue(open, sla, issued, now.getTime());
+    if (!items.length) result.issues = { opened: 0, findings: 0 };
+    else {
+      try {
+        const done = await openIssues(items, { ...context, dryRun });
+        result.issues = {
+          opened: done.opened.length,
+          findings: done.opened.reduce((n, o) => n + o.findings, 0),
+          urls: done.opened.map((o) => o.url).filter(Boolean),
+          skipped: done.skipped,
+          ...(dryRun ? { dryRun: true } : {}),
+        };
+        if (!dryRun) {
+          for (const [key, url] of Object.entries(done.issuedKeys)) issued[key] = { at: now.toISOString(), url: typeof url === 'string' ? url : '' };
+          if (Object.keys(done.issuedKeys).length) changed = true;
+        }
+      } catch (error) {
+        result.issues = { error: error.message };
+      }
+    }
   }
-  for (const { risk } of items) escalated[slaKey(risk)] = now.toISOString();
-  state.persist();
-  return { escalated: items.length, sent: true, to: sla.escalateTo.length };
+  if (changed) state.persist();
+  return result;
 }
 
 /** Whether the message carrying this finding was delivered. */
@@ -378,8 +414,11 @@ export class Scheduler {
 
   #notifyAuthors;
 
-  constructor({ resolveSession, state, settingsStore, config, isVerified, notifyAuthors = null }) {
+  #openIssues;
+
+  constructor({ resolveSession, state, settingsStore, config, isVerified, notifyAuthors = null, openIssues = null }) {
     this.#notifyAuthors = notifyAuthors;
+    this.#openIssues = openIssues;
     this.#resolve = resolveSession;
     this.#state = state;
     this.#settingsStore = settingsStore;
@@ -442,6 +481,7 @@ export class Scheduler {
         verified: this.#verified(this.#settingsStore.get()),
         force,
         notifyAuthors: this.#notifyAuthors,
+        openIssues: this.#openIssues,
       });
       return this.#state.recordRun(result);
     } catch (error) {

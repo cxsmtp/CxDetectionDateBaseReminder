@@ -105,6 +105,12 @@ export class GitHubClient {
     return this.#send(url, { headers: this.#headers() }, bucket);
   }
 
+  /** POST JSON to a REST path, e.g. post('/repos/o/r/issues', {title, body}). Needs a token. */
+  post(path, body) {
+    if (!this.#token) throw new GitHubError('Writing to GitHub needs a token.', 401);
+    return this.#send(new URL(this.apiUrl + path), { method: 'POST', headers: { ...this.#headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 'rest');
+  }
+
   /** Run a GraphQL query; GraphQL needs a token. Partial data comes back with `errors` alongside. */
   async graphql(query, variables = {}) {
     if (!this.#token) throw new GitHubError('GitHub GraphQL needs a token.', 401);

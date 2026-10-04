@@ -1332,6 +1332,7 @@ function renderSettings() {
   for (const severity of ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']) $(`sla-${severity}`).value = sla.days?.[severity] ?? 0;
   $('sla-escalate').checked = Boolean(sla.escalate);
   $('sla-escalate-to').value = (sla.escalateTo ?? []).join('\n');
+  $('sla-issues').checked = Boolean(sla.openIssues);
   $('sla-status').textContent = sla.escalate && !(sla.escalateTo ?? []).length ? 'Add at least one address to escalate to.' : '';
 
   $('brand-app').value = s.branding.appName || 'CxMissionZero';
@@ -1426,12 +1427,22 @@ async function loadAutomation() {
  * Settings → Automation lists everything automatic, wherever it is set: each
  * tracked report's follow-up and rescan, and SLA escalation.
  */
+/** A run's SLA issues, in a few words: opened, would be opened, skipped and why. */
+function slaIssuesText(issues) {
+  if (!issues) return '';
+  if (issues.error) return ` · repository issues failed: ${issues.error}`;
+  const skipped = issues.skipped?.length ? `, ${issues.skipped.length} project${issues.skipped.length === 1 ? '' : 's'} skipped (${[...new Set(issues.skipped.map((s) => s.reason))].slice(0, 2).join('; ')})` : '';
+  if (!issues.opened && !skipped) return '';
+  return ` · ${issues.opened} repository issue${issues.opened === 1 ? '' : 's'} ${issues.dryRun ? 'would be opened' : 'opened'} (${issues.findings} finding${issues.findings === 1 ? '' : 's'})${skipped}`;
+}
+
 async function renderAutomationElsewhere() {
   const box = $('auto-elsewhere');
   const rows = [];
   if (can('feature.sla')) {
     const sla = state.settings?.sla;
-    rows.push(`<li><span class="ae-what">SLA escalation <span class="badge warn" data-beta-badge="sla">Beta</span></span><span class="ae-when">${sla?.escalate && sla.escalateTo?.length ? `On · with each run above, to ${escapeHtml(sla.escalateTo.join(', '))}` : 'Off'}</span><a href="#/settings/sla">Change →</a></li>`);
+    const slaWays = [sla?.escalate && sla.escalateTo?.length ? `email to ${escapeHtml(sla.escalateTo.join(', '))}` : '', sla?.openIssues ? 'an issue in each repository' : ''].filter(Boolean);
+    rows.push(`<li><span class="ae-what">SLA escalation <span class="badge warn" data-beta-badge="sla">Beta</span></span><span class="ae-when">${slaWays.length ? `On · with each run above: ${slaWays.join(', ')}` : 'Off'}</span><a href="#/settings/sla">Change →</a></li>`);
   }
   if (can('reports.view')) {
     try {
@@ -1510,7 +1521,8 @@ function renderAutomation() {
               <td class="snippet">${escapeHtml(
                 (run.error || run.reason || (run.failures?.length ? `${run.failures.length} failed` : 'ok')) +
                   (run.codeAuthors?.emailed ? ` · ${run.codeAuthors.emailed} code author${run.codeAuthors.emailed === 1 ? '' : 's'} ${run.dryRun ? 'would be ' : ''}emailed` : run.codeAuthors?.error ? ` · code authors: ${run.codeAuthors.error}` : '') +
-                  (run.escalation?.escalated ? ` · ${run.escalation.escalated} past SLA ${run.escalation.sent ? 'escalated' : run.escalation.dryRun ? 'would be escalated' : `not escalated: ${run.escalation.error ?? ''}`}` : ''),
+                  (run.escalation?.escalated ? ` · ${run.escalation.escalated} past SLA ${run.escalation.sent ? 'escalated' : run.escalation.dryRun ? 'would be escalated' : `not escalated: ${run.escalation.error ?? ''}`}` : '') +
+                  slaIssuesText(run.escalation?.issues),
               )}</td>
             </tr>`,
           )
@@ -1673,6 +1685,7 @@ function settingsPayload() {
             days: Object.fromEntries(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((s) => [s, $(`sla-${s}`).value])),
             escalate: $('sla-escalate').checked,
             escalateTo: $('sla-escalate-to').value,
+            openIssues: $('sla-issues').checked,
           },
         }
       : {}),

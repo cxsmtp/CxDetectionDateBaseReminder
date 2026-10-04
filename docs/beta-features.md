@@ -139,6 +139,11 @@ from the next fetch. Medium-confidence matches (name-based) are left unticked.
 Days to fix each severity (critical 7, high 30, medium 90, low 180 unless changed under **Settings → SLAs**), counted from when the finding was first detected:
 - **Dashboard:** **Past SLA** (red) with how many more are due within 7 days (amber), and a **Past SLA** column per project (**Due ≤ 7d** under **Columns**).
 - **Escalation:** with it switched on and someone to escalate to, each scheduled run emails one list of the findings that went past their SLA since the last run (project, severity, how far past, who ran the latest scan). Each finding is escalated once, kept in the automation's state file, and forgotten when it is fixed, so a regression is escalated again. Test mode counts without sending.
+- **Issues in the repository:** with **Also open an issue in the repository** on, each scheduled run opens one issue per project listing the findings that went past their SLA, each finding once (kept separately from the email escalation, and forgotten when the finding is fixed).
+  - **Where:** the repository of the project's latest scan in Checkmarx One (or the project's), through the git connection that fits it: GitHub (`POST /repos/:owner/:repo/issues`) or GitLab (`POST /projects/:id/issues`, confidential). Azure DevOps and Bitbucket are skipped with the reason.
+  - **Never public:** the repository's visibility is read first (`private` or `internal` only); a public repository is skipped.
+  - **Safe text:** finding titles and locations are flattened, `@` cannot mention anyone, and Markdown links, HTML and pipes are neutralised. The only link is the finding's https link into Checkmarx One.
+  - **Limits:** 20 projects a run (most severe first), 50 findings listed per issue. A failure (for example a token without permission to create issues) is shown in the run history and tried again next run.
 - Findings triaged as not exploitable have no SLA.
 
 ## GitLab, Azure DevOps and Bitbucket

@@ -43,6 +43,8 @@ test.before(async () => {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
       CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme',
       ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1',
+      // Never a real git host from a test: no token from the machine running it.
+      GITHUB_TOKEN: '', GITLAB_TOKEN: '', AZURE_DEVOPS_TOKEN: '', BITBUCKET_TOKEN: '',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -145,8 +147,17 @@ test('SLAs (Beta): only those who may use them change them; fetched projects car
   const again = (await admin('POST', '/api/automation/run', {})).body.run;
   assert.equal(again.escalation.escalated, run.escalation.escalated, 'test mode remembered nothing, so the same findings are counted again');
 
+  // Issues in the repositories: the mock projects are on github.com, and no token is connected,
+  // so each project is skipped with the reason, and nothing is remembered.
+  const withIssues = await admin('PUT', '/api/settings', { sla: { openIssues: true } });
+  assert.equal(withIssues.body.sla.openIssues, true);
+  const issuesRun = (await admin('POST', '/api/automation/run', {})).body.run;
+  assert.equal(issuesRun.escalation.issues.opened, 0, JSON.stringify(issuesRun.escalation));
+  assert.ok(issuesRun.escalation.issues.skipped.length > 0);
+  assert.ok(issuesRun.escalation.issues.skipped.every((s) => /No GitHub token/.test(s.reason)), JSON.stringify(issuesRun.escalation.issues.skipped));
+
   // Escalation off: nothing about SLAs in the run.
-  await admin('PUT', '/api/settings', { sla: { escalate: false } });
+  await admin('PUT', '/api/settings', { sla: { escalate: false, openIssues: false } });
   const off = (await admin('POST', '/api/automation/run', {})).body.run;
   assert.equal(off.escalation, undefined);
 });
