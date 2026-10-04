@@ -2,6 +2,30 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
+### Performance and security status
+
+Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `npm audit --omit=dev`, and the last Checkmarx One scan of this code. Every version since the first is in [docs/status.md](docs/status.md).
+
+| Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
+| --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.31 | 524/s, 0 | 2.5 s | 106 ms | 388 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.30 | 524/s, 0 | 4.1 s | 371 ms | 386 | 0 | same |
+| MZ-01.00.29 | 508/s, 0 | 2.6 s | 206 ms | 375 | 0 | same |
+| MZ-01.00.28 | 522/s, 0 | 1.3 s | 316 ms | 374 | 0 | same |
+| MZ-01.00.27 | 518/s, 0 | 5.0 s | 289 ms | 368 | 0 | same |
+| MZ-01.00.26 | 506/s, 0 | 4.4 s | 237 ms | 359 | 0 | Scan 617100eb: 0 / 1 / 0 / 15; the high fixed before release |
+| MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
+| MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
+| MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.31 — 2026-10-04 07:00 UTC · [#54](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/54)
+- **Rescans keep the developer's name.** Checkmarx One records whoever owns the API key as the initiator of a scan this server starts. Verification rescans are now credited to the developer whose work they verify, so reminders, reports and the Dashboard still name that developer, not the server's account. In Checkmarx One the rescan is tagged `verifies-work-of` and `requested-by`.
+- **Faster again.** Under the 3000-user benchmark, reports open in 2.5 s at p95 (4.1 s before), and an open report's status checks answer in 106 ms at p95 (371 ms). The server also uses less CPU, with no failed requests.
+- **Reports never wait for Checkmarx One to show states.** An open report is answered from the last known states while fresh ones are read in the background.
+- **Lighter fetches and saves.** Credit figures are worked out in one pass per project instead of a dozen. Emailed reports are compressed in the background, and API calls no longer look for files on disk.
+- **Status published.** Every release now publishes its performance and security status (benchmark, tests, dependency audit, Checkmarx One scan and what is still open, with the reason) in the README, the user guide, this log and [docs/status.md](docs/status.md), with earlier versions back to the first.
+- **Status.** 524 requests a second with 0 failed for 3000 people at once on 2 vCPU. All 388 tests pass, and `npm audit` finds 0 vulnerabilities. The last Checkmarx One scan leaves no critical, high or medium finding open.
+
 ## MZ-01.00.30 — 2026-10-04 06:05 UTC · [#53](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/53)
 - **Settings → Update & recovery (Admins).** CxMissionZero updates itself, with nobody signing in to the server. **Check for updates** lists every published version, and **Update now** installs the newest. A backup is taken first, and people see "reconnecting…" for a few seconds.
 - **Checked, small downloads.** Only CxMissionZero's own files are downloaded from its image (about 1.5 MB of 40 MB), each piece checked against the image's sha256 digests, and kept in the data volume.

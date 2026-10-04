@@ -21,8 +21,9 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 11. [IAM: people and roles](#iam)
 12. [Beta page](#beta-page)
 13. [Logs page](#logs-page)
-14. [Everyday recipes](#everyday-recipes)
-15. [Troubleshooting](#troubleshooting)
+14. [Performance and security status](#performance-and-security-status)
+15. [Everyday recipes](#everyday-recipes)
+16. [Troubleshooting](#troubleshooting)
 
 The running version is shown at the bottom of the sidebar, as `MZ-xx.xx.xx`. Click it for Settings → About.
 
@@ -840,6 +841,21 @@ Send it to whoever maintains CxMissionZero when something goes wrong. **It captu
 **Activity log.** What this browser asked the server, newest first, 100 lines a page. By default it shows each answer (**Success** and **Errors**, with counts); tick **Sent** to see each request as it goes out too. Searchable. **Export** saves it; **Clear** empties it.
 
 ---
+
+## Performance and security status
+
+How fast and how safe the version you run is. Each release is measured with 3000 people using it at once, on a 2 vCPU server, and checked for known vulnerabilities in its dependencies and in its own code (a Checkmarx One scan with every engine). The version you run is shown bottom-left (MZ-xx.xx.xx).
+
+| Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
+| --- | --- | --- | --- | --- | --- | --- |
+| **MZ-01.00.31** | 524/s, **0 failed** | **2.5 s** | **106 ms** | 388 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.30 | 524/s, 0 failed | 4.1 s | 371 ms | 386 pass | 0 vulnerabilities | same |
+| MZ-01.00.29 | 508/s, 0 failed | 2.6 s | 206 ms | 375 pass | 0 vulnerabilities | same |
+| MZ-01.00.26 | 506/s, 0 failed | 4.4 s | 237 ms | 359 pass | 0 vulnerabilities | Scanned (617100eb): the 1 high was fixed before release |
+
+- **Report opens** is how long an emailed report takes to open with every finding's state shown. **Triage polls** is how long an open report waits each time it asks where AI Triage stands.
+- **Failed** means a request got no answer, timed out or hit a server error. "Busy, retrying", which reports handle on their own, is not a failure.
+- Every earlier version, the findings still open and why each one is not a vulnerability: [Performance and security status](status.md).
 
 ## Everyday recipes
 
