@@ -591,13 +591,20 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
 4. **Triage** runs Checkmarx One AI Triage on a finding. The verdict appears in the row within a few minutes.
    - **Triage all critical / Triage all high** cover every critical or high finding in the report, across its projects, and skip ones already triaged.
    - A finding judged **not exploitable** disappears from the report, which counts how many it has hidden.
+   - **Open in IDE** (SAST and IaC findings) opens the file at the finding's line in **VS Code**, **Cursor**, **Kiro** or a **JetBrains** IDE (pick yours: IntelliJ IDEA, WebStorm, PyCharm, GoLand, PhpStorm, Rider, CLion, RubyMine). Nothing to install: the IDE opens its own link.
+     - The first time, the report asks where that repository is on your computer (for example `C:\src\payments-api`). It remembers it in this browser, and suggests the same parent folder for the next repository. **Folder: … · change** corrects it.
+     - JetBrains finds the file by project name: open the repository in it once, as a project named after its folder.
 5. **Remediate** works once a finding is **Confirmed**. It runs AI Remediation and then offers the fix:
    - a summary;
    - the pull request (for repository-connected projects);
    - a downloadable patch;
    - a link to Risk Hub.
-6. **Refresh** re-reads states at any time. The report also refreshes by itself.
-7. **One project's own report.** A report covering several projects lists them at the bottom.
+6. **Apply the fix in your own checkout** (no pull request, a failed one, or you'd rather see it locally first):
+   - **Apply fix in my workspace** (Chrome or Edge): pick the repository's folder. The report checks the folder's git remote is that project's repository and asks first if it isn't. It then shows each file and the change. **Nothing is written until you click Write changes**; then review with `git diff` and commit as usual.
+     - A change is found even if lines were added above it since the scan. If the code there was itself changed, that file is refused and nothing is written: pull the latest code, or use the git command.
+   - **Copy git command** copies one line to run in the repository folder (cmd, PowerShell or a shell): `curl -fsSL "<link>" -o mz-fix.patch && git apply --recount mz-fix.patch`. The link is signed for that one finding and works for 7 days; each download is in the audit log.
+7. **Refresh** re-reads states at any time. The report also refreshes by itself.
+8. **One project's own report.** A report covering several projects lists them at the bottom.
    - Clicking one asks the reminder server for that project's own report: the same kind of report, for that project alone, read fresh, and limited to the severities and age the original covered.
    - It opens in a new tab and is downloaded too. If the browser blocks the tab, the download still arrives; allow pop-ups for the report to get the tab as well.
    - These buttons never lead to Checkmarx One.

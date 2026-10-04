@@ -70,6 +70,7 @@ test('AI actions are enabled only for SAST/SCA findings whose Checkmarx One ids 
     allowRetriage: false,
     allowReremediation: false,
     remediateHere: false,
+    repositories: {},
     adminContact: '',
   });
   assert.ok(!/apiKey|refresh_token"\s*:/.test(JSON.stringify(island(html))), 'no credential is embedded');
@@ -263,4 +264,22 @@ test('a confirmed finding says why and how to fix it, with "why?" for the detail
   assert.doesNotMatch(row(1), /Someone|Possible solution|Confirmed in Checkmarx One/);
   assert.ok(!row(2).includes('Why:'), 'only confirmed findings get the note');
   assert.ok(island(html).findings.every((f) => f.advice?.fix), 'the script gets the advice too, to render it after triage');
+});
+
+test('each finding carries its file and line, and each project its repository, for Open in IDE and Apply fix', () => {
+  const data = buildReportData([risk(1, 'CRITICAL'), risk(2, 'HIGH'), risk(3, 'LOW')], { tenant: 't' });
+  const [first, second, third] = selectTopFindings(data);
+  first.codeLocation = { path: '/src/db.js', line: 42, column: 7 };
+  second.codeLocation = { path: '../../etc/passwd', line: 1 };
+  third.codeLocation = { path: 'a.tf', line: 'x' };
+  const html = generateHtmlReport(data, {
+    findings: [first, second, third],
+    repositories: { p1: { url: 'https://github.com/acme/app', branch: 'main' }, p2: { url: 42 } },
+  });
+  const { config, findings } = island(html);
+  assert.deepEqual(findings[0].loc, { path: 'src/db.js', line: 42, column: 7 });
+  assert.equal(findings[1].loc, undefined, 'a path leaving the repository is dropped');
+  assert.deepEqual(findings[2].loc, { path: 'a.tf', line: 0, column: 0 });
+  assert.deepEqual(config.repositories, { p1: { url: 'https://github.com/acme/app', branch: 'main' } });
+  assert.match(html, /const MZPatch = /, 'the patcher is inlined before the report script');
 });

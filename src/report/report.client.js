@@ -327,6 +327,10 @@
       remediationDetails(f) {
         return post('/api/relay/remediation-details', { findings: [wire(f)] });
       },
+      /** A signed link to this finding's fix as a patch, for git apply. */
+      patchLink(f) {
+        return post('/api/relay/patch-link', { findings: [wire(f)] });
+      },
       /** One project's own report, built by the server (signed link from this report). */
       projectReport(p) {
         return post('/api/relay/project-report', { projectId: p.projectId, projectName: p.projectName, exp: p.exp, sig: p.sig, scope: p.scope }, 0, 180000);
@@ -970,6 +974,10 @@
       prError: r.autoPr?.error_msg || '',
       patch,
       files: (data?.file_changes || []).length,
+      // Per file, for "Apply fix in my workspace".
+      changes: (data?.file_changes || [])
+        .filter((c) => typeof c.diff === 'string' && /^@@ /m.test(c.diff) && MZPatch.segments(c.file_path))
+        .map((c) => ({ path: MZPatch.segments(c.file_path).join('/'), diff: c.diff })),
     };
   }
 
@@ -1037,6 +1045,7 @@
       const blob = URL.createObjectURL(new Blob([r.patch], { type: 'text/x-diff' }));
       out.append(link(`Download patch (${r.files} file${r.files === 1 ? '' : 's'})`, blob, `${f.title.replace(/[^\w.-]+/g, '_').slice(0, 60)}.patch`));
     }
+    if (r.changes?.length) out.append(workspaceActions(f, r));
   }
 
   /** Poll Checkmarx One until the remediation for `f` has a result. */
@@ -1434,6 +1443,376 @@
   $('findings').addEventListener('mouseleave', () => {
     for (const t of document.querySelectorAll('tr.twin-hi')) t.classList.remove('twin-hi');
   });
+
+  // ---------------------------------------------------------------------------
+  // Your workspace: open a finding in your IDE, and apply a fix to your own
+  // checkout. Nothing to install: VS Code, Cursor, Kiro and JetBrains IDEs open
+  // their own links (vscode://, cursor://, kiro://, jetbrains://). A fix is
+  // written through the browser's folder access (Chrome, Edge) only after you
+  // pick the folder and see the changes; or applied with git from a command.
+  // ---------------------------------------------------------------------------
+
+  const IDES = [
+    { name: 'VS Code', scheme: 'vscode' },
+    { name: 'Cursor', scheme: 'cursor' },
+    { name: 'Kiro', scheme: 'kiro' },
+  ];
+  const JETBRAINS = {
+    idea: 'IntelliJ IDEA',
+    webstorm: 'WebStorm',
+    pycharm: 'PyCharm',
+    goland: 'GoLand',
+    phpstorm: 'PhpStorm',
+    rider: 'Rider',
+    clion: 'CLion',
+    rubymine: 'RubyMine',
+  };
+  const WORKSPACE_STORE = 'mzWorkspace';
+
+  /** Where this reader keeps each repository, and their JetBrains IDE: this browser only. */
+  function workspacePrefs() {
+    try {
+      const prefs = JSON.parse(localStorage.getItem(WORKSPACE_STORE) || '{}');
+      return prefs && typeof prefs === 'object' ? prefs : {};
+    } catch {
+      return {};
+    }
+  }
+  function saveWorkspacePrefs(prefs) {
+    try {
+      localStorage.setItem(WORKSPACE_STORE, JSON.stringify(prefs));
+    } catch {}
+  }
+
+  const repoOf = (f) => config.repositories?.[f.projectId] ?? null;
+  const repoName = (f) => (repoOf(f) ? MZPatch.repoKey(repoOf(f).url).split('/').pop() : '') || f.projectName;
+  const folderKey = (f) => (repoOf(f) ? `repo:${MZPatch.repoKey(repoOf(f).url)}` : `project:${f.projectId}`);
+  const folderFor = (f) => {
+    const folder = workspacePrefs().folders?.[folderKey(f)];
+    return typeof folder === 'string' ? folder : '';
+  };
+  const absolute = (folder) => /^([A-Za-z]:[\\/]|\/)/.test(folder);
+
+  /** Ask once where this repository is checked out; remembered in this browser. */
+  function askFolder(f) {
+    const prefs = workspacePrefs();
+    const name = repoName(f);
+    const parent = typeof prefs.parent === 'string' ? prefs.parent : '';
+    const guess = folderFor(f) || (parent ? `${parent}${/^[A-Za-z]:/.test(parent) ? '\\' : '/'}${name}` : '');
+    const answer = prompt(`Where is ${name} checked out on this computer? Its full folder path, for example C:\\src\\${name} or /home/you/src/${name}.`, guess);
+    if (answer === null) return '';
+    const folder = answer.trim().replace(/^"(.*)"$/, '$1').replace(/[\\/]+$/, '');
+    if (!absolute(folder)) {
+      alert('Enter the full path of the folder: starting with a drive letter (C:\\…) or with /.');
+      return '';
+    }
+    prefs.folders = { ...(prefs.folders && typeof prefs.folders === 'object' ? prefs.folders : {}), [folderKey(f)]: folder };
+    prefs.parent = folder.replace(/[\\/][^\\/]+$/, '');
+    saveWorkspacePrefs(prefs);
+    return folder;
+  }
+
+  /** vscode://file/C:/src/app/src/db.js:42:7 (and the same for Cursor and Kiro). */
+  function fileLink(scheme, folder, loc) {
+    const full = `${folder.replace(/\\/g, '/')}/${loc.path}`;
+    const encoded = full
+      .split('/')
+      .map((part, i) => (i === 0 && /^[A-Za-z]:$/.test(part) ? part : encodeURIComponent(part)))
+      .join('/');
+    const at = loc.line ? `:${loc.line}${loc.column ? `:${loc.column}` : ''}` : '';
+    return `${scheme}://file${encoded.startsWith('/') ? '' : '/'}${encoded}${at}`;
+  }
+
+  /** jetbrains://idea/navigate/reference?project=app&path=src/db.js:41 (JetBrains counts lines from 0). */
+  function jetbrainsLink(tool, project, loc) {
+    const path = encodeURIComponent(loc.path).replace(/%2F/gi, '/');
+    const at = loc.line ? `:${loc.line - 1}${loc.column ? `:${loc.column - 1}` : ''}` : '';
+    return `jetbrains://${tool}/navigate/reference?project=${encodeURIComponent(project)}&path=${path}${at}`;
+  }
+
+  /** Hand a link to the IDE registered for it (no new tab is left behind). */
+  function openInIde(url) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.rel = 'noopener';
+    a.hidden = true;
+    document.body.append(a);
+    a.click();
+    a.remove();
+  }
+
+  function smallButton(text, onClick, outline = true) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = outline ? 'btn btn-outline btn-small' : 'btn btn-small';
+    button.textContent = text;
+    button.addEventListener('click', onClick);
+    return button;
+  }
+
+  function fillIdeMenu(f, list) {
+    list.replaceChildren();
+    const where = document.createElement('p');
+    where.className = 'ide-where';
+    where.textContent = `${f.loc.path}${f.loc.line ? `, line ${f.loc.line}` : ''}`;
+    list.append(where);
+    for (const ide of IDES) {
+      list.append(
+        smallButton(ide.name, () => {
+          const folder = folderFor(f) || askFolder(f);
+          if (folder) openInIde(fileLink(ide.scheme, folder, f.loc));
+          fillIdeMenu(f, list);
+        }),
+      );
+    }
+    const prefs = workspacePrefs();
+    const select = document.createElement('select');
+    select.setAttribute('aria-label', 'JetBrains IDE');
+    for (const [id, name] of Object.entries(JETBRAINS)) select.append(new Option(name, id));
+    select.value = JETBRAINS[prefs.jetbrains] ? prefs.jetbrains : 'idea';
+    select.addEventListener('change', () => saveWorkspacePrefs({ ...workspacePrefs(), jetbrains: select.value }));
+    const jetbrains = document.createElement('div');
+    jetbrains.className = 'ide-jb';
+    jetbrains.append(
+      smallButton('JetBrains', () => {
+        // JetBrains finds the file by the project's name, as opened in the IDE: its folder's name.
+        const project = folderFor(f).split(/[\\/]/).pop() || repoName(f);
+        openInIde(jetbrainsLink(select.value, project, f.loc));
+      }),
+      select,
+    );
+    list.append(jetbrains);
+    const folder = folderFor(f);
+    const change = smallButton(folder ? `Folder: ${folder} · change` : 'Set where this repository is…', () => {
+      if (askFolder(f)) fillIdeMenu(f, list);
+    });
+    change.classList.add('ide-folder');
+    list.append(change);
+  }
+
+  function ideMenu(f) {
+    const menu = document.createElement('details');
+    menu.className = 'ide-menu';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Open in IDE';
+    summary.title = `${f.loc.path}${f.loc.line ? `:${f.loc.line}` : ''}`;
+    const list = document.createElement('div');
+    list.className = 'ide-list';
+    menu.append(summary, list);
+    menu.addEventListener('toggle', () => {
+      if (menu.open) fillIdeMenu(f, list);
+    });
+    return menu;
+  }
+
+  for (const f of findings) {
+    if (!f.shown || !f.loc?.path) continue;
+    const cell = row(f)?.querySelector('.actions-cell');
+    if (cell) cell.insertBefore(ideMenu(f), cell.querySelector('.fix-cell'));
+  }
+
+  /** The remote addresses of a picked folder's git checkout: [] when unknown, null when it is not one. */
+  async function gitRemotes(dir) {
+    let git;
+    try {
+      git = await dir.getDirectoryHandle('.git');
+    } catch {
+      try {
+        await dir.getFileHandle('.git'); // a worktree or submodule: its remote is elsewhere
+        return [];
+      } catch {
+        return null;
+      }
+    }
+    try {
+      const file = await (await git.getFileHandle('config')).getFile();
+      return MZPatch.remotes(await file.text());
+    } catch {
+      return [];
+    }
+  }
+
+  /** What one file change would do in the picked folder; nothing is written here. */
+  async function planChange(dir, change) {
+    const parts = MZPatch.segments(change.path);
+    if (!parts) return { path: change.path, ok: false, error: 'Its path leads outside the folder: not applied.', diff: change.diff };
+    const { created } = MZPatch.parse(change.diff);
+    let folder = dir;
+    let missing = false;
+    for (const part of parts.slice(0, -1)) {
+      try {
+        folder = await folder.getDirectoryHandle(part);
+      } catch {
+        missing = true;
+        break;
+      }
+    }
+    let text = null;
+    if (!missing) {
+      try {
+        text = await (await (await folder.getFileHandle(parts.at(-1))).getFile()).text();
+      } catch {}
+    }
+    const path = parts.join('/');
+    if (text === null && !created) return { path, ok: false, error: 'Not in this folder: is it the right repository and branch?', diff: change.diff };
+    if (text !== null && created) return { path, ok: false, error: 'Already exists, but the fix would create it.', diff: change.diff };
+    return { path, parts, created, diff: change.diff, ...MZPatch.apply(text ?? '', change.diff) };
+  }
+
+  async function writeChange(dir, plan) {
+    let folder = dir;
+    for (const part of plan.parts.slice(0, -1)) folder = await folder.getDirectoryHandle(part, { create: true });
+    const handle = await folder.getFileHandle(plan.parts.at(-1), { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(plan.text);
+    await writable.close();
+  }
+
+  /** Show what the fix changes in the folder; resolves true when the reader chooses to write it. */
+  function previewFix(f, folderName, plans) {
+    return new Promise((resolve) => {
+      const ok = plans.every((p) => p.ok);
+      const dialog = document.createElement('dialog');
+      dialog.className = 'dialog apply-dialog';
+      const form = document.createElement('form');
+      form.method = 'dialog';
+      const h2 = document.createElement('h2');
+      h2.textContent = ok ? `Apply the fix to ${folderName}?` : `The fix does not fit ${folderName} as it is`;
+      const intro = document.createElement('p');
+      intro.className = 'dialog-hint';
+      intro.textContent = ok
+        ? `${f.title}: ${plans.length} file${plans.length === 1 ? '' : 's'} change. Nothing is written until you choose Write changes; review them afterwards with git diff.`
+        : 'Nothing was written. Pull the latest code and try again, or use the git command, which shows exactly where it stops.';
+      const list = document.createElement('ul');
+      list.className = 'apply-list';
+      for (const p of plans) {
+        const li = document.createElement('li');
+        const name = document.createElement('code');
+        name.textContent = p.path;
+        const status = document.createElement('span');
+        status.className = p.ok ? 'apply-ok' : 'apply-bad';
+        status.textContent = p.ok
+          ? ` ✓ ${p.changes} change${p.changes === 1 ? '' : 's'}${p.created ? ', new file' : ''}${p.moved ? `; ${p.moved} found a few lines away (the file changed since the scan)` : ''}`
+          : ` ✗ ${p.error}`;
+        li.append(name, status);
+        list.append(li);
+      }
+      const diff = document.createElement('details');
+      const summary = document.createElement('summary');
+      summary.textContent = 'Show the changes';
+      const pre = document.createElement('pre');
+      pre.className = 'apply-diff';
+      pre.textContent = plans.map((p) => `# ${p.path}\n${p.diff}`).join('\n\n');
+      diff.append(summary, pre);
+      const actions = document.createElement('div');
+      actions.className = 'dialog-actions';
+      const cancel = document.createElement('button');
+      cancel.className = 'btn btn-outline';
+      cancel.value = 'cancel';
+      cancel.textContent = ok ? 'Cancel' : 'Close';
+      actions.append(cancel);
+      if (ok) {
+        const write = document.createElement('button');
+        write.className = 'btn';
+        write.value = 'write';
+        write.textContent = 'Write changes';
+        actions.append(write);
+      }
+      form.append(h2, intro, list, diff, actions);
+      dialog.append(form);
+      dialog.addEventListener('close', () => {
+        dialog.remove();
+        resolve(dialog.returnValue === 'write');
+      });
+      document.body.append(dialog);
+      dialog.showModal();
+    });
+  }
+
+  async function applyInWorkspace(f) {
+    const r = f.remediation;
+    if (!r?.changes?.length) return;
+    let dir;
+    try {
+      const id = `mz-${MZPatch.repoKey(repoOf(f)?.url || f.projectId).replace(/[^\w-]+/g, '-')}`.slice(0, 32);
+      dir = await window.showDirectoryPicker({ id, mode: 'readwrite' });
+    } catch (error) {
+      if (error?.name !== 'AbortError') log(`Could not open the folder: ${error.message}`, 'error');
+      return;
+    }
+    const expected = repoOf(f)?.url || '';
+    const remotes = await gitRemotes(dir);
+    if (remotes === null) {
+      if (!confirm(`${dir.name} is not a git checkout (it has no .git folder), so the change cannot be reviewed or undone with git. Apply the fix to it anyway?`)) return;
+    } else if (expected && remotes.length && !remotes.some((url) => MZPatch.repoKey(url) === MZPatch.repoKey(expected))) {
+      if (!confirm(`${dir.name} is a checkout of ${remotes[0]}, but this fix is for ${expected}. Apply it anyway?`)) return;
+    }
+    const plans = [];
+    for (const change of r.changes) plans.push(await planChange(dir, change));
+    if (!(await previewFix(f, dir.name, plans))) return;
+    for (const plan of plans) await writeChange(dir, plan);
+    const files = plans.length === 1 ? plans[0].path : `${plans.length} files`;
+    log(`Fix written to ${dir.name}: ${files}. Review it with git diff, then commit.`, 'success');
+    const done = document.createElement('p');
+    done.className = 'fix-written';
+    done.textContent = `✓ Written to ${dir.name} (${files}). Review with git diff, then commit.`;
+    row(f)?.querySelector('.ws-actions')?.append(done);
+  }
+
+  async function copyGitCommand(f, button) {
+    button.disabled = true;
+    try {
+      const { url } = await backend.patchLink(f);
+      if (!safeHref(url) || !/^https?:/i.test(url) || /["\s]/.test(url)) throw new Error('The server sent an address that is not a web link.');
+      const command = `curl -fsSL "${url}" -o mz-fix.patch && git apply --recount mz-fix.patch`;
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(command);
+        copied = true;
+      } catch {}
+      const box = row(f)?.querySelector('.ws-actions');
+      box?.querySelector('.git-command')?.remove();
+      const shown = document.createElement('div');
+      shown.className = 'git-command';
+      const hint = document.createElement('p');
+      hint.textContent = `${copied ? 'Copied. ' : ''}Run it in the repository folder (cmd, PowerShell or a shell). The link works for 7 days.`;
+      const code = document.createElement('code');
+      code.textContent = command;
+      shown.append(hint, code);
+      box?.append(shown);
+      if (!copied) getSelection()?.selectAllChildren(code);
+      log(`git command for ${f.title} ${copied ? 'copied' : 'ready to copy'}.`, 'success');
+    } catch (error) {
+      log(`Could not make the git command: ${error.message}`, 'error');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  /** Under a finished fix: apply it to your checkout, here or with git. */
+  function workspaceActions(f, r) {
+    const box = document.createElement('div');
+    box.className = 'ws-actions';
+    if (typeof window.showDirectoryPicker === 'function') {
+      box.append(
+        smallButton(
+          'Apply fix in my workspace',
+          () => applyInWorkspace(f).catch((error) => log(`Could not apply the fix: ${error.message}`, 'error')),
+          Boolean(r.prUrl),
+        ),
+      );
+    }
+    const git = smallButton('Copy git command', () => requireConnection(() => copyGitCommand(f, git)));
+    git.title = 'A one-line command that downloads this fix and applies it with git, run in the repository folder.';
+    box.append(git);
+    if (typeof window.showDirectoryPicker !== 'function') {
+      const note = document.createElement('p');
+      note.className = 'muted';
+      note.textContent = 'Open this report in Chrome or Edge to apply the fix from here, or use the git command.';
+      box.append(note);
+    }
+    return box;
+  }
 
   setConnectedUI();
   for (const f of findings) if (f.state && f.state !== 'TO_VERIFY') renderTriage(f);

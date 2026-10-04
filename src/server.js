@@ -16,6 +16,7 @@ import { collectInitiators, groupRisksByInitiator, groupRisksByProject, projects
 import { AI_SCANNERS, resolveAiIds, resultRowsFor } from './cxone/ai-assist.js';
 import { mapWithConcurrency } from './cxone/client.js';
 import { ReportGrants } from './report-grants.js';
+import { gitPatch, patchLinks } from './remediation-patch.js';
 import { CREDIT_COST, CreditLedger, monthOf } from './credits.js';
 import { CreditAllocations, REMEDIABLE_STATE, alreadySent, billingUnit, remediable, remediationCandidates, toTriageCount, triageRows } from './credit-allocations.js';
 import { poolSummary, resolveRange, usageSeries } from './credit-usage.js';
@@ -303,6 +304,8 @@ const reportGrants = new ReportGrants({
   secret: process.env.REPORT_SIGNING_KEY?.trim() || undefined,
   file: path.join(dataDir, 'report-signing.key'),
 });
+/** Signed links to one finding's fix as a patch, for `git apply` (see /api/relay/patch). */
+const patchTokens = patchLinks((text) => reportGrants.macText(text));
 
 const automationState = new AutomationState({
   file: config.settingsFile
@@ -3529,6 +3532,56 @@ app.post(
   }),
 );
 
+/**
+ * "Apply with git": a signed link to one finding's AI Remediation fix as a
+ * patch, for `curl … -o mz-fix.patch && git apply mz-fix.patch` in the
+ * reader's checkout. The report's grant is the permission, as for every
+ * relay action; the link only ever reads that one finding's fix.
+ */
+app.post(
+  '/api/relay/patch-link',
+  asyncRoute(async (req, res) => {
+    const findings = grantedFindings(req, res);
+    if (!findings) return;
+    if (findings.length !== 1) return res.status(400).json({ error: 'Ask about one finding at a time.' });
+    const [finding] = findings;
+    if (!finding.scanId || !finding.alternateId) return res.status(400).json({ error: 'This finding has no AI Remediation result.' });
+    const base = reportServerUrl(req, settingsStore.get()).replace(/\/+$/, '') || requestOrigin(req);
+    res.json({ url: `${base}/api/relay/patch/${patchTokens.issue(finding)}` });
+  }),
+);
+
+app.get(
+  '/api/relay/patch/:token',
+  asyncRoute(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.set('X-Content-Type-Options', 'nosniff');
+    const target = patchTokens.verify(req.params.token);
+    if (!target) return res.status(404).type('text').send('This fix link is incomplete or was changed. Copy the command from the report again.\n');
+    if (target.expired) return res.status(410).type('text').send('This fix link has expired (they last 7 days). Copy the command from the report again.\n');
+    const session = await relaySession(res);
+    if (!session) return;
+    let body;
+    try {
+      body = await remediationDetails(session, target);
+    } catch (error) {
+      console.warn(`[relay] could not read an AI Remediation result for a patch: ${logSafe(error.message)}`);
+      return res.status(502).type('text').send(`Could not read the fix: ${relayError(error)}\n`);
+    }
+    const patch = gitPatch(body);
+    if (!patch) return res.status(404).type('text').send('Checkmarx One has no code changes for this finding yet.\n');
+    audit.record({
+      type: 'report',
+      outcome: 'info',
+      reason: 'AI Remediation fix downloaded as a patch for git apply.',
+      actor: { kind: 'report', ip: clientIp(req), userAgent: String(req.get('user-agent') ?? '').slice(0, 200) },
+      details: { scanId: target.scanId, alternateId: target.alternateId },
+    });
+    res.set('Content-Disposition', 'attachment; filename="mz-fix.patch"');
+    res.type('text/x-diff').send(patch);
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // Credit allocation and triage by the administrator (dashboard)
 // ---------------------------------------------------------------------------
@@ -4810,6 +4863,7 @@ app.post(
       relayUrl: reportServerUrl(req, settings),
       initiatorsByProject: initiators.byProject,
       scope,
+      projects: read.projects,
       audience: { actor, recipient: actor.recipient, purpose: `opened for ${projectName || projectId} from a report` },
     });
     const filename = `${(projectName || projectId).replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'project'}-report.html`;
@@ -4823,7 +4877,7 @@ app.post(
  * here, with this session's credentials, so the report itself only ever
  * needs the reader's own API key.
  */
-async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject, audience = {}, publish = '', scope = null } = {}) {
+async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject, audience = {}, publish = '', scope = null, projects = null } = {}) {
   const { connection, lastScan } = session;
   initiatorsByProject ??= lastScan?.initiators ?? {};
   // Whatever built the list, findings triaged as not exploitable stay out.
@@ -4842,11 +4896,18 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   const ranked = selectTopFindings(reportData, Infinity);
   const findings = ranked.slice(0, REPORT_TOP_N);
   const bulkFindings = ranked.slice(REPORT_TOP_N).filter((f) => BULK_SEVERITIES.includes(f.severity));
-  await resolveAiIds(
-    session.client,
-    [...findings, ...bulkFindings],
-    (finding) => initiatorsByProject[finding.projectId]?.scanId ?? '',
-  );
+  const scanIdOf = (finding) => initiatorsByProject[finding.projectId]?.scanId ?? '';
+  // Each scan's results are read once, for the AI ids and for the code locations.
+  const resultsCache = new Map();
+  await resolveAiIds(session.client, [...findings, ...bulkFindings], scanIdOf, resultsCache);
+  // Where each shown finding is in its repository: the report's "Open in IDE" and "Apply fix in my workspace".
+  const locatable = findings.filter((f) => LOCATABLE_SCANNERS.has(f.scanner));
+  const rows = locatable.length ? await resultRowsFor(session.client, locatable, scanIdOf, resultsCache) : new Map();
+  for (const [finding, row] of rows) {
+    const at = locationOf(row);
+    if (at?.path) finding.codeLocation = { path: at.path, line: at.line, column: at.column };
+  }
+  const repositories = reportRepositories(projects ?? lastScan?.projects ?? [], reportData.projects);
   // Who this report is for, signed: every action taken from it is attributed to them.
   const reportToken = reportGrants.signReport({ id: randomUUID(), recipient: audience.recipient ?? '' });
   const actionable = [...findings, ...bulkFindings].filter((f) => !f.aiUnavailable).length;
@@ -4880,6 +4941,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     allowRetriage: Boolean(settings.aiTriage?.allowRetriage),
     allowReremediation: Boolean(settings.aiTriage?.allowReremediation),
     adminContact: adminContact(settings),
+    repositories,
     // "One project's report" buttons: this server builds it, within the same scope.
     projectReportScope: projectReportScope(scope ?? { buckets }),
     signProjectReport: (projectId) => {
@@ -4895,6 +4957,38 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     downloadUrl = reportDownloadUrl(relayUrl, reportToken.id);
   }
   return { reportData, findings, html, downloadUrl, reportId: reportToken.id };
+}
+
+/** Engines whose findings sit at a file and line. */
+const LOCATABLE_SCANNERS = new Set(['SAST', 'KICS', 'IAC']);
+
+/** A repository address safe to put in a report: http(s), ssh or git@host:path, never with credentials. */
+function publicRepoUrl(url) {
+  const text = String(url ?? '').trim();
+  if (/^[\w.-]+@[\w.-]+:[\w./~-]+$/.test(text)) return text;
+  try {
+    const parsed = new URL(text);
+    if (!['https:', 'http:', 'ssh:'].includes(parsed.protocol)) return '';
+    parsed.username = '';
+    parsed.password = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().replace(/\/+$/, '');
+  } catch {
+    return '';
+  }
+}
+
+/** projectId → {url, branch} for the projects in a report that name their repository. */
+function reportRepositories(known, inReport) {
+  const byId = new Map(known.map((p) => [String(p.projectId), p]));
+  const repositories = {};
+  for (const { projectId } of inReport) {
+    const project = byId.get(String(projectId));
+    const url = publicRepoUrl(project?.repoUrl);
+    if (url) repositories[String(projectId)] = { url, branch: String(project.mainBranch ?? '').slice(0, 200) };
+  }
+  return repositories;
 }
 
 /** A link only this server could have made: the report id plus its signature. */

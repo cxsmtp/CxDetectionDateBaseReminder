@@ -105,7 +105,7 @@ http.createServer((req, res) => {
         bump('remediation-get');
         const t = remediated.get(decodeURIComponent(m[2]));
         if (!t) return send(404, {});
-        return send(200, { results: [Date.now() - t < 30000 ? { jobStatus: 'IN_PROGRESS' } : { finishedAt: 't', data: { summary: 'fix' } }] });
+        return send(200, { results: [Date.now() - t < 30000 ? { jobStatus: 'IN_PROGRESS' } : { finishedAt: 't', data: { summary: 'fix', file_changes: [{ file_path: '/src/app.js', diff: '@@ -1 +1 @@\n-const q = input;\n+const q = sanitize(input);' }] } }] });
       }
       bump(`unhandled ${u.pathname}`);
       send(404, {});

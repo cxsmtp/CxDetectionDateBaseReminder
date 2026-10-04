@@ -58,11 +58,12 @@ export function locationOf(row) {
     return {
       path: String(sink.fileName ?? sink.fullName ?? '').replace(/^\/+/, ''),
       line: Number(sink.line) || 0,
+      column: Number(sink.column) || 0,
       source: source && source !== sink ? { path: String(source.fileName ?? '').replace(/^\/+/, ''), line: Number(source.line) || 0 } : null,
     };
   }
   if (data.filename || data.fileName) {
-    return { path: String(data.filename ?? data.fileName).replace(/^\/+/, ''), line: Number(data.line) || 0, source: null };
+    return { path: String(data.filename ?? data.fileName).replace(/^\/+/, ''), line: Number(data.line) || 0, column: 0, source: null };
   }
   return null;
 }

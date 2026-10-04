@@ -160,6 +160,22 @@ test('stage 4 — remediate one: 3 charged; doing it again is refused; allocatio
   assert.deepEqual(await balance(), { triage: [6, 6, 0], remediation: [6, 3, 3] });
 });
 
+test('stage 4a — a fix as a git patch: the link needs the report grant, and the patch only comes once the fix is written', async () => {
+  const forged = await relay('/api/relay/patch-link', { findings: [{ ...finding(0), alternateId: 'alt-p0-r1' }] });
+  assert.equal(forged.status, 403, 'another finding under r0\'s grant');
+  const r = await relay('/api/relay/patch-link', { findings: [finding(0)] });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.match(r.body.url, /^http:\/\/[^/]+\/api\/relay\/patch\/[\w-]+\.[\w-]+$/);
+  const token = r.body.url.split('/patch/')[1];
+  const running = await fetch(`${BASE}/api/relay/patch/${token}`);
+  assert.equal(running.status, 404, 'AI Remediation is still writing the fix');
+  assert.match(await running.text(), /no code changes for this finding yet/);
+  assert.equal(running.headers.get('cache-control'), 'no-store');
+  const tampered = await fetch(`${BASE}/api/relay/patch/${token.replace(/^./, (c) => (c === 'e' ? 'f' : 'e'))}`);
+  assert.equal(tampered.status, 404);
+  assert.match(await tampered.text(), /incomplete or was changed/);
+});
+
 test('stage 4b — "Remediate selected" remediates the remaining confirmed finding only, from what was allocated', async () => {
   const r = await admin('POST', '/api/remediation/run', { projectIds: ['p0'], severities: ['CRITICAL', 'HIGH'] });
   assert.equal(r.status, 200, JSON.stringify(r.body));
