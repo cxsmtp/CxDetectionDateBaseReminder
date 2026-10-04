@@ -57,6 +57,7 @@ export const PERMISSIONS = [
   { id: 'iam.view', group: 'Access', label: 'View users & roles', description: 'See who has access and what each role allows.' },
   { id: 'iam.manage', group: 'Access', label: 'Manage users & roles', description: 'Add, change and remove users and roles — never beyond their own permissions.' },
   { id: 'system.metrics', group: 'Access', label: 'Server load', description: 'See the server’s load and cache figures.' },
+  { id: 'system.update', group: 'Audit & data', label: 'Update & recovery', description: 'Install new versions, roll back, turn on auto-update, restart and troubleshoot the server from Settings.', special: true },
   { id: 'diagnostics.export', group: 'Audit & data', label: 'Download troubleshooting logs', description: 'Download the usage and troubleshooting log (no personal data, keys or findings).' },
 ];
 export const PERMISSION_IDS = PERMISSIONS.map((p) => p.id);

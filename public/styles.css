@@ -2092,3 +2092,20 @@ main { max-width: none; }
 :root[data-theme="dark"] .vf-closure.is-closed { background: rgb(6 95 70 / 0.22); border-color: rgb(52 211 153 / 0.35); color: #6ee7b7; }
 :root[data-theme="dark"] .vf-closure.is-closed .vf-badge { color: #6ee7b7; }
 .rp-table .vf-why { white-space: normal; max-width: 60ch; margin-top: 4px; }
+
+/* Settings → Update & recovery */
+.upd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 12px 0; }
+.upd-card { display: grid; gap: 4px; align-content: start; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.upd-card.upd-new { border-color: #a7f3d0; background: #ecfdf5; }
+.upd-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.upd-big { font-size: 22px; font-weight: 800; }
+.upd-hour { font-size: 13px; }
+.upd-hour select { margin: 0 4px; }
+.upd-job { margin: 8px 0; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); font-size: 13px; }
+.upd-job.failed { border-color: #fecdca; background: #fef3f2; color: #b42318; }
+.upd-job.switching, .upd-job.running { border-color: #b2ddff; background: #eff8ff; }
+.upd-events { margin: 0; padding-left: 18px; font-size: 13px; display: grid; gap: 4px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .upd-card.upd-new { background: rgb(6 95 70 / 0.22); border-color: rgb(52 211 153 / 0.35); } :root:not([data-theme="light"]) .upd-job.failed { background: rgb(180 35 24 / 0.18); color: #fda29b; } :root:not([data-theme="light"]) .upd-job.switching, :root:not([data-theme="light"]) .upd-job.running { background: rgb(46 144 250 / 0.15); } }
+:root[data-theme="dark"] .upd-card.upd-new { background: rgb(6 95 70 / 0.22); border-color: rgb(52 211 153 / 0.35); }
+:root[data-theme="dark"] .upd-job.failed { background: rgb(180 35 24 / 0.18); color: #fda29b; }
+:root[data-theme="dark"] .upd-job.switching, :root[data-theme="dark"] .upd-job.running { background: rgb(46 144 250 / 0.15); }

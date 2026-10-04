@@ -47,6 +47,8 @@ COPY src ./src
 COPY public ./public
 COPY scripts ./scripts
 COPY LICENSE TERMS.md CHANGELOG.md ./
+# The Node.js this image runs (# mz-runtime): an update from Settings that needs another one says so.
+RUN node -p "process.versions.node" > .node-version # mz-runtime
 
 # State (settings, users, credit ledger, audit log, backups) in one volume.
 RUN mkdir -p /data && chown -R node:node /data
@@ -68,5 +70,7 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD ["node", "scripts/healthcheck.mjs"]
 
+# The launcher runs the version chosen under Settings → Update & recovery (or this image's own),
+# switches and rolls back without a container restart. `node src/server.js` still works on its own.
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "src/server.js"]
+CMD ["node", "src/launch.js"]

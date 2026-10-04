@@ -12,4 +12,5 @@ export function displayVersion(semver) {
 const packageFile = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
 
 /** This build's version, from package.json (bumped with every change merged to main). */
-export const APP_VERSION = displayVersion(JSON.parse(fs.readFileSync(packageFile, 'utf8')).version);
+export const PACKAGE_VERSION = String(JSON.parse(fs.readFileSync(packageFile, 'utf8')).version);
+export const APP_VERSION = displayVersion(PACKAGE_VERSION);

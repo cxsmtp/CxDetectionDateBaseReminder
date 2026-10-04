@@ -2,6 +2,15 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
+## MZ-01.00.30 — 2026-10-04 06:05 UTC · [#53](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/53)
+- **Settings → Update & recovery (Admins).** CxMissionZero updates itself, with nobody signing in to the server. **Check for updates** lists every published version, and **Update now** installs the newest. A backup is taken first, and people see "reconnecting…" for a few seconds.
+- **Checked, small downloads.** Only CxMissionZero's own files are downloaded from its image (about 1.5 MB of 40 MB), each piece checked against the image's sha256 digests, and kept in the data volume.
+- **Rolls back by itself.** A version that does not come up, or stops soon after starting, is replaced by the one before it straight away. It is never installed automatically again.
+- **Any version, any time.** **Install and switch** to any published version, **Switch to** any installed one, or go back to the image's own version, in one click.
+- **Auto-update.** Off until an Admin turns it on. A newer release is then installed by itself, optionally only in a chosen hour of the day.
+- **Restart and troubleshooting report.** Restart the server from the page, or download a summary for whoever helps: versions, events, memory, disk, HTTPS and connections, with no secrets.
+- **One manual update first.** The image now starts a small launcher that runs the chosen version. The first update to MZ-01.00.30 is a `podman pull`; every later one can come from the page. Each release is also published under its version number (for example `:1.0.30`), and the on-premise statement now names the registry that updates come from.
+
 ## MZ-01.00.29 — 2026-10-04 05:52 UTC · [#52](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/52)
 - **Your tools, chosen once.** At the top of every report, the developer picks where code opens (VS Code, Cursor, Kiro, Windsurf, Antigravity, a JetBrains IDE or the browser) and what fixes it (Claude Code, OpenAI Codex, Gemini CLI, GitHub Copilot, Cursor, Kiro, Windsurf, Antigravity, Apply in my workspace, git apply, or any other assistant). It is remembered in that browser, for every report.
 - **One click per finding.** Each finding shows **Open in …** and **Fix with …** for those choices. **▾** picks another way for that one finding only.

@@ -490,6 +490,7 @@ const reloadSettingsPage = () => {
   loadPool();
   loadHttps();
   renderAbout();
+  loadUpdates();
 };
 
 /** A page's data, loaded the first time it opens (and by ↻). */
@@ -5048,6 +5049,165 @@ function renderAbout() {
   const t = state.me?.terms;
   $('about-terms-state').textContent = t ? `Version ${t.version}${t.accepted ? ' — accepted by you' : ''}${t.organisationAccepted ? ', and for the organisation' : ''}` : '—';
 }
+
+// ---- Settings → Update & recovery (Admin) -----------------------------------
+
+const mzVersion = (v) => (v === 'built-in' ? 'the image’s own' : `MZ-${String(v).split('.').map((n) => n.padStart(2, '0')).join('.')}`);
+let updState = null;
+let updPoll = null;
+
+async function loadUpdates() {
+  if (!can('system.update')) return;
+  try {
+    updState = await api('/api/system/update');
+    renderUpdates();
+  } catch (error) {
+    if (!handleAuthLoss(error)) $('upd-status').textContent = error.message;
+  }
+}
+
+function renderUpdates() {
+  const s = updState;
+  if (!s) return;
+  $('upd-running').textContent = mzVersion(s.running.version);
+  $('upd-running-sub').textContent = s.running.source === 'update' ? 'Installed from this page' : `The image’s own version${s.builtIn !== s.running.version ? '' : ''}`;
+  const latest = s.latest;
+  $('upd-latest').textContent = latest ? mzVersion(latest.version) : '—';
+  $('upd-latest-sub').textContent = s.lastCheck
+    ? s.lastCheck.error
+      ? `Check failed: ${s.lastCheck.error}`
+      : `${s.updateAvailable ? 'Newer than what runs. ' : 'Up to date. '}Checked ${new Date(s.lastCheck.at).toLocaleString()}`
+    : 'Not checked yet';
+  $('upd-latest-card').classList.toggle('upd-new', Boolean(s.updateAvailable));
+  const install = $('upd-install-latest');
+  install.hidden = !s.updateAvailable || !s.supervised;
+  install.textContent = latest ? `Update now to ${mzVersion(latest.version)}` : 'Update now';
+  const hour = $('upd-hour');
+  if (hour.options.length === 1) for (let h = 0; h < 24; h += 1) hour.append(new Option(`${String(h).padStart(2, '0')}:00`, String(h)));
+  $('upd-auto').checked = s.settings.auto;
+  hour.value = s.settings.windowHour === null ? '' : String(s.settings.windowHour);
+  $('upd-auto-sub').textContent = s.settings.auto
+    ? `Checked every 15 minutes${s.settings.windowHour === null ? '' : `, installed only at ${String(s.settings.windowHour).padStart(2, '0')}:00`}. A version that failed to start is never installed again by itself.${s.settings.lastAutoResult ? ` Last: ${s.settings.lastAutoResult}.` : ''}`
+    : 'Off: you install updates here.';
+  const warn = $('upd-warn');
+  warn.hidden = s.supervised;
+  warn.className = 'status warn';
+  warn.textContent = s.supervised ? '' : 'This server was started with a custom command, so it cannot switch versions itself. Start the image with its own start command (no command after the image name) to update from here; until then, update with podman pull.';
+  for (const id of ['upd-install-latest', 'upd-restart']) $(id).disabled = !s.supervised || ['running', 'switching'].includes(s.job?.state);
+
+  const job = $('upd-job');
+  job.hidden = !s.job;
+  if (s.job) {
+    const j = s.job;
+    job.className = `upd-job ${j.state}`;
+    job.textContent = j.state === 'failed' ? `Update to ${j.ref} failed: ${j.error}` : j.state === 'done' ? `MZ-${j.version} installed.` : `${j.step}${j.downloaded ? ` · ${Math.round(j.downloaded / 1024)} KB checked` : ''}…`;
+  }
+  const news = $('upd-news');
+  news.innerHTML = s.job?.whatsNew?.length
+    ? `<h3>What's new</h3>${s.job.whatsNew.map((n) => `<p><b>${escapeHtml(mzVersion(n.version))}</b> ${n.highlights.map(escapeHtml).join(' · ')}</p>`).join('')}`
+    : '';
+
+  const installed = new Map(s.installed.map((v) => [v.version, v]));
+  const failed = new Set(s.failed);
+  const rows = new Map((s.lastCheck?.versions ?? []).map((v) => [v.version, v]));
+  for (const v of s.installed) if (!rows.has(v.version)) rows.set(v.version, { version: v.version, created: v.created, tags: [v.tag], local: true });
+  const sorted = [...rows.values()].sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
+  const busy = ['running', 'switching'].includes(s.job?.state);
+  const button = (label, attrs, primary = false) => `<button type="button" class="${primary ? 'primary ' : ''}small" ${attrs} ${busy || !s.supervised ? 'disabled' : ''}>${label}</button>`;
+  const body = sorted.map((v) => {
+    // The image's own version has its own row below: a published row of the same version points there.
+    const inImage = v.version === s.builtIn && !installed.has(v.version);
+    const running = s.running.source === 'update' && v.version === s.running.version && installed.has(v.version);
+    const here = running ? '<span class="rp-chip tone-good">Running</span>' : installed.has(v.version) ? 'Installed' : inImage ? 'In the image (below)' : '';
+    const flag = failed.has(v.version) ? ' <span class="rp-chip tone-critical" title="It did not start, and was rolled back by itself">Failed to start</span>' : '';
+    const ref = (v.tags ?? []).find((t) => /^\d+\.\d+\.\d+$/.test(t)) ?? v.tags?.[0] ?? v.digest;
+    const action = running || inImage ? '' : installed.has(v.version) ? button('Switch to', `data-upd-switch="${escapeHtml(v.version)}"`) : ref ? button('Install and switch', `data-upd-install="${escapeHtml(ref)}"`, v === sorted[0] && s.updateAvailable) : '';
+    return `<tr><td>${escapeHtml(mzVersion(v.version))}${flag}</td><td>${v.created ? escapeHtml(new Date(v.created).toLocaleDateString()) : ''}</td><td>${here}</td><td>${action}</td></tr>`;
+  });
+  const imageRunning = s.running.source === 'image';
+  body.push(`<tr><td>${escapeHtml(mzVersion(s.builtIn))} <span class="hint">(the image’s own)</span></td><td></td><td>${imageRunning ? '<span class="rp-chip tone-good">Running</span>' : 'In the image'}</td><td>${imageRunning ? '' : button('Switch to', 'data-upd-switch="built-in"')}</td></tr>`);
+  $('upd-versions').querySelector('tbody').innerHTML = body.join('');
+
+  const label = { started: 'Started', switch: 'Switch', restart: 'Restart', rollback: 'Rolled back', crash: 'Stopped unexpectedly' };
+  $('upd-events').innerHTML = s.events.length
+    ? s.events
+        .slice(0, 12)
+        .map((e) => `<li><span class="hint">${escapeHtml(new Date(e.at).toLocaleString())}</span> <b>${escapeHtml(label[e.type] ?? e.type)}</b> ${escapeHtml(
+          e.type === 'rollback' ? `${mzVersion(e.from)} → ${mzVersion(e.to)}: ${e.reason ?? ''}` : e.type === 'started' ? `${mzVersion(e.version)} came up in ${Math.round((e.ms ?? 0) / 1000)} s` : e.type === 'crash' ? `${mzVersion(e.version)} (code ${e.code ?? e.signal})` : `${e.from ? mzVersion(e.from) : ''}${e.to ? ` → ${mzVersion(e.to)}` : ''}${e.by ? ` by ${e.by}` : ''}`,
+        )}</li>`)
+        .join('')
+    : '<li class="hint">Nothing yet.</li>';
+
+  clearTimeout(updPoll);
+  if (busy) updPoll = setTimeout(followUpdate, 2000);
+}
+
+/** While an update or switch runs: follow it, through the restart, to the new version. */
+async function followUpdate() {
+  const before = updState?.running.version;
+  try {
+    updState = await api('/api/system/update');
+    renderUpdates();
+    if (updState.running.version !== before) {
+      $('upd-status').textContent = `Now running ${mzVersion(updState.running.version)}: reloading the page for its new screens…`;
+      // The new version's own pages and scripts.
+      setTimeout(() => location.reload(), 1500);
+    }
+  } catch {
+    $('upd-status').textContent = 'Restarting: reconnecting in a few seconds…';
+    updPoll = setTimeout(followUpdate, 2000);
+  }
+}
+
+async function updateAction(path, body, message) {
+  $('upd-status').textContent = message;
+  try {
+    updState = await api(path, { method: 'POST', body: JSON.stringify(body ?? {}) });
+    renderUpdates();
+    if (!updState?.job || updState.job.state === 'failed') loadUpdates();
+    else updPoll = setTimeout(followUpdate, 1500);
+  } catch (error) {
+    if (!handleAuthLoss(error)) $('upd-status').textContent = error.message;
+  }
+}
+
+$('upd-check').addEventListener('click', () => updateAction('/api/system/update/check', {}, 'Checking the registry for published versions…').then(() => ($('upd-status').textContent = updState?.lastCheck?.error ? `Check failed: ${updState.lastCheck.error}` : `Checked: ${updState?.lastCheck?.versions?.length ?? 0} versions published.`)));
+$('upd-install-latest').addEventListener('click', () => {
+  const latest = updState?.latest;
+  if (!latest || !confirm(`Update to ${mzVersion(latest.version)}? A backup is taken first. People see "reconnecting…" for a few seconds, and if it does not start, the current version comes back by itself.`)) return;
+  updateAction('/api/system/update/install', { ref: latest.tags.find((t) => /^\d+\.\d+\.\d+$/.test(t)) ?? latest.tags[0] }, 'Downloading the update…');
+});
+$('upd-restart').addEventListener('click', () => {
+  if (!confirm('Restart the server? Work in progress finishes first; people see "reconnecting…" for a few seconds.')) return;
+  api('/api/system/update/restart', { method: 'POST', body: '{}' })
+    .then(() => {
+      $('upd-status').textContent = 'Restarting…';
+      updPoll = setTimeout(followUpdate, 2500);
+    })
+    .catch((error) => !handleAuthLoss(error) && ($('upd-status').textContent = error.message));
+});
+$('upd-versions').addEventListener('click', (event) => {
+  const install = event.target.closest('[data-upd-install]');
+  const sw = event.target.closest('[data-upd-switch]');
+  if (install) {
+    if (!confirm(`Install ${install.closest('tr').cells[0].textContent.trim()} and switch to it? A backup is taken first; if it does not start, the current version comes back by itself.`)) return;
+    updateAction('/api/system/update/install', { ref: install.dataset.updInstall }, 'Downloading…');
+  } else if (sw) {
+    const target = mzVersion(sw.dataset.updSwitch);
+    if (!confirm(`Switch to ${target}? A backup is taken first. Going back to an older version can leave newer data it does not know about.`)) return;
+    updateAction('/api/system/update/switch', { version: sw.dataset.updSwitch }, `Switching to ${target}…`);
+  }
+});
+const saveAutoUpdate = () =>
+  api('/api/system/update/settings', { method: 'PUT', body: JSON.stringify({ auto: $('upd-auto').checked, windowHour: $('upd-hour').value === '' ? null : Number($('upd-hour').value) }) })
+    .then((status) => {
+      updState = status;
+      renderUpdates();
+      $('upd-status').textContent = status.settings.auto ? 'Auto-update on.' : 'Auto-update off.';
+    })
+    .catch((error) => !handleAuthLoss(error) && ($('upd-status').textContent = error.message));
+$('upd-auto').addEventListener('change', saveAutoUpdate);
+$('upd-hour').addEventListener('change', saveAutoUpdate);
 
 // ---- Getting started: the few things that make CxMissionZero useful -------
 

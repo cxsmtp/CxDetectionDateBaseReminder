@@ -157,7 +157,7 @@
                 <label class="mode"><input type="radio" name="signinMode" value="cxone" /> <span>Checkmarx One API key</span></label>
               </div>
 
-              <p class="onprem-note">Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
+              <p class="onprem-note">Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add; and, only when an Admin checks for or installs updates, the registry its own image comes from). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
               <p class="hint terms-signin">Use of CxMissionZero is subject to its <a href="#" data-terms-open>terms of use</a>: an independent project, not a Checkmarx product, provided as is.</p>
               <form id="password-form" autocomplete="on">
                 <label class="field"><span>Email</span><input id="signin-email" type="email" autocomplete="username" required /></label>
@@ -527,6 +527,7 @@
                 <p class="set-group" data-perm="security.https">Security</p>
                   <a href="#/settings/https" data-set="https" data-perm="security.https">HTTPS</a>
                 <p class="set-group">About</p>
+                  <a href="#/settings/update" data-set="update" data-perm="system.update">Update &amp; recovery</a>
                   <a href="#/settings/about" data-set="about">About &amp; terms of use</a>
                 </div>
               </nav>
@@ -1001,6 +1002,48 @@
               <div id="probe-results" hidden></div>
             </section>
 
+            <section class="panel" id="set-update" data-perm="system.update">
+              <h2>Update &amp; recovery</h2>
+              <p class="hint wide">Keep CxMissionZero up to date without signing in to the server: install a new version, go back to any version, turn on auto-update, restart, or download a troubleshooting report. Every switch is backed up first, and a version that does not start is rolled back by itself.</p>
+              <div class="upd-grid">
+                <div class="upd-card">
+                  <span class="upd-label">Running</span>
+                  <span class="upd-big" id="upd-running">—</span>
+                  <span class="hint" id="upd-running-sub"></span>
+                </div>
+                <div class="upd-card" id="upd-latest-card">
+                  <span class="upd-label">Latest published</span>
+                  <span class="upd-big" id="upd-latest">—</span>
+                  <span class="hint" id="upd-latest-sub"></span>
+                </div>
+                <div class="upd-card">
+                  <span class="upd-label">Auto-update</span>
+                  <label class="check"><input type="checkbox" id="upd-auto" /> Install new releases by themselves</label>
+                  <label class="upd-hour">at <select id="upd-hour"><option value="">any time</option></select> (server time)</label>
+                  <span class="hint" id="upd-auto-sub"></span>
+                </div>
+              </div>
+              <p class="status" id="upd-warn" hidden></p>
+              <div class="actions compact">
+                <button type="button" class="primary" id="upd-install-latest" hidden>Update now</button>
+                <button type="button" id="upd-check">Check for updates</button>
+                <button type="button" id="upd-restart">Restart the server</button>
+                <a class="button" id="upd-report" href="/api/system/report" download>Download troubleshooting report</a>
+              </div>
+              <p class="status" id="upd-status" role="status"></p>
+              <div id="upd-job" class="upd-job" hidden></div>
+              <div id="upd-news"></div>
+              <h3>Every version</h3>
+              <p class="hint">Install and switch to any published version, or go back to one installed here. Going back to an older version can leave newer data it does not know: a backup is taken before every switch (Audit → Backups).</p>
+              <div class="table-wrap"><table class="data-table" id="upd-versions"><thead><tr><th>Version</th><th>Built</th><th>Here</th><th></th></tr></thead><tbody></tbody></table></div>
+              <h3>Recent events</h3>
+              <ul class="upd-events" id="upd-events"></ul>
+              <details class="disclosure">
+                <summary>Replacing the whole image (a new Node.js or OS base)</summary>
+                <p class="hint">Updates from this page replace CxMissionZero's own files. Rarely, a release needs a new base image; the page then says so. Run, on the server: <code>podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest</code>, then your usual <code>podman run --replace …</code> line. The full image update from this page (a companion container) comes in a later release.</p>
+              </details>
+            </section>
+
             <section class="panel" id="set-about">
               <h2>About CxMissionZero</h2>
               <p class="hint wide">Detect, eliminate and govern vulnerabilities in Checkmarx One: find ageing findings and who owns them, drive them to zero with reminders, follow-ups, AI Triage and AI Remediation, and keep an audit trail of every credit.</p>
@@ -1010,7 +1053,7 @@
                 <div><dt>Project</dt><dd><a href="https://github.com/cxsmtp/CxDetectionDateBaseReminder" target="_blank" rel="noopener noreferrer">github.com/cxsmtp/CxDetectionDateBaseReminder</a> — contributions welcome</dd></div>
                 <div><dt>Terms accepted</dt><dd id="about-terms-state">—</dd></div>
               </dl>
-              <p class="onprem-note"><b>On premise, your data stays yours.</b> Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
+              <p class="onprem-note"><b>On premise, your data stays yours.</b> Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add; and, only when an Admin checks for or installs updates, the registry its own image comes from). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
               <div class="terms-card">
                 <h3>Terms of use</h3>
                 <p class="hint">An independent project, not a Checkmarx product, provided as is: no warranty, support or bug fixing. Checkmarx and the author are not responsible for its use or for any credit discrepancy. Audit figures support your own calculation only.</p>
@@ -1372,6 +1415,7 @@
                     <option value="settings">Credit settings</option>
                     <option value="report">Reports issued</option>
                     <option value="verification">Verification rescans</option>
+                    <option value="system">Updates &amp; system</option>
                     <option value="backup">Backup &amp; restore</option>
                     <option value="audit">Audit checks</option>
                     <option value="access">Sign-ins</option>
@@ -1660,7 +1704,7 @@
     <div id="terms-overlay" class="terms-overlay" role="dialog" aria-modal="true" aria-labelledby="terms-title" hidden>
       <div class="terms-box">
         <header class="terms-head">
-          <p class="onprem-note"><b>On premise, your data stays yours.</b> Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
+          <p class="onprem-note"><b>On premise, your data stays yours.</b> Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add; and, only when an Admin checks for or installs updates, the registry its own image comes from). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
           <h2 id="terms-title">Terms of use</h2>
           <p class="hint" id="terms-sub">CxMissionZero is an independent project, not a Checkmarx product.</p>
         </header>
