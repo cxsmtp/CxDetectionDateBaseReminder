@@ -295,6 +295,14 @@
         if (hello.projects) early.credits = { projects: hello.projects, creditsRemaining: hello.creditsRemaining };
         return hello;
       },
+      /** Where this tracked report's rescan stands, for its developer. */
+      rescanState() {
+        return post('/api/relay/rescan-state', { grant: config.rescan }, 0, 15000);
+      },
+      /** Start the rescan of their own fixes. */
+      rescan() {
+        return post('/api/relay/rescan', { grant: config.rescan });
+      },
       async credits() {
         if (early.credits && Date.now() < earlyUntil) {
           const answer = early.credits;
@@ -1285,12 +1293,61 @@
     loadExistingTriage().catch(reportError);
     loadExistingRemediation().catch(reportError);
     candidate.credits().catch((error) => log(`Could not read credits: ${error.message}`, 'error'));
+    if (config.rescan) candidate.rescanState().then(renderRescan).catch(() => {});
     // The server answers on HTTPS too: use it from now on, if it works from this computer.
     if (status.httpsUrl && /^http:/i.test(String(config.relayUrl || ''))) {
       switchServer(status.httpsUrl, 'A secure (HTTPS) connection to the reminder server works from this computer')
         .then((switched) => (switched ? connect({ quiet: true, moved: true }) : null))
         .catch(() => {});
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rescan your fixes: the developer goes first (a tracked report's round is closed)
+  // ---------------------------------------------------------------------------
+
+  function renderRescan(s) {
+    const card = $('rescan-card');
+    if (!card || !s) return;
+    const until = s.dueAt ? new Date(s.dueAt).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    const view = {
+      ready: ['', '⟳', 'Everything here is dealt with. Prove it: rescan now', `You have until ${until} (${s.hoursLeft} h).${s.onBehalf ? ' After that it is rescanned on your behalf.' : ''} You get the result by email.`, 'Rescan now', false],
+      scanning: ['wait', '⟳', 'Rescanning…', `${s.startedBy ? `Started by ${s.startedBy}` : s.automatic ? 'Started on your behalf' : 'Started'}. You get the result by email.`, '', true],
+      zero: ['ok', '✓', 'Verified at zero', 'The rescan found nothing left in scope. Every fix worked.', '', true],
+      verified: ['wait', '✓', 'Rescanned', `${s.result?.fixed ?? 0} fixed, ${s.result?.stillFound ?? 0} still found. The updated report has been emailed to you.`, '', true],
+      opening: ['', '⟳', 'Everything here is dealt with', 'The rescan button opens in a minute.', '', true],
+      'open-findings': ['wait', '•', 'Rescan unlocks when everything here is dealt with', `${s.open ?? 'Some'} finding${s.open === 1 ? '' : 's'} left to triage or fix. Then you rescan to prove the fixes.`, 'Rescan', true],
+    }[s.state];
+    if (!view || !s.sameRound) {
+      card.hidden = true;
+      return;
+    }
+    const [tone, icon, title, text, button, disabled] = view;
+    card.className = `rescan-card${tone ? ` ${tone}` : ''}`;
+    const el = (tag, className, textContent) => Object.assign(document.createElement(tag), { className, textContent });
+    const badge = el('span', 'rc-icon', icon);
+    badge.setAttribute('aria-hidden', 'true');
+    const words = el('span', 'rc-text', '');
+    words.append(el('b', '', title), el('span', '', text));
+    card.replaceChildren(badge, words);
+    card.hidden = false;
+    if (!button) return;
+    const go = el('button', `btn${disabled ? ' btn-outline' : ''}`, button);
+    go.type = 'button';
+    go.disabled = disabled;
+    card.append(go);
+    go.addEventListener('click', async () => {
+      go.disabled = true;
+      go.textContent = 'Starting…';
+      try {
+        renderRescan({ ...(await backend.rescan()), sameRound: true });
+        log('Rescan started: Checkmarx One scans the same repository, branch and engines again. The result comes by email.', 'success');
+      } catch (error) {
+        go.disabled = false;
+        go.textContent = 'Rescan now';
+        log(`Could not start the rescan: ${error.message}`, 'error');
+      }
+    });
   }
 
   /** Use another address for the reminder server (kept in this browser), when it answers there. */

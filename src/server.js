@@ -58,6 +58,8 @@ import { HSTS_AGES, HttpsManager } from './https-manager.js';
 import { SUPPORTING_NOTICE, Terms } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
+import { journeyOf } from './journey.js';
+import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
 import {
   SessionStore,
@@ -277,6 +279,8 @@ function creditView(summary) {
     need,
     shortfall,
     sharedResults: sharedResults(figures.triageRows(SEVERITIES)),
+    // Where its findings stand on the way to Mission Zero (src/journey.js).
+    journey: journeyOf(risks, creditLedger.remediatedIds(summary.projectId)),
   };
 }
 
@@ -4386,7 +4390,7 @@ const cxErrorText = (error) => `${error?.status ? `HTTP ${error.status}: ` : ''}
 const scanIdOfSummary = (scan) => String(scan?.id ?? scan?.scanId ?? '');
 
 /** Ask Checkmarx One to scan each of the report's projects again, like its last scan. */
-async function startVerification(report, session, { by = '', automatic = false } = {}) {
+async function startVerification(report, session, { by = '', automatic = false, reason = '' } = {}) {
   if (report.verification && !report.verification.finishedAt) {
     throw Object.assign(new Error('A verification is already running for this report.'), { status: 409 });
   }
@@ -4435,7 +4439,7 @@ async function startVerification(report, session, { by = '', automatic = false }
   audit.record({
     type: 'verification',
     outcome: 'info',
-    reason: `Verification rescan of "${report.name}" (round ${round}) ${automatic ? 'started automatically: every finding in scope was dealt with' : 'started'}.`,
+    reason: `Verification rescan of "${report.name}" (round ${round}) ${reason || (automatic ? 'started automatically: every finding in scope was dealt with' : 'started')}.`,
     actor: automatic ? SYSTEM_ACTOR : { kind: 'user', user: by },
     details: { reportId: report.id, round, scans: projects.map(({ projectName, status, scanId, error }) => ({ projectName, status, scanId, error })) },
   });
@@ -4494,6 +4498,8 @@ async function advanceVerification(report, session) {
       actor: SYSTEM_ACTOR,
       details: { reportId: report.id, round: v.round, fixed: r.fixed, stillFound: r.stillFound.length, ineffective: r.ineffective, accepted: r.accepted, newInScope: r.newInScope, notChecked: r.notChecked },
     });
+    trackedReports.save();
+    await developerResult(report, session).catch((error) => console.warn(`[verification] ${logSafe(report.name)}: ${logSafe(error.message)}`));
   }
   const expired = Date.now() - Date.parse(v.requestedAt) > VERIFY_WAIT_MS;
   if (!scanning && (!stillWaiting || expired)) {
@@ -4503,12 +4509,160 @@ async function advanceVerification(report, session) {
   if (changed) trackedReports.save();
 }
 
-/** Follow a report's verification, and start one when its scope is closed and automatic verification is on. */
+/**
+ * Follow a report's verification. When its scope is closed, the developers get their turn to
+ * rescan first (src/rescan-window.js); when that window ends with nobody rescanning, and
+ * automatic verification is on, the rescan starts on their behalf.
+ */
 async function verificationStep(report, session) {
   await advanceVerification(report, session);
-  const closed = report.latest?.closure?.closed;
-  const doneForRound = report.verification?.round === (report.round ?? 1);
-  if (report.verify?.auto && closed && !doneForRound) await startVerification(report, session, { automatic: true });
+  const action = windowAction(report);
+  if (action === 'open') await openRescanWindow(report, session);
+  else if (action === 'cancel') {
+    report.verifyWindow = null;
+    trackedReports.save();
+  } else if (action === 'start') await rescanOnBehalf(report, session);
+}
+
+// ---- The developer's turn to rescan ----------------------------------------------------
+
+const rescanTokens = rescanGrants((text) => reportGrants.macText(text));
+/** The rescan button in a developer's report works for as long as the report's own grants (30 days). */
+const RESCAN_REPORT_GRANT_MS = 30 * DAY_MS;
+/** A developer's rescan link stays usable this long after their window ends (it then shows the result). */
+const RESCAN_LINK_EXTRA_MS = 14 * DAY_MS;
+
+/** Who fixed what: each project's latest scan initiator (as credited), with an address. */
+async function reportDevelopers(session, report) {
+  const scan = await openScanFor(session, report);
+  const byEmail = new Map();
+  for (const p of report.projects) {
+    const info = scan.initiators?.[p.projectId];
+    const email = String(info?.email || '').trim().toLowerCase();
+    if (!email) continue;
+    if (!byEmail.has(email)) byEmail.set(email, { email, name: info.initiator || email, projects: [] });
+    byEmail.get(email).projects.push(p.projectName);
+  }
+  return [...byEmail.values()];
+}
+
+/** The signed link a developer rescans this report's round with. */
+function rescanLink(report, email, window = currentWindow(report)) {
+  const server = resolveReportServer(null, settingsStore.get());
+  if (!server.url || !window) return '';
+  const grant = rescanTokens.issue({ reportId: report.id, round: window.round, email, exp: Date.parse(window.dueAt) + RESCAN_LINK_EXTRA_MS });
+  return `${server.url.replace(/\/+$/, '')}/rescan?g=${encodeURIComponent(grant)}`;
+}
+
+/** The scope is closed: the developers' turn to rescan begins, and they are told. */
+async function openRescanWindow(report, session) {
+  const developers = await reportDevelopers(session, report).catch(() => []);
+  report.verifyWindow = newWindow(report, developers);
+  trackedReports.save();
+  audit.record({
+    type: 'verification',
+    outcome: 'info',
+    reason: `Every finding in "${report.name}" (round ${report.verifyWindow.round}) was dealt with: its developers have until ${report.verifyWindow.dueAt} to rescan${report.verify?.auto ? ', then it is rescanned on their behalf' : ''}.`,
+    actor: SYSTEM_ACTOR,
+    details: { reportId: report.id, round: report.verifyWindow.round, dueAt: report.verifyWindow.dueAt, developers: developers.map((d) => d.email) },
+  });
+  await mailDevelopers(report, 'ready').catch((error) => console.warn(`[verification] ${logSafe(report.name)}: ${logSafe(error.message)}`));
+}
+
+/** Nobody rescanned in time: rescan on the developers' behalf, and tell them. */
+async function rescanOnBehalf(report, session) {
+  const window = currentWindow(report);
+  await startVerification(report, session, { automatic: true, reason: `started on its developers' behalf: nobody rescanned within ${window.graceHours} hours` });
+  window.startedAt = new Date().toISOString();
+  window.startedBy = '';
+  trackedReports.save();
+  await mailDevelopers(report, 'onBehalf').catch((error) => console.warn(`[verification] ${logSafe(report.name)}: ${logSafe(error.message)}`));
+}
+
+/** A developer starts the rescan of their own fixes (from their report, or the emailed link). */
+async function rescanByDeveloper(report, email) {
+  const window = currentWindow(report);
+  if (!window) return { status: 409, error: report.latest?.closure?.closed ? 'The rescan opens in a moment: try again shortly.' : 'Not every finding in this report is dealt with yet: triage or fix the rest first.' };
+  if (window.startedAt || report.verification?.round === window.round) return { status: 409, error: 'This round is already being rescanned.' };
+  const session = await resolveAutomationSession();
+  if (!session) return { status: 503, error: 'The reminder server has no Checkmarx One connection right now.' };
+  await startVerification(report, session, { by: email, reason: `started by ${email}, who fixed the findings` });
+  window.startedAt = new Date().toISOString();
+  window.startedBy = email;
+  trackedReports.save();
+  return { status: 200 };
+}
+
+/** One email to each developer of the report: their turn to rescan, a rescan on their behalf, or the result. */
+async function mailDevelopers(report, kind) {
+  const settings = sendingSettings();
+  const window = currentWindow(report);
+  if (!window?.developers?.length || !isVerified(settings)) return 0;
+  const brand = settings.branding?.companyName || settings.branding?.appName || 'Application security';
+  const accent = /^#[0-9a-f]{6}$/i.test(settings.branding?.accentColor ?? '') ? settings.branding.accentColor : '#4f46e5';
+  const result = report.verification?.result;
+  const due = new Date(window.dueAt).toUTCString().replace(/:\d\d GMT$/, ' UTC');
+  let sent = 0;
+  for (const dev of window.developers) {
+    const link = rescanLink(report, dev.email, window);
+    const button = link ? `<p style="margin:20px 0"><a href="${escapeHtmlText(link)}" style="background:${accent};color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Rescan now</a></p>` : '';
+    const projects = escapeHtmlText(dev.projects.join(', '));
+    const text = {
+      ready: {
+        subject: `${report.name}: your fixes are in, rescan to prove them`,
+        lines: [
+          `Every finding in scope for ${projects} has been dealt with. Thank you.`,
+          `You get the first chance to prove the fixes: rescan now, before ${due}.`,
+          report.verify?.auto ? 'If nobody rescans by then, CxMissionZero rescans on your behalf.' : 'After that, your security team rescans it.',
+        ],
+        button,
+      },
+      onBehalf: {
+        subject: `${report.name}: rescanned on your behalf`,
+        lines: [
+          `No rescan was started within ${window.graceHours} hours, so CxMissionZero has started one for ${projects} on your behalf, to check that the fixes work.`,
+          'You will get the updated report when it finishes.',
+        ],
+        button: '',
+      },
+      result: {
+        subject: result?.zero ? `${report.name}: verified at zero` : `${report.name}: rescan result, ${result?.fixed ?? 0} fixed, ${result?.stillFound?.length ?? 0} still found`,
+        lines: result?.zero
+          ? [`The rescan of ${projects} found nothing left in scope: every fix worked. Mission Zero for this scope.`]
+          : [
+              `The rescan of ${projects} is done: ${result?.fixed ?? 0} fixed, ${result?.stillFound?.length ?? 0} still found${result?.ineffective ? ` (${result.ineffective} of them after an AI fix that did not work)` : ''}${result?.newInScope ? `, ${result.newInScope} new` : ''}.`,
+              'The updated report with what is left follows in a separate email.',
+            ],
+        button: '',
+      },
+    }[kind];
+    const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111827;max-width:640px">
+      <p style="font-size:13px;color:#6b7280;margin:0 0 4px">${escapeHtmlText(brand)}</p>
+      <h2 style="margin:0 0 12px;font-size:18px">${escapeHtmlText(text.subject)}</h2>
+      <p>Hi ${escapeHtmlText(dev.name || dev.email)},</p>
+      ${text.lines.map((line) => `<p>${line}</p>`).join('')}
+      ${text.button}
+    </div>`;
+    try {
+      await sendReminderMail(settings, { subject: text.subject, html, text: `Hi ${dev.name || dev.email},\n\n${text.lines.join('\n\n').replace(/<[^>]+>/g, '')}${link && kind === 'ready' ? `\n\nRescan now: ${link}` : ''}\n` }, { exact: true, to: [dev.email] });
+      sent += 1;
+    } catch (error) {
+      console.warn(`[verification] could not email ${logSafe(dev.email)}: ${logSafe(error.message)}`);
+    }
+  }
+  window.notified = { ...(window.notified ?? {}), [kind]: new Date().toISOString() };
+  trackedReports.save();
+  return sent;
+}
+
+/** The result is in: tell the developers, and send the updated report of what is left. */
+async function developerResult(report, session) {
+  if (!currentWindow(report)) return;
+  await mailDevelopers(report, 'result');
+  if (!report.verification?.result?.zero && isVerified(sendingSettings())) {
+    const server = resolveReportServer(null, settingsStore.get());
+    await remindTrackedReport(session, report, { sendTo: 'initiator', attachHtml: true }, server.url, { automatic: true });
+  }
 }
 
 /** Every minute, for every report (and on each Refresh, for that one). */
@@ -4575,6 +4729,7 @@ async function remindTrackedReport(session, report, options, relayUrl, { automat
       ? await runHtmlReminder(session, scan, {
           groupBy: sendTo === 'list' ? 'none' : emailContent === 'per-project' ? 'project' : 'initiator',
           alsoConsolidated: sendTo === 'both',
+          tracked: report,
         }, relayUrl)
       : await runReminder(session, scan, {
           groupBy: sendTo === 'list' ? 'none' : emailContent === 'per-project' ? 'project' : 'initiator',
@@ -4613,6 +4768,7 @@ async function trackedReportHtml(session, report, scan, relayUrl, audience = {},
     publish,
     initiatorsByProject: scan.initiators,
     audience: { purpose: `for tracked report "${report.name}"`, ...audience },
+    tracked: report,
   });
 }
 
@@ -4938,16 +5094,107 @@ app.post(
   }),
 );
 
-/** Verify automatically: rescan the moment every finding in the round's scope has been dealt with. */
+/**
+ * How a round is verified: the developers' window to rescan themselves (24 hours to 14 days,
+ * 48 by default), and whether it is rescanned on their behalf when nobody did.
+ */
 app.put('/api/tracked-reports/:id/verify-settings', requirePermission('reports.manage'), (req, res) => {
   const report = trackedReports.get(req.params.id);
   if (!report) return res.status(404).json({ error: 'No such report.' });
-  const auto = req.body?.auto === true;
-  report.verify = { ...(report.verify ?? {}), auto };
+  const auto = 'auto' in (req.body ?? {}) ? req.body.auto === true : Boolean(report.verify?.auto);
+  const graceHours = 'graceHours' in (req.body ?? {}) ? graceHoursOf({ verify: { graceHours: req.body.graceHours } }) : graceHoursOf(report);
+  report.verify = { ...(report.verify ?? {}), auto, graceHours };
+  // An open window keeps its developers; its end moves with the new length.
+  const window = currentWindow(report);
+  if (window && !window.startedAt) {
+    window.graceHours = graceHours;
+    window.dueAt = new Date(Date.parse(window.openedAt) + graceHours * HOUR_MS).toISOString();
+  }
   trackedReports.save();
-  audit.record({ type: 'verification', outcome: 'changed', reason: `Automatic verification of "${report.name}" ${auto ? 'on' : 'off'}.`, actor: { kind: 'user', user: req.user?.email ?? '' }, details: { reportId: report.id, auto } });
+  audit.record({ type: 'verification', outcome: 'changed', reason: `Verification of "${report.name}": developers have ${graceHours} hours to rescan, then ${auto ? 'it is rescanned on their behalf' : 'it waits for a rescan by hand'}.`, actor: { kind: 'user', user: req.user?.email ?? '' }, details: { reportId: report.id, auto, graceHours } });
   res.json(trackedView(report));
 });
+
+// ---- A developer rescans their own fixes: from their report, or the emailed link ----
+
+/** Each developer's own rescan link, to send by hand (when email is not set up, for example). */
+app.get('/api/tracked-reports/:id/rescan-links', requirePermission('reports.manage'), (req, res) => {
+  const report = trackedReports.get(req.params.id);
+  if (!report) return res.status(404).json({ error: 'No such report.' });
+  const window = currentWindow(report);
+  if (!window) return res.status(409).json({ error: 'Not every finding in scope is dealt with yet: the developers\' rescan opens then.' });
+  const links = (window.developers ?? []).map((d) => ({ email: d.email, name: d.name, projects: d.projects, link: rescanLink(report, d.email, window) }));
+  if (links.some((l) => !l.link)) return res.status(409).json({ error: 'Set the reminder server address (Settings → Server address) so the links can reach this server.' });
+  res.json({ dueAt: window.dueAt, links });
+});
+
+/** {report, grant} for a valid rescan grant, or an error to show. */
+function rescanFromGrant(token) {
+  const grant = rescanTokens.verify(token);
+  if (!grant) return { error: 'This rescan link is not valid any more. Ask your security team for a new report.' };
+  const report = trackedReports.get(grant.reportId);
+  if (!report) return { error: 'This report is no longer tracked.' };
+  return { report, grant };
+}
+
+/** Where the developer's rescan stands (the emailed report asks this). */
+app.post('/api/relay/rescan-state', (req, res) => {
+  const { report, grant, error } = rescanFromGrant(req.body?.grant);
+  if (error) return res.status(403).json({ error });
+  res.json({ name: report.name, round: report.round ?? 1, sameRound: grant.round === (report.round ?? 1), ...windowState(report) });
+});
+
+/** Start the rescan, as the developer (the emailed report's button). */
+app.post(
+  '/api/relay/rescan',
+  asyncRoute(async (req, res) => {
+    const { report, grant, error } = rescanFromGrant(req.body?.grant);
+    if (error) return res.status(403).json({ error });
+    if (grant.round !== (report.round ?? 1)) return res.status(409).json({ error: 'That round is over: a newer report is on its way.' });
+    const started = await rescanByDeveloper(report, grant.email);
+    if (started.status !== 200) return res.status(started.status).json({ error: started.error, ...windowState(report) });
+    res.json({ name: report.name, ...windowState(report) });
+  }),
+);
+
+/** The emailed link: one page, no script, one button. */
+const rescanPage = (title, body, { grant = '', button = false } = {}) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtmlText(title)}</title>
+<style>body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f5f6fa;color:#111827;display:grid;place-items:center;min-height:100vh}main{max-width:520px;margin:16px;background:#fff;border:1px solid #e3e6ee;border-radius:14px;padding:28px}h1{font-size:20px;margin:0 0 12px}p{line-height:1.5;color:#374151}button{margin-top:12px;background:#4f46e5;color:#fff;border:0;border-radius:9px;padding:12px 20px;font:inherit;font-weight:600;cursor:pointer}small{color:#6b7280}@media(prefers-color-scheme:dark){body{background:#0f1117;color:#e5e7eb}main{background:#171a23;border-color:#2a2f3c}p{color:#cbd5e1}}</style></head>
+<body><main><h1>${escapeHtmlText(title)}</h1>${body}${button ? `<form method="post" action="/rescan"><input type="hidden" name="g" value="${escapeHtmlText(grant)}"><button type="submit">Rescan now</button></form>` : ''}<p><small>CxMissionZero</small></p></main></body></html>`;
+
+function rescanPageFor(report, grant, token, note = '') {
+  const s = windowState(report);
+  const intro = note ? `<p>${escapeHtmlText(note)}</p>` : '';
+  if (grant.round !== (report.round ?? 1)) return rescanPage(report.name, `${intro}<p>That round is over. A newer report is on its way.</p>`);
+  if (s.state === 'ready') {
+    return rescanPage(`${report.name}: rescan your fixes`, `${intro}<p>Every finding in scope has been dealt with. Rescan now to prove the fixes work: Checkmarx One scans the same repository, branch and engines again, and you get the result.</p><p>You have until <strong>${escapeHtmlText(new Date(s.dueAt).toUTCString())}</strong> (${s.hoursLeft} hour${s.hoursLeft === 1 ? '' : 's'} left)${s.onBehalf ? '. After that it is rescanned on your behalf' : ''}.</p>`, { grant: token, button: true });
+  }
+  if (s.state === 'scanning') return rescanPage(`${report.name}: rescanning`, `${intro}<p>The rescan is running${s.startedBy ? `, started by ${escapeHtmlText(s.startedBy)}` : s.automatic ? ', started on your behalf' : ''}. You will get the result by email.</p>`);
+  if (s.state === 'zero') return rescanPage(`${report.name}: verified at zero`, `${intro}<p>The rescan found nothing left in scope. Every fix worked.</p>`);
+  if (s.state === 'verified') return rescanPage(`${report.name}: rescanned`, `${intro}<p>${s.result.fixed} fixed, ${s.result.stillFound} still found. The updated report has been sent to you.</p>`);
+  return rescanPage(report.name, `${intro}<p>Not every finding in scope is dealt with yet${s.open ? ` (${s.open} left)` : ''}: triage or fix the rest from your report first.</p>`);
+}
+
+app.get('/rescan', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const token = String(req.query.g ?? '');
+  const { report, grant, error } = rescanFromGrant(token);
+  if (error) return res.status(403).type('html').send(rescanPage('Rescan', `<p>${escapeHtmlText(error)}</p>`));
+  res.type('html').send(rescanPageFor(report, grant, token));
+});
+
+app.post(
+  '/rescan',
+  express.urlencoded({ extended: false, limit: '4kb' }),
+  asyncRoute(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const token = String(req.body?.g ?? '');
+    const { report, grant, error } = rescanFromGrant(token);
+    if (error) return res.status(403).type('html').send(rescanPage('Rescan', `<p>${escapeHtmlText(error)}</p>`));
+    const started = grant.round === (report.round ?? 1) ? await rescanByDeveloper(report, grant.email) : { status: 409 };
+    res.status(started.status === 200 ? 200 : started.status).type('html').send(rescanPageFor(report, grant, token, started.status === 200 ? 'Rescan started. Thank you.' : started.error ?? ''));
+  }),
+);
 
 /**
  * The next round: the round so far is kept in the report's history, and a new
@@ -5161,7 +5408,7 @@ app.post(
  * here, with this session's credentials, so the report itself only ever
  * needs the reader's own API key.
  */
-async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject, audience = {}, publish = '', scope = null, projects = null } = {}) {
+async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject, audience = {}, publish = '', scope = null, projects = null, tracked = null } = {}) {
   const { connection, lastScan } = session;
   initiatorsByProject ??= lastScan?.initiators ?? {};
   // Whatever built the list, findings triaged as not exploitable stay out.
@@ -5225,6 +5472,10 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     portalUrl: settings.links.baseUrl,
     sign: (finding) => reportGrants.issue(finding),
     reportToken,
+    // From a tracked report, to one developer: they may rescan their own fixes once the round is closed.
+    rescanGrant: tracked && audience.recipient && !audience.recipient.includes(',')
+      ? rescanTokens.issue({ reportId: tracked.id, round: tracked.round ?? 1, email: audience.recipient, exp: Date.now() + RESCAN_REPORT_GRANT_MS })
+      : '',
     connection: { tenant: connection.tenant, iamUrl: connection.iamUrl, baseUrl: connection.baseUrl },
     branding: settings.branding,
     allowRetriage: Boolean(settings.aiTriage?.allowRetriage),
@@ -5419,7 +5670,7 @@ app.post(
 /** Send each scan initiator an email with the interactive HTML report attached. */
 async function runHtmlReminder(session, scan, input, relayUrl) {
   const reply = (status, payload) => ({ status, body: payload });
-  const { projectIds = null, buckets = [], severities = null, initiators = null, alsoConsolidated = false } = input;
+  const { projectIds = null, buckets = [], severities = null, initiators = null, alsoConsolidated = false, tracked = null } = input;
   const groupBy = ['initiator', 'project', 'none'].includes(input.groupBy) ? input.groupBy : 'initiator';
   const settings = sendingSettings();
 
@@ -5448,6 +5699,7 @@ async function runHtmlReminder(session, scan, input, relayUrl) {
       initiator,
       audience: { recipient: to.join(', '), purpose },
       publish: attachmentName,
+      tracked,
     });
     const body = buildReportEmail(reportData, { greeting, topCount: shown.length, downloadUrl });
     const projects = [...new Set(findings.map((r) => r.projectName))].sort();

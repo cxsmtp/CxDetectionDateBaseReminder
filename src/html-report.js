@@ -177,6 +177,8 @@ export function generateHtmlReport(reportData, options = {}) {
       relayUrl,
       allowRetriage: options.allowRetriage === true,
       ...(options.reportToken ? { report: options.reportToken } : {}),
+      // A tracked report's developer may rescan their own fixes (src/rescan-window.js).
+      ...(typeof options.rescanGrant === 'string' && options.rescanGrant ? { rescan: options.rescanGrant } : {}),
       allowReremediation: options.allowReremediation === true,
       remediateHere,
       repositories: repositoriesFor(options.repositories),
@@ -302,6 +304,8 @@ export function generateHtmlReport(reportData, options = {}) {
       ? `<p class="shared-explainer"><strong>${shownAi.length} findings here are ${resultsShown} Checkmarx One results.</strong> Checkmarx One can list one result once per code path that reaches it; AI Triage works on the result, so those rows are triaged together and charged once. Rows that are the same result carry the same label and colour (${[...labels.values()].slice(0, 3).map((n) => `<span class="shared-chip shared-c${n % SHARED_COLOURS}">R${n + 1}</span>`).join(' ')}${labels.size > 3 ? ' …' : ''}), and each one links to the other rows of its result.</p>`
       : ''}
   </section>
+
+  <section class="rescan-card" id="rescan-card" aria-live="polite" hidden></section>
 
   <section class="my-tools" id="my-tools" aria-label="Your tools" hidden>
     <span class="my-tools-title">Your tools</span>
@@ -635,6 +639,16 @@ tr.shared-row.twin-hi > td, tr.shared-row:target > td { background: color-mix(in
 .ide-jb { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
 .ide-jb select { font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
 .ide-list .ide-folder { font-weight: 500; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.rescan-card { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 16px 0; padding: 14px 18px; border-radius: 14px; border: 1px solid #c7d2fe; background: linear-gradient(135deg, #eef2ff, #f5f3ff); }
+.rescan-card.ok { border-color: #a7f3d0; background: linear-gradient(135deg, #ecfdf5, #f0fdf4); }
+.rescan-card.wait { border-color: #e5e7eb; background: #f9fafb; }
+.rescan-card .rc-icon { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px; background: #4f46e5; color: #fff; font-size: 18px; }
+.rescan-card.ok .rc-icon { background: #059669; }
+.rescan-card.wait .rc-icon { background: #9ca3af; }
+.rescan-card .rc-text { flex: 1; min-width: 220px; }
+.rescan-card .rc-text b { display: block; font-size: 15px; }
+.rescan-card .rc-text span { font-size: 13px; color: #4b5563; }
+@media (prefers-color-scheme: dark) { .rescan-card { background: rgba(79,70,229,.14); border-color: rgba(129,140,248,.35); } .rescan-card.ok { background: rgba(5,150,105,.16); border-color: rgba(52,211,153,.35); } .rescan-card.wait { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.12); } .rescan-card .rc-text span { color: #cbd5e1; } }
 .onprem-note { margin: 16px 0 6px; padding: 8px 12px; border-radius: 10px; border: 1px solid #a7f3d0; background: #ecfdf5; color: #065f46; font-size: 13px; }
 .onprem-note b { color: #064e3b; }
 @media (prefers-color-scheme: dark) { .onprem-note { background: rgba(6,95,70,.22); border-color: rgba(52,211,153,.35); color: #6ee7b7; } .onprem-note b { color: #a7f3d0; } }
