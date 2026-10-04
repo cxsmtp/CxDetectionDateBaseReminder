@@ -54,7 +54,7 @@
           </a>
           <a href="#/access" data-route="access" class="tab" data-stage="govern" data-perm="iam.view">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5" /></svg>
-            <span>IAM</span>
+            <span>People &amp; roles</span>
           </a>
           <a href="#/settings" data-route="settings" class="tab" data-stage="govern" data-perm="settings.view">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
@@ -114,6 +114,7 @@
               <summary><span class="avatar sm" id="me-avatar" aria-hidden="true"></span><span class="me-text"><b id="me-name"></b><small id="me-role"></small></span></summary>
               <div class="user-menu-body">
                 <p class="hint" id="me-detail"></p>
+                <label class="switch adv-switch"><input type="checkbox" id="me-advanced" /> <span><strong>Show advanced options</strong><small>Fine-tuning most people never need</small></span></label>
                 <button type="button" id="me-password">Change password</button>
                 <button type="button" id="me-refresh" class="ghost">Refresh — start over</button>
                 <button type="button" id="disconnect" class="ghost">Sign out</button>
@@ -212,8 +213,8 @@
 
             <section class="panel scope">
               <div class="panel-head scope-head">
-                <div class="scope-title"><h2>Scope</h2><span class="hint" id="scope-summary"></span></div>
-                <button type="button" class="link narrow-toggle" id="narrow-toggle" aria-expanded="false" aria-controls="scope-pick">Narrow to projects or people</button>
+                <div class="scope-title"><h2>What to load</h2><span class="hint" id="scope-summary"></span></div>
+                <button type="button" class="link narrow-toggle" id="narrow-toggle" aria-expanded="false" aria-controls="scope-pick">Only some projects or people</button>
               </div>
               <div class="controls scope-row">
                 <fieldset>
@@ -223,23 +224,23 @@
                     <label><span>From</span><input type="date" id="activity-from" /></label>
                     <label><span>To</span><input type="date" id="activity-to" /></label>
                   </div>
-                  <p class="hint" id="activity-hint">Skips projects with no scan in this window.</p>
+                  <p class="hint" id="activity-hint">Projects not scanned in this time are skipped.</p>
                 </fieldset>
 
                 <fieldset>
-                  <legend>Findings first detected in</legend>
+                  <legend>Findings first found in</legend>
                   <select id="detection-preset"></select>
                   <div class="range" id="detection-range" hidden>
                     <label><span>From</span><input type="date" id="detection-from" /></label>
                     <label><span>To</span><input type="date" id="detection-to" /></label>
                   </div>
-                  <p class="hint" id="detection-hint">Sent to the API as fromDate/toDate, so it is filtered server-side.</p>
+                  <p class="hint" id="detection-hint" data-advanced>Only findings first found in this time are loaded.</p>
                 </fieldset>
 
                 <fieldset class="grow fetch-box">
                   <legend class="sr-only">Fetch</legend>
-                  <button id="fetch" class="primary big" data-perm="findings.fetch">Fetch vulnerability data</button>
-                  <label class="check fetch-fresh" title="Projects someone fetched in the last couple of minutes are normally reused when nothing was rescanned or triaged from here since. Tick to read every project from Checkmarx One again."><input type="checkbox" id="fetch-fresh" /> Read everything fresh from Checkmarx One</label>
+                  <button id="fetch" class="primary big" data-perm="findings.fetch">Load findings</button>
+                  <label class="check fetch-fresh" data-advanced title="Projects someone fetched in the last couple of minutes are normally reused when nothing was rescanned or triaged from here since. Tick to read every project from Checkmarx One again."><input type="checkbox" id="fetch-fresh" /> Read everything fresh from Checkmarx One</label>
                   <p class="hint" id="fetch-meta"></p>
                 </fieldset>
               </div>
@@ -262,7 +263,7 @@
                     <datalist id="scope-initiator-options"></datalist>
                   </div>
                 </div>
-                <p class="hint wide" id="scope-pick-hint">Fetch just these, instead of every project: pick names as you type, or press Enter to add every project whose name contains the text. Named projects are fetched whatever their last scan date; "Findings first detected in" still applies.</p>
+                <p class="hint wide" id="scope-pick-hint">Optional: load only these. Type a name, or press Enter to add every match.</p>
               </fieldset>
             </section>
 
@@ -307,7 +308,7 @@
               </div>
 
               <div class="act-bar" id="act-bar">
-                <span class="act-scope" id="act-scope">Fetch vulnerability data to act on it.</span>
+                <span class="act-scope" id="act-scope">Load findings to act on them.</span>
                 <div class="act-buttons">
                   <button type="button" class="sm" data-rail-open="remind" data-perm="reminders.send"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>Remind</button>
                   <button type="button" class="sm" data-rail-open="people"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /></svg>People</button>
@@ -330,7 +331,7 @@
                     </tr>
                   </thead>
                   <tbody id="projects-body">
-                    <tr class="empty"><td colspan="7">Click <strong>Fetch vulnerability data</strong> to load projects and first-detection dates.</td></tr>
+                    <tr class="empty"><td colspan="7">Press <strong>Load findings</strong> to see your projects and how long their findings have been open.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -356,26 +357,26 @@
                 <div class="composer-row">
                   <span class="label-sm">Send to</span>
                   <div class="segmented send-modes">
-                    <label class="mode"><input type="radio" name="sendTo" value="list" checked /> <span>Recipient list</span></label>
-                    <label class="mode"><input type="radio" name="sendTo" value="initiator" /> <span>Scan initiators</span></label>
-                    <label class="mode"><input type="radio" name="sendTo" value="both" /> <span>Both</span></label>
+                    <label class="mode"><input type="radio" name="sendTo" value="initiator" checked /> <span>Each developer</span></label>
+                    <label class="mode"><input type="radio" name="sendTo" value="list" /> <span>A fixed list</span></label>
+                    <label class="mode" data-advanced><input type="radio" name="sendTo" value="both" /> <span>Both</span></label>
                   </div>
                 </div>
-                <div class="composer-row">
+                <div class="composer-row" data-advanced>
                   <span class="label-sm">Format</span>
                   <div class="segmented send-modes">
                     <label class="mode"><input type="radio" name="emailContent" value="summary" checked /> <span>One summary</span></label>
                     <label class="mode"><input type="radio" name="emailContent" value="per-project" /> <span>One per project</span></label>
                   </div>
                 </div>
-                <div class="toggle-list compact">
+                <div class="toggle-list compact" data-advanced>
                   <label class="switch"><input type="checkbox" id="attach-html-report" checked /> <span><strong>Attach the interactive HTML report</strong><small>Readers can triage and remediate straight from it</small></span></label>
                 </div>
                 <p class="hint wide" id="groupby-hint"></p>
                 <p class="server-note" id="server-note" hidden></p>
 
                 <details class="disclosure recipients" id="recipients-box">
-                  <summary>Recipient list <span class="hint inline-hint" id="recipients-hint">Loading…</span></summary>
+                  <summary>The fixed list <span class="hint inline-hint" id="recipients-hint">Loading…</span></summary>
                   <div class="grid3" id="inline-recipients">
                     <label class="field"><span>To</span><textarea id="send-to" rows="1" spellcheck="false" placeholder="lead@company.com"></textarea></label>
                     <label class="field"><span>Cc</span><textarea id="send-cc" rows="1" spellcheck="false"></textarea></label>
@@ -388,9 +389,9 @@
                   <div class="composer-secondary">
                     <button id="preview" class="sm">Preview email</button>
                     <button id="preview-html" class="sm" hidden>Preview report</button>
-                    <button id="download-html" class="sm" hidden>Download HTML</button>
+                    <button id="download-html" class="sm" data-advanced hidden>Download HTML</button>
                   </div>
-                  <button id="send" class="primary big">Send reminder</button>
+                  <button id="send" class="primary big">Send reminders</button>
                 </div>
                 <span id="status" class="status"></span>
                 <details class="disclosure deliveries" id="send-deliveries" hidden></details>
@@ -401,7 +402,7 @@
               <section class="panel people rail-section">
                 <div class="panel-head">
                   <div>
-                    <h2>Scan initiators</h2>
+                    <h2>Developers</h2>
                     <p class="hint" id="initiator-summary">Fetch data to list initiators.</p>
                   </div>
                   <div class="people-stats" id="people-stats"></div>
@@ -426,15 +427,12 @@
                 <div class="ptpanel" data-ptpanel="dash:credits" role="tabpanel" hidden>
             <section class="panel rail-section" id="credits-panel" data-perm="credits.view" hidden>
               <div class="panel-head">
-                <h2>AI Triage &amp; Remediation credits</h2>
+                <h2>AI check &amp; fix</h2>
                 <span class="chip" id="alloc-scope"></span>
               </div>
               <details class="disclosure how-to" data-perm="credits.allocate">
-                <summary>How allocation works</summary>
-                <p class="hint wide">Nothing is allocated until you confirm it. For the ticked severities the table shows what each project
-                <em>needs</em>: 1 credit per Checkmarx One result still to triage (several finding rows can be one result: triaged, and charged, once), then — once triage has confirmed findings — 3 per
-                confirmed finding to remediate. Allocate it, then triage or remediate. Applies to the selected projects, or
-                to all shown projects when none is selected; every credit comes out of the credit pool.</p>
+                <summary>How credits work</summary>
+                <p class="hint wide">AI Triage checks whether a finding is real: 1 credit. AI Remediation proposes a fix for a confirmed finding: 3 credits. Give the projects the credits first; nothing is spent until you press a button.</p>
               </details>
               <div class="alloc-row sev-picks" data-perm="credits.allocate">
                 <span class="label-sm">Severities</span>
@@ -444,30 +442,30 @@
                 <label class="pill-check"><input type="checkbox" class="alloc-sev" value="LOW" /> <span>Low</span></label>
               </div>
               <div class="alloc-row verify-row">
-                <button id="alloc-verify" type="button" data-needs-data>Refresh &amp; verify with Checkmarx One</button>
-                <span class="hint" id="alloc-verified">Re-reads the findings (someone may be working on them) and confirms the credits needed with Checkmarx One twice. Every button below runs it first, and stops if anything changed.</span>
+                <button id="alloc-verify" type="button" data-needs-data>Check the numbers again</button>
+                <span class="hint" id="alloc-verified">Every button below re-checks with Checkmarx One first, and stops if anything changed.</span>
               </div>
               <div class="alloc-steps">
                 <div class="alloc-step" id="step-triage">
                   <div class="step-head"><span class="step-no">1</span><strong>AI Triage</strong></div>
                   <div class="step-need" id="alloc-needed"></div>
                   <div class="step-actions">
-                    <button id="alloc-triage" type="button" data-perm="credits.allocate" data-needs-data>Allocate for triage</button>
-                    <button id="run-triage" type="button" class="primary" data-perm="triage.run" data-needs-data>Triage selected now</button>
+                    <button id="alloc-triage" type="button" data-perm="credits.allocate" data-needs-data>Give credits</button>
+                    <button id="run-triage" type="button" class="primary" data-perm="triage.run" data-needs-data>Check with AI now</button>
                   </div>
                 </div>
                 <div class="alloc-step" id="step-remediation">
                   <div class="step-head"><span class="step-no">2</span><strong>AI Remediation</strong> <span class="hint">confirmed findings only</span></div>
                   <p class="step-need" id="remediate-needed"></p>
                   <div class="step-actions">
-                    <button id="alloc-remediation" type="button" data-perm="credits.allocate" data-needs-data>Allocate for remediation</button>
-                    <button id="run-remediation" type="button" class="primary" data-perm="triage.run" data-needs-data>Remediate selected</button>
+                    <button id="alloc-remediation" type="button" data-perm="credits.allocate" data-needs-data>Give credits</button>
+                    <button id="run-remediation" type="button" class="primary" data-perm="triage.run" data-needs-data>Fix with AI now</button>
                   </div>
                 </div>
               </div>
               <label class="check notify-row" data-perm="triage.run"><input type="checkbox" id="notify-on-behalf" checked />
-                Email each scan initiator when I triage or remediate on their behalf (their own projects only: fetch the changes in their report, review and approve the pull requests)</label>
-              <details class="disclosure alloc-more" data-perm="credits.allocate">
+                Tell each developer by email when I check or fix their findings</label>
+              <details class="disclosure alloc-more" data-perm="credits.allocate" data-advanced>
                 <summary>Extra credits, and taking credits back</summary>
                 <div class="alloc-row alloc-extras">
                   <label class="inline">Triage <input id="alloc-extra-triage" type="number" min="0" step="1" value="0" class="small-num" /></label>
@@ -479,19 +477,19 @@
               </details>
               <p class="status" id="alloc-status"></p>
             </section>
-                  <p class="tab-empty" id="credits-empty">Fetch vulnerability data first: this shows what the selected projects need for AI Triage and Remediation, and lets you allocate and run it.</p>
+                  <p class="tab-empty" id="credits-empty">Load findings first. Then check and fix them with AI here.</p>
                 </div>
                 <div class="ptpanel" data-ptpanel="dash:track" role="tabpanel" hidden>
                   <div class="rail-section">
-                    <h2>Track this scope</h2>
-                    <p class="hint">Save what is on screen as a tracked report: the findings it covers are followed as people triage, confirm or fix them, with scheduled follow-ups on the <a href="#/reports">Reports</a> page.</p>
+                    <h2>Follow these findings</h2>
+                    <p class="hint">Save them as a report, and watch them go to zero on the <a href="#/reports">Reports</a> page.</p>
               <div class="track-row" id="track-row" hidden>
-                <label class="inline grow-1"><span class="label-sm">Track this scope as</span> <input id="track-name" placeholder="e.g. Q4 critical & high — Payments" class="track-name" /></label>
-                <button id="track-save" type="button" data-perm="reports.manage">Save as tracked report</button>
+                <label class="inline grow-1"><span class="label-sm">Name</span> <input id="track-name" placeholder="e.g. Q4 critical & high — Payments" class="track-name" /></label>
+                <button id="track-save" type="button" data-perm="reports.manage">Follow on Reports</button>
                 <span class="hint" id="track-scope"></span>
                 <span class="status" id="track-status"></span>
               </div>
-                    <p class="tab-empty" id="track-empty">Fetch vulnerability data first, then save the scope you see.</p>
+                    <p class="tab-empty" id="track-empty">Load findings first, then save what you see.</p>
                   </div>
                 </div>
               </aside>
@@ -519,16 +517,16 @@
                 <p class="set-group">Connections</p>
                   <a href="#/settings/connection" data-set="connection">Checkmarx One</a>
                   <a href="#/settings/smtp" data-set="smtp">Email server</a>
-                  <a href="#/settings/endpoint" data-set="endpoint">Risks endpoint</a>
+                  <a href="#/settings/endpoint" data-set="endpoint" data-advanced>Risks endpoint</a>
                 <p class="set-group">Reminders</p>
-                  <a href="#/settings/initiators" data-set="initiators">Scan initiators</a>
-                  <a href="#/settings/template" data-set="template">Mail template</a>
+                  <a href="#/settings/initiators" data-set="initiators">Developer addresses</a>
+                  <a href="#/settings/template" data-set="template" data-advanced>Mail template</a>
                   <a href="#/settings/automation" data-set="automation">Automation</a>
                 <p class="set-group">AI &amp; credits</p>
                   <a href="#/settings/ai" data-set="ai">AI &amp; credit pool</a>
                 <p class="set-group">Reports &amp; brand</p>
                   <a href="#/settings/server" data-set="server">Server address</a>
-                  <a href="#/settings/links" data-set="links">Links into Checkmarx One</a>
+                  <a href="#/settings/links" data-set="links" data-advanced>Links into Checkmarx One</a>
                   <a href="#/settings/branding" data-set="branding">Branding</a>
                 <p class="set-group" data-perm="security.https">Security</p>
                   <a href="#/settings/https" data-set="https" data-perm="security.https">HTTPS</a>
@@ -542,17 +540,12 @@
 
             <div class="autosave-note" id="autosave-note" data-perm="integration.smtp settings.recipients settings.initiators settings.template settings.branding settings.links settings.ai settings.automation integration.cxone credits.limit">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10" /></svg>
-              <p>Changes save as you type. A changed Checkmarx One or mail server connection is checked; if it does not work, the
-                <strong>last known good</strong> settings come back when you leave this page, so the utility keeps working.</p>
+              <p>Changes save as you type. If a new Checkmarx One or email connection does not work, the previous working one comes back when you leave this page.</p>
             </div>
 
             <section class="panel" id="set-import" data-perm="integration.cxone integration.smtp settings.links beta.use">
               <h2>Quick setup from a .env file</h2>
-              <p class="hint wide">
-                Set the Checkmarx One connection, the mail server and the reminder server address from one file, the same file the
-                container can start with (<code>--env-file</code>). Each connection is checked straight away; one that does not work goes
-                back to the last known good settings when you leave this page.
-              </p>
+              <p class="hint wide">Fill in the sample file and upload it to set everything up at once.</p>
               <ol class="env-steps">
                 <li><a class="button" id="env-sample" href="sample.env" download="mission-zero.env">Download the sample .env</a>
                   <span class="hint">Every setting, explained, with blanks to fill in. Blank values keep what is set now.</span></li>
@@ -581,8 +574,8 @@
                   <span>API key — leave blank to use the key you signed in with</span>
                   <textarea id="integration-key" rows="2" spellcheck="false" class="code" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"></textarea>
                 </label>
-                <details class="disclosure">
-                  <summary>Single-tenant / on-prem overrides</summary>
+                <details class="disclosure" data-advanced>
+                  <summary>Single-tenant / on-prem addresses</summary>
                   <div class="grid3">
                     <label class="field"><span>IAM URL</span><input id="integration-iam" placeholder="https://eu.iam.checkmarx.net" /></label>
                     <label class="field"><span>API URL</span><input id="integration-base" placeholder="https://eu.ast.checkmarx.net" /></label>
@@ -599,10 +592,7 @@
 
             <section class="panel" id="set-smtp" data-edit-perm="integration.smtp">
               <h2>Email server (SMTP)</h2>
-              <p class="hint wide">
-                Your own mail server. Changes save as you type and are tested; until a test passes, the last known good
-                server keeps sending — and comes back if the new one does not work.
-              </p>
+              <p class="hint wide">Your mail server. A change is tested first; the previous working settings stay until it passes.</p>
 
               <div class="grid2">
                 <label class="field"><span>Host</span><input id="smtp-host" placeholder="smtp.example.com" /></label>
@@ -610,9 +600,9 @@
               </div>
 
               <div class="checks">
-                <label class="check"><input type="checkbox" id="smtp-secure" /> Implicit TLS (SMTPS, port 465)</label>
-                <label class="check"><input type="checkbox" id="smtp-auth" /> Server requires authentication</label>
-                <label class="check"><input type="checkbox" id="smtp-reject" /> Verify TLS certificate</label>
+                <label class="check"><input type="checkbox" id="smtp-secure" /> Secure connection from the start (port 465)</label>
+                <label class="check"><input type="checkbox" id="smtp-auth" /> Server needs a user name and password</label>
+                <label class="check" data-advanced><input type="checkbox" id="smtp-reject" /> Check the mail server's certificate</label>
               </div>
               <p class="hint" id="tls-warning" hidden></p>
 
@@ -653,7 +643,7 @@
             </section>
 
             <section class="panel" id="set-initiators" data-edit-perm="settings.initiators">
-              <h2>Scan initiators</h2>
+              <h2>Developer addresses</h2>
               <p class="hint wide">
                 Checkmarx records the person who ran a scan as a username, which is not always an
                 email address. These rules turn it into one; the dashboard shows what each project
@@ -712,14 +702,11 @@
                 <h2>Automation</h2>
                 <span class="hint" id="auto-status"></span>
               </div>
-              <p class="hint wide">
-                Checks on a timer and mails the moment a finding crosses one of your age thresholds. Each finding is
-                reported <strong>once per threshold</strong>, so a daily sweep does not re-send the same thing every day.
-              </p>
+              <p class="hint wide">Emails people once when a finding gets older than each age limit you set.</p>
 
               <div class="checks">
                 <label class="check"><input type="checkbox" id="auto-enabled" /> Run automatically</label>
-                <label class="check"><input type="checkbox" id="auto-dry" /> Dry run — decide and log, but send nothing</label>
+                <label class="check"><input type="checkbox" id="auto-dry" /> Test mode: decide and log, but send nothing</label>
                 <label class="check" id="auto-authors-row" hidden><input type="checkbox" id="auto-authors" /> Also email the code authors: the developer who last changed each vulnerable line gets the findings in their code</label>
               </div>
 
@@ -728,14 +715,14 @@
                   <span>Age thresholds, in days</span>
                   <input id="auto-thresholds" spellcheck="false" placeholder="30, 60, 90" />
                 </label>
-                <label class="field">
+                <label class="field" data-advanced>
                   <span>Check every (minutes)</span>
                   <input id="auto-interval" type="number" min="15" max="10080" />
                 </label>
                 <label class="field">
                   <span>Address to</span>
                   <select id="auto-groupby">
-                    <option value="initiator">Each scan initiator</option>
+                    <option value="initiator">Each developer (their own projects)</option>
                     <option value="none">The configured recipient list</option>
                   </select>
                 </label>
@@ -745,7 +732,7 @@
                 </label>
               </div>
 
-              <label class="field">
+              <label class="field" data-advanced>
                 <span>When a finding is already past several thresholds</span>
                 <select id="auto-mode">
                   <option value="crossing">Report each threshold once (recommended)</option>
@@ -769,15 +756,12 @@
                 <h2>AI Triage &amp; Remediation from reports</h2>
                 <span class="hint" id="credit-state"></span>
               </div>
-              <p class="hint wide">
-                Readers of the emailed report can run Checkmarx One AI Triage and AI Remediation through this server, on its
-                own Checkmarx One connection. Both use credits, so nothing runs until you allow it here.
-              </p>
+              <p class="hint wide">Let people use AI check and fix from their emailed report. This uses credits.</p>
               <div class="toggle-list">
                 <label class="switch"><input type="checkbox" id="ai-enabled" /> <span><strong>Allow AI Triage from reports</strong><small>Uses Checkmarx One credits</small></span></label>
-                <label class="switch"><input type="checkbox" id="ai-retriage" /> <span><strong>Allow re-triage</strong><small>Triage a finding again when it already has a verdict (spends credits again)</small></span></label>
+                <label class="switch" data-advanced><input type="checkbox" id="ai-retriage" /> <span><strong>Allow re-triage</strong><small>Triage a finding again when it already has a verdict (spends credits again)</small></span></label>
                 <label class="switch"><input type="checkbox" id="ai-remediation" /> <span><strong>Allow AI Remediation from reports</strong><small>Uses credits; may open pull requests — applies to reports generated after saving</small></span></label>
-                <label class="switch"><input type="checkbox" id="ai-reremediation" /> <span><strong>Allow re-remediation</strong><small>Remediate a finding already remediated (3 credits again; may open another pull request)</small></span></label>
+                <label class="switch" data-advanced><input type="checkbox" id="ai-reremediation" /> <span><strong>Allow re-remediation</strong><small>Remediate a finding already remediated (3 credits again; may open another pull request)</small></span></label>
                 <label class="switch"><input type="checkbox" id="ai-skip-ne" /> <span><strong>Leave not-exploitable findings out</strong><small>Proposed or confirmed not exploitable findings are skipped in reminders and reports</small></span></label>
               </div>
               <label class="field">
@@ -790,10 +774,7 @@
                   <h3>Credit pool <span class="badge muted">Admin</span></h3>
                   <a href="#/credits" class="link-arrow">Usage by project and over time →</a>
                 </div>
-                <p class="hint wide">
-                  The most this utility may spend on AI Triage and AI Remediation together. Every credit given to a project comes
-                  out of it, and nothing is spent once it is used up. 0 means no limit.
-                </p>
+                <p class="hint wide">The most AI credits this app may spend. 0 means no limit.</p>
                 <div class="grid2">
                   <label class="field">
                     <span>Pool size, in credits</span>
@@ -823,7 +804,7 @@
                 <label class="field"><span>Company name</span><input id="brand-name" placeholder="Acme Corp" /></label>
                 <label class="field"><span>Company logo — https URL, or upload one</span><input id="brand-logo" spellcheck="false" placeholder="https://acme.com/logo.png" /></label>
                 <label class="field"><span>Upload a logo (PNG, JPG, SVG or WebP, up to 200 KB)</span><input id="brand-logo-file" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" /></label>
-                <label class="field"><span>Logo height, in pixels</span><input id="brand-height" type="number" min="16" max="200" /></label>
+                <label class="field" data-advanced><span>Logo height, in pixels</span><input id="brand-height" type="number" min="16" max="200" /></label>
                 <label class="field"><span>Accent colour</span><input id="brand-accent" type="color" /></label>
               </div>
 
@@ -861,11 +842,7 @@
 
             <section class="panel" id="set-server" data-edit-perm="settings.links">
               <h2>Reminder server address</h2>
-              <p class="hint wide">
-                Put into every HTML report, so anyone who opens it can connect and triage: the address people's browsers
-                use to reach this server — e.g. <code>https://cx-reminder.corp.example</code>. Readers see it in the report
-                and can correct it there if the server moves.
-              </p>
+              <p class="hint wide">The address people use to reach this app from their emailed report.</p>
               <div class="server-field">
                 <label class="field">
                   <span>Address — blank uses <code>REPORT_SERVER_URL</code>, else the address this page is open on</span>
@@ -881,11 +858,7 @@
                 <h2>HTTPS</h2>
                 <span class="https-badge" id="https-badge"></span>
               </div>
-              <p class="hint wide">
-                Encrypts sign-ins, findings and triage requests on the way. Move this server from http to HTTPS here, while it runs:
-                HTTPS starts <strong>next to</strong> http on the same address and port, you test it, then switch http off. Nobody is cut
-                off and nothing restarts. Replacing a certificate later (a renewal, or another one) works the same way.
-              </p>
+              <p class="hint wide">Turn on HTTPS in four steps. Nobody is signed out while you do.</p>
               <div class="https-now" id="https-now"></div>
 
               <ol class="https-steps">
@@ -951,7 +924,7 @@
                   <div class="https-note" id="https-switch-hint"></div>
                 </li>
 
-                <li class="https-step" id="https-step-harden">
+                <li class="https-step" id="https-step-harden" data-advanced>
                   <h3><span class="step-num">5</span> Harden</h3>
                   <label class="check"><input type="checkbox" id="https-hsts" /> HSTS: browsers that visited once use only HTTPS here, and never show a "continue anyway" link</label>
                   <div class="grid2">
@@ -1012,13 +985,13 @@
 
             <section class="panel" id="set-features" data-perm="features.manage">
               <h2>Beta features</h2>
-              <p class="hint wide">A feature starts in Beta, for people whose role holds "Beta features". When you trust it, make it final: it loses its Beta label, everyone holding its own permission can use it, and what it adds elsewhere turns on. You can put it back in Beta at any time. Every change is in the audit log.</p>
+              <p class="hint wide">Make a Beta feature final to give it to everyone whose role allows it. You can undo it, and every change is logged.</p>
               <div class="feat-list" id="feat-list"><p class="hint">Loading…</p></div>
               <p class="status" id="feat-status"></p>
             </section>
             <section class="panel" id="set-update" data-perm="system.update">
               <h2>Update &amp; recovery</h2>
-              <p class="hint wide">Keep CxMissionZero up to date without signing in to the server: install a new version, go back to any version, turn on auto-update, restart, or download a troubleshooting report. Every switch is backed up first, and a version that does not start is rolled back by itself.</p>
+              <p class="hint wide">Install updates, or go back to any version. A backup is taken first, and a version that does not start is undone by itself.</p>
               <div class="upd-grid">
                 <div class="upd-card">
                   <span class="upd-label">Running</span>
@@ -1052,7 +1025,7 @@
               <div class="table-wrap"><table class="data-table" id="upd-versions"><thead><tr><th>Version</th><th>Built</th><th>Here</th><th></th></tr></thead><tbody></tbody></table></div>
               <h3>Recent events</h3>
               <ul class="upd-events" id="upd-events"></ul>
-              <details class="disclosure">
+              <details class="disclosure" data-advanced>
                 <summary>Replacing the whole image (a new Node.js or OS base)</summary>
                 <p class="hint">Updates from this page replace CxMissionZero's own files. Rarely, a release needs a new base image; the page then says so. Run, on the server: <code>podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest</code>, then your usual <code>podman run --replace …</code> line. The full image update from this page (a companion container) comes in a later release.</p>
               </details>
@@ -1267,7 +1240,7 @@
               <div class="panel-head">
                 <div>
                   <h2>Match usernames to email addresses</h2>
-                  <p class="hint">Scan initiators are often usernames on your source-code host. Pick the host, run its methods side by side on your own usernames, and keep the matches you trust.</p>
+                  <p class="hint">Developers who ran a scan are often shown by their code-host username. Pick the host, run its methods side by side on your own usernames, and keep the matches you trust.</p>
                 </div>
               </div>
               <div class="segmented id-hosts" role="radiogroup" aria-label="Source-code host">
@@ -1287,7 +1260,7 @@
                   <span><strong>Public profile</strong><small>The email on their GitHub profile, if public. One request each.</small></span></label>
               </div>
               <label class="field">
-                <span><span id="id-logins-label">GitHub usernames</span> to match — one per line <button id="gh-load-logins" type="button" class="link">Load scan initiators</button></span>
+                <span><span id="id-logins-label">GitHub usernames</span> to match — one per line <button id="gh-load-logins" type="button" class="link">Load the developers</button></span>
                 <textarea id="gh-logins" rows="4" spellcheck="false" class="code" placeholder="octocat"></textarea>
               </label>
               <div class="actions compact">
@@ -1413,7 +1386,7 @@
                 </div>
                 <div class="log-actions">
                   <button id="audit-export-csv" type="button" class="sm" data-perm="audit.export">Export CSV</button>
-                  <button id="audit-export-jsonl" type="button" class="sm" data-perm="audit.export">Export JSON Lines</button>
+                  <button id="audit-export-jsonl" type="button" class="sm" data-perm="audit.export" data-advanced>Export JSON Lines</button>
                 </div>
               </div>
               <form class="audit-filters" id="audit-filters">
@@ -1436,7 +1409,7 @@
                     <option value="iam">Access changes (users &amp; roles)</option>
                   </select>
                 </label>
-                <label><span>Outcome</span>
+                <label data-advanced><span>Outcome</span>
                   <select id="audit-outcome">
                     <option value="">All outcomes</option>
                     <option value="charged">Charged</option>
@@ -1540,8 +1513,7 @@
               <div class="panel-head">
                 <div>
                   <h2>People</h2>
-                  <p class="hint">Everyone who can sign in, and their role. Sign in with an email and password, or with a
-                    Checkmarx One API key whose identity (email, username or client id) is listed against the person.</p>
+                  <p class="hint">Everyone who can sign in, and what they may do.</p>
                 </div>
                 <button type="button" id="iam-add-toggle" class="primary" data-perm="iam.manage">Add person</button>
               </div>
@@ -1662,9 +1634,7 @@
               <div class="panel-head">
                 <h2>Troubleshooting log</h2>
               </div>
-              <p class="hint">What this server records about its own use: which features are used and how fast, where errors happen,
-                and where numbers disagree (for example Checkmarx One answering differently on two reads, or a request refused
-                for lack of credits) — with recommended fixes. Send it to whoever maintains CxMissionZero when something goes wrong.</p>
+              <p class="hint">Download this and send it to whoever helps you when something goes wrong. It holds no personal data, keys or findings.</p>
               <button id="download-diagnostics" type="button" class="primary">Download troubleshooting log</button>
               <p class="privacy-ok">These logs do not capture any sensitive information at all: no names, email addresses,
                 passwords, keys, tokens, hosts, URLs, findings or code. Only feature names, counts, timings, status codes and

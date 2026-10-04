@@ -27,7 +27,7 @@ Self-hosted, one container, nothing to install for developers.
 ![CxMissionZero architecture: people use the web app; CxMissionZero reads Checkmarx One, emails each developer their own projects, and developers triage and remediate from the report through CxMissionZero, which calls Checkmarx One AI; fixes land as pull requests](docs/architecture.svg)
 
 **How a finding gets fixed** (the numbers match the diagram)
-1. **Fetch.** CxMissionZero reads projects, scan initiators and findings from Checkmarx One with one integration key, and ages each finding.
+1. **Fetch.** CxMissionZero reads projects, developers and findings from Checkmarx One with one integration key, and ages each finding.
 2. **Remind.** A reminder emails each developer their own projects through your SMTP server, with the interactive report attached. It is sent by hand, by automation, or from a tracked report.
 3. **Act from the report.** The developer clicks **Triage** or **Remediate**. The report calls CxMissionZero, never Checkmarx One directly, and CxMissionZero checks the finding's signed grant and its project's credits.
 4. **AI runs.** CxMissionZero calls Checkmarx One AI Triage or AI Remediation. However many people click at once, one vulnerability is sent only once.

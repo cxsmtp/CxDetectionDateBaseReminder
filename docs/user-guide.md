@@ -18,7 +18,7 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 8. [Reports: tracked reports](#reports-tracked-reports)
 9. [Credit Control](#credit-control)
 10. [Audit page: credit audit log and backups](#audit-page)
-11. [IAM: people and roles](#iam)
+11. [People & roles](#people--roles)
 12. [Beta page](#beta-page)
 13. [Logs page](#logs-page)
 14. [Performance and security status](#performance-and-security-status)
@@ -37,7 +37,7 @@ The sidebar follows a vulnerability from finding it to closing it:
 | --- | --- | --- |
 | **Detect** | Dashboard, Beta | Fetch ageing findings, see who owns them, find who wrote the vulnerable code. |
 | **Eliminate** | Reports, Credit Control | Follow tracked scopes down to zero, schedule follow-ups, give and track AI Triage and Remediation credits. |
-| **Govern** | Audit, IAM, Settings, Logs | The credit audit log and backups, people and roles, configuration, troubleshooting. |
+| **Govern** | Audit, People & roles, Settings, Logs | The credit audit log and backups, people and roles, configuration, troubleshooting. |
 
 The coloured label next to each page title says which stage you are in.
 
@@ -53,6 +53,8 @@ The coloured label next to each page title says which stage you are in.
 
 ---
 
+**Simple by default.** Fine-tuning most people never need is hidden: the reminder format and attachment, extra credits, custom link and mail templates, the risks endpoint, mail-server certificate checks, HTTPS hardening and similar. To see it, open your name (top right) and turn on **Show advanced options**. The choice is kept in your browser.
+
 ## Who can do what
 
 Everyone signs in and has one role. Tabs and buttons you are not allowed to use are hidden, and the server refuses them anyway.
@@ -63,7 +65,7 @@ Everyone signs in and has one role. Tabs and buttons you are not allowed to use 
 | **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, beta. |
 | **User** | Fetch findings, send reminders, follow tracked reports, see credits. Settings are read-only. No Access, Audit or Beta. |
 
-Admins and Analysts can change what Security Analyst and User may do, or create new roles, on the [IAM page](#iam).
+Admins and Analysts can change what Security Analyst and User may do, or create new roles, on the [People & roles page](#people--roles).
 
 ---
 
@@ -72,7 +74,7 @@ Admins and Analysts can change what Security Analyst and User may do, or create 
 **Email and password.** Use the address and password you were given. The first time, you must choose your own password: at least 12 characters.
 
 **Checkmarx One API key** (optional). Paste your own key on the sign-in screen.
-- It works only if an administrator listed your Checkmarx One identity (your email, username or client id) against your account on the IAM page.
+- It works only if an administrator listed your Checkmarx One identity (your email, username or client id) against your account on the People & roles page.
 - The key must be for the same tenant as the server.
 - Checkmarx One then sees your actions as yours.
 
@@ -87,7 +89,7 @@ The password is also kept in `/data/first-admin-password.txt` until it is change
 - To set a new temporary password, run `podman exec mission-zero node scripts/reset-admin.mjs`.
 - To start from scratch, remove the volume (`podman volume rm mission-zero-data`). This deletes every setting and the audit log.
 
-**Locked out?** Five wrong passwords lock an account for 15 minutes. An Admin or Analyst can set a new temporary password for you on the IAM page (**Set password**).
+**Locked out?** Five wrong passwords lock an account for 15 minutes. An Admin or Analyst can set a new temporary password for you on the People & roles page (**Set password**).
 
 **Connections, top right.** Three indicators show whether CxMissionZero can reach what it needs:
 
@@ -150,9 +152,9 @@ As an Admin, open **Settings** and work down this list.
 | 4 | Reminder server address | The `https://` address people use to reach this server. Then **Test**. Serve it over HTTPS first: [Turn on HTTPS](#turn-on-https). |
 | 5 | AI Triage & Remediation from reports | Decide what developers may run from their reports, and set the credit pool. |
 | 6 | Branding | Company name, logo and colour for emails and reports. |
-| 7 | Automation (optional) | Turn on age-threshold reminders. Start with **Dry run**. |
+| 7 | Automation (optional) | Turn on age-threshold reminders. Start with **Test mode**. |
 
-Then go to the **Dashboard**, click **Fetch vulnerability data**, and send your first reminder.
+Then go to the **Dashboard**, click **Load findings**, and send your first reminder.
 
 Settings **save as you type**; there is no Save button.
 - A changed Checkmarx One or mail connection is checked straight away.
@@ -407,7 +409,7 @@ The server's own connection to Checkmarx One. It is used for:
 - **Gmail:** `smtp.gmail.com`, port 587, Implicit TLS off, and an [App Password](https://myaccount.google.com/apppasswords); your normal password will not work.
 - **Office 365:** `smtp.office365.com`, port 587.
 
-### Scan initiators
+### Developers
 Checkmarx One records who ran a scan as a username, which is not always an email address. These options turn usernames into addresses.
 
 | Option | Meaning |
@@ -437,13 +439,13 @@ Watches findings on a timer and emails the moment one crosses an age threshold. 
 | Option | Meaning |
 | --- | --- |
 | Run automatically | Turns the schedule on. |
-| Dry run | Decides and logs, but sends nothing. Use it for the first run, because an older tenant has a backlog that crosses every threshold at once. |
+| Test mode | Decides and logs, but sends nothing. Use it for the first run, because an older tenant has a backlog that crosses every threshold at once. |
 | Thresholds (days) | For example `30, 60, 90`. |
 | Check every (minutes) | From 15 minutes to 1 week. |
-| Address to | Each scan initiator (their own projects only), or the configured recipient list. |
+| Address to | Each scan initiator (their own projects only), or the configured fixed list. |
 | Severities | For example `CRITICAL, HIGH`. Blank means all. |
 | Mode | **Report each threshold once** (recommended), or **digest**: re-report everything past a threshold on every run. |
-| Also email the code authors | Shown once an Admin has made **Code authors** final. Each run also emails the developer who last changed the line of each finding that just crossed (SAST and KICS, most severe first, up to 200 a run), with the findings in their code. Scan initiators are still emailed as before. In digest mode the authors are emailed on every run too. |
+| Also email the code authors | Shown once an Admin has made **Code authors** final. Each run also emails the developer who last changed the line of each finding that just crossed (SAST and KICS, most severe first, up to 200 a run), with the findings in their code. Developers are still emailed as before. In digest mode the authors are emailed on every run too. |
 | **Run once now** | Runs a pass immediately. |
 | **Reset history** | Forgets what was reported, so the next run reports everything again. |
 
@@ -515,7 +517,7 @@ Where findings are read from. The default is `/api/risks/`.
 | Tab | What is in it |
 | --- | --- |
 | **Remind** | Send a reminder (step 6 below). |
-| **People** | The scan initiators (step 5 below). |
+| **People** | The developers (step 5 below). |
 | **AI credits** | Allocate, triage and remediate (step 4 below). |
 | **Track** | Save the scope as a tracked report. |
 
@@ -530,7 +532,7 @@ Where findings are read from. The default is `/api/risks/`.
 | Findings first detected in | Only findings first detected in this window. Checkmarx One filters them. |
 | Only these projects or people | Optional; open it with **Narrow to projects or people**. **Projects, by name**: type to pick, or press Enter to add every project whose name contains the text. **People who ran the latest scan**: a username or an email. Only those projects are fetched, which is the fastest fetch. |
 
-### 2. Fetch vulnerability data
+### 2. Load findings
 - Rows appear as each project is read.
 - An **amber flare** (bottom-right) says the fetch is in progress, with how many projects are in so far. It turns **green, Data fetch complete**, when the last one arrives.
 - Until then, triage, remediation and credit allocation are switched off, so nothing is decided on half the data.
@@ -568,10 +570,10 @@ Each finding falls into an age bucket by when it was **first detected**:
 | Button | What it does |
 | --- | --- |
 | **Refresh & verify with Checkmarx One** (green border) | Re-reads the findings twice, independently. The numbers are marked verified only when both reads agree. Every button below runs it first by itself. |
-| **Allocate for triage** | Verifies first, then shows what will be given and asks you to confirm. Credits come out of the credit pool. |
-| **Triage selected now** | Runs AI Triage on the selected projects' findings, within their credits. |
-| **Allocate for remediation** | The same, for confirmed findings. |
-| **Remediate selected** | Lists each project's confirmed findings and the cost, then runs AI Remediation after you confirm. Each finding is re-checked first; anything no longer confirmed is left alone. |
+| **Give credits** (AI check) | Verifies first, then shows what will be given and asks you to confirm. Credits come out of the credit pool. |
+| **Check with AI now** | Runs AI Triage on the selected projects' findings, within their credits. |
+| **Give credits** (AI fix) | The same, for confirmed findings. |
+| **Fix with AI now** | Lists each project's confirmed findings and the cost, then runs AI Remediation after you confirm. Each finding is re-checked first; anything no longer confirmed is left alone. |
 | Email each scan initiator… | On by default. When you triage or remediate for someone, each scan initiator gets one email about their own projects: what was started on their behalf, and what to do next (refresh their report, review and approve the pull requests). |
 | Extra credits → **Add extra credits** | Gives every selected project a fixed extra amount. |
 | **Take back extra credits** | Returns the extras. |
@@ -587,7 +589,7 @@ Each finding falls into an age bucket by when it was **first detected**:
 - A triaged finding is never counted as "needed" again.
 - Every credit movement is in the audit log.
 
-### 5. Scan initiators
+### 5. Developers
 *Action panel → **People**.* Everyone who ran a latest scan, with their email.
 - **Missing an address?** Type it and **Save**. It is used at once and remembered for later fetches.
 - **Suggested address?** Click **Confirm**. A suggestion is never used until someone confirms it.
@@ -598,10 +600,10 @@ Each finding falls into an age bucket by when it was **first detected**:
 
 | Option | Meaning |
 | --- | --- |
-| Send to | **Recipient list**, **Scan initiators**, or **Both**. A scan initiator only ever gets their own projects; the server refuses any email that would show someone a project they did not scan. |
+| Send to | **A fixed list**, **Developer addresses**, or **Both**. A scan initiator only ever gets their own projects; the server refuses any email that would show someone a project they did not scan. |
 | Content | **One summary** (one email per person, all their projects), or **One per project**. |
 | Attach the interactive HTML report | On by default. Developers can triage and remediate straight from it. |
-| Recipient list | To / Cc / Bcc, edited here. **Save list** keeps it. |
+| Fixed list | To / Cc / Bcc, edited here. **Save list** keeps it. |
 | **Preview email**, **Preview report**, **Download HTML** | Check before sending. |
 | **Send reminder** | Sends, then lists who got which projects and who was skipped (for example, no address). |
 
@@ -712,7 +714,7 @@ Save a scope from the Dashboard (**Save as tracked report**) and follow it over 
 | Tab | What is in it |
 | --- | --- |
 | **Overview** | The % actioned with the outcome bar and counts; open, new, matching now, credits used; the **trend** of open findings (hover for each reading); and a by-project table, most open first. |
-| **Remind** | Who (scan initiators, recipient list, both, or only some addresses), the content (one summary per person, or one email per project), and whether to attach the interactive report. **Preview**, then **Send reminder now**. The sends so far are listed. |
+| **Remind** | Who (developers, fixed list, both, or only some addresses), the content (one summary per person, or one email per project), and whether to attach the interactive report. **Preview**, then **Send reminder now**. The sends so far are listed. |
 | **Schedule** | **Automatic reminders** every N days at a set hour (the server's time zone), only while something is still open; they use the Remind options. Shows the next and last send. **Save schedule**. |
 | **Triage** | AI Triage for the chosen severities (**Triage now**), or **Allocate credits** so developers can triage from their own reports, with what it needs and what is left. |
 | **Verify** | Prove the fixes with a Checkmarx One rescan, then start the next round (below). |
@@ -797,7 +799,7 @@ See [audit-and-backup.md](audit-and-backup.md) for encrypted backups and moving 
 
 ---
 
-## IAM
+## People & roles
 
 Identity and access management, in two tabs.
 
@@ -832,7 +834,7 @@ Early features: check what they find before relying on them. A feature an Admin 
   - **How sure:** each answer is **Sure**, **Check** or **Unsure**, with the reason. Only Sure answers are ticked for sending; scheduled reminders only email Sure ones. Whitespace changes, moved code, `.git-blame-ignore-revs` and bot commits are looked past. Details: [beta-features.md](beta-features.md).
 - **Match usernames to email addresses.**
   - **Pick the host:** GitHub, GitLab, Azure DevOps or Bitbucket.
-  - **Load scan initiators:** offers the usernames from projects on that host.
+  - **Load developers:** offers the usernames from projects on that host.
   - **Compare methods:** runs that host's methods side by side, with coverage, requests, time and a recommendation.
   - **Use selected matches:** saves the ones you tick as initiator overrides.
 
@@ -894,20 +896,20 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 **Weekly reminder to every developer, their own projects only**
 1. Dashboard → Scope: *Projects last scanned in* = last month.
-2. **Fetch vulnerability data** and wait for the green flare.
-3. Send reminder: **Scan initiators**, **One summary**, attachment on. **Preview email**, then **Send reminder**.
+2. **Load findings** and wait for the green flare.
+3. Send reminder: **Developer addresses**, **One summary**, attachment on. **Preview email**, then **Send reminder**.
 
 To have it happen by itself, use Settings → Automation, or a tracked report's **Automatic reminders**.
 
 **Triage every critical and high finding for one team**
 1. Scope → Only these projects or people: add the team's projects.
 2. Fetch, then in the credits panel tick Critical and High.
-3. **Allocate for triage** (it verifies with Checkmarx One first), then confirm.
-4. **Triage selected now.** Each developer is emailed that triage ran on their behalf.
+3. **Give credits** (AI check) (it verifies with Checkmarx One first), then confirm.
+4. **Check with AI now.** Each developer is emailed that triage ran on their behalf.
 
 **Remediate what triage confirmed**
 1. Fetch again (or use **Refresh & verify**).
-2. **Allocate for remediation**, then **Remediate selected**: check the list and the cost, then confirm.
+2. **Give credits** (AI fix), then **Fix with AI now**: check the list and the cost, then confirm.
 
 **Take back credits nobody used**
 - Credits panel → *Extra credits, and taking credits back* → **Take back unused credits**.

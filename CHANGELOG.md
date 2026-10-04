@@ -20,6 +20,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.34 — 2026-10-04 HH:MM UTC · [#57](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/57)
+- **Simple by default.** Fine-tuning most people never need is hidden until someone turns on **Show advanced options** in their menu (top right). That includes the reminder format, extra credits, mail and link templates, the risks endpoint, mail certificate checks and HTTPS hardening. Settings shows 13 sections instead of 16.
+- **Plain words.** "Fetch vulnerability data" is now **Load findings**, "Scan initiators" is now **Developers**, "Recipient list" is now **A fixed list**, "Allocate" is now **Give credits**, triage and remediation are now **Check with AI** and **Fix with AI**, "Dry run" is now **Test mode**, and "IAM" is now **People & roles**.
+- **Reminders go to each developer by default,** with their own projects only. The format and attachment choices fold away.
+- **The emailed report speaks plainly.** "To verify" is now **Not checked yet** and "Proposed not exploitable" is now **Probably safe (AI)**. The Engine column is now **Type**: Code, Open-source package, Configuration and so on.
+- **Shorter help.** The longest explanations are now one short sentence each, and the details sit in tooltips or under **How it works**.
+- **Status.** STATUS_LINE
+
 ## MZ-01.00.33 — 2026-10-04 08:55 UTC · [#56](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/56)
 - **The developer rescans first.** When every finding in a tracked report's round is dealt with, the developers who fixed them get **Rescan now** in their report and by email, for 24 hours to 14 days (48 by default). The rescan they start is recorded as theirs.
 - **Then on their behalf, and they are told.** If nobody rescans in time and automatic rescan is on, CxMissionZero starts it and emails them. Everyone gets the result, and the updated report of whatever is still open.

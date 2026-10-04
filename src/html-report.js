@@ -35,12 +35,16 @@ const rank = (severity) => {
 };
 
 const STATE_LABELS = {
-  TO_VERIFY: 'To verify',
+  TO_VERIFY: 'Not checked yet',
   CONFIRMED: 'Confirmed',
   URGENT: 'Urgent',
   NOT_EXPLOITABLE: 'Not exploitable',
-  PROPOSED_NOT_EXPLOITABLE: 'Proposed not exploitable',
+  PROPOSED_NOT_EXPLOITABLE: 'Probably safe (AI)',
 };
+
+/** What each Checkmarx One engine looks at, in plain words (the engine's name stays in the tooltip). */
+const ENGINE_LABELS = { SAST: 'Code', SCA: 'Open-source package', KICS: 'Configuration', IAC: 'Configuration', CONTAINERS: 'Container', APISEC: 'API', SECRETS: 'Secret', 'SECRET-DETECTION': 'Secret' };
+export const engineLabel = (scanner) => ENGINE_LABELS[String(scanner || '').toUpperCase()] ?? (scanner || '—');
 
 /**
  * The findings the report shows: worst severity first, then oldest.
@@ -233,7 +237,7 @@ export function generateHtmlReport(reportData, options = {}) {
         · top ${findings.length} shown (worst severity, then oldest)
         · generated ${escapeHtml(reportData.generatedAt ?? '')} UTC${connection.tenant ? ` · tenant ${escapeHtml(connection.tenant)}` : ''}</p>
     </div>
-    <button id="connect" class="btn btn-light" type="button">Connect to CxONE for action</button>
+    <button id="connect" class="btn btn-light" type="button">Connect to act on these findings</button>
   </div>
   <div class="counts summary">
     <span class="count count-total"><b>${total}</b> open</span>
@@ -297,7 +301,7 @@ export function generateHtmlReport(reportData, options = {}) {
     <p class="muted">Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or
       high finding in this report, across all its projects. ${remediateHere
         ? 'Remediate runs Checkmarx One AI Remediation and links to the suggested fix (or its pull request).'
-        : 'Remediate opens the finding in Checkmarx One Risk Hub.'}
+        : 'Remediate opens the finding in Checkmarx One.'}
       ${remediateHere ? 'Triage and Remediate go' : 'Triage goes'} through the reminder server shown above, which must be reachable from this computer (company network or VPN).</p>
     </details>
     ${resultsShown < shownAi.length
@@ -332,7 +336,7 @@ export function generateHtmlReport(reportData, options = {}) {
   <div class="table-wrap">
     <table id="findings">
       <thead>
-        <tr><th>Severity</th><th>Finding</th><th>Engine</th><th>Age</th><th title="Checkmarx One state — updates once connected">State</th><th title="AI Triage verdict, or the finding\'s Checkmarx One state once triaged">Triage result</th><th>Actions</th></tr>
+        <tr><th>Severity</th><th>Finding</th><th>Type</th><th>Age</th><th title="Checkmarx One state — updates once connected">State</th><th title="AI Triage verdict, or the finding\'s Checkmarx One state once triaged">Triage result</th><th>Actions</th></tr>
       </thead>
       <tbody>
 ${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere, sharedOf(clientFindings[index]))).join('\n')}
@@ -405,7 +409,7 @@ function findingRow(finding, client, remediateHere, shared = null) {
   <td class="sev-cell"><span class="sev sev-${escapeHtml(severity.toLowerCase())}">${escapeHtml(severity)}</span></td>
   <td class="finding"><div class="finding-title">${title}</div>
     <div class="sub">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</div>${shared ? `\n    ${sharedNoteHtml(shared)}` : ''}</td>
-  <td class="meta-cell" data-label="Engine">${escapeHtml(finding.scanner || '—')}</td>
+  <td class="meta-cell" data-label="Type" title="${escapeHtml(finding.scanner || '')}">${escapeHtml(engineLabel(finding.scanner))}</td>
   <td class="meta-cell" data-label="Age">${age}</td>
   <td class="state-cell" data-label="State"><span class="state-label">${escapeHtml(stateLabel)}</span><div class="state-why">${CONFIRMED_STATES.has(state) && !client.aiUnavailable ? confirmedWhyHtml(client.advice ?? fixAdvice(finding), { ...aiFromRisk(finding), scanner: finding.scanner, url, remediateHere }) : ''}</div></td>
   <td class="ai-cell" data-label="Triage result">${client.aiUnavailable ? manualCell(finding, client.aiUnavailable) : '—'}</td>
