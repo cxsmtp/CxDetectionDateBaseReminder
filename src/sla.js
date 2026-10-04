@@ -12,6 +12,8 @@ export const DEFAULT_SLA = {
   // Email the escalation list once when a finding goes past its SLA (scheduled runs).
   escalate: false,
   escalateTo: [],
+  // Also open an issue in the project's repository (GitHub or GitLab, private repositories only).
+  openIssues: false,
 };
 /** "Due soon": this many days or fewer left. */
 export const DUE_SOON_DAYS = 7;
@@ -32,6 +34,7 @@ export function mergeSla(current = DEFAULT_SLA, incoming = null) {
     next.days[severity] = value === '' || value === null || !Number.isFinite(days) || days <= 0 ? 0 : Math.min(3650, days);
   }
   if ('escalate' in incoming) next.escalate = incoming.escalate === true;
+  if ('openIssues' in incoming) next.openIssues = incoming.openIssues === true;
   if ('escalateTo' in incoming) {
     const list = Array.isArray(incoming.escalateTo) ? incoming.escalateTo : String(incoming.escalateTo ?? '').split(/[\s,;]+/);
     next.escalateTo = [...new Set(list.map((a) => String(a).trim().toLowerCase()).filter((a) => EMAIL.test(a)))].slice(0, 50);

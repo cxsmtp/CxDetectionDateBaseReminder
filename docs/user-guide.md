@@ -446,8 +446,9 @@ How many days each severity has to be fixed, counted from when the finding was *
 | Critical / High / Medium / Low | Days to fix. Defaults: 7, 30, 90 and 180. **0** means no SLA for that severity. |
 | Escalate findings that go past their SLA, once each | Each scheduled run (Settings → Automation must be on) emails the people below one list of the findings that went past their SLA since the last run: project, severity, how far past, and who ran the latest scan. A finding is escalated once; if it is fixed and comes back, it is escalated again. **Test mode** in Automation counts them without sending. |
 | Escalate to | The addresses that get the escalation, one per line. |
+| Also open an issue in the repository | Each scheduled run opens **one issue in each project's repository** listing its findings that went past their SLA (severity, finding, where, first found, days past, a link to Checkmarx One), each finding once. GitHub, and GitLab as a **confidential** issue, with the token connected under Beta → Source-code hosts (it needs permission to create issues). **Private and internal repositories only:** a public one is skipped, so vulnerabilities are never published. Text from findings cannot mention anyone or add links. At most 20 projects a run, the most severe first; the rest next run. Works with or without the email escalation. **Test mode** counts them without opening any. |
 
-Findings triaged as not exploitable (proposed or confirmed) have no SLA. On the **Dashboard**, **Past SLA** shows how many open findings are past their SLA (red), with how many more are due within 7 days under it (amber). The projects table has a **Past SLA** column, shown by default, and **Due ≤ 7d** under **Columns**; both are in the CSV export. The automation's run history says how many were escalated.
+Findings triaged as not exploitable (proposed or confirmed) have no SLA. On the **Dashboard**, **Past SLA** shows how many open findings are past their SLA (red), with how many more are due within 7 days under it (amber). The projects table has a **Past SLA** column, shown by default, and **Due ≤ 7d** under **Columns**; both are in the CSV export. The automation's run history says how many were escalated, how many repository issues were opened, and which projects were skipped and why (no repository, no token, public repository, no permission).
 
 ### Automation
 Watches findings on a timer and emails the moment one crosses an age threshold. Each finding is reported **once per threshold**, so a daily run does not nag.
@@ -903,7 +904,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.39** | 512/s, **0 failed** | 5.7 s | 240 ms | 439 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.40** | 516/s, **0 failed** | 5.9 s | 183 ms | 445 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.39 | 512/s, 0 failed | 5.7 s | 240 ms | 439 pass | 0 vulnerabilities | same |
 | MZ-01.00.38 | 518/s, 0 failed | 0.6 s | 146 ms | 430 pass | 0 vulnerabilities | same |
 | MZ-01.00.37 | 508/s, 0 failed | 5.1 s | 179 ms | 427 pass | 0 vulnerabilities | same |
 | MZ-01.00.36 | 492/s, 0 failed | 2.3 s | 118 ms | 421 pass | 0 vulnerabilities | same |

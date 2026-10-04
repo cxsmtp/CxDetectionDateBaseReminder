@@ -38,6 +38,7 @@ import { blameFindings, codeVersion, locationOf, onGitHub, parseRepoUrl } from '
 import { SCM_LABELS, SCM_PROVIDERS, checkConnections as checkScmConnections, cloneAuthFor, methodsFor, providerOf, scmClients, scmConfigs } from './scm/providers.js';
 import { addressesAsThemselves, evaluateMethods, resolveWith, validUsername } from './scm/identity.js';
 import { addOwnership } from './scm/ownership.js';
+import { githubIssues, gitlabIssues, openSlaIssues } from './sla-issues.js';
 import { TrackedReports, computeProgress, matchesFilters, outcomeOf, reportSummary } from './tracked-reports.js';
 import { TERMINAL, closure, newerThan, rescanRequest, verificationResult } from './verification.js';
 import { ScanAttribution } from './scan-attribution.js';
@@ -451,7 +452,49 @@ const scheduler = new Scheduler({
   isVerified,
   // Scheduled reminders can also email the code authors, once that feature is final.
   notifyAuthors: (crossed, context) => notifyCodeAuthors(crossed, context),
+  // SLAs (Beta): findings past their SLA, as an issue in their repository (when switched on).
+  openIssues: (items, context) => openSlaIssuesFor(items, context),
 });
+
+/**
+ * Open an issue in each project's repository for its findings that went past their SLA:
+ * the repository comes from the project's latest scan (or the project), the token from the
+ * git connection that fits it. GitHub and GitLab, private repositories only (src/sla-issues.js).
+ */
+async function openSlaIssuesFor(items, { client, connection, projects = [], initiators = {}, dryRun }) {
+  const settings = sendingSettings();
+  const byId = new Map(projects.map((p) => [p.id, p]));
+  const sets = gitSets(settings);
+  return openSlaIssues(items, {
+    appName: settings.branding?.appName || 'CxMissionZero',
+    dryRun,
+    urlOf: (risk) => riskUrl(risk, connection, settings.links, initiators[risk.projectId]?.scanId ?? ''),
+    repoOf: async (projectId) => {
+      const scanId = initiators[projectId]?.scanId;
+      let scan = null;
+      if (scanId) {
+        try {
+          scan = await client.request(`/api/scans/${encodeURIComponent(scanId)}`, { retries: 1 });
+        } catch {
+          scan = null;
+        }
+      }
+      const repo = parseRepoUrl(codeVersion(scan, byId.get(projectId) ?? {}).repoUrl);
+      if (!repo) return { problem: 'No repository is linked to this project in Checkmarx One.' };
+      const set = setForRepo(sets, repo);
+      const provider = providerOf(repo, set.scm, set.github.apiUrl);
+      if (provider === 'github') {
+        if (!set.github.token || !onGitHub(repo, set.github.apiUrl)) return { problem: 'No GitHub token is connected for this repository.' };
+        return { repo, host: githubIssues(new GitHubClient({ token: set.github.token, apiUrl: set.github.apiUrl }), repo) };
+      }
+      if (provider === 'gitlab') {
+        if (!set.scm.gitlab.token || repo.host !== set.scm.gitlab.host) return { problem: 'No GitLab token is connected for this repository.' };
+        return { repo, host: gitlabIssues(scmClients(set.scm).gitlab, repo) };
+      }
+      return { problem: `Issues are opened on GitHub and GitLab only${provider ? ` (this repository is on ${SCM_LABELS[provider]})` : ''}.` };
+    },
+  });
+}
 
 const escapeHtml = (text) => String(text ?? '')
   .replace(/&/g, '&amp;')

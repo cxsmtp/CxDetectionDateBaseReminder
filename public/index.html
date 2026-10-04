@@ -720,6 +720,7 @@
               <h3>Escalation</h3>
               <label class="switch"><input type="checkbox" id="sla-escalate" /> <span><strong>Escalate findings that go past their SLA, once each</strong><small>Each scheduled run (Settings → Automation) emails the people below one list of the findings that went past their SLA since the last run: project, severity, how far past, and who ran the latest scan. A finding is escalated only once; if it is fixed and comes back, again. Test mode in Automation applies.</small></span></label>
               <label class="field"><span>Escalate to — addresses, one per line</span><textarea id="sla-escalate-to" rows="2" spellcheck="false" class="code" placeholder="appsec-lead@acme.com"></textarea></label>
+              <label class="switch"><input type="checkbox" id="sla-issues" /> <span><strong>Also open an issue in the repository</strong><small>Each scheduled run opens one issue in each project's repository listing its findings that went past their SLA, each finding once. GitHub and GitLab (as a confidential issue), with the token connected under Beta → Source-code hosts, which needs permission to create issues. Private and internal repositories only: a public one is skipped, so nothing is published. Test mode in Automation applies.</small></span></label>
               <p class="status" id="sla-status"></p>
             </section>
 
