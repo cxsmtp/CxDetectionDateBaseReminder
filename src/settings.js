@@ -7,6 +7,7 @@ import { mergeFeatures } from './features.js';
 import { DEFAULT_LINK_TEMPLATES, PREVIOUS_LINK_DEFAULTS } from './links.js';
 import { DEFAULT_TEMPLATE } from './template.js';
 import { TOKEN_NAMES, cleanStoredInstances, mergeStoredInstances } from './scm/instances.js';
+import { DEFAULT_SLA, mergeSla } from './sla.js';
 
 /**
  * Administrator settings: SMTP, recipients and the mail template.
@@ -71,6 +72,8 @@ export const DEFAULT_SETTINGS = {
     callToAction: 'Please review and remediate these findings, oldest first.',
   },
   automation: { ...DEFAULT_AUTOMATION },
+  /** SLAs (Beta, src/sla.js): days to fix each severity, and escalation of overdue findings. */
+  sla: structuredClone(DEFAULT_SLA),
   /**
    * A credential for unattended runs. Automation has no human to paste a key,
    * so it needs one that outlives the session -- see the README. Written only
@@ -343,7 +346,9 @@ export function mergeSettings(current, incoming = {}) {
   // Beta or final: set only through its own route (the Admin's), never by the settings form.
   const features = mergeFeatures(current.features, incoming.features);
 
-  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta, features };
+  const sla = mergeSla(current.sla, incoming.sla ?? null);
+
+  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta, features, sla };
 
   // The automation credential is set through its own route, not this form.
   if (typeof incoming.automationApiKey === 'string') next.automationApiKey = incoming.automationApiKey.trim();
@@ -498,6 +503,7 @@ export function publicSettings(settings) {
       };
     })(),
     features: mergeFeatures(settings.features),
+    sla: mergeSla(settings.sla),
     verifiedAt: settings.verifiedAt,
     verified: isVerified(settings),
   };
@@ -566,6 +572,7 @@ export class SettingsStore {
         aiTriage: { ...DEFAULT_SETTINGS.aiTriage, ...(raw.aiTriage ?? {}) },
         beta: mergeBeta(raw.beta, null),
         features: mergeFeatures(raw.features),
+        sla: mergeSla(raw.sla),
       };
     } catch {
       return structuredClone(DEFAULT_SETTINGS);

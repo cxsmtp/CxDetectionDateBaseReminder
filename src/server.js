@@ -50,6 +50,7 @@ import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from '
 import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, hostOfUrl, isVerified, parseAddressList, publicSettings, smtpFingerprint } from './settings.js';
 import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
 import { ENV_SETTINGS, isSecretVariable, parseEnvText, settingsFromEnv } from './env-import.js';
+import { addSla, slaSummary } from './sla.js';
 import { INSTANCE_VARS, extraInstanceNumbers, instanceSource, numberedVariable, providersIn, setForRepo } from './scm/instances.js';
 import { SessionPersistence, sessionKey } from './handover.js';
 import { InstanceLock } from './instance-lock.js';
@@ -1453,6 +1454,8 @@ const SETTINGS_SECTIONS = {
   branding: 'settings.branding',
   links: 'settings.links',
   automation: 'settings.automation',
+  // SLAs (Beta): who may change automation, and may use SLAs (see permittedSettings).
+  sla: 'settings.automation',
   endpoints: 'integration.cxone',
   beta: 'beta.use',
 };
@@ -1479,6 +1482,8 @@ function permittedSettings(req, body = {}) {
         else ignored.push(`aiTriage.${field}`);
       }
       if (Object.keys(ai).length) allowed.aiTriage = ai;
+    } else if (key === 'sla' && !mayUse(settingsStore.get(), 'sla', req.permissions)) {
+      ignored.push(key);
     } else if (SETTINGS_SECTIONS[key] && can(req, SETTINGS_SECTIONS[key])) {
       allowed[key] = value;
     } else {
@@ -1928,6 +1933,8 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
       url: projectUrl(summary, req.session.connection, settings.links),
       // Worked out once: the finished fetch below reuses it.
       credits: (summary.credits = creditView(summary)),
+      // Overdue and due soon by its SLAs (src/sla.js; shown while SLAs are Beta to those who may use them).
+      sla: (summary.sla = slaSummary(summary.risks, settings.sla)),
     });
   };
 
@@ -1972,6 +1979,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   diagnostics.usage(result.notRead ? 'fetch-stopped' : 'fetch-complete', { projects: result.projects.length, notRead: result.notRead ?? 0, reused: result.reused ?? 0, findings: result.projects.reduce((n, p) => n + p.totalRisks, 0), ms: Date.now() - started });
   // Fetching shows what the findings need; it never allocates anything.
   for (const summary of result.projects) summary.credits ??= creditView(summary);
+  for (const summary of result.projects) summary.sla ??= slaSummary(summary.risks, settings.sla);
   req.session.lastScan = result;
 
   const response = {
@@ -2012,6 +2020,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
       { projects: 0, risks: 0, counts: {}, severities: {} },
     ),
   };
+  response.totals.sla = addSla(result.projects.map((p) => p.sla));
   // What the page showed, and the scope that produced it: a reload (or a restart) shows it again.
   const q = (name) => String(req.query[name] ?? '').slice(0, 40);
   result.view = {
@@ -2038,8 +2047,14 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
 app.get('/api/scan/last', requirePermission('findings.fetch'), (req, res) => {
   const scan = req.session.lastScan;
   if (!scan?.view || fetchInProgress(req.session)) return res.status(204).end();
-  for (const p of scan.projects) p.credits = creditView(p);
-  res.json({ ...scan.view, initiators: scan.initiators, projects: scan.projects.map(projectRow), restored: true });
+  // Credits and SLAs as they are now (a day later, more can be overdue; the SLAs may have changed).
+  const sla = settingsStore.get().sla;
+  for (const p of scan.projects) {
+    p.credits = creditView(p);
+    p.sla = slaSummary(p.risks, sla);
+  }
+  const view = { ...scan.view, totals: { ...scan.view.totals, sla: addSla(scan.projects.map((p) => p.sla)) } };
+  res.json({ ...view, initiators: scan.initiators, projects: scan.projects.map(projectRow), restored: true });
 });
 
 /**

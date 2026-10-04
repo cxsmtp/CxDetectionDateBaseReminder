@@ -3,6 +3,7 @@
 **Beta or final.** Each feature starts in Beta, for roles holding "Beta features". An Admin makes it final under **Settings → Beta features** (permission "Make Beta features final"), and can put it back:
 - **Code authors, once final:** anyone who may send reminders can use it, and scheduled reminders (Settings → Automation → *Also email the code authors*) email the developer who last changed the line of each finding that just crossed a threshold, up to 200 findings a run.
 - **Matching usernames, once final:** anyone who may change initiator addresses can run and apply it.
+- **SLAs and escalation, once final:** everyone who loads findings sees what is past its SLA and due soon. Escalation stays as set under **Settings → SLAs**: off until an Admin names who to escalate to.
 
 Every change of stage is in the audit log.
 
@@ -114,6 +115,13 @@ does exactly this):
 
 Matches you tick are saved as initiator overrides (`username = email`) and used
 from the next fetch. Medium-confidence matches (name-based) are left unticked.
+
+## SLAs and escalation
+
+Days to fix each severity (critical 7, high 30, medium 90, low 180 unless changed under **Settings → SLAs**), counted from when the finding was first detected:
+- **Dashboard:** **Past SLA** (red) with how many more are due within 7 days (amber), and a **Past SLA** column per project (**Due ≤ 7d** under **Columns**).
+- **Escalation:** with it switched on and someone to escalate to, each scheduled run emails one list of the findings that went past their SLA since the last run (project, severity, how far past, who ran the latest scan). Each finding is escalated once, kept in the automation's state file, and forgotten when it is fixed, so a regression is escalated again. Test mode counts without sending.
+- Findings triaged as not exploitable have no SLA.
 
 ## GitLab, Azure DevOps and Bitbucket
 

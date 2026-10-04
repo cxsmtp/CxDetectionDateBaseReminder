@@ -438,6 +438,17 @@ Checkmarx One records who ran a scan as a username, which is not always an email
 - `{{#projects}}…{{/projects}}` repeats a block for each item.
 - `{{^projects}}…{{/projects}}` shows a block only when the list is empty.
 
+### SLAs (Beta)
+How many days each severity has to be fixed, counted from when the finding was **first detected**. Shown to roles holding **Beta features** while it is in Beta, and to everyone who loads findings once an Admin makes it final (Settings → Beta features).
+
+| Option | Meaning |
+| --- | --- |
+| Critical / High / Medium / Low | Days to fix. Defaults: 7, 30, 90 and 180. **0** means no SLA for that severity. |
+| Escalate findings that go past their SLA, once each | Each scheduled run (Settings → Automation must be on) emails the people below one list of the findings that went past their SLA since the last run: project, severity, how far past, and who ran the latest scan. A finding is escalated once; if it is fixed and comes back, it is escalated again. **Test mode** in Automation counts them without sending. |
+| Escalate to | The addresses that get the escalation, one per line. |
+
+Findings triaged as not exploitable (proposed or confirmed) have no SLA. On the **Dashboard**, **Past SLA** shows how many open findings are past their SLA (red), with how many more are due within 7 days under it (amber). The projects table has a **Past SLA** column, shown by default, and **Due ≤ 7d** under **Columns**; both are in the CSV export. The automation's run history says how many were escalated.
+
 ### Automation
 Watches findings on a timer and emails the moment one crosses an age threshold. Each finding is reported **once per threshold**, so a daily run does not nag.
 
@@ -890,7 +901,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.36** | 492/s, **0 failed** | 2.3 s | 118 ms | 421 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.37** | 508/s, **0 failed** | 5.1 s | 179 ms | 427 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.36 | 492/s, 0 failed | 2.3 s | 118 ms | 421 pass | 0 vulnerabilities | same |
 | MZ-01.00.35 | 529/s, 0 failed | 0.6 s | 113 ms | 414 pass | 0 vulnerabilities | same |
 | MZ-01.00.34 | 514/s, 0 failed | 4.2 s | 122 ms | 407 pass | 0 vulnerabilities | same |
 | MZ-01.00.33 | 511/s, 0 failed | 3.9 s | 172 ms | 407 pass | 0 vulnerabilities | same |

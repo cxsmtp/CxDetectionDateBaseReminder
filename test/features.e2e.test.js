@@ -69,7 +69,7 @@ test('while Beta: only people with Beta access can use it, and the Admin sees th
   const list = await admin('GET', '/api/features');
   assert.equal(list.status, 200);
   assert.equal(list.body.canManage, true);
-  assert.deepEqual(list.body.features.map((f) => [f.id, f.stage]), [['codeAuthors', 'beta'], ['identityMatching', 'beta']]);
+  assert.deepEqual(list.body.features.map((f) => [f.id, f.stage]), [['codeAuthors', 'beta'], ['sla', 'beta'], ['identityMatching', 'beta']]);
   const me = (await user('GET', '/api/me')).body;
   assert.equal(me.features.codeAuthors, 'beta');
   assert.ok(!me.permissions.includes('feature.codeAuthors'));
@@ -116,4 +116,37 @@ test('back to Beta: access closes again, and scheduled runs leave the code autho
   assert.equal((await user('POST', '/api/beta/authors/find', {})).status, 403);
   const run = (await admin('POST', '/api/automation/run', {})).body.run;
   assert.match(run.codeAuthors?.skipped ?? '', /still a Beta feature/);
+});
+
+test('SLAs (Beta): only those who may use them change them; fetched projects carry overdue and due-soon; runs escalate once', async () => {
+  // Not for someone without Beta access, while Beta.
+  assert.ok(!(await user('GET', '/api/me')).body.permissions.includes('feature.sla'));
+  const refused = await user('PUT', '/api/settings', { sla: { days: { CRITICAL: 1 } } });
+  assert.ok(refused.status === 403 || refused.body?.ignored?.includes('sla') || refused.body?.sla?.days?.CRITICAL !== 1, JSON.stringify(refused.body).slice(0, 200));
+
+  const set = await admin('PUT', '/api/settings', { sla: { days: { CRITICAL: 2, HIGH: 2, MEDIUM: 2, LOW: 2 }, escalate: true, escalateTo: 'lead@acme.io' } });
+  assert.equal(set.status, 200, JSON.stringify(set.body).slice(0, 300));
+  assert.deepEqual(set.body.sla.days, { CRITICAL: 2, HIGH: 2, MEDIUM: 2, LOW: 2 });
+  assert.deepEqual(set.body.sla.escalateTo, ['lead@acme.io']);
+
+  const scan = await admin('GET', '/api/scan');
+  assert.equal(scan.status, 200);
+  const overdue = scan.body.projects.reduce((n, p) => n + p.sla.overdue, 0);
+  assert.ok(overdue > 0, 'the mock findings are weeks old: past a 2-day SLA');
+  assert.equal(scan.body.totals.sla.overdue, overdue);
+  const last = await admin('GET', '/api/scan/last');
+  assert.equal(last.body.totals.sla.overdue, overdue, 'a reload shows them as they are now');
+
+  // Test mode: counted, nothing sent, nothing remembered.
+  await admin('PUT', '/api/automation', { dryRun: true, notifyCodeAuthors: false });
+  const run = (await admin('POST', '/api/automation/run', {})).body.run;
+  assert.equal(run.escalation?.dryRun, true, JSON.stringify(run));
+  assert.ok(run.escalation.escalated > 0);
+  const again = (await admin('POST', '/api/automation/run', {})).body.run;
+  assert.equal(again.escalation.escalated, run.escalation.escalated, 'test mode remembered nothing, so the same findings are counted again');
+
+  // Escalation off: nothing about SLAs in the run.
+  await admin('PUT', '/api/settings', { sla: { escalate: false } });
+  const off = (await admin('POST', '/api/automation/run', {})).body.run;
+  assert.equal(off.escalation, undefined);
 });

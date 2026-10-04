@@ -465,6 +465,13 @@ document.getElementById('me-advanced')?.addEventListener('change', (event) => {
 function applyPermissions() {
   for (const el of document.querySelectorAll('[data-perm]')) el.classList.toggle('perm-hidden', !canAny(el.dataset.perm));
   renderFeatureStages();
+  // Optional columns can depend on permissions (SLAs).
+  try {
+    renderColumnMenu();
+    renderProjectsHead();
+  } catch {
+    /* before the table's code has loaded: it renders them itself */
+  }
   for (const panel of document.querySelectorAll('[data-edit-perm]')) {
     const editable = canAny(panel.dataset.editPerm);
     panel.classList.toggle('read-only', !editable);
@@ -1320,6 +1327,12 @@ function renderSettings() {
   $('rcpt-cc').value = s.recipients.cc.join('\n');
   $('rcpt-bcc').value = s.recipients.bcc.join('\n');
 
+  const sla = s.sla ?? { days: {}, escalate: false, escalateTo: [] };
+  for (const severity of ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']) $(`sla-${severity}`).value = sla.days?.[severity] ?? 0;
+  $('sla-escalate').checked = Boolean(sla.escalate);
+  $('sla-escalate-to').value = (sla.escalateTo ?? []).join('\n');
+  $('sla-status').textContent = sla.escalate && !(sla.escalateTo ?? []).length ? 'Add at least one address to escalate to.' : '';
+
   $('brand-app').value = s.branding.appName || 'CxMissionZero';
   $('brand-name').value = s.branding.companyName;
   $('brand-logo').value = s.branding.logoUrl;
@@ -1465,7 +1478,8 @@ function renderAutomation() {
               <td class="num">${run.sent ?? 0}${run.dryRun ? ' (dry)' : ''}</td>
               <td class="snippet">${escapeHtml(
                 (run.error || run.reason || (run.failures?.length ? `${run.failures.length} failed` : 'ok')) +
-                  (run.codeAuthors?.emailed ? ` · ${run.codeAuthors.emailed} code author${run.codeAuthors.emailed === 1 ? '' : 's'} ${run.dryRun ? 'would be ' : ''}emailed` : run.codeAuthors?.error ? ` · code authors: ${run.codeAuthors.error}` : ''),
+                  (run.codeAuthors?.emailed ? ` · ${run.codeAuthors.emailed} code author${run.codeAuthors.emailed === 1 ? '' : 's'} ${run.dryRun ? 'would be ' : ''}emailed` : run.codeAuthors?.error ? ` · code authors: ${run.codeAuthors.error}` : '') +
+                  (run.escalation?.escalated ? ` · ${run.escalation.escalated} past SLA ${run.escalation.sent ? 'escalated' : run.escalation.dryRun ? 'would be escalated' : `not escalated: ${run.escalation.error ?? ''}`}` : ''),
               )}</td>
             </tr>`,
           )
@@ -1623,6 +1637,15 @@ function settingsPayload() {
       overrides: $('init-overrides').value,
     },
     template: { subject: $('tpl-subject').value, html: $('tpl-html').value },
+    ...(can('feature.sla') && can('settings.automation')
+      ? {
+          sla: {
+            days: Object.fromEntries(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((s) => [s, $(`sla-${s}`).value])),
+            escalate: $('sla-escalate').checked,
+            escalateTo: $('sla-escalate-to').value,
+          },
+        }
+      : {}),
     branding: {
       appName: $('brand-app').value,
       companyName: $('brand-name').value,
@@ -2722,23 +2745,33 @@ const OPTIONAL_COLUMNS = [
   { id: 'sev:HIGH', group: 'Severity', label: 'High', value: (p) => p.bySeverity?.HIGH ?? 0 },
   { id: 'sev:MEDIUM', group: 'Severity', label: 'Medium', value: (p) => p.bySeverity?.MEDIUM ?? 0 },
   { id: 'sev:LOW', group: 'Severity', label: 'Low', value: (p) => p.bySeverity?.LOW ?? 0 },
+  // SLAs (Beta): shown by default to those who may use them, until someone picks their own columns.
+  { id: 'sla:overdue', group: 'SLA', label: 'Past SLA', title: 'Open findings past the days their severity has to be fixed (Settings → SLAs)', value: (p) => p.sla?.overdue ?? 0, alert: true, perm: 'feature.sla', byDefault: true },
+  { id: 'sla:soon', group: 'SLA', label: 'Due ≤ 7d', title: 'Open findings due within 7 days', value: (p) => p.sla?.dueSoon ?? 0, perm: 'feature.sla' },
 ];
 const COLUMNS_KEY = 'mz-project-columns';
+let columnsChosen = false;
 const shownColumns = (() => {
   try {
     const saved = JSON.parse(localStorage.getItem(COLUMNS_KEY) ?? 'null');
-    if (Array.isArray(saved)) return new Set(saved.filter((id) => OPTIONAL_COLUMNS.some((c) => c.id === id)));
+    if (Array.isArray(saved)) {
+      columnsChosen = true;
+      return new Set(saved.filter((id) => OPTIONAL_COLUMNS.some((c) => c.id === id)));
+    }
   } catch {}
   return new Set();
 })();
-const activeColumns = () => OPTIONAL_COLUMNS.filter((c) => shownColumns.has(c.id));
+/** Columns this person may add (SLA columns need SLAs: Beta, or final). */
+const availableColumns = () => OPTIONAL_COLUMNS.filter((c) => !c.perm || can(c.perm));
+const activeColumns = () => availableColumns().filter((c) => shownColumns.has(c.id) || (!columnsChosen && c.byDefault));
 const projectColspan = () => 7 + activeColumns().length;
 
 function renderColumnMenu() {
-  const groups = [...new Set(OPTIONAL_COLUMNS.map((c) => c.group))];
+  const active = new Set(activeColumns().map((c) => c.id));
+  const groups = [...new Set(availableColumns().map((c) => c.group))];
   $('col-menu').innerHTML = groups
-    .map((group) => `<fieldset><legend>${escapeHtml(group)}</legend>${OPTIONAL_COLUMNS.filter((c) => c.group === group)
-      .map((c) => `<label class="check"${c.title ? ` title="${escapeHtml(c.title)}"` : ''}><input type="checkbox" data-col="${escapeHtml(c.id)}"${shownColumns.has(c.id) ? ' checked' : ''} /> ${escapeHtml(c.label)}</label>`)
+    .map((group) => `<fieldset><legend>${escapeHtml(group)}</legend>${availableColumns().filter((c) => c.group === group)
+      .map((c) => `<label class="check"${c.title ? ` title="${escapeHtml(c.title)}"` : ''}><input type="checkbox" data-col="${escapeHtml(c.id)}"${active.has(c.id) ? ' checked' : ''} /> ${escapeHtml(c.label)}</label>`)
       .join('')}</fieldset>`)
     .join('') + '<p class="hint">Kept in this browser.</p>';
 }
@@ -2761,6 +2794,9 @@ function renderProjectsHead() {
 $('col-menu').addEventListener('change', (event) => {
   const id = event.target.dataset.col;
   if (!id) return;
+  // The first choice keeps what was shown by default, then follows the ticks.
+  if (!columnsChosen) for (const c of activeColumns()) shownColumns.add(c.id);
+  columnsChosen = true;
   if (event.target.checked) shownColumns.add(id);
   else shownColumns.delete(id);
   try {
@@ -2780,10 +2816,10 @@ function exportProjectsCsv() {
   if (!rows.length) return;
   const cellText = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ''));
   const credit = (p, kind, key) => p.credits?.[kind]?.[key] ?? '';
-  const header = ['Project', 'Project id', 'Total', ...OPTIONAL_COLUMNS.map((c) => `${c.group}: ${c.label}`), 'Oldest first detection', 'Oldest (days)', 'Latest scan by', 'Initiator email',
+  const header = ['Project', 'Project id', 'Total', ...availableColumns().map((c) => `${c.group}: ${c.label}`), 'Oldest first detection', 'Oldest (days)', 'Latest scan by', 'Initiator email',
     'Triage allocated', 'Triage used', 'Triage left', 'Triage needed', 'Remediation allocated', 'Remediation used', 'Remediation left', 'Remediation needed'];
   const lines = rows.map((p) => [
-    p.projectName, p.projectId, p.totalRisks, ...OPTIONAL_COLUMNS.map((c) => c.value(p)), formatDate(p.oldestFirstDetectedAt), p.maxAgeDays ?? '', p.initiator ?? '', p.initiatorEmail ?? '',
+    p.projectName, p.projectId, p.totalRisks, ...availableColumns().map((c) => c.value(p)), formatDate(p.oldestFirstDetectedAt), p.maxAgeDays ?? '', p.initiator ?? '', p.initiatorEmail ?? '',
     credit(p, 'triage', 'allocated'), credit(p, 'triage', 'used'), credit(p, 'triage', 'remaining'), p.credits?.need?.triage ?? '',
     credit(p, 'remediation', 'allocated'), credit(p, 'remediation', 'used'), credit(p, 'remediation', 'remaining'), p.credits?.need?.remediation ?? '',
   ]);
@@ -4260,8 +4296,18 @@ function renderTotals(totals) {
     ['Critical', sev.CRITICAL ?? 0],
     ['High', sev.HIGH ?? 0],
     ['Unknown date', counts.unknown ?? 0],
+    // SLAs (Beta): past the days their severity has to be fixed, and due within 7 days.
+    ...(can('feature.sla') && totals.sla
+      ? [[
+          'Past SLA',
+          totals.sla.overdue,
+          totals.sla.overdue ? 'sla-over' : totals.sla.dueSoon ? 'sla-soon' : '',
+          `Open findings past the days their severity has to be fixed (Settings → SLAs). ${totals.sla.dueSoon} more reach it within 7 days.`,
+          totals.sla.dueSoon ? `${totals.sla.dueSoon} due ≤ 7 days` : '',
+        ]]
+      : []),
   ]
-    .map(([label, v]) => `<div><span class="value">${v}</span><span class="label">${label}</span></div>`)
+    .map(([label, v, tone = '', title = '', sub = '']) => `<div${tone ? ` class="${tone}"` : ''}${title ? ` title="${escapeHtml(title)}"` : ''}><span class="value">${v}</span><span class="label">${label}</span>${sub ? `<span class="sub">${escapeHtml(sub)}</span>` : ''}</div>`)
     .join('');
   if (!$('getting-started').hidden) renderGettingStarted();
   renderJourney();
@@ -4417,6 +4463,11 @@ function totalsOf(projects) {
     totals.risks += p.totalRisks ?? 0;
     for (const [bucket, count] of Object.entries(p.counts ?? {})) totals.counts[bucket] = (totals.counts[bucket] ?? 0) + count;
     for (const [severity, count] of Object.entries(p.bySeverity ?? {})) totals.severities[severity] = (totals.severities[severity] ?? 0) + count;
+    if (p.sla) {
+      totals.sla ??= { overdue: 0, dueSoon: 0 };
+      totals.sla.overdue += p.sla.overdue;
+      totals.sla.dueSoon += p.sla.dueSoon;
+    }
   }
   return totals;
 }

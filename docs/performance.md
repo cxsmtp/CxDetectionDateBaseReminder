@@ -92,6 +92,12 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.35 (main) | 2 | 9.2 s / 0 | 63,945 / 0 | 515 | 53 / 5,548 ms | — | none |
 | MZ-01.00.35 (main) | 3 | 7.1 s / 0 | 64,694 / 0 | 525 | 61 / 631 ms | 6 / 115 ms | none |
 | **MZ-01.00.36** | 3 | 8.9 s / 0 | 64,423 / **0** | 492 | 50 / 2,262 ms | 6 / **118 ms** | none |
+| MZ-01.00.36 (main) | 4 | 10.7 s / 0 | 63,521 / 0 | 504 | 100 / 7,155 ms | 9 / 257 ms | none |
+| MZ-01.00.37 | 1 | 16.3 s / 0 | 64,230 / 0 | 519 | 61 / 4,051 ms | 10 / 201 ms | none |
+| MZ-01.00.36 (main) | 5 | 8.0 s / 0 | 64,269 / 0 | 518 | 52 / 5,116 ms | 8 / 123 ms | none |
+| **MZ-01.00.37** | 2 | 9.9 s / 0 | 64,117 / **0** | 508 | 54 / 5,126 ms | 8 / **179 ms** | none |
+
+**MZ-01.00.37: what the differences were.** Two pairs with main, alternating. Report opens at p95 were 4.1 and 5.1 s on the branch against 7.2 and 5.1 s on main; triage results 201 and 179 ms against 257 and 123 ms; requests a second 519 and 508 against 504 and 518, with 0 failed requests and no finding sent twice in any run. The first branch run's opening burst took 16.3 s, a little above the 7.4–15.8 s seen before, and its fetches were slower (17 s against 12 s at the median); in the second pair the burst took 9.9 s (main 8.0 s) and fetches matched main (13.5 s against 13.0 s at the median). What the fetch now does in addition is one pass over each project's findings to count what is past its SLA, which is a few microseconds a finding next to reading them from Checkmarx One. Escalation runs only on the automation's schedule, which the benchmark does not use.
 
 **MZ-01.00.36: what the differences were.** None from the change, across three pairs with main. Report opens at p95 were 5.9, 5.2 and 2.3 s on the branch against 4.1, 5.5 and 0.6 s on main: both land in the slow mode (4–6 s, when opens arrive while a fetch or an HTML report is being built), main in two of three pairs here and three of six counting MZ-01.00.35's. The server's CPU was the same in every run (98–102 % of a core) for the same work (64,000 requests, 0 failed, no finding sent twice). The last branch run took 131 s instead of 123 s to finish its requests, so its rate reads 492 a second for the same 64,423 requests. What changed on the server: Stop (a flag checked before each project is read), the browser icon (a route the benchmark does not call), and the update check (not on any request path the benchmark uses). The second branch run overlapped test runs on the same machine and is listed for completeness.
 

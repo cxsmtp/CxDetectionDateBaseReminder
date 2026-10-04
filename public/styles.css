@@ -2230,3 +2230,15 @@ label.button-like.sm { cursor: pointer; }
 .upd-more-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .upd-more-row .hint:empty { display: none; }
 .upd-check-note { margin: 12px 0 0; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid color-mix(in srgb, #d97706 40%, var(--border)); background: color-mix(in srgb, #d97706 8%, var(--surface)); font-weight: 500; }
+/* SLAs (Beta): past their SLA in red, due within 7 days in amber. */
+.totals > div.sla-over { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); background: color-mix(in srgb, var(--danger) 7%, var(--surface)); }
+.totals > div.sla-over .value { color: var(--danger); }
+.totals > div.sla-soon { border-color: color-mix(in srgb, #d97706 45%, var(--border)); }
+.totals > div.sla-soon .value { color: #d97706; }
+.totals { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+.totals > div .sub { display: block; font-size: 11px; font-weight: 650; color: #d97706; margin-top: 2px; }
+/* Settings → SLAs: the four severities side by side. */
+.sla-days { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 8px 0 16px; }
+.sla-days .with-unit { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.sla-days .with-unit input { width: 96px; flex: none; }
+@media (max-width: 760px) { .sla-days { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
