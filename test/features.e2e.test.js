@@ -150,3 +150,17 @@ test('SLAs (Beta): only those who may use them change them; fetched projects car
   const off = (await admin('POST', '/api/automation/run', {})).body.run;
   assert.equal(off.escalation, undefined);
 });
+
+test('who gets reminders is one choice: scheduled runs follow it, and "both" with an empty fixed list says so', async () => {
+  const set = await admin('PUT', '/api/settings', { reminders: { audience: 'both' }, recipients: { to: '', cc: '', bcc: '' } });
+  assert.equal(set.status, 200, JSON.stringify(set.body).slice(0, 200));
+  assert.equal(set.body.reminders.audience, 'both');
+  await admin('PUT', '/api/automation', { dryRun: true, mode: 'digest', thresholds: '1', notifyCodeAuthors: false });
+  const run = (await admin('POST', '/api/automation/run', {})).body.run;
+  assert.ok(run.crossed > 0, JSON.stringify(run));
+  assert.ok((run.failures ?? []).some((f) => /fixed list is empty/.test(f.error)), JSON.stringify(run.failures));
+  // Someone who may not change the list cannot change who gets reminders either.
+  const theirs = await user('PUT', '/api/settings', { reminders: { audience: 'list' } });
+  assert.notEqual(theirs.body?.reminders?.audience, 'list');
+  await admin('PUT', '/api/settings', { reminders: { audience: 'initiator' } });
+});

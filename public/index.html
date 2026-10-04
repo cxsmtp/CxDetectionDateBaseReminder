@@ -365,9 +365,10 @@
                   <div class="segmented send-modes">
                     <label class="mode"><input type="radio" name="sendTo" value="initiator" checked /> <span>Each developer</span></label>
                     <label class="mode"><input type="radio" name="sendTo" value="list" /> <span>A fixed list</span></label>
-                    <label class="mode" data-advanced><input type="radio" name="sendTo" value="both" /> <span>Both</span></label>
+                    <label class="mode"><input type="radio" name="sendTo" value="both" /> <span>Both</span></label>
                   </div>
                 </div>
+                <p class="hint wide audience-note" id="audience-note">This is who gets reminders everywhere: here, scheduled runs and tracked reports' follow-ups.</p>
                 <div class="composer-row" data-advanced>
                   <span class="label-sm">Format</span>
                   <div class="segmented send-modes">
@@ -727,7 +728,7 @@
                 <h2>Automation</h2>
                 <span class="hint" id="auto-status"></span>
               </div>
-              <p class="hint wide">Emails people once when a finding gets older than each age limit you set.</p>
+              <p class="hint wide">Everything that runs by itself, in one place. First, age reminders: people are emailed once when a finding gets older than each age limit you set. Below them, the follow-ups and rescans set on tracked reports, and SLA escalation.</p>
 
               <div class="checks">
                 <label class="check"><input type="checkbox" id="auto-enabled" /> Run automatically</label>
@@ -744,13 +745,11 @@
                   <span>Check every (minutes)</span>
                   <input id="auto-interval" type="number" min="15" max="10080" />
                 </label>
-                <label class="field">
-                  <span>Address to</span>
-                  <select id="auto-groupby">
-                    <option value="initiator">Each developer (their own projects)</option>
-                    <option value="none">The configured recipient list</option>
-                  </select>
-                </label>
+                <div class="field">
+                  <span>Sends to</span>
+                  <p class="readonly-value" id="auto-audience">Each developer (their own projects)</p>
+                  <a href="#/dashboard/remind" class="hint">Change who gets reminders: Dashboard → Remind →</a>
+                </div>
                 <label class="field">
                   <span>Only these severities — blank means all</span>
                   <input id="auto-severities" spellcheck="false" placeholder="CRITICAL, HIGH" />
@@ -774,6 +773,9 @@
               </div>
 
               <div id="auto-runs"></div>
+
+              <h3>Also running by itself</h3>
+              <div id="auto-elsewhere" class="auto-elsewhere"><p class="hint">Loading…</p></div>
             </section>
 
             <section class="panel" id="set-ai" data-edit-perm="settings.ai">

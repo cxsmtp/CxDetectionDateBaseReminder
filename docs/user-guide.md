@@ -458,7 +458,7 @@ Watches findings on a timer and emails the moment one crosses an age threshold. 
 | Test mode | Decides and logs, but sends nothing. Use it for the first run, because an older tenant has a backlog that crosses every threshold at once. |
 | Thresholds (days) | For example `30, 60, 90`. |
 | Check every (minutes) | From 15 minutes to 1 week. |
-| Address to | Each scan initiator (their own projects only), or the configured fixed list. |
+| Sends to | Shown, not set here: it follows **Dashboard → Remind → Send to** (each developer, the fixed list, or both). With **Both** and an empty fixed list, the run says so instead of sending to nobody. |
 | Severities | For example `CRITICAL, HIGH`. Blank means all. |
 | Mode | **Report each threshold once** (recommended), or **digest**: re-report everything past a threshold on every run. |
 | Also email the code authors | Shown once an Admin has made **Code authors** final. Each run also emails the developer who last changed the line of each finding that just crossed (SAST and KICS, most severe first, up to 200 a run), with the findings in their code. Developers are still emailed as before. In digest mode the authors are emailed on every run too. |
@@ -467,7 +467,8 @@ Watches findings on a timer and emails the moment one crosses an age threshold. 
 
 The panel shows:
 - whether the Checkmarx One connection and the mail server are ready;
-- the last runs (scanned, crossed, sent, and how many code authors were emailed).
+- the last runs (scanned, crossed, sent, and how many code authors were emailed);
+- **Also running by itself:** everything else that runs on its own, in one list: SLA escalation (on or off), and each tracked report's automatic follow-up and rescan, with **Open** to go to that report's Remind tab.
 
 ### AI Triage & Remediation from reports
 | Option | Meaning |
@@ -618,7 +619,7 @@ Each finding falls into an age bucket by when it was **first detected**:
 
 | Option | Meaning |
 | --- | --- |
-| Send to | **A fixed list**, **Developer addresses**, or **Both**. A scan initiator only ever gets their own projects; the server refuses any email that would show someone a project they did not scan. |
+| Send to | **Each developer**, **A fixed list**, or **Both**. **This is the one place that decides who gets reminders**: here, Settings → Automation's scheduled runs, and tracked reports' follow-ups all use it (changing it needs **settings.recipients**). A scan initiator only ever gets their own projects; the server refuses any email that would show someone a project they did not scan. |
 | Content | **One summary** (one email per person, all their projects), or **One per project**. |
 | Attach the interactive HTML report | On by default. Developers can triage and remediate straight from it. |
 | Fixed list | To / Cc / Bcc, edited here. **Save list** keeps it. |
@@ -725,16 +726,15 @@ Save a scope from the Dashboard (**Save as tracked report**) and follow it over 
   - **Search** by name.
   - **Sort** by most open, least progress, recently updated or name.
 
-**Upcoming follow-ups** (right, or below on a narrow screen): every scheduled reminder, soonest first, with who it goes to. Click one to open that report's **Schedule**.
+**Upcoming follow-ups** (right, or below on a narrow screen): every scheduled reminder, soonest first, with who it goes to. Click one to open that report's **Remind** tab.
 
 **Click a report** to open its panel (Escape or ✕ closes it):
 
 | Tab | What is in it |
 | --- | --- |
 | **Overview** | The % actioned with the outcome bar and counts; open, new, matching now, credits used; the **trend** of open findings (hover for each reading); and a by-project table, most open first. |
-| **Remind** | Who (developers, fixed list, both, or only some addresses), the content (one summary per person, or one email per project), and whether to attach the interactive report. **Preview**, then **Send reminder now**. The sends so far are listed. |
-| **Schedule** | **Automatic reminders** every N days at a set hour (the server's time zone), only while something is still open; they use the Remind options. Shows the next and last send. **Save schedule**. |
-| **Triage** | AI Triage for the chosen severities (**Triage now**), or **Allocate credits** so developers can triage from their own reports, with what it needs and what is left. |
+| **Remind** | Who gets it follows **who gets reminders everywhere** (Dashboard → Remind → Send to); **Only for this report…** gives this report its own choice (developers, fixed list, both, or only some addresses). The content (one summary per person, or one email per project), and whether to attach the interactive report. **Preview**, then **Send reminder now**. The sends so far are listed. Below, **Automatic follow-up**: reminders every N days at a set hour (the server's time zone), only while something is still open, with the same options; it shows the next and last send. **Save schedule**. |
+| **Triage** | AI Triage for the chosen severities (**Triage now**), with what it needs and what is left. Credits are given in one place: **Give credits on the Dashboard** opens the Dashboard's AI credits panel with this report's projects in scope and loads their findings. |
 | **Verify** | Prove the fixes with a Checkmarx One rescan, then start the next round (below). |
 | **History** | Every reading: awaiting, confirmed, not exploitable, no longer detected, new, matching now. |
 
@@ -921,9 +921,9 @@ How fast and how safe the version you run is. Each release is measured with 3000
 **Weekly reminder to every developer, their own projects only**
 1. Dashboard → Scope: *Projects last scanned in* = last month.
 2. **Load findings** and wait for the green flare.
-3. Send reminder: **Developer addresses**, **One summary**, attachment on. **Preview email**, then **Send reminder**.
+3. Send reminder: **Each developer**, **One summary**, attachment on. **Preview email**, then **Send reminder**.
 
-To have it happen by itself, use Settings → Automation, or a tracked report's **Automatic reminders**.
+To have it happen by itself, use Settings → Automation, or a tracked report's **Automatic follow-up** (Remind tab).
 
 **Triage every critical and high finding for one team**
 1. Scope → Only these projects or people: add the team's projects.

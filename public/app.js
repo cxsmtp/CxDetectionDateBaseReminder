@@ -1291,6 +1291,7 @@ async function loadSettings() {
   try {
     state.settings = await api('/api/settings');
     fillInlineRecipients();
+    renderAudience();
     renderRecipientHint();
   } catch (error) {
     if (!handleAuthLoss(error)) console.warn(error.message);
@@ -1415,9 +1416,39 @@ async function loadAutomation() {
   try {
     state.automation = await api('/api/automation');
     renderAutomation();
+    renderAutomationElsewhere();
   } catch (error) {
     if (!handleAuthLoss(error)) console.warn(error.message);
   }
+}
+
+/**
+ * Settings → Automation lists everything automatic, wherever it is set: each
+ * tracked report's follow-up and rescan, and SLA escalation.
+ */
+async function renderAutomationElsewhere() {
+  const box = $('auto-elsewhere');
+  const rows = [];
+  if (can('feature.sla')) {
+    const sla = state.settings?.sla;
+    rows.push(`<li><span class="ae-what">SLA escalation <span class="badge warn" data-beta-badge="sla">Beta</span></span><span class="ae-when">${sla?.escalate && sla.escalateTo?.length ? `On · with each run above, to ${escapeHtml(sla.escalateTo.join(', '))}` : 'Off'}</span><a href="#/settings/sla">Change →</a></li>`);
+  }
+  if (can('reports.view')) {
+    try {
+      const { reports } = await api('/api/tracked-reports', { quiet: true });
+      for (const r of reports) {
+        const a = r.automation ?? {};
+        const follow = a.enabled ? `Follow-up ${escapeHtml(scheduleText(a).toLowerCase())}${a.nextRunAt ? `, next ${escapeHtml(relativeTime(a.nextRunAt))}` : ''}` : '';
+        const rescan = r.verify?.auto ? 'rescan on the developers’ behalf when their window ends' : '';
+        if (!follow && !rescan) continue;
+        rows.push(`<li><span class="ae-what">${escapeHtml(r.name)} <span class="hint">tracked report</span></span><span class="ae-when">${[follow, rescan].filter(Boolean).join(' · ')}</span><a href="#/reports" data-open-report="${escapeHtml(r.id)}" data-tab="remind">Open →</a></li>`);
+      }
+    } catch {
+      /* the list below still shows what it can */
+    }
+  }
+  box.innerHTML = rows.length ? `<ul class="ae-list">${rows.join('')}</ul>` : '<p class="hint">Nothing else. Tracked reports can follow up by themselves (Reports → a report → Remind).</p>';
+  renderFeatureStages();
 }
 
 function renderAutomation() {
@@ -1429,7 +1460,7 @@ function renderAutomation() {
   $('auto-authors').checked = a.config.notifyCodeAuthors === true;
   $('auto-thresholds').value = a.config.thresholds.join(', ');
   $('auto-interval').value = a.config.intervalMinutes;
-  $('auto-groupby').value = a.config.groupBy;
+  renderAudience();
   $('auto-mode').value = a.config.mode;
   $('auto-severities').value = a.config.severities.join(', ');
 
@@ -1496,7 +1527,6 @@ function automationPayload() {
     ...(state.me?.features?.codeAuthors === 'final' ? { notifyCodeAuthors: $('auto-authors').checked } : {}),
     thresholds: $('auto-thresholds').value,
     intervalMinutes: $('auto-interval').value,
-    groupBy: $('auto-groupby').value,
     mode: $('auto-mode').value,
     severities: $('auto-severities').value,
   };
@@ -3167,14 +3197,14 @@ function renderUpcoming(reports) {
   const due = reports
     .filter((r) => r.automation?.enabled && r.automation.nextRunAt)
     .sort((a, b) => Date.parse(a.automation.nextRunAt) - Date.parse(b.automation.nextRunAt));
-  const to = (a) => (a.onlyTo?.length ? `only ${a.onlyTo.join(', ')}` : { initiator: 'each developer', list: 'the fixed list', both: 'developers and list' }[a.sendTo] ?? 'each developer');
+  const to = (a) => (a.onlyTo?.length ? `only ${a.onlyTo.join(', ')}` : { developers: 'each developer', list: 'the fixed list', both: 'developers and list' }[a.sendTo] ?? AUDIENCE_TEXT[audience()].toLowerCase());
   $('rp-upcoming').innerHTML = due.length
     ? due
         .map((r) => {
           const at = new Date(r.automation.nextRunAt);
           const day = at.toLocaleDateString(undefined, { day: 'numeric', ...(serverZone.name ? { timeZone: serverZone.name } : {}) });
           const month = at.toLocaleDateString(undefined, { month: 'short', ...(serverZone.name ? { timeZone: serverZone.name } : {}) });
-          return `<li><button type="button" class="rp-agenda-item" data-open-report="${escapeHtml(r.id)}" data-tab="schedule">
+          return `<li><button type="button" class="rp-agenda-item" data-open-report="${escapeHtml(r.id)}" data-tab="remind">
             <span class="rp-date"><b>${escapeHtml(day)}</b>${escapeHtml(month)}</span>
             <span class="rp-agenda-text"><span class="rp-name">${escapeHtml(r.name)}</span>
               <span class="rp-sub">${escapeHtml(relativeTime(r.automation.nextRunAt))} · ${escapeHtml(scheduleText(r.automation, { short: true }).toLowerCase())} · to ${escapeHtml(to(r.automation))}${r.automation.attachHtml ? ' · HTML report' : ''}</span></span>
@@ -3288,7 +3318,6 @@ function bindTrendChart(root) {
 const RP_TABS = [
   ['overview', 'Overview'],
   ['remind', 'Remind'],
-  ['schedule', 'Schedule'],
   ['triage', 'Triage'],
   ['verify', 'Verify'],
   ['history', 'History'],
@@ -3296,7 +3325,8 @@ const RP_TABS = [
 
 function openReportDetail(id, tab = 'overview') {
   rpState.open = id;
-  rpState.tab = tab;
+  // Schedule is part of Remind now (one place for who, what and when).
+  rpState.tab = tab === 'schedule' ? 'remind' : tab;
   $('rp-sheet').innerHTML = '';
   renderReportDetail(id);
   $('rp-drawer').hidden = false;
@@ -3323,7 +3353,7 @@ function renderReportDetail(id) {
   const l = r.latest;
   const status = reportStatus(r);
   const rid = escapeHtml(r.id);
-  const tabs = RP_TABS.map(([key, label]) => `<button type="button" role="tab" id="rp-tab-${key}" aria-controls="rp-panel-${key}" aria-selected="${rpState.tab === key}" tabindex="${rpState.tab === key ? 0 : -1}" data-rp-tab="${key}">${label}${(key === 'schedule' && r.automation?.enabled) || (key === 'verify' && r.verify?.auto) ? ' <i class="rp-on" aria-label="on"></i>' : ''}${key === 'verify' && r.verification?.result?.zero ? ' ✓' : ''}</button>`).join('');
+  const tabs = RP_TABS.map(([key, label]) => `<button type="button" role="tab" id="rp-tab-${key}" aria-controls="rp-panel-${key}" aria-selected="${rpState.tab === key}" tabindex="${rpState.tab === key ? 0 : -1}" data-rp-tab="${key}">${label}${(key === 'remind' && r.automation?.enabled) || (key === 'verify' && r.verify?.auto) ? ' <i class="rp-on" aria-label="on"></i>' : ''}${key === 'verify' && r.verification?.result?.zero ? ' ✓' : ''}</button>`).join('');
   const panel = (key, html) => `<div class="rp-panel" role="tabpanel" id="rp-panel-${key}" aria-labelledby="rp-tab-${key}" ${rpState.tab === key ? '' : 'hidden'}>${html}</div>`;
   const kpi = (label, value, sub = '') => `<div class="rp-kpi"><span class="rp-tile-label">${escapeHtml(label)}</span><span class="rp-kpi-value">${value}</span>${sub ? `<span class="rp-tile-sub">${sub}</span>` : ''}</div>`;
   const overview = l
@@ -3375,8 +3405,7 @@ function renderReportDetail(id) {
     <nav class="rp-tabs" role="tablist" aria-label="Report sections">${tabs}</nav>
     <div class="rp-body">
       ${panel('overview', overview)}
-      ${panel('remind', remindSection(r))}
-      ${panel('schedule', scheduleSection(r))}
+      ${panel('remind', `${remindSection(r)}<h3 class="rp-h3">Automatic follow-up</h3>${scheduleSection(r)}`)}
       ${panel('triage', triageSection(r))}
       ${panel('verify', verifySection(r))}
       ${panel('history', history)}
@@ -3400,17 +3429,22 @@ function remindSection(r) {
   const auto = r.automation ?? {};
   const radio = radioFor(id);
   const onlyTo = auto.onlyTo?.length ? auto.onlyTo.join(', ') : '';
-  const sendTo = onlyTo ? 'only' : auto.sendTo ?? 'initiator';
+  // 'initiator' was the default every report was saved with: it follows the shared choice too.
+  const sendTo = onlyTo ? 'only' : ({ initiator: 'settings', settings: 'settings' }[auto.sendTo] ?? auto.sendTo ?? 'settings');
+  const own = sendTo !== 'settings';
   const open = r.latest?.open ?? 0;
   const reminders = (r.reminders ?? []).slice(0, 10);
   return `<p class="rp-lead">${open} open finding${open === 1 ? '' : 's'} (awaiting triage, confirmed or new). Remind the people who can act on them.</p>
     <div class="rp-form">
       <div class="rp-field"><span class="rp-label">Send to</span><div class="rp-options">
-        ${radio('sendTo', 'initiator', 'Each developer', sendTo)}
-        ${radio('sendTo', 'list', 'A fixed list', sendTo)}
-        ${radio('sendTo', 'both', 'Both', sendTo)}
-        ${radio('sendTo', 'only', 'Only to', sendTo)}
-        <input type="text" class="only-to" data-field="onlyTo" data-keep value="${escapeHtml(onlyTo)}" placeholder="name@company.com, …" aria-label="Send only to these addresses" />
+        ${radio('sendTo', 'settings', `Who gets reminders everywhere: ${escapeHtml(AUDIENCE_TEXT[audience()].toLowerCase())}`, sendTo)}
+        <details class="rp-own"${own ? ' open' : ''}><summary>Only for this report…</summary>
+          ${radio('sendTo', 'developers', 'Each developer', sendTo)}
+          ${radio('sendTo', 'list', 'The fixed list', sendTo)}
+          ${radio('sendTo', 'both', 'Both', sendTo)}
+          ${radio('sendTo', 'only', 'Only to', sendTo)}
+          <input type="text" class="only-to" data-field="onlyTo" data-keep value="${escapeHtml(onlyTo)}" placeholder="name@company.com, …" aria-label="Send only to these addresses" />
+        </details>
       </div></div>
       <div class="rp-field" data-content-row><span class="rp-label">Content</span><div class="rp-options">
         ${radio('content', 'summary', 'One summary per person', auto.emailContent ?? 'summary')}
@@ -3423,7 +3457,7 @@ function remindSection(r) {
     <div class="actions compact">
       ${can('reports.remind') ? `<button type="button" data-remind="${id}" data-dry="1">Preview</button><button type="button" data-remind="${id}" class="primary">Send reminder now</button>` : '<span class="hint">Your role cannot send reminders.</span>'}
     </div>
-    <p class="hint">These options are also what automatic reminders use (Schedule).</p>
+    <p class="hint">The automatic follow-up below uses the same choices.</p>
     ${reminders.length ? `<h3 class="rp-h3">Sent</h3>${remindersTable(reminders)}` : ''}`;
 }
 
@@ -3459,7 +3493,7 @@ function scheduleSection(r) {
         <span class="hint" title="Time zone of the machine running ${escapeHtml(state.health?.app?.name || 'CxMissionZero')}">${escapeHtml(zoneLabel())}</span>
       </div></div>
     </div>
-    <p class="hint">Sends to the people and with the content chosen under <button type="button" class="link" data-rp-tab="remind">Remind</button>.</p>
+    <p class="hint">Sends to the people, and with the content, chosen above. Every automatic reminder and follow-up is also listed under <a href="#/settings/automation">Settings → Automation</a>.</p>
     ${manage ? `<div class="actions compact"><button type="button" class="primary" data-schedule="${id}">Save schedule</button></div>` : '<p class="hint">Your role cannot change schedules.</p>'}
     ${reminders.length ? `<h3 class="rp-h3">Sent automatically</h3>${remindersTable(reminders)}` : ''}`;
 }
@@ -3468,7 +3502,7 @@ function triageSection(r) {
   const id = escapeHtml(r.id);
   const allowed = can('triage.run') || can('credits.allocate');
   if (!allowed) return '<p class="hint">Your role cannot run AI Triage or allocate credits.</p>';
-  return `<p class="rp-lead">Run AI Triage on what is still awaiting triage, or give the projects the credits their developers need to do it from their own reports.</p>
+  return `<p class="rp-lead">Run AI Triage on what is still awaiting triage. Credits are given in one place, the Dashboard: the button below opens it with just this report's projects.</p>
     <div class="rp-form">
       <div class="rp-field"><span class="rp-label">Severities</span><div class="rp-options">
       ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
@@ -3480,15 +3514,11 @@ function triageSection(r) {
         })
         .join('')}
       </div></div>
-      <div class="rp-field${can('credits.allocate') ? '' : ' perm-hidden'}"><span class="rp-label">Extra credits</span><div class="rp-options alloc-extra">
-        + <input type="number" min="0" max="100000" data-field="triageAdd" data-keep class="small-num" placeholder="0" aria-label="Extra triage credits" /> triage
-        + <input type="number" min="0" max="100000" data-field="remediationAdd" data-keep class="small-num" placeholder="0" aria-label="Extra remediation credits" /> remediation
-      </div></div>
     </div>
     <p class="rp-need" data-need="${id}">${triageNeedText(r)}</p>
     <div class="actions compact">
       ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary" data-needs-data>Triage now</button>` : ''}
-      ${can('credits.allocate') ? `<button type="button" data-report-allocate="${id}" data-needs-data>Allocate credits</button>` : ''}
+      ${can('credits.allocate') ? `<button type="button" data-report-credits="${id}">Give credits on the Dashboard</button>` : ''}
     </div>
     <p class="hint">1 credit to check a finding with AI, 3 to fix it. Nothing is given until you click.</p>`;
 }
@@ -3727,20 +3757,42 @@ function followUpOptions(card) {
   const id = card.dataset.report;
   const value = (name) => card.querySelector(`input[name="${name}-${CSS.escape(id)}"]:checked`)?.value;
   const field = (name) => card.querySelector(`[data-field="${name}"]`);
-  const sendTo = value('sendTo') ?? 'initiator';
+  const sendTo = value('sendTo') ?? 'settings';
   return {
     sendTo: sendTo === 'only' ? 'list' : sendTo,
     onlyTo: sendTo === 'only' ? field('onlyTo').value : '',
     emailContent: value('content') ?? 'summary',
     attachHtml: field('attachHtml').checked,
-    triageAdd: Number(field('triageAdd').value) || 0,
-    remediationAdd: Number(field('remediationAdd').value) || 0,
+    triageAdd: Number(field('triageAdd')?.value) || 0,
+    remediationAdd: Number(field('remediationAdd')?.value) || 0,
     enabled: field('autoEnabled').checked,
     everyDays: Number(field('everyDays').value) || 7,
     hour: Number(field('hour').value) || 0,
     severities: [...card.querySelectorAll('[data-sev]:checked')].map((box) => box.dataset.sev),
   };
 }
+
+/**
+ * Credits are given in one place, the Dashboard: open it narrowed to a report's
+ * projects, load their findings (that click is the person's), on the AI credits tab.
+ */
+function giveCreditsFor(report) {
+  if (state.fetching) return toast('Findings are loading on the Dashboard: wait for them, then try again.', 'warn');
+  scopePick.projects.clear();
+  scopePick.initiators.clear();
+  for (const p of report.projects ?? []) scopePick.projects.set(p.projectId, p.projectName || p.projectId);
+  renderScopeChips();
+  location.hash = '#/dashboard/credits';
+  setTimeout(() => {
+    if (!state.fetching && can('findings.fetch')) $('fetch').click();
+  }, 50);
+}
+document.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-report-credits]');
+  if (!button) return;
+  const report = trackedById.get(button.dataset.reportCredits);
+  if (report) giveCreditsFor(report);
+});
 
 /** The button last clicked in a report card: its message is shown right under it, where the eye is. */
 let followButton = null;
@@ -4936,6 +4988,34 @@ $('close-preview').addEventListener('click', () => {
 for (const radio of document.querySelectorAll('input[name="sendTo"], input[name="emailContent"]')) {
   radio.addEventListener('change', renderRecipientHint);
 }
+
+/** Who gets reminders: one choice (Settings: reminders.audience), set here on the Dashboard and used everywhere. */
+const AUDIENCE_TEXT = { initiator: 'Each developer (their own projects)', list: 'The fixed list', both: 'Each developer, and the fixed list' };
+const audience = () => state.settings?.reminders?.audience ?? 'initiator';
+function renderAudience() {
+  const value = audience();
+  const radio = document.querySelector(`input[name="sendTo"][value="${value}"]`);
+  if (radio && !radio.checked && !document.querySelector('input[name="sendTo"]:focus')) {
+    radio.checked = true;
+    renderRecipientHint();
+  }
+  if ($('auto-audience')) $('auto-audience').textContent = AUDIENCE_TEXT[value];
+  $('audience-note').textContent = can('settings.recipients')
+    ? 'This is who gets reminders everywhere: here, scheduled runs and tracked reports’ follow-ups.'
+    : `Saved for everyone as “${AUDIENCE_TEXT[value]}” by an administrator; your choice here applies to this send only.`;
+}
+for (const radio of document.querySelectorAll('input[name="sendTo"]')) {
+  radio.addEventListener('change', async () => {
+    if (!radio.checked || !can('settings.recipients') || radio.value === audience()) return;
+    try {
+      state.settings = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ reminders: { audience: radio.value } }) });
+      toast(`Reminders now go to: ${AUDIENCE_TEXT[radio.value].toLowerCase()}, everywhere.`, 'ok', 2500);
+      renderAudience();
+    } catch (error) {
+      if (!handleAuthLoss(error)) showError('status', error);
+    }
+  });
+}
 if ($('attach-html-report')) {
   const updateHtmlReportButtonsVisibility = () => {
     renderRecipientHint();
@@ -5151,6 +5231,20 @@ for (const id of ['reports-list', 'rp-upcoming']) {
     if (row) openReportDetail(row.dataset.openReport, row.dataset.tab || 'overview');
   });
 }
+// Settings → Automation: "Open →" goes to that report, on its Remind tab.
+$('auto-elsewhere').addEventListener('click', (event) => {
+  const link = event.target.closest('[data-open-report]');
+  if (!link) return;
+  event.preventDefault();
+  location.hash = '#/reports';
+  const started = Date.now();
+  const open = () => {
+    if (trackedById.has(link.dataset.openReport)) openReportDetail(link.dataset.openReport, link.dataset.tab || 'overview');
+    else if (Date.now() - started < 8000) setTimeout(open, 150);
+  };
+  open();
+});
+
 function selectReportTab(tab) {
   rpState.tab = tab;
   for (const button of document.querySelectorAll('#rp-sheet [role="tab"]')) {

@@ -2242,3 +2242,11 @@ label.button-like.sm { cursor: pointer; }
 .sla-days .with-unit { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
 .sla-days .with-unit input { width: 96px; flex: none; }
 @media (max-width: 760px) { .sla-days { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Settings → Automation: everything else that runs by itself. */
+.ae-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.ae-list li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 12px; align-items: center; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); font-size: 13px; }
+.ae-list .ae-when { color: var(--muted); }
+.readonly-value { margin: 2px 0 4px; font-weight: 600; }
+.rp-own > summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 4px; }
+.rp-own[open] > summary { margin-bottom: 4px; }
+@media (max-width: 760px) { .ae-list li { grid-template-columns: 1fr; } }

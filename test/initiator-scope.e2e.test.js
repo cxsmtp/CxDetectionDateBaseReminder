@@ -206,6 +206,23 @@ test('tracked reports: follow-ups are scoped the same way, in every format', asy
   assert.deepEqual(sentMail().map((m) => m.to), [['lead@acme.io', 'sean@acme.io']], 'to the list only: no initiator is mailed');
 });
 
+test('tracked reports follow who gets reminders everywhere, unless given their own choice', async () => {
+  const created = await admin('POST', '/api/tracked-reports', { name: 'Follows the setting', projectIds: EVERY_PROJECT });
+  const id = created.body.id;
+  assert.equal((await admin('PUT', '/api/settings', { reminders: { audience: 'list' } })).status, 200);
+  for (const sendTo of ['settings', 'initiator', undefined]) {
+    const r = await admin('POST', `/api/tracked-reports/${id}/remind`, { ...(sendTo ? { sendTo } : {}), attachHtml: true });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(sentMail().map((m) => m.to), [['lead@acme.io', 'sean@acme.io']], `${sendTo ?? 'nothing'}: the setting (the fixed list)`);
+  }
+  const own = await admin('POST', `/api/tracked-reports/${id}/remind`, { sendTo: 'developers', attachHtml: true });
+  assert.equal(own.status, 200);
+  assert.ok(sentMail().every((m) => !m.to.includes('lead@acme.io')), 'its own choice: each developer, not the list');
+  const saved = await admin('PUT', `/api/tracked-reports/${id}/automation`, { enabled: false, sendTo: 'initiator' });
+  assert.equal(saved.body.automation.sendTo, 'settings', 'the old default is saved as "follow the setting"');
+  await admin('PUT', '/api/settings', { reminders: { audience: 'initiator' } });
+});
+
 test('the old route that mailed any HTML to any address is gone', async () => {
   const r = await admin('POST', '/api/reminders/with-attachment', { htmlReport: '<p>hi</p>', recipients: { to: ['someone@else.example'] } });
   assert.equal(r.status, 404);
