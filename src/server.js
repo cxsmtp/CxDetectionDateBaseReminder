@@ -677,8 +677,31 @@ app.get('/api/health', (req, res) => {
     app: {
       name: settingsStore.get().branding.appName || 'CxMissionZero',
       logoUrl: settingsStore.get().branding.logoUrl || '',
+      // Changes when the browser icon does, so the page can reload it.
+      iconVersion: iconVersion(),
     },
   });
+});
+
+/** A short fingerprint of the browser icon setting ('' for the built-in one). */
+const iconVersion = (url = settingsStore.get().branding?.iconUrl || '') => (url ? createHash('sha256').update(url).digest('hex').slice(0, 10) : '');
+
+/**
+ * The browser tab's icon, for every page (signed in or not): the one set under
+ * Settings → Branding, else CxMissionZero's own MZ0. An uploaded image is served
+ * from here, locked down (an SVG's scripts never run); an https address is redirected to.
+ */
+app.get('/app-icon', (req, res) => {
+  const url = settingsStore.get().branding?.iconUrl || '';
+  res.set({ 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox" });
+  const data = /^data:(image\/[\w.+-]+);base64,([A-Za-z0-9+/=]+)$/i.exec(url);
+  if (data) {
+    res.set('ETag', `"${iconVersion(url)}"`);
+    if (req.get('if-none-match') === `"${iconVersion(url)}"`) return res.status(304).end();
+    return res.type(data[1]).send(Buffer.from(data[2], 'base64'));
+  }
+  if (/^https:\/\//i.test(url)) return res.redirect(302, url);
+  res.type('image/svg+xml').sendFile(path.join(publicDir, 'favicon.svg'));
 });
 
 /** Load and cache figures, for whoever operates this server. */
@@ -1855,7 +1878,7 @@ function readerIdentity(session) {
   return apiKey ? createHash('sha256').update(`${baseUrl}\u0000${tenant}\u0000${apiKey}`).digest('base64url').slice(0, 22) : '';
 }
 
-async function runScan(req, { onStart, onProject } = {}) {
+async function runScan(req, { onStart, onProject, shouldStop = () => false } = {}) {
   const { client } = req.session;
   const active = activeConfig();
 
@@ -1923,8 +1946,14 @@ async function runScan(req, { onStart, onProject } = {}) {
       detectionWindow,
       onProject: onProject ? (summary) => onProject(earlyRow(summary)) : null,
       shared: { identity: readerIdentity(req.session), lastScans, fresh: req.query.fresh === '1' },
+      shouldStop,
     }),
   ]);
+  // Stopped part-way: what was read is the data, and only its projects keep their initiators.
+  if (result.notRead) {
+    const read = new Set(result.projects.map((p) => p.projectId));
+    for (const id of Object.keys(initiators.byProject)) if (!read.has(id)) delete initiators.byProject[id];
+  }
   for (const summary of result.projects) {
     const info = initiators.byProject[summary.projectId] ?? {};
     summary.initiator = info.initiator ?? '';
@@ -1940,7 +1969,7 @@ async function runScan(req, { onStart, onProject } = {}) {
   for (const summary of result.projects) {
     if (summary.error) diagnostics.discrepancy('project-read-failed', { project: summary.projectId, message: summary.error });
   }
-  diagnostics.usage('fetch-complete', { projects: result.projects.length, reused: result.reused ?? 0, findings: result.projects.reduce((n, p) => n + p.totalRisks, 0), ms: Date.now() - started });
+  diagnostics.usage(result.notRead ? 'fetch-stopped' : 'fetch-complete', { projects: result.projects.length, notRead: result.notRead ?? 0, reused: result.reused ?? 0, findings: result.projects.reduce((n, p) => n + p.totalRisks, 0), ms: Date.now() - started });
   // Fetching shows what the findings need; it never allocates anything.
   for (const summary of result.projects) summary.credits ??= creditView(summary);
   req.session.lastScan = result;
@@ -1956,6 +1985,10 @@ async function runScan(req, { onStart, onProject } = {}) {
     },
     projectsTotal: allProjects.length,
     projectsSkipped: skipped,
+    // Stop pressed: how many of the projects in scope were read before it, and how many were not.
+    stopped: result.notRead > 0,
+    projectsPlanned: projects.length,
+    projectsNotRead: result.notRead ?? 0,
     scope: { projects: scope.projectIds.length, initiators: scope.initiators },
     warning,
     initiatorNotes: initiators.notes,
@@ -2020,10 +2053,15 @@ app.get(
   requirePermission('findings.fetch'),
   asyncRoute(async (req, res) => {
     const id = randomUUID();
-    req.session.fetching = { id, startedAt: Date.now() };
+    req.session.fetching = { id, startedAt: Date.now(), stop: false };
     const release = () => {
       if (req.session.fetching?.id === id) delete req.session.fetching;
     };
+    // Stop (POST /api/scan/stop), or the page went away: no more projects are read; what was read is kept.
+    const shouldStop = () => req.session.fetching?.id === id && req.session.fetching.stop === true;
+    res.on('close', () => {
+      if (!res.writableFinished && req.session.fetching?.id === id) req.session.fetching.stop = true;
+    });
     if (req.query.stream !== '1') {
       try {
         return res.json(await runScan(req));
@@ -2047,6 +2085,7 @@ app.get(
       const result = await runScan(req, {
         onStart: (info) => send({ type: 'start', ...info }),
         onProject: (project) => send({ type: 'project', project }),
+        shouldStop,
       });
       release();
       send({ type: 'done', ...result });
@@ -2062,6 +2101,17 @@ app.get(
     }
   }),
 );
+
+/**
+ * Stop the fetch running for this person: projects already being read finish,
+ * the rest are not read, and the fetch ends with what it has (stopped: true).
+ * That data is kept like a finished fetch, so every action works on it.
+ */
+app.post('/api/scan/stop', requirePermission('findings.fetch'), (req, res) => {
+  if (!fetchInProgress(req.session)) return res.json({ stopping: false });
+  req.session.fetching.stop = true;
+  res.json({ stopping: true });
+});
 
 // ---------------------------------------------------------------------------
 // Reminders
@@ -5160,7 +5210,7 @@ app.post(
 );
 
 /** The emailed link: one page, no script, one button. */
-const rescanPage = (title, body, { grant = '', button = false } = {}) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtmlText(title)}</title>
+const rescanPage = (title, body, { grant = '', button = false } = {}) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/app-icon"><title>${escapeHtmlText(title)}</title>
 <style>body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f5f6fa;color:#111827;display:grid;place-items:center;min-height:100vh}main{max-width:520px;margin:16px;background:#fff;border:1px solid #e3e6ee;border-radius:14px;padding:28px}h1{font-size:20px;margin:0 0 12px}p{line-height:1.5;color:#374151}button{margin-top:12px;background:#4f46e5;color:#fff;border:0;border-radius:9px;padding:12px 20px;font:inherit;font-weight:600;cursor:pointer}small{color:#6b7280}@media(prefers-color-scheme:dark){body{background:#0f1117;color:#e5e7eb}main{background:#171a23;border-color:#2a2f3c}p{color:#cbd5e1}}</style></head>
 <body><main><h1>${escapeHtmlText(title)}</h1>${body}${button ? `<form method="post" action="/rescan"><input type="hidden" name="g" value="${escapeHtmlText(grant)}"><button type="submit">Rescan now</button></form>` : ''}<p><small>CxMissionZero</small></p></main></body></html>`;
 
@@ -5601,7 +5651,7 @@ function reportDownloadUrl(relayUrl, id) {
 function linkPage(title, message) {
   const name = escapeHtml(settingsStore.get().branding.appName || 'CxMissionZero');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${escapeHtml(title)} · ${name}</title><style>body{font:15px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#f6f7fb;color:#1f2330}
+<link rel="icon" href="/app-icon"><title>${escapeHtml(title)} · ${name}</title><style>body{font:15px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#f6f7fb;color:#1f2330}
 main{max-width:520px;margin:24px;padding:28px;border-radius:14px;background:#fff;border:1px solid #e6e8ef}h1{font-size:20px;margin:0 0 8px}p{color:#475467;margin:0}
 @media (prefers-color-scheme:dark){body{background:#0f131a;color:#e6e8ef}main{background:#161b24;border-color:#2a3140}p{color:#98a2b3}}</style></head>
 <body><main><h1>${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p></main></body></html>`;

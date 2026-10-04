@@ -342,9 +342,12 @@ Settings shows one section at a time: pick it from the list on the left (a strip
 
 Install a new version, go back to any version, turn on auto-update, restart the server, or download a troubleshooting report, all without signing in to the server. How it works and what it needs: [Updating](updating.md).
 
-- **Running** and **Latest published**, with **Update now** when there is a newer one.
-- **Auto-update:** off until you tick it. **at** limits it to one hour of the day. A version that failed to start once is never installed by itself again.
-- **Every version:** **Install and switch** (any published version) or **Switch to** (an installed one, or the image's own).
+- **Running** and **Latest published**, with **Update now** when there is a newer one. **Check for updates** reads the registry again and says how many versions are published and whether one is newer.
+- **Versions come from their tags**, so a newer one is always listed. Installing downloads the image files, which ghcr.io serves from `pkg-containers.githubusercontent.com`. If a proxy or firewall blocks that host, the page says so (*the versions are listed, but this server could not read the image files…*): allow it over HTTPS, or update with `podman pull`. A check never reports "up to date" when it could not read the registry; it says why.
+- **Auto-update:** off until you tick it. **at** limits it to one hour of the day. A version that failed to start once is never installed by itself again. While this server cannot download image files, it waits and says why instead of trying every 15 minutes.
+- **Every version:** the newest 3 first; **Load 10 more** shows older ones, 10 at a time, until all are there (the count says how many of how many). The version running here is always shown. **Install and switch** (any published version) or **Switch to** (an installed one, or the image's own).
+  - Every published version is listed, however many there are. Up to MZ-01.00.35 only the newest 40 registry tags were read, and every release adds two, so the oldest versions dropped off the list.
+  - The page checks again by itself when it opens and the last check is more than 10 minutes old.
   - A backup is taken before every switch.
   - A version that does not start is rolled back by itself.
 - **Recent events:** switches, starts, automatic rollbacks, restarts.
@@ -473,6 +476,7 @@ The panel shows:
 | Field | Meaning |
 | --- | --- |
 | App name | Shown in this app's header. |
+| Browser icon | The icon in the browser tab, bookmarks and the developer pages. Empty is CxMissionZero's own **MZ0** (a white MZ inside a green zero). Paste an `https` address, or **Upload an icon** (SVG, PNG, ICO, WebP or JPG, up to 100 KB; square works best); **Use MZ0 (the default)** puts it back. It changes for everyone as soon as it is saved. |
 | Company name, Company logo | Head every email and report. An `https` logo URL works best, because mail clients block embedded images. You can also upload a PNG, JPG, SVG or WebP up to 200 KB. |
 | Logo height | 16–200 pixels. |
 | Accent colour | Buttons and headings in emails and reports. |
@@ -538,6 +542,7 @@ Where findings are read from. The default is `/api/risks/`.
 - Rows appear as each project is read.
 - An **amber flare** (bottom-right) says the fetch is in progress, with how many projects are in so far. It turns **green, Data fetch complete**, when the last one arrives.
 - Until then, triage, remediation and credit allocation are switched off, so nothing is decided on half the data.
+- **Stop** (beside the button, while it loads) ends the load early. Projects already being read finish, the rest are not read, and the projects loaded so far are kept: the totals, the projects list, reminders, AI checks and fixes and reports all work on them, as after a full load. The flare turns green with **Stopped — kept 6 of 20 project(s)**, and the note under the button says how many were left out. **Load findings** again reads them all. Closing or leaving the page while it loads stops it the same way.
 - **Faster when someone just fetched.** A project read by anyone in the last couple of minutes is reused, unless it was rescanned or triaged from CxMissionZero since. Under the button it says how many were reused. Tick **Read everything fresh from Checkmarx One** to read every project again, for example right after changing findings directly in Checkmarx One.
 
 Each finding falls into an age bucket by when it was **first detected**:
@@ -885,7 +890,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.35** | 529/s, **0 failed** | 0.6 s | 113 ms | 414 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.36** | 492/s, **0 failed** | 2.3 s | 118 ms | 421 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.35 | 529/s, 0 failed | 0.6 s | 113 ms | 414 pass | 0 vulnerabilities | same |
 | MZ-01.00.34 | 514/s, 0 failed | 4.2 s | 122 ms | 407 pass | 0 vulnerabilities | same |
 | MZ-01.00.33 | 511/s, 0 failed | 3.9 s | 172 ms | 407 pass | 0 vulnerabilities | same |
 | MZ-01.00.32 | 511/s, 0 failed | 2.5 s | 145 ms | 402 pass | 0 vulnerabilities | same |

@@ -10,7 +10,7 @@ Self-hosted, one container, nothing to install for developers.
 
 | You get | How |
 | --- | --- |
-| **Know what is ageing** | Every project's findings bucketed by first detection (≤ 30, 31–60, > 60 days), streamed in as they are read. |
+| **Know what is ageing** | Every project's findings bucketed by first detection (≤ 30, 31–60, > 60 days), streamed in as they are read. **Stop** part-way keeps what has loaded, ready to use. |
 | **The right person, only their projects** | Reminders go to whoever ran each project's latest scan, by email, as a summary or one per project. The server refuses any email that would show someone a project they did not scan. |
 | **Fix from the inbox** | An interactive report in every email: **Triage** and **Remediate** with Checkmarx One AI, see the verdict, open the pull request. Developers pick their IDE and AI assistant once (VS Code, Cursor, Kiro, Windsurf, Antigravity, JetBrains; Claude Code, OpenAI Codex, Gemini CLI, Copilot…). Then every finding is **Open in …** and **Fix with …**, one click each, and the fix lands in their own checkout even when there is no pull request. |
 | **Credits under control** | A credit pool, and per-project allocations. Every action re-checks Checkmarx One twice first and stops if anyone changed the findings meanwhile. Never two requests for one vulnerability, and unused credits are taken back. |
@@ -215,7 +215,8 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.35** | 529/s, **0 failed** | 0.6 s | 113 ms | 414 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.36** | 492/s, **0 failed** | 2.3 s | 118 ms | 421 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.35 | 529/s, 0 failed | 0.6 s | 113 ms | 414 pass | 0 vulnerabilities | same |
 | MZ-01.00.34 | 514/s, 0 failed | 4.2 s | 122 ms | 407 pass | 0 vulnerabilities | same |
 | MZ-01.00.33 | 511/s, 0 failed | 3.9 s | 172 ms | 407 pass | 0 vulnerabilities | same |
 | MZ-01.00.32 | 511/s, 0 failed | 2.5 s | 145 ms | 402 pass | 0 vulnerabilities | same |

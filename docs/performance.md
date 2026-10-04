@@ -86,6 +86,14 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.34 (main) | 3 | 8.4 s / 0 | 64,559 / 0 | 516 | 34 / 427 ms | 6 / 121 ms | none |
 | MZ-01.00.34 (main) | 4 | 8.1 s / 0 | 64,631 / 0 | 526 | 53 / 386 ms | 5 / 108 ms | none |
 | **MZ-01.00.35** | 3 | 10.2 s / 0 | 64,488 / **0** | **529** | 50 / **554 ms** | 7 / **113 ms** | none |
+| MZ-01.00.35 (main) | 1 | 10.9 s / 0 | 64,267 / 0 | 523 | 71 / 4,135 ms | 6 / 161 ms | none |
+| MZ-01.00.36 (Stop only) | 1 | 8.9 s / 0 | 64,026 / 0 | 525 | 58 / 5,926 ms | 7 / 147 ms | none |
+| MZ-01.00.36 (while tests ran) | 2 | 10.2 s / 0 | 64,121 / 0 | 511 | 56 / 5,166 ms | — | none |
+| MZ-01.00.35 (main) | 2 | 9.2 s / 0 | 63,945 / 0 | 515 | 53 / 5,548 ms | — | none |
+| MZ-01.00.35 (main) | 3 | 7.1 s / 0 | 64,694 / 0 | 525 | 61 / 631 ms | 6 / 115 ms | none |
+| **MZ-01.00.36** | 3 | 8.9 s / 0 | 64,423 / **0** | 492 | 50 / 2,262 ms | 6 / **118 ms** | none |
+
+**MZ-01.00.36: what the differences were.** None from the change, across three pairs with main. Report opens at p95 were 5.9, 5.2 and 2.3 s on the branch against 4.1, 5.5 and 0.6 s on main: both land in the slow mode (4–6 s, when opens arrive while a fetch or an HTML report is being built), main in two of three pairs here and three of six counting MZ-01.00.35's. The server's CPU was the same in every run (98–102 % of a core) for the same work (64,000 requests, 0 failed, no finding sent twice). The last branch run took 131 s instead of 123 s to finish its requests, so its rate reads 492 a second for the same 64,423 requests. What changed on the server: Stop (a flag checked before each project is read), the browser icon (a route the benchmark does not call), and the update check (not on any request path the benchmark uses). The second branch run overlapped test runs on the same machine and is listed for completeness.
 
 **MZ-01.00.35: what the differences were.** None from the change, after three pairs run back to back. The first two branch runs had report opens at p95 of 5.6 and 6.1 s, against 3.7 and 0.4 s on main. A third pair, main first, gave 0.39 s on main and 0.55 s on the branch, with the branch at 529 requests a second, the most of the six runs. Report opens fall into two modes: about 0.4 s, or 4 to 6 s when a run hits a stall, and main has landed in both (0.4 to 5.2 s across releases). Nothing on the report path changed. The Git chip's checks run only when someone opens a page (at most every 5 minutes per connection), taking back credits is a rare admin action, and the benchmark sets no git tokens. All six runs had 0 failed requests and no finding sent twice.
 

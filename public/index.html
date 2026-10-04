@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#f5f6fa" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0c0f16" media="(prefers-color-scheme: dark)" />
     <title>CxMissionZero</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%234f46e5'/%3E%3Cpath d='M8 4v4.4l2.8 1.7' stroke='white' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
+    <link rel="icon" id="app-icon" href="/app-icon" />
     <script>
       // Apply the saved theme before first paint, so the page never flashes the wrong one.
       try {
@@ -239,7 +239,13 @@
 
                 <fieldset class="grow fetch-box">
                   <legend class="sr-only">Fetch</legend>
-                  <button id="fetch" class="primary big" data-perm="findings.fetch">Load findings</button>
+                  <div class="fetch-actions">
+                    <button id="fetch" class="primary big" data-perm="findings.fetch">Load findings</button>
+                    <button id="fetch-stop" type="button" class="big stop-btn" hidden title="Stop loading. Projects already loaded are kept, and you can work with them straight away.">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                      <span>Stop</span>
+                    </button>
+                  </div>
                   <label class="check fetch-fresh" data-advanced title="Projects someone fetched in the last couple of minutes are normally reused when nothing was rescanned or triaged from here since. Tick to read every project from Checkmarx One again."><input type="checkbox" id="fetch-fresh" /> Read everything fresh from Checkmarx One</label>
                   <p class="hint" id="fetch-meta"></p>
                 </fieldset>
@@ -811,6 +817,19 @@
                 <label class="field"><span>Accent colour</span><input id="brand-accent" type="color" /></label>
               </div>
 
+              <div class="brand-icon-row">
+                <img id="brand-icon-preview" class="brand-icon-preview" src="/app-icon" alt="Browser icon" width="48" height="48" />
+                <div class="brand-icon-fields">
+                  <label class="field"><span>Browser icon — the tab's icon; empty is CxMissionZero's own MZ0</span><input id="brand-icon" spellcheck="false" placeholder="https://acme.com/icon.png, or upload one" /></label>
+                  <div class="actions compact">
+                    <label class="button-like sm" for="brand-icon-file">Upload an icon</label>
+                    <input id="brand-icon-file" class="sr-only" type="file" accept="image/png,image/svg+xml,image/x-icon,image/vnd.microsoft.icon,image/webp,image/jpeg" />
+                    <button type="button" id="brand-icon-default" class="sm ghost">Use MZ0 (the default)</button>
+                    <span class="hint inline-hint">Square works best: SVG, or PNG 64×64 or larger, up to 100 KB.</span>
+                  </div>
+                </div>
+              </div>
+
               <label class="field">
                 <span>Call to action — shown above the findings</span>
                 <textarea id="brand-cta" rows="2" spellcheck="false"></textarea>
@@ -1013,6 +1032,7 @@
                   <span class="hint" id="upd-auto-sub"></span>
                 </div>
               </div>
+              <p class="status warn upd-check-note" id="upd-check-note" role="note" hidden></p>
               <p class="status" id="upd-warn" hidden></p>
               <div class="actions compact">
                 <button type="button" class="primary" id="upd-install-latest" hidden>Update now</button>
@@ -1026,6 +1046,7 @@
               <h3>Every version</h3>
               <p class="hint">Install and switch to any published version, or go back to one installed here. Going back to an older version can leave newer data it does not know: a backup is taken before every switch (Audit → Backups).</p>
               <div class="table-wrap"><table class="data-table" id="upd-versions"><thead><tr><th>Version</th><th>Built</th><th>Here</th><th></th></tr></thead><tbody></tbody></table></div>
+              <div class="upd-more-row"><span class="hint" id="upd-count"></span><button type="button" id="upd-more" class="sm" hidden>Load 10 more</button></div>
               <h3>Recent events</h3>
               <ul class="upd-events" id="upd-events"></ul>
               <details class="disclosure" data-advanced>

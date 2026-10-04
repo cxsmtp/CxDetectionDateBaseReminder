@@ -25,7 +25,16 @@ import { BUILT_IN, compareVersions } from './store.js';
 
 const VERSION_LABEL = 'io.cxmissionzero.version';
 const VERSION = /^\d{1,4}\.\d{1,4}\.\d{1,4}$/;
-const LIST_LIMIT = 40;
+/** Registry reads a check may make for tags it has not seen before; the rest follow on the next check. */
+const NEW_READS_PER_CHECK = 150;
+
+/** Run `worker` over `items`, at most `limit` at a time. */
+async function mapLimit(items, limit, worker) {
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) await worker(items[next++]);
+  }));
+}
 
 const readJson = (file, fallback) => {
   try {
@@ -104,7 +113,7 @@ export class UpdateService {
       choice: this.store.choice(),
       installed,
       events: this.store.events(30),
-      lastCheck: this.lastCheck ? { at: this.lastCheck.at, error: this.lastCheck.error ?? '', versions: this.lastCheck.versions ?? [] } : null,
+      lastCheck: this.lastCheck ? { at: this.lastCheck.at, error: this.lastCheck.error ?? '', warning: this.lastCheck.warning ?? '', versions: this.lastCheck.versions ?? [] } : null,
       updateAvailable: Boolean(latest && compareVersions(latest.version, this.runningVersion) > 0),
       latest,
       settings: this.settings(),
@@ -123,28 +132,88 @@ export class UpdateService {
     const registry = this.#registry();
     try {
       const tags = await registry.tags();
-      // Newest builds first: version tags, then commit tags, then latest.
-      const wanted = [...new Set(['latest', ...tags.filter((t) => VERSION.test(t)).reverse(), ...tags.filter((t) => /^sha-/.test(t)).reverse()])].slice(0, LIST_LIMIT);
+      // Every tag, newest first: version tags (they name their version), latest, then commit builds.
+      const versionTags = tags.filter((t) => VERSION.test(t)).sort((a, b) => compareVersions(b, a));
+      const wanted = [...new Set([...versionTags, 'latest', ...tags.filter((t) => /^sha-/.test(t)).reverse()])];
+      // Version and commit tags never move: what was read once is kept, so a check only reads what is new.
+      // Only "latest" is read every time. (Never a cap on how many are listed: every release adds two tags.)
+      const remembered = this.lastCheck?.byTag ?? {};
       const known = new Map((this.lastCheck?.versions ?? []).flatMap((v) => (v.digest ? [[v.digest, v]] : [])));
+      const byTag = {};
+      const problems = [];
+      let filesError = '';
+      let reads = 0;
+      const read = async (tag) => {
+        const kept = tag !== 'latest' ? remembered[tag] : null;
+        if (kept?.digest && (kept.version || !VERSION.test(tag))) return kept;
+        if (reads >= NEW_READS_PER_CHECK) return null;
+        reads += 1;
+        const { digest } = await registry.manifest(tag);
+        const cached = known.get(digest);
+        const entry = { digest, version: VERSION.test(tag) ? tag : cached?.version || '', created: cached?.created || '', revision: cached?.revision || '' };
+        return entry;
+      };
+      // The registry's own answers (no image files): a few at a time.
+      await mapLimit(wanted, 6, async (tag) => {
+        try {
+          const entry = await read(tag);
+          if (entry) byTag[tag] = entry;
+        } catch (error) {
+          problems.push(error.message);
+        }
+      });
+      // Version tags first, so latest and commit builds of a release are matched to it by digest.
+      const versionOf = new Map();
+      for (const tag of versionTags) if (byTag[tag]) versionOf.set(byTag[tag].digest, tag);
+      // The build date and commit (and, for an unmatched commit build, the version) are in the image files.
+      // One failed read is enough: the rest would fail the same way.
+      for (const tag of wanted) {
+        const entry = byTag[tag];
+        if (!entry || filesError) continue;
+        entry.version ||= versionOf.get(entry.digest) || '';
+        if (entry.version && entry.created) continue;
+        if (reads >= NEW_READS_PER_CHECK && !remembered[tag]) continue;
+        reads += 1;
+        try {
+          const image = await registry.image(entry.digest);
+          if (!VERSION.test(entry.version)) entry.version = String(image.labels?.[VERSION_LABEL] ?? '');
+          if (!VERSION.test(entry.version)) entry.version = await this.#versionFromLayers(registry, image).catch(() => '');
+          entry.created = image.created;
+          entry.revision = String(image.labels?.['org.opencontainers.image.revision'] ?? '').slice(0, 12);
+        } catch (error) {
+          filesError = error.message;
+        }
+      }
       const byVersion = new Map();
       for (const tag of wanted) {
-        let image;
-        try {
-          image = await registry.image(tag);
-        } catch {
-          continue;
-        }
-        const cached = known.get(image.digest);
-        let version = cached?.version || String(image.labels?.[VERSION_LABEL] ?? '');
-        if (!VERSION.test(version)) version = await this.#versionFromLayers(registry, image).catch(() => '');
-        if (!VERSION.test(version)) continue;
-        const row = byVersion.get(version);
-        const entry = row ?? { version, digest: image.digest, created: image.created, tags: [], revision: String(image.labels?.['org.opencontainers.image.revision'] ?? '').slice(0, 12) };
-        entry.tags.push(tag);
-        byVersion.set(version, entry);
+        const entry = byTag[tag];
+        if (!entry) continue;
+        entry.version ||= versionOf.get(entry.digest) || '';
+        if (!VERSION.test(entry.version)) continue;
+        const row = byVersion.get(entry.version) ?? { version: entry.version, digest: entry.digest, created: entry.created, tags: [], revision: entry.revision };
+        row.created ||= entry.created;
+        row.revision ||= entry.revision;
+        row.tags.push(tag);
+        byVersion.set(entry.version, row);
       }
       const versions = [...byVersion.values()].sort((a, b) => compareVersions(b.version, a.version));
-      this.lastCheck = { at: new Date().toISOString(), versions };
+      const unread = wanted.filter((t) => !byTag[t]).length;
+      // Builds with only a commit tag (every release before MZ-01.00.30) are named from their image files.
+      const unnamed = filesError ? wanted.filter((t) => byTag[t] && !VERSION.test(byTag[t].version)).length : 0;
+      this.lastCheck = {
+        at: new Date().toISOString(),
+        versions,
+        byTag: Object.fromEntries(Object.entries(byTag).filter(([tag, e]) => tag !== 'latest' && e.version)),
+        // Installing needs the image files: auto-update waits while they cannot be read.
+        filesError,
+        // Nothing found is never "up to date": it says why.
+        error: versions.length ? '' : filesError || problems[0] || (tags.length ? 'No published version could be read.' : 'No versions are published for this image.'),
+        warning: [
+          versions.length && filesError ? `The versions are listed, but this server could not read the image files: ${filesError} Installing from this page needs that; until then, update with podman pull.` : '',
+          unnamed ? `${unnamed} older build(s) have only a commit tag, and their version is in those image files, so they are not listed.` : '',
+          versions.length && unread ? `${unread} older build(s) are still to be read: Check for updates again to list them.` : '',
+        ].filter(Boolean).join(' '),
+      };
     } catch (error) {
       this.lastCheck = { ...(this.lastCheck ?? { versions: [] }), at: new Date().toISOString(), error: error.message };
     }
@@ -248,6 +317,11 @@ export class UpdateService {
     const candidate = (this.lastCheck?.versions ?? []).find((v) => compareVersions(v.version, this.runningVersion) > 0 && !failed.has(v.version));
     if (!candidate) {
       this.saveSettings({ lastAutoAt: now.toISOString(), lastAutoResult: this.lastCheck?.error ? `Check failed: ${this.lastCheck.error}` : 'Up to date' });
+      return null;
+    }
+    if (this.lastCheck?.filesError) {
+      // It would fail the same way every 15 minutes: wait, and say why.
+      this.saveSettings({ lastAutoAt: now.toISOString(), lastAutoResult: `MZ-${candidate.version} is published, but this server cannot download it: ${this.lastCheck.filesError}` });
       return null;
     }
     this.saveSettings({ lastAutoAt: now.toISOString(), lastAutoResult: `Installing MZ-${candidate.version}` });

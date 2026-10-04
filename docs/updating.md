@@ -7,6 +7,10 @@ New versions are applied **without losing data, sign-ins or work in progress**. 
 No server sign-in after deployment: everything an update needs is on this page.
 
 - **Check for updates** lists every published version: version, when it was built, and whether it is installed here or running.
+  - The versions come from the registry's tags (ghcr.io), so a newer one is listed even when the image files cannot be downloaded. Build dates and commits come from the image files when they can be read.
+  - Every published version is listed, with no cap. Version and commit tags never change, so what one check reads is remembered: the next check reads only new tags and `latest`. Builds from before MZ-01.00.30 have only a commit tag, and their version is named from their image files.
+  - The page lists the newest 3 versions, then **Load 10 more** at a time.
+  - **The image files come from another host.** ghcr.io serves them from `pkg-containers.githubusercontent.com`. If a proxy or firewall blocks it, the page says exactly that, and installing from the page waits until it is allowed over HTTPS; `podman pull` works meanwhile. Up to MZ-01.00.35, a blocked host made the check list nothing and report "up to date": update once with `podman pull` to get the fix.
 - **Update now** (or **Install and switch** on any version) does the rest:
   1. Downloads only CxMissionZero's own files from its image (about 1.5 MB, not the 40 MB of the whole image), and checks each piece against the image's sha256 digests.
   2. Keeps them in the data volume (`/data/app/versions/`).

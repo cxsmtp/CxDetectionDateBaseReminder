@@ -2214,3 +2214,19 @@ button.danger-soft { border-color: color-mix(in srgb, var(--danger) 45%, var(--b
 button.danger-soft:hover:not(:disabled) { background: var(--danger-soft); border-color: var(--danger); }
 .takeback-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .code-block { font: 12px/1.6 var(--mono); padding: 10px 12px; margin: 8px 0 12px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); overflow-x: auto; white-space: pre; }
+/* Load findings: Stop sits beside it while a fetch runs, and keeps what is loaded. */
+.fetch-actions { display: flex; gap: 8px; }
+.fetch-actions #fetch { flex: 1 1 auto; width: auto; }
+.stop-btn { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); background: var(--surface); }
+.stop-btn:hover:not(:disabled) { background: var(--danger-soft); border-color: var(--danger); }
+.stop-btn svg { width: 14px; height: 14px; fill: currentColor; }
+.stop-btn[hidden] { display: none; }
+/* Branding: the browser icon, with its preview. */
+.brand-icon-row { display: flex; gap: 16px; align-items: flex-start; margin: 4px 0 14px; }
+.brand-icon-preview { width: 48px; height: 48px; flex: none; border-radius: 12px; object-fit: contain; background: var(--surface-2); border: 1px solid var(--border); padding: 4px; box-sizing: content-box; }
+.brand-icon-fields { flex: 1 1 auto; min-width: 0; display: grid; gap: 6px; }
+.brand-icon-fields .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+label.button-like.sm { cursor: pointer; }
+.upd-more-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.upd-more-row .hint:empty { display: none; }
+.upd-check-note { margin: 12px 0 0; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid color-mix(in srgb, #d97706 40%, var(--border)); background: color-mix(in srgb, #d97706 8%, var(--surface)); font-weight: 500; }

@@ -64,6 +64,8 @@ export const DEFAULT_SETTINGS = {
     appName: 'CxMissionZero',
     companyName: '',
     logoUrl: '',
+    // The browser tab's icon: empty is CxMissionZero's own (MZ0, public/favicon.svg).
+    iconUrl: '',
     logoHeight: 40,
     accentColor: '#1d4ed8',
     callToAction: 'Please review and remediate these findings, oldest first.',
@@ -134,6 +136,19 @@ export function isSafeImageUrl(url) {
   if (/^data:image\/(png|jpeg|jpg|gif|svg\+xml|webp);base64,[A-Za-z0-9+/=\s]+$/i.test(value)) return true;
   try {
     return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/** A browser icon: an uploaded image (data:, up to 100 KB) or an https address. */
+export function isSafeIconUrl(url) {
+  const value = String(url ?? '').trim();
+  if (/^data:/i.test(value)) {
+    return value.length <= 140_000 && /^data:image\/(png|jpeg|jpg|svg\+xml|webp|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/=]+$/i.test(value);
+  }
+  try {
+    return new URL(value).protocol === 'https:' && value.length <= 2000;
   } catch {
     return false;
   }
@@ -270,6 +285,11 @@ export function mergeSettings(current, incoming = {}) {
     if ('logoUrl' in input) {
       const url = String(input.logoUrl ?? '').trim();
       branding.logoUrl = url === '' || isSafeImageUrl(url) ? url : branding.logoUrl;
+    }
+    if ('iconUrl' in input) {
+      const url = String(input.iconUrl ?? '').trim();
+      if (url && !isSafeIconUrl(url)) throw Object.assign(new Error('The browser icon must be an image (PNG, SVG, ICO, WebP or JPG) of up to 100 KB, or an https address.'), { status: 400 });
+      branding.iconUrl = url;
     }
   }
 

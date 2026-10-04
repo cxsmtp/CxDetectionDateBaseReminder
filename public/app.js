@@ -591,11 +591,13 @@ const reloadSettingsPage = () => {
   loadUpdates();
 };
 
-/** A page's data, loaded the first time it opens (and by ↻). */
+/**
+ * A page's data, loaded the first time it opens (and by ↻). The Dashboard
+ * loads nothing by itself: what was fetched is restored from the server, and
+ * reading Checkmarx One again only ever starts from a click (Load findings, or ↻).
+ */
 const PAGE_LOADERS = {
-  dashboard: () => {
-    if (state.projects.length && !$('fetch').disabled && can('findings.fetch')) $('fetch').click();
-  },
+  dashboard: () => {},
   settings: reloadSettingsPage,
   credits: () => loadUsage(),
   logs: () => renderLogsPage(),
@@ -610,6 +612,14 @@ const PAGE_LOADERS = {
  * Settings shows what is saved (every edit there saves as it is typed); the
  * Reports page keeps the open report, its tab and its form; charts redraw.
  */
+/** ↻ where it does more than the first visit: on the Dashboard, read the findings again with the scope shown. */
+const PAGE_RELOAD = {
+  dashboard: () => {
+    if (state.projects.length && !$('fetch').disabled && can('findings.fetch')) $('fetch').click();
+  },
+};
+const reloaderOf = (page) => PAGE_RELOAD[page] ?? PAGE_LOADERS[page];
+
 const PAGE_RETURN = {
   settings: reloadSettingsPage,
   credits: () => loadUsage(),
@@ -636,7 +646,7 @@ function route() {
   setPageTitle(target);
   state.page = target;
   document.body.dataset.stage = STAGES[target] ?? '';
-  $('page-reload').hidden = !PAGE_LOADERS[target];
+  $('page-reload').hidden = !reloaderOf(target);
   if (target === 'settings') showSettingsSection(view);
   else if (view && PAGE_TABS[target]) activateTab(PAGE_TABS[target], view, { remember: true });
   if (previous === target) return;
@@ -653,7 +663,7 @@ function route() {
 }
 
 $('page-reload').addEventListener('click', () => {
-  const load = PAGE_LOADERS[state.page];
+  const load = reloaderOf(state.page);
   if (!load) return;
   const icon = $('page-reload');
   icon.classList.remove('spin');
@@ -1313,6 +1323,8 @@ function renderSettings() {
   $('brand-app').value = s.branding.appName || 'CxMissionZero';
   $('brand-name').value = s.branding.companyName;
   $('brand-logo').value = s.branding.logoUrl;
+  $('brand-icon').value = s.branding.iconUrl ?? '';
+  renderIconPreview();
   $('brand-height').value = s.branding.logoHeight;
   $('brand-accent').value = /^#[0-9a-f]{6}$/i.test(s.branding.accentColor) ? s.branding.accentColor : '#1d4ed8';
   $('brand-cta').value = s.branding.callToAction;
@@ -1615,6 +1627,7 @@ function settingsPayload() {
       appName: $('brand-app').value,
       companyName: $('brand-name').value,
       logoUrl: $('brand-logo').value,
+      iconUrl: $('brand-icon').value,
       logoHeight: $('brand-height').value,
       accentColor: $('brand-accent').value,
       callToAction: $('brand-cta').value,
@@ -1729,7 +1742,7 @@ const DRAFT_MS = 1200;
 const CHECK_MS = 2500;
 const autosave = { settings: null, automation: null, draft: null, check: null, running: new Set(), lastCheck: null, connectionEdited: false };
 const INTEGRATION_FIELDS = new Set(['integration-key', 'integration-base', 'integration-iam', 'integration-tenant']);
-const NOT_SAVED = new Set(['test-to', 'env-file', 'brand-logo-file']);
+const NOT_SAVED = new Set(['test-to', 'env-file', 'brand-logo-file', 'brand-icon-file']);
 
 /** Which save an edit belongs to: the settings form, automation, the integration draft, or none. */
 function autosaveKind(el) {
@@ -1801,7 +1814,7 @@ async function saveSettings() {
     renderLinkExamples(saved.linkExamples);
     renderRecipientHint();
     $('password-state').textContent = saved.smtp.passwordSet ? '(stored)' : '(not set)';
-    applyAppBranding({ name: saved.branding.appName, logoUrl: saved.branding.logoUrl });
+    applyAppBranding({ name: saved.branding.appName, logoUrl: saved.branding.logoUrl, iconVersion: iconKey(saved.branding.iconUrl) });
     if (JSON.stringify(before?.links) !== JSON.stringify(saved.links)) loadReportServer();
     if (JSON.stringify(before?.aiTriage) !== JSON.stringify(saved.aiTriage)) loadPool();
     if (payload.smtp && !saved.verified && saved.smtp.host) {
@@ -4351,7 +4364,7 @@ function renderJourney() {
  */
 async function streamScan(path, on = {}) {
   logger.apiCall('GET', path);
-  const response = await fetch(path, { credentials: 'same-origin' });
+  const response = await fetch(path, { credentials: 'same-origin', signal: on.signal });
   if (!response.ok || !response.body) {
     const payload = await response.json().catch(() => ({}));
     const error = new Error(payload.error || `${response.status} ${response.statusText}`);
@@ -4419,15 +4432,15 @@ function setFetching(on) {
  * and the scope that produced it, from the server's copy (Checkmarx One is not
  * read again; Fetch gets the latest).
  */
-async function restoreLastScan() {
-  if (state.projects.length || state.fetching || !can('findings.fetch')) return;
+async function restoreLastScan({ force = false } = {}) {
+  if ((state.projects.length && !force) || state.fetching || !can('findings.fetch')) return;
   let result;
   try {
     result = await api('/api/scan/last');
   } catch {
     return;
   }
-  if (!result?.projects || state.projects.length || state.fetching) return;
+  if (!result?.projects || (state.projects.length && !force) || state.fetching) return;
   restoreScope(result.request, result.projects);
   state.lastScan = result;
   state.projects = result.projects;
@@ -4460,10 +4473,36 @@ function restoreScope(request, projects) {
   renderScopeChips();
 }
 
+/**
+ * Stop the fetch: the server reads no more projects, finishes the ones it is
+ * reading, and ends the fetch with what it has. Those projects are kept and
+ * every action works on them, as after a complete fetch.
+ */
+async function stopFetch() {
+  const stop = $('fetch-stop');
+  if (!state.fetching || stop.disabled) return;
+  stop.disabled = true;
+  stop.querySelector('span').textContent = 'Stopping…';
+  fetchFlare('busy', `Stopping — keeping the ${state.projects.length} project(s) loaded so far…`);
+  try {
+    await api('/api/scan/stop', { method: 'POST', quiet: true });
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    // The server could not be told: end the stream from here; it stops when the page goes away.
+    fetchAbort?.abort();
+  }
+}
+let fetchAbort = null;
+$('fetch-stop').addEventListener('click', stopFetch);
+
 async function fetchProjects() {
   const button = $('fetch');
+  const stop = $('fetch-stop');
   button.disabled = true;
-  button.textContent = 'Fetching…';
+  button.textContent = 'Loading…';
+  stop.hidden = false;
+  stop.disabled = false;
+  stop.querySelector('span').textContent = 'Stop';
   setStatus('status', '');
 
   // Rows appear as each project is read; actions on the data wait for the end.
@@ -4489,7 +4528,9 @@ async function fetchProjects() {
   renderProjects();
 
   try {
+    fetchAbort = new AbortController();
     const result = await streamScan(`/api/scan?stream=1&${windowParams()}${$('fetch-fresh')?.checked ? '&fresh=1' : ''}`, {
+      signal: fetchAbort.signal,
       start: (event) => {
         total = event.total;
         schedule();
@@ -4512,29 +4553,44 @@ async function fetchProjects() {
 
     const failed = result.projects.filter((p) => p.error).length;
     const named = result.scope?.projects || result.scope?.initiators?.length;
-    const skipped = named
-      ? ` of ${result.projectsTotal}: only the projects and people named in the scope`
-      : result.projectsSkipped
-        ? `, ${result.projectsSkipped} of ${result.projectsTotal} skipped (not scanned in ${result.windows.activity.label.toLowerCase()})`
-        : '';
+    const skipped = result.stopped
+      ? ` of ${result.projectsPlanned}: stopped before the other ${result.projectsNotRead} were read. Everything here works on these projects; Load findings again for the rest`
+      : named
+        ? ` of ${result.projectsTotal}: only the projects and people named in the scope`
+        : result.projectsSkipped
+          ? `, ${result.projectsSkipped} of ${result.projectsTotal} skipped (not scanned in ${result.windows.activity.label.toLowerCase()})`
+          : '';
     $('fetch-meta').textContent =
       `${result.totals.risks} finding(s) in ${(result.elapsedMs / 1000).toFixed(1)}s via ${result.resolvedPath}` +
       (result.stats?.requests ? ` · ${result.stats.requests} API request(s)` : '') +
-      (result.reused ? ` · ${result.reused} project(s) reused from a read made moments ago` : '');
+      (result.reused ? ` · ${result.reused} project(s) reused from a read made moments ago` : '') +
+      (result.stopped ? ` · stopped at ${result.totals.projects} of ${result.projectsPlanned} project(s)` : '');
     setStatus(
       'status',
       `Loaded ${result.totals.projects} project(s)${skipped}.` +
         (failed ? ` ${failed} could not be read — check the risks endpoint in Settings.` : ''),
-      failed ? 'error' : 'ok',
+      failed ? 'error' : result.stopped ? 'warn' : 'ok',
     );
     if (result.warning) console.warn(result.warning);
-    fetchFlare('done', `Data fetch complete — ${result.totals.projects} project(s), ${result.totals.risks} finding(s)`);
+    fetchFlare('done', result.stopped
+      ? `Stopped — kept ${result.totals.projects} of ${result.projectsPlanned} project(s), ${result.totals.risks} finding(s)`
+      : `Data fetch complete — ${result.totals.projects} project(s), ${result.totals.risks} finding(s)`);
   } catch (error) {
     clearTimeout(pending);
-    fetchFlare('failed', `Data fetch stopped: ${error.message}`);
-    if (!handleAuthLoss(error)) showError('status', error);
+    if (error.name === 'AbortError') {
+      // Ended from this page: the server keeps what it read; show it once it has finished.
+      fetchFlare('done', `Stopped — ${state.projects.length} project(s) loaded`);
+      setStatus('status', `Stopped after ${state.projects.length} project(s). Getting what was loaded…`, 'warn');
+      setFetching(false);
+      setTimeout(() => restoreLastScan({ force: true }), 1500);
+    } else {
+      fetchFlare('failed', `Data fetch stopped: ${error.message}`);
+      if (!handleAuthLoss(error)) showError('status', error);
+    }
   } finally {
     setFetching(false);
+    fetchAbort = null;
+    stop.hidden = true;
     button.disabled = false;
     button.textContent = 'Load findings';
   }
@@ -5249,7 +5305,44 @@ if ($('log-search')) {
 }
 
 /** The app's own name and logo, in the header and the browser tab. */
-function applyAppBranding({ name, logoUrl } = {}) {
+/** Changes whenever the icon setting does (no need to match the server's fingerprint: it only busts the cache). */
+const iconKey = (url = '') => (url ? `${url.length}${url.slice(-16).replace(/[^\w]/g, '')}` : '');
+
+/** The tab's icon: reloaded when it changes (the server serves the one set in Branding, else MZ0). */
+function applyAppIcon(version = '') {
+  const link = document.getElementById('app-icon');
+  if (link && link.dataset.version !== String(version)) {
+    link.dataset.version = String(version);
+    link.href = `/app-icon${version ? `?v=${encodeURIComponent(version)}` : ''}`;
+  }
+}
+
+/** Settings → Branding: what the icon will look like, as typed or uploaded (empty: MZ0). */
+function renderIconPreview() {
+  const value = $('brand-icon').value.trim();
+  $('brand-icon-preview').src = value && (/^data:image\//i.test(value) || /^https:\/\//i.test(value)) ? value : '/favicon.svg';
+}
+
+$('brand-icon').addEventListener('input', renderIconPreview);
+$('brand-icon-default').addEventListener('click', () => {
+  $('brand-icon').value = '';
+  $('brand-icon').dispatchEvent(new Event('input', { bubbles: true }));
+});
+$('brand-icon-file').addEventListener('change', () => {
+  const file = $('brand-icon-file').files[0];
+  $('brand-icon-file').value = '';
+  if (!file) return;
+  if (file.size > 100 * 1024) return alert('That image is larger than 100 KB. Please use a smaller icon.');
+  const reader = new FileReader();
+  reader.onload = () => {
+    $('brand-icon').value = reader.result;
+    $('brand-icon').dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  reader.readAsDataURL(file);
+});
+
+function applyAppBranding({ name, logoUrl, iconVersion } = {}) {
+  if (iconVersion !== undefined) applyAppIcon(iconVersion);
   const appName = name || 'CxMissionZero';
   $('app-name').textContent = appName;
   document.title = appName;
@@ -5369,12 +5462,22 @@ function renderAbout() {
 const mzVersion = (v) => (v === 'built-in' ? 'the image’s own' : `MZ-${String(v).split('.').map((n) => n.padStart(2, '0')).join('.')}`);
 let updState = null;
 let updPoll = null;
+/** Every version: the newest 3 at first, then 10 more per click. */
+const UPD_PAGE = 10;
+let updShown = 3;
 
 async function loadUpdates() {
   if (!can('system.update')) return;
   try {
     updState = await api('/api/system/update');
     renderUpdates();
+    // What the page shows is never an old answer: a check older than 10 minutes is made again.
+    const age = updState.lastCheck ? Date.now() - Date.parse(updState.lastCheck.at) : Infinity;
+    if (age > 10 * 60_000 && !['running', 'switching'].includes(updState.job?.state)) {
+      $('upd-latest-sub').textContent = 'Checking the registry…';
+      updState = await api('/api/system/update/check', { method: 'POST', body: '{}', quiet: true });
+      renderUpdates();
+    }
   } catch (error) {
     if (!handleAuthLoss(error)) $('upd-status').textContent = error.message;
   }
@@ -5390,7 +5493,7 @@ function renderUpdates() {
   $('upd-latest-sub').textContent = s.lastCheck
     ? s.lastCheck.error
       ? `Check failed: ${s.lastCheck.error}`
-      : `${s.updateAvailable ? 'Newer than what runs. ' : 'Up to date. '}Checked ${new Date(s.lastCheck.at).toLocaleString()}`
+      : `${s.updateAvailable ? 'Newer than what runs. ' : 'Up to date. '}Checked ${new Date(s.lastCheck.at).toLocaleString()}${s.lastCheck.warning ? ' · see the note below' : ''}`
     : 'Not checked yet';
   $('upd-latest-card').classList.toggle('upd-new', Boolean(s.updateAvailable));
   const install = $('upd-install-latest');
@@ -5403,6 +5506,10 @@ function renderUpdates() {
   $('upd-auto-sub').textContent = s.settings.auto
     ? `Checked every 15 minutes${s.settings.windowHour === null ? '' : `, installed only at ${String(s.settings.windowHour).padStart(2, '0')}:00`}. A version that failed to start is never installed again by itself.${s.settings.lastAutoResult ? ` Last: ${s.settings.lastAutoResult}.` : ''}`
     : 'Off: you install updates here.';
+  // What the check could not do (a blocked download host, older builds not named), in full, under the cards.
+  const note = $('upd-check-note');
+  note.hidden = !s.lastCheck?.warning;
+  note.textContent = s.lastCheck?.warning ?? '';
   const warn = $('upd-warn');
   warn.hidden = s.supervised;
   warn.className = 'status warn';
@@ -5426,9 +5533,12 @@ function renderUpdates() {
   const rows = new Map((s.lastCheck?.versions ?? []).map((v) => [v.version, v]));
   for (const v of s.installed) if (!rows.has(v.version)) rows.set(v.version, { version: v.version, created: v.created, tags: [v.tag], local: true });
   const sorted = [...rows.values()].sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
+  // The newest 3, then 10 more at a time; what runs here is always shown.
+  const runningHere = (v) => s.running.source === 'update' && v.version === s.running.version;
+  const visible = sorted.filter((v, i) => i < updShown || runningHere(v));
   const busy = ['running', 'switching'].includes(s.job?.state);
   const button = (label, attrs, primary = false) => `<button type="button" class="${primary ? 'primary ' : ''}small" ${attrs} ${busy || !s.supervised ? 'disabled' : ''}>${label}</button>`;
-  const body = sorted.map((v) => {
+  const body = visible.map((v) => {
     // The image's own version has its own row below: a published row of the same version points there.
     const inImage = v.version === s.builtIn && !installed.has(v.version);
     const running = s.running.source === 'update' && v.version === s.running.version && installed.has(v.version);
@@ -5441,6 +5551,11 @@ function renderUpdates() {
   const imageRunning = s.running.source === 'image';
   body.push(`<tr><td>${escapeHtml(mzVersion(s.builtIn))} <span class="hint">(the image’s own)</span></td><td></td><td>${imageRunning ? '<span class="rp-chip tone-good">Running</span>' : 'In the image'}</td><td>${imageRunning ? '' : button('Switch to', 'data-upd-switch="built-in"')}</td></tr>`);
   $('upd-versions').querySelector('tbody').innerHTML = body.join('');
+  const hidden = sorted.length - visible.length;
+  const more = $('upd-more');
+  more.hidden = hidden <= 0;
+  more.textContent = `Load ${Math.min(UPD_PAGE, hidden)} more`;
+  $('upd-count').textContent = sorted.length ? `${visible.length} of ${sorted.length} published version${sorted.length === 1 ? '' : 's'}` : '';
 
   const label = { started: 'Started', switch: 'Switch', restart: 'Restart', rollback: 'Rolled back', crash: 'Stopped unexpectedly' };
   $('upd-events').innerHTML = s.events.length
@@ -5485,7 +5600,11 @@ async function updateAction(path, body, message) {
   }
 }
 
-$('upd-check').addEventListener('click', () => updateAction('/api/system/update/check', {}, 'Checking the registry for published versions…').then(() => ($('upd-status').textContent = updState?.lastCheck?.error ? `Check failed: ${updState.lastCheck.error}` : `Checked: ${updState?.lastCheck?.versions?.length ?? 0} versions published.`)));
+$('upd-more').addEventListener('click', () => {
+  updShown += UPD_PAGE;
+  renderUpdates();
+});
+$('upd-check').addEventListener('click', () => updateAction('/api/system/update/check', {}, 'Checking the registry for published versions…').then(() => ($('upd-status').textContent = updState?.lastCheck?.error ? `Check failed: ${updState.lastCheck.error}` : `Checked: ${updState?.lastCheck?.versions?.length ?? 0} versions published${updState?.updateAvailable ? `, the newest is ${mzVersion(updState.latest.version)}` : ', nothing newer than what runs'}.`)));
 $('upd-install-latest').addEventListener('click', () => {
   const latest = updState?.latest;
   if (!latest || !confirm(`Update to ${mzVersion(latest.version)}? A backup is taken first. People see "reconnecting…" for a few seconds, and if it does not start, the current version comes back by itself.`)) return;

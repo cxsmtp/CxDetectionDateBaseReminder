@@ -163,3 +163,73 @@ test('auto-update: off by default; installs a newer release in its hour, never o
   assert.ok(!store.list().some((v) => v.version === '1.9.0'), 'never an older one');
   server.close();
 });
+
+test('the check lists versions from their tags even when image files cannot be read, and says why', async (t) => {
+  const files = (version) => layer({ 'package.json': JSON.stringify({ version }), 'src/server.js': '' });
+  const server = await fakeRegistry([
+    { tags: ['3.0.10', 'latest', 'sha-bbb'], layers: [{ createdBy: 'COPY . . # buildkit', data: files('3.0.10') }], labels: { 'io.cxmissionzero.version': '3.0.10' } },
+    { tags: ['3.0.9', 'sha-aaa'], layers: [{ createdBy: 'COPY . . # buildkit', data: files('3.0.9') }], labels: { 'io.cxmissionzero.version': '3.0.9' } },
+  ]);
+  t.after(() => server.close());
+  const port = server.address().port;
+  const store = new VersionStore({ dataDir: temp('check'), builtInDir: '/app', builtInVersion: '3.0.9' });
+  // Image files (blobs) refused, as a proxy that blocks the registry's file host does.
+  const blocked = (url, options) => (String(url).includes('/blobs/') ? Promise.resolve(new Response('denied', { status: 403 })) : fetch(url, options));
+  const service = new UpdateService({ store, runningVersion: '3.0.9', image: `127.0.0.1:${port}/acme/mz`, arch: 'x64', fetch: blocked });
+  const status = await service.check();
+  assert.deepEqual(status.lastCheck.versions.map((v) => v.version), ['3.0.10', '3.0.9'], '3.0.10 is newer than 3.0.9 (not compared as text)');
+  assert.deepEqual(status.lastCheck.versions[0].tags.sort(), ['3.0.10', 'latest', 'sha-bbb'], 'latest and the commit tag matched to their version by digest');
+  assert.equal(status.updateAvailable, true);
+  assert.equal(status.lastCheck.error, '');
+  assert.match(status.lastCheck.warning, /could not read the image files: .*answered 403.*podman pull/);
+
+  // Nothing readable at all is never "up to date": the reason is given.
+  const fresh = () => new VersionStore({ dataDir: temp('check'), builtInDir: '/app', builtInVersion: '3.0.9' });
+  const nothing = new UpdateService({ store: fresh(), runningVersion: '3.0.9', image: `127.0.0.1:${port}/acme/mz`, arch: 'x64', fetch: (url, o) => (String(url).includes('/manifests/') ? Promise.resolve(new Response('', { status: 403 })) : fetch(url, o)) });
+  const none = await nothing.check();
+  assert.equal(none.updateAvailable, false);
+  assert.match(none.lastCheck.error, /answered 403/);
+
+  // Readable: build dates and commits come from the image files, as before.
+  const open = await new UpdateService({ store: fresh(), runningVersion: '3.0.9', image: `127.0.0.1:${port}/acme/mz`, arch: 'x64' }).check();
+  assert.equal(open.lastCheck.warning, '');
+  assert.equal(open.lastCheck.versions[0].created, '2026-10-04T05:00:00Z');
+});
+
+test('every version is listed however many tags there are; tags already read are not read again', async (t) => {
+  const files = (version) => layer({ 'package.json': JSON.stringify({ version }), 'src/server.js': '' });
+  // 30 releases: the old ones with only a commit tag (as before MZ-01.00.30), the newest with a version tag too.
+  const images = Array.from({ length: 30 }, (_, i) => {
+    const version = `4.0.${i + 1}`;
+    return { tags: i >= 25 ? [version, `sha-${i}`] : [`sha-${i}`], layers: [{ createdBy: 'COPY . . # buildkit', data: files(version) }], labels: { 'io.cxmissionzero.version': version } };
+  });
+  images.at(-1).tags.push('latest');
+  const server = await fakeRegistry(images);
+  t.after(() => server.close());
+  let requests = 0;
+  const counting = (url, options) => ((requests += 1), fetch(url, options));
+  const store = new VersionStore({ dataDir: temp('many'), builtInDir: '/app', builtInVersion: '4.0.1' });
+  const service = new UpdateService({ store, runningVersion: '4.0.1', image: `127.0.0.1:${server.address().port}/acme/mz`, arch: 'x64', fetch: counting });
+  const first = await service.check();
+  assert.equal(first.lastCheck.versions.length, 30, 'all 30, the commit-only ones too (61 tags)');
+  assert.equal(first.lastCheck.versions[0].version, '4.0.30');
+  assert.equal(first.lastCheck.versions.at(-1).version, '4.0.1');
+  assert.equal(first.lastCheck.warning, '');
+  const firstRequests = requests;
+  requests = 0;
+  const second = await service.check();
+  assert.equal(second.lastCheck.versions.length, 30);
+  assert.ok(requests < 10, `the second check reads only the tag list and latest (${requests} requests, first ${firstRequests})`);
+});
+
+test('auto-update waits, and says why, while the image files cannot be downloaded', async (t) => {
+  const files = (version) => layer({ 'package.json': JSON.stringify({ version }), 'src/server.js': '' });
+  const server = await fakeRegistry([{ tags: ['5.0.1'], layers: [{ createdBy: 'COPY . . # buildkit', data: files('5.0.1') }], labels: { 'io.cxmissionzero.version': '5.0.1' } }]);
+  t.after(() => server.close());
+  const blocked = (url, options) => (String(url).includes('/blobs/') ? Promise.resolve(new Response('denied', { status: 403 })) : fetch(url, options));
+  const store = new VersionStore({ dataDir: temp('wait'), builtInDir: '/app', builtInVersion: '5.0.0' });
+  const service = new UpdateService({ store, runningVersion: '5.0.0', image: `127.0.0.1:${server.address().port}/acme/mz`, supervised: true, arch: 'x64', fetch: blocked });
+  service.saveSettings({ auto: true, windowHour: null });
+  assert.equal(await service.autoUpdate(), null, 'nothing started that would fail');
+  assert.match(service.settings().lastAutoResult, /MZ-5\.0\.1 is published, but this server cannot download it: .*403/);
+});

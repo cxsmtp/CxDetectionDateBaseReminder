@@ -86,7 +86,15 @@ export class ImageRegistry {
       return this.#get(path, { accept, retried: true });
     }
     if (response.status === 404) throw new UpdateError(`${this.name}: not found (${path.split('/').pop()}).`, 404);
-    if (!response.ok) throw new UpdateError(`${this.registry} answered ${response.status} for ${path.split('/').pop()}.`);
+    if (!response.ok) {
+      // Image files are often served from another host (ghcr.io sends them to pkg-containers.githubusercontent.com): name the one that refused.
+      let host = this.registry;
+      try {
+        host = new URL(response.url).host || host;
+      } catch {}
+      const elsewhere = host !== this.registry ? ` (${this.registry} sends image files there; a proxy or firewall in between may block it: allow ${host} over HTTPS)` : '';
+      throw new UpdateError(`${host} answered ${response.status} for ${path.split('/').pop().slice(0, 19)}${elsewhere}.`);
+    }
     return response;
   }
 
@@ -141,6 +149,19 @@ export class ImageRegistry {
   async tags() {
     const { body } = await this.#json('/tags/list?n=1000', 'application/json');
     return Array.isArray(body.tags) ? body.tags.filter((t) => typeof t === 'string' && TAG.test(t)) : [];
+  }
+
+  /**
+   * The digest of `ref`'s image for this server's architecture, from the
+   * registry itself (no image files are read): enough to list versions.
+   */
+  async manifest(ref = 'latest') {
+    if (!TAG.test(ref) && !DIGEST.test(ref)) throw new UpdateError(`Not a tag: ${ref}`, 400);
+    const { body, digest } = await this.#json(`/manifests/${ref}`, ACCEPT_INDEX);
+    if (!Array.isArray(body.manifests)) return { digest };
+    const match = body.manifests.find((m) => m.platform?.os === 'linux' && m.platform?.architecture === this.arch);
+    if (!match || !DIGEST.test(match.digest)) throw new UpdateError(`${ref} has no build for linux/${this.arch}.`, 404);
+    return { digest: match.digest };
   }
 
   /**
