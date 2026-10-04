@@ -20,7 +20,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 ## MZ-01.00.31 — 2026-10-04 07:00 UTC · [#54](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/54)
 - **Rescans keep the developer's name.** Checkmarx One records whoever owns the API key as the initiator of a scan this server starts. Verification rescans are now credited to the developer whose work they verify, so reminders, reports and the Dashboard still name that developer, not the server's account. In Checkmarx One the rescan is tagged `verifies-work-of` and `requested-by`.
-- **Faster again.** Under the 3000-user benchmark, reports open in 2.5 s at p95 (4.1 s before), and an open report's status checks answer in 106 ms at p95 (371 ms). The server also uses less CPU, with no failed requests.
+- **Faster again.** Under the 3000-user benchmark, reports open in 2.5 s at p95 (5.1 s for MZ-01.00.30 on the same machine), and an open report's status checks answer in 106 ms at p95 (350 ms). The server also uses less CPU, with no failed requests.
 - **Reports never wait for Checkmarx One to show states.** An open report is answered from the last known states while fresh ones are read in the background.
 - **Lighter fetches and saves.** Credit figures are worked out in one pass per project instead of a dozen. Emailed reports are compressed in the background, and API calls no longer look for files on disk.
 - **Status published.** Every release now publishes its performance and security status (benchmark, tests, dependency audit, Checkmarx One scan and what is still open, with the reason) in the README, the user guide, this log and [docs/status.md](docs/status.md), with earlier versions back to the first.
