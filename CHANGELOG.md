@@ -29,7 +29,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.42 — 2026-10-04 HH:MM UTC · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+## MZ-01.00.42 — 2026-10-04 18:17 UTC · [#65](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/65)
 - **Download HTML is back.** It sits next to **Preview email** and **Preview report** under Remind again. It no longer hides behind *Show advanced options* or the attachment switch.
 - **Take back unused credits, at the top.** The AI credits panel shows it next to **Check the numbers again**, with how many it would return ("Take back 36 unused credits").
 - **Last week by default.** *Projects last scanned in* and *Findings first found in* start at **Last week** instead of any time. After a load, the page keeps the scope you used.

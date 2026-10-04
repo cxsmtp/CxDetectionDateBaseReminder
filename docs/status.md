@@ -17,7 +17,7 @@ What each release was measured at, and what was known about its security when it
 
 | Version | Merged (UTC) | Sustained: requests / failed | Requests/s | Report opens p50 / p95 | Triage polls p50 / p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.42** | 2026-10-04 HH:MM | — | — | — | — | 455 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below). Page-only change, benchmarked on a slower host: see performance.md |
+| **MZ-01.00.42** | 2026-10-04 18:17 | — | — | — | — | 455 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below). Page-only change, benchmarked on a slower host: see performance.md |
 | MZ-01.00.41 | 2026-10-04 13:58 | 64,309 / **0** | 519 | 57 / 886 ms | 9 / 171 ms | 455 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below) |
 | MZ-01.00.40 | 2026-10-04 13:32 | 63,758 / **0** | 516 | 66 / 5,937 ms | 11 / 183 ms | 445 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below) |
 | MZ-01.00.39 | 2026-10-04 13:14 | 63,674 / **0** | 512 | 65 / 5,709 ms | 11 / 240 ms | 439 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below) |
