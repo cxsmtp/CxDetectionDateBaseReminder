@@ -283,3 +283,9 @@ test('each finding carries its file and line, and each project its repository, f
   assert.deepEqual(config.repositories, { p1: { url: 'https://github.com/acme/app', branch: 'main' } });
   assert.match(html, /const MZPatch = /, 'the patcher is inlined before the report script');
 });
+
+test('a package finding says which version to upgrade to', () => {
+  const html = generateHtmlReport(buildReportData([{ ...risk(1, 'HIGH'), scanner: 'SCA', fixVersion: '4.17.21' }, risk(2, 'LOW')], { tenant: 't' }));
+  assert.match(html, /upgrade to 4\.17\.21/);
+  assert.equal((html.match(/upgrade to /g) ?? []).length, 1);
+});

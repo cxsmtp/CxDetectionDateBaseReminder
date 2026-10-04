@@ -644,8 +644,9 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
    - **Filter it:** pick a severity, search (finding, project, file), or tick **Only what AI can act on**.
    - **How this report works** explains Triage, Remediate and the reminder server.
    - Each finding shows:
-   - its live Checkmarx One state;
-   - a link into Checkmarx One.
+     - its live Checkmarx One state;
+     - a link into Checkmarx One;
+     - for an open-source package, **upgrade to …**: the version Checkmarx One recommends, when it gives one.
 4. **Triage** runs Checkmarx One AI Triage on a finding. The verdict appears in the row within a few minutes.
    - **Triage all critical / Triage all high** cover every critical or high finding in the report, across its projects, and skip ones already triaged.
    - A finding judged **not exploitable** disappears from the report, which counts how many it has hidden.
@@ -849,7 +850,8 @@ Early features: check what they find before relying on them. A feature an Admin 
   - **Where the code is:** GitHub, GitLab, Azure DevOps or Bitbucket.
   - **Through the host's API** where it has one: GitHub, GitLab and Bitbucket Data Center, one request per file.
   - **Otherwise `git blame`** on a clone, made with that host's own token: Azure DevOps, Bitbucket Cloud, or any host.
-  - **The Commit column** shows which host and way it used.
+  - **The Commit column** shows which host and way it used, and the pull or merge request the commit came in through (GitHub and GitLab), with who opened it and who approved it.
+  - **Code owners** of the file, from the repository's `CODEOWNERS`, are shown under **Where**. Both are for information: who is emailed is still the author.
   - **How sure:** each answer is **Sure**, **Check** or **Unsure**, with the reason. Only Sure answers are ticked for sending; scheduled reminders only email Sure ones. Whitespace changes, moved code, `.git-blame-ignore-revs` and bot commits are looked past. Details: [beta-features.md](beta-features.md).
 - **Match usernames to email addresses.**
   - **Pick the host:** GitHub, GitLab, Azure DevOps or Bitbucket.

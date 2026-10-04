@@ -58,8 +58,26 @@ For each finding in the current Dashboard scope (severities and a maximum you ch
    still name the original author; a line replaced after the scan, and a scanned commit that is
    gone, are reported as Unsure.
 
+6. **Who else owns it (read-only).** Two things the host already knows are shown next to
+   the author, never used to choose who is emailed:
+   - **Code owners:** the owners the repository's `CODEOWNERS` file gives the file, at the
+     scanned version. It is read the way the host reads it: the last matching rule wins, and
+     on GitLab the last matching rule of each `[Section]` (with the section's default
+     owners). Places looked at: GitHub `.github/`, the root, `docs/`; GitLab the root,
+     `docs/`, `.gitlab/`; Azure DevOps and Bitbucket also `.azuredevops/` and `.bitbucket/`.
+     On GitHub and GitLab it is read through the API (at most 3 requests a repository);
+     elsewhere from the clone `git blame` already made, never a new clone.
+   - **The change request it came in through:** for the blamed commit, the GitHub pull
+     request or GitLab merge request that merged it, who opened it, and who approved it. On
+     GitHub, a reviewer counts as an approver only if their last verdict was an approval.
+     A commit pushed straight to the branch shows none. At most 100 commits a run, 2
+     requests each.
+   A repository without a `CODEOWNERS` file, a token without access, or a host without
+   these APIs (Azure DevOps and Bitbucket change requests) simply shows nothing.
+
 Each author gets one email listing the findings on lines they last changed,
-with links to the finding in Checkmarx One and to their commit. Preview first.
+with links to the finding in Checkmarx One and to their commit, the file's code owners, and
+the pull or merge request it came in through. Preview first.
 
 Tested end to end against the real `expressjs/express` repository: 5 of 6
 findings traced to their commit (the SCA one correctly skipped), 3 authors,
