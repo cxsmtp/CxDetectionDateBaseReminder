@@ -28,7 +28,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.41 — 2026-10-04 HH:MM UTC · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+## MZ-01.00.41 — 2026-10-04 13:58 UTC · [#64](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/64)
 - **Replace the whole image from the Update page (Beta).** For the rare release that needs a new Node.js or OS base: pick **latest** or a version under **Settings → Update & recovery → Replace the whole image**, and click **Replace the image**. A backup is taken first.
 - **The update companion does it.** It is a second small container you start once; the command is on the page and in docs/updating.md, for Podman on Windows cmd. It downloads the image while the server keeps running, stops the server (which saves first), and starts the same container on the new image with the same ports, volume, environment, limits and security options.
 - **Back by itself if it fails.** If the new server does not say it started within 150 s, or stops soon after, the companion removes it and starts the previous container again. A download that fails changes nothing.
