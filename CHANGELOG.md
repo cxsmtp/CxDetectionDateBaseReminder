@@ -2,7 +2,7 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
-## MZ-01.00.30 — 2026-10-04 HH:MM UTC · [#53](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/53)
+## MZ-01.00.30 — 2026-10-04 06:05 UTC · [#53](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/53)
 - **Settings → Update & recovery (Admins).** CxMissionZero updates itself, with nobody signing in to the server. **Check for updates** lists every published version, and **Update now** installs the newest. A backup is taken first, and people see "reconnecting…" for a few seconds.
 - **Checked, small downloads.** Only CxMissionZero's own files are downloaded from its image (about 1.5 MB of 40 MB), each piece checked against the image's sha256 digests, and kept in the data volume.
 - **Rolls back by itself.** A version that does not come up, or stops soon after starting, is replaced by the one before it straight away. It is never installed automatically again.

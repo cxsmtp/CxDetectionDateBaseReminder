@@ -66,6 +66,9 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.27 | 2 | 8.2 s / 0 | 64,140 / 0 | 518 | 47 / 4,991 ms | 10 / 289 ms | none |
 | MZ-01.00.28 | 1 | 8.3 s / 0 | 64,244 / 0 | 522 | 54 / 1,321 ms | 8 / 316 ms | none |
 | MZ-01.00.29 | 1 | 8.4 s / 0 | 64,440 / 0 | 508 | 58 / 2,575 ms | 8 / 206 ms | none |
+| MZ-01.00.30 | 1 | 7.4 s / 0 | 64,211 / 0 | 524 | 53 / 4,136 ms | 8 / 371 ms | none |
+
+**MZ-01.00.30: what the differences were.** None that matters: Update & recovery only does work when an Admin uses it (and auto-update looks every 15 minutes, off by default). In production the server now runs under the launcher; that adds one small process and nothing per request. The benchmark runs the server directly, as before.
 
 **MZ-01.00.29: what the differences were.** None expected, and none seen: the change is in the emailed report's own page (the tools bar and the row buttons), not on the server. The "before" is MZ-01.00.28 run 1.
 
