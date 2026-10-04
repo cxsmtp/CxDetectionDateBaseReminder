@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.36 | 492/s, 0 | 2.3 s | 118 ms | 421 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.37 | 508/s, 0 | 5.1 s | 179 ms | 427 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.36 | 492/s, 0 | 2.3 s | 118 ms | 421 | 0 | same |
 | MZ-01.00.35 | 529/s, 0 | 0.6 s | 113 ms | 414 | 0 | same |
 | MZ-01.00.34 | 514/s, 0 | 4.2 s | 122 ms | 407 | 0 | same |
 | MZ-01.00.33 | 511/s, 0 | 3.9 s | 172 ms | 407 | 0 | same |
@@ -22,6 +23,13 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.37 — 2026-10-04 12:50 UTC · [#60](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/60)
+- **SLAs, in Beta.** Each severity has a number of days to be fixed, counted from first detection: critical 7, high 30, medium 90 and low 180, unless you change them under **Settings → SLAs**. Findings triaged as not exploitable have none.
+- **Past SLA on the Dashboard.** A red tile shows how many open findings are past their SLA, with how many more are due within 7 days under it. Each project has a **Past SLA** column (**Due ≤ 7d** under **Columns**), and both are in the CSV export.
+- **Escalation, once per finding.** Switch it on and name who to escalate to. Each scheduled run then emails one list of the findings that went past their SLA since the last run, with the project, severity, how far past and who ran the latest scan. A fixed finding that comes back is escalated again, and test mode counts without sending.
+- **In Beta until you're happy with it.** Roles with Beta access see it. An Admin makes it final under **Settings → Beta features**, and from then on everyone who loads findings sees the SLA figures.
+- **Status.** 64,117 requests with 0 failed for 3000 people at once on 2 vCPU, and no finding sent twice. Report opens took 5.1 s at p95 (main 5.1 s in the same pair). All 427 tests pass, and `npm audit` finds 0 vulnerabilities. The last Checkmarx One scan leaves no critical, high or medium finding open.
 
 ## MZ-01.00.36 — 2026-10-04 11:55 UTC · [#59](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/59)
 - **Stop while loading findings.** A **Stop** button sits beside **Load findings** while it loads. Projects already being read finish, the rest are skipped, and what has loaded is kept and ready to use, as after a full load. Leaving the page mid-load stops it the same way.
