@@ -227,3 +227,22 @@ test('stage 7 — every credit is in the audit log, and the log matches the ledg
   assert.match(refused, /month|limit/i);
   assert.equal((await admin('GET', '/api/audit/verify')).body.ok, true);
 });
+
+test('stage 8 — clean slate: every project\'s unused credits come back to the pool, without loading findings; used ones stay', async () => {
+  await admin('POST', '/api/credits/allocate', { projectIds: ['p0'], triageAdd: 4 });
+  const before = (await admin('GET', '/api/credits')).body.allocations.find((p) => p.projectId === 'p0');
+  const unused = before.triage.remaining + before.remediation.remaining;
+  assert.ok(unused >= 4, JSON.stringify(before));
+  assert.equal((await admin('POST', '/api/credits/reclaim', {})).status, 400, 'say which projects, or all');
+  const r = await admin('POST', '/api/credits/reclaim', { all: true });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.reclaimed, unused);
+  const after = r.body.allocations.find((p) => p.projectId === 'p0');
+  assert.equal(after.triage.remaining + after.remediation.remaining, 0);
+  assert.equal(after.triage.used, before.triage.used, 'used credits stay counted');
+  assert.equal(after.triage.allocated, before.triage.used);
+  assert.equal((await admin('POST', '/api/credits/reclaim', { projectIds: ['p0'] })).body.reclaimed, 0, 'nothing left to take back');
+  const audit = (await admin('GET', '/api/audit?types=allocation&limit=50')).body;
+  assert.ok(audit.entries.some((e) => /clean slate/.test(e.reason)), 'the take-back is in the audit log');
+  assert.equal((await admin('GET', '/api/audit/verify')).body.ok, true);
+});

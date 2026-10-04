@@ -194,6 +194,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `GITLAB_TOKEN`, `GITLAB_URL`, `GITLAB_GROUP` ⬆ | GitLab (gitlab.com or self-managed) for the Beta features. |
 | `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_ORG_URL` ⬆ | Azure DevOps (e.g. `https://dev.azure.com/acme`) for the Beta features. |
 | `BITBUCKET_TOKEN`, `BITBUCKET_USERNAME`, `BITBUCKET_WORKSPACE`, `BITBUCKET_URL` ⬆ | Bitbucket Cloud (app password with username, or an access token), or Data Center (its address and an HTTP access token), for the Beta features. |
+| `GITHUB_TOKEN_2` … `_9` (and `GITHUB_API_URL_2`, `GITLAB_TOKEN_2`, `GITLAB_URL_2`, `AZURE_DEVOPS_TOKEN_2`, `BITBUCKET_TOKEN_2` …) ⬆ | More connections to the same host: a second GitHub, another GitLab or Azure DevOps organisation. Each shows as its own logo on the header's **Git** indicator. |
 | `SCM_ALLOWED_HOSTS` | Other git hosts (comma-separated) whose repositories the Beta features may clone. github.com, gitlab.com, bitbucket.org, dev.azure.com and the connected hosts are always allowed; nothing else is cloned. |
 | `UPDATE_IMAGE`, `UPDATE_REGISTRY_TOKEN`, `UPDATE_START_TIMEOUT_SECONDS` (150) | Settings → Update & recovery: where updates come from (a private copy of the image, and a token that can read it), and how long a new version may take to start before it is rolled back. |
 | **Server** | |
