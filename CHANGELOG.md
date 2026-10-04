@@ -2,7 +2,7 @@
 
 Every release, newest first: the version shown bottom-left in the app (MZ-xx.xx.xx), when it was merged, and the main features. Updated with every release.
 
-## MZ-01.00.28 — 2026-10-04 HH:MM UTC · [#51](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/51)
+## MZ-01.00.28 — 2026-10-04 05:47 UTC · [#51](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/51)
 - **Prove the fixes with a rescan.** A tracked report's new **Verify** tab shows when everything in its scope has been dealt with (triaged not exploitable, or confirmed and sent for remediation). **Rescan now** then has Checkmarx One scan each project again, with the same repository, branch and engines.
 - **Or automatically.** With one tick, the rescan starts by itself the moment the scope is closed, once per round.
 - **What the rescan proved.**
