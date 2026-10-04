@@ -1449,6 +1449,8 @@ app.post('/api/settings/notices/ack', requireSession, (req, res) => {
 const SETTINGS_SECTIONS = {
   smtp: 'integration.smtp',
   recipients: 'settings.recipients',
+  // Who gets reminders (each developer, the fixed list, or both): one choice for every place that sends them.
+  reminders: 'settings.recipients',
   initiators: 'settings.initiators',
   template: 'settings.template',
   branding: 'settings.branding',
@@ -4728,7 +4730,7 @@ async function developerResult(report, session) {
   await mailDevelopers(report, 'result');
   if (!report.verification?.result?.zero && isVerified(sendingSettings())) {
     const server = resolveReportServer(null, settingsStore.get());
-    await remindTrackedReport(session, report, { sendTo: 'initiator', attachHtml: true }, server.url, { automatic: true });
+    await remindTrackedReport(session, report, { sendTo: audienceSetting(), attachHtml: true }, server.url, { automatic: true });
   }
 }
 
@@ -4775,11 +4777,17 @@ async function openScanFor(session, report) {
   return { projects, initiators: initiators.byProject };
 }
 
+/** Settings → Who gets reminders: 'initiator', 'list' or 'both'. */
+const audienceSetting = (settings = settingsStore.get()) => (['initiator', 'list', 'both'].includes(settings.reminders?.audience) ? settings.reminders.audience : 'initiator');
+
 const countSent = (body) => (Array.isArray(body?.sent) ? body.sent.length : body?.messageId ? 1 : 0);
 
 /** Send (or preview) a follow-up reminder for a report's open findings. */
 async function remindTrackedReport(session, report, options, relayUrl, { automatic = false } = {}) {
-  const sendTo = ['initiator', 'list', 'both'].includes(options.sendTo) ? options.sendTo : 'initiator';
+  // A report follows Settings → Who gets reminders, unless it was given its own choice ('developers', 'list' or
+  // 'both'). 'initiator' was the old default every report was saved with, so it follows the setting too.
+  const own = { developers: 'initiator', list: 'list', both: 'both' }[options.sendTo];
+  const sendTo = own ?? audienceSetting();
   const emailContent = options.emailContent === 'per-project' ? 'per-project' : 'summary';
   const attachHtml = options.attachHtml === true;
   const dryRun = options.dryRun === true;
@@ -4943,7 +4951,8 @@ app.put('/api/tracked-reports/:id/automation', requirePermission('reports.manage
     enabled,
     everyDays,
     hour,
-    sendTo: ['initiator', 'list', 'both'].includes(input.sendTo) ? input.sendTo : 'initiator',
+    // 'settings' (or nothing): follow Settings → Who gets reminders; a report keeps its own choice only when given one.
+    sendTo: ['developers', 'list', 'both'].includes(input.sendTo) ? input.sendTo : 'settings',
     emailContent: input.emailContent === 'per-project' ? 'per-project' : 'summary',
     attachHtml: input.attachHtml === true,
     onlyTo: parseAddressList(input.onlyTo ?? []),

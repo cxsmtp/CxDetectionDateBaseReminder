@@ -72,6 +72,12 @@ export const DEFAULT_SETTINGS = {
     callToAction: 'Please review and remediate these findings, oldest first.',
   },
   automation: { ...DEFAULT_AUTOMATION },
+  /**
+   * Who gets reminders, everywhere: the Dashboard, scheduled runs and tracked
+   * reports' follow-ups. 'initiator' (each developer, their own projects),
+   * 'list' (the fixed list) or 'both'.
+   */
+  reminders: { audience: 'initiator' },
   /** SLAs (Beta, src/sla.js): days to fix each severity, and escalation of overdue findings. */
   sla: structuredClone(DEFAULT_SLA),
   /**
@@ -143,6 +149,9 @@ export function isSafeImageUrl(url) {
     return false;
   }
 }
+
+/** Who gets reminders: each developer, the fixed list, or both. */
+export const AUDIENCES = ['initiator', 'list', 'both'];
 
 /** A browser icon: an uploaded image (data:, up to 100 KB) or an https address. */
 export function isSafeIconUrl(url) {
@@ -347,8 +356,10 @@ export function mergeSettings(current, incoming = {}) {
   const features = mergeFeatures(current.features, incoming.features);
 
   const sla = mergeSla(current.sla, incoming.sla ?? null);
+  const reminders = { ...DEFAULT_SETTINGS.reminders, ...(current.reminders ?? {}) };
+  if (incoming.reminders && 'audience' in incoming.reminders) reminders.audience = AUDIENCES.includes(incoming.reminders.audience) ? incoming.reminders.audience : reminders.audience;
 
-  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta, features, sla };
+  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders };
 
   // The automation credential is set through its own route, not this form.
   if (typeof incoming.automationApiKey === 'string') next.automationApiKey = incoming.automationApiKey.trim();
@@ -504,6 +515,7 @@ export function publicSettings(settings) {
     })(),
     features: mergeFeatures(settings.features),
     sla: mergeSla(settings.sla),
+    reminders: { ...DEFAULT_SETTINGS.reminders, ...(settings.reminders ?? {}) },
     verifiedAt: settings.verifiedAt,
     verified: isVerified(settings),
   };
@@ -573,6 +585,10 @@ export class SettingsStore {
         beta: mergeBeta(raw.beta, null),
         features: mergeFeatures(raw.features),
         sla: mergeSla(raw.sla),
+        // One choice for who gets reminders; before, scheduled runs had their own (keep what they did).
+        reminders: raw.reminders?.audience && AUDIENCES.includes(raw.reminders.audience)
+          ? { audience: raw.reminders.audience }
+          : { audience: raw.automation?.groupBy === 'none' ? 'list' : 'initiator' },
       };
     } catch {
       return structuredClone(DEFAULT_SETTINGS);

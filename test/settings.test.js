@@ -203,3 +203,17 @@ test('the browser icon: MZ0 by default; an uploaded image (up to 100 KB) or an h
   assert.equal(mergeSettings(set, { branding: { iconUrl: '' } }).branding.iconUrl, '', 'back to MZ0');
   assert.equal(mergeSettings(set, { branding: { appName: 'X' } }).branding.iconUrl, png, 'other branding changes keep it');
 });
+
+test('who gets reminders: one choice; an older setup keeps what its scheduled runs did', () => {
+  assert.deepEqual(base().reminders, { audience: 'initiator' });
+  assert.equal(mergeSettings(base(), { reminders: { audience: 'both' } }).reminders.audience, 'both');
+  assert.equal(mergeSettings(base(), { reminders: { audience: 'everyone' } }).reminders.audience, 'initiator', 'unknown values are ignored');
+  for (const [groupBy, audience] of [['none', 'list'], ['initiator', 'initiator'], ['project', 'initiator']]) {
+    const file = tempFile();
+    fs.writeFileSync(file, JSON.stringify({ automation: { groupBy } }));
+    assert.equal(new SettingsStore({ file }).get().reminders.audience, audience, `scheduled runs that went to ${groupBy}`);
+  }
+  const file = tempFile();
+  fs.writeFileSync(file, JSON.stringify({ automation: { groupBy: 'none' }, reminders: { audience: 'both' } }));
+  assert.equal(new SettingsStore({ file }).get().reminders.audience, 'both', 'once chosen, the choice stands');
+});

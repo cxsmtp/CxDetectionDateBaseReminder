@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.37 | 508/s, 0 | 5.1 s | 179 ms | 427 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.38 | 518/s, 0 | 0.6 s | 146 ms | 430 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.37 | 508/s, 0 | 5.1 s | 179 ms | 427 | 0 | same |
 | MZ-01.00.36 | 492/s, 0 | 2.3 s | 118 ms | 421 | 0 | same |
 | MZ-01.00.35 | 529/s, 0 | 0.6 s | 113 ms | 414 | 0 | same |
 | MZ-01.00.34 | 514/s, 0 | 4.2 s | 122 ms | 407 | 0 | same |
@@ -23,6 +24,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.38 — 2026-10-04 13:03 UTC · [#61](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/61)
+- **Who gets reminders: one choice.** **Dashboard → Remind → Send to** (each developer, the fixed list, or both) now decides it everywhere: reminders sent by hand, scheduled runs and tracked reports' follow-ups. Settings → Automation shows the choice instead of asking again, and an older setup keeps sending to whoever its scheduled runs did.
+- **Both, now for everyone.** **Both** is no longer an advanced option. If the fixed list is empty, a scheduled run says so instead of quietly sending to nobody.
+- **A tracked report's follow-up sits with its reminder.** The Schedule tab is gone: its **Automatic follow-up** is under the Remind tab, and the Upcoming follow-ups list opens it there. **Only for this report…** still gives one report its own recipients.
+- **Credits are given in one place.** A tracked report's Triage tab no longer has its own extra-credit fields: **Give credits on the Dashboard** opens the Dashboard's AI credits panel with the report's projects in scope and loads their findings.
+- **Everything that runs by itself, in one list.** Settings → Automation has **Also running by itself**: SLA escalation, and each tracked report's automatic follow-up and rescan, each with a link to open it.
+- **Status.** 518 requests a second with 3000 people at once and 0 failed (main 517); report opens 0.6 s and triage polls 146 ms at p95; 430 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.37 — 2026-10-04 12:45 UTC · [#60](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/60)
 - **SLAs, in Beta.** Each severity has a number of days to be fixed, counted from first detection: critical 7, high 30, medium 90 and low 180, unless you change them under **Settings → SLAs**. Findings triaged as not exploitable have none.

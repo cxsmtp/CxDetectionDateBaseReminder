@@ -243,9 +243,14 @@ export async function runOnce({
   const messages = [];
   const failures = [];
 
-  if (automation.groupBy === 'initiator' || automation.groupBy === 'project') {
+  // Who gets them: Settings → Who gets reminders (each developer, the fixed list, or both), as everywhere else.
+  const audience = ['initiator', 'list', 'both'].includes(settings.reminders?.audience) ? settings.reminders.audience : automation.groupBy === 'none' ? 'list' : 'initiator';
+  const perDeveloper = audience !== 'list';
+  const groupBy = perDeveloper ? (automation.groupBy === 'project' ? 'project' : 'initiator') : 'none';
+
+  if (groupBy === 'initiator' || groupBy === 'project') {
     const groups =
-      automation.groupBy === 'project'
+      groupBy === 'project'
         ? groupRisksByProject(crossed, initiators.byProject)
         : groupRisksByInitiator(crossed, initiators.byProject);
 
@@ -266,9 +271,15 @@ export async function runOnce({
         label: group.initiator,
       });
     }
-  } else {
-    const reminder = buildReminder(crossed, settings.template, common);
-    messages.push({ to: settings.recipients.to, reminder, riskCount: crossed.length, label: 'configured list' });
+  }
+  if (audience !== 'initiator') {
+    const list = settings.recipients ?? {};
+    if (!list.to?.length && !list.cc?.length && !list.bcc?.length) {
+      failures.push({ to: 'the fixed list', error: 'The fixed list is empty: add addresses on the Dashboard (Remind → The fixed list), or send to each developer only.' });
+    } else {
+      const reminder = buildReminder(crossed, settings.template, common);
+      messages.push({ to: list.to, reminder, riskCount: crossed.length, label: 'configured list' });
+    }
   }
 
   let sent = 0;
