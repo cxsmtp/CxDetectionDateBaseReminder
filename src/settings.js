@@ -6,6 +6,7 @@ import { DEFAULT_AUTOMATION, mergeAutomation } from './automation-config.js';
 import { mergeFeatures } from './features.js';
 import { DEFAULT_LINK_TEMPLATES, PREVIOUS_LINK_DEFAULTS } from './links.js';
 import { DEFAULT_TEMPLATE } from './template.js';
+import { TOKEN_NAMES, cleanStoredInstances, mergeStoredInstances } from './scm/instances.js';
 
 /**
  * Administrator settings: SMTP, recipients and the mail template.
@@ -113,6 +114,9 @@ export const DEFAULT_SETTINGS = {
     azure: { orgUrl: '', token: '', repos: [] },
     bitbucket: { kind: '', apiUrl: '', username: '', token: '', workspace: '', repos: [] },
     authors: { useGithubBlame: true, useLocalBlame: true },
+    // More connections to the same kind of host, from numbered .env variables
+    // (GITHUB_TOKEN_2 …): {"2": {GITHUB_TOKEN, GITHUB_API_URL, …}}. Tokens are secrets.
+    instances: {},
   },
   // Set when an SMTP connection test last succeeded, together with a
   // fingerprint of the settings that were tested.
@@ -385,7 +389,11 @@ function mergeBeta(current = DEFAULT_SETTINGS.beta, incoming) {
   }
   const hosts = {};
   for (const id of ['gitlab', 'azure', 'bitbucket']) hosts[id] = mergeHost(id, { ...DEFAULT_SETTINGS.beta[id], ...(current[id] ?? {}) }, incoming?.[id]);
-  return { github, ...hosts, authors };
+  for (const vars of Object.values(incoming?.instances ?? {})) {
+    for (const [name, value] of Object.entries(vars ?? {})) if (/_URL$/.test(name) && value) hostUrl(value, name);
+  }
+  const instances = incoming?.instances ? mergeStoredInstances(current.instances, incoming.instances) : cleanStoredInstances(current.instances);
+  return { github, ...hosts, authors, instances };
 }
 
 /** https only (http just for a test double on this machine). */
@@ -460,6 +468,13 @@ export function publicSettings(settings) {
         azure: host('azure', 'AZURE_DEVOPS_TOKEN'),
         bitbucket: host('bitbucket', 'BITBUCKET_TOKEN'),
         authors: settings.beta?.authors ?? DEFAULT_SETTINGS.beta.authors,
+        // Numbered connections: addresses and names only, never the tokens.
+        instances: Object.fromEntries(
+          Object.entries(cleanStoredInstances(settings.beta?.instances)).map(([n, vars]) => [
+            n,
+            Object.fromEntries(Object.entries(vars).map(([name, value]) => (TOKEN_NAMES.has(name) ? [name, '(set)'] : [name, value]))),
+          ]),
+        ),
       };
     })(),
     features: mergeFeatures(settings.features),

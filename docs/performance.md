@@ -80,6 +80,14 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.32 (main) | 5 | 7.7 s / 0 | 64,053 / 0 | 513 | 59 / 5,184 ms | 7 / 139 ms | none |
 | MZ-01.00.33 (main) | 4 | 9.4 s / 0 | 64,189 / 0 | 518 | 60 / 4,810 ms | 7 / 150 ms | none |
 | **MZ-01.00.34** | 1 | 11.2 s / 0 | 64,230 / 0 | 514 | 57 / **4,184 ms** | 7 / **122 ms** | none |
+| MZ-01.00.34 (main) | 2 | 10.9 s / 0 | 64,299 / 0 | 523 | 63 / 3,662 ms | 7 / 141 ms | none |
+| MZ-01.00.35 | 1 | 8.0 s / 0 | 63,998 / 0 | 525 | 60 / 5,580 ms | 6 / 181 ms | none |
+| MZ-01.00.35 | 2 | 7.8 s / 0 | 63,983 / 0 | 516 | 73 / 6,074 ms | 6 / 131 ms | none |
+| MZ-01.00.34 (main) | 3 | 8.4 s / 0 | 64,559 / 0 | 516 | 34 / 427 ms | 6 / 121 ms | none |
+| MZ-01.00.34 (main) | 4 | 8.1 s / 0 | 64,631 / 0 | 526 | 53 / 386 ms | 5 / 108 ms | none |
+| **MZ-01.00.35** | 3 | 10.2 s / 0 | 64,488 / **0** | **529** | 50 / **554 ms** | 7 / **113 ms** | none |
+
+**MZ-01.00.35: what the differences were.** None from the change, after three pairs run back to back. The first two branch runs had report opens at p95 of 5.6 and 6.1 s, against 3.7 and 0.4 s on main. A third pair, main first, gave 0.39 s on main and 0.55 s on the branch, with the branch at 529 requests a second, the most of the six runs. Report opens fall into two modes: about 0.4 s, or 4 to 6 s when a run hits a stall, and main has landed in both (0.4 to 5.2 s across releases). Nothing on the report path changed. The Git chip's checks run only when someone opens a page (at most every 5 minutes per connection), taking back credits is a rare admin action, and the benchmark sets no git tokens. All six runs had 0 failed requests and no finding sent twice.
 
 **MZ-01.00.34: what the differences were.** None from the change. Making the page simpler is all in the browser: a switch hides advanced options, and the words changed. The server only got two clearer error messages. Run back to back with main, report opens and triage polls were a little faster, with 0 failed requests and no finding sent twice. The burst took 11.2 s against 9.4 s; burst times have ranged from 7.4 to 15.8 s with the same code.
 

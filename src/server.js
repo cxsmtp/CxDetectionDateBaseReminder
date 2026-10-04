@@ -49,7 +49,8 @@ import { deriveConnection, publicConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
 import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, hostOfUrl, isVerified, parseAddressList, publicSettings, smtpFingerprint } from './settings.js';
 import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
-import { ENV_SETTINGS, SECRET_VARIABLES, parseEnvText, settingsFromEnv } from './env-import.js';
+import { ENV_SETTINGS, isSecretVariable, parseEnvText, settingsFromEnv } from './env-import.js';
+import { INSTANCE_VARS, extraInstanceNumbers, instanceSource, numberedVariable, providersIn, setForRepo } from './scm/instances.js';
 import { SessionPersistence, sessionKey } from './handover.js';
 import { InstanceLock } from './instance-lock.js';
 import { inlineScriptHashes, pruneAttempts, sameOriginGuard, securityHeaders, trustProxySetting, viaTrustedProxy } from './security.js';
@@ -1381,7 +1382,7 @@ app.post(
     const { changes, applied, refused, ignored } = settingsFromEnv(vars, (permission) => can(req, permission));
     if (!applied.length) {
       if (refused.length) return res.status(403).json({ error: `Your role cannot set ${refused.join(', ')}.`, applied, refused, ignored });
-      const blank = Object.keys(vars).some((name) => Object.hasOwn(ENV_SETTINGS, name));
+      const blank = Object.keys(vars).some((name) => Object.hasOwn(ENV_SETTINGS, name) || numberedVariable(name));
       return res.status(400).json({
         error: blank
           ? 'Every setting in that file is blank, so nothing changed. Fill in the values you want to set (blank ones keep what is set now) and upload it again.'
@@ -1401,9 +1402,10 @@ app.post(
     if (changes.links) settingsStore.save({ links: changes.links });
     if (changes.github) settingsStore.save({ beta: { github: changes.github } });
     for (const host of ['gitlab', 'azure', 'bitbucket']) if (changes[host]) settingsStore.save({ beta: { [host]: changes[host] } });
+    if (changes.instances) settingsStore.save({ beta: { instances: changes.instances } });
     guard.touch();
     const actor = await adminActor(req);
-    audit.record({ type: 'settings', outcome: 'changed', reason: `Settings imported from a .env file: ${applied.join(', ')}.`, actor, details: { applied, refused, ignored, secrets: applied.filter((n) => SECRET_VARIABLES.has(n)) } });
+    audit.record({ type: 'settings', outcome: 'changed', reason: `Settings imported from a .env file: ${applied.join(', ')}.`, actor, details: { applied, refused, ignored, secrets: applied.filter(isSecretVariable) } });
     const check = await checkConnections({ rollback: false, trigger: 'import', actor });
     res.json({ applied, refused, ignored, check, settings: settingsFor(req, settingsStore.get()), integration: integrationStatus() });
   }),
@@ -5285,6 +5287,35 @@ app.get('/api/credits', requirePermission('credits.view'), (req, res) => {
   });
 });
 
+/**
+ * Take credits back, from the Credit Control page: what the projects were given
+ * and have not used (nor have in flight) goes back to the credit pool. Works on
+ * every project with an allocation, without loading findings first: `all: true`
+ * is the clean slate, `projectIds` a few projects. Used credits stay counted.
+ */
+app.post('/api/credits/reclaim', requirePermission('credits.allocate'), asyncRoute(async (req, res) => {
+  const known = allocations.list();
+  const wanted = req.body?.all === true ? null : new Set((Array.isArray(req.body?.projectIds) ? req.body.projectIds : []).map(String));
+  if (wanted && !wanted.size) return res.status(400).json({ error: 'Choose the projects, or take back from all of them.' });
+  const projects = known.filter((p) => !wanted || wanted.has(p.projectId));
+  const actor = await adminActor(req);
+  const total = { triage: 0, remediation: 0, projects: 0 };
+  for (const p of projects) {
+    const before = allocationSnapshot(p.projectId);
+    const back = allocations.reclaimUnused(p.projectId);
+    const n = back.triage + back.remediation;
+    if (!n) continue;
+    total.triage += back.triage;
+    total.remediation += back.remediation;
+    total.projects += 1;
+    auditAllocation({ actor, projectId: p.projectId, projectName: p.projectName, before, change: { reclaimed: back }, reason: `Took back ${n} unused credit${n === 1 ? '' : 's'} (${[back.triage && `${back.triage} triage`, back.remediation && `${back.remediation} remediation`].filter(Boolean).join(', ')}) to the credit pool${wanted ? '' : ' (clean slate: every project)'}.` });
+  }
+  allocations.save();
+  // Projects loaded on this person's Dashboard show the new balances.
+  for (const p of req.session.lastScan?.projects ?? []) if (allocations.get(p.projectId)) p.credits = creditView(p);
+  res.json({ reclaimed: total.triage + total.remediation, ...total, pool: creditPool(), allocations: allocations.list() });
+}));
+
 /** The credit pool now: size, used (triage / remediation), left, given to projects, free to give. */
 function creditPool(settings = settingsStore.get(), list = allocations.list()) {
   const period = poolPeriod(settings);
@@ -6208,9 +6239,9 @@ app.delete('/api/backup/restore', requirePermission('backup.manage'), asyncRoute
 const gitCacheDir = path.join(dataDir, 'git-cache');
 
 /** The GitHub connection: what Settings stores, else GITHUB_TOKEN / GITHUB_API_URL / GITHUB_ORG from the environment. */
-function githubConfig(settings = settingsStore.get()) {
+function githubConfig(settings = settingsStore.get(), source = process.env) {
   const github = settings.beta?.github ?? {};
-  const env = (name) => String(process.env[name] ?? '').trim();
+  const env = (name) => String(source[name] ?? '').trim();
   const defaultApi = !github.apiUrl || github.apiUrl === 'https://api.github.com';
   const apiUrl = defaultApi && env('GITHUB_API_URL') ? env('GITHUB_API_URL').replace(/\/+$/, '') : github.apiUrl || 'https://api.github.com';
   // GITHUB_TOKEN goes only to the host GITHUB_API_URL names (else api.github.com):
@@ -6237,7 +6268,7 @@ function cloneHostAllowed(host) {
   const settings = settingsStore.get();
   const scm = scmConfigs(settings);
   const hostname = (value) => String(value ?? '').toLowerCase().replace(/:\d+$/, '');
-  const known = [gitHostOf(githubConfig(settings).apiUrl), scm.gitlab.host, scm.azure.host, scm.bitbucket.host].map(hostname);
+  const known = [gitHostOf(githubConfig(settings).apiUrl), scm.gitlab.host, scm.azure.host, scm.bitbucket.host, ...gitSets(settings).slice(1).flatMap((set) => set.hosts.map((h) => h.host))].map(hostname);
   const extra = String(process.env.SCM_ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
   return known.includes(name) || extra.includes(name);
 }
@@ -6254,29 +6285,49 @@ function githubClient(settings = settingsStore.get()) {
   return new GitHubClient({ token: github.token, apiUrl: github.apiUrl });
 }
 
+const urlPath = (url) => {
+  try {
+    return new URL(url).pathname.split('/').filter(Boolean);
+  } catch {
+    return [];
+  }
+};
+
 /**
- * The three connections the header shows, green or red, with a few details:
- * Checkmarx One (the server's integration), the mail server (passed its test
- * with the current settings), GitHub (the token answers). GitHub is checked
- * at most every 5 minutes, and again when its settings change.
+ * Every set of git connections: the first (Beta page, plain variables), then
+ * the numbered ones (GITHUB_TOKEN_2 …, src/scm/instances.js). Each set: its
+ * GitHub and other hosts' connections, and the hosts it holds a token for.
  */
-let githubCheck = { key: '', at: 0, result: null };
+function gitSets(settings = settingsStore.get()) {
+  const describe = (n, github, scm, named) => {
+    const owner = (value) => String(value ?? '').toLowerCase();
+    const hosts = [];
+    if (github.token) hosts.push({ provider: 'github', host: gitHostOf(github.apiUrl), owner: owner(github.org) });
+    if (scm.gitlab.token) hosts.push({ provider: 'gitlab', host: scm.gitlab.host, owner: owner(scm.gitlab.group).split('/')[0] });
+    if (scm.azure.token && scm.azure.host) hosts.push({ provider: 'azure', host: scm.azure.host, owner: owner(urlPath(scm.azure.orgUrl)[0]) });
+    if (scm.bitbucket.token) hosts.push({ provider: 'bitbucket', host: scm.bitbucket.host, owner: owner(scm.bitbucket.workspace) });
+    return { n, github, scm, hosts, named };
+  };
+  const sets = [describe(1, githubConfig(settings), scmConfigs(settings), null)];
+  for (const n of extraInstanceNumbers(settings)) {
+    const source = instanceSource(settings, n);
+    sets.push(describe(n, githubConfig({}, source), scmConfigs({}, source), new Set(providersIn(source))));
+  }
+  return sets;
+}
+
+/**
+ * The connections the header shows, green or red, with a few details:
+ * Checkmarx One (the server's integration), the mail server (passed its test
+ * with the current settings), and every git host (each token answers).
+ */
 async function connectionsStatus() {
   const settings = settingsStore.get();
   const cx = integrationStatus();
   const smtp = settings.smtp ?? {};
   const verified = isVerified(settings);
-  const gh = githubConfig(settings);
-  const ghKey = createHash('sha256').update(`${gh.apiUrl}|${gh.token}`).digest('hex');
-  if (gh.token && (githubCheck.key !== ghKey || Date.now() - githubCheck.at > 5 * 60_000)) {
-    try {
-      const user = await githubClient(settings).rest('/user');
-      githubCheck = { key: ghKey, at: Date.now(), result: { ok: true, login: user?.login ?? '' } };
-    } catch (error) {
-      githubCheck = { key: ghKey, at: Date.now(), result: { ok: false, reason: `GitHub refused the token: ${error.message}` } };
-    }
-  }
-  const ghResult = gh.token ? githubCheck.result : { ok: false, reason: 'No GitHub token: add GITHUB_TOKEN to the .env file, or set it on the Beta page.' };
+  const git = await gitConnections(settings);
+  const gh = git.instances.find((i) => i.provider === 'github' && i.n === 1);
   return {
     cxone: {
       ok: cx.connected,
@@ -6296,15 +6347,86 @@ async function connectionsStatus() {
       verifiedAt: verified ? settings.verifiedAt ?? null : null,
       reason: !smtp.host ? 'No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.' : verified ? '' : 'Not tested with these settings: Settings → Email server → Test connection.',
     },
-    github: {
-      ok: Boolean(ghResult?.ok),
-      login: ghResult?.login ?? '',
-      apiUrl: gh.apiUrl,
-      org: gh.org ?? '',
-      source: gh.tokenSource,
-      checkedAt: gh.token ? new Date(githubCheck.at).toISOString() : null,
-      reason: ghResult?.ok ? '' : ghResult?.reason ?? '',
-    },
+    // Every git host and instance, for the header's Git chip (one logo each).
+    git,
+    // The first GitHub connection, as before (kept for callers of this shape).
+    github: gh
+      ? { ok: gh.ok, login: gh.who, apiUrl: gh.url, org: gh.owner, source: gh.source, checkedAt: gh.checkedAt, reason: gh.reason }
+      : { ok: false, login: '', apiUrl: githubConfig(settings).apiUrl, org: '', source: 'none', checkedAt: null, reason: 'No GitHub token: add GITHUB_TOKEN to the .env file, or set it on the Beta page.' },
+  };
+}
+
+/** Results of checking each git connection: at most every 5 minutes, and again when its settings change. */
+const gitChecks = new Map();
+const GIT_CHECK_MS = 5 * 60_000;
+
+/** Ask one host who its token belongs to. */
+async function checkGitInstance(provider, set) {
+  if (provider === 'github') {
+    const user = await new GitHubClient({ token: set.github.token, apiUrl: set.github.apiUrl }).rest('/user');
+    return user?.login ?? '';
+  }
+  const result = (await checkScmConnections(scmClients(set.scm), set.scm, [provider]))[provider];
+  if (!result) throw new Error(provider === 'azure' ? 'set the organisation address (AZURE_DEVOPS_ORG_URL) too' : 'no answer');
+  if (!result.ok) throw new Error(result.reason.replace(/^[^:]*refused: /, ''));
+  return result.who ?? '';
+}
+
+/**
+ * Every git connection: GitHub, GitLab, Azure DevOps and Bitbucket, the first of
+ * each and the numbered ones (GITHUB_TOKEN_2 …), each checked with its host.
+ * Hosts with no connection are listed too, with what to add.
+ */
+async function gitConnections(settings = settingsStore.get()) {
+  const instances = [];
+  const checks = [];
+  for (const set of gitSets(settings)) {
+    for (const provider of SCM_PROVIDERS) {
+      const cfg = provider === 'github' ? set.github : set.scm[provider];
+      const token = cfg.token;
+      // The first set lists a host once it has a token; a numbered set, once its variables name the host.
+      if (!token && !(set.named?.has(provider))) continue;
+      const url = provider === 'github' ? cfg.apiUrl : provider === 'azure' ? cfg.orgUrl : cfg.apiUrl;
+      const owner = provider === 'github' ? cfg.org : provider === 'gitlab' ? cfg.group : provider === 'azure' ? urlPath(cfg.orgUrl)[0] ?? '' : cfg.workspace;
+      const vars = INSTANCE_VARS[provider];
+      const suffix = set.n === 1 ? '' : `_${set.n}`;
+      const entry = { provider, n: set.n, label: SCM_LABELS[provider], url: url ?? '', host: url ? hostOfUrl(url) : '', owner: owner ?? '', source: set.n === 1 ? cfg.tokenSource : 'environment', variables: `${vars.token}${suffix}`, ok: false, who: '', checkedAt: null, reason: '' };
+      instances.push(entry);
+      if (!token) {
+        entry.reason = `No token: add ${vars.token}${suffix} to the .env file.`;
+        continue;
+      }
+      const key = createHash('sha256').update(`${provider}|${url}|${token}`).digest('hex');
+      const cached = gitChecks.get(key);
+      if (cached && Date.now() - cached.at < GIT_CHECK_MS) {
+        Object.assign(entry, cached.result, { checkedAt: new Date(cached.at).toISOString() });
+        continue;
+      }
+      checks.push(
+        checkGitInstance(provider, set)
+          .then((who) => ({ ok: true, who: String(who ?? ''), reason: '' }))
+          .catch((error) => ({ ok: false, who: '', reason: `${SCM_LABELS[provider]} refused the token: ${error.message}` }))
+          .then((result) => {
+            const at = Date.now();
+            gitChecks.set(key, { at, result });
+            Object.assign(entry, result, { checkedAt: new Date(at).toISOString() });
+          }),
+      );
+    }
+  }
+  await Promise.all(checks);
+  // Grouped by host, so two GitHub connections sit side by side.
+  instances.sort((a, b) => SCM_PROVIDERS.indexOf(a.provider) - SCM_PROVIDERS.indexOf(b.provider) || a.n - b.n);
+  if (gitChecks.size > 64) for (const [key, value] of gitChecks) if (Date.now() - value.at > GIT_CHECK_MS) gitChecks.delete(key);
+  const missing = SCM_PROVIDERS.filter((p) => !instances.some((i) => i.provider === p)).map((p) => ({ provider: p, label: SCM_LABELS[p], variables: INSTANCE_VARS[p].token }));
+  const connected = instances.filter((i) => i.ok).length;
+  return {
+    ok: instances.length > 0 && connected === instances.length,
+    connected,
+    total: instances.length,
+    instances,
+    missing,
+    reason: instances.length ? (connected === instances.length ? '' : `${instances.length - connected} of ${instances.length} git connection(s) not working.`) : 'No git host connected: add GITHUB_TOKEN, GITLAB_TOKEN, AZURE_DEVOPS_TOKEN or BITBUCKET_TOKEN to the .env file.',
   };
 }
 
@@ -6521,15 +6643,23 @@ async function findCodeAuthors(risks, { client, connection, settings, projects: 
 
   const gh = githubClient(settings);
   const hosts = scmHosts(settings);
-  await blameFindings(items, {
-    gh,
-    apiUrl: github.apiUrl,
-    cacheDir: gitCacheDir,
-    token: github.token,
-    useGithub: settings.beta?.authors?.useGithubBlame !== false,
-    useLocal: settings.beta?.authors?.useLocalBlame !== false,
-    scm: hosts,
-  });
+  // Each repository is blamed with the connection that fits it: the first set, or a numbered one (GITHUB_TOKEN_2 …).
+  const sets = gitSets(settings);
+  const bySet = new Map(sets.map((set) => [set, []]));
+  for (const item of items) bySet.get(setForRepo(sets, item.repo)).push(item);
+  for (const [set, group] of bySet) {
+    if (!group.length) continue;
+    const first = set.n === 1;
+    await blameFindings(group, {
+      gh: first ? gh : new GitHubClient({ token: set.github.token, apiUrl: set.github.apiUrl }),
+      apiUrl: set.github.apiUrl,
+      cacheDir: gitCacheDir,
+      token: set.github.token,
+      useGithub: settings.beta?.authors?.useGithubBlame !== false,
+      useLocal: settings.beta?.authors?.useLocalBlame !== false,
+      scm: first ? hosts : { configs: set.scm, clients: scmClients(set.scm) },
+    });
+  }
 
   // Authors who hid their address behind GitHub's noreply one: resolve the
   // login, starting with the history of the repositories just cloned.

@@ -7,6 +7,8 @@
  * DATA_DIR, ...) only means something at start-up and is reported as such.
  */
 
+import { TOKEN_NAMES, numberedVariable } from './scm/instances.js';
+
 const MAX_BYTES = 64 * 1024;
 
 /** Parse dotenv text: KEY=VALUE lines, # comments, optional `export`, quoted values. */
@@ -83,13 +85,15 @@ export const ENV_SETTINGS = {
 
 /** Secrets: reported by name only, never echoed back. */
 export const SECRET_VARIABLES = new Set(['CX_API_KEY', 'SMTP_PASS', 'SMTP_PASSWORD', 'GITHUB_TOKEN', 'GITLAB_TOKEN', 'AZURE_DEVOPS_TOKEN', 'BITBUCKET_TOKEN']);
+/** A secret, numbered ones included (GITLAB_TOKEN_2). */
+export const isSecretVariable = (name) => SECRET_VARIABLES.has(name) || TOKEN_NAMES.has(numberedVariable(name)?.name);
 
 /**
  * Turn parsed variables into setting changes this person may make.
  * Returns {changes: {cxone?, smtp?, links?}, applied: [names], refused: [names], ignored: [names]}.
  */
 export function settingsFromEnv(vars, may = () => true) {
-  const draft = { cxone: {}, smtp: {}, links: {}, github: {}, gitlab: {}, azure: {}, bitbucket: {} };
+  const draft = { cxone: {}, smtp: {}, links: {}, github: {}, gitlab: {}, azure: {}, bitbucket: {}, instances: {} };
   const applied = [];
   const refused = [];
   const ignored = [];
@@ -97,7 +101,13 @@ export function settingsFromEnv(vars, may = () => true) {
   const order = Object.keys(vars).sort((a, b) => (a === 'SMTP_USER' ? -1 : b === 'SMTP_USER' ? 1 : 0));
   for (const name of order) {
     const value = String(vars[name] ?? '').trim();
-    const rule = Object.hasOwn(ENV_SETTINGS, name) ? ENV_SETTINGS[name] : undefined;
+    // A second (third …) connection to a git host: GITHUB_TOKEN_2, GITLAB_URL_2 … (src/scm/instances.js).
+    const numbered = numberedVariable(name);
+    const rule = Object.hasOwn(ENV_SETTINGS, name)
+      ? ENV_SETTINGS[name]
+      : numbered
+        ? { part: 'instances', permission: 'beta.use', apply: (s, v) => ((s.instances[numbered.n] ??= {})[numbered.name] = v) }
+        : undefined;
     if (!rule) {
       ignored.push(name);
       continue;

@@ -194,6 +194,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `GITLAB_TOKEN`, `GITLAB_URL`, `GITLAB_GROUP` ⬆ | GitLab (gitlab.com or self-managed) for the Beta features. |
 | `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_ORG_URL` ⬆ | Azure DevOps (e.g. `https://dev.azure.com/acme`) for the Beta features. |
 | `BITBUCKET_TOKEN`, `BITBUCKET_USERNAME`, `BITBUCKET_WORKSPACE`, `BITBUCKET_URL` ⬆ | Bitbucket Cloud (app password with username, or an access token), or Data Center (its address and an HTTP access token), for the Beta features. |
+| `GITHUB_TOKEN_2` … `_9` (and `GITHUB_API_URL_2`, `GITLAB_TOKEN_2`, `GITLAB_URL_2`, `AZURE_DEVOPS_TOKEN_2`, `BITBUCKET_TOKEN_2` …) ⬆ | More connections to the same host: a second GitHub, another GitLab or Azure DevOps organisation. Each shows as its own logo on the header's **Git** indicator. |
 | `SCM_ALLOWED_HOSTS` | Other git hosts (comma-separated) whose repositories the Beta features may clone. github.com, gitlab.com, bitbucket.org, dev.azure.com and the connected hosts are always allowed; nothing else is cloned. |
 | `UPDATE_IMAGE`, `UPDATE_REGISTRY_TOKEN`, `UPDATE_START_TIMEOUT_SECONDS` (150) | Settings → Update & recovery: where updates come from (a private copy of the image, and a token that can read it), and how long a new version may take to start before it is rolled back. |
 | **Server** | |
@@ -214,7 +215,8 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.34** | 514/s, **0 failed** | 4.2 s | 122 ms | 407 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.35** | 529/s, **0 failed** | 0.6 s | 113 ms | 414 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.34 | 514/s, 0 failed | 4.2 s | 122 ms | 407 pass | 0 vulnerabilities | same |
 | MZ-01.00.33 | 511/s, 0 failed | 3.9 s | 172 ms | 407 pass | 0 vulnerabilities | same |
 | MZ-01.00.32 | 511/s, 0 failed | 2.5 s | 145 ms | 402 pass | 0 vulnerabilities | same |
 | MZ-01.00.31 | 524/s, 0 failed | 2.5 s | 106 ms | 388 pass | 0 vulnerabilities | same |

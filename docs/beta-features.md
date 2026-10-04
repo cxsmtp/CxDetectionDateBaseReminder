@@ -183,6 +183,17 @@ Run **Compare methods** on your own usernames to see each host's real hit rate.
 - `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_ORG_URL`;
 - `BITBUCKET_TOKEN`, `BITBUCKET_USERNAME`, `BITBUCKET_WORKSPACE`, `BITBUCKET_URL`.
 
+**More than one connection to a host** (a GitHub Enterprise server next to
+github.com, a second GitLab, another Azure DevOps organisation): the same
+variables numbered `_2` to `_9`, e.g. `GITHUB_TOKEN_2` with `GITHUB_API_URL_2`
+and `GITHUB_ORG_2`. Each repository is blamed and cloned with the connection for
+its host, and when two connections share a host (two github.com tokens), the one
+whose organisation, group or workspace owns the repository. Each token still
+only goes to the address given with it: a stored address never takes a token
+from the environment, and a new address uploaded without its token drops the
+stored one. Usernames are matched with the first connection of each host. The
+header's **Git** indicator shows one logo per connection, green or red.
+
 **Beta → GitHub connection**: token (stored like the SMTP password, never sent
 back; `repo` read access, `read:org` for verified-domain emails), API URL
 (GitHub Enterprise: `https://github.example.com/api/v3`), organisation,

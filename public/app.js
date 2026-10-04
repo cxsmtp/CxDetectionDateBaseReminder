@@ -955,8 +955,19 @@ async function showConnected(me) {
 const CONNECTIONS = {
   cxone: { title: 'Checkmarx One', settings: '#/settings/connection', fields: (c) => [['Tenant', c.tenant], ['API', c.apiUrl], ['IAM', c.iamUrl], ['Key', c.source === 'environment' ? 'CX_API_KEY (environment)' : c.source === 'stored' ? 'stored in Settings' : c.source]] },
   smtp: { title: 'Email server', settings: '#/settings/smtp', fields: (c) => [['Server', c.host ? `${c.host}:${c.port ?? ''}` : ''], ['Security', c.host ? c.tls : ''], ['From', c.from], ['Tested', c.verifiedAt ? new Date(c.verifiedAt).toLocaleString() : '']] },
-  github: { title: 'GitHub', settings: '#/beta/hosts', fields: (c) => [['Signed in as', c.login], ['API', c.apiUrl], ['Organisation', c.org], ['Token', c.source === 'environment' ? 'GITHUB_TOKEN (environment)' : c.source === 'settings' ? 'stored on the Beta page' : ''], ['Checked', c.checkedAt ? new Date(c.checkedAt).toLocaleTimeString() : '']] },
+  git: { title: 'Git hosts', settings: '#/beta/hosts' },
 };
+
+/** Each git host's mark, drawn small in the header: one per connection. */
+const GIT_LOGOS = {
+  github: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>',
+  gitlab: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.6 2.4 14.6a.75.75 0 0 1-.27-.84L3.3 10.2l2.2-6.7a.4.4 0 0 1 .76 0L8.5 10.3h7l2.24-6.8a.4.4 0 0 1 .76 0l2.2 6.7 1.17 3.56a.75.75 0 0 1-.27.84z"/></svg>',
+  azure: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 5.6v12.6l-5.2 4.3-8.1-3v3l-4.5-5.9 13.2 1V6.3zM17.6 6.1 10.2 1.5v3L3.4 6.5 2 8.3v4.2l2.9 1.2V8.3z"/></svg>',
+  bitbucket: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M2.65 3a.65.65 0 0 0-.65.75l2.73 16.6c.07.42.43.73.86.73h13.1c.32 0 .59-.23.64-.55L22 3.75A.65.65 0 0 0 21.35 3zM14.1 15h-4.2l-1.13-5.9h6.4z"/></svg>',
+};
+const GIT_GENERIC = '<svg class="git-generic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="5" r="2" /><circle cx="6" cy="19" r="2" /><circle cx="18" cy="9" r="2" /><path d="M6 7v10M18 11c0 4-6 3-12 6" /></svg>';
+const gitName = (i) => `${i.label}${i.n > 1 ? ` #${i.n}` : ''}`;
+
 let connectionStatus = null;
 let connectionTimer = null;
 let connectionPoll = null;
@@ -981,12 +992,41 @@ function renderConnections() {
     const key = chip.dataset.conn;
     const c = connectionStatus[key];
     if (!c) continue;
+    // Git: green when every connection answers, amber when some do, red when none (or none set up).
+    const partial = key === 'git' && !c.ok && c.connected > 0;
     chip.classList.toggle('ok', c.ok);
-    chip.classList.toggle('bad', !c.ok);
-    chip.title = `${CONNECTIONS[key].title}: ${c.ok ? 'connected' : 'not connected'}${c.reason ? ` — ${c.reason}` : ''}`;
+    chip.classList.toggle('warn', partial);
+    chip.classList.toggle('bad', !c.ok && !partial);
+    chip.title = key === 'git'
+      ? `Git: ${c.total ? `${c.connected} of ${c.total} connected — ${c.instances.map((i) => `${gitName(i)} ${i.ok ? '✓' : '✗'}`).join(', ')}` : 'not connected'}`
+      : `${CONNECTIONS[key].title}: ${c.ok ? 'connected' : 'not connected'}${c.reason ? ` — ${c.reason}` : ''}`;
   }
+  renderGitLogos(connectionStatus.git);
+  renderMoreHosts(connectionStatus.git);
   const pop = $('conn-pop');
   if (!pop.hidden && pop.dataset.conn) showConnection(pop.dataset.conn);
+}
+
+/** One small logo per git connection, ringed green (answers) or red. */
+function renderGitLogos(git) {
+  const box = $('git-logos');
+  if (!git) return;
+  box.innerHTML = git.instances.length
+    ? git.instances.map((i) => `<span class="git-logo ${i.ok ? 'ok' : 'bad'}" data-provider="${i.provider}">${GIT_LOGOS[i.provider]}${i.n > 1 ? `<b>${i.n}</b>` : ''}</span>`).join('')
+    : GIT_GENERIC;
+  $('conn-group').querySelector('[data-conn="git"]').setAttribute('aria-label', `Git connections: ${git.connected} of ${git.total} connected`);
+}
+
+/** Beta → Source-code hosts: the numbered connections, read from the .env file. */
+function renderMoreHosts(git) {
+  const box = $('more-hosts-list');
+  const extra = (git?.instances ?? []).filter((i) => i.n > 1);
+  if (!box || !extra.length) return;
+  box.innerHTML = `<ul class="git-rows">${extra
+    .map((i) => `<li class="git-row ${i.ok ? 'ok' : 'bad'}"><span class="git-logo ${i.ok ? 'ok' : 'bad'}" data-provider="${i.provider}">${GIT_LOGOS[i.provider]}<b>${i.n}</b></span>
+      <span class="git-row-text"><strong>${escapeHtml(gitName(i))}</strong><small>${escapeHtml([i.host, i.owner, i.ok && i.who ? `as ${i.who}` : ''].filter(Boolean).join(' · '))}</small>${i.ok ? '' : `<small class="git-why">${escapeHtml(i.reason)}</small>`}</span>
+      <span class="conn-state ${i.ok ? 'ok' : 'bad'}">${i.ok ? 'Connected' : 'Not working'}</span></li>`)
+    .join('')}</ul>`;
 }
 
 function showConnection(key) {
@@ -995,11 +1035,32 @@ function showConnection(key) {
   const pop = $('conn-pop');
   if (!c || !meta) return;
   pop.dataset.conn = key;
+  if (key === 'git') return showGitConnections(c, pop);
+  pop.classList.remove('wide');
   const rows = meta.fields(c).filter(([, value]) => value);
   pop.innerHTML = `<h3>${escapeHtml(meta.title)} <span class="conn-state ${c.ok ? 'ok' : 'bad'}">${c.ok ? 'Connected' : 'Not connected'}</span></h3>
     ${rows.length ? `<dl>${rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd>`).join('')}</dl>` : ''}
     ${c.reason ? `<p class="conn-reason">${escapeHtml(c.reason)}</p>` : ''}
-    <p class="conn-reason"><a href="${meta.settings}">${key === 'github' ? 'Beta page' : 'Settings'} →</a></p>`;
+    <p class="conn-reason"><a href="${meta.settings}">Settings →</a></p>`;
+  pop.hidden = false;
+}
+
+/** Every git host at a glance: each connection with its logo, who the token is, and where it points. */
+function showGitConnections(git, pop) {
+  pop.classList.add('wide');
+  const source = (i) => (i.source === 'settings' ? 'stored on the Beta page' : `${i.variables} (.env)`);
+  const row = (i) => `<li class="git-row ${i.ok ? 'ok' : 'bad'}">
+      <span class="git-logo ${i.ok ? 'ok' : 'bad'}" data-provider="${i.provider}">${GIT_LOGOS[i.provider]}</span>
+      <span class="git-row-text"><strong>${escapeHtml(gitName(i))}</strong>
+        <small>${escapeHtml([i.host, i.owner, i.ok && i.who ? `as ${i.who}` : ''].filter(Boolean).join(' · '))}</small>
+        <small class="muted">${escapeHtml(source(i))}${i.checkedAt ? ` · checked ${escapeHtml(new Date(i.checkedAt).toLocaleTimeString())}` : ''}</small>
+        ${i.ok ? '' : `<small class="git-why">${escapeHtml(i.reason)}</small>`}</span>
+      <span class="conn-state ${i.ok ? 'ok' : 'bad'}">${i.ok ? 'Connected' : 'Not working'}</span>
+    </li>`;
+  pop.innerHTML = `<h3>Git hosts <span class="conn-state ${git.ok ? 'ok' : git.connected ? 'warn' : 'bad'}">${git.total ? `${git.connected} of ${git.total} connected` : 'None connected'}</span></h3>
+    ${git.instances.length ? `<ul class="git-rows">${git.instances.map(row).join('')}</ul>` : ''}
+    ${git.missing.length ? `<p class="conn-reason">Not connected: ${git.missing.map((m) => `<span class="git-missing"><span class="git-logo off" data-provider="${m.provider}">${GIT_LOGOS[m.provider]}</span>${escapeHtml(m.label)} <code>${escapeHtml(m.variables)}</code></span>`).join(' ')}</p>` : ''}
+    <p class="conn-reason">A second connection to the same host: the same variables numbered, e.g. <code>GITHUB_TOKEN_2</code> with <code>GITHUB_API_URL_2</code>, up to <code>_9</code>. <a href="${CONNECTIONS.git.settings}">Git hosts →</a></p>`;
   pop.hidden = false;
 }
 
@@ -6984,6 +7045,8 @@ function renderUsageProjects(data) {
 function renderAllocations(all) {
   const filter = $('alloc-search').value.trim().toLowerCase();
   const list = filter ? all.filter((p) => (p.projectName || p.projectId).toLowerCase().includes(filter)) : all;
+  renderTakeBack(all);
+  const mayTakeBack = can('credits.allocate');
   if (!list.length) {
     $('credit-allocations').innerHTML = `<p class="hint">${all.length ? 'No project matches.' : 'No project has an allocation yet — allocate credits on the Dashboard.'}</p>`;
     return;
@@ -6997,15 +7060,76 @@ function renderAllocations(all) {
   const totals = (kind) => ['initial', 'allocated', 'used', 'remaining'].map((key) => `<th class="num">${fmt(sum(kind, key))}</th>`).join('');
   $('credit-allocations').innerHTML = `<div class="table-wrap"><table class="probe alloc-table">
     <thead>
-      <tr><th rowspan="2">Project</th><th colspan="4" class="group">AI Triage</th><th colspan="4" class="group">AI Remediation</th></tr>
+      <tr><th rowspan="2">Project</th><th colspan="4" class="group">AI Triage</th><th colspan="4" class="group">AI Remediation</th>${mayTakeBack ? '<th rowspan="2"><span class="sr-only">Take back</span></th>' : ''}</tr>
       <tr><th class="num">At start</th><th class="num">Allocated</th><th class="num">Used</th><th class="num">Left</th><th class="num">At start</th><th class="num">Allocated</th><th class="num">Used</th><th class="num">Left</th></tr>
     </thead>
     <tbody>${list
-      .map((p) => `<tr><td>${escapeHtml(p.projectName || p.projectId)}<div class="hint">${escapeHtml(p.severities.map((s) => s.toLowerCase()).join(', ') || 'no severities')}${p.initialAt ? ` · since ${escapeHtml(new Date(p.initialAt).toLocaleDateString())}` : ''}</div></td>${cells(p.triage)}${cells(p.remediation)}</tr>`)
+      .map((p) => `<tr><td>${escapeHtml(p.projectName || p.projectId)}<div class="hint">${escapeHtml(p.severities.map((s) => s.toLowerCase()).join(', ') || 'no severities')}${p.initialAt ? ` · since ${escapeHtml(new Date(p.initialAt).toLocaleDateString())}` : ''}</div></td>${cells(p.triage)}${cells(p.remediation)}${mayTakeBack ? `<td>${unusedOf(p) ? `<button type="button" class="sm danger-soft" data-reclaim="${escapeHtml(p.projectId)}" title="Take back the ${unusedOf(p)} credit(s) this project has not used">Take back ${fmt(unusedOf(p))}</button>` : ''}</td>` : ''}</tr>`)
       .join('')}</tbody>
-    <tfoot><tr><th>Total</th>${totals('triage')}${totals('remediation')}</tr></tfoot>
+    <tfoot><tr><th>Total</th>${totals('triage')}${totals('remediation')}${mayTakeBack ? '<th></th>' : ''}</tr></tfoot>
   </table></div>`;
 }
+
+/** Credits a project was given and has not used (nor has in flight): what taking back returns. */
+const unusedOf = (p) => (p.triage.remaining ?? 0) + (p.remediation.remaining ?? 0);
+
+/** The clean-slate bar above the allocations: how much every project holds unused. */
+function renderTakeBack(all) {
+  const bar = $('cc-takeback');
+  if (!can('credits.allocate')) return (bar.hidden = true);
+  const unused = all.reduce((n, p) => n + unusedOf(p), 0);
+  const holding = all.filter((p) => unusedOf(p) > 0).length;
+  bar.hidden = all.length === 0;
+  $('cc-reclaim-all').disabled = unused === 0;
+  $('cc-reclaim-all').textContent = unused ? `Take back all ${fmt(unused)} unused credits` : 'Nothing to take back';
+  $('cc-takeback-note').textContent = unused
+    ? `${holding} project${holding === 1 ? ' holds' : 's hold'} ${fmt(unused)} credit${unused === 1 ? '' : 's'} they have not used. Taking them back returns them to the credit pool; used credits stay counted.`
+    : 'Every project has used what it was given. Nothing is waiting to be taken back.';
+}
+
+/** Take back unused credits: from every project (clean slate), or one. */
+async function takeBackCredits(projectIds = null) {
+  const all = usage.data?.allocations ?? [];
+  const chosen = projectIds ? all.filter((p) => projectIds.includes(p.projectId)) : all;
+  const triage = chosen.reduce((n, p) => n + (p.triage.remaining ?? 0), 0);
+  const remediation = chosen.reduce((n, p) => n + (p.remediation.remaining ?? 0), 0);
+  if (!triage && !remediation) return setStatus('cc-takeback-status', 'Nothing to take back.', 'ok');
+  const who = projectIds ? `"${chosen[0]?.projectName || chosen[0]?.projectId}"` : `every project (${chosen.filter((p) => unusedOf(p)).length})`;
+  if (!confirm(`Take back ${triage + remediation} unused credit(s) — ${triage} triage, ${remediation} remediation — from ${who} to the credit pool?\n\nDevelopers cannot triage or remediate from their reports until credits are given again. Used credits stay counted.`)) return;
+  try {
+    const result = await api('/api/credits/reclaim', { method: 'POST', body: JSON.stringify(projectIds ? { projectIds } : { all: true }) });
+    setStatus('cc-takeback-status', `Took back ${fmt(result.reclaimed)} credit(s) from ${result.projects} project(s) to the credit pool.`, 'ok');
+    logger.add(`Took back ${result.reclaimed} unused credit(s) from ${result.projects} project(s)`, 'success');
+    if (usage.data) {
+      usage.data.allocations = result.allocations;
+      usage.data.pool = result.pool;
+      $('credits-pool').innerHTML = poolHtml(result.pool);
+    }
+    renderAllocations(result.allocations);
+    // The Dashboard's balances, when findings are loaded.
+    let changed = false;
+    for (const p of state.projects ?? []) {
+      const a = result.allocations.find((x) => x.projectId === p.projectId);
+      if (!a || !p.credits) continue;
+      p.credits = { ...p.credits, triage: { ...p.credits.triage, allocated: a.triage.allocated, remaining: a.triage.remaining }, remediation: { ...p.credits.remediation, allocated: a.remediation.allocated, remaining: a.remediation.remaining } };
+      changed = true;
+    }
+    if (changed) {
+      renderProjects();
+      renderAllocation();
+    }
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    setStatus('cc-takeback-status', error.message, 'error');
+  }
+}
+
+// Taking back spends nothing, so it needs no findings loaded and no check with Checkmarx One first.
+$('cc-reclaim-all').addEventListener('click', () => takeBackCredits());
+$('credit-allocations').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-reclaim]');
+  if (button) takeBackCredits([button.dataset.reclaim]);
+});
 
 function exportUsageCsv() {
   const data = usage.data;

@@ -99,9 +99,9 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>
                 <span class="conn-label">Email</span>
               </button>
-              <button type="button" class="conn-chip" data-conn="github" aria-haspopup="dialog" aria-label="GitHub connection">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="5" r="2" /><circle cx="6" cy="19" r="2" /><circle cx="18" cy="9" r="2" /><path d="M6 7v10M18 11c0 4-6 3-12 6" /></svg>
-                <span class="conn-label">GitHub</span>
+              <button type="button" class="conn-chip conn-git" data-conn="git" aria-haspopup="dialog" aria-label="Git connections">
+                <span class="git-logos" id="git-logos"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="5" r="2" /><circle cx="6" cy="19" r="2" /><circle cx="18" cy="9" r="2" /><path d="M6 7v10M18 11c0 4-6 3-12 6" /></svg></span>
+                <span class="conn-label">Git</span>
               </button>
               <div class="conn-pop" id="conn-pop" role="dialog" aria-label="Connection details" hidden></div>
             </div>
@@ -466,15 +466,18 @@
               <label class="check notify-row" data-perm="triage.run"><input type="checkbox" id="notify-on-behalf" checked />
                 Tell each developer by email when I check or fix their findings</label>
               <details class="disclosure alloc-more" data-perm="credits.allocate" data-advanced>
-                <summary>Extra credits, and taking credits back</summary>
+                <summary>Extra credits</summary>
                 <div class="alloc-row alloc-extras">
                   <label class="inline">Triage <input id="alloc-extra-triage" type="number" min="0" step="1" value="0" class="small-num" /></label>
                   <label class="inline">Remediation <input id="alloc-extra-remediation" type="number" min="0" step="3" value="0" class="small-num" /> <span class="hint inline-hint">(3 per remediation)</span></label>
                   <button id="alloc-add" type="button" data-needs-data>Add extra credits</button>
                   <button id="alloc-clear" type="button" class="link" data-needs-data>Take back extra credits</button>
-                  <button id="alloc-reclaim" type="button" data-needs-data title="Allocated but not used (people did not act on it): back to the credit pool">Take back unused credits</button>
                 </div>
               </details>
+              <div class="alloc-row takeback-row" data-perm="credits.allocate">
+                <button id="alloc-reclaim" type="button" class="sm danger-soft" data-needs-data title="Allocated but not used (people did not act on it): back to the credit pool">Take back unused credits</button>
+                <a href="#/credits/allocations" class="hint">Every project: Credit Control →</a>
+              </div>
               <p class="status" id="alloc-status"></p>
             </section>
                   <p class="tab-empty" id="credits-empty">Load findings first. Then check and fix them with AI here.</p>
@@ -1141,6 +1144,14 @@
                 <h2>Allocated vs used</h2>
                 <input type="search" id="alloc-search" placeholder="Filter projects" aria-label="Filter projects" class="inline-input" />
               </div>
+              <div class="cc-takeback" id="cc-takeback" data-perm="credits.allocate" hidden>
+                <div>
+                  <strong>Take credits back</strong>
+                  <span class="hint" id="cc-takeback-note">Credits given to projects and not used go back to the credit pool. Used credits stay counted.</span>
+                </div>
+                <button type="button" id="cc-reclaim-all" class="danger-soft">Take back all unused credits</button>
+                <p class="status" id="cc-takeback-status"></p>
+              </div>
               <div id="credit-allocations"><p class="hint">Loading…</p></div>
               <p class="hint wide">
                 Per project, all time: what was first allocated, what is allocated now, what has been used through this utility
@@ -1362,6 +1373,15 @@
                   <span class="status" data-host-status="bitbucket"></span>
                 </div>
               </details>
+            </section>
+            <section class="panel" id="beta-more-hosts">
+              <h2>More connections to the same host</h2>
+              <p class="hint wide">A second GitHub (an Enterprise server next to github.com, or another organisation), GitLab, Azure DevOps or Bitbucket: the same variables with a number, in the .env file or uploaded under Settings. Each repository is blamed with the connection for its host (and its organisation, group or workspace, when two share a host).</p>
+              <pre class="code-block">GITHUB_TOKEN_2=…  GITHUB_API_URL_2=https://github.acme.com/api/v3  GITHUB_ORG_2=acme
+GITLAB_TOKEN_2=…  GITLAB_URL_2=https://gitlab.acme.com
+AZURE_DEVOPS_TOKEN_2=…  AZURE_DEVOPS_ORG_URL_2=https://dev.azure.com/other-org
+BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
+              <div id="more-hosts-list"><p class="hint">None yet: up to 9 of each host (_2 to _9).</p></div>
             </section>
             </div>
           </div>

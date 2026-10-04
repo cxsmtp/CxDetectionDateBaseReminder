@@ -91,15 +91,17 @@ The password is also kept in `/data/first-admin-password.txt` until it is change
 
 **Locked out?** Five wrong passwords lock an account for 15 minutes. An Admin or Analyst can set a new temporary password for you on the People & roles page (**Set password**).
 
-**Connections, top right.** Three indicators show whether CxMissionZero can reach what it needs:
+**Connections, top right.** One look shows whether CxMissionZero can reach what it needs:
 
 | Indicator | Green when | Red until |
 | --- | --- | --- |
 | **Checkmarx One** | The server's integration is connected. | An Admin connects it (Settings, `CX_API_KEY`, or the .env upload). |
 | **Email** | The mail server passed its test with the current settings. | It is set and tested (Settings → Email server → Test connection, or the .env upload, which tests it). |
-| **GitHub** | The GitHub token answers (checked every 5 minutes, and whenever it changes). | `GITHUB_TOKEN` is set (in the .env file, or on the Beta page). |
+| **Git** | Every git connection answers: one small logo per connection (GitHub, GitLab, Azure DevOps, Bitbucket), each ringed green when its token works and red when it does not. Two GitHub connections show two GitHub logos (the second marked 2). Amber when some work and some do not. Checked every 5 minutes, and whenever a token changes. | A token is set: `GITHUB_TOKEN`, `GITLAB_TOKEN`, `AZURE_DEVOPS_TOKEN` or `BITBUCKET_TOKEN` (in the .env file, or on the Beta page). |
 
-Click one for its details: tenant and URLs, mail server and sender, the GitHub account, and what to do when it is red. They update as soon as settings are saved or a .env file is uploaded.
+Click one for its details: tenant and URLs, mail server and sender, and what to do when it is red. **Git** lists every connection with its host, the account its token belongs to and where the token comes from, then the hosts not connected yet and the variable that connects each. They update as soon as settings are saved or a .env file is uploaded.
+
+**More than one connection to the same host.** A second GitHub (an Enterprise server next to github.com, or another organisation's token), GitLab, Azure DevOps organisation or Bitbucket: the same variables numbered `_2` to `_9`, in the .env file or uploaded under Settings, for example `GITHUB_TOKEN_2` with `GITHUB_API_URL_2` and `GITHUB_ORG_2`. Each repository is read with the connection for its host; when two share a host (two github.com tokens), with the one whose organisation, group or workspace owns the repository. Usernames are matched with the first connection of each host.
 
 **Progress flares, bottom right.** Whatever you start shows a flare while it runs:
 - **Amber, with something fast racing along:** in progress. Each action gets one of 21 icons (a rocket, a cheetah, a bullet train, a falcon…), a different one each time. The top line is a light-hearted note about what it is doing, new every few seconds; the line under it is live: the action, how many projects, and the seconds so far (e.g. *Checking with Checkmarx One (two independent reads) · 12 projects · 4s*). The button and the part of the page it came from are paused, so nothing is started twice.
@@ -499,7 +501,7 @@ Where findings are read from. The default is `/api/risks/`.
 
 ## Dashboard
 
-**Get started.** Until the basics are in place, a short checklist at the top shows what is left: connect Checkmarx One, fetch vulnerabilities, set up email, give reports a reachable address, cap AI credits, invite your team. Each item has its button; **Hide** puts the list away.
+**Get started.** Until the basics are in place, one row of steps at the top shows what is left: connect Checkmarx One, fetch vulnerabilities, set up email, give reports a reachable address, cap AI credits, invite your team. Done steps are ticked green and joined by a green line; each step still to do has its button. **Hide** puts the row away.
 
 **The way to Mission Zero.** Under the totals, one line shows where the fetched findings stand:
 - **Mission Zero:** a ring with how many projects have nothing open.
@@ -575,9 +577,9 @@ Each finding falls into an age bucket by when it was **first detected**:
 | **Give credits** (AI fix) | The same, for confirmed findings. |
 | **Fix with AI now** | Lists each project's confirmed findings and the cost, then runs AI Remediation after you confirm. Each finding is re-checked first; anything no longer confirmed is left alone. |
 | Email each scan initiator… | On by default. When you triage or remediate for someone, each scan initiator gets one email about their own projects: what was started on their behalf, and what to do next (refresh their report, review and approve the pull requests). |
+| **Take back unused credits** | Returns everything the selected projects were given and did not use (people did not act on it) to the pool. It never goes below what was used or is in flight. **Every project: Credit Control →** takes back from all projects at once. |
 | Extra credits → **Add extra credits** | Gives every selected project a fixed extra amount. |
-| **Take back extra credits** | Returns the extras. |
-| **Take back unused credits** | Returns everything allocated but not used (people did not act on it) to the pool. It never goes below what was used or is in flight. |
+| Extra credits → **Take back extra credits** | Returns the extras. |
 
 **Every action checks first.** Each button in this panel (allocate, triage, remediate, extra credits, taking credits back) first runs **Refresh & verify**. Developers may be triaging or remediating in Checkmarx One itself, or from their emailed report, while you look at this page.
 - **Nothing changed:** the action goes ahead with the confirmed numbers.
@@ -765,6 +767,7 @@ How the credit pool is being used, in three tabs. Everyone with **credits.view**
 | **Overview** → Credits used over time | Columns per day / week / month: triage at the base, remediation on top. Hover for numbers. **Show as a table** gives exact figures. |
 | **By project** | Each project's triage and remediation credits in the period, with its share. |
 | **Allocated vs used** | Per project, all time. |
+| **Take credits back** (Allocated vs used, for **credits.allocate**) | **Take back all unused credits** is the clean slate: every project's unused credits go back to the pool at once, with no findings loaded. **Take back** on a row does it for one project. Used credits stay counted, and each take-back is in the audit log. Developers cannot triage or remediate from their reports until credits are given again. |
 | **Export CSV** | Everything above, for the chosen period. |
 | **Pool & AI settings** | Opens Settings → AI & credit pool, to change the pool size and what reports may do (Admin). |
 
@@ -848,7 +851,7 @@ Early features: check what they find before relying on them. A feature an Admin 
 - **GitHub connection:**
   - A token, the API URL (GitHub Enterprise too), the organisation and repositories.
   - The token can also come from the .env file (`GITHUB_TOKEN`, `GITHUB_API_URL`, `GITHUB_ORG`), uploaded on Settings or used at start-up.
-  - The **GitHub** indicator, top right, turns green when it works.
+  - Its logo on the **Git** indicator, top right, is ringed green when it works.
 - **GitLab, Azure DevOps and Bitbucket:** one box each, with a token, the address (self-hosted too), and the projects or repositories to read. **Test** says whether the token is accepted.
   - **Tokens:** stored like the SMTP password, never shown again, and only ever sent to their own host. An Azure DevOps token goes only to its own organisation.
   - **Changing an address to another host** clears that host's saved token (GitHub's too): enter the token again with the new address. A token from the .env file is only used for the host the file names (or the public service when it names none).
@@ -856,6 +859,7 @@ Early features: check what they find before relying on them. A feature an Admin 
     - `GITLAB_TOKEN`, `GITLAB_URL`, `GITLAB_GROUP`;
     - `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_ORG_URL`;
     - `BITBUCKET_TOKEN`, `BITBUCKET_USERNAME`, `BITBUCKET_WORKSPACE`, `BITBUCKET_URL`.
+  - **A second (third …) connection to a host:** the same variables numbered `_2` to `_9` (`GITLAB_TOKEN_2`, `GITLAB_URL_2` …). **More connections to the same host**, at the bottom of the tab, lists them with their state.
 
 ---
 
@@ -881,7 +885,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.34** | 514/s, **0 failed** | 4.2 s | 122 ms | 407 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.35** | 529/s, **0 failed** | 0.6 s | 113 ms | 414 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.34 | 514/s, 0 failed | 4.2 s | 122 ms | 407 pass | 0 vulnerabilities | same |
 | MZ-01.00.33 | 511/s, 0 failed | 3.9 s | 172 ms | 407 pass | 0 vulnerabilities | same |
 | MZ-01.00.32 | 511/s, 0 failed | 2.5 s | 145 ms | 402 pass | 0 vulnerabilities | same |
 | MZ-01.00.31 | 524/s, 0 failed | 2.5 s | 106 ms | 388 pass | 0 vulnerabilities | same |
@@ -912,8 +917,10 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 1. Fetch again (or use **Refresh & verify**).
 2. **Give credits** (AI fix), then **Fix with AI now**: check the list and the cost, then confirm.
 
-**Take back credits nobody used**
-- Credits panel → *Extra credits, and taking credits back* → **Take back unused credits**.
+**Take back credits nobody used (clean slate)**
+- Every project: Credit Control → **Allocated vs used** → **Take back all unused credits**.
+- One project: **Take back** on its row there.
+- The projects loaded on the Dashboard: Credits panel → **Take back unused credits**.
 
 **Move to a new server**
 1. Audit page → **Download backup**.
