@@ -344,8 +344,10 @@ Install a new version, go back to any version, turn on auto-update, restart the 
 
 - **Running** and **Latest published**, with **Update now** when there is a newer one. **Check for updates** reads the registry again and says how many versions are published and whether one is newer.
 - **Versions come from their tags**, so a newer one is always listed. Installing downloads the image files, which ghcr.io serves from `pkg-containers.githubusercontent.com`. If a proxy or firewall blocks that host, the page says so (*the versions are listed, but this server could not read the image files…*): allow it over HTTPS, or update with `podman pull`. A check never reports "up to date" when it could not read the registry; it says why.
-- **Auto-update:** off until you tick it. **at** limits it to one hour of the day. A version that failed to start once is never installed by itself again.
-- **Every version:** **Install and switch** (any published version) or **Switch to** (an installed one, or the image's own).
+- **Auto-update:** off until you tick it. **at** limits it to one hour of the day. A version that failed to start once is never installed by itself again. While this server cannot download image files, it waits and says why instead of trying every 15 minutes.
+- **Every version:** the newest 3 first; **Load 10 more** shows older ones, 10 at a time, until all are there (the count says how many of how many). The version running here is always shown. **Install and switch** (any published version) or **Switch to** (an installed one, or the image's own).
+  - Every published version is listed, however many there are. Up to MZ-01.00.35 only the newest 40 registry tags were read, and every release adds two, so the oldest versions dropped off the list.
+  - The page checks again by itself when it opens and the last check is more than 10 minutes old.
   - A backup is taken before every switch.
   - A version that does not start is rolled back by itself.
 - **Recent events:** switches, starts, automatic rollbacks, restarts.

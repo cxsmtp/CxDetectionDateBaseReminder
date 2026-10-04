@@ -5452,12 +5452,22 @@ function renderAbout() {
 const mzVersion = (v) => (v === 'built-in' ? 'the image’s own' : `MZ-${String(v).split('.').map((n) => n.padStart(2, '0')).join('.')}`);
 let updState = null;
 let updPoll = null;
+/** Every version: the newest 3 at first, then 10 more per click. */
+const UPD_PAGE = 10;
+let updShown = 3;
 
 async function loadUpdates() {
   if (!can('system.update')) return;
   try {
     updState = await api('/api/system/update');
     renderUpdates();
+    // What the page shows is never an old answer: a check older than 10 minutes is made again.
+    const age = updState.lastCheck ? Date.now() - Date.parse(updState.lastCheck.at) : Infinity;
+    if (age > 10 * 60_000 && !['running', 'switching'].includes(updState.job?.state)) {
+      $('upd-latest-sub').textContent = 'Checking the registry…';
+      updState = await api('/api/system/update/check', { method: 'POST', body: '{}', quiet: true });
+      renderUpdates();
+    }
   } catch (error) {
     if (!handleAuthLoss(error)) $('upd-status').textContent = error.message;
   }
@@ -5509,9 +5519,12 @@ function renderUpdates() {
   const rows = new Map((s.lastCheck?.versions ?? []).map((v) => [v.version, v]));
   for (const v of s.installed) if (!rows.has(v.version)) rows.set(v.version, { version: v.version, created: v.created, tags: [v.tag], local: true });
   const sorted = [...rows.values()].sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
+  // The newest 3, then 10 more at a time; what runs here is always shown.
+  const runningHere = (v) => s.running.source === 'update' && v.version === s.running.version;
+  const visible = sorted.filter((v, i) => i < updShown || runningHere(v));
   const busy = ['running', 'switching'].includes(s.job?.state);
   const button = (label, attrs, primary = false) => `<button type="button" class="${primary ? 'primary ' : ''}small" ${attrs} ${busy || !s.supervised ? 'disabled' : ''}>${label}</button>`;
-  const body = sorted.map((v) => {
+  const body = visible.map((v) => {
     // The image's own version has its own row below: a published row of the same version points there.
     const inImage = v.version === s.builtIn && !installed.has(v.version);
     const running = s.running.source === 'update' && v.version === s.running.version && installed.has(v.version);
@@ -5524,6 +5537,11 @@ function renderUpdates() {
   const imageRunning = s.running.source === 'image';
   body.push(`<tr><td>${escapeHtml(mzVersion(s.builtIn))} <span class="hint">(the image’s own)</span></td><td></td><td>${imageRunning ? '<span class="rp-chip tone-good">Running</span>' : 'In the image'}</td><td>${imageRunning ? '' : button('Switch to', 'data-upd-switch="built-in"')}</td></tr>`);
   $('upd-versions').querySelector('tbody').innerHTML = body.join('');
+  const hidden = sorted.length - visible.length;
+  const more = $('upd-more');
+  more.hidden = hidden <= 0;
+  more.textContent = `Load ${Math.min(UPD_PAGE, hidden)} more`;
+  $('upd-count').textContent = sorted.length ? `${visible.length} of ${sorted.length} published version${sorted.length === 1 ? '' : 's'}` : '';
 
   const label = { started: 'Started', switch: 'Switch', restart: 'Restart', rollback: 'Rolled back', crash: 'Stopped unexpectedly' };
   $('upd-events').innerHTML = s.events.length
@@ -5568,6 +5586,10 @@ async function updateAction(path, body, message) {
   }
 }
 
+$('upd-more').addEventListener('click', () => {
+  updShown += UPD_PAGE;
+  renderUpdates();
+});
 $('upd-check').addEventListener('click', () => updateAction('/api/system/update/check', {}, 'Checking the registry for published versions…').then(() => ($('upd-status').textContent = updState?.lastCheck?.error ? `Check failed: ${updState.lastCheck.error}` : `Checked: ${updState?.lastCheck?.versions?.length ?? 0} versions published${updState?.updateAvailable ? `, the newest is ${mzVersion(updState.latest.version)}` : ', nothing newer than what runs'}.${updState?.lastCheck?.warning ? ` ${updState.lastCheck.warning}` : ''}`)));
 $('upd-install-latest').addEventListener('click', () => {
   const latest = updState?.latest;

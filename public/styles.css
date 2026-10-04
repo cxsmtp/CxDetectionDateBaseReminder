@@ -2227,3 +2227,5 @@ button.danger-soft:hover:not(:disabled) { background: var(--danger-soft); border
 .brand-icon-fields { flex: 1 1 auto; min-width: 0; display: grid; gap: 6px; }
 .brand-icon-fields .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 label.button-like.sm { cursor: pointer; }
+.upd-more-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.upd-more-row .hint:empty { display: none; }
