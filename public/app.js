@@ -5999,7 +5999,7 @@ async function renderGettingStarted() {
     <ol class="gs-steps">${steps
       .map((step) => `<li class="gs-step ${step.done ? 'done' : ''}" data-stage="${step.stage}" title="${escapeHtml(step.text)}">
         <span class="gs-mark" aria-hidden="true">${step.done ? '✓' : ''}</span>
-        <span class="gs-text"><span class="gs-stage">${STAGE_LABELS[step.stage]}</span><strong>${escapeHtml(step.title)}</strong></span>
+        <span class="gs-text"><span class="gs-stage" data-i18n-ctx="stage">${STAGE_LABELS[step.stage]}</span><strong>${escapeHtml(step.title)}</strong></span>
         ${step.done ? '<span class="sr-only">Done</span>' : step.fetch ? `<button type="button" class="sm primary" data-gs-fetch ${can('findings.fetch') && cx ? '' : 'disabled'}>${escapeHtml(step.action)}</button>` : `<a class="button-like sm" href="${step.href}">${escapeHtml(step.action)}</a>`}
       </li>`)
       .join('')}</ol>`;
@@ -6063,7 +6063,7 @@ function renderPalette() {
   if (!q) palette.index = 0;
   $('palette-list').innerHTML = palette.shown.length
     ? palette.shown
-        .map((e, i) => `<li role="option" id="pal-${i}" aria-selected="${i === palette.index}" data-pal="${i}" class="${i === palette.index ? 'on' : ''}"><span class="pal-label">${escapeHtml(e.label)}</span><span class="pal-group" data-stage="${escapeHtml(e.stage || '')}">${escapeHtml(e.group || '')}</span></li>`)
+        .map((e, i) => `<li role="option" id="pal-${i}" aria-selected="${i === palette.index}" data-pal="${i}" class="${i === palette.index ? 'on' : ''}"><span class="pal-label">${escapeHtml(e.label)}</span><span class="pal-group" data-stage="${escapeHtml(e.stage || '')}" data-i18n-ctx="stage">${escapeHtml(e.group || '')}</span></li>`)
         .join('')
     : '<li class="pal-none">Nothing matches.</li>';
   $('palette-q').setAttribute('aria-activedescendant', palette.shown.length ? `pal-${palette.index}` : '');
