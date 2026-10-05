@@ -18,7 +18,10 @@ No server sign-in after deployment: everything an update needs is on this page.
   4. Switches. The running server finishes its work and saves, exactly as for a container update; the new version starts and picks everyone up. People see "reconnecting…" for a few seconds. The page reloads itself on the new version.
 - **A version that does not start is rolled back by itself.** If it does not come up within 150 s, or stops within 2 minutes of starting, the launcher goes back to the version that ran before. It is recorded under **Recent events** and marked **Failed to start**.
 - **Go back to any version.** **Switch to** an installed one, **Install and switch** to any published one, or **Switch to** the image's own version. Going back to an older version can leave newer data it does not know. The backup taken before every switch is under Audit → Backups.
-- **Auto-update** (off until an Admin turns it on): every 15 minutes the server looks for a newer release and installs it the same way. **at** limits this to one hour of the day (server time), for example 02:00. A version that once failed to start is never installed automatically again.
+- **Auto-update** (off until an Admin turns it on): a minute after the server starts, then every 15 minutes, it looks for a newer release and installs it the same way.
+  - **at** limits installing to one hour of the day in the server's time zone (shown next to it, with the server's time now), for example 02:00. Set `TZ` on the container (for example `-e TZ=Asia/Dubai`) to use your own time zone.
+  - The line under the switch says what the last look found: up to date, a release waiting for its hour (outside that hour it still looks once an hour, so this shows), or what stops it — a custom start command, or image files this server cannot download.
+  - A version that once failed to start is never installed automatically again.
 - **Restart the server**, and **Download troubleshooting report**:
   - versions, recent events, memory, disk, HTTPS mode and connection state;
   - the last backup and relay load;
