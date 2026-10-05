@@ -38,7 +38,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.51 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.51 — 2026-10-05 18:41 UTC · [#74](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/74)
 - **Pages scroll again after leaving an open report.** An open tracked report locks the page behind it, and that lock used to stay on when you left the report for another page, such as the Dashboard. Now each page's panel locks only its own page.
 - **Allocate credits from a tracked report.** The report's **Triage** tab has **Allocate credits for triage and remediation**: it gives the report's projects what the ticked severities need, plus any **Extra credits** for triage or remediation. It replaces the button that sent you to the Dashboard.
 - **Allocate credits from Credit Control.** **Allocated vs used** has an **Allocate and use credits** bar: tick projects and severities, then allocate what they need plus extra credits each, or use them with **Triage with AI Assist now** and **Remediate with AI Assist now**.
