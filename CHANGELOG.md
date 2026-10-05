@@ -35,7 +35,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.48 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.48 — 2026-10-05 15:30 UTC · [#71](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/71)
 - **Several Checkmarx One tenants on one server.** With a tenants activation code, a Super Admin turns on **Settings → Tenants** and adds tenants, up to the number the code allows. Each tenant keeps its own Checkmarx One connection, email server, settings, credits, tracked reports, automation, audit log and people. People who work in several tenants switch between them at the top of the page. Without a code, nothing changes ([several tenants](docs/multi-tenant.md)).
 - **Each tenant stays separate.** People added in a tenant work only there, without the permissions that act on the whole server (HTTPS, backups, updates, activation codes). A Super Admin chooses who works where under **People & roles**. Emailed reports, and every link in them, act only in their own tenant. A Super Admin adding or opening a tenant is recorded in that tenant's audit log.
 - **Hebrew for the people you choose.** With the Hebrew code in force, tick the people who may use it under **Settings → Activation codes → Who may use Hebrew**. Only they are offered Hebrew, or ever sent its translation.
