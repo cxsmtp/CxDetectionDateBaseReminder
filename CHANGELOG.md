@@ -32,7 +32,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.45 — 2026-10-05 HH:MM UTC · [#68](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/68)
+## MZ-01.00.45 — 2026-10-05 07:19 UTC · [#68](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/68)
 - **In nine more languages.**
   - The languages: Japanese, Traditional Chinese (Taiwan), Simplified Chinese, Korean, Spanish, Vietnamese, Thai, Malay and Indonesian.
   - Choose with the globe at the top right; the first time, CxMissionZero uses your browser's language.

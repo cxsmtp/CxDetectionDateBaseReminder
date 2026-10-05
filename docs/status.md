@@ -17,7 +17,7 @@ What each release was measured at, and what was known about its security when it
 
 | Version | Merged (UTC) | Sustained: requests / failed | Requests/s | Report opens p50 / p95 | Triage polls p50 / p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.45** | 2026-10-05 HH:MM | 62,542 / **0** | 497 | 66 / 7,883 ms | 24 / 1,170 ms | 478 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below). Benchmarked on a slower host than 1.0.44's release run (main measured the same day: 145 failed, report opens p95 12.1 s) |
+| **MZ-01.00.45** | 2026-10-05 07:19 | 62,542 / **0** | 497 | 66 / 7,883 ms | 24 / 1,170 ms | 478 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below). Benchmarked on a slower host than 1.0.44's release run (main measured the same day: 145 failed, report opens p95 12.1 s) |
 | MZ-01.00.44 | 2026-10-05 02:59 | 63,174 / **0** | 520 | 88 / 7,129 ms | 11 / 384 ms | 461 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below) |
 | MZ-01.00.43 | 2026-10-05 02:41 | 63,773 / **0** | 511 | 73 / 5,725 ms | 9 / 224 ms | 461 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below) |
 | MZ-01.00.42 | 2026-10-04 18:17 | — | — | — | — | 455 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below). Page-only change, benchmarked on a slower host: see performance.md |
