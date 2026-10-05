@@ -2841,14 +2841,6 @@
    "Dashboard › button › HTTPS"
   ]
  },
- "Check with AI now": {
-  "kind": "text",
-  "seen": [
-   "first start › button › AI check & fix",
-   "sign in › button › AI check & fix",
-   "Dashboard › button › AI check & fix"
-  ]
- },
  "Checked: {0} versions published": {
   "kind": "message",
   "seen": [
@@ -5022,14 +5014,6 @@
    "Dashboard › fetching › span",
    "Dashboard › loaded › span",
    "Dashboard › remind › span"
-  ]
- },
- "Fix with AI now": {
-  "kind": "text",
-  "seen": [
-   "first start › button › AI check & fix",
-   "sign in › button › AI check & fix",
-   "Dashboard › button › AI check & fix"
   ]
  },
  "Fix: {0} with a fix asked for: merge it, then rescan": {
@@ -8362,20 +8346,18 @@
    "Dashboard › small › AI Triage & Remediation from reports"
   ]
  },
- "Remediate now": {
-  "kind": "text",
-  "seen": [
-   "first start › button › Allocated vs used",
-   "sign in › button › Allocated vs used",
-   "Dashboard › button › Allocated vs used"
-  ]
- },
  "Remediate the confirmed findings?": {
   "kind": "text",
   "seen": [
    "first start › h2 › Remediate the confirmed findings?",
    "sign in › h2 › Remediate the confirmed findings?",
    "Dashboard › h2 › Remediate the confirmed findings?"
+  ]
+ },
+ "Remediate with AI Assist now": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Remediate: {0} confirmed, waiting for a fix": {
@@ -11368,20 +11350,18 @@
    "message"
   ]
  },
- "Triage now": {
-  "kind": "text",
-  "seen": [
-   "first start › button › Allocated vs used",
-   "sign in › button › Allocated vs used",
-   "Dashboard › button › Allocated vs used"
-  ]
- },
  "Triage or remediate the ticked projects now; none ticked means every project. Their findings are read fresh from Checkmarx One.": {
   "kind": "text",
   "seen": [
    "first start › span › Allocated vs used",
    "sign in › span › Allocated vs used",
    "Dashboard › span › Allocated vs used"
+  ]
+ },
+ "Triage with AI Assist now": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Triage: {0} to verify: AI Triage or a person decides whether each is real": {

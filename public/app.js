@@ -3762,8 +3762,8 @@ function triageSection(r) {
     </div>
     <p class="rp-need" data-need="${id}">${triageNeedText(r)}</p>
     <div class="actions compact">
-      ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary${triageCovered(r) ? ' is-golden' : ''}" data-needs-data>Triage now</button>` : ''}
-      ${can('triage.run') ? `<button type="button" data-report-remediate="${id}" class="primary${remediationCovered(r) ? ' is-golden' : ''}" data-needs-data>Remediate now</button>` : ''}
+      ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary${triageCovered(r) ? ' is-golden' : ''}" data-needs-data>Triage with AI Assist now</button>` : ''}
+      ${can('triage.run') ? `<button type="button" data-report-remediate="${id}" class="primary${remediationCovered(r) ? ' is-golden' : ''}" data-needs-data>Remediate with AI Assist now</button>` : ''}
       ${can('credits.allocate') ? `<button type="button" data-report-credits="${id}">Give credits on the Dashboard</button>` : ''}
     </div>
     <p class="hint">1 credit to check a finding with AI, 3 to fix it. Nothing is given until you click.</p>`;

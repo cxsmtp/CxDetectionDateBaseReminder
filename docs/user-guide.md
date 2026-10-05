@@ -659,9 +659,9 @@ Each finding falls into an age bucket by when it was **first detected**:
 | --- | --- |
 | **Refresh & verify with Checkmarx One** (green border) | Re-reads the findings twice, independently. The numbers are marked verified only when both reads agree. Every button below runs it first by itself. |
 | **Give credits** (AI check) | Verifies first, then shows what will be given and asks you to confirm. Credits come out of the credit pool. |
-| **Check with AI now** | Runs AI Triage on the selected projects' findings, within their credits. |
+| **Triage with AI Assist now** | Runs AI Triage on the selected projects' findings, within their credits. |
 | **Give credits** (AI fix) | The same, for confirmed findings. |
-| **Fix with AI now** | Lists each project's confirmed findings and the cost, then runs AI Remediation after you confirm. Each finding is re-checked first; anything no longer confirmed is left alone. |
+| **Remediate with AI Assist now** | Lists each project's confirmed findings and the cost, then runs AI Remediation after you confirm. Each finding is re-checked first; anything no longer confirmed is left alone. |
 | Email each scan initiator… | On by default. When you triage or remediate for someone, each scan initiator gets one email about their own projects: what was started on their behalf, and what to do next (refresh their report, review and approve the pull requests). |
 | **Take back N unused credits** (top of the panel, next to **Check the numbers again**) | Returns everything the selected projects were given and did not use (people did not act on it) to the pool; the button says how many. It never goes below what was used or is in flight. **Every project: Credit Control →** takes back from all projects at once. |
 | Extra credits → **Add extra credits** | Gives every selected project a fixed extra amount. |
@@ -796,7 +796,7 @@ Save a scope from the Dashboard (**Save as tracked report**) and follow it over 
 | --- | --- |
 | **Overview** | The % actioned with the outcome bar and counts; open, new, matching now, credits used; the **trend** of open findings (hover for each reading); and a by-project table, most open first. |
 | **Remind** | Who gets it follows **who gets reminders everywhere** (Dashboard → Remind → Send to); **Only for this report…** gives this report its own choice (developers, fixed list, both, or only some addresses). The content (one summary per person, or one email per project), and whether to attach the interactive report. **Preview**, then **Send reminder now**. The sends so far are listed. Below, **Automatic follow-up**: reminders every N days at a set hour (the server's time zone), only while something is still open, with the same options; it shows the next and last send. **Save schedule**. |
-| **Triage** | **Triage now** runs AI Triage on the chosen severities' findings still awaiting triage; **Remediate now** runs AI Remediation on those AI Triage confirmed (3 credits each). The line above them says what each needs and what the projects have left. Each button turns gold once the credits cover it. **Give credits on the Dashboard** opens the Dashboard's AI credits panel with this report's projects in scope and loads their findings. |
+| **Triage** | **Triage with AI Assist now** runs AI Triage on the chosen severities' findings still awaiting triage; **Remediate with AI Assist now** runs AI Remediation on those AI Triage confirmed (3 credits each). The line above them says what each needs and what the projects have left. Each button turns gold once the credits cover it. **Give credits on the Dashboard** opens the Dashboard's AI credits panel with this report's projects in scope and loads their findings. |
 | **Verify** | Prove the fixes with a Checkmarx One rescan, then start the next round (below). |
 | **History** | Every reading: awaiting, confirmed, not exploitable, no longer detected, new, matching now. |
 
@@ -846,7 +846,7 @@ How the credit pool is being used, in three tabs. Everyone with **credits.view**
 | **By project** | Each project's triage and remediation credits in the period, with its share. |
 | **Allocated vs used** | Per project, all time. |
 | **Give credits** (Allocated vs used, for **credits.allocate**) | Type a project name (every Checkmarx One project is listed, not only those that already hold credits), enter AI Triage and AI Remediation credits, then **Give credits** and confirm. No findings need loading. The credits are extra credits, out of the credit pool, and the bar shows how many are free to give. **Give** on a row fills in that project. Each gift is in the audit log. To give exactly what a project's findings need, use the Dashboard, which checks the count with Checkmarx One first. |
-| **Use the credits** (Allocated vs used, for **triage.run**) | **Triage now** and **Remediate now** for the projects ticked in the table (none ticked: every project holding credits), at the ticked severities. Their findings are read fresh from Checkmarx One, so nothing needs loading. A button turns gold when the projects hold credits to use: at least 1 for triage, 3 for remediation. Each run is in the audit log as started from Credit Control. |
+| **Use the credits** (Allocated vs used, for **triage.run**) | **Triage with AI Assist now** and **Remediate with AI Assist now** for the projects ticked in the table (none ticked: every project holding credits), at the ticked severities. Their findings are read fresh from Checkmarx One, so nothing needs loading. A button turns gold when the projects hold credits to use: at least 1 for triage, 3 for remediation. Each run is in the audit log as started from Credit Control. |
 | **Take credits back** (Allocated vs used, for **credits.allocate**) | **Take back all unused credits** is the clean slate: every project's unused credits go back to the pool at once, with no findings loaded. **Take back** on a row does it for one project. Used credits stay counted, and each take-back is in the audit log. Developers cannot triage or remediate from their reports until credits are given again. |
 | **Export CSV** | Everything above, for the chosen period. |
 | **Pool & AI settings** | Opens Settings → AI & credit pool, to change the pool size and what reports may do (Admin). |
@@ -1007,20 +1007,20 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 1. Scope → Only these projects or people: add the team's projects.
 2. Fetch, then in the credits panel tick Critical and High.
 3. **Give credits** (AI check) (it verifies with Checkmarx One first), then confirm.
-4. **Check with AI now.** Each developer is emailed that triage ran on their behalf.
+4. **Triage with AI Assist now.** Each developer is emailed that triage ran on their behalf.
 
 **Remediate what triage confirmed**
 1. Fetch again (or use **Refresh & verify**).
-2. **Give credits** (AI fix), then **Fix with AI now**: check the list and the cost, then confirm.
+2. **Give credits** (AI fix), then **Remediate with AI Assist now**: check the list and the cost, then confirm.
 
 **Give a project credits without loading findings**
 1. Credit Control → **Allocated vs used** → **Give credits**.
 2. Type the project's name, enter the AI Triage and AI Remediation credits, then **Give credits** and confirm.
 
 **Use credits already given, from wherever you are**
-- Dashboard: tick the projects and severities, then **Check with AI now** or **Fix with AI now**.
-- Reports: open the report → **Triage** tab → **Triage now** or **Remediate now**.
-- Credit Control → **Allocated vs used**: tick the projects → **Use the credits** → **Triage now** or **Remediate now**.
+- Dashboard: tick the projects and severities, then **Triage with AI Assist now** or **Remediate with AI Assist now**.
+- Reports: open the report → **Triage** tab → **Triage with AI Assist now** or **Remediate with AI Assist now**.
+- Credit Control → **Allocated vs used**: tick the projects → **Use the credits** → **Triage with AI Assist now** or **Remediate with AI Assist now**.
 
 The buttons turn gold once the credits cover the work. Credits given, taken back or used in one place show on the Dashboard straight away; Reports and Credit Control show them whenever you open them.
 
