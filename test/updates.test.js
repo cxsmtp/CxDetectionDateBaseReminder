@@ -233,3 +233,24 @@ test('auto-update waits, and says why, while the image files cannot be downloade
   assert.equal(await service.autoUpdate(), null, 'nothing started that would fail');
   assert.match(service.settings().lastAutoResult, /MZ-5\.0\.1 is published, but this server cannot download it: .*403/);
 });
+
+test('auto-update says why it waits: a custom start command, or its hour still to come', async () => {
+  const data = temp('auto-why');
+  const store = new VersionStore({ dataDir: data, builtInDir: '/app', builtInVersion: '2.0.0' });
+  const custom = new UpdateService({ store, runningVersion: '2.0.0', image: '127.0.0.1:9/acme/mz', supervised: false });
+  custom.saveSettings({ auto: true, windowHour: null });
+  assert.equal(await custom.autoUpdate(), null);
+  assert.match(custom.settings().lastAutoResult, /custom command/);
+
+  const service = new UpdateService({ store, runningVersion: '2.0.0', image: '127.0.0.1:9/acme/mz', supervised: true });
+  service.lastCheck = { versions: [{ version: '2.1.0', tags: ['2.1.0'], digest: 'sha256:x' }] };
+  service.check = async () => service.status();
+  const now = new Date();
+  service.saveSettings({ auto: true, windowHour: (now.getHours() + 2) % 24, lastAutoAt: null });
+  assert.equal(await service.autoUpdate(now), null, 'not in its hour: nothing installed');
+  assert.match(service.settings().lastAutoResult, /MZ-2\.1\.0 is ready: it installs at \d\d:00/);
+  const before = service.settings().lastAutoAt;
+  assert.equal(await service.autoUpdate(new Date(now.getTime() + 15 * 60_000)), null);
+  assert.equal(service.settings().lastAutoAt, before, 'outside its hour it looks at most once an hour');
+  assert.ok(service.status().serverTime.zone !== undefined);
+});

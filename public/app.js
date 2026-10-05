@@ -1,4 +1,5 @@
 import { nextSpeedster } from './speedsters.js';
+import { LANGUAGES, currentLanguage, deviceTimeZone, onLanguageChange, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -231,6 +232,19 @@ const QUIPS = [
   [/./, ['Revving up…', 'On it…', 'Moving fast, breaking nothing…', 'Putting things in order…', 'Almost there…']],
 ];
 const SLOW_QUIPS = ['Still on it — a big one…', 'Taking the scenic route…', 'Worth the wait…'];
+// In every other language the busy line is plain and factual: word play does not translate.
+const PLAIN_QUIPS = [
+  [QUIPS[0][0], ['Verifying with Checkmarx One…', 'Comparing the two reads…', 'Matching each finding to its result…']],
+  [QUIPS[1][0], ['Running AI Triage…', 'Analysing the findings…', 'Counting one credit per result…']],
+  [QUIPS[2][0], ['Running AI Remediation…', 'Preparing the fix…', 'Counting one credit per result…']],
+  [QUIPS[3][0], ['Updating the credit allocation…', 'Checking the credit pool…', 'Recording it in the audit log…']],
+  [QUIPS[4][0], ['Preparing the emails…', 'Sending the emails…', 'Each person receives only their own projects…']],
+  [QUIPS[5][0], ['Testing the connection…', 'Applying the settings…']],
+  [QUIPS[6][0], ['Verifying the audit log…', 'Checking every entry…']],
+  [QUIPS[7][0], ['Reading the repository history…', 'Matching people to email addresses…']],
+  [QUIPS[8][0], ['Working…', 'Processing…']],
+];
+const PLAIN_SLOW = ['Still working: this takes longer than usual…'];
 
 /** "12 projects" when the request names projects. */
 function scopeOf(body) {
@@ -245,7 +259,9 @@ function scopeOf(body) {
 /** Keep the busy flare `key` alive: a new quip every 3 s, the clock every second. Returns stop(). */
 function startBusyFlare(key, path, activity, body) {
   const route = path.split('?')[0];
-  const quips = QUIPS.find(([pattern]) => pattern.test(route))[1];
+  const plain = currentLanguage() !== 'en';
+  const quips = (plain ? PLAIN_QUIPS : QUIPS).find(([pattern]) => pattern.test(route))[1];
+  const slow = plain ? PLAIN_SLOW : SLOW_QUIPS;
   const label = activity.busy.replace(/…$/, '');
   const scope = scopeOf(body);
   const started = Date.now();
@@ -253,7 +269,7 @@ function startBusyFlare(key, path, activity, body) {
   let shown = '';
   const draw = () => {
     const seconds = Math.floor((Date.now() - started) / 1000);
-    const quip = seconds >= 15 && Math.floor(seconds / 3) % 2 ? SLOW_QUIPS[Math.floor(seconds / 6) % SLOW_QUIPS.length] : quips[(turn + Math.floor(seconds / 3)) % quips.length];
+    const quip = seconds >= 15 && Math.floor(seconds / 3) % 2 ? slow[Math.floor(seconds / 6) % slow.length] : quips[(turn + Math.floor(seconds / 3)) % quips.length];
     flare(key, 'busy', quip, [label, scope, `${seconds}s`].filter(Boolean).join(' · '), activity.busy);
     if (quip !== shown && shown && !reducedMotion.matches) {
       flares.get(key)?.querySelector('.flare-main').animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'ease-out' });
@@ -428,7 +444,7 @@ const PAGE_PERMS = {
   reports: 'reports.view',
   credits: 'credits.view',
   audit: 'audit.view backup.view',
-  settings: 'settings.view',
+  settings: '', // everyone has Your profile; the rest needs settings.view
   access: 'iam.view',
   beta: 'beta.use feature.codeAuthors feature.identityMatching',
   logs: '',
@@ -464,6 +480,9 @@ document.getElementById('me-advanced')?.addEventListener('change', (event) => {
 
 function applyPermissions() {
   for (const el of document.querySelectorAll('[data-perm]')) el.classList.toggle('perm-hidden', !canAny(el.dataset.perm));
+  // Settings: Your profile is everyone's; every other section needs settings.view.
+  const settingsToo = can('settings.view');
+  for (const el of document.querySelectorAll('#set-nav .set-group:not(.set-you), #set-nav [data-set]:not([data-set="profile"]), #autosave-note')) el.classList.toggle('no-settings', !settingsToo);
   renderFeatureStages();
   // Optional columns can depend on permissions (SLAs).
   try {
@@ -589,6 +608,8 @@ document.addEventListener('click', async (event) => {
 });
 
 const reloadSettingsPage = () => {
+  renderProfile();
+  if (!can('settings.view')) return;
   loadFeatures();
   renderSettings();
   loadAutomation();
@@ -774,7 +795,7 @@ const SETTINGS_KEY = 'mz-settings-section';
 
 function showSettingsSection(id) {
   const links = [...document.querySelectorAll('#set-nav [data-set]')];
-  const usable = links.filter((a) => !a.classList.contains('perm-hidden') && !(a.hasAttribute('data-advanced') && document.body.classList.contains('simple')));
+  const usable = links.filter((a) => !a.classList.contains('perm-hidden') && !a.classList.contains('no-settings') && !(a.hasAttribute('data-advanced') && document.body.classList.contains('simple')));
   let saved = '';
   try {
     saved = localStorage.getItem(SETTINGS_KEY) || '';
@@ -935,7 +956,8 @@ async function showConnected(me) {
   const user = me.user;
   $('me-name').textContent = user.name || user.email;
   $('me-role').textContent = me.role.name;
-  $('me-avatar').textContent = (user.name || user.email).trim()[0]?.toUpperCase() ?? '?';
+  showAvatar($('me-avatar'), user);
+  applyProfile(me);
   $('me-detail').textContent = `${user.email} · ${me.role.name} · signed in with ${me.via === 'cxone' ? 'a Checkmarx One key' : 'a password'}`;
   $('user-menu').hidden = false;
   $('connect-panel').hidden = true;
@@ -2540,14 +2562,14 @@ function visibleProjects() {
 function renderInitiator(project) {
   // Rows streamed in during a fetch get their initiator with the final result.
   if (state.fetching && !project.initiatorEmail) {
-    return project.initiator ? `${escapeHtml(project.initiator)}<span class="zero">resolving…</span>` : '<span class="zero">resolving…</span>';
+    return project.initiator ? `${escapeHtml(project.initiator)}<span class="zero" translate="yes">resolving…</span>` : '<span class="zero" translate="yes">resolving…</span>';
   }
   if (!project.initiator && !project.initiatorEmail) {
-    return '<span class="zero">no initiator recorded</span>';
+    return '<span class="zero" translate="yes">no initiator recorded</span>';
   }
   const name = escapeHtml(project.initiator || project.initiatorEmail);
   if (!project.initiatorEmail) {
-    return `${name}<span class="err">no email resolved</span>`;
+    return `${name}<span class="err" translate="yes">no email resolved</span>`;
   }
   const same = project.initiatorEmail === project.initiator;
   return same
@@ -2897,7 +2919,7 @@ function renderProjects() {
           <td class="checkbox"><input type="checkbox" data-select="${escapeHtml(p.projectId)}" ${
             state.selected.has(p.projectId) ? 'checked' : ''
           } /></td>
-          <td class="name">${
+          <td class="name" translate="no">${
             p.url
               ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.projectName)}</a>`
               : escapeHtml(p.projectName)
@@ -2910,7 +2932,7 @@ function renderProjects() {
           <td class="c-oldest" data-label="Oldest">${formatDate(p.oldestFirstDetectedAt)}${
             p.maxAgeDays === null ? '' : ` <span class="zero">(${p.maxAgeDays}d)</span>`
           }</td>
-          <td class="initiator c-wide" data-label="Latest scan by">${renderInitiator(p)}</td>
+          <td class="initiator c-wide" data-label="Latest scan by" translate="no">${renderInitiator(p)}</td>
           ${creditCell(p, 'triage').replace('<td class="', '<td data-label="Triage credits" class="c-half ')}
           ${creditCell(p, 'remediation').replace('<td class="', '<td data-label="Remediation credits" class="c-half ')}
         </tr>${state.creditEditor === p.projectId ? creditEditorRow(p) : ''}`;
@@ -3967,7 +3989,8 @@ function restoreReportsState({ values, open, statuses }) {
     else el.value = values.get(key);
   }
   for (const d of document.querySelectorAll('#rp-sheet details')) {
-    if (open.has(d.dataset.keepOpen || d.querySelector('summary')?.textContent)) d.open = true;
+    const key = d.dataset.keepOpen || d.querySelector('summary')?.textContent;
+    if (open.has(key) || open.has(t(key))) d.open = true;
   }
   for (const [id, [text, className]] of statuses) {
     const el = document.querySelector(`[data-follow-status="${CSS.escape(id)}"]`);
@@ -5666,6 +5689,10 @@ function renderUpdates() {
   const hour = $('upd-hour');
   if (hour.options.length === 1) for (let h = 0; h < 24; h += 1) hour.append(new Option(`${String(h).padStart(2, '0')}:00`, String(h)));
   $('upd-auto').checked = s.settings.auto;
+  if (s.serverTime) {
+    const clock = `${String(s.serverTime.hour).padStart(2, '0')}:${String(s.serverTime.minute).padStart(2, '0')}`;
+    $('upd-zone').textContent = `(server time${s.serverTime.zone ? `, ${s.serverTime.zone}` : ''}: now ${clock})`;
+  }
   hour.value = s.settings.windowHour === null ? '' : String(s.settings.windowHour);
   $('upd-auto-sub').textContent = s.settings.auto
     ? `Checked every 15 minutes${s.settings.windowHour === null ? '' : `, installed only at ${String(s.settings.windowHour).padStart(2, '0')}:00`}. A version that failed to start is never installed again by itself.${s.settings.lastAutoResult ? ` Last: ${s.settings.lastAutoResult}.` : ''}`
@@ -5935,7 +5962,7 @@ function paletteEntries() {
   }
   if (pageOk('settings')) {
     for (const a of document.querySelectorAll('#set-nav [data-set]')) {
-      if (a.classList.contains('perm-hidden')) continue;
+      if (a.classList.contains('perm-hidden') || a.classList.contains('no-settings')) continue;
       entries.push({ label: `Settings → ${a.textContent.trim()}`, group: 'Govern', href: a.getAttribute('href') });
     }
   }
@@ -6444,7 +6471,7 @@ function auditDetail(e) {
     ['Entry', `#${e.seq} · ${e.id}`],
     ['Time', `${formatTime(e.at)} (${e.at})`],
     ['Who', `${who} — ${role}`],
-    e.actor?.ip && ['From', `${e.actor.ip}${e.actor.userAgent ? ` · ${e.actor.userAgent}` : ''}`],
+    e.actor?.ip && ['From', `${e.actor.ip}${e.actor.userAgent ? ` · ${e.actor.userAgent}` : ''}`, 'origin'],
     e.actor?.reportId && ['Report', e.actor.reportId],
     e.project && ['Project', `${e.project.name || ''} (${e.project.id})`],
     e.credits && ['Credits', `${e.credits.kind}: requested ${e.credits.requested ?? 0}, charged ${e.credits.charged ?? 0}`],
@@ -6455,7 +6482,7 @@ function auditDetail(e) {
     e.findings?.length && ['Findings', `${e.findings.length}: ${e.findings.slice(0, 8).map((f) => f.riskId).join(', ')}${e.findings.length > 8 ? '…' : ''}`],
     ['Chain', `mac ${e.mac?.slice(0, 16)}… ← ${e.prev?.slice(0, 16)}…`],
   ].filter(Boolean);
-  return `<div class="facts">${facts.map(([k, v]) => `<div><b>${escapeHtml(k)}</b>${escapeHtml(v)}</div>`).join('')}</div>
+  return `<div class="facts">${facts.map(([k, v, ctx]) => `<div><b${ctx ? ` data-i18n-ctx="${ctx}"` : ''}>${escapeHtml(k)}</b>${escapeHtml(v)}</div>`).join('')}</div>
     <details><summary class="hint">Full entry (JSON)</summary><pre>${escapeHtml(JSON.stringify(e, null, 2))}</pre></details>`;
 }
 
@@ -8112,4 +8139,179 @@ if (window.ResizeObserver) {
   const measure = () => document.documentElement.style.setProperty('--dash-top-h', `${Math.round(top.getBoundingClientRect().height)}px`);
   new ResizeObserver(measure).observe(top);
   measure();
+}
+
+// ---------------------------------------------------------------------------
+// Language: the page's own words in the reader's language (public/i18n.js).
+// ---------------------------------------------------------------------------
+
+{
+  const select = $('lang-select');
+  const SHORT = { en: 'EN', ja: 'JA', 'zh-TW': '繁中', 'zh-CN': '简中', ko: 'KO', es: 'ES', vi: 'VI', th: 'TH', ms: 'MS', id: 'ID' };
+  select.innerHTML = LANGUAGES.map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
+  const show = (code) => {
+    select.value = code;
+    select.setAttribute('aria-label', t('Language'));
+    $('lang-code').textContent = SHORT[code] ?? code.toUpperCase();
+  };
+  onLanguageChange(show);
+  select.addEventListener('change', async () => {
+    await setLanguage(select.value);
+    if (state.me) saveProfile({ language: select.value });
+  });
+  show(currentLanguage());
+  startI18n();
+}
+
+// ---------------------------------------------------------------------------
+// Your profile (Settings › Your profile, also under your name at the top right): name, picture,
+// language, time zone and programming languages. Stored with your account, so it follows you.
+// ---------------------------------------------------------------------------
+
+/** A person's picture in `el`, else the first letter of their name. */
+function showAvatar(el, user) {
+  if (user?.avatarAt) {
+    el.innerHTML = `<img src="/api/users/${encodeURIComponent(user.id)}/avatar?v=${encodeURIComponent(user.avatarAt)}" alt="" />`;
+  } else {
+    el.textContent = (user?.name || user?.email || '?').trim()[0]?.toUpperCase() ?? '?';
+  }
+}
+
+const profileZone = (profile) => (profile?.timeZoneAuto === false && profile.timeZone ? profile.timeZone : deviceTimeZone());
+
+/** After signing in: the account's language and time zone; a new computer's zone is noted quietly. */
+function applyProfile(me) {
+  const profile = me.user.profile ?? {};
+  setTimeZone(profileZone(profile));
+  if (profile.language && profile.language !== currentLanguage()) setLanguage(profile.language);
+  const quiet = {};
+  if (!profile.language && currentLanguage() !== 'en') quiet.language = currentLanguage();
+  if (profile.timeZoneAuto !== false && deviceTimeZone() && profile.timeZone !== deviceTimeZone()) quiet.timeZone = deviceTimeZone();
+  if (Object.keys(quiet).length) saveProfile({ ...quiet, quiet: true }, { silent: true });
+}
+
+let profileSaving = Promise.resolve();
+/** Save part of the profile (one request at a time, in order). */
+function saveProfile(patch, { silent = false } = {}) {
+  profileSaving = profileSaving.then(async () => {
+    try {
+      const me = await api('/api/me/profile', { method: 'PUT', body: JSON.stringify(patch) });
+      state.me = { ...state.me, user: me.user };
+      $('me-name').textContent = me.user.name || me.user.email;
+      setTimeZone(profileZone(me.user.profile));
+      if (!silent) {
+        setStatus('pf-status', 'Saved.', 'ok');
+        if (state.page === 'settings') renderProfile();
+      }
+    } catch (error) {
+      if (!handleAuthLoss(error) && !silent) showError('pf-status', error);
+    }
+  });
+  return profileSaving;
+}
+
+const PROGRAMMING = ['Apex', 'C', 'C++', 'C#', 'COBOL', 'Dart', 'Go', 'Groovy', 'Java', 'JavaScript', 'Kotlin', 'Objective-C', 'Perl', 'PHP', 'PL/SQL', 'Python', 'Ruby', 'Rust', 'Scala', 'Swift', 'TypeScript', 'VB.NET', 'Infrastructure as code'];
+
+/** "Asia/Tokyo (UTC+09:00)". */
+function profileZoneLabel(zone) {
+  try {
+    const offset = new Intl.DateTimeFormat('en', { timeZone: zone, timeZoneName: 'longOffset' }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value ?? '';
+    return `${zone.replace(/_/g, ' ')} (${offset.replace('GMT', 'UTC') || 'UTC'})`;
+  } catch {
+    return zone;
+  }
+}
+
+function renderProfile() {
+  const me = state.me;
+  if (!me) return;
+  const user = me.user;
+  const profile = user.profile ?? {};
+  showAvatar($('pf-avatar'), user);
+  $('pf-avatar-remove').hidden = !user.avatarAt;
+  $('pf-email').textContent = user.email;
+  $('pf-role').textContent = me.role.name;
+  $('pf-via').textContent = me.via === 'cxone' ? 'A Checkmarx One key' : 'A password';
+  $('pf-last').textContent = user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : '—';
+  if (document.activeElement !== $('pf-name')) $('pf-name').value = user.name ?? '';
+  const language = $('pf-language');
+  if (!language.options.length) language.innerHTML = LANGUAGES.map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
+  language.value = profile.language || currentLanguage();
+  const zones = $('pf-tz');
+  if (!zones.options.length) {
+    let all = [];
+    try {
+      all = Intl.supportedValuesOf('timeZone');
+    } catch {}
+    const device = deviceTimeZone();
+    if (device && !all.includes(device)) all.unshift(device);
+    if (!all.includes('UTC')) all.push('UTC');
+    zones.innerHTML = all.map((zone) => `<option value="${escapeHtml(zone)}">${escapeHtml(profileZoneLabel(zone))}</option>`).join('');
+  }
+  const auto = profile.timeZoneAuto !== false;
+  $('pf-tz-auto').checked = auto;
+  $('pf-tz-device').textContent = profileZoneLabel(deviceTimeZone() || 'UTC');
+  zones.value = profileZone(profile) || 'UTC';
+  zones.disabled = auto;
+  const picked = new Set(profile.programmingLanguages ?? []);
+  $('pf-langs').innerHTML = PROGRAMMING.map((name) => `<label${name === 'Infrastructure as code' ? '' : ' translate="no"'}><input type="checkbox" value="${escapeHtml(name)}"${picked.has(name) ? ' checked' : ''} /> ${escapeHtml(name)}</label>`).join('');
+}
+
+{
+  let nameTimer = null;
+  $('pf-name').addEventListener('input', () => {
+    clearTimeout(nameTimer);
+    nameTimer = setTimeout(() => saveProfile({ name: $('pf-name').value }), 700);
+  });
+  $('pf-language').addEventListener('change', async () => {
+    await setLanguage($('pf-language').value);
+    saveProfile({ language: $('pf-language').value });
+  });
+  $('pf-tz-auto').addEventListener('change', () => {
+    const auto = $('pf-tz-auto').checked;
+    $('pf-tz').disabled = auto;
+    saveProfile(auto ? { timeZoneAuto: true, timeZone: deviceTimeZone() } : { timeZoneAuto: false, timeZone: $('pf-tz').value });
+  });
+  $('pf-tz').addEventListener('change', () => saveProfile({ timeZoneAuto: false, timeZone: $('pf-tz').value }));
+  $('pf-langs').addEventListener('change', () => {
+    saveProfile({ programmingLanguages: [...$('pf-langs').querySelectorAll('input:checked')].map((box) => box.value) });
+  });
+  $('me-profile').addEventListener('click', () => {
+    $('user-menu').open = false;
+  });
+
+  // A picture: cut to a square, made small here (192 px), then sent.
+  $('pf-avatar-file').addEventListener('change', async () => {
+    const file = $('pf-avatar-file').files[0];
+    $('pf-avatar-file').value = '';
+    if (!file) return;
+    try {
+      if (!/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error('Choose a PNG, JPEG or WebP picture.');
+      const bitmap = await createImageBitmap(file);
+      const side = Math.min(bitmap.width, bitmap.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 192;
+      canvas.getContext('2d').drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 192, 192);
+      let image = canvas.toDataURL('image/webp', 0.86);
+      if (!image.startsWith('data:image/webp')) image = canvas.toDataURL('image/jpeg', 0.88);
+      const me = await api('/api/me/avatar', { method: 'PUT', body: JSON.stringify({ image }) });
+      state.me = { ...state.me, user: me.user };
+      showAvatar($('me-avatar'), me.user);
+      renderProfile();
+      setStatus('pf-status', 'Picture saved.', 'ok');
+    } catch (error) {
+      if (!handleAuthLoss(error)) showError('pf-status', error);
+    }
+  });
+  $('pf-avatar-remove').addEventListener('click', async () => {
+    try {
+      const me = await api('/api/me/avatar', { method: 'PUT', body: JSON.stringify({ image: '' }) });
+      state.me = { ...state.me, user: me.user };
+      showAvatar($('me-avatar'), me.user);
+      renderProfile();
+      setStatus('pf-status', 'Picture removed.', 'ok');
+    } catch (error) {
+      if (!handleAuthLoss(error)) showError('pf-status', error);
+    }
+  });
 }

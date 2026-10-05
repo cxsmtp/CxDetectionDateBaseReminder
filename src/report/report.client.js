@@ -1662,25 +1662,6 @@
     return null;
   }
 
-  /** A prompt for the AI assistant in the reader's IDE (Claude Code, Copilot, Cursor, Kiro): it finds the file itself. */
-  function aiPrompt(f) {
-    const at = f.loc?.path ? `${f.loc.path}${f.loc.line ? `:${f.loc.line}` : ''}` : f.projectName;
-    const lines = [`Fix the Checkmarx One finding "${f.title}" (${f.severity.toLowerCase()} severity) at ${at} in this repository.`];
-    if (f.advice?.what) lines.push(`Why it is a vulnerability: ${f.advice.what}`);
-    const changes = f.remediation?.changes ?? [];
-    if (changes.length) {
-      lines.push(
-        'Checkmarx One AI Remediation proposed the change below. Apply it to the current code. If the code moved or changed since the scan, make the same change where it now lives, keep my other edits, and tell me which parts you placed by hand. Do not commit.',
-        '',
-        ...changes.map((c) => `# ${c.path}\n${c.diff}`),
-      );
-    } else {
-      if (f.advice?.fix) lines.push(`How it is usually fixed: ${f.advice.fix}`);
-      lines.push('Open the file at that line, explain the vulnerable path in two sentences, then make the smallest safe fix as an edit I can review. Do not commit.');
-    }
-    return lines.join('\n');
-  }
-
   async function copyText(text) {
     try {
       await navigator.clipboard.writeText(text);
@@ -1735,7 +1716,7 @@
     if (f.loc?.path) fillOpenOptions(f, list);
     const sub = document.createElement('p');
     sub.className = 'ide-sub';
-    sub.textContent = 'Fix this finding with';
+    sub.textContent = 'Apply its AI fix with';
     list.append(sub);
     for (const fixer of FIXERS) {
       const b = textLink(fixer.name, (event) => fixFinding(f, fixer.id, event.currentTarget));
@@ -1818,23 +1799,17 @@
 
   // ---- Your tools: chosen once at the top, one click on every finding ----
 
-  /** AI assistants: a command line agent gets a one-line command, an IDE's assistant the file plus a prompt. */
+  /**
+   * Fixes come from Checkmarx One AI Remediation only: once a finding is remediated, its fix is
+   * applied here in one click, in the reader's checkout (or with git apply).
+   */
   const FIXERS = [
-    { id: 'claude', name: 'Claude Code', cli: 'claude' },
-    { id: 'codex', name: 'OpenAI Codex', cli: 'codex' },
-    { id: 'gemini', name: 'Gemini CLI', cli: 'gemini -i' },
-    { id: 'copilot', name: 'GitHub Copilot', ide: 'vscode' },
-    { id: 'cursor', name: 'Cursor', ide: 'cursor' },
-    { id: 'kiro', name: 'Kiro', ide: 'kiro' },
-    { id: 'windsurf', name: 'Windsurf', ide: 'windsurf' },
-    { id: 'antigravity', name: 'Antigravity', ide: 'antigravity' },
-    { id: 'workspace', name: 'Apply in my workspace', needsFix: true },
-    { id: 'git', name: 'git apply', needsFix: true },
-    { id: 'prompt', name: 'Another AI assistant (copy prompt)' },
+    { id: 'workspace', name: 'Apply in my workspace' },
+    { id: 'git', name: 'git apply' },
   ];
   const OPENERS = [...IDES.map((ide) => ({ id: ide.scheme, name: ide.name })), { id: 'jetbrains', name: 'JetBrains IDE' }, { id: 'web', name: 'The browser (github.dev, GitLab…)' }];
   const defaultIde = () => (OPENERS.some((o) => o.id === workspacePrefs().ide) ? workspacePrefs().ide : 'vscode');
-  const defaultFix = () => (FIXERS.some((x) => x.id === workspacePrefs().fix) ? workspacePrefs().fix : 'claude');
+  const defaultFix = () => (FIXERS.some((x) => x.id === workspacePrefs().fix) ? workspacePrefs().fix : 'workspace');
   const nameOf = (list, id) => list.find((x) => x.id === id)?.name ?? id;
   const jetbrainsProject = (f) => (workspacePrefs().folders?.[folderKey(f)] || '').split(/[\\/]/).pop() || repoName(f);
   const jetbrainsTool = () => (JETBRAINS[workspacePrefs().jetbrains] ? workspacePrefs().jetbrains : 'idea');
@@ -1851,18 +1826,6 @@
     const ide = IDES.find((i) => i.scheme === ideId) ?? IDES[0];
     const folder = folderFor(f) || (askCodeRoot(f) && folderFor(f));
     if (folder) openInIde(fileLink(ide.scheme, folder, f.loc));
-  }
-
-  const shellSafe = MZPatch.shellSafe;
-
-  /** The short task a command line agent starts with. */
-  function cliPrompt(f, withPatch) {
-    const at = f.loc?.path ? `${f.loc.path}${f.loc.line ? ` line ${f.loc.line}` : ''}` : `project ${f.projectName}`;
-    const parts = [`Fix the Checkmarx One finding ${f.title} (${f.severity.toLowerCase()} severity) at ${at}.`];
-    if (withPatch) parts.push('Checkmarx One AI Remediation wrote the fix in mz-fix.patch: apply it to the current code; where the code moved since the scan, make the same change where it now lives; then delete mz-fix.patch.');
-    else if (f.advice?.fix) parts.push(`Usual fix: ${f.advice.fix}`);
-    parts.push('Explain the change in two sentences and keep my other edits. Do not commit.');
-    return shellSafe(parts.join(' '));
   }
 
   function showToolOutput(f, lines, command = '') {
@@ -1883,40 +1846,14 @@
 
   async function fixFinding(f, fixId = defaultFix(), button = null) {
     const fixer = FIXERS.find((x) => x.id === fixId) ?? FIXERS[0];
-    const hasFix = Boolean(f.remediation?.changes?.length);
-    if (fixer.needsFix && !hasFix) {
-      return showToolOutput(f, [`${fixer.name} needs the fix from AI Remediation: Remediate this finding first (once it is confirmed), or choose an AI assistant.`]);
+    if (!f.remediation?.changes?.length) {
+      return showToolOutput(f, ['No fix yet: remediate this finding with Checkmarx One AI first (Remediate, on this row, once it is confirmed). Its fix can then be applied here in one click.']);
     }
-    if (fixer.id === 'workspace') return applyInWorkspace(f).catch((error) => log(`Could not apply the fix: ${error.message}`, 'error'));
     if (fixer.id === 'git') return requireConnection(() => copyGitCommand(f, button ?? document.createElement('button')));
-    if (fixer.cli) {
-      let prefix = '';
-      if (hasFix && backend) {
-        try {
-          const { url } = await backend.patchLink(f);
-          if (/^https?:\/\/[^\s"]+$/i.test(url)) prefix = `curl -fsSL "${url}" -o mz-fix.patch && `;
-        } catch {}
-      }
-      const command = `${prefix}${fixer.cli} "${cliPrompt(f, Boolean(prefix))}"`;
-      const copied = await copyText(command);
-      showToolOutput(
-        f,
-        [`${copied ? 'Copied. ' : ''}Run it in the repository's folder (cmd, PowerShell or a shell): ${fixer.name} starts with this finding${prefix ? ' and its fix' : ''}${f.loc?.path ? ', and finds the file itself' : ''}.`],
-        command,
-      );
-      if (!copied) getSelection()?.selectAllChildren(row(f)?.querySelector('.tool-out code'));
-      return;
-    }
-    const copied = await copyText(aiPrompt(f));
-    if (fixer.ide && f.loc?.path) openFinding(f, fixer.ide);
-    showToolOutput(f, [
-      copied
-        ? `Prompt copied: paste it into ${fixer.ide ? `${fixer.name}'s chat${fixer.ide === 'vscode' ? ' (Copilot Chat)' : ''}` : 'your AI assistant'}${fixer.ide && f.loc?.path ? ', which opens at the file' : ''}.`
-        : 'Could not copy the prompt: your browser blocked it.',
-    ]);
+    return applyInWorkspace(f).catch((error) => log(`Could not apply the fix: ${error.message}`, 'error'));
   }
 
-  /** One click per finding: open it in your IDE, fix it with your assistant; ▾ for anything else. */
+  /** One click per finding: open it in your IDE, apply its AI fix; ▾ for anything else. */
   const rowButtons = [];
   function rowTools(f) {
     const box = document.createElement('div');
@@ -1938,7 +1875,7 @@
   function labelRowButtons() {
     for (const { open, fix } of rowButtons) {
       if (open) open.textContent = `Open in ${nameOf(OPENERS, defaultIde()).replace(/ \(.*$/, '').replace(/^The browser$/, 'the browser')}`;
-      fix.textContent = `Fix with ${nameOf(FIXERS, defaultFix()).replace(/ \(.*$/, '')}`;
+      fix.textContent = defaultFix() === 'git' ? 'Apply AI fix (git apply)' : 'Apply AI fix';
     }
     const folder = codeRoot();
     $('tool-folder').textContent = folder ? `Code folder: ${folder}` : '';

@@ -55,6 +55,39 @@ The coloured label next to each page title says which stage you are in.
 
 ---
 
+**Your language.** The globe at the top right switches the page to any of these languages:
+- 日本語 (Japanese);
+- 繁體中文 (Traditional Chinese, Taiwan);
+- 简体中文 (Simplified Chinese);
+- 한국어 (Korean);
+- Español (Spanish);
+- Tiếng Việt (Vietnamese);
+- ไทย (Thai);
+- Bahasa Melayu (Malay);
+- Bahasa Indonesia (Indonesian);
+- English.
+
+The first time, CxMissionZero uses your browser's language when it is one of these. Your choice is saved with your account, so it follows you to any browser you sign in from.
+
+What is translated, and what is not:
+- **Translated:** menus, options, buttons, headings, hints and status messages.
+- **Not translated:**
+  - names of projects, people and findings, which are shown as they are in Checkmarx One;
+  - logs and code;
+  - the terms of use, whose English text is the binding version.
+- While something runs, the status line says plainly what is happening in every language other than English.
+- The emailed report and reminder emails stay in English.
+
+**Your profile.** Open your name at the top right, then **Your profile** (also Settings → Your profile). Every person has one, whatever their role:
+- **Picture:** PNG, JPEG or WebP. It is cut to a square and made small in your browser before it is saved.
+- **Email, role and last sign-in:** shown for reference. An administrator manages these under People & roles.
+- **Name:** how you appear in this app.
+- **Language:** the same choice as the globe.
+- **Time zone:** picked up from your computer by default. Untick **Use this computer's time zone** to choose another. Dates and times on every page are shown in it.
+- **Programming languages:** the languages you work in.
+
+Changes save as you make them and are recorded in the audit log. A time zone or first language picked up from your computer is saved without an audit entry.
+
 **Simple by default.** Fine-tuning most people never need is hidden: the reminder format and attachment, extra credits, custom link and mail templates, the risks endpoint, mail-server certificate checks, HTTPS hardening and similar. To see it, open your name (top right) and turn on **Show advanced options**. The choice is kept in your browser.
 
 ## Who can do what
@@ -338,7 +371,7 @@ All the options, and a checklist for hosting CxMissionZero safely: [HTTPS and ho
 
 ## Settings, option by option
 
-Settings shows one section at a time: pick it from the list on the left (a strip across the top on a tablet or phone). The groups are **Start**, **Connections**, **Reminders**, **AI & credits**, **Reports & brand**, **Security** and **About**. Sections your role cannot change are shown read-only. Everything saves as you type.
+Settings shows one section at a time: pick it from the list on the left (a strip across the top on a tablet or phone). The groups are **You** (your profile, for everyone), **Start**, **Connections**, **Reminders**, **AI & credits**, **Reports & brand**, **Security** and **About**. Sections your role cannot change are shown read-only. Everything saves as you type.
 
 ### Update & recovery (Admin)
 
@@ -665,21 +698,13 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
 4. **Triage** runs Checkmarx One AI Triage on a finding. The verdict appears in the row within a few minutes.
    - **Triage all critical / Triage all high** cover every critical or high finding in the report, across its projects, and skip ones already triaged.
    - A finding judged **not exploitable** disappears from the report, which counts how many it has hidden.
-   - **Your tools, chosen once.** Above the list, pick where code opens (**VS Code**, **Cursor**, **Kiro**, **Windsurf**, **Antigravity**, a **JetBrains IDE**, or **the browser**) and what fixes it:
-     - **Claude Code**, **OpenAI Codex**, **Gemini CLI**;
-     - **GitHub Copilot**, **Cursor**, **Kiro**, **Windsurf**, **Antigravity**;
-     - **Apply in my workspace**, **git apply**, or **another AI assistant**.
-     
-     It is remembered in this browser, for every report. Every finding then has two buttons, **Open in …** and **Fix with …**: one click each. **▾** on a finding picks another way, for that finding only.
+   - **Your tools, chosen once.** Above the list, pick where code opens (**VS Code**, **Cursor**, **Kiro**, **Windsurf**, **Antigravity**, a **JetBrains IDE**, or **the browser**) and how a fix is applied (**Apply in my workspace** or **git apply**). It is remembered in this browser, for every report. Every finding then has two buttons, **Open in …** and **Apply AI fix**: one click each. **▾** on a finding picks another way, for that finding only.
    - **Open in …** opens the file at the finding's line.
      - **One question, once per computer:** where you keep your code (for example `C:\src`). Every repository then opens from there by its name (`C:\src\payments-api`). In **▾**, **Somewhere else?** sets a different folder for one repository.
      - **JetBrains** needs no folder: it opens the file in the project of that name you have open or opened before.
      - **The browser** opens github.dev or the GitLab Web IDE at the line (Bitbucket and Azure Repos show the file).
      - **Not on this computer yet?** In **▾**, **Clone and open** hands the repository to the IDE, which asks where to clone it.
-   - **Fix with …**
-     - **A command line assistant** (Claude Code, OpenAI Codex, Gemini CLI): copies one line to run in the repository's folder, for example `claude "Fix the Checkmarx One finding … at src/db.js line 42 …"`. Once AI Remediation has written the fix, the line also downloads it (`curl … -o mz-fix.patch && claude "… apply mz-fix.patch …"`), and the assistant applies it where the code now lives. Text from the finding is reduced to plain letters and punctuation, so nothing in it can run in your shell.
-     - **An IDE's assistant** (GitHub Copilot, Cursor, Kiro, Windsurf, Antigravity): opens the file in that IDE and copies the prompt. Paste it into the IDE's chat.
-     - **Apply in my workspace** and **git apply** need the fix from AI Remediation (see below).
+   - **Apply AI fix** applies the fix Checkmarx One AI Remediation wrote for the finding (see below). Fixes come only from AI Remediation: until a finding is remediated, the button says to remediate it first.
 5. **Remediate** works once a finding is **Confirmed**. It runs AI Remediation and then offers the fix:
    - a summary;
    - the pull request (for repository-connected projects);
@@ -919,7 +944,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.44** | 520/s, **0 failed** | 7.1 s | 384 ms | 461 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.45** | 497/s, **0 failed** | 7.9 s | 1.2 s | 478 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.44 | 520/s, 0 failed | 7.1 s | 384 ms | 461 pass | 0 vulnerabilities | same |
 | MZ-01.00.43 | 511/s, 0 failed | 5.7 s | 224 ms | 461 pass | 0 vulnerabilities | same |
 | MZ-01.00.42 | — (page-only change) | — | — | 455 pass | 0 vulnerabilities | same |
 | MZ-01.00.41 | 519/s, 0 failed | 0.9 s | 171 ms | 455 pass | 0 vulnerabilities | same |

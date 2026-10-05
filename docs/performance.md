@@ -117,8 +117,17 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.42 (main) | 1 | 9.5 s / 0 | 63,853 / 0 | 518 | 61 / 5,174 ms | 9 / 271 ms | none |
 | **MZ-01.00.44** | 1 | 11.0 s / 0 | 63,174 / **0** | **520** | 88 / 7,129 ms | 11 / 384 ms | none |
 | MZ-01.00.43 (main) | 1 | 9.3 s / 0 | 63,481 / 0 | 502 | 64 / 6,447 ms | 13 / 355 ms | none |
+| **MZ-01.00.45** | 1 | 10.2 s / 0 | 62,542 / **0** | **497** | 66 / 7,883 ms | 24 / 1,170 ms | none |
+| MZ-01.00.44 (main) | 1 | 10.7 s / 0 | 61,320 / 145 | 484 | 127 / 12,087 ms | 24 / 1,132 ms | none |
 
 **MZ-01.00.37: what the differences were.** Two pairs with main, alternating. Report opens at p95 were 4.1 and 5.1 s on the branch against 7.2 and 5.1 s on main; triage results 201 and 179 ms against 257 and 123 ms; requests a second 519 and 508 against 504 and 518, with 0 failed requests and no finding sent twice in any run. The first branch run's opening burst took 16.3 s, a little above the 7.4–15.8 s seen before, and its fetches were slower (17 s against 12 s at the median); in the second pair the burst took 9.9 s (main 8.0 s) and fetches matched main (13.5 s against 13.0 s at the median). What the fetch now does in addition is one pass over each project's findings to count what is past its SLA, which is a few microseconds a finding next to reading them from Checkmarx One. Escalation runs only on the automation's schedule, which the benchmark does not use.
+
+**MZ-01.00.45: what the differences were.** One pair, main then branch, with nothing else running on the machine. The branch served 497 requests a second with 0 failed. Main served 484 a second with 145 failed. Main's code is the MZ-01.00.44 that served 520 a second with 0 failed at its own release, so those failures come from the machine being slower that day, not from either version. With the branch:
+- report opens took 7.9 s at p95 against main's 12.1 s;
+- triage polls took 1.2 s against 1.1 s;
+- no finding was sent twice.
+
+The server-side changes are the profile routes, and the auto-update looking once an hour outside its install hour. Neither is on the paths the benchmark uses. The language files are only fetched by browsers set to another language.
 
 **MZ-01.00.44: what the differences were.** None from the change. This version changes only the browser's page (layout and styles) and the user guide, so the server is the same as MZ-01.00.43's. One pair, branch then main, both with 0 failed requests and no finding sent twice. The branch served 520 requests a second against 502. Report opens took 7.1 s against 6.4 s at p95 and triage polls 384 ms against 355 ms, both above the previous pair on main as well (5.2 s, 271 ms): the machine was slower for both runs.
 

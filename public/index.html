@@ -16,6 +16,31 @@
         // The menu as it was left (kept open, or a slim bar of icons), also before first paint.
         if (localStorage.getItem('mz-sidebar') === 'auto') document.documentElement.dataset.sidebar = 'auto';
       } catch {}
+      // Another language: fetch its words now and keep the page out of sight until they are in
+      // (at most 2 s), so it never shows in English first. The same rule as i18n.js.
+      try {
+        const codes = ['ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'vi', 'th', 'ms', 'id'];
+        let lang = null;
+        try { lang = localStorage.getItem('mz-lang'); } catch {}
+        if (lang !== 'en' && !codes.includes(lang)) {
+          lang = 'en';
+          for (const tag of navigator.languages || []) {
+            const lower = String(tag).toLowerCase();
+            const primary = lower.split('-')[0] === 'in' ? 'id' : lower.split('-')[0];
+            if (/^zh-(tw|hk|mo|hant)/.test(lower)) { lang = 'zh-TW'; break; }
+            if (primary === 'zh') { lang = 'zh-CN'; break; }
+            if (codes.includes(primary)) { lang = primary; break; }
+            if (primary === 'en') break;
+          }
+        }
+        if (lang !== 'en') {
+          document.documentElement.lang = lang;
+          document.documentElement.dataset.i18n = 'loading';
+          const link = document.createElement('link');
+          link.rel = 'preload'; link.as = 'fetch'; link.crossOrigin = 'anonymous'; link.href = `/i18n/${lang}.json`;
+          document.head.appendChild(link);
+        }
+      } catch {}
     </script>
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -58,7 +83,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5" /></svg>
             <span>People &amp; roles</span>
           </a>
-          <a href="#/settings" data-route="settings" class="tab" data-stage="govern" data-perm="settings.view">
+          <a href="#/settings" data-route="settings" class="tab" data-stage="govern">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
             <span>Settings</span>
           </a>
@@ -111,6 +136,11 @@
               </button>
               <div class="conn-pop" id="conn-pop" role="dialog" aria-label="Connection details" hidden></div>
             </div>
+            <label class="lang-pick" title="Language">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></svg>
+              <span class="lang-code" id="lang-code" aria-hidden="true" translate="no">EN</span>
+              <select id="lang-select" aria-label="Language" translate="no"></select>
+            </label>
             <button id="theme-toggle" type="button" class="icon-btn" title="Theme: follow the device" aria-label="Switch theme">
               <svg class="i-auto" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" /></svg>
               <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
@@ -120,6 +150,7 @@
               <summary><span class="avatar sm" id="me-avatar" aria-hidden="true"></span><span class="me-text"><b id="me-name"></b><small id="me-role"></small></span></summary>
               <div class="user-menu-body">
                 <p class="hint" id="me-detail"></p>
+                <a class="button primary" id="me-profile" href="#/settings/profile">Your profile</a>
                 <label class="switch adv-switch"><input type="checkbox" id="me-advanced" /> <span><strong>Show advanced options</strong><small>Fine-tuning most people never need</small></span></label>
                 <button type="button" id="me-password">Change password</button>
                 <button type="button" id="me-refresh" class="ghost">Refresh — start over</button>
@@ -226,8 +257,8 @@
                   <label class="scope-label" for="activity-preset">Projects last scanned in</label>
                   <select id="activity-preset"></select>
                   <div class="range" id="activity-range" hidden>
-                    <label><span>From</span><input type="date" id="activity-from" /></label>
-                    <label><span>To</span><input type="date" id="activity-to" /></label>
+                    <label data-i18n-ctx="date"><span>From</span><input type="date" id="activity-from" /></label>
+                    <label data-i18n-ctx="date"><span>To</span><input type="date" id="activity-to" /></label>
                   </div>
                   <p class="hint" id="activity-hint" hidden>Projects not scanned in this time are skipped.</p>
                 </fieldset>
@@ -236,8 +267,8 @@
                   <label class="scope-label" for="detection-preset">Findings first found in</label>
                   <select id="detection-preset"></select>
                   <div class="range" id="detection-range" hidden>
-                    <label><span>From</span><input type="date" id="detection-from" /></label>
-                    <label><span>To</span><input type="date" id="detection-to" /></label>
+                    <label data-i18n-ctx="date"><span>From</span><input type="date" id="detection-from" /></label>
+                    <label data-i18n-ctx="date"><span>To</span><input type="date" id="detection-to" /></label>
                   </div>
                   <p class="hint" id="detection-hint" hidden>Only findings first found in this time are loaded.</p>
                 </fieldset>
@@ -533,6 +564,8 @@
             <div class="set-layout">
               <nav class="set-nav" id="set-nav" aria-label="Settings sections">
                 <div class="set-nav-list">
+                <p class="set-group set-you">You</p>
+                  <a href="#/settings/profile" data-set="profile">Your profile</a>
                 <p class="set-group" data-perm="integration.cxone integration.smtp settings.links beta.use">Start</p>
                   <a href="#/settings/import" data-set="import" data-perm="integration.cxone integration.smtp settings.links beta.use">Quick setup (.env)</a>
                 <p class="set-group">Connections</p>
@@ -559,6 +592,44 @@
                 </div>
               </nav>
               <div class="set-content" id="set-content">
+
+            <section class="panel profile" id="set-profile">
+              <h2>Your profile</h2>
+              <p class="hint wide">How CxMissionZero appears to you. Only you can change these settings, and they apply in every browser you sign in from.</p>
+              <div class="profile-head">
+                <div class="profile-photo">
+                  <span class="avatar xl" id="pf-avatar" aria-hidden="true"></span>
+                  <div class="profile-photo-actions">
+                    <input type="file" id="pf-avatar-file" accept="image/png,image/jpeg,image/webp" class="sr-only" />
+                    <label for="pf-avatar-file" class="button-like">Change picture</label>
+                    <button type="button" class="ghost sm" id="pf-avatar-remove" hidden>Remove picture</button>
+                  </div>
+                </div>
+                <dl class="profile-facts">
+                  <div><dt>Email</dt><dd id="pf-email" translate="no"></dd></div>
+                  <div><dt>Role</dt><dd id="pf-role"></dd></div>
+                  <div><dt>Signed in with</dt><dd id="pf-via"></dd></div>
+                  <div><dt>Last sign-in</dt><dd id="pf-last"></dd></div>
+                </dl>
+              </div>
+              <div class="grid2">
+                <label class="field"><span>Name</span><input id="pf-name" autocomplete="name" maxlength="120" /></label>
+                <label class="field"><span>Language</span><select id="pf-language" translate="no"></select></label>
+              </div>
+              <div class="profile-block">
+                <h3>Time zone</h3>
+                <label class="check"><input type="checkbox" id="pf-tz-auto" /> <span>Use this computer's time zone</span></label>
+                <p class="hint profile-zone"><span>Detected on this computer:</span> <b id="pf-tz-device" translate="no"></b></p>
+                <label class="field"><span>Time zone</span><select id="pf-tz" translate="no"></select></label>
+                <p class="hint">Dates and times on these pages are shown in this time zone.</p>
+              </div>
+              <div class="profile-block">
+                <h3>Programming languages</h3>
+                <p class="hint">The languages you work in.</p>
+                <div class="pl-picks" id="pf-langs"></div>
+              </div>
+              <span class="status" id="pf-status"></span>
+            </section>
 
             <div class="autosave-note" id="autosave-note" data-perm="integration.smtp settings.recipients settings.initiators settings.template settings.branding settings.links settings.ai settings.automation integration.cxone credits.limit">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10" /></svg>
@@ -1058,7 +1129,7 @@
                 <div class="upd-card">
                   <span class="upd-label">Auto-update</span>
                   <label class="check"><input type="checkbox" id="upd-auto" /> Install new releases by themselves</label>
-                  <label class="upd-hour">at <select id="upd-hour"><option value="">any time</option></select> (server time)</label>
+                  <label class="upd-hour">at <select id="upd-hour"><option value="">any time</option></select> <span id="upd-zone">(server time)</span></label>
                   <span class="hint" id="upd-auto-sub"></span>
                 </div>
               </div>
@@ -1136,7 +1207,7 @@
             <form class="filter-row panel" id="usage-filters" aria-label="Period and project">
               <label class="field">
                 <span>Period</span>
-                <select id="usage-preset">
+                <select id="usage-preset" data-i18n-ctx="calendar">
                   <option value="7">Last 7 days</option>
                   <option value="30" selected>Last 30 days</option>
                   <option value="90">Last 90 days</option>
@@ -1146,8 +1217,8 @@
                   <option value="custom">Custom range…</option>
                 </select>
               </label>
-              <label class="field" id="usage-from-field" hidden><span>From</span><input type="date" id="usage-from" title="From" /></label>
-              <label class="field" id="usage-to-field" hidden><span>To</span><input type="date" id="usage-to" title="To" /></label>
+              <label class="field" id="usage-from-field" data-i18n-ctx="date" hidden><span>From</span><input type="date" id="usage-from" title="From" /></label>
+              <label class="field" id="usage-to-field" data-i18n-ctx="date" hidden><span>To</span><input type="date" id="usage-to" title="To" /></label>
               <label class="field">
                 <span>Group by</span>
                 <select id="usage-bucket">
@@ -1474,8 +1545,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 </div>
               </div>
               <form class="audit-filters" id="audit-filters">
-                <label><span>From</span><input type="date" id="audit-from" /></label>
-                <label><span>To</span><input type="date" id="audit-to" /></label>
+                <label data-i18n-ctx="date"><span>From</span><input type="date" id="audit-from" /></label>
+                <label data-i18n-ctx="date"><span>To</span><input type="date" id="audit-to" /></label>
                 <label><span>Type</span>
                   <select id="audit-type">
                     <option value="">All types</option>
@@ -1700,8 +1771,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <button id="clear-logs" class="sm ghost">Clear</button>
                 </div>
               </div>
-              <div id="logs-container" class="logs">
-                <div id="logs-empty" class="logs-empty">No logs yet. Fetch data to start capturing logs.</div>
+              <div id="logs-container" class="logs" translate="no">
+                <div id="logs-empty" class="logs-empty" translate="yes">No logs yet. Fetch data to start capturing logs.</div>
                 <div id="logs-list"></div>
               </div>
               <div class="pager" id="logs-pager" hidden>
@@ -1776,7 +1847,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
           <h2 id="terms-title">Terms of use</h2>
           <p class="hint" id="terms-sub">CxMissionZero is an independent project, not a Checkmarx product.</p>
         </header>
-        <div class="terms-text" id="terms-text" tabindex="0"></div>
+        <div class="terms-text" id="terms-text" tabindex="0" translate="no"></div>
         <div class="terms-foot">
           <p class="hint" id="terms-scroll-hint">Read to the end to accept.</p>
           <p class="https-note warn" id="terms-wait" hidden>An administrator must accept these terms for your organisation before CxMissionZero can be used. Ask them to sign in, then try again.</p>

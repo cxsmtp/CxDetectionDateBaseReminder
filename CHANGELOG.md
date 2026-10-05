@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.44 | 520/s, 0 | 7.1 s | 384 ms | 461 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.45 | 497/s, 0 | 7.9 s | 1.2 s | 478 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.44 | 520/s, 0 | 7.1 s | 384 ms | 461 | 0 | same |
 | MZ-01.00.43 | 511/s, 0 | 5.7 s | 224 ms | 461 | 0 | same |
 | MZ-01.00.42 | — (page only) | — | — | 455 | 0 | same |
 | MZ-01.00.41 | 519/s, 0 | 0.9 s | 171 ms | 455 | 0 | same |
@@ -30,6 +31,26 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.45 — 2026-10-05 07:19 UTC · [#68](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/68)
+- **In nine more languages.**
+  - The languages: Japanese, Traditional Chinese (Taiwan), Simplified Chinese, Korean, Spanish, Vietnamese, Thai, Malay and Indonesian.
+  - Choose with the globe at the top right; the first time, CxMissionZero uses your browser's language.
+  - Translated: menus, options, buttons, hints and messages. Names, logs, code and the terms of use stay as they are.
+  - English pages load nothing extra.
+- **Checked twice, in a professional tone.** Each language went through two separate full reviews and automated checks of placeholders, markup, script and register. While something runs, the status line is plain and factual in every language ([languages](docs/languages.md)).
+- **Your profile.** Open your name at the top right, then **Your profile**; it is in Settings too, for every role.
+  - **Shown:** your email, role and last sign-in.
+  - **Set:** your picture, name, language, time zone (your computer's by default) and programming languages.
+  - **Saved:** with your account; every page shows times in your time zone.
+- **Fixes come from Checkmarx One AI.** The emailed report no longer offers outside AI assistants. Each finding has **Open in …** and **Apply AI fix**, which applies the fix AI Remediation wrote; until then, it asks the developer to remediate the finding first.
+- **Auto-update says why it waits.** The Update page now says what each check found:
+  - up to date;
+  - which release is waiting, and for which hour, in the server's time zone (shown next to the hour);
+  - or what stops it.
+
+  It also looks a minute after every start, and a half-finished install no longer blocks it.
+- **Status.** 497 requests a second with 3000 people at once and 0 failed; main, measured the same day on the same slower machine, had 145 failed. Report opens take 7.9 s and triage polls 1.2 s at p95 (main: 12.1 s and 1.1 s). 478 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.44 — 2026-10-05 02:59 UTC · [#67](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/67)
 - **Hide the menu.** **Hide menu** (bottom of the sidebar) turns it into a slim bar of icons. Point at it and the full menu opens over the page without moving anything; **Keep menu open** brings it back. The choice is remembered, and the menu is also narrower when kept open.

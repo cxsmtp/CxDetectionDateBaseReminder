@@ -314,9 +314,9 @@ export function generateHtmlReport(reportData, options = {}) {
   <section class="my-tools" id="my-tools" aria-label="Your tools" hidden>
     <span class="my-tools-title">Your tools</span>
     <label>Open code in <select id="tool-ide"></select></label>
-    <label>Fix with <select id="tool-fix"></select></label>
+    <label>Apply AI fixes <select id="tool-fix"></select></label>
     <span id="tool-folder" class="muted"></span>
-    <span class="muted my-tools-note">Chosen once, remembered in this browser: each finding then opens and fixes in one click. ▾ on a finding picks another way, for that finding only.</span>
+    <span class="muted my-tools-note">Fixes come from Checkmarx One AI Remediation: remediate a finding, then apply its fix in one click. Chosen once, remembered in this browser; ▾ on a finding picks another way, for that finding only.</span>
   </section>
 
   <div class="toolbar" id="report-filters" role="search" aria-label="Filter findings">
