@@ -65,17 +65,26 @@ const htmlDone = new WeakMap(); // Element → { src, out }
 
 export const currentLanguage = () => lang;
 
-/** The translation of one piece of English, or null when there is none. */
-function lookup(text) {
-  if (!dict) return null;
-  const hit = dict.get(text);
+/**
+ * The translation of `text` in `strings` (a Map), or null when there is none: the exact
+ * wording first, then with its numbers as {0}, {1}…; with a context ("date"), its own
+ * entry ("date|To") first, then the plain one.
+ */
+export function translate(strings, text, context = '') {
+  if (!strings) return null;
+  if (context) {
+    const own = translate(strings, `${context}|${text}`);
+    if (own != null) return own;
+  }
+  const hit = strings.get(text);
   if (hit !== undefined) return hit;
   if (!/\d/.test(text)) return null;
   const numbers = [];
   const key = text.replace(/\d+/g, (digits) => `{${numbers.push(digits) - 1}}`);
-  const pattern = dict.get(key);
+  const pattern = strings.get(key);
   return pattern === undefined ? null : pattern.replace(/\{(\d+)\}/g, (whole, i) => numbers[i] ?? whole);
 }
+const lookup = (text) => translate(dict, text);
 
 /** Translate English wording for code that builds text itself (dialogs, the busy line). */
 export function t(text) {
@@ -116,10 +125,7 @@ function isSentence(el) {
 // A word that means two things ("To": an email's recipients, or the end of a date range) is told
 // apart by data-i18n-ctx on an element around it: "date|To" is looked up first, then "To".
 const contextOf = (el) => el?.closest?.('[data-i18n-ctx]')?.dataset.i18nCtx ?? '';
-const lookupIn = (el, key) => {
-  const ctx = contextOf(el);
-  return (ctx && lookup(`${ctx}|${key}`)) ?? lookup(key);
-};
+const lookupIn = (el, key) => translate(dict, key, contextOf(el));
 
 function doText(node) {
   const value = node.nodeValue;

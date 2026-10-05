@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { preferredLanguage } from '../public/i18n.js';
+import { preferredLanguage, translate } from '../public/i18n.js';
 import { LANGUAGE_CODES, checkAll, loadCatalog, loadLanguage, problems } from '../scripts/i18n-check.mjs';
 
 test('the language: the saved choice, else the browser’s when it is one of ours, else English', () => {
@@ -20,6 +20,18 @@ test('the language: the saved choice, else the browser’s when it is one of our
   assert.equal(preferredLanguage(null, ['en-GB', 'ja']), 'en', 'the first language the browser names wins');
   assert.equal(preferredLanguage(null, ['fr-FR', 'de']), 'en');
   assert.equal(preferredLanguage('xx', []), 'en');
+});
+
+test('looking up a translation: exact, with numbers, with a context, and nothing when there is none', () => {
+  const strings = new Map([['To', 'Para'], ['date|To', 'Hasta'], ['Take back {0} unused credits', 'Recuperar {0} créditos'], ['{0} of {1}', '{1} 中 {0}'], ['Empty', '']]);
+  assert.equal(translate(strings, 'To'), 'Para');
+  assert.equal(translate(strings, 'To', ''), 'Para', 'no context is not an empty translation');
+  assert.equal(translate(strings, 'To', 'date'), 'Hasta');
+  assert.equal(translate(strings, 'To', 'origin'), 'Para', 'a context without its own entry falls back');
+  assert.equal(translate(strings, 'Take back 12 unused credits'), 'Recuperar 12 créditos');
+  assert.equal(translate(strings, '3 of 7'), '7 中 3', 'numbers may move');
+  assert.equal(translate(strings, 'Unknown'), null);
+  assert.equal(translate(null, 'To'), null);
 });
 
 test('the checks catch what would break the page or read wrongly', () => {

@@ -1414,8 +1414,9 @@
   "date|From": "시작일",
   "date|To": "종료일",
   "Sure": "확실",
-  "Check": "검토 필요",
+  "Check": "검토 권장",
   "Unsure": "불확실",
-  "calendar|Last month": "지난달"
+  "calendar|Last month": "지난달",
+  "origin|From": "접속 위치"
  }
 }

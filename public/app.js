@@ -6467,7 +6467,7 @@ function auditDetail(e) {
     ['Entry', `#${e.seq} · ${e.id}`],
     ['Time', `${formatTime(e.at)} (${e.at})`],
     ['Who', `${who} — ${role}`],
-    e.actor?.ip && ['From', `${e.actor.ip}${e.actor.userAgent ? ` · ${e.actor.userAgent}` : ''}`],
+    e.actor?.ip && ['From', `${e.actor.ip}${e.actor.userAgent ? ` · ${e.actor.userAgent}` : ''}`, 'origin'],
     e.actor?.reportId && ['Report', e.actor.reportId],
     e.project && ['Project', `${e.project.name || ''} (${e.project.id})`],
     e.credits && ['Credits', `${e.credits.kind}: requested ${e.credits.requested ?? 0}, charged ${e.credits.charged ?? 0}`],
@@ -6478,7 +6478,7 @@ function auditDetail(e) {
     e.findings?.length && ['Findings', `${e.findings.length}: ${e.findings.slice(0, 8).map((f) => f.riskId).join(', ')}${e.findings.length > 8 ? '…' : ''}`],
     ['Chain', `mac ${e.mac?.slice(0, 16)}… ← ${e.prev?.slice(0, 16)}…`],
   ].filter(Boolean);
-  return `<div class="facts">${facts.map(([k, v]) => `<div><b>${escapeHtml(k)}</b>${escapeHtml(v)}</div>`).join('')}</div>
+  return `<div class="facts">${facts.map(([k, v, ctx]) => `<div><b${ctx ? ` data-i18n-ctx="${ctx}"` : ''}>${escapeHtml(k)}</b>${escapeHtml(v)}</div>`).join('')}</div>
     <details><summary class="hint">Full entry (JSON)</summary><pre>${escapeHtml(JSON.stringify(e, null, 2))}</pre></details>`;
 }
 

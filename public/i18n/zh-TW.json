@@ -1414,8 +1414,9 @@
   "date|From": "開始日期",
   "date|To": "結束日期",
   "Sure": "確定",
-  "Check": "待確認",
+  "Check": "建議核對",
   "Unsure": "不確定",
-  "calendar|Last month": "上個月"
+  "calendar|Last month": "上個月",
+  "origin|From": "來源"
  }
 }

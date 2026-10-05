@@ -1414,8 +1414,9 @@
   "date|From": "開始日",
   "date|To": "終了日",
   "Sure": "確実",
-  "Check": "要確認",
+  "Check": "確認推奨",
   "Unsure": "不確実",
-  "calendar|Last month": "前月"
+  "calendar|Last month": "前月",
+  "origin|From": "接続元"
  }
 }

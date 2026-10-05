@@ -1414,8 +1414,9 @@
   "date|From": "Dari",
   "date|To": "Hingga",
   "Sure": "Pasti",
-  "Check": "Perlu disemak",
+  "Check": "Semakan disyorkan",
   "Unsure": "Tidak pasti",
-  "calendar|Last month": "Bulan lepas"
+  "calendar|Last month": "Bulan lepas",
+  "origin|From": "Asal"
  }
 }

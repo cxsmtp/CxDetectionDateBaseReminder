@@ -1414,8 +1414,9 @@
   "date|From": "Desde",
   "date|To": "Hasta",
   "Sure": "Seguro",
-  "Check": "Por revisar",
+  "Check": "Conviene revisar",
   "Unsure": "Incierto",
-  "calendar|Last month": "Mes anterior"
+  "calendar|Last month": "Mes anterior",
+  "origin|From": "Origen"
  }
 }

@@ -1414,8 +1414,9 @@
   "date|From": "ตั้งแต่วันที่",
   "date|To": "ถึงวันที่",
   "Sure": "แน่ชัด",
-  "Check": "ควรตรวจสอบ",
+  "Check": "ควรทบทวน",
   "Unsure": "ไม่แน่ชัด",
-  "calendar|Last month": "เดือนที่แล้ว"
+  "calendar|Last month": "เดือนที่แล้ว",
+  "origin|From": "ที่มา"
  }
 }

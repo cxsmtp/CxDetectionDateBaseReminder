@@ -692,8 +692,8 @@
   "Last change": "Thay đổi gần nhất",
   "Last month": "1 tháng qua",
   "Last sign-in": "Lần đăng nhập gần nhất",
-  "Last week": "Tuần qua",
-  "Last year": "Năm qua",
+  "Last week": "1 tuần qua",
+  "Last year": "1 năm qua",
   "latest": "latest",
   "Latest published": "Bản phát hành mới nhất",
   "Latest scan by": "Người quét gần nhất",
@@ -1414,8 +1414,9 @@
   "date|From": "Từ ngày",
   "date|To": "Đến ngày",
   "Sure": "Chắc chắn",
-  "Check": "Cần kiểm tra",
+  "Check": "Nên kiểm tra",
   "Unsure": "Không chắc chắn",
-  "calendar|Last month": "Tháng trước"
+  "calendar|Last month": "Tháng trước",
+  "origin|From": "Nguồn truy cập"
  }
 }

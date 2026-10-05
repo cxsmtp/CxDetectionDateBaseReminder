@@ -6499,6 +6499,12 @@
    "Dashboard › span › No certificate yet? Create a request (CSR) for IT"
   ]
  },
+ "origin|From": {
+  "kind": "text",
+  "seen": [
+   "Audit › entry details: where the action came from (IP address · browser), not an email sender"
+  ]
+ },
  "Outcome": {
   "kind": "text",
   "seen": [
