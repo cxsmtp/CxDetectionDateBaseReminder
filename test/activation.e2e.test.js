@@ -1,4 +1,5 @@
 // Activation codes on the real server: Hebrew is neither offered nor served until a code from
+// the maintainer turns it on, and then only to the people an Admin chose. Also: until a code from
 // the maintainer turns it on, and a deactivation code turns it off again. A multi-tenant code is
 // recorded. Only an Admin may enter codes, and every attempt is in the audit log.
 import test from 'node:test';
@@ -78,14 +79,37 @@ test('a Hebrew activation code turns it on; a deactivation code turns it off', a
   assert.match(on.body.applied, /Hebrew turned on until/);
   assert.equal(on.body.languages.he.on, true);
   assert.equal(on.body.languages.he.org, 'Acme Bank');
-  assert.equal(await heServed(), 200);
+  assert.deepEqual(on.body.languages.he.users, [], 'nobody is chosen yet');
+  // On, but open to nobody until people are chosen.
+  assert.equal((await admin('GET', '/i18n/he.json')).status, 404);
+  assert.ok(!(await admin('GET', '/api/me')).body.languages.includes('he'));
+  assert.equal((await admin('PUT', '/api/me/profile', { language: 'he' })).status, 400);
+
+  // Chosen people only: the Admin chooses themselves, not the analyst.
+  const analyst = browser();
+  const added = await admin('POST', '/api/iam/users', { email: 'analyst@acme.io', name: 'Analyst', role: 'analyst', password: 'analyst password 1' });
+  assert.equal(added.status, 201, JSON.stringify(added.body));
+  await analyst('POST', '/api/session/password', { email: 'analyst@acme.io', password: 'analyst password 1' });
+  await analyst('POST', '/api/me/password', { current: 'analyst password 1', next: 'analyst password 22' });
+  const me = (await admin('GET', '/api/me')).body.user.id;
+  const chosen = await admin('PUT', '/api/activation/languages/he/users', { users: [me] });
+  assert.equal(chosen.status, 200, JSON.stringify(chosen.body));
+  assert.deepEqual(chosen.body.languages.he.users, [me]);
+  assert.ok(chosen.body.people.some((p) => p.email === 'analyst@acme.io'), 'the people to choose from');
+  assert.equal((await admin('GET', '/i18n/he.json')).status, 200);
   assert.ok((await admin('GET', '/api/health')).body.languages.includes('he'));
+  assert.ok((await admin('GET', '/api/me')).body.languages.includes('he'));
   assert.equal((await admin('PUT', '/api/me/profile', { language: 'he' })).status, 200);
+  assert.equal((await analyst('GET', '/i18n/he.json')).status, 404, 'never sent to anyone else');
+  assert.ok(!(await analyst('GET', '/api/health')).body.languages.includes('he'));
+  assert.equal(await heServed(), 404, 'nor to someone not signed in');
+  assert.equal((await analyst('PUT', '/api/activation/languages/he/users', { users: [] })).status, 403, 'only Admins choose');
+  assert.equal((await admin('PUT', '/api/activation/languages/he/users', { users: ['nobody'] })).status, 400);
 
   const off = await admin('POST', '/api/activation', { code: script('lang', keyFile, 'Acme Bank', 'he', 'off') });
   assert.equal(off.status, 200, JSON.stringify(off.body));
   assert.match(off.body.applied, /Hebrew turned off/);
-  assert.equal(await heServed(), 404);
+  assert.equal((await admin('GET', '/i18n/he.json')).status, 404);
   assert.ok(!(await admin('GET', '/api/health')).body.languages.includes('he'));
 });
 
@@ -105,6 +129,7 @@ test('a multi-tenant code is recorded; a code from another key is refused; all o
   const reasons = audit.entries.map((e) => e.reason).join('\n');
   assert.match(reasons, /Activation code applied: Hebrew turned on/);
   assert.match(reasons, /Activation code applied: Hebrew turned off/);
+  assert.match(reasons, /Hebrew is open to 1 person: admin@acme\.io/);
   assert.match(reasons, /Activation code applied: several Checkmarx One tenants unlocked for Acme Bank/);
   assert.match(reasons, /Activation code refused/);
 });

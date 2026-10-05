@@ -205,7 +205,7 @@
           signal: controller?.signal,
           headers: { 'Content-Type': 'application/json' },
           // Who this report was made for (signed): the server's audit log attributes actions to it.
-          body: JSON.stringify(config.report ? { ...body, report: config.report } : body),
+          body: JSON.stringify({ ...body, ...(config.report ? { report: config.report } : {}), ...(config.tenantId ? { tenantId: config.tenantId } : {}) }),
         });
       } catch {
         if (timer) clearTimeout(timer);

@@ -12,6 +12,8 @@ test('the language: the saved choice, else the browser’s when it is one of our
   assert.equal(preferredLanguage(null, ['ja-JP', 'en']), 'ja');
   assert.equal(preferredLanguage(null, ['zh-TW']), 'zh-TW');
   assert.equal(preferredLanguage(null, ['zh-Hant-HK']), 'zh-TW');
+  assert.equal(preferredLanguage(null, ['pt-PT']), 'pt-BR', 'every Portuguese reads the Brazilian translation');
+  assert.equal(preferredLanguage(null, ['pt']), 'pt-BR');
   assert.equal(preferredLanguage(null, ['zh']), 'zh-CN');
   assert.equal(preferredLanguage(null, ['zh-Hans-CN']), 'zh-CN');
   assert.equal(preferredLanguage(null, ['in-ID']), 'id', 'the old code for Indonesian');

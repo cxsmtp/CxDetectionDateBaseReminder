@@ -20,7 +20,7 @@ import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
 
-import { STATE_DIRS, statePaths } from './data-dir.js';
+import { STATE_DIRS, TENANT_FILES, TENANT_ID, statePaths } from './data-dir.js';
 
 export const BACKUP_FORMAT = 'mission-zero-backup';
 const SEALED_FORMAT = 'mission-zero-backup-sealed';
@@ -48,6 +48,26 @@ export function collectStateFiles(dataDir, settingsFile = '') {
     for (const entry of fs.readdirSync(folder).sort()) {
       const file = path.join(folder, entry);
       if (fs.statSync(file).isFile()) found.push({ name: `${dir}/${entry}`, path: file });
+    }
+  }
+  // Each further tenant's files (tenants/<id>/…); removed tenants' folders are not included.
+  const tenantsDir = path.join(dataDir, 'tenants');
+  if (fs.existsSync(tenantsDir)) {
+    for (const id of fs.readdirSync(tenantsDir).sort()) {
+      if (!TENANT_ID.test(id)) continue;
+      const folder = path.join(tenantsDir, id);
+      for (const name of TENANT_FILES) {
+        const file = path.join(folder, name);
+        if (fs.existsSync(file)) found.push({ name: `tenants/${id}/${name}`, path: file });
+      }
+      for (const dir of STATE_DIRS) {
+        const sub = path.join(folder, dir);
+        if (!fs.existsSync(sub)) continue;
+        for (const entry of fs.readdirSync(sub).sort()) {
+          const file = path.join(sub, entry);
+          if (fs.statSync(file).isFile()) found.push({ name: `tenants/${id}/${dir}/${entry}`, path: file });
+        }
+      }
     }
   }
   return found;
@@ -141,7 +161,15 @@ export function readBackup(buffer, { passphrase = '', maxUnpackedBytes = MAX_UNP
 function safeName(name) {
   const known = Object.keys(statePaths('/'));
   if (known.includes(name)) return true;
-  const [dir, file, ...more] = name.split('/');
+  const parts = name.split('/');
+  // A further tenant's files: tenants/<id>/<file> or tenants/<id>/audit/<file>.
+  if (parts[0] === 'tenants') {
+    const [, id, first, second, ...rest] = parts;
+    if (!TENANT_ID.test(id ?? '') || rest.length) return false;
+    if (second === undefined) return TENANT_FILES.includes(first);
+    return STATE_DIRS.includes(first) && /^[\w.-]+$/.test(second) && !second.startsWith('.');
+  }
+  const [dir, file, ...more] = parts;
   return STATE_DIRS.includes(dir) && !more.length && /^[\w.-]+$/.test(file ?? '') && !file.startsWith('.');
 }
 
@@ -189,6 +217,9 @@ export function restoreBackup(bundle, { dataDir, settingsFile = '', now = new Da
     if (!fs.existsSync(folder)) continue;
     for (const entry of fs.readdirSync(folder)) moveAside(path.join(folder, entry), `${dir}/${entry}`);
   }
+  // The further tenants' folders go aside too, so the restored tenants are exactly the backup's.
+  const tenantsDir = path.join(dataDir, 'tenants');
+  if (fs.existsSync(tenantsDir)) for (const entry of fs.readdirSync(tenantsDir)) moveAside(path.join(tenantsDir, entry), `tenants/${entry}`);
 
   const restored = [];
   for (const [name, file] of Object.entries(bundle.files)) {

@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.47 | 519/s, 0 (main 504) | 5.3 s | 310 ms | 506 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.48 | 498/s, 7 (main 489, 44) | 8.2 s | 880 ms | 519 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.47 | 519/s, 0 (main 504) | 5.3 s | 310 ms | 506 | 0 | same |
 | MZ-01.00.46 | 468/s, 44 (host stalls; main 177) | 10.1 s | 1.3 s | 479 | 0 | same |
 | MZ-01.00.45 | 497/s, 0 | 7.9 s | 1.2 s | 478 | 0 | same |
 | MZ-01.00.44 | 520/s, 0 | 7.1 s | 384 ms | 461 | 0 | same |
@@ -33,6 +34,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.48 — 2026-10-05 15:30 UTC · [#71](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/71)
+- **Several Checkmarx One tenants on one server.** With a tenants activation code, a Super Admin turns on **Settings → Tenants** and adds tenants, up to the number the code allows. Each tenant keeps its own Checkmarx One connection, email server, settings, credits, tracked reports, automation, audit log and people. People who work in several tenants switch between them at the top of the page. Without a code, nothing changes ([several tenants](docs/multi-tenant.md)).
+- **Each tenant stays separate.** People added in a tenant work only there, without the permissions that act on the whole server (HTTPS, backups, updates, activation codes). A Super Admin chooses who works where under **People & roles**. Emailed reports, and every link in them, act only in their own tenant. A Super Admin adding or opening a tenant is recorded in that tenant's audit log.
+- **Hebrew for the people you choose.** With the Hebrew code in force, tick the people who may use it under **Settings → Activation codes → Who may use Hebrew**. Only they are offered Hebrew, or ever sent its translation.
+- **Português (Brasil).** Brazilian Portuguese is open to everyone, and every Portuguese browser picks it. It was translated in full and reviewed twice.
+- **Golden buttons when the credits are in place.** **Check with AI now** and **Fix with AI now** on the Dashboard turn gold, with a slow glow and a light sweeping across, once the credits given cover what is selected; so does a tracked report's **Triage now**. One click then checks, or fixes, everything selected across projects.
+- **Get started begins with Connect.** The first step, **Connect Checkmarx One**, is labelled **Connect**.
+- **Backups hold everything.** One backup now includes every tenant, the activation codes in force and the language settings.
+- **Status.** In the calm pair, the branch served 498 requests a second with 7 failed (connect timeouts), against main's 489 with 44. Report opens took 8.2 s and triage polls 880 ms at p95 (main 10.1 s and 888 ms). A first build was slower on Node 22, because of the tenant context on every request; with one tenant that context is now never entered ([performance](docs/performance.md)). No finding was sent twice. 519 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.47 — 2026-10-05 14:33 UTC · [#70](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/70)
 - **A free HTTPS certificate in one click.** **Settings → HTTPS → Free certificate from Let's Encrypt** gets a certificate trusted by every browser and renews it by itself 30 days before it expires. It needs a DNS name for the server and port 80 open to the internet. To set it up at deployment instead, use one line: `LETSENCRYPT_DOMAIN=mz.company.com`. The server then gets the certificate, switches to HTTPS only and renews it with no further steps ([HTTPS and hosting](docs/https-and-hosting.md)).

@@ -162,8 +162,13 @@ export class Tenancy {
     return this.#als.getStore() ?? this.context(DEFAULT_TENANT);
   }
 
-  /** Run `fn` inside tenant `id` (everything it starts, timers included, stays in it). */
+  /**
+   * Run `fn` inside tenant `id` (everything it starts, timers included, stays in it). With one
+   * tenant there is nothing to tell apart, so `fn` simply runs: async context tracking is then
+   * never switched on, and costs nothing (on Node 22 it slows every promise down).
+   */
   run(id, fn) {
+    if (!this.#state.enabled && id === DEFAULT_TENANT && !this.#als.getStore()) return fn();
     return this.#als.run(this.context(id), fn);
   }
 
@@ -184,11 +189,21 @@ export class Tenancy {
  */
 export function scoped(tenancy, name) {
   if (name === 'state') return scopedState(tenancy);
+  // Methods bound once per store (not on every call): these are on every request's path.
+  const bound = new WeakMap();
   return new Proxy(Object.create(null), {
     get(_, prop) {
       const target = tenancy.current()[name];
       const value = target?.[prop];
-      return typeof value === 'function' ? value.bind(target) : value;
+      if (typeof value !== 'function') return value;
+      let methods = bound.get(target);
+      if (!methods) bound.set(target, (methods = new Map()));
+      let method = methods.get(prop);
+      if (method?.original !== value) {
+        method = Object.assign(value.bind(target), { original: value });
+        methods.set(prop, method);
+      }
+      return method;
     },
     set(_, prop, value) {
       tenancy.current()[name][prop] = value;

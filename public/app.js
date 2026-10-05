@@ -618,6 +618,14 @@ async function loadActivation() {
   }
 }
 
+/** The languages this person may use now (after Hebrew was turned on or off, or opened to other people). */
+async function refreshMyLanguages() {
+  try {
+    const me = await api('/api/me', { quiet: true });
+    if (Array.isArray(me.languages)) languagesChanged(me.languages, true);
+  } catch {}
+}
+
 function renderActivation(a) {
   const date = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
   const he = a.languages?.he ?? { on: false };
@@ -628,8 +636,40 @@ function renderActivation(a) {
     `<div class="act-row"><strong>Several tenants</strong><span>${t ? `${t.valid ? '<span class="badge ok">Unlocked</span>' : '<span class="badge warn">Expired</span>'} ${escapeHtml(t.org)} · <span>Up to ${t.maxTenants} tenants</span> · <span>Until</span> <b>${escapeHtml(date(t.expires))}</b>${t.warn ? ` <strong class="https-note warn">${t.daysLeft} days left</strong>` : ''}` : '<span class="badge muted">Not unlocked</span>'}</span></div>`,
   ];
   if (!a.keyConfigured) rows.push('<p class="hint">This build has no maintainer key, so no code can be checked.</p>');
+  // Hebrew is open only to the people chosen here.
+  if (he.on) {
+    const everyone = !Array.isArray(he.users);
+    const chosen = new Set(he.users ?? []);
+    rows.push(`<div class="act-people">
+      <strong>Who may use Hebrew</strong>
+      <p class="hint">${everyone ? 'Everyone, because Hebrew was turned on before people could be chosen. Choose people to keep it for them only.' : 'Only the people ticked here are offered Hebrew. Everyone else never sees it.'}</p>
+      <input type="search" id="act-people-filter" placeholder="Search people" aria-label="Search people" />
+      <div class="act-people-list" id="act-people-list">${(a.people ?? [])
+        .map((p) => `<label class="check" data-person="${escapeHtml(`${p.name} ${p.email}`.toLowerCase())}"><input type="checkbox" value="${escapeHtml(p.id)}" ${chosen.has(p.id) ? 'checked' : ''} /> <span translate="no">${escapeHtml(p.name || p.email)}</span>${p.name ? ` <small class="muted" translate="no">${escapeHtml(p.email)}</small>` : ''}</label>`)
+        .join('')}</div>
+      <div class="actions compact"><button type="button" class="primary" id="act-people-save">Save who may use Hebrew</button></div>
+    </div>`);
+  }
   $('act-list').innerHTML = rows.join('');
 }
+
+$('act-list').addEventListener('input', (event) => {
+  if (event.target.id !== 'act-people-filter') return;
+  const term = event.target.value.trim().toLowerCase();
+  for (const row of $('act-list').querySelectorAll('[data-person]')) row.hidden = Boolean(term) && !row.dataset.person.includes(term);
+});
+
+$('act-list').addEventListener('click', async (event) => {
+  if (event.target.id !== 'act-people-save') return;
+  const users = [...$('act-list').querySelectorAll('#act-people-list input:checked')].map((input) => input.value);
+  try {
+    renderActivation(await api('/api/activation/languages/he/users', { method: 'PUT', body: JSON.stringify({ users }) }));
+    setStatus('act-status', users.length ? (users.length === 1 ? 'Hebrew is open to 1 person.' : `Hebrew is open to ${users.length} people.`) : 'Hebrew is open to nobody until people are chosen.', 'ok');
+    refreshMyLanguages();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('act-status', error);
+  }
+});
 
 $('act-apply').addEventListener('click', async () => {
   const code = $('act-code').value.trim();
@@ -641,12 +681,117 @@ $('act-apply').addEventListener('click', async () => {
     $('act-code').value = '';
     setStatus('act-status', `Applied: ${result.applied}.`, 'ok');
     // A language turned on or off is offered (or not) at once.
-    const health = await api('/api/health', { quiet: true });
-    if (Array.isArray(health.languages)) languagesChanged(health.languages);
+    refreshMyLanguages();
   } catch (error) {
     if (!handleAuthLoss(error)) setStatus('act-status', error.message, 'error');
   } finally {
     $('act-apply').disabled = false;
+  }
+});
+
+// ---- Several Checkmarx One tenants: the switcher at the top, and Settings → Tenants -----------
+
+/** The tenant switcher: shown to people who work in more than one tenant. */
+function renderTenantPicker(me) {
+  const t = me?.tenancy;
+  const show = Boolean(t && t.tenants.length > 1);
+  $('tenant-pick').hidden = !show;
+  if (!show) return;
+  $('tenant-name').textContent = t.current.name;
+  $('tenant-select').innerHTML = t.tenants.map((x) => `<option value="${escapeHtml(x.id)}" ${x.id === t.current.id ? 'selected' : ''}>${escapeHtml(x.name)}</option>`).join('');
+}
+
+$('tenant-select').addEventListener('change', async (event) => {
+  try {
+    await api('/api/me/tenant', { method: 'POST', body: JSON.stringify({ id: event.target.value }) });
+    // Every page shows the other tenant's data: start the page afresh in it.
+    location.reload();
+  } catch (error) {
+    if (!handleAuthLoss(error)) toast(error.message, 'error');
+    renderTenantPicker(state.me);
+  }
+});
+
+async function loadTenants() {
+  if (!can('tenants.manage')) return;
+  try {
+    renderTenants(await api('/api/tenants', { quiet: true }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('tn-status', error);
+  }
+}
+
+function renderTenants(v) {
+  const date = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
+  const a = v.activation;
+  // Each English piece is its own element, so the page translator can reach it.
+  $('tn-state').innerHTML = a?.valid
+    ? `<div class="act-row"><strong>Several tenants</strong><span><span class="badge ok">Unlocked</span> ${escapeHtml(a.org)} · <span>Up to ${a.maxTenants} tenants</span> · <span>Until</span> <b>${escapeHtml(date(a.expires))}</b>${a.warn ? ` <strong class="https-note warn">${a.daysLeft} days left</strong>` : ''}</span></div>`
+    : `<div class="act-row"><strong>Several tenants</strong><span>${a ? '<span class="badge warn">Expired</span>' : '<span class="badge muted">Not unlocked</span>'} <span>Apply a tenants activation code in Settings → Activation codes.</span></span></div>`;
+  $('tn-enabled').checked = v.enabled;
+  $('tn-enabled').disabled = !v.unlocked;
+  $('tn-body').hidden = !v.enabled;
+  $('tn-add').disabled = !v.unlocked;
+  $('tn-list').innerHTML = v.tenants
+    .map((t) => `<li><strong>${escapeHtml(t.name)}</strong>${t.first ? ' <span class="badge muted">First tenant</span>' : ''}${t.id === v.current ? ' <span class="badge">You are here</span>' : ''}
+      <span class="hint">${t.people === 1 ? '1 person' : `${t.people} people`}</span>
+      ${v.unlocked && !t.first ? `<button type="button" class="link" data-tn-rename="${escapeHtml(t.id)}">Rename</button><button type="button" class="link danger" data-tn-remove="${escapeHtml(t.id)}">Remove</button>` : ''}
+      ${v.unlocked && t.first ? `<button type="button" class="link" data-tn-rename="${escapeHtml(t.id)}">Rename</button>` : ''}</li>`)
+    .join('');
+  tenantsView = v;
+}
+let tenantsView = null;
+
+/** A change to the tenants: show it, and refresh the switcher at the top. */
+async function tenantsChanged(view, message) {
+  renderTenants(view);
+  if (message) setStatus('tn-status', message, 'ok');
+  try {
+    state.me = { ...state.me, ...(await api('/api/me', { quiet: true })) };
+    renderTenantPicker(state.me);
+  } catch {}
+}
+
+$('tn-enabled').addEventListener('change', async (event) => {
+  const on = event.target.checked;
+  try {
+    await tenantsChanged(await api('/api/tenants/enabled', { method: 'POST', body: JSON.stringify({ on }) }), on ? 'Several tenants are on.' : 'Several tenants are off.');
+  } catch (error) {
+    event.target.checked = !on;
+    if (!handleAuthLoss(error)) showError('tn-status', error);
+  }
+});
+
+$('tn-add').addEventListener('click', async () => {
+  const name = $('tn-name').value.trim();
+  if (!name) return setStatus('tn-status', 'Give the tenant a name.', 'error');
+  try {
+    const result = await api('/api/tenants', { method: 'POST', body: JSON.stringify({ name }) });
+    $('tn-name').value = '';
+    await tenantsChanged(result, 'Added. Choose it at the top of the page to set it up.');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('tn-status', error);
+  }
+});
+
+$('tn-list').addEventListener('click', async (event) => {
+  const rename = event.target.closest('[data-tn-rename]');
+  const remove = event.target.closest('[data-tn-remove]');
+  const id = rename?.dataset.tnRename ?? remove?.dataset.tnRemove;
+  const tenant = tenantsView?.tenants.find((t) => t.id === id);
+  if (!tenant) return;
+  try {
+    if (rename) {
+      const name = prompt('New name for this tenant:', tenant.name);
+      if (!name || name.trim() === tenant.name) return;
+      await tenantsChanged(await api(`/api/tenants/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ name: name.trim() }) }), 'Renamed.');
+    } else {
+      const typed = prompt(`Remove the tenant "${tenant.name}"? Its people lose access to it at once. Its files are kept in the state folder. Type its name to confirm:`);
+      if (typed === null) return;
+      await tenantsChanged(await api(`/api/tenants/${encodeURIComponent(id)}`, { method: 'DELETE', body: JSON.stringify({ confirm: typed.trim() }) }), 'Removed.');
+    }
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('tn-status', error);
   }
 });
 
@@ -655,6 +800,7 @@ const reloadSettingsPage = () => {
   if (!can('settings.view')) return;
   loadFeatures();
   loadActivation();
+  loadTenants();
   renderSettings();
   loadAutomation();
   loadPool();
@@ -1001,7 +1147,9 @@ async function showConnected(me) {
   $('me-name').textContent = user.name || user.email;
   $('me-role').textContent = me.role.name;
   showAvatar($('me-avatar'), user);
+  if (Array.isArray(me.languages)) languagesChanged(me.languages, true);
   applyProfile(me);
+  renderTenantPicker(me);
   $('me-detail').textContent = `${user.email} · ${me.role.name} · signed in with ${me.via === 'cxone' ? 'a Checkmarx One key' : 'a password'}`;
   $('user-menu').hidden = false;
   $('connect-panel').hidden = true;
@@ -3614,7 +3762,7 @@ function triageSection(r) {
     </div>
     <p class="rp-need" data-need="${id}">${triageNeedText(r)}</p>
     <div class="actions compact">
-      ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary" data-needs-data>Triage now</button>` : ''}
+      ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary${triageCovered(r) ? ' is-golden' : ''}" data-needs-data>Triage now</button>` : ''}
       ${can('credits.allocate') ? `<button type="button" data-report-credits="${id}">Give credits on the Dashboard</button>` : ''}
     </div>
     <p class="hint">1 credit to check a finding with AI, 3 to fix it. Nothing is given until you click.</p>`;
@@ -3836,11 +3984,21 @@ function triageNeedText(r, severities = ['CRITICAL', 'HIGH']) {
   return parts.length ? `${parts.join(' · ')}.` : '';
 }
 
+/** The tracked report's projects have the credits to triage everything at these severities. */
+function triageCovered(r, severities = ['CRITICAL', 'HIGH']) {
+  const counts = r.latest?.toTriage;
+  if (!counts) return false;
+  const results = severities.reduce((n, sev) => n + (r.latest?.toTriageResults?.[sev] ?? counts[sev] ?? 0), 0);
+  return results > 0 && (r.credits?.triage?.remaining ?? 0) >= results;
+}
+
 function updateNeed(card) {
   const report = trackedById.get(card.dataset.report);
   const el = card.querySelector('[data-need]');
   if (!report || !el) return;
-  el.textContent = triageNeedText(report, [...card.querySelectorAll('[data-sev]:checked')].map((box) => box.dataset.sev));
+  const severities = [...card.querySelectorAll('[data-sev]:checked')].map((box) => box.dataset.sev);
+  el.textContent = triageNeedText(report, severities);
+  card.querySelector('[data-report-triage]')?.classList.toggle('is-golden', triageCovered(report, severities));
 }
 
 /** "Only to" is picked by typing an address; the per-person options don't apply to it. */
@@ -4218,6 +4376,9 @@ function renderAllocation() {
   $('alloc-remediation').disabled = !scope.length || t.remediationShort === 0;
   $('alloc-remediation').textContent = t.remediationShort ? `Allocate ${t.remediationShort} for remediation` : t.toRemediate ? 'Remediation is allocated' : 'Allocate for remediation';
   $('run-remediation').disabled = !severities.length || !scope.length || t.toRemediate === 0;
+  // Gold once the credits given cover it: one click checks, or fixes, everything selected across projects.
+  $('run-triage').classList.toggle('is-golden', !$('run-triage').disabled && t.triageShort === 0 && t.triageLeft > 0);
+  $('run-remediation').classList.toggle('is-golden', !$('run-remediation').disabled && t.remediationShort === 0 && t.remediationLeft > 0);
 }
 
 /**
@@ -5971,7 +6132,7 @@ async function renderGettingStarted() {
   const cx = Boolean(state.connection);
   const smtp = Boolean(state.settings?.verified);
   const server = state.reportServer ? !state.reportServer.warnings?.length : true;
-  if (can('integration.cxone') || !cx) steps.push({ stage: 'setup', done: cx, title: 'Connect Checkmarx One', text: 'The server reads projects and findings with its own key.', href: '#/settings/connection', action: can('integration.cxone') ? 'Connect' : 'Ask an Admin' });
+  if (can('integration.cxone') || !cx) steps.push({ stage: 'setup', label: 'Connect', done: cx, title: 'Connect Checkmarx One', text: 'The server reads projects and findings with its own key.', href: '#/settings/connection', action: can('integration.cxone') ? 'Connect' : 'Ask an Admin' });
   steps.push({ stage: 'act', done: state.projects.length > 0, title: 'Fetch vulnerabilities', text: 'Choose a scope and fetch: ageing findings and who ran each scan.', href: '#/dashboard', action: 'Fetch', fetch: true });
   if (can('integration.smtp')) steps.push({ stage: 'setup', done: smtp, title: 'Set up email', text: 'Test your mail server so reminders and follow-ups can go out.', href: '#/settings/smtp', action: 'Set up' });
   if (can('settings.links')) steps.push({ stage: 'setup', done: server, title: 'Give reports a reachable address', text: 'So readers can triage and remediate straight from the emailed report.', href: '#/settings/server', action: 'Set address' });
@@ -5999,7 +6160,7 @@ async function renderGettingStarted() {
     <ol class="gs-steps">${steps
       .map((step) => `<li class="gs-step ${step.done ? 'done' : ''}" data-stage="${step.stage}" title="${escapeHtml(step.text)}">
         <span class="gs-mark" aria-hidden="true">${step.done ? '✓' : ''}</span>
-        <span class="gs-text"><span class="gs-stage" data-i18n-ctx="stage">${STAGE_LABELS[step.stage]}</span><strong>${escapeHtml(step.title)}</strong></span>
+        <span class="gs-text"><span class="gs-stage" data-i18n-ctx="stage">${step.label ?? STAGE_LABELS[step.stage]}</span><strong>${escapeHtml(step.title)}</strong></span>
         ${step.done ? '<span class="sr-only">Done</span>' : step.fetch ? `<button type="button" class="sm primary" data-gs-fetch ${can('findings.fetch') && cx ? '' : 'disabled'}>${escapeHtml(step.action)}</button>` : `<a class="button-like sm" href="${step.href}">${escapeHtml(step.action)}</a>`}
       </li>`)
       .join('')}</ol>`;
@@ -7034,13 +7195,22 @@ function renderAccess() {
            <button type="button" class="link" data-iam-toggle="${u.id}">${u.disabled ? 'Enable' : 'Disable'}</button>
            <button type="button" class="link danger" data-iam-delete="${u.id}">Remove</button>`
         : me ? '<span class="hint">You</span>' : '';
+      // Several tenants: where each person works, chosen by a Super Admin.
+      const tenants = access.data.tenants;
+      const theirs = u.tenants?.length ? u.tenants : ['default'];
+      const tenantLine = tenants ? `<small class="muted block" translate="no">${escapeHtml(tenants.filter((t) => theirs.includes(t.id)).map((t) => t.name).join(', '))}</small>` : '';
+      const tenantPick = tenants && u.canManage
+        ? `<details class="tn-pick"><summary class="link">Tenants</summary><div class="tn-pop">${tenants
+            .map((t) => `<label class="check"><input type="checkbox" value="${escapeHtml(t.id)}" ${theirs.includes(t.id) ? 'checked' : ''} /> <span translate="no">${escapeHtml(t.name)}</span></label>`)
+            .join('')}<button type="button" class="sm primary" data-iam-tenants="${u.id}">Save</button></div></details>`
+        : '';
       return `<tr>
-        <td><strong>${escapeHtml(u.name || u.email)}</strong>${u.name ? `<small class="muted block">${escapeHtml(u.email)}</small>` : ''}</td>
+        <td><strong>${escapeHtml(u.name || u.email)}</strong>${u.name ? `<small class="muted block">${escapeHtml(u.email)}</small>` : ''}${tenantLine}</td>
         <td>${roleCell}</td>
         <td class="small-text">${methods}</td>
         <td>${status}</td>
         <td class="when">${u.lastLoginAt ? escapeHtml(formatTime(u.lastLoginAt)) : '<span class="hint">never</span>'}</td>
-        <td><div class="row-actions">${actions}</div></td>
+        <td><div class="row-actions">${actions}${tenantPick}</div></td>
       </tr>`;
     })
     .join('');
@@ -7251,10 +7421,14 @@ $('iam-users').addEventListener('change', (event) => {
 $('iam-users').addEventListener('click', (event) => {
   const button = event.target.closest('button');
   if (!button) return;
-  const id = button.dataset.iamReset || button.dataset.iamIds || button.dataset.iamToggle || button.dataset.iamDelete;
+  const id = button.dataset.iamReset || button.dataset.iamIds || button.dataset.iamToggle || button.dataset.iamDelete || button.dataset.iamTenants;
   const user = access.data.users.find((u) => u.id === id);
   if (!user) return;
-  if (button.dataset.iamReset) {
+  if (button.dataset.iamTenants) {
+    const tenants = [...button.closest('.tn-pop').querySelectorAll('input:checked')].map((input) => input.value);
+    if (!tenants.length) return setStatus('iam-status', 'Choose at least one tenant.', 'error');
+    iamCall(`/api/iam/users/${id}/tenants`, { method: 'PUT', body: JSON.stringify({ tenants }) }, 'Saved.');
+  } else if (button.dataset.iamReset) {
     const password = generatePassword();
     if (!confirm(`Set a temporary password for ${user.email}? They are signed out and choose their own at next sign-in.`)) return;
     iamCall(`/api/iam/users/${id}/password`, { method: 'POST', body: JSON.stringify({ password }) }, `Temporary password for ${user.email}: ${password}`);
@@ -8432,17 +8606,19 @@ let languagesChanged = () => {};
 
 {
   const select = $('lang-select');
-  const SHORT = { en: 'EN', ja: 'JA', 'zh-TW': '繁中', 'zh-CN': '简中', ko: 'KO', es: 'ES', de: 'DE', fr: 'FR', ar: 'AR', vi: 'VI', th: 'TH', ms: 'MS', id: 'ID', he: 'HE' };
+  const SHORT = { en: 'EN', ja: 'JA', 'zh-TW': '繁中', 'zh-CN': '简中', ko: 'KO', es: 'ES', 'pt-BR': 'PT', de: 'DE', fr: 'FR', ar: 'AR', vi: 'VI', th: 'TH', ms: 'MS', id: 'ID', he: 'HE' };
   const fill = () => {
     select.innerHTML = availableLanguages().map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
     select.value = currentLanguage();
   };
   fill();
-  // Languages unlocked by an activation code (Hebrew) are offered once the server says so.
-  languagesChanged = (codes) => {
+  // Languages unlocked by an activation code (Hebrew) are offered once the server says so. Only
+  // the signed-in answer (`final`) switches someone back to English: before it, the page may not
+  // know yet that this person is one of those Hebrew is open to.
+  languagesChanged = (codes, final = false) => {
     const allowed = setAvailable(codes);
     fill();
-    if (!allowed) setLanguage('en');
+    if (!allowed && final) setLanguage('en');
   };
   const show = (code) => {
     select.value = code;

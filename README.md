@@ -21,7 +21,7 @@ Self-hosted, one container, nothing to install for developers.
 | **Hands-off follow-up** | Age-threshold automation that never nags twice, and tracked reports that measure progress and send follow-ups. |
 | **Accountable** | A hash-chained audit log of every credit and change, role-based access, one-file backups, and a privacy-safe troubleshooting log. |
 | **Easy to work in** | Pages grouped as Act, Follow up, Prove and Set up, in tabs instead of long scrolls; every page keeps your work when you switch; Jump to (Ctrl K); a layout that fits phone, tablet, laptop and wide screens. |
-| **In your language** | Menus and options in Japanese, Traditional Chinese (Taiwan), Simplified Chinese, Korean, Spanish, German, French, Arabic, Vietnamese, Thai, Malay and Indonesian, as well as English; Hebrew with an activation code. Arabic and Hebrew read right to left. Each translation was checked by two separate reviews and by automated checks ([languages](docs/languages.md)). Each person has a profile with their own picture, language, time zone (picked up from their computer) and programming languages. |
+| **In your language** | Menus and options in Japanese, Traditional Chinese (Taiwan), Simplified Chinese, Korean, Spanish, Brazilian Portuguese, German, French, Arabic, Vietnamese, Thai, Malay and Indonesian, as well as English; Hebrew with an activation code, for the people an Admin chooses. Arabic and Hebrew read right to left. Each translation was checked by two separate reviews and by automated checks ([languages](docs/languages.md)). Each person has a profile with their own picture, language, time zone (picked up from their computer) and programming languages. |
 | **Scales** | 3000 people at once on 2 vCPU / 4 GB, 6 failed of 64,320 requests; a report opens in 53 ms (p50) ([benchmark](docs/performance.md)). |
 
 ## Architecture
@@ -225,7 +225,8 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.47** | 519/s, 0 failed (main 504) | 5.3 s | 310 ms | 506 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.48** | 498/s, 7 failed (main 489, 44 failed) | 8.2 s | 880 ms | 519 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.47 | 519/s, 0 failed (main 504) | 5.3 s | 310 ms | 506 pass | 0 vulnerabilities | same |
 | MZ-01.00.46 | 468/s, 44 failed (host stalls; main 177) | 10.1 s | 1.3 s | 479 pass | 0 vulnerabilities | same |
 | MZ-01.00.45 | 497/s, 0 failed | 7.9 s | 1.2 s | 478 pass | 0 vulnerabilities | same |
 | MZ-01.00.44 | 520/s, 0 failed | 7.1 s | 384 ms | 461 pass | 0 vulnerabilities | same |
@@ -260,7 +261,8 @@ How it is measured, and what is open and why: [Performance and security status](
 | [Performance and sizing](docs/performance.md) | The 3000-user benchmark and the recommended server size. |
 | [Performance and security status](docs/status.md) | Every version's benchmark, tests, dependency audit and Checkmarx One scan result. |
 | [Audit log and backups](docs/audit-and-backup.md) | The tamper-evident audit log, backups, restore, moving servers. |
-| [Languages](docs/languages.md) | The fourteen languages, right-to-left Arabic and Hebrew, and how translations are kept current and reviewed. |
+| [Languages](docs/languages.md) | The fifteen languages, right-to-left Arabic and Hebrew, and how translations are kept current and reviewed. |
+| [Several tenants](docs/multi-tenant.md) | One server for several Checkmarx One tenants, each with its own connection, settings, credits, reports, audit log and people; a Super Admin manages them (with an activation code). |
 | [Activation codes](docs/activation-codes.md) | Add-ons unlocked with a code (Hebrew; several Checkmarx One tenants): applying one, and how they are issued. |
 | [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code (git blame, down to the exact developer), and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket. An Admin makes each one final when it has proved itself. |
 

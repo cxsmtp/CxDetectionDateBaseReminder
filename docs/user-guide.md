@@ -62,6 +62,7 @@ The coloured label next to each page title says which group the page is in.
 - 简体中文 (Simplified Chinese);
 - 한국어 (Korean);
 - Español (Spanish);
+- Português (Brasil) (Brazilian Portuguese);
 - Deutsch (German);
 - Français (French);
 - العربية (Arabic);
@@ -70,7 +71,7 @@ The coloured label next to each page title says which group the page is in.
 - Bahasa Melayu (Malay);
 - Bahasa Indonesia (Indonesian);
 - English;
-- עברית (Hebrew), once an Admin has switched it on with an activation code (Settings → Activation codes).
+- עברית (Hebrew), for the people an Admin chose after switching it on with an activation code (Settings → Activation codes).
 
 In Arabic and Hebrew the page reads right to left, with the menu on the right.
 
@@ -418,10 +419,14 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 ### Activation codes (Admin)
 
 Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
-- **Hebrew:** an activation code adds Hebrew to the language pickers; a deactivation code removes it.
+- **Hebrew:** an activation code switches Hebrew on; tick the people who may use it under **Who may use Hebrew** (only they are offered it); a deactivation code removes it.
 - **Several tenants:** for organisations that run more than one Checkmarx One tenant (the Super Admin tasks).
 
 Paste the code and select **Apply the code**. The page shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** see this section. [How codes are issued](activation-codes.md).
+
+### Tenants (Super Admin)
+
+For organisations that run several Checkmarx One tenants, with a tenants activation code. Turn on **Several tenants**, then **Add tenant**: each tenant has its own connection, email server, settings, credits, reports, audit log and people. Choose a tenant at the top of the page to work in it. **Rename** and **Remove** are next to each tenant; removing one keeps its files. People added while you work in a tenant work only there; a Super Admin changes that with **Tenants** on each person under People & roles. The whole story: [several tenants](multi-tenant.md).
 
 ### About & terms of use
 The version, the licence, the project's address, which version of the terms you accepted, and **Read the terms of use**.
@@ -576,7 +581,7 @@ Where findings are read from. The default is `/api/risks/`.
 
 ## Dashboard
 
-**Get started.** Until the basics are in place, one row of steps at the top shows what is left: connect Checkmarx One, fetch vulnerabilities, set up email, give reports a reachable address, cap AI credits, invite your team. Done steps are ticked green and joined by a green line; each step still to do has its button. **Hide** puts the row away.
+**Get started.** Until the basics are in place, one row of steps at the top shows what is left: connect Checkmarx One, fetch vulnerabilities, set up email, give reports a reachable address, cap AI credits, invite your team. The first step is labelled **Connect**; each other step carries the name of the sidebar group it belongs to (Act, Prove, Set up). Done steps are ticked green and joined by a green line; each step still to do has its button. **Hide** puts the row away.
 
 **The way to Mission Zero.** Under the totals, one line shows where the fetched findings stand:
 - **Mission Zero:** a ring with how many projects have nothing open.
@@ -889,6 +894,7 @@ Identity and access management, in two tabs.
 | **Set password** | A new temporary password. |
 | **Disable / Enable** | Disabling ends their sessions at once. |
 | **Remove** | Deletes the account. |
+| **Tenants** (Super Admin, several tenants) | Choose the Checkmarx One tenants the person works in. Under each name, the tenants they work in now. |
 
 **Roles & permissions** is a matrix of permissions against roles.
 - **Find a permission** narrows the matrix; click a group name to fold it, or **Collapse all**. Each group row shows how many of its permissions each role has.
@@ -961,7 +967,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.47** | 519/s, 0 failed (main 504) | 5.3 s | 310 ms | 506 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.48** | 498/s, 7 failed (main 489, 44 failed) | 8.2 s | 880 ms | 519 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.47 | 519/s, 0 failed (main 504) | 5.3 s | 310 ms | 506 pass | 0 vulnerabilities | same |
 | MZ-01.00.46 | 468/s, 44 failed (host stalls; main 177) | 10.1 s | 1.3 s | 479 pass | 0 vulnerabilities | same |
 | MZ-01.00.45 | 497/s, 0 failed | 7.9 s | 1.2 s | 478 pass | 0 vulnerabilities | same |
 | MZ-01.00.44 | 520/s, 0 failed | 7.1 s | 384 ms | 461 pass | 0 vulnerabilities | same |

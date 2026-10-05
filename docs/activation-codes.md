@@ -4,8 +4,8 @@ A few add-ons are unlocked per installation with an activation code:
 
 | Add-on | Code | What it does |
 | --- | --- | --- |
-| **Hebrew** | an activation code and a deactivation code | Adds Hebrew (עברית) to the language pickers until the code expires, or removes it. |
-| **Several tenants** | an activation code naming the organisation and how many tenants | Unlocks the Super Admin tasks for organisations that run more than one Checkmarx One tenant. |
+| **Hebrew** | an activation code and a deactivation code | Adds Hebrew (עברית) to the language pickers of the people an Admin chooses, until the code expires, or removes it. |
+| **Several tenants** | an activation code naming the organisation and how many tenants | Unlocks the Super Admin tasks for organisations that run more than one Checkmarx One tenant ([several tenants](multi-tenant.md)). |
 
 Everything else works without a code.
 
@@ -15,6 +15,8 @@ Everything else works without a code.
 2. Paste the code you were sent, then select **Apply the code**.
 
 The section then shows what is unlocked, for which organisation and until when. It warns 30 days before a code expires.
+
+With Hebrew on, tick the people who may use it under **Who may use Hebrew**, then **Save who may use Hebrew**. Only they are offered it. A new Hebrew code starts with nobody chosen; a renewed one keeps the people chosen.
 
 Codes are checked on the server against the maintainer's public key, which is built into CxMissionZero. Nothing is sent anywhere. Every code applied, or refused, is recorded in the audit log (type **System**) with who entered it.
 

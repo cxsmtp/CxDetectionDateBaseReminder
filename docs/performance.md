@@ -127,8 +127,17 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.47 | 1 | 11.1 s / 0 | 61,117 / 112 | 486 | 107 / 13,322 ms | 21 / 1,011 ms | none |
 | **MZ-01.00.47** | 2 | 15.8 s / 0 | 63,787 / **0** | **519** | 64 / **5,251 ms** | 16 / **310 ms** | none |
 | MZ-01.00.46 (main) | 2 | 9.1 s / 0 | 63,066 / 0 | 504 | 79 / 6,355 ms | 19 / 539 ms | none |
+| MZ-01.00.47 (main) | 1 | 12.7 s / 0 | 62,695 / 0 | 503 | 60 / 7,787 ms | 24 / 845 ms | none |
+| MZ-01.00.48 (first build) | 1 | 16.4 s / 0 | 60,694 / 223 | 468 | 76 / 13,418 ms | 37 / 1,238 ms | none |
+| **MZ-01.00.48** | 2 | 9.9 s / 0 | 62,456 / **7** | **498** | 76 / **8,185 ms** | 28 / **880 ms** | none |
+| MZ-01.00.47 (main) | 2 | 11.2 s / 0 | 61,743 / 44 | 489 | 67 / 10,051 ms | 23 / 888 ms | none |
 
 **MZ-01.00.37: what the differences were.** Two pairs with main, alternating. Report opens at p95 were 4.1 and 5.1 s on the branch against 7.2 and 5.1 s on main; triage results 201 and 179 ms against 257 and 123 ms; requests a second 519 and 508 against 504 and 518, with 0 failed requests and no finding sent twice in any run. The first branch run's opening burst took 16.3 s, a little above the 7.4–15.8 s seen before, and its fetches were slower (17 s against 12 s at the median); in the second pair the burst took 9.9 s (main 8.0 s) and fetches matched main (13.5 s against 13.0 s at the median). What the fetch now does in addition is one pass over each project's findings to count what is past its SLA, which is a few microseconds a finding next to reading them from Checkmarx One. Escalation runs only on the automation's schedule, which the benchmark does not use.
+
+**MZ-01.00.48: what the differences were.** The first build was slower, and that was fixed. In the first pair, main served 503 requests a second with 0 failed. The branch served 468 a second, with 223 connection-level failures and report opens at 13.4 s p95.
+- **The cause:** the branch ran every request inside an AsyncLocalStorage context, to know which tenant it is for. On Node 22, the version on the benchmark machine, that tracking slows every promise down: about 2.7× inside a context, and still about 40% after the first use.
+- **The fix:** with one tenant, the context is never entered, so tracking stays off and costs nothing on any Node version. Store methods are now bound once per store, not on every call. The container image runs Node 24, where the context costs little anyway, so it only matters for servers that turn on several tenants.
+- **After the fix:** the second pair ran branch then main. The branch served 498 a second with 7 failed (connect timeouts), against main's 489 with 44 failed (resets and timeouts). Report opens took 8.2 s against 10.1 s at p95, and triage polls 880 ms against 888 ms. No finding was sent twice in any run.
 
 **MZ-01.00.47: what the differences were.** None from the change. There were two pairs: main then branch, then branch then main.
 - **First pair:** the host stalled, with health checks waiting up to 17 s (main) and 20 s (branch). Both runs had failures, and every one was at connection level (`ECONNRESET`, connect timeout), never an answer from the server: main 53, branch 112. Report opens took 12.6 and 13.3 s at p95.

@@ -18,6 +18,7 @@ export const LANGUAGES = [
   ['zh-CN', '简体中文'],
   ['ko', '한국어'],
   ['es', 'Español'],
+  ['pt-BR', 'Português (Brasil)'],
   ['de', 'Deutsch'],
   ['fr', 'Français'],
   ['ar', 'العربية'],
@@ -51,6 +52,8 @@ export function preferredLanguage(saved = readSaved(), browser = globalThis.navi
     const lower = String(tag).toLowerCase();
     if (/^zh-(tw|hk|mo|hant)/.test(lower)) return 'zh-TW';
     if (lower.startsWith('zh')) return 'zh-CN';
+    // Every Portuguese (pt, pt-PT, pt-BR…) reads the Brazilian translation.
+    if (lower.split('-')[0] === 'pt') return 'pt-BR';
     const primary = lower.split('-')[0] === 'in' ? 'id' : lower.split('-')[0];
     if (CODES.has(primary) && !GATED.has(primary)) return primary;
     if (primary === 'en') return 'en';

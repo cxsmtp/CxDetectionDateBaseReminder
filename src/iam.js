@@ -55,6 +55,7 @@ export const PERMISSIONS = [
   { id: 'backup.manage', group: 'Audit & data', label: 'Download & restore backups', description: 'Backups hold the SMTP password, API keys and users — so this is an Admin permission.', special: true },
   { id: 'beta.use', group: 'Beta', label: 'Beta features', description: 'Code authors and GitHub identity matching, and their GitHub token.' },
   { id: 'activation.manage', group: 'Settings', label: 'Activation codes', description: 'Enter the activation codes that unlock add-ons on this installation (Hebrew; several Checkmarx One tenants), or turn them off.', special: true },
+  { id: 'tenants.manage', group: 'Settings', label: 'Super Admin: tenants', description: 'With a tenants activation code: turn on several Checkmarx One tenants, add, rename and remove them, switch between them, and choose who works in which.', special: true },
   { id: 'features.manage', group: 'Beta', label: 'Make Beta features final', description: 'Promote a Beta feature to a standard one (or put it back in Beta) for everyone in the organisation.', special: true },
   { id: 'iam.view', group: 'Access', label: 'View users & roles', description: 'See who has access and what each role allows.' },
   { id: 'iam.manage', group: 'Access', label: 'Manage users & roles', description: 'Add, change and remove users and roles — never beyond their own permissions.' },
@@ -343,6 +344,19 @@ export class IamStore {
     return { before, after: publicUser(user) };
   }
 
+  /**
+   * The Checkmarx One tenants a person works in (several tenants: src/tenancy.js). Empty means
+   * the first tenant only. Super Admins (tenants.manage) work in every tenant whatever this says.
+   */
+  setTenants(id, tenantIds) {
+    const user = this.user(id);
+    if (!user) throw fail(404, 'No such user.');
+    const before = publicUser(user);
+    user.tenants = [...new Set((Array.isArray(tenantIds) ? tenantIds : []).map(String).filter(Boolean))].slice(0, 100);
+    this.#save();
+    return { before, after: publicUser(user) };
+  }
+
   /** A person changes their own profile (name, language, time zone, programming languages). Returns {before, after}. */
   updateProfile(id, patch = {}) {
     const user = this.user(id);
@@ -495,7 +509,7 @@ function cleanAliases(list) {
 // Each person's own profile: language, time zone, programming languages and picture.
 // ---------------------------------------------------------------------------
 
-export const PROFILE_LANGUAGES = ['en', 'ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'de', 'fr', 'ar', 'vi', 'th', 'ms', 'id', 'he'];
+export const PROFILE_LANGUAGES = ['en', 'ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'pt-BR', 'de', 'fr', 'ar', 'vi', 'th', 'ms', 'id', 'he'];
 export const PROGRAMMING_LANGUAGES = [
   'Apex', 'C', 'C++', 'C#', 'COBOL', 'Dart', 'Go', 'Groovy', 'Java', 'JavaScript', 'Kotlin', 'Objective-C', 'Perl', 'PHP',
   'PL/SQL', 'Python', 'Ruby', 'Rust', 'Scala', 'Swift', 'TypeScript', 'VB.NET', 'Infrastructure as code',
@@ -558,6 +572,7 @@ export function publicUser(user) {
     name: user.name ?? '',
     role: user.role,
     cxoneIdentities: user.cxoneIdentities ?? [],
+    tenants: user.tenants ?? [],
     hasPassword: Boolean(user.passwordHash),
     mustChangePassword: Boolean(user.mustChangePassword),
     disabled: Boolean(user.disabled),

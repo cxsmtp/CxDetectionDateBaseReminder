@@ -1,6 +1,6 @@
 # Languages
 
-CxMissionZero's page is available in fourteen languages. Thirteen are open to everyone; Hebrew is switched on with an activation code (below).
+CxMissionZero's page is available in fifteen languages. Fourteen are open to everyone; Hebrew is switched on with an activation code, for the people an Admin chooses (below).
 
 | Code | Language |
 |---|---|
@@ -10,6 +10,7 @@ CxMissionZero's page is available in fourteen languages. Thirteen are open to ev
 | `zh-CN` | 简体中文 (Simplified Chinese) |
 | `ko` | 한국어 (Korean) |
 | `es` | Español (Spanish, neutral international) |
+| `pt-BR` | Português (Brasil) (Brazilian Portuguese, for every Portuguese browser) |
 | `de` | Deutsch (German, formal "Sie") |
 | `fr` | Français (French, formal "vous") |
 | `ar` | العربية (Arabic, Modern Standard; right to left) |
@@ -17,7 +18,7 @@ CxMissionZero's page is available in fourteen languages. Thirteen are open to ev
 | `th` | ไทย (Thai) |
 | `ms` | Bahasa Melayu (Malay, Malaysia) |
 | `id` | Bahasa Indonesia (Indonesian) |
-| `he` | עברית (Hebrew; right to left; needs an activation code) |
+| `he` | עברית (Hebrew; right to left; needs an activation code, for chosen people) |
 
 **Choosing a language.** Use the globe at the top right, or **Your profile** (under your name, and in Settings). The choice is saved with the person's account. The first time, the browser's own language is used when it is one of these.
 
@@ -33,7 +34,7 @@ CxMissionZero's page is available in fourteen languages. Thirteen are open to ev
 
 **Right to left.** In Arabic and Hebrew the whole page is mirrored: the menu is on the right, text starts on the right, and arrows in menu paths point left (Settings ← HTTPS). Charts, code, addresses and numbers keep their left-to-right order.
 
-**Hebrew is switched on with a code.** An Admin pastes a Hebrew activation code in **Settings → Activation codes**; Hebrew then appears in the language pickers for everyone until the code expires (12 months) or a deactivation code is pasted. Nobody is ever switched to Hebrew automatically from their browser's language; people choose it themselves. When Hebrew is turned off, people who had chosen it see English. Codes come from the maintainer of CxMissionZero; they are checked on the server, with nothing sent anywhere.
+**Hebrew is switched on with a code, for the people you choose.** An Admin pastes a Hebrew activation code in **Settings → Activation codes**, then ticks the people who may use it under **Who may use Hebrew**. Only they see Hebrew in the language pickers; nobody else is offered it, or ever sent its translation. It lasts until the code expires (12 months) or a deactivation code is pasted; a renewed code keeps the people chosen. Nobody is ever switched to Hebrew automatically from their browser's language; people choose it themselves. Someone who loses Hebrew sees English. Codes come from the maintainer of CxMissionZero; they are checked on the server, with nothing sent anywhere.
 
 **Tone.** While an action runs, every language other than English shows plain, factual status lines, such as "Verifying with Checkmarx One…" instead of a quip.
 
@@ -88,6 +89,7 @@ The second reviewer worked from the first reviewer's corrected text, without bei
 | French (MZ-01.00.47) | 1,445 | 0 | 1 |
 | Arabic (MZ-01.00.47) | 1,445 | 18 | 16 |
 | Hebrew (MZ-01.00.47) | 1,445 | 16, and 52 menu-path arrows turned to point left | 16 |
+| Portuguese, Brazil (MZ-01.00.48) | 1,531 | 72 (one shared term sheet across three translators, accuracy, Brazilian forms) | 15 |
 
 **Fixed in the English itself.** The reviews found places where one English word was doing two jobs:
 - **"From" and "To":** used for both email fields and date ranges.
@@ -108,4 +110,8 @@ The **Allocated vs used** table's column headings, the line under each project a
 **Added in MZ-01.00.47.** 63 entries in all thirteen languages: the sidebar groups **Act**, **Follow up**, **Prove** and **Set up**, the free Let's Encrypt certificate card, **Settings → Activation codes**, and **Show more** in long project lists. "Set up" was checked against each language's word for **Settings**, so the group heading and the page name never read alike. The stage label beside each page title is looked up as `stage|Set up`, apart from the **Set up** button. Each entry was translated, then reviewed twice:
 - **Review 1:** 13 corrections. "Set up" moved away from the word for Settings in Spanish, Arabic, Hebrew and Thai. "Act" in Traditional Chinese no longer reads as "mobile". A missing "fast" was restored in four languages, and a Spanish subjunctive was fixed.
 - **Review 2:** 11 corrections. Japanese now proves how each credit was used, not the credit. The Chinese scripts gained spacing before a Latin link. Korean and German were made idiomatic. Indonesian uses "Penyiapan", as the rest of its file does. Arabic tooltips use the noun form. Thai gained counting words and a completed sentence.
+
+**Added in MZ-01.00.48.** 34 entries in all thirteen languages: **Settings → Tenants**, the tenant switcher, **Super Admin**, choosing who works in which tenant, **Who may use Hebrew**, and the **Connect** label over the first Get started step. "Super Admin" is the same everywhere it appears in each language. "Tenant" reuses each language's 1.0.47 word. Each entry was translated, then reviewed twice:
+- **Review 1:** 3 corrections. Korean "Save who may use Hebrew" no longer reads as "Hebrew speakers", and Spanish gained "Usted está aquí" and "Todas las personas".
+- **Review 2:** 7 corrections. A Korean grammar fix; German, Spanish, Vietnamese and Indonesian made clearer ("Die Funktion „Mehrere Tenants“ ist aktiviert"). "Connect" was translated in this round in seven languages, and then checked on its own.
 

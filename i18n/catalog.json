@@ -921,12 +921,26 @@
    "Dashboard › button › People"
   ]
  },
+ "Add tenant": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Tenants",
+   "sign in › button › Tenants",
+   "Dashboard › button › Tenants"
+  ]
+ },
  "Add, change and remove users and roles — never beyond their own permissions.": {
   "kind": "text",
   "seen": [
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
+  ]
+ },
+ "Added. Choose it at the top of the page to set it up.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Tenants › after Add tenant"
   ]
  },
  "Added. They sign in with a Checkmarx One key.": {
@@ -1158,6 +1172,14 @@
   ]
  },
  "Admin: Set the credit pool": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
+ "Admin: Super Admin: tenants": {
   "kind": "attr:aria-label",
   "seen": [
    "access › input › Roles & permissions",
@@ -1787,6 +1809,14 @@
    "first start › button › HTTPS",
    "first start › button › Credit audit log",
    "sign in › button › HTTPS"
+  ]
+ },
+ "Apply a tenants activation code in Settings → Activation codes.": {
+  "kind": "text",
+  "seen": [
+   "settings › span › Tenants",
+   "logs › span › Tenants",
+   "logs › activity › span › Tenants"
   ]
  },
  "Apply the code": {
@@ -2766,6 +2796,12 @@
    "credits › overview › p › No tracked reports yet"
   ]
  },
+ "Choose at least one tenant.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Choose certificate files": {
   "kind": "text",
   "seen": [
@@ -3026,6 +3062,12 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Connect": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › Get started › label over the first step"
   ]
  },
  "Connect & store": {
@@ -4250,6 +4292,12 @@
    "logs › activity › li › Beta features"
   ]
  },
+ "Everyone, because Hebrew was turned on before people could be chosen. Choose people to keep it for them only.": {
+  "kind": "text",
+  "seen": [
+   "Settings › Activation codes › under Who may use Hebrew"
+  ]
+ },
  "Everything except the Admin-only integrations, credit budget and backups — including users and roles.": {
   "kind": "attr:title",
   "seen": [
@@ -4610,6 +4658,14 @@
    "first start › span › Create the first administrator",
    "sign in › span › Create the first administrator",
    "message"
+  ]
+ },
+ "First tenant": {
+  "kind": "text",
+  "seen": [
+   "settings › span › Tenants",
+   "logs › span › Tenants",
+   "logs › activity › span › Tenants"
   ]
  },
  "First-detection date (YYYY-MM-DD)": {
@@ -4974,6 +5030,12 @@
    "message"
   ]
  },
+ "Give the tenant a name.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Give this project more credits": {
   "kind": "attr:title",
   "seen": [
@@ -5072,6 +5134,24 @@
    "settings › strong › Activation codes",
    "logs › strong › Activation codes",
    "logs › activity › strong › Activation codes"
+  ]
+ },
+ "Hebrew is open to {0} people.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Hebrew is open to {0} person.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Hebrew is open to nobody until people are chosen.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Here": {
@@ -6110,6 +6190,20 @@
    "first start › span › Your profile"
   ]
  },
+ "Name of the new tenant": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "first start › input › Tenants",
+   "sign in › input › Tenants",
+   "Dashboard › input › Tenants"
+  ]
+ },
+ "Name of the new tenant, e.g. Acme EU": {
+  "kind": "text",
+  "seen": [
+   "Settings › Tenants › field placeholder"
+  ]
+ },
  "Name or id": {
   "kind": "attr:placeholder",
   "seen": [
@@ -6162,6 +6256,12 @@
    "first start › option › AI Triage & Remediation from reports",
    "sign in › option › AI Triage & Remediation from reports",
    "Dashboard › option › AI Triage & Remediation from reports"
+  ]
+ },
+ "New name for this tenant:": {
+  "kind": "message",
+  "seen": [
+   "Settings › Tenants › Rename (a prompt)"
   ]
  },
  "New password": {
@@ -6728,6 +6828,12 @@
    "first start › select",
    "first start › p",
    "sign in › select"
+  ]
+ },
+ "Only the people ticked here are offered Hebrew. Everyone else never sees it.": {
+  "kind": "text",
+  "seen": [
+   "Settings › Activation codes › under Who may use Hebrew"
   ]
  },
  "Only these projects or people <span class=\"muted\">— optional</span>": {
@@ -7743,6 +7849,12 @@
    "busy line"
   ]
  },
+ "Removed.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Tenants"
+  ]
+ },
  "Removing the stored Checkmarx One key…": {
   "kind": "busy",
   "seen": [
@@ -7759,6 +7871,18 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Rename": {
+  "kind": "button",
+  "seen": [
+   "Settings › Tenants › each tenant"
+  ]
+ },
+ "Renamed.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Tenants"
   ]
  },
  "Rendered.": {
@@ -8121,6 +8245,12 @@
    "first start › p › Send reminder",
    "sign in › p › Send reminder",
    "Dashboard › p › Send reminder"
+  ]
+ },
+ "Save who may use Hebrew": {
+  "kind": "button",
+  "seen": [
+   "Settings › Activation codes"
   ]
  },
  "Save, schedule and delete tracked reports, and verify their fixes with a Checkmarx One rescan (starts scans).": {
@@ -8561,6 +8691,14 @@
    "access › roles › input › Roles & permissions"
   ]
  },
+ "Security Analyst: Super Admin: tenants": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
  "Security Analyst: Tag initiator addresses": {
   "kind": "attr:aria-label",
   "seen": [
@@ -8859,6 +8997,14 @@
    "credits › projects › span › Credits used over time"
   ]
  },
+ "Serve several Checkmarx One tenants from this one server. Each tenant has its own Checkmarx One connection, email server, settings, credits, tracked reports and audit log, and its own people. Needs a tenants activation code (Settings → Activation codes).": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Tenants",
+   "sign in › p › Tenants",
+   "Dashboard › p › Tenants"
+  ]
+ },
  "Server address": {
   "kind": "text",
   "seen": [
@@ -9104,6 +9250,14 @@
    "dashboard › span"
   ]
  },
+ "Settings → Tenants": {
+  "kind": "text",
+  "seen": [
+   "Jump to › search › span",
+   "dashboard › span",
+   "dashboard › remind › span"
+  ]
+ },
  "Settings → Update & recovery": {
   "kind": "text",
   "seen": [
@@ -9172,6 +9326,18 @@
    "settings › strong › Activation codes",
    "logs › strong › Activation codes",
    "logs › activity › strong › Activation codes"
+  ]
+ },
+ "Several tenants are off.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Tenants › after the switch"
+  ]
+ },
+ "Several tenants are on.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Tenants › after the switch"
   ]
  },
  "Severities": {
@@ -9619,6 +9785,14 @@
    "Dashboard › span › Activity log"
   ]
  },
+ "Super Admin: tenants <span class=\"badge warn\">Admin</span>": {
+  "kind": "html",
+  "seen": [
+   "access › span › Roles & permissions",
+   "access › people › span › Roles & permissions",
+   "access › roles › span › Roles & permissions"
+  ]
+ },
  "Sure": {
   "kind": "text",
   "seen": [
@@ -9757,6 +9931,14 @@
    "first start › span › Single-tenant / on-prem addresses",
    "sign in › span › Single-tenant / on-prem addresses",
    "Dashboard › span › Single-tenant / on-prem addresses"
+  ]
+ },
+ "Tenants": {
+  "kind": "text",
+  "seen": [
+   "first start › a",
+   "first start › h2 › Tenants",
+   "sign in › a"
   ]
  },
  "Terms accepted": {
@@ -9899,6 +10081,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "The Checkmarx One tenant you are working in": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › label",
+   "sign in › label",
+   "Dashboard › label"
   ]
  },
  "The credit pool for the whole utility: its size and whether it refills monthly.": {
@@ -10208,6 +10398,14 @@
    "Dashboard › span › Match usernames to email addresses"
   ]
  },
+ "To set up a tenant, choose it at the top of the page. Then connect its Checkmarx One and email server here in Settings, and add its people under People & roles: they work only in that tenant.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Tenants",
+   "sign in › p › Tenants",
+   "Dashboard › p › Tenants"
+  ]
+ },
  "to triage ({0} credits)": {
   "kind": "text",
   "seen": [
@@ -10412,6 +10610,14 @@
    "first start › button › HTTPS",
    "sign in › button › HTTPS",
    "Dashboard › button › HTTPS"
+  ]
+ },
+ "Turn on to add tenants. To turn it off again, remove the other tenants first.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Tenants",
+   "sign in › small › Tenants",
+   "Dashboard › small › Tenants"
   ]
  },
  "Turn the usernames of scan initiators on GitHub, GitLab, Azure DevOps or Bitbucket into email addresses.": {
@@ -10870,6 +11076,14 @@
    "access › roles › input › Roles & permissions"
   ]
  },
+ "User: Super Admin: tenants": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
  "User: Tag initiator addresses": {
   "kind": "attr:aria-label",
   "seen": [
@@ -11192,6 +11406,12 @@
    "access › roles › p"
   ]
  },
+ "Who may use Hebrew": {
+  "kind": "text",
+  "seen": [
+   "Settings › Activation codes › heading of the people list"
+  ]
+ },
  "Who ran that project's latest scan": {
   "kind": "text",
   "seen": [
@@ -11214,6 +11434,14 @@
    "Dashboard › fetching › summary › Why fewer results than findings: 56 findings here are 28 Checkmarx One results",
    "Dashboard › loaded › summary › Why fewer results than findings: 56 findings here are 28 Checkmarx One results",
    "Dashboard › remind › summary › Why fewer results than findings: 56 findings here are 28 Checkmarx One results"
+  ]
+ },
+ "With a tenants activation code: turn on several Checkmarx One tenants, add, rename and remove them, switch between them, and choose who works in which.": {
+  "kind": "text",
+  "seen": [
+   "access › small › Roles & permissions",
+   "access › people › small › Roles & permissions",
+   "access › roles › small › Roles & permissions"
   ]
  },
  "Working…": {
@@ -11252,6 +11480,14 @@
    "first start › p",
    "sign in › p",
    "Dashboard › p"
+  ]
+ },
+ "You are here": {
+  "kind": "text",
+  "seen": [
+   "settings › span › Tenants",
+   "logs › span › Tenants",
+   "logs › activity › span › Tenants"
   ]
  },
  "You declined the terms of use, so you were signed out.": {
