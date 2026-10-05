@@ -88,3 +88,18 @@ test('progress counts the open findings AI Triage can still act on, by severity'
   // a and d (baseline, still to verify) and x (new); b, e have verdicts, c is KICS.
   assert.deepEqual(progress.toTriage, { CRITICAL: 2, HIGH: 1 });
 });
+
+test('progress counts the confirmed results AI Remediation can still act on, by severity', () => {
+  const { report } = setup();
+  const sast = (r, extra = {}) => ({ ...r, scanner: 'SAST', projectId: 'p1', ...extra });
+  const current = new Map([
+    // x and y are one Checkmarx One result (same alternateId): remediated, and counted, once.
+    ['p1', [sast(risk('a', 'CRITICAL', 'CONFIRMED'), { alternateId: 'r1' }), sast(risk('x', 'HIGH', 'CONFIRMED'), { alternateId: 'r2' }), sast(risk('y', 'HIGH', 'CONFIRMED'), { alternateId: 'r2' }), sast(risk('b', 'HIGH', 'CONFIRMED'))]],
+    ['p2', [{ ...risk('d', 'CRITICAL', 'CONFIRMED'), scanner: 'KICS', projectId: 'p2' }]],
+  ]);
+  const remediated = (projectId) => new Set(projectId === 'p1' ? ['b'] : []);
+  const progress = computeProgress(report, current, resolveWindow({ preset: '90d' }, 'x', now), () => ({ triage: 0, remediation: 0 }), now, remediated);
+  // a (critical) and x/y (new, high, one result) are confirmed SAST; b was already remediated; d is KICS.
+  assert.deepEqual(progress.toRemediate, { CRITICAL: 1, HIGH: 1 });
+  assert.deepEqual(computeProgress(report, current, resolveWindow({ preset: '90d' }, 'x', now), () => ({ triage: 0, remediation: 0 }), now).toRemediate, { CRITICAL: 1, HIGH: 2 }, 'nothing remediated yet');
+});

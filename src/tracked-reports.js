@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { AI_SCANNERS } from './cxone/ai-assist.js';
+import { billingUnit, remediable } from './credit-allocations.js';
 import { withinWindow } from './window.js';
 
 export const OUTCOMES = ['awaiting', 'confirmed', 'notExploitable', 'resolved'];
@@ -44,8 +45,9 @@ const emptyOutcomes = () => Object.fromEntries(OUTCOMES.map((o) => [o, 0]));
  * @param {Map<string, Array>} currentByProject  every current finding per project (unfiltered)
  * @param {object|null} detectionWindow  the report's detection window, resolved now
  * @param {(projectIds: string[], since: string) => {triage: number, remediation: number}} aiActions
+ * @param {(projectId: string) => Set<string>} remediatedOf  findings already sent for AI Remediation
  */
-export function computeProgress(report, currentByProject, detectionWindow, aiActions, now = new Date()) {
+export function computeProgress(report, currentByProject, detectionWindow, aiActions, now = new Date(), remediatedOf = () => new Set()) {
   const byProject = new Map(
     report.projects.map((p) => [
       p.projectId,
@@ -67,6 +69,16 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
       const key = `${risk.projectId}|${risk.alternateId ? `a:${risk.alternateId}` : risk.groupId ? `g:${risk.groupId}` : `r:${risk.riskId}`}`;
       (resultsBySeverity[risk.severity] ??= new Set()).add(key);
     }
+    countToRemediate(risk);
+  };
+  // Confirmed findings AI Remediation can still act on, by severity: one per result.
+  const remediateBySeverity = {};
+  const remediated = new Map();
+  const countToRemediate = (risk) => {
+    if (!remediable(risk)) return;
+    if (!remediated.has(risk.projectId)) remediated.set(risk.projectId, remediatedOf(risk.projectId) ?? new Set());
+    if (remediated.get(risk.projectId).has(risk.riskId)) return;
+    (remediateBySeverity[risk.severity] ??= new Set()).add(`${risk.projectId}|${billingUnit(risk)}`);
   };
 
   const outcomes = emptyOutcomes();
@@ -118,6 +130,7 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
     currentMatching,
     toTriage,
     toTriageResults: Object.fromEntries(Object.entries(resultsBySeverity).map(([severity, keys]) => [severity, keys.size])),
+    toRemediate: Object.fromEntries(Object.entries(remediateBySeverity).map(([severity, keys]) => [severity, keys.size])),
     aiActions: aiActions(report.projects.map((p) => p.projectId), report.createdAt),
     byProject: [...byProject.values()].sort((a, b) => b.baseline - a.baseline),
   };

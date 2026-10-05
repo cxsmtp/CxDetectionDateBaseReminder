@@ -115,6 +115,11 @@ try {
   await grab('Dashboard › triage done', 4000);
   await page.fill('#track-name', 'Weekly').catch(() => {});
   await click('#track-save, [data-track-save], #save-tracked', 'Dashboard › track saved', 2000);
+  // The Reports page's detail panel needs a saved report: save one directly when the Track panel did not.
+  await page.evaluate(async () => {
+    const { reports } = await (await fetch('/api/tracked-reports')).json();
+    if (!reports.length) await fetch('/api/tracked-reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Weekly', severities: ['CRITICAL', 'HIGH'] }) });
+  });
   await page.keyboard.press('Control+k');
   await grab('Jump to');
   await page.keyboard.type('set');

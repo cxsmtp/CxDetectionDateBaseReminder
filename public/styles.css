@@ -2228,6 +2228,16 @@ body.simple [data-advanced] { display: none !important; }
 .cc-give .cc-give-cost { flex: 1 1 100%; margin: 0; }
 .cc-give .status { flex: 1 1 100%; margin: 0; }
 .cc-give .status:empty { display: none; }
+/* Credit Control: spend what the projects were given (Triage now / Remediate now turn gold when they can). */
+.cc-spend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 0 12px; padding: 10px 14px; border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, #e3a812 35%, var(--border)); background: color-mix(in srgb, #f8d55c 10%, var(--surface));
+}
+.cc-spend > div:first-child { flex: 1 1 320px; display: grid; gap: 2px; }
+.cc-spend .actions { margin: 0; }
+.cc-spend .hint, .cc-spend .status { flex: 1 1 100%; margin: 0; }
+.cc-spend .hint:empty, .cc-spend .status:empty { display: none; }
+.alloc-pick { width: 1%; }
 .alloc-actions { white-space: nowrap; }
 .alloc-actions button + button { margin-inline-start: 6px; }
 button.danger-soft { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); color: var(--danger); background: var(--surface); }

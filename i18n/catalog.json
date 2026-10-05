@@ -13,6 +13,14 @@
    "busy line"
   ]
  },
+ "({0} = {1} results)": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
  "({0} per remediation)": {
   "kind": "text",
   "seen": [
@@ -53,6 +61,12 @@
    "Dashboard › span › Update & recovery"
   ]
  },
+ "{0} Checkmarx One result awaiting triage at these severities ({1} credit)": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "{0} Checkmarx One results": {
   "kind": "text",
   "seen": [
@@ -61,12 +75,40 @@
    "Dashboard › remind › b › AI check & fix"
   ]
  },
+ "{0} Checkmarx One results ({1} findings — rows that share one result are triaged, and charged, once) awaiting triage at these severities ({2} credits)": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
+ "{0} Checkmarx One results awaiting triage at these severities ({1} credits)": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "{0} confirmed to remediate ({1} credits)": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "{0} confirmed, waiting for a fix": {
   "kind": "attr:title",
   "seen": [
    "Dashboard › fetching › button",
    "Dashboard › loaded › button",
    "Dashboard › remind › button"
+  ]
+ },
+ "{0} credit to check a finding with AI, {1} to fix it. Nothing is given until you click.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › p › Weekly",
+   "reports › detail › overview › p › Weekly",
+   "reports › detail › remind › p › Weekly"
   ]
  },
  "{0} credit triages one Checkmarx One result; remediating one confirmed finding takes {1}.": {
@@ -127,6 +169,14 @@
    "message"
   ]
  },
+ "{0} findings are {1} Checkmarx One results: rows that share one are triaged, and charged, once": {
+  "kind": "attr:title",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
  "{0} left of {1} allocated, {2} used · needs {3} for {4} Checkmarx One results ({5} findings — rows that share one result are triaged, and charged, once) still to triage (critical, high) · {6} more needed than allocated — allocate it on purpose": {
   "kind": "attr:title",
   "seen": [
@@ -167,6 +217,22 @@
    "Dashboard › remind › span › Projects"
   ]
  },
+ "{0} no longer found, {1} not exploitable, {2} sent for an AI fix; still open: {3} not checked yet, {4} confirmed but not fixed": {
+  "kind": "attr:title",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
+ "{0} of {1} dealt with: {2} to check.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
  "{0} of {1} done": {
   "kind": "attr:aria-label",
   "seen": [
@@ -203,6 +269,14 @@
    "Dashboard › fetching › a",
    "Dashboard › loaded › a",
    "Dashboard › remind › a"
+  ]
+ },
+ "{0} open findings (awaiting triage, confirmed or new). Remind the people who can act on them.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › p › Weekly",
+   "reports › detail › overview › p › Weekly",
+   "reports › detail › remind › p › Weekly"
   ]
  },
  "{0} open findings in {1} projects": {
@@ -265,6 +339,28 @@
    "credits › Allocated vs used › Take credits back note"
   ]
  },
+ "{0} project ticked: {1} triage and {2} remediation credits left.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "{0} projects · updated {1} minute ago": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "reports › detail › span",
+   "reports › detail › overview › span"
+  ]
+ },
+ "{0} projects · updated this minute": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
  "{0} projects hold {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": {
   "kind": "message",
   "seen": [
@@ -287,6 +383,12 @@
    "beta › identity › span › Email the authors of vulnerable code"
   ]
  },
+ "{0} projects ticked: {1} triage and {2} remediation credits left.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "{0} projects, {1} people. Pick as you type; Enter adds every project whose name contains the text.": {
   "kind": "text",
   "seen": [
@@ -303,12 +405,28 @@
    "credits › projects › span › Credits used over time"
   ]
  },
+ "{0} still open": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
  "{0} to verify: AI Triage or a person decides whether each is real": {
   "kind": "attr:title",
   "seen": [
    "Dashboard › fetching › button",
    "Dashboard › loaded › button",
    "Dashboard › remind › button"
+  ]
+ },
+ "{0} triaged or no longer detected": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
   ]
  },
  "{0} users per request; includes your organisation's verified-domain emails. Needs a token.": {
@@ -381,6 +499,14 @@
    "settings › dd › Your profile",
    "logs › dd › Your profile",
    "logs › activity › dd › Your profile"
+  ]
+ },
+ "{0}% actioned": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
   ]
  },
  "/tmp/i{0}n-{1}QoFX{2}/backups — same disk as the state: set BACKUP_DIR to another disk or share": {
@@ -485,6 +611,46 @@
    "first start › span › Credits used over time",
    "sign in › span › Credits used over time",
    "Dashboard › span › Credits used over time"
+  ]
+ },
+ "<i class=\"out-awaiting\"></i>Awaiting triage <b>{0}</b>": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
+ "<i class=\"out-confirmed\"></i>Confirmed <b>{0}</b>": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
+ "<i class=\"out-notExploitable\"></i>Not exploitable <b>{0}</b>": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
+ "<i class=\"out-resolved\"></i>No longer detected <b>{0}</b>": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
+ "<span aria-hidden=\"true\">!</span>Needs follow-up": {
+  "kind": "html",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
   ]
  },
  "<span class=\"badge warn\">Before making it final</span> Keep it in Beta until it has been right on your own repositories: run Find code authors on real findings and check that the \"Sure\" answers name the right developers. Unattended runs only ever email \"Sure\" answers.": {
@@ -804,6 +970,14 @@
    "Dashboard › option › Credit audit log"
   ]
  },
+ "across {0} report": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
  "Act": {
   "kind": "text",
   "seen": [
@@ -841,6 +1015,22 @@
    "first start › aside › Send reminder",
    "first start › div › Send reminder",
    "sign in › aside › Send reminder"
+  ]
+ },
+ "Actioned": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
+ "actioned · {0} of {1} findings triaged or no longer detected": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
   ]
  },
  "Activation code": {
@@ -1351,6 +1541,14 @@
    "sign in › button › Projects"
   ]
  },
+ "AI credits used": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
  "AI Remediation": {
   "kind": "text",
   "seen": [
@@ -1371,6 +1569,12 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "AI Remediation started for {0} finding(s).": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "AI Triage": {
@@ -1417,6 +1621,12 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "AI Triage started for {0} finding(s).": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "All": {
@@ -1886,6 +2096,14 @@
    "Dashboard › strong › Send reminder"
   ]
  },
+ "Attachment": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
  "Audit": {
   "kind": "text",
   "seen": [
@@ -1976,6 +2194,22 @@
    "message"
   ]
  },
+ "Automatic follow-up": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › h3 › Weekly",
+   "reports › detail › overview › h3 › Weekly",
+   "reports › detail › remind › h3 › Weekly"
+  ]
+ },
+ "Automatic reminders": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
  "Automatic reminders (nobody at this page) use <strong>no address</strong> — set the address here to make them match.": {
   "kind": "html",
   "seen": [
@@ -2024,6 +2258,30 @@
    "credits › span › Credits used over time",
    "credits › overview › span › Credits used over time",
    "credits › projects › span › Credits used over time"
+  ]
+ },
+ "Awaiting": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › th › Weekly",
+   "reports › detail › overview › th › Weekly",
+   "reports › detail › remind › th › Weekly"
+  ]
+ },
+ "awaiting triage, confirmed or new": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
+ "awaiting, confirmed or new": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
   ]
  },
  "Azure DevOps": {
@@ -2583,14 +2841,6 @@
    "Dashboard › button › HTTPS"
   ]
  },
- "Check with AI now": {
-  "kind": "text",
-  "seen": [
-   "first start › button › AI check & fix",
-   "sign in › button › AI check & fix",
-   "Dashboard › button › AI check & fix"
-  ]
- },
  "Checked: {0} versions published": {
   "kind": "message",
   "seen": [
@@ -2838,6 +3088,12 @@
    "message"
   ]
  },
+ "Choose triage or remediation.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Clear": {
   "kind": "text",
   "seen": [
@@ -3050,6 +3306,14 @@
    "Dashboard › span › Create the first administrator"
   ]
  },
+ "Confirmed": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › th › Weekly",
+   "reports › detail › overview › th › Weekly",
+   "reports › detail › remind › th › Weekly"
+  ]
+ },
  "confirmed findings only": {
   "kind": "text",
   "seen": [
@@ -3092,6 +3356,12 @@
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
+  ]
+ },
+ "Connect to Checkmarx One first.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Connected": {
@@ -3168,6 +3438,14 @@
    "settings › span › HTTPS",
    "logs › span › HTTPS",
    "logs › activity › span › HTTPS"
+  ]
+ },
+ "Content": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
   ]
  },
  "Copied": {
@@ -3608,6 +3886,14 @@
    "Dashboard › span › SLAs Beta"
   ]
  },
+ "days at": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › div › Weekly",
+   "reports › detail › overview › div › Weekly",
+   "reports › detail › remind › div › Weekly"
+  ]
+ },
  "Days since first detection": {
   "kind": "text",
   "seen": [
@@ -3652,6 +3938,14 @@
    "first start › p › Risks endpoint",
    "sign in › p › Risks endpoint",
    "Dashboard › p › Risks endpoint"
+  ]
+ },
+ "Delete": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › button › Weekly",
+   "reports › detail › overview › button › Weekly",
+   "reports › detail › remind › button › Weekly"
   ]
  },
  "Delete this tracked report? Its history is lost.": {
@@ -3916,6 +4210,14 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Each project is scanned again like its last scan: same repository, branch and engines. Code uploaded from a pipeline is checked by its next scan instead. A fix made outside CxMissionZero counts once the rescan no longer finds it.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › p › How the rescan works",
+   "reports › detail › overview › p › How the rescan works",
+   "reports › detail › remind › p › How the rescan works"
   ]
  },
  "Each request as it is sent; its answer shows under Success or Errors": {
@@ -4190,6 +4492,14 @@
    "Dashboard › th › Credit audit log"
   ]
  },
+ "Every": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
  "Every AI request (charged, refused, failed or not), allocation, credit setting, report and backup — who, when, from where, the balance after and Checkmarx One's answer. Append-only and hash-chained; open <b>Details</b> for the full entry.": {
   "kind": "html",
   "seen": [
@@ -4230,6 +4540,14 @@
    "Dashboard › p › Links into Checkmarx One"
   ]
  },
+ "Every how many days": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "reports › detail › input › Weekly",
+   "reports › detail › overview › input › Weekly",
+   "reports › detail › remind › input › Weekly"
+  ]
+ },
  "Every month, on the {0}st (UTC)": {
   "kind": "text",
   "seen": [
@@ -4247,6 +4565,12 @@
   ]
  },
  "Every project here is at zero. Keep it there.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Every project: {0} triage and {1} remediation credits left.": {
   "kind": "message",
   "seen": [
    "message"
@@ -4624,6 +4948,14 @@
    "logs › activity › span › Available variables"
   ]
  },
+ "Findings tracked": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
  "Findings with no first-detection date": {
   "kind": "attr:title",
   "seen": [
@@ -4684,14 +5016,6 @@
    "Dashboard › remind › span"
   ]
  },
- "Fix with AI now": {
-  "kind": "text",
-  "seen": [
-   "first start › button › AI check & fix",
-   "sign in › button › AI check & fix",
-   "Dashboard › button › AI check & fix"
-  ]
- },
  "Fix: {0} with a fix asked for: merge it, then rescan": {
   "kind": "attr:aria-label",
   "seen": [
@@ -4741,6 +5065,14 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Follow-ups scheduled": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
   ]
  },
  "For each finding: its file and line from Checkmarx One, who last changed that line at the scanned commit (host API or git blame), and their real address. Connect hosts under <a href=\"#/beta/hosts\">Source-code hosts</a>.": {
@@ -5002,6 +5334,20 @@
    "first start › button › Allocated vs used"
   ]
  },
+ "Give credits on the Dashboard": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › button › Weekly",
+   "reports › detail › overview › button › Weekly",
+   "reports › detail › remind › button › Weekly"
+  ]
+ },
+ "Give credits to a project first.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Give or take back": {
   "kind": "text",
   "seen": [
@@ -5210,6 +5556,14 @@
    "first start › span › AI check & fix"
   ]
  },
+ "History": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › button › Weekly",
+   "reports › detail › overview › button › Weekly",
+   "reports › detail › remind › button › Weekly"
+  ]
+ },
  "History cleared — the next run reports from scratch.": {
   "kind": "message",
   "seen": [
@@ -5238,6 +5592,22 @@
    "Dashboard › span › Email server (SMTP)"
   ]
  },
+ "Hour": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "reports › detail › input › Weekly",
+   "reports › detail › overview › input › Weekly",
+   "reports › detail › remind › input › Weekly"
+  ]
+ },
+ "hours, rescan on their behalf": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › label › Weekly",
+   "reports › detail › overview › label › Weekly",
+   "reports › detail › remind › label › Weekly"
+  ]
+ },
  "How credits work": {
   "kind": "text",
   "seen": [
@@ -5260,6 +5630,14 @@
    "first start › p › SLAs Beta",
    "sign in › p › SLAs Beta",
    "Dashboard › p › SLAs Beta"
+  ]
+ },
+ "How the rescan works": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › summary › How the rescan works",
+   "reports › detail › overview › summary › How the rescan works",
+   "reports › detail › remind › summary › How the rescan works"
   ]
  },
  "HSTS needs a certificate from IT or a public authority, not a self-signed one.": {
@@ -5376,6 +5754,14 @@
    "Dashboard › div"
   ]
  },
+ "If the developers have not rescanned within": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › label › Weekly",
+   "reports › detail › overview › label › Weekly",
+   "reports › detail › remind › label › Weekly"
+  ]
+ },
  "Image": {
   "kind": "text",
   "seen": [
@@ -5484,6 +5870,14 @@
    "first start › button",
    "sign in › button",
    "Dashboard › button"
+  ]
+ },
+ "Interactive HTML report (triage and remediate from it)": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › label › Weekly",
+   "reports › detail › overview › label › Weekly",
+   "reports › detail › remind › label › Weekly"
   ]
  },
  "Invite": {
@@ -6074,10 +6468,34 @@
    "busy line"
   ]
  },
+ "Matching now": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › th › Weekly",
+   "reports › detail › overview › span › Weekly"
+  ]
+ },
  "Matching people to email addresses…": {
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "matching the filters": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
+ "matching the same filters": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
   ]
  },
  "Medium": {
@@ -6258,6 +6676,14 @@
    "Dashboard › option › AI Triage & Remediation from reports"
   ]
  },
+ "New": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
  "New name for this tenant:": {
   "kind": "message",
   "seen": [
@@ -6286,6 +6712,14 @@
    "Dashboard › button › Roles & permissions"
   ]
  },
+ "New since saved": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
  "Newer": {
   "kind": "text",
   "seen": [
@@ -6302,10 +6736,26 @@
    "Dashboard › button › People"
   ]
  },
+ "Next round": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › h3 › Weekly",
+   "reports › detail › overview › h3 › Weekly",
+   "reports › detail › remind › h3 › Weekly"
+  ]
+ },
  "Next round started": {
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Next target, for example medium and low once critical and high are at zero. This round is kept below.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › p › Weekly",
+   "reports › detail › overview › p › Weekly",
+   "reports › detail › remind › p › Weekly"
   ]
  },
  "Next: open this page over HTTPS and switch to HTTPS only (step 4).": {
@@ -6324,6 +6774,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "No automatic reminders": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › strong › Weekly",
+   "reports › detail › overview › strong › Weekly",
+   "reports › detail › remind › strong › Weekly"
   ]
  },
  "No candidate answered; see the table.": {
@@ -6386,6 +6844,22 @@
    "first start › div › Activity log",
    "sign in › div › Activity log",
    "Dashboard › div › Activity log"
+  ]
+ },
+ "No longer detected": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › th › Weekly",
+   "reports › detail › overview › th › Weekly",
+   "reports › detail › remind › th › Weekly"
+  ]
+ },
+ "No longer detected {0}, Not exploitable {1}, Confirmed {2}, awaiting triage {3}, of {4}": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "reports › detail › div › Weekly",
+   "reports › detail › overview › div › Weekly",
+   "reports › detail › remind › div › Weekly"
   ]
  },
  "No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.": {
@@ -6504,6 +6978,14 @@
    "Dashboard › remind › p › Developers"
   ]
  },
+ "none due": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
  "None found.": {
   "kind": "message",
   "seen": [
@@ -6592,6 +7074,22 @@
    "message"
   ]
  },
+ "Not exploitable": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › th › Weekly",
+   "reports › detail › overview › th › Weekly",
+   "reports › detail › remind › th › Weekly"
+  ]
+ },
+ "Not scheduled": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
  "not set up": {
   "kind": "text",
   "seen": [
@@ -6620,6 +7118,18 @@
    "first start › th › Match usernames to email addresses",
    "sign in › th › Match usernames to email addresses",
    "Dashboard › th › Match usernames to email addresses"
+  ]
+ },
+ "Nothing awaiting triage at those severities.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Nothing confirmed to remediate at those severities.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Nothing matches these filters.": {
@@ -6676,6 +7186,14 @@
    "logs › activity › li › Update & recovery"
   ]
  },
+ "Now": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › th › Weekly",
+   "reports › detail › overview › th › Weekly",
+   "reports › detail › remind › th › Weekly"
+  ]
+ },
  "Now running {0}: reloading the page for its new screens…": {
   "kind": "message",
   "seen": [
@@ -6720,6 +7238,14 @@
    "audit › td › Credit audit log",
    "audit › log › td › Credit audit log",
    "audit › checks › td › Credit audit log"
+  ]
+ },
+ "of {0}": {
+  "kind": "text",
+  "seen": [
+   "reports › small",
+   "credits › small",
+   "credits › overview › small"
   ]
  },
  "Off": {
@@ -6798,6 +7324,14 @@
    "logs › activity › p › Beta features"
   ]
  },
+ "One email per project": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › label › Weekly",
+   "reports › detail › overview › label › Weekly",
+   "reports › detail › remind › label › Weekly"
+  ]
+ },
  "One per project": {
   "kind": "text",
   "seen": [
@@ -6822,12 +7356,28 @@
    "Dashboard › span › Send reminder"
   ]
  },
+ "One summary per person": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › label › Weekly",
+   "reports › detail › overview › label › Weekly",
+   "reports › detail › remind › label › Weekly"
+  ]
+ },
  "Only findings first seen in the last week are counted, so the older age buckets will be empty.": {
   "kind": "attr:title",
   "seen": [
    "first start › select",
    "first start › p",
    "sign in › select"
+  ]
+ },
+ "Only for this report…": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › summary › Only for this report…",
+   "reports › detail › overview › summary › Only for this report…",
+   "reports › detail › remind › summary › Only for this report…"
   ]
  },
  "Only the people ticked here are offered Hebrew. Everyone else never sees it.": {
@@ -6850,6 +7400,30 @@
    "first start › span › Automation",
    "sign in › span › Automation",
    "Dashboard › span › Automation"
+  ]
+ },
+ "Only to": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › label › Only for this report…",
+   "reports › detail › overview › label › Only for this report…",
+   "reports › detail › remind › label › Only for this report…"
+  ]
+ },
+ "Only while something is still open": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › small › Weekly",
+   "reports › detail › overview › small › Weekly",
+   "reports › detail › remind › small › Weekly"
+  ]
+ },
+ "Open": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
   ]
  },
  "Open findings": {
@@ -6882,6 +7456,14 @@
    "Dashboard › fetching › div",
    "Dashboard › loaded › div",
    "Dashboard › remind › div"
+  ]
+ },
+ "Open now": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
   ]
  },
  "Open Settings": {
@@ -7160,7 +7742,25 @@
    "Dashboard › th › People"
   ]
  },
+ "Pick": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Pick at least one method.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Pick at least one severity to remediate.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Pick at least one severity to triage.": {
   "kind": "message",
   "seen": [
    "message"
@@ -7358,6 +7958,14 @@
    "Dashboard › h3 › Your profile"
   ]
  },
+ "Progress": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
  "Project": {
   "kind": "text",
   "seen": [
@@ -7396,6 +8004,14 @@
    "first start › span › GitLab",
    "sign in › span › GitLab",
    "Dashboard › span › GitLab"
+  ]
+ },
+ "projects have {0} of {1} triage credits left ({2} used)": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
   ]
  },
  "Projects last scanned in": {
@@ -7536,6 +8152,14 @@
    "first start › small › Send reminder",
    "sign in › small › Send reminder",
    "Dashboard › small › Send reminder"
+  ]
+ },
+ "Reading": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › th › Weekly",
+   "reports › detail › overview › th › Weekly",
+   "reports › detail › remind › th › Weekly"
   ]
  },
  "Reading Checkmarx One for the new round…": {
@@ -7730,6 +8354,12 @@
    "Dashboard › h2 › Remediate the confirmed findings?"
   ]
  },
+ "Remediate with AI Assist now": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Remediate: {0} confirmed, waiting for a fix": {
   "kind": "attr:aria-label",
   "seen": [
@@ -7744,6 +8374,12 @@
    "first start › label › Extra credits",
    "first start › option › Credit audit log",
    "sign in › label › Extra credits"
+  ]
+ },
+ "remediation {0} of {1} left": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Remediation credits": {
@@ -7939,12 +8575,28 @@
    "message"
   ]
  },
+ "Report": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
  "Report each threshold once (recommended)": {
   "kind": "text",
   "seen": [
    "first start › option › Automation",
    "sign in › option › Automation",
    "Dashboard › option › Automation"
+  ]
+ },
+ "Report sections": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "reports › detail › nav › Weekly",
+   "reports › detail › overview › nav › Weekly",
+   "reports › detail › remind › nav › Weekly"
   ]
  },
  "Reports": {
@@ -8023,6 +8675,14 @@
    "credits › th › Show as a table",
    "credits › overview › th › Show as a table",
    "credits › projects › th › Show as a table"
+  ]
+ },
+ "Rescan now to verify": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › button › Weekly",
+   "reports › detail › overview › button › Weekly",
+   "reports › detail › remind › button › Weekly"
   ]
  },
  "Reset": {
@@ -8127,12 +8787,28 @@
    "sign in › button"
   ]
  },
+ "Round {0} · Critical, High · {1} findings in scope. Prove the fixes: once everything is dealt with, a rescan in Checkmarx One shows what is really fixed.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › p › Weekly",
+   "reports › detail › overview › p › Weekly",
+   "reports › detail › remind › p › Weekly"
+  ]
+ },
  "Run AI Triage & Remediation": {
   "kind": "text",
   "seen": [
    "access › span › Roles & permissions",
    "access › people › span › Roles & permissions",
    "access › roles › span › Roles & permissions"
+  ]
+ },
+ "Run AI Triage on what is still awaiting triage, and AI Remediation on what it confirmed. The buttons turn gold once the projects have the credits. Credits are given on the Dashboard: the button below opens it with just this report's projects.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › p › Weekly",
+   "reports › detail › overview › p › Weekly",
+   "reports › detail › remind › p › Weekly"
   ]
  },
  "Run automatically": {
@@ -8207,6 +8883,12 @@
    "Dashboard › p › HTTPS"
   ]
  },
+ "saucer": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard › fetching › span"
+  ]
+ },
  "Save": {
   "kind": "text",
   "seen": [
@@ -8237,6 +8919,14 @@
    "first start › button › Roles & permissions",
    "sign in › button › Roles & permissions",
    "Dashboard › button › Roles & permissions"
+  ]
+ },
+ "Save schedule": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › button › Weekly",
+   "reports › detail › overview › button › Weekly",
+   "reports › detail › remind › button › Weekly"
   ]
  },
  "Save them as a report, and watch them go to zero on the <a href=\"#/reports\">Reports</a> page.": {
@@ -8861,12 +9551,28 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "Send only to these addresses": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "reports › detail › input › Only for this report…",
+   "reports › detail › overview › input › Only for this report…",
+   "reports › detail › remind › input › Only for this report…"
+  ]
+ },
  "Send reminder": {
   "kind": "text",
   "seen": [
    "first start › h2 › Send reminder",
    "sign in › h2 › Send reminder",
    "Dashboard › h2 › Send reminder"
+  ]
+ },
+ "Send reminder now": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › button › Weekly",
+   "reports › detail › overview › button › Weekly",
+   "reports › detail › remind › button › Weekly"
   ]
  },
  "Send reminders": {
@@ -8949,6 +9655,14 @@
    "first start › span › Automation",
    "sign in › span › Automation",
    "Dashboard › span › Automation"
+  ]
+ },
+ "Sends to the people, and with the content, chosen above. Every automatic reminder and follow-up is also listed under <a href=\"#/settings/automation\">Settings → Automation</a>.": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › p › Weekly",
+   "reports › detail › overview › p › Weekly",
+   "reports › detail › remind › p › Weekly"
   ]
  },
  "Sent {0} email(s)": {
@@ -9638,6 +10352,14 @@
    "message"
   ]
  },
+ "Start round {0}": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › button › Weekly",
+   "reports › detail › overview › button › Weekly",
+   "reports › detail › remind › button › Weekly"
+  ]
+ },
  "Starting AI Remediation…": {
   "kind": "busy",
   "seen": [
@@ -9705,6 +10427,14 @@
    "first start › select › People",
    "first start › th › People",
    "sign in › select › People"
+  ]
+ },
+ "Still open: {0}": {
+  "kind": "attr:title",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
   ]
  },
  "Still working: this takes longer than usual…": {
@@ -10077,6 +10807,14 @@
    "Dashboard › p › Branding"
   ]
  },
+ "The automatic follow-up below uses the same choices.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › p › Weekly",
+   "reports › detail › overview › p › Weekly",
+   "reports › detail › remind › p › Weekly"
+  ]
+ },
  "The certificate is self-signed: after the switch every browser warns. Upload your company certificate first (step {0}).": {
   "kind": "message",
   "seen": [
@@ -10233,6 +10971,14 @@
    "Dashboard › p › Checkmarx One integration"
   ]
  },
+ "The trend appears after the second reading (hourly, or Refresh).": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › p › Weekly",
+   "reports › detail › overview › p › Weekly",
+   "reports › detail › remind › p › Weekly"
+  ]
+ },
  "The way to Mission Zero": {
   "kind": "attr:aria-label",
   "seen": [
@@ -10366,6 +11112,14 @@
    "sign in › h3 › Your profile"
   ]
  },
+ "Time zone of the machine running CxMissionZero": {
+  "kind": "attr:title",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
  "TLS {0}.{1} (every browser)": {
   "kind": "text",
   "seen": [
@@ -10492,6 +11246,14 @@
    "sign in › button › Projects"
   ]
  },
+ "Tracked report <span class=\"rp-chip tone-warning\"><span aria-hidden=\"true\">!</span>Needs follow-up</span>": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
  "Tracked report deleted": {
   "kind": "busy",
   "seen": [
@@ -10526,6 +11288,14 @@
    "access › roles › button › Roles & permissions"
   ]
  },
+ "Trend": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
+  ]
+ },
  "Triage": {
   "kind": "text",
   "seen": [
@@ -10540,6 +11310,14 @@
    "credits › span › Credit pool",
    "credits › overview › span › Credit pool",
    "credits › projects › span › Credit pool"
+  ]
+ },
+ "triage / remediation": {
+  "kind": "text",
+  "seen": [
+   "reports › span",
+   "credits › span",
+   "credits › overview › span"
   ]
  },
  "Triage a finding again when it already has a verdict (spends credits again)": {
@@ -10572,6 +11350,20 @@
    "message"
   ]
  },
+ "Triage or remediate the ticked projects now; none ticked means every project. Their findings are read fresh from Checkmarx One.": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Allocated vs used",
+   "sign in › span › Allocated vs used",
+   "Dashboard › span › Allocated vs used"
+  ]
+ },
+ "Triage with AI Assist now": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Triage: {0} to verify: AI Triage or a person decides whether each is real": {
   "kind": "attr:aria-label",
   "seen": [
@@ -10594,6 +11386,14 @@
    "settings › span › Available variables",
    "logs › span › Available variables",
    "logs › activity › span › Available variables"
+  ]
+ },
+ "Turn it on to follow up without anyone remembering to.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
   ]
  },
  "Turn on HTTPS in four steps. Nobody is signed out while you do.": {
@@ -10834,6 +11634,14 @@
    "first start › button › Match usernames to email addresses",
    "sign in › button › Match usernames to email addresses",
    "Dashboard › button › Match usernames to email addresses"
+  ]
+ },
+ "Use the credits": {
+  "kind": "text",
+  "seen": [
+   "first start › strong › Allocated vs used",
+   "sign in › strong › Allocated vs used",
+   "Dashboard › strong › Allocated vs used"
   ]
  },
  "Use this computer's time zone": {
@@ -11344,6 +12152,14 @@
    "message"
   ]
  },
+ "was {0} when saved": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › span › Weekly",
+   "reports › detail › overview › span › Weekly",
+   "reports › detail › remind › span › Weekly"
+  ]
+ },
  "Welcome": {
   "kind": "message",
   "seen": [
@@ -11372,6 +12188,14 @@
    "first start › span › Automation",
    "sign in › span › Automation",
    "Dashboard › span › Automation"
+  ]
+ },
+ "When everything is dealt with, the developers get the Rescan button first. If they don't use it in time, it is rescanned for them.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › p › Weekly",
+   "reports › detail › overview › p › Weekly",
+   "reports › detail › remind › p › Weekly"
   ]
  },
  "When the reminder was produced (UTC)": {
@@ -11404,6 +12228,14 @@
    "access › p",
    "access › people › p",
    "access › roles › p"
+  ]
+ },
+ "Who gets reminders everywhere: each developer (their own projects)": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › label › Weekly",
+   "reports › detail › overview › label › Weekly",
+   "reports › detail › remind › label › Weekly"
   ]
  },
  "Who may use Hebrew": {

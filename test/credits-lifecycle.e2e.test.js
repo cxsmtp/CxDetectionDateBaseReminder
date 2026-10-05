@@ -291,3 +291,47 @@ test('stage 9 — credits are given on the Credit Control page too: any Checkmar
   const back = await admin('POST', '/api/credits/reclaim', { projectIds: ['p1'] });
   assert.equal(back.body.reclaimed, 16);
 });
+
+test('stage 10 — Triage now / Remediate now from Credit Control and from a tracked report spend what the projects were given', async () => {
+  // p1 was given credits on Credit Control (stage 9) and they were taken back: give again.
+  assert.equal((await admin('POST', '/api/credits/give', { projectId: 'p1', triage: 6, remediation: 6 })).status, 200);
+  assert.equal((await admin('POST', '/api/credits/run', { severities: ['CRITICAL'] })).status, 400, 'triage or remediation');
+  assert.equal((await admin('POST', '/api/credits/run', { kind: 'triage', severities: [] })).status, 400, 'a severity');
+
+  // Credit Control: critical findings of the ticked project (r0, r4, r8), read fresh: no Dashboard fetch needed.
+  const triage = await admin('POST', '/api/credits/run', { kind: 'triage', severities: ['CRITICAL'], projectIds: ['p1'], notifyInitiators: false });
+  assert.equal(triage.status, 200, JSON.stringify(triage.body));
+  assert.equal(triage.body.started, 3, JSON.stringify(triage.body));
+  const p1 = () => triage.body.allocations.find((p) => p.projectId === 'p1');
+  assert.deepEqual([p1().triage.used, p1().triage.remaining], [3, 3]);
+  const early = await admin('POST', '/api/credits/run', { kind: 'remediation', severities: ['CRITICAL'], projectIds: ['p1'], notifyInitiators: false });
+  assert.equal(early.body.requested, 0, 'nothing is confirmed until AI Triage gives its verdicts');
+
+  // A tracked report on p1's high findings: triage them from the report (r1, r5, r9).
+  const created = await admin('POST', '/api/tracked-reports', { name: 'p1 high', projectIds: ['p1'], severities: ['HIGH'] });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const { id } = created.body;
+  const fromReport = await admin('POST', `/api/tracked-reports/${id}/triage`, { severities: ['HIGH'], notifyInitiators: false });
+  assert.equal(fromReport.body.started, 3, JSON.stringify(fromReport.body));
+  assert.equal(fromReport.body.report.credits.triage.remaining, 0);
+
+  // Verdicts: r0 (critical) and r9 (high) are confirmed.
+  await sleep(FLIP_MS + 500);
+  const fromReportFix = await admin('POST', `/api/tracked-reports/${id}/remediate`, { severities: ['HIGH'], notifyInitiators: false });
+  assert.equal(fromReportFix.status, 200, JSON.stringify(fromReportFix.body));
+  assert.equal(fromReportFix.body.started, 1, `r9 only — ${JSON.stringify(fromReportFix.body)}`);
+  assert.equal(fromReportFix.body.report.credits.remediation.remaining, 3);
+  assert.deepEqual(fromReportFix.body.report.latest.toRemediate, {}, 'nothing confirmed is left to remediate: the button stops glowing');
+  const fix = await admin('POST', '/api/credits/run', { kind: 'remediation', severities: ['CRITICAL', 'HIGH'], projectIds: ['p1'], notifyInitiators: false });
+  assert.equal(fix.body.started, 1, `r0 only: r9 is already remediated — ${JSON.stringify(fix.body)}`);
+  assert.deepEqual([fix.body.allocations.find((p) => p.projectId === 'p1').remediation.used, fix.body.allocations.find((p) => p.projectId === 'p1').remediation.remaining], [6, 0]);
+
+  // The Dashboard's balances follow, wherever the credits were given or used.
+  const views = await admin('GET', '/api/credits/views');
+  assert.equal(views.status, 200);
+  assert.deepEqual([views.body.projects.p1.remediation.used, views.body.projects.p1.remediation.remaining], [6, 0]);
+  const audit = (await admin('GET', '/api/audit?types=triage,remediation&limit=500')).body;
+  assert.ok(audit.entries.some((e) => /Credit Control: triage critical/.test(e.details?.origin ?? '')), 'where it was started is in the audit log');
+  assert.ok(audit.entries.some((e) => /Tracked report "p1 high": remediate/.test(e.details?.origin ?? '')));
+  assert.equal((await admin('GET', '/api/audit/verify')).body.ok, true);
+});
