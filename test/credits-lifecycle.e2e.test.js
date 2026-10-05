@@ -337,6 +337,28 @@ test('stage 10 — Triage now / Remediate now from Credit Control and from a tra
   assert.equal((await admin('GET', '/api/audit/verify')).body.ok, true);
 });
 
+test('stage 10b — credits for triage and remediation are allocated from Credit Control and from a tracked report too', async () => {
+  assert.equal((await admin('POST', '/api/credits/allocate-needed', { projectIds: ['p1'] })).status, 400, 'severities or extra credits');
+  const before = (await admin('GET', '/api/credits')).body.allocations.find((p) => p.projectId === 'p1');
+  // Credit Control: what p1's medium findings need (r2, r6, r10 still to triage), plus 3 extra for remediation.
+  const r = await admin('POST', '/api/credits/allocate-needed', { severities: ['MEDIUM'], remediationAdd: 3, projectIds: ['p1'] });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const p1 = r.body.allocations.find((p) => p.projectId === 'p1');
+  assert.equal(p1.triage.remaining - before.triage.remaining, 3, 'one credit per medium result still to triage');
+  assert.equal(p1.remediation.remaining - before.remediation.remaining, 3);
+
+  // A tracked report's Triage tab: extra credits for its projects.
+  const created = await admin('POST', '/api/tracked-reports', { name: 'p1 extra', projectIds: ['p1'], severities: ['LOW'] });
+  const fromReport = await admin('POST', `/api/tracked-reports/${created.body.id}/allocate`, { severities: [], triageAdd: 2 });
+  assert.equal(fromReport.status, 200, JSON.stringify(fromReport.body));
+  assert.equal(fromReport.body.report.credits.triage.remaining, p1.triage.remaining + 2);
+
+  const audit = (await admin('GET', '/api/audit?types=allocation&limit=50')).body;
+  assert.ok(audit.entries.some((e) => e.reason === 'Changed from Credit Control.'));
+  assert.ok(audit.entries.some((e) => e.reason === 'Changed from tracked report "p1 extra".'));
+  assert.equal((await admin('GET', '/api/audit/verify')).body.ok, true);
+});
+
 test('stage 11 — Impact: hours saved, noise removed and the debt, from the readings and the credits; settings checked; one-page summary', async () => {
   const before = await admin('GET', '/api/impact?days=30');
   assert.equal(before.status, 200, JSON.stringify(before.body));

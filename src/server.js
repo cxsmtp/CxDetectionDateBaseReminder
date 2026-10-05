@@ -5515,6 +5515,90 @@ app.get(
  * triage from their own reports: the severities join each project's triage
  * rule, and any extra credits are added on top.
  */
+/**
+ * Give `projects` what the `wanted` severities of their findings still need
+ * (confirmed by two agreeing reads of Checkmarx One, never an estimate), plus
+ * extra credits each, out of the credit pool. The severities join each
+ * project's rule. Returns the refusal ({ error }) or null once given.
+ */
+async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, extraRemediation, where, details }) {
+  const actor = await adminActor(req);
+  const before = new Map(projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
+  for (const { projectId, projectName } of projects) {
+    if (wanted.length) allocations.setSeverities(projectId, projectName, SEVERITIES.filter((s) => wanted.includes(s) || allocations.severitiesOf(projectId).includes(s)));
+  }
+  const verifiedRisks = new Map();
+  if (wanted.length) {
+    const lastScans = await getLastScans(req.session.client, projects.map((p) => p.projectId)).catch(() => ({}));
+    const scanIdOf = (id) => String(lastScans?.[id]?.id ?? lastScans?.[id]?.scanId ?? '');
+    const refused = [];
+    await mapWithConcurrency(projects, 3, async (p) => {
+      try {
+        const { second, agreed } = await doubleRead(req.session, p, { scanIdOf });
+        if (agreed) verifiedRisks.set(p.projectId, second.summary.risks);
+        else refused.push(`${p.projectName}: ${DISAGREED}`);
+      } catch (error) {
+        refused.push(`${p.projectName}: could not read Checkmarx One (${error.message})`);
+      }
+    });
+    if (refused.length) {
+      allocations.save();
+      const reason = `Not allocated: what the projects need could not be confirmed twice with Checkmarx One. ${refused[0]}`;
+      audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: 0, charged: 0 }, details });
+      return { error: reason };
+    }
+  }
+  const plan = projects.map(({ projectId, projectName }) => {
+    const { shortfall } = allocations.need(projectId, verifiedRisks.get(projectId) ?? byProject.get(projectId) ?? []);
+    return { projectId, projectName, triage: wanted.length ? shortfall.triage : 0, remediation: wanted.length ? shortfall.remediation : 0 };
+  });
+  const given = plan.reduce((n, x) => n + x.triage + x.remediation + extraTriage + extraRemediation, 0);
+  const pool = creditPool();
+  if (pool.limited && given > pool.unallocated) {
+    allocations.save();
+    const reason = `Only ${pool.unallocated} credit${pool.unallocated === 1 ? '' : 's'} left in the credit pool to give; ${given} needed for ${where}.`;
+    audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { ...details, pool } });
+    return { error: `${reason} Raise the pool under Settings → AI & credits.`, pool };
+  }
+  for (const { projectId, projectName, triage, remediation } of plan) {
+    if (triage) allocations.grant(projectId, projectName, 'triage', triage);
+    if (remediation) allocations.grant(projectId, projectName, 'remediation', remediation);
+    if (extraTriage) allocations.add(projectId, projectName, 'triage', extraTriage);
+    if (extraRemediation) allocations.add(projectId, projectName, 'remediation', extraRemediation);
+  }
+  allocations.save();
+  for (const { projectId, projectName } of projects) {
+    auditAllocation({
+      actor, projectId, projectName, before: before.get(projectId),
+      change: { severities: wanted, addTriage: extraTriage || undefined, addRemediation: extraRemediation || undefined },
+      reason: `Changed from ${where}.`,
+    });
+  }
+  return null;
+}
+
+/**
+ * Credit Control: give the ticked projects (none ticked: every project holding
+ * credits) what the chosen severities need, plus any extra.
+ */
+app.post('/api/credits/allocate-needed', requirePermission('credits.allocate'), afterFetch, asyncRoute(async (req, res) => {
+  const wanted = cleanSeverities(req.body?.severities);
+  const extraTriage = Math.max(0, Math.floor(Number(req.body?.triageAdd) || 0));
+  const extraRemediation = Math.max(0, Math.floor(Number(req.body?.remediationAdd) || 0));
+  if (!wanted.length && !extraTriage && !extraRemediation) return res.status(400).json({ error: 'Pick severities, or enter credits to add.' });
+  if (!req.session.client) return res.status(409).json({ error: 'Connect to Checkmarx One first.' });
+  const chosen = new Set(idList(req.body?.projectIds));
+  const projects = allocations.list().filter((p) => !chosen.size || chosen.has(p.projectId)).map((p) => ({ projectId: p.projectId, projectName: p.projectName || p.projectId }));
+  if (!projects.length) return res.status(400).json({ error: 'Give credits to a project first.' });
+  const byProject = await currentFindings(req.session, projects);
+  const refused = await allocateNeeded(req, projects, byProject, {
+    wanted, extraTriage, extraRemediation, where: 'Credit Control', details: { projectIds: projects.map((p) => p.projectId) },
+  });
+  if (refused) return res.status(409).json(refused);
+  for (const p of req.session.lastScan?.projects ?? []) if (allocations.get(p.projectId)) p.credits = creditView(p);
+  res.json({ pool: creditPool(), allocations: allocations.list() });
+}));
+
 app.post(
   '/api/tracked-reports/:id/allocate',
   requirePermission('credits.allocate'),
@@ -5530,60 +5614,10 @@ app.post(
     }
     const byProject = await currentFindings(req.session, report.projects);
     trackedReports.record(report, progressFor(report, byProject));
-    const actor = await adminActor(req);
-    const before = new Map(report.projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
-    // The severities join each project's rule, and the person clicking Allocate gives what they now need.
-    for (const { projectId, projectName } of report.projects) {
-      if (wanted.length) allocations.setSeverities(projectId, projectName, SEVERITIES.filter((s) => wanted.includes(s) || allocations.severitiesOf(projectId).includes(s)));
-    }
-    // What is needed comes from two agreeing reads of Checkmarx One, never an estimate.
-    const verifiedRisks = new Map();
-    if (wanted.length) {
-      const lastScans = await getLastScans(req.session.client, report.projects.map((p) => p.projectId)).catch(() => ({}));
-      const scanIdOf = (id) => String(lastScans?.[id]?.id ?? lastScans?.[id]?.scanId ?? '');
-      const refused = [];
-      await mapWithConcurrency(report.projects, 3, async (p) => {
-        try {
-          const { second, agreed } = await doubleRead(req.session, p, { scanIdOf });
-          if (agreed) verifiedRisks.set(p.projectId, second.summary.risks);
-          else refused.push(`${p.projectName}: ${DISAGREED}`);
-        } catch (error) {
-          refused.push(`${p.projectName}: could not read Checkmarx One (${error.message})`);
-        }
-      });
-      if (refused.length) {
-        allocations.save();
-        const reason = `Not allocated: what the report's projects need could not be confirmed twice with Checkmarx One. ${refused[0]}`;
-        audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: 0, charged: 0 }, details: { report: report.id } });
-        return res.status(409).json({ error: reason });
-      }
-    }
-    const plan = report.projects.map(({ projectId, projectName }) => {
-      const { shortfall } = allocations.need(projectId, verifiedRisks.get(projectId) ?? byProject.get(projectId) ?? []);
-      return { projectId, projectName, triage: wanted.length ? shortfall.triage : 0, remediation: wanted.length ? shortfall.remediation : 0 };
+    const refused = await allocateNeeded(req, report.projects, byProject, {
+      wanted, extraTriage, extraRemediation, where: `tracked report "${report.name}"`, details: { report: report.id },
     });
-    const given = plan.reduce((n, x) => n + x.triage + x.remediation + extraTriage + extraRemediation, 0);
-    const pool = creditPool();
-    if (pool.limited && given > pool.unallocated) {
-      allocations.save();
-      const reason = `Only ${pool.unallocated} credit${pool.unallocated === 1 ? '' : 's'} left in the credit pool to give; ${given} needed for tracked report "${report.name}".`;
-      audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { report: report.id, pool } });
-      return res.status(409).json({ error: `${reason} Raise the pool under Settings → AI & credits.`, pool });
-    }
-    for (const { projectId, projectName, triage, remediation } of plan) {
-      if (triage) allocations.grant(projectId, projectName, 'triage', triage);
-      if (remediation) allocations.grant(projectId, projectName, 'remediation', remediation);
-      if (extraTriage) allocations.add(projectId, projectName, 'triage', extraTriage);
-      if (extraRemediation) allocations.add(projectId, projectName, 'remediation', extraRemediation);
-    }
-    allocations.save();
-    for (const { projectId, projectName } of report.projects) {
-      auditAllocation({
-        actor, projectId, projectName, before: before.get(projectId),
-        change: { severities: wanted, addTriage: extraTriage || undefined, addRemediation: extraRemediation || undefined },
-        reason: `Changed from tracked report "${report.name}".`,
-      });
-    }
+    if (refused) return res.status(409).json(refused);
     res.json({ report: trackedView(report) });
   }),
 );
