@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { MailError, fromAddress, sendReminderMail } from '../src/mailer.js';
 import { DEFAULT_SETTINGS, mergeSettings, smtpFingerprint } from '../src/settings.js';
+import { NEXT_PASSWORD } from './test-credentials.js';
 
 const verified = (over = {}) => {
   const settings = mergeSettings(structuredClone(DEFAULT_SETTINGS), {
@@ -124,7 +125,7 @@ test('passwords that are not App Passwords are never altered', async () => {
   const { normalizePassword } = await import('../src/mailer.js');
 
   // A real passphrase on Gmail: not 16 alphanumerics once stripped, so left alone.
-  assert.equal(normalizePassword({ host: 'smtp.gmail.com', password: 'correct horse battery' }), 'correct horse battery');
+  assert.equal(normalizePassword({ host: 'smtp.gmail.com', password: NEXT_PASSWORD }), NEXT_PASSWORD);
   // Any other server may legitimately use spaces in a secret.
   assert.equal(normalizePassword({ host: 'smtp.corp.example', password: 'a b c d' }), 'a b c d');
   assert.equal(normalizePassword({ host: 'smtp.corp.example', password: 'abcd efgh ijkl mnop' }), 'abcd efgh ijkl mnop');

@@ -148,7 +148,7 @@ podman run --replace -d --name mission-zero --network mz-net -v mission-zero-dat
 ```
 
 ```
-podman run --replace -d --name mz-caddy --network mz-net -p 80:80 -p 443:443 -v caddy-data:/data docker.io/library/caddy:2 caddy reverse-proxy --from mz.company.com --to mission-zero:3000
+podman run --replace -d --name mz-caddy --network mz-net -p 80:80 -p 443:443 -v caddy-data:/data --cap-drop ALL --cap-add NET_BIND_SERVICE --security-opt no-new-privileges:true docker.io/library/caddy:2 caddy reverse-proxy --from mz.company.com --to mission-zero:3000
 ```
 
 **C. Self-signed** (try it out): what the image does when no certificate is given. `TLS_HOSTNAMES` adds names to it. Then open <https://localhost:3443>:

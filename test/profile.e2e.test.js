@@ -7,14 +7,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { freePort } from './free-port.js';
+import { FIRST_PASSWORD, mockApiKey } from './test-credentials.js';
 
 const MOCK_PORT = await freePort();
 const PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
-const e = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-const KEY = `${e({ alg: 'none' })}.${e({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' })}.sig`;
-const PW = 'correct horse battery 1';
+const KEY = mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' });
+const PW = FIRST_PASSWORD;
 const children = [];
 let log = '';
 

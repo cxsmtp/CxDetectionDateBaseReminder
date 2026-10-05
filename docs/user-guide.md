@@ -316,7 +316,7 @@ podman run --replace -d --name mission-zero --network mz-net -v mission-zero-dat
 ```
 
 ```
-podman run --replace -d --name mz-caddy --network mz-net -p 80:80 -p 443:443 -v caddy-data:/data docker.io/library/caddy:2 caddy reverse-proxy --from mz.company.com --to mission-zero:3000
+podman run --replace -d --name mz-caddy --network mz-net -p 80:80 -p 443:443 -v caddy-data:/data --cap-drop ALL --cap-add NET_BIND_SERVICE --security-opt no-new-privileges:true docker.io/library/caddy:2 caddy reverse-proxy --from mz.company.com --to mission-zero:3000
 ```
 
 Let's Encrypt checks that it really reaches your name on port 80, so the DNS name must point at this machine before you start. `podman logs mz-caddy` shows the certificate being obtained.

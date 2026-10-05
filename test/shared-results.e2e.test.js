@@ -9,14 +9,14 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { freePort } from './free-port.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
 
 test('the credit needs name the findings that are one result, with where they are', async (t) => {
   const MOCK_PORT = await freePort();
   const PORT = await freePort();
   const BASE = `http://127.0.0.1:${PORT}`;
   const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
-  const e = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  const KEY = `${e({ alg: 'none' })}.${e({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' })}.sig`;
+  const KEY = mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' });
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shared-'));
   // 8 findings: 0–3 and their twins 4–7 (same similarity group): 4 results.
   const mock = spawn(process.execPath, ['loadtest/mock-cxone.mjs'], { env: { ...process.env, PORT: String(MOCK_PORT), LAT: '1', PROJECTS: '1', RISKS: '8', SHARED: '1' }, stdio: 'ignore' });
@@ -24,7 +24,7 @@ test('the credit needs name the findings that are one result, with where they ar
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
       CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', REPORT_SIGNING_KEY: 'shared-test',
-      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', SMTP_HOST: '',
+      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, SMTP_HOST: '',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -47,8 +47,8 @@ test('the credit needs name the findings that are one result, with where they ar
     if (set) cookie = set.split(';')[0];
     return r.json().catch(() => null);
   };
-  await call('POST', '/api/session/password', { email: 'admin@acme.io', password: 'temporary password 1' });
-  await call('POST', '/api/me/password', { current: 'temporary password 1', next: 'correct horse battery' });
+  await call('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD });
+  await call('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD });
   const scan = await call('GET', '/api/scan');
   const credits = scan.projects[0].credits;
   assert.equal(credits.toTriageRows.CRITICAL, 2);

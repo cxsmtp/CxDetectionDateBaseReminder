@@ -9,6 +9,7 @@
  * and the attached copy in each email stays valid.
  */
 
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -40,7 +41,7 @@ export class ReportFiles {
     return (async () => {
       await fs.promises.mkdir(this.#dir, { recursive: true, mode: 0o700 });
       const body = await new Promise((resolve, reject) => zlib.gzip(Buffer.from(String(html)), (error, out) => (error ? reject(error) : resolve(out))));
-      const tmp = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+      const tmp = `${file}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
       await fs.promises.writeFile(tmp, body, { mode: 0o600 });
       await fs.promises.rename(tmp, file);
       if (filename) await fs.promises.writeFile(`${file}.name`, String(filename).slice(0, 120), { mode: 0o600 });

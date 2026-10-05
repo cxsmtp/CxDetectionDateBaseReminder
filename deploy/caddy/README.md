@@ -37,6 +37,11 @@ The first start prints the administrator sign-in:
 docker compose -f compose.yaml logs mission-zero
 ```
 
+Both containers run hardened: CxMissionZero with a read-only file system and no
+Linux capabilities, Caddy with every capability dropped except binding ports 80
+and 443, and both with `no-new-privileges`. `docker compose ps` shows Caddy as
+healthy once its local admin endpoint answers.
+
 ## Internal-only server (no public DNS)
 
 Let's Encrypt cannot verify a server it cannot reach. Add this one line inside the

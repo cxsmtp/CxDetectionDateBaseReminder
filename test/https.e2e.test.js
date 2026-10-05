@@ -13,6 +13,7 @@ import path from 'node:path';
 
 import { freePort } from './free-port.js';
 import { ensureSelfSigned, selfSignedCertificate, tlsConfig, watchCertificate } from '../src/tls.js';
+import { FIRST_PASSWORD } from './test-credentials.js';
 
 const children = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -24,7 +25,7 @@ function start(env) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'https-'));
   let log = '';
   const child = spawn(process.execPath, ['src/server.js'], {
-    env: { ...process.env, HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', REPORT_SIGNING_KEY: 'https-test', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', ...env },
+    env: { ...process.env, HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', REPORT_SIGNING_KEY: 'https-test', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.stdout.on('data', (d) => (log += d));
@@ -102,7 +103,7 @@ test('over self-signed HTTPS: health, no HSTS, Secure cookie, http redirects, fa
   assert.equal(health.status, 200, 'the certificate verifies for this address');
   assert.equal(health.headers['strict-transport-security'], undefined, 'no HSTS for a certificate nobody vouches for');
 
-  const signIn = await request(`${base}/api/session/password`, { method: 'POST', ca, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@acme.io', password: 'temporary password 1' }) });
+  const signIn = await request(`${base}/api/session/password`, { method: 'POST', ca, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@acme.io', password: FIRST_PASSWORD }) });
   assert.ok(signIn.status < 300, `signed in (${signIn.status})`);
   assert.match(String(signIn.headers['set-cookie']), /;\s*HttpOnly;.*Secure/);
 

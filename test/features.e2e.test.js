@@ -9,15 +9,13 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { freePort } from './free-port.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
 
 const MOCK_PORT = await freePort();
 const PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
-const KEY = (() => {
-  const e = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  return `${e({ alg: 'none' })}.${e({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' })}.sig`;
-})();
+const KEY = mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' });
 const children = [];
 let log = '';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -44,7 +42,7 @@ test.before(async () => {
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
       CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme',
-      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1',
+      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD,
       // Never a real git host from a test: no token from the machine running it.
       GITHUB_TOKEN: '', GITLAB_TOKEN: '', AZURE_DEVOPS_TOKEN: '', BITBUCKET_TOKEN: '',
     },
@@ -58,11 +56,11 @@ test.before(async () => {
     if (Date.now() > end) throw new Error(log);
     await sleep(100);
   }
-  await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: 'temporary password 1' });
-  await admin('POST', '/api/me/password', { current: 'temporary password 1', next: 'correct horse battery' });
-  assert.equal((await admin('POST', '/api/iam/users', { email: 'uma@acme.io', role: 'user', password: 'temporary password 1' })).status, 201);
-  await user('POST', '/api/session/password', { email: 'uma@acme.io', password: 'temporary password 1' });
-  assert.equal((await user('POST', '/api/me/password', { current: 'temporary password 1', next: 'correct horse battery' })).status, 200);
+  await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD });
+  await admin('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD });
+  assert.equal((await admin('POST', '/api/iam/users', { email: 'uma@acme.io', role: 'user', password: FIRST_PASSWORD })).status, 201);
+  await user('POST', '/api/session/password', { email: 'uma@acme.io', password: FIRST_PASSWORD });
+  assert.equal((await user('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD })).status, 200);
 });
 
 test.after(() => {

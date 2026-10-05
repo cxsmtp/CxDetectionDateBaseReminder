@@ -69,7 +69,9 @@ test('the patcher only writes inside the picked folder, and knows one repository
   assert.equal(key, 'github.com/acme/app');
   assert.equal(MZPatch.repoKey('git@github.com:acme/app.git'), key);
   assert.equal(MZPatch.repoKey('ssh://git@github.com:22/acme/app'), key);
-  assert.equal(MZPatch.repoKey('https://user:token@github.com/acme/app/'), key);
+  // A clone address with a user name and token in it (built here, so no credential is written in the code).
+  const withCredentials = Object.assign(new URL('https://github.com/acme/app/'), { username: 'user', password: 'token' }).href;
+  assert.equal(MZPatch.repoKey(withCredentials), key);
   assert.equal(JSON.stringify(MZPatch.remotes('[remote "origin"]\n\turl = git@github.com:acme/app.git\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n')), '["git@github.com:acme/app.git"]');
 });
 
