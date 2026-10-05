@@ -698,21 +698,13 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
 4. **Triage** runs Checkmarx One AI Triage on a finding. The verdict appears in the row within a few minutes.
    - **Triage all critical / Triage all high** cover every critical or high finding in the report, across its projects, and skip ones already triaged.
    - A finding judged **not exploitable** disappears from the report, which counts how many it has hidden.
-   - **Your tools, chosen once.** Above the list, pick where code opens (**VS Code**, **Cursor**, **Kiro**, **Windsurf**, **Antigravity**, a **JetBrains IDE**, or **the browser**) and what fixes it:
-     - **Claude Code**, **OpenAI Codex**, **Gemini CLI**;
-     - **GitHub Copilot**, **Cursor**, **Kiro**, **Windsurf**, **Antigravity**;
-     - **Apply in my workspace**, **git apply**, or **another AI assistant**.
-     
-     It is remembered in this browser, for every report. Every finding then has two buttons, **Open in …** and **Fix with …**: one click each. **▾** on a finding picks another way, for that finding only.
+   - **Your tools, chosen once.** Above the list, pick where code opens (**VS Code**, **Cursor**, **Kiro**, **Windsurf**, **Antigravity**, a **JetBrains IDE**, or **the browser**) and how a fix is applied (**Apply in my workspace** or **git apply**). It is remembered in this browser, for every report. Every finding then has two buttons, **Open in …** and **Apply AI fix**: one click each. **▾** on a finding picks another way, for that finding only.
    - **Open in …** opens the file at the finding's line.
      - **One question, once per computer:** where you keep your code (for example `C:\src`). Every repository then opens from there by its name (`C:\src\payments-api`). In **▾**, **Somewhere else?** sets a different folder for one repository.
      - **JetBrains** needs no folder: it opens the file in the project of that name you have open or opened before.
      - **The browser** opens github.dev or the GitLab Web IDE at the line (Bitbucket and Azure Repos show the file).
      - **Not on this computer yet?** In **▾**, **Clone and open** hands the repository to the IDE, which asks where to clone it.
-   - **Fix with …**
-     - **A command line assistant** (Claude Code, OpenAI Codex, Gemini CLI): copies one line to run in the repository's folder, for example `claude "Fix the Checkmarx One finding … at src/db.js line 42 …"`. Once AI Remediation has written the fix, the line also downloads it (`curl … -o mz-fix.patch && claude "… apply mz-fix.patch …"`), and the assistant applies it where the code now lives. Text from the finding is reduced to plain letters and punctuation, so nothing in it can run in your shell.
-     - **An IDE's assistant** (GitHub Copilot, Cursor, Kiro, Windsurf, Antigravity): opens the file in that IDE and copies the prompt. Paste it into the IDE's chat.
-     - **Apply in my workspace** and **git apply** need the fix from AI Remediation (see below).
+   - **Apply AI fix** applies the fix Checkmarx One AI Remediation wrote for the finding (see below). Fixes come only from AI Remediation: until a finding is remediated, the button says to remediate it first.
 5. **Remediate** works once a finding is **Confirmed**. It runs AI Remediation and then offers the fix:
    - a summary;
    - the pull request (for repository-connected projects);
