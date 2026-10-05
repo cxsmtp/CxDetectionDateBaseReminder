@@ -185,6 +185,7 @@ for (const [key, { kind, places }] of [...found].sort(([a], [b]) => a.localeComp
   if (SAMPLE.test(key)) continue;
   const pattern = key.replace(/\d+/g, (() => { let i = 0; return () => `{${i++}}`; })());
   if (!/\p{L}/u.test(pattern.replace(/\{\d+\}/g, ''))) continue;
+  if (/^(https?:\/\/|\/)\S*$/.test(pattern)) continue; // an address or a path, not wording
   const entry = (catalog[pattern] ??= { kind, seen: [] });
   for (const place of places) if (entry.seen.length < 3 && !entry.seen.includes(place)) entry.seen.push(place);
 }
