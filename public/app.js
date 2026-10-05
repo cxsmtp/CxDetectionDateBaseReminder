@@ -7859,12 +7859,13 @@ function renderImpact() {
     tile('Hours saved', `${num1(d.hours.total)} h`, `<span>${num1(d.hours.triage)} h triage</span> · <span>${num1(d.hours.fix)} h fixing</span>`, true),
     m.value === null
       ? tile('Value of that time', '—', `<a href="#/settings/ai">Set an hourly cost</a>`)
-      : tile(m.cost === null ? 'Value of that time' : 'Saved, after credits', escapeHtml(cashOf(m.net ?? m.value, m.currency)), m.cost === null ? '<span>before the cost of credits</span>' : `<span>${escapeHtml(cashOf(m.value, m.currency))} saved</span> · <span>${escapeHtml(cashOf(m.cost, m.currency))} in credits</span>`),
+      // Amounts carry their currency, so they stay as they are; the words around them are translated on their own.
+      : tile(m.cost === null ? 'Value of that time' : 'Saved, after credits', `<span translate="no">${escapeHtml(cashOf(m.net ?? m.value, m.currency))}</span>`, m.cost === null ? '<span>before the cost of credits</span>' : `<span><span translate="no">${escapeHtml(cashOf(m.value, m.currency))}</span> <span>saved</span></span> · <span><span translate="no">${escapeHtml(cashOf(m.cost, m.currency))}</span> <span>in credits</span></span>`),
     tile('Noise removed', num1(d.noiseRemoved), '<span>findings AI Triage showed not exploitable</span>'),
     tile('Fixed with AI', num1(d.aiFixed), `<span>${num1(d.manualFixed)} fixed by hand</span>`),
     // Down is good: the change wears the good colour (with its arrow), never only colour.
     tile('Security debt', debt.change === null ? '—' : `${debt.change < 0 ? '▼' : debt.change > 0 ? '▲' : ''} ${Math.abs(debt.change)}%`, debt.zeroBy ? `<span>zero by ${escapeHtml(debt.zeroBy)} at this pace</span>` : '<span>open findings, weighted by severity</span>', false, debt.change < 0 ? 'good' : debt.change > 0 ? 'bad' : ''),
-    tile('Credits per finding closed', num1(d.creditsPerClosed), d.costPerClosed === null ? '<span>fixed or cleared by AI</span>' : `<span>${escapeHtml(priceOf(d.costPerClosed, m.currency))} each</span>`),
+    tile('Credits per finding closed', num1(d.creditsPerClosed), d.costPerClosed === null ? '<span>fixed or cleared by AI</span>' : `<span><span translate="no">${escapeHtml(priceOf(d.costPerClosed, m.currency))}</span> <span>each</span></span>`),
   ].join('');
   $('impact-debt-line').textContent = debt.change === null
     ? 'No open findings at the start of the period.'
@@ -7875,16 +7876,17 @@ function renderImpact() {
   $('impact-how').innerHTML = [
     `Hours saved: Checkmarx One results triaged by AI (${num1(d.credits.triage)}) × ${s.triageMinutes} min, plus fixes with AI (${num1(d.aiFixed)}) × ${s.fixMinutes} min.`,
     'A fix counts only once Checkmarx One no longer reports the finding. Rows that share one result count once.',
-    m.value === null ? 'Money: set an hourly cost and the price of one credit under Settings → AI & credits.' : `Money: hours × ${escapeHtml(priceOf(s.hourlyRate, m.currency))} an hour${m.cost === null ? '' : `, less credits used (${num1(d.credits.total)}) × ${escapeHtml(priceOf(s.creditPrice, m.currency))}`}.`,
+    m.value === null ? 'Money: set an hourly cost and the price of one credit under Settings → AI & credits.' : 'Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credits).',
     'Security debt: open Checkmarx One results weighted by severity (critical 10, high 5, medium 2, low 1). The date it reaches zero follows the last four weeks.',
     'Time to fix: days from first detection until Checkmarx One no longer reports it. AI-fixed and fixed by hand are compared over the same period.',
   ].map((line) => `<li>${line}</li>`).join('');
   renderImpactProjects();
   const state = $('impact-monthly-state');
   if (state) {
-    state.textContent = d.monthlyOn
-      ? `On: the summary is emailed on the 1st of each month for the month before, to ${(d.monthlyTo ?? []).length} address(es).${d.lastSent ? ` Last sent: ${d.lastSent}.` : ''}`
-      : 'Off: add who gets it under Settings → AI & credits.';
+    // Each sentence its own piece, so each is translated whole.
+    state.innerHTML = d.monthlyOn
+      ? `<span>On: emailed on the first day of each month, for the month before.</span> <span>Recipients: ${(d.monthlyTo ?? []).length}.</span>${d.lastSent ? ` <span>Last sent: ${escapeHtml(d.lastSent)}.</span>` : ''}`
+      : '<span>Off: add who gets it under Settings → AI & credits.</span>';
     $('impact-send').disabled = !d.monthlyOn;
   }
 }
@@ -8002,7 +8004,7 @@ $('impact-send').addEventListener('click', async () => {
   setStatus('impact-send-status', 'Sending…');
   try {
     const result = await api('/api/impact/email', { method: 'POST', body: '{}' });
-    setStatus('impact-send-status', `Sent the summary for ${result.month} to ${result.to.length} address(es).`, 'ok');
+    setStatus('impact-send-status', `Sent the summary for ${result.month}. Recipients: ${result.to.length}.`, 'ok');
     loadImpact();
   } catch (error) {
     if (!handleAuthLoss(error)) setStatus('impact-send-status', error.message, 'error');

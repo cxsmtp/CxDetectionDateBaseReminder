@@ -103,7 +103,12 @@ export function translate(strings, text, context = '') {
   const numbers = [];
   const key = text.replace(/\d+/g, (digits) => `{${numbers.push(digits) - 1}}`);
   const pattern = strings.get(key);
-  return pattern === undefined ? null : pattern.replace(/\{(\d+)\}/g, (whole, i) => numbers[i] ?? whole);
+  if (pattern !== undefined) return pattern.replace(/\{(\d+)\}/g, (whole, i) => numbers[i] ?? whole);
+  // "43.3 h" or "19,151": a number with decimals or thousands separators is one {0} too.
+  if (!/\d[.,\u00a0\u202f]\d/.test(text)) return null;
+  const whole = [];
+  const grouped = strings.get(text.replace(/\d+(?:[.,\u00a0\u202f]\d+)*/g, (n) => `{${whole.push(n) - 1}}`));
+  return grouped === undefined ? null : grouped.replace(/\{(\d+)\}/g, (all, i) => whole[i] ?? all);
 }
 const lookup = (text) => translate(dict, text);
 
