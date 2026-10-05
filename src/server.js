@@ -4906,7 +4906,7 @@ function progressFor(report, byProject) {
   try {
     detection = resolveWindow(report.filters.detection, 'First detection');
   } catch {}
-  const progress = computeProgress(report, byProject, detection, (ids, since) => creditLedger.usedSince(ids, since));
+  const progress = computeProgress(report, byProject, detection, (ids, since) => creditLedger.usedSince(ids, since), new Date(), remediatedOf);
   // Whether the round's scope is closed (every finding dealt with): ready for a verification rescan.
   progress.closure = closure(report, byProject, remediatedOf);
   return progress;
@@ -5285,7 +5285,7 @@ async function openScanFor(session, report) {
     report.projects.map((p) => ({ id: p.projectId, name: p.projectName })),
     { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency, memory: knownAddresses, attributed: creditFor },
   );
-  return { projects, initiators: initiators.byProject };
+  return { projects, initiators: initiators.byProject, byProject };
 }
 
 /** Settings → Who gets reminders: 'initiator', 'list' or 'both'. */
@@ -5598,6 +5598,46 @@ app.post(
     res.json({ ...summary, notified, report: trackedView(report) });
   }),
 );
+
+/**
+ * AI Remediation for a tracked report's confirmed findings (and only those) of
+ * the chosen severities, read fresh: 3 credits each, from remediation credits
+ * already given to its projects.
+ */
+app.post(
+  '/api/tracked-reports/:id/remediate',
+  requirePermission('triage.run'),
+  afterFetch,
+  asyncRoute(async (req, res) => {
+    const report = trackedReports.get(req.params.id);
+    if (!report) return res.status(404).json({ error: 'No such report.' });
+    const wanted = cleanSeverities(req.body?.severities);
+    if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to remediate.' });
+    const scan = await openScanFor(req.session, report);
+    const summary = await remediateConfirmed(req, scan, wanted, `Tracked report "${report.name}": remediate the confirmed findings`);
+    // What is left to remediate, now that these are sent (the button stops glowing when nothing is).
+    if (summary.started && report.latest) {
+      report.latest = { ...report.latest, toRemediate: progressFor(report, scan.byProject).toRemediate };
+      trackedReports.save();
+    }
+    res.json({ ...summary, report: trackedView(report) });
+  }),
+);
+
+/** Remediate the confirmed findings of these severities in a freshly read scan; tell the developers unless asked not to. */
+async function remediateConfirmed(req, scan, wanted, origin) {
+  const { allowReremediation = false } = settingsStore.get().aiTriage ?? {};
+  const findings = scan.projects.flatMap((p) => {
+    const remediated = allowReremediation ? new Set() : creditLedger.remediatedIds(p.projectId);
+    return p.risks.filter((r) => remediable(r) && !remediated.has(r.riskId)).map((r) => ({ ...r, projectId: p.projectId, projectName: p.projectName }));
+  });
+  const unique = remediationCandidates(findings, wanted);
+  if (!unique.length) return { requested: 0, started: 0, failed: 0, skipped: 0, errors: [] };
+  const actor = await adminActor(req);
+  const { startedFindings, ...summary } = await adminRemediate(req.session, unique, scan.initiators, { actor, origin });
+  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'remediation', startedFindings, scan.initiators, actor);
+  return { ...summary, notified };
+}
 
 /** A report for listing, with its projects' credit balance summed. */
 function trackedView(report) {
@@ -5984,6 +6024,60 @@ app.post('/api/credits/give', requirePermission('credits.allocate'), asyncRoute(
   }
   res.json({ given, triage, remediation, projectId, projectName, credits: loaded?.credits ?? null, pool: creditPool(), allocations: allocations.list() });
 }));
+
+/**
+ * Spend the credits from the Credit Control page: AI Triage (or AI Remediation
+ * of confirmed findings) for the chosen severities of projects that hold
+ * credits, read fresh from Checkmarx One. No Dashboard fetch needed.
+ */
+app.post('/api/credits/run', requirePermission('triage.run'), afterFetch, asyncRoute(async (req, res) => {
+  const kind = req.body?.kind === 'remediation' ? 'remediation' : req.body?.kind === 'triage' ? 'triage' : '';
+  if (!kind) return res.status(400).json({ error: 'Choose triage or remediation.' });
+  const wanted = cleanSeverities(req.body?.severities);
+  if (!wanted.length) return res.status(400).json({ error: `Pick at least one severity to ${kind === 'triage' ? 'triage' : 'remediate'}.` });
+  if (!req.session.client) return res.status(409).json({ error: 'Connect to Checkmarx One first.' });
+  const chosen = new Set(idList(req.body?.projectIds));
+  const projects = allocations.list().filter((p) => !chosen.size || chosen.has(p.projectId)).map((p) => ({ projectId: p.projectId, projectName: p.projectName || p.projectId }));
+  if (!projects.length) return res.status(400).json({ error: 'Give credits to a project first.' });
+
+  const settings = settingsStore.get();
+  const byProject = await currentFindings(req.session, projects);
+  const initiators = await collectInitiators(
+    req.session.client,
+    req.session.connection,
+    projects.map((p) => ({ id: p.projectId, name: p.projectName })),
+    { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency, memory: knownAddresses, attributed: creditFor },
+  );
+  const scan = { projects: projects.map((p) => ({ ...p, risks: byProject.get(p.projectId) ?? [] })), initiators: initiators.byProject };
+  const where = `Credit Control: ${kind === 'triage' ? 'triage' : 'remediate confirmed'} ${wanted.map((s) => s.toLowerCase()).join(', ')}`;
+  let summary;
+  if (kind === 'remediation') {
+    summary = await remediateConfirmed(req, scan, wanted, where);
+  } else {
+    const findings = scan.projects.flatMap((p) => triageRows(p.risks, wanted).map((r) => ({ ...r, projectId: p.projectId, projectName: p.projectName })));
+    if (!findings.length) {
+      summary = { requested: 0, started: 0, failed: 0, skipped: 0, errors: [] };
+    } else {
+      const actor = await adminActor(req);
+      const { startedFindings, ...outcome } = await adminTriage(req.session, findings, scan.initiators, { actor, origin: where });
+      const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'triage', startedFindings, scan.initiators, actor);
+      summary = { ...outcome, notified };
+    }
+  }
+  // Projects loaded on this person's Dashboard show the new balances.
+  for (const p of req.session.lastScan?.projects ?? []) if (allocations.get(p.projectId)) p.credits = creditView(p);
+  res.json({ ...summary, pool: creditPool(), allocations: allocations.list() });
+}));
+
+/**
+ * The credits of the projects loaded on this person's Dashboard, worked out
+ * again: after credits are given or taken back on another page.
+ */
+app.get('/api/credits/views', requirePermission('credits.view'), (req, res) => {
+  const projects = (req.session.lastScan?.projects ?? []).filter((p) => !p.error);
+  for (const p of projects) p.credits = creditView(p);
+  res.json({ projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
+});
 
 /** The credit pool now: size, used (triage / remediation), left, given to projects, free to give. */
 function creditPool(settings = settingsStore.get(), list = allocations.list()) {

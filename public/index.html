@@ -1359,6 +1359,24 @@
                 <p class="hint cc-give-cost">1 credit triages one Checkmarx One result; remediating one confirmed finding takes 3.</p>
                 <p class="status" id="cc-give-status"></p>
               </form>
+              <div class="cc-spend" id="cc-spend" data-perm="triage.run" hidden>
+                <div>
+                  <strong>Use the credits</strong>
+                  <span class="hint" id="cc-spend-note">Triage or remediate the ticked projects now; none ticked means every project. Their findings are read fresh from Checkmarx One.</span>
+                </div>
+                <div class="rp-options" role="group" aria-label="Severities">
+                  <label class="check"><input type="checkbox" data-spend-sev="CRITICAL" checked /> Critical</label>
+                  <label class="check"><input type="checkbox" data-spend-sev="HIGH" checked /> High</label>
+                  <label class="check"><input type="checkbox" data-spend-sev="MEDIUM" /> Medium</label>
+                  <label class="check"><input type="checkbox" data-spend-sev="LOW" /> Low</label>
+                </div>
+                <div class="actions compact">
+                  <button type="button" class="primary" id="cc-run-triage">Triage now</button>
+                  <button type="button" class="primary" id="cc-run-remediation">Remediate now</button>
+                </div>
+                <p class="hint" id="cc-spend-left"></p>
+                <p class="status" id="cc-spend-status"></p>
+              </div>
               <div class="cc-takeback" id="cc-takeback" data-perm="credits.allocate" hidden>
                 <div>
                   <strong>Take credits back</strong>
