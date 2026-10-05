@@ -49,5 +49,8 @@ for (const code of LANGUAGE_CODES) {
     assert.deepEqual(missing.slice(0, 10), [], `${missing.length} without a translation`);
     const found = checkAll(file.strings, code, catalog);
     assert.deepEqual(found.slice(0, 5), [], `${found.length} translations with problems`);
+    // The Mission Zero line: five stages, five different words.
+    const stages = ['Detect', 'Triage', 'Remediate', 'Fix', 'Verify'].map((en) => file.strings[en]);
+    assert.equal(new Set(stages).size, 5, `the five stages must read differently: ${stages.join(' · ')}`);
   });
 }

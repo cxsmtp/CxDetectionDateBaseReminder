@@ -45,6 +45,19 @@ The source wording is in `i18n/catalog.json`; each language is `public/i18n/<cod
 | `ms` | Malay (Malaysia) | Standard Bahasa Melayu (Dewan Bahasa dan Pustaka); address the reader as "anda". Malaysian terms, not Indonesian ones: tetapan, kemas kini, projek, imbasan, muat turun, log masuk. |
 | `id` | Indonesian | Standard Bahasa Indonesia (KBBI/PUEBI); address the reader as "Anda" (capitalised). Indonesian terms, not Malaysian ones: pengaturan, perbarui, proyek, pemindaian, unduh, masuk. |
 
+## Terms that must stay distinct
+
+- **The Mission Zero line on the Dashboard** has five stages. Their labels must be five different short words:
+  - **Detect:** findings are open.
+  - **Triage:** AI Triage judges them.
+  - **Remediate:** AI Remediation proposes a fix.
+  - **Fix:** the developer changes the code and rescans.
+  - **Verify:** a rescan confirms the fix.
+- **Remediate vs. Fix:** Remediate is the AI's step and Fix is the developer's. For example:
+  - Japanese: AI修正 / 修正対応.
+  - Spanish: Remediar / Corregir.
+- **Remind vs. Reminders, Track vs. Tracked reports:** keep the same root word in each pair, so the button and the thing it makes are recognisably related.
+
 ## Core terms
 
 Use these terms consistently. Where a term is shown as two forms, use the first in labels and the second in running text when it reads better.
