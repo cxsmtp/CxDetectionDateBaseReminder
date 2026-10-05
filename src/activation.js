@@ -11,6 +11,8 @@
  * the public half is ISSUER_KEYS below. Codes are made with scripts/activation.mjs.
  */
 import { createPublicKey, verify } from 'node:crypto';
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 /** The maintainer's public key(s), base64 SPKI DER. Empty: no code is valid yet. */
 export const ISSUER_KEYS = [
@@ -86,4 +88,52 @@ export function checkCode(code, { now = Date.now(), keys = trustedKeys() } = {})
   };
   if (expires <= now) return { ...info, valid: false, expired: true, reason: `This activation code expired on ${info.expires.slice(0, 10)}.` };
   return { ...info, valid: true, warn: daysLeft <= WARN_DAYS };
+}
+
+/**
+ * The activation codes accepted on this installation (DATA_DIR/activation.json): which
+ * scopes they unlock, for whom, until when. Gated languages keep their own state
+ * (src/languages.js); this keeps the multi-tenant one and the history of what was entered.
+ */
+export class ActivationStore {
+  #file;
+  #state;
+
+  constructor({ file }) {
+    this.#file = file;
+    try {
+      const raw = JSON.parse(readFileSync(file, 'utf8'));
+      this.#state = { tenants: raw.tenants ?? null, history: Array.isArray(raw.history) ? raw.history : [] };
+    } catch {
+      this.#state = { tenants: null, history: [] };
+    }
+  }
+
+  #save() {
+    mkdirSync(dirname(this.#file), { recursive: true, mode: 0o700 });
+    const tmp = `${this.#file}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify(this.#state, null, 2), { mode: 0o600 });
+    renameSync(tmp, this.#file);
+  }
+
+  /** Record an accepted code (the result of checkCode) and who entered it. */
+  record(result, by = '') {
+    const entry = { id: result.id, org: result.org, scope: result.scope, action: result.action || 'activate', expires: result.expires, at: new Date().toISOString(), by: String(by ?? '') };
+    if (result.scope === 'tenants') this.#state.tenants = { ...entry, maxTenants: result.maxTenants };
+    this.#state.history = [entry, ...this.#state.history].slice(0, 50);
+    this.#save();
+    return entry;
+  }
+
+  /** The multi-tenant activation in force: { org, maxTenants, expires, daysLeft, warn } or null. */
+  tenants(now = Date.now()) {
+    const t = this.#state.tenants;
+    if (!t) return null;
+    const daysLeft = Math.ceil((Date.parse(t.expires) - now) / DAY_MS);
+    return { org: t.org, maxTenants: t.maxTenants, expires: t.expires, at: t.at, by: t.by, daysLeft, valid: daysLeft > 0, warn: daysLeft > 0 && daysLeft <= WARN_DAYS };
+  }
+
+  history() {
+    return this.#state.history.map((h) => ({ ...h }));
+  }
 }

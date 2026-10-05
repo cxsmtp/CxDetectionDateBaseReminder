@@ -61,6 +61,8 @@ import { inlineScriptHashes, pruneAttempts, sameOriginGuard, securityHeaders, tr
 import { describeCertificate } from './tls.js';
 import { HSTS_AGES, HttpsManager } from './https-manager.js';
 import { AcmeService, CHALLENGE_PREFIX, RENEW_DAYS, cleanNames, validName } from './acme.js';
+import { ActivationStore, ISSUER_KEYS, checkCode } from './activation.js';
+import { GATED_LANGUAGES, LanguageAccess } from './languages.js';
 import { SUPPORTING_NOTICE, Terms } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
@@ -524,6 +526,9 @@ try {
 const ACME_DIRECTORY = String(process.env.ACME_DIRECTORY_URL ?? '').trim();
 const acme = new AcmeService({ dataDir, https: httpsManager, log: console, ...(ACME_DIRECTORY ? { directories: { production: ACME_DIRECTORY, staging: ACME_DIRECTORY } } : {}) });
 const LETSENCRYPT_DOMAIN = String(process.env.LETSENCRYPT_DOMAIN ?? '').trim();
+// Add-ons unlocked by an activation code from the maintainer (src/activation.js): Hebrew, several tenants.
+const activations = new ActivationStore({ file: path.join(dataDir, 'activation.json') });
+const languageAccess = new LanguageAccess({ file: path.join(dataDir, 'languages.json') });
 
 /** Let's Encrypt's check (HTTP-01): answered over plain http in every HTTPS mode, before anything else. */
 function acmeChallengeAnswer(req, res) {
@@ -596,6 +601,12 @@ app.use('/api', (req, res, next) => {
   next();
 });
 // The page's files; API calls never touch the disk looking for one (a stat per request, under load).
+// A language behind an activation code (Hebrew) is not served until it is activated here.
+app.use('/i18n', (req, res, next) => {
+  const code = req.path.match(/^\/([\w-]+)\.json$/)?.[1];
+  if (code && code in GATED_LANGUAGES && !languageAccess.isAvailable(code)) return res.status(404).json({ error: 'That language is not available.' });
+  next();
+});
 const staticFiles = express.static(publicDir);
 app.use((req, res, next) => (req.path.startsWith('/api/') ? next() : staticFiles(req, res, next)));
 
@@ -738,6 +749,8 @@ app.get('/api/health', (req, res) => {
     windowPresets: WINDOW_PRESETS.map(({ id, label }) => ({ id, label })),
     templateVariables: TEMPLATE_VARIABLES,
     defaultTemplate: DEFAULT_TEMPLATE,
+    // The page's languages available here (Hebrew only once activated).
+    languages: languageAccess.available(),
     // Shown in the header before anyone connects.
     app: {
       name: settingsStore.get().branding.appName || 'CxMissionZero',
@@ -1088,6 +1101,7 @@ app.put(
   asyncRoute(async (req, res) => {
     const patch = {};
     for (const key of ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages']) if (key in (req.body ?? {})) patch[key] = req.body[key];
+    if (patch.language && !languageAccess.isAvailable(String(patch.language))) return res.status(400).json({ error: 'That language is not available.' });
     const { before, after } = iam.updateProfile(req.user.id, patch);
     const changed = [
       ...(before.name !== after.name ? ['name'] : []),
@@ -1121,7 +1135,7 @@ app.get('/api/users/:id/avatar', requireSession, (req, res) => {
   res.send(avatar.bytes);
 });
 
-app.get('/api/me/profile/options', requireSession, (req, res) => res.json({ languages: PROFILE_LANGUAGES, programmingLanguages: PROGRAMMING_LANGUAGES }));
+app.get('/api/me/profile/options', requireSession, (req, res) => res.json({ languages: PROFILE_LANGUAGES.filter((code) => languageAccess.isAvailable(code)), programmingLanguages: PROGRAMMING_LANGUAGES }));
 
 // ---------------------------------------------------------------------------
 // Access: users and roles
@@ -3139,6 +3153,44 @@ app.delete('/api/https/acme', requirePermission('security.https'), httpsRoute(as
   acme.disable();
   auditHttps(req, actor, 'Automatic renewal of the Let\'s Encrypt certificate turned off (the certificate in use stays until it expires or is replaced).');
   res.json(acmeView(req));
+}));
+
+// ---- Activation codes (Settings → Activation codes): add-ons unlocked by the maintainer ----
+
+function activationView() {
+  return {
+    keyConfigured: ISSUER_KEYS.length > 0,
+    languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)])),
+    tenants: activations.tenants(),
+    history: activations.history().slice(0, 10),
+  };
+}
+
+app.get('/api/activation', requirePermission('activation.manage'), (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(activationView());
+});
+
+app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(async (req, res) => {
+  const code = String(req.body?.code ?? '').trim().slice(0, 4000);
+  const result = checkCode(code);
+  const actor = await adminActor(req);
+  // A deactivation code is honoured even when it is itself past its date.
+  const usable = result.valid || (result.expired && result.action === 'deactivate');
+  if (!usable) {
+    audit.record({ type: 'settings', outcome: 'refused', reason: `Activation code refused: ${result.reason}`, actor });
+    return res.status(400).json({ error: result.reason || 'This activation code is not valid.' });
+  }
+  let what;
+  if (result.scope.startsWith('lang:')) {
+    const applied = languageAccess.apply(result);
+    what = `${applied.code === 'he' ? 'Hebrew' : applied.code} ${applied.on ? `turned on until ${result.expires.slice(0, 10)}` : 'turned off'}`;
+  } else {
+    what = `several Checkmarx One tenants unlocked for ${result.org}: up to ${result.maxTenants}, until ${result.expires.slice(0, 10)}`;
+  }
+  activations.record(result, actor.user);
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Activation code applied: ${what}.`, actor, details: { activation: { id: result.id, org: result.org, scope: result.scope, action: result.action || 'activate', expires: result.expires } } });
+  res.json({ applied: what, ...activationView() });
 }));
 
 app.get('/api/report-server', requireSession, (req, res) => {

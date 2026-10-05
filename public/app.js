@@ -1,5 +1,5 @@
 import { nextSpeedster } from './speedsters.js';
-import { LANGUAGES, currentLanguage, deviceTimeZone, onLanguageChange, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
+import { availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -607,10 +607,53 @@ document.addEventListener('click', async (event) => {
   }
 });
 
+// ---- Activation codes: add-ons unlocked by the maintainer (Hebrew, several tenants) ----
+
+async function loadActivation() {
+  if (!can('activation.manage')) return;
+  try {
+    renderActivation(await api('/api/activation', { quiet: true }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('act-status', error);
+  }
+}
+
+function renderActivation(a) {
+  const date = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
+  const he = a.languages?.he ?? { on: false };
+  const t = a.tenants;
+  const rows = [
+    `<div class="act-row"><strong>Hebrew</strong><span>${he.on ? `<span class="badge ok">On</span> until ${escapeHtml(date(he.expires))}${he.org ? ` · ${escapeHtml(he.org)}` : ''}` : he.expired ? `<span class="badge warn">Expired</span> on ${escapeHtml(date(he.expires))}` : '<span class="badge">Off</span>'}</span></div>`,
+    `<div class="act-row"><strong>Several tenants</strong><span>${t ? `${t.valid ? '<span class="badge ok">Unlocked</span>' : '<span class="badge warn">Expired</span>'} for ${escapeHtml(t.org)}: up to ${t.maxTenants} tenants, until ${escapeHtml(date(t.expires))}${t.warn ? ` <strong class="https-note warn">(${t.daysLeft} days left)</strong>` : ''}` : '<span class="badge">Not unlocked</span>'}</span></div>`,
+  ];
+  if (!a.keyConfigured) rows.push('<p class="hint">This build has no maintainer key, so no code can be checked.</p>');
+  $('act-list').innerHTML = rows.join('');
+}
+
+$('act-apply').addEventListener('click', async () => {
+  const code = $('act-code').value.trim();
+  if (!code) return setStatus('act-status', 'Paste the activation code first.', 'error');
+  $('act-apply').disabled = true;
+  try {
+    const result = await api('/api/activation', { method: 'POST', body: JSON.stringify({ code }) });
+    renderActivation(result);
+    $('act-code').value = '';
+    setStatus('act-status', `Applied: ${result.applied}.`, 'ok');
+    // A language turned on or off is offered (or not) at once.
+    const health = await api('/api/health', { quiet: true });
+    if (Array.isArray(health.languages)) languagesChanged(health.languages);
+  } catch (error) {
+    if (!handleAuthLoss(error)) setStatus('act-status', error.message, 'error');
+  } finally {
+    $('act-apply').disabled = false;
+  }
+});
+
 const reloadSettingsPage = () => {
   renderProfile();
   if (!can('settings.view')) return;
   loadFeatures();
+  loadActivation();
   renderSettings();
   loadAutomation();
   loadPool();
@@ -6047,6 +6090,7 @@ document.addEventListener('keydown', (event) => {
 (async function init() {
   try {
     state.health = await api('/api/health');
+    if (Array.isArray(state.health.languages)) languagesChanged(state.health.languages);
     if (state.health.version) {
       $('app-version').textContent = state.health.version;
       $('app-version').hidden = false;
@@ -8338,10 +8382,23 @@ if (window.ResizeObserver) {
 // Language: the page's own words in the reader's language (public/i18n.js).
 // ---------------------------------------------------------------------------
 
+/** Set once the language picker exists: offer the languages this server has unlocked. */
+let languagesChanged = () => {};
+
 {
   const select = $('lang-select');
-  const SHORT = { en: 'EN', ja: 'JA', 'zh-TW': '繁中', 'zh-CN': '简中', ko: 'KO', es: 'ES', vi: 'VI', th: 'TH', ms: 'MS', id: 'ID' };
-  select.innerHTML = LANGUAGES.map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
+  const SHORT = { en: 'EN', ja: 'JA', 'zh-TW': '繁中', 'zh-CN': '简中', ko: 'KO', es: 'ES', de: 'DE', fr: 'FR', ar: 'AR', vi: 'VI', th: 'TH', ms: 'MS', id: 'ID', he: 'HE' };
+  const fill = () => {
+    select.innerHTML = availableLanguages().map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
+    select.value = currentLanguage();
+  };
+  fill();
+  // Languages unlocked by an activation code (Hebrew) are offered once the server says so.
+  languagesChanged = (codes) => {
+    const allowed = setAvailable(codes);
+    fill();
+    if (!allowed) setLanguage('en');
+  };
   const show = (code) => {
     select.value = code;
     select.setAttribute('aria-label', t('Language'));
@@ -8428,7 +8485,7 @@ function renderProfile() {
   $('pf-last').textContent = user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : '—';
   if (document.activeElement !== $('pf-name')) $('pf-name').value = user.name ?? '';
   const language = $('pf-language');
-  if (!language.options.length) language.innerHTML = LANGUAGES.map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
+  language.innerHTML = availableLanguages().map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
   language.value = profile.language || currentLanguage();
   const zones = $('pf-tz');
   if (!zones.options.length) {
