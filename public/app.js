@@ -521,9 +521,9 @@ function applyPermissions() {
 // ---------------------------------------------------------------------------
 
 const ROUTE_ALIASES = { iam: 'access', 'credit-control': 'credits' };
-/** Detect → Eliminate → Govern: where each page sits in the vulnerability lifecycle. */
-const STAGES = { dashboard: 'detect', beta: 'detect', reports: 'eliminate', credits: 'eliminate', audit: 'govern', access: 'govern', settings: 'govern', logs: 'govern' };
-const STAGE_LABELS = { detect: 'Detect', eliminate: 'Eliminate', govern: 'Govern' };
+/** Act → Follow up → Prove, plus Set up: what each page is for. */
+const STAGES = { dashboard: 'act', beta: 'act', reports: 'followup', credits: 'prove', audit: 'prove', access: 'setup', settings: 'setup', logs: 'setup' };
+const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', setup: 'Set up' };
 /** The tab group on each page (data-ptabs). */
 const PAGE_TABS = { dashboard: 'dash', credits: 'credits', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs' };
 const visitedPages = new Set();
@@ -623,8 +623,9 @@ function renderActivation(a) {
   const he = a.languages?.he ?? { on: false };
   const t = a.tenants;
   const rows = [
-    `<div class="act-row"><strong>Hebrew</strong><span>${he.on ? `<span class="badge ok">On</span> until ${escapeHtml(date(he.expires))}${he.org ? ` · ${escapeHtml(he.org)}` : ''}` : he.expired ? `<span class="badge warn">Expired</span> on ${escapeHtml(date(he.expires))}` : '<span class="badge">Off</span>'}</span></div>`,
-    `<div class="act-row"><strong>Several tenants</strong><span>${t ? `${t.valid ? '<span class="badge ok">Unlocked</span>' : '<span class="badge warn">Expired</span>'} for ${escapeHtml(t.org)}: up to ${t.maxTenants} tenants, until ${escapeHtml(date(t.expires))}${t.warn ? ` <strong class="https-note warn">(${t.daysLeft} days left)</strong>` : ''}` : '<span class="badge">Not unlocked</span>'}</span></div>`,
+    // Each English piece is its own element, so the page translator can reach it.
+    `<div class="act-row"><strong>Hebrew</strong><span>${he.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(he.expires))}</b>${he.org ? ` · ${escapeHtml(he.org)}` : ''}` : he.expired ? `<span class="badge warn">Expired</span> <b>${escapeHtml(date(he.expires))}</b>` : '<span class="badge muted">Off</span>'}</span></div>`,
+    `<div class="act-row"><strong>Several tenants</strong><span>${t ? `${t.valid ? '<span class="badge ok">Unlocked</span>' : '<span class="badge warn">Expired</span>'} ${escapeHtml(t.org)} · <span>Up to ${t.maxTenants} tenants</span> · <span>Until</span> <b>${escapeHtml(date(t.expires))}</b>${t.warn ? ` <strong class="https-note warn">${t.daysLeft} days left</strong>` : ''}` : '<span class="badge muted">Not unlocked</span>'}</span></div>`,
   ];
   if (!a.keyConfigured) rows.push('<p class="hint">This build has no maintainer key, so no code can be checked.</p>');
   $('act-list').innerHTML = rows.join('');
@@ -860,8 +861,8 @@ function showSettingsSection(id) {
 }
 
 const PAGE_TITLES = {
-  connect: ['Sign in', 'Detect, eliminate and govern vulnerabilities in Checkmarx One'],
-  dashboard: ['Dashboard', 'Detect ageing vulnerabilities, then remind owners, triage and remediate them'],
+  connect: ['Sign in', 'Act on Checkmarx One findings, follow them up to zero, and prove every credit'],
+  dashboard: ['Dashboard', 'See ageing vulnerabilities, then remind owners, triage and remediate them'],
   reports: ['Reports', 'Follow every tracked scope down to zero: progress, follow-ups and schedules'],
   credits: ['Credit Control', 'The credit pool, what each project was given and used, and spending over time'],
   settings: ['Settings', 'Connections, reminders, AI and credits, reports, security — saved as you type'],
@@ -5970,17 +5971,17 @@ async function renderGettingStarted() {
   const cx = Boolean(state.connection);
   const smtp = Boolean(state.settings?.verified);
   const server = state.reportServer ? !state.reportServer.warnings?.length : true;
-  if (can('integration.cxone') || !cx) steps.push({ stage: 'detect', done: cx, title: 'Connect Checkmarx One', text: 'The server reads projects and findings with its own key.', href: '#/settings/connection', action: can('integration.cxone') ? 'Connect' : 'Ask an Admin' });
-  steps.push({ stage: 'detect', done: state.projects.length > 0, title: 'Fetch vulnerabilities', text: 'Choose a scope and fetch: ageing findings and who ran each scan.', href: '#/dashboard', action: 'Fetch', fetch: true });
-  if (can('integration.smtp')) steps.push({ stage: 'eliminate', done: smtp, title: 'Set up email', text: 'Test your mail server so reminders and follow-ups can go out.', href: '#/settings/smtp', action: 'Set up' });
-  if (can('settings.links')) steps.push({ stage: 'eliminate', done: server, title: 'Give reports a reachable address', text: 'So readers can triage and remediate straight from the emailed report.', href: '#/settings/server', action: 'Set address' });
-  if (can('credits.limit')) steps.push({ stage: 'govern', done: Boolean(state.settings?.aiTriage?.monthlyCreditLimit), title: 'Cap AI credits', text: 'A credit pool limits what AI Triage and Remediation may spend.', href: '#/settings/ai', action: 'Set pool' });
+  if (can('integration.cxone') || !cx) steps.push({ stage: 'setup', done: cx, title: 'Connect Checkmarx One', text: 'The server reads projects and findings with its own key.', href: '#/settings/connection', action: can('integration.cxone') ? 'Connect' : 'Ask an Admin' });
+  steps.push({ stage: 'act', done: state.projects.length > 0, title: 'Fetch vulnerabilities', text: 'Choose a scope and fetch: ageing findings and who ran each scan.', href: '#/dashboard', action: 'Fetch', fetch: true });
+  if (can('integration.smtp')) steps.push({ stage: 'setup', done: smtp, title: 'Set up email', text: 'Test your mail server so reminders and follow-ups can go out.', href: '#/settings/smtp', action: 'Set up' });
+  if (can('settings.links')) steps.push({ stage: 'setup', done: server, title: 'Give reports a reachable address', text: 'So readers can triage and remediate straight from the emailed report.', href: '#/settings/server', action: 'Set address' });
+  if (can('credits.limit')) steps.push({ stage: 'prove', done: Boolean(state.settings?.aiTriage?.monthlyCreditLimit), title: 'Cap AI credits', text: 'A credit pool limits what AI Triage and Remediation may spend.', href: '#/settings/ai', action: 'Set pool' });
   if (can('iam.manage')) {
     let people = 2;
     try {
       people = (access.data ?? (await api('/api/iam', { quiet: true }))).users.length;
     } catch {}
-    steps.push({ stage: 'govern', done: people > 1, title: 'Invite your team', text: 'Add people and give each the role they need.', href: '#/access/people', action: 'Invite' });
+    steps.push({ stage: 'setup', done: people > 1, title: 'Invite your team', text: 'Add people and give each the role they need.', href: '#/access/people', action: 'Invite' });
   }
   const left = steps.filter((s) => !s.done).length;
   // A checklist of one is not a checklist: people who only fetch never see it.
@@ -6020,20 +6021,20 @@ function paletteEntries() {
   const pageOk = (page) => !PAGE_PERMS[page] || canAny(PAGE_PERMS[page]);
   for (const [page, [title, sub]] of Object.entries(PAGE_TITLES)) {
     if (page === 'connect' || !pageOk(page)) continue;
-    entries.push({ label: title, hint: sub, group: STAGE_LABELS[STAGES[page]], href: `#/${page}` });
+    entries.push({ label: title, hint: sub, group: STAGE_LABELS[STAGES[page]], stage: STAGES[page], href: `#/${page}` });
   }
   for (const bar of document.querySelectorAll('[data-ptabs]')) {
     const page = Object.keys(PAGE_TABS).find((p) => PAGE_TABS[p] === bar.dataset.ptabs);
     if (!page || !pageOk(page)) continue;
     for (const tab of tabsOf(bar.dataset.ptabs).filter(usableTab)) {
       const label = tab.childNodes[0]?.textContent.trim() || tab.textContent.trim();
-      entries.push({ label: `${PAGE_TITLES[page][0]} → ${label}`, group: STAGE_LABELS[STAGES[page]], href: page === 'dashboard' ? null : `#/${page}/${tab.dataset.pt}`, tab: page === 'dashboard' ? tab.dataset.pt : null });
+      entries.push({ label: `${PAGE_TITLES[page][0]} → ${label}`, group: STAGE_LABELS[STAGES[page]], stage: STAGES[page], href: page === 'dashboard' ? null : `#/${page}/${tab.dataset.pt}`, tab: page === 'dashboard' ? tab.dataset.pt : null });
     }
   }
   if (pageOk('settings')) {
     for (const a of document.querySelectorAll('#set-nav [data-set]')) {
       if (a.classList.contains('perm-hidden') || a.classList.contains('no-settings')) continue;
-      entries.push({ label: `Settings → ${a.textContent.trim()}`, group: 'Govern', href: a.getAttribute('href') });
+      entries.push({ label: `Settings → ${a.textContent.trim()}`, group: STAGE_LABELS.setup, stage: 'setup', href: a.getAttribute('href') });
     }
   }
   if (can('findings.fetch')) entries.push({ label: 'Load findings', group: 'Action', run: () => $('fetch').click() });
@@ -6062,7 +6063,7 @@ function renderPalette() {
   if (!q) palette.index = 0;
   $('palette-list').innerHTML = palette.shown.length
     ? palette.shown
-        .map((e, i) => `<li role="option" id="pal-${i}" aria-selected="${i === palette.index}" data-pal="${i}" class="${i === palette.index ? 'on' : ''}"><span class="pal-label">${escapeHtml(e.label)}</span><span class="pal-group" data-stage="${escapeHtml((e.group || '').toLowerCase())}">${escapeHtml(e.group || '')}</span></li>`)
+        .map((e, i) => `<li role="option" id="pal-${i}" aria-selected="${i === palette.index}" data-pal="${i}" class="${i === palette.index ? 'on' : ''}"><span class="pal-label">${escapeHtml(e.label)}</span><span class="pal-group" data-stage="${escapeHtml(e.stage || '')}">${escapeHtml(e.group || '')}</span></li>`)
         .join('')
     : '<li class="pal-none">Nothing matches.</li>';
   $('palette-q').setAttribute('aria-activedescendant', palette.shown.length ? `pal-${palette.index}` : '');

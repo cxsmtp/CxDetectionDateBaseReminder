@@ -7,7 +7,7 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 - Administrators setting it up start with [Set up in 10 minutes](#set-up-in-10-minutes), and serve it over HTTPS: [Turn on HTTPS](#turn-on-https).
 
 **Contents**
-1. [Find your way: Detect, Eliminate, Govern](#find-your-way)
+1. [Find your way: Act, Follow up, Prove, Set up](#find-your-way)
 1. [Who can do what](#who-can-do-what)
 2. [Sign in](#sign-in), and the [terms of use](#terms-of-use)
 3. [Set up in 10 minutes](#set-up-in-10-minutes) (Admin)
@@ -31,15 +31,16 @@ The running version is shown at the bottom of the sidebar, as `MZ-xx.xx.xx`. Cli
 
 ## Find your way
 
-The sidebar follows a vulnerability from finding it to closing it:
+The sidebar is grouped by what you came to do:
 
-| Stage | Pages | What you do there |
+| Group | Pages | What you do there |
 | --- | --- | --- |
-| **Detect** | Dashboard, Beta | Fetch ageing findings, see who owns them, find who wrote the vulnerable code. |
-| **Eliminate** | Reports, Credit Control | Follow tracked scopes down to zero, schedule follow-ups, give and track AI Triage and Remediation credits. |
-| **Govern** | Audit, People & roles, Settings, Logs | The credit audit log and backups, people and roles, configuration, troubleshooting. |
+| **Act** | Dashboard, Beta | Fetch ageing findings, see who owns them, remind them, triage and remediate; find who wrote the vulnerable code. |
+| **Follow up** | Reports | Follow tracked scopes down to zero and schedule follow-ups. |
+| **Prove** | Credit Control, Audit | Give and track AI Triage and Remediation credits; the credit audit log and backups. |
+| **Set up** | People & roles, Settings, Logs | People and roles, configuration, troubleshooting. |
 
-The coloured label next to each page title says which stage you are in.
+The coloured label next to each page title says which group the page is in.
 
 **Every page keeps what you were doing.** Go to another page and come back: your filters, tabs, selections, open rows, typed text and unsaved role changes are still there, and so is the scroll position.
 - **↻** (top right) reloads the data of the page you are on and keeps your filters and tabs.
@@ -61,13 +62,19 @@ The coloured label next to each page title says which stage you are in.
 - 简体中文 (Simplified Chinese);
 - 한국어 (Korean);
 - Español (Spanish);
+- Deutsch (German);
+- Français (French);
+- العربية (Arabic);
 - Tiếng Việt (Vietnamese);
 - ไทย (Thai);
 - Bahasa Melayu (Malay);
 - Bahasa Indonesia (Indonesian);
-- English.
+- English;
+- עברית (Hebrew), once an Admin has switched it on with an activation code (Settings → Activation codes).
 
-The first time, CxMissionZero uses your browser's language when it is one of these. Your choice is saved with your account, so it follows you to any browser you sign in from.
+In Arabic and Hebrew the page reads right to left, with the menu on the right.
+
+The first time, CxMissionZero uses your browser's language when it is one of these (never Hebrew: choose it yourself). Your choice is saved with your account, so it follows you to any browser you sign in from.
 
 What is translated, and what is not:
 - **Translated:** menus, options, buttons, headings, hints and status messages.
@@ -407,6 +414,14 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 | --- | --- |
 | **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Dashboard's Remind panel links to it, and Settings → Automation can email code authors on every run. |
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
+
+### Activation codes (Admin)
+
+Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
+- **Hebrew:** an activation code adds Hebrew to the language pickers; a deactivation code removes it.
+- **Several tenants:** for organisations that run more than one Checkmarx One tenant (the Super Admin tasks).
+
+Paste the code and select **Apply the code**. The page shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** see this section. [How codes are issued](activation-codes.md).
 
 ### About & terms of use
 The version, the licence, the project's address, which version of the terms you accepted, and **Read the terms of use**.

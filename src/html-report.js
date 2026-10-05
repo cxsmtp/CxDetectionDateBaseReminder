@@ -246,10 +246,10 @@ export function generateHtmlReport(reportData, options = {}) {
       .join('')}
     ${oldest !== null ? `<span class="count count-age"><b>${oldest}d</b> oldest</span>` : ''}
   </div>
-  <ol class="lifecycle" aria-label="Detect, eliminate, govern">
-    <li class="lc-detect"><b>Detect</b> Found by Checkmarx One</li>
-    <li class="lc-eliminate"><b>Eliminate</b> Triage and remediate here</li>
-    <li class="lc-govern"><b>Govern</b> Every credit is audited</li>
+  <ol class="lifecycle" aria-label="From finding to fix">
+    <li class="lc-act">Found by Checkmarx One</li>
+    <li class="lc-followup">Fix it here</li>
+    <li class="lc-prove">Every credit audited</li>
   </ol>
 </header>
 
@@ -764,9 +764,7 @@ tr.shared-row.twin-hi > td, tr.shared-row:target > td { background: color-mix(in
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
 
-/* Detect · Eliminate · Govern: summary tiles, the lifecycle strip, filters, calmer rows. */
-:root { --detect: #2a78d6; --eliminate: #d9480f; --govern: #0e9f6e; }
-@media (prefers-color-scheme: dark) { :root { --detect: #5b9df0; --eliminate: #f08a5a; --govern: #34c79a; } }
+/* Summary tiles, the lifecycle strip (found → fix it here → every credit audited), filters, calmer rows. */
 .top { padding-bottom: 18px; background: radial-gradient(1200px 300px at 85% -40%, rgba(255,255,255,.18), transparent 60%), linear-gradient(135deg, var(--accent), #6d28d9); }
 .summary { gap: 10px; }
 .summary .count { display: inline-flex; align-items: baseline; gap: 6px; padding: 8px 14px; border-radius: 12px; background: rgba(255,255,255,.14);
@@ -777,7 +775,7 @@ tr.shared-row.twin-hi > td, tr.shared-row:target > td { background: color-mix(in
 .lifecycle { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; max-width: 1280px; margin: 12px auto 0; padding: 0; font-size: 12px; }
 .lifecycle li { display: inline-flex; gap: 6px; align-items: center; padding: 3px 12px 3px 8px; border-radius: 999px; background: rgba(0,0,0,.14); color: rgba(255,255,255,.9); }
 .lifecycle li::before { content: ""; width: 8px; height: 8px; border-radius: 3px; }
-.lc-detect::before { background: #9ec5ff; } .lc-eliminate::before { background: #ffb26b; } .lc-govern::before { background: #7ee2b8; }
+.lc-act::before { background: #9ec5ff; } .lc-followup::before { background: #ffb26b; } .lc-prove::before { background: #7ee2b8; }
 .lifecycle li + li { position: relative; }
 main { padding-top: 18px; }
 .server, .actions, .table-wrap, .activity { border-radius: 14px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }

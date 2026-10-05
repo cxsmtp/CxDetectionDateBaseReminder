@@ -1665,31 +1665,33 @@ body.rp-locked { overflow: hidden; }
 @media (max-width: 860px) { .rp-filters .mode { flex: none; } }
 
 /* ==========================================================================
-   MZ-01.00.26 — Detect · Eliminate · Govern workspace
+   MZ-01.00.26 — the workspace (stages renamed Act · Follow up · Prove · Set up in MZ-01.00.47)
    One layer over the base styles: the stage colours, page tabs, the
    Dashboard workbench with its action rail, Settings one section at a time,
    paged tables, Jump to (Ctrl K). Wide screens use their width.
    ========================================================================== */
 
 :root {
-  --detect: #2a78d6;
-  --eliminate: #d9480f;
-  --govern: #0e9f6e;
+  --act: #2a78d6;
+  --followup: #d9480f;
+  --prove: #0e9f6e;
+  --setup: #6b7280;
   --rail-w: 420px;
 }
-:root[data-theme="dark"] { --detect: #5b9df0; --eliminate: #f08a5a; --govern: #34c79a; }
+:root[data-theme="dark"] { --act: #5b9df0; --followup: #f08a5a; --prove: #34c79a; --setup: #9ca3af; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --detect: #5b9df0; --eliminate: #f08a5a; --govern: #34c79a; }
+  :root:not([data-theme="light"]) { --act: #5b9df0; --followup: #f08a5a; --prove: #34c79a; --setup: #9ca3af; }
 }
-[data-stage="detect"] { --stage: var(--detect); }
-[data-stage="eliminate"] { --stage: var(--eliminate); }
-[data-stage="govern"] { --stage: var(--govern); }
+[data-stage="act"] { --stage: var(--act); }
+[data-stage="followup"] { --stage: var(--followup); }
+[data-stage="prove"] { --stage: var(--prove); }
+[data-stage="setup"] { --stage: var(--setup); }
 
 main { max-width: 1760px; padding-bottom: 72px; }
 .page { align-content: start; }
 .page > .ptabs, .page > .page-head, .page > .cc-head { margin-bottom: -4px; }
 
-/* ---- Sidebar: Detect / Eliminate / Govern ---- */
+/* ---- Sidebar: Act / Follow up / Prove / Set up ---- */
 .sidebar { gap: 14px; overflow-y: auto; scrollbar-width: thin; }
 .nav { gap: 1px; }
 .nav-group {
@@ -1774,7 +1776,7 @@ kbd {
 .gs-head > div:first-child { flex: 1 1 auto; min-width: 0; }
 .gs-head .hint { margin: 2px 0 0; }
 .gs-meter { flex: 0 0 160px; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
-.gs-meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--detect), var(--eliminate), var(--govern)); }
+.gs-meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--act), var(--followup), var(--prove)); }
 /* One row: a horizontal stepper. Each step is a mark on a line, its name, and its one action. */
 .gs-steps {
   list-style: none; margin: 0; padding: 2px 0 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(132px, 1fr);
