@@ -509,7 +509,7 @@ function cleanAliases(list) {
 // Each person's own profile: language, time zone, programming languages and picture.
 // ---------------------------------------------------------------------------
 
-export const PROFILE_LANGUAGES = ['en', 'ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'de', 'fr', 'ar', 'vi', 'th', 'ms', 'id', 'he'];
+export const PROFILE_LANGUAGES = ['en', 'ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'pt-BR', 'de', 'fr', 'ar', 'vi', 'th', 'ms', 'id', 'he'];
 export const PROGRAMMING_LANGUAGES = [
   'Apex', 'C', 'C++', 'C#', 'COBOL', 'Dart', 'Go', 'Groovy', 'Java', 'JavaScript', 'Kotlin', 'Objective-C', 'Perl', 'PHP',
   'PL/SQL', 'Python', 'Ruby', 'Rust', 'Scala', 'Swift', 'TypeScript', 'VB.NET', 'Infrastructure as code',

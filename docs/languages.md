@@ -1,6 +1,6 @@
 # Languages
 
-CxMissionZero's page is available in fourteen languages. Thirteen are open to everyone; Hebrew is switched on with an activation code, for the people an Admin chooses (below).
+CxMissionZero's page is available in fifteen languages. Fourteen are open to everyone; Hebrew is switched on with an activation code, for the people an Admin chooses (below).
 
 | Code | Language |
 |---|---|
@@ -10,6 +10,7 @@ CxMissionZero's page is available in fourteen languages. Thirteen are open to ev
 | `zh-CN` | 简体中文 (Simplified Chinese) |
 | `ko` | 한국어 (Korean) |
 | `es` | Español (Spanish, neutral international) |
+| `pt-BR` | Português (Brasil) (Brazilian Portuguese, for every Portuguese browser) |
 | `de` | Deutsch (German, formal "Sie") |
 | `fr` | Français (French, formal "vous") |
 | `ar` | العربية (Arabic, Modern Standard; right to left) |
@@ -88,6 +89,7 @@ The second reviewer worked from the first reviewer's corrected text, without bei
 | French (MZ-01.00.47) | 1,445 | 0 | 1 |
 | Arabic (MZ-01.00.47) | 1,445 | 18 | 16 |
 | Hebrew (MZ-01.00.47) | 1,445 | 16, and 52 menu-path arrows turned to point left | 16 |
+| Portuguese, Brazil (MZ-01.00.48) | 1,531 | 72 (one shared term sheet across three translators, accuracy, Brazilian forms) | 15 |
 
 **Fixed in the English itself.** The reviews found places where one English word was doing two jobs:
 - **"From" and "To":** used for both email fields and date ranges.

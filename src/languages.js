@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /** Languages always available, in the order the picker shows them. */
-export const OPEN_LANGUAGES = ['en', 'ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'de', 'fr', 'ar', 'vi', 'th', 'ms', 'id'];
+export const OPEN_LANGUAGES = ['en', 'ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'pt-BR', 'de', 'fr', 'ar', 'vi', 'th', 'ms', 'id'];
 /** Gated language code → the activation scope that unlocks it. */
 export const GATED_LANGUAGES = { he: 'lang:he' };
 

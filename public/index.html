@@ -19,7 +19,7 @@
       // Another language: fetch its words now and keep the page out of sight until they are in
       // (at most 2 s), so it never shows in English first. The same rule as i18n.js.
       try {
-        const codes = ['ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'de', 'fr', 'ar', 'vi', 'th', 'ms', 'id', 'he'];
+        const codes = ['ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'pt-BR', 'de', 'fr', 'ar', 'vi', 'th', 'ms', 'id', 'he'];
         let lang = null;
         try { lang = localStorage.getItem('mz-lang'); } catch {}
         if (lang !== 'en' && !codes.includes(lang)) {
@@ -29,6 +29,7 @@
             const primary = lower.split('-')[0] === 'in' ? 'id' : lower.split('-')[0];
             if (/^zh-(tw|hk|mo|hant)/.test(lower)) { lang = 'zh-TW'; break; }
             if (primary === 'zh') { lang = 'zh-CN'; break; }
+            if (primary === 'pt') { lang = 'pt-BR'; break; }
             if (codes.includes(primary) && primary !== 'he') { lang = primary; break; }
             if (primary === 'en') break;
           }

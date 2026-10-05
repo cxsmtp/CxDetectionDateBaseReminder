@@ -62,6 +62,7 @@ The coloured label next to each page title says which group the page is in.
 - 简体中文 (Simplified Chinese);
 - 한국어 (Korean);
 - Español (Spanish);
+- Português (Brasil) (Brazilian Portuguese);
 - Deutsch (German);
 - Français (French);
 - العربية (Arabic);

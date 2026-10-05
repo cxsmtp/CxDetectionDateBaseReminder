@@ -8606,7 +8606,7 @@ let languagesChanged = () => {};
 
 {
   const select = $('lang-select');
-  const SHORT = { en: 'EN', ja: 'JA', 'zh-TW': '繁中', 'zh-CN': '简中', ko: 'KO', es: 'ES', de: 'DE', fr: 'FR', ar: 'AR', vi: 'VI', th: 'TH', ms: 'MS', id: 'ID', he: 'HE' };
+  const SHORT = { en: 'EN', ja: 'JA', 'zh-TW': '繁中', 'zh-CN': '简中', ko: 'KO', es: 'ES', 'pt-BR': 'PT', de: 'DE', fr: 'FR', ar: 'AR', vi: 'VI', th: 'TH', ms: 'MS', id: 'ID', he: 'HE' };
   const fill = () => {
     select.innerHTML = availableLanguages().map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
     select.value = currentLanguage();

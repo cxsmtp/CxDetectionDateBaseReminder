@@ -40,6 +40,7 @@ The source wording is in `i18n/catalog.json`; each language is `public/i18n/<cod
 | `zh-CN` | Simplified Chinese | Mainland usage (项目, 设置, 默认, 账号, 数据, 文件, 服务器, 登录). Full-width ，。：（）. One half-width space between Chinese and Latin words or numbers. |
 | `ko` | Korean | Statements end in -습니다/-ㅂ니다; instructions in -하세요; buttons and labels are short nouns or verbs (저장, 취소). One space between Korean and Latin words or numbers where natural. |
 | `es` | Spanish | Neutral international Spanish for Latin America and Spain. Address the reader as *usted*, never *tú*; no *vosotros* or voseo. "Informe" (not "reporte"), "configuración", "correo electrónico". |
+| `pt-BR` | Portuguese (Brazil) | Brazilian Portuguese, used by every Portuguese reader. Address the reader as *você* (or impersonally), never *tu*. Keep "AI" in the feature names (Triagem de AI, Correção de AI). "Credit" is *crédito*; "finding" is *achado*; "report" is *relatório*; "Settings" is *Configurações*; "tenant" stays *tenant*. Five stages as five distinct words: Detectar, Triagem, Remediar, Corrigir, Verificar. |
 | `vi` | Vietnamese | Formal and polite; address the reader as "bạn". Full diacritics. |
 | `th` | Thai | Formal written Thai. No ครับ/ค่ะ particles. Spaces only between phrases and sentences, not between words. |
 | `ms` | Malay (Malaysia) | Standard Bahasa Melayu (Dewan Bahasa dan Pustaka); address the reader as "anda". Malaysian terms, not Indonesian ones: tetapan, kemas kini, projek, imbasan, muat turun, log masuk. |
