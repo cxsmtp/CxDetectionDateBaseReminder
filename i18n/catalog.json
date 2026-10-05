@@ -10850,5 +10850,17 @@
   "seen": [
    "message"
   ]
+ },
+ "Take back {0}": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used › table row"
+  ]
+ },
+ "Take back the {0} credit(s) this project has not used": {
+  "kind": "attr:title",
+  "seen": [
+   "credits › Allocated vs used › table row"
+  ]
  }
 }
