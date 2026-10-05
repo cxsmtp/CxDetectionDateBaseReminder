@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.45 | 497/s, 0 | 7.9 s | 1.2 s | 478 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.46 | 468/s, 44 (host stalls; main 177) | 10.1 s | 1.3 s | 479 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.45 | 497/s, 0 | 7.9 s | 1.2 s | 478 | 0 | same |
 | MZ-01.00.44 | 520/s, 0 | 7.1 s | 384 ms | 461 | 0 | same |
 | MZ-01.00.43 | 511/s, 0 | 5.7 s | 224 ms | 461 | 0 | same |
 | MZ-01.00.42 | — (page only) | — | — | 455 | 0 | same |
@@ -31,6 +32,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.46 — MERGE_TIME UTC · [#PR](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PR)
+- **Give credits on Credit Control too.** **Allocated vs used** has a **Give credits** bar for anyone allowed to allocate credits:
+  - type a project's name (every Checkmarx One project is listed, not only those that already hold credits);
+  - enter AI Triage and AI Remediation credits, then confirm.
+
+  No findings need loading. The credits come out of the credit pool, and the bar shows how many are free to give.
+- **Give on each row.** Next to **Take back**, **Give** fills in that project.
+- **Same safeguards as the Dashboard.** A gift larger than the pool has free is refused. Every gift and refusal is in the audit log, and **Take back** returns what was not used. To give exactly what a project's findings need, use the Dashboard, which checks the count with Checkmarx One first.
+- **Translated, and reviewed twice.** The new wording is in all nine languages. So are the table's column headings, the take-back note and the line under each project, which had stayed in English.
+- **Status.** Every failed request was a connection reset while the host stalled. Over two pairs, the branch failed 151 and 44 times and main failed 88 and 177 times. The branch served 468–470 requests a second (main 475–498), with report opens at 10.1–11.4 s p95 (main 10.9–11.3 s). No finding was sent twice. 479 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.45 — 2026-10-05 07:19 UTC · [#68](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/68)
 - **In nine more languages.**

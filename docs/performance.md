@@ -119,8 +119,21 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.43 (main) | 1 | 9.3 s / 0 | 63,481 / 0 | 502 | 64 / 6,447 ms | 13 / 355 ms | none |
 | **MZ-01.00.45** | 1 | 10.2 s / 0 | 62,542 / **0** | **497** | 66 / 7,883 ms | 24 / 1,170 ms | none |
 | MZ-01.00.44 (main) | 1 | 10.7 s / 0 | 61,320 / 145 | 484 | 127 / 12,087 ms | 24 / 1,132 ms | none |
+| MZ-01.00.45 (main) | 1 | 12.8 s / 0 | 61,700 / 88 | 498 | 88 / 11,265 ms | 25 / 945 ms | none |
+| MZ-01.00.46 | 1 | 10.9 s / 0 | 61,352 / 151 | 470 | 93 / 11,441 ms | 26 / 1,519 ms | none |
+| **MZ-01.00.46** | 2 | 10.3 s / 0 | 61,238 / **44** | 468 | 79 / 10,114 ms | 33 / 1,324 ms | none |
+| MZ-01.00.45 (main) | 2 | 10.1 s / 0 | 61,057 / 177 | 475 | 91 / 10,896 ms | 27 / 1,149 ms | none |
 
 **MZ-01.00.37: what the differences were.** Two pairs with main, alternating. Report opens at p95 were 4.1 and 5.1 s on the branch against 7.2 and 5.1 s on main; triage results 201 and 179 ms against 257 and 123 ms; requests a second 519 and 508 against 504 and 518, with 0 failed requests and no finding sent twice in any run. The first branch run's opening burst took 16.3 s, a little above the 7.4–15.8 s seen before, and its fetches were slower (17 s against 12 s at the median); in the second pair the burst took 9.9 s (main 8.0 s) and fetches matched main (13.5 s against 13.0 s at the median). What the fetch now does in addition is one pass over each project's findings to count what is past its SLA, which is a few microseconds a finding next to reading them from Checkmarx One. Escalation runs only on the automation's schedule, which the benchmark does not use.
+
+**MZ-01.00.46: what the differences were.** Two pairs: main then branch, then branch then main. Every run had failed requests, and in every one each failure was a connection that was reset or not accepted in time (`ECONNRESET`, connect timeout), never an answer from the server. The health check stalled for up to 20–22 s in both runs of the second pair, so the machine itself paused: main, whose code served 497 a second with 0 failed at its own release, failed 88 and 177 times here. Across the two pairs:
+- **Failed requests:** branch 151 and 44, main 88 and 177.
+- **Requests a second:** branch 470 and 468, main 498 and 475.
+- **Report opens at p95:** branch 11.4 and 10.1 s, main 11.3 and 10.9 s.
+- **Triage polls at p95:** branch 1.5 and 1.3 s, main 0.9 and 1.1 s.
+- **Sent twice:** no finding in any run.
+
+The change adds two routes that only Credit Control's give bar calls (the project list and giving credits), and the benchmark calls neither. The paths it measures are unchanged.
 
 **MZ-01.00.45: what the differences were.** One pair, main then branch, with nothing else running on the machine. The branch served 497 requests a second with 0 failed. Main served 484 a second with 145 failed. Main's code is the MZ-01.00.44 that served 520 a second with 0 failed at its own release, so those failures come from the machine being slower that day, not from either version. With the branch:
 - report opens took 7.9 s at p95 against main's 12.1 s;

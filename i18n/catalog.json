@@ -10862,5 +10862,53 @@
   "seen": [
    "credits › Allocated vs used › table row"
   ]
+ },
+ "At start": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used › column heading (credits first given)"
+  ]
+ },
+ "Allocated": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used › column heading (credits given now)"
+  ]
+ },
+ "credits|Left": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used › column heading (credits remaining, not used)"
+  ]
+ },
+ "No severities": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used › under a project name: which severities its credit needs cover"
+  ]
+ },
+ "First given:": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used › under a project name, followed by a date: when the project was first given credits"
+  ]
+ },
+ "{0} project holds {1} credit they have not used. Taking them back returns them to the credit pool; used credits stay counted.": {
+  "kind": "message",
+  "seen": [
+   "credits › Allocated vs used › Take credits back note"
+  ]
+ },
+ "{0} project holds {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": {
+  "kind": "message",
+  "seen": [
+   "credits › Allocated vs used › Take credits back note"
+  ]
+ },
+ "{0} projects hold {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": {
+  "kind": "message",
+  "seen": [
+   "credits › Allocated vs used › Take credits back note"
+  ]
  }
 }
