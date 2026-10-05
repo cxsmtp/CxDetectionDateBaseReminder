@@ -944,7 +944,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.44** | 520/s, **0 failed** | 7.1 s | 384 ms | 461 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.45** | 497/s, **0 failed** | 7.9 s | 1.2 s | 478 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.44 | 520/s, 0 failed | 7.1 s | 384 ms | 461 pass | 0 vulnerabilities | same |
 | MZ-01.00.43 | 511/s, 0 failed | 5.7 s | 224 ms | 461 pass | 0 vulnerabilities | same |
 | MZ-01.00.42 | — (page-only change) | — | — | 455 pass | 0 vulnerabilities | same |
 | MZ-01.00.41 | 519/s, 0 failed | 0.9 s | 171 ms | 455 pass | 0 vulnerabilities | same |

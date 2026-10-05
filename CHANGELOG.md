@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.44 | 520/s, 0 | 7.1 s | 384 ms | 461 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.45 | 497/s, 0 | 7.9 s | 1.2 s | 478 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.44 | 520/s, 0 | 7.1 s | 384 ms | 461 | 0 | same |
 | MZ-01.00.43 | 511/s, 0 | 5.7 s | 224 ms | 461 | 0 | same |
 | MZ-01.00.42 | — (page only) | — | — | 455 | 0 | same |
 | MZ-01.00.41 | 519/s, 0 | 0.9 s | 171 ms | 455 | 0 | same |
@@ -49,7 +50,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
   - or what stops it.
 
   It also looks a minute after every start, and a half-finished install no longer blocks it.
-- STATUS_BULLET
+- **Status.** 497 requests a second with 3000 people at once and 0 failed; main, measured the same day on the same slower machine, had 145 failed. Report opens take 7.9 s and triage polls 1.2 s at p95 (main: 12.1 s and 1.1 s). 478 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.44 — 2026-10-05 02:59 UTC · [#67](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/67)
 - **Hide the menu.** **Hide menu** (bottom of the sidebar) turns it into a slim bar of icons. Point at it and the full menu opens over the page without moving anything; **Keep menu open** brings it back. The choice is remembered, and the menu is also narrower when kept open.
