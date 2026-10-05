@@ -14,7 +14,7 @@ Self-hosted, one container, nothing to install for developers.
 | **SLAs (Beta)** | Days to fix each severity: what is past its SLA and due within 7 days, in total and per project, and one escalation email per finding that goes past it. |
 | **The right person, only their projects** | Reminders go to whoever ran each project's latest scan, by email, as a summary or one per project. The server refuses any email that would show someone a project they did not scan. |
 | **Fix from the inbox** | An interactive report in every email: **Triage** and **Remediate** with Checkmarx One AI, see the verdict, open the pull request. Developers pick their IDE once (VS Code, Cursor, Kiro, Windsurf, Antigravity, JetBrains). Then every finding is **Open in …** and **Apply AI fix**, one click each: the fix Checkmarx One AI Remediation wrote lands in their own checkout, even when there is no pull request. |
-| **Credits under control** | A credit pool, and per-project allocations. Every action re-checks Checkmarx One twice first and stops if anyone changed the findings meanwhile. Never two requests for one vulnerability, and unused credits are taken back. |
+| **Credits under control** | A credit pool, and per-project allocations, given on the Dashboard or on Credit Control. Every action re-checks Checkmarx One twice first and stops if anyone changed the findings meanwhile. Never two requests for one vulnerability, and unused credits are taken back. |
 | **See the way to zero** | One slim line on the Dashboard: how many projects are at zero, and Detect → Triage → Remediate → Fix → Verify with a count at each stage. The stage to act on next is highlighted, and one click opens what moves it on. |
 | **Prove it with a rescan** | When a tracked scope's findings are all dealt with, the developers who fixed them get the **Rescan** button first (24 hours to 14 days, 48 by default). If they don't, CxMissionZero rescans in Checkmarx One on their behalf and tells them. Either way it shows what is really fixed, which fixes did not work, and what is new. Then it starts the next round, for example medium and low, until everything is at zero, and keeps watching it stays there. |
 | **Updates itself** | Settings → Update & recovery: update to any published version (or back) in one click, or let it auto-update in a quiet hour. Each download is checked against the image's digests, a backup is taken first, and a version that does not start is rolled back by itself. Nobody signs in to the server. For the rare release that needs a new base image, an optional update companion (Beta) replaces the whole container from the same page. |
@@ -217,7 +217,8 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.45** | 497/s, **0 failed** | 7.9 s | 1.2 s | 478 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.46** | 468/s, 44 failed (host stalls; main 177) | 10.1 s | 1.3 s | 479 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.45 | 497/s, 0 failed | 7.9 s | 1.2 s | 478 pass | 0 vulnerabilities | same |
 | MZ-01.00.44 | 520/s, 0 failed | 7.1 s | 384 ms | 461 pass | 0 vulnerabilities | same |
 | MZ-01.00.43 | 511/s, 0 failed | 5.7 s | 224 ms | 461 pass | 0 vulnerabilities | same |
 | MZ-01.00.42 | — (page-only change) | — | — | 455 pass | 0 vulnerabilities | same |

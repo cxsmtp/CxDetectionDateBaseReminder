@@ -2215,6 +2215,19 @@ body.simple [data-advanced] { display: none !important; }
 .cc-takeback > div { flex: 1 1 320px; display: grid; gap: 2px; }
 .cc-takeback .status { flex: 1 1 100%; margin: 0; }
 .cc-takeback .status:empty { display: none; }
+.cc-give {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 14px; margin: 0 0 12px; padding: 10px 14px; border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); background: var(--accent-soft);
+}
+.cc-give-head { flex: 1 1 100%; display: grid; gap: 2px; }
+.cc-give .field { margin: 0; }
+.cc-give-project { flex: 1 1 240px; }
+.cc-give .small-num { width: 110px; }
+.cc-give .cc-give-cost { flex: 1 1 100%; margin: 0; }
+.cc-give .status { flex: 1 1 100%; margin: 0; }
+.cc-give .status:empty { display: none; }
+.alloc-actions { white-space: nowrap; }
+.alloc-actions button + button { margin-left: 6px; }
 button.danger-soft { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); color: var(--danger); background: var(--surface); }
 button.danger-soft:hover:not(:disabled) { background: var(--danger-soft); border-color: var(--danger); }
 .takeback-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

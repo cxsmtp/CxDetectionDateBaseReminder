@@ -1279,6 +1279,29 @@
                 <h2>Allocated vs used</h2>
                 <input type="search" id="alloc-search" placeholder="Filter projects" aria-label="Filter projects" class="inline-input" />
               </div>
+              <form class="cc-give" id="cc-give" data-perm="credits.allocate" hidden autocomplete="off">
+                <div class="cc-give-head">
+                  <strong>Give credits</strong>
+                  <span class="hint" id="cc-give-note">Extra credits for one project, out of the credit pool. No findings need loading. To give exactly what a project's findings need, use the Dashboard.</span>
+                  <span class="hint" id="cc-give-free" hidden><span>Free to give</span> <b id="cc-give-free-n" translate="no"></b></span>
+                </div>
+                <label class="field cc-give-project">
+                  <span>Project</span>
+                  <input type="text" id="cc-give-project" list="cc-give-options" placeholder="Type a project name" aria-describedby="cc-give-note" required />
+                  <datalist id="cc-give-options"></datalist>
+                </label>
+                <label class="field">
+                  <span>AI Triage</span>
+                  <input type="number" id="cc-give-triage" min="0" max="100000" step="1" value="0" class="small-num" />
+                </label>
+                <label class="field">
+                  <span>AI Remediation</span>
+                  <input type="number" id="cc-give-remediation" min="0" max="100000" step="3" value="0" class="small-num" />
+                </label>
+                <button type="submit" class="primary" id="cc-give-submit">Give credits</button>
+                <p class="hint cc-give-cost">1 credit triages one Checkmarx One result; remediating one confirmed finding takes 3.</p>
+                <p class="status" id="cc-give-status"></p>
+              </form>
               <div class="cc-takeback" id="cc-takeback" data-perm="credits.allocate" hidden>
                 <div>
                   <strong>Take credits back</strong>

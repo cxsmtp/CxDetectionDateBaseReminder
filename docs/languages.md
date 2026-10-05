@@ -84,3 +84,11 @@ The second reviewer worked from the first reviewer's corrected text, without bei
 These now have separate entries.
 
 **Added after collection.** Six entries were translated afterwards and then reviewed twice in all nine languages: the date-range "From"/"To", the code-author confidence badges "Sure", "Check" and "Unsure", and the calendar "Last month".
+
+**Added in MZ-01.00.46.** The Credit Control page's **Give credits** bar, its messages, and the row's **Give** and **Take back** buttons: 22 entries in all nine languages. Each was translated against the glossary and the app's existing wording, so **Give** and **Take back** read as opposites everywhere. It then went through the same two separate reviews:
+- **Review 1:** 2 corrections (Simplified Chinese and Korean punctuation).
+- **Review 2:** 4 corrections: a counter added in Japanese and Thai, Korean quotation marks, and a Malay sentence made less literal.
+
+The **Allocated vs used** table's column headings, the line under each project and the take-back note had stayed in English, because the collected sample had no allocations. They are now 8 more entries in every language, translated and reviewed the same way:
+- **Review 1:** 7 corrections (a repeated counter in both Chinese scripts, and "No severities" in Spanish).
+- **Review 2:** 4 corrections (the one-credit note worded in the singular in Chinese and Thai, and the standard Indonesian "pertama kali").

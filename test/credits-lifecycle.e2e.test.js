@@ -246,3 +246,48 @@ test('stage 8 — clean slate: every project\'s unused credits come back to the 
   assert.ok(audit.entries.some((e) => /clean slate/.test(e.reason)), 'the take-back is in the audit log');
   assert.equal((await admin('GET', '/api/audit/verify')).body.ok, true);
 });
+
+test('stage 9 — credits are given on the Credit Control page too: any Checkmarx One project, no findings loaded, out of the pool', async () => {
+  const list = await admin('GET', '/api/credits/projects');
+  assert.equal(list.status, 200, JSON.stringify(list.body));
+  assert.deepEqual(list.body.projects.map((p) => p.projectId).sort(), ['p0', 'p1'], 'every Checkmarx One project, not only those holding credits');
+  assert.equal(list.body.projects.find((p) => p.projectId === 'p1').allocated, false);
+
+  // A project nobody has given anything yet (its findings are not needed).
+  const r = await admin('POST', '/api/credits/give', { projectId: 'p1', triage: 5, remediation: 6 });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.given, 11);
+  assert.equal(r.body.projectName, 'Project 1');
+  const p1 = r.body.allocations.find((p) => p.projectId === 'p1');
+  assert.deepEqual([p1.triage.allocated, p1.triage.remaining, p1.triage.extra], [5, 5, 5]);
+  assert.deepEqual([p1.remediation.allocated, p1.remediation.remaining, p1.remediation.extra], [6, 6, 6]);
+  // Giving again adds on top.
+  const more = await admin('POST', '/api/credits/give', { projectId: 'p1', triage: 2 });
+  assert.equal(more.body.allocations.find((p) => p.projectId === 'p1').triage.allocated, 7);
+
+  // Refused: nothing to give, negative or fractional credits, an unknown project, more than the pool has free.
+  assert.equal((await admin('POST', '/api/credits/give', { projectId: 'p1' })).status, 400);
+  assert.equal((await admin('POST', '/api/credits/give', { projectId: 'p1', triage: -3 })).status, 400);
+  assert.equal((await admin('POST', '/api/credits/give', { projectId: 'p1', triage: 1.5 })).status, 400);
+  assert.equal((await admin('POST', '/api/credits/give', { triage: 1 })).status, 400);
+  assert.equal((await admin('POST', '/api/credits/give', { projectId: 'nope', triage: 1 })).status, 404);
+  const pool = (await admin('GET', '/api/credits')).body.pool;
+  await admin('PUT', '/api/settings', { aiTriage: { monthlyCreditLimit: pool.used.total + pool.outstanding.total + 3 } });
+  const over = await admin('POST', '/api/credits/give', { projectId: 'p1', triage: 4 });
+  assert.equal(over.status, 409, JSON.stringify(over.body));
+  assert.match(over.body.error, /Only 3 credits left in the credit pool/);
+  assert.equal((await admin('POST', '/api/credits/give', { projectId: 'p1', triage: 3 })).status, 200, 'exactly what is free fits');
+  await admin('PUT', '/api/settings', { aiTriage: { monthlyCreditLimit: 0 } });
+
+  // Every gift, and the refusal, is in the audit log.
+  const audit = (await admin('GET', '/api/audit?types=allocation&limit=50')).body;
+  const given = audit.entries.filter((e) => /on the Credit Control page/.test(e.reason));
+  assert.equal(given.length, 3);
+  assert.ok(given.some((e) => e.reason === 'Gave 5 AI Triage and 6 AI Remediation credits on the Credit Control page.'), given.map((e) => e.reason).join('\n'));
+  assert.ok(audit.entries.some((e) => e.outcome === 'refused' && /Only 3 credits left/.test(e.reason)));
+  assert.equal((await admin('GET', '/api/audit/verify')).body.ok, true);
+
+  // Take back still works on what was given here.
+  const back = await admin('POST', '/api/credits/reclaim', { projectIds: ['p1'] });
+  assert.equal(back.body.reclaimed, 16);
+});

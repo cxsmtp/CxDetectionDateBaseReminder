@@ -52,6 +52,7 @@ The technical reference: what happens under each feature, where data lives, and 
 - **Several rows, one result.** Rows that share a result are one request and 1 credit; the billing unit is alternateId, else groupId, else riskId.
 - **Never sent twice.** Before any triage or remediation is sent (from the Dashboard, a tracked report or any emailed report), the server claims each finding by result id, group id and risk id (`src/send-guard.js`). Another request for the same finding gets "already being sent". Afterwards the ledger records it, so it is never counted as needed again.
 - **"Needed" is read twice.** Credit need is confirmed by two independent reads of Checkmarx One (findings plus the result ids AI Triage would be sent). Allocation goes ahead only when both reads agree, result for result.
+- **Extra credits need no findings.** Credit Control gives a project extra credits out of the pool without loading findings (`POST /api/credits/give`); only "what is needed" is read twice, on the Dashboard.
 - **Remediation is fenced to Confirmed.** The report's button is disabled for any other state, and the server re-reads the state and refuses anything else.
 
 ## Verification rescans
