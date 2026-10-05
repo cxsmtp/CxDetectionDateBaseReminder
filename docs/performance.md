@@ -137,8 +137,17 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.50 (host stall) | 1 | 11.5 s / 0 | 62,252 / 29 | 498 | 84 / 8,990 ms | 19 / 746 ms | none |
 | **MZ-01.00.50** | 2 | 10.3 s / 0 | 63,299 / **0** | **510** | 60 / **5,886 ms** | 15 / **341 ms** | none |
 | MZ-01.00.49 (main) | 2 | 16.2 s / 0 | 62,420 / 10 | 506 | 87 / 9,792 ms | 12 / 505 ms | none |
+| MZ-01.00.50 (main) | 1 | 11.1 s / 0 | 62,874 / 0 | 514 | 121 / 7,153 ms | 17 / 633 ms | none |
+| **MZ-01.00.51** | 1 | 10.0 s / 0 | 61,999 / **0** | **480** | 106 / **9,404 ms** | 26 / **951 ms** | none |
+| MZ-01.00.50 (main) | 2 | 10.2 s / 0 | 61,845 / 56 | 487 | 87 / 10,346 ms | 25 / 802 ms | none |
+| MZ-01.00.51 | 2 | 10.6 s / 0 | 62,434 / 31 | 482 | 91 / 8,168 ms | 27 / 743 ms | none |
 
 **MZ-01.00.37: what the differences were.** Two pairs with main, alternating. Report opens at p95 were 4.1 and 5.1 s on the branch against 7.2 and 5.1 s on main; triage results 201 and 179 ms against 257 and 123 ms; requests a second 519 and 508 against 504 and 518, with 0 failed requests and no finding sent twice in any run. The first branch run's opening burst took 16.3 s, a little above the 7.4–15.8 s seen before, and its fetches were slower (17 s against 12 s at the median); in the second pair the burst took 9.9 s (main 8.0 s) and fetches matched main (13.5 s against 13.0 s at the median). What the fetch now does in addition is one pass over each project's findings to count what is past its SLA, which is a few microseconds a finding next to reading them from Checkmarx One. Escalation runs only on the automation's schedule, which the benchmark does not use.
+
+**MZ-01.00.51: what the differences were.** None from the change: the benchmark never calls the routes it touches (allocating from a tracked report or Credit Control, and a page-only scroll fix). There were two pairs, main then branch each time.
+- **First pair:** both had 0 failed. Main served 514 requests a second, the branch 480 with a slower tail: report opens 9.4 s against 7.2 s at p95, triage polls 951 against 633 ms. The host stalled during the branch's run: one health check waited 17.9 s (main's worst was 8.5 s), and the run took 129 s instead of 122.
+- **Second pair:** the stall hit both. Main served 487 a second with 56 failed and the branch 482 with 31 failed, spread over report polls and opens, credit balances and analytics, none of them a route this release changed. This time the branch's tail was the faster one: report opens 8.2 s against 10.3 s, triage polls 743 against 802 ms.
+- **Sent twice:** no finding in any run.
 
 **MZ-01.00.50: what the differences were.** None from the change. There were two pairs: main then branch, then branch then main.
 - **First pair:** main served 507 requests a second with 0 failed. The branch served 498 with 29 failed, spread over report polls and opens, and a slower tail (report opens 9.0 s against 7.3 s at p95). Its health checks waited up to 15 s against main's 7 s: the host stalled during the branch's run.

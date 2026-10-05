@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.51 | 480/s, 0 (main 514, 0) | 9.4 s | 951 ms | 526 | 0 vulnerabilities | Scan 82d48cec of MZ-01.00.50: 6 critical, 20 high, 17 medium, 19 low, being triaged (see [status](docs/status.md)) |
 | MZ-01.00.50 | 510/s, 0 (main 506, 10) | 5.9 s | 341 ms | 525 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
 | MZ-01.00.49 | 498/s, 0 (main 469, 206) | 8.3 s | 1.1 s | 521 | 0 | same |
 | MZ-01.00.48 | 498/s, 7 (main 489, 44) | 8.2 s | 880 ms | 519 | 0 | same |
@@ -36,6 +37,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.51 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+- **Pages scroll again after leaving an open report.** An open tracked report locks the page behind it, and that lock used to stay on when you left the report for another page, such as the Dashboard. Now each page's panel locks only its own page.
+- **Allocate credits from a tracked report.** The report's **Triage** tab has **Allocate credits for triage and remediation**: it gives the report's projects what the ticked severities need, plus any **Extra credits** for triage or remediation. It replaces the button that sent you to the Dashboard.
+- **Allocate credits from Credit Control.** **Allocated vs used** has an **Allocate and use credits** bar: tick projects and severities, then allocate what they need plus extra credits each, or use them with **Triage with AI Assist now** and **Remediate with AI Assist now**.
+- **The same safeguards everywhere.** Each allocation counts what is needed twice with Checkmarx One first, asks before giving anything, stops if the credit pool is short, and goes into the audit log saying where it was made.
+- **Fourteen languages.** The new labels, questions and messages are translated and reviewed twice ([languages](docs/languages.md)).
+- **Status.** The branch served 480 requests a second with 0 failed (main 514, 0 failed in the same pair). Report opens took 9.4 s and triage polls 951 ms at p95, slower than main because the host stalled during the branch's run. In a second pair both sides met the stall (main 56 failed, branch 31), and the branch's tail was faster than main's (8.2 s against 10.3 s); the benchmark never calls the routes this release changed ([performance](docs/performance.md)). No finding was sent twice. 526 tests pass; `npm audit` finds 0 vulnerabilities. A new Checkmarx One scan of MZ-01.00.50 (82d48cec) has 6 critical, 20 high, 17 medium and 19 low; they are being triaged and fixed next.
 
 ## MZ-01.00.50 — 2026-10-05 17:30 UTC · [#73](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/73)
 - **The Impact page: the return on AI, in one place.** **Prove → Impact** shows the hours AI Triage and AI Remediation saved and their value after the cost of credits. It also shows the findings AI showed not exploitable, fixes with AI next to fixes by hand, and credits per finding closed ([impact](docs/impact.md)).
