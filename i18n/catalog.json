@@ -37,12 +37,20 @@
    "beta › identity › span › GitHub"
   ]
  },
+ "(server time, UTC: now {0}:{1})": {
+  "kind": "text",
+  "seen": [
+   "settings › span › Update & recovery",
+   "logs › span › Update & recovery",
+   "logs › activity › span › Update & recovery"
+  ]
+ },
  "(server time)": {
   "kind": "text",
   "seen": [
-   "first start › label › Update & recovery",
-   "sign in › label › Update & recovery",
-   "Dashboard › label › Update & recovery"
+   "first start › span › Update & recovery",
+   "sign in › span › Update & recovery",
+   "Dashboard › span › Update & recovery"
   ]
  },
  "{0} Checkmarx One results": {
@@ -61,12 +69,32 @@
    "Dashboard › remind › button"
   ]
  },
+ "{0} credit triages one Checkmarx One result; remediating one confirmed finding takes {1}.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Allocated vs used",
+   "sign in › p › Allocated vs used",
+   "Dashboard › p › Allocated vs used"
+  ]
+ },
  "{0} day (try it first)": {
   "kind": "text",
   "seen": [
    "first start › option › HTTPS",
    "sign in › option › HTTPS",
    "Dashboard › option › HTTPS"
+  ]
+ },
+ "{0} days left": {
+  "kind": "text",
+  "seen": [
+   "Settings › Activation codes › warning before a code expires"
+  ]
+ },
+ "{0} email(s):": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "{0} entries": {
@@ -223,6 +251,24 @@
    "Dashboard › narrow › option › Only these projects or people — optional",
    "Dashboard › fetching › option › Only these projects or people — optional",
    "Dashboard › loaded › option › Only these projects or people — optional"
+  ]
+ },
+ "{0} project holds {1} credit they have not used. Taking them back returns them to the credit pool; used credits stay counted.": {
+  "kind": "message",
+  "seen": [
+   "credits › Allocated vs used › Take credits back note"
+  ]
+ },
+ "{0} project holds {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": {
+  "kind": "message",
+  "seen": [
+   "credits › Allocated vs used › Take credits back note"
+  ]
+ },
+ "{0} projects hold {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": {
+  "kind": "message",
+  "seen": [
+   "credits › Allocated vs used › Take credits back note"
   ]
  },
  "{0} projects shown": {
@@ -393,7 +439,7 @@
    "Dashboard › p › Replace the whole image (a new Node.js or OS base) Beta Companion not running"
   ]
  },
- "<i aria-hidden=\"true\"></i>Detect": {
+ "<i aria-hidden=\"true\"></i>Act": {
   "kind": "html",
   "seen": [
    "first start › p",
@@ -401,7 +447,7 @@
    "Dashboard › p"
   ]
  },
- "<i aria-hidden=\"true\"></i>Eliminate": {
+ "<i aria-hidden=\"true\"></i>Follow up": {
   "kind": "html",
   "seen": [
    "first start › p",
@@ -409,7 +455,15 @@
    "Dashboard › p"
   ]
  },
- "<i aria-hidden=\"true\"></i>Govern": {
+ "<i aria-hidden=\"true\"></i>Prove": {
+  "kind": "html",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
+  ]
+ },
+ "<i aria-hidden=\"true\"></i>Set up": {
   "kind": "html",
   "seen": [
    "first start › p",
@@ -750,12 +804,67 @@
    "Dashboard › option › Credit audit log"
   ]
  },
+ "Act": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › span",
+   "Dashboard › span › Get started · 1 of 6 done",
+   "Dashboard (advanced) › span"
+  ]
+ },
+ "Act · Follow up · Prove — down to zero": {
+  "kind": "text",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
+  ]
+ },
+ "Act on Checkmarx One findings, follow them up to zero and prove every credit: find ageing findings and who owns them, drive them to zero with reminders, follow-ups, AI Triage and AI Remediation, and keep an audit trail of every credit.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › About CxMissionZero",
+   "sign in › p › About CxMissionZero",
+   "Dashboard › p › About CxMissionZero"
+  ]
+ },
+ "Act on Checkmarx One findings, follow them up to zero, and prove every credit": {
+  "kind": "text",
+  "seen": [
+   "first start › p",
+   "sign in › p"
+  ]
+ },
  "Act on the selection": {
   "kind": "attr:aria-label",
   "seen": [
    "first start › aside › Send reminder",
    "first start › div › Send reminder",
    "sign in › aside › Send reminder"
+  ]
+ },
+ "Activation code": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Activation codes",
+   "sign in › span › Activation codes",
+   "Dashboard › span › Activation codes"
+  ]
+ },
+ "Activation codes": {
+  "kind": "text",
+  "seen": [
+   "first start › a",
+   "first start › h2 › Activation codes",
+   "sign in › a"
+  ]
+ },
+ "Activation codes <span class=\"badge warn\">Admin</span>": {
+  "kind": "html",
+  "seen": [
+   "access › span › Roles & permissions",
+   "access › people › span › Roles & permissions",
+   "access › roles › span › Roles & permissions"
   ]
  },
  "Active": {
@@ -846,6 +955,14 @@
    "Dashboard › small › AAdministratorAdmin",
    "Dashboard (advanced) › small › AAdministratorAdmin",
    "connection: cxone › small › AAdministratorAdmin"
+  ]
+ },
+ "Admin: Activation codes": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
   ]
  },
  "Admin: AI Triage & Remediation rules": {
@@ -1216,8 +1333,8 @@
   "kind": "text",
   "seen": [
    "first start › strong › AI check & fix",
-   "sign in › strong › AI check & fix",
-   "Dashboard › strong › AI check & fix"
+   "first start › span › Allocated vs used",
+   "sign in › strong › AI check & fix"
   ]
  },
  "AI Remediation credits left / allocated, and what confirmed findings still need": {
@@ -1238,8 +1355,8 @@
   "kind": "text",
   "seen": [
    "first start › strong › AI check & fix",
-   "sign in › strong › AI check & fix",
-   "Dashboard › strong › AI check & fix"
+   "first start › span › Allocated vs used",
+   "sign in › strong › AI check & fix"
   ]
  },
  "AI Triage & Remediation from reports": {
@@ -1390,6 +1507,12 @@
    "Dashboard › fetching › button › AI check & fix",
    "Dashboard › loaded › button › AI check & fix",
    "Dashboard › remind › button › AI check & fix"
+  ]
+ },
+ "Allocated": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used › column heading (credits given now)"
   ]
  },
  "allocated and not used ·": {
@@ -1666,6 +1789,14 @@
    "sign in › button › HTTPS"
   ]
  },
+ "Apply the code": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Activation codes",
+   "sign in › button › Activation codes",
+   "Dashboard › button › Activation codes"
+  ]
+ },
  "Applying the .env file and checking each connection…": {
   "kind": "busy",
   "seen": [
@@ -1691,6 +1822,12 @@
    "message"
   ]
  },
+ "Asking Let's Encrypt… This usually takes under a minute.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Asking the companion…": {
   "kind": "message",
   "seen": [
@@ -1703,6 +1840,12 @@
    "first start › label › Update & recovery",
    "sign in › label › Update & recovery",
    "Dashboard › label › Update & recovery"
+  ]
+ },
+ "At start": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used › column heading (credits first given)"
   ]
  },
  "Attach the interactive HTML report": {
@@ -1761,14 +1904,6 @@
    "busy line"
   ]
  },
- "Audit, access, configuration and logs": {
-  "kind": "attr:title",
-  "seen": [
-   "first start › p",
-   "sign in › p",
-   "Dashboard › p"
-  ]
- },
  "Author": {
   "kind": "text",
   "seen": [
@@ -1823,6 +1958,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Automatic renewal is off.": {
+  "kind": "text",
+  "seen": [
+   "Settings › HTTPS › Free certificate from Let's Encrypt"
   ]
  },
  "Automation": {
@@ -2177,7 +2318,9 @@
  "calendar|Last month": {
   "kind": "text",
   "seen": [
-   "Credit Control › usage period: the previous CALENDAR month (not the last 30 days)"
+   "first start › option",
+   "sign in › option",
+   "Dashboard › option"
   ]
  },
  "Call to action — shown above the findings": {
@@ -2210,6 +2353,12 @@
    "Dashboard › strong › Get started · 1 of 6 done",
    "Dashboard (advanced) › strong › Get started · 1 of 6 done",
    "connection: cxone › strong › Get started · 1 of 6 done"
+  ]
+ },
+ "caped speedster": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard › fetching › span"
   ]
  },
  "Cc": {
@@ -2587,6 +2736,18 @@
    "first start › h2 › Create the first administrator",
    "sign in › h2 › Create the first administrator",
    "Dashboard › h2 › Create the first administrator"
+  ]
+ },
+ "Choose a project from the list.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Choose a project.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Choose a scope and fetch: ageing findings and who ran each scan.": {
@@ -3133,6 +3294,12 @@
    "busy line"
   ]
  },
+ "Credits cannot be negative. To take credits back, use Take back.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Credits charged": {
   "kind": "text",
   "seen": [
@@ -3155,6 +3322,12 @@
    "first start › button › AI check & fix",
    "sign in › button › AI check & fix",
    "Dashboard › button › AI check & fix"
+  ]
+ },
+ "Credits must be whole numbers, not negative, and no more than {0} at a time.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Credits needed are worked out when the data fetch is complete.": {
@@ -3189,6 +3362,12 @@
    "first start › h2 › Credits used over time",
    "sign in › h2 › Credits used over time",
    "Dashboard › h2 › Credits used over time"
+  ]
+ },
+ "credits|Left": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used › column heading (credits remaining, not used)"
   ]
  },
  "Critical": {
@@ -3350,13 +3529,17 @@
  "date|From": {
   "kind": "text",
   "seen": [
-   "date range › start (From … To …), not an email sender"
+   "first start › span",
+   "first start › input",
+   "first start › span › Credit audit log"
   ]
  },
  "date|To": {
   "kind": "text",
   "seen": [
-   "date range › end (From … To …), not email recipients"
+   "first start › span",
+   "first start › input",
+   "first start › span › Credit audit log"
   ]
  },
  "Dates and times on these pages are shown in this time zone.": {
@@ -3470,38 +3653,7 @@
   "seen": [
    "first start › button › Risks endpoint",
    "sign in › button › Risks endpoint",
-   "Dashboard › span"
-  ]
- },
- "Detect · Eliminate · Govern vulnerabilities": {
-  "kind": "text",
-  "seen": [
-   "first start › p",
-   "sign in › p",
-   "Dashboard › p"
-  ]
- },
- "Detect ageing vulnerabilities, then remind owners, triage and remediate them": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › p",
-   "Dashboard (advanced) › p",
-   "connection: cxone › p"
-  ]
- },
- "Detect, eliminate and govern vulnerabilities in Checkmarx One": {
-  "kind": "text",
-  "seen": [
-   "first start › p",
-   "sign in › p"
-  ]
- },
- "Detect, eliminate and govern vulnerabilities in Checkmarx One: find ageing findings and who owns them, drive them to zero with reminders, follow-ups, AI Triage and AI Remediation, and keep an audit trail of every credit.": {
-  "kind": "text",
-  "seen": [
-   "first start › p › About CxMissionZero",
-   "sign in › p › About CxMissionZero",
-   "Dashboard › p › About CxMissionZero"
+   "Dashboard › button › Risks endpoint"
   ]
  },
  "Detect: {0} open findings in {1} projects": {
@@ -3670,14 +3822,6 @@
    "message"
   ]
  },
- "Drive findings to zero: follow-ups, AI triage and remediation": {
-  "kind": "attr:title",
-  "seen": [
-   "first start › p",
-   "sign in › p",
-   "Dashboard › p"
-  ]
- },
  "Due ≤ {0}d": {
   "kind": "text",
   "seen": [
@@ -3772,14 +3916,6 @@
    "logs › activity › span › Available variables"
   ]
  },
- "Eliminate": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › span › Get started · 1 of 6 done",
-   "Dashboard (advanced) › span › Get started · 1 of 6 done",
-   "connection: cxone › span › Get started · 1 of 6 done"
-  ]
- },
  "Email": {
   "kind": "text",
   "seen": [
@@ -3794,6 +3930,14 @@
    "first start › span › Create the first administrator",
    "sign in › span › Create the first administrator",
    "Dashboard › span › Create the first administrator"
+  ]
+ },
+ "Email for expiry notices (optional)": {
+  "kind": "text",
+  "seen": [
+   "first start › span › HTTPS",
+   "sign in › span › HTTPS",
+   "Dashboard › span › HTTPS"
   ]
  },
  "Email is not set up yet: test it under Settings → Email server.": {
@@ -3908,10 +4052,24 @@
    "message"
   ]
  },
+ "Enter how many AI Triage or AI Remediation credits to give.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Enter how many credits to add.": {
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Enter the activation codes that unlock add-ons on this installation (Hebrew; several Checkmarx One tenants), or turn them off.": {
+  "kind": "text",
+  "seen": [
+   "access › small › Roles & permissions",
+   "access › people › small › Roles & permissions",
+   "access › roles › small › Roles & permissions"
   ]
  },
  "Enter the name people use to reach this server, e.g. mz.company.com.": {
@@ -4004,6 +4162,14 @@
    "first start › span › AI check & fix",
    "sign in › span › AI check & fix",
    "Dashboard › span › AI check & fix"
+  ]
+ },
+ "Every credit accounted for, in a log nobody can quietly change": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
   ]
  },
  "Every credit spent, refused or failed — who, when, where, and the balance after": {
@@ -4130,6 +4296,12 @@
    "message"
   ]
  },
+ "Expired": {
+  "kind": "text",
+  "seen": [
+   "Settings › Activation codes › badge"
+  ]
+ },
  "Export": {
   "kind": "text",
   "seen": [
@@ -4168,6 +4340,14 @@
    "first start › summary › Extra credits",
    "sign in › summary › Extra credits",
    "Dashboard › summary › Extra credits"
+  ]
+ },
+ "Extra credits for one project, out of the credit pool. No findings need loading. To give exactly what a project's findings need, use the Dashboard.": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Allocated vs used",
+   "sign in › span › Allocated vs used",
+   "Dashboard › span › Allocated vs used"
   ]
  },
  "Failed": {
@@ -4264,7 +4444,7 @@
    "Dashboard › input › Roles & permissions"
   ]
  },
- "Find ageing findings and who owns them": {
+ "Find ageing findings, see who owns them and remind them": {
   "kind": "attr:title",
   "seen": [
    "first start › p",
@@ -4412,6 +4592,12 @@
    "Dashboard › small › AAdministratorAdmin"
   ]
  },
+ "First given:": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used › under a project name, followed by a date: when the project was first given credits"
+  ]
+ },
  "First start": {
   "kind": "message",
   "seen": [
@@ -4458,6 +4644,14 @@
    "Dashboard › remind › a"
   ]
  },
+ "Follow every tracked scope down to zero": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
+  ]
+ },
  "Follow every tracked scope down to zero: progress, follow-ups and schedules": {
   "kind": "text",
   "seen": [
@@ -4478,6 +4672,13 @@
    "first start › h2 › Send reminder",
    "sign in › h2 › Send reminder",
    "Dashboard › h2 › Send reminder"
+  ]
+ },
+ "Follow up": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span",
+   "reports › span"
   ]
  },
  "Follow-up sent": {
@@ -4524,12 +4725,20 @@
    "Dashboard › th › Match usernames to email addresses"
   ]
  },
+ "Free certificate from Let's Encrypt": {
+  "kind": "text",
+  "seen": [
+   "first start › strong › HTTPS",
+   "sign in › strong › HTTPS",
+   "Dashboard › strong › HTTPS"
+  ]
+ },
  "Free to give": {
   "kind": "text",
   "seen": [
-   "credits › span › Credit pool",
-   "credits › overview › span › Credit pool",
-   "credits › projects › span › Credit pool"
+   "first start › span › Allocated vs used",
+   "sign in › span › Allocated vs used",
+   "Dashboard › span › Allocated vs used"
   ]
  },
  "Fresh": {
@@ -4556,12 +4765,24 @@
    "Dashboard › span › Email server (SMTP)"
   ]
  },
+ "from Let's Encrypt": {
+  "kind": "text",
+  "seen": [
+   "Settings › HTTPS › certificate in use"
+  ]
+ },
  "From name": {
   "kind": "text",
   "seen": [
    "first start › span › Email server (SMTP)",
    "sign in › span › Email server (SMTP)",
    "Dashboard › span › Email server (SMTP)"
+  ]
+ },
+ "Gave {0} AI Triage and {1} AI Remediation credits.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Generate": {
@@ -4585,6 +4806,20 @@
   ]
  },
  "Generating the report and sending it to the recipient list…": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Get a free certificate": {
+  "kind": "text",
+  "seen": [
+   "first start › button › HTTPS",
+   "sign in › button › HTTPS",
+   "Dashboard › button › HTTPS"
+  ]
+ },
+ "Get a new certificate": {
   "kind": "message",
   "seen": [
    "message"
@@ -4677,6 +4912,18 @@
    "Dashboard › h2 › GitLab, Azure DevOps and Bitbucket"
   ]
  },
+ "Give": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used"
+  ]
+ },
+ "Give {0} AI Triage and {1} AI Remediation credits out of the credit pool to this project?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Give a scan initiator without an address an email address, from the dashboard.": {
   "kind": "text",
   "seen": [
@@ -4685,12 +4932,24 @@
    "access › roles › small › Roles & permissions"
   ]
  },
+ "Give at least one AI Triage or AI Remediation credit.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Give credits": {
   "kind": "text",
   "seen": [
    "first start › button › AI check & fix",
-   "sign in › button › AI check & fix",
-   "Dashboard › button › AI check & fix"
+   "first start › strong › Allocated vs used",
+   "first start › button › Allocated vs used"
+  ]
+ },
+ "Give or take back": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used"
   ]
  },
  "Give projects credits out of the credit pool, or take extra credits back.": {
@@ -4715,12 +4974,24 @@
    "message"
   ]
  },
+ "Give this project more credits": {
+  "kind": "attr:title",
+  "seen": [
+   "credits › Allocated vs used"
+  ]
+ },
  "Given to projects, not used": {
   "kind": "text",
   "seen": [
    "credits › span › Credit pool",
    "credits › overview › span › Credit pool",
    "credits › projects › span › Credit pool"
+  ]
+ },
+ "Giving…": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Go to any page, setting or action": {
@@ -4737,14 +5008,6 @@
    "reports › a › No tracked reports yet",
    "credits › a › No tracked reports yet",
    "credits › overview › a › No tracked reports yet"
-  ]
- },
- "Govern": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › span › Get started · 1 of 6 done",
-   "Dashboard (advanced) › span › Get started · 1 of 6 done",
-   "connection: cxone › span › Get started · 1 of 6 done"
   ]
  },
  "GraphQL batch": {
@@ -4801,6 +5064,14 @@
    "first start › option › Projects",
    "sign in › option › Projects",
    "Dashboard › option › Projects"
+  ]
+ },
+ "Hebrew": {
+  "kind": "text",
+  "seen": [
+   "settings › strong › Activation codes",
+   "logs › strong › Activation codes",
+   "logs › activity › strong › Activation codes"
   ]
  },
  "Here": {
@@ -4985,6 +5256,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "I agree to the <a href=\"https://letsencrypt.org/repository/\" target=\"_blank\" rel=\"noopener\">Let's Encrypt Subscriber Agreement</a>": {
+  "kind": "html",
+  "seen": [
+   "first start › span › HTTPS",
+   "sign in › span › HTTPS",
+   "Dashboard › span › HTTPS"
   ]
  },
  "I have read these terms and accept them.": {
@@ -5536,13 +5815,17 @@
  "Logs → Activity in this browser": {
   "kind": "text",
   "seen": [
-   "Jump to › span"
+   "Jump to › span",
+   "Jump to › search › span",
+   "dashboard › span"
   ]
  },
  "Logs → Troubleshooting log": {
   "kind": "text",
   "seen": [
-   "Jump to › span"
+   "Jump to › span",
+   "Jump to › search › span",
+   "dashboard › span"
   ]
  },
  "Look usernames up in the tenant IAM directory": {
@@ -5765,6 +6048,14 @@
    "Dashboard › h2 › More connections to the same host"
   ]
  },
+ "More options": {
+  "kind": "text",
+  "seen": [
+   "first start › summary › More options",
+   "sign in › summary › More options",
+   "Dashboard › summary › More options"
+  ]
+ },
  "Most open": {
   "kind": "text",
   "seen": [
@@ -5806,9 +6097,9 @@
  "mz.company.com": {
   "kind": "attr:placeholder",
   "seen": [
+   "first start › input › HTTPS",
    "first start › input › No certificate yet? Create a request (CSR) for IT",
-   "sign in › input › No certificate yet? Create a request (CSR) for IT",
-   "Dashboard › input › No certificate yet? Create a request (CSR) for IT"
+   "sign in › input › HTTPS"
   ]
  },
  "Name": {
@@ -5839,6 +6130,14 @@
    "first start › button › Fetch",
    "sign in › button › Fetch",
    "Dashboard › button › Fetch"
+  ]
+ },
+ "Needs a DNS name that points at this server, and port {0} open to the internet: Let's Encrypt checks the name there.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › HTTPS",
+   "sign in › p › HTTPS",
+   "Dashboard › p › HTTPS"
   ]
  },
  "Needs attention <em data-count=\"attention\">{0}</em>": {
@@ -5907,6 +6206,12 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Next: open this page over HTTPS and switch to HTTPS only (step 4).": {
+  "kind": "text",
+  "seen": [
+   "Settings › HTTPS › Free certificate from Let's Encrypt"
   ]
  },
  "No activity yet. What this browser asks the server shows here as you work.": {
@@ -6005,6 +6310,20 @@
    "logs › activity › p › AI Triage & Remediation from reports"
   ]
  },
+ "No project has an allocation yet — give credits above, or on the Dashboard.": {
+  "kind": "text",
+  "seen": [
+   "credits › p › Allocated vs used",
+   "credits › overview › p › Allocated vs used",
+   "credits › projects › p › Allocated vs used"
+  ]
+ },
+ "No project has an allocation yet.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "No project used credits in this period.": {
   "kind": "text",
   "seen": [
@@ -6027,12 +6346,24 @@
    "logs › activity › p › Automation"
   ]
  },
+ "No severities": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used › under a project name: which severities its credit needs cover"
+  ]
+ },
  "No successful connection test for the current settings yet.": {
   "kind": "text",
   "seen": [
    "settings › p › Email server (SMTP)",
    "logs › p › Email server (SMTP)",
    "logs › activity › p › Email server (SMTP)"
+  ]
+ },
+ "No such project in Checkmarx One.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "No tracked reports yet": {
@@ -6141,6 +6472,12 @@
    "Dashboard › remind › span › AI check & fix"
   ]
  },
+ "Not connected to Checkmarx One: only projects that already hold credits are listed.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Not connected:": {
   "kind": "text",
   "seen": [
@@ -6161,6 +6498,14 @@
    "beta › span › GitLab not set up",
    "beta › span › Azure DevOps not set up",
    "beta › span › Bitbucket not set up"
+  ]
+ },
+ "Not unlocked": {
+  "kind": "text",
+  "seen": [
+   "settings › span › Activation codes",
+   "logs › span › Activation codes",
+   "logs › activity › span › Activation codes"
   ]
  },
  "Not used in this mode — each message is addressed to its own recipient.": {
@@ -6281,8 +6626,8 @@
   "kind": "text",
   "seen": [
    "settings › span › Automation",
-   "logs › span › Automation",
-   "logs › activity › span › Automation"
+   "settings › span › Activation codes",
+   "logs › span › Automation"
   ]
  },
  "off (BACKUP_INTERVAL_HOURS={0})": {
@@ -6337,6 +6682,12 @@
    "first start › th › Projects",
    "sign in › th › Projects",
    "Dashboard › th › Projects"
+  ]
+ },
+ "On": {
+  "kind": "text",
+  "seen": [
+   "Settings › Activation codes › badge"
   ]
  },
  "Once final:": {
@@ -6475,6 +6826,14 @@
    "Dashboard › span › HTTPS"
   ]
  },
+ "Or use your organisation's certificate:": {
+  "kind": "text",
+  "seen": [
+   "first start › p › HTTPS",
+   "sign in › p › HTTPS",
+   "Dashboard › p › HTTPS"
+  ]
+ },
  "Organisation": {
   "kind": "text",
   "seen": [
@@ -6579,6 +6938,12 @@
    "Dashboard (advanced) › label › SLA"
   ]
  },
+ "Paste the activation code first.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Paste the API key for this server": {
   "kind": "message",
   "seen": [
@@ -6612,13 +6977,17 @@
  "People & roles → People": {
   "kind": "text",
   "seen": [
-   "Jump to › span"
+   "Jump to › span",
+   "Jump to › search › span",
+   "dashboard › span"
   ]
  },
  "People & roles → Roles & permissions": {
   "kind": "text",
   "seen": [
-   "Jump to › span"
+   "Jump to › span",
+   "Jump to › search › span",
+   "dashboard › span"
   ]
  },
  "People who ran the latest scan": {
@@ -6627,6 +6996,14 @@
    "first start › label › Only these projects or people — optional",
    "sign in › label › Only these projects or people — optional",
    "Dashboard › label › Only these projects or people — optional"
+  ]
+ },
+ "People, settings and logs": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
   ]
  },
  "Per match": {
@@ -6977,6 +7354,14 @@
    "first start › small › AI Triage & Remediation from reports",
    "sign in › small › AI Triage & Remediation from reports",
    "Dashboard › small › AI Triage & Remediation from reports"
+  ]
+ },
+ "Prove": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › span › Get started · 1 of 6 done",
+   "Dashboard (advanced) › span › Get started · 1 of 6 done",
+   "connection: cxone › span › Get started · 1 of 6 done"
   ]
  },
  "Public profile": {
@@ -7392,6 +7777,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Renew now": {
+  "kind": "text",
+  "seen": [
+   "first start › button › HTTPS",
+   "sign in › button › HTTPS",
+   "Dashboard › button › HTTPS"
   ]
  },
  "Replace all settings, credit balances, tracked reports and the audit log with this backup at the next restart?": {
@@ -7960,6 +8353,14 @@
    "access › people › option › People"
   ]
  },
+ "Security Analyst: Activation codes": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
  "Security Analyst: AI Triage & Remediation rules": {
   "kind": "attr:aria-label",
   "seen": [
@@ -8230,6 +8631,14 @@
    "busy line"
   ]
  },
+ "See ageing vulnerabilities, then remind owners, triage and remediate them": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › p",
+   "Dashboard (advanced) › p",
+   "connection: cxone › p"
+  ]
+ },
  "See credit balances and usage.": {
   "kind": "text",
   "seen": [
@@ -8466,6 +8875,14 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "Server name": {
+  "kind": "text",
+  "seen": [
+   "first start › span › HTTPS",
+   "sign in › span › HTTPS",
+   "Dashboard › span › HTTPS"
+  ]
+ },
  "Server names people use, comma-separated": {
   "kind": "text",
   "seen": [
@@ -8525,9 +8942,9 @@
  "Set up": {
   "kind": "text",
   "seen": [
+   "Dashboard › span › Get started · 1 of 6 done",
    "Dashboard › a › Get started · 1 of 6 done",
-   "Dashboard (advanced) › a › Get started · 1 of 6 done",
-   "connection: cxone › a › Get started · 1 of 6 done"
+   "Dashboard (advanced) › span › Get started · 1 of 6 done"
   ]
  },
  "Set up email": {
@@ -8560,6 +8977,14 @@
   ]
  },
  "Settings → About & terms of use": {
+  "kind": "text",
+  "seen": [
+   "Jump to › search › span",
+   "dashboard › span",
+   "dashboard › remind › span"
+  ]
+ },
+ "Settings → Activation codes": {
   "kind": "text",
   "seen": [
    "Jump to › search › span",
@@ -8741,6 +9166,14 @@
    "Dashboard › span › Create the first administrator"
   ]
  },
+ "Several tenants": {
+  "kind": "text",
+  "seen": [
+   "settings › strong › Activation codes",
+   "logs › strong › Activation codes",
+   "logs › activity › strong › Activation codes"
+  ]
+ },
  "Severities": {
   "kind": "text",
   "seen": [
@@ -8771,6 +9204,12 @@
    "sign in › div › Developers"
   ]
  },
+ "Show {0} more": {
+  "kind": "button",
+  "seen": [
+   "Dashboard › projects table, more than 100 projects"
+  ]
+ },
  "Show advanced options": {
   "kind": "text",
   "seen": [
@@ -8779,12 +9218,24 @@
    "Dashboard › strong › AAdministratorAdmin"
   ]
  },
+ "Show all {0}": {
+  "kind": "button",
+  "seen": [
+   "Dashboard › projects table, more than 100 projects"
+  ]
+ },
  "Show as a table": {
   "kind": "text",
   "seen": [
    "first start › summary › Show as a table",
    "sign in › summary › Show as a table",
    "Dashboard › summary › Show as a table"
+  ]
+ },
+ "Showing {0} of {1} projects": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › projects table, more than 100 projects"
   ]
  },
  "Sign in": {
@@ -8871,6 +9322,14 @@
    "Dashboard › th › State folder & backups"
   ]
  },
+ "Skip the self-check (only when this server cannot reach its own public name, though the internet can)": {
+  "kind": "text",
+  "seen": [
+   "first start › span › More options",
+   "sign in › span › More options",
+   "Dashboard › span › More options"
+  ]
+ },
  "Skips projects with no scan in this window.": {
   "kind": "attr:title",
   "seen": [
@@ -8927,6 +9386,14 @@
    "connection: cxone › li › Get started · 1 of 6 done"
   ]
  },
+ "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Activation codes",
+   "sign in › p › Activation codes",
+   "Dashboard › p › Activation codes"
+  ]
+ },
  "Sort by": {
   "kind": "attr:aria-label",
   "seen": [
@@ -8957,6 +9424,14 @@
    "first start › span › Branding",
    "sign in › span › Branding",
    "Dashboard › span › Branding"
+  ]
+ },
+ "stage|Set up": {
+  "kind": "text",
+  "seen": [
+   "page title › stage label",
+   "Dashboard › getting started › stage",
+   "Jump to › group"
   ]
  },
  "Standard ports ({0}, and {1} for http), and the way back in": {
@@ -9080,12 +9555,26 @@
    "Dashboard › span › Fetch"
   ]
  },
+ "Stop automatic renewal": {
+  "kind": "text",
+  "seen": [
+   "first start › button › HTTPS",
+   "sign in › button › HTTPS",
+   "Dashboard › button › HTTPS"
+  ]
+ },
  "Stop loading. Projects already loaded are kept, and you can work with them straight away.": {
   "kind": "attr:title",
   "seen": [
    "first start › button › Fetch",
    "sign in › button › Fetch",
    "Dashboard › button › Fetch"
+  ]
+ },
+ "Stop renewing the Let's Encrypt certificate by itself? It stays in use until it expires or you replace it.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Stopped after {0} project(s). Getting what was loaded…": {
@@ -9180,6 +9669,12 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "Take back {0}": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used › table row"
+  ]
+ },
  "Take back all {0} unused credits": {
   "kind": "message",
   "seen": [
@@ -9208,6 +9703,12 @@
    "first start › button › Extra credits",
    "sign in › button › Extra credits",
    "Dashboard › button › Extra credits"
+  ]
+ },
+ "Take back the {0} credit(s) this project has not used": {
+  "kind": "attr:title",
+  "seen": [
+   "credits › Allocated vs used › table row"
   ]
  },
  "Take back unused credits": {
@@ -9318,6 +9819,14 @@
    "Dashboard › label › Automation"
   ]
  },
+ "Test with the Let's Encrypt staging service first (browsers do not trust its certificates)": {
+  "kind": "text",
+  "seen": [
+   "first start › span › More options",
+   "sign in › span › More options",
+   "Dashboard › span › More options"
+  ]
+ },
  "Test your mail server so reminders and follow-ups can go out.": {
   "kind": "attr:title",
   "seen": [
@@ -9416,6 +9925,14 @@
    "logs › activity › li › Beta features"
   ]
  },
+ "The easiest way: trusted by every browser, renewed by itself.": {
+  "kind": "text",
+  "seen": [
+   "first start › span › HTTPS",
+   "sign in › span › HTTPS",
+   "Dashboard › span › HTTPS"
+  ]
+ },
  "The email on their GitHub profile, if public. One request each.": {
   "kind": "text",
   "seen": [
@@ -9460,6 +9977,12 @@
    "first start › p › Your profile",
    "sign in › p › Your profile",
    "Dashboard › p › Your profile"
+  ]
+ },
+ "The last request did not finish (the server restarted). Try again.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "The most AI credits this app may spend. {0} means no limit.": {
@@ -9568,6 +10091,18 @@
    "Dashboard › small › People"
   ]
  },
+ "They stay with the project until they are used or taken back.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "This build has no maintainer key, so no code can be checked.": {
+  "kind": "text",
+  "seen": [
+   "Settings › Activation codes"
+  ]
+ },
  "This is who gets reminders everywhere: here, scheduled runs and tracked reports' follow-ups.": {
   "kind": "text",
   "seen": [
@@ -9608,6 +10143,12 @@
   ]
  },
  "Tick at least one finding with an author.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Tick the box to agree to the Let's Encrypt Subscriber Agreement first.": {
   "kind": "message",
   "seen": [
    "message"
@@ -9654,9 +10195,9 @@
  "To": {
   "kind": "text",
   "seen": [
-   "first start › span",
    "first start › span › The fixed list Loading…",
-   "first start › span › Recipients (Archived)"
+   "first start › span › Recipients (Archived)",
+   "sign in › span › The fixed list Loading…"
   ]
  },
  "to match — one per line": {
@@ -9889,6 +10430,14 @@
    "Dashboard › span › Credit audit log"
   ]
  },
+ "Type a project name": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "first start › input › Allocated vs used",
+   "sign in › input › Allocated vs used",
+   "Dashboard › input › Allocated vs used"
+  ]
+ },
  "Type a project name…": {
   "kind": "attr:placeholder",
   "seen": [
@@ -9905,10 +10454,22 @@
    "Dashboard › remind › span"
   ]
  },
+ "Unlocked": {
+  "kind": "text",
+  "seen": [
+   "Settings › Activation codes › badge"
+  ]
+ },
  "Unsure": {
   "kind": "text",
   "seen": [
    "Beta › Code authors › confidence badge: low confidence"
+  ]
+ },
+ "Until": {
+  "kind": "text",
+  "seen": [
+   "Settings › Activation codes › before a date: valid until that date"
   ]
  },
  "Up to": {
@@ -9917,6 +10478,12 @@
    "first start › label › Email the authors of vulnerable code",
    "sign in › label › Email the authors of vulnerable code",
    "Dashboard › label › Email the authors of vulnerable code"
+  ]
+ },
+ "Up to {0} tenants": {
+  "kind": "text",
+  "seen": [
+   "Settings › Activation codes › how many Checkmarx One tenants a code allows"
   ]
  },
  "Upcoming follow-ups": {
@@ -10093,6 +10660,14 @@
    "first start › input › Credit audit log",
    "sign in › input › Credit audit log",
    "Dashboard › input › Credit audit log"
+  ]
+ },
+ "User: Activation codes": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
   ]
  },
  "User: AI Triage & Remediation rules": {
@@ -10729,186 +11304,6 @@
    "first start › a",
    "first start › h2 › Your profile",
    "sign in › a"
-  ]
- },
- "Extra credits for one project, out of the credit pool. No findings need loading. To give exactly what a project's findings need, use the Dashboard.": {
-  "kind": "text",
-  "seen": [
-   "credits › Allocated vs used"
-  ]
- },
- "Type a project name": {
-  "kind": "attr:placeholder",
-  "seen": [
-   "credits › Allocated vs used"
-  ]
- },
- "{0} credit triages one Checkmarx One result; remediating one confirmed finding takes {1}.": {
-  "kind": "text",
-  "seen": [
-   "credits › Allocated vs used"
-  ]
- },
- "Give": {
-  "kind": "text",
-  "seen": [
-   "credits › Allocated vs used"
-  ]
- },
- "Give or take back": {
-  "kind": "text",
-  "seen": [
-   "credits › Allocated vs used"
-  ]
- },
- "Give this project more credits": {
-  "kind": "attr:title",
-  "seen": [
-   "credits › Allocated vs used"
-  ]
- },
- "No project has an allocation yet — give credits above, or on the Dashboard.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Give {0} AI Triage and {1} AI Remediation credits out of the credit pool to this project?": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "They stay with the project until they are used or taken back.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Gave {0} AI Triage and {1} AI Remediation credits.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Giving…": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Choose a project from the list.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Enter how many AI Triage or AI Remediation credits to give.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Credits cannot be negative. To take credits back, use Take back.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "No project has an allocation yet.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Choose a project.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Give at least one AI Triage or AI Remediation credit.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Credits must be whole numbers, not negative, and no more than {0} at a time.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "No such project in Checkmarx One.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Not connected to Checkmarx One: only projects that already hold credits are listed.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Take back {0}": {
-  "kind": "text",
-  "seen": [
-   "credits › Allocated vs used › table row"
-  ]
- },
- "Take back the {0} credit(s) this project has not used": {
-  "kind": "attr:title",
-  "seen": [
-   "credits › Allocated vs used › table row"
-  ]
- },
- "At start": {
-  "kind": "text",
-  "seen": [
-   "credits › Allocated vs used › column heading (credits first given)"
-  ]
- },
- "Allocated": {
-  "kind": "text",
-  "seen": [
-   "credits › Allocated vs used › column heading (credits given now)"
-  ]
- },
- "credits|Left": {
-  "kind": "text",
-  "seen": [
-   "credits › Allocated vs used › column heading (credits remaining, not used)"
-  ]
- },
- "No severities": {
-  "kind": "text",
-  "seen": [
-   "credits › Allocated vs used › under a project name: which severities its credit needs cover"
-  ]
- },
- "First given:": {
-  "kind": "text",
-  "seen": [
-   "credits › Allocated vs used › under a project name, followed by a date: when the project was first given credits"
-  ]
- },
- "{0} project holds {1} credit they have not used. Taking them back returns them to the credit pool; used credits stay counted.": {
-  "kind": "message",
-  "seen": [
-   "credits › Allocated vs used › Take credits back note"
-  ]
- },
- "{0} project holds {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": {
-  "kind": "message",
-  "seen": [
-   "credits › Allocated vs used › Take credits back note"
-  ]
- },
- "{0} projects hold {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": {
-  "kind": "message",
-  "seen": [
-   "credits › Allocated vs used › Take credits back note"
   ]
  }
 }
