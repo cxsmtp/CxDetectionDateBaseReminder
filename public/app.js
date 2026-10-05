@@ -3762,7 +3762,7 @@ function triageSection(r) {
     </div>
     <p class="rp-need" data-need="${id}">${triageNeedText(r)}</p>
     <div class="actions compact">
-      ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary" data-needs-data>Triage now</button>` : ''}
+      ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary${triageCovered(r) ? ' is-golden' : ''}" data-needs-data>Triage now</button>` : ''}
       ${can('credits.allocate') ? `<button type="button" data-report-credits="${id}">Give credits on the Dashboard</button>` : ''}
     </div>
     <p class="hint">1 credit to check a finding with AI, 3 to fix it. Nothing is given until you click.</p>`;
@@ -3984,11 +3984,21 @@ function triageNeedText(r, severities = ['CRITICAL', 'HIGH']) {
   return parts.length ? `${parts.join(' · ')}.` : '';
 }
 
+/** The tracked report's projects have the credits to triage everything at these severities. */
+function triageCovered(r, severities = ['CRITICAL', 'HIGH']) {
+  const counts = r.latest?.toTriage;
+  if (!counts) return false;
+  const results = severities.reduce((n, sev) => n + (r.latest?.toTriageResults?.[sev] ?? counts[sev] ?? 0), 0);
+  return results > 0 && (r.credits?.triage?.remaining ?? 0) >= results;
+}
+
 function updateNeed(card) {
   const report = trackedById.get(card.dataset.report);
   const el = card.querySelector('[data-need]');
   if (!report || !el) return;
-  el.textContent = triageNeedText(report, [...card.querySelectorAll('[data-sev]:checked')].map((box) => box.dataset.sev));
+  const severities = [...card.querySelectorAll('[data-sev]:checked')].map((box) => box.dataset.sev);
+  el.textContent = triageNeedText(report, severities);
+  card.querySelector('[data-report-triage]')?.classList.toggle('is-golden', triageCovered(report, severities));
 }
 
 /** "Only to" is picked by typing an address; the per-person options don't apply to it. */
@@ -4366,6 +4376,9 @@ function renderAllocation() {
   $('alloc-remediation').disabled = !scope.length || t.remediationShort === 0;
   $('alloc-remediation').textContent = t.remediationShort ? `Allocate ${t.remediationShort} for remediation` : t.toRemediate ? 'Remediation is allocated' : 'Allocate for remediation';
   $('run-remediation').disabled = !severities.length || !scope.length || t.toRemediate === 0;
+  // Gold once the credits given cover it: one click checks, or fixes, everything selected across projects.
+  $('run-triage').classList.toggle('is-golden', !$('run-triage').disabled && t.triageShort === 0 && t.triageLeft > 0);
+  $('run-remediation').classList.toggle('is-golden', !$('run-remediation').disabled && t.remediationShort === 0 && t.remediationLeft > 0);
 }
 
 /**
