@@ -6,7 +6,10 @@
 //       repository; the printed public key goes into ISSUER_KEYS in src/activation.js.
 //
 //   node scripts/activation.mjs issue <private-key-file> "<organisation>" <max-tenants> [months=12]
-//       Prints an activation code for one organisation.
+//       Prints a multi-tenant activation code for one organisation.
+//
+//   node scripts/activation.mjs lang <private-key-file> "<organisation>" he on|off [months=12]
+//       Prints a Hebrew activation code ("on") or deactivation code ("off").
 //
 //   node scripts/activation.mjs show <code>
 //       What a code says (without checking its signature).
@@ -19,8 +22,18 @@ const [command, ...args] = process.argv.slice(2);
 const b64url = (data) => Buffer.from(data).toString('base64url');
 
 function usage() {
-  console.error('Usage:\n  keygen <private-key-file>\n  issue <private-key-file> "<organisation>" <max-tenants> [months]\n  show <code>');
+  console.error('Usage:\n  keygen <private-key-file>\n  issue <private-key-file> "<organisation>" <max-tenants> [months]\n  lang <private-key-file> "<organisation>" he on|off [months]\n  show <code>');
   process.exit(2);
+}
+
+/** Sign a payload (expiry filled in) into an MZ1 code. */
+function makeCode(key, payload, months) {
+  const issued = new Date();
+  const expires = new Date(issued);
+  expires.setUTCMonth(expires.getUTCMonth() + Math.max(1, Number(months) || 12));
+  const full = { v: 1, id: randomBytes(6).toString('hex'), issued: issued.toISOString(), expires: expires.toISOString(), ...payload };
+  const head = `MZ1.${b64url(JSON.stringify(full))}`;
+  return { code: `${head}.${b64url(sign(null, Buffer.from(head), key))}`, full };
 }
 
 if (command === 'keygen') {
@@ -40,13 +53,17 @@ if (command === 'keygen') {
   const maxTenants = Number(max);
   if (!file || !org || !Number.isInteger(maxTenants) || maxTenants < 2) usage();
   const key = createPrivateKey(fs.readFileSync(file));
-  const issued = new Date();
-  const expires = new Date(issued);
-  expires.setUTCMonth(expires.getUTCMonth() + Math.max(1, Number(months) || 12));
-  const payload = { v: 1, id: randomBytes(6).toString('hex'), org: org.trim(), maxTenants, issued: issued.toISOString(), expires: expires.toISOString() };
-  const head = `MZ1.${b64url(JSON.stringify(payload))}`;
-  console.log(`${head}.${b64url(sign(null, Buffer.from(head), key))}`);
-  console.error(`For ${payload.org}: up to ${maxTenants} tenants, until ${payload.expires.slice(0, 10)} (public key ${createPublicKey(key).export({ format: 'der', type: 'spki' }).toString('base64').slice(-12)}).`);
+  const { code, full } = makeCode(key, { org: org.trim(), scope: 'tenants', maxTenants }, months);
+  console.log(code);
+  console.error(`For ${full.org}: up to ${maxTenants} tenants, until ${full.expires.slice(0, 10)} (public key ${createPublicKey(key).export({ format: 'der', type: 'spki' }).toString('base64').slice(-12)}).`);
+} else if (command === 'lang') {
+  const [file, org, langCode, onOff, months = '12'] = args;
+  if (!file || !org || langCode !== 'he' || !['on', 'off'].includes(onOff)) usage();
+  const key = createPrivateKey(fs.readFileSync(file));
+  const action = onOff === 'on' ? 'activate' : 'deactivate';
+  const { code, full } = makeCode(key, { org: org.trim(), scope: `lang:${langCode}`, action }, months);
+  console.log(code);
+  console.error(`For ${full.org}: Hebrew ${action === 'activate' ? 'ON' : 'OFF'}, until ${full.expires.slice(0, 10)}.`);
 } else if (command === 'show') {
   const read = readCode(args[0]);
   if (!read) {

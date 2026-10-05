@@ -40,9 +40,16 @@ export function readCode(code) {
   }
 }
 
+/** What a code may unlock. "tenants" is several Checkmarx One tenants; "lang:<code>" a gated language. */
+export const SCOPES = new Set(['tenants', 'lang:he']);
+/** For a language scope, whether the code turns it on or off. */
+export const ACTIONS = new Set(['activate', 'deactivate']);
+
 /**
  * Check a code: signed by a trusted key, well formed, not expired.
- * Returns { valid, reason?, id, org, maxTenants, issued, expires, daysLeft, warn }.
+ * Returns { valid, reason?, id, org, scope, action, maxTenants, issued, expires, daysLeft, warn }.
+ * `scope` defaults to "tenants" (codes issued before scopes existed). For a "lang:*"
+ * scope, `action` is "activate" or "deactivate" and there is no tenant count.
  */
 export function checkCode(code, { now = Date.now(), keys = trustedKeys() } = {}) {
   const read = readCode(code);
@@ -57,10 +64,24 @@ export function checkCode(code, { now = Date.now(), keys = trustedKeys() } = {})
   });
   if (!signedBy) return fail('This activation code is not valid.');
   const p = read.payload;
+  const scope = String(p.scope ?? 'tenants');
   const expires = Date.parse(p.expires);
-  if (p.v !== 1 || !p.id || !p.org || !Number.isInteger(p.maxTenants) || p.maxTenants < 2 || !Number.isFinite(expires)) return fail('This activation code is not valid.');
+  const base = p.v === 1 && p.id && p.org && SCOPES.has(scope) && Number.isFinite(expires);
+  const forTenants = scope === 'tenants' && Number.isInteger(p.maxTenants) && p.maxTenants >= 2;
+  const action = String(p.action ?? '');
+  const forLang = scope.startsWith('lang:') && ACTIONS.has(action);
+  if (!base || !(forTenants || forLang)) return fail('This activation code is not valid.');
   const daysLeft = Math.ceil((expires - now) / DAY_MS);
-  const info = { id: String(p.id), org: String(p.org), maxTenants: p.maxTenants, issued: String(p.issued ?? ''), expires: new Date(expires).toISOString(), daysLeft };
+  const info = {
+    id: String(p.id),
+    org: String(p.org),
+    scope,
+    action: forLang ? action : '',
+    maxTenants: forTenants ? p.maxTenants : 0,
+    issued: String(p.issued ?? ''),
+    expires: new Date(expires).toISOString(),
+    daysLeft,
+  };
   if (expires <= now) return { ...info, valid: false, expired: true, reason: `This activation code expired on ${info.expires.slice(0, 10)}.` };
   return { ...info, valid: true, warn: daysLeft <= WARN_DAYS };
 }

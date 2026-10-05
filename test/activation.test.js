@@ -56,3 +56,24 @@ test('refused: another key, a changed payload, garbage', () => {
 test('keygen never overwrites a private key', () => {
   assert.throws(() => script('keygen', keyFile));
 });
+
+test('Hebrew activate and deactivate codes carry a scope and action', () => {
+  const on = script('lang', keyFile, 'Acme', 'he', 'on');
+  const r = checkCode(on, { keys: [publicKey] });
+  assert.equal(r.valid, true, r.reason);
+  assert.equal(r.scope, 'lang:he');
+  assert.equal(r.action, 'activate');
+  assert.equal(r.maxTenants, 0);
+  const off = checkCode(script('lang', keyFile, 'Acme', 'he', 'off'), { keys: [publicKey] });
+  assert.equal(off.valid, true);
+  assert.equal(off.action, 'deactivate');
+});
+
+test('a tenants code is not valid for a language scope, and vice versa', () => {
+  const tenants = checkCode(issue('Acme', 3), { keys: [publicKey] });
+  assert.equal(tenants.scope, 'tenants');
+  assert.equal(tenants.action, '');
+  // A language code has no tenant count; a tenants code has no action.
+  const lang = checkCode(script('lang', keyFile, 'Acme', 'he', 'on'), { keys: [publicKey] });
+  assert.equal(lang.maxTenants, 0);
+});
