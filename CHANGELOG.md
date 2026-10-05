@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.47 | 519/s, 0 (main 504) | 5.3 s | 310 ms | 506 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.48 | 498/s, 7 (main 489, 44) | 8.2 s | 880 ms | TESTS | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.47 | 519/s, 0 (main 504) | 5.3 s | 310 ms | 506 | 0 | same |
 | MZ-01.00.46 | 468/s, 44 (host stalls; main 177) | 10.1 s | 1.3 s | 479 | 0 | same |
 | MZ-01.00.45 | 497/s, 0 | 7.9 s | 1.2 s | 478 | 0 | same |
 | MZ-01.00.44 | 520/s, 0 | 7.1 s | 384 ms | 461 | 0 | same |
@@ -33,6 +34,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.48 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+- **Several Checkmarx One tenants on one server.** With a tenants activation code, a Super Admin turns on **Settings → Tenants** and adds tenants, up to the number the code allows. Each tenant keeps its own Checkmarx One connection, email server, settings, credits, tracked reports, automation, audit log and people. Without a code, nothing changes ([several tenants](docs/multi-tenant.md)).
+- **Switch tenants at the top.** People who work in more than one tenant choose it next to the connection chips, and every page then shows that tenant.
+- **Each tenant's people stay in it.** People added while working in a tenant work only there, without the permissions that act on the whole server (HTTPS, backups, updates, activation codes). A Super Admin chooses who works where under **People & roles → Tenants**.
+- **Reports and records stay in their tenant.** Emailed reports, and every link in them, act only in the tenant they came from. Server-wide events stay in the first tenant's audit log. A Super Admin adding or opening a tenant is recorded in that tenant's own log.
+- **Hebrew for the people you choose.** With the Hebrew code in force, tick the people who may use it under **Settings → Activation codes → Who may use Hebrew**. Only they are offered Hebrew, or ever sent its translation.
+- **Português (Brasil).** Brazilian Portuguese is open to everyone, and every Portuguese browser picks it. It was translated in full and reviewed twice.
+- **Backups hold everything.** One backup now includes every tenant, the activation codes in force and the language settings.
+- **Status.** STATUS_TEXT
 
 ## MZ-01.00.47 — 2026-10-05 14:33 UTC · [#70](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/70)
 - **A free HTTPS certificate in one click.** **Settings → HTTPS → Free certificate from Let's Encrypt** gets a certificate trusted by every browser and renews it by itself 30 days before it expires. It needs a DNS name for the server and port 80 open to the internet. To set it up at deployment instead, use one line: `LETSENCRYPT_DOMAIN=mz.company.com`. The server then gets the certificate, switches to HTTPS only and renews it with no further steps ([HTTPS and hosting](docs/https-and-hosting.md)).
