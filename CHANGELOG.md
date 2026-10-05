@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.49 | 498/s, 0 (main 469, 206) | 8.3 s | 1.1 s | 521 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.50 | 510/s, 0 (main 506, 10) | 5.9 s | 341 ms | 525 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.49 | 498/s, 0 (main 469, 206) | 8.3 s | 1.1 s | 521 | 0 | same |
 | MZ-01.00.48 | 498/s, 7 (main 489, 44) | 8.2 s | 880 ms | 519 | 0 | same |
 | MZ-01.00.47 | 519/s, 0 (main 504) | 5.3 s | 310 ms | 506 | 0 | same |
 | MZ-01.00.46 | 468/s, 44 (host stalls; main 177) | 10.1 s | 1.3 s | 479 | 0 | same |
@@ -35,6 +36,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.50 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+- **The Impact page: the return on AI, in one place.** **Prove → Impact** shows the hours AI Triage and AI Remediation saved and their value after the cost of credits. It also shows the findings AI showed not exploitable, fixes with AI next to fixes by hand, and credits per finding closed ([impact](docs/impact.md)).
+- **The security debt, week by week.** Open findings weighted by severity, as a chart (point at it for each week, or show it as a table), with the change over the period and the date it reaches zero at the current pace.
+- **Time to fix, with AI and by hand.** Median days from first detection until Checkmarx One no longer reports a finding, by severity, compared over the same weeks.
+- **Two tabs: Executive and Detail.** Six figures and one chart for the CISO; every project, with CSV export, for the AppSec team. **Download the one-page summary** gives leadership a page to print or save as PDF.
+- **Monthly summary by email.** Add who gets it under **Settings → AI & credits**: on the first day of each month they receive the month before. Nobody on the list, nothing sent; **Email last month's summary now** tries it.
+- **Conservative by design.** A fix counts only once Checkmarx One no longer reports the finding, and rows that share one result count once. Every figure shows the minutes, rate and price it used (defaults 20 minutes per manual triage, 120 per manual fix), and they can be changed at any time.
+- **Status.** In the second benchmark pair, the branch served 510 requests a second with 0 failed, against main's 506 with 10 failed. Report opens took 5.9 s and triage polls 341 ms at p95 (main 9.8 s and 505 ms). In the first pair the host stalled during the branch's run (29 failed); the new finding journal costs 8 ms per Dashboard fetch. No finding was sent twice. 525 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.49 — 2026-10-05 16:13 UTC · [#72](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/72)
 - **The same two golden buttons in three places.** **Triage with AI Assist now** and **Remediate with AI Assist now** are on the Dashboard, on a tracked report's **Triage** tab and on Credit Control. Each turns gold, with its glow and sweep, once the credits given cover the work, and goes back to plain once the work is sent.
