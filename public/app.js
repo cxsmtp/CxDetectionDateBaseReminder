@@ -5689,6 +5689,10 @@ function renderUpdates() {
   const hour = $('upd-hour');
   if (hour.options.length === 1) for (let h = 0; h < 24; h += 1) hour.append(new Option(`${String(h).padStart(2, '0')}:00`, String(h)));
   $('upd-auto').checked = s.settings.auto;
+  if (s.serverTime) {
+    const clock = `${String(s.serverTime.hour).padStart(2, '0')}:${String(s.serverTime.minute).padStart(2, '0')}`;
+    $('upd-zone').textContent = `(server time${s.serverTime.zone ? `, ${s.serverTime.zone}` : ''}: now ${clock})`;
+  }
   hour.value = s.settings.windowHour === null ? '' : String(s.settings.windowHour);
   $('upd-auto-sub').textContent = s.settings.auto
     ? `Checked every 15 minutes${s.settings.windowHour === null ? '' : `, installed only at ${String(s.settings.windowHour).padStart(2, '0')}:00`}. A version that failed to start is never installed again by itself.${s.settings.lastAutoResult ? ` Last: ${s.settings.lastAutoResult}.` : ''}`

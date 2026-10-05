@@ -120,6 +120,8 @@ export class UpdateService {
       failed: [...this.failedVersions()],
       job: this.#job,
       node: process.versions.node,
+      // The hour auto-update waits for is the server's: say which zone that is, and its time now.
+      serverTime: { zone: Intl.DateTimeFormat().resolvedOptions().timeZone || '', hour: new Date().getHours(), minute: new Date().getMinutes() },
     };
   }
 
@@ -307,24 +309,42 @@ export class UpdateService {
     return { restarting: true };
   }
 
-  /** Auto-update: install the newest published version when it is newer, in the chosen hour, never one that failed. */
+  /**
+   * Auto-update: install the newest published version when it is newer, in the chosen hour,
+   * never one that failed. Every look leaves a line on the Update page saying what it found
+   * and, when it waits, what for and until when.
+   */
   async autoUpdate(now = new Date()) {
     const settings = this.settings();
-    if (!settings.auto || !this.supervised || this.#job?.state === 'running') return null;
-    if (settings.windowHour !== null && now.getHours() !== settings.windowHour) return null;
+    if (!settings.auto) return null;
+    const say = (lastAutoResult) => this.saveSettings({ lastAutoAt: now.toISOString(), lastAutoResult });
+    if (!this.supervised) {
+      say('Cannot install: this server was started with a custom command, so it cannot switch versions itself. Start the image with its own start command, or update with podman pull');
+      return null;
+    }
+    // A job that never finished (the server was stopped part-way) does not block auto-update for ever.
+    if (this.#job?.state === 'running' && now - new Date(this.#job.startedAt) < 30 * 60_000) return null;
+    const inWindow = settings.windowHour === null || now.getHours() === settings.windowHour;
+    // Outside its hour it still looks, at most once an hour, so the page can say what is waiting.
+    if (!inWindow && settings.lastAutoAt && now - new Date(settings.lastAutoAt) < 55 * 60_000) return null;
     await this.check();
     const failed = this.failedVersions();
     const candidate = (this.lastCheck?.versions ?? []).find((v) => compareVersions(v.version, this.runningVersion) > 0 && !failed.has(v.version));
     if (!candidate) {
-      this.saveSettings({ lastAutoAt: now.toISOString(), lastAutoResult: this.lastCheck?.error ? `Check failed: ${this.lastCheck.error}` : 'Up to date' });
+      say(this.lastCheck?.error ? `Check failed: ${this.lastCheck.error}` : 'Up to date');
       return null;
     }
     if (this.lastCheck?.filesError) {
       // It would fail the same way every 15 minutes: wait, and say why.
-      this.saveSettings({ lastAutoAt: now.toISOString(), lastAutoResult: `MZ-${candidate.version} is published, but this server cannot download it: ${this.lastCheck.filesError}` });
+      say(`MZ-${candidate.version} is published, but this server cannot download it: ${this.lastCheck.filesError}`);
       return null;
     }
-    this.saveSettings({ lastAutoAt: now.toISOString(), lastAutoResult: `Installing MZ-${candidate.version}` });
+    if (!inWindow) {
+      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'server time';
+      say(`MZ-${candidate.version} is ready: it installs at ${String(settings.windowHour).padStart(2, '0')}:00 (${zone}), or use Install now`);
+      return null;
+    }
+    say(`Installing MZ-${candidate.version}`);
     return this.install(candidate.tags.find((t) => VERSION.test(t)) ?? candidate.digest, { by: 'auto-update', automatic: true });
   }
 }

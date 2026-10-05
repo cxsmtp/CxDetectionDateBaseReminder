@@ -6181,8 +6181,17 @@ const updates = new UpdateService({
   beforeSwitch: (version) => backupToFolder(SYSTEM_ACTOR, `Before switching to ${version === 'built-in' ? 'the image’s own version' : `MZ-${version}`}`),
   switchTo: (message) => process.send?.(message),
 });
-// Auto-update (off until an Admin turns it on): looked at every 15 minutes, acts in its hour.
-setInterval(() => updates.autoUpdate().catch((error) => console.warn(`[update] auto-update: ${logSafe(error.message)}`)), 15 * 60_000).unref();
+// Auto-update (off until an Admin turns it on): a first look a minute after start (an update
+// restarts the server, and a restart must not push the next look 15 minutes away), then every
+// 15 minutes; it installs in its hour. AUTO_UPDATE_EVERY_SECONDS changes the pace (tests).
+{
+  const autoUpdate = () => updates.autoUpdate().catch((error) => console.warn(`[update] auto-update: ${logSafe(error.message)}`));
+  const every = Math.max(5, Number(process.env.AUTO_UPDATE_EVERY_SECONDS) || 900) * 1000;
+  setTimeout(() => {
+    autoUpdate();
+    setInterval(autoUpdate, every).unref();
+  }, Math.min(60_000, every)).unref();
+}
 
 const updateError = (res, error) => res.status(error.status ?? 500).json({ error: error.message });
 
