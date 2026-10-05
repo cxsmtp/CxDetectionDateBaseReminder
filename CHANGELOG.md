@@ -37,7 +37,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.50 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.50 — 2026-10-05 17:30 UTC · [#73](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/73)
 - **The Impact page: the return on AI, in one place.** **Prove → Impact** shows the hours AI Triage and AI Remediation saved and their value after the cost of credits. It also shows the findings AI showed not exploitable, fixes with AI next to fixes by hand, and credits per finding closed ([impact](docs/impact.md)).
 - **The security debt, week by week.** Open findings weighted by severity, as a chart (point at it for each week, or show it as a table), with the change over the period and the date it reaches zero at the current pace.
 - **Time to fix, with AI and by hand.** Median days from first detection until Checkmarx One no longer reports a finding, by severity, compared over the same weeks.
