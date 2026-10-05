@@ -866,6 +866,11 @@ function route() {
   }
   setPageTitle(target);
   state.page = target;
+  // A panel that stops the page scrolling belongs to its own page: the lock never follows you to another
+  // (e.g. "Give credits on the Dashboard" from an open report). Coming back, its page's panel locks again.
+  document.body.classList.toggle('rp-locked', target === 'reports' && Boolean(rpState.open));
+  const dashboardSheet = target === 'dashboard' && (!$('preview-panel').hidden || Boolean(document.querySelector('.wb.rail-open')));
+  document.body.classList.toggle('sheet-open', dashboardSheet);
   document.body.dataset.stage = STAGES[target] ?? '';
   $('page-reload').hidden = !reloaderOf(target);
   if (target === 'settings') showSettingsSection(view);
@@ -3772,7 +3777,7 @@ function triageSection(r) {
   const id = escapeHtml(r.id);
   const allowed = can('triage.run') || can('credits.allocate');
   if (!allowed) return '<p class="hint">Your role cannot run AI Triage or allocate credits.</p>';
-  return `<p class="rp-lead">Run AI Triage on what is still awaiting triage, and AI Remediation on what it confirmed. The buttons turn gold once the projects have the credits. Credits are given on the Dashboard: the button below opens it with just this report's projects.</p>
+  return `<p class="rp-lead">Run AI Triage on what is still awaiting triage, and AI Remediation on what it confirmed. The buttons turn gold once the projects have the credits. Allocate credits here: what the ticked severities need, plus any extra.</p>
     <div class="rp-form">
       <div class="rp-field"><span class="rp-label">Severities</span><div class="rp-options">
       ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
@@ -3784,12 +3789,16 @@ function triageSection(r) {
         })
         .join('')}
       </div></div>
+      <div class="rp-field${can('credits.allocate') ? '' : ' perm-hidden'}"><span class="rp-label">Extra credits</span><div class="rp-options alloc-extra">
+        <label class="inline">Triage <input type="number" min="0" max="100000" data-field="triageAdd" data-keep class="small-num" placeholder="0" aria-label="Extra triage credits" /></label>
+        <label class="inline">Remediation <input type="number" min="0" max="100000" step="3" data-field="remediationAdd" data-keep class="small-num" placeholder="0" aria-label="Extra remediation credits" /></label>
+      </div></div>
     </div>
     <p class="rp-need" data-need="${id}">${triageNeedText(r)}</p>
     <div class="actions compact">
       ${can('triage.run') ? `<button type="button" data-report-triage="${id}" class="primary${triageCovered(r) ? ' is-golden' : ''}" data-needs-data>Triage with AI Assist now</button>` : ''}
       ${can('triage.run') ? `<button type="button" data-report-remediate="${id}" class="primary${remediationCovered(r) ? ' is-golden' : ''}" data-needs-data>Remediate with AI Assist now</button>` : ''}
-      ${can('credits.allocate') ? `<button type="button" data-report-credits="${id}">Give credits on the Dashboard</button>` : ''}
+      ${can('credits.allocate') ? `<button type="button" data-report-allocate="${id}" data-needs-data>Allocate credits for triage and remediation</button>` : ''}
     </div>
     <p class="hint">1 credit to check a finding with AI, 3 to fix it. Nothing is given until you click.</p>`;
 }
@@ -4066,38 +4075,17 @@ function followUpOptions(card) {
   };
 }
 
-/**
- * Credits are given in one place, the Dashboard: open it narrowed to a report's
- * projects, load their findings (that click is the person's), on the AI credits tab.
- */
-function giveCreditsFor(report) {
-  if (state.fetching) return toast('Findings are loading on the Dashboard: wait for them, then try again.', 'warn');
-  scopePick.projects.clear();
-  scopePick.initiators.clear();
-  for (const p of report.projects ?? []) scopePick.projects.set(p.projectId, p.projectName || p.projectId);
-  renderScopeChips();
-  location.hash = '#/dashboard/credits';
-  setTimeout(() => {
-    if (!state.fetching && can('findings.fetch')) $('fetch').click();
-  }, 50);
-}
-document.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-report-credits]');
-  if (!button) return;
-  const report = trackedById.get(button.dataset.reportCredits);
-  if (report) giveCreditsFor(report);
-});
-
 /** The button last clicked in a report card: its message is shown right under it, where the eye is. */
 let followButton = null;
 
 function followStatus(id, text, kind = '') {
+  const near = followButton?.isConnected && followButton.closest(`[data-report="${CSS.escape(id)}"]`) ? followButton.closest('.actions') : null;
+  // Said once: under the button clicked when it is on screen, else at the foot of the report.
   const el = document.querySelector(`[data-follow-status="${CSS.escape(id)}"]`);
   if (el) {
-    el.textContent = text;
+    el.textContent = near ? '' : text;
     el.className = `status ${kind}`;
   }
-  const near = followButton?.isConnected && followButton.closest(`[data-report="${CSS.escape(id)}"]`) ? followButton.closest('.actions') : null;
   if (near) {
     let inline = near.nextElementSibling?.matches?.('.inline-status') ? near.nextElementSibling : null;
     if (!inline) {
@@ -4141,9 +4129,7 @@ async function followUpAction(event) {
       if (!options.severities.length && !options.triageAdd && !options.remediationAdd) {
         return followStatus(id, 'Pick severities, or enter credits to add.', 'error'), true;
       }
-      const sev = options.severities.map((s) => s.toLowerCase()).join(', ');
-      const extras = [options.triageAdd && `${options.triageAdd} extra triage`, options.remediationAdd && `${options.remediationAdd} extra remediation`].filter(Boolean).join(' and ');
-      if (!confirm(`Allocate from the credit pool to this report's projects: ${sev ? `what their ${sev} findings need (1 per Checkmarx One result to triage — rows that share one count once — 3 per confirmed result to remediate)` : ''}${sev && extras ? ', plus ' : ''}${extras ? `${extras} credit(s) each` : ''}?`)) return true;
+      if (!confirm("Allocate credits from the credit pool to this report's projects: what the ticked severities need (1 per Checkmarx One result to triage, 3 per confirmed result to remediate), plus any extra entered?")) return true;
       followStatus(id, 'Allocating…');
       const { report } = await api(`/api/tracked-reports/${encodeURIComponent(id)}/allocate`, {
         method: 'POST',
@@ -7732,7 +7718,7 @@ function renderAllocations(all) {
   renderGive();
   renderSpend(all);
   const mayTakeBack = can('credits.allocate');
-  const mayPick = can('triage.run');
+  const mayPick = canAny('triage.run credits.allocate');
   if (!list.length) {
     $('credit-allocations').innerHTML = `<p class="hint">${all.length ? 'No project matches.' : mayTakeBack ? 'No project has an allocation yet — give credits above, or on the Dashboard.' : 'No project has an allocation yet.'}</p>`;
     return;
@@ -8026,7 +8012,7 @@ const spendSeverities = () => [...document.querySelectorAll('[data-spend-sev]:ch
 /** The bar's buttons turn gold when the chosen projects hold credits to use: 1 to triage, 3 to remediate. */
 function renderSpend(all) {
   const bar = $('cc-spend');
-  bar.hidden = !can('triage.run') || !all.length;
+  bar.hidden = !canAny('triage.run credits.allocate') || !all.length;
   if (bar.hidden) return;
   for (const id of spend.picked) if (!all.some((p) => p.projectId === id)) spend.picked.delete(id);
   const chosen = spend.picked.size ? all.filter((p) => spend.picked.has(p.projectId)) : all;
@@ -8073,6 +8059,39 @@ async function runCredits(kind) {
   }
 }
 
+/** Give the ticked projects what the chosen severities need (confirmed twice with Checkmarx One), plus any extra. */
+async function allocateNeededCredits() {
+  const severities = spendSeverities();
+  const count = (id) => Math.max(0, Math.floor(Number($(id).value) || 0));
+  const triageAdd = count('cc-spend-extra-triage');
+  const remediationAdd = count('cc-spend-extra-remediation');
+  if (!severities.length && !triageAdd && !remediationAdd) return setStatus('cc-spend-status', 'Pick severities, or enter credits to add.', 'error');
+  if (!confirm('Allocate credits from the credit pool to the ticked projects (none ticked: every project holding credits): what the ticked severities need (1 per Checkmarx One result to triage, 3 per confirmed result to remediate), plus any extra entered?')) return;
+  const button = $('cc-allocate');
+  button.disabled = true;
+  setStatus('cc-spend-status', 'Allocating…');
+  try {
+    const result = await api('/api/credits/allocate-needed', { method: 'POST', body: JSON.stringify({ severities, triageAdd, remediationAdd, projectIds: [...spend.picked] }) });
+    $('cc-spend-extra-triage').value = 0;
+    $('cc-spend-extra-remediation').value = 0;
+    if (usage.data) {
+      usage.data.allocations = result.allocations;
+      usage.data.pool = result.pool;
+      $('credits-pool').innerHTML = poolHtml(result.pool);
+    }
+    renderAllocations(result.allocations);
+    setStatus('cc-spend-status', 'Allocated. The table shows what each project now has.', 'ok');
+    creditsChanged();
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    setStatus('cc-spend-status', error.message, 'error');
+  } finally {
+    button.disabled = false;
+    renderSpend(usage.data?.allocations ?? []);
+  }
+}
+
+$('cc-allocate').addEventListener('click', allocateNeededCredits);
 $('cc-run-triage').addEventListener('click', () => runCredits('triage'));
 $('cc-run-remediation').addEventListener('click', () => runCredits('remediation'));
 for (const box of document.querySelectorAll('[data-spend-sev]')) box.addEventListener('change', () => renderSpend(usage.data?.allocations ?? []));

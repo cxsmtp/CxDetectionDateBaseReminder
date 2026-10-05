@@ -51,7 +51,7 @@ It is filled from reads the server makes anyway, never by extra calls to Checkma
 
 - every **Dashboard** fetch with no date window;
 - every tracked report's refresh (hourly, and soon after anyone triages or remediates);
-- **Use the credits** on Credit Control.
+- **Allocate and use credits** on Credit Control.
 
 A finding is marked as no longer reported only when a read covers every finding of its project. A date window, or a project that could not be read, never marks anything gone.
 

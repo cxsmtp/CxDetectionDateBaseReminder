@@ -1789,6 +1789,30 @@
    "Dashboard › remind › button › AI check & fix"
   ]
  },
+ "Allocate and use credits": {
+  "kind": "text",
+  "seen": [
+   "credits › allocated vs used"
+  ]
+ },
+ "Allocate credits for triage and remediation": {
+  "kind": "text",
+  "seen": [
+   "reports › triage | credits › allocated vs used"
+  ]
+ },
+ "Allocate credits from the credit pool to the ticked projects (none ticked: every project holding credits): what the ticked severities need (1 per Checkmarx One result to triage, 3 per confirmed result to remediate), plus any extra entered?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Allocate credits from the credit pool to this report's projects: what the ticked severities need (1 per Checkmarx One result to triage, 3 per confirmed result to remediate), plus any extra entered?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Allocate credits to projects": {
   "kind": "text",
   "seen": [
@@ -1828,6 +1852,12 @@
   ]
  },
  "Allocated. Projects now have {0} triage and {1} remediation credit(s) left.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Allocated. The table shows what each project now has.": {
   "kind": "message",
   "seen": [
    "message"
@@ -4902,12 +4932,28 @@
    "Dashboard › summary › Extra credits"
   ]
  },
- "Extra credits for one project, out of the credit pool. No findings need loading. To give exactly what a project's findings need, use the Dashboard.": {
+ "Extra credits each": {
   "kind": "text",
   "seen": [
-   "first start › span › Allocated vs used",
-   "sign in › span › Allocated vs used",
-   "Dashboard › span › Allocated vs used"
+   "credits › allocated vs used"
+  ]
+ },
+ "Extra credits for one project, out of the credit pool. No findings need loading. To give exactly what findings need, use Allocate credits for triage and remediation below.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocated vs used"
+  ]
+ },
+ "Extra remediation credits": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "reports › triage | credits › allocated vs used"
+  ]
+ },
+ "Extra triage credits": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "reports › triage | credits › allocated vs used"
   ]
  },
  "Failed": {
@@ -5303,6 +5349,12 @@
    "Dashboard › p › Email the authors of vulnerable code"
   ]
  },
+ "For the ticked projects; none ticked means every project. Their findings are read fresh from Checkmarx One.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocated vs used"
+  ]
+ },
  "Format": {
   "kind": "text",
   "seen": [
@@ -5552,14 +5604,6 @@
    "first start › button › AI check & fix",
    "first start › strong › Allocated vs used",
    "first start › button › Allocated vs used"
-  ]
- },
- "Give credits on the Dashboard": {
-  "kind": "text",
-  "seen": [
-   "reports › detail › button › Weekly",
-   "reports › detail › overview › button › Weekly",
-   "reports › detail › remind › button › Weekly"
   ]
  },
  "Give credits to a project first.": {
@@ -9277,12 +9321,10 @@
    "access › roles › span › Roles & permissions"
   ]
  },
- "Run AI Triage on what is still awaiting triage, and AI Remediation on what it confirmed. The buttons turn gold once the projects have the credits. Credits are given on the Dashboard: the button below opens it with just this report's projects.": {
+ "Run AI Triage on what is still awaiting triage, and AI Remediation on what it confirmed. The buttons turn gold once the projects have the credits. Allocate credits here: what the ticked severities need, plus any extra.": {
   "kind": "text",
   "seen": [
-   "reports › detail › p › Weekly",
-   "reports › detail › overview › p › Weekly",
-   "reports › detail › remind › p › Weekly"
+   "reports › triage"
   ]
  },
  "Run automatically": {
@@ -11916,14 +11958,6 @@
    "message"
   ]
  },
- "Triage or remediate the ticked projects now; none ticked means every project. Their findings are read fresh from Checkmarx One.": {
-  "kind": "text",
-  "seen": [
-   "first start › span › Allocated vs used",
-   "sign in › span › Allocated vs used",
-   "Dashboard › span › Allocated vs used"
-  ]
- },
  "Triage with AI Assist now": {
   "kind": "message",
   "seen": [
@@ -12206,14 +12240,6 @@
    "first start › button › Match usernames to email addresses",
    "sign in › button › Match usernames to email addresses",
    "Dashboard › button › Match usernames to email addresses"
-  ]
- },
- "Use the credits": {
-  "kind": "text",
-  "seen": [
-   "first start › strong › Allocated vs used",
-   "sign in › strong › Allocated vs used",
-   "Dashboard › strong › Allocated vs used"
   ]
  },
  "Use this computer's time zone": {

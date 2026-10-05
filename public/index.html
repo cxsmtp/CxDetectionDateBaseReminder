@@ -1362,7 +1362,7 @@
               <form class="cc-give" id="cc-give" data-perm="credits.allocate" hidden autocomplete="off">
                 <div class="cc-give-head">
                   <strong>Give credits</strong>
-                  <span class="hint" id="cc-give-note">Extra credits for one project, out of the credit pool. No findings need loading. To give exactly what a project's findings need, use the Dashboard.</span>
+                  <span class="hint" id="cc-give-note">Extra credits for one project, out of the credit pool. No findings need loading. To give exactly what findings need, use Allocate credits for triage and remediation below.</span>
                   <span class="hint" id="cc-give-free" hidden><span>Free to give</span> <b id="cc-give-free-n" translate="no"></b></span>
                 </div>
                 <label class="field cc-give-project">
@@ -1382,10 +1382,10 @@
                 <p class="hint cc-give-cost">1 credit triages one Checkmarx One result; remediating one confirmed finding takes 3.</p>
                 <p class="status" id="cc-give-status"></p>
               </form>
-              <div class="cc-spend" id="cc-spend" data-perm="triage.run" hidden>
+              <div class="cc-spend" id="cc-spend" data-perm="triage.run credits.allocate" hidden>
                 <div>
-                  <strong>Use the credits</strong>
-                  <span class="hint" id="cc-spend-note">Triage or remediate the ticked projects now; none ticked means every project. Their findings are read fresh from Checkmarx One.</span>
+                  <strong>Allocate and use credits</strong>
+                  <span class="hint" id="cc-spend-note">For the ticked projects; none ticked means every project. Their findings are read fresh from Checkmarx One.</span>
                 </div>
                 <div class="rp-options" role="group" aria-label="Severities">
                   <label class="check"><input type="checkbox" data-spend-sev="CRITICAL" checked /> Critical</label>
@@ -1393,9 +1393,15 @@
                   <label class="check"><input type="checkbox" data-spend-sev="MEDIUM" /> Medium</label>
                   <label class="check"><input type="checkbox" data-spend-sev="LOW" /> Low</label>
                 </div>
+                <div class="alloc-extra" data-perm="credits.allocate">
+                  <span>Extra credits each</span>
+                  <label class="inline">Triage <input type="number" id="cc-spend-extra-triage" min="0" max="100000" value="0" class="small-num" aria-label="Extra triage credits" /></label>
+                  <label class="inline">Remediation <input type="number" id="cc-spend-extra-remediation" min="0" max="100000" step="3" value="0" class="small-num" aria-label="Extra remediation credits" /></label>
+                </div>
                 <div class="actions compact">
-                  <button type="button" class="primary" id="cc-run-triage">Triage with AI Assist now</button>
-                  <button type="button" class="primary" id="cc-run-remediation">Remediate with AI Assist now</button>
+                  <button type="button" id="cc-allocate" data-perm="credits.allocate">Allocate credits for triage and remediation</button>
+                  <button type="button" class="primary" id="cc-run-triage" data-perm="triage.run">Triage with AI Assist now</button>
+                  <button type="button" class="primary" id="cc-run-remediation" data-perm="triage.run">Remediate with AI Assist now</button>
                 </div>
                 <p class="hint" id="cc-spend-left"></p>
                 <p class="status" id="cc-spend-status"></p>

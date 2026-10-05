@@ -806,7 +806,7 @@ Save a scope from the Dashboard (**Save as tracked report**) and follow it over 
 | --- | --- |
 | **Overview** | The % actioned with the outcome bar and counts; open, new, matching now, credits used; the **trend** of open findings (hover for each reading); and a by-project table, most open first. |
 | **Remind** | Who gets it follows **who gets reminders everywhere** (Dashboard → Remind → Send to); **Only for this report…** gives this report its own choice (developers, fixed list, both, or only some addresses). The content (one summary per person, or one email per project), and whether to attach the interactive report. **Preview**, then **Send reminder now**. The sends so far are listed. Below, **Automatic follow-up**: reminders every N days at a set hour (the server's time zone), only while something is still open, with the same options; it shows the next and last send. **Save schedule**. |
-| **Triage** | **Triage with AI Assist now** runs AI Triage on the chosen severities' findings still awaiting triage; **Remediate with AI Assist now** runs AI Remediation on those AI Triage confirmed (3 credits each). The line above them says what each needs and what the projects have left. Each button turns gold once the credits cover it. **Give credits on the Dashboard** opens the Dashboard's AI credits panel with this report's projects in scope and loads their findings. |
+| **Triage** | **Triage with AI Assist now** runs AI Triage on the chosen severities' findings still awaiting triage; **Remediate with AI Assist now** runs AI Remediation on those AI Triage confirmed (3 credits each). The line above them says what each needs and what the projects have left. Each button turns gold once the credits cover it. **Allocate credits for triage and remediation** (for **credits.allocate**) gives this report's projects, out of the credit pool, what the ticked severities need (counted twice with Checkmarx One first), plus any **Extra credits** entered for triage or remediation; it asks first, and each change is in the audit log. |
 | **Verify** | Prove the fixes with a Checkmarx One rescan, then start the next round (below). |
 | **History** | Every reading: awaiting, confirmed, not exploitable, no longer detected, new, matching now. |
 
@@ -855,8 +855,8 @@ How the credit pool is being used, in three tabs. Everyone with **credits.view**
 | **Overview** → Credits used over time | Columns per day / week / month: triage at the base, remediation on top. Hover for numbers. **Show as a table** gives exact figures. |
 | **By project** | Each project's triage and remediation credits in the period, with its share. |
 | **Allocated vs used** | Per project, all time. |
-| **Give credits** (Allocated vs used, for **credits.allocate**) | Type a project name (every Checkmarx One project is listed, not only those that already hold credits), enter AI Triage and AI Remediation credits, then **Give credits** and confirm. No findings need loading. The credits are extra credits, out of the credit pool, and the bar shows how many are free to give. **Give** on a row fills in that project. Each gift is in the audit log. To give exactly what a project's findings need, use the Dashboard, which checks the count with Checkmarx One first. |
-| **Use the credits** (Allocated vs used, for **triage.run**) | **Triage with AI Assist now** and **Remediate with AI Assist now** for the projects ticked in the table (none ticked: every project holding credits), at the ticked severities. Their findings are read fresh from Checkmarx One, so nothing needs loading. A button turns gold when the projects hold credits to use: at least 1 for triage, 3 for remediation. Each run is in the audit log as started from Credit Control. |
+| **Give credits** (Allocated vs used, for **credits.allocate**) | Type a project name (every Checkmarx One project is listed, not only those that already hold credits), enter AI Triage and AI Remediation credits, then **Give credits** and confirm. No findings need loading. The credits are extra credits, out of the credit pool, and the bar shows how many are free to give. **Give** on a row fills in that project. Each gift is in the audit log. To give exactly what findings need, use **Allocate credits for triage and remediation** in the bar below. |
+| **Allocate and use credits** (Allocated vs used, for **credits.allocate** or **triage.run**) | Works on the projects ticked in the table (none ticked: every project holding credits), at the ticked severities. **Allocate credits for triage and remediation** gives them what those severities need (counted twice with Checkmarx One first), plus any **Extra credits each** for triage or remediation. **Triage with AI Assist now** and **Remediate with AI Assist now** use the credits. Their findings are read fresh from Checkmarx One, so nothing needs loading. A button turns gold when the projects hold credits to use: at least 1 for triage, 3 for remediation. Each run is in the audit log as started from Credit Control. |
 | **Take credits back** (Allocated vs used, for **credits.allocate**) | **Take back all unused credits** is the clean slate: every project's unused credits go back to the pool at once, with no findings loaded. **Take back** on a row does it for one project. Used credits stay counted, and each take-back is in the audit log. Developers cannot triage or remediate from their reports until credits are given again. |
 | **Export CSV** | Everything above, for the chosen period. |
 | **Pool & AI settings** | Opens Settings → AI & credit pool, to change the pool size and what reports may do (Admin). |
@@ -993,7 +993,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.50** | 510/s, 0 failed (main 506, 10 failed) | 5.9 s | 341 ms | 525 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.51** | 480/s, 0 failed (main 514, 0 failed) | 9.4 s | 951 ms | 526 pass | 0 vulnerabilities | Scan 82d48cec of MZ-01.00.50: 6 critical, 20 high, 17 medium, 19 low, being triaged |
+| MZ-01.00.50 | 510/s, 0 failed (main 506, 10 failed) | 5.9 s | 341 ms | 525 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
 | MZ-01.00.49 | 498/s, 0 failed (main 469, 206 failed) | 8.3 s | 1.1 s | 521 pass | 0 vulnerabilities | same |
 | MZ-01.00.48 | 498/s, 7 failed (main 489, 44 failed) | 8.2 s | 880 ms | 519 pass | 0 vulnerabilities | same |
 | MZ-01.00.47 | 519/s, 0 failed (main 504) | 5.3 s | 310 ms | 506 pass | 0 vulnerabilities | same |
@@ -1044,10 +1045,17 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 1. Credit Control → **Allocated vs used** → **Give credits**.
 2. Type the project's name, enter the AI Triage and AI Remediation credits, then **Give credits** and confirm.
 
+**Allocate exactly what the findings need, from wherever you are** (administrators)
+- Dashboard: load findings, tick the projects, then the AI credits panel's **Give credits**.
+- Reports: open the report → **Triage** tab → tick the severities (and any **Extra credits**) → **Allocate credits for triage and remediation**.
+- Credit Control → **Allocated vs used**: tick the projects and severities → **Allocate credits for triage and remediation**.
+
+Each one counts what is needed twice with Checkmarx One first, asks before giving anything, and stops if the credit pool is short.
+
 **Use credits already given, from wherever you are**
 - Dashboard: tick the projects and severities, then **Triage with AI Assist now** or **Remediate with AI Assist now**.
 - Reports: open the report → **Triage** tab → **Triage with AI Assist now** or **Remediate with AI Assist now**.
-- Credit Control → **Allocated vs used**: tick the projects → **Use the credits** → **Triage with AI Assist now** or **Remediate with AI Assist now**.
+- Credit Control → **Allocated vs used**: tick the projects → **Allocate and use credits** → **Triage with AI Assist now** or **Remediate with AI Assist now**.
 
 The buttons turn gold once the credits cover the work. Credits given, taken back or used in one place show on the Dashboard straight away; Reports and Credit Control show them whenever you open them.
 
