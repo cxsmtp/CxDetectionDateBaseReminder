@@ -33,7 +33,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.46 — MERGE_TIME UTC · [#PR](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PR)
+## MZ-01.00.46 — 2026-10-05 09:02 UTC · [#69](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/69)
 - **Give credits on Credit Control too.** **Allocated vs used** has a **Give credits** bar for anyone allowed to allocate credits:
   - type a project's name (every Checkmarx One project is listed, not only those that already hold credits);
   - enter AI Triage and AI Remediation credits, then confirm.
