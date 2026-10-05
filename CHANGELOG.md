@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.43 | 511/s, 0 | 5.7 s | 224 ms | 461 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.44 | 520/s, 0 | 7.1 s | 384 ms | 461 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.43 | 511/s, 0 | 5.7 s | 224 ms | 461 | 0 | same |
 | MZ-01.00.42 | — (page only) | — | — | 455 | 0 | same |
 | MZ-01.00.41 | 519/s, 0 | 0.9 s | 171 ms | 455 | 0 | same |
 | MZ-01.00.40 | 516/s, 0 | 5.9 s | 183 ms | 445 | 0 | same |
@@ -29,6 +30,13 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.44 — 2026-10-05 HH:MM UTC · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+- **Hide the menu.** **Hide menu** (bottom of the sidebar) turns it into a slim bar of icons. Point at it and the full menu opens over the page without moving anything; **Keep menu open** brings it back. The choice is remembered, and the menu is also narrower when kept open.
+- **The Dashboard's top stays in view.** What to load, **Load findings**, the totals and the way to Mission Zero now form one compact block. It takes about a fifth of a 1080p screen (under a third of a laptop's) and stays at the top while you scroll, so the scope and **Load findings** are always at hand.
+- **One scroll bar.** The projects table no longer scrolls inside its own box. The page scrolls, and the table's header row and the action panel stay in view under the top block.
+- **Leaner header and totals.** Each page's title and subtitle share one line, and the totals are one-line chips ("18 Projects", "36 Past SLA").
+- **Status.** The server is unchanged; 520 requests a second with 3000 people at once and 0 failed (main 502). Report opens take 7.1 s and triage polls 384 ms at p95 (main 6.4 s and 355 ms on the same slower machine). 461 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.43 — 2026-10-05 02:41 UTC · [#66](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/66)
 - **Azure DevOps takes the organisation in any form.** You can enter its name (`checkmarxdemo`), `https://dev.azure.com/checkmarxdemo`, a project or repository page you copied from the browser, or the older `checkmarxdemo.visualstudio.com`. All are stored as `https://dev.azure.com/checkmarxdemo`. A project page used to make every request fail with "not found", and addresses saved that way now work without being entered again.
