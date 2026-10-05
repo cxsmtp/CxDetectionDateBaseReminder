@@ -17,7 +17,8 @@ What each release was measured at, and what was known about its security when it
 
 | Version | Merged (UTC) | Sustained: requests / failed | Requests/s | Report opens p50 / p95 | Triage polls p50 / p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.51** | 2026-10-05 18:41 | 61,999 / **0** | 480 | 106 / 9,404 ms | 26 / 951 ms | 526 | 0 vulnerabilities | New scan 82d48cec of MZ-01.00.50 (main, e97f2c1): 6 critical, 20 high, 17 medium, 19 low, being triaged (see below). A second pair on a stalling host had failures on both sides (main 56, branch 31) ([performance](performance.md)) |
+| **MZ-01.00.52** | 2026-10-05 19:14 | 62,903 / 2 | 504 | 78 / 7,488 ms | 14 / 483 ms | 526 | 0 vulnerabilities | Rescan 27982f85 of this branch: 1 critical, 20 high, 14 medium, 18 low, down from 62. The 12 results closed in code are gone; 2 are marked not exploitable; the rest are judged not exploitable (see below). The 2 failed requests came during a host stall, on routes this release does not change ([performance](performance.md)) |
+| MZ-01.00.51 | 2026-10-05 18:41 | 61,999 / **0** | 480 | 106 / 9,404 ms | 26 / 951 ms | 526 | 0 vulnerabilities | New scan 82d48cec of MZ-01.00.50 (main, e97f2c1): 6 critical, 20 high, 17 medium, 19 low, being triaged (see below). A second pair on a stalling host had failures on both sides (main 56, branch 31) ([performance](performance.md)) |
 | MZ-01.00.50 | 2026-10-05 17:30 | 63,299 / **0** | 510 | 60 / 5,886 ms | 15 / 341 ms | 525 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below). A first pair had 29 failed on the branch while the host stalled; the second pair had 0 on the branch and 10 on main ([performance](performance.md)) |
 | MZ-01.00.49 | 2026-10-05 16:13 | 62,106 / **0** | 498 | 82 / 8,302 ms | 19 / 1,101 ms | 521 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below). Main failed 206 in the same pair while its host stalled (health checks up to 18 s) ([performance](performance.md)) |
 | MZ-01.00.48 | 2026-10-05 15:30 | 62,456 / 7 | 498 | 76 / 8,185 ms | 28 / 880 ms | 519 | 0 vulnerabilities | No new scan. Open: 15 low from 617100eb, judged false positives (see below). The 7 failed were connect timeouts; main failed 44 in the same pair. A first build was slower on Node 22 and was fixed before release ([performance](performance.md)) |
@@ -59,7 +60,18 @@ Rows for MZ-01.00.25 to .30 are the run on main listed in [the version table](pe
 
 ## What is open now
 
-**Scan 82d48cec** (MZ-01.00.50, main at e97f2c1, every engine) has 62 results: 6 critical, 20 high, 17 medium and 19 low. Most are new because the scan covers code added since MZ-01.00.26: tests, the load-test mock, Let's Encrypt, updates and backups. Each one is being checked against the code. Real weaknesses are fixed in the next release; those that are not exploitable are listed here with the reason before anyone marks them so in Checkmarx One. The next release's row gives the result of a rescan.
+**Scan 82d48cec** (MZ-01.00.50, every engine) had 62 results: 6 critical, 20 high, 17 medium, 19 low. Each was checked against the code, and none was found exploitable in what the server runs.
+
+- **Closed in code in MZ-01.00.52 (12):**
+  - Test passwords, the backup passphrase and mock API keys are now made fresh on every run (`test/test-credentials.js`), and the fake key is no longer an unsigned `alg: none` token.
+  - A test's credentialed clone URL is now built in code.
+  - Temporary report file names come from `crypto.randomBytes`.
+  - The Caddy container drops every capability except binding ports 80 and 443, sets `no-new-privileges`, and has a health check.
+- **Rescan 27982f85** of MZ-01.00.52 has 53 results: 1 critical, 20 high, 14 medium, 18 low. All are judged not exploitable, each with a reason citing the code:
+  - **48 SAST results:** SSRF to addresses an Admin or the operator configures, the load-test mock and generator (not in the image), secrets that must be readable to work (files at 0600), error messages that name no secret, escaped template output, and similar. They are to be set to Not exploitable in Checkmarx One by hand: the API key the CxMCP server uses cannot change SAST result states.
+  - **2 secret-detection results:** the old placeholder URL, which is now only in git history.
+  - **3 KICS results on Caddy:** ports 80 and 443 must be published for a public HTTPS proxy, and `NET_BIND_SERVICE` is the one capability Caddy needs to bind them.
+  - **Already marked:** 2 KICS results on Caddy's ports, set to Not exploitable from scan 82d48cec.
 
 Still open from scan 617100eb, 15 low-severity SAST findings, each reviewed and judged a false positive or by design:
 

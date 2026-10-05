@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { freePort } from './free-port.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD } from './test-credentials.js';
 
 const PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -35,7 +36,7 @@ test.before(async () => {
   let log = '';
   const server = spawn(process.execPath, ['src/server.js'], {
     // The test key is trusted only under `node --test` (NODE_TEST_CONTEXT, passed on from this runner).
-    env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1', HTTPS: 'off', DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'act-')), ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', MZ_ACTIVATION_TEST_KEY: publicKey },
+    env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1', HTTPS: 'off', DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'act-')), ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, MZ_ACTIVATION_TEST_KEY: publicKey },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stdout.on('data', (d) => (log += d));
@@ -46,8 +47,8 @@ test.before(async () => {
     if (Date.now() > end) throw new Error(log);
     await sleep(100);
   }
-  await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: 'temporary password 1' });
-  await admin('POST', '/api/me/password', { current: 'temporary password 1', next: 'correct horse battery' });
+  await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD });
+  await admin('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD });
 });
 test.after(() => {
   for (const child of children) child.kill();

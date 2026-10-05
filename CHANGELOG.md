@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.52 | 504/s, 2 (main 518, 0) | 7.5 s | 483 ms | 526 | 0 vulnerabilities | Rescan 27982f85 (MZ-01.00.52): 1 critical, 20 high, 14 medium, 18 low, all judged not exploitable; 12 closed in code (see [status](docs/status.md)) |
 | MZ-01.00.51 | 480/s, 0 (main 514, 0) | 9.4 s | 951 ms | 526 | 0 vulnerabilities | Scan 82d48cec of MZ-01.00.50: 6 critical, 20 high, 17 medium, 19 low, being triaged (see [status](docs/status.md)) |
 | MZ-01.00.50 | 510/s, 0 (main 506, 10) | 5.9 s | 341 ms | 525 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
 | MZ-01.00.49 | 498/s, 0 (main 469, 206) | 8.3 s | 1.1 s | 521 | 0 | same |
@@ -37,6 +38,13 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.52 — 2026-10-05 19:14 UTC · [#75](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/75)
+- **No credentials written in the tests.** Test servers' passwords, the backup passphrase and the stand-in Checkmarx One keys are made fresh on every run, so the code no longer holds anything a scanner reads as a hard-coded secret. That removes all 5 critical results of the last scan.
+- **Random temporary names.** Report files are written under a temporary name drawn from a cryptographic random source before they replace the old file.
+- **Caddy runs with the fewest privileges.** The Caddy service in `deploy/caddy` drops every Linux capability except binding ports 80 and 443, cannot gain new privileges, and reports its health. The manual Podman line in the docs does the same.
+- **The security status, result by result.** Every result of the Checkmarx One scan of MZ-01.00.50 was checked against the code. 12 are closed in code, and the rest are listed in [status](docs/status.md) with why each is not exploitable.
+- **Status.** The branch served 504 requests a second with 2 failed (main 518, 0 failed). Report opens took 7.5 s and triage polls 483 ms at p95, faster than main's 7.6 s and 600 ms. The 2 failures came during a host stall, on routes this release does not touch ([performance](docs/performance.md)). No finding was sent twice. 526 tests pass; `npm audit` finds 0 vulnerabilities. The rescan of this release (27982f85) has 53 results, down from 62 and with 1 critical instead of 6, all judged not exploitable.
 
 ## MZ-01.00.51 — 2026-10-05 18:41 UTC · [#74](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/74)
 - **Pages scroll again after leaving an open report.** An open tracked report locks the page behind it, and that lock used to stay on when you left the report for another page, such as the Dashboard. Now each page's panel locks only its own page.

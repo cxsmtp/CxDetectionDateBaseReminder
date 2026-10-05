@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { freePort } from './free-port.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
 
 const MOCK_PORT = await freePort();
 const PORT = await freePort();
@@ -17,10 +18,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
 const RESCAN_MS = 1200;
 const FLIP_MS = 400;
-const KEY = (() => {
-  const e = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  return `${e({ alg: 'none' })}.${e({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' })}.sig`;
-})();
+const KEY = mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' });
 const children = [];
 let log = '';
 let cookie = '';
@@ -54,7 +52,7 @@ test.before(async () => {
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
       CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme',
-      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1',
+      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD,
       // A developer's window is 24 hours at least: here an "hour" lasts 50 ms, so 24 hours pass in 1.2 s.
       VERIFY_HOUR_MS: '50', REPORT_SERVER_URL: BASE,
     },
@@ -68,8 +66,8 @@ test.before(async () => {
     if (Date.now() > end) throw new Error(log);
     await sleep(100);
   }
-  await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: 'temporary password 1' });
-  await admin('POST', '/api/me/password', { current: 'temporary password 1', next: 'correct horse battery' });
+  await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD });
+  await admin('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD });
   const fetched = await admin('GET', '/api/scan');
   assert.equal(fetched.status, 200, JSON.stringify(fetched.body) + log.slice(-800));
 });

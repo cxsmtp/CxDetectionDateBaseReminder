@@ -13,15 +13,13 @@ import path from 'node:path';
 
 import { freePort } from './free-port.js';
 import { decodeMessage, fakeSmtp } from './fake-smtp.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
 
 const MOCK_PORT = await freePort();
 const PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
-const KEY = (() => {
-  const e = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  return `${e({ alg: 'none' })}.${e({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' })}.sig`;
-})();
+const KEY = mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' });
 const OWNERS = { 'dev0@acme.com': ['Project 0', 'Project 2'], 'dev1@acme.com': ['Project 1', 'Project 3'] };
 const ALL = ['Project 0', 'Project 1', 'Project 2', 'Project 3'];
 const children = [];
@@ -81,7 +79,7 @@ test.before(async () => {
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
       CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', REPORT_SIGNING_KEY: 'scope-test',
-      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', SMTP_HOST: '', SMTP_USER: '', SMTP_PASS: '',
+      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, SMTP_HOST: '', SMTP_USER: '', SMTP_PASS: '',
       REPORT_SERVER_URL: 'https://mz.acme.io',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -94,8 +92,8 @@ test.before(async () => {
     if (Date.now() > end) throw new Error(log);
     await sleep(100);
   }
-  await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: 'temporary password 1' });
-  await admin('POST', '/api/me/password', { current: 'temporary password 1', next: 'correct horse battery' });
+  await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD });
+  await admin('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD });
   await admin('PUT', '/api/settings', {
     smtp: { host: '127.0.0.1', port: smtp.port, secure: false, requireAuth: false, rejectUnauthorized: false, fromAddress: 'mz@acme.io' },
     // A Cc on the list: never copied on initiators' emails unless "copy the configured Cc/Bcc" is on.

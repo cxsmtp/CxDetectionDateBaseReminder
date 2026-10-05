@@ -5,9 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { DEFAULT_ROLES, IamStore, PERMISSION_IDS } from '../src/iam.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD } from './test-credentials.js';
 
 const file = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'iam-')), 'iam.json');
-const PW = 'correct horse battery';
+const PW = NEXT_PASSWORD;
 
 async function seeded() {
   const iam = new IamStore({ file: file() });
@@ -100,7 +101,7 @@ test('weak passwords are refused, and an administrator reset forces a change at 
   const { iam, admin, user, as } = await seeded();
   await assert.rejects(iam.setPassword(user.id, 'short'), { status: 400 });
   await assert.rejects(iam.setPassword(user.id, 'aaaaaaaaaaaaaaaa'), { status: 400 });
-  const reset = await iam.setPassword(user.id, 'temporary password 1', { mustChange: true, actorPerms: as(admin).actorPerms });
+  const reset = await iam.setPassword(user.id, FIRST_PASSWORD, { mustChange: true, actorPerms: as(admin).actorPerms });
   assert.equal(reset.mustChangePassword, true);
 });
 
@@ -109,7 +110,7 @@ test('role ids are only ever the roles themselves: "constructor" and "__proto__"
   const store = new IamStore({ file: path.join(dir, 'iam.json') });
   for (const id of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
     assert.equal(store.role(id), null, id);
-    await assert.rejects(store.createUser({ email: `x-${id.replace(/_/g, '')}@acme.io`, role: id, password: 'correct horse battery' }), /role does not exist/, id);
+    await assert.rejects(store.createUser({ email: `x-${id.replace(/_/g, '')}@acme.io`, role: id, password: NEXT_PASSWORD }), /role does not exist/, id);
     assert.throws(() => store.deleteRole(id, { actorPerms: new Set(PERMISSION_IDS) }), /No such role/, id);
     assert.throws(() => store.saveRole(id, { name: 'x', permissions: [] }, { actorPerms: new Set(PERMISSION_IDS) }), /No such role/, id);
   }

@@ -17,6 +17,7 @@ import tls from 'node:tls';
 import { freePort } from './free-port.js';
 import { DEFAULT_ROLES } from '../src/iam.js';
 import { makeCertificate } from '../src/tls.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD } from './test-credentials.js';
 
 const children = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -63,7 +64,7 @@ function start(env) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'https-settings-'));
   let log = '';
   const child = spawn(process.execPath, ['src/server.js'], {
-    env: { ...process.env, HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', REPORT_SIGNING_KEY: 'https-settings', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', REPORT_SERVER_URL: '', TLS_CERT_FILE: '', TLS_KEY_FILE: '', TLS_PFX_FILE: '', TLS_SELF_SIGNED: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', ...env },
+    env: { ...process.env, HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', REPORT_SIGNING_KEY: 'https-settings', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', REPORT_SERVER_URL: '', TLS_CERT_FILE: '', TLS_KEY_FILE: '', TLS_PFX_FILE: '', TLS_SELF_SIGNED: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.stdout.on('data', (d) => (log += d));
@@ -115,9 +116,9 @@ test('an Admin moves a running server from http to HTTPS from the Settings page,
     if (set) cookie = String(set).split(';')[0];
     return res;
   };
-  const first = await as(HTTP, 'POST', '/api/session/password', { email: 'admin@acme.io', password: 'temporary password 1' });
+  const first = await as(HTTP, 'POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD });
   assert.ok(first.status < 300, `${first.status} ${first.text} ${server.log()}`);
-  assert.equal((await as(HTTP, 'POST', '/api/me/password', { current: 'temporary password 1', next: 'correct horse battery' })).status, 200);
+  assert.equal((await as(HTTP, 'POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD })).status, 200);
   assert.equal((await call(`${HTTP}/api/https`)).status, 401, 'signed-in Admins only');
   assert.ok(!DEFAULT_ROLES.analyst.permissions.includes('security.https'), 'an Admin-only permission');
 

@@ -14,6 +14,7 @@ import zlib from 'node:zlib';
 import { freePort } from './free-port.js';
 import { HANDOVER_FILE, SessionPersistence, sessionKey } from '../src/handover.js';
 import { InstanceLock, LOCK_FILE } from '../src/instance-lock.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -86,10 +87,7 @@ test('a server update keeps people signed in with their fetched data, and keeps 
   const PORT = await freePort();
   const BASE = `http://127.0.0.1:${PORT}`;
   const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
-  const KEY = (() => {
-    const e = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-    return `${e({ alg: 'none' })}.${e({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' })}.sig`;
-  })();
+  const KEY = mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' });
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'update-'));
   fs.writeFileSync(path.join(dataDir, 'settings.json'), JSON.stringify({ aiTriage: { enabled: true, remediationEnabled: true, monthlyCreditLimit: 0 } }));
   const mock = spawn(process.execPath, ['loadtest/mock-cxone.mjs'], { env: { ...process.env, PORT: String(MOCK_PORT), LAT: '1', PROJECTS: '3', RISKS: '4', INITIATORS: '2' }, stdio: 'ignore' });
@@ -103,7 +101,7 @@ test('a server update keeps people signed in with their fetched data, and keeps 
       env: {
         ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
         CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', REPORT_SIGNING_KEY: 'update-test',
-        ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', SMTP_HOST: '', INSTANCE_LOCK_STALE_SECONDS: '3', ...extra,
+        ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, SMTP_HOST: '', INSTANCE_LOCK_STALE_SECONDS: '3', ...extra,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -131,8 +129,8 @@ test('a server update keeps people signed in with their fetched data, and keeps 
 
   const v1 = start();
   await ready(v1);
-  await call('POST', '/api/session/password', { email: 'admin@acme.io', password: 'temporary password 1' });
-  await call('POST', '/api/me/password', { current: 'temporary password 1', next: 'correct horse battery' });
+  await call('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD });
+  await call('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD });
   const fetched = await call('GET', '/api/scan');
   assert.equal(fetched.status, 200);
   const allocated = await call('POST', '/api/credits/allocate', { projectIds: ['p0'], triageAdd: 5 });

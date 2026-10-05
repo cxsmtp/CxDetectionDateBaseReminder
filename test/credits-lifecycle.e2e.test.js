@@ -13,16 +13,14 @@ import path from 'node:path';
 
 import { ReportGrants } from '../src/report-grants.js';
 import { fakeSmtp } from './fake-smtp.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
 
 const MOCK_PORT = await freePort();
 const PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
 const FLIP_MS = 2500; // the mock's AI Triage takes this long to publish verdicts
-const KEY = (() => {
-  const e = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  return `${e({ alg: 'none' })}.${e({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' })}.sig`;
-})();
+const KEY = mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' });
 const grants = new ReportGrants({ secret: 'lifecycle-test' });
 const children = [];
 let log = '';
@@ -66,7 +64,7 @@ test.before(async () => {
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
       CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', REPORT_SIGNING_KEY: 'lifecycle-test',
-      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1',
+      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -78,8 +76,8 @@ test.before(async () => {
     if (Date.now() > end) throw new Error(log);
     await sleep(100);
   }
-  await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: 'temporary password 1' });
-  await admin('POST', '/api/me/password', { current: 'temporary password 1', next: 'correct horse battery' });
+  await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD });
+  await admin('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD });
   const settings = await admin('PUT', '/api/settings', { aiTriage: { enabled: true, remediationEnabled: true, allowRetriage: false, allowReremediation: false, monthlyCreditLimit: 0 } });
   assert.equal(settings.status, 200, JSON.stringify(settings.body));
 });

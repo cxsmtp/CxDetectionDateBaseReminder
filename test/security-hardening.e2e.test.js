@@ -11,10 +11,11 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { freePort } from './free-port.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const PORT = await freePort();
-const PW = 'correct horse battery';
+const PW = NEXT_PASSWORD;
 const ENV_TOKEN = 'ghp-env-secret';
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hardening-e2e-'));
 const children = [];
@@ -73,7 +74,7 @@ test.before(async () => {
     env: {
       ...process.env,
       PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', HTTPS: 'off', BACKUP_INTERVAL_HOURS: '0',
-      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1',
+      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD,
       SMTP_HOST: '', CX_API_KEY: '', REPORT_SERVER_URL: '', PUBLIC_URL: '', TRUST_PROXY: '',
       GITHUB_TOKEN: ENV_TOKEN, GITHUB_API_URL: '', GITLAB_TOKEN: '', AZURE_DEVOPS_TOKEN: '', BITBUCKET_TOKEN: '',
     },
@@ -85,13 +86,13 @@ test.before(async () => {
   for (let i = 0; i < 150 && !(/running on/.test(log) && /First administrator/.test(log)); i++) await sleep(100);
 
   as.admin = browser();
-  assert.equal((await as.admin('POST', '/api/session/password', { email: 'admin@acme.io', password: 'temporary password 1' })).status, 201, log);
-  assert.equal((await as.admin('POST', '/api/me/password', { current: 'temporary password 1', next: PW })).status, 200);
+  assert.equal((await as.admin('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD })).status, 201, log);
+  assert.equal((await as.admin('POST', '/api/me/password', { current: FIRST_PASSWORD, next: PW })).status, 200);
   for (const [name, email, role] of [['analyst', 'ana@acme.io', 'analyst'], ['user', 'uma@acme.io', 'user']]) {
-    assert.equal((await as.admin('POST', '/api/iam/users', { email, role, password: 'temporary password 1' })).status, 201);
+    assert.equal((await as.admin('POST', '/api/iam/users', { email, role, password: FIRST_PASSWORD })).status, 201);
     as[name] = browser();
-    assert.equal((await as[name]('POST', '/api/session/password', { email, password: 'temporary password 1' })).status, 201);
-    assert.equal((await as[name]('POST', '/api/me/password', { current: 'temporary password 1', next: PW })).status, 200);
+    assert.equal((await as[name]('POST', '/api/session/password', { email, password: FIRST_PASSWORD })).status, 201);
+    assert.equal((await as[name]('POST', '/api/me/password', { current: FIRST_PASSWORD, next: PW })).status, 200);
   }
 });
 
@@ -183,8 +184,7 @@ test('bad report filters are a 400, a malformed cookie is a 401: neither is a se
 });
 
 test('the stored Checkmarx One key is dropped when its endpoints move to another host', async () => {
-  const e = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  const key = `${e({ alg: 'none' })}.${e({ iss: 'http://127.0.0.1:9/auth/realms/acme' })}.sig`;
+  const key = mockApiKey({ iss: 'http://127.0.0.1:9/auth/realms/acme' });
   let status = await as.admin('PUT', '/api/integration/cxone/draft', { apiKey: key });
   assert.equal(status.body.keyStored, true);
   status = await as.admin('PUT', '/api/integration/cxone/draft', { tenant: 'acme' });

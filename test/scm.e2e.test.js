@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { freePort } from './free-port.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD } from './test-credentials.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -45,7 +46,7 @@ test('GitLab on the Beta page: save, test, compare methods, keep matches', async
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scm-e2e-'));
   let log = '';
   const server = spawn(process.execPath, ['src/server.js'], {
-    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', HTTPS: 'off', BACKUP_INTERVAL_HOURS: '0', SMTP_HOST: '', CX_API_KEY: '', GITHUB_TOKEN: '', GITLAB_TOKEN: 'glpat-test', GITLAB_URL: `http://127.0.0.1:${glPort}`, ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1' },
+    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', HTTPS: 'off', BACKUP_INTERVAL_HOURS: '0', SMTP_HOST: '', CX_API_KEY: '', GITHUB_TOKEN: '', GITLAB_TOKEN: 'glpat-test', GITLAB_URL: `http://127.0.0.1:${glPort}`, ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stdout.on('data', (d) => (log += d));
@@ -61,8 +62,8 @@ test('GitLab on the Beta page: save, test, compare methods, keep matches', async
     if (set) cookie = set.split(';')[0];
     return { status: res.status, json: await res.json().catch(() => null) };
   };
-  await call('POST', '/api/session/password', { email: 'admin@acme.io', password: 'temporary password 1' });
-  await call('POST', '/api/me/password', { current: 'temporary password 1', next: 'correct horse battery' });
+  await call('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD });
+  await call('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD });
 
   const check = await call('POST', '/api/beta/scm/check', { provider: 'gitlab' });
   assert.deepEqual(check.json.gitlab, { ok: true, who: 'svc-mz' });

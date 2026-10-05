@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { freePort } from './free-port.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD } from './test-credentials.js';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const OWN = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
@@ -90,15 +91,15 @@ test.before(async () => {
     cwd: ROOT,
     env: {
       ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: temp('data'), ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
-      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', UPDATE_IMAGE: `127.0.0.1:${reg.address().port}/acme/mz`, UPDATE_START_TIMEOUT_SECONDS: '60',
+      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, UPDATE_IMAGE: `127.0.0.1:${reg.address().port}/acme/mz`, UPDATE_START_TIMEOUT_SECONDS: '60',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   launcher.stdout.on('data', (d) => (log += d));
   launcher.stderr.on('data', (d) => (log += d));
   await waitFor(OWN);
-  await call('POST', '/api/session/password', { email: 'admin@acme.io', password: 'temporary password 1' });
-  await call('POST', '/api/me/password', { current: 'temporary password 1', next: 'correct horse battery' });
+  await call('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD });
+  await call('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD });
 });
 
 test.after(async () => {

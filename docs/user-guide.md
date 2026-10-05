@@ -316,7 +316,7 @@ podman run --replace -d --name mission-zero --network mz-net -v mission-zero-dat
 ```
 
 ```
-podman run --replace -d --name mz-caddy --network mz-net -p 80:80 -p 443:443 -v caddy-data:/data docker.io/library/caddy:2 caddy reverse-proxy --from mz.company.com --to mission-zero:3000
+podman run --replace -d --name mz-caddy --network mz-net -p 80:80 -p 443:443 -v caddy-data:/data --cap-drop ALL --cap-add NET_BIND_SERVICE --security-opt no-new-privileges:true docker.io/library/caddy:2 caddy reverse-proxy --from mz.company.com --to mission-zero:3000
 ```
 
 Let's Encrypt checks that it really reaches your name on port 80, so the DNS name must point at this machine before you start. `podman logs mz-caddy` shows the certificate being obtained.
@@ -993,7 +993,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.51** | 480/s, 0 failed (main 514, 0 failed) | 9.4 s | 951 ms | 526 pass | 0 vulnerabilities | Scan 82d48cec of MZ-01.00.50: 6 critical, 20 high, 17 medium, 19 low, being triaged |
+| **MZ-01.00.52** | 504/s, 2 failed (main 518, 0 failed) | 7.5 s | 483 ms | 526 pass | 0 vulnerabilities | Rescan 27982f85 (MZ-01.00.52): 1 critical, 20 high, 14 medium, 18 low, all judged not exploitable; 12 closed in code |
+| MZ-01.00.51 | 480/s, 0 failed (main 514, 0 failed) | 9.4 s | 951 ms | 526 pass | 0 vulnerabilities | Scan 82d48cec of MZ-01.00.50: 6 critical, 20 high, 17 medium, 19 low, being triaged |
 | MZ-01.00.50 | 510/s, 0 failed (main 506, 10 failed) | 5.9 s | 341 ms | 525 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
 | MZ-01.00.49 | 498/s, 0 failed (main 469, 206 failed) | 8.3 s | 1.1 s | 521 pass | 0 vulnerabilities | same |
 | MZ-01.00.48 | 498/s, 7 failed (main 489, 44 failed) | 8.2 s | 880 ms | 519 pass | 0 vulnerabilities | same |

@@ -8,16 +8,14 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
 
 const MOCK_PORT = await freePort();
 const PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
-const key = (claims) => {
-  const e = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  return `${e({ alg: 'none' })}.${e({ iss: `${MOCK}/auth/realms/acme`, ...claims })}.sig`;
-};
-const PW = 'correct horse battery';
+const key = (claims) => mockApiKey({ iss: `${MOCK}/auth/realms/acme`, ...claims });
+const PW = NEXT_PASSWORD;
 const children = [];
 let log = '';
 
@@ -99,16 +97,16 @@ test('first start: nothing works until the first administrator is created with t
 
 test('the admin adds a Security Analyst and a User; both choose a new password at first sign-in', async () => {
   for (const [email, role] of [['ana@acme.io', 'analyst'], ['uma@acme.io', 'user']]) {
-    const r = await as.admin('POST', '/api/iam/users', { email, role, password: 'temporary password 1' });
+    const r = await as.admin('POST', '/api/iam/users', { email, role, password: FIRST_PASSWORD });
     assert.equal(r.status, 201, JSON.stringify(r.body));
   }
   for (const [name, email] of [['analyst', 'ana@acme.io'], ['user', 'uma@acme.io']]) {
     as[name] = browser();
-    const signIn = await as[name]('POST', '/api/session/password', { email, password: 'temporary password 1' });
+    const signIn = await as[name]('POST', '/api/session/password', { email, password: FIRST_PASSWORD });
     assert.equal(signIn.status, 201);
     assert.equal(signIn.body.user.mustChangePassword, true);
     assert.equal((await as[name]('GET', '/api/credits')).body.mustChangePassword, true);
-    const changed = await as[name]('POST', '/api/me/password', { current: 'temporary password 1', next: PW });
+    const changed = await as[name]('POST', '/api/me/password', { current: FIRST_PASSWORD, next: PW });
     assert.equal(changed.status, 200, JSON.stringify(changed.body));
   }
   const wrong = await browser()('POST', '/api/session/password', { email: 'ana@acme.io', password: 'nope nope nope' });
@@ -222,8 +220,7 @@ test('signing in with a Checkmarx One key needs a user mapped to that identity, 
   assert.equal(lookalike.status, 201, 'went to the trusted Checkmarx One, not port 9');
   assert.equal(lookalike.body.connection.iamUrl, MOCK);
   assert.equal(lookalike.body.connection.tenant, 'acme');
-  const e = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  const foreignIssuer = `${e({ alg: 'none' })}.${e({ iss: 'http://127.0.0.1:9/auth/realms/evil', email: 'carol@acme.io' })}.sig`;
+  const foreignIssuer = mockApiKey({ iss: 'http://127.0.0.1:9/auth/realms/evil', email: 'carol@acme.io' });
   const pinned = await browser()('POST', '/api/session', { apiKey: foreignIssuer });
   assert.equal(pinned.body.connection?.iamUrl, MOCK, 'the issuer inside the key is not trusted either');
 });

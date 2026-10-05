@@ -12,6 +12,7 @@ import tls from 'node:tls';
 
 import { freePort } from './free-port.js';
 import { startMockAcme } from './mock-acme.js';
+import { FIRST_PASSWORD } from './test-credentials.js';
 
 const children = [];
 let ca;
@@ -51,7 +52,7 @@ test('LETSENCRYPT_DOMAIN: certificate obtained at start, HTTPS only by itself, c
   const child = spawn(process.execPath, ['src/server.js'], {
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', HTTPS: '',
-      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1',
+      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD,
       LETSENCRYPT_DOMAIN: 'mz.example.com', LETSENCRYPT_EMAIL: 'appsec@example.com', ACME_DIRECTORY_URL: ca.url,
       // mz.example.com does not resolve here, so the server cannot reach itself by that name.
       LETSENCRYPT_SKIP_CHECK: '1',

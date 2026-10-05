@@ -11,6 +11,7 @@ import path from 'node:path';
 
 import { freePort } from './free-port.js';
 import { Terms } from '../src/terms.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD } from './test-credentials.js';
 
 const children = [];
 test.after(() => {
@@ -22,7 +23,7 @@ function start(env = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'terms-'));
   let log = '';
   const child = spawn(process.execPath, ['src/server.js'], {
-    env: { ...process.env, HOST: '127.0.0.1', DATA_DIR: dataDir, BACKUP_INTERVAL_HOURS: '0', REPORT_SIGNING_KEY: 'terms', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', HTTPS: 'off', ACCEPT_TERMS: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: 'temporary password 1', ...env },
+    env: { ...process.env, HOST: '127.0.0.1', DATA_DIR: dataDir, BACKUP_INTERVAL_HOURS: '0', REPORT_SIGNING_KEY: 'terms', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', HTTPS: 'off', ACCEPT_TERMS: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.stdout.on('data', (d) => (log += d));
@@ -62,8 +63,8 @@ test('nothing works until an Admin accepts the terms for the organisation, then 
   assert.equal(open.organisation, null);
 
   const admin = client(base);
-  assert.equal((await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: 'temporary password 1' })).status < 300, true);
-  assert.equal((await admin('POST', '/api/me/password', { current: 'temporary password 1', next: 'correct horse battery' })).status, 200);
+  assert.equal((await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD })).status < 300, true);
+  assert.equal((await admin('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD })).status, 200);
   const me = (await admin('GET', '/api/me')).json;
   assert.deepEqual(me.terms, { version: '1.0', organisationAccepted: false, accepted: false, canAcceptForOrganisation: true });
 
@@ -88,10 +89,10 @@ test('nothing works until an Admin accepts the terms for the organisation, then 
   assert.doesNotMatch(reportNow.error ?? '', /terms of use/, 'reports are no longer held back by the terms');
 
   // Another person accepts for themselves before using it.
-  assert.ok((await admin('POST', '/api/iam/users', { email: 'dev@acme.io', role: 'user', password: 'temporary password 1' })).status < 300);
+  assert.ok((await admin('POST', '/api/iam/users', { email: 'dev@acme.io', role: 'user', password: FIRST_PASSWORD })).status < 300);
   const dev = client(base);
-  await dev('POST', '/api/session/password', { email: 'dev@acme.io', password: 'temporary password 1' });
-  await dev('POST', '/api/me/password', { current: 'temporary password 1', next: 'another long passphrase' });
+  await dev('POST', '/api/session/password', { email: 'dev@acme.io', password: FIRST_PASSWORD });
+  await dev('POST', '/api/me/password', { current: FIRST_PASSWORD, next: 'another long passphrase' });
   const devMe = (await dev('GET', '/api/me')).json;
   assert.deepEqual(devMe.terms, { version: '1.0', organisationAccepted: true, accepted: false, canAcceptForOrganisation: false });
   assert.equal((await dev('GET', '/api/report-server')).json.termsRequired, true);

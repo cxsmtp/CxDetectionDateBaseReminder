@@ -8,6 +8,7 @@ import zlib from 'node:zlib';
 import { AuditLog } from '../src/audit-log.js';
 import { PENDING_RESTORE, applyPendingRestore, createBackup, describeBackup, listBackups, readBackup, restoreBackup, writeBackupTo } from '../src/backup.js';
 import { insideProject, migrateLegacyData, resolveDataDir, statePaths } from '../src/data-dir.js';
+import { PASSPHRASE } from './test-credentials.js';
 
 const tmpDir = (p = 'mz-') => fs.mkdtempSync(path.join(os.tmpdir(), p));
 
@@ -85,11 +86,11 @@ test('restoring over existing state moves it aside instead of deleting it', asyn
 test('encrypted backups need the passphrase; damaged or foreign files are refused', async () => {
   const source = tmpDir();
   await seed(source);
-  const { buffer } = createBackup({ dataDir: source, passphrase: 'correct horse' });
+  const { buffer } = createBackup({ dataDir: source, passphrase: PASSPHRASE });
   assert.ok(!buffer.includes(Buffer.from('mail.acme.io')));
   assert.throws(() => readBackup(buffer), /encrypted/);
   assert.throws(() => readBackup(buffer, { passphrase: 'wrong' }), /Wrong passphrase/);
-  assert.equal(describeBackup(readBackup(buffer, { passphrase: 'correct horse' })).hasSettings, true);
+  assert.equal(describeBackup(readBackup(buffer, { passphrase: PASSPHRASE })).hasSettings, true);
 
   assert.throws(() => readBackup(Buffer.from('hello')), /Not a CxMissionZero backup/);
   const plain = JSON.parse(zlib.gunzipSync(createBackup({ dataDir: source }).buffer));
