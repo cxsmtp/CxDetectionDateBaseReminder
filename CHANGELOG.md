@@ -8,7 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.49 | 498/s, 0 (main 469, 206) | 8.3 s | 1.1 s | TESTS | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.49 | 498/s, 0 (main 469, 206) | 8.3 s | 1.1 s | 521 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
 | MZ-01.00.48 | 498/s, 7 (main 489, 44) | 8.2 s | 880 ms | 519 | 0 | same |
 | MZ-01.00.47 | 519/s, 0 (main 504) | 5.3 s | 310 ms | 506 | 0 | same |
 | MZ-01.00.46 | 468/s, 44 (host stalls; main 177) | 10.1 s | 1.3 s | 479 | 0 | same |
@@ -42,7 +42,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **Use the credits on Credit Control.** Tick projects in **Allocated vs used** (or none, for every project) and the severities, then **Triage with AI Assist now** or **Remediate with AI Assist now**. Findings are read fresh from Checkmarx One, so nothing needs loading on the Dashboard. Each run is in the audit log as started from Credit Control.
 - **Credits in step everywhere.** Credits given, taken back or used on Reports or Credit Control show on the Dashboard straight away, without loading findings again; Reports and Credit Control show the latest whenever they are opened.
 - **The Reports panel in every language.** The tracked-report panel (Overview, Remind, Triage, Verify, History) and the portfolio strip had stayed in English. They are 111 entries, with this release's buttons, translated into all fourteen languages and reviewed twice ([languages](docs/languages.md)).
-- **Status.** In the benchmark pair, the branch served 498 requests a second with 0 failed, against main's 469 with 206 failed while its host stalled. Report opens took 8.3 s and triage polls 1.1 s at p95 (main 12.7 s and 1.6 s). No finding was sent twice. TESTS tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
+- **German and French labels fixed.** Five labels in each, such as the **Left** column of **Allocated vs used** and the **From** and **To** of date ranges, showed a stray prefix ("credits|Übrig"). They read cleanly now, and the translation check refuses that mistake from now on.
+- **Status.** In the benchmark pair, the branch served 498 requests a second with 0 failed, against main's 469 with 206 failed while its host stalled. Report opens took 8.3 s and triage polls 1.1 s at p95 (main 12.7 s and 1.6 s). No finding was sent twice. 521 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.48 — 2026-10-05 15:30 UTC · [#71](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/71)
 - **Several Checkmarx One tenants on one server.** With a tenants activation code, a Super Admin turns on **Settings → Tenants** and adds tenants, up to the number the code allows. Each tenant keeps its own Checkmarx One connection, email server, settings, credits, tracked reports, automation, audit log and people. People who work in several tenants switch between them at the top of the page. Without a code, nothing changes ([several tenants](docs/multi-tenant.md)).

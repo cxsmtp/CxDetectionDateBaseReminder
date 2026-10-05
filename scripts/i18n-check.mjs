@@ -65,6 +65,8 @@ export function problems(english, translation, lang) {
   const plain = words(english).replace(/<code>[^]*?<\/code>/g, ' ');
   if (SCRIPT[lang] && /\p{L}{3}/u.test(plain) && !KEEP.test(plain.trim()) && !SCRIPT[lang].test(text)) out.push('not translated (no text in the language’s script)');
   if (/\(s\)/.test(translation) && lang !== 'es') out.push('"(s)" left in');
+  // "credits|Left" is the key; the context before the bar is never part of the wording.
+  if (/^[a-z]+\|/.test(translation)) out.push('context prefix ("word|") left in');
   return out;
 }
 
