@@ -49,7 +49,9 @@ The coloured label next to each page title says which stage you are in.
 
 **Tabs instead of long pages.** Most pages have tabs at the top (for example Audit: *Credit audit log*, *Integrity & reconcile*, *State & backups*). The tab you last used opens next time. The address bar follows the tab, so `#/audit/backups` or `#/settings/smtp` opens that place directly.
 
-**Any screen.** The layout adapts to the screen: a full sidebar on a desktop, an icon rail on a tablet, a bottom bar on a phone, and wide screens use their full width.
+**Any screen.** The layout adapts to the screen: a full sidebar on a desktop, an icon rail on a tablet, a bottom bar on a phone, and wide screens use their full width. The header is one line: the page's name and what it is for.
+
+**Hide the menu.** **Hide menu** (bottom of the sidebar) turns the sidebar into a slim bar of icons, so the pages get the width. Point at the bar and the full menu opens **over** the page, without moving anything on it; it closes when the pointer leaves or you choose a page. **Keep menu open** (the same place) brings it back beside the page. Your choice is remembered in this browser.
 
 ---
 
@@ -538,7 +540,12 @@ Where findings are read from. The default is `/api/risks/`.
 - **What is next:** the stage to act on is highlighted, and the green line runs up to it. A stage turns green only when it, and every stage before it, is clear. **Verify** turns red when a report verified at zero has findings again.
 - **Hover** a stage for the detail. **Triage** and **Remediate** open **AI credits**; **Fix** and **Verify** open Reports.
 
-**How the page is laid out.** Scope and **Fetch** at the top, then the totals and the way to Mission Zero, then the projects. Everything you do with the projects is in the **action panel**, with four tabs:
+**How the page is laid out.** One compact block at the top, then the projects.
+- **The top block** holds what to load (both windows, **Narrow to projects or people**, **Load findings**), one line of totals and the way to Mission Zero. It takes about a fifth of a 1080p screen and under a third of a laptop's, and **stays in view** while you scroll: the scope and **Load findings** are always at hand.
+- **The projects scroll with the page.** There is one scroll bar: the table has none of its own, and its header row stays under the top block as you scroll. The action panel beside it stays in view too.
+- On a screen narrower than 1100 px, or less than 640 px tall, the top block scrolls away with the page instead.
+
+Everything you do with the projects is in the **action panel**, with four tabs:
 
 | Tab | What is in it |
 | --- | --- |

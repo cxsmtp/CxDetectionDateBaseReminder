@@ -2255,3 +2255,126 @@ label.button-like.sm { cursor: pointer; }
 .rp-own > summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 4px; }
 .rp-own[open] > summary { margin-bottom: 4px; }
 @media (max-width: 760px) { .ae-list li { grid-template-columns: 1fr; } }
+
+/* ==========================================================================
+   Layout, compact: a slimmer menu that can hide to a bar of icons, a one-line header, and a
+   Dashboard whose top (what to load, totals, Mission Zero) stays in view in about a quarter of
+   the screen while the projects use the rest and scroll with the page (one scroll bar).
+   Nothing beside the menu or above the table changes size on hover, so nothing jumps.
+   ========================================================================== */
+
+/* ---- Header: title and subtitle on one line ---- */
+@media (min-width: 761px) {
+  :root { --topbar-h: 52px; }
+  .topbar { padding-top: 6px; padding-bottom: 6px; }
+  .topbar-title { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  .topbar-title h1 { font-size: 18px; }
+  .topbar-title .title-row { flex: 0 1 auto; min-width: 0; }
+  .page-sub { flex: 1 1 0; min-width: 0; margin: 0; }
+}
+
+/* ---- Menu: narrower, tighter ---- */
+@media (min-width: 1101px) {
+  :root { --sidebar-w: 208px; }
+  .sidebar { padding: 14px 10px; gap: 10px; }
+  .brand { padding: 2px 6px; }
+  .nav-group { margin: 10px 12px 3px; }
+  .tab { padding: 7px 12px; }
+  .tab.active::before { left: -10px; }
+  .sidebar-foot { margin: auto 6px 28px; }
+}
+:root[data-sidebar="auto"] .sidebar-pin svg path:last-child { transform: rotate(180deg); transform-origin: 15px 12px; }
+@media (max-width: 1100px) {
+  .sidebar-pin { display: none; }
+}
+
+/* ---- Menu hidden to a bar of icons: it opens over the page when pointed at ---- */
+@media (min-width: 1101px) {
+  :root[data-sidebar="auto"] { --sidebar-w: 64px; }
+  :root[data-sidebar="auto"] .content { grid-column: 2; }
+  :root[data-sidebar="auto"] .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0; width: 64px; height: auto; z-index: 40;
+    overflow-x: hidden; transition: width 0.18s ease, box-shadow 0.18s ease;
+  }
+  :root[data-sidebar="auto"] .sidebar.open { width: 216px; box-shadow: 14px 0 36px rgba(15, 23, 42, 0.16); }
+  :root[data-sidebar="auto"] .sidebar .tab,
+  :root[data-sidebar="auto"] .sidebar .nav-group,
+  :root[data-sidebar="auto"] .sidebar .side-btn,
+  :root[data-sidebar="auto"] .sidebar .brand { white-space: nowrap; }
+  /* Closed: the words fade out; icons keep their place, so opening only reveals. */
+  :root[data-sidebar="auto"] .sidebar :is(.app-name, .tab span, .side-btn span, .sidebar-foot) { transition: opacity 0.15s ease; }
+  :root[data-sidebar="auto"] .sidebar:not(.open) :is(.app-name, .tab span, .side-btn span, .sidebar-foot) { opacity: 0; pointer-events: none; }
+  :root[data-sidebar="auto"] .sidebar .nav-group { transition: color 0.15s ease; }
+  :root[data-sidebar="auto"] .sidebar:not(.open) .nav-group { color: transparent; }
+  :root[data-sidebar="auto"] .sidebar:not(.open) .app-logo { max-width: 34px; object-position: left center; }
+  :root[data-sidebar="auto"] .app-version { transition: opacity 0.15s ease; }
+  :root[data-sidebar="auto"]:not(:has(.sidebar.open)) .app-version { opacity: 0; pointer-events: none; }
+}
+
+/* ---- Dashboard: the top block ---- */
+.dash-top { display: grid; gap: 8px; min-width: 0; }
+.dash-top .scope { padding: 10px 14px; }
+.dash-top .scope-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.dash-top .scope-field { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 0; border: 0; background: none; min-width: 0; }
+.dash-top .scope-label { display: inline; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.dash-top .scope-field select { width: auto; min-width: 136px; }
+.dash-top .scope-field .range { display: flex; gap: 6px; }
+.dash-top .scope-field .range label { display: flex; flex-direction: row; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+.dash-top .scope-field .range label span { margin: 0; }
+.dash-top .scope-row .hint:not(#fetch-meta) { display: none; }
+.dash-top .narrow-toggle { white-space: nowrap; font-size: 13px; }
+.dash-top .scope-row .fetch-box {
+  flex: 1 1 260px; display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  margin: 0 0 0 auto; padding: 0; border: 0; border-radius: 0; background: none; min-width: 0;
+}
+.dash-top #fetch-meta { order: 0; flex: 0 1 auto; min-width: 0; max-width: none; margin: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-top .fetch-fresh { order: 1; margin: 0; white-space: nowrap; }
+.dash-top .fetch-actions { order: 2; display: flex; gap: 8px; flex: none; }
+.dash-top .fetch-box #fetch { width: auto; min-width: 148px; }
+.dash-top .scope-pick { margin-top: 10px; }
+
+.dash-metrics { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; min-width: 0; }
+.dash-metrics > .kpis { flex: 1 1 auto; min-width: 0; display: flex; }
+/* Each total is one line, "18 Projects": the row stays one line on a laptop screen. */
+.dash-top .totals { display: flex; flex-wrap: wrap; align-content: center; gap: 6px; width: 100%; }
+.dash-top .totals > div { flex: 1 1 auto; display: flex; flex-direction: row; align-items: baseline; justify-content: center; gap: 6px; padding: 7px 12px; box-shadow: none; min-width: 0; white-space: nowrap; }
+.dash-top .totals .value { font-size: 16px; line-height: 1.2; }
+.dash-top .totals .label { font-size: 11.5px; }
+.dash-top .totals .sub { font-size: 11px; line-height: 1.2; }
+.dash-top .totals .sub::before { content: "· "; }
+.dash-metrics > .journey { flex: 1 1 520px; min-width: 0; margin: 0; padding: 5px 16px; gap: 16px; box-shadow: none; }
+.dash-top .jz { gap: 8px; padding-right: 14px; }
+.dash-top .jz-ring { width: 36px; height: 36px; }
+.dash-top .jz-pct { width: 36px; font-size: 10px; }
+.dash-top .jz-text b { font-size: 13px; }
+.dash-top .jz-text small { font-size: 11px; }
+.dash-top .jnode { gap: 2px; }
+.dash-top .jdot { min-width: 24px; height: 24px; padding: 0 7px; font-size: 11.5px; }
+.dash-top .jtrack::before, .dash-top .jtrack::after { top: 11px; left: 12px; }
+.dash-top .jtrack::before { right: 12px; }
+.dash-top .jtrack::after { width: calc((100% - 24px) * var(--jfill, 0)); }
+.dash-top .jlabel { font-size: 10px; }
+.dash-top .jstep.is-now .jdot { box-shadow: 0 0 0 3px var(--accent-soft); }
+.dash-top .jstep.is-alert .jdot { box-shadow: 0 0 0 3px var(--danger-soft); }
+
+/* Wide and tall enough: the top block stays in view, and the projects scroll with the page. */
+@media (min-width: 1101px) and (min-height: 640px) {
+  .dash-top {
+    position: sticky; top: var(--topbar-h); z-index: 12;
+    margin: -10px 0 0; padding: 10px 0 8px; background: var(--bg);
+    box-shadow: 0 10px 12px -12px rgba(15, 23, 42, 0.28);
+  }
+  .wb-main .table-wrap { max-height: none; overflow: visible; }
+  .wb-main #projects thead th { top: calc(var(--topbar-h) + var(--dash-top-h, 0px)); z-index: 4; }
+  .wb-main #projects thead th:first-child { border-top-left-radius: 11px; }
+  .wb-main #projects thead th:last-child { border-top-right-radius: 11px; }
+  .wb-rail {
+    top: calc(var(--topbar-h) + var(--dash-top-h, 0px) + 8px);
+    max-height: calc(100vh - var(--topbar-h) - var(--dash-top-h, 0px) - 16px);
+  }
+  .wb-rail .people-list { max-height: calc(100vh - var(--topbar-h) - var(--dash-top-h, 0px) - 300px); min-height: 160px; }
+}
+/* Before anything is loaded, the totals row takes no room. */
+.dash-metrics:not(:has(> :not([hidden]))) { display: none; }
+/* One scroll bar at every size: the projects table never scrolls on its own (only sideways on a narrow screen). */
+.wb-main .table-wrap { max-height: none !important; overscroll-behavior: auto; }

@@ -13,6 +13,8 @@
       try {
         const theme = localStorage.getItem('mz-theme');
         if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+        // The menu as it was left (kept open, or a slim bar of icons), also before first paint.
+        if (localStorage.getItem('mz-sidebar') === 'auto') document.documentElement.dataset.sidebar = 'auto';
       } catch {}
     </script>
     <link rel="stylesheet" href="styles.css" />
@@ -66,6 +68,10 @@
           </a>
         </nav>
         <div class="sidebar-tools" id="sidebar-tools" hidden>
+          <button type="button" id="sidebar-pin" class="side-btn sidebar-pin" aria-pressed="true" title="Hide the menu: it becomes a slim bar of icons and opens when you point at it">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M16 10l-2 2 2 2" /></svg>
+            <span id="sidebar-pin-label">Hide menu</span>
+          </button>
           <button type="button" id="app-refresh" class="side-btn" title="Start over: reload CxMissionZero and clear everything in progress on every page">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></svg>
             <span>Refresh</span>
@@ -211,43 +217,45 @@
           <div id="page-dashboard" class="page dash" hidden>
             <section class="panel gs" id="getting-started" aria-labelledby="gs-title" hidden></section>
 
+            <!-- The top of the Dashboard: what to load, the totals and the way to Mission Zero, in one
+                 compact block that stays in view while the projects below scroll with the page. -->
+            <div class="dash-top" id="dash-top">
             <section class="panel scope">
-              <div class="panel-head scope-head">
-                <div class="scope-title"><h2>What to load</h2><span class="hint" id="scope-summary"></span></div>
-                <button type="button" class="link narrow-toggle" id="narrow-toggle" aria-expanded="false" aria-controls="scope-pick">Only some projects or people</button>
-              </div>
               <div class="controls scope-row">
-                <fieldset>
-                  <legend>Projects last scanned in</legend>
+                <fieldset class="scope-field">
+                  <label class="scope-label" for="activity-preset">Projects last scanned in</label>
                   <select id="activity-preset"></select>
                   <div class="range" id="activity-range" hidden>
                     <label><span>From</span><input type="date" id="activity-from" /></label>
                     <label><span>To</span><input type="date" id="activity-to" /></label>
                   </div>
-                  <p class="hint" id="activity-hint">Projects not scanned in this time are skipped.</p>
+                  <p class="hint" id="activity-hint" hidden>Projects not scanned in this time are skipped.</p>
                 </fieldset>
 
-                <fieldset>
-                  <legend>Findings first found in</legend>
+                <fieldset class="scope-field">
+                  <label class="scope-label" for="detection-preset">Findings first found in</label>
                   <select id="detection-preset"></select>
                   <div class="range" id="detection-range" hidden>
                     <label><span>From</span><input type="date" id="detection-from" /></label>
                     <label><span>To</span><input type="date" id="detection-to" /></label>
                   </div>
-                  <p class="hint" id="detection-hint" data-advanced>Only findings first found in this time are loaded.</p>
+                  <p class="hint" id="detection-hint" hidden>Only findings first found in this time are loaded.</p>
                 </fieldset>
+
+                <button type="button" class="link narrow-toggle" id="narrow-toggle" aria-expanded="false" aria-controls="scope-pick">Only some projects or people</button>
+                <span class="hint scope-summary" id="scope-summary" hidden></span>
 
                 <fieldset class="grow fetch-box">
                   <legend class="sr-only">Fetch</legend>
+                  <p class="hint" id="fetch-meta"></p>
+                  <label class="check fetch-fresh" data-advanced title="Projects someone fetched in the last couple of minutes are normally reused when nothing was rescanned or triaged from here since. Tick to read every project from Checkmarx One again."><input type="checkbox" id="fetch-fresh" /> Fresh</label>
                   <div class="fetch-actions">
-                    <button id="fetch" class="primary big" data-perm="findings.fetch">Load findings</button>
-                    <button id="fetch-stop" type="button" class="big stop-btn" hidden title="Stop loading. Projects already loaded are kept, and you can work with them straight away.">
+                    <button id="fetch" class="primary" data-perm="findings.fetch">Load findings</button>
+                    <button id="fetch-stop" type="button" class="stop-btn" hidden title="Stop loading. Projects already loaded are kept, and you can work with them straight away.">
                       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
                       <span>Stop</span>
                     </button>
                   </div>
-                  <label class="check fetch-fresh" data-advanced title="Projects someone fetched in the last couple of minutes are normally reused when nothing was rescanned or triaged from here since. Tick to read every project from Checkmarx One again."><input type="checkbox" id="fetch-fresh" /> Read everything fresh from Checkmarx One</label>
-                  <p class="hint" id="fetch-meta"></p>
                 </fieldset>
               </div>
 
@@ -273,14 +281,17 @@
               </fieldset>
             </section>
 
-            <section class="kpis" id="totals-panel" hidden>
-              <div class="totals" id="totals"></div>
-            </section>
+            <div class="dash-metrics">
+              <section class="kpis" id="totals-panel" hidden>
+                <div class="totals" id="totals"></div>
+              </section>
 
-            <section class="journey" id="journey-panel" hidden aria-label="The way to Mission Zero">
-              <div class="jz" id="journey-zero"></div>
-              <ol class="jtrack" id="journey-steps"></ol>
-            </section>
+              <section class="journey" id="journey-panel" hidden aria-label="The way to Mission Zero">
+                <div class="jz" id="journey-zero"></div>
+                <ol class="jtrack" id="journey-steps"></ol>
+              </section>
+            </div>
+            </div>
 
             <div class="wb">
               <section class="panel wb-main" aria-label="Projects">
