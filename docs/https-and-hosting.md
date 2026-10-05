@@ -53,7 +53,19 @@ Better still, keep the password in an env file (`--env-file`) rather than on the
 
 ## B. Automatic certificates with Caddy (public name)
 
-Caddy gets a certificate from Let's Encrypt, renews it by itself, and forwards requests to CxMissionZero. CxMissionZero then has no published port of its own; only Caddy faces the network.
+**Best choice when you will not get a certificate from your organisation.** Caddy gets a certificate from Let's Encrypt, renews it by itself, and forwards requests to CxMissionZero. CxMissionZero then has no published port of its own; only Caddy faces the network. You need a DNS name pointing at the server and ports 80 and 443 reachable from the internet.
+
+**Ready-made setup:** [`deploy/caddy/`](../deploy/caddy/) has a compose file and `Caddyfile` that do all of this. Set your name and start it:
+
+```
+set MZ_DOMAIN=mz.company.com
+```
+
+```
+cd deploy\caddy && docker compose up -d
+```
+
+(or `podman compose up -d`). An internal-only server (no public DNS) can use Caddy's locally-trusted certificate instead — see that folder's README. The manual equivalent, container by container:
 
 ```
 podman network create mz-net
