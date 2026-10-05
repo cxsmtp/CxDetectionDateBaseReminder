@@ -79,6 +79,12 @@ export const DEFAULT_SETTINGS = {
    * 'list' (the fixed list) or 'both'.
    */
   reminders: { audience: 'initiator' },
+  /**
+   * The Impact page (src/impact.js): what a manual triage and a manual fix take,
+   * to work out the hours AI saved; an hourly cost and a price per credit for
+   * money figures (0 = not shown); who gets the monthly summary (none = not sent).
+   */
+  impact: { triageMinutes: 20, fixMinutes: 120, hourlyRate: 0, creditPrice: 0, currency: 'USD', monthlyTo: [] },
   /** SLAs (Beta, src/sla.js): days to fix each severity, and escalation of overdue findings. */
   sla: structuredClone(DEFAULT_SLA),
   /**
@@ -141,6 +147,30 @@ export const DEFAULT_SETTINGS = {
  * https (and data: for a pasted inline image) is accepted -- never javascript:
  * or a plain-http URL that would trip mixed-content warnings.
  */
+/** Impact settings, checked: whole minutes 1–10,000, rates and prices 0–1,000,000, a 3-letter currency. */
+export function mergeImpact(current, incoming = null) {
+  const out = { ...DEFAULT_SETTINGS.impact, ...(current ?? {}) };
+  if (!incoming) return { ...out, monthlyTo: [...(out.monthlyTo ?? [])] };
+  const number = (value, min, max, whole) => {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < min || n > max) return null;
+    return whole ? Math.round(n) : Math.round(n * 100) / 100;
+  };
+  for (const [key, min, max, whole] of [['triageMinutes', 1, 10_000, true], ['fixMinutes', 1, 10_000, true], ['hourlyRate', 0, 1_000_000, false], ['creditPrice', 0, 1_000_000, false]]) {
+    if (!(key in incoming)) continue;
+    const value = number(incoming[key], min, max, whole);
+    if (value === null) throw Object.assign(new Error(`Impact: ${key === 'triageMinutes' || key === 'fixMinutes' ? 'minutes must be a whole number from 1 to 10000' : 'rates and prices must be a number from 0 to 1000000'}.`), { status: 400 });
+    out[key] = value;
+  }
+  if ('currency' in incoming) {
+    const currency = String(incoming.currency ?? '').trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(currency)) throw Object.assign(new Error('Impact: the currency must be a three-letter code, such as USD or EUR.'), { status: 400 });
+    out.currency = currency;
+  }
+  if ('monthlyTo' in incoming) out.monthlyTo = parseAddressList(incoming.monthlyTo).slice(0, 50);
+  return out;
+}
+
 export function isSafeImageUrl(url) {
   const value = String(url ?? '').trim();
   if (/^data:image\/(png|jpeg|jpg|gif|svg\+xml|webp);base64,[A-Za-z0-9+/=\s]+$/i.test(value)) return true;
@@ -360,7 +390,9 @@ export function mergeSettings(current, incoming = {}) {
   const reminders = { ...DEFAULT_SETTINGS.reminders, ...(current.reminders ?? {}) };
   if (incoming.reminders && 'audience' in incoming.reminders) reminders.audience = AUDIENCES.includes(incoming.reminders.audience) ? incoming.reminders.audience : reminders.audience;
 
-  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders };
+  const impact = mergeImpact(current.impact, incoming.impact);
+
+  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders, impact };
 
   // The automation credential is set through its own route, not this form.
   if (typeof incoming.automationApiKey === 'string') next.automationApiKey = incoming.automationApiKey.trim();
@@ -519,6 +551,7 @@ export function publicSettings(settings) {
     features: mergeFeatures(settings.features),
     sla: mergeSla(settings.sla),
     reminders: { ...DEFAULT_SETTINGS.reminders, ...(settings.reminders ?? {}) },
+    impact: mergeImpact(settings.impact),
     verifiedAt: settings.verifiedAt,
     verified: isVerified(settings),
   };
@@ -588,6 +621,7 @@ export class SettingsStore {
         beta: mergeBeta(raw.beta, null),
         features: mergeFeatures(raw.features),
         sla: mergeSla(raw.sla),
+        impact: mergeImpact(raw.impact),
         // One choice for who gets reminders; before, scheduled runs had their own (keep what they did).
         reminders: raw.reminders?.audience && AUDIENCES.includes(raw.reminders.audience)
           ? { audience: raw.reminders.audience }

@@ -335,3 +335,43 @@ test('stage 10 — Triage now / Remediate now from Credit Control and from a tra
   assert.ok(audit.entries.some((e) => /Tracked report "p1 high": remediate/.test(e.details?.origin ?? '')));
   assert.equal((await admin('GET', '/api/audit/verify')).body.ok, true);
 });
+
+test('stage 11 — Impact: hours saved, noise removed and the debt, from the readings and the credits; settings checked; one-page summary', async () => {
+  const before = await admin('GET', '/api/impact?days=30');
+  assert.equal(before.status, 200, JSON.stringify(before.body));
+  const d = before.body;
+  assert.ok(d.since, 'readings started with the first fetch');
+  assert.ok(d.credits.triage >= 14, `triage credits in the period: ${d.credits.triage}`);
+  assert.ok(d.aiTriaged > 0);
+  assert.ok(d.noiseRemoved > 0, 'findings AI Triage showed not exploitable');
+  // Defaults: 20 min per triaged result, 120 per fix proven by Checkmarx One (the mock never removes a finding).
+  assert.equal(d.aiFixed, 0);
+  assert.equal(d.hours.total, Math.round(((d.credits.triage * 20) / 60) * 10) / 10);
+  assert.deepEqual([d.money.value, d.money.cost], [null, null], 'no money until a rate and a price are set');
+  assert.ok(d.debt.now > 0 && d.series.length >= 1);
+  assert.equal(d.monthlyOn, false);
+
+  // Settings: checked, then used.
+  assert.equal((await admin('PUT', '/api/settings', { impact: { triageMinutes: 0 } })).status, 400);
+  assert.equal((await admin('PUT', '/api/settings', { impact: { currency: 'euros' } })).status, 400);
+  const saved = await admin('PUT', '/api/settings', { impact: { triageMinutes: 30, hourlyRate: 100, creditPrice: 2, currency: 'eur', monthlyTo: 'ciso@acme.io, not-an-address' } });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  const after = (await admin('GET', '/api/impact?days=30')).body;
+  assert.equal(after.hours.triage, Math.round(((after.credits.triage * 30) / 60) * 10) / 10);
+  assert.equal(after.money.value, Math.round(after.hours.total * 100 * 100) / 100);
+  assert.equal(after.money.cost, after.credits.total * 2);
+  assert.equal(after.money.currency, 'EUR');
+  assert.deepEqual(after.monthlyTo, ['ciso@acme.io']);
+  assert.equal(after.monthlyOn, true);
+
+  const page = await fetch(`${BASE}/api/impact/summary.html?days=30`, { headers: { Cookie: cookie } });
+  assert.equal(page.status, 200);
+  assert.match(page.headers.get('content-disposition') ?? '', /attachment; filename="impact-/);
+  const html = await page.text();
+  assert.match(html, /Hours saved/);
+  assert.match(html, /How these are worked out/);
+  // No mail server tested in this run: refused with the reason, nothing marked sent.
+  const email = await admin('POST', '/api/impact/email', {});
+  assert.notEqual(email.status, 200);
+  await admin('PUT', '/api/settings', { impact: { triageMinutes: 20, hourlyRate: 0, creditPrice: 0, currency: 'USD', monthlyTo: '' } });
+});

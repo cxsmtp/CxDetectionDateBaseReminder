@@ -2541,3 +2541,33 @@ html[data-i18n="loading"] .shell { visibility: hidden; animation: i18n-reveal 0s
 body.scrolling main table tbody { pointer-events: none; }
 #projects tr.more-rows td, #projects tr.more-rows:hover td { text-align: center; background: var(--surface-2); white-space: normal; }
 #projects tr.more-rows span { color: var(--muted); margin-inline-end: 10px; }
+
+/* Impact: hours AI saved, findings it cleared, the debt week by week. */
+.impact-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 0 0 12px; }
+.impact-bar .ptabs { margin: 0; }
+.impact-period { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.impact-period select { min-height: var(--control-h); }
+.impact-note { margin: 0 0 12px; }
+.impact-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 0 0 16px; }
+.impact-tile { display: grid; gap: 2px; align-content: start; padding: 14px 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); min-width: 0; }
+.impact-tile .label { color: var(--muted); font-size: 12px; font-weight: 550; }
+.impact-tile .value { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.impact-tile.hero .value { font-size: 34px; }
+.impact-tile .sub { color: var(--muted); font-size: 12px; }
+.impact-chart { position: relative; width: 100%; overflow: hidden; }
+.impact-svg { display: block; max-width: 100%; height: auto; font-size: 11px; }
+.impact-svg .grid { stroke: var(--border); stroke-width: 1; }
+.impact-svg .tick { fill: var(--muted); font-size: 11px; }
+.impact-svg .area { fill: var(--accent); fill-opacity: 0.1; }
+.impact-svg .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.impact-svg .end, .impact-svg .dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+.impact-svg .end-label { fill: var(--text); font-size: 12px; font-weight: 600; }
+.impact-svg .cross { stroke: var(--border-strong); stroke-width: 1; }
+.impact-svg .hit { cursor: crosshair; }
+.impact-tip { position: absolute; top: 8px; display: grid; gap: 2px; min-width: 130px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 12px; pointer-events: none; }
+.impact-tip > span { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
+.impact-tip > span > span { color: var(--muted); }
+.impact-debt-line { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.impact-how summary { cursor: pointer; font-weight: 600; }
+.impact-how ul { margin: 8px 0 0; padding-inline-start: 18px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.impact-settings { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
