@@ -2366,6 +2366,9 @@ function updateScopeSummary() {
   $('detection-hint').textContent = ['7d', '30d'].includes(detection)
     ? `Only findings first seen in the ${presetLabel(detection).toLowerCase()} are counted, so the older age buckets will be empty.`
     : 'Sent to the API as fromDate/toDate, so it is filtered server-side.';
+  // The compact scope row shows these as the choices' tooltips.
+  if (!named) $('activity-preset').title = $('activity-hint').textContent;
+  $('detection-preset').title = $('detection-hint').textContent;
 }
 
 // ---------------------------------------------------------------------------
@@ -8058,3 +8061,55 @@ $('bb-kind').addEventListener('change', () => {
   $('bb-url').disabled = $('bb-kind').value !== 'server';
   if (identityHost === 'bitbucket') renderIdentityMethods();
 });
+
+// ---------------------------------------------------------------------------
+// Layout: the menu (kept open, or a slim bar of icons that opens when pointed at) and the
+// Dashboard's top block, which stays in view while the projects scroll with the page.
+// ---------------------------------------------------------------------------
+
+const sidebarMode = () => (document.documentElement.dataset.sidebar === 'auto' ? 'auto' : 'pinned');
+function applySidebarMode(mode) {
+  const auto = mode === 'auto';
+  if (auto) document.documentElement.dataset.sidebar = 'auto';
+  else delete document.documentElement.dataset.sidebar;
+  document.querySelector('.sidebar')?.classList.remove('open');
+  const pin = $('sidebar-pin');
+  pin.setAttribute('aria-pressed', String(!auto));
+  pin.title = auto ? 'Keep the menu open beside the page' : 'Hide the menu: it becomes a slim bar of icons and opens when you point at it';
+  pin.setAttribute('aria-label', pin.title);
+  $('sidebar-pin-label').textContent = auto ? 'Keep menu open' : 'Hide menu';
+  try {
+    localStorage.setItem('mz-sidebar', mode);
+  } catch {}
+}
+applySidebarMode(sidebarMode());
+$('sidebar-pin').addEventListener('click', () => applySidebarMode(sidebarMode() === 'auto' ? 'pinned' : 'auto'));
+
+// Pointing at the slim bar opens the menu over the page (nothing beside it moves); a short
+// pause on the way in and out keeps it from flickering when the pointer only passes by.
+{
+  const bar = document.querySelector('.sidebar');
+  let timer = null;
+  const set = (open, delay) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => bar.classList.toggle('open', open && sidebarMode() === 'auto'), delay);
+  };
+  bar.addEventListener('mouseenter', () => set(true, 120));
+  bar.addEventListener('mouseleave', () => set(false, 260));
+  bar.addEventListener('focusin', () => set(true, 0));
+  bar.addEventListener('focusout', (event) => {
+    if (!bar.contains(event.relatedTarget)) set(false, 0);
+  });
+  // Choosing a page closes it again.
+  bar.addEventListener('click', (event) => {
+    if (event.target.closest('a.tab')) set(false, 0);
+  });
+}
+
+// The top block's height, for what sits below it (the action rail, the table's header row).
+if (window.ResizeObserver) {
+  const top = $('dash-top');
+  const measure = () => document.documentElement.style.setProperty('--dash-top-h', `${Math.round(top.getBoundingClientRect().height)}px`);
+  new ResizeObserver(measure).observe(top);
+  measure();
+}
