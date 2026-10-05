@@ -423,6 +423,10 @@ Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
 
 Paste the code and select **Apply the code**. The page shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** see this section. [How codes are issued](activation-codes.md).
 
+### Tenants (Super Admin)
+
+For organisations that run several Checkmarx One tenants, with a tenants activation code. Turn on **Several tenants**, then **Add tenant**: each tenant has its own connection, email server, settings, credits, reports, audit log and people. Choose a tenant at the top of the page to work in it. **Rename** and **Remove** are next to each tenant; removing one keeps its files. People added while you work in a tenant work only there; a Super Admin changes that with **Tenants** on each person under People & roles. The whole story: [several tenants](multi-tenant.md).
+
 ### About & terms of use
 The version, the licence, the project's address, which version of the terms you accepted, and **Read the terms of use**.
 
@@ -889,6 +893,7 @@ Identity and access management, in two tabs.
 | **Set password** | A new temporary password. |
 | **Disable / Enable** | Disabling ends their sessions at once. |
 | **Remove** | Deletes the account. |
+| **Tenants** (Super Admin, several tenants) | Choose the Checkmarx One tenants the person works in. Under each name, the tenants they work in now. |
 
 **Roles & permissions** is a matrix of permissions against roles.
 - **Find a permission** narrows the matrix; click a group name to fold it, or **Collapse all**. Each group row shows how many of its permissions each role has.

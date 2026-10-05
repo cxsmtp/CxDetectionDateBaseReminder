@@ -261,6 +261,7 @@ How it is measured, and what is open and why: [Performance and security status](
 | [Performance and security status](docs/status.md) | Every version's benchmark, tests, dependency audit and Checkmarx One scan result. |
 | [Audit log and backups](docs/audit-and-backup.md) | The tamper-evident audit log, backups, restore, moving servers. |
 | [Languages](docs/languages.md) | The fourteen languages, right-to-left Arabic and Hebrew, and how translations are kept current and reviewed. |
+| [Several tenants](docs/multi-tenant.md) | One server for several Checkmarx One tenants, each with its own connection, settings, credits, reports, audit log and people; a Super Admin manages them (with an activation code). |
 | [Activation codes](docs/activation-codes.md) | Add-ons unlocked with a code (Hebrew; several Checkmarx One tenants): applying one, and how they are issued. |
 | [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code (git blame, down to the exact developer), and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket. An Admin makes each one final when it has proved itself. |
 

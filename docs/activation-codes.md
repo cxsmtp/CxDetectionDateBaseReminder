@@ -5,7 +5,7 @@ A few add-ons are unlocked per installation with an activation code:
 | Add-on | Code | What it does |
 | --- | --- | --- |
 | **Hebrew** | an activation code and a deactivation code | Adds Hebrew (עברית) to the language pickers until the code expires, or removes it. |
-| **Several tenants** | an activation code naming the organisation and how many tenants | Unlocks the Super Admin tasks for organisations that run more than one Checkmarx One tenant. |
+| **Several tenants** | an activation code naming the organisation and how many tenants | Unlocks the Super Admin tasks for organisations that run more than one Checkmarx One tenant ([several tenants](multi-tenant.md)). |
 
 Everything else works without a code.
 
