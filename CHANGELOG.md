@@ -34,7 +34,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.47 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.47 — 2026-10-05 14:33 UTC · [#70](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/70)
 - **A free HTTPS certificate in one click.** **Settings → HTTPS → Free certificate from Let's Encrypt** gets a certificate trusted by every browser and renews it by itself 30 days before it expires. It needs a DNS name for the server and port 80 open to the internet. To set it up at deployment instead, use one line: `LETSENCRYPT_DOMAIN=mz.company.com`. The server then gets the certificate, switches to HTTPS only and renews it with no further steps ([HTTPS and hosting](docs/https-and-hosting.md)).
 - **German, French and Arabic.** They join the language pickers for everyone, in a formal register. Arabic reads right to left: the whole page is mirrored, while charts, code and addresses keep their direction.
 - **Hebrew with an activation code.** An Admin pastes a Hebrew code in **Settings → Activation codes**, and Hebrew (right to left) appears for everyone until the code expires or a deactivation code is pasted. Nobody is switched to it automatically.
