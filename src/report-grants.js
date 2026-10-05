@@ -43,19 +43,31 @@ function loadOrCreateKey(file) {
 
 export class ReportGrants {
   #key;
+  #tenantOf;
   #verified = new Map(); // grant -> the message it was verified for
 
-  /** @param {{file?: string, secret?: string}} options */
-  constructor({ file, secret } = {}) {
+  /**
+   * @param {{file?: string, secret?: string, tenantOf?: () => string}} options
+   *   `tenantOf`: the running tenant (several tenants). Every grant, link and token is then
+   *   bound to it, whatever tenant a request claims, so a report acts only in its own tenant.
+   */
+  constructor({ file, secret, tenantOf = null } = {}) {
     this.#key = secret ? Buffer.from(secret) : loadOrCreateKey(file);
+    this.#tenantOf = tenantOf;
+  }
+
+  /** The finding as signed: in the running tenant when there is one. */
+  #bound(finding) {
+    return this.#tenantOf ? { ...finding, tenant: this.#tenantOf() } : finding;
   }
 
   #mac(finding, exp) {
-    return createHmac('sha256', this.#key).update(grantMessage(finding, exp)).digest('base64url');
+    return createHmac('sha256', this.#key).update(grantMessage(this.#bound(finding), exp)).digest('base64url');
   }
 
   macText(text) {
-    return createHmac('sha256', this.#key).update(text).digest('base64url');
+    const tenant = this.#tenantOf?.();
+    return createHmac('sha256', this.#key).update(tenant && tenant !== DEFAULT_TENANT ? `${text}\u0000tenant:${tenant}` : text).digest('base64url');
   }
 
   issue(finding, now = Date.now()) {
@@ -74,7 +86,7 @@ export class ReportGrants {
     if (!Number.isFinite(exp)) return 'invalid';
     if (exp <= now) return 'expired';
     const grant = String(finding.grant ?? '');
-    const message = grantMessage(finding, exp);
+    const message = grantMessage(this.#bound(finding), exp);
     if (this.#verified.get(grant) === message) return '';
     const expected = Buffer.from(createHmac('sha256', this.#key).update(message).digest('base64url'));
     const given = Buffer.from(grant);

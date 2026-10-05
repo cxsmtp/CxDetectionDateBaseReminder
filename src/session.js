@@ -83,6 +83,11 @@ export class SessionStore {
     return [...this.#sessions.values()].filter(test);
   }
 
+  /** A live session without counting it as used (to see which tenant a request is for). */
+  peek(id) {
+    return id ? this.#sessions.get(id) ?? null : null;
+  }
+
   get(id) {
     const session = id ? this.#sessions.get(id) ?? this.#takeAdopted(id) : undefined;
     if (!session) return null;
@@ -117,7 +122,7 @@ export class SessionStore {
       return undefined;
     }
     const session = this.createLinked(this.#adoptLink, id);
-    Object.assign(session, { userId: entry.userId, via: entry.via, createdAt: entry.createdAt, lastUsedAt: entry.lastUsedAt, lastScan: entry.lastScan ?? this.#readScan(key) ?? null });
+    Object.assign(session, { userId: entry.userId, via: entry.via, tenantId: entry.tenantId, createdAt: entry.createdAt, lastUsedAt: entry.lastUsedAt, lastScan: entry.lastScan ?? this.#readScan(key) ?? null });
     return session;
   }
 
@@ -130,7 +135,7 @@ export class SessionStore {
   index() {
     const live = [...this.#sessions.values()]
       .filter((s) => this.#persistable(s))
-      .map((s) => ({ key: sessionKey(s.id), userId: s.userId, via: s.via, createdAt: s.createdAt, lastUsedAt: s.lastUsedAt }));
+      .map((s) => ({ key: sessionKey(s.id), userId: s.userId, via: s.via, tenantId: s.tenantId, createdAt: s.createdAt, lastUsedAt: s.lastUsedAt }));
     return [...live, ...this.#adopted.values()];
   }
 

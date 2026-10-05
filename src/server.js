@@ -228,7 +228,19 @@ const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const trackedReports = scoped(tenancy, 'trackedReports');
 const reportFiles = scoped(tenancy, 'reportFiles');
 const guard = scoped(tenancy, 'guard');
-const audit = scoped(tenancy, 'audit');
+/**
+ * The audit log. Server-wide events (people and sign-ins, backups, updates, HTTPS, activation
+ * codes, tenants) go to the first tenant's log; everything else to the running tenant's.
+ */
+const SERVER_WIDE_AUDIT = new Set(['iam', 'access', 'backup', 'system']);
+const serverWide = (entry) => SERVER_WIDE_AUDIT.has(entry?.type) || Boolean(entry?.details?.https || entry?.details?.activation || entry?.details?.tenants);
+const tenantAudit = scoped(tenancy, 'audit');
+const audit = new Proxy(tenantAudit, {
+  get(target, prop) {
+    if (prop === 'record') return (entry, ...rest) => (serverWide(entry) ? tenancy.context(DEFAULT_TENANT).audit : tenancy.current().audit).record(entry, ...rest);
+    return target[prop];
+  },
+});
 
 // The terms of use (TERMS.md): an Admin accepts them for the organisation before anyone can use
 // the utility (reports and automation included), then each person before they first use it.
@@ -377,7 +389,14 @@ function sharedResults(rows) {
 const reportGrants = new ReportGrants({
   secret: process.env.REPORT_SIGNING_KEY?.trim() || undefined,
   file: path.join(dataDir, 'report-signing.key'),
+  // Every grant, link and token is bound to the tenant it was made in (src/report-grants.js).
+  tenantOf: () => tenancy.current().id,
 });
+/** "t=<tenant>" for a link outside the first tenant (prefixed by `sep`), else nothing. */
+const tenantQuery = (sep = '?') => {
+  const id = tenancy.current().id;
+  return id === DEFAULT_TENANT ? '' : `${sep}t=${encodeURIComponent(id)}`;
+};
 /** Signed links to one finding's fix as a patch, for `git apply` (see /api/relay/patch). */
 const patchTokens = patchLinks((text) => reportGrants.macText(text));
 
@@ -622,6 +641,27 @@ app.use((req, res, next) => {
 // A page's script error is a few lines of text: no reason to accept megabytes of it.
 app.use('/api/diagnostics/client-error', express.json({ limit: '16kb' }));
 app.use(express.json({ limit: '4mb' }));
+
+/**
+ * Which tenant a request is for, and run it there (src/tenancy.js): a signed-in person's chosen
+ * tenant, or, for an emailed report and the links in it, the one it names. Grants are bound to
+ * their tenant, so naming another makes them fail. Everything else is the first tenant.
+ */
+const LINK_PATHS = /^\/(api\/relay\/|r\/|rescan$)/;
+app.use((req, res, next) => {
+  let id = DEFAULT_TENANT;
+  if (LINK_PATHS.test(req.path)) id = String(req.body?.tenantId ?? req.query?.t ?? DEFAULT_TENANT);
+  else if (req.path.startsWith('/api/')) {
+    const session = sessions.peek(readSessionCookie(req));
+    if (session?.tenantId && tenancy.has(session.tenantId)) id = session.tenantId;
+  }
+  if (!tenancy.has(id)) {
+    if (req.path.startsWith('/api/relay/')) relayCors(req, res);
+    return res.status(404).json({ error: 'This is for a Checkmarx One tenant that is no longer on this server.' });
+  }
+  req.tenantId = id;
+  tenancy.run(id, next);
+});
 // A browser request that changes state must come from this server's own pages.
 app.use('/api', sameOriginGuard({ exempt: ['/relay'] }));
 app.use('/api', (req, res, next) => {
@@ -695,7 +735,36 @@ app.use('/api/relay', (req, res, next) => {
   next();
 });
 
-const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res)).catch(next);
+// Each handler runs in its request's tenant, even after a body parser's callback lost the context.
+const asyncRoute = (handler) => (req, res, next) =>
+  Promise.resolve(req.tenantId ? tenancy.run(req.tenantId, () => handler(req, res)) : handler(req, res)).catch(next);
+
+/**
+ * The tenants a person works in: every tenant for a Super Admin (tenants.manage); otherwise
+ * the ones they were added to, or the first tenant when they were added to none. Empty when
+ * every tenant they were added to has been removed.
+ */
+/** Permissions that act on the whole server, not one tenant: only for people who work in the first tenant. */
+const SERVER_PERMISSIONS = new Set(['security.https', 'backup.view', 'backup.run', 'backup.manage', 'system.update', 'system.metrics', 'diagnostics.export', 'activation.manage', 'tenants.manage']);
+
+/** What a person may do: their role's permissions, without the server-wide ones when they work only in other tenants. */
+function permissionsFor(user) {
+  const all = iam.permissionsOf(user);
+  if (!user?.tenants?.length || user.tenants.includes(DEFAULT_TENANT)) return all;
+  return new Set([...all].filter((p) => !SERVER_PERMISSIONS.has(p)));
+}
+
+/** Several tenants are unlocked by an activation code in date (src/activation.js). */
+const tenantsUnlocked = () => Boolean(activations.tenants()?.valid);
+/** A Super Admin: may manage tenants and work in every one (needs the activation code in date). */
+const isSuperAdmin = (permissions) => permissions.has('tenants.manage') && tenantsUnlocked();
+
+function tenantsOf(user, permissions = permissionsFor(user)) {
+  if (!user) return [];
+  if (isSuperAdmin(permissions)) return tenancy.ids();
+  if (!user.tenants?.length) return [DEFAULT_TENANT];
+  return user.tenants.filter((id) => tenancy.has(id));
+}
 
 /** The caller's signed-in session (every person signs in; there is no shared fallback). */
 const currentSession = (req) => {
@@ -727,13 +796,23 @@ function requireSession(req, res, next) {
   }
   req.session = session;
   req.user = user;
-  req.permissions = iam.permissionsOf(user);
-  // Password sessions use the integration; make sure it is up (it is re-created from the stored key if needed).
-  if (session.linked && !integrationSession()) {
-    resolveAutomationSession().then(() => next(), next);
-    return;
+  req.permissions = permissionsFor(user);
+  // The tenant this person works in now (their choice, if they still may).
+  const allowed = tenantsOf(user, req.permissions);
+  if (!allowed.length) return res.status(403).json({ error: 'You are not in any Checkmarx One tenant on this server any more. Ask a Super Admin to add you to one.' });
+  if (!allowed.includes(session.tenantId)) {
+    if (session.tenantId) session.lastScan = null; // fetched in another tenant
+    session.tenantId = allowed[0];
   }
-  next();
+  req.tenantId = session.tenantId;
+  tenancy.run(req.tenantId, () => {
+    // Password sessions use the integration; make sure it is up (it is re-created from the stored key if needed).
+    if (session.linked && !integrationSession()) {
+      resolveAutomationSession().then(() => next(), next);
+      return;
+    }
+    next();
+  });
 }
 
 const can = (req, permission) => Boolean(req.permissions?.has(permission));
@@ -871,7 +950,7 @@ app.get('/api/metrics', requirePermission('system.metrics'), async (req, res) =>
 
 /** What this browser may see about itself: who is signed in, what they may do, and the connection. */
 function describeMe(session, user) {
-  const held = iam.permissionsOf(user);
+  const held = permissionsFor(user);
   const settings = settingsStore.get();
   // "feature.<id>": what the page shows for each Beta feature this person may use (never checked by the server).
   const permissions = [...held, ...featureList(settings).filter((f) => mayUse(settings, f.id, held)).map((f) => `feature.${f.id}`)];
@@ -896,7 +975,15 @@ function describeMe(session, user) {
     via: session.via,
     integration: { connected: Boolean(integration), tenant },
     // Connection settings put back because new ones did not work: shown once to each administrator.
-    configNotices: iam.permissionsOf(user).has('integration.cxone') || iam.permissionsOf(user).has('integration.smtp') ? guard.unseen(user.id) : [],
+    configNotices: held.has('integration.cxone') || held.has('integration.smtp') ? guard.unseen(user.id) : [],
+    // Several Checkmarx One tenants: the one this person works in now, and the ones they may switch to.
+    tenancy: tenancy.enabled
+      ? {
+          current: { id: tenancy.current().id, name: tenantName(tenancy.current().id) },
+          tenants: tenantsOf(user, held).map((id) => ({ id, name: tenantName(id) })),
+          superAdmin: isSuperAdmin(held),
+        }
+      : null,
   };
 }
 
@@ -1176,13 +1263,32 @@ app.get('/api/me/profile/options', requireSession, (req, res) => res.json({ lang
 
 const actorOf = (req) => ({ actorPerms: req.permissions, actorId: req.user.id });
 
+/** Can this person see (and manage) that user: someone in the tenant they work in now, or anyone for a Super Admin. */
+function sharesTenant(req, user) {
+  if (!tenancy.enabled || isSuperAdmin(req.permissions)) return true;
+  return tenantsOf(iam.user(user.id) ?? user).includes(req.tenantId);
+}
+
+/** Roles are shared by every tenant: only people who work in the first tenant change them. */
+function mayChangeRoles(req) {
+  return !tenancy.enabled || isSuperAdmin(req.permissions) || tenantsOf(req.user, req.permissions).includes(DEFAULT_TENANT);
+}
+
 function iamView(req) {
   return {
-    users: iam.users().map((u) => ({ ...u, canManage: can(req, 'iam.manage') && iam.canGrant(req.permissions, iam.permissionsOf({ ...iam.user(u.id), disabled: false })) && u.id !== req.user.id })),
-    roles: iam.roles().map((r) => ({ ...r, canManage: can(req, 'iam.manage') && !r.locked && iam.canGrant(req.permissions, r.permissions), canAssign: can(req, 'iam.manage') && iam.canGrant(req.permissions, r.permissions) })),
+    users: iam.users().filter((u) => sharesTenant(req, u)).map((u) => ({ ...u, canManage: can(req, 'iam.manage') && iam.canGrant(req.permissions, iam.permissionsOf({ ...iam.user(u.id), disabled: false })) && u.id !== req.user.id })),
+    roles: iam.roles().map((r) => ({ ...r, canManage: can(req, 'iam.manage') && mayChangeRoles(req) && !r.locked && iam.canGrant(req.permissions, r.permissions), canAssign: can(req, 'iam.manage') && iam.canGrant(req.permissions, r.permissions) })),
     permissions: PERMISSIONS,
     me: { id: req.user.id, permissions: [...req.permissions] },
+    tenants: tenancy.enabled && isSuperAdmin(req.permissions) ? tenancy.list().map((t) => ({ id: t.id, name: tenantName(t.id) })) : null,
   };
+}
+
+/** A user this person may change: 404 for someone outside the tenants they work in. */
+function visibleUser(req, id) {
+  const user = iam.user(id);
+  if (!user || !sharesTenant(req, user)) throw Object.assign(new Error('No such user.'), { status: 404 });
+  return user;
 }
 
 async function auditIam(req, reason, details) {
@@ -1204,6 +1310,8 @@ app.post(
   asyncRoute(async (req, res) => {
     const { email, name, role, password, cxoneIdentities } = req.body ?? {};
     const user = await iam.createUser({ email, name, role, password: password ? String(password) : '', cxoneIdentities, mustChangePassword: true }, actorOf(req));
+    // Someone added while working in another tenant works in that tenant.
+    if (req.tenantId && req.tenantId !== DEFAULT_TENANT) iam.setTenants(user.id, [req.tenantId]);
     await auditIam(req, `Added ${user.email} as ${iam.role(user.role)?.name}.`, { user });
     res.status(201).json(iamView(req));
   }),
@@ -1215,6 +1323,7 @@ app.patch(
   asyncRoute(async (req, res) => {
     const patch = {};
     for (const key of ['name', 'role', 'cxoneIdentities', 'disabled']) if (key in (req.body ?? {})) patch[key] = req.body[key];
+    visibleUser(req, req.params.id);
     const { before, after } = iam.updateUser(req.params.id, patch, actorOf(req));
     const changes = Object.keys(patch).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
     if (changes.length) {
@@ -1230,6 +1339,7 @@ app.delete(
   '/api/iam/users/:id',
   requirePermission('iam.manage'),
   asyncRoute(async (req, res) => {
+    visibleUser(req, req.params.id);
     const removed = iam.deleteUser(req.params.id, actorOf(req));
     endSessionsOf(removed.id);
     await auditIam(req, `Removed ${removed.email} (${iam.role(removed.role)?.name ?? removed.role}).`, { user: removed });
@@ -1243,6 +1353,7 @@ app.post(
   requirePermission('iam.manage'),
   asyncRoute(async (req, res) => {
     if (req.params.id === req.user.id) return res.status(400).json({ error: 'Change your own password from your account menu.' });
+    visibleUser(req, req.params.id);
     const user = await iam.setPassword(req.params.id, String(req.body?.password ?? ''), { mustChange: true, actorPerms: req.permissions });
     endSessionsOf(user.id);
     await auditIam(req, `Set a temporary password for ${user.email}.`);
@@ -1254,6 +1365,7 @@ app.post(
   '/api/iam/roles',
   requirePermission('iam.manage'),
   asyncRoute(async (req, res) => {
+    if (!mayChangeRoles(req)) return res.status(403).json({ error: 'Roles are shared by every tenant, so only people who work in the first tenant change them.' });
     const { after } = iam.saveRole(null, req.body ?? {}, actorOf(req));
     await auditIam(req, `Created role "${after.name}" (${after.permissions.length} permissions).`, { role: after });
     res.status(201).json(iamView(req));
@@ -1264,6 +1376,7 @@ app.put(
   '/api/iam/roles/:id',
   requirePermission('iam.manage'),
   asyncRoute(async (req, res) => {
+    if (!mayChangeRoles(req)) return res.status(403).json({ error: 'Roles are shared by every tenant, so only people who work in the first tenant change them.' });
     const { before, after } = iam.saveRole(req.params.id, req.body ?? {}, actorOf(req));
     const added = after.permissions.filter((p) => !before.permissions.includes(p));
     const removed = before.permissions.filter((p) => !after.permissions.includes(p));
@@ -1278,6 +1391,7 @@ app.delete(
   '/api/iam/roles/:id',
   requirePermission('iam.manage'),
   asyncRoute(async (req, res) => {
+    if (!mayChangeRoles(req)) return res.status(403).json({ error: 'Roles are shared by every tenant, so only people who work in the first tenant change them.' });
     const removed = iam.deleteRole(req.params.id, actorOf(req));
     await auditIam(req, `Removed role "${removed.name}".`, { role: removed });
     res.json(iamView(req));
@@ -1506,10 +1620,12 @@ async function runConnectionCheck({ rollback = false, trigger = 'check', actor =
 
 /** Changes nobody is checking (the browser closed mid-edit) are checked once they have been left alone a while. */
 const idleCheck = setInterval(() => {
-  const changedAt = guard.changedAt;
-  if (!changedAt || Date.now() - Date.parse(changedAt) < ROLLBACK_IDLE_MS) return;
-  if (!cxonePending() && !smtpPending()) return guard.settle();
-  checkConnections({ rollback: true, trigger: 'no change for a while' }).catch((error) => console.warn(`! [settings] Connection check failed: ${error.message}`));
+  tenancy.each(() => {
+    const changedAt = guard.changedAt;
+    if (!changedAt || Date.now() - Date.parse(changedAt) < ROLLBACK_IDLE_MS) return;
+    if (!cxonePending() && !smtpPending()) return guard.settle();
+    checkConnections({ rollback: true, trigger: 'no change for a while' }).catch((error) => console.warn(`! [settings] Connection check failed: ${error.message}`));
+  });
 }, Math.min(60_000, ROLLBACK_IDLE_MS));
 idleCheck.unref?.();
 
@@ -3225,6 +3341,133 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
   res.json({ applied: what, ...activationView() });
 }));
 
+// ---------------------------------------------------------------------------
+// Several Checkmarx One tenants (src/tenancy.js, docs/multi-tenant.md). Adding, renaming and
+// removing tenants, working in any of them, and choosing who works in which are the Super Admin
+// tasks: they need the tenants activation code in date. Everything else works without it.
+// ---------------------------------------------------------------------------
+
+/** A tenant's name: the one given when it was added; for the first, its Checkmarx One tenant's. */
+function tenantName(id) {
+  const tenant = tenancy.get(id);
+  if (tenant?.name) return tenant.name;
+  try {
+    return tenancy.run(id, () => integrationSession()?.connection?.tenant) || 'Main tenant';
+  } catch {
+    return 'Main tenant';
+  }
+}
+
+function tenantsView(req) {
+  const superAdmin = isSuperAdmin(req.permissions);
+  const ids = superAdmin ? tenancy.ids() : tenantsOf(req.user, req.permissions);
+  const people = iam.users().map((u) => tenantsOf(iam.user(u.id)));
+  return {
+    enabled: tenancy.enabled,
+    unlocked: tenantsUnlocked(),
+    activation: activations.tenants(),
+    current: req.tenantId,
+    superAdmin,
+    canManage: can(req, 'tenants.manage'),
+    tenants: ids.map((id) => ({ id, name: tenantName(id), first: id === DEFAULT_TENANT, createdAt: tenancy.get(id)?.createdAt ?? '', people: people.filter((list) => list.includes(id)).length })),
+  };
+}
+
+/** A Super Admin task: the permission, held by someone in the first tenant, with the activation code in date. */
+function requireSuperAdmin(req, res, next) {
+  requirePermission('tenants.manage')(req, res, (error) => {
+    if (error) return next(error);
+    if (!tenantsUnlocked()) return res.status(403).json({ error: 'Several tenants need a tenants activation code that is in date (Settings → Activation codes).' });
+    next();
+  });
+}
+
+/** Record in one tenant's own audit log (a Super Admin acting on it), whatever tenant the request runs in. */
+const auditIn = (id, entry) => tenancy.context(id).audit.record(entry);
+
+app.get('/api/tenants', requireSession, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(tenantsView(req));
+});
+
+app.post('/api/tenants/enabled', requireSuperAdmin, asyncRoute(async (req, res) => {
+  const on = req.body?.on === true;
+  const actor = await adminActor(req);
+  if (on && !tenancy.enabled) tenancy.enable({ by: req.user.email });
+  else if (!on && tenancy.enabled) tenancy.disable();
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Several Checkmarx One tenants turned ${on ? 'on' : 'off'}.`, actor, details: { tenants: { enabled: on } } });
+  res.json(tenantsView(req));
+}));
+
+app.post('/api/tenants', requireSuperAdmin, asyncRoute(async (req, res) => {
+  const limit = activations.tenants()?.maxTenants ?? 0;
+  if (tenancy.ids().length >= limit) return res.status(409).json({ error: `The activation code allows up to ${limit} tenants, and all are in use.` });
+  const tenant = tenancy.add({ name: req.body?.name, by: req.user.email });
+  const actor = await adminActor(req);
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Tenant "${tenant.name}" added.`, actor, details: { tenants: { added: tenant } } });
+  auditIn(tenant.id, { type: 'settings', outcome: 'changed', reason: `This tenant was added by Super Admin ${req.user.email}.`, actor, details: { tenant: { id: tenant.id, name: tenant.name } } });
+  res.status(201).json({ added: tenant, ...tenantsView(req) });
+}));
+
+app.patch('/api/tenants/:id', requireSuperAdmin, asyncRoute(async (req, res) => {
+  const before = tenantName(req.params.id);
+  const tenant = tenancy.rename(req.params.id, req.body?.name);
+  const actor = await adminActor(req);
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Tenant "${before}" renamed "${tenant.name}".`, actor, details: { tenants: { renamed: { id: tenant.id, from: before, to: tenant.name } } } });
+  auditIn(tenant.id, { type: 'settings', outcome: 'changed', reason: `Super Admin ${req.user.email} renamed this tenant "${tenant.name}".`, actor });
+  res.json(tenantsView(req));
+}));
+
+app.delete('/api/tenants/:id', requireSuperAdmin, asyncRoute(async (req, res) => {
+  const id = req.params.id;
+  if (!tenancy.has(id)) return res.status(404).json({ error: 'No such tenant.' });
+  if (id === DEFAULT_TENANT) return res.status(400).json({ error: 'The first tenant cannot be removed.' });
+  if (req.body?.confirm !== tenantName(id)) return res.status(400).json({ error: 'Type the tenant\'s name to confirm.' });
+  const name = tenantName(id);
+  // Stop its automation and write everything it holds before its folder is set aside.
+  const loaded = tenancy.loaded().find((t) => t.id === id);
+  if (loaded) {
+    loaded.scheduler.stop();
+    loaded.knownAddresses.flush();
+    loaded.creditLedger.flush();
+    loaded.audit.flushSync();
+  }
+  tenancy.remove(id);
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Tenant "${name}" removed; its files are kept in the state folder.`, actor: await adminActor(req), details: { tenants: { removed: { id, name } } } });
+  res.json(tenantsView(req));
+}));
+
+/** Work in another tenant (one of yours; any, for a Super Admin). */
+app.post('/api/me/tenant', requireSession, asyncRoute(async (req, res) => {
+  const id = String(req.body?.id ?? '');
+  if (!tenantsOf(req.user, req.permissions).includes(id)) return res.status(404).json({ error: 'That tenant is not one you work in.' });
+  if (req.session.tenantId !== id) {
+    req.session.tenantId = id;
+    req.session.lastScan = null; // fetched in the other tenant
+    saveSignInsSoon();
+    // A Super Admin opening a tenant they were not added to is in that tenant's own log.
+    const own = req.user.tenants?.length ? req.user.tenants.includes(id) : id === DEFAULT_TENANT;
+    if (!own) auditIn(id, { type: 'access', outcome: 'info', reason: `Super Admin ${req.user.email} opened this tenant.`, actor: await adminActor(req) });
+  }
+  res.json({ current: { id, name: tenantName(id) } });
+}));
+
+/** Which tenants a person works in (a Super Admin task). */
+app.put('/api/iam/users/:id/tenants', requireSuperAdmin, asyncRoute(async (req, res) => {
+  const wanted = Array.isArray(req.body?.tenants) ? req.body.tenants.map(String) : [];
+  const unknown = wanted.filter((id) => !tenancy.has(id));
+  if (unknown.length) return res.status(400).json({ error: 'No such tenant.' });
+  if (!wanted.length) return res.status(400).json({ error: 'Choose at least one tenant.' });
+  const { before, after } = iam.setTenants(req.params.id, wanted.length === 1 && wanted[0] === DEFAULT_TENANT ? [] : wanted);
+  await auditIam(req, `${after.email} now works in: ${wanted.map(tenantName).join(', ')}.`, { before: { tenants: before.tenants }, after: { tenants: after.tenants } });
+  for (const session of sessions.filter((s) => s.userId === after.id)) {
+    if (wanted.includes(session.tenantId ?? DEFAULT_TENANT)) continue;
+    session.tenantId = undefined; // back to one of their tenants on their next request
+    session.lastScan = null;
+  }
+  res.json(iamView(req));
+}));
+
 app.get('/api/report-server', requireSession, (req, res) => {
   const settings = settingsStore.get();
   const effective = resolveReportServer(req, settings);
@@ -3900,7 +4143,7 @@ app.post(
     const [finding] = findings;
     if (!finding.scanId || !finding.alternateId) return res.status(400).json({ error: 'This finding has no AI Remediation result.' });
     const base = reportServerUrl(req, settingsStore.get()).replace(/\/+$/, '') || requestOrigin(req);
-    res.json({ url: `${base}/api/relay/patch/${patchTokens.issue(finding)}` });
+    res.json({ url: `${base}/api/relay/patch/${patchTokens.issue(finding)}${tenantQuery('?')}` });
   }),
 );
 
@@ -4686,11 +4929,13 @@ async function backgroundRefresh() {
   }
 }
 setInterval(() => {
-  backgroundRefresh().catch(() => {});
-  resolveAutomationSession()
-    .then((session) => session && runVerifications(session).then(() => session))
-    .then((session) => session && runDueTrackedReminders(session))
-    .catch((error) => console.warn(`[tracked reminders] ${error.message}`));
+  tenancy.each(() => {
+    backgroundRefresh().catch(() => {});
+    resolveAutomationSession()
+      .then((session) => session && runVerifications(session).then(() => session))
+      .then((session) => session && runDueTrackedReminders(session))
+      .catch((error) => console.warn(`[tracked reminders] ${error.message}`));
+  });
 }, 60 * 1000).unref?.();
 
 // ---- Follow-up reminders, schedules and triage for a tracked report -------
@@ -4866,7 +5111,7 @@ function rescanLink(report, email, window = currentWindow(report)) {
   const server = resolveReportServer(null, settingsStore.get());
   if (!server.url || !window) return '';
   const grant = rescanTokens.issue({ reportId: report.id, round: window.round, email, exp: Date.parse(window.dueAt) + RESCAN_LINK_EXTRA_MS });
-  return `${server.url.replace(/\/+$/, '')}/rescan?g=${encodeURIComponent(grant)}`;
+  return `${server.url.replace(/\/+$/, '')}/rescan?g=${encodeURIComponent(grant)}${tenantQuery('&')}`;
 }
 
 /** The scope is closed: the developers' turn to rescan begins, and they are told. */
@@ -5482,7 +5727,7 @@ app.post(
 /** The emailed link: one page, no script, one button. */
 const rescanPage = (title, body, { grant = '', button = false } = {}) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/app-icon"><title>${escapeHtmlText(title)}</title>
 <style>body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f5f6fa;color:#111827;display:grid;place-items:center;min-height:100vh}main{max-width:520px;margin:16px;background:#fff;border:1px solid #e3e6ee;border-radius:14px;padding:28px}h1{font-size:20px;margin:0 0 12px}p{line-height:1.5;color:#374151}button{margin-top:12px;background:#4f46e5;color:#fff;border:0;border-radius:9px;padding:12px 20px;font:inherit;font-weight:600;cursor:pointer}small{color:#6b7280}@media(prefers-color-scheme:dark){body{background:#0f1117;color:#e5e7eb}main{background:#171a23;border-color:#2a2f3c}p{color:#cbd5e1}}</style></head>
-<body><main><h1>${escapeHtmlText(title)}</h1>${body}${button ? `<form method="post" action="/rescan"><input type="hidden" name="g" value="${escapeHtmlText(grant)}"><button type="submit">Rescan now</button></form>` : ''}<p><small>CxMissionZero</small></p></main></body></html>`;
+<body><main><h1>${escapeHtmlText(title)}</h1>${body}${button ? `<form method="post" action="/rescan${escapeHtmlText(tenantQuery('?'))}"><input type="hidden" name="g" value="${escapeHtmlText(grant)}"><button type="submit">Rescan now</button></form>` : ''}<p><small>CxMissionZero</small></p></main></body></html>`;
 
 function rescanPageFor(report, grant, token, note = '') {
   const s = windowState(report);
@@ -5907,6 +6152,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     portalUrl: settings.links.baseUrl,
     sign: (finding) => reportGrants.issue(finding),
     reportToken,
+    tenantId: tenancy.current().id === DEFAULT_TENANT ? '' : tenancy.current().id,
     // From a tracked report, to one developer: they may rescan their own fixes once the round is closed.
     rescanGrant: tracked && audience.recipient && !audience.recipient.includes(',')
       ? rescanTokens.issue({ reportId: tracked.id, round: tracked.round ?? 1, email: audience.recipient, exp: Date.now() + RESCAN_REPORT_GRANT_MS })
@@ -5999,7 +6245,7 @@ function reportRepositories(known, inReport) {
 /** A link only this server could have made: the report id plus its signature. */
 const downloadSignature = (id) => reportGrants.macText(`download\n${id}`);
 function reportDownloadUrl(relayUrl, id) {
-  return `${String(relayUrl).replace(/\/+$/, '')}/r/${id}?s=${encodeURIComponent(downloadSignature(id))}`;
+  return `${String(relayUrl).replace(/\/+$/, '')}/r/${id}?s=${encodeURIComponent(downloadSignature(id))}${tenantQuery('&')}`;
 }
 
 function linkPage(title, message) {
@@ -7517,11 +7763,14 @@ const server = httpsManager.listen({ app, httpsOnly: httpsOnlyAnswer, port: conf
   httpsManager.watch();
   console.log(`Settings file: ${settingsStore.file}`);
   for (const problem of configProblems(config)) console.warn(`! ${problem}`);
-  await prepareAccess();
-  await bootstrap();
-  await verifyEnvironmentSmtp();
-  await resolveAutomationSession();
-  seedLastKnownGood();
+  // The deployment's own connections (CX_API_KEY, SMTP_*) belong to the first tenant.
+  await tenancy.run(DEFAULT_TENANT, async () => {
+    await prepareAccess();
+    await bootstrap();
+    await verifyEnvironmentSmtp();
+  });
+  for (const id of tenancy.ids()) await tenancy.run(id, () => resolveAutomationSession());
+  tenancy.run(DEFAULT_TENANT, () => seedLastKnownGood());
   // LETSENCRYPT_DOMAIN: get the certificate now (unless a current one for those names is in use), then keep it renewed.
   if (LETSENCRYPT_DOMAIN) {
     try {
@@ -7538,13 +7787,15 @@ const server = httpsManager.listen({ app, httpsOnly: httpsOnlyAnswer, port: conf
     }
   }
   acme.startRenewal();
-  scheduler.sync();
+  tenancy.each(() => scheduler.sync());
   // Under the launcher (src/launch.js): this version is up, so an update to it has worked.
   if (process.env.MZ_SUPERVISOR === '1') process.send?.({ type: 'ready', version: APP_VERSION });
   // Settings changed and left unchecked before a restart (or a timeout): check them now, rolling back what fails.
-  if (cxonePending() || smtpPending()) {
-    checkConnections({ rollback: true, trigger: 'server start' }).catch((error) => console.warn(`! [settings] Connection check failed: ${error.message}`));
-  }
+  tenancy.each(() => {
+    if (cxonePending() || smtpPending()) {
+      checkConnections({ rollback: true, trigger: 'server start' }).catch((error) => console.warn(`! [settings] Connection check failed: ${error.message}`));
+    }
+  });
   const automation = settingsStore.get().automation;
   if (automation.enabled) {
     console.log(

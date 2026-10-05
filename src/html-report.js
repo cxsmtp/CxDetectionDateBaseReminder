@@ -181,6 +181,8 @@ export function generateHtmlReport(reportData, options = {}) {
       relayUrl,
       allowRetriage: options.allowRetriage === true,
       ...(options.reportToken ? { report: options.reportToken } : {}),
+      // Which of this server's Checkmarx One tenants the report belongs to (several tenants only).
+      ...(options.tenantId ? { tenantId: String(options.tenantId) } : {}),
       // A tracked report's developer may rescan their own fixes (src/rescan-window.js).
       ...(typeof options.rescanGrant === 'string' && options.rescanGrant ? { rescan: options.rescanGrant } : {}),
       allowReremediation: options.allowReremediation === true,

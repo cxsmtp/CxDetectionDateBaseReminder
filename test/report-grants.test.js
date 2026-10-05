@@ -31,3 +31,26 @@ test('a grant binds its tenant; the first tenant signs exactly as before', () =>
   assert.equal(grants.verify({ ...base, tenant: 'other', ...acme }), 'invalid', 'cannot be replayed into another tenant');
   assert.equal(grants.verify({ ...base, ...acme }), 'invalid', 'nor stripped back to the first tenant');
 });
+
+test('on a server with several tenants, grants and links are bound to the running tenant, whatever a request claims', () => {
+  let running = 'acme';
+  const grants = new ReportGrants({ secret: 'tenant-key', tenantOf: () => running });
+  const base = { projectId: 'p1', riskId: 'r1', scanId: 's1' };
+  const issued = grants.issue(base);
+  assert.equal(grants.verify({ ...base, ...issued }), '');
+  // A request naming the first tenant inside acme's context still verifies only as acme.
+  assert.equal(grants.verify({ ...base, tenant: 'default', ...issued }), '');
+  running = 'other';
+  assert.equal(grants.verify({ ...base, ...issued }), 'invalid', 'acme\'s report cannot act in another tenant');
+  running = 'default';
+  assert.equal(grants.verify({ ...base, ...issued }), 'invalid', 'nor in the first tenant');
+  // Links and tokens (macText) too, while the first tenant signs exactly as without tenants.
+  const plain = new ReportGrants({ secret: 'tenant-key' });
+  assert.equal(grants.macText('download\nabc'), plain.macText('download\nabc'));
+  running = 'acme';
+  assert.notEqual(grants.macText('download\nabc'), plain.macText('download\nabc'));
+  const report = grants.signReport({ id: 'rep-1', recipient: 'dev@acme.io', issuedAt: '2026-01-01T00:00:00Z' });
+  assert.ok(grants.verifyReport(report));
+  running = 'other';
+  assert.equal(grants.verifyReport(report), null);
+});
