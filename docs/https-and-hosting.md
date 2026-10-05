@@ -4,7 +4,15 @@ Everything people send to CxMissionZero is sensitive: sign-ins, the vulnerabilit
 
 The container image serves HTTPS by default (`HTTPS=on`): with your certificate when you give one, otherwise with a self-signed one it makes (way C). A production release never serves plain http by accident. `HTTPS=off` turns it off: for your own machine, or behind a reverse proxy that does HTTPS (way B).
 
-**The easiest way: Settings → HTTPS** (Admin). On the running server, with no new command:
+**No certificate from your organisation? One setting does it all.** With a DNS name pointing at the server and port 80 open to the internet, start the container with `LETSENCRYPT_DOMAIN`:
+
+```
+podman run --replace -d --name mission-zero -p 80:3000 -p 443:3000 -v mission-zero-data:/data -e LETSENCRYPT_DOMAIN=mz.company.com -e LETSENCRYPT_EMAIL=appsec@company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+The server gets a free certificate from Let's Encrypt (under a minute), switches to HTTPS only, points emailed reports at `https://mz.company.com`, and renews the certificate by itself 30 days before it expires. Nothing else to run, no reverse proxy. Setting `LETSENCRYPT_DOMAIN` means you accept the [Let's Encrypt Subscriber Agreement](https://letsencrypt.org/repository/). The same is one button under Settings → HTTPS → **Free certificate from Let's Encrypt**. Details: [way B](#b-free-certificate-from-lets-encrypt-public-name).
+
+**The easiest way with your organisation's certificate: Settings → HTTPS** (Admin). On the running server, with no new command:
 1. upload the certificate (or create a request for IT there), checked like a browser would;
 2. turn on HTTPS next to http, on the same address and port;
 3. test it; emailed reports switch to HTTPS by themselves where it works;
@@ -20,7 +28,7 @@ Or pick one of the three ways below, from the container options. All the command
 | Way | Use it when | You need |
 | --- | --- | --- |
 | **A. Your company's certificate**, served by CxMissionZero itself | It runs inside the company network or VPN (the usual case) | A certificate for its name from your company CA or IT: `server.crt` and `server.key`, or one `.pfx` and its password |
-| **B. Automatic certificates** (Let's Encrypt, through Caddy) | It has a public name that the internet can reach | A DNS name (e.g. `mz.company.com`) pointing at the host, with ports 80 and 443 open to it |
+| **B. Free certificate from Let's Encrypt**, got and renewed by CxMissionZero itself (or by Caddy in front) | It has a public name that the internet can reach, and no certificate comes from your organisation | A DNS name (e.g. `mz.company.com`) pointing at the host, with ports 80 and 443 open to it |
 | **C. Self-signed**, made by CxMissionZero (the default) | Trying it out, or a closed lab | Nothing. Browsers warn until the certificate is trusted |
 
 ## A. Your company's certificate
@@ -51,9 +59,34 @@ Better still, keep the password in an env file (`--env-file`) rather than on the
 
 **On Linux,** the key file must be readable by the container's user (uid 1000).
 
-## B. Automatic certificates with Caddy (public name)
+## B. Free certificate from Let's Encrypt (public name)
 
-**Best choice when you will not get a certificate from your organisation.** Caddy gets a certificate from Let's Encrypt, renews it by itself, and forwards requests to CxMissionZero. CxMissionZero then has no published port of its own; only Caddy faces the network. You need a DNS name pointing at the server and ports 80 and 443 reachable from the internet.
+**Best choice when you will not get a certificate from your organisation.**
+
+**Built in (recommended): one setting.** Publish ports 80 and 443 to the container's port 3000 and give the name:
+
+```
+podman run --replace -d --name mission-zero -p 80:3000 -p 443:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e LETSENCRYPT_DOMAIN=mz.company.com -e LETSENCRYPT_EMAIL=appsec@company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+What happens:
+- At start, the server first checks that `http://mz.company.com/` reaches it, so a wrong DNS entry or a closed port 80 is reported in the log without using up Let's Encrypt's limits. Then it asks Let's Encrypt, answers its check on port 80, and puts the certificate to use without a restart.
+- It switches to HTTPS only. Plain http redirects to https, except Let's Encrypt's own checks, which stay answered for renewals.
+- Emailed reports point at `https://mz.company.com` (unless `REPORT_SERVER_URL` says otherwise).
+- It renews 30 days before expiry, by itself; each certificate and each failure is in the audit log.
+- Restarting or updating the container keeps the certificate (it is in the data volume) and does not ask again.
+
+| Option | Meaning |
+| --- | --- |
+| `LETSENCRYPT_DOMAIN` | The name(s), comma-separated. Setting it means you accept the [Let's Encrypt Subscriber Agreement](https://letsencrypt.org/repository/). |
+| `LETSENCRYPT_EMAIL` | Optional: where Let's Encrypt sends expiry warnings. |
+| `LETSENCRYPT_STAGING=1` | Try Let's Encrypt's staging service first (browsers do not trust its certificates). |
+| `LETSENCRYPT_SKIP_CHECK=1` | Skip the self-check, when the server cannot reach its own public name although the internet can. |
+| `ACME_DIRECTORY_URL` | Another ACME certificate authority's directory instead of Let's Encrypt. |
+
+From the page instead: Settings → HTTPS → **Free certificate from Let's Encrypt**: enter the name, tick the agreement, **Get a free certificate**. It turns HTTPS on next to http; switch to HTTPS only in step 4.
+
+**Or with Caddy in front.** Caddy gets a certificate from Let's Encrypt, renews it by itself, and forwards requests to CxMissionZero. CxMissionZero then has no published port of its own; only Caddy faces the network. You need a DNS name pointing at the server and ports 80 and 443 reachable from the internet.
 
 **Ready-made setup:** [`deploy/caddy/`](../deploy/caddy/) has a compose file and `Caddyfile` that do all of this. Set your name and start it:
 
@@ -119,6 +152,11 @@ This is what the image does when no certificate is given; `TLS_HOSTNAMES` only a
 | `HTTPS_PUBLIC_PORT` | 443 | The https port people use, for that redirect. |
 | `TRUST_PROXY` | `loopback` (a proxy on this machine); nobody when CxMissionZero serves HTTPS itself | Whose `X-Forwarded-*` headers to believe: `off`, `on`, an address, a CIDR (comma-separated for several), `loopback`, or `uniquelocal` (every private address). Set it to your reverse proxy's address when the proxy runs in another container or on another machine. |
 | `REPORT_SERVER_URL` | — | The `https://` address put into every emailed report. Set it to the name in the certificate. |
+| `LETSENCRYPT_DOMAIN` | — | Get a free certificate from Let's Encrypt for this name (comma-separated for several), switch to HTTPS only, and renew it by itself. Means you accept the Let's Encrypt Subscriber Agreement. Needs ports 80 and 443 published (`-p 80:3000 -p 443:3000`). |
+| `LETSENCRYPT_EMAIL` | — | Where Let's Encrypt sends expiry warnings. |
+| `LETSENCRYPT_STAGING` | off | `1`: Let's Encrypt's staging service (for a trial; browsers do not trust it). |
+| `LETSENCRYPT_SKIP_CHECK` | off | `1`: skip the self-check before asking Let's Encrypt. |
+| `ACME_DIRECTORY_URL` | Let's Encrypt | Another ACME certificate authority's directory. |
 
 ## What I need from you
 

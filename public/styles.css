@@ -2439,3 +2439,15 @@ html[data-i18n="loading"] .shell { visibility: hidden; animation: i18n-reveal 0s
   .topbar-actions { gap: 4px; }
   .lang-pick { padding: 0 6px; }
 }
+
+/* Settings → HTTPS: the free Let's Encrypt certificate (the easy path, first). */
+.https-le {
+  display: grid; gap: 8px; margin: 10px 0 12px; padding: 12px 14px; border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); background: var(--accent-soft);
+}
+.https-le-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.https-le .hint { margin: 0; max-width: none; }
+.https-le .field { margin: 0; }
+.https-le .actions { margin: 0; }
+.https-le .disclosure { margin: 0; }
+.https-or { margin: 4px 0 8px; }

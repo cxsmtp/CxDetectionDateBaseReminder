@@ -683,12 +683,13 @@ export class HttpsManager {
    * `secure`: the request asking for it arrived over HTTPS. Switching to HTTPS only needs
    * that: it shows HTTPS works from the Admin's own browser before http goes away.
    */
-  setMode(mode, { secure = false, confirm = false, by = '' } = {}) {
+  setMode(mode, { secure = false, confirm = false, system = false, by = '' } = {}) {
     if (!MODES.includes(mode)) throw fail(400, `Unknown mode "${mode}".`);
     const from = this.#state.mode;
     if (mode === from) return mode;
     if (mode === 'https') {
-      if (!secure) throw fail(409, 'Open this page over HTTPS and switch there: that proves HTTPS works from your browser before http goes away.', { needsHttps: true });
+      // `system`: the server itself, with a certificate browsers trust (LETSENCRYPT_DOMAIN), needs no browser to prove it.
+      if (!secure && !system) throw fail(409, 'Open this page over HTTPS and switch there: that proves HTTPS works from your browser before http goes away.', { needsHttps: true });
       const active = this.#certificate({ make: true });
       if (active.selfSigned && !confirm) throw fail(409, 'The certificate is self-signed: after the switch every browser warns until it trusts it. Confirm to go ahead, or upload your certificate first.', { needsConfirm: true });
     }

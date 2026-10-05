@@ -33,6 +33,8 @@ const readFile = (file) => fs.readFileSync(file);
 export function startMode(env = process.env) {
   const mode = String(env.HTTPS ?? '').trim().toLowerCase();
   if (/^(off|false|no|0)$/.test(mode)) return 'http';
+  // Let's Encrypt from the start: http and https side by side until its certificate is in (then HTTPS only).
+  if (env.LETSENCRYPT_DOMAIN?.trim()) return 'both';
   if (mode === 'both') return 'both';
   if (/^(on|true|yes|1)$/.test(mode)) return 'https';
   if (mode) throw new Error(`HTTPS must be on, off or both, not "${env.HTTPS}".`);

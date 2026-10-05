@@ -988,6 +988,28 @@
                 <li class="https-step" id="https-step-cert">
                   <h3><span class="step-num">1</span> Certificate</h3>
                   <div id="https-cert-current"></div>
+                  <div class="https-le" id="https-le">
+                    <div class="https-le-head"><strong>Free certificate from Let's Encrypt</strong> <span class="hint">The easiest way: trusted by every browser, renewed by itself.</span></div>
+                    <p class="hint">Needs a DNS name that points at this server, and port 80 open to the internet: Let's Encrypt checks the name there.</p>
+                    <div class="grid2">
+                      <label class="field"><span>Server name</span><input id="https-le-names" spellcheck="false" placeholder="mz.company.com" /></label>
+                      <label class="field"><span>Email for expiry notices (optional)</span><input id="https-le-email" type="email" spellcheck="false" placeholder="appsec@company.com" /></label>
+                    </div>
+                    <label class="pill-check"><input type="checkbox" id="https-le-agree" /> <span>I agree to the <a href="https://letsencrypt.org/repository/" target="_blank" rel="noopener">Let's Encrypt Subscriber Agreement</a></span></label>
+                    <details class="disclosure" data-advanced>
+                      <summary>More options</summary>
+                      <label class="pill-check"><input type="checkbox" id="https-le-staging" /> <span>Test with the Let's Encrypt staging service first (browsers do not trust its certificates)</span></label>
+                      <label class="pill-check"><input type="checkbox" id="https-le-skip" /> <span>Skip the self-check (only when this server cannot reach its own public name, though the internet can)</span></label>
+                    </details>
+                    <div class="actions compact">
+                      <button type="button" class="primary" id="https-le-get">Get a free certificate</button>
+                      <button type="button" id="https-le-renew" hidden>Renew now</button>
+                      <button type="button" class="link" id="https-le-stop" hidden>Stop automatic renewal</button>
+                      <span class="status" id="https-le-status"></span>
+                    </div>
+                    <p class="hint" id="https-le-info"></p>
+                  </div>
+                  <p class="hint https-or">Or use your organisation's certificate:</p>
                   <div class="env-drop" id="https-drop">
                     <input type="file" id="https-files" multiple accept=".crt,.cer,.pem,.key,.pfx,.p12,.txt,.p7b" class="sr-only" />
                     <label for="https-files" class="button primary" id="https-files-label">Choose certificate files</label>

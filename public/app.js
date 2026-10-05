@@ -7687,7 +7687,8 @@ function certCard(report, { title, candidate = false } = {}) {
     return `<div class="https-cert"><ul class="https-checks"><li class="error"><span>${escapeHtml(report?.error || 'The certificate could not be read.')}</span></li></ul></div>`;
   }
   const s = report.summary;
-  const meta = [CERT_SOURCES[report.source], s.keyType, report.kind === 'pfx' ? '.pfx' : ''].filter(Boolean).join(' · ');
+  const fromLetsEncrypt = report.source === 'uploaded' && /^Let's Encrypt/.test(httpsUi.status?.uploaded?.by ?? '') && !candidate;
+  const meta = [fromLetsEncrypt ? "from Let's Encrypt" : CERT_SOURCES[report.source], s.keyType, report.kind === 'pfx' ? '.pfx' : ''].filter(Boolean).join(' · ');
   const chain = s.chain.length > 1 ? `<div class="chain">Chain: ${s.chain.map((c) => escapeHtml(c.subject)).join(' → ')}</div>` : '';
   const notes = report.notes?.length ? `<ul class="notes">${report.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>` : '';
   return `<div class="https-cert${candidate ? ' candidate' : ''}">
@@ -7717,6 +7718,7 @@ function renderHttps(s) {
   ].join('');
 
   // 1. Certificate
+  renderAcme(s.acme, s);
   $('https-cert-current').innerHTML = cert ? certCard(cert, { title: 'In use' }) : '<p class="hint">None yet. Turning HTTPS on makes a self-signed one to start with; upload your company certificate to replace it.</p>';
   $('https-files-label').textContent = realCert ? 'Choose files to replace it' : 'Choose certificate files';
   const actions = [];
@@ -7933,6 +7935,80 @@ $('https-cert-actions').addEventListener('click', (event) => {
     }, 'The uploaded certificate is no longer used.');
   }
 });
+// ---- Free certificate from Let's Encrypt ----
+
+let acmePoll = null;
+
+/** The Let's Encrypt card: what it is doing, what it got, and when it renews. */
+function renderAcme(a, s = httpsUi.status) {
+  if (!a) return;
+  if (!$('https-le-names').value) {
+    const names = a.names?.length ? a.names : a.suggested?.length ? a.suggested : [];
+    $('https-le-names').value = names.join(', ');
+  }
+  if (!$('https-le-email').value && a.email) $('https-le-email').value = a.email;
+  if (a.staging) $('https-le-staging').checked = true;
+  $('https-le-get').disabled = a.running;
+  $('https-le-get').textContent = a.issued ? 'Get a new certificate' : 'Get a free certificate';
+  $('https-le-renew').hidden = !a.enabled || a.running;
+  $('https-le-stop').hidden = !a.enabled || a.running;
+  const last = a.last;
+  if (a.running) setStatus('https-le-status', 'Asking Let\'s Encrypt… This usually takes under a minute.');
+  else if (last?.running) setStatus('https-le-status', 'The last request did not finish (the server restarted). Try again.', 'warn');
+  else if (last?.ok) setStatus('https-le-status', `Certificate for ${last.names.join(', ')} put to use on ${day(last.at)}.`, 'ok');
+  else if (last && !last.ok) setStatus('https-le-status', last.error, 'error');
+  else setStatus('https-le-status', '');
+  const info = [];
+  if (a.fromEnvironment) info.push(`Set up when the server was deployed (LETSENCRYPT_DOMAIN=${a.fromEnvironment}).`);
+  if (a.issued) {
+    info.push(`In use until ${day(a.issued.validTo)} (${a.daysLeft} days left)${a.issued.staging ? ', from the staging service: browsers do not trust it' : ''}.`);
+    info.push(a.enabled ? `Renewed by itself from ${day(a.renewsFrom)}.` : 'Automatic renewal is off.');
+  }
+  if (a.issued && !a.issued.staging && s?.mode === 'both') info.push('Next: open this page over HTTPS and switch to HTTPS only (step 4).');
+  $('https-le-info').textContent = info.join(' ');
+  clearTimeout(acmePoll);
+  if (a.running) {
+    acmePoll = setTimeout(async () => {
+      try {
+        const next = await api('/api/https/acme', { quiet: true });
+        if (next.running) renderAcme(next);
+        else loadHttps();
+      } catch (error) {
+        if (!handleAuthLoss(error)) setStatus('https-le-status', error.message, 'error');
+      }
+    }, 2000);
+  }
+}
+
+$('https-le-get').addEventListener('click', async () => {
+  const names = $('https-le-names').value.split(/[\s,;]+/).filter(Boolean);
+  if (!names.length) return setStatus('https-le-status', 'Enter the name people use to reach this server, e.g. mz.company.com.', 'error');
+  if (!$('https-le-agree').checked) return setStatus('https-le-status', 'Tick the box to agree to the Let\'s Encrypt Subscriber Agreement first.', 'error');
+  try {
+    renderAcme(await api('/api/https/acme', {
+      method: 'POST',
+      body: JSON.stringify({ names, email: $('https-le-email').value.trim(), agree: true, staging: $('https-le-staging').checked, skipPrecheck: $('https-le-skip').checked }),
+    }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) setStatus('https-le-status', error.message, 'error');
+  }
+});
+$('https-le-renew').addEventListener('click', async () => {
+  try {
+    renderAcme(await api('/api/https/acme/renew', { method: 'POST' }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) setStatus('https-le-status', error.message, 'error');
+  }
+});
+$('https-le-stop').addEventListener('click', async () => {
+  if (!confirm('Stop renewing the Let\'s Encrypt certificate by itself? It stays in use until it expires or you replace it.')) return;
+  try {
+    renderAcme(await api('/api/https/acme', { method: 'DELETE' }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) setStatus('https-le-status', error.message, 'error');
+  }
+});
+
 $('https-csr-create').addEventListener('click', async () => {
   const names = $('https-csr-names').value.split(/[\s,;]+/).filter(Boolean);
   if (!names.length) {

@@ -104,7 +104,15 @@ More container options: [docs/container.md](docs/container.md).
 
 ## HTTPS
 
-**From the Settings page (recommended).** An Admin moves a running server to HTTPS under **Settings → HTTPS**, with no new command and no restart:
+**No certificate from your organisation? One setting.** With a DNS name pointing at the server and port 80 open to the internet:
+
+```
+podman run --replace -d --name mission-zero -p 80:3000 -p 443:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e LETSENCRYPT_DOMAIN=mz.company.com -e LETSENCRYPT_EMAIL=appsec@company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+The server gets a free Let's Encrypt certificate, switches to HTTPS only, and renews it by itself. Setting `LETSENCRYPT_DOMAIN` means you accept the [Let's Encrypt Subscriber Agreement](https://letsencrypt.org/repository/). It is also one button under Settings → HTTPS. More: [docs/https-and-hosting.md](docs/https-and-hosting.md#b-free-certificate-from-lets-encrypt-public-name).
+
+**From the Settings page (recommended with your organisation's certificate).** An Admin moves a running server to HTTPS under **Settings → HTTPS**, with no new command and no restart:
 
 1. **Certificate.** Drop in the files from IT (certificate, chain, key, or one `.pfx`). It is checked the way a browser would before anything changes: the key, the chain, the names people use, the dates. No certificate yet? **Create a request (CSR) for IT** there; the key stays on the server.
 2. **Turn on HTTPS next to http.** The same address and port answer both `http://` and `https://`. Nobody is cut off.
@@ -128,7 +136,7 @@ podman run --replace -d --name mission-zero -p 443:3000 -p 80:8080 -v mission-ze
 - **Port 80** (`-p 80:8080` and `HTTP_REDIRECT_PORT`) only sends `http://` visitors to `https://`.
 - **Renewals:** copy the renewed files over the old ones. It switches over within 5 minutes, with no restart.
 
-**B. Automatic certificate** (public name). Caddy fetches and renews the certificate and speaks plain http to CxMissionZero on their private network (hence `HTTPS=off`); CxMissionZero has no port of its own:
+**B. Automatic certificate** (public name): `LETSENCRYPT_DOMAIN`, above, does it with no proxy. Or Caddy in front: it fetches and renews the certificate and speaks plain http to CxMissionZero on their private network (hence `HTTPS=off`); CxMissionZero has no port of its own:
 
 ```
 podman network create mz-net

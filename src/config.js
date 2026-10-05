@@ -65,7 +65,7 @@ export function loadConfig(env = process.env) {
 
     // How report readers' browsers reach this server (put into every report).
     // The Settings page overrides it.
-    reportServerUrl: (env.REPORT_SERVER_URL?.trim() || env.PUBLIC_URL?.trim() || '').replace(/\/+$/, ''),
+    reportServerUrl: (env.REPORT_SERVER_URL?.trim() || env.PUBLIC_URL?.trim() || (env.LETSENCRYPT_DOMAIN?.trim() ? `https://${env.LETSENCRYPT_DOMAIN.trim().split(/[\s,]+/)[0].toLowerCase()}` : '')).replace(/\/+$/, ''),
 
     session: { idleMs: int(env.SESSION_IDLE_MINUTES, 480) * 60_000 },
     concurrency: Math.max(1, int(env.CX_FETCH_CONCURRENCY, 10)),
