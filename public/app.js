@@ -729,7 +729,7 @@ $('tn-add').addEventListener('click', async () => {
   try {
     const result = await api('/api/tenants', { method: 'POST', body: JSON.stringify({ name }) });
     $('tn-name').value = '';
-    await tenantsChanged(result, `Added ${result.added.name}. Choose it at the top of the page to set it up.`);
+    await tenantsChanged(result, 'Added. Choose it at the top of the page to set it up.');
   } catch (error) {
     if (!handleAuthLoss(error)) showError('tn-status', error);
   }
