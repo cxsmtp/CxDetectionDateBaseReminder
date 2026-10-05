@@ -18,7 +18,10 @@ test('the language: the saved choice, else the browser’s when it is one of our
   assert.equal(preferredLanguage(null, ['ms-MY']), 'ms');
   assert.equal(preferredLanguage(null, ['es-419']), 'es');
   assert.equal(preferredLanguage(null, ['en-GB', 'ja']), 'en', 'the first language the browser names wins');
-  assert.equal(preferredLanguage(null, ['fr-FR', 'de']), 'en');
+  assert.equal(preferredLanguage(null, ['fr-FR', 'de']), 'fr');
+  assert.equal(preferredLanguage(null, ['de-AT']), 'de');
+  assert.equal(preferredLanguage(null, ['nl', 'de']), 'de', 'the first language the browser names that is one of ours');
+  assert.equal(preferredLanguage(null, ['he-IL']), 'en', 'Hebrew is not chosen automatically (it is gated)');
   assert.equal(preferredLanguage('xx', []), 'en');
 });
 

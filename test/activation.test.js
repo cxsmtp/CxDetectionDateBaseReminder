@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { generateKeyPairSync } from 'node:crypto';
+import { createPublicKey, generateKeyPairSync } from 'node:crypto';
 
 import { ISSUER_KEYS, checkCode, readCode } from '../src/activation.js';
 
@@ -15,8 +15,13 @@ const script = (...args) => execFileSync(process.execPath, ['scripts/activation.
 const publicKey = script('keygen', keyFile).split('\n').pop();
 const issue = (org, max, months) => script('issue', keyFile, org, String(max), ...(months ? [String(months)] : []));
 
-test('no issuer key is built in until the maintainer adds theirs', () => {
-  assert.deepEqual(ISSUER_KEYS, []);
+test('the built-in issuer key(s) are valid Ed25519 public keys; without any key no code verifies', () => {
+  assert.ok(ISSUER_KEYS.length >= 1, 'the maintainer’s public key is built in');
+  for (const key of ISSUER_KEYS) {
+    const pub = createPublicKey({ key: Buffer.from(key, 'base64'), format: 'der', type: 'spki' });
+    assert.equal(pub.asymmetricKeyType, 'ed25519');
+  }
+  // With no trusted key, nothing verifies — not even a well-formed code.
   assert.equal(checkCode(issue('Acme', 3), { keys: [] }).valid, false);
 });
 

@@ -13,7 +13,9 @@
 import { createPublicKey, verify } from 'node:crypto';
 
 /** The maintainer's public key(s), base64 SPKI DER. Empty: no code is valid yet. */
-export const ISSUER_KEYS = [];
+export const ISSUER_KEYS = [
+  'MCowBQYDK2VwAyEAlWEwF9lhzKv0IZ1GaDJSmlJqaZd7Gc1JqvYju52uKo4=',
+];
 
 const PREFIX = 'MZ1';
 const DAY_MS = 24 * 60 * 60 * 1000;

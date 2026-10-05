@@ -18,6 +18,8 @@ export const LANGUAGES = [
   ['zh-CN', '简体中文'],
   ['ko', '한국어'],
   ['es', 'Español'],
+  ['de', 'Deutsch'],
+  ['fr', 'Français'],
   ['vi', 'Tiếng Việt'],
   ['th', 'ไทย'],
   ['ms', 'Bahasa Melayu'],
