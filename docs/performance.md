@@ -219,6 +219,28 @@ Two operations were slightly slower at p95: tracked-report refresh (6.9 s agains
   Both vary over the same range, all with 0 failures. When the generator fires fast enough, more than 300 report requests arrive at once and the server answers some "busy, retry" (main run 3: 638; MZ-01.00.26 run 1: 127). When it fires slower, none are turned away and the last ones simply wait longer.
 - **The changes on the server's hot paths cost nothing measurable.** Template rendering counts its work, a Checkmarx One sign-in is shared between concurrent requests, and a few more inputs are capped.
 
+## MZ-01.00.47: the page with 1,000 projects
+
+The server benchmark above measures the server. This one measures the browser, because a large tenant made the Dashboard itself slow. Each run has 1,000 projects with 20 findings each, Chromium with the CPU slowed 4× (a modest laptop), and MZ-01.00.46 (main) against MZ-01.00.47:
+
+| What the person does | MZ-01.00.46 | MZ-01.00.47 |
+| --- | --- | --- |
+| **Load findings:** longest freeze while results stream in | 2.7 s | 0.24 s |
+| **Load findings:** time until the page is usable again | 9.5 s | 6.0 s |
+| **Type "Project 1" in the project search:** time until it settles | 21.5 s | 1.8 s |
+| **Type in the search:** slowest frame | 3.6 s | 0.13 s |
+| **Scroll the project list:** 95th-percentile frame | 33 ms | 17 ms |
+| **Back to the Dashboard** from another page | 1.9 s | 0.25 s |
+| **Elements on the page** after loading | 106,581 | 11,993 |
+
+What changed in the page:
+- **Rows:** the project list shows 100 rows, with **Show 100 more** and **Show all** below. Sorting, filtering, selecting and exporting still cover every project.
+- **Search:** the filter waits for typing to pause (150 ms) before it redraws.
+- **Loading:** while results stream in, the list is redrawn at most every 0.4 s instead of after every project.
+- **Scrolling:** hover effects are paused while the list scrolls.
+
+The other pages (Reports, Credit Control, Audit, People & roles, Settings, Logs) opened in 50–410 ms on both versions.
+
 ## MZ-01.00.21: profiled, and the slow tail removed
 
 A CPU profile of the server under the full load showed where its single thread went besides real work. What changed:
