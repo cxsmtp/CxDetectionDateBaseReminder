@@ -63,6 +63,8 @@ import { HSTS_AGES, HttpsManager } from './https-manager.js';
 import { AcmeService, CHALLENGE_PREFIX, RENEW_DAYS, cleanNames, validName } from './acme.js';
 import { ActivationStore, ISSUER_KEYS, checkCode } from './activation.js';
 import { GATED_LANGUAGES, LanguageAccess } from './languages.js';
+import { DEFAULT_TENANT, Tenancy, scoped, scopedState } from './tenancy.js';
+import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
 import { SUPPORTING_NOTICE, Terms } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
@@ -152,28 +154,81 @@ const persistTimer = setInterval(() => {
 }, 60_000);
 persistTimer.unref?.();
 const settingsFile = config.settingsFile || path.join(dataDir, 'settings.json');
-const settingsStore = new SettingsStore({ file: settingsFile });
-settingsStore.applyEnvironment();
+
+// ---------------------------------------------------------------------------
+// Tenants (src/tenancy.js). Each Checkmarx One tenant has its own settings, credits, tracked
+// reports, audit log, automation and caches, made here. The first tenant ("default") keeps the
+// state folder's existing files, so one tenant works exactly as before. The names below
+// (settingsStore, audit, scheduler…) always mean the running tenant's: a request or a
+// background job runs inside one tenant's context.
+// ---------------------------------------------------------------------------
+const tenancy = new Tenancy({ dataDir, build: buildTenant });
+function buildTenant({ id, dir }) {
+  const first = id === DEFAULT_TENANT;
+  const settingsStore = new SettingsStore({ file: first ? settingsFile : path.join(dir, 'settings.json') });
+  if (first) settingsStore.applyEnvironment();
+  const creditLedger = new CreditLedger({ file: path.join(dir, 'triage-credits.json') });
+  const automationState = new AutomationState({
+    file: first && config.settingsFile ? config.settingsFile.replace(/\.json$/, '') + '-automation.json' : path.join(dir, 'automation-state.json'),
+  });
+  return {
+    settingsStore,
+    creditLedger,
+    allocations: new CreditAllocations({ file: path.join(dir, 'credit-allocations.json'), ledger: creditLedger }),
+    trackedReports: new TrackedReports({ file: path.join(dir, 'tracked-reports.json') }),
+    reportFiles: new ReportFiles({ dir: path.join(dir, 'report-files'), ttlDays: 30 }),
+    guard: new ConnectionGuard({ file: path.join(dir, 'connection-guard.json') }),
+    audit: new AuditLog({ dir: path.join(dir, 'audit'), keyFile: path.join(dir, 'audit.key') }),
+    automationState,
+    scheduler: new Scheduler({
+      // The scheduler is synchronous about session lookup, so a key armed while
+      // the process is running is picked up by the refresh below rather than here.
+      // Nothing runs on its own until an Admin has accepted the terms of use.
+      resolveSession: () => (terms.organisation() ? sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) : null),
+      state: automationState,
+      // Runs send through the last known good mail server while a change waits to be checked.
+      settingsStore: { get: () => sendingSettings() },
+      config: () => activeConfig(),
+      isVerified,
+      // Scheduled reminders can also email the code authors, once that feature is final.
+      notifyAuthors: (crossed, context) => notifyCodeAuthors(crossed, context),
+      // SLAs (Beta): findings past their SLA, as an issue in their repository (when switched on).
+      openIssues: (items, context) => openSlaIssuesFor(items, context),
+    }),
+    knownAddresses: new KnownAddresses({ file: path.join(dir, 'known-initiators.json') }),
+    scanAttribution: new ScanAttribution({ dataDir: dir }),
+    touchedProjects: new Map(),
+    relayCache: new TtlCache({ max: 100_000 }),
+    recentActions: new TtlCache({ max: 100_000 }),
+    refreshing: new Map(),
+    scanLocations: new TtlCache({ max: 40 }),
+    gitChecks: new Map(),
+    // The tenant's own Checkmarx One integration session and how it was made (see resolveAutomationSession).
+    state: { automationSessionId: null, bootstrapSessionId: null, integrationFingerprint: null, integrationAttempt: null, integrationFailure: { fingerprint: null, until: 0 }, lastDashboardOrigin: '' },
+  };
+}
+/** The running tenant's own variables (its integration session and the like). */
+const tstate = scopedState(tenancy);
+const settingsStore = scoped(tenancy, 'settingsStore');
 const settings = settingsStore.get();
 if (process.env.SMTP_HOST) {
   console.log(`[SMTP] Loaded from environment: ${settings.smtp.host}:${settings.smtp.port}`);
 }
-let bootstrapSessionId = null;
 
-knownAddresses.configure(path.join(dataDir, 'known-initiators.json'));
-const creditLedger = new CreditLedger({ file: path.join(dataDir, 'triage-credits.json') });
+scopeKnownAddresses(() => tenancy.current().knownAddresses);
+const creditLedger = scoped(tenancy, 'creditLedger');
 /** Record triage or remediation sent for a project; its findings are about to change, so recent reads of it are dropped. */
 function recordCreditUse(entry) {
   projectReads.forget(entry.projectId);
   return creditLedger.record(entry);
 }
-const allocations = new CreditAllocations({ file: path.join(dataDir, 'credit-allocations.json'), ledger: creditLedger });
+const allocations = scoped(tenancy, 'allocations');
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
-const trackedReports = new TrackedReports({ file: path.join(dataDir, 'tracked-reports.json') });
-const reportFiles = new ReportFiles({ dir: path.join(dataDir, 'report-files'), ttlDays: 30 });
-const guard = new ConnectionGuard({ file: path.join(dataDir, 'connection-guard.json') });
-const audit = new AuditLog({ dir: path.join(dataDir, 'audit'), keyFile: path.join(dataDir, 'audit.key') });
+const trackedReports = scoped(tenancy, 'trackedReports');
+const reportFiles = scoped(tenancy, 'reportFiles');
+const guard = scoped(tenancy, 'guard');
+const audit = scoped(tenancy, 'audit');
 
 // The terms of use (TERMS.md): an Admin accepts them for the organisation before anyone can use
 // the utility (reports and automation included), then each person before they first use it.
@@ -265,7 +320,7 @@ async function prepareAccess() {
 }
 
 /** Projects someone just triaged or remediated in, so reports covering them refresh soon. */
-const touchedProjects = new Map();
+const touchedProjects = scoped(tenancy, 'touchedProjects');
 const touchProject = (projectId) => touchedProjects.set(projectId, Date.now());
 
 /**
@@ -326,18 +381,13 @@ const reportGrants = new ReportGrants({
 /** Signed links to one finding's fix as a patch, for `git apply` (see /api/relay/patch). */
 const patchTokens = patchLinks((text) => reportGrants.macText(text));
 
-const automationState = new AutomationState({
-  file: config.settingsFile
-    ? config.settingsFile.replace(/\.json$/, '') + '-automation.json'
-    : path.join(dataDir, 'automation-state.json'),
-});
+const automationState = scoped(tenancy, 'automationState');
 
 /**
  * The session unattended runs use. Automation has no browser to paste a key,
  * so it needs a credential that outlives a session: either CX_API_KEY, or one
  * the administrator explicitly armed from the Settings page.
  */
-let automationSessionId = null;
 
 /** Where the stored integration key connects: what the administrator entered, else the deployment's overrides. */
 function integrationOverrides(settings = settingsStore.get()) {
@@ -354,7 +404,7 @@ function integrationOverrides(settings = settingsStore.get()) {
  * report triage, automation, and everyone who signed in with a password.
  */
 function integrationSession() {
-  return sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId);
+  return sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId);
 }
 
 /**
@@ -388,7 +438,6 @@ function keyForEndpoints(current, overrides, newKey) {
 const cxoneFingerprint = (key, overrides = {}) =>
   createHash('sha256').update(JSON.stringify([key ?? '', overrides.baseUrl ?? '', overrides.iamUrl ?? '', overrides.tenant ?? ''])).digest('hex');
 /** The fingerprint of the configuration the running integration session was made from. */
-let integrationFingerprint = null;
 
 /**
  * Make `session` the integration: it replaces the previous one, and the key and
@@ -396,11 +445,11 @@ let integrationFingerprint = null;
  */
 function activateIntegration(session, key, overrides = {}) {
   session.pinned = true;
-  const previous = automationSessionId;
-  automationSessionId = session.id;
-  integrationFingerprint = cxoneFingerprint(key, overrides);
-  integrationFailure = { fingerprint: null, until: 0 };
-  if (previous && previous !== session.id && previous !== bootstrapSessionId) sessions.destroy(previous);
+  const previous = tstate.automationSessionId;
+  tstate.automationSessionId = session.id;
+  tstate.integrationFingerprint = cxoneFingerprint(key, overrides);
+  tstate.integrationFailure = { fingerprint: null, until: 0 };
+  if (previous && previous !== session.id && previous !== tstate.bootstrapSessionId) sessions.destroy(previous);
   const { tenant, baseUrl, iamUrl } = session.connection;
   guard.recordGood('cxone', { apiKey: key, overrides: { baseUrl: overrides.baseUrl ?? '', iamUrl: overrides.iamUrl ?? '', tenant: overrides.tenant ?? '' }, connection: { tenant, baseUrl, iamUrl } });
   scheduler.sync();
@@ -411,8 +460,6 @@ function activateIntegration(session, key, overrides = {}) {
  * for it, and after a failure none for a while (30-60 s), so a wrong key or an unreachable
  * IAM is not asked again on every request. A changed key or endpoints are tried at once.
  */
-let integrationAttempt = null;
-let integrationFailure = { fingerprint: null, until: 0 };
 
 async function resolveAutomationSession() {
   const existing = integrationSession();
@@ -423,42 +470,28 @@ async function resolveAutomationSession() {
   if (!storedKey) return null;
 
   const fingerprint = cxoneFingerprint(storedKey, settings.integrationOverrides ?? {});
-  if (integrationFailure.fingerprint === fingerprint && Date.now() < integrationFailure.until) return null;
-  if (integrationAttempt?.fingerprint === fingerprint) return integrationAttempt.promise;
+  if (tstate.integrationFailure.fingerprint === fingerprint && Date.now() < tstate.integrationFailure.until) return null;
+  if (tstate.integrationAttempt?.fingerprint === fingerprint) return tstate.integrationAttempt.promise;
 
   const promise = (async () => {
     try {
       const session = await sessions.create(storedKey, integrationOverrides(settings));
       activateIntegration(session, storedKey, settings.integrationOverrides ?? {});
-      integrationFailure = { fingerprint: null, until: 0 };
+      tstate.integrationFailure = { fingerprint: null, until: 0 };
       return session;
     } catch (error) {
       console.warn(`! Stored automation key could not be used: ${error.message}`);
-      integrationFailure = { fingerprint, until: Date.now() + 30_000 + Math.floor(Math.random() * 30_000) };
+      tstate.integrationFailure = { fingerprint, until: Date.now() + 30_000 + Math.floor(Math.random() * 30_000) };
       return null;
     } finally {
-      if (integrationAttempt?.promise === promise) integrationAttempt = null;
+      if (tstate.integrationAttempt?.promise === promise) tstate.integrationAttempt = null;
     }
   })();
-  integrationAttempt = { fingerprint, promise };
+  tstate.integrationAttempt = { fingerprint, promise };
   return promise;
 }
 
-const scheduler = new Scheduler({
-  // The scheduler is synchronous about session lookup, so a key armed while
-  // the process is running is picked up by the refresh below rather than here.
-  // Nothing runs on its own until an Admin has accepted the terms of use.
-  resolveSession: () => (terms.organisation() ? sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId) : null),
-  state: automationState,
-  // Runs send through the last known good mail server while a change waits to be checked.
-  settingsStore: { get: () => sendingSettings() },
-  config: () => activeConfig(),
-  isVerified,
-  // Scheduled reminders can also email the code authors, once that feature is final.
-  notifyAuthors: (crossed, context) => notifyCodeAuthors(crossed, context),
-  // SLAs (Beta): findings past their SLA, as an issue in their repository (when switched on).
-  openIssues: (items, context) => openSlaIssuesFor(items, context),
-});
+const scheduler = scoped(tenancy, 'scheduler');
 
 /**
  * Open an issue in each project's repository for its findings that went past their SLA:
@@ -1030,7 +1063,7 @@ app.delete('/api/session', (req, res) => {
   const session = id ? sessions.get(id) : null;
   if (session?.userId) auditAccess(req, 'info', `${iam.user(session.userId)?.email ?? 'Someone'} signed out.`, iam.user(session.userId));
   // Never the integration: signing out ends only this person's session.
-  if (id && id !== automationSessionId && id !== bootstrapSessionId) sessions.destroy(id);
+  if (id && id !== tstate.automationSessionId && id !== tstate.bootstrapSessionId) sessions.destroy(id);
   clearSessionCookie(res);
   res.json({ connected: false, signedIn: false });
 });
@@ -1264,7 +1297,7 @@ function integrationStatus() {
   } catch {}
   return {
     connected: Boolean(session),
-    source: session ? (session.id === automationSessionId ? 'stored' : 'environment') : settings.automationApiKey ? 'stored (not reachable)' : 'none',
+    source: session ? (session.id === tstate.automationSessionId ? 'stored' : 'environment') : settings.automationApiKey ? 'stored (not reachable)' : 'none',
     keyStored: Boolean(settings.automationApiKey),
     environmentKey: Boolean(config.bootstrapApiKey),
     overrides: settings.integrationOverrides ?? { baseUrl: '', iamUrl: '', tenant: '' },
@@ -1307,9 +1340,9 @@ app.delete(
   requirePermission('integration.cxone'),
   asyncRoute(async (req, res) => {
     settingsStore.save({ automationApiKey: '' });
-    if (automationSessionId) sessions.destroy(automationSessionId);
-    automationSessionId = null;
-    integrationFingerprint = null;
+    if (tstate.automationSessionId) sessions.destroy(tstate.automationSessionId);
+    tstate.automationSessionId = null;
+    tstate.integrationFingerprint = null;
     audit.record({ type: 'settings', outcome: 'changed', reason: 'Stored Checkmarx One integration key removed.', actor: await adminActor(req) });
     res.json(integrationStatus());
   }),
@@ -1337,7 +1370,7 @@ function withTimeout(promise, label, ms = CONNECTION_CHECK_TIMEOUT_MS) {
 
 /** A stored integration key or endpoints that differ from the running connection. */
 function cxonePending(settings = settingsStore.get()) {
-  return Boolean(settings.automationApiKey) && cxoneFingerprint(settings.automationApiKey, settings.integrationOverrides ?? {}) !== integrationFingerprint;
+  return Boolean(settings.automationApiKey) && cxoneFingerprint(settings.automationApiKey, settings.integrationOverrides ?? {}) !== tstate.integrationFingerprint;
 }
 
 /** Mail server settings that have not passed a connection test. */
@@ -1418,11 +1451,11 @@ async function runConnectionCheck({ rollback = false, trigger = 'check', actor =
         settingsStore.save({ automationApiKey: good.apiKey, integrationOverrides: good.overrides });
         if (!good.apiKey) {
           // The last working connection was the environment's CX_API_KEY.
-          if (automationSessionId && automationSessionId !== bootstrapSessionId) sessions.destroy(automationSessionId);
-          automationSessionId = null;
-          integrationFingerprint = null;
-        } else if (cxoneFingerprint(good.apiKey, good.overrides) !== integrationFingerprint || !integrationSession()) {
-          automationSessionId = null;
+          if (tstate.automationSessionId && tstate.automationSessionId !== tstate.bootstrapSessionId) sessions.destroy(tstate.automationSessionId);
+          tstate.automationSessionId = null;
+          tstate.integrationFingerprint = null;
+        } else if (cxoneFingerprint(good.apiKey, good.overrides) !== tstate.integrationFingerprint || !integrationSession()) {
+          tstate.automationSessionId = null;
           await resolveAutomationSession();
         }
         result.cxone.rolledBack = true;
@@ -1856,7 +1889,7 @@ app.get('/api/automation', requirePermission('settings.view', 'settings.automati
     config: settings.automation,
     keyStored: Boolean(settings.automationApiKey),
     bootstrapKey: Boolean(config.bootstrapApiKey),
-    canRun: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId)),
+    canRun: Boolean(sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId)),
     smtpVerified: isVerified(settings),
     smtpConfigured: Boolean(settings.smtp.host),
     // The panel says what runs will use: the integration, as the Checkmarx One section shows it.
@@ -1897,10 +1930,10 @@ app.post(
 
 app.delete('/api/automation/arm', requirePermission('integration.cxone'), (req, res) => {
   settingsStore.save({ automationApiKey: '' });
-  if (automationSessionId && automationSessionId !== bootstrapSessionId) sessions.destroy(automationSessionId);
-  automationSessionId = null;
-  integrationFingerprint = null;
-  res.json({ ...scheduler.status, keyStored: false, canRun: Boolean(sessions.get(bootstrapSessionId)) });
+  if (tstate.automationSessionId && tstate.automationSessionId !== tstate.bootstrapSessionId) sessions.destroy(tstate.automationSessionId);
+  tstate.automationSessionId = null;
+  tstate.integrationFingerprint = null;
+  res.json({ ...scheduler.status, keyStored: false, canRun: Boolean(sessions.get(tstate.bootstrapSessionId)) });
 });
 
 /** Run a pass now, without waiting for the timer. */
@@ -2550,7 +2583,6 @@ app.post(
  * (automatic reminders) use the last address an administrator reached it on.
  */
 const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|0\.0\.0\.0)$/i;
-let lastDashboardOrigin = '';
 
 function requestOrigin(req) {
   const forwardedHost = viaTrustedProxy(req) ? String(req.get('x-forwarded-host') ?? '').split(',')[0].trim() : '';
@@ -2569,7 +2601,7 @@ function noteDashboardOrigin(req) {
   if (!host) return;
   try {
     const origin = `${req.protocol}://${host}`;
-    if (!LOOPBACK.test(new URL(origin).hostname)) lastDashboardOrigin = origin;
+    if (!LOOPBACK.test(new URL(origin).hostname)) tstate.lastDashboardOrigin = origin;
   } catch {}
 }
 
@@ -2578,7 +2610,7 @@ function resolveReportServer(req = null, settings = settingsStore.get()) {
   if (settings.links.reportServerUrl) return { url: settings.links.reportServerUrl, source: 'settings' };
   if (config.reportServerUrl) return { url: config.reportServerUrl, source: 'environment' };
   if (req) return { url: requestOrigin(req), source: 'this page' };
-  if (lastDashboardOrigin) return { url: lastDashboardOrigin, source: 'last dashboard address' };
+  if (tstate.lastDashboardOrigin) return { url: tstate.lastDashboardOrigin, source: 'last dashboard address' };
   return { url: '', source: 'none' };
 }
 
@@ -3446,10 +3478,10 @@ const STATE_CACHE_MS = 30_000;
  * AI Triage records and AI Remediation details per finding. Concurrent asks
  * for the same thing share one upstream call.
  */
-const relayCache = new TtlCache({ max: 100_000 });
+const relayCache = scoped(tenancy, 'relayCache');
 const stateCache = { delete: (projectId) => relayCache.delete(`risks|${projectId}`) };
 // Findings sent for triage or remediation recently: their answers change soon, so look again sooner.
-const recentActions = new TtlCache({ max: 100_000 });
+const recentActions = scoped(tenancy, 'recentActions');
 const ACTION_WATCH_MS = 45 * 60 * 1000;
 
 async function projectRiskInfo(session, projectId) {
@@ -4578,7 +4610,7 @@ app.post(
 // ---------------------------------------------------------------------------
 
 /** Rescans this server started are credited to the developer they verify (see src/scan-attribution.js). */
-const scanAttribution = new ScanAttribution({ dataDir });
+const scanAttribution = scoped(tenancy, 'scanAttribution');
 const creditFor = (scanId) => scanAttribution.get(scanId);
 /** A last-scan record, with a verification rescan credited to whose work it verifies. */
 const credited = (scan) => {
@@ -4589,7 +4621,7 @@ const credited = (scan) => {
 const TRACK_REFRESH_MS = 60 * 60 * 1000;
 const TRACK_TOUCHED_WINDOW_MS = 30 * 60 * 1000;
 const TRACK_TOUCHED_EVERY_MS = 3 * 60 * 1000;
-const refreshing = new Map();
+const refreshing = scoped(tenancy, 'refreshing');
 
 
 /** Every current finding (no filters) for each of a report's projects. */
@@ -5318,7 +5350,7 @@ app.get('/api/tracked-reports', requirePermission('reports.view'), async (req, r
   res.json({
     timeZone: serverTimeZone(),
     reports: trackedReports.list().map(trackedView),
-    autoRefresh: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId) ?? settingsStore.get().automationApiKey),
+    autoRefresh: Boolean(sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) ?? settingsStore.get().automationApiKey),
   });
 });
 
@@ -5571,7 +5603,7 @@ app.get('/api/credits', requirePermission('credits.view'), (req, res) => {
     remaining: month === monthOf() ? creditsRemaining() : null,
     pool: creditPool(undefined, list),
     allocations: list,
-    relayConnected: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId) ?? settingsStore.get().automationApiKey),
+    relayConnected: Boolean(sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) ?? settingsStore.get().automationApiKey),
   });
 });
 
@@ -5910,7 +5942,7 @@ const LOCATABLE_SCANNERS = new Set(['SAST', 'KICS', 'IAC']);
  * it: per scan, only what finding a row and its location need (no states),
  * for the 40 scans used last, for 30 minutes.
  */
-const scanLocations = new TtlCache({ max: 40 });
+const scanLocations = scoped(tenancy, 'scanLocations');
 const SCAN_LOCATIONS_TTL_MS = 30 * 60_000;
 const slimRow = (row) => {
   const nodes = Array.isArray(row?.data?.nodes) ? row.data.nodes : [];
@@ -6542,7 +6574,7 @@ app.get('/api/system/report', requirePermission('system.update'), (req, res) => 
     memoryMB: { rss: Math.round(memory.rss / 1048576), heapUsed: Math.round(memory.heapUsed / 1048576) },
     disk,
     https: { mode: httpsManager.mode, selfSigned: httpsManager.selfSigned },
-    checkmarxOne: { connected: Boolean(sessions.get(automationSessionId) ?? sessions.get(bootstrapSessionId)), pending: cxonePending() },
+    checkmarxOne: { connected: Boolean(sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId)), pending: cxonePending() },
     smtp: { pending: smtpPending() },
     lastBackup,
     relay: { ...relayStats },
@@ -6768,7 +6800,7 @@ async function connectionsStatus() {
 }
 
 /** Results of checking each git connection: at most every 5 minutes, and again when its settings change. */
-const gitChecks = new Map();
+const gitChecks = scoped(tenancy, 'gitChecks');
 const GIT_CHECK_MS = 5 * 60_000;
 
 /** Ask one host who its token belongs to. */
@@ -7361,7 +7393,7 @@ async function bootstrap() {
       sessions.create(config.bootstrapApiKey, config.overrides),
     );
     result.pinned = true;
-    bootstrapSessionId = result.id;
+    tstate.bootstrapSessionId = result.id;
     console.log(`[CX_API_KEY] ✓ Successfully authenticated with Checkmarx One (tenant: ${result.connection.tenant})`);
   } catch (error) {
     console.error(`[CX_API_KEY] ✗ Authentication failed after 3 attempts: ${error.message}`);
@@ -7384,7 +7416,7 @@ async function bootstrap() {
 /** Upgrading: connections that already work become the first last known good ones. */
 function seedLastKnownGood() {
   const settings = settingsStore.get();
-  const bootstrap = sessions.get(bootstrapSessionId);
+  const bootstrap = sessions.get(tstate.bootstrapSessionId);
   if (!guard.lastGood('cxone') && !settings.automationApiKey && bootstrap) {
     const { tenant, baseUrl, iamUrl } = bootstrap.connection;
     guard.recordGood('cxone', { apiKey: '', overrides: { baseUrl: '', iamUrl: '', tenant: '' }, connection: { tenant, baseUrl, iamUrl } });
@@ -7547,7 +7579,7 @@ const shutdown = async (signal) => {
   if (stopping) return;
   stopping = true;
   draining = true;
-  scheduler.stop();
+  for (const tenant of tenancy.loaded()) tenant.scheduler.stop();
   server.close();
   server.closeIdleConnections();
   httpsManager.stop();
@@ -7566,9 +7598,11 @@ const shutdown = async (signal) => {
   } catch (error) {
     console.warn(`! [update] Could not save sign-ins for the next server: ${error.message}`);
   }
-  knownAddresses.flush();
-  creditLedger.flush();
-  audit.flushSync();
+  for (const tenant of tenancy.loaded()) {
+    tenant.knownAddresses.flush();
+    tenant.creditLedger.flush();
+    tenant.audit.flushSync();
+  }
   diagnostics.flush();
   instanceLock.release();
   console.log('[update] Stopped cleanly.');

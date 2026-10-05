@@ -75,5 +75,22 @@ export class KnownAddresses {
   }
 }
 
-/** Shared by the dashboard fetch, tracked reports and automation. */
-export const knownAddresses = new KnownAddresses();
+const shared = new KnownAddresses();
+let scope = null;
+
+/**
+ * Where `knownAddresses` points: by default one store for the server; with several
+ * Checkmarx One tenants, `pick` returns the running tenant's own (src/tenancy.js).
+ */
+export function scopeKnownAddresses(pick) {
+  scope = pick;
+}
+
+/** Shared by the dashboard fetch, tracked reports and automation (the running tenant's, when scoped). */
+export const knownAddresses = new Proxy(shared, {
+  get(target, prop) {
+    const store = scope?.() ?? target;
+    const value = store[prop];
+    return typeof value === 'function' ? value.bind(store) : value;
+  },
+});
