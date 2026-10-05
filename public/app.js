@@ -6119,7 +6119,7 @@ async function renderGettingStarted() {
   const cx = Boolean(state.connection);
   const smtp = Boolean(state.settings?.verified);
   const server = state.reportServer ? !state.reportServer.warnings?.length : true;
-  if (can('integration.cxone') || !cx) steps.push({ stage: 'setup', done: cx, title: 'Connect Checkmarx One', text: 'The server reads projects and findings with its own key.', href: '#/settings/connection', action: can('integration.cxone') ? 'Connect' : 'Ask an Admin' });
+  if (can('integration.cxone') || !cx) steps.push({ stage: 'setup', label: 'Connect', done: cx, title: 'Connect Checkmarx One', text: 'The server reads projects and findings with its own key.', href: '#/settings/connection', action: can('integration.cxone') ? 'Connect' : 'Ask an Admin' });
   steps.push({ stage: 'act', done: state.projects.length > 0, title: 'Fetch vulnerabilities', text: 'Choose a scope and fetch: ageing findings and who ran each scan.', href: '#/dashboard', action: 'Fetch', fetch: true });
   if (can('integration.smtp')) steps.push({ stage: 'setup', done: smtp, title: 'Set up email', text: 'Test your mail server so reminders and follow-ups can go out.', href: '#/settings/smtp', action: 'Set up' });
   if (can('settings.links')) steps.push({ stage: 'setup', done: server, title: 'Give reports a reachable address', text: 'So readers can triage and remediate straight from the emailed report.', href: '#/settings/server', action: 'Set address' });
@@ -6147,7 +6147,7 @@ async function renderGettingStarted() {
     <ol class="gs-steps">${steps
       .map((step) => `<li class="gs-step ${step.done ? 'done' : ''}" data-stage="${step.stage}" title="${escapeHtml(step.text)}">
         <span class="gs-mark" aria-hidden="true">${step.done ? '✓' : ''}</span>
-        <span class="gs-text"><span class="gs-stage" data-i18n-ctx="stage">${STAGE_LABELS[step.stage]}</span><strong>${escapeHtml(step.title)}</strong></span>
+        <span class="gs-text"><span class="gs-stage" data-i18n-ctx="stage">${step.label ?? STAGE_LABELS[step.stage]}</span><strong>${escapeHtml(step.title)}</strong></span>
         ${step.done ? '<span class="sr-only">Done</span>' : step.fetch ? `<button type="button" class="sm primary" data-gs-fetch ${can('findings.fetch') && cx ? '' : 'disabled'}>${escapeHtml(step.action)}</button>` : `<a class="button-like sm" href="${step.href}">${escapeHtml(step.action)}</a>`}
       </li>`)
       .join('')}</ol>`;
