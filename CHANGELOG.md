@@ -30,7 +30,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.43 — 2026-10-05 HH:MM UTC · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+## MZ-01.00.43 — 2026-10-05 02:41 UTC · [#66](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/66)
 - **Azure DevOps takes the organisation in any form.** You can enter its name (`checkmarxdemo`), `https://dev.azure.com/checkmarxdemo`, a project or repository page you copied from the browser, or the older `checkmarxdemo.visualstudio.com`. All are stored as `https://dev.azure.com/checkmarxdemo`. A project page used to make every request fail with "not found", and addresses saved that way now work without being entered again.
 - **The token follows the organisation.** Writing the same organisation another way keeps its token, and another organisation on dev.azure.com drops it. When cloning for Code authors, the token is sent to the organisation's repositories under either address.
 - **Test says what to fix.** Azure DevOps does not reject a wrong token; it answers as Anonymous. Test now names the organisation, says the token was not accepted, and lists what to check: made for that organisation, active, not expired, pasted in full. A wrong address and a token saved without its organisation are each explained too.
