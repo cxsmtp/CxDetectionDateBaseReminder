@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const LANGUAGE_CODES = ['ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'vi', 'th', 'ms', 'id'];
+export const LANGUAGE_CODES = ['ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'de', 'fr', 'ar', 'vi', 'th', 'ms', 'id', 'he'];
 
 const sorted = (list) => [...list].sort();
 const placeholders = (text) => sorted(text.match(/\{\d+\}/g) ?? []);
@@ -27,6 +27,8 @@ const SCRIPT = {
   'zh-CN': /[一-鿿]/,
   ko: /[가-힯]/,
   th: /[฀-๿]/,
+  ar: /[\u0600-\u06FF]/,
+  he: /[\u0590-\u05FF]/,
 };
 // Words that belong to the other language (Malaysian Malay vs Indonesian).
 const NOT_MALAY = /\b(pengaturan|perbarui|proyek|pemindaian|unduh|kata sandi|berhasil|aktifkan|nonaktifkan|tautan|surel|dasbor)\b/i;
@@ -36,6 +38,10 @@ const CASUAL = {
   es: /(?<!\p{L})(tú|vosotros|reporte|reportes)(?!\p{L})/iu,
   ja: /だよ|だね|してね|よね/,
   ko: /(해요|했어|거야)(?![가-힣])/,
+  // Formal register: no informal "you" forms. The boundary excludes letters, digits
+  // and "_", so an env-var name like BACKUP_DIR and accented words (requêtes, êtes) do not trip it.
+  de: /(?<![\p{L}\d_])(du|dein|deine|deinem|deinen|deiner|dich|dir)(?![\p{L}\d_])/iu,
+  fr: /(?<![\p{L}\d_])(tu|ton|ta|tes|toi)(?![\p{L}\d_])/iu,
 };
 // Stays in English everywhere (brands, protocol names): an entry made only of these may be identical.
 const KEEP = /^(?:[\s\d{}.,:;·•—–\-+()/&|→←…'"%#*!?]|CxMissionZero|Mission Zero|Checkmarx One|Checkmarx|GitHub|GitLab|Azure DevOps|Bitbucket|Jira|SAST|SCA|IaC|KICS|API Security|API|SMTP|HTTPS|HTTP|TLS|SLAs|SLA|URL|PAT|IDE|AI|VS Code|JetBrains|Cursor|Kiro|Podman|Docker|Beta|Git|Cc|Bcc|Cloud|Data Center|Server|latest|OK|ID|CSV|JSON|PDF|HTML|PEM|PFX|MZ|UTC|GMT|Ctrl|Cmd|K|N\/A|v\d|[A-Z_]{2,}|\.env|\.pfx|[a-z0-9.-]+\.[a-z]{2,}|\S+@\S+|\S*\/\S*)+$/;

@@ -123,8 +123,19 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.46 | 1 | 10.9 s / 0 | 61,352 / 151 | 470 | 93 / 11,441 ms | 26 / 1,519 ms | none |
 | **MZ-01.00.46** | 2 | 10.3 s / 0 | 61,238 / **44** | 468 | 79 / 10,114 ms | 33 / 1,324 ms | none |
 | MZ-01.00.45 (main) | 2 | 10.1 s / 0 | 61,057 / 177 | 475 | 91 / 10,896 ms | 27 / 1,149 ms | none |
+| MZ-01.00.46 (main) | 1 | 10.7 s / 0 | 60,659 / 53 | 480 | 130 / 12,571 ms | 25 / 1,998 ms | none |
+| MZ-01.00.47 | 1 | 11.1 s / 0 | 61,117 / 112 | 486 | 107 / 13,322 ms | 21 / 1,011 ms | none |
+| **MZ-01.00.47** | 2 | 15.8 s / 0 | 63,787 / **0** | **519** | 64 / **5,251 ms** | 16 / **310 ms** | none |
+| MZ-01.00.46 (main) | 2 | 9.1 s / 0 | 63,066 / 0 | 504 | 79 / 6,355 ms | 19 / 539 ms | none |
 
 **MZ-01.00.37: what the differences were.** Two pairs with main, alternating. Report opens at p95 were 4.1 and 5.1 s on the branch against 7.2 and 5.1 s on main; triage results 201 and 179 ms against 257 and 123 ms; requests a second 519 and 508 against 504 and 518, with 0 failed requests and no finding sent twice in any run. The first branch run's opening burst took 16.3 s, a little above the 7.4–15.8 s seen before, and its fetches were slower (17 s against 12 s at the median); in the second pair the burst took 9.9 s (main 8.0 s) and fetches matched main (13.5 s against 13.0 s at the median). What the fetch now does in addition is one pass over each project's findings to count what is past its SLA, which is a few microseconds a finding next to reading them from Checkmarx One. Escalation runs only on the automation's schedule, which the benchmark does not use.
+
+**MZ-01.00.47: what the differences were.** None from the change. There were two pairs: main then branch, then branch then main.
+- **First pair:** the host stalled, with health checks waiting up to 17 s (main) and 20 s (branch). Both runs had failures, and every one was at connection level (`ECONNRESET`, connect timeout), never an answer from the server: main 53, branch 112. Report opens took 12.6 and 13.3 s at p95.
+- **Second pair:** the host was calm. Both runs had 0 failed requests. The branch served 519 requests a second against main's 504. Report opens took 5.3 s against 6.4 s at p95, and triage polls 310 ms against 539 ms.
+- **Sent twice:** no finding in any run.
+
+What the server gained is off the measured paths. The Let's Encrypt challenge check is one string comparison per request. The `/i18n` check runs only for language files. The activation and certificate routes are not called by the benchmark, and `/api/health` adds a short list of language codes.
 
 **MZ-01.00.46: what the differences were.** Two pairs: main then branch, then branch then main. Every run had failed requests, and in every one each failure was a connection that was reset or not accepted in time (`ECONNRESET`, connect timeout), never an answer from the server. The health check stalled for up to 20–22 s in both runs of the second pair, so the machine itself paused: main, whose code served 497 a second with 0 failed at its own release, failed 88 and 177 times here. Across the two pairs:
 - **Failed requests:** branch 151 and 44, main 88 and 177.
@@ -218,6 +229,28 @@ Two operations were slightly slower at p95: tracked-report refresh (6.9 s agains
 
   Both vary over the same range, all with 0 failures. When the generator fires fast enough, more than 300 report requests arrive at once and the server answers some "busy, retry" (main run 3: 638; MZ-01.00.26 run 1: 127). When it fires slower, none are turned away and the last ones simply wait longer.
 - **The changes on the server's hot paths cost nothing measurable.** Template rendering counts its work, a Checkmarx One sign-in is shared between concurrent requests, and a few more inputs are capped.
+
+## MZ-01.00.47: the page with 1,000 projects
+
+The server benchmark above measures the server. This one measures the browser, because a large tenant made the Dashboard itself slow. Each run has 1,000 projects with 20 findings each, Chromium with the CPU slowed 4× (a modest laptop), and MZ-01.00.46 (main) against MZ-01.00.47:
+
+| What the person does | MZ-01.00.46 | MZ-01.00.47 |
+| --- | --- | --- |
+| **Load findings:** longest freeze while results stream in | 2.7 s | 0.24 s |
+| **Load findings:** time until the page is usable again | 9.5 s | 6.0 s |
+| **Type "Project 1" in the project search:** time until it settles | 21.5 s | 1.8 s |
+| **Type in the search:** slowest frame | 3.6 s | 0.13 s |
+| **Scroll the project list:** 95th-percentile frame | 33 ms | 17 ms |
+| **Back to the Dashboard** from another page | 1.9 s | 0.25 s |
+| **Elements on the page** after loading | 106,581 | 11,993 |
+
+What changed in the page:
+- **Rows:** the project list shows 100 rows, with **Show 100 more** and **Show all** below. Sorting, filtering, selecting and exporting still cover every project.
+- **Search:** the filter waits for typing to pause (150 ms) before it redraws.
+- **Loading:** while results stream in, the list is redrawn at most every 0.4 s instead of after every project.
+- **Scrolling:** hover effects are paused while the list scrolls.
+
+The other pages (Reports, Credit Control, Audit, People & roles, Settings, Logs) opened in 50–410 ms on both versions.
 
 ## MZ-01.00.21: profiled, and the slow tail removed
 

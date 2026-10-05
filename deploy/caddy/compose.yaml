@@ -1,0 +1,89 @@
+# CxMissionZero with automatic HTTPS, via Caddy (Let's Encrypt).
+#
+# Use this when you will NOT get a certificate from your organisation and your
+# server has a public DNS name pointing at it, with ports 80 and 443 reachable.
+# Caddy obtains and renews the certificate on its own; browsers trust it.
+#
+#   Set your domain (and an email for expiry notices), then start:
+#     set MZ_DOMAIN=mz.company.com
+#     set ACME_EMAIL=appsec@company.com
+#     docker compose -f compose.yaml up -d          (or: podman compose -f compose.yaml up -d)
+#   First start prints the administrator sign-in:
+#     docker compose logs mission-zero
+#
+# Internal-only server (no public DNS / not reachable from the internet)? Let's Encrypt
+# cannot verify it. Add this one line inside the site block of ./Caddyfile:
+#     tls internal
+# Caddy then issues a locally-trusted certificate; install Caddy's root CA on the
+# machines that open CxMissionZero (the root is in the caddy-data volume).
+services:
+  mission-zero:
+    image: ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+    container_name: mission-zero
+    restart: unless-stopped
+    # No published port: only Caddy faces the network; they talk over mz-net.
+    expose:
+      - "3000"
+    networks:
+      - mz-net
+    volumes:
+      - type: volume
+        source: mission-zero-data
+        target: /data
+    healthcheck:
+      test: ["CMD", "node", "scripts/healthcheck.mjs"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    stop_grace_period: 15s
+    environment:
+      HTTPS: "off"                                  # Caddy does HTTPS; the app speaks plain http to it
+      TRUST_PROXY: uniquelocal                      # believe X-Forwarded-* only on the private network only Caddy can reach
+      REPORT_SERVER_URL: https://${MZ_DOMAIN}       # the https name put into every emailed report
+      TZ: ${TZ:-UTC}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      CX_API_KEY: ${CX_API_KEY:-}
+      NODE_OPTIONS: ${NODE_OPTIONS:-}
+
+  caddy:
+    image: docker.io/library/caddy:2
+    container_name: mz-caddy
+    restart: unless-stopped
+    depends_on:
+      - mission-zero
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - mz-net
+    environment:
+      MZ_DOMAIN: ${MZ_DOMAIN:?set MZ_DOMAIN to your server's DNS name, e.g. mz.company.com}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - type: bind
+        source: ./Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+      - type: volume
+        source: caddy-data                          # the certificate and the ACME account live here
+        target: /data
+      - type: volume
+        source: caddy-config
+        target: /config
+
+networks:
+  mz-net:
+
+volumes:
+  mission-zero-data:
+  caddy-data:
+  caddy-config:

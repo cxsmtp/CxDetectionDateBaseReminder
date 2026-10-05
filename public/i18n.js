@@ -18,23 +18,41 @@ export const LANGUAGES = [
   ['zh-CN', '简体中文'],
   ['ko', '한국어'],
   ['es', 'Español'],
+  ['de', 'Deutsch'],
+  ['fr', 'Français'],
+  ['ar', 'العربية'],
   ['vi', 'Tiếng Việt'],
   ['th', 'ไทย'],
   ['ms', 'Bahasa Melayu'],
   ['id', 'Bahasa Indonesia'],
+  ['he', 'עברית'],
 ];
 const CODES = new Set(LANGUAGES.map(([code]) => code));
+/** Written right to left: the page mirrors (dir="rtl"). */
+export const RTL = new Set(['ar', 'he']);
+/** Offered only where an activation code unlocked them (the server says which, see setAvailable). */
+export const GATED = new Set(['he']);
+let unlocked = new Set();
+/** The gated languages this server offers (from /api/health). Returns whether the current one is still allowed. */
+export function setAvailable(codes = []) {
+  unlocked = new Set(codes.filter((code) => GATED.has(code)));
+  return isAvailable(lang);
+}
+export const isAvailable = (code) => CODES.has(code) && (!GATED.has(code) || unlocked.has(code));
+/** The languages to offer in a picker now. */
+export const availableLanguages = () => LANGUAGES.filter(([code]) => isAvailable(code));
 const STORE = 'mz-lang';
 
 /** The language to use: the saved choice, else the browser's when it is one of ours, else English. */
 export function preferredLanguage(saved = readSaved(), browser = globalThis.navigator?.languages ?? []) {
   if (CODES.has(saved)) return saved;
+  // Never chosen by itself: a gated language must be picked once it is unlocked.
   for (const tag of browser) {
     const lower = String(tag).toLowerCase();
     if (/^zh-(tw|hk|mo|hant)/.test(lower)) return 'zh-TW';
     if (lower.startsWith('zh')) return 'zh-CN';
     const primary = lower.split('-')[0] === 'in' ? 'id' : lower.split('-')[0];
-    if (CODES.has(primary)) return primary;
+    if (CODES.has(primary) && !GATED.has(primary)) return primary;
     if (primary === 'en') return 'en';
   }
   return 'en';
@@ -293,6 +311,7 @@ export async function setLanguage(code, { save = true } = {}) {
   lang = code;
   dict = next;
   document.documentElement.lang = code;
+  document.documentElement.dir = RTL.has(code) ? 'rtl' : 'ltr';
   if (dict) {
     walk(document.documentElement);
     observer ??= new MutationObserver(onMutations);

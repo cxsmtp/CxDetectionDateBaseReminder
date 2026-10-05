@@ -1,6 +1,6 @@
 # Translation glossary and style
 
-CxMissionZero's page is translated into nine languages for partner teams. These translations are read by security and engineering professionals at work. They must be accurate, consistent and businesslike. Never use slang, jokes, wordplay or casual tone, even where the English is light-hearted.
+CxMissionZero's page is translated for partner teams in several languages. These translations are read by security and engineering professionals at work. They must be accurate, consistent and businesslike. Never use slang, jokes, wordplay or casual tone, even where the English is light-hearted.
 
 The source wording is in `i18n/catalog.json`; each language is `public/i18n/<code>.json`.
 
@@ -44,6 +44,10 @@ The source wording is in `i18n/catalog.json`; each language is `public/i18n/<cod
 | `th` | Thai | Formal written Thai. No ครับ/ค่ะ particles. Spaces only between phrases and sentences, not between words. |
 | `ms` | Malay (Malaysia) | Standard Bahasa Melayu (Dewan Bahasa dan Pustaka); address the reader as "anda". Malaysian terms, not Indonesian ones: tetapan, kemas kini, projek, imbasan, muat turun, log masuk. |
 | `id` | Indonesian | Standard Bahasa Indonesia (KBBI/PUEBI); address the reader as "Anda" (capitalised). Indonesian terms, not Malaysian ones: pengaturan, perbarui, proyek, pemindaian, unduh, masuk. |
+| `de` | German | Formal register (address the reader as *Sie*, never *du*). Keep "AI" in the feature names (AI-Triage, AI-Behebung). "Credit"/"Credits" (not Kredit/Guthaben). Five stages as five distinct verbs: Erkennen, Triage, Beheben, Korrigieren, Verifizieren. |
+| `fr` | French | Formal register (vouvoiement — *vous*, never *tu*). Keep "AI" in the feature names (Triage AI, Correction AI). Five stages as five distinct words: Détecter, Triage, Remédier, Corriger, Vérifier. French spacing before : ; ? ! where natural. |
+| `ar` | Arabic | Modern Standard Arabic, formal and businesslike. Right-to-left: the page mirrors. Keep Latin product/protocol names (Checkmarx One, SMTP, API…) as they are, left-to-right within the sentence. |
+| `he` | Hebrew | Formal written Hebrew. Right-to-left: the page mirrors. Keep Latin product/protocol names as they are, left-to-right within the sentence. Available only where its activation code is in force. |
 
 ## Terms that must stay distinct
 
@@ -56,6 +60,8 @@ The source wording is in `i18n/catalog.json`; each language is `public/i18n/<cod
 - **Remediate vs. Fix:** Remediate is the AI's step and Fix is the developer's. For example:
   - Japanese: AI修正 / 修正対応.
   - Spanish: Remediar / Corregir.
+  - German: Beheben / Korrigieren.
+  - French: Remédier / Corriger.
 - **Remind vs. Reminders, Track vs. Tracked reports:** keep the same root word in each pair, so the button and the thing it makes are recognisably related.
 
 ## Core terms

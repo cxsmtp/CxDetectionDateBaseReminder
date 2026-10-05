@@ -1,0 +1,17 @@
+# CxMissionZero behind Caddy — automatic HTTPS from Let's Encrypt.
+#
+# Caddy gets and renews the certificate on its own and forwards to CxMissionZero
+# over the private container network (which serves plain http: HTTPS=off).
+#
+# MZ_DOMAIN and ACME_EMAIL come from the compose file's environment.
+
+{
+	# Where Let's Encrypt sends expiry notices. Optional but recommended.
+	email {$ACME_EMAIL}
+}
+
+{$MZ_DOMAIN} {
+	# Caddy adds X-Forwarded-Proto / -For / -Host, which CxMissionZero reads
+	# (it trusts them because only Caddy can reach it; see TRUST_PROXY in compose).
+	reverse_proxy mission-zero:3000
+}

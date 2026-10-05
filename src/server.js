@@ -60,6 +60,9 @@ import { InstanceLock } from './instance-lock.js';
 import { inlineScriptHashes, pruneAttempts, sameOriginGuard, securityHeaders, trustProxySetting, viaTrustedProxy } from './security.js';
 import { describeCertificate } from './tls.js';
 import { HSTS_AGES, HttpsManager } from './https-manager.js';
+import { AcmeService, CHALLENGE_PREFIX, RENEW_DAYS, cleanNames, validName } from './acme.js';
+import { ActivationStore, ISSUER_KEYS, checkCode } from './activation.js';
+import { GATED_LANGUAGES, LanguageAccess } from './languages.js';
 import { SUPPORTING_NOTICE, Terms } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
@@ -518,6 +521,26 @@ try {
   process.exit(1);
 }
 
+// Free certificates from Let's Encrypt, got and renewed by this server (src/acme.js).
+// ACME_DIRECTORY_URL: another ACME certificate authority (or a test one) instead of Let's Encrypt.
+const ACME_DIRECTORY = String(process.env.ACME_DIRECTORY_URL ?? '').trim();
+const acme = new AcmeService({ dataDir, https: httpsManager, log: console, ...(ACME_DIRECTORY ? { directories: { production: ACME_DIRECTORY, staging: ACME_DIRECTORY } } : {}) });
+const LETSENCRYPT_DOMAIN = String(process.env.LETSENCRYPT_DOMAIN ?? '').trim();
+// Add-ons unlocked by an activation code from the maintainer (src/activation.js): Hebrew, several tenants.
+const activations = new ActivationStore({ file: path.join(dataDir, 'activation.json') });
+const languageAccess = new LanguageAccess({ file: path.join(dataDir, 'languages.json') });
+
+/** Let's Encrypt's check (HTTP-01): answered over plain http in every HTTPS mode, before anything else. */
+function acmeChallengeAnswer(req, res) {
+  let token = '';
+  try {
+    token = decodeURIComponent(String(req.url ?? '').slice(CHALLENGE_PREFIX.length).split('?')[0]);
+  } catch {}
+  const value = acme.challenge(token);
+  res.writeHead(value ? 200 : 404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+  return res.end(value ?? 'Not found');
+}
+
 // Whose X-Forwarded-* headers to believe: TRUST_PROXY (src/security.js, trustProxySetting).
 app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY, httpsManager.mode !== 'http'));
 httpsManager.onChange((mode) => app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY, mode !== 'http')));
@@ -542,6 +565,7 @@ if (COMPRESSION) {
     }),
   );
 }
+app.use((req, res, next) => (req.method === 'GET' && req.path.startsWith(CHALLENGE_PREFIX) ? acmeChallengeAnswer(req, res) : next()));
 // Stopping for an update: requests in progress finish; new ones are told to retry in a moment
 // (reports and the page do), so nothing is lost and nobody sees an error.
 let draining = false;
@@ -577,6 +601,12 @@ app.use('/api', (req, res, next) => {
   next();
 });
 // The page's files; API calls never touch the disk looking for one (a stat per request, under load).
+// A language behind an activation code (Hebrew) is not served until it is activated here.
+app.use('/i18n', (req, res, next) => {
+  const code = req.path.match(/^\/([\w-]+)\.json$/)?.[1];
+  if (code && code in GATED_LANGUAGES && !languageAccess.isAvailable(code)) return res.status(404).json({ error: 'That language is not available.' });
+  next();
+});
 const staticFiles = express.static(publicDir);
 app.use((req, res, next) => (req.path.startsWith('/api/') ? next() : staticFiles(req, res, next)));
 
@@ -719,6 +749,8 @@ app.get('/api/health', (req, res) => {
     windowPresets: WINDOW_PRESETS.map(({ id, label }) => ({ id, label })),
     templateVariables: TEMPLATE_VARIABLES,
     defaultTemplate: DEFAULT_TEMPLATE,
+    // The page's languages available here (Hebrew only once activated).
+    languages: languageAccess.available(),
     // Shown in the header before anyone connects.
     app: {
       name: settingsStore.get().branding.appName || 'CxMissionZero',
@@ -1069,6 +1101,7 @@ app.put(
   asyncRoute(async (req, res) => {
     const patch = {};
     for (const key of ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages']) if (key in (req.body ?? {})) patch[key] = req.body[key];
+    if (patch.language && !languageAccess.isAvailable(String(patch.language))) return res.status(400).json({ error: 'That language is not available.' });
     const { before, after } = iam.updateProfile(req.user.id, patch);
     const changed = [
       ...(before.name !== after.name ? ['name'] : []),
@@ -1102,7 +1135,7 @@ app.get('/api/users/:id/avatar', requireSession, (req, res) => {
   res.send(avatar.bytes);
 });
 
-app.get('/api/me/profile/options', requireSession, (req, res) => res.json({ languages: PROFILE_LANGUAGES, programmingLanguages: PROGRAMMING_LANGUAGES }));
+app.get('/api/me/profile/options', requireSession, (req, res) => res.json({ languages: PROFILE_LANGUAGES.filter((code) => languageAccess.isAvailable(code)), programmingLanguages: PROGRAMMING_LANGUAGES }));
 
 // ---------------------------------------------------------------------------
 // Access: users and roles
@@ -2973,6 +3006,7 @@ async function httpsStatus(req) {
     reportOpens: reportOpens.lastDay(),
     hstsAges: HSTS_AGES,
     behindProxy: Boolean(req.get('x-forwarded-proto')) && viaTrustedProxy(req),
+    acme: acmeView(req),
   };
 }
 
@@ -3067,6 +3101,96 @@ app.post('/api/https/browser-check', requirePermission('security.https'), httpsR
   const actor = await adminActor(req);
   httpsManager.recordBrowserCheck({ ok: req.body?.ok, url: req.body?.url, by: actor.user });
   res.json({ ok: true });
+}));
+
+// ---- Free certificate from Let's Encrypt (src/acme.js) ----
+
+/** The Let's Encrypt part of Settings → HTTPS: its state, and the names this page is reached by. */
+function acmeView(req) {
+  return { ...acme.status(), suggested: httpsHosts(req).filter(validName), fromEnvironment: LETSENCRYPT_DOMAIN };
+}
+
+acme.onEvent((event) => {
+  const names = event.names.join(', ');
+  const staging = event.staging ? ' (staging: not trusted by browsers)' : '';
+  if (event.kind === 'issued') {
+    audit.record({ type: 'settings', outcome: 'changed', reason: `Let's Encrypt certificate for ${names} put to use${staging}, valid until ${event.validTo.slice(0, 10)}.`, actor: { kind: 'system', user: event.by || "Let's Encrypt" }, details: { https: { letsEncrypt: { names: event.names, staging: event.staging, validTo: event.validTo } } } });
+    try {
+      // A trusted certificate is in: deployed with LETSENCRYPT_DOMAIN, the server goes HTTPS only by itself;
+      // from the Settings page, http and https side by side (switch to HTTPS only there).
+      if (event.by === 'LETSENCRYPT_DOMAIN' && !event.staging) httpsManager.setMode('https', { system: true, by: "Let's Encrypt" });
+      else if (httpsManager.mode === 'http') httpsManager.setMode('both', { by: "Let's Encrypt" });
+    } catch (error) {
+      console.warn(`! [https] ${error.message}`);
+    }
+  } else {
+    audit.record({ type: 'settings', outcome: 'failed', reason: `Let's Encrypt certificate for ${names} not obtained${staging}: ${event.error}`, actor: { kind: 'system', user: event.by || "Let's Encrypt" }, details: { https: { letsEncrypt: { names: event.names, staging: event.staging, error: event.error } } } });
+  }
+});
+
+app.get('/api/https/acme', requirePermission('security.https'), (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(acmeView(req));
+});
+
+app.post('/api/https/acme', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  const { names, email, staging, agree, skipPrecheck } = req.body ?? {};
+  const actor = await adminActor(req);
+  acme.start({ names, email, staging: staging === true, agree: agree === true, skipPrecheck: skipPrecheck === true, by: actor.user });
+  auditHttps(req, actor, `Free certificate requested from Let's Encrypt${staging === true ? ' (staging)' : ''} for ${acme.status().last?.names?.join(', ')}.`);
+  res.status(202).json(acmeView(req));
+}));
+
+app.post('/api/https/acme/renew', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  const actor = await adminActor(req);
+  acme.renew({ by: actor.user });
+  auditHttps(req, actor, 'Let\'s Encrypt certificate renewal started by hand.');
+  res.status(202).json(acmeView(req));
+}));
+
+app.delete('/api/https/acme', requirePermission('security.https'), httpsRoute(async (req, res) => {
+  const actor = await adminActor(req);
+  acme.disable();
+  auditHttps(req, actor, 'Automatic renewal of the Let\'s Encrypt certificate turned off (the certificate in use stays until it expires or is replaced).');
+  res.json(acmeView(req));
+}));
+
+// ---- Activation codes (Settings → Activation codes): add-ons unlocked by the maintainer ----
+
+function activationView() {
+  return {
+    keyConfigured: ISSUER_KEYS.length > 0,
+    languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)])),
+    tenants: activations.tenants(),
+    history: activations.history().slice(0, 10),
+  };
+}
+
+app.get('/api/activation', requirePermission('activation.manage'), (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(activationView());
+});
+
+app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(async (req, res) => {
+  const code = String(req.body?.code ?? '').trim().slice(0, 4000);
+  const result = checkCode(code);
+  const actor = await adminActor(req);
+  // A deactivation code is honoured even when it is itself past its date.
+  const usable = result.valid || (result.expired && result.action === 'deactivate');
+  if (!usable) {
+    audit.record({ type: 'settings', outcome: 'refused', reason: `Activation code refused: ${result.reason}`, actor });
+    return res.status(400).json({ error: result.reason || 'This activation code is not valid.' });
+  }
+  let what;
+  if (result.scope.startsWith('lang:')) {
+    const applied = languageAccess.apply(result);
+    what = `${applied.code === 'he' ? 'Hebrew' : applied.code} ${applied.on ? `turned on until ${result.expires.slice(0, 10)}` : 'turned off'}`;
+  } else {
+    what = `several Checkmarx One tenants unlocked for ${result.org}: up to ${result.maxTenants}, until ${result.expires.slice(0, 10)}`;
+  }
+  activations.record(result, actor.user);
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Activation code applied: ${what}.`, actor, details: { activation: { id: result.id, org: result.org, scope: result.scope, action: result.action || 'activate', expires: result.expires } } });
+  res.json({ applied: what, ...activationView() });
 }));
 
 app.get('/api/report-server', requireSession, (req, res) => {
@@ -7323,6 +7447,7 @@ function httpsOrigin(req, { port } = {}) {
  * to it by themselves (older reports show the message, with the address to enter).
  */
 function httpsOnlyAnswer(req, res, { port } = {}) {
+  if (req.method === 'GET' && req.url?.startsWith(CHALLENGE_PREFIX)) return acmeChallengeAnswer(req, res);
   const origin = httpsOrigin(req, { port });
   const url = req.url?.startsWith('/') ? req.url : '/';
   res.setHeader('Cache-Control', 'no-store');
@@ -7365,6 +7490,22 @@ const server = httpsManager.listen({ app, httpsOnly: httpsOnlyAnswer, port: conf
   await verifyEnvironmentSmtp();
   await resolveAutomationSession();
   seedLastKnownGood();
+  // LETSENCRYPT_DOMAIN: get the certificate now (unless a current one for those names is in use), then keep it renewed.
+  if (LETSENCRYPT_DOMAIN) {
+    try {
+      const names = cleanNames(LETSENCRYPT_DOMAIN);
+      const s = acme.status();
+      const current = s.issued && !s.issued.staging && names.every((n) => s.issued.names.includes(n)) && s.daysLeft > RENEW_DAYS;
+      if (current) console.log(`[https] Let's Encrypt certificate for ${names.join(', ')} in use until ${s.issued.validTo.slice(0, 10)}; renewed by itself.`);
+      else {
+        console.log(`[https] Getting a Let's Encrypt certificate for ${names.join(', ')} (LETSENCRYPT_DOMAIN)…`);
+        acme.start({ names, email: process.env.LETSENCRYPT_EMAIL ?? '', staging: /^(1|true|yes|on)$/i.test(process.env.LETSENCRYPT_STAGING ?? ''), skipPrecheck: /^(1|true|yes|on)$/i.test(process.env.LETSENCRYPT_SKIP_CHECK ?? ''), agree: true, by: 'LETSENCRYPT_DOMAIN' });
+      }
+    } catch (error) {
+      console.warn(`! [https] LETSENCRYPT_DOMAIN: ${error.message}`);
+    }
+  }
+  acme.startRenewal();
   scheduler.sync();
   // Under the launcher (src/launch.js): this version is up, so an update to it has worked.
   if (process.env.MZ_SUPERVISOR === '1') process.send?.({ type: 'ready', version: APP_VERSION });
@@ -7410,6 +7551,7 @@ const shutdown = async (signal) => {
   server.close();
   server.closeIdleConnections();
   httpsManager.stop();
+  acme.stop();
   redirectServer?.close();
   console.log(`[update] ${signal}: finishing ${inFlight} request(s) in progress…`);
   const until = Date.now() + DRAIN_MS;

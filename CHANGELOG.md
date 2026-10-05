@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.46 | 468/s, 44 (host stalls; main 177) | 10.1 s | 1.3 s | 479 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.47 | 519/s, 0 (main 504) | 5.3 s | 310 ms | 506 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.46 | 468/s, 44 (host stalls; main 177) | 10.1 s | 1.3 s | 479 | 0 | same |
 | MZ-01.00.45 | 497/s, 0 | 7.9 s | 1.2 s | 478 | 0 | same |
 | MZ-01.00.44 | 520/s, 0 | 7.1 s | 384 ms | 461 | 0 | same |
 | MZ-01.00.43 | 511/s, 0 | 5.7 s | 224 ms | 461 | 0 | same |
@@ -32,6 +33,19 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.47 — 2026-10-05 14:33 UTC · [#70](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/70)
+- **A free HTTPS certificate in one click.** **Settings → HTTPS → Free certificate from Let's Encrypt** gets a certificate trusted by every browser and renews it by itself 30 days before it expires. It needs a DNS name for the server and port 80 open to the internet. To set it up at deployment instead, use one line: `LETSENCRYPT_DOMAIN=mz.company.com`. The server then gets the certificate, switches to HTTPS only and renews it with no further steps ([HTTPS and hosting](docs/https-and-hosting.md)).
+- **German, French and Arabic.** They join the language pickers for everyone, in a formal register. Arabic reads right to left: the whole page is mirrored, while charts, code and addresses keep their direction.
+- **Hebrew with an activation code.** An Admin pastes a Hebrew code in **Settings → Activation codes**, and Hebrew (right to left) appears for everyone until the code expires or a deactivation code is pasted. Nobody is switched to it automatically.
+- **Activation codes.** A new Settings section shows what is unlocked (Hebrew; several Checkmarx One tenants), for whom and until when, and warns 30 days before a code expires. Codes last 12 months. They are checked on the server with nothing sent anywhere, and every code entered is in the audit log ([activation codes](docs/activation-codes.md)).
+- **Fast with 1,000 projects.** The project list shows 100 rows at a time, with **Show more** and **Show all**. Search waits for a pause in typing, and loading redraws less often. On a slow laptop:
+  - the longest freeze while loading findings went from 2.7 s to 0.24 s;
+  - searching settles in 1.8 s instead of 21.5 s;
+  - going back to the Dashboard takes 0.25 s instead of 1.9 s ([performance](docs/performance.md#mz-010047-the-page-with-1000-projects)).
+- **Pages grouped by what you came to do.** The sidebar's groups are now **Act** (Dashboard, Beta), **Follow up** (Reports), **Prove** (Credit Control, Audit) and **Set up** (People & roles, Settings, Logs). The emailed report's strip reads "Found by Checkmarx One → Fix it here → Every credit audited".
+- **Translated, and reviewed twice.** German, French, Arabic and Hebrew were each translated and then reviewed twice in full. The 63 new pieces of wording are in all thirteen languages, also reviewed twice ([languages](docs/languages.md)).
+- **Status.** Two pairs with main. In the calm pair, the branch served 519 requests a second with 0 failed (main 504, 0 failed). Report opens took 5.3 s and triage polls 310 ms at p95 (main 6.4 s and 539 ms). In the first pair, the host stalled and both sides lost connections (main 53, branch 112). No finding was sent twice. 506 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.46 — 2026-10-05 09:02 UTC · [#69](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/69)
 - **Give credits on Credit Control too.** **Allocated vs used** has a **Give credits** bar for anyone allowed to allocate credits:

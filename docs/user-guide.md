@@ -7,7 +7,7 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 - Administrators setting it up start with [Set up in 10 minutes](#set-up-in-10-minutes), and serve it over HTTPS: [Turn on HTTPS](#turn-on-https).
 
 **Contents**
-1. [Find your way: Detect, Eliminate, Govern](#find-your-way)
+1. [Find your way: Act, Follow up, Prove, Set up](#find-your-way)
 1. [Who can do what](#who-can-do-what)
 2. [Sign in](#sign-in), and the [terms of use](#terms-of-use)
 3. [Set up in 10 minutes](#set-up-in-10-minutes) (Admin)
@@ -31,15 +31,16 @@ The running version is shown at the bottom of the sidebar, as `MZ-xx.xx.xx`. Cli
 
 ## Find your way
 
-The sidebar follows a vulnerability from finding it to closing it:
+The sidebar is grouped by what you came to do:
 
-| Stage | Pages | What you do there |
+| Group | Pages | What you do there |
 | --- | --- | --- |
-| **Detect** | Dashboard, Beta | Fetch ageing findings, see who owns them, find who wrote the vulnerable code. |
-| **Eliminate** | Reports, Credit Control | Follow tracked scopes down to zero, schedule follow-ups, give and track AI Triage and Remediation credits. |
-| **Govern** | Audit, People & roles, Settings, Logs | The credit audit log and backups, people and roles, configuration, troubleshooting. |
+| **Act** | Dashboard, Beta | Fetch ageing findings, see who owns them, remind them, triage and remediate; find who wrote the vulnerable code. |
+| **Follow up** | Reports | Follow tracked scopes down to zero and schedule follow-ups. |
+| **Prove** | Credit Control, Audit | Give and track AI Triage and Remediation credits; the credit audit log and backups. |
+| **Set up** | People & roles, Settings, Logs | People and roles, configuration, troubleshooting. |
 
-The coloured label next to each page title says which stage you are in.
+The coloured label next to each page title says which group the page is in.
 
 **Every page keeps what you were doing.** Go to another page and come back: your filters, tabs, selections, open rows, typed text and unsaved role changes are still there, and so is the scroll position.
 - **↻** (top right) reloads the data of the page you are on and keeps your filters and tabs.
@@ -61,13 +62,19 @@ The coloured label next to each page title says which stage you are in.
 - 简体中文 (Simplified Chinese);
 - 한국어 (Korean);
 - Español (Spanish);
+- Deutsch (German);
+- Français (French);
+- العربية (Arabic);
 - Tiếng Việt (Vietnamese);
 - ไทย (Thai);
 - Bahasa Melayu (Malay);
 - Bahasa Indonesia (Indonesian);
-- English.
+- English;
+- עברית (Hebrew), once an Admin has switched it on with an activation code (Settings → Activation codes).
 
-The first time, CxMissionZero uses your browser's language when it is one of these. Your choice is saved with your account, so it follows you to any browser you sign in from.
+In Arabic and Hebrew the page reads right to left, with the menu on the right.
+
+The first time, CxMissionZero uses your browser's language when it is one of these (never Hebrew: choose it yourself). Your choice is saved with your account, so it follows you to any browser you sign in from.
 
 What is translated, and what is not:
 - **Translated:** menus, options, buttons, headings, hints and status messages.
@@ -208,6 +215,7 @@ Do this before anyone else signs in or receives a report. Over HTTPS, sign-ins, 
 Admins only: **Settings → HTTPS**. It moves the running server from http to HTTPS in five steps, with no new command, no restart, and nobody cut off. The badge top right shows where it stands: **HTTP only**, **HTTP + HTTPS side by side**, or **HTTPS only**.
 
 1. **Certificate.**
+   - **Free from Let's Encrypt (easiest, no IT needed).** Under **Free certificate from Let's Encrypt**: the server name is filled in; add an email for expiry notices if you like, tick **I agree to the Let's Encrypt Subscriber Agreement**, and click **Get a free certificate**. In under a minute it is in use, trusted by every browser, and HTTPS is on next to http. It renews by itself 30 days before it expires (**Renew now** and **Stop automatic renewal** are there too). It needs a DNS name pointing at this server and port 80 open to the internet; the server checks that first, so a wrong DNS entry is reported before Let's Encrypt is asked. Deploying fresh? `-e LETSENCRYPT_DOMAIN=mz.company.com` on the container does all of this, HTTPS only included, with no clicks: [HTTPS and hosting](https-and-hosting.md#b-free-certificate-from-lets-encrypt-public-name).
    - **Get one from IT.** No certificate yet? Open **No certificate yet? Create a request (CSR) for IT**, enter the name people use (e.g. `mz.company.com`), and click **Create the request**. A `cxmissionzero.csr` file downloads: send it to IT. The private key is made and kept on the server, so IT only sends a certificate back.
    - **Upload it.** Click **Choose certificate files**, or drop them on the box. Give everything IT sent, in any order and with any names: the certificate (`.crt`, `.cer` or `.pem`), the chain or bundle, and the key (`.key`). Or give one `.pfx` / `.p12`, then its password when asked.
    - **Read the check.** Nothing changes yet. Each line is a tick (fine), **!** (works, but some people may see a warning) or **✕** (cannot be used, and why):
@@ -406,6 +414,14 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 | --- | --- |
 | **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Dashboard's Remind panel links to it, and Settings → Automation can email code authors on every run. |
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
+
+### Activation codes (Admin)
+
+Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
+- **Hebrew:** an activation code adds Hebrew to the language pickers; a deactivation code removes it.
+- **Several tenants:** for organisations that run more than one Checkmarx One tenant (the Super Admin tasks).
+
+Paste the code and select **Apply the code**. The page shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** see this section. [How codes are issued](activation-codes.md).
 
 ### About & terms of use
 The version, the licence, the project's address, which version of the terms you accepted, and **Read the terms of use**.
@@ -945,7 +961,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.46** | 468/s, 44 failed (host stalls; main 177) | 10.1 s | 1.3 s | 479 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.47** | 519/s, 0 failed (main 504) | 5.3 s | 310 ms | 506 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.46 | 468/s, 44 failed (host stalls; main 177) | 10.1 s | 1.3 s | 479 pass | 0 vulnerabilities | same |
 | MZ-01.00.45 | 497/s, 0 failed | 7.9 s | 1.2 s | 478 pass | 0 vulnerabilities | same |
 | MZ-01.00.44 | 520/s, 0 failed | 7.1 s | 384 ms | 461 pass | 0 vulnerabilities | same |
 | MZ-01.00.43 | 511/s, 0 failed | 5.7 s | 224 ms | 461 pass | 0 vulnerabilities | same |

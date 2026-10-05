@@ -1,6 +1,6 @@
 # Languages
 
-CxMissionZero's page is available in ten languages:
+CxMissionZero's page is available in fourteen languages. Thirteen are open to everyone; Hebrew is switched on with an activation code (below).
 
 | Code | Language |
 |---|---|
@@ -10,10 +10,14 @@ CxMissionZero's page is available in ten languages:
 | `zh-CN` | 简体中文 (Simplified Chinese) |
 | `ko` | 한국어 (Korean) |
 | `es` | Español (Spanish, neutral international) |
+| `de` | Deutsch (German, formal "Sie") |
+| `fr` | Français (French, formal "vous") |
+| `ar` | العربية (Arabic, Modern Standard; right to left) |
 | `vi` | Tiếng Việt (Vietnamese) |
 | `th` | ไทย (Thai) |
 | `ms` | Bahasa Melayu (Malay, Malaysia) |
 | `id` | Bahasa Indonesia (Indonesian) |
+| `he` | עברית (Hebrew; right to left; needs an activation code) |
 
 **Choosing a language.** Use the globe at the top right, or **Your profile** (under your name, and in Settings). The choice is saved with the person's account. The first time, the browser's own language is used when it is one of these.
 
@@ -26,6 +30,10 @@ CxMissionZero's page is available in ten languages:
 - **Names and data:** project, person and finding names from Checkmarx One, logs and code.
 - **The terms of use:** the English text is the binding version.
 - **Emails:** the emailed report and reminder emails stay in English.
+
+**Right to left.** In Arabic and Hebrew the whole page is mirrored: the menu is on the right, text starts on the right, and arrows in menu paths point left (Settings ← HTTPS). Charts, code, addresses and numbers keep their left-to-right order.
+
+**Hebrew is switched on with a code.** An Admin pastes a Hebrew activation code in **Settings → Activation codes**; Hebrew then appears in the language pickers for everyone until the code expires (12 months) or a deactivation code is pasted. Nobody is ever switched to Hebrew automatically from their browser's language; people choose it themselves. When Hebrew is turned off, people who had chosen it see English. Codes come from the maintainer of CxMissionZero; they are checked on the server, with nothing sent anywhere.
 
 **Tone.** While an action runs, every language other than English shows plain, factual status lines, such as "Verifying with Checkmarx One…" instead of a quip.
 
@@ -50,7 +58,7 @@ CxMissionZero's page is available in ten languages:
    - the language's own script used;
    - no simplified characters in Traditional Chinese, and no traditional ones in Simplified Chinese;
    - no Indonesian words in Malay, and no Malay words in Indonesian;
-   - no casual particles;
+   - no casual particles, and no informal "du" or "tu" in German and French;
    - the five Mission Zero stages reading differently.
 
 ## How the first translation was validated
@@ -76,6 +84,10 @@ The second reviewer worked from the first reviewer's corrected text, without bei
 | Thai | 1,416 | 17 | 20 |
 | Malay | 1,416 | 21 | 13 |
 | Indonesian | 1,416 | 53 | 17 |
+| German (MZ-01.00.47) | 1,445 | 2 | 2 |
+| French (MZ-01.00.47) | 1,445 | 0 | 1 |
+| Arabic (MZ-01.00.47) | 1,445 | 18 | 16 |
+| Hebrew (MZ-01.00.47) | 1,445 | 16, and 52 menu-path arrows turned to point left | 16 |
 
 **Fixed in the English itself.** The reviews found places where one English word was doing two jobs:
 - **"From" and "To":** used for both email fields and date ranges.
@@ -92,3 +104,8 @@ These now have separate entries.
 The **Allocated vs used** table's column headings, the line under each project and the take-back note had stayed in English, because the collected sample had no allocations. They are now 8 more entries in every language, translated and reviewed the same way:
 - **Review 1:** 7 corrections (a repeated counter in both Chinese scripts, and "No severities" in Spanish).
 - **Review 2:** 4 corrections (the one-credit note worded in the singular in Chinese and Thai, and the standard Indonesian "pertama kali").
+
+**Added in MZ-01.00.47.** 63 entries in all thirteen languages: the sidebar groups **Act**, **Follow up**, **Prove** and **Set up**, the free Let's Encrypt certificate card, **Settings → Activation codes**, and **Show more** in long project lists. "Set up" was checked against each language's word for **Settings**, so the group heading and the page name never read alike. The stage label beside each page title is looked up as `stage|Set up`, apart from the **Set up** button. Each entry was translated, then reviewed twice:
+- **Review 1:** 13 corrections. "Set up" moved away from the word for Settings in Spanish, Arabic, Hebrew and Thai. "Act" in Traditional Chinese no longer reads as "mobile". A missing "fast" was restored in four languages, and a Spanish subjunctive was fixed.
+- **Review 2:** 11 corrections. Japanese now proves how each credit was used, not the credit. The Chinese scripts gained spacing before a Latin link. Korean and German were made idiomatic. Indonesian uses "Penyiapan", as the rest of its file does. Arabic tooltips use the noun form. Thai gained counting words and a completed sentence.
+

@@ -16,6 +16,18 @@ export const GRANT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 const FIELDS = ['projectId', 'projectName', 'riskId', 'scanId', 'scanner', 'alternateId', 'groupId'];
 
+/**
+ * The tenant a report belongs to, bound into the grant so a report cannot act in
+ * another tenant. The first tenant ("default", and every report from before
+ * multi-tenancy) adds nothing, so its existing report links keep verifying.
+ */
+export const DEFAULT_TENANT = 'default';
+const tenantPart = (finding) => {
+  const tenant = String(finding?.tenant ?? '');
+  return tenant && tenant !== DEFAULT_TENANT ? `\u0000tenant:${tenant}` : '';
+};
+const grantMessage = (finding, exp) => [...FIELDS.map((field) => String(finding[field] ?? '')), String(exp)].join('\n') + tenantPart(finding);
+
 /** A key that survives restarts, so reports stay usable until they expire. */
 function loadOrCreateKey(file) {
   if (!file) return randomBytes(32);
@@ -39,8 +51,7 @@ export class ReportGrants {
   }
 
   #mac(finding, exp) {
-    const message = [...FIELDS.map((field) => String(finding[field] ?? '')), String(exp)].join('\n');
-    return createHmac('sha256', this.#key).update(message).digest('base64url');
+    return createHmac('sha256', this.#key).update(grantMessage(finding, exp)).digest('base64url');
   }
 
   macText(text) {
@@ -63,7 +74,7 @@ export class ReportGrants {
     if (!Number.isFinite(exp)) return 'invalid';
     if (exp <= now) return 'expired';
     const grant = String(finding.grant ?? '');
-    const message = [...FIELDS.map((field) => String(finding[field] ?? '')), String(exp)].join('\n');
+    const message = grantMessage(finding, exp);
     if (this.#verified.get(grant) === message) return '';
     const expected = Buffer.from(createHmac('sha256', this.#key).update(message).digest('base64url'));
     const given = Buffer.from(grant);

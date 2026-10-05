@@ -1,6 +1,6 @@
 # CxMissionZero
 
-**Detect, eliminate and govern vulnerabilities: drive Checkmarx One findings to zero.** CxMissionZero shows which vulnerabilities have sat unfixed and for how long, and emails each developer *their own* findings. Developers can then triage and fix them with Checkmarx One AI straight from that email, with every credit accounted for.
+**Act on Checkmarx One findings, follow them up to zero, and prove every credit.** CxMissionZero shows which vulnerabilities have sat unfixed and for how long, and emails each developer *their own* findings. Developers can then triage and fix them with Checkmarx One AI straight from that email, with every credit accounted for.
 
 Self-hosted, one container, nothing to install for developers.
 
@@ -20,8 +20,8 @@ Self-hosted, one container, nothing to install for developers.
 | **Updates itself** | Settings → Update & recovery: update to any published version (or back) in one click, or let it auto-update in a quiet hour. Each download is checked against the image's digests, a backup is taken first, and a version that does not start is rolled back by itself. Nobody signs in to the server. For the rare release that needs a new base image, an optional update companion (Beta) replaces the whole container from the same page. |
 | **Hands-off follow-up** | Age-threshold automation that never nags twice, and tracked reports that measure progress and send follow-ups. |
 | **Accountable** | A hash-chained audit log of every credit and change, role-based access, one-file backups, and a privacy-safe troubleshooting log. |
-| **Easy to work in** | Pages grouped as Detect, Eliminate and Govern, in tabs instead of long scrolls; every page keeps your work when you switch; Jump to (Ctrl K); a layout that fits phone, tablet, laptop and wide screens. |
-| **In your language** | Menus and options in Japanese, Traditional Chinese (Taiwan), Simplified Chinese, Korean, Spanish, Vietnamese, Thai, Malay and Indonesian, as well as English. Each translation was checked by two separate reviews and by automated checks ([languages](docs/languages.md)). Each person has a profile with their own picture, language, time zone (picked up from their computer) and programming languages. |
+| **Easy to work in** | Pages grouped as Act, Follow up, Prove and Set up, in tabs instead of long scrolls; every page keeps your work when you switch; Jump to (Ctrl K); a layout that fits phone, tablet, laptop and wide screens. |
+| **In your language** | Menus and options in Japanese, Traditional Chinese (Taiwan), Simplified Chinese, Korean, Spanish, German, French, Arabic, Vietnamese, Thai, Malay and Indonesian, as well as English; Hebrew with an activation code. Arabic and Hebrew read right to left. Each translation was checked by two separate reviews and by automated checks ([languages](docs/languages.md)). Each person has a profile with their own picture, language, time zone (picked up from their computer) and programming languages. |
 | **Scales** | 3000 people at once on 2 vCPU / 4 GB, 6 failed of 64,320 requests; a report opens in 53 ms (p50) ([benchmark](docs/performance.md)). |
 
 ## Architecture
@@ -104,7 +104,15 @@ More container options: [docs/container.md](docs/container.md).
 
 ## HTTPS
 
-**From the Settings page (recommended).** An Admin moves a running server to HTTPS under **Settings → HTTPS**, with no new command and no restart:
+**No certificate from your organisation? One setting.** With a DNS name pointing at the server and port 80 open to the internet:
+
+```
+podman run --replace -d --name mission-zero -p 80:3000 -p 443:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai -e LETSENCRYPT_DOMAIN=mz.company.com -e LETSENCRYPT_EMAIL=appsec@company.com --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+The server gets a free Let's Encrypt certificate, switches to HTTPS only, and renews it by itself. Setting `LETSENCRYPT_DOMAIN` means you accept the [Let's Encrypt Subscriber Agreement](https://letsencrypt.org/repository/). It is also one button under Settings → HTTPS. More: [docs/https-and-hosting.md](docs/https-and-hosting.md#b-free-certificate-from-lets-encrypt-public-name).
+
+**From the Settings page (recommended with your organisation's certificate).** An Admin moves a running server to HTTPS under **Settings → HTTPS**, with no new command and no restart:
 
 1. **Certificate.** Drop in the files from IT (certificate, chain, key, or one `.pfx`). It is checked the way a browser would before anything changes: the key, the chain, the names people use, the dates. No certificate yet? **Create a request (CSR) for IT** there; the key stays on the server.
 2. **Turn on HTTPS next to http.** The same address and port answer both `http://` and `https://`. Nobody is cut off.
@@ -128,7 +136,7 @@ podman run --replace -d --name mission-zero -p 443:3000 -p 80:8080 -v mission-ze
 - **Port 80** (`-p 80:8080` and `HTTP_REDIRECT_PORT`) only sends `http://` visitors to `https://`.
 - **Renewals:** copy the renewed files over the old ones. It switches over within 5 minutes, with no restart.
 
-**B. Automatic certificate** (public name). Caddy fetches and renews the certificate and speaks plain http to CxMissionZero on their private network (hence `HTTPS=off`); CxMissionZero has no port of its own:
+**B. Automatic certificate** (public name): `LETSENCRYPT_DOMAIN`, above, does it with no proxy. Or Caddy in front: it fetches and renews the certificate and speaks plain http to CxMissionZero on their private network (hence `HTTPS=off`); CxMissionZero has no port of its own:
 
 ```
 podman network create mz-net
@@ -217,7 +225,8 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.46** | 468/s, 44 failed (host stalls; main 177) | 10.1 s | 1.3 s | 479 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.47** | 519/s, 0 failed (main 504) | 5.3 s | 310 ms | 506 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.46 | 468/s, 44 failed (host stalls; main 177) | 10.1 s | 1.3 s | 479 pass | 0 vulnerabilities | same |
 | MZ-01.00.45 | 497/s, 0 failed | 7.9 s | 1.2 s | 478 pass | 0 vulnerabilities | same |
 | MZ-01.00.44 | 520/s, 0 failed | 7.1 s | 384 ms | 461 pass | 0 vulnerabilities | same |
 | MZ-01.00.43 | 511/s, 0 failed | 5.7 s | 224 ms | 461 pass | 0 vulnerabilities | same |
@@ -251,6 +260,8 @@ How it is measured, and what is open and why: [Performance and security status](
 | [Performance and sizing](docs/performance.md) | The 3000-user benchmark and the recommended server size. |
 | [Performance and security status](docs/status.md) | Every version's benchmark, tests, dependency audit and Checkmarx One scan result. |
 | [Audit log and backups](docs/audit-and-backup.md) | The tamper-evident audit log, backups, restore, moving servers. |
+| [Languages](docs/languages.md) | The fourteen languages, right-to-left Arabic and Hebrew, and how translations are kept current and reviewed. |
+| [Activation codes](docs/activation-codes.md) | Add-ons unlocked with a code (Hebrew; several Checkmarx One tenants): applying one, and how they are issued. |
 | [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code (git blame, down to the exact developer), and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket. An Admin makes each one final when it has proved itself. |
 
 ## Licence, terms of use and contributing

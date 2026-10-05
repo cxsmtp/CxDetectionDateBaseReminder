@@ -1,5 +1,5 @@
 import { nextSpeedster } from './speedsters.js';
-import { LANGUAGES, currentLanguage, deviceTimeZone, onLanguageChange, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
+import { availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -521,9 +521,9 @@ function applyPermissions() {
 // ---------------------------------------------------------------------------
 
 const ROUTE_ALIASES = { iam: 'access', 'credit-control': 'credits' };
-/** Detect → Eliminate → Govern: where each page sits in the vulnerability lifecycle. */
-const STAGES = { dashboard: 'detect', beta: 'detect', reports: 'eliminate', credits: 'eliminate', audit: 'govern', access: 'govern', settings: 'govern', logs: 'govern' };
-const STAGE_LABELS = { detect: 'Detect', eliminate: 'Eliminate', govern: 'Govern' };
+/** Act → Follow up → Prove, plus Set up: what each page is for. */
+const STAGES = { dashboard: 'act', beta: 'act', reports: 'followup', credits: 'prove', audit: 'prove', access: 'setup', settings: 'setup', logs: 'setup' };
+const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', setup: 'Set up' };
 /** The tab group on each page (data-ptabs). */
 const PAGE_TABS = { dashboard: 'dash', credits: 'credits', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs' };
 const visitedPages = new Set();
@@ -607,10 +607,54 @@ document.addEventListener('click', async (event) => {
   }
 });
 
+// ---- Activation codes: add-ons unlocked by the maintainer (Hebrew, several tenants) ----
+
+async function loadActivation() {
+  if (!can('activation.manage')) return;
+  try {
+    renderActivation(await api('/api/activation', { quiet: true }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('act-status', error);
+  }
+}
+
+function renderActivation(a) {
+  const date = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
+  const he = a.languages?.he ?? { on: false };
+  const t = a.tenants;
+  const rows = [
+    // Each English piece is its own element, so the page translator can reach it.
+    `<div class="act-row"><strong>Hebrew</strong><span>${he.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(he.expires))}</b>${he.org ? ` · ${escapeHtml(he.org)}` : ''}` : he.expired ? `<span class="badge warn">Expired</span> <b>${escapeHtml(date(he.expires))}</b>` : '<span class="badge muted">Off</span>'}</span></div>`,
+    `<div class="act-row"><strong>Several tenants</strong><span>${t ? `${t.valid ? '<span class="badge ok">Unlocked</span>' : '<span class="badge warn">Expired</span>'} ${escapeHtml(t.org)} · <span>Up to ${t.maxTenants} tenants</span> · <span>Until</span> <b>${escapeHtml(date(t.expires))}</b>${t.warn ? ` <strong class="https-note warn">${t.daysLeft} days left</strong>` : ''}` : '<span class="badge muted">Not unlocked</span>'}</span></div>`,
+  ];
+  if (!a.keyConfigured) rows.push('<p class="hint">This build has no maintainer key, so no code can be checked.</p>');
+  $('act-list').innerHTML = rows.join('');
+}
+
+$('act-apply').addEventListener('click', async () => {
+  const code = $('act-code').value.trim();
+  if (!code) return setStatus('act-status', 'Paste the activation code first.', 'error');
+  $('act-apply').disabled = true;
+  try {
+    const result = await api('/api/activation', { method: 'POST', body: JSON.stringify({ code }) });
+    renderActivation(result);
+    $('act-code').value = '';
+    setStatus('act-status', `Applied: ${result.applied}.`, 'ok');
+    // A language turned on or off is offered (or not) at once.
+    const health = await api('/api/health', { quiet: true });
+    if (Array.isArray(health.languages)) languagesChanged(health.languages);
+  } catch (error) {
+    if (!handleAuthLoss(error)) setStatus('act-status', error.message, 'error');
+  } finally {
+    $('act-apply').disabled = false;
+  }
+});
+
 const reloadSettingsPage = () => {
   renderProfile();
   if (!can('settings.view')) return;
   loadFeatures();
+  loadActivation();
   renderSettings();
   loadAutomation();
   loadPool();
@@ -817,8 +861,8 @@ function showSettingsSection(id) {
 }
 
 const PAGE_TITLES = {
-  connect: ['Sign in', 'Detect, eliminate and govern vulnerabilities in Checkmarx One'],
-  dashboard: ['Dashboard', 'Detect ageing vulnerabilities, then remind owners, triage and remediate them'],
+  connect: ['Sign in', 'Act on Checkmarx One findings, follow them up to zero, and prove every credit'],
+  dashboard: ['Dashboard', 'See ageing vulnerabilities, then remind owners, triage and remediate them'],
   reports: ['Reports', 'Follow every tracked scope down to zero: progress, follow-ups and schedules'],
   credits: ['Credit Control', 'The credit pool, what each project was given and used, and spending over time'],
   settings: ['Settings', 'Connections, reminders, AI and credits, reports, security — saved as you type'],
@@ -2902,17 +2946,27 @@ $('export-projects').addEventListener('click', exportProjectsCsv);
 renderColumnMenu();
 renderProjectsHead();
 
+/** Rows drawn at a time: the table costs the same whatever the size of the tenant (see renderProjects). */
+const ROW_PAGE = 100;
+
 function renderProjects() {
   const rows = visibleProjects();
   const body = $('projects-body');
   $('export-projects').disabled = !rows.length;
+  // A new search, filter or sort starts again at the first page; a fetch filling in keeps it.
+  const view = JSON.stringify([$('filter').value.trim().toLowerCase(), $('severity-filter').value, $('bucket-filter').value, $('hide-empty').checked, [...state.pickedInitiators], state.sort]);
+  if (view !== state.rowView) {
+    state.rowView = view;
+    state.rowLimit = ROW_PAGE;
+  }
+  const shown = rows.length > (state.rowLimit ?? ROW_PAGE) ? rows.slice(0, state.rowLimit ?? ROW_PAGE) : rows;
 
   if (rows.length === 0) {
     body.innerHTML = `<tr class="empty"><td colspan="${projectColspan()}">${
       state.projects.length ? 'No projects match these filters.' : 'No data yet.'
     }</td></tr>`;
   } else {
-    body.innerHTML = rows
+    body.innerHTML = shown
       .map((p) => {
         return `
         <tr data-id="${escapeHtml(p.projectId)}">
@@ -2937,7 +2991,12 @@ function renderProjects() {
           ${creditCell(p, 'remediation').replace('<td class="', '<td data-label="Remediation credits" class="c-half ')}
         </tr>${state.creditEditor === p.projectId ? creditEditorRow(p) : ''}`;
       })
-      .join('');
+      .join('') +
+      (shown.length < rows.length
+        ? `<tr class="more-rows"><td colspan="${projectColspan()}"><span>Showing ${shown.length} of ${rows.length} projects</span>
+            <button type="button" class="sm" data-more-rows="page">Show ${Math.min(ROW_PAGE, rows.length - shown.length)} more</button>
+            <button type="button" class="sm link" data-more-rows="all">Show all ${rows.length}</button></td></tr>`
+        : '');
   }
 
   const selectedCount = state.selected.size;
@@ -4668,7 +4727,7 @@ async function fetchProjects() {
     fetchFlare('busy', `Data fetching is still in progress — ${state.projects.length}${total ? ` of ${total}` : ''} project(s) loaded`);
   };
   const schedule = () => {
-    pending ??= setTimeout(paint, 150);
+    pending ??= setTimeout(paint, 400);
   };
   fetchFlare('busy', 'Data fetching is still in progress — finding projects…');
   renderProjects();
@@ -5017,7 +5076,13 @@ $('activity-preset').addEventListener('change', () => toggleRange('activity'));
 $('detection-preset').addEventListener('change', () => toggleRange('detection'));
 $('fetch').addEventListener('click', fetchProjects);
 
-for (const id of ['filter', 'severity-filter', 'bucket-filter', 'hide-empty']) {
+// Search waits for a pause in typing; the drop-downs and the box apply at once.
+let filterTimer = null;
+$('filter').addEventListener('input', () => {
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(renderProjects, 150);
+});
+for (const id of ['severity-filter', 'bucket-filter', 'hide-empty']) {
   $(id).addEventListener('input', renderProjects);
 }
 
@@ -5357,6 +5422,12 @@ $('select-all').addEventListener('change', (event) => {
 });
 
 $('projects-body').addEventListener('click', (event) => {
+  const more = event.target.closest('[data-more-rows]');
+  if (more) {
+    state.rowLimit = more.dataset.moreRows === 'all' ? Infinity : (state.rowLimit ?? ROW_PAGE) + ROW_PAGE;
+    renderProjects();
+    return;
+  }
   const edit = event.target.closest('[data-credit-edit]');
   const save = event.target.closest('[data-credit-save]');
   const close = event.target.closest('[data-credit-cancel]');
@@ -5900,17 +5971,17 @@ async function renderGettingStarted() {
   const cx = Boolean(state.connection);
   const smtp = Boolean(state.settings?.verified);
   const server = state.reportServer ? !state.reportServer.warnings?.length : true;
-  if (can('integration.cxone') || !cx) steps.push({ stage: 'detect', done: cx, title: 'Connect Checkmarx One', text: 'The server reads projects and findings with its own key.', href: '#/settings/connection', action: can('integration.cxone') ? 'Connect' : 'Ask an Admin' });
-  steps.push({ stage: 'detect', done: state.projects.length > 0, title: 'Fetch vulnerabilities', text: 'Choose a scope and fetch: ageing findings and who ran each scan.', href: '#/dashboard', action: 'Fetch', fetch: true });
-  if (can('integration.smtp')) steps.push({ stage: 'eliminate', done: smtp, title: 'Set up email', text: 'Test your mail server so reminders and follow-ups can go out.', href: '#/settings/smtp', action: 'Set up' });
-  if (can('settings.links')) steps.push({ stage: 'eliminate', done: server, title: 'Give reports a reachable address', text: 'So readers can triage and remediate straight from the emailed report.', href: '#/settings/server', action: 'Set address' });
-  if (can('credits.limit')) steps.push({ stage: 'govern', done: Boolean(state.settings?.aiTriage?.monthlyCreditLimit), title: 'Cap AI credits', text: 'A credit pool limits what AI Triage and Remediation may spend.', href: '#/settings/ai', action: 'Set pool' });
+  if (can('integration.cxone') || !cx) steps.push({ stage: 'setup', done: cx, title: 'Connect Checkmarx One', text: 'The server reads projects and findings with its own key.', href: '#/settings/connection', action: can('integration.cxone') ? 'Connect' : 'Ask an Admin' });
+  steps.push({ stage: 'act', done: state.projects.length > 0, title: 'Fetch vulnerabilities', text: 'Choose a scope and fetch: ageing findings and who ran each scan.', href: '#/dashboard', action: 'Fetch', fetch: true });
+  if (can('integration.smtp')) steps.push({ stage: 'setup', done: smtp, title: 'Set up email', text: 'Test your mail server so reminders and follow-ups can go out.', href: '#/settings/smtp', action: 'Set up' });
+  if (can('settings.links')) steps.push({ stage: 'setup', done: server, title: 'Give reports a reachable address', text: 'So readers can triage and remediate straight from the emailed report.', href: '#/settings/server', action: 'Set address' });
+  if (can('credits.limit')) steps.push({ stage: 'prove', done: Boolean(state.settings?.aiTriage?.monthlyCreditLimit), title: 'Cap AI credits', text: 'A credit pool limits what AI Triage and Remediation may spend.', href: '#/settings/ai', action: 'Set pool' });
   if (can('iam.manage')) {
     let people = 2;
     try {
       people = (access.data ?? (await api('/api/iam', { quiet: true }))).users.length;
     } catch {}
-    steps.push({ stage: 'govern', done: people > 1, title: 'Invite your team', text: 'Add people and give each the role they need.', href: '#/access/people', action: 'Invite' });
+    steps.push({ stage: 'setup', done: people > 1, title: 'Invite your team', text: 'Add people and give each the role they need.', href: '#/access/people', action: 'Invite' });
   }
   const left = steps.filter((s) => !s.done).length;
   // A checklist of one is not a checklist: people who only fetch never see it.
@@ -5928,7 +5999,7 @@ async function renderGettingStarted() {
     <ol class="gs-steps">${steps
       .map((step) => `<li class="gs-step ${step.done ? 'done' : ''}" data-stage="${step.stage}" title="${escapeHtml(step.text)}">
         <span class="gs-mark" aria-hidden="true">${step.done ? '✓' : ''}</span>
-        <span class="gs-text"><span class="gs-stage">${STAGE_LABELS[step.stage]}</span><strong>${escapeHtml(step.title)}</strong></span>
+        <span class="gs-text"><span class="gs-stage" data-i18n-ctx="stage">${STAGE_LABELS[step.stage]}</span><strong>${escapeHtml(step.title)}</strong></span>
         ${step.done ? '<span class="sr-only">Done</span>' : step.fetch ? `<button type="button" class="sm primary" data-gs-fetch ${can('findings.fetch') && cx ? '' : 'disabled'}>${escapeHtml(step.action)}</button>` : `<a class="button-like sm" href="${step.href}">${escapeHtml(step.action)}</a>`}
       </li>`)
       .join('')}</ol>`;
@@ -5950,20 +6021,20 @@ function paletteEntries() {
   const pageOk = (page) => !PAGE_PERMS[page] || canAny(PAGE_PERMS[page]);
   for (const [page, [title, sub]] of Object.entries(PAGE_TITLES)) {
     if (page === 'connect' || !pageOk(page)) continue;
-    entries.push({ label: title, hint: sub, group: STAGE_LABELS[STAGES[page]], href: `#/${page}` });
+    entries.push({ label: title, hint: sub, group: STAGE_LABELS[STAGES[page]], stage: STAGES[page], href: `#/${page}` });
   }
   for (const bar of document.querySelectorAll('[data-ptabs]')) {
     const page = Object.keys(PAGE_TABS).find((p) => PAGE_TABS[p] === bar.dataset.ptabs);
     if (!page || !pageOk(page)) continue;
     for (const tab of tabsOf(bar.dataset.ptabs).filter(usableTab)) {
       const label = tab.childNodes[0]?.textContent.trim() || tab.textContent.trim();
-      entries.push({ label: `${PAGE_TITLES[page][0]} → ${label}`, group: STAGE_LABELS[STAGES[page]], href: page === 'dashboard' ? null : `#/${page}/${tab.dataset.pt}`, tab: page === 'dashboard' ? tab.dataset.pt : null });
+      entries.push({ label: `${PAGE_TITLES[page][0]} → ${label}`, group: STAGE_LABELS[STAGES[page]], stage: STAGES[page], href: page === 'dashboard' ? null : `#/${page}/${tab.dataset.pt}`, tab: page === 'dashboard' ? tab.dataset.pt : null });
     }
   }
   if (pageOk('settings')) {
     for (const a of document.querySelectorAll('#set-nav [data-set]')) {
       if (a.classList.contains('perm-hidden') || a.classList.contains('no-settings')) continue;
-      entries.push({ label: `Settings → ${a.textContent.trim()}`, group: 'Govern', href: a.getAttribute('href') });
+      entries.push({ label: `Settings → ${a.textContent.trim()}`, group: STAGE_LABELS.setup, stage: 'setup', href: a.getAttribute('href') });
     }
   }
   if (can('findings.fetch')) entries.push({ label: 'Load findings', group: 'Action', run: () => $('fetch').click() });
@@ -5992,7 +6063,7 @@ function renderPalette() {
   if (!q) palette.index = 0;
   $('palette-list').innerHTML = palette.shown.length
     ? palette.shown
-        .map((e, i) => `<li role="option" id="pal-${i}" aria-selected="${i === palette.index}" data-pal="${i}" class="${i === palette.index ? 'on' : ''}"><span class="pal-label">${escapeHtml(e.label)}</span><span class="pal-group" data-stage="${escapeHtml((e.group || '').toLowerCase())}">${escapeHtml(e.group || '')}</span></li>`)
+        .map((e, i) => `<li role="option" id="pal-${i}" aria-selected="${i === palette.index}" data-pal="${i}" class="${i === palette.index ? 'on' : ''}"><span class="pal-label">${escapeHtml(e.label)}</span><span class="pal-group" data-stage="${escapeHtml(e.stage || '')}" data-i18n-ctx="stage">${escapeHtml(e.group || '')}</span></li>`)
         .join('')
     : '<li class="pal-none">Nothing matches.</li>';
   $('palette-q').setAttribute('aria-activedescendant', palette.shown.length ? `pal-${palette.index}` : '');
@@ -6047,6 +6118,7 @@ document.addEventListener('keydown', (event) => {
 (async function init() {
   try {
     state.health = await api('/api/health');
+    if (Array.isArray(state.health.languages)) languagesChanged(state.health.languages);
     if (state.health.version) {
       $('app-version').textContent = state.health.version;
       $('app-version').hidden = false;
@@ -7687,7 +7759,8 @@ function certCard(report, { title, candidate = false } = {}) {
     return `<div class="https-cert"><ul class="https-checks"><li class="error"><span>${escapeHtml(report?.error || 'The certificate could not be read.')}</span></li></ul></div>`;
   }
   const s = report.summary;
-  const meta = [CERT_SOURCES[report.source], s.keyType, report.kind === 'pfx' ? '.pfx' : ''].filter(Boolean).join(' · ');
+  const fromLetsEncrypt = report.source === 'uploaded' && /^Let's Encrypt/.test(httpsUi.status?.uploaded?.by ?? '') && !candidate;
+  const meta = [fromLetsEncrypt ? "from Let's Encrypt" : CERT_SOURCES[report.source], s.keyType, report.kind === 'pfx' ? '.pfx' : ''].filter(Boolean).join(' · ');
   const chain = s.chain.length > 1 ? `<div class="chain">Chain: ${s.chain.map((c) => escapeHtml(c.subject)).join(' → ')}</div>` : '';
   const notes = report.notes?.length ? `<ul class="notes">${report.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>` : '';
   return `<div class="https-cert${candidate ? ' candidate' : ''}">
@@ -7717,6 +7790,7 @@ function renderHttps(s) {
   ].join('');
 
   // 1. Certificate
+  renderAcme(s.acme, s);
   $('https-cert-current').innerHTML = cert ? certCard(cert, { title: 'In use' }) : '<p class="hint">None yet. Turning HTTPS on makes a self-signed one to start with; upload your company certificate to replace it.</p>';
   $('https-files-label').textContent = realCert ? 'Choose files to replace it' : 'Choose certificate files';
   const actions = [];
@@ -7933,6 +8007,80 @@ $('https-cert-actions').addEventListener('click', (event) => {
     }, 'The uploaded certificate is no longer used.');
   }
 });
+// ---- Free certificate from Let's Encrypt ----
+
+let acmePoll = null;
+
+/** The Let's Encrypt card: what it is doing, what it got, and when it renews. */
+function renderAcme(a, s = httpsUi.status) {
+  if (!a) return;
+  if (!$('https-le-names').value) {
+    const names = a.names?.length ? a.names : a.suggested?.length ? a.suggested : [];
+    $('https-le-names').value = names.join(', ');
+  }
+  if (!$('https-le-email').value && a.email) $('https-le-email').value = a.email;
+  if (a.staging) $('https-le-staging').checked = true;
+  $('https-le-get').disabled = a.running;
+  $('https-le-get').textContent = a.issued ? 'Get a new certificate' : 'Get a free certificate';
+  $('https-le-renew').hidden = !a.enabled || a.running;
+  $('https-le-stop').hidden = !a.enabled || a.running;
+  const last = a.last;
+  if (a.running) setStatus('https-le-status', 'Asking Let\'s Encrypt… This usually takes under a minute.');
+  else if (last?.running) setStatus('https-le-status', 'The last request did not finish (the server restarted). Try again.', 'warn');
+  else if (last?.ok) setStatus('https-le-status', `Certificate for ${last.names.join(', ')} put to use on ${day(last.at)}.`, 'ok');
+  else if (last && !last.ok) setStatus('https-le-status', last.error, 'error');
+  else setStatus('https-le-status', '');
+  const info = [];
+  if (a.fromEnvironment) info.push(`Set up when the server was deployed (LETSENCRYPT_DOMAIN=${a.fromEnvironment}).`);
+  if (a.issued) {
+    info.push(`In use until ${day(a.issued.validTo)} (${a.daysLeft} days left)${a.issued.staging ? ', from the staging service: browsers do not trust it' : ''}.`);
+    info.push(a.enabled ? `Renewed by itself from ${day(a.renewsFrom)}.` : 'Automatic renewal is off.');
+  }
+  if (a.issued && !a.issued.staging && s?.mode === 'both') info.push('Next: open this page over HTTPS and switch to HTTPS only (step 4).');
+  $('https-le-info').textContent = info.join(' ');
+  clearTimeout(acmePoll);
+  if (a.running) {
+    acmePoll = setTimeout(async () => {
+      try {
+        const next = await api('/api/https/acme', { quiet: true });
+        if (next.running) renderAcme(next);
+        else loadHttps();
+      } catch (error) {
+        if (!handleAuthLoss(error)) setStatus('https-le-status', error.message, 'error');
+      }
+    }, 2000);
+  }
+}
+
+$('https-le-get').addEventListener('click', async () => {
+  const names = $('https-le-names').value.split(/[\s,;]+/).filter(Boolean);
+  if (!names.length) return setStatus('https-le-status', 'Enter the name people use to reach this server, e.g. mz.company.com.', 'error');
+  if (!$('https-le-agree').checked) return setStatus('https-le-status', 'Tick the box to agree to the Let\'s Encrypt Subscriber Agreement first.', 'error');
+  try {
+    renderAcme(await api('/api/https/acme', {
+      method: 'POST',
+      body: JSON.stringify({ names, email: $('https-le-email').value.trim(), agree: true, staging: $('https-le-staging').checked, skipPrecheck: $('https-le-skip').checked }),
+    }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) setStatus('https-le-status', error.message, 'error');
+  }
+});
+$('https-le-renew').addEventListener('click', async () => {
+  try {
+    renderAcme(await api('/api/https/acme/renew', { method: 'POST' }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) setStatus('https-le-status', error.message, 'error');
+  }
+});
+$('https-le-stop').addEventListener('click', async () => {
+  if (!confirm('Stop renewing the Let\'s Encrypt certificate by itself? It stays in use until it expires or you replace it.')) return;
+  try {
+    renderAcme(await api('/api/https/acme', { method: 'DELETE' }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) setStatus('https-le-status', error.message, 'error');
+  }
+});
+
 $('https-csr-create').addEventListener('click', async () => {
   const names = $('https-csr-names').value.split(/[\s,;]+/).filter(Boolean);
   if (!names.length) {
@@ -8253,19 +8401,49 @@ $('sidebar-pin').addEventListener('click', () => applySidebarMode(sidebarMode() 
 // The top block's height, for what sits below it (the action rail, the table's header row).
 if (window.ResizeObserver) {
   const top = $('dash-top');
-  const measure = () => document.documentElement.style.setProperty('--dash-top-h', `${Math.round(top.getBoundingClientRect().height)}px`);
+  let last = '';
+  // Written only when it changes: a style change on the root restyles the whole page.
+  const measure = () => {
+    const value = `${Math.round(top.getBoundingClientRect().height)}px`;
+    if (value === last || !top.offsetParent) return;
+    last = value;
+    document.documentElement.style.setProperty('--dash-top-h', value);
+  };
   new ResizeObserver(measure).observe(top);
   measure();
+}
+
+// While the page scrolls, rows passing under the pointer do not repaint their hover highlight.
+{
+  let scrollIdle = null;
+  window.addEventListener('scroll', () => {
+    if (!document.body.classList.contains('scrolling')) document.body.classList.add('scrolling');
+    clearTimeout(scrollIdle);
+    scrollIdle = setTimeout(() => document.body.classList.remove('scrolling'), 150);
+  }, { passive: true });
 }
 
 // ---------------------------------------------------------------------------
 // Language: the page's own words in the reader's language (public/i18n.js).
 // ---------------------------------------------------------------------------
 
+/** Set once the language picker exists: offer the languages this server has unlocked. */
+let languagesChanged = () => {};
+
 {
   const select = $('lang-select');
-  const SHORT = { en: 'EN', ja: 'JA', 'zh-TW': '繁中', 'zh-CN': '简中', ko: 'KO', es: 'ES', vi: 'VI', th: 'TH', ms: 'MS', id: 'ID' };
-  select.innerHTML = LANGUAGES.map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
+  const SHORT = { en: 'EN', ja: 'JA', 'zh-TW': '繁中', 'zh-CN': '简中', ko: 'KO', es: 'ES', de: 'DE', fr: 'FR', ar: 'AR', vi: 'VI', th: 'TH', ms: 'MS', id: 'ID', he: 'HE' };
+  const fill = () => {
+    select.innerHTML = availableLanguages().map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
+    select.value = currentLanguage();
+  };
+  fill();
+  // Languages unlocked by an activation code (Hebrew) are offered once the server says so.
+  languagesChanged = (codes) => {
+    const allowed = setAvailable(codes);
+    fill();
+    if (!allowed) setLanguage('en');
+  };
   const show = (code) => {
     select.value = code;
     select.setAttribute('aria-label', t('Language'));
@@ -8352,7 +8530,7 @@ function renderProfile() {
   $('pf-last').textContent = user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : '—';
   if (document.activeElement !== $('pf-name')) $('pf-name').value = user.name ?? '';
   const language = $('pf-language');
-  if (!language.options.length) language.innerHTML = LANGUAGES.map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
+  language.innerHTML = availableLanguages().map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
   language.value = profile.language || currentLanguage();
   const zones = $('pf-tz');
   if (!zones.options.length) {
