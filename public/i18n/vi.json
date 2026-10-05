@@ -786,7 +786,6 @@
   "No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.": "Không có máy chủ thư: hãy thiết lập trong Cài đặt → Máy chủ email, hoặc bằng SMTP_HOST trong tệp .env.",
   "No pool size set": "Chưa đặt giá trị hạn mức",
   "No pool size set: spending is limited only by what each project is allocated. Per project and over time: <a href=\"#/credits\">Credits</a>.": "Chưa đặt giá trị hạn mức: mức chi tiêu chỉ bị giới hạn bởi số tín dụng được phân bổ cho từng dự án. Theo dự án và theo thời gian: <a href=\"#/credits\">Tín dụng</a>.",
-  "No project has an allocation yet — allocate credits on the Dashboard.": "Chưa có dự án nào được phân bổ — hãy phân bổ tín dụng trên Bảng điều khiển.",
   "No project used credits in this period.": "Không có dự án nào dùng tín dụng trong kỳ này.",
   "No recipients configured.": "Chưa cấu hình người nhận.",
   "No runs yet.": "Chưa có lượt chạy nào.",

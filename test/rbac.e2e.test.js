@@ -129,6 +129,8 @@ const MATRIX = [
   ['POST', '/api/tracked-reports', {}, true, true, false],
   ['POST', '/api/triage/run', {}, true, true, false],
   ['POST', '/api/credits/allocate', {}, true, true, false],
+  ['POST', '/api/credits/give', {}, true, true, false],
+  ['GET', '/api/credits/projects', null, true, true, false],
   ['PUT', '/api/settings', { template: { subject: 'Hi {{tenant}}' } }, true, true, false],
   ['PUT', '/api/automation', {}, true, true, false],
   ['GET', '/api/iam', null, true, true, false],

@@ -786,7 +786,6 @@
   "No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.": "Tiada pelayan mel: tetapkannya di bawah Tetapan → Pelayan e-mel, atau dengan SMTP_HOST dalam fail .env.",
   "No pool size set": "Saiz kumpulan tidak ditetapkan",
   "No pool size set: spending is limited only by what each project is allocated. Per project and over time: <a href=\"#/credits\">Credits</a>.": "Saiz kumpulan tidak ditetapkan: perbelanjaan hanya dihadkan oleh peruntukan setiap projek. Mengikut projek dan dari semasa ke semasa: <a href=\"#/credits\">Kredit</a>.",
-  "No project has an allocation yet — allocate credits on the Dashboard.": "Belum ada projek yang mempunyai peruntukan — peruntukkan kredit pada Papan pemuka.",
   "No project used credits in this period.": "Tiada projek yang menggunakan kredit dalam tempoh ini.",
   "No recipients configured.": "Tiada penerima dikonfigurasi.",
   "No runs yet.": "Belum ada larian.",

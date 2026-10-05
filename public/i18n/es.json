@@ -786,7 +786,6 @@
   "No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.": "No hay servidor de correo: configúrelo en Configuración → Servidor de correo electrónico, o con SMTP_HOST en el archivo .env.",
   "No pool size set": "Sin tamaño de bolsa definido",
   "No pool size set: spending is limited only by what each project is allocated. Per project and over time: <a href=\"#/credits\">Credits</a>.": "Sin tamaño de bolsa definido: el gasto solo está limitado por lo que se asigna a cada proyecto. Por proyecto y a lo largo del tiempo: <a href=\"#/credits\">Créditos</a>.",
-  "No project has an allocation yet — allocate credits on the Dashboard.": "Ningún proyecto tiene asignación aún — asigne créditos en el Panel.",
   "No project used credits in this period.": "Ningún proyecto usó créditos en este periodo.",
   "No recipients configured.": "No hay destinatarios configurados.",
   "No runs yet.": "Aún no hay ejecuciones.",

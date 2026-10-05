@@ -786,7 +786,6 @@
   "No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.": "ไม่มีเซิร์ฟเวอร์อีเมล: ตั้งค่าได้ที่ การตั้งค่า → เซิร์ฟเวอร์อีเมล หรือใช้ SMTP_HOST ในไฟล์ .env",
   "No pool size set": "ไม่ได้กำหนดขนาดวงเงิน",
   "No pool size set: spending is limited only by what each project is allocated. Per project and over time: <a href=\"#/credits\">Credits</a>.": "ไม่ได้กำหนดขนาดวงเงิน: การใช้เครดิตถูกจำกัดตามที่จัดสรรให้แต่ละโปรเจกต์เท่านั้น ดูแยกตามโปรเจกต์และตามช่วงเวลาได้ที่ <a href=\"#/credits\">เครดิต</a>",
-  "No project has an allocation yet — allocate credits on the Dashboard.": "ยังไม่มีโปรเจกต์ใดได้รับการจัดสรร — จัดสรรเครดิตบนแดชบอร์ด",
   "No project used credits in this period.": "ไม่มีโปรเจกต์ใดใช้เครดิตในช่วงเวลานี้",
   "No recipients configured.": "ยังไม่ได้กำหนดผู้รับ",
   "No runs yet.": "ยังไม่มีการทำงาน",

@@ -6005,14 +6005,6 @@
    "logs › activity › p › AI Triage & Remediation from reports"
   ]
  },
- "No project has an allocation yet — allocate credits on the Dashboard.": {
-  "kind": "text",
-  "seen": [
-   "credits › p › Allocated vs used",
-   "credits › overview › p › Allocated vs used",
-   "credits › projects › p › Allocated vs used"
-  ]
- },
  "No project used credits in this period.": {
   "kind": "text",
   "seen": [
@@ -10737,6 +10729,126 @@
    "first start › a",
    "first start › h2 › Your profile",
    "sign in › a"
+  ]
+ },
+ "Extra credits for one project, out of the credit pool. No findings need loading. To give exactly what a project's findings need, use the Dashboard.": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used"
+  ]
+ },
+ "Type a project name": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "credits › Allocated vs used"
+  ]
+ },
+ "{0} credit triages one Checkmarx One result; remediating one confirmed finding takes {1}.": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used"
+  ]
+ },
+ "Give": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used"
+  ]
+ },
+ "Give or take back": {
+  "kind": "text",
+  "seen": [
+   "credits › Allocated vs used"
+  ]
+ },
+ "Give this project more credits": {
+  "kind": "attr:title",
+  "seen": [
+   "credits › Allocated vs used"
+  ]
+ },
+ "No project has an allocation yet — give credits above, or on the Dashboard.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Give {0} AI Triage and {1} AI Remediation credits out of the credit pool to this project?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "They stay with the project until they are used or taken back.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Gave {0} AI Triage and {1} AI Remediation credits.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Giving…": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Choose a project from the list.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Enter how many AI Triage or AI Remediation credits to give.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Credits cannot be negative. To take credits back, use Take back.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "No project has an allocation yet.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Choose a project.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Give at least one AI Triage or AI Remediation credit.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Credits must be whole numbers, not negative, and no more than {0} at a time.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "No such project in Checkmarx One.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Not connected to Checkmarx One: only projects that already hold credits are listed.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  }
 }

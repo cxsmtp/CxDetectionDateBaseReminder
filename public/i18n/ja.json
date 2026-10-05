@@ -786,7 +786,6 @@
   "No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.": "メールサーバーがありません：設定 → メールサーバー、または.envファイルのSMTP_HOSTで設定してください。",
   "No pool size set": "プールサイズ未設定",
   "No pool size set: spending is limited only by what each project is allocated. Per project and over time: <a href=\"#/credits\">Credits</a>.": "プールサイズが設定されていません：使用量は各プロジェクトへの割り当て量によってのみ制限されます。プロジェクト別および期間別の状況：<a href=\"#/credits\">クレジット</a>。",
-  "No project has an allocation yet — allocate credits on the Dashboard.": "割り当てのあるプロジェクトはまだありません — ダッシュボードでクレジットを割り当ててください。",
   "No project used credits in this period.": "この期間にクレジットを使用したプロジェクトはありません。",
   "No recipients configured.": "受信者が設定されていません。",
   "No runs yet.": "まだ実行されていません。",

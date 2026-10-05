@@ -7420,9 +7420,10 @@ function renderAllocations(all) {
   const filter = $('alloc-search').value.trim().toLowerCase();
   const list = filter ? all.filter((p) => (p.projectName || p.projectId).toLowerCase().includes(filter)) : all;
   renderTakeBack(all);
+  renderGive();
   const mayTakeBack = can('credits.allocate');
   if (!list.length) {
-    $('credit-allocations').innerHTML = `<p class="hint">${all.length ? 'No project matches.' : 'No project has an allocation yet — allocate credits on the Dashboard.'}</p>`;
+    $('credit-allocations').innerHTML = `<p class="hint">${all.length ? 'No project matches.' : mayTakeBack ? 'No project has an allocation yet — give credits above, or on the Dashboard.' : 'No project has an allocation yet.'}</p>`;
     return;
   }
   const bar = (k) => {
@@ -7434,11 +7435,11 @@ function renderAllocations(all) {
   const totals = (kind) => ['initial', 'allocated', 'used', 'remaining'].map((key) => `<th class="num">${fmt(sum(kind, key))}</th>`).join('');
   $('credit-allocations').innerHTML = `<div class="table-wrap"><table class="probe alloc-table">
     <thead>
-      <tr><th rowspan="2">Project</th><th colspan="4" class="group">AI Triage</th><th colspan="4" class="group">AI Remediation</th>${mayTakeBack ? '<th rowspan="2"><span class="sr-only">Take back</span></th>' : ''}</tr>
+      <tr><th rowspan="2">Project</th><th colspan="4" class="group">AI Triage</th><th colspan="4" class="group">AI Remediation</th>${mayTakeBack ? '<th rowspan="2"><span class="sr-only">Give or take back</span></th>' : ''}</tr>
       <tr><th class="num">At start</th><th class="num">Allocated</th><th class="num">Used</th><th class="num">Left</th><th class="num">At start</th><th class="num">Allocated</th><th class="num">Used</th><th class="num">Left</th></tr>
     </thead>
     <tbody>${list
-      .map((p) => `<tr><td>${escapeHtml(p.projectName || p.projectId)}<div class="hint">${escapeHtml(p.severities.map((s) => s.toLowerCase()).join(', ') || 'no severities')}${p.initialAt ? ` · since ${escapeHtml(new Date(p.initialAt).toLocaleDateString())}` : ''}</div></td>${cells(p.triage)}${cells(p.remediation)}${mayTakeBack ? `<td>${unusedOf(p) ? `<button type="button" class="sm danger-soft" data-reclaim="${escapeHtml(p.projectId)}" title="Take back the ${unusedOf(p)} credit(s) this project has not used">Take back ${fmt(unusedOf(p))}</button>` : ''}</td>` : ''}</tr>`)
+      .map((p) => `<tr><td>${escapeHtml(p.projectName || p.projectId)}<div class="hint">${escapeHtml(p.severities.map((s) => s.toLowerCase()).join(', ') || 'no severities')}${p.initialAt ? ` · since ${escapeHtml(new Date(p.initialAt).toLocaleDateString())}` : ''}</div></td>${cells(p.triage)}${cells(p.remediation)}${mayTakeBack ? `<td class="alloc-actions"><button type="button" class="sm" data-give="${escapeHtml(p.projectId)}" title="Give this project more credits">Give</button>${unusedOf(p) ? `<button type="button" class="sm danger-soft" data-reclaim="${escapeHtml(p.projectId)}" title="Take back the ${unusedOf(p)} credit(s) this project has not used">Take back ${fmt(unusedOf(p))}</button>` : ''}</td>` : ''}</tr>`)
       .join('')}</tbody>
     <tfoot><tr><th>Total</th>${totals('triage')}${totals('remediation')}${mayTakeBack ? '<th></th>' : ''}</tr></tfoot>
   </table></div>`;
@@ -7503,7 +7504,116 @@ $('cc-reclaim-all').addEventListener('click', () => takeBackCredits());
 $('credit-allocations').addEventListener('click', (event) => {
   const button = event.target.closest('[data-reclaim]');
   if (button) takeBackCredits([button.dataset.reclaim]);
+  const give = event.target.closest('[data-give]');
+  if (give) chooseGiveProject(give.dataset.give);
 });
+
+// ---------------------------------------------------------------------------
+// Giving credits on the Credit Control page (the Dashboard gives them too)
+// ---------------------------------------------------------------------------
+
+const give = { projects: null, loading: null, warning: null };
+
+/** Projects credits can be given to: every Checkmarx One project, read once when the bar is first used. */
+async function loadGiveProjects({ refresh = false } = {}) {
+  if (give.projects && !refresh) return give.projects;
+  give.loading ??= api(`/api/credits/projects${refresh ? '?refresh=1' : ''}`)
+    .then((result) => {
+      give.projects = result.projects;
+      give.warning = result.warning;
+      renderGiveOptions();
+      return give.projects;
+    })
+    .finally(() => (give.loading = null));
+  return give.loading;
+}
+
+function renderGiveOptions() {
+  const known = new Map((usage.data?.allocations ?? []).map((p) => [p.projectId, p.projectName || p.projectId]));
+  for (const p of give.projects ?? []) known.set(p.projectId, p.projectName);
+  $('cc-give-options').innerHTML = [...known.values()]
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+    .join('');
+  if (give.warning) setStatus('cc-give-status', give.warning, 'warn');
+}
+
+/** The give bar: shown to people who may allocate, with what the pool has free. */
+function renderGive() {
+  const form = $('cc-give');
+  form.hidden = !can('credits.allocate');
+  if (form.hidden) return;
+  if (!give.projects) renderGiveOptions();
+  const pool = usage.data?.pool;
+  $('cc-give-free').hidden = !pool?.limited;
+  $('cc-give-free-n').textContent = pool?.limited ? fmt(pool.unallocated) : '';
+}
+
+/** Which project the typed name means: an exact name (any case), else the only one that contains it. */
+function giveProjectOf(text) {
+  const wanted = text.trim().toLowerCase();
+  if (!wanted) return null;
+  const all = new Map((usage.data?.allocations ?? []).map((p) => [p.projectId, { projectId: p.projectId, projectName: p.projectName || p.projectId }]));
+  for (const p of give.projects ?? []) all.set(p.projectId, p);
+  const list = [...all.values()];
+  const exact = list.filter((p) => p.projectName.toLowerCase() === wanted || p.projectId.toLowerCase() === wanted);
+  if (exact.length === 1) return exact[0];
+  const partial = list.filter((p) => p.projectName.toLowerCase().includes(wanted));
+  return partial.length === 1 ? partial[0] : null;
+}
+
+function chooseGiveProject(projectId) {
+  const p = (usage.data?.allocations ?? []).find((x) => x.projectId === projectId) ?? (give.projects ?? []).find((x) => x.projectId === projectId);
+  $('cc-give-project').value = p?.projectName || projectId;
+  $('cc-give').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  $('cc-give-triage').focus();
+  $('cc-give-triage').select();
+}
+
+async function giveCredits() {
+  const count = (id) => Math.floor(Number($(id).value) || 0);
+  const triage = count('cc-give-triage');
+  const remediation = count('cc-give-remediation');
+  if (triage < 0 || remediation < 0) return setStatus('cc-give-status', 'Credits cannot be negative. To take credits back, use Take back.', 'error');
+  if (!triage && !remediation) return setStatus('cc-give-status', 'Enter how many AI Triage or AI Remediation credits to give.', 'error');
+  await loadGiveProjects().catch(() => null);
+  const project = giveProjectOf($('cc-give-project').value);
+  if (!project) return setStatus('cc-give-status', 'Choose a project from the list.', 'error');
+  // One line per sentence, the project's name on its own: each line is translated as it is.
+  if (!confirm(`Give ${triage} AI Triage and ${remediation} AI Remediation credits out of the credit pool to this project?\n${project.projectName}\n\nThey stay with the project until they are used or taken back.`)) return;
+  $('cc-give-submit').disabled = true;
+  setStatus('cc-give-status', 'Giving…');
+  try {
+    const result = await api('/api/credits/give', { method: 'POST', body: JSON.stringify({ projectId: project.projectId, triage, remediation }) });
+    setStatus('cc-give-status', `Gave ${result.triage} AI Triage and ${result.remediation} AI Remediation credits.`, 'ok');
+    logger.add(`Gave ${result.given} credit(s) to ${result.projectName}`, 'success');
+    $('cc-give-triage').value = 0;
+    $('cc-give-remediation').value = 0;
+    if (usage.data) {
+      usage.data.allocations = result.allocations;
+      usage.data.pool = result.pool;
+      $('credits-pool').innerHTML = poolHtml(result.pool);
+    }
+    renderAllocations(result.allocations);
+    // The Dashboard's balances, when this project's findings are loaded there.
+    const loaded = state.projects?.find((p) => p.projectId === result.projectId);
+    if (loaded && result.credits) {
+      loaded.credits = result.credits;
+      renderProjects();
+    }
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    setStatus('cc-give-status', error.message, 'error');
+  } finally {
+    $('cc-give-submit').disabled = false;
+  }
+}
+
+$('cc-give').addEventListener('submit', (event) => {
+  event.preventDefault();
+  giveCredits();
+});
+$('cc-give-project').addEventListener('focus', () => loadGiveProjects().catch((error) => !handleAuthLoss(error) && setStatus('cc-give-status', error.message, 'error')), { once: true });
 
 function exportUsageCsv() {
   const data = usage.data;

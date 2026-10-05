@@ -786,7 +786,6 @@
   "No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.": "没有邮件服务器：请在“设置 → 邮件服务器”下设置，或在 .env 文件中通过 SMTP_HOST 设置。",
   "No pool size set": "未设置额度大小",
   "No pool size set: spending is limited only by what each project is allocated. Per project and over time: <a href=\"#/credits\">Credits</a>.": "未设置额度大小：消耗仅受每个项目分配的点数限制。按项目和随时间的使用情况：<a href=\"#/credits\">点数</a>。",
-  "No project has an allocation yet — allocate credits on the Dashboard.": "尚无项目获得分配——请在仪表板上分配点数。",
   "No project used credits in this period.": "此期间内没有项目使用点数。",
   "No recipients configured.": "未配置收件人。",
   "No runs yet.": "尚未运行。",

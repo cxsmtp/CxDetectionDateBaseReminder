@@ -786,7 +786,6 @@
   "No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.": "Tidak ada server email: atur di Pengaturan → Server email, atau dengan SMTP_HOST di file .env.",
   "No pool size set": "Ukuran kumpulan belum diatur",
   "No pool size set: spending is limited only by what each project is allocated. Per project and over time: <a href=\"#/credits\">Credits</a>.": "Ukuran kumpulan belum diatur: penggunaan kredit hanya dibatasi oleh alokasi setiap proyek. Per proyek dan dari waktu ke waktu: <a href=\"#/credits\">Kredit</a>.",
-  "No project has an allocation yet — allocate credits on the Dashboard.": "Belum ada proyek yang memiliki alokasi — alokasikan kredit di Dasbor.",
   "No project used credits in this period.": "Tidak ada proyek yang menggunakan kredit dalam periode ini.",
   "No recipients configured.": "Belum ada penerima yang dikonfigurasi.",
   "No runs yet.": "Belum ada proses.",

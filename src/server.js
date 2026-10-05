@@ -5480,6 +5480,90 @@ app.post('/api/credits/reclaim', requirePermission('credits.allocate'), asyncRou
   res.json({ reclaimed: total.triage + total.remediation, ...total, pool: creditPool(), allocations: allocations.list() });
 }));
 
+/**
+ * The projects credits can be given to from the Credit Control page: every
+ * Checkmarx One project, with those that already hold an allocation. Kept for
+ * five minutes per session; no findings are read.
+ */
+async function givableProjects(req, { refresh = false } = {}) {
+  const cached = req.session.givableProjects;
+  if (cached && !refresh && Date.now() - cached.at < 5 * 60_000) return cached;
+  const byId = new Map(allocations.list().map((p) => [p.projectId, { projectId: p.projectId, projectName: p.projectName || p.projectId, allocated: true }]));
+  let warning = null;
+  if (req.session.client) {
+    try {
+      for (const p of await listProjects(req.session.client)) {
+        const known = byId.get(p.id);
+        byId.set(p.id, { projectId: p.id, projectName: p.name || known?.projectName || p.id, allocated: Boolean(known) });
+      }
+    } catch (error) {
+      warning = `The Checkmarx One project list could not be read (${error.message}): only projects that already hold credits are listed.`;
+    }
+  } else {
+    warning = 'Not connected to Checkmarx One: only projects that already hold credits are listed.';
+  }
+  const result = { at: Date.now(), projects: [...byId.values()].sort((a, b) => a.projectName.localeCompare(b.projectName)), warning };
+  if (!warning) req.session.givableProjects = result;
+  return result;
+}
+
+app.get('/api/credits/projects', requirePermission('credits.allocate'), asyncRoute(async (req, res) => {
+  const { projects, warning } = await givableProjects(req, { refresh: req.query.refresh === '1' });
+  res.json({ projects, warning });
+}));
+
+const GIVE_MAX = 100_000;
+
+/**
+ * Give credits from the Credit Control page: extra AI Triage and AI Remediation
+ * credits for one project, out of the credit pool, without loading findings
+ * first (giving exactly what the findings need stays on the Dashboard, which
+ * confirms it with Checkmarx One). Recorded in the audit log like any allocation.
+ */
+app.post('/api/credits/give', requirePermission('credits.allocate'), asyncRoute(async (req, res) => {
+  const projectId = String(req.body?.projectId ?? '').trim().slice(0, 200);
+  if (!projectId) return res.status(400).json({ error: 'Choose a project.' });
+  const amount = (kind) => {
+    const value = Number(req.body?.[kind] ?? 0);
+    return Number.isInteger(value) && value >= 0 && value <= GIVE_MAX ? value : NaN;
+  };
+  const triage = amount('triage');
+  const remediation = amount('remediation');
+  if (Number.isNaN(triage) || Number.isNaN(remediation)) return res.status(400).json({ error: `Credits must be whole numbers, not negative, and no more than ${GIVE_MAX} at a time.` });
+  if (!triage && !remediation) return res.status(400).json({ error: 'Give at least one AI Triage or AI Remediation credit.' });
+
+  // The project must be one Checkmarx One knows, or one that already holds credits.
+  const loaded = req.session.lastScan?.projects?.find((p) => p.projectId === projectId && !p.error);
+  let projectName = allocations.get(projectId)?.projectName || loaded?.projectName || '';
+  if (!projectName && !allocations.get(projectId)) {
+    const { projects } = await givableProjects(req);
+    projectName = projects.find((p) => p.projectId === projectId)?.projectName ?? '';
+    if (!projectName) return res.status(404).json({ error: 'No such project in Checkmarx One.' });
+  }
+
+  const actor = await adminActor(req);
+  const pool = creditPool();
+  const given = triage + remediation;
+  if (pool.limited && given > pool.unallocated) {
+    const reason = `Only ${pool.unallocated} credit${pool.unallocated === 1 ? '' : 's'} left in the credit pool to give (pool ${pool.size}${pool.period === 'month' ? ' this month' : ''}, ${pool.used.total} used, ${pool.outstanding.total} given to projects and not used yet); ${given} asked for.`;
+    audit.record({ type: 'allocation', outcome: 'refused', reason, actor, project: { id: projectId, name: projectName }, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { pool, from: 'credit-control' } });
+    return res.status(409).json({ error: `${reason} Raise the pool under Settings → AI & credits.`, pool });
+  }
+
+  const before = allocationSnapshot(projectId);
+  if (triage) allocations.add(projectId, projectName, 'triage', triage);
+  if (remediation) allocations.add(projectId, projectName, 'remediation', remediation);
+  allocations.save();
+  const parts = [triage && `${triage} AI Triage`, remediation && `${remediation} AI Remediation`].filter(Boolean).join(' and ');
+  auditAllocation({ actor, projectId, projectName, before, change: { addTriage: triage, addRemediation: remediation }, reason: `Gave ${parts} credit${given === 1 ? '' : 's'} on the Credit Control page.` });
+  if (loaded) loaded.credits = creditView(loaded);
+  if (req.session.givableProjects) {
+    const listed = req.session.givableProjects.projects.find((p) => p.projectId === projectId);
+    if (listed) listed.allocated = true;
+  }
+  res.json({ given, triage, remediation, projectId, projectName, credits: loaded?.credits ?? null, pool: creditPool(), allocations: allocations.list() });
+}));
+
 /** The credit pool now: size, used (triage / remediation), left, given to projects, free to give. */
 function creditPool(settings = settingsStore.get(), list = allocations.list()) {
   const period = poolPeriod(settings);

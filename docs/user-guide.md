@@ -824,6 +824,7 @@ How the credit pool is being used, in three tabs. Everyone with **credits.view**
 | **Overview** → Credits used over time | Columns per day / week / month: triage at the base, remediation on top. Hover for numbers. **Show as a table** gives exact figures. |
 | **By project** | Each project's triage and remediation credits in the period, with its share. |
 | **Allocated vs used** | Per project, all time. |
+| **Give credits** (Allocated vs used, for **credits.allocate**) | Type a project name (every Checkmarx One project is listed, not only those that already hold credits), enter AI Triage and AI Remediation credits, then **Give credits** and confirm. No findings need loading. The credits are extra credits, out of the credit pool, and the bar shows how many are free to give. **Give** on a row fills in that project. Each gift is in the audit log. To give exactly what a project's findings need, use the Dashboard, which checks the count with Checkmarx One first. |
 | **Take credits back** (Allocated vs used, for **credits.allocate**) | **Take back all unused credits** is the clean slate: every project's unused credits go back to the pool at once, with no findings loaded. **Take back** on a row does it for one project. Used credits stay counted, and each take-back is in the audit log. Developers cannot triage or remediate from their reports until credits are given again. |
 | **Export CSV** | Everything above, for the chosen period. |
 | **Pool & AI settings** | Opens Settings → AI & credit pool, to change the pool size and what reports may do (Admin). |
@@ -985,6 +986,10 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 **Remediate what triage confirmed**
 1. Fetch again (or use **Refresh & verify**).
 2. **Give credits** (AI fix), then **Fix with AI now**: check the list and the cost, then confirm.
+
+**Give a project credits without loading findings**
+1. Credit Control → **Allocated vs used** → **Give credits**.
+2. Type the project's name, enter the AI Triage and AI Remediation credits, then **Give credits** and confirm.
 
 **Take back credits nobody used (clean slate)**
 - Every project: Credit Control → **Allocated vs used** → **Take back all unused credits**.

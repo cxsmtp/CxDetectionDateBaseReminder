@@ -786,7 +786,6 @@
   "No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.": "메일 서버가 없습니다. 설정 → 이메일 서버에서 설정하거나 .env 파일의 SMTP_HOST로 설정하세요.",
   "No pool size set": "풀 크기 미설정",
   "No pool size set: spending is limited only by what each project is allocated. Per project and over time: <a href=\"#/credits\">Credits</a>.": "풀 크기가 설정되지 않았습니다. 사용량은 각 프로젝트에 할당된 양으로만 제한됩니다. 프로젝트별 및 기간별 현황: <a href=\"#/credits\">크레딧</a>.",
-  "No project has an allocation yet — allocate credits on the Dashboard.": "아직 할당된 프로젝트가 없습니다. 대시보드에서 크레딧을 할당하세요.",
   "No project used credits in this period.": "이 기간에 크레딧을 사용한 프로젝트가 없습니다.",
   "No recipients configured.": "구성된 수신자가 없습니다.",
   "No runs yet.": "아직 실행 기록이 없습니다.",
