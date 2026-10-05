@@ -2945,17 +2945,27 @@ $('export-projects').addEventListener('click', exportProjectsCsv);
 renderColumnMenu();
 renderProjectsHead();
 
+/** Rows drawn at a time: the table costs the same whatever the size of the tenant (see renderProjects). */
+const ROW_PAGE = 100;
+
 function renderProjects() {
   const rows = visibleProjects();
   const body = $('projects-body');
   $('export-projects').disabled = !rows.length;
+  // A new search, filter or sort starts again at the first page; a fetch filling in keeps it.
+  const view = JSON.stringify([$('filter').value.trim().toLowerCase(), $('severity-filter').value, $('bucket-filter').value, $('hide-empty').checked, [...state.pickedInitiators], state.sort]);
+  if (view !== state.rowView) {
+    state.rowView = view;
+    state.rowLimit = ROW_PAGE;
+  }
+  const shown = rows.length > (state.rowLimit ?? ROW_PAGE) ? rows.slice(0, state.rowLimit ?? ROW_PAGE) : rows;
 
   if (rows.length === 0) {
     body.innerHTML = `<tr class="empty"><td colspan="${projectColspan()}">${
       state.projects.length ? 'No projects match these filters.' : 'No data yet.'
     }</td></tr>`;
   } else {
-    body.innerHTML = rows
+    body.innerHTML = shown
       .map((p) => {
         return `
         <tr data-id="${escapeHtml(p.projectId)}">
@@ -2980,7 +2990,12 @@ function renderProjects() {
           ${creditCell(p, 'remediation').replace('<td class="', '<td data-label="Remediation credits" class="c-half ')}
         </tr>${state.creditEditor === p.projectId ? creditEditorRow(p) : ''}`;
       })
-      .join('');
+      .join('') +
+      (shown.length < rows.length
+        ? `<tr class="more-rows"><td colspan="${projectColspan()}"><span>Showing ${shown.length} of ${rows.length} projects</span>
+            <button type="button" class="sm" data-more-rows="page">Show ${Math.min(ROW_PAGE, rows.length - shown.length)} more</button>
+            <button type="button" class="sm link" data-more-rows="all">Show all ${rows.length}</button></td></tr>`
+        : '');
   }
 
   const selectedCount = state.selected.size;
@@ -4711,7 +4726,7 @@ async function fetchProjects() {
     fetchFlare('busy', `Data fetching is still in progress — ${state.projects.length}${total ? ` of ${total}` : ''} project(s) loaded`);
   };
   const schedule = () => {
-    pending ??= setTimeout(paint, 150);
+    pending ??= setTimeout(paint, 400);
   };
   fetchFlare('busy', 'Data fetching is still in progress — finding projects…');
   renderProjects();
@@ -5060,7 +5075,13 @@ $('activity-preset').addEventListener('change', () => toggleRange('activity'));
 $('detection-preset').addEventListener('change', () => toggleRange('detection'));
 $('fetch').addEventListener('click', fetchProjects);
 
-for (const id of ['filter', 'severity-filter', 'bucket-filter', 'hide-empty']) {
+// Search waits for a pause in typing; the drop-downs and the box apply at once.
+let filterTimer = null;
+$('filter').addEventListener('input', () => {
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(renderProjects, 150);
+});
+for (const id of ['severity-filter', 'bucket-filter', 'hide-empty']) {
   $(id).addEventListener('input', renderProjects);
 }
 
@@ -5400,6 +5421,12 @@ $('select-all').addEventListener('change', (event) => {
 });
 
 $('projects-body').addEventListener('click', (event) => {
+  const more = event.target.closest('[data-more-rows]');
+  if (more) {
+    state.rowLimit = more.dataset.moreRows === 'all' ? Infinity : (state.rowLimit ?? ROW_PAGE) + ROW_PAGE;
+    renderProjects();
+    return;
+  }
   const edit = event.target.closest('[data-credit-edit]');
   const save = event.target.closest('[data-credit-save]');
   const close = event.target.closest('[data-credit-cancel]');
@@ -8373,9 +8400,26 @@ $('sidebar-pin').addEventListener('click', () => applySidebarMode(sidebarMode() 
 // The top block's height, for what sits below it (the action rail, the table's header row).
 if (window.ResizeObserver) {
   const top = $('dash-top');
-  const measure = () => document.documentElement.style.setProperty('--dash-top-h', `${Math.round(top.getBoundingClientRect().height)}px`);
+  let last = '';
+  // Written only when it changes: a style change on the root restyles the whole page.
+  const measure = () => {
+    const value = `${Math.round(top.getBoundingClientRect().height)}px`;
+    if (value === last || !top.offsetParent) return;
+    last = value;
+    document.documentElement.style.setProperty('--dash-top-h', value);
+  };
   new ResizeObserver(measure).observe(top);
   measure();
+}
+
+// While the page scrolls, rows passing under the pointer do not repaint their hover highlight.
+{
+  let scrollIdle = null;
+  window.addEventListener('scroll', () => {
+    if (!document.body.classList.contains('scrolling')) document.body.classList.add('scrolling');
+    clearTimeout(scrollIdle);
+    scrollIdle = setTimeout(() => document.body.classList.remove('scrolling'), 150);
+  }, { passive: true });
 }
 
 // ---------------------------------------------------------------------------
