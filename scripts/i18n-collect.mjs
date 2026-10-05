@@ -169,7 +169,8 @@ for (const line of source.split('\n')) {
   for (const [, text] of line.matchAll(literal)) {
     if (/^[A-Z][^]*\p{L}/u.test(text) && !/^[A-Z_]+$|^(GET|POST|PUT|DELETE)\b|^[a-z-]+$|\//.test(text)) record([{ key: text.replace(/\\'/g, "'").replace(/\\n/g, ' '), kind: 'message', tag: '', near: '' }]);
   }
-  for (const [, body] of line.matchAll(/`((?:[^`\\]|\\.)*)`/g)) {
+  for (const [, whole] of line.matchAll(/`((?:[^`\\]|\\.)*)`/g)) {
+    const body = whole.replace(/\$\{[^}]*$/, ''); // a template nested inside: its outer text only
     const parts = [...body.matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1].trim());
     if (!parts.length || !parts.every((expression) => NUMERIC.test(expression))) continue;
     if (!/^[A-Z$]/.test(body) || /[<>]|\//.test(body)) continue;
