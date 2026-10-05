@@ -133,8 +133,18 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.47 (main) | 2 | 11.2 s / 0 | 61,743 / 44 | 489 | 67 / 10,051 ms | 23 / 888 ms | none |
 | MZ-01.00.48 (main) | 1 | 10.8 s / 0 | 60,693 / 206 | 469 | 103 / 12,655 ms | 35 / 1,587 ms | none |
 | **MZ-01.00.49** | 1 | 9.3 s / 0 | 62,106 / **0** | **498** | 82 / **8,302 ms** | 19 / **1,101 ms** | none |
+| MZ-01.00.49 (main) | 1 | 10.3 s / 0 | 63,084 / 0 | 507 | 80 / 7,262 ms | 16 / 355 ms | none |
+| MZ-01.00.50 (host stall) | 1 | 11.5 s / 0 | 62,252 / 29 | 498 | 84 / 8,990 ms | 19 / 746 ms | none |
+| **MZ-01.00.50** | 2 | 10.3 s / 0 | 63,299 / **0** | **510** | 60 / **5,886 ms** | 15 / **341 ms** | none |
+| MZ-01.00.49 (main) | 2 | 16.2 s / 0 | 62,420 / 10 | 506 | 87 / 9,792 ms | 12 / 505 ms | none |
 
 **MZ-01.00.37: what the differences were.** Two pairs with main, alternating. Report opens at p95 were 4.1 and 5.1 s on the branch against 7.2 and 5.1 s on main; triage results 201 and 179 ms against 257 and 123 ms; requests a second 519 and 508 against 504 and 518, with 0 failed requests and no finding sent twice in any run. The first branch run's opening burst took 16.3 s, a little above the 7.4–15.8 s seen before, and its fetches were slower (17 s against 12 s at the median); in the second pair the burst took 9.9 s (main 8.0 s) and fetches matched main (13.5 s against 13.0 s at the median). What the fetch now does in addition is one pass over each project's findings to count what is past its SLA, which is a few microseconds a finding next to reading them from Checkmarx One. Escalation runs only on the automation's schedule, which the benchmark does not use.
+
+**MZ-01.00.50: what the differences were.** None from the change. There were two pairs: main then branch, then branch then main.
+- **First pair:** main served 507 requests a second with 0 failed. The branch served 498 with 29 failed, spread over report polls and opens, and a slower tail (report opens 9.0 s against 7.3 s at p95). Its health checks waited up to 15 s against main's 7 s: the host stalled during the branch's run.
+- **What the change costs:** the finding journal that feeds the Impact page records each fetch's findings in memory and writes them to disk at most every 5 seconds. Measured on its own with 200 projects and 12,000 findings: 8 ms per Dashboard fetch and 10 ms per write, 1 to 2% of one core over a run. That is far too little to explain the first pair.
+- **Second pair:** the branch served 510 a second with 0 failed, against main's 506 with 10 failed (main's turn to meet the stall: health checks up to 12 s). Report opens took 5.9 s against 9.8 s at p95, and triage polls 341 ms against 505 ms.
+- **Sent twice:** no finding in any run.
 
 **MZ-01.00.49: what the differences were.** One pair, main then branch. The branch served 498 requests a second with 0 failed, against main's 469 with 206 failed. Report opens took 8.3 s against 12.7 s at p95, and triage polls 1.1 s against 1.6 s. Main's run hit a host stall: its health checks waited up to 18 s, and its failures were spread over every kind of request, while the branch's health checks peaked at 16 s with none failing. The change adds three routes (a tracked report's **Remediate with AI Assist now**, Credit Control's **Use the credits**, and the Dashboard's credit refresh) that the benchmark's people do not call. The one measured path that changed is a tracked report's refresh, which now also counts the confirmed findings still to remediate (one more pass over the findings it already reads): it took 12.4 s at p95 against main's 13.0 s. No finding was sent twice.
 

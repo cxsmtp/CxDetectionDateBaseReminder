@@ -41,6 +41,9 @@ import { addOwnership } from './scm/ownership.js';
 import { acknowledgeStart, companionState, requestFullUpdate } from './updates/companion.js';
 import { githubIssues, gitlabIssues, openSlaIssues } from './sla-issues.js';
 import { TrackedReports, computeProgress, matchesFilters, outcomeOf, reportSummary } from './tracked-reports.js';
+import { FindingJournal } from './finding-journal.js';
+import { computeImpact } from './impact.js';
+import { impactSummary } from './impact-summary.js';
 import { TERMINAL, closure, newerThan, rescanRequest, verificationResult } from './verification.js';
 import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
@@ -196,6 +199,8 @@ function buildTenant({ id, dir }) {
       openIssues: (items, context) => openSlaIssuesFor(items, context),
     }),
     knownAddresses: new KnownAddresses({ file: path.join(dir, 'known-initiators.json') }),
+    // When each finding was first seen open and when it closed: the Impact page (src/impact.js).
+    findingJournal: new FindingJournal({ file: path.join(dir, 'finding-journal.json') }),
     scanAttribution: new ScanAttribution({ dataDir: dir }),
     touchedProjects: new Map(),
     relayCache: new TtlCache({ max: 100_000 }),
@@ -226,6 +231,7 @@ const allocations = scoped(tenancy, 'allocations');
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const trackedReports = scoped(tenancy, 'trackedReports');
+const findingJournal = scoped(tenancy, 'findingJournal');
 const reportFiles = scoped(tenancy, 'reportFiles');
 const guard = scoped(tenancy, 'guard');
 /**
@@ -1735,6 +1741,8 @@ const SETTINGS_SECTIONS = {
   sla: 'settings.automation',
   endpoints: 'integration.cxone',
   beta: 'beta.use',
+  // The Impact page's minutes, rates and monthly summary: whoever sets the AI rules.
+  impact: 'settings.ai',
 };
 
 /**
@@ -2257,6 +2265,8 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   // Fetching shows what the findings need; it never allocates anything.
   for (const summary of result.projects) summary.credits ??= creditView(summary);
   for (const summary of result.projects) summary.sla ??= slaSummary(summary.risks, settings.sla);
+  // What was open, for the Impact page; a project read with no date window, without error, is complete.
+  for (const summary of result.projects) findingJournal.observe(summary, summary.risks, { complete: !detectionWindow && !summary.error });
   req.session.lastScan = result;
 
   const response = {
@@ -3436,6 +3446,7 @@ app.delete('/api/tenants/:id', requireSuperAdmin, asyncRoute(async (req, res) =>
     loaded.scheduler.stop();
     loaded.knownAddresses.flush();
     loaded.creditLedger.flush();
+    loaded.findingJournal.flush();
     loaded.audit.flushSync();
   }
   tenancy.remove(id);
@@ -4897,6 +4908,8 @@ async function currentFindings(session, projects) {
     if (source.prime) await source.prime([project]);
     const raw = await source.fetchForProject(project);
     byProject.set(projectId, raw.map((r) => normalizeRisk(r, project)));
+    // Every current finding of the project: those no longer among them are gone (the Impact page).
+    findingJournal.observe({ projectId, projectName }, byProject.get(projectId), { complete: true });
   });
   return byProject;
 }
@@ -4951,6 +4964,7 @@ async function backgroundRefresh() {
 setInterval(() => {
   tenancy.each(() => {
     backgroundRefresh().catch(() => {});
+    monthlyImpact().catch((error) => console.warn(`[impact] ${error.message}`));
     resolveAutomationSession()
       .then((session) => session && runVerifications(session).then(() => session))
       .then((session) => session && runDueTrackedReminders(session))
@@ -6079,6 +6093,85 @@ app.get('/api/credits/views', requirePermission('credits.view'), (req, res) => {
   res.json({ projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
 });
 
+// ---------------------------------------------------------------------------
+// Impact: what AI Triage and AI Remediation did for the backlog (src/impact.js)
+// ---------------------------------------------------------------------------
+
+const IMPACT_DAYS = ['30', '90', '365', 'all'];
+
+/** The Impact figures for the last `days` days ('all': since the first reading), or for [from, to). */
+function impactFor({ days = '90', from = null, to = null } = {}, now = new Date()) {
+  const start = from ?? (days === 'all' ? '0000-01-01T00:00:00.000Z' : new Date(now.getTime() - Number(days) * 86_400_000).toISOString());
+  return computeImpact({
+    journal: findingJournal.entries(),
+    ledger: creditLedger.entriesBetween('0000', '9999'),
+    settings: settingsStore.get().impact,
+    from: start,
+    to,
+    now,
+  });
+}
+
+const impactPeriodLabel = (days) => (days === 'all' ? 'since the first reading' : `last ${days} days`);
+
+app.get('/api/impact', requirePermission('reports.view'), (req, res) => {
+  const days = IMPACT_DAYS.includes(String(req.query.days)) ? String(req.query.days) : '90';
+  const { monthlyTo } = settingsStore.get().impact;
+  res.json({ ...impactFor({ days }), days, monthlyTo: can(req, 'settings.ai') ? monthlyTo : undefined, monthlyOn: monthlyTo.length > 0, lastSent: automationState.impactSent || null });
+});
+
+/** One page for leadership: download it, then print or save it as PDF from the browser. */
+app.get('/api/impact/summary.html', requirePermission('reports.view'), (req, res) => {
+  const days = IMPACT_DAYS.includes(String(req.query.days)) ? String(req.query.days) : '90';
+  const settings = settingsStore.get();
+  const { html } = impactSummary(impactFor({ days }), { appName: settings.branding?.appName || 'CxMissionZero', periodLabel: impactPeriodLabel(days) });
+  res.set('Content-Disposition', `attachment; filename="impact-${new Date().toISOString().slice(0, 10)}.html"`);
+  res.type('html').send(html);
+});
+
+/** The previous calendar month (UTC): its first day and the first day of this month. */
+function lastMonth(now = new Date()) {
+  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  return { month: from.toISOString().slice(0, 7), from: from.toISOString(), to: to.toISOString() };
+}
+
+/** Email last month's summary to Settings → Impact's list (or `to`). Returns who it went to. */
+async function sendImpactSummary({ to = null, actor = { kind: 'system' } } = {}) {
+  const settings = sendingSettings();
+  const recipients = to ?? settings.impact.monthlyTo;
+  if (!recipients.length) throw Object.assign(new Error('Add who gets the monthly summary first.'), { status: 400 });
+  const period = lastMonth();
+  const url = resolveReportServer(null, settings).url;
+  const message = impactSummary(impactFor({ from: period.from, to: period.to }), {
+    appName: settings.branding?.appName || 'CxMissionZero',
+    periodLabel: period.month,
+    email: true,
+    pageUrl: url ? `${url.replace(/\/$/, '')}/#/impact` : '',
+  });
+  await sendReminderMail(settings, message, { to: recipients, cc: [], bcc: [], exact: true });
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Impact summary for ${period.month} emailed to ${recipients.length} address${recipients.length === 1 ? '' : 'es'}.`, actor, details: { impact: { month: period.month, to: recipients.length } } });
+  return { month: period.month, to: recipients };
+}
+
+app.post('/api/impact/email', requirePermission('settings.ai'), asyncRoute(async (req, res) => {
+  const result = await sendImpactSummary({ actor: await adminActor(req) });
+  res.json({ sent: true, ...result });
+}));
+
+/** Once a month, after the 1st's early hours (UTC): last month's summary, when someone is on the list. */
+async function monthlyImpact(now = new Date()) {
+  const settings = settingsStore.get();
+  if (!settings.impact.monthlyTo.length || !terms.organisation()) return;
+  const { month } = lastMonth(now);
+  if (automationState.impactSent >= month || now.getUTCHours() < 6) return;
+  automationState.impactSent = month; // once, even if the mail server refuses (the audit log says so)
+  await sendImpactSummary().catch((error) => {
+    console.warn(`[impact] Monthly summary for ${month} not sent: ${error.message}`);
+    audit.record({ type: 'settings', outcome: 'failed', reason: `Impact summary for ${month} could not be emailed: ${error.message}`, actor: { kind: 'system' }, details: { impact: { month } } });
+  });
+}
+
 /** The credit pool now: size, used (triage / remediation), left, given to projects, free to give. */
 function creditPool(settings = settingsStore.get(), list = allocations.list()) {
   const period = poolPeriod(settings);
@@ -6724,6 +6817,7 @@ let lastBackup = null;
 async function settleState() {
   knownAddresses.flush();
   creditLedger.flush();
+  findingJournal.flush();
   await audit.settled();
 }
 
@@ -7966,6 +8060,7 @@ const shutdown = async (signal) => {
   for (const tenant of tenancy.loaded()) {
     tenant.knownAddresses.flush();
     tenant.creditLedger.flush();
+    tenant.findingJournal.flush();
     tenant.audit.flushSync();
   }
   diagnostics.flush();

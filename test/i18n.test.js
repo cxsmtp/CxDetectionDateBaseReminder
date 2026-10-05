@@ -71,3 +71,11 @@ for (const code of LANGUAGE_CODES) {
     assert.equal(new Set(stages).size, 5, `the five stages must read differently: ${stages.join(' · ')}`);
   });
 }
+
+test('a number with decimals or thousands separators is one placeholder when the split form has no translation', () => {
+  const strings = new Map([['{0} h triage', '{0} Std. Triage'], ['MZ-{0}.{1}.{2}', 'MZ-{0}.{1}.{2}'], ['Down {0}% in this period: from {1} to {2}.', 'Gesunken um {0} %: von {1} auf {2}.']]);
+  assert.equal(translate(strings, '43.3 h triage'), '43.3 Std. Triage');
+  assert.equal(translate(strings, 'Down 71% in this period: from 1,828 to 240.'), 'Gesunken um 71 %: von 1,828 auf 240.');
+  assert.equal(translate(strings, 'MZ-01.00.50'), 'MZ-01.00.50', 'the split form still wins where it has a translation');
+  assert.equal(translate(strings, '12.5 unknown'), null);
+});

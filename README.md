@@ -18,6 +18,7 @@ Self-hosted, one container, nothing to install for developers.
 | **See the way to zero** | One slim line on the Dashboard: how many projects are at zero, and Detect → Triage → Remediate → Fix → Verify with a count at each stage. The stage to act on next is highlighted, and one click opens what moves it on. |
 | **Prove it with a rescan** | When a tracked scope's findings are all dealt with, the developers who fixed them get the **Rescan** button first (24 hours to 14 days, 48 by default). If they don't, CxMissionZero rescans in Checkmarx One on their behalf and tells them. Either way it shows what is really fixed, which fixes did not work, and what is new. Then it starts the next round, for example medium and low, until everything is at zero, and keeps watching it stays there. |
 | **Updates itself** | Settings → Update & recovery: update to any published version (or back) in one click, or let it auto-update in a quiet hour. Each download is checked against the image's digests, a backup is taken first, and a version that does not start is rolled back by itself. Nobody signs in to the server. For the rare release that needs a new base image, an optional update companion (Beta) replaces the whole container from the same page. |
+| **Prove the return** | The **Impact** page shows the hours AI saved, the money they are worth after credits, the findings AI showed not exploitable, and time to fix with AI against by hand. It also tracks the security debt week by week and when it reaches zero at the current pace. The CISO tab has six figures and one chart; the AppSec tab has every project. A one-page summary can be downloaded, or emailed each month. Every figure says how it was worked out, and a fix counts only once Checkmarx One no longer reports it ([impact](docs/impact.md)). |
 | **Hands-off follow-up** | Age-threshold automation that never nags twice, and tracked reports that measure progress and send follow-ups. |
 | **Accountable** | A hash-chained audit log of every credit and change, role-based access, one-file backups, and a privacy-safe troubleshooting log. |
 | **Easy to work in** | Pages grouped as Act, Follow up, Prove and Set up, in tabs instead of long scrolls; every page keeps your work when you switch; Jump to (Ctrl K); a layout that fits phone, tablet, laptop and wide screens. |
@@ -225,7 +226,8 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.49** | 498/s, 0 failed (main 469, 206 failed) | 8.3 s | 1.1 s | 521 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.50** | 510/s, 0 failed (main 506, 10 failed) | 5.9 s | 341 ms | 525 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.49 | 498/s, 0 failed (main 469, 206 failed) | 8.3 s | 1.1 s | 521 pass | 0 vulnerabilities | same |
 | MZ-01.00.48 | 498/s, 7 failed (main 489, 44 failed) | 8.2 s | 880 ms | 519 pass | 0 vulnerabilities | same |
 | MZ-01.00.47 | 519/s, 0 failed (main 504) | 5.3 s | 310 ms | 506 pass | 0 vulnerabilities | same |
 | MZ-01.00.46 | 468/s, 44 failed (host stalls; main 177) | 10.1 s | 1.3 s | 479 pass | 0 vulnerabilities | same |

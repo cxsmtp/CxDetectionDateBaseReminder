@@ -77,6 +77,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></svg>
             <span>Credit Control</span>
           </a>
+          <a href="#/impact" data-route="impact" class="tab" data-stage="prove" data-perm="reports.view">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16" /><path d="M5 15l4-5 4 3 6-7" /><path d="M15 6h4v4" /></svg>
+            <span>Impact</span>
+          </a>
           <a href="#/audit" data-route="audit" class="tab" data-stage="prove" data-perm="audit.view backup.view">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
             <span>Audit</span>
@@ -910,6 +914,25 @@
                 </div>
                 <div id="pool-view" data-view-ok><p class="hint">Loading…</p></div>
               </div>
+
+              <div class="impact-settings">
+                <div class="panel-head sub-head">
+                  <h3>Impact: time and money</h3>
+                  <a href="#/impact" class="link-arrow">Impact page →</a>
+                </div>
+                <p class="hint wide">What a manual triage and a manual fix take in your teams, to work out the hours AI saved. Add an hourly cost and the price of one credit to see money too; leave them at 0 to show hours only.</p>
+                <div class="grid3">
+                  <label class="field"><span>Minutes to triage one finding by hand</span><input id="impact-triage-min" type="number" min="1" max="10000" step="1" inputmode="numeric" /></label>
+                  <label class="field"><span>Minutes to fix one finding by hand</span><input id="impact-fix-min" type="number" min="1" max="10000" step="1" inputmode="numeric" /></label>
+                  <label class="field"><span>Currency</span><input id="impact-currency" maxlength="3" spellcheck="false" placeholder="USD" /></label>
+                  <label class="field"><span>Hourly cost of an engineer</span><input id="impact-rate" type="number" min="0" step="0.01" inputmode="decimal" /></label>
+                  <label class="field"><span>Price of one credit</span><input id="impact-price" type="number" min="0" step="0.01" inputmode="decimal" /></label>
+                </div>
+                <label class="field">
+                  <span>Monthly summary to — sent on the first day of each month, for the month before; none: not sent</span>
+                  <input id="impact-monthly-to" spellcheck="false" placeholder="ciso@company.com, appsec-lead@company.com" />
+                </label>
+              </div>
             </section>
 
             <section class="panel" id="set-branding" data-edit-perm="settings.branding">
@@ -1620,6 +1643,69 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
           </div>
 
           <!-- ================= Audit ================= -->
+          <div id="page-impact" class="page impact" hidden>
+            <div class="impact-bar">
+              <div class="ptabs" role="tablist" aria-label="Impact" data-ptabs="impact">
+                <button type="button" role="tab" class="ptab" data-pt="exec">Executive</button>
+                <button type="button" role="tab" class="ptab" data-pt="detail">Detail</button>
+              </div>
+              <label class="impact-period"><span>Period</span>
+                <select id="impact-days">
+                  <option value="30">Last 30 days</option>
+                  <option value="90" selected>Last 90 days</option>
+                  <option value="365">Last 12 months</option>
+                  <option value="all">Since the first reading</option>
+                </select>
+              </label>
+              <a class="button-like" id="impact-download" href="/api/impact/summary.html?days=90" download>Download the one-page summary</a>
+            </div>
+            <p class="hint impact-note" id="impact-note" hidden></p>
+            <div class="ptpanel" data-ptpanel="impact:exec" role="tabpanel">
+              <section class="kpis"><div class="impact-tiles" id="impact-tiles"></div></section>
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Security debt, week by week</h2>
+                    <p class="hint">Open Checkmarx One results, weighted by severity: critical 10, high 5, medium 2, low 1.</p>
+                  </div>
+                  <button type="button" class="sm" id="impact-as-table" aria-pressed="false">Show as a table</button>
+                </div>
+                <div id="impact-chart" class="impact-chart"></div>
+                <p class="impact-debt-line" id="impact-debt-line"></p>
+              </section>
+              <section class="panel">
+                <h2>Time to fix, AI-assisted and by hand</h2>
+                <p class="hint">Days from first detection until Checkmarx One no longer reports the finding, over the same period. Median, with how many.</p>
+                <div id="impact-ttf"></div>
+              </section>
+              <details class="panel impact-how">
+                <summary>How these are worked out</summary>
+                <ul id="impact-how"></ul>
+              </details>
+            </div>
+            <div class="ptpanel" data-ptpanel="impact:detail" role="tabpanel" hidden>
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>By project</h2>
+                    <p class="hint">In the chosen period: results AI Triage checked or showed not exploitable, fixes with AI and by hand (only once Checkmarx One no longer reports them), median days to fix, and credits used. Open is what is open now.</p>
+                  </div>
+                  <button type="button" class="sm" id="impact-csv">Export CSV</button>
+                </div>
+                <div id="impact-projects"><p class="hint">Loading…</p></div>
+              </section>
+              <section class="panel" data-perm="settings.ai">
+                <h2>Monthly summary by email</h2>
+                <p class="hint" id="impact-monthly-state"></p>
+                <div class="actions compact">
+                  <button type="button" id="impact-send" class="sm">Email last month's summary now</button>
+                  <a href="#/settings/ai" class="link-arrow">Minutes, rates and who gets it →</a>
+                </div>
+                <p class="status" id="impact-send-status"></p>
+              </section>
+            </div>
+          </div>
+
           <div id="page-audit" class="page audit" hidden>
             <section class="kpis" data-perm="audit.view">
               <div class="totals audit-totals" id="audit-totals"></div>

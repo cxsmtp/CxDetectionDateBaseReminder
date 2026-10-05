@@ -17,13 +17,14 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 7. [The emailed report](#the-emailed-report) (for developers)
 8. [Reports: tracked reports](#reports-tracked-reports)
 9. [Credit Control](#credit-control)
-10. [Audit page: credit audit log and backups](#audit-page)
-11. [People & roles](#people--roles)
-12. [Beta page](#beta-page)
-13. [Logs page](#logs-page)
-14. [Performance and security status](#performance-and-security-status)
-15. [Everyday recipes](#everyday-recipes)
-16. [Troubleshooting](#troubleshooting)
+10. [Impact: hours saved and the security debt](#impact)
+11. [Audit page: credit audit log and backups](#audit-page)
+12. [People & roles](#people--roles)
+13. [Beta page](#beta-page)
+14. [Logs page](#logs-page)
+15. [Performance and security status](#performance-and-security-status)
+16. [Everyday recipes](#everyday-recipes)
+17. [Troubleshooting](#troubleshooting)
 
 The running version is shown at the bottom of the sidebar, as `MZ-xx.xx.xx`. Click it for Settings → About.
 
@@ -37,7 +38,7 @@ The sidebar is grouped by what you came to do:
 | --- | --- | --- |
 | **Act** | Dashboard, Beta | Fetch ageing findings, see who owns them, remind them, triage and remediate; find who wrote the vulnerable code. |
 | **Follow up** | Reports | Follow tracked scopes down to zero and schedule follow-ups. |
-| **Prove** | Credit Control, Audit | Give and track AI Triage and Remediation credits; the credit audit log and backups. |
+| **Prove** | Credit Control, Impact, Audit | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups. |
 | **Set up** | People & roles, Settings, Logs | People and roles, configuration, troubleshooting. |
 
 The coloured label next to each page title says which group the page is in.
@@ -548,6 +549,15 @@ The panel shows:
 
 **Costs:** 1 credit per Checkmarx One result triaged, and 3 per finding remediated.
 
+**Impact: time and money** (for the [Impact page](#impact)):
+
+| Option | Meaning |
+| --- | --- |
+| Minutes to triage one finding by hand | 20 by default: the hours AI Triage saved. |
+| Minutes to fix one finding by hand | 120 by default: the hours AI Remediation saved. |
+| Hourly cost of an engineer, price of one credit, currency | Money figures; leave them at 0 to show hours only. |
+| Monthly summary to | Who gets the summary on the first day of each month, for the month before. Nobody: not sent. |
+
 ### Branding
 | Field | Meaning |
 | --- | --- |
@@ -853,6 +863,21 @@ How the credit pool is being used, in three tabs. Everyone with **credits.view**
 
 ---
 
+## Impact
+
+What AI Triage and AI Remediation did for the backlog. Open it from **Prove → Impact**; anyone who may view tracked reports can. The full explanation of each figure is in [Impact](impact.md).
+
+| Part | What it shows |
+| --- | --- |
+| **Period** | The last 30 or 90 days, the last 12 months, or everything since the first reading. |
+| **Executive** tab | **Hours saved**, their value after the cost of credits, **Noise removed** (findings AI Triage showed not exploitable), **Fixed with AI** (with fixes by hand next to it), the **Security debt** change and when it reaches zero at this pace, and **Credits per finding closed**. Below: the security debt week by week (point at the chart for each week, or **Show as a table**), and **Time to fix, AI-assisted and by hand**, by severity. **How these are worked out** lists every assumption. |
+| **Detail** tab | Every project: checked by AI, not exploitable, fixed with AI and by hand, median days to fix, credits, credits per finding closed, and what is open now. **Export CSV**. **Monthly summary by email**: whether it is on, and **Email last month's summary now**. |
+| **Download the one-page summary** | The Executive figures and chart as one page, to print or save as PDF. |
+
+A fix counts only once Checkmarx One no longer reports the finding, and rows that share one result count once. Readings start when this version is installed; the page says so when the period begins earlier.
+
+---
+
 ## Audit page
 
 Totals at the top, then three tabs: **Credit audit log**, **Integrity & reconcile**, **State & backups**.
@@ -968,7 +993,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.49** | 498/s, 0 failed (main 469, 206 failed) | 8.3 s | 1.1 s | 521 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.50** | 510/s, 0 failed (main 506, 10 failed) | 5.9 s | 341 ms | 525 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.49 | 498/s, 0 failed (main 469, 206 failed) | 8.3 s | 1.1 s | 521 pass | 0 vulnerabilities | same |
 | MZ-01.00.48 | 498/s, 7 failed (main 489, 44 failed) | 8.2 s | 880 ms | 519 pass | 0 vulnerabilities | same |
 | MZ-01.00.47 | 519/s, 0 failed (main 504) | 5.3 s | 310 ms | 506 pass | 0 vulnerabilities | same |
 | MZ-01.00.46 | 468/s, 44 failed (host stalls; main 177) | 10.1 s | 1.3 s | 479 pass | 0 vulnerabilities | same |

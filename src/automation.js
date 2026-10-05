@@ -125,9 +125,9 @@ export class AutomationState {
   #load() {
     try {
       const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      return { notified: raw.notified ?? {}, escalated: raw.escalated ?? {}, runs: Array.isArray(raw.runs) ? raw.runs : [] };
+      return { notified: raw.notified ?? {}, escalated: raw.escalated ?? {}, runs: Array.isArray(raw.runs) ? raw.runs : [], impactSent: typeof raw.impactSent === 'string' ? raw.impactSent : '' };
     } catch {
-      return { notified: {}, escalated: {}, runs: [] };
+      return { notified: {}, escalated: {}, runs: [], impactSent: '' };
     }
   }
 
@@ -144,6 +144,16 @@ export class AutomationState {
     this.#state.runs = this.#state.runs.slice(0, MAX_RUNS_KEPT);
     this.persist();
     return this.#state.runs[0];
+  }
+
+  /** The last month ('YYYY-MM') whose impact summary was emailed (src/impact-summary.js). */
+  get impactSent() {
+    return this.#state.impactSent ?? '';
+  }
+
+  set impactSent(month) {
+    this.#state.impactSent = String(month);
+    this.persist();
   }
 
   /** Forget every reported pair, so the next run reports from scratch. */

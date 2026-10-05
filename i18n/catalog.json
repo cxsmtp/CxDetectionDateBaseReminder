@@ -127,10 +127,28 @@
    "Dashboard › option › HTTPS"
   ]
  },
+ "{0} days": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "{0} days later": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "{0} days left": {
   "kind": "text",
   "seen": [
    "Settings › Activation codes › warning before a code expires"
+  ]
+ },
+ "{0} days sooner": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "{0} email(s):": {
@@ -175,6 +193,38 @@
    "reports › detail › span › Weekly",
    "reports › detail › overview › span › Weekly",
    "reports › detail › remind › span › Weekly"
+  ]
+ },
+ "{0} fixed by hand": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › exec › span",
+   "impact › detail › span"
+  ]
+ },
+ "{0} h": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › exec › span",
+   "impact › detail › span"
+  ]
+ },
+ "{0} h fixing": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › exec › span",
+   "impact › detail › span"
+  ]
+ },
+ "{0} h triage": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › exec › span",
+   "impact › detail › span"
   ]
  },
  "{0} left of {1} allocated, {2} used · needs {3} for {4} Checkmarx One results ({5} findings — rows that share one result are triaged, and charged, once) still to triage (critical, high) · {6} more needed than allocated — allocate it on purpose": {
@@ -834,6 +884,14 @@
    "connection: cxone › li › Get started · 1 of 6 done"
   ]
  },
+ "A fix counts only once Checkmarx One no longer reports the finding. Rows that share one result count once.": {
+  "kind": "text",
+  "seen": [
+   "impact › li › How these are worked out",
+   "impact › exec › li › How these are worked out",
+   "impact › detail › li › How these are worked out"
+  ]
+ },
  "A fixed list": {
   "kind": "text",
   "seen": [
@@ -1117,6 +1175,12 @@
    "first start › button › Tenants",
    "sign in › button › Tenants",
    "Dashboard › button › Tenants"
+  ]
+ },
+ "Add who gets the monthly summary first.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Add, change and remove users and roles — never beyond their own permissions.": {
@@ -2383,6 +2447,12 @@
    "sign in › span › The fixed list Loading…"
   ]
  },
+ "before the cost of credits": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Beta": {
   "kind": "text",
   "seen": [
@@ -2569,6 +2639,12 @@
    "first start › option",
    "sign in › option",
    "Dashboard › option"
+  ]
+ },
+ "By hand": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "By month": {
@@ -2839,6 +2915,14 @@
    "first start › button › HTTPS",
    "sign in › button › HTTPS",
    "Dashboard › button › HTTPS"
+  ]
+ },
+ "Checked by AI": {
+  "kind": "text",
+  "seen": [
+   "impact › th › By project",
+   "impact › exec › th › By project",
+   "impact › detail › th › By project"
   ]
  },
  "Checked: {0} versions published": {
@@ -3656,6 +3740,14 @@
    "message"
   ]
  },
+ "Credits per finding closed": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › th › By project",
+   "impact › exec › span"
+  ]
+ },
  "Credits refreshed": {
   "kind": "busy",
   "seen": [
@@ -3712,6 +3804,14 @@
    "first start › input › Automation",
    "sign in › input › Automation",
    "Dashboard › input › Automation"
+  ]
+ },
+ "Currency": {
+  "kind": "text",
+  "seen": [
+   "first start › span › AI Triage & Remediation from reports",
+   "sign in › span › AI Triage & Remediation from reports",
+   "Dashboard › span › AI Triage & Remediation from reports"
   ]
  },
  "Current password": {
@@ -3894,6 +3994,14 @@
    "reports › detail › remind › div › Weekly"
   ]
  },
+ "Days from first detection until Checkmarx One no longer reports the finding, over the same period. Median, with how many.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Time to fix, AI-assisted and by hand",
+   "sign in › p › Time to fix, AI-assisted and by hand",
+   "Dashboard › p › Time to fix, AI-assisted and by hand"
+  ]
+ },
  "Days since first detection": {
   "kind": "text",
   "seen": [
@@ -3908,6 +4016,28 @@
    "settings › p › Beta features",
    "logs › p › Beta features",
    "logs › activity › p › Beta features"
+  ]
+ },
+ "Days to fix, AI": {
+  "kind": "text",
+  "seen": [
+   "impact › th › By project",
+   "impact › exec › th › By project",
+   "impact › detail › th › By project"
+  ]
+ },
+ "Days to fix, by hand": {
+  "kind": "text",
+  "seen": [
+   "impact › th › By project",
+   "impact › exec › th › By project",
+   "impact › detail › th › By project"
+  ]
+ },
+ "Debt": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Decline and sign out": {
@@ -3976,6 +4106,14 @@
    "Dashboard › ul"
   ]
  },
+ "Detail": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
  "Details": {
   "kind": "text",
   "seen": [
@@ -4032,6 +4170,12 @@
    "Dashboard › p › Match usernames to email addresses"
   ]
  },
+ "Difference": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Disabled": {
   "kind": "text",
   "seen": [
@@ -4064,6 +4208,14 @@
    "Dashboard (advanced) › span › Get started · 1 of 6 done"
   ]
  },
+ "Down {0}% in this period: from {1} to {2}.": {
+  "kind": "text",
+  "seen": [
+   "impact › p › Security debt, week by week",
+   "impact › exec › p › Security debt, week by week",
+   "impact › detail › p › Security debt, week by week"
+  ]
+ },
  "Download &amp; restore backups <span class=\"badge warn\">Admin</span>": {
   "kind": "html",
   "seen": [
@@ -4094,6 +4246,14 @@
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
+  ]
+ },
+ "Download the one-page summary": {
+  "kind": "text",
+  "seen": [
+   "first start › a",
+   "sign in › a",
+   "Dashboard › a"
   ]
  },
  "Download the request (.csr)": {
@@ -4180,6 +4340,12 @@
    "first start › input › Send reminder",
    "sign in › input › Send reminder",
    "Dashboard › input › Send reminder"
+  ]
+ },
+ "each": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Each developer": {
@@ -4290,6 +4456,20 @@
    "Dashboard › span › The fixed list Email is not set up yet: test it under Settings → Email server.",
    "Dashboard (advanced) › span › The fixed list Email is not set up yet: test it under Settings → Email server.",
    "connection: cxone › span › The fixed list Email is not set up yet: test it under Settings → Email server."
+  ]
+ },
+ "Email last month's impact summary now to the people on the list?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Email last month's summary now": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Monthly summary by email",
+   "sign in › button › Monthly summary by email",
+   "Dashboard › button › Monthly summary by email"
   ]
  },
  "Email on their own commits: in the repositories listed below, or by commit search ({0} a minute).": {
@@ -4662,6 +4842,14 @@
    "Dashboard › input › Developer addresses"
   ]
  },
+ "Executive": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
  "Expand all": {
   "kind": "message",
   "seen": [
@@ -4894,6 +5082,14 @@
    "Dashboard › label › Email the authors of vulnerable code"
   ]
  },
+ "findings AI Triage showed not exploitable": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › exec › span",
+   "impact › detail › span"
+  ]
+ },
  "Findings are loading on the Dashboard: wait for them, then try again.": {
   "kind": "message",
   "seen": [
@@ -5022,6 +5218,30 @@
    "Dashboard › fetching › a",
    "Dashboard › loaded › a",
    "Dashboard › remind › a"
+  ]
+ },
+ "Fixed by hand": {
+  "kind": "text",
+  "seen": [
+   "impact › th › By project",
+   "impact › exec › th › By project",
+   "impact › detail › th › By project"
+  ]
+ },
+ "fixed or cleared by AI": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › exec › span",
+   "impact › detail › span"
+  ]
+ },
+ "Fixed with AI": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › th › By project",
+   "impact › exec › span"
   ]
  },
  "Follow every tracked scope down to zero": {
@@ -5600,6 +5820,38 @@
    "reports › detail › remind › input › Weekly"
   ]
  },
+ "Hourly cost of an engineer": {
+  "kind": "text",
+  "seen": [
+   "first start › span › AI Triage & Remediation from reports",
+   "sign in › span › AI Triage & Remediation from reports",
+   "Dashboard › span › AI Triage & Remediation from reports"
+  ]
+ },
+ "Hours AI saved, findings it cleared, and how fast the security debt is shrinking": {
+  "kind": "text",
+  "seen": [
+   "impact › p",
+   "impact › exec › p",
+   "impact › detail › p"
+  ]
+ },
+ "Hours saved": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › exec › span",
+   "impact › detail › span"
+  ]
+ },
+ "Hours saved: Checkmarx One results triaged by AI ({0}) × {1} min, plus fixes with AI ({2}) × {3} min.": {
+  "kind": "text",
+  "seen": [
+   "impact › li › How these are worked out",
+   "impact › exec › li › How these are worked out",
+   "impact › detail › li › How these are worked out"
+  ]
+ },
  "hours, rescan on their behalf": {
   "kind": "text",
   "seen": [
@@ -5638,6 +5890,14 @@
    "reports › detail › summary › How the rescan works",
    "reports › detail › overview › summary › How the rescan works",
    "reports › detail › remind › summary › How the rescan works"
+  ]
+ },
+ "How these are worked out": {
+  "kind": "text",
+  "seen": [
+   "first start › summary › How these are worked out",
+   "sign in › summary › How these are worked out",
+   "Dashboard › summary › How these are worked out"
   ]
  },
  "HSTS needs a certificate from IT or a public authority, not a self-signed one.": {
@@ -5770,12 +6030,80 @@
    "Dashboard › label › Replace the whole image (a new Node.js or OS base) Beta Companion not running"
   ]
  },
+ "Impact": {
+  "kind": "text",
+  "seen": [
+   "first start › span",
+   "first start › div",
+   "sign in › span"
+  ]
+ },
+ "Impact → Detail": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Impact → Executive": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Impact page →": {
+  "kind": "text",
+  "seen": [
+   "first start › a › AI Triage & Remediation from reports",
+   "sign in › a › AI Triage & Remediation from reports",
+   "Dashboard › a › AI Triage & Remediation from reports"
+  ]
+ },
+ "Impact: minutes must be a whole number from 1 to 10000.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Impact: rates and prices must be a number from 0 to 1000000.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Impact: the currency must be a three-letter code, such as USD or EUR.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Impact: time and money": {
+  "kind": "text",
+  "seen": [
+   "first start › h3 › AI Triage & Remediation from reports",
+   "sign in › h3 › AI Triage & Remediation from reports",
+   "Dashboard › h3 › AI Triage & Remediation from reports"
+  ]
+ },
  "In Beta": {
   "kind": "text",
   "seen": [
    "settings › p › Beta features",
    "logs › p › Beta features",
    "logs › activity › p › Beta features"
+  ]
+ },
+ "in credits": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "In the chosen period: results AI Triage checked or showed not exploitable, fixes with AI and by hand (only once Checkmarx One no longer reports them), median days to fix, and credits used. Open is what is open now.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › By project",
+   "sign in › p › By project",
+   "Dashboard › p › By project"
   ]
  },
  "Include subdomains (only when every subdomain has HTTPS)": {
@@ -6030,6 +6358,12 @@
    "first start › option",
    "sign in › option",
    "Dashboard › option"
+  ]
+ },
+ "Last sent: {0}-{1}.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Last sign-in": {
@@ -6514,6 +6848,30 @@
    "Dashboard › th › Match usernames to email addresses"
   ]
  },
+ "Minutes to fix one finding by hand": {
+  "kind": "text",
+  "seen": [
+   "first start › span › AI Triage & Remediation from reports",
+   "sign in › span › AI Triage & Remediation from reports",
+   "Dashboard › span › AI Triage & Remediation from reports"
+  ]
+ },
+ "Minutes to triage one finding by hand": {
+  "kind": "text",
+  "seen": [
+   "first start › span › AI Triage & Remediation from reports",
+   "sign in › span › AI Triage & Remediation from reports",
+   "Dashboard › span › AI Triage & Remediation from reports"
+  ]
+ },
+ "Minutes, rates and who gets it →": {
+  "kind": "text",
+  "seen": [
+   "first start › a › Monthly summary by email",
+   "sign in › a › Monthly summary by email",
+   "Dashboard › a › Monthly summary by email"
+  ]
+ },
  "Missing email": {
   "kind": "text",
   "seen": [
@@ -6530,12 +6888,42 @@
    "Dashboard › remind › b"
   ]
  },
+ "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credits).": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Money: set an hourly cost and the price of one credit under Settings → AI & credits.": {
+  "kind": "text",
+  "seen": [
+   "impact › li › How these are worked out",
+   "impact › exec › li › How these are worked out",
+   "impact › detail › li › How these are worked out"
+  ]
+ },
  "Month": {
   "kind": "text",
   "seen": [
    "first start › label › Reconcile with the credit ledger",
    "sign in › label › Reconcile with the credit ledger",
    "Dashboard › label › Reconcile with the credit ledger"
+  ]
+ },
+ "Monthly summary by email": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Monthly summary by email",
+   "sign in › h2 › Monthly summary by email",
+   "Dashboard › h2 › Monthly summary by email"
+  ]
+ },
+ "Monthly summary to — sent on the first day of each month, for the month before; none: not sent": {
+  "kind": "text",
+  "seen": [
+   "first start › span › AI Triage & Remediation from reports",
+   "sign in › span › AI Triage & Remediation from reports",
+   "Dashboard › span › AI Triage & Remediation from reports"
   ]
  },
  "More connections to the same host": {
@@ -6814,6 +7202,14 @@
    "Dashboard › label › Age"
   ]
  },
+ "No fixes in this period yet.": {
+  "kind": "text",
+  "seen": [
+   "impact › p › Time to fix, AI-assisted and by hand",
+   "impact › exec › p › Time to fix, AI-assisted and by hand",
+   "impact › detail › p › Time to fix, AI-assisted and by hand"
+  ]
+ },
  "No limit": {
   "kind": "text",
   "seen": [
@@ -6868,6 +7264,12 @@
    "connection: smtp › p"
   ]
  },
+ "No open findings at the start of the period.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "No pool size set": {
   "kind": "text",
   "seen": [
@@ -6904,6 +7306,18 @@
    "credits › p › By project, in this period",
    "credits › overview › p › By project, in this period",
    "credits › projects › p › By project, in this period"
+  ]
+ },
+ "No readings yet.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "No readings yet. Figures start with the next Dashboard fetch (with no date window) or tracked report refresh.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "No recipients configured.": {
@@ -6976,6 +7390,14 @@
    "Dashboard › fetching › p › Developers",
    "Dashboard › loaded › p › Developers",
    "Dashboard › remind › p › Developers"
+  ]
+ },
+ "Noise removed": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › exec › span",
+   "impact › detail › span"
   ]
  },
  "none due": {
@@ -7264,6 +7686,14 @@
    "audit › checks › dd › State folder & backups"
   ]
  },
+ "Off: add who gets it under Settings → AI & credits.": {
+  "kind": "text",
+  "seen": [
+   "impact › span › Monthly summary by email",
+   "impact › exec › span › Monthly summary by email",
+   "impact › detail › span › Monthly summary by email"
+  ]
+ },
  "Off: after the developers' turn, rescan by hand.": {
   "kind": "message",
   "seen": [
@@ -7314,6 +7744,12 @@
   "kind": "text",
   "seen": [
    "Settings › Activation codes › badge"
+  ]
+ },
+ "On: emailed on the first day of each month, for the month before.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Once final:": {
@@ -7426,6 +7862,14 @@
    "credits › overview › span"
   ]
  },
+ "Open Checkmarx One results, weighted by severity: critical {0}, high {1}, medium {2}, low {3}.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Security debt, week by week",
+   "sign in › p › Security debt, week by week",
+   "Dashboard › p › Security debt, week by week"
+  ]
+ },
  "Open findings": {
   "kind": "text",
   "seen": [
@@ -7456,6 +7900,14 @@
    "Dashboard › fetching › div",
    "Dashboard › loaded › div",
    "Dashboard › remind › div"
+  ]
+ },
+ "open findings, weighted by severity": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › exec › span",
+   "impact › detail › span"
   ]
  },
  "Open now": {
@@ -7938,6 +8390,14 @@
    "busy line"
   ]
  },
+ "Price of one credit": {
+  "kind": "text",
+  "seen": [
+   "first start › span › AI Triage & Remediation from reports",
+   "sign in › span › AI Triage & Remediation from reports",
+   "Dashboard › span › AI Triage & Remediation from reports"
+  ]
+ },
  "Probing candidate paths…": {
   "kind": "message",
   "seen": [
@@ -8174,6 +8634,14 @@
    "busy line"
   ]
  },
+ "Readings start on {0}-{1}-{2}: the period before that is not included.": {
+  "kind": "text",
+  "seen": [
+   "impact › p",
+   "impact › exec › p",
+   "impact › detail › p"
+  ]
+ },
  "Recent events": {
   "kind": "text",
   "seen": [
@@ -8204,6 +8672,12 @@
    "first start › h2 › Recipients (Archived)",
    "sign in › h2 › Recipients (Archived)",
    "Dashboard › h2 › Recipients (Archived)"
+  ]
+ },
+ "Recipients: {0}.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Recomputes the hash chain over every entry. Any edited, removed or reordered entry is reported with its number.": {
@@ -8951,6 +9425,12 @@
    "access › roles › small › Roles & permissions"
   ]
  },
+ "saved": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Saved": {
   "kind": "busy",
   "seen": [
@@ -8969,6 +9449,12 @@
    "first start › span › Match usernames to email addresses",
    "sign in › span › Match usernames to email addresses",
    "Dashboard › span › Match usernames to email addresses"
+  ]
+ },
+ "Saved, after credits": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Saved.": {
@@ -9453,6 +9939,30 @@
    "access › roles › input › Roles & permissions"
   ]
  },
+ "Security debt": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › exec › span",
+   "impact › detail › span"
+  ]
+ },
+ "Security debt, week by week": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Security debt, week by week",
+   "sign in › h2 › Security debt, week by week",
+   "Dashboard › h2 › Security debt, week by week"
+  ]
+ },
+ "Security debt: open Checkmarx One results weighted by severity (critical {0}, high {1}, medium {2}, low {3}). The date it reaches zero follows the last four weeks.": {
+  "kind": "text",
+  "seen": [
+   "impact › li › How these are worked out",
+   "impact › exec › li › How these are worked out",
+   "impact › detail › li › How these are worked out"
+  ]
+ },
  "Security settings applied": {
   "kind": "busy",
   "seen": [
@@ -9687,6 +10197,12 @@
    "Dashboard › span › Activity log"
   ]
  },
+ "Sent the summary for {0}-{1}. Recipients: {2}.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Sent to the API as fromDate/toDate, so it is filtered server-side.": {
   "kind": "attr:title",
   "seen": [
@@ -9773,6 +10289,14 @@
    "Dashboard › a › Get started · 1 of 6 done",
    "Dashboard (advanced) › a › Get started · 1 of 6 done",
    "connection: cxone › a › Get started · 1 of 6 done"
+  ]
+ },
+ "Set an hourly cost": {
+  "kind": "text",
+  "seen": [
+   "impact › a",
+   "impact › exec › a",
+   "impact › detail › a"
   ]
  },
  "Set only when the mail covers a single project": {
@@ -10104,6 +10628,12 @@
    "Dashboard › projects table, more than 100 projects"
   ]
  },
+ "Show as a chart": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Show as a table": {
   "kind": "text",
   "seen": [
@@ -10184,6 +10714,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Since the first reading": {
+  "kind": "text",
+  "seen": [
+   "first start › option",
+   "sign in › option",
+   "Dashboard › option"
   ]
  },
  "Single-tenant / on-prem addresses": {
@@ -10296,6 +10834,12 @@
    "first start › button",
    "sign in › button",
    "Dashboard › button"
+  ]
+ },
+ "sprinter": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard › fetching › span"
   ]
  },
  "Square works best: SVG, or PNG {0}×{1} or larger, up to {2} KB.": {
@@ -10821,6 +11365,12 @@
    "message"
   ]
  },
+ "The chart appears after two weeks of readings.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "The Checkmarx One tenant you are working in": {
   "kind": "attr:title",
   "seen": [
@@ -11102,6 +11652,22 @@
    "first start › th › Match usernames to email addresses",
    "first start › th › Credit audit log",
    "sign in › th › Match usernames to email addresses"
+  ]
+ },
+ "Time to fix, AI-assisted and by hand": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Time to fix, AI-assisted and by hand",
+   "sign in › h2 › Time to fix, AI-assisted and by hand",
+   "Dashboard › h2 › Time to fix, AI-assisted and by hand"
+  ]
+ },
+ "Time to fix: days from first detection until Checkmarx One no longer reports it. AI-fixed and fixed by hand are compared over the same period.": {
+  "kind": "text",
+  "seen": [
+   "impact › li › How these are worked out",
+   "impact › exec › li › How these are worked out",
+   "impact › detail › li › How these are worked out"
   ]
  },
  "Time zone": {
@@ -11476,6 +12042,12 @@
   "kind": "text",
   "seen": [
    "Settings › Activation codes › before a date: valid until that date"
+  ]
+ },
+ "Up {0}% in this period: from {1} to {2}.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Up to": {
@@ -12012,6 +12584,14 @@
    "logs › activity › span › Checkmarx One integration"
   ]
  },
+ "Value of that time": {
+  "kind": "text",
+  "seen": [
+   "impact › span",
+   "impact › exec › span",
+   "impact › detail › span"
+  ]
+ },
  "Values are inserted with <code>{{name}}</code> and HTML-escaped; <code>{{{name}}}</code> inserts raw HTML. Repeat a list with <code>{{#projects}}…{{/projects}}</code>, and show a block only when something is empty with <code>{{^projects}}…{{/projects}}</code>.": {
   "kind": "html",
   "seen": [
@@ -12160,10 +12740,24 @@
    "reports › detail › remind › span › Weekly"
   ]
  },
+ "Week": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Welcome": {
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "What a manual triage and a manual fix take in your teams, to work out the hours AI saved. Add an hourly cost and the price of one credit to see money too; leave them at {0} to show hours only.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › AI Triage & Remediation from reports",
+   "sign in › p › AI Triage & Remediation from reports",
+   "Dashboard › p › AI Triage & Remediation from reports"
   ]
  },
  "What each role may do. Changes apply at once to everyone with the role. You can only grant permissions you hold yourself; <span class=\"badge warn\">Admin</span> marks the Admin-only permissions.": {
@@ -12276,6 +12870,12 @@
    "access › roles › small › Roles & permissions"
   ]
  },
+ "With AI": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Working…": {
   "kind": "busy",
   "seen": [
@@ -12372,6 +12972,12 @@
    "first start › a",
    "first start › h2 › Your profile",
    "sign in › a"
+  ]
+ },
+ "zero by {0}-{1}-{2} at this pace": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  }
 }
