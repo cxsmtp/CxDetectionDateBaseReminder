@@ -2554,6 +2554,8 @@ body.scrolling main table tbody { pointer-events: none; }
 .impact-tile .value { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; overflow-wrap: anywhere; }
 .impact-tile.hero .value { font-size: 34px; }
 .impact-tile .sub { color: var(--muted); font-size: 12px; }
+.impact-tile .value.good { color: var(--ok); }
+.impact-tile .value.bad { color: var(--danger); }
 .impact-chart { position: relative; width: 100%; overflow: hidden; }
 .impact-svg { display: block; max-width: 100%; height: auto; font-size: 11px; }
 .impact-svg .grid { stroke: var(--border); stroke-width: 1; }

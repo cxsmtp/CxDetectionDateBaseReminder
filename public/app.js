@@ -7829,6 +7829,7 @@ $('credit-allocations').addEventListener('click', (event) => {
 const impact = { data: null, asTable: false };
 const SEV_LABEL = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' };
 const num1 = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 1 }));
+const priceOf = (n, currency) => `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}`;
 const cashOf = (n, currency) => (n === null || n === undefined ? '—' : `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${currency}`);
 
 async function loadImpact() {
@@ -7852,7 +7853,7 @@ function renderImpact() {
   note.textContent = !d.since
     ? 'No readings yet. Figures start with the next Dashboard fetch (with no date window) or tracked report refresh.'
     : `Readings start on ${d.since.slice(0, 10)}: the period before that is not included.`;
-  const tile = (label, value, sub, hero = false) => `<div class="impact-tile${hero ? ' hero' : ''}"><span class="label">${label}</span><span class="value">${value}</span><span class="sub">${sub}</span></div>`;
+  const tile = (label, value, sub, hero = false, tone = '') => `<div class="impact-tile${hero ? ' hero' : ''}"><span class="label">${label}</span><span class="value${tone ? ` ${tone}` : ''}">${value}</span><span class="sub">${sub}</span></div>`;
   const debt = d.debt;
   $('impact-tiles').innerHTML = [
     tile('Hours saved', `${num1(d.hours.total)} h`, `<span>${num1(d.hours.triage)} h triage</span> · <span>${num1(d.hours.fix)} h fixing</span>`, true),
@@ -7861,8 +7862,9 @@ function renderImpact() {
       : tile(m.cost === null ? 'Value of that time' : 'Saved, after credits', escapeHtml(cashOf(m.net ?? m.value, m.currency)), m.cost === null ? '<span>before the cost of credits</span>' : `<span>${escapeHtml(cashOf(m.value, m.currency))} saved</span> · <span>${escapeHtml(cashOf(m.cost, m.currency))} in credits</span>`),
     tile('Noise removed', num1(d.noiseRemoved), '<span>findings AI Triage showed not exploitable</span>'),
     tile('Fixed with AI', num1(d.aiFixed), `<span>${num1(d.manualFixed)} fixed by hand</span>`),
-    tile('Security debt', debt.change === null ? '—' : `${debt.change > 0 ? '+' : ''}${debt.change}%`, debt.zeroBy ? `<span>zero by ${escapeHtml(debt.zeroBy)} at this pace</span>` : '<span>open findings, weighted by severity</span>'),
-    tile('Credits per finding closed', num1(d.creditsPerClosed), d.costPerClosed === null ? '<span>fixed or cleared by AI</span>' : `<span>${escapeHtml(cashOf(d.costPerClosed, m.currency))} each</span>`),
+    // Down is good: the change wears the good colour (with its arrow), never only colour.
+    tile('Security debt', debt.change === null ? '—' : `${debt.change < 0 ? '▼' : debt.change > 0 ? '▲' : ''} ${Math.abs(debt.change)}%`, debt.zeroBy ? `<span>zero by ${escapeHtml(debt.zeroBy)} at this pace</span>` : '<span>open findings, weighted by severity</span>', false, debt.change < 0 ? 'good' : debt.change > 0 ? 'bad' : ''),
+    tile('Credits per finding closed', num1(d.creditsPerClosed), d.costPerClosed === null ? '<span>fixed or cleared by AI</span>' : `<span>${escapeHtml(priceOf(d.costPerClosed, m.currency))} each</span>`),
   ].join('');
   $('impact-debt-line').textContent = debt.change === null
     ? 'No open findings at the start of the period.'
@@ -7873,7 +7875,7 @@ function renderImpact() {
   $('impact-how').innerHTML = [
     `Hours saved: Checkmarx One results triaged by AI (${num1(d.credits.triage)}) × ${s.triageMinutes} min, plus fixes with AI (${num1(d.aiFixed)}) × ${s.fixMinutes} min.`,
     'A fix counts only once Checkmarx One no longer reports the finding. Rows that share one result count once.',
-    m.value === null ? 'Money: set an hourly cost and the price of one credit under Settings → AI & credits.' : `Money: hours × ${escapeHtml(cashOf(s.hourlyRate, m.currency))} an hour${m.cost === null ? '' : `, less credits used (${num1(d.credits.total)}) × ${escapeHtml(cashOf(s.creditPrice, m.currency))}`}.`,
+    m.value === null ? 'Money: set an hourly cost and the price of one credit under Settings → AI & credits.' : `Money: hours × ${escapeHtml(priceOf(s.hourlyRate, m.currency))} an hour${m.cost === null ? '' : `, less credits used (${num1(d.credits.total)}) × ${escapeHtml(priceOf(s.creditPrice, m.currency))}`}.`,
     'Security debt: open Checkmarx One results weighted by severity (critical 10, high 5, medium 2, low 1). The date it reaches zero follows the last four weeks.',
     'Time to fix: days from first detection until Checkmarx One no longer reports it. AI-fixed and fixed by hand are compared over the same period.',
   ].map((line) => `<li>${line}</li>`).join('');

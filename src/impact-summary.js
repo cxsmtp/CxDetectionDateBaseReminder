@@ -7,6 +7,8 @@
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const num = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString('en-US', { maximumFractionDigits: 1 }));
 const cash = (n, currency) => (n === null || n === undefined ? '—' : `${Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 })} ${esc(currency)}`);
+/** A unit price (an hourly cost, a credit): to the cent. */
+const price = (n, currency) => `${Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })} ${esc(currency)}`;
 const day = (iso) => String(iso ?? '').slice(0, 10);
 const SEV = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' };
 
@@ -46,7 +48,7 @@ export function impactSummary(impact, { appName = 'CxMissionZero', periodLabel =
   const debtLine = debt.change === null ? 'No open findings at the start of the period.' : `${debt.change <= 0 ? 'Down' : 'Up'} ${Math.abs(debt.change)}% (from ${num(debt.start)} to ${num(debt.now)})${debt.zeroBy ? `; at this pace it reaches zero by ${esc(debt.zeroBy)}` : ''}.`;
   const tiles = [
     ['Hours saved', `${num(impact.hours.total)} h`, `${num(impact.hours.triage)} h triage, ${num(impact.hours.fix)} h fixing`],
-    ['Value of that time', m.value === null ? 'Set an hourly cost' : cash(m.net ?? m.value, m.currency), m.value === null ? 'Settings → AI & credits → Impact' : m.cost === null ? 'before the cost of credits' : `${cash(m.value, m.currency)} saved, ${cash(m.cost, m.currency)} in credits`],
+    [m.value !== null && m.cost !== null ? 'Saved, after credits' : 'Value of that time', m.value === null ? 'Set an hourly cost' : cash(m.net ?? m.value, m.currency), m.value === null ? 'Settings → AI & credits → Impact' : m.cost === null ? 'before the cost of credits' : `${cash(m.value, m.currency)} saved, ${cash(m.cost, m.currency)} in credits`],
     ['Noise removed', num(impact.noiseRemoved), 'findings AI Triage showed not exploitable'],
     ['Security debt', debt.change === null ? '—' : `${debt.change > 0 ? '+' : ''}${debt.change}%`, debt.zeroBy ? `zero by ${esc(debt.zeroBy)} at this pace` : 'open findings, weighted by severity'],
   ];
@@ -63,7 +65,7 @@ export function impactSummary(impact, { appName = 'CxMissionZero', periodLabel =
   const s = impact.settings;
   const how = [
     `Hours saved: ${num(impact.credits.triage)} Checkmarx One results triaged by AI × ${s.triageMinutes} min, plus ${impact.aiFixed} AI fixes × ${s.fixMinutes} min. A fix counts only once Checkmarx One no longer reports the finding.`,
-    m.value === null ? 'Money: set an hourly cost and a price per credit to see it.' : `Money: hours × ${cash(s.hourlyRate, m.currency)} an hour${m.cost === null ? '' : `, less ${num(impact.credits.total)} credits × ${cash(s.creditPrice, m.currency)}`}.`,
+    m.value === null ? 'Money: set an hourly cost and a price per credit to see it.' : `Money: hours × ${price(s.hourlyRate, m.currency)} an hour${m.cost === null ? '' : `, less ${num(impact.credits.total)} credits × ${price(s.creditPrice, m.currency)}`}.`,
     'Security debt: open Checkmarx One results weighted by severity (critical 10, high 5, medium 2, low 1); rows that share a result count once.',
     'Time to fix: days from first detection until Checkmarx One no longer reports it, AI-fixed against fixed by hand over the same period (median, with how many).',
     impact.partial ? `Readings start on ${esc(day(impact.since))}: the period before that is not included.` : '',

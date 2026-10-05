@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { ReportGrants } from '../src/report-grants.js';
+import { fakeSmtp } from './fake-smtp.js';
 
 const MOCK_PORT = await freePort();
 const PORT = await freePort();
@@ -370,8 +371,23 @@ test('stage 11 — Impact: hours saved, noise removed and the debt, from the rea
   const html = await page.text();
   assert.match(html, /Hours saved/);
   assert.match(html, /How these are worked out/);
-  // No mail server tested in this run: refused with the reason, nothing marked sent.
-  const email = await admin('POST', '/api/impact/email', {});
-  assert.notEqual(email.status, 200);
+  // No mail server tested yet: refused with the reason.
+  assert.notEqual((await admin('POST', '/api/impact/email', {})).status, 200);
+  // With one: last month's summary, to the list only, numbers and no chart (mail clients drop SVG).
+  const smtp = await fakeSmtp();
+  try {
+    await admin('PUT', '/api/settings', { smtp: { host: '127.0.0.1', port: smtp.port, secure: false, requireAuth: false, rejectUnauthorized: false, fromAddress: 'mz@acme.io', fromName: 'CxMissionZero' } });
+    assert.equal((await admin('POST', '/api/settings/connections/check', { rollback: false })).body.smtp.ok, true);
+    const sent = await admin('POST', '/api/impact/email', {});
+    assert.equal(sent.status, 200, JSON.stringify(sent.body));
+    assert.deepEqual(sent.body.to, ['ciso@acme.io']);
+    assert.match(sent.body.month, /^\d{4}-\d{2}$/);
+    const message = smtp.messages.at(-1);
+    assert.deepEqual(message.to, ['ciso@acme.io']);
+    assert.match(message.raw, /impact/i);
+    assert.doesNotMatch(message.raw, /<svg/);
+  } finally {
+    await smtp.close();
+  }
   await admin('PUT', '/api/settings', { impact: { triageMinutes: 20, hourlyRate: 0, creditPrice: 0, currency: 'USD', monthlyTo: '' } });
 });
