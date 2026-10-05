@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const LANGUAGE_CODES = ['ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'de', 'fr', 'vi', 'th', 'ms', 'id'];
+export const LANGUAGE_CODES = ['ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'de', 'fr', 'ar', 'vi', 'th', 'ms', 'id', 'he'];
 
 const sorted = (list) => [...list].sort();
 const placeholders = (text) => sorted(text.match(/\{\d+\}/g) ?? []);
@@ -27,6 +27,8 @@ const SCRIPT = {
   'zh-CN': /[一-鿿]/,
   ko: /[가-힯]/,
   th: /[฀-๿]/,
+  ar: /[\u0600-\u06FF]/,
+  he: /[\u0590-\u05FF]/,
 };
 // Words that belong to the other language (Malaysian Malay vs Indonesian).
 const NOT_MALAY = /\b(pengaturan|perbarui|proyek|pemindaian|unduh|kata sandi|berhasil|aktifkan|nonaktifkan|tautan|surel|dasbor)\b/i;
