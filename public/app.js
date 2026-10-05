@@ -3969,7 +3969,7 @@ function serverTime(iso) {
   }
 }
 
-/** "Needs N credits · M of A left" for a tracked report's chosen severities. */
+/** "Needs N credits · M of A left" for a tracked report's chosen severities, as HTML (numbers and fixed wording only). */
 function triageNeedText(r, severities = ['CRITICAL', 'HIGH']) {
   const counts = r.latest?.toTriage;
   const c = r.credits?.triage;
@@ -3984,7 +3984,8 @@ function triageNeedText(r, severities = ['CRITICAL', 'HIGH']) {
     const m = r.credits.remediation;
     parts.push(`remediation ${m.remaining} of ${m.allocated} left`);
   }
-  return parts.length ? `${parts.join(' · ')}.` : '';
+  // Each piece in its own span, so each is translated on its own whatever the others say.
+  return parts.length ? `${parts.map((part) => `<span>${part}</span>`).join(' · ')}.` : '';
 }
 
 /** Confirmed Checkmarx One results still to remediate at these severities. */
@@ -4009,7 +4010,7 @@ function updateNeed(card) {
   const el = card.querySelector('[data-need]');
   if (!report || !el) return;
   const severities = [...card.querySelectorAll('[data-sev]:checked')].map((box) => box.dataset.sev);
-  el.textContent = triageNeedText(report, severities);
+  el.innerHTML = triageNeedText(report, severities);
   card.querySelector('[data-report-triage]')?.classList.toggle('is-golden', triageCovered(report, severities));
   card.querySelector('[data-report-remediate]')?.classList.toggle('is-golden', remediationCovered(report, severities));
 }
