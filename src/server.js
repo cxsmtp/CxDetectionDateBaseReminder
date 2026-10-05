@@ -677,7 +677,8 @@ app.use('/api', (req, res, next) => {
 // A language behind an activation code (Hebrew) is not served until it is activated here.
 app.use('/i18n', (req, res, next) => {
   const code = req.path.match(/^\/([\w-]+)\.json$/)?.[1];
-  if (code && code in GATED_LANGUAGES && !languageAccess.isAvailable(code)) return res.status(404).json({ error: 'That language is not available.' });
+  // Only to the people it is open to (their sign-in), so nobody else ever receives it.
+  if (code && code in GATED_LANGUAGES && !languageAccess.isAvailable(code, sessions.peek(readSessionCookie(req))?.userId)) return res.status(404).json({ error: 'That language is not available.' });
   next();
 });
 const staticFiles = express.static(publicDir);
@@ -861,8 +862,8 @@ app.get('/api/health', (req, res) => {
     windowPresets: WINDOW_PRESETS.map(({ id, label }) => ({ id, label })),
     templateVariables: TEMPLATE_VARIABLES,
     defaultTemplate: DEFAULT_TEMPLATE,
-    // The page's languages available here (Hebrew only once activated).
-    languages: languageAccess.available(),
+    // The page's languages available here (Hebrew only once activated, and only for the people chosen).
+    languages: languageAccess.available(sessions.peek(readSessionCookie(req))?.userId),
     // Shown in the header before anyone connects.
     app: {
       name: settingsStore.get().branding.appName || 'CxMissionZero',
@@ -976,6 +977,8 @@ function describeMe(session, user) {
     integration: { connected: Boolean(integration), tenant },
     // Connection settings put back because new ones did not work: shown once to each administrator.
     configNotices: held.has('integration.cxone') || held.has('integration.smtp') ? guard.unseen(user.id) : [],
+    // The page's languages this person may use (Hebrew only for the people chosen).
+    languages: languageAccess.available(user.id),
     // Several Checkmarx One tenants: the one this person works in now, and the ones they may switch to.
     tenancy: tenancy.enabled
       ? {
@@ -1221,7 +1224,7 @@ app.put(
   asyncRoute(async (req, res) => {
     const patch = {};
     for (const key of ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages']) if (key in (req.body ?? {})) patch[key] = req.body[key];
-    if (patch.language && !languageAccess.isAvailable(String(patch.language))) return res.status(400).json({ error: 'That language is not available.' });
+    if (patch.language && !languageAccess.isAvailable(String(patch.language), req.user.id)) return res.status(400).json({ error: 'That language is not available.' });
     const { before, after } = iam.updateProfile(req.user.id, patch);
     const changed = [
       ...(before.name !== after.name ? ['name'] : []),
@@ -1255,7 +1258,7 @@ app.get('/api/users/:id/avatar', requireSession, (req, res) => {
   res.send(avatar.bytes);
 });
 
-app.get('/api/me/profile/options', requireSession, (req, res) => res.json({ languages: PROFILE_LANGUAGES.filter((code) => languageAccess.isAvailable(code)), programmingLanguages: PROGRAMMING_LANGUAGES }));
+app.get('/api/me/profile/options', requireSession, (req, res) => res.json({ languages: PROFILE_LANGUAGES.filter((code) => languageAccess.isAvailable(code, req.user.id)), programmingLanguages: PROGRAMMING_LANGUAGES }));
 
 // ---------------------------------------------------------------------------
 // Access: users and roles
@@ -3309,6 +3312,8 @@ function activationView() {
   return {
     keyConfigured: ISSUER_KEYS.length > 0,
     languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)])),
+    // Everyone who can sign in, to choose who may use a gated language.
+    people: iam.users().filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.name, email: u.email })),
     tenants: activations.tenants(),
     history: activations.history().slice(0, 10),
   };
@@ -3467,6 +3472,20 @@ app.put('/api/iam/users/:id/tenants', requireSuperAdmin, asyncRoute(async (req, 
     session.lastScan = null;
   }
   res.json(iamView(req));
+}));
+
+/** Who may use a gated language (Hebrew): chosen by an Admin, with its activation code in force. */
+app.put('/api/activation/languages/:code/users', requirePermission('activation.manage'), asyncRoute(async (req, res) => {
+  const code = req.params.code;
+  const ids = Array.isArray(req.body?.users) ? req.body.users.map(String) : [];
+  const unknown = ids.filter((id) => !iam.user(id));
+  if (unknown.length) return res.status(400).json({ error: 'No such user.' });
+  const before = languageAccess.status(code).users;
+  const status = languageAccess.setUsers(code, ids);
+  const name = code === 'he' ? 'Hebrew' : code;
+  const emails = (list) => (list ?? []).map((id) => iam.user(id)?.email ?? id);
+  audit.record({ type: 'settings', outcome: 'changed', reason: ids.length ? `${name} is open to ${ids.length === 1 ? '1 person' : `${ids.length} people`}: ${emails(ids).join(', ')}.` : `${name} is open to nobody until people are chosen.`, actor: await adminActor(req), details: { activation: { language: code, before: before === null ? 'everyone' : emails(before), after: emails(ids) } } });
+  res.json(activationView());
 }));
 
 app.get('/api/report-server', requireSession, (req, res) => {

@@ -618,6 +618,14 @@ async function loadActivation() {
   }
 }
 
+/** The languages this person may use now (after Hebrew was turned on or off, or opened to other people). */
+async function refreshMyLanguages() {
+  try {
+    const me = await api('/api/me', { quiet: true });
+    if (Array.isArray(me.languages)) languagesChanged(me.languages, true);
+  } catch {}
+}
+
 function renderActivation(a) {
   const date = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
   const he = a.languages?.he ?? { on: false };
@@ -628,8 +636,40 @@ function renderActivation(a) {
     `<div class="act-row"><strong>Several tenants</strong><span>${t ? `${t.valid ? '<span class="badge ok">Unlocked</span>' : '<span class="badge warn">Expired</span>'} ${escapeHtml(t.org)} · <span>Up to ${t.maxTenants} tenants</span> · <span>Until</span> <b>${escapeHtml(date(t.expires))}</b>${t.warn ? ` <strong class="https-note warn">${t.daysLeft} days left</strong>` : ''}` : '<span class="badge muted">Not unlocked</span>'}</span></div>`,
   ];
   if (!a.keyConfigured) rows.push('<p class="hint">This build has no maintainer key, so no code can be checked.</p>');
+  // Hebrew is open only to the people chosen here.
+  if (he.on) {
+    const everyone = !Array.isArray(he.users);
+    const chosen = new Set(he.users ?? []);
+    rows.push(`<div class="act-people">
+      <strong>Who may use Hebrew</strong>
+      <p class="hint">${everyone ? 'Everyone, because Hebrew was turned on before people could be chosen. Choose people to keep it for them only.' : 'Only the people ticked here are offered Hebrew. Everyone else never sees it.'}</p>
+      <input type="search" id="act-people-filter" placeholder="Search people" aria-label="Search people" />
+      <div class="act-people-list" id="act-people-list">${(a.people ?? [])
+        .map((p) => `<label class="check" data-person="${escapeHtml(`${p.name} ${p.email}`.toLowerCase())}"><input type="checkbox" value="${escapeHtml(p.id)}" ${chosen.has(p.id) ? 'checked' : ''} /> <span translate="no">${escapeHtml(p.name || p.email)}</span>${p.name ? ` <small class="muted" translate="no">${escapeHtml(p.email)}</small>` : ''}</label>`)
+        .join('')}</div>
+      <div class="actions compact"><button type="button" class="primary" id="act-people-save">Save who may use Hebrew</button></div>
+    </div>`);
+  }
   $('act-list').innerHTML = rows.join('');
 }
+
+$('act-list').addEventListener('input', (event) => {
+  if (event.target.id !== 'act-people-filter') return;
+  const term = event.target.value.trim().toLowerCase();
+  for (const row of $('act-list').querySelectorAll('[data-person]')) row.hidden = Boolean(term) && !row.dataset.person.includes(term);
+});
+
+$('act-list').addEventListener('click', async (event) => {
+  if (event.target.id !== 'act-people-save') return;
+  const users = [...$('act-list').querySelectorAll('#act-people-list input:checked')].map((input) => input.value);
+  try {
+    renderActivation(await api('/api/activation/languages/he/users', { method: 'PUT', body: JSON.stringify({ users }) }));
+    setStatus('act-status', users.length ? (users.length === 1 ? 'Hebrew is open to 1 person.' : `Hebrew is open to ${users.length} people.`) : 'Hebrew is open to nobody until people are chosen.', 'ok');
+    refreshMyLanguages();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('act-status', error);
+  }
+});
 
 $('act-apply').addEventListener('click', async () => {
   const code = $('act-code').value.trim();
@@ -641,8 +681,7 @@ $('act-apply').addEventListener('click', async () => {
     $('act-code').value = '';
     setStatus('act-status', `Applied: ${result.applied}.`, 'ok');
     // A language turned on or off is offered (or not) at once.
-    const health = await api('/api/health', { quiet: true });
-    if (Array.isArray(health.languages)) languagesChanged(health.languages);
+    refreshMyLanguages();
   } catch (error) {
     if (!handleAuthLoss(error)) setStatus('act-status', error.message, 'error');
   } finally {
@@ -1108,6 +1147,7 @@ async function showConnected(me) {
   $('me-name').textContent = user.name || user.email;
   $('me-role').textContent = me.role.name;
   showAvatar($('me-avatar'), user);
+  if (Array.isArray(me.languages)) languagesChanged(me.languages, true);
   applyProfile(me);
   renderTenantPicker(me);
   $('me-detail').textContent = `${user.email} · ${me.role.name} · signed in with ${me.via === 'cxone' ? 'a Checkmarx One key' : 'a password'}`;
@@ -8559,11 +8599,13 @@ let languagesChanged = () => {};
     select.value = currentLanguage();
   };
   fill();
-  // Languages unlocked by an activation code (Hebrew) are offered once the server says so.
-  languagesChanged = (codes) => {
+  // Languages unlocked by an activation code (Hebrew) are offered once the server says so. Only
+  // the signed-in answer (`final`) switches someone back to English: before it, the page may not
+  // know yet that this person is one of those Hebrew is open to.
+  languagesChanged = (codes, final = false) => {
     const allowed = setAvailable(codes);
     fill();
-    if (!allowed) setLanguage('en');
+    if (!allowed && final) setLanguage('en');
   };
   const show = (code) => {
     select.value = code;

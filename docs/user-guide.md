@@ -70,7 +70,7 @@ The coloured label next to each page title says which group the page is in.
 - Bahasa Melayu (Malay);
 - Bahasa Indonesia (Indonesian);
 - English;
-- עברית (Hebrew), once an Admin has switched it on with an activation code (Settings → Activation codes).
+- עברית (Hebrew), for the people an Admin chose after switching it on with an activation code (Settings → Activation codes).
 
 In Arabic and Hebrew the page reads right to left, with the menu on the right.
 
@@ -418,7 +418,7 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 ### Activation codes (Admin)
 
 Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
-- **Hebrew:** an activation code adds Hebrew to the language pickers; a deactivation code removes it.
+- **Hebrew:** an activation code switches Hebrew on; tick the people who may use it under **Who may use Hebrew** (only they are offered it); a deactivation code removes it.
 - **Several tenants:** for organisations that run more than one Checkmarx One tenant (the Super Admin tasks).
 
 Paste the code and select **Apply the code**. The page shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** see this section. [How codes are issued](activation-codes.md).

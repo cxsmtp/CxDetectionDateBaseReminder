@@ -1,6 +1,6 @@
 # Languages
 
-CxMissionZero's page is available in fourteen languages. Thirteen are open to everyone; Hebrew is switched on with an activation code (below).
+CxMissionZero's page is available in fourteen languages. Thirteen are open to everyone; Hebrew is switched on with an activation code, for the people an Admin chooses (below).
 
 | Code | Language |
 |---|---|
@@ -17,7 +17,7 @@ CxMissionZero's page is available in fourteen languages. Thirteen are open to ev
 | `th` | ไทย (Thai) |
 | `ms` | Bahasa Melayu (Malay, Malaysia) |
 | `id` | Bahasa Indonesia (Indonesian) |
-| `he` | עברית (Hebrew; right to left; needs an activation code) |
+| `he` | עברית (Hebrew; right to left; needs an activation code, for chosen people) |
 
 **Choosing a language.** Use the globe at the top right, or **Your profile** (under your name, and in Settings). The choice is saved with the person's account. The first time, the browser's own language is used when it is one of these.
 
@@ -33,7 +33,7 @@ CxMissionZero's page is available in fourteen languages. Thirteen are open to ev
 
 **Right to left.** In Arabic and Hebrew the whole page is mirrored: the menu is on the right, text starts on the right, and arrows in menu paths point left (Settings ← HTTPS). Charts, code, addresses and numbers keep their left-to-right order.
 
-**Hebrew is switched on with a code.** An Admin pastes a Hebrew activation code in **Settings → Activation codes**; Hebrew then appears in the language pickers for everyone until the code expires (12 months) or a deactivation code is pasted. Nobody is ever switched to Hebrew automatically from their browser's language; people choose it themselves. When Hebrew is turned off, people who had chosen it see English. Codes come from the maintainer of CxMissionZero; they are checked on the server, with nothing sent anywhere.
+**Hebrew is switched on with a code, for the people you choose.** An Admin pastes a Hebrew activation code in **Settings → Activation codes**, then ticks the people who may use it under **Who may use Hebrew**. Only they see Hebrew in the language pickers; nobody else is offered it, or ever sent its translation. It lasts until the code expires (12 months) or a deactivation code is pasted; a renewed code keeps the people chosen. Nobody is ever switched to Hebrew automatically from their browser's language; people choose it themselves. Someone who loses Hebrew sees English. Codes come from the maintainer of CxMissionZero; they are checked on the server, with nothing sent anywhere.
 
 **Tone.** While an action runs, every language other than English shows plain, factual status lines, such as "Verifying with Checkmarx One…" instead of a quip.
 
