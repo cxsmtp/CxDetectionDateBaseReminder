@@ -109,3 +109,7 @@ The **Allocated vs used** table's column headings, the line under each project a
 - **Review 1:** 13 corrections. "Set up" moved away from the word for Settings in Spanish, Arabic, Hebrew and Thai. "Act" in Traditional Chinese no longer reads as "mobile". A missing "fast" was restored in four languages, and a Spanish subjunctive was fixed.
 - **Review 2:** 11 corrections. Japanese now proves how each credit was used, not the credit. The Chinese scripts gained spacing before a Latin link. Korean and German were made idiomatic. Indonesian uses "Penyiapan", as the rest of its file does. Arabic tooltips use the noun form. Thai gained counting words and a completed sentence.
 
+**Added in MZ-01.00.48.** 34 entries in all thirteen languages: **Settings → Tenants**, the tenant switcher, **Super Admin**, choosing who works in which tenant, **Who may use Hebrew**, and the **Connect** label over the first Get started step. "Super Admin" is the same everywhere it appears in each language. "Tenant" reuses each language's 1.0.47 word. Each entry was translated, then reviewed twice:
+- **Review 1:** 3 corrections. Korean "Save who may use Hebrew" no longer reads as "Hebrew speakers", and Spanish gained "Usted está aquí" and "Todas las personas".
+- **Review 2:** 7 corrections. A Korean grammar fix; German, Spanish, Vietnamese and Indonesian made clearer ("Die Funktion „Mehrere Tenants“ ist aktiviert"). "Connect" was translated in this round in seven languages, and then checked on its own.
+
