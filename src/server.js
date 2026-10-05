@@ -3361,7 +3361,8 @@ function tenantName(id) {
 function tenantsView(req) {
   const superAdmin = isSuperAdmin(req.permissions);
   const ids = superAdmin ? tenancy.ids() : tenantsOf(req.user, req.permissions);
-  const people = iam.users().map((u) => tenantsOf(iam.user(u.id)));
+  // Who was added to each tenant (Super Admins, who reach every tenant, count only where they were added).
+  const people = iam.users().map((u) => (u.tenants?.length ? u.tenants : [DEFAULT_TENANT]));
   return {
     enabled: tenancy.enabled,
     unlocked: tenantsUnlocked(),

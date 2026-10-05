@@ -650,11 +650,118 @@ $('act-apply').addEventListener('click', async () => {
   }
 });
 
+// ---- Several Checkmarx One tenants: the switcher at the top, and Settings → Tenants -----------
+
+/** The tenant switcher: shown to people who work in more than one tenant. */
+function renderTenantPicker(me) {
+  const t = me?.tenancy;
+  const show = Boolean(t && t.tenants.length > 1);
+  $('tenant-pick').hidden = !show;
+  if (!show) return;
+  $('tenant-name').textContent = t.current.name;
+  $('tenant-select').innerHTML = t.tenants.map((x) => `<option value="${escapeHtml(x.id)}" ${x.id === t.current.id ? 'selected' : ''}>${escapeHtml(x.name)}</option>`).join('');
+}
+
+$('tenant-select').addEventListener('change', async (event) => {
+  try {
+    await api('/api/me/tenant', { method: 'POST', body: JSON.stringify({ id: event.target.value }) });
+    // Every page shows the other tenant's data: start the page afresh in it.
+    location.reload();
+  } catch (error) {
+    if (!handleAuthLoss(error)) toast(error.message, 'error');
+    renderTenantPicker(state.me);
+  }
+});
+
+async function loadTenants() {
+  if (!can('tenants.manage')) return;
+  try {
+    renderTenants(await api('/api/tenants', { quiet: true }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('tn-status', error);
+  }
+}
+
+function renderTenants(v) {
+  const date = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
+  const a = v.activation;
+  // Each English piece is its own element, so the page translator can reach it.
+  $('tn-state').innerHTML = a?.valid
+    ? `<div class="act-row"><strong>Several tenants</strong><span><span class="badge ok">Unlocked</span> ${escapeHtml(a.org)} · <span>Up to ${a.maxTenants} tenants</span> · <span>Until</span> <b>${escapeHtml(date(a.expires))}</b>${a.warn ? ` <strong class="https-note warn">${a.daysLeft} days left</strong>` : ''}</span></div>`
+    : `<div class="act-row"><strong>Several tenants</strong><span>${a ? '<span class="badge warn">Expired</span>' : '<span class="badge muted">Not unlocked</span>'} <span>Apply a tenants activation code in Settings → Activation codes.</span></span></div>`;
+  $('tn-enabled').checked = v.enabled;
+  $('tn-enabled').disabled = !v.unlocked;
+  $('tn-body').hidden = !v.enabled;
+  $('tn-add').disabled = !v.unlocked;
+  $('tn-list').innerHTML = v.tenants
+    .map((t) => `<li><strong>${escapeHtml(t.name)}</strong>${t.first ? ' <span class="badge muted">First tenant</span>' : ''}${t.id === v.current ? ' <span class="badge">You are here</span>' : ''}
+      <span class="hint">${t.people === 1 ? '1 person' : `${t.people} people`}</span>
+      ${v.unlocked && !t.first ? `<button type="button" class="link" data-tn-rename="${escapeHtml(t.id)}">Rename</button><button type="button" class="link danger" data-tn-remove="${escapeHtml(t.id)}">Remove</button>` : ''}
+      ${v.unlocked && t.first ? `<button type="button" class="link" data-tn-rename="${escapeHtml(t.id)}">Rename</button>` : ''}</li>`)
+    .join('');
+  tenantsView = v;
+}
+let tenantsView = null;
+
+/** A change to the tenants: show it, and refresh the switcher at the top. */
+async function tenantsChanged(view, message) {
+  renderTenants(view);
+  if (message) setStatus('tn-status', message, 'ok');
+  try {
+    state.me = { ...state.me, ...(await api('/api/me', { quiet: true })) };
+    renderTenantPicker(state.me);
+  } catch {}
+}
+
+$('tn-enabled').addEventListener('change', async (event) => {
+  const on = event.target.checked;
+  try {
+    await tenantsChanged(await api('/api/tenants/enabled', { method: 'POST', body: JSON.stringify({ on }) }), on ? 'Several tenants are on.' : 'Several tenants are off.');
+  } catch (error) {
+    event.target.checked = !on;
+    if (!handleAuthLoss(error)) showError('tn-status', error);
+  }
+});
+
+$('tn-add').addEventListener('click', async () => {
+  const name = $('tn-name').value.trim();
+  if (!name) return setStatus('tn-status', 'Give the tenant a name.', 'error');
+  try {
+    const result = await api('/api/tenants', { method: 'POST', body: JSON.stringify({ name }) });
+    $('tn-name').value = '';
+    await tenantsChanged(result, `Added ${result.added.name}. Choose it at the top of the page to set it up.`);
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('tn-status', error);
+  }
+});
+
+$('tn-list').addEventListener('click', async (event) => {
+  const rename = event.target.closest('[data-tn-rename]');
+  const remove = event.target.closest('[data-tn-remove]');
+  const id = rename?.dataset.tnRename ?? remove?.dataset.tnRemove;
+  const tenant = tenantsView?.tenants.find((t) => t.id === id);
+  if (!tenant) return;
+  try {
+    if (rename) {
+      const name = prompt('New name for this tenant:', tenant.name);
+      if (!name || name.trim() === tenant.name) return;
+      await tenantsChanged(await api(`/api/tenants/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ name: name.trim() }) }), 'Renamed.');
+    } else {
+      const typed = prompt(`Remove the tenant "${tenant.name}"? Its people lose access to it at once. Its files are kept in the state folder. Type its name to confirm:`);
+      if (typed === null) return;
+      await tenantsChanged(await api(`/api/tenants/${encodeURIComponent(id)}`, { method: 'DELETE', body: JSON.stringify({ confirm: typed.trim() }) }), 'Removed.');
+    }
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('tn-status', error);
+  }
+});
+
 const reloadSettingsPage = () => {
   renderProfile();
   if (!can('settings.view')) return;
   loadFeatures();
   loadActivation();
+  loadTenants();
   renderSettings();
   loadAutomation();
   loadPool();
@@ -1002,6 +1109,7 @@ async function showConnected(me) {
   $('me-role').textContent = me.role.name;
   showAvatar($('me-avatar'), user);
   applyProfile(me);
+  renderTenantPicker(me);
   $('me-detail').textContent = `${user.email} · ${me.role.name} · signed in with ${me.via === 'cxone' ? 'a Checkmarx One key' : 'a password'}`;
   $('user-menu').hidden = false;
   $('connect-panel').hidden = true;
@@ -7034,13 +7142,22 @@ function renderAccess() {
            <button type="button" class="link" data-iam-toggle="${u.id}">${u.disabled ? 'Enable' : 'Disable'}</button>
            <button type="button" class="link danger" data-iam-delete="${u.id}">Remove</button>`
         : me ? '<span class="hint">You</span>' : '';
+      // Several tenants: where each person works, chosen by a Super Admin.
+      const tenants = access.data.tenants;
+      const theirs = u.tenants?.length ? u.tenants : ['default'];
+      const tenantLine = tenants ? `<small class="muted block" translate="no">${escapeHtml(tenants.filter((t) => theirs.includes(t.id)).map((t) => t.name).join(', '))}</small>` : '';
+      const tenantPick = tenants && u.canManage
+        ? `<details class="tn-pick"><summary class="link">Tenants</summary><div class="tn-pop">${tenants
+            .map((t) => `<label class="check"><input type="checkbox" value="${escapeHtml(t.id)}" ${theirs.includes(t.id) ? 'checked' : ''} /> <span translate="no">${escapeHtml(t.name)}</span></label>`)
+            .join('')}<button type="button" class="sm primary" data-iam-tenants="${u.id}">Save</button></div></details>`
+        : '';
       return `<tr>
-        <td><strong>${escapeHtml(u.name || u.email)}</strong>${u.name ? `<small class="muted block">${escapeHtml(u.email)}</small>` : ''}</td>
+        <td><strong>${escapeHtml(u.name || u.email)}</strong>${u.name ? `<small class="muted block">${escapeHtml(u.email)}</small>` : ''}${tenantLine}</td>
         <td>${roleCell}</td>
         <td class="small-text">${methods}</td>
         <td>${status}</td>
         <td class="when">${u.lastLoginAt ? escapeHtml(formatTime(u.lastLoginAt)) : '<span class="hint">never</span>'}</td>
-        <td><div class="row-actions">${actions}</div></td>
+        <td><div class="row-actions">${actions}${tenantPick}</div></td>
       </tr>`;
     })
     .join('');
@@ -7251,10 +7368,14 @@ $('iam-users').addEventListener('change', (event) => {
 $('iam-users').addEventListener('click', (event) => {
   const button = event.target.closest('button');
   if (!button) return;
-  const id = button.dataset.iamReset || button.dataset.iamIds || button.dataset.iamToggle || button.dataset.iamDelete;
+  const id = button.dataset.iamReset || button.dataset.iamIds || button.dataset.iamToggle || button.dataset.iamDelete || button.dataset.iamTenants;
   const user = access.data.users.find((u) => u.id === id);
   if (!user) return;
-  if (button.dataset.iamReset) {
+  if (button.dataset.iamTenants) {
+    const tenants = [...button.closest('.tn-pop').querySelectorAll('input:checked')].map((input) => input.value);
+    if (!tenants.length) return setStatus('iam-status', 'Choose at least one tenant.', 'error');
+    iamCall(`/api/iam/users/${id}/tenants`, { method: 'PUT', body: JSON.stringify({ tenants }) }, 'Saved.');
+  } else if (button.dataset.iamReset) {
     const password = generatePassword();
     if (!confirm(`Set a temporary password for ${user.email}? They are signed out and choose their own at next sign-in.`)) return;
     iamCall(`/api/iam/users/${id}/password`, { method: 'POST', body: JSON.stringify({ password }) }, `Temporary password for ${user.email}: ${password}`);
