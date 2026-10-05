@@ -31,7 +31,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.44 — 2026-10-05 HH:MM UTC · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+## MZ-01.00.44 — 2026-10-05 02:59 UTC · [#67](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/67)
 - **Hide the menu.** **Hide menu** (bottom of the sidebar) turns it into a slim bar of icons. Point at it and the full menu opens over the page without moving anything; **Keep menu open** brings it back. The choice is remembered, and the menu is also narrower when kept open.
 - **The Dashboard's top stays in view.** What to load, **Load findings**, the totals and the way to Mission Zero now form one compact block. It takes about a fifth of a 1080p screen (under a third of a laptop's) and stays at the top while you scroll, so the scope and **Load findings** are always at hand.
 - **One scroll bar.** The projects table no longer scrolls inside its own box. The page scrolls, and the table's header row and the action panel stay in view under the top block.
