@@ -67,15 +67,15 @@ The second reviewer worked from the first reviewer's corrected text, without bei
 
 | Language | Entries | Corrections, review 1 | Corrections, review 2 |
 |---|---|---|---|
-| Japanese | 1,415 | 21 | 13 |
-| Traditional Chinese (Taiwan) | 1,415 | 24 | 36 |
-| Simplified Chinese | 1,415 | 17 | 7 |
-| Korean | 1,415 | 12 | 19 |
-| Spanish | 1,415 | 21 | 13 |
-| Vietnamese | 1,415 | 22 | 17 |
-| Thai | 1,415 | 17 | TH2 |
-| Malay | 1,415 | 21 | 13 |
-| Indonesian | 1,415 | 53 | 17 |
+| Japanese | 1,416 | 21 | 13 |
+| Traditional Chinese (Taiwan) | 1,416 | 24 | 36 |
+| Simplified Chinese | 1,416 | 17 | 7 |
+| Korean | 1,416 | 12 | 19 |
+| Spanish | 1,416 | 21 | 13 |
+| Vietnamese | 1,416 | 22 | 17 |
+| Thai | 1,416 | 17 | 20 |
+| Malay | 1,416 | 21 | 13 |
+| Indonesian | 1,416 | 53 | 17 |
 
 **Fixed in the English itself.** The reviews found places where one English word was doing two jobs:
 - **"From" and "To":** used for both email fields and date ranges.
