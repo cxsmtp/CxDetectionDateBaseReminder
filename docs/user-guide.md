@@ -580,7 +580,7 @@ Where findings are read from. The default is `/api/risks/`.
 
 ## Dashboard
 
-**Get started.** Until the basics are in place, one row of steps at the top shows what is left: connect Checkmarx One, fetch vulnerabilities, set up email, give reports a reachable address, cap AI credits, invite your team. Done steps are ticked green and joined by a green line; each step still to do has its button. **Hide** puts the row away.
+**Get started.** Until the basics are in place, one row of steps at the top shows what is left: connect Checkmarx One, fetch vulnerabilities, set up email, give reports a reachable address, cap AI credits, invite your team. The first step is labelled **Connect**; each other step carries the name of the sidebar group it belongs to (Act, Prove, Set up). Done steps are ticked green and joined by a green line; each step still to do has its button. **Hide** puts the row away.
 
 **The way to Mission Zero.** Under the totals, one line shows where the fetched findings stand:
 - **Mission Zero:** a ring with how many projects have nothing open.
