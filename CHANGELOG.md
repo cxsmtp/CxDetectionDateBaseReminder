@@ -36,7 +36,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.49 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.49 — 2026-10-05 16:13 UTC · [#72](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/72)
 - **The same two golden buttons in three places.** **Triage with AI Assist now** and **Remediate with AI Assist now** are on the Dashboard, on a tracked report's **Triage** tab and on Credit Control. Each turns gold, with its glow and sweep, once the credits given cover the work, and goes back to plain once the work is sent.
 - **Remediate from a tracked report.** Next to triage, a report now sends its confirmed findings, at the chosen severities, for AI Remediation: 3 credits each, out of what its projects were given. The line above the buttons now also says how many confirmed findings wait to be fixed.
 - **Use the credits on Credit Control.** Tick projects in **Allocated vs used** (or none, for every project) and the severities, then **Triage with AI Assist now** or **Remediate with AI Assist now**. Findings are read fresh from Checkmarx One, so nothing needs loading on the Dashboard. Each run is in the audit log as started from Credit Control.
