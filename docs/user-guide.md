@@ -55,6 +55,39 @@ The coloured label next to each page title says which stage you are in.
 
 ---
 
+**Your language.** The globe at the top right switches the page to any of these languages:
+- 日本語 (Japanese);
+- 繁體中文 (Traditional Chinese, Taiwan);
+- 简体中文 (Simplified Chinese);
+- 한국어 (Korean);
+- Español (Spanish);
+- Tiếng Việt (Vietnamese);
+- ไทย (Thai);
+- Bahasa Melayu (Malay);
+- Bahasa Indonesia (Indonesian);
+- English.
+
+The first time, CxMissionZero uses your browser's language when it is one of these. Your choice is saved with your account, so it follows you to any browser you sign in from.
+
+What is translated, and what is not:
+- **Translated:** menus, options, buttons, headings, hints and status messages.
+- **Not translated:**
+  - names of projects, people and findings, which are shown as they are in Checkmarx One;
+  - logs and code;
+  - the terms of use, whose English text is the binding version.
+- While something runs, the status line says plainly what is happening in every language other than English.
+- The emailed report and reminder emails stay in English.
+
+**Your profile.** Open your name at the top right, then **Your profile** (also Settings → Your profile). Every person has one, whatever their role:
+- **Picture:** PNG, JPEG or WebP. It is cut to a square and made small in your browser before it is saved.
+- **Email, role and last sign-in:** shown for reference. An administrator manages these under People & roles.
+- **Name:** how you appear in this app.
+- **Language:** the same choice as the globe.
+- **Time zone:** picked up from your computer by default. Untick **Use this computer's time zone** to choose another. Dates and times on every page are shown in it.
+- **Programming languages:** the languages you work in.
+
+Changes save as you make them and are recorded in the audit log. A time zone or first language picked up from your computer is saved without an audit entry.
+
 **Simple by default.** Fine-tuning most people never need is hidden: the reminder format and attachment, extra credits, custom link and mail templates, the risks endpoint, mail-server certificate checks, HTTPS hardening and similar. To see it, open your name (top right) and turn on **Show advanced options**. The choice is kept in your browser.
 
 ## Who can do what
@@ -338,7 +371,7 @@ All the options, and a checklist for hosting CxMissionZero safely: [HTTPS and ho
 
 ## Settings, option by option
 
-Settings shows one section at a time: pick it from the list on the left (a strip across the top on a tablet or phone). The groups are **Start**, **Connections**, **Reminders**, **AI & credits**, **Reports & brand**, **Security** and **About**. Sections your role cannot change are shown read-only. Everything saves as you type.
+Settings shows one section at a time: pick it from the list on the left (a strip across the top on a tablet or phone). The groups are **You** (your profile, for everyone), **Start**, **Connections**, **Reminders**, **AI & credits**, **Reports & brand**, **Security** and **About**. Sections your role cannot change are shown read-only. Everything saves as you type.
 
 ### Update & recovery (Admin)
 

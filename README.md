@@ -21,6 +21,7 @@ Self-hosted, one container, nothing to install for developers.
 | **Hands-off follow-up** | Age-threshold automation that never nags twice, and tracked reports that measure progress and send follow-ups. |
 | **Accountable** | A hash-chained audit log of every credit and change, role-based access, one-file backups, and a privacy-safe troubleshooting log. |
 | **Easy to work in** | Pages grouped as Detect, Eliminate and Govern, in tabs instead of long scrolls; every page keeps your work when you switch; Jump to (Ctrl K); a layout that fits phone, tablet, laptop and wide screens. |
+| **In your language** | Menus and options in Japanese, Traditional Chinese (Taiwan), Simplified Chinese, Korean, Spanish, Vietnamese, Thai, Malay and Indonesian, as well as English. Each translation was checked by two separate reviews and by automated checks ([languages](docs/languages.md)). Each person has a profile with their own picture, language, time zone (picked up from their computer) and programming languages. |
 | **Scales** | 3000 people at once on 2 vCPU / 4 GB, 6 failed of 64,320 requests; a report opens in 53 ms (p50) ([benchmark](docs/performance.md)). |
 
 ## Architecture

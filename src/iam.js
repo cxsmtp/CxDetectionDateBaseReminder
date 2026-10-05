@@ -342,6 +342,34 @@ export class IamStore {
     return { before, after: publicUser(user) };
   }
 
+  /** A person changes their own profile (name, language, time zone, programming languages). Returns {before, after}. */
+  updateProfile(id, patch = {}) {
+    const user = this.user(id);
+    if (!user) throw fail(404, 'No such user.');
+    const before = publicUser(user);
+    const profile = { ...(user.profile ?? {}), ...cleanProfile(patch) };
+    if ('name' in patch) user.name = String(patch.name ?? '').trim().slice(0, 120);
+    user.profile = profile;
+    this.#save();
+    return { before, after: publicUser(user) };
+  }
+
+  /** Set (a data: URL) or remove ('') a person's picture. */
+  setAvatar(id, dataUrl) {
+    const user = this.user(id);
+    if (!user) throw fail(404, 'No such user.');
+    if (dataUrl) user.avatar = { ...parseAvatar(dataUrl), at: new Date().toISOString() };
+    else delete user.avatar;
+    this.#save();
+    return publicUser(user);
+  }
+
+  /** A person's picture: {type, bytes}, or null. */
+  avatar(id) {
+    const avatar = this.user(id)?.avatar;
+    return avatar?.data ? { type: avatar.type, bytes: Buffer.from(avatar.data, 'base64'), at: avatar.at } : null;
+  }
+
   deleteUser(id, { actorPerms, actorId = '' }) {
     const user = this.user(id);
     if (!user) throw fail(404, 'No such user.');
@@ -462,6 +490,64 @@ function cleanAliases(list) {
   return [...new Set(values.map(norm).filter(Boolean))].slice(0, 20);
 }
 
+// ---------------------------------------------------------------------------
+// Each person's own profile: language, time zone, programming languages and picture.
+// ---------------------------------------------------------------------------
+
+export const PROFILE_LANGUAGES = ['en', 'ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'vi', 'th', 'ms', 'id'];
+export const PROGRAMMING_LANGUAGES = [
+  'Apex', 'C', 'C++', 'C#', 'COBOL', 'Dart', 'Go', 'Groovy', 'Java', 'JavaScript', 'Kotlin', 'Objective-C', 'Perl', 'PHP',
+  'PL/SQL', 'Python', 'Ruby', 'Rust', 'Scala', 'Swift', 'TypeScript', 'VB.NET', 'Infrastructure as code',
+];
+const AVATAR_TYPES = { 'image/png': [0x89, 0x50, 0x4e, 0x47], 'image/jpeg': [0xff, 0xd8, 0xff], 'image/webp': [0x52, 0x49, 0x46, 0x46] };
+export const AVATAR_MAX_BYTES = 200 * 1024;
+
+/** An IANA time zone this server knows ("Asia/Tokyo"), or ''. */
+export function validTimeZone(zone) {
+  const text = String(zone ?? '').trim();
+  if (!text || text.length > 64) return '';
+  try {
+    return new Intl.DateTimeFormat('en', { timeZone: text }).resolvedOptions().timeZone;
+  } catch {
+    return '';
+  }
+}
+
+/** The profile fields of `patch` that are valid; anything else is refused with a reason. */
+export function cleanProfile(patch = {}) {
+  const out = {};
+  if ('language' in patch) {
+    if (patch.language && !PROFILE_LANGUAGES.includes(patch.language)) throw fail(400, 'That language is not available.');
+    out.language = patch.language || '';
+  }
+  if ('timeZone' in patch) {
+    const zone = validTimeZone(patch.timeZone);
+    if (patch.timeZone && !zone) throw fail(400, `"${String(patch.timeZone).slice(0, 64)}" is not a time zone this server knows.`);
+    out.timeZone = zone;
+  }
+  if ('timeZoneAuto' in patch) out.timeZoneAuto = patch.timeZoneAuto !== false;
+  if ('programmingLanguages' in patch) {
+    const list = Array.isArray(patch.programmingLanguages) ? patch.programmingLanguages : [];
+    const unknown = list.filter((l) => !PROGRAMMING_LANGUAGES.includes(l));
+    if (unknown.length) throw fail(400, `Unknown programming language: ${String(unknown[0]).slice(0, 40)}.`);
+    out.programmingLanguages = PROGRAMMING_LANGUAGES.filter((l) => list.includes(l));
+  }
+  return out;
+}
+
+/** A picture sent as a data: URL: PNG, JPEG or WebP (checked by its first bytes), at most 200 KB. */
+export function parseAvatar(dataUrl) {
+  const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(dataUrl ?? ''));
+  if (!match) throw fail(400, 'Choose a PNG, JPEG or WebP picture.');
+  const bytes = Buffer.from(match[2], 'base64');
+  if (bytes.length > AVATAR_MAX_BYTES) throw fail(413, 'That picture is too large (at most 200 KB).');
+  const magic = AVATAR_TYPES[match[1]];
+  if (bytes.length < 12 || magic.some((b, i) => bytes[i] !== b) || (match[1] === 'image/webp' && bytes.toString('latin1', 8, 12) !== 'WEBP')) {
+    throw fail(400, 'That file is not the picture it claims to be.');
+  }
+  return { type: match[1], data: bytes.toString('base64') };
+}
+
 /** A user as the browser may see them: never the password hash. */
 export function publicUser(user) {
   if (!user) return null;
@@ -477,5 +563,13 @@ export function publicUser(user) {
     locked: (user.lockedUntil ?? 0) > Date.now(),
     createdAt: user.createdAt ?? '',
     lastLoginAt: user.lastLoginAt ?? '',
+    profile: {
+      language: user.profile?.language ?? '',
+      timeZone: user.profile?.timeZone ?? '',
+      timeZoneAuto: user.profile?.timeZoneAuto !== false,
+      programmingLanguages: user.profile?.programmingLanguages ?? [],
+    },
+    // The picture itself is fetched on its own (GET /api/users/:id/avatar?v=avatarAt).
+    avatarAt: user.avatar?.at ?? '',
   };
 }

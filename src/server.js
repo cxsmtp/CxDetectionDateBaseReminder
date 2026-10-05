@@ -26,7 +26,7 @@ import { poolSummary, resolveRange, usageSeries } from './credit-usage.js';
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
-import { IamStore, PERMISSIONS, generatePassword, publicUser } from './iam.js';
+import { IamStore, PERMISSIONS, PROFILE_LANGUAGES, PROGRAMMING_LANGUAGES, generatePassword, publicUser } from './iam.js';
 import { insideProject, migrateLegacyData, prepareDataDir, resolveDataDir } from './data-dir.js';
 import { PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, listBackups, readBackup, writeBackupTo } from './backup.js';
 import fs from 'node:fs';
@@ -1058,6 +1058,51 @@ app.post(
     res.json(describeMe(req.session, iam.user(user.id)));
   }),
 );
+
+/**
+ * One's own profile: name, language, time zone and programming languages. A time zone picked up
+ * from the computer by itself (quiet) is stored without an audit entry; everything else is audited.
+ */
+app.put(
+  '/api/me/profile',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const patch = {};
+    for (const key of ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages']) if (key in (req.body ?? {})) patch[key] = req.body[key];
+    const { before, after } = iam.updateProfile(req.user.id, patch);
+    const changed = [
+      ...(before.name !== after.name ? ['name'] : []),
+      ...Object.keys(after.profile).filter((k) => JSON.stringify(before.profile[k]) !== JSON.stringify(after.profile[k])),
+    ];
+    const quiet = req.body?.quiet === true && changed.every((k) => k === 'timeZone' || k === 'language');
+    if (changed.length && !quiet) {
+      audit.record({ type: 'iam', outcome: 'changed', reason: `${after.email} updated their profile: ${changed.join(', ')}.`, actor: await adminActor(req), details: { before: { name: before.name, ...before.profile }, after: { name: after.name, ...after.profile } } });
+    }
+    res.json(describeMe(req.session, iam.user(req.user.id)));
+  }),
+);
+
+/** One's own picture: a PNG, JPEG or WebP data: URL (the page makes it small first), or none. */
+app.put(
+  '/api/me/avatar',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    const after = iam.setAvatar(req.user.id, String(req.body?.image ?? ''));
+    audit.record({ type: 'iam', outcome: 'changed', reason: `${after.email} ${after.avatarAt ? 'changed' : 'removed'} their picture.`, actor: await adminActor(req) });
+    res.json(describeMe(req.session, iam.user(req.user.id)));
+  }),
+);
+
+/** A person's picture: for themselves, and for anyone who may see people and roles. */
+app.get('/api/users/:id/avatar', requireSession, (req, res) => {
+  if (req.params.id !== req.user.id && !can(req, 'iam.view')) return res.status(403).json({ error: 'Your role does not allow this.' });
+  const avatar = iam.avatar(req.params.id);
+  if (!avatar) return res.status(404).json({ error: 'No picture.' });
+  res.set({ 'Content-Type': avatar.type, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" });
+  res.send(avatar.bytes);
+});
+
+app.get('/api/me/profile/options', requireSession, (req, res) => res.json({ languages: PROFILE_LANGUAGES, programmingLanguages: PROGRAMMING_LANGUAGES }));
 
 // ---------------------------------------------------------------------------
 // Access: users and roles
