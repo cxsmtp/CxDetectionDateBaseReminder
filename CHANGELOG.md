@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.00.42 | — (page only) | — | — | 455 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.43 | 511/s, 0 | 5.7 s | 224 ms | 461 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.42 | — (page only) | — | — | 455 | 0 | same |
 | MZ-01.00.41 | 519/s, 0 | 0.9 s | 171 ms | 455 | 0 | same |
 | MZ-01.00.40 | 516/s, 0 | 5.9 s | 183 ms | 445 | 0 | same |
 | MZ-01.00.39 | 512/s, 0 | 5.7 s | 240 ms | 439 | 0 | same |
@@ -28,6 +29,12 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.43 — 2026-10-05 02:41 UTC · [#66](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/66)
+- **Azure DevOps takes the organisation in any form.** You can enter its name (`checkmarxdemo`), `https://dev.azure.com/checkmarxdemo`, a project or repository page you copied from the browser, or the older `checkmarxdemo.visualstudio.com`. All are stored as `https://dev.azure.com/checkmarxdemo`. A project page used to make every request fail with "not found", and addresses saved that way now work without being entered again.
+- **The token follows the organisation.** Writing the same organisation another way keeps its token, and another organisation on dev.azure.com drops it. When cloning for Code authors, the token is sent to the organisation's repositories under either address.
+- **Test says what to fix.** Azure DevOps does not reject a wrong token; it answers as Anonymous. Test now names the organisation, says the token was not accepted, and lists what to check: made for that organisation, active, not expired, pasted in full. A wrong address and a token saved without its organisation are each explained too.
+- **Status.** 511 requests a second with 3000 people at once and 0 failed (main 518). Report opens take 5.7 s and triage polls 224 ms at p95. 461 tests pass; `npm audit` finds 0 vulnerabilities; the last Checkmarx One scan (MZ-01.00.26) has no critical, high or medium open.
 
 ## MZ-01.00.42 — 2026-10-04 18:17 UTC · [#65](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/65)
 - **Download HTML is back.** It sits next to **Preview email** and **Preview report** under Remind again. It no longer hides behind *Show advanced options* or the attachment switch.

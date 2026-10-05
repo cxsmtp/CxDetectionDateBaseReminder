@@ -878,7 +878,8 @@ Early features: check what they find before relying on them. A feature an Admin 
   - A token, the API URL (GitHub Enterprise too), the organisation and repositories.
   - The token can also come from the .env file (`GITHUB_TOKEN`, `GITHUB_API_URL`, `GITHUB_ORG`), uploaded on Settings or used at start-up.
   - Its logo on the **Git** indicator, top right, is ringed green when it works.
-- **GitLab, Azure DevOps and Bitbucket:** one box each, with a token, the address (self-hosted too), and the projects or repositories to read. **Test** says whether the token is accepted.
+- **GitLab, Azure DevOps and Bitbucket:** one box each, with a token, the address (self-hosted too), and the projects or repositories to read. **Test** says whether the token is accepted, and if not, what to change.
+  - **Azure DevOps organisation:** its name (`acme`), `https://dev.azure.com/acme`, a project page in it, or `https://acme.visualstudio.com` all work. The token must be created for that organisation; one for another organisation, expired or revoked shows as *not accepted … answered as Anonymous*.
   - **Tokens:** stored like the SMTP password, never shown again, and only ever sent to their own host. An Azure DevOps token goes only to its own organisation.
   - **Changing an address to another host** clears that host's saved token (GitHub's too): enter the token again with the new address. A token from the .env file is only used for the host the file names (or the public service when it names none).
   - **Or from the .env file:**
@@ -911,7 +912,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.42** | — (page-only change; see performance) | — | — | 455 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| **MZ-01.00.43** | 511/s, **0 failed** | 5.7 s | 224 ms | 461 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
+| MZ-01.00.42 | — (page-only change) | — | — | 455 pass | 0 vulnerabilities | same |
 | MZ-01.00.41 | 519/s, 0 failed | 0.9 s | 171 ms | 455 pass | 0 vulnerabilities | same |
 | MZ-01.00.40 | 516/s, 0 failed | 5.9 s | 183 ms | 445 pass | 0 vulnerabilities | same |
 | MZ-01.00.39 | 512/s, 0 failed | 5.7 s | 240 ms | 439 pass | 0 vulnerabilities | same |

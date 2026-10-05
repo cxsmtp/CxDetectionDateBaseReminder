@@ -176,14 +176,19 @@ matched at all.
 
 **Tokens.** Read-only is enough:
 - **GitLab:** `read_api`, `read_repository`.
-- **Azure DevOps:** a personal access token with Code, Graph and Identity (read).
+- **Azure DevOps:** a personal access token with Code, Graph and Identity (read), created for the organisation you connect.
+  - **The organisation** can be given as its name (`acme`), `https://dev.azure.com/acme`, a project or repository page in it (`https://dev.azure.com/acme/Payments/_git/api`), or the older `https://acme.visualstudio.com`: all are stored as `https://dev.azure.com/acme`. Its token works for repositories under either address.
+  - **If Test says the token was not accepted:** Azure DevOps does not reject a wrong token, it answers as *Anonymous*. The token was created for another organisation, has expired or been revoked, or was pasted with a missing character. Create one under the right organisation (User settings → Personal access tokens → *Organization*), and paste it again.
+  - **A token with no organisation** is reported as such: a token is made for one organisation and does not name it.
 - **Bitbucket Cloud:** an app password with your username, or a workspace or repository access token.
 - **Bitbucket Data Center:** an HTTP access token.
 
 Each token is stored like the SMTP password, never sent back to the browser, and only ever
 sent to its own host. An Azure DevOps token goes only to repositories of its own organisation.
 - **Changing a host's address to another host drops its saved token,** unless a new token is
-  entered with it, so a token is never sent to an address someone else typed.
+  entered with it, so a token is never sent to an address someone else typed. For Azure DevOps
+  it is the organisation that counts: another form of the same organisation's address keeps the
+  token, another organisation drops it.
 - **A token from the .env file** goes only to the host the file names (`GITHUB_API_URL`,
   `GITLAB_URL`, `AZURE_DEVOPS_ORG_URL`, `BITBUCKET_URL`), or, when it names none, to the public
   service (api.github.com, gitlab.com, dev.azure.com, Bitbucket Cloud). An address set on the

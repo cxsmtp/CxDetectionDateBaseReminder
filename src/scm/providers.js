@@ -9,6 +9,7 @@ import { gitHostOf } from '../github/identity.js';
 import { AZURE_LABELS, azureCheck, azureClient, azureMethods } from './azure.js';
 import { BITBUCKET_LABELS, bitbucketBlame, bitbucketCheck, bitbucketClient, bitbucketCloneAuth, bitbucketMethods, isCloud } from './bitbucket.js';
 import { GITLAB_LABELS, gitlabBlame, gitlabCheck, gitlabClient, gitlabMethods, gitlabWebUrl } from './gitlab.js';
+import { azureOrgKey, normalizeAzureOrgUrl } from './azure-url.js';
 
 export const SCM_PROVIDERS = ['github', 'gitlab', 'azure', 'bitbucket'];
 export const SCM_LABELS = { github: 'GitHub', gitlab: 'GitLab', azure: 'Azure DevOps', bitbucket: 'Bitbucket' };
@@ -54,8 +55,10 @@ export function scmConfigs(settings, source = process.env) {
     projects: gl.projects ?? [],
   };
   gitlab.host = hostOf(gitlab.apiUrl);
-  const azureUrl = (az.orgUrl || env(source, 'AZURE_DEVOPS_ORG_URL')).replace(/\/+$/, '');
-  const azureEnvToken = environmentToken(source, 'AZURE_DEVOPS_TOKEN', 'AZURE_DEVOPS_ORG_URL', 'dev.azure.com', azureUrl);
+  const azureUrl = normalizeAzureOrgUrl(az.orgUrl || env(source, 'AZURE_DEVOPS_ORG_URL'));
+  // The .env token is for the .env organisation (any form of its address), or any on dev.azure.com when it names none.
+  const azureEnvUrl = normalizeAzureOrgUrl(env(source, 'AZURE_DEVOPS_ORG_URL'));
+  const azureEnvToken = env(source, 'AZURE_DEVOPS_TOKEN') && (azureEnvUrl ? azureOrgKey(azureEnvUrl) === azureOrgKey(azureUrl) : hostOf(azureUrl || 'https://dev.azure.com') === 'dev.azure.com') ? env(source, 'AZURE_DEVOPS_TOKEN') : '';
   const azure = {
     orgUrl: azureUrl,
     token: az.token || azureEnvToken,
@@ -102,10 +105,13 @@ export function cloneAuthFor(url, configs, only = '') {
   if (!host) return '';
   const { gitlab, azure, bitbucket } = configs;
   if ((!only || only === 'gitlab') && gitlab.token && host === gitlab.host) return `Basic ${Buffer.from(`oauth2:${gitlab.token}`).toString('base64')}`;
-  if ((!only || only === 'azure') && azure.token && host === azure.host) {
-    const org = new URL(azure.orgUrl).pathname.split('/').filter(Boolean)[0] ?? '';
-    const path = new URL(url).pathname.split('/').filter(Boolean);
-    if (host !== 'dev.azure.com' || path[0]?.toLowerCase() === org.toLowerCase()) return `Basic ${Buffer.from(`:${azure.token}`).toString('base64')}`;
+  // Azure DevOps tokens belong to one organisation: its repositories only, whichever form their address takes
+  // (dev.azure.com/acme/… or acme.visualstudio.com/…).
+  if ((!only || only === 'azure') && azure.token && azure.orgUrl) {
+    const org = azureOrgKey(azure.orgUrl);
+    const repo = azureOrgKey(url);
+    const server = !org.startsWith('dev.azure.com/');
+    if (server ? host === azure.host : repo === org) return `Basic ${Buffer.from(`:${azure.token}`).toString('base64')}`;
   }
   if ((!only || only === 'bitbucket') && bitbucket.token && host === bitbucket.host) return bitbucketCloneAuth(bitbucket);
   return '';
@@ -163,6 +169,8 @@ export async function checkConnections(clients, configs, only = SCM_PROVIDERS) {
   };
   if (only.includes('gitlab') && configs.gitlab.token) await run('gitlab', () => gitlabCheck(clients.gitlab));
   if (only.includes('azure') && configs.azure.token && clients.azure) await run('azure', () => azureCheck(clients.azure));
+  // A token alone does not say which organisation it is for.
+  else if (only.includes('azure') && configs.azure.token) out.azure = { ok: false, reason: 'Azure DevOps: add the organisation, for example https://dev.azure.com/acme (or just acme). A token is made for one organisation.' };
   if (only.includes('bitbucket') && configs.bitbucket.token) await run('bitbucket', () => bitbucketCheck(clients.bitbucket, configs.bitbucket));
   return out;
 }

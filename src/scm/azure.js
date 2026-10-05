@@ -14,6 +14,7 @@ import { byLocalGit, usableEmail } from '../github/identity.js';
 import { mapWithConcurrency } from '../cxone/client.js';
 import { ScmClient } from './client.js';
 import { directoryMatcher, validUsername } from './identity.js';
+import { azureOrgName } from './azure-url.js';
 
 export const AZURE_LABELS = {
   localGit: 'Local git history',
@@ -136,8 +137,30 @@ export function azureMethods(client, cfg, { localSources = [], cacheDir }) {
 }
 
 export async function azureCheck(client) {
-  const data = await client.org.get('/_apis/connectionData');
-  const who = data?.authenticatedUser?.providerDisplayName ?? '';
-  if (!who || /anonymous/i.test(who)) throw Object.assign(new Error('Azure DevOps did not accept the token.'), { status: 401 });
-  return { ok: true, who };
+  const where = client.org.baseUrl;
+  const org = azureOrgName(where);
+  let data;
+  try {
+    data = await client.org.get('/_apis/connectionData');
+  } catch (error) {
+    if (error.status === 404) {
+      throw Object.assign(new Error(`there is no Azure DevOps organisation at ${where}. Use the organisation's address, for example https://dev.azure.com/acme, without a project.`), { status: 404 });
+    }
+    if (error.status === 401 || error.status === 403) {
+      throw Object.assign(new Error(`the token was refused for ${where} (${error.status}). Check that it is for this organisation, has not expired or been revoked, and was copied in full.`), { status: error.status });
+    }
+    throw error;
+  }
+  // A wrong, expired or revoked token is not an error to Azure DevOps: it answers as "Anonymous".
+  const who = typeof data === 'object' ? data?.authenticatedUser?.providerDisplayName ?? '' : '';
+  if (!who || /anonymous/i.test(who)) {
+    throw Object.assign(
+      new Error(
+        `the token was not accepted for ${org ? `the organisation "${org}"` : where}: Azure DevOps answered as Anonymous. ` +
+          `Check that the token was created for ${org ? `"${org}"` : 'this organisation'} (Organization in Azure DevOps → Personal access tokens), is Active and not expired, and was pasted in full (no space or line break).`,
+      ),
+      { status: 401 },
+    );
+  }
+  return { ok: true, who, organisation: org || where };
 }
