@@ -8,6 +8,7 @@ import { DEFAULT_LINK_TEMPLATES, PREVIOUS_LINK_DEFAULTS } from './links.js';
 import { DEFAULT_TEMPLATE } from './template.js';
 import { TOKEN_NAMES, cleanStoredInstances, mergeStoredInstances } from './scm/instances.js';
 import { DEFAULT_SLA, mergeSla } from './sla.js';
+import { azureOrgKey, normalizeAzureOrgUrl } from './scm/azure-url.js';
 
 /**
  * Administrator settings: SMTP, recipients and the mail template.
@@ -451,7 +452,8 @@ function mergeHost(id, host, input) {
     if ('projects' in input) next.projects = listOf(input.projects).filter((r) => /^[\w.-]+(\/[\w.-]+)+$/.test(r));
   }
   if (id === 'azure') {
-    if ('orgUrl' in input) next.orgUrl = hostUrl(input.orgUrl, 'Azure DevOps organisation');
+    // Any form of the organisation's address (a name, a project or repository page, the older visualstudio.com) is its own.
+    if ('orgUrl' in input) next.orgUrl = hostUrl(normalizeAzureOrgUrl(input.orgUrl), 'Azure DevOps organisation');
     if ('repos' in input) next.repos = listOf(input.repos).filter((r) => /^[^/\s]+\/[^/\s]+$/.test(r));
   }
   if (id === 'bitbucket') {
@@ -471,7 +473,8 @@ function mergeHost(id, host, input) {
 /** Where a host's token would be sent: its address's host (and, for Bitbucket, cloud or server). */
 function hostKey(id, host) {
   if (id === 'gitlab') return hostOfUrl(host.apiUrl || 'https://gitlab.com');
-  if (id === 'azure') return hostOfUrl(host.orgUrl);
+  // The organisation, not only the host: dev.azure.com hosts every organisation.
+  if (id === 'azure') return azureOrgKey(normalizeAzureOrgUrl(host.orgUrl));
   return `${host.kind || ''} ${hostOfUrl(host.apiUrl || 'https://api.bitbucket.org')}`;
 }
 

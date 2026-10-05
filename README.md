@@ -193,7 +193,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `GITHUB_TOKEN` ⬆ | A GitHub token for the Beta features (code authors, username matching). |
 | `GITHUB_API_URL`, `GITHUB_ORG` ⬆ | GitHub Enterprise API (e.g. `https://github.company.com/api/v3`), and your organisation. |
 | `GITLAB_TOKEN`, `GITLAB_URL`, `GITLAB_GROUP` ⬆ | GitLab (gitlab.com or self-managed) for the Beta features. |
-| `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_ORG_URL` ⬆ | Azure DevOps (e.g. `https://dev.azure.com/acme`) for the Beta features. |
+| `AZURE_DEVOPS_TOKEN`, `AZURE_DEVOPS_ORG_URL` ⬆ | Azure DevOps for the Beta features: the organisation as `https://dev.azure.com/acme`, `acme`, a project page in it, or `https://acme.visualstudio.com`. |
 | `BITBUCKET_TOKEN`, `BITBUCKET_USERNAME`, `BITBUCKET_WORKSPACE`, `BITBUCKET_URL` ⬆ | Bitbucket Cloud (app password with username, or an access token), or Data Center (its address and an HTTP access token), for the Beta features. |
 | `GITHUB_TOKEN_2` … `_9` (and `GITHUB_API_URL_2`, `GITLAB_TOKEN_2`, `GITLAB_URL_2`, `AZURE_DEVOPS_TOKEN_2`, `BITBUCKET_TOKEN_2` …) ⬆ | More connections to the same host: a second GitHub, another GitLab or Azure DevOps organisation. Each shows as its own logo on the header's **Git** indicator. |
 | `SCM_ALLOWED_HOSTS` | Other git hosts (comma-separated) whose repositories the Beta features may clone. github.com, gitlab.com, bitbucket.org, dev.azure.com and the connected hosts are always allowed; nothing else is cloned. |

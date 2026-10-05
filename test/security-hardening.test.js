@@ -92,11 +92,13 @@ test('GitLab, Azure DevOps and Bitbucket tokens stay with their host too', () =>
 
   const same = mergeSettings(start, { beta: {
     gitlab: { apiUrl: 'https://git.acme.io/', group: 'team' },
-    azure: { orgUrl: 'https://dev.azure.com/acme-two' },
+    azure: { orgUrl: 'https://acme.visualstudio.com' },
     bitbucket: { apiUrl: 'https://bitbucket.acme.io/rest' },
   } });
   assert.equal(same.beta.gitlab.token, 'glpat');
-  assert.equal(same.beta.azure.token, 'pat');
+  assert.equal(same.beta.azure.token, 'pat', 'the same Azure DevOps organisation, at its older address');
+  // An Azure DevOps token belongs to one organisation: another one on the same host does not get it.
+  assert.equal(mergeSettings(start, { beta: { azure: { orgUrl: 'https://dev.azure.com/acme-two' } } }).beta.azure.token, '');
   assert.equal(same.beta.bitbucket.token, 'bbt');
 });
 

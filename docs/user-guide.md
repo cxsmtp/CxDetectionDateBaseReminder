@@ -878,7 +878,8 @@ Early features: check what they find before relying on them. A feature an Admin 
   - A token, the API URL (GitHub Enterprise too), the organisation and repositories.
   - The token can also come from the .env file (`GITHUB_TOKEN`, `GITHUB_API_URL`, `GITHUB_ORG`), uploaded on Settings or used at start-up.
   - Its logo on the **Git** indicator, top right, is ringed green when it works.
-- **GitLab, Azure DevOps and Bitbucket:** one box each, with a token, the address (self-hosted too), and the projects or repositories to read. **Test** says whether the token is accepted.
+- **GitLab, Azure DevOps and Bitbucket:** one box each, with a token, the address (self-hosted too), and the projects or repositories to read. **Test** says whether the token is accepted, and if not, what to change.
+  - **Azure DevOps organisation:** its name (`acme`), `https://dev.azure.com/acme`, a project page in it, or `https://acme.visualstudio.com` all work. The token must be created for that organisation; one for another organisation, expired or revoked shows as *not accepted … answered as Anonymous*.
   - **Tokens:** stored like the SMTP password, never shown again, and only ever sent to their own host. An Azure DevOps token goes only to its own organisation.
   - **Changing an address to another host** clears that host's saved token (GitHub's too): enter the token again with the new address. A token from the .env file is only used for the host the file names (or the public service when it names none).
   - **Or from the .env file:**
