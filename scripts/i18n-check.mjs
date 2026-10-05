@@ -32,13 +32,13 @@ const SCRIPT = {
 const NOT_MALAY = /\b(pengaturan|perbarui|proyek|pemindaian|unduh|kata sandi|berhasil|aktifkan|nonaktifkan|tautan|surel|dasbor)\b/i;
 const NOT_INDONESIAN = /\b(tetapan|kemas kini|projek|imbasan|muat turun|kata laluan|berjaya|pautan|papan pemuka|log masuk)\b/i;
 const CASUAL = {
-  th: /ครับ|ค่ะ|จ้า/,
+  th: /ครับ|ค่ะ|จ้า(?=[\s.!?]|$)/,
   es: /(?<!\p{L})(tú|vosotros|reporte|reportes)(?!\p{L})/iu,
   ja: /だよ|だね|してね|よね/,
   ko: /(해요|했어|거야)(?![가-힣])/,
 };
 // Stays in English everywhere (brands, protocol names): an entry made only of these may be identical.
-const KEEP = /^(?:[\s\d{}.,:;·•—–\-+()/&|→←…'"%#*!?]|CxMissionZero|Mission Zero|Checkmarx One|Checkmarx|GitHub|GitLab|Azure DevOps|Bitbucket|Jira|SAST|SCA|IaC|KICS|API Security|API|SMTP|HTTPS|HTTP|TLS|SLA|URL|PAT|IDE|AI|VS Code|JetBrains|Cursor|Kiro|Podman|Docker|Beta|OK|ID|CSV|JSON|PDF|HTML|PEM|PFX|MZ|UTC|GMT|Ctrl|Cmd|K|N\/A|v\d|[A-Z_]{2,}|\.env|\.pfx|[a-z0-9.-]+\.[a-z]{2,}|\S+@\S+|\S*\/\S*)+$/;
+const KEEP = /^(?:[\s\d{}.,:;·•—–\-+()/&|→←…'"%#*!?]|CxMissionZero|Mission Zero|Checkmarx One|Checkmarx|GitHub|GitLab|Azure DevOps|Bitbucket|Jira|SAST|SCA|IaC|KICS|API Security|API|SMTP|HTTPS|HTTP|TLS|SLAs|SLA|URL|PAT|IDE|AI|VS Code|JetBrains|Cursor|Kiro|Podman|Docker|Beta|Git|Cc|Bcc|Cloud|Data Center|Server|latest|OK|ID|CSV|JSON|PDF|HTML|PEM|PFX|MZ|UTC|GMT|Ctrl|Cmd|K|N\/A|v\d|[A-Z_]{2,}|\.env|\.pfx|[a-z0-9.-]+\.[a-z]{2,}|\S+@\S+|\S*\/\S*)+$/;
 
 /** Problems with one translation: [] when it is fine. */
 export function problems(english, translation, lang) {

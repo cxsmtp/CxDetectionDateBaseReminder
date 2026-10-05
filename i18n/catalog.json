@@ -45,6 +45,298 @@
    "Dashboard › label › Update & recovery"
   ]
  },
+ "{0} Checkmarx One results": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › fetching › b › AI check & fix",
+   "Dashboard › loaded › b › AI check & fix",
+   "Dashboard › remind › b › AI check & fix"
+  ]
+ },
+ "{0} confirmed, waiting for a fix": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard › fetching › button",
+   "Dashboard › loaded › button",
+   "Dashboard › remind › button"
+  ]
+ },
+ "{0} day (try it first)": {
+  "kind": "text",
+  "seen": [
+   "first start › option › HTTPS",
+   "sign in › option › HTTPS",
+   "Dashboard › option › HTTPS"
+  ]
+ },
+ "{0} entries": {
+  "kind": "message",
+  "seen": [
+   "message",
+   "logs › span › Activity log",
+   "logs › activity › span › Activity log"
+  ]
+ },
+ "{0} files, {1}.{2} KB": {
+  "kind": "text",
+  "seen": [
+   "audit › dd › State folder & backups",
+   "audit › log › dd › State folder & backups",
+   "audit › checks › dd › State folder & backups"
+  ]
+ },
+ "{0} finding(s) in {1}.{2}s via /api/risks/ · {3} API request(s)": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › fetching › p › Fetch",
+   "Dashboard › loaded › p › Fetch",
+   "Dashboard › remind › p › Fetch"
+  ]
+ },
+ "{0} finding(s) in this round are still open. Rescan anyway? Checkmarx One scans each project again (this uses scans, not AI credits).": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "{0} left of {1} allocated, {2} used · needs {3} for {4} Checkmarx One results ({5} findings — rows that share one result are triaged, and charged, once) still to triage (critical, high) · {6} more needed than allocated — allocate it on purpose": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard › fetching › td › Projects",
+   "Dashboard › loaded › td › Projects",
+   "Dashboard › remind › td › Projects"
+  ]
+ },
+ "{0} left of {1} allocated, {2} used · needs {3} for {4} confirmed finding(s) to remediate ({5} credits each)": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard › fetching › td › Projects",
+   "Dashboard › loaded › td › Projects",
+   "Dashboard › remind › td › Projects"
+  ]
+ },
+ "{0} message(s) covering {1} finding(s) — SMTP not verified, sending is disabled": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › reminder preview › p › Preview",
+   "Dashboard › credit editor › p › Preview",
+   "Dashboard › triage done › p › Preview"
+  ]
+ },
+ "{0} months": {
+  "kind": "text",
+  "seen": [
+   "first start › option › HTTPS",
+   "sign in › option › HTTPS",
+   "Dashboard › option › HTTPS"
+  ]
+ },
+ "{0} more needed": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › fetching › span › Projects",
+   "Dashboard › loaded › span › Projects",
+   "Dashboard › remind › span › Projects"
+  ]
+ },
+ "{0} of {1} done": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "Dashboard › div › Get started · 1 of 6 done",
+   "Dashboard (advanced) › div › Get started · 1 of 6 done",
+   "connection: cxone › div › Get started · 1 of 6 done"
+  ]
+ },
+ "{0} of {1} people": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "{0} of {1} project(s) shown · no project selected (reminder covers every shown project)": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › fetching › p › Projects",
+   "Dashboard › loaded › p › Projects",
+   "Dashboard › remind › p › Projects"
+  ]
+ },
+ "{0} of {1} projects at zero": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › fetching › small",
+   "Dashboard › loaded › small",
+   "Dashboard › remind › small"
+  ]
+ },
+ "{0} of {1} tracked reports verified at zero by a rescan": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard › fetching › a",
+   "Dashboard › loaded › a",
+   "Dashboard › remind › a"
+  ]
+ },
+ "{0} open findings in {1} projects": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard › fetching › span",
+   "Dashboard › loaded › span",
+   "Dashboard › remind › span"
+  ]
+ },
+ "{0} over HTTPS · {1} over http": {
+  "kind": "text",
+  "seen": [
+   "settings › span › HTTPS",
+   "logs › span › HTTPS",
+   "logs › activity › span › HTTPS"
+  ]
+ },
+ "{0} people": {
+  "kind": "text",
+  "seen": [
+   "access › small › Roles & permissions",
+   "access › people › small › Roles & permissions",
+   "access › roles › small › Roles & permissions"
+  ]
+ },
+ "{0} person": {
+  "kind": "text",
+  "seen": [
+   "access › span › People",
+   "access › people › span › People",
+   "access › roles › span › People"
+  ]
+ },
+ "{0} person · fixed": {
+  "kind": "text",
+  "seen": [
+   "access › small › Roles & permissions",
+   "access › people › small › Roles & permissions",
+   "access › roles › small › Roles & permissions"
+  ]
+ },
+ "{0} project": {
+  "kind": "attr:label",
+  "seen": [
+   "Dashboard › narrow › option › Only these projects or people — optional",
+   "Dashboard › fetching › option › Only these projects or people — optional",
+   "Dashboard › loaded › option › Only these projects or people — optional"
+  ]
+ },
+ "{0} projects shown": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › fetching › span › AI check & fix",
+   "Dashboard › loaded › span › AI check & fix",
+   "Dashboard › remind › span › AI check & fix"
+  ]
+ },
+ "{0} projects shown on the Dashboard": {
+  "kind": "text",
+  "seen": [
+   "beta › span › Email the authors of vulnerable code",
+   "beta › authors › span › Email the authors of vulnerable code",
+   "beta › identity › span › Email the authors of vulnerable code"
+  ]
+ },
+ "{0} projects, {1} people. Pick as you type; Enter adds every project whose name contains the text.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › narrow › p › Only these projects or people — optional",
+   "Dashboard › fetching › p › Only these projects or people — optional",
+   "Dashboard › loaded › p › Only these projects or people — optional"
+  ]
+ },
+ "{0} requests · {1} projects": {
+  "kind": "text",
+  "seen": [
+   "credits › span › Credits used over time",
+   "credits › overview › span › Credits used over time",
+   "credits › projects › span › Credits used over time"
+  ]
+ },
+ "{0} to verify: AI Triage or a person decides whether each is real": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard › fetching › button",
+   "Dashboard › loaded › button",
+   "Dashboard › remind › button"
+  ]
+ },
+ "{0} users per request; includes your organisation's verified-domain emails. Needs a token.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Match usernames to email addresses",
+   "sign in › small › Match usernames to email addresses",
+   "Dashboard › small › Match usernames to email addresses"
+  ]
+ },
+ "{0} week": {
+  "kind": "text",
+  "seen": [
+   "first start › option › HTTPS",
+   "sign in › option › HTTPS",
+   "Dashboard › option › HTTPS"
+  ]
+ },
+ "{0} with a fix asked for: merge it, then rescan": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard › fetching › a",
+   "Dashboard › loaded › a",
+   "Dashboard › remind › a"
+  ]
+ },
+ "{0} year": {
+  "kind": "text",
+  "seen": [
+   "first start › option › HTTPS",
+   "sign in › option › HTTPS",
+   "Dashboard › option › HTTPS"
+  ]
+ },
+ "{0}–{1} days": {
+  "kind": "text",
+  "seen": [
+   "Dashboard › fetching › span",
+   "Dashboard › loaded › span",
+   "Dashboard › remind › span"
+  ]
+ },
+ "{0}–{1} of {2}": {
+  "kind": "text",
+  "seen": [
+   "access › span › People",
+   "access › people › span › People",
+   "access › roles › span › People"
+  ]
+ },
+ "{0}–{1} of {2}, newest first": {
+  "kind": "text",
+  "seen": [
+   "logs › span › Activity log",
+   "logs › activity › span › Activity log",
+   "logs › troubleshooting › span › Activity log"
+  ]
+ },
+ "{0}–{1}d": {
+  "kind": "text",
+  "seen": [
+   "first start › label › Age",
+   "sign in › label › Age",
+   "Dashboard › label › Age"
+  ]
+ },
+ "{0}/{1}/{2}, {3}:{4}:{5} AM": {
+  "kind": "text",
+  "seen": [
+   "settings › dd › Your profile",
+   "logs › dd › Your profile",
+   "logs › activity › dd › Your profile"
+  ]
+ },
  "/tmp/i{0}n-{1}QoFX{2}/backups — same disk as the state: set BACKUP_DIR to another disk or share": {
   "kind": "text",
   "seen": [
@@ -212,15 +504,7 @@
    "Dashboard › h3 › HTTPS"
   ]
  },
- "<span class=\"step-num\">{0}</span> Turn on HTTPS next to http": {
-  "kind": "html",
-  "seen": [
-   "first start › h3 › HTTPS",
-   "sign in › h3 › HTTPS",
-   "Dashboard › h3 › HTTPS"
-  ]
- },
- "<span class=\"step-num\">{0}</span> Test it": {
+ "<span class=\"step-num\">{0}</span> Harden": {
   "kind": "html",
   "seen": [
    "first start › h3 › HTTPS",
@@ -236,7 +520,15 @@
    "Dashboard › h3 › HTTPS"
   ]
  },
- "<span class=\"step-num\">{0}</span> Harden": {
+ "<span class=\"step-num\">{0}</span> Test it": {
+  "kind": "html",
+  "seen": [
+   "first start › h3 › HTTPS",
+   "sign in › h3 › HTTPS",
+   "Dashboard › h3 › HTTPS"
+  ]
+ },
+ "<span class=\"step-num\">{0}</span> Turn on HTTPS next to http": {
   "kind": "html",
   "seen": [
    "first start › h3 › HTTPS",
@@ -298,298 +590,6 @@
    "settings › div › Automation",
    "logs › div › Automation",
    "logs › activity › div › Automation"
-  ]
- },
- "{0} confirmed, waiting for a fix": {
-  "kind": "attr:title",
-  "seen": [
-   "Dashboard › fetching › button",
-   "Dashboard › loaded › button",
-   "Dashboard › remind › button"
-  ]
- },
- "{0} entries": {
-  "kind": "message",
-  "seen": [
-   "message",
-   "logs › span › Activity log",
-   "logs › activity › span › Activity log"
-  ]
- },
- "{0} finding(s) in this round are still open. Rescan anyway? Checkmarx One scans each project again (this uses scans, not AI credits).": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "{0} left of {1} allocated, {2} used · needs {3} for {4} confirmed finding(s) to remediate ({5} credits each)": {
-  "kind": "attr:title",
-  "seen": [
-   "Dashboard › fetching › td › Projects",
-   "Dashboard › loaded › td › Projects",
-   "Dashboard › remind › td › Projects"
-  ]
- },
- "{0} left of {1} allocated, {2} used · needs {3} for {4} Checkmarx One results ({5} findings — rows that share one result are triaged, and charged, once) still to triage (critical, high) · {6} more needed than allocated — allocate it on purpose": {
-  "kind": "attr:title",
-  "seen": [
-   "Dashboard › fetching › td › Projects",
-   "Dashboard › loaded › td › Projects",
-   "Dashboard › remind › td › Projects"
-  ]
- },
- "{0} of {1} tracked reports verified at zero by a rescan": {
-  "kind": "attr:title",
-  "seen": [
-   "Dashboard › fetching › a",
-   "Dashboard › loaded › a",
-   "Dashboard › remind › a"
-  ]
- },
- "{0} of {1} people": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "{0} of {1} projects at zero": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › fetching › small",
-   "Dashboard › loaded › small",
-   "Dashboard › remind › small"
-  ]
- },
- "{0} over HTTPS · {1} over http": {
-  "kind": "text",
-  "seen": [
-   "settings › span › HTTPS",
-   "logs › span › HTTPS",
-   "logs › activity › span › HTTPS"
-  ]
- },
- "{0} people": {
-  "kind": "text",
-  "seen": [
-   "access › small › Roles & permissions",
-   "access › people › small › Roles & permissions",
-   "access › roles › small › Roles & permissions"
-  ]
- },
- "{0} requests · {1} projects": {
-  "kind": "text",
-  "seen": [
-   "credits › span › Credits used over time",
-   "credits › overview › span › Credits used over time",
-   "credits › projects › span › Credits used over time"
-  ]
- },
- "{0} with a fix asked for: merge it, then rescan": {
-  "kind": "attr:title",
-  "seen": [
-   "Dashboard › fetching › a",
-   "Dashboard › loaded › a",
-   "Dashboard › remind › a"
-  ]
- },
- "{0} day (try it first)": {
-  "kind": "text",
-  "seen": [
-   "first start › option › HTTPS",
-   "sign in › option › HTTPS",
-   "Dashboard › option › HTTPS"
-  ]
- },
- "{0} of {1} done": {
-  "kind": "attr:aria-label",
-  "seen": [
-   "Dashboard › div › Get started · 1 of 6 done",
-   "Dashboard (advanced) › div › Get started · 1 of 6 done",
-   "connection: cxone › div › Get started · 1 of 6 done"
-  ]
- },
- "{0} person": {
-  "kind": "text",
-  "seen": [
-   "access › span › People",
-   "access › people › span › People",
-   "access › roles › span › People"
-  ]
- },
- "{0} person · fixed": {
-  "kind": "text",
-  "seen": [
-   "access › small › Roles & permissions",
-   "access › people › small › Roles & permissions",
-   "access › roles › small › Roles & permissions"
-  ]
- },
- "{0} project": {
-  "kind": "attr:label",
-  "seen": [
-   "Dashboard › narrow › option › Only these projects or people — optional",
-   "Dashboard › fetching › option › Only these projects or people — optional",
-   "Dashboard › loaded › option › Only these projects or people — optional"
-  ]
- },
- "{0} week": {
-  "kind": "text",
-  "seen": [
-   "first start › option › HTTPS",
-   "sign in › option › HTTPS",
-   "Dashboard › option › HTTPS"
-  ]
- },
- "{0} year": {
-  "kind": "text",
-  "seen": [
-   "first start › option › HTTPS",
-   "sign in › option › HTTPS",
-   "Dashboard › option › HTTPS"
-  ]
- },
- "{0}–{1} of {2}": {
-  "kind": "text",
-  "seen": [
-   "access › span › People",
-   "access › people › span › People",
-   "access › roles › span › People"
-  ]
- },
- "{0}–{1} of {2}, newest first": {
-  "kind": "text",
-  "seen": [
-   "logs › span › Activity log",
-   "logs › activity › span › Activity log",
-   "logs › troubleshooting › span › Activity log"
-  ]
- },
- "{0}/{1}/{2}, {3}:{4}:{5} AM": {
-  "kind": "text",
-  "seen": [
-   "settings › dd › Your profile",
-   "logs › dd › Your profile",
-   "logs › activity › dd › Your profile"
-  ]
- },
- "{0} finding(s) in {1}.{2}s via /api/risks/ · {3} API request(s)": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › fetching › p › Fetch",
-   "Dashboard › loaded › p › Fetch",
-   "Dashboard › remind › p › Fetch"
-  ]
- },
- "{0} open findings in {1} projects": {
-  "kind": "attr:title",
-  "seen": [
-   "Dashboard › fetching › span",
-   "Dashboard › loaded › span",
-   "Dashboard › remind › span"
-  ]
- },
- "{0} to verify: AI Triage or a person decides whether each is real": {
-  "kind": "attr:title",
-  "seen": [
-   "Dashboard › fetching › button",
-   "Dashboard › loaded › button",
-   "Dashboard › remind › button"
-  ]
- },
- "{0} message(s) covering {1} finding(s) — SMTP not verified, sending is disabled": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › reminder preview › p › Preview",
-   "Dashboard › credit editor › p › Preview",
-   "Dashboard › triage done › p › Preview"
-  ]
- },
- "{0} of {1} project(s) shown · no project selected (reminder covers every shown project)": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › fetching › p › Projects",
-   "Dashboard › loaded › p › Projects",
-   "Dashboard › remind › p › Projects"
-  ]
- },
- "{0} projects shown": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › fetching › span › AI check & fix",
-   "Dashboard › loaded › span › AI check & fix",
-   "Dashboard › remind › span › AI check & fix"
-  ]
- },
- "{0} projects shown on the Dashboard": {
-  "kind": "text",
-  "seen": [
-   "beta › span › Email the authors of vulnerable code",
-   "beta › authors › span › Email the authors of vulnerable code",
-   "beta › identity › span › Email the authors of vulnerable code"
-  ]
- },
- "{0} projects, {1} people. Pick as you type; Enter adds every project whose name contains the text.": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › narrow › p › Only these projects or people — optional",
-   "Dashboard › fetching › p › Only these projects or people — optional",
-   "Dashboard › loaded › p › Only these projects or people — optional"
-  ]
- },
- "{0} more needed": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › fetching › span › Projects",
-   "Dashboard › loaded › span › Projects",
-   "Dashboard › remind › span › Projects"
-  ]
- },
- "{0} Checkmarx One results": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › fetching › b › AI check & fix",
-   "Dashboard › loaded › b › AI check & fix",
-   "Dashboard › remind › b › AI check & fix"
-  ]
- },
- "{0}–{1} days": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › fetching › span",
-   "Dashboard › loaded › span",
-   "Dashboard › remind › span"
-  ]
- },
- "{0}–{1}d": {
-  "kind": "text",
-  "seen": [
-   "first start › label › Age",
-   "sign in › label › Age",
-   "Dashboard › label › Age"
-  ]
- },
- "{0} users per request; includes your organisation's verified-domain emails. Needs a token.": {
-  "kind": "text",
-  "seen": [
-   "first start › small › Match usernames to email addresses",
-   "sign in › small › Match usernames to email addresses",
-   "Dashboard › small › Match usernames to email addresses"
-  ]
- },
- "{0} files, {1}.{2} KB": {
-  "kind": "text",
-  "seen": [
-   "audit › dd › State folder & backups",
-   "audit › log › dd › State folder & backups",
-   "audit › checks › dd › State folder & backups"
-  ]
- },
- "{0} months": {
-  "kind": "text",
-  "seen": [
-   "first start › option › HTTPS",
-   "sign in › option › HTTPS",
-   "Dashboard › option › HTTPS"
   ]
  },
  "A": {
@@ -1288,12 +1288,12 @@
    "Dashboard › span › Developers"
   ]
  },
- "All <em data-count=\"all\"></em>": {
-  "kind": "html",
+ "All {0} shown projects — tick some to narrow": {
+  "kind": "text",
   "seen": [
-   "first start › span",
-   "sign in › span",
-   "Dashboard › span"
+   "Dashboard › fetching › span › Projects",
+   "Dashboard › fetching › p › Send reminder",
+   "Dashboard › loaded › span › Projects"
   ]
  },
  "All <em data-count=\"all\">{0}</em>": {
@@ -1304,12 +1304,12 @@
    "credits › overview › span › No tracked reports yet"
   ]
  },
- "All {0} shown projects — tick some to narrow": {
-  "kind": "text",
+ "All <em data-count=\"all\"></em>": {
+  "kind": "html",
   "seen": [
-   "Dashboard › fetching › span › Projects",
-   "Dashboard › fetching › p › Send reminder",
-   "Dashboard › loaded › span › Projects"
+   "first start › span",
+   "sign in › span",
+   "Dashboard › span"
   ]
  },
  "All changes are saved.": {
@@ -2174,6 +2174,12 @@
    "Dashboard › option"
   ]
  },
+ "calendar|Last month": {
+  "kind": "text",
+  "seen": [
+   "Credit Control › usage period: the previous CALENDAR month (not the last 30 days)"
+  ]
+ },
  "Call to action — shown above the findings": {
   "kind": "text",
   "seen": [
@@ -2344,6 +2350,12 @@
    "Dashboard › option › Credit audit log"
   ]
  },
+ "Check": {
+  "kind": "text",
+  "seen": [
+   "Beta › Code authors › confidence badge: medium confidence, please check"
+  ]
+ },
  "Check again": {
   "kind": "text",
   "seen": [
@@ -2400,7 +2412,7 @@
    "Dashboard › button › AI check & fix"
   ]
  },
- "Checked: {0} versions published${updState?.updateAvailable ?": {
+ "Checked: {0} versions published": {
   "kind": "message",
   "seen": [
    "message"
@@ -2793,20 +2805,20 @@
    "message"
   ]
  },
- "Complete <em data-count=\"complete\"></em>": {
-  "kind": "html",
-  "seen": [
-   "first start › span",
-   "sign in › span",
-   "Dashboard › span"
-  ]
- },
  "Complete <em data-count=\"complete\">{0}</em>": {
   "kind": "html",
   "seen": [
    "reports › span › No tracked reports yet",
    "credits › span › No tracked reports yet",
    "credits › overview › span › No tracked reports yet"
+  ]
+ },
+ "Complete <em data-count=\"complete\"></em>": {
+  "kind": "html",
+  "seen": [
+   "first start › span",
+   "sign in › span",
+   "Dashboard › span"
   ]
  },
  "Confidence": {
@@ -3333,6 +3345,18 @@
    "settings › span › Available variables",
    "logs › span › Available variables",
    "logs › activity › span › Available variables"
+  ]
+ },
+ "date|From": {
+  "kind": "text",
+  "seen": [
+   "date range › start (From … To …), not an email sender"
+  ]
+ },
+ "date|To": {
+  "kind": "text",
+  "seen": [
+   "date range › end (From … To …), not email recipients"
   ]
  },
  "Dates and times on these pages are shown in this time zone.": {
@@ -4755,6 +4779,14 @@
    "Dashboard › span"
   ]
  },
+ "Has {0}–{1}d": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Projects",
+   "sign in › option › Projects",
+   "Dashboard › option › Projects"
+  ]
+ },
  "Has > {0}d": {
   "kind": "text",
   "seen": [
@@ -4764,14 +4796,6 @@
   ]
  },
  "Has ≤ {0}d": {
-  "kind": "text",
-  "seen": [
-   "first start › option › Projects",
-   "sign in › option › Projects",
-   "Dashboard › option › Projects"
-  ]
- },
- "Has {0}–{1}d": {
   "kind": "text",
   "seen": [
    "first start › option › Projects",
@@ -5215,7 +5239,7 @@
    "sign in › label"
   ]
  },
- "Last {0} months": {
+ "Last {0} days": {
   "kind": "text",
   "seen": [
    "first start › option",
@@ -5223,7 +5247,7 @@
    "Dashboard › option"
   ]
  },
- "Last {0} days": {
+ "Last {0} months": {
   "kind": "text",
   "seen": [
    "first start › option",
@@ -5817,20 +5841,20 @@
    "Dashboard › button › Fetch"
   ]
  },
- "Needs attention <em data-count=\"attention\"></em>": {
-  "kind": "html",
-  "seen": [
-   "first start › span",
-   "sign in › span",
-   "Dashboard › span"
-  ]
- },
  "Needs attention <em data-count=\"attention\">{0}</em>": {
   "kind": "html",
   "seen": [
    "reports › span › No tracked reports yet",
    "credits › span › No tracked reports yet",
    "credits › overview › span › No tracked reports yet"
+  ]
+ },
+ "Needs attention <em data-count=\"attention\"></em>": {
+  "kind": "html",
+  "seen": [
+   "first start › span",
+   "sign in › span",
+   "Dashboard › span"
   ]
  },
  "Never — one pool": {
@@ -7818,20 +7842,20 @@
    "busy line"
   ]
  },
- "Scheduled <em data-count=\"scheduled\"></em>": {
-  "kind": "html",
-  "seen": [
-   "first start › span",
-   "sign in › span",
-   "Dashboard › span"
-  ]
- },
  "Scheduled <em data-count=\"scheduled\">{0}</em>": {
   "kind": "html",
   "seen": [
    "reports › span › No tracked reports yet",
    "credits › span › No tracked reports yet",
    "credits › overview › span › No tracked reports yet"
+  ]
+ },
+ "Scheduled <em data-count=\"scheduled\"></em>": {
+  "kind": "html",
+  "seen": [
+   "first start › span",
+   "sign in › span",
+   "Dashboard › span"
   ]
  },
  "Scheduled reminders can also email the developer who last changed each vulnerable line (Settings → Automation).": {
@@ -8382,12 +8406,10 @@
    "Dashboard › span › Automation"
   ]
  },
- "Sent <em data-log-count=\"api\"></em>": {
-  "kind": "html",
+ "Sent {0} email(s)": {
+  "kind": "message",
   "seen": [
-   "first start › span › Activity log",
-   "sign in › span › Activity log",
-   "Dashboard › span › Activity log"
+   "message"
   ]
  },
  "Sent <em data-log-count=\"api\">{0}</em>": {
@@ -8398,10 +8420,12 @@
    "logs › troubleshooting › span › Activity log"
   ]
  },
- "Sent {0} email(s)${result.failed.length ?": {
-  "kind": "message",
+ "Sent <em data-log-count=\"api\"></em>": {
+  "kind": "html",
   "seen": [
-   "message"
+   "first start › span › Activity log",
+   "sign in › span › Activity log",
+   "Dashboard › span › Activity log"
   ]
  },
  "Sent to the API as fromDate/toDate, so it is filtered server-side.": {
@@ -9092,6 +9116,14 @@
    "Dashboard › span › Mail template"
   ]
  },
+ "Success <em data-log-count=\"success\">{0}</em>": {
+  "kind": "html",
+  "seen": [
+   "logs › span › Activity log",
+   "logs › activity › span › Activity log",
+   "logs › troubleshooting › span › Activity log"
+  ]
+ },
  "Success <em data-log-count=\"success\"></em>": {
   "kind": "html",
   "seen": [
@@ -9100,12 +9132,10 @@
    "Dashboard › span › Activity log"
   ]
  },
- "Success <em data-log-count=\"success\">{0}</em>": {
-  "kind": "html",
+ "Sure": {
+  "kind": "text",
   "seen": [
-   "logs › span › Activity log",
-   "logs › activity › span › Activity log",
-   "logs › troubleshooting › span › Activity log"
+   "Beta › Code authors › confidence badge: the author is certain"
   ]
  },
  "Switch theme": {
@@ -9875,6 +9905,12 @@
    "Dashboard › fetching › span",
    "Dashboard › loaded › span",
    "Dashboard › remind › span"
+  ]
+ },
+ "Unsure": {
+  "kind": "text",
+  "seen": [
+   "Beta › Code authors › confidence badge: low confidence"
   ]
  },
  "Up to": {

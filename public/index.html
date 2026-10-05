@@ -257,8 +257,8 @@
                   <label class="scope-label" for="activity-preset">Projects last scanned in</label>
                   <select id="activity-preset"></select>
                   <div class="range" id="activity-range" hidden>
-                    <label><span>From</span><input type="date" id="activity-from" /></label>
-                    <label><span>To</span><input type="date" id="activity-to" /></label>
+                    <label data-i18n-ctx="date"><span>From</span><input type="date" id="activity-from" /></label>
+                    <label data-i18n-ctx="date"><span>To</span><input type="date" id="activity-to" /></label>
                   </div>
                   <p class="hint" id="activity-hint" hidden>Projects not scanned in this time are skipped.</p>
                 </fieldset>
@@ -267,8 +267,8 @@
                   <label class="scope-label" for="detection-preset">Findings first found in</label>
                   <select id="detection-preset"></select>
                   <div class="range" id="detection-range" hidden>
-                    <label><span>From</span><input type="date" id="detection-from" /></label>
-                    <label><span>To</span><input type="date" id="detection-to" /></label>
+                    <label data-i18n-ctx="date"><span>From</span><input type="date" id="detection-from" /></label>
+                    <label data-i18n-ctx="date"><span>To</span><input type="date" id="detection-to" /></label>
                   </div>
                   <p class="hint" id="detection-hint" hidden>Only findings first found in this time are loaded.</p>
                 </fieldset>
@@ -1207,7 +1207,7 @@
             <form class="filter-row panel" id="usage-filters" aria-label="Period and project">
               <label class="field">
                 <span>Period</span>
-                <select id="usage-preset">
+                <select id="usage-preset" data-i18n-ctx="calendar">
                   <option value="7">Last 7 days</option>
                   <option value="30" selected>Last 30 days</option>
                   <option value="90">Last 90 days</option>
@@ -1217,8 +1217,8 @@
                   <option value="custom">Custom range…</option>
                 </select>
               </label>
-              <label class="field" id="usage-from-field" hidden><span>From</span><input type="date" id="usage-from" title="From" /></label>
-              <label class="field" id="usage-to-field" hidden><span>To</span><input type="date" id="usage-to" title="To" /></label>
+              <label class="field" id="usage-from-field" data-i18n-ctx="date" hidden><span>From</span><input type="date" id="usage-from" title="From" /></label>
+              <label class="field" id="usage-to-field" data-i18n-ctx="date" hidden><span>To</span><input type="date" id="usage-to" title="To" /></label>
               <label class="field">
                 <span>Group by</span>
                 <select id="usage-bucket">
@@ -1545,8 +1545,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 </div>
               </div>
               <form class="audit-filters" id="audit-filters">
-                <label><span>From</span><input type="date" id="audit-from" /></label>
-                <label><span>To</span><input type="date" id="audit-to" /></label>
+                <label data-i18n-ctx="date"><span>From</span><input type="date" id="audit-from" /></label>
+                <label data-i18n-ctx="date"><span>To</span><input type="date" id="audit-to" /></label>
                 <label><span>Type</span>
                   <select id="audit-type">
                     <option value="">All types</option>

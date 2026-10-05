@@ -113,13 +113,21 @@ function isSentence(el) {
   return element && words && inlineOnly(el);
 }
 
+// A word that means two things ("To": an email's recipients, or the end of a date range) is told
+// apart by data-i18n-ctx on an element around it: "date|To" is looked up first, then "To".
+const contextOf = (el) => el?.closest?.('[data-i18n-ctx]')?.dataset.i18nCtx ?? '';
+const lookupIn = (el, key) => {
+  const ctx = contextOf(el);
+  return (ctx && lookup(`${ctx}|${key}`)) ?? lookup(key);
+};
+
 function doText(node) {
   const value = node.nodeValue;
   const done = textDone.get(node);
   if (done && done.out === value) return;
   const key = norm(value);
   if (!key || !LETTER.test(key)) return;
-  const out = lookup(key);
+  const out = lookupIn(node.parentElement, key);
   if (out == null) return;
   const next = value.match(/^\s*/)[0] + out + value.match(/\s*$/)[0];
   textDone.set(node, { src: value, out: next });
@@ -134,7 +142,7 @@ function doAttrs(el) {
     if (done?.get(name)?.out === value) continue;
     const key = norm(value);
     if (!LETTER.test(key)) continue;
-    const out = lookup(key);
+    const out = lookupIn(el, key);
     if (out == null) continue;
     if (!done) attrDone.set(el, (done = new Map()));
     done.set(name, { src: value, out });
@@ -350,8 +358,10 @@ export function startI18n() {
  */
 export function collect(root = document.documentElement) {
   const found = [];
-  const add = (key, kind, el) => {
-    if (!key || !LETTER.test(key)) return;
+  const add = (text, kind, el) => {
+    if (!text || !LETTER.test(text)) return;
+    const ctx = contextOf(el);
+    const key = ctx ? `${ctx}|${text}` : text;
     const heading = el?.closest?.('section, fieldset, details, dialog, .panel, .card')?.querySelector?.('h1, h2, h3, legend, summary');
     found.push({ key, kind, tag: el?.tagName?.toLowerCase() ?? '', near: heading ? norm(heading.textContent).slice(0, 80) : '' });
   };
