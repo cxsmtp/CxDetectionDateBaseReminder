@@ -1438,6 +1438,14 @@
   "No such project in Checkmarx One.": "Không có dự án này trong Checkmarx One.",
   "Not connected to Checkmarx One: only projects that already hold credits are listed.": "Chưa kết nối với Checkmarx One: chỉ liệt kê các dự án đã có tín dụng.",
   "Take back {0}": "Thu hồi {0}",
-  "Take back the {0} credit(s) this project has not used": "Thu hồi {0} tín dụng chưa dùng của dự án này"
+  "Take back the {0} credit(s) this project has not used": "Thu hồi {0} tín dụng chưa dùng của dự án này",
+  "At start": "Ban đầu",
+  "Allocated": "Đã phân bổ",
+  "credits|Left": "Còn lại",
+  "No severities": "Không có mức độ nghiêm trọng",
+  "First given:": "Cấp lần đầu:",
+  "{0} project holds {1} credit they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} dự án đang giữ {1} tín dụng chưa dùng. Khi thu hồi, số tín dụng này sẽ được trả về hạn mức tín dụng; tín dụng đã dùng vẫn được tính.",
+  "{0} project holds {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} dự án đang giữ {1} tín dụng chưa dùng. Khi thu hồi, số tín dụng này sẽ được trả về hạn mức tín dụng; tín dụng đã dùng vẫn được tính.",
+  "{0} projects hold {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} dự án đang giữ {1} tín dụng chưa dùng. Khi thu hồi, số tín dụng này sẽ được trả về hạn mức tín dụng; tín dụng đã dùng vẫn được tính."
  }
 }

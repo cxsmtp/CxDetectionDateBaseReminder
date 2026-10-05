@@ -1438,6 +1438,14 @@
   "No such project in Checkmarx One.": "該当するプロジェクトがCheckmarx Oneに見つかりません。",
   "Not connected to Checkmarx One: only projects that already hold credits are listed.": "Checkmarx Oneに接続されていません：すでにクレジットを保有しているプロジェクトのみ表示しています。",
   "Take back {0}": "{0}クレジットを回収",
-  "Take back the {0} credit(s) this project has not used": "このプロジェクトで未使用の{0}クレジットを回収"
+  "Take back the {0} credit(s) this project has not used": "このプロジェクトで未使用の{0}クレジットを回収",
+  "At start": "当初",
+  "Allocated": "割り当て",
+  "credits|Left": "残り",
+  "No severities": "重大度なし",
+  "First given:": "初回割り当て：",
+  "{0} project holds {1} credit they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "プロジェクト{0}件で{1}クレジットが未使用です。回収したクレジットはクレジットプールに戻り、使用済みのクレジットは引き続き集計されます。",
+  "{0} project holds {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "プロジェクト{0}件で{1}クレジットが未使用です。回収したクレジットはクレジットプールに戻り、使用済みのクレジットは引き続き集計されます。",
+  "{0} projects hold {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "プロジェクト{0}件で{1}クレジットが未使用です。回収したクレジットはクレジットプールに戻り、使用済みのクレジットは引き続き集計されます。"
  }
 }

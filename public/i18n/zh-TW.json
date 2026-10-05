@@ -1438,6 +1438,14 @@
   "No such project in Checkmarx One.": "Checkmarx One 中沒有此專案。",
   "Not connected to Checkmarx One: only projects that already hold credits are listed.": "未連線至 Checkmarx One：僅列出已持有點數的專案。",
   "Take back {0}": "收回 {0} 點",
-  "Take back the {0} credit(s) this project has not used": "收回此專案未使用的 {0} 點"
+  "Take back the {0} credit(s) this project has not used": "收回此專案未使用的 {0} 點",
+  "At start": "初始",
+  "Allocated": "已分配",
+  "credits|Left": "剩餘",
+  "No severities": "無嚴重性",
+  "First given:": "首次分配：",
+  "{0} project holds {1} credit they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} 個專案尚有 {1} 點未使用。收回後，點數會退回點數額度；已使用的點數仍會計入。",
+  "{0} project holds {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} 個專案尚有 {1} 點未使用。收回後，這些點數會退回點數額度；已使用的點數仍會計入。",
+  "{0} projects hold {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} 個專案尚有 {1} 點未使用。收回後，這些點數會退回點數額度；已使用的點數仍會計入。"
  }
 }

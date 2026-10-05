@@ -1438,6 +1438,14 @@
   "No such project in Checkmarx One.": "ไม่พบโปรเจกต์นี้ใน Checkmarx One",
   "Not connected to Checkmarx One: only projects that already hold credits are listed.": "ไม่ได้เชื่อมต่อกับ Checkmarx One: แสดงเฉพาะโปรเจกต์ที่มีเครดิตอยู่แล้ว",
   "Take back {0}": "เรียกคืน {0} เครดิต",
-  "Take back the {0} credit(s) this project has not used": "เรียกคืน {0} เครดิตที่โปรเจกต์นี้ยังไม่ได้ใช้"
+  "Take back the {0} credit(s) this project has not used": "เรียกคืน {0} เครดิตที่โปรเจกต์นี้ยังไม่ได้ใช้",
+  "At start": "เริ่มต้น",
+  "Allocated": "จัดสรรแล้ว",
+  "credits|Left": "คงเหลือ",
+  "No severities": "ไม่มีระดับความรุนแรง",
+  "First given:": "ให้ครั้งแรก:",
+  "{0} project holds {1} credit they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} โปรเจกต์มีเครดิตที่ยังไม่ได้ใช้ {1} เครดิต การเรียกคืนจะทำให้เครดิตดังกล่าวกลับไปยังวงเงินเครดิต เครดิตที่ใช้แล้วยังคงถูกนับ",
+  "{0} project holds {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} โปรเจกต์มีเครดิตที่ยังไม่ได้ใช้ {1} เครดิต การเรียกคืนจะทำให้เครดิตเหล่านี้กลับไปยังวงเงินเครดิต เครดิตที่ใช้แล้วยังคงถูกนับ",
+  "{0} projects hold {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} โปรเจกต์มีเครดิตที่ยังไม่ได้ใช้ {1} เครดิต การเรียกคืนจะทำให้เครดิตเหล่านี้กลับไปยังวงเงินเครดิต เครดิตที่ใช้แล้วยังคงถูกนับ"
  }
 }

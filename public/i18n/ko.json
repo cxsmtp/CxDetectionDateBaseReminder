@@ -1438,6 +1438,14 @@
   "No such project in Checkmarx One.": "Checkmarx One에 해당 프로젝트가 없습니다.",
   "Not connected to Checkmarx One: only projects that already hold credits are listed.": "Checkmarx One에 연결되어 있지 않습니다. 이미 크레딧을 보유한 프로젝트만 표시됩니다.",
   "Take back {0}": "{0}개 회수",
-  "Take back the {0} credit(s) this project has not used": "이 프로젝트의 미사용 크레딧 {0}개 회수"
+  "Take back the {0} credit(s) this project has not used": "이 프로젝트의 미사용 크레딧 {0}개 회수",
+  "At start": "초기",
+  "Allocated": "할당됨",
+  "credits|Left": "잔여",
+  "No severities": "심각도 없음",
+  "First given:": "최초 할당:",
+  "{0} project holds {1} credit they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "프로젝트 {0}개에 사용되지 않은 크레딧 {1}개가 있습니다. 회수하면 크레딧 풀로 돌아가며, 사용된 크레딧은 계속 집계됩니다.",
+  "{0} project holds {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "프로젝트 {0}개에 사용되지 않은 크레딧 {1}개가 있습니다. 회수하면 크레딧 풀로 돌아가며, 사용된 크레딧은 계속 집계됩니다.",
+  "{0} projects hold {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "프로젝트 {0}개에 사용되지 않은 크레딧 {1}개가 있습니다. 회수하면 크레딧 풀로 돌아가며, 사용된 크레딧은 계속 집계됩니다."
  }
 }

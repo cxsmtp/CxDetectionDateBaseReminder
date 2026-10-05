@@ -1438,6 +1438,14 @@
   "No such project in Checkmarx One.": "Ese proyecto no existe en Checkmarx One.",
   "Not connected to Checkmarx One: only projects that already hold credits are listed.": "No conectado a Checkmarx One: solo se muestran los proyectos que ya tienen créditos.",
   "Take back {0}": "Recuperar {0}",
-  "Take back the {0} credit(s) this project has not used": "Recuperar los créditos sin usar de este proyecto ({0})"
+  "Take back the {0} credit(s) this project has not used": "Recuperar los créditos sin usar de este proyecto ({0})",
+  "At start": "Inicial",
+  "Allocated": "Asignado",
+  "credits|Left": "Restante",
+  "No severities": "Sin gravedades",
+  "First given:": "Primera asignación:",
+  "{0} project holds {1} credit they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} proyecto tiene {1} crédito sin usar. Al recuperarlo, vuelve a la bolsa de créditos; los créditos usados siguen contabilizados.",
+  "{0} project holds {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} proyecto tiene {1} créditos sin usar. Al recuperarlos, vuelven a la bolsa de créditos; los créditos usados siguen contabilizados.",
+  "{0} projects hold {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} proyectos tienen {1} créditos sin usar. Al recuperarlos, vuelven a la bolsa de créditos; los créditos usados siguen contabilizados."
  }
 }

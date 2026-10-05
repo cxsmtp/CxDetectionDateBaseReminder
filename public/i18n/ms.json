@@ -1438,6 +1438,14 @@
   "No such project in Checkmarx One.": "Projek tersebut tiada dalam Checkmarx One.",
   "Not connected to Checkmarx One: only projects that already hold credits are listed.": "Tidak disambungkan ke Checkmarx One: hanya projek yang sudah mempunyai kredit disenaraikan.",
   "Take back {0}": "Ambil semula {0}",
-  "Take back the {0} credit(s) this project has not used": "Ambil semula {0} kredit yang tidak digunakan oleh projek ini"
+  "Take back the {0} credit(s) this project has not used": "Ambil semula {0} kredit yang tidak digunakan oleh projek ini",
+  "At start": "Awal",
+  "Allocated": "Diperuntukkan",
+  "credits|Left": "Baki",
+  "No severities": "Tiada tahap keterukan",
+  "First given:": "Mula diberikan:",
+  "{0} project holds {1} credit they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} projek memegang {1} kredit yang tidak digunakan. Apabila diambil semula, kredit tersebut dikembalikan ke kumpulan kredit; kredit yang telah digunakan kekal dikira.",
+  "{0} project holds {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} projek memegang {1} kredit yang tidak digunakan. Apabila diambil semula, kredit tersebut dikembalikan ke kumpulan kredit; kredit yang telah digunakan kekal dikira.",
+  "{0} projects hold {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": "{0} projek memegang {1} kredit yang tidak digunakan. Apabila diambil semula, kredit tersebut dikembalikan ke kumpulan kredit; kredit yang telah digunakan kekal dikira."
  }
 }
