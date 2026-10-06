@@ -44,7 +44,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.57 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.57 — 2026-10-06 20:20 UTC · [#80](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/80)
 
 - **Says what is wrong, and how to fix it.** When the email server, Checkmarx One or a git host does not connect, a **How to fix it** box gives the problem in one sentence and the steps that fix it, most likely first, under the button, in the header's connection chips and in the rollback notice.
 - **The email server's usual traps, named.** A port and "Secure connection from the start" that do not match, Microsoft 365 with SMTP sign-in turned off, Gmail needing an App Password, a name that cannot be found, a certificate not trusted, a From address or relay refused, a blocked or busy server: each has its own explanation, with the server's own answer under **What was tried** and never the password.
