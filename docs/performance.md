@@ -142,9 +142,13 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.50 (main) | 2 | 10.2 s / 0 | 61,845 / 56 | 487 | 87 / 10,346 ms | 25 / 802 ms | none |
 | MZ-01.00.51 | 2 | 10.6 s / 0 | 62,434 / 31 | 482 | 91 / 8,168 ms | 27 / 743 ms | none |
 | MZ-01.00.51 (main) | 1 | 14.5 s / 0 | 63,067 / 0 | 518 | 81 / 7,563 ms | 14 / 600 ms | none |
-| **MZ-01.00.52** | 1 | 8.3 s / 0 | 62,903 / **2** | **504** | 78 / **7,488 ms** | 14 / **483 ms** | none |
+| MZ-01.00.52 | 1 | 8.3 s / 0 | 62,903 / **2** | **504** | 78 / **7,488 ms** | 14 / **483 ms** | none |
+| MZ-01.00.52 (main) | 1 | 10.4 s / 0 | 64,045 / 0 | 524 | 64 / 4,729 ms | 7 / 142 ms | none |
+| **MZ-01.00.53** | 1 | 9.5 s / 0 | 64,730 / **0** | **527** | 48 / **330 ms** | 7 / **96 ms** | none |
 
 **MZ-01.00.37: what the differences were.** Two pairs with main, alternating. Report opens at p95 were 4.1 and 5.1 s on the branch against 7.2 and 5.1 s on main; triage results 201 and 179 ms against 257 and 123 ms; requests a second 519 and 508 against 504 and 518, with 0 failed requests and no finding sent twice in any run. The first branch run's opening burst took 16.3 s, a little above the 7.4–15.8 s seen before, and its fetches were slower (17 s against 12 s at the median); in the second pair the burst took 9.9 s (main 8.0 s) and fetches matched main (13.5 s against 13.0 s at the median). What the fetch now does in addition is one pass over each project's findings to count what is past its SLA, which is a few microseconds a finding next to reading them from Checkmarx One. Escalation runs only on the automation's schedule, which the benchmark does not use.
+
+**MZ-01.00.53: what the differences were.** One pair, main then branch, on a calm host, both with 0 failed. The branch served 527 requests a second against main's 524. Report opens took 330 ms against 4.7 s at p95, and triage polls 96 against 142 ms. The release adds Get help (its own routes and file, which the benchmark's people do not call), one field in the sign-in answer (`/api/me`) and one settings section. None of these is on the measured paths, so the faster tail is the host, not the change. No finding was sent twice.
 
 **MZ-01.00.52: what the differences were.** One pair, main then branch. The branch served 504 requests a second against main's 518, with a slightly faster tail: report opens 7.5 s against 7.6 s at p95, triage polls 483 against 600 ms. It had 2 failed requests, one report hello and one triage-results poll. Both happened while the host stalled (health checks up to 7.3 s; main's run reached 6.2 s), and neither request touches this release's one server change: temporary report file names now come from `crypto.randomBytes`. The rest of the release is tests and the Caddy compose file. No finding was sent twice.
 

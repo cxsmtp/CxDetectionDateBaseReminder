@@ -2646,3 +2646,4 @@ a.button-like.primary:hover { filter: brightness(1.05); }
 .support-mode span { display: grid; gap: 2px; }
 .support-mode small { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
 .support-email { max-width: 420px; }
+.help-open span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
