@@ -47,6 +47,8 @@ The coloured label next to each page title says which group the page is in.
 - **↻** (top right) reloads the data of the page you are on and keeps your filters and tabs.
 - **Refresh** (bottom of the sidebar; in the menu under your name on a phone) starts over: CxMissionZero reloads and every page opens as new. Saved settings, reports and credits are not affected.
 
+**Get help** (bottom of the sidebar; in the menu under your name on a phone): point at it and choose **Submit a support case** or **Request an enhancement**, or **Track my requests**. See [Get help](#get-help-support-cases-and-enhancements).
+
 **Jump to (Ctrl K, or ⌘K on a Mac)** goes to any page, tab, Settings section or common action: type a few letters (for example *smtp*, *allocated*, *backups*) and press Enter.
 
 **Tabs instead of long pages.** Most pages have tabs at the top (for example Audit: *Credit audit log*, *Integrity & reconcile*, *State & backups*). The tab you last used opens next time. The address bar follows the tab, so `#/audit/backups` or `#/settings/smtp` opens that place directly.
@@ -108,6 +110,8 @@ Everyone signs in and has one role. Tabs and buttons you are not allowed to use 
 | **Admin** | Everything, including the Checkmarx One integration, the email server, the credit pool and backups. |
 | **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, beta. |
 | **User** | Fetch findings, send reminders, follow tracked reports, see credits. Settings are read-only. No Access, Audit or Beta. |
+
+Every role can raise support cases and enhancement requests under **Get help**. Admins answer them (**Answer support cases & enhancements**); on a new installation Security Analysts can too.
 
 Admins and Analysts can change what Security Analyst and User may do, or create new roles, on the [People & roles page](#people--roles).
 
@@ -984,6 +988,26 @@ Two tabs: **Activity in this browser** and **Troubleshooting log**.
 Send it to whoever maintains CxMissionZero when something goes wrong. **It captures no sensitive information:** no names, email addresses, passwords, keys, tokens, hosts, URLs, findings or code.
 
 **Activity log.** What this browser asked the server, newest first, 100 lines a page. By default it shows each answer (**Success** and **Errors**, with counts); tick **Sent** to see each request as it goes out too. Searchable. **Export** saves it; **Clear** empties it.
+
+---
+
+## Get help: support cases and enhancements
+
+**Get help** sits at the bottom of the sidebar. Point at it, or click it, and two choices open:
+- **Submit a support case**: something does not work, or you are stuck. Add a title, a description and a priority.
+- **Request an enhancement**: a new feature or an improvement.
+
+Each request gets a number (SUP-0001 for cases, ENH-0001 for enhancements). It is shown on screen and emailed to you, with a link to follow it. The **Get help** page lists your requests. Filter them by type and status, open one to see the conversation, and add to it.
+
+| Status | Meaning |
+| --- | --- |
+| New | Raised, not picked up yet |
+| In progress | Being worked on |
+| Waiting for reply | The team needs something from you; your answer sends it back to them |
+| Completed | Done |
+| Declined | Will not be done; the conversation says why |
+
+**The support team** are the people whose role has **Answer support cases & enhancements**: Admins, and anyone else given it under People & roles. They see the **Support queue** for the tenants they work in (a Super Admin sees every tenant), get an email for every new request, answer, and change the status. Every answer and status change is emailed to the person who raised the request. Emails go through **Settings → Email**; when it is not set up, the request is still saved, and the page says the email was not sent. More: [support](support.md).
 
 ---
 
