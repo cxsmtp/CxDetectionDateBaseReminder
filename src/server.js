@@ -55,6 +55,7 @@ import { deriveConnection, publicConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
 import { SettingsStore, applyEnvironmentSmtp, cleanPersonalBranding, hasEnvironmentSmtp, hostOfUrl, isVerified, overlayBranding, parseAddressList, publicSettings, smtpFingerprint, supportChannel } from './settings.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import v8 from 'node:v8';
 import { Watchdog, rollbackTarget, shouldNotify, shouldRaiseCase } from './watchdog.js';
 import { COMMANDS, isPaused, parseCommand, statusDue, systemEmail } from './hands-off.js';
 import { findReferences, peekTenant, readAction, replyReference, signAction } from './action-links.js';
@@ -91,6 +92,8 @@ import {
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 /** Whose own branding (Settings → Your branding) the current request is made with: see presenting(). */
 const presenter = new AsyncLocalStorage();
+/** Set when this server asked the launcher to stop it (an update, a switch, a restart): such a stop is planned. */
+let plannedStop = false;
 
 const projectDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -6681,12 +6684,22 @@ async function tenantProblems() {
 
 /** What is wrong with the server itself. */
 function serverProblems() {
+  const found = [];
   const errors = diagnostics.recentErrors(15 * 60_000);
-  return errors > ERRORS_PER_15_MIN ? [{ key: 'errors', title: 'Errors on the server', detail: `${errors} errors in the last 15 minutes.`, tenant: '' }] : [];
+  if (errors > ERRORS_PER_15_MIN) found.push({ key: 'errors', title: 'Errors on the server', detail: `${errors} errors in the last 15 minutes.`, tenant: '' });
+  // Close to its memory limit, a server is about to die: worth a backup while it still can.
+  const heap = v8.getHeapStatistics();
+  if (heap.used_heap_size > 0.9 * heap.heap_size_limit) found.push({ key: 'memory', title: 'Memory', detail: `${Math.round(heap.used_heap_size / 1048576)} of ${Math.round(heap.heap_size_limit / 1048576)} MB in use.`, tenant: '' });
+  return found;
 }
 
 /** Try to put one problem right (each repair once while it lasts). True when it is fixed. */
 async function repair(problem) {
+  if (problem.key === 'memory' && !watchdog.hasTried('memory', 'Backed up the data in case it stops')) {
+    const backup = await backupToFolder(SYSTEM_ACTOR, 'Low memory').catch(() => null);
+    watchdog.tried('memory', 'Backed up the data in case it stops', backup?.ok ? 'done' : 'failed');
+    return false;
+  }
   const [kind, ...rest] = problem.key.split(':');
   const tenant = rest.join(':');
   if (!tenant || !tenancy.has(tenant)) return false;
@@ -6861,7 +6874,8 @@ process.on('uncaughtException', (error) => {
   diagnostics.error('uncaught-exception', error);
   diagnostics.flush();
   console.error(`! Uncaught exception: ${logSafe(error?.stack ?? error?.message ?? String(error))}`);
-  if (updates.supervised) process.exit(1);
+  // Under the launcher a crash restarts the server: back up and tell the administrators first.
+  if (updates.supervised) lastWords(`it crashed: ${String(error?.message ?? error).slice(0, 200)}`, Date.now() + 8000).finally(() => process.exit(1));
 });
 
 app.get('/api/hands-off', requirePermission('settings.view', 'settings.automation'), (req, res) => {
@@ -7621,7 +7635,11 @@ const updates = new UpdateService({
   record: ({ outcome, reason, by, details }) =>
     audit.record({ type: 'system', outcome, reason, actor: by && by !== 'auto-update' ? { kind: 'user', user: by } : SYSTEM_ACTOR, details }),
   beforeSwitch: (version) => backupToFolder(SYSTEM_ACTOR, `Before switching to ${version === 'built-in' ? 'the image’s own version' : `MZ-${version}`}`),
-  switchTo: (message) => process.send?.(message),
+  // A stop this server asked for (an update, a version switch, a restart): planned, so no "it stopped" email.
+  switchTo: (message) => {
+    plannedStop = true;
+    process.send?.(message);
+  },
 });
 // Auto-update (off until an Admin turns it on): a first look a minute after start (an update
 // restarts the server, and a restart must not push the next look 15 minutes away), then every
@@ -8781,10 +8799,74 @@ const redirectServer = REDIRECT_PORT
  * everything still buffered, and let go of the data folder.
  */
 const DRAIN_MS = Math.max(0, Number(process.env.SHUTDOWN_DRAIN_SECONDS ?? 8)) * 1000; // inside the 10 s Podman and Docker allow by default
+/** The whole stop must fit in the 10 s Podman and Docker give before they kill the process. */
+const STOP_BUDGET_MS = Math.max(2, Number(process.env.SHUTDOWN_BUDGET_SECONDS ?? 9.5)) * 1000;
+const LAST_WORDS_FILE = path.join(dataDir, 'last-words.json');
+/** At most one "MissionZero stopped" email in this long (a restart loop must not flood anyone). */
+const LAST_WORDS_EVERY_MS = Math.max(0, Number(process.env.LAST_WORDS_EVERY_HOURS ?? 6)) * 3600_000;
+const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+
+/**
+ * Before stopping for a reason nobody here asked for (the service stopped or killed,
+ * a crash): a backup in the backup folder, and an email to the administrators with
+ * how to bring it back. The copy is attached only when it is encrypted
+ * (BACKUP_PASSPHRASE): an unencrypted backup holds the passwords and keys, so then
+ * the email says where it is instead. Never throws, and never waits past `deadline`.
+ */
+async function lastWords(reason, deadline) {
+  let backup = null;
+  try {
+    backup = writeBackupTo(backupConfig.dir, { dataDir, settingsFile: config.settingsFile, passphrase: backupConfig.passphrase, keep: backupConfig.keep });
+    lastBackup = { at: backup.summary.createdAt, ok: true, file: backup.file, size: backup.summary.size, files: backup.summary.files, trigger: 'Before stopping' };
+    audit.record({ type: 'backup', outcome: 'info', reason: `Before stopping (${reason}): backup written to ${backup.file} (${backup.summary.files} files${backup.summary.encrypted ? ', encrypted' : ''}).`, actor: SYSTEM_ACTOR, details: { backup: { file: backup.file, ...backup.summary } } });
+    console.log(`[backup] Before stopping: ${backup.file}`);
+  } catch (error) {
+    console.error(`! [backup] Before stopping: ${error.message}`);
+  }
+  if (plannedStop) return backup;
+  let previous = {};
+  try {
+    previous = JSON.parse(fs.readFileSync(LAST_WORDS_FILE, 'utf8'));
+  } catch {}
+  if (previous.at && Date.now() - Date.parse(previous.at) < LAST_WORDS_EVERY_MS) return backup;
+  try {
+    fs.writeFileSync(LAST_WORDS_FILE, JSON.stringify({ at: new Date().toISOString(), reason }), { mode: 0o600 });
+  } catch {}
+  const attach = Boolean(backup?.summary.encrypted && backup.summary.size <= MAX_ATTACHMENT_BYTES);
+  const name = backup ? path.basename(backup.file) : '';
+  const send = tenancy.run(DEFAULT_TENANT, async () => {
+    if (!isVerified(sendingSettings())) return;
+    const attachments = attach ? [{ filename: name, content: fs.readFileSync(backup.file), contentType: 'application/octet-stream' }] : [];
+    for (const email of administratorsOf(DEFAULT_TENANT)) {
+      await sendSystemMail([email], systemEmail({
+        appName: appNameNow(),
+        subject: `MissionZero stopped: ${backup ? 'a copy of its data is safe' : 'it could not back up its data'}`,
+        lines: [
+          `MissionZero stopped (${reason}) at ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC. Nobody asked it to from the Update page.`,
+          backup
+            ? attach
+              ? `Its data was backed up just before, and the backup is attached (${name}, encrypted with BACKUP_PASSPHRASE).`
+              : backup.summary.encrypted
+                ? `Its data was backed up just before, to ${backup.file} on the server. It is too large to attach.`
+                : `Its data was backed up just before, to ${backup.file} on the server. It is not attached because it is not encrypted: it holds the passwords and keys. Set BACKUP_PASSPHRASE to get an encrypted copy by email next time.`
+            : 'It could not write a backup before stopping. Its data folder is still there.',
+          'To bring it back: start MissionZero again with the same command and data folder. Nothing needs restoring while the data folder is there.',
+          'If the data folder is lost: start a new MissionZero with the same BACKUP_PASSPHRASE, sign in as an Admin, open Audit → State folder & backups → Restore from backup…, and choose this backup. It is restored when the server next starts, with every setting, person, credit, tracked report and the audit log.',
+        ],
+        facts: backup ? [['Backup', name], ['Files', String(backup.summary.files)], ['Encrypted', backup.summary.encrypted ? 'yes' : 'no'], ['Version', `MZ-${PACKAGE_VERSION}`]] : [['Version', `MZ-${PACKAGE_VERSION}`]],
+        replyHelp: false,
+      }), { attachments });
+    }
+  }).catch(() => {});
+  await Promise.race([send, new Promise((resolve) => setTimeout(resolve, Math.max(0, deadline - Date.now())))]);
+  return backup;
+}
+
 let stopping = false;
 const shutdown = async (signal) => {
   if (stopping) return;
   stopping = true;
+  const deadline = Date.now() + STOP_BUDGET_MS;
   draining = true;
   for (const tenant of tenancy.loaded()) tenant.scheduler.stop();
   server.close();
@@ -8793,7 +8875,7 @@ const shutdown = async (signal) => {
   acme.stop();
   redirectServer?.close();
   console.log(`[update] ${signal}: finishing ${inFlight} request(s) in progress…`);
-  const until = Date.now() + DRAIN_MS;
+  const until = Math.min(Date.now() + DRAIN_MS, deadline - 3000);
   while (inFlight > 0 && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 100));
   if (inFlight > 0) console.warn(`! [update] ${inFlight} request(s) still running after ${DRAIN_MS / 1000}s; stopping anyway.`);
   try {
@@ -8811,6 +8893,9 @@ const shutdown = async (signal) => {
     tenant.findingJournal.flush();
     tenant.audit.flushSync();
   }
+  // Everything is on disk: back it up, and tell the administrators unless this stop was planned.
+  await lastWords(signal === 'SIGTERM' ? 'the service was stopped' : `${signal}`, deadline);
+  for (const tenant of tenancy.loaded()) tenant.audit.flushSync();
   diagnostics.flush();
   instanceLock.release();
   console.log('[update] Stopped cleanly.');
