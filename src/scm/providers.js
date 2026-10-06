@@ -8,6 +8,7 @@
 import { gitHostOf } from '../github/identity.js';
 import { AZURE_LABELS, azureCheck, azureClient, azureMethods } from './azure.js';
 import { BITBUCKET_LABELS, bitbucketBlame, bitbucketCheck, bitbucketClient, bitbucketCloneAuth, bitbucketMethods, isCloud } from './bitbucket.js';
+import { explainGit } from '../troubleshoot.js';
 import { GITLAB_LABELS, gitlabBlame, gitlabCheck, gitlabClient, gitlabMethods, gitlabWebUrl } from './gitlab.js';
 import { azureOrgKey, normalizeAzureOrgUrl } from './azure-url.js';
 
@@ -164,13 +165,13 @@ export async function checkConnections(clients, configs, only = SCM_PROVIDERS) {
     try {
       out[id] = await fn();
     } catch (error) {
-      out[id] = { ok: false, reason: `${SCM_LABELS[id]} refused: ${error.message}` };
+      out[id] = { ok: false, reason: `${SCM_LABELS[id]} refused: ${error.message}`, help: explainGit(id, error, { url: configs[id]?.apiUrl || configs[id]?.orgUrl || '' }) };
     }
   };
   if (only.includes('gitlab') && configs.gitlab.token) await run('gitlab', () => gitlabCheck(clients.gitlab));
   if (only.includes('azure') && configs.azure.token && clients.azure) await run('azure', () => azureCheck(clients.azure));
   // A token alone does not say which organisation it is for.
-  else if (only.includes('azure') && configs.azure.token) out.azure = { ok: false, reason: 'Azure DevOps: add the organisation, for example https://dev.azure.com/acme (or just acme). A token is made for one organisation.' };
+  else if (only.includes('azure') && configs.azure.token) out.azure = { ok: false, reason: 'Azure DevOps: add the organisation, for example https://dev.azure.com/acme (or just acme). A token is made for one organisation.', help: explainGit('azure', new Error('organisation missing')) };
   if (only.includes('bitbucket') && configs.bitbucket.token) await run('bitbucket', () => bitbucketCheck(clients.bitbucket, configs.bitbucket));
   return out;
 }

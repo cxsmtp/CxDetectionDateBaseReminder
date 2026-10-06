@@ -134,7 +134,7 @@ export class CxClient {
         }, { low: background });
       } catch (error) {
         // A dropped connection or DNS hiccup: as retryable as a 503.
-        lastError = new CxApiError(`Could not reach Checkmarx One at ${url.host}: ${networkReason(error)}.`, { status: 502, path: url.pathname });
+        lastError = Object.assign(new CxApiError(`Could not reach Checkmarx One at ${url.host}: ${networkReason(error)}.`, { status: 502, path: url.pathname }), { cause: error });
         if (attempt === retries) throw lastError;
         await sleep(2 ** attempt * 500);
         continue;

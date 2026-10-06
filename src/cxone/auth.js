@@ -66,7 +66,7 @@ export class TokenProvider {
         signal: AbortSignal.timeout(60_000),
       });
     } catch (error) {
-      throw new AuthError(`Could not reach the Checkmarx One IAM host at ${new URL(tokenUrl).host}: ${networkReason(error)}.`, 502);
+      throw Object.assign(new AuthError(`Could not reach the Checkmarx One IAM host at ${new URL(tokenUrl).host}: ${networkReason(error)}.`, 502), { cause: error });
     }
 
     if (!response.ok) {
@@ -75,9 +75,8 @@ export class TokenProvider {
         response.status === 400 || response.status === 401
           ? 'The API key is invalid, revoked or expired.'
           : detail;
-      throw new AuthError(
-        `Checkmarx One rejected the API key (${response.status} ${response.statusText}). ${hint}`.trim(),
-      );
+      // The answer's own words (and status) say which of several reasons it was: src/troubleshoot.js.
+      throw Object.assign(new AuthError(`Checkmarx One rejected the API key (${response.status} ${response.statusText}). ${hint}`.trim()), { httpStatus: response.status, detail });
     }
 
     const data = await response.json();

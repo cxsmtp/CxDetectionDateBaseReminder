@@ -93,6 +93,15 @@ test('a mail server that does not work stays saved while editing, and is rolled 
   const editing = (await admin('POST', '/api/settings/connections/check', { rollback: false })).body;
   assert.equal(editing.smtp.ok, false);
   assert.equal(editing.smtp.rolledBack, undefined, 'still editing: kept so it can be corrected');
+  // Not just "it failed": what is wrong, and how to fix it.
+  assert.equal(editing.smtp.help.code, 'smtp.refused', JSON.stringify(editing.smtp.help));
+  assert.ok(editing.smtp.help.steps.length >= 2);
+  assert.deepEqual(editing.smtp.help.facts.find(([k]) => k === 'Server'), ['Server', `127.0.0.1:${CLOSED_PORT}`]);
+  const header = (await admin('GET', '/api/connections')).body.smtp;
+  assert.equal(header.help.code, 'smtp.refused', 'the header chip says why too');
+  const test = await admin('POST', '/api/settings/smtp/test', { smtp: { port: CLOSED_PORT } });
+  assert.equal(test.status, 400);
+  assert.equal(test.body.help.code, 'smtp.refused', 'Test connection explains the same way');
   assert.equal((await admin('GET', '/api/settings')).body.smtp.port, CLOSED_PORT);
   // Meanwhile reminders still go out, through the last known good mail server.
   assert.equal((await admin('GET', '/api/scan')).status, 200);
@@ -105,6 +114,7 @@ test('a mail server that does not work stays saved while editing, and is rolled 
   assert.equal(leaving.notice.parts[0].part, 'smtp');
   assert.equal(leaving.notice.parts[0].restored.port, smtp.port);
   assert.equal(leaving.notice.parts[0].attempted.port, CLOSED_PORT);
+  assert.equal(leaving.notice.parts[0].help.code, 'smtp.refused', 'the rollback notice says how to fix it');
   const settings = (await admin('GET', '/api/settings')).body;
   assert.equal(settings.smtp.port, smtp.port);
   assert.equal(settings.verified, true, 'the last known good settings send at once');
@@ -117,6 +127,7 @@ test('a connection timeout rolls back too, and the administrator is told at the 
   const result = (await admin('POST', '/api/settings/connections/check', { rollback: true, present: false })).body;
   assert.equal(result.smtp.rolledBack, true);
   assert.equal(result.smtp.timedOut, true, JSON.stringify(result.smtp));
+  assert.equal(result.smtp.help.code, 'smtp.timeout');
 
   const next = browser();
   const me = (await next('POST', '/api/session/password', { email: 'admin@acme.io', password: PW })).body;
@@ -141,6 +152,11 @@ test('a Checkmarx One key saved as typed is not used until it works, and a bad o
 
   const leaving = (await admin('POST', '/api/settings/connections/check', { rollback: true })).body;
   assert.equal(leaving.cxone.rolledBack, true, JSON.stringify(leaving));
+  assert.equal(leaving.cxone.help.code, 'cx.key-format', 'a key that is not a key is said plainly');
+  assert.doesNotMatch(JSON.stringify(leaving.cxone.help), /not-a-real-key/, 'the key is never repeated back');
+  const connect = await admin('POST', '/api/integration/cxone', { apiKey: '0f8fad5b-d9cb-469f-a165-70867728950e' });
+  assert.equal(connect.status, 400);
+  assert.equal(connect.body.help.code, 'cx.key-is-id', 'the key ID pasted instead of the key');
   assert.equal(leaving.notice.parts[0].restored.tenant, 'acme');
   const integration = (await admin('GET', '/api/integration')).body;
   assert.equal(integration.keyStored, false, 'back to the CX_API_KEY connection');
@@ -179,6 +195,29 @@ test('a .env file configures the connections, and says what it could not use', a
   assert.equal(r.body.settings.verified, true);
   assert.doesNotMatch(JSON.stringify(r.body), /SMTP_PASS=|not-a-real-key/);
   assert.equal((await admin('POST', '/api/settings/import-env', { text: 'NOTHING=1' })).status, 400);
+});
+
+test('a .env file with mistakes: each is explained, and none of them replaces a working setting', async () => {
+  const before = (await admin('GET', '/api/settings')).body;
+  const text = ['SMTP_PORT=58 7', 'SMTP_SECURE=ssl', 'SMPT_HOST=mail.acme.io', 'REPORT_SERVER_URL=https://mz.acme.io/', 'GITHUB_API_URL=https://github.com'].join('\n');
+  const r = await admin('POST', '/api/settings/import-env', { text });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepEqual(r.body.applied, ['REPORT_SERVER_URL'], 'only what is right is applied');
+  assert.deepEqual(r.body.findings.map((f) => [f.name, f.code, f.line]), [
+    ['SMTP_PORT', 'env.smtp-port', 1],
+    ['SMTP_SECURE', 'env.boolean', 2],
+    ['SMPT_HOST', 'env.typo', 3],
+    ['GITHUB_API_URL', 'env.github-web-url', 5],
+  ]);
+  assert.equal(r.body.findings[2].suggestion, 'SMTP_HOST');
+  const after = (await admin('GET', '/api/settings')).body;
+  assert.deepEqual(after.smtp, before.smtp, 'the mail server is untouched');
+  assert.equal(after.verified, true, 'and still sends');
+
+  const none = await admin('POST', '/api/settings/import-env', { text: 'SMTP_PORT=abc' });
+  assert.equal(none.status, 400);
+  assert.match(none.body.error, /Nothing was applied/);
+  assert.equal(none.body.findings[0].code, 'env.smtp-port');
 });
 
 test('the header shows each connection: Checkmarx One and the tested mail server green, GitHub red until a token answers', async () => {

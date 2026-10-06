@@ -155,6 +155,12 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.56 (draft) | 1 | 10.5 s / 0 | 62,899 / 0 | 504 | 69 / 6,092 ms | 19 / 730 ms | none |
 | **MZ-01.00.56** | 2 | 10.0 s / 0 | 63,386 / **0** | **494** | 75 / **5,539 ms** | 14 / **345 ms** | none |
 | MZ-01.00.55 (main) | 2 | 9.4 s / 0 | 63,096 / 0 | 495 | 65 / 7,143 ms | 12 / 316 ms | none |
+| MZ-01.00.56 (main) | 1 | 11.5 s / 0 | 62,197 / 40 | 501 | 82 / 9,764 ms | 15 / 745 ms | none |
+| MZ-01.00.57 | 1 | 9.3 s / 0 | 61,558 / 87 | 484 | 92 / 11,631 ms | 19 / 924 ms | none |
+| MZ-01.00.56 (main) | 2 | 9.8 s / 0 | 62,899 / 10 | 512 | 73 / 9,063 ms | 15 / 310 ms | none |
+| MZ-01.00.57 | 2 | 12.9 s / 0 | 61,706 / 95 | 493 | 75 / 12,245 ms | 18 / 942 ms | none |
+| **MZ-01.00.57** | 3 | 11.1 s / 0 | 63,153 / **0** | **499** | 72 / **6,381 ms** | 21 / **627 ms** | none |
+| MZ-01.00.56 (main) | 3 | 10.2 s / 0 | 60,076 / 328 | 466 | 80 / 16,400 ms | 43 / 1,541 ms | none |
 
 **MZ-01.00.37: what the differences were.** Two pairs with main, alternating. Report opens at p95 were 4.1 and 5.1 s on the branch against 7.2 and 5.1 s on main; triage results 201 and 179 ms against 257 and 123 ms; requests a second 519 and 508 against 504 and 518, with 0 failed requests and no finding sent twice in any run. The first branch run's opening burst took 16.3 s, a little above the 7.4–15.8 s seen before, and its fetches were slower (17 s against 12 s at the median); in the second pair the burst took 9.9 s (main 8.0 s) and fetches matched main (13.5 s against 13.0 s at the median). What the fetch now does in addition is one pass over each project's findings to count what is past its SLA, which is a few microseconds a finding next to reading them from Checkmarx One. Escalation runs only on the automation's schedule, which the benchmark does not use.
 
@@ -171,6 +177,8 @@ What this release adds while the benchmark runs:
 - **A five-minute look at whether the weekly status is due.**
 
 Nothing on the measured paths changed. The work done when the server stops (a backup, and the emails) happens after the benchmark ends.
+
+**MZ-01.00.57: what the differences were.** Three pairs with main. No finding was sent twice in any run, and no burst failed. In the first two pairs, translation and review work ran on the same 4-CPU host (pinning the server to two CPUs does not keep other programs off them), and every run had failed requests during host stalls. In those stalls even the health check and "who am I" waited up to 9 s (main) and 17–30 s (branch), with the server at about half its CPU: main had 40 and 10 failed, the branch 87 and 95. The third pair ran on a quiet host with the branch first: the branch served 499 requests a second with **0 failed**, report opens 6.4 s and triage polls 627 ms at p95; main, second, stalled (a 30 s health check) and had 328 failed. The release adds nothing to the measured paths: explanations are built only when a connection test, a send or a .env upload fails, and the one change on every error answer is a check of the route's path.
 
 **MZ-01.00.52: what the differences were.** One pair, main then branch. The branch served 504 requests a second against main's 518, with a slightly faster tail: report opens 7.5 s against 7.6 s at p95, triage polls 483 against 600 ms. It had 2 failed requests, one report hello and one triage-results poll. Both happened while the host stalled (health checks up to 7.3 s; main's run reached 6.2 s), and neither request touches this release's one server change: temporary report file names now come from `crypto.randomBytes`. The rest of the release is tests and the Caddy compose file. No finding was sent twice.
 

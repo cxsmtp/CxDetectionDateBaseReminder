@@ -78,6 +78,9 @@ test('Git chip: each connection to each host, checked with its own token; tokens
   assert.equal(by.github2.who, 'octo-two');
   assert.equal(by.gitlab3.ok, false);
   assert.match(by.gitlab3.reason, /refused the token/);
+  assert.equal(by.gitlab3.help.code, 'git.gitlab.token', 'and how to fix it');
+  assert.match(by.gitlab3.help.steps.join(' '), /read_api/);
+  assert.doesNotMatch(JSON.stringify(by.gitlab3.help), /wrong-token/, 'the token is never repeated back');
   assert.equal(by.gitlab3.variables, 'GITLAB_TOKEN_3');
   assert.equal(git.connected, 3);
   assert.equal(git.total, 4);

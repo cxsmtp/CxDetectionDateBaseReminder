@@ -1098,6 +1098,29 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 .guard-line.bad { border-color: color-mix(in srgb, var(--danger) 35%, transparent); background: var(--danger-soft); }
 .guard-line .muted { font-size: 12px; }
 
+/* What went wrong and how to fix it: under a failed check, a .env upload, a header chip. */
+.fix-help { margin-top: 8px; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45;
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border)); border-inline-start: 3px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface)); color: var(--text); text-align: start; }
+.fix-help .fix-problem { margin: 0 0 4px; font-weight: 600; }
+.fix-help summary { cursor: pointer; font-weight: 550; color: var(--muted); font-size: 12px; margin-top: 4px; }
+.fix-help .fix-how[open] > summary { color: var(--text); }
+.fix-steps { margin: 4px 0 2px; padding-inline-start: 20px; display: grid; gap: 3px; overflow-wrap: anywhere; }
+.fix-help .fix-facts .kv { margin-top: 4px; font-size: 12px; }
+.fix-help .fix-facts .kv > div { display: flex; gap: 8px; }
+.fix-help .fix-facts .k { flex: 0 0 auto; min-width: 9em; color: var(--muted); }
+.fix-help .fix-facts .v { overflow-wrap: anywhere; font-family: var(--mono, ui-monospace, monospace); }
+.guard-line + .fix-help-slot .fix-help, .status + .fix-help-slot .fix-help { margin-top: 6px; }
+.git-row-text .fix-help { margin-top: 4px; font-size: 12px; }
+.env-findings { margin-top: 4px; }
+.env-findings-title { font-weight: 600; margin-bottom: 4px; }
+.env-findings > ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.env-finding { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); border-inline-start: 3px solid var(--warn); background: var(--surface-2); }
+.env-finding.error { border-inline-start-color: var(--danger); }
+.env-finding-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin-bottom: 2px; }
+.env-finding-head .conn-state { margin-inline-start: auto; }
+.env-suggest { margin-top: 2px; }
+
 .link-arrow { font-size: 13px; font-weight: 550; text-decoration: none; }
 .link-arrow:hover { text-decoration: underline; }
 .pool { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--border); }
