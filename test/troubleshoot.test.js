@@ -170,7 +170,7 @@ test('.env files: mistakes are found line by line before anything is applied', (
     'SMPT_USER:env.typo:error',
     'smtp_from:env.lowercase:error',
     'SMTP_FROM_NAME:env.syntax:error',
-    'SMTP_PASS:env.placeholder:error',
+    'SMTP_PASS:env.placeholder:warn',
     'CX_BASE_URL:env.cx-iam-as-base:error',
     'CX_TENANT:env.cx-tenant:error',
     'GITHUB_API_URL:env.github-web-url:error',
@@ -195,6 +195,8 @@ test('.env files: settings that disagree with each other, and Gmail and Microsof
   assert.deepEqual(codes(envCheck('SMTP_HOST=smtp.gmail.com\nSMTP_PASS=abcd efgh ijkl mnop')), [], 'an App Password with its spaces is fine');
   assert.deepEqual(codes(envCheck('SMTP_REQUIRE_AUTH=true\nSMTP_USER=')), ['SMTP_USER:env.smtp-user-missing:warn']);
   assert.deepEqual(codes(envCheck('SMTP_FROM=MissionZero')), ['SMTP_FROM:env.email:error']);
+  assert.deepEqual(codes(envCheck('CX_TENANT=<tenant>')), ['CX_TENANT:env.placeholder:error'], 'an example value left in is not applied');
+  assert.deepEqual(codes(envCheck('REPORT_SIGNING_KEY=abc\nCONNECTION_CHECK_TIMEOUT_MS=5000\nSHUTDOWN_BUDGET_SECONDS=9')), [], 'a real start-up setting is not a misspelling');
   assert.deepEqual(codes(envCheck('CX_IAM_URL=https://eu.ast.checkmarx.net')), ['CX_IAM_URL:env.cx-ast-as-iam:error']);
   assert.deepEqual(codes(envCheck('CX_BASE_URL=http://eu.ast.checkmarx.net')), ['CX_BASE_URL:env.http:error']);
   assert.deepEqual(codes(envCheck('REPORT_SERVER_URL=http://mz.acme.io')), ['REPORT_SERVER_URL:env.http:warn']);

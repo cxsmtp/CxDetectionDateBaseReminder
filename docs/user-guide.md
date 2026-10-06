@@ -220,6 +220,7 @@ Then go to the **Dashboard**, click **Load findings**, and send your first remin
 Settings **save as you type**; there is no Save button.
 - A changed Checkmarx One or mail connection is checked straight away.
 - If it does not work, the **last known good** settings come back when you leave the page, so nothing stops working. Every administrator is told what was rolled back.
+- When something does not connect, a **How to fix it** box says what is wrong and the steps that fix it ([When a connection does not work](troubleshooting.md)).
 
 ---
 
@@ -472,6 +473,7 @@ What happens when you upload:
 - **Section 2** (time zone, backups, tuning) only takes effect when the container starts with `--env-file`. An upload lists those variables as not applied.
 - **Only what you may change is applied.** Variables your role cannot set are refused by name.
 - **Secrets stay hidden:** the key and password are never shown back. The audit log records which variables were imported.
+- **Mistakes are caught first.** Every line is checked before anything is applied. A value that would break a connection (a port that is not a number, `SMTP_SECURE=ssl`, `smtp://` in the host, a misspelt name, the API key's ID instead of the key) is **not applied**, so the working setting stays. It is listed with its line, what is wrong and how to fix it. Something that is probably wrong but could work (a Gmail password that is not an App Password) is applied and listed as **Check this**.
 
 ### Checkmarx One integration (Admin)
 The server's own connection to Checkmarx One. It is used for:
@@ -484,26 +486,28 @@ The server's own connection to Checkmarx One. It is used for:
 | --- | --- |
 | API key | Create one in Checkmarx One under Identity and Access Management → API Keys. Its role must allow reading projects and results, and running AI Triage / AI Remediation if you use them. Leave blank to use the key you signed in with. |
 | Single-tenant / on-prem overrides | IAM URL, API URL and tenant. Only needed when they cannot be worked out from the key (single-tenant or on-prem). Pointing the IAM or API URL at another host clears the stored key: paste it again with the new address. |
-| **Connect & store** | Checks the key (token exchange plus one project call) and stores it. |
+| **Connect & store** | Checks the key (token exchange plus one project call) and stores it. A key that cannot work (its ID, cut short, in quotes, expired) is refused before it is tried. When it does not connect, **How to fix it** says why and what to do. |
 | **Remove stored key** | Removes the stored key. If the server was started with `CX_API_KEY`, it falls back to that key. |
 
 ### Email server (SMTP) (Admin)
 | Field | Meaning |
 | --- | --- |
-| Host, Port | Your mail server. Port and TLS mode are paired: picking port 465 turns on Implicit TLS, and 587 / 25 / 2525 turn it off. |
-| Implicit TLS | On only for port 465. |
-| Server requires authentication | Usually on. |
-| Verify TLS certificate | Leave on. Turn off only for an internal relay with a self-signed certificate. |
+| Host, Port | Your mail server. Port and TLS mode are paired: picking port 465 turns on **Secure connection from the start**, and 587 / 25 / 2525 turn it off. |
+| Secure connection from the start (port 465) | On only for port 465. |
+| Server needs a user name and password | Usually on. |
+| Check the mail server's certificate | Leave on. Turn off only for an internal relay with a self-signed certificate. |
 | Username, Password | The sending account. The password is stored on the server and never shown again. Changing the host clears it: type it again for the new server. |
 | From name, From address | Who the reminders come from. A blank address uses the username. |
-| **Test connection** | Connects and logs in without sending anything. |
-| **Send test email** | Sends a real email to the address you type. |
+| **Test connection** | Connects and logs in without sending anything. When it fails, **How to fix it** says what is wrong and what to do (below). |
+| **Send test email** | Sends a real email to the address you type. A refused sender or recipient is explained the same way. |
 
 **Sending needs a passing test.** Changing the host, port, user, password or TLS options needs a new test.
 
 **Common servers**
-- **Gmail:** `smtp.gmail.com`, port 587, Implicit TLS off, and an [App Password](https://myaccount.google.com/apppasswords); your normal password will not work.
-- **Office 365:** `smtp.office365.com`, port 587.
+- **Gmail:** `smtp.gmail.com`, port 587, **Secure connection from the start** off, and an [App Password](https://myaccount.google.com/apppasswords); your normal password will not work.
+- **Office 365:** `smtp.office365.com`, port 587. The mailbox needs **Authenticated SMTP** turned on (Microsoft 365 admin center → the mailbox → Mail → Manage email apps).
+
+**When it does not work.** The box under the button says what is wrong in one sentence, then the steps that fix it, most likely first. For example: the port and **Secure connection from the start** do not match; Microsoft 365 has SMTP sign-in turned off; Gmail needs an App Password; the name cannot be found; the server's certificate is not trusted; the server will not send with this From address. **What was tried** shows the server, the account and the server's own answer, never the password. The header's **Email** chip shows the same until it works. Every problem it recognises is listed in [When a connection does not work](troubleshooting.md).
 
 ### Developers
 Checkmarx One records who ran a scan as a username, which is not always an email address. These options turn usernames into addresses.
@@ -1133,9 +1137,11 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | Symptom | What to do |
 | --- | --- |
 | No administrator password in the log | The volume already has people from an earlier install. Run `podman exec mission-zero node scripts/reset-admin.mjs`, or start fresh by removing the `mission-zero-data` volume. |
-| "Settings rolled back to the last known good configuration" | The new Checkmarx One key or mail server did not work. The message says what failed; fix it and try again. |
-| SMTP test times out | Usually the port and TLS mode do not match: 465 needs Implicit TLS on, 587 needs it off. Otherwise a firewall is blocking the port. |
+| The email server, Checkmarx One or a git host does not connect | Read the **How to fix it** box under the button (or in the header chip): it names the problem and the steps. Every problem it recognises is in [When a connection does not work](troubleshooting.md). |
+| "Settings rolled back to the last known good configuration" | The new Checkmarx One key or mail server did not work. The message says what failed and how to fix it; fix it and try again. |
+| SMTP test times out | Usually the port and **Secure connection from the start** do not match: 465 needs it on, 587 needs it off. Otherwise a firewall is blocking the port. |
 | Gmail refuses the password | Use an App Password, not your normal password. |
+| An uploaded .env file "Not applied" | That line has a mistake (listed with its line number and how to fix it); the setting that worked is kept. Fix the line and upload again. |
 | The report says it cannot reach the server | Be on the company network or VPN. Check **Settings → Reminder server address**, and use **Change address** in the report if the server moved. |
 | More rows than credits needed | Several rows can be one Checkmarx One result (marked **Same result R1** …). You are charged per result. |
 | "Fetch still running" when you click Allocate or Triage | Wait for the green **Data fetch complete** flare. |
