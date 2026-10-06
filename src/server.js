@@ -1317,12 +1317,13 @@ app.put(
   asyncRoute(async (req, res) => {
     const next = cleanPersonalBranding(req.user.branding ?? {}, req.body ?? {});
     const { before } = iam.setBranding(req.user.id, next);
-    const changed = Object.keys(next).filter((k) => (before?.[k] ?? '') !== next[k] && !(k === 'on' && !before?.on && !next.on));
+    const prior = cleanPersonalBranding(before ?? {});
+    const changed = Object.keys(next).filter((k) => prior[k] !== next[k]);
     if (changed.length) {
       const what = changed.length === 1 && changed[0] === 'on' ? (next.on ? 'turned their own branding on' : 'went back to the organisation’s branding') : `changed their own branding: ${changed.join(', ')}`;
       // The logo itself can be large; the log says only whether there is one.
       const summary = (b) => b && { ...b, logoUrl: b.logoUrl ? (b.logoUrl.startsWith('data:') ? '(uploaded image)' : b.logoUrl) : '' };
-      audit.record({ type: 'iam', outcome: 'changed', reason: `${req.user.email} ${what}.`, actor: await adminActor(req), details: { before: summary(before), after: summary(next) } });
+      audit.record({ type: 'iam', outcome: 'changed', reason: `${req.user.email} ${what}.`, actor: await adminActor(req), details: { before: summary(prior), after: summary(next) } });
     }
     res.json({ ...personalBrandingView(iam.user(req.user.id)), me: describeMe(req.session, iam.user(req.user.id)) });
   }),

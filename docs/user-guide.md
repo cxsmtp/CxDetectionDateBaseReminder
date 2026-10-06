@@ -99,6 +99,12 @@ What is translated, and what is not:
 
 Changes save as you make them and are recorded in the audit log. A time zone or first language picked up from your computer is saved without an audit entry.
 
+<a id="your-branding"></a>**Your branding** (Settings → Your branding, for roles with **Their own branding**). Your own names, logo and colours, for demonstrations:
+- Turn on **Use my branding**, then fill in the app name, company name, logo, logo height, accent colour and call to action. An empty field keeps the organisation's, shown in grey.
+- While it is on, this app shows you your app name and logo, and the reports you download and the reminders you send carry your branding.
+- Everyone else, and every scheduled run, keeps the organisation's branding.
+- Turn it off to go back. **Clear my branding** empties it. Details: [branding](branding.md).
+
 **Simple by default.** Fine-tuning most people never need is hidden: the reminder format and attachment, extra credits, custom link and mail templates, the risks endpoint, mail-server certificate checks, HTTPS hardening and similar. To see it, open your name (top right) and turn on **Show advanced options**. The choice is kept in your browser.
 
 ## Who can do what
@@ -114,6 +120,10 @@ Everyone signs in and has one role. Tabs and buttons you are not allowed to use 
 Every role can raise support cases and enhancement requests under **Get help**. Admins answer them (**Answer support cases & enhancements**); on a new installation Security Analysts can too.
 
 Admins and Analysts can change what Security Analyst and User may do, or create new roles, on the [People & roles page](#people--roles).
+
+**Each person sees their own level and below.** On People & roles, a Security Analyst sees Security Analysts and Users, not who the Admins are. To move someone down, change their role to Security Analyst.
+
+**Branding for demonstrations.** Admins and, on new installations, Security Analysts can set [their own branding](#your-branding) for when they present CxMissionZero. Who may see the Branding page and the Activation codes page is a permission too ([branding](branding.md)).
 
 ---
 
@@ -427,7 +437,7 @@ Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
 - **Hebrew:** an activation code switches Hebrew on; tick the people who may use it under **Who may use Hebrew** (only they are offered it); a deactivation code removes it.
 - **Several tenants:** for organisations that run more than one Checkmarx One tenant (the Super Admin tasks).
 
-Paste the code and select **Apply the code**. The page shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** see this section. [How codes are issued](activation-codes.md).
+Paste the code and select **Apply the code**. The page shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** enter codes. Roles with **See the Activation codes page** see the section read-only: what is unlocked, and until when. [How codes are issued](activation-codes.md).
 
 ### Tenants (Super Admin)
 
@@ -563,6 +573,8 @@ The panel shows:
 | Monthly summary to | Who gets the summary on the first day of each month, for the month before. Nobody: not sent. |
 
 ### Branding
+Everyone's default branding. Seen by roles with **See the Branding page**, and changed by roles with **Branding**. Each person can present with [their own](#your-branding) over it.
+
 | Field | Meaning |
 | --- | --- |
 | App name | Shown in this app's header. |
@@ -932,6 +944,7 @@ Identity and access management, in two tabs.
 - **New role** builds your own role.
 - The Admin role is fixed. Permissions marked **Admin** are Admin-only by default.
 - You can never grant a permission you do not have yourself, or touch an Admin's account unless you are an Admin.
+- You see only the people and roles within your own permissions. A Security Analyst does not see the Admins or the Admin role.
 - There is always at least one active Admin.
 
 ---
