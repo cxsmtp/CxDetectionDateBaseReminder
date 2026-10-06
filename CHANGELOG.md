@@ -41,7 +41,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.54 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.54 — 2026-10-06 08:54 UTC · [#77](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/77)
 - **Your branding, for demonstrations.** Under **Settings → Your branding**, each Admin and Security Analyst can set their own app name, company name, logo, colour and call to action. With **Use my branding** on, the reports they download and the reminders they send carry it, and the app shows them their own name and logo. Any field left empty keeps the organisation's ([branding](docs/branding.md)).
 - **The organisation's branding stays the default.** Everyone else, and every scheduled run, uses the branding an Admin set under **Settings → Branding**. **Run now** under Automation and Get help emails do too.
 - **Who sees the Branding page and the Activation codes page.** Two new permissions decide it: **See the Branding page** and **See the Activation codes page**. A third, **Their own branding**, decides who gets Settings → Your branding. Activation codes can now be shown read-only. Entering codes stays with Admins.
