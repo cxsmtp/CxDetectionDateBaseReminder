@@ -2652,3 +2652,28 @@ a.button-like.primary:hover { filter: brightness(1.05); }
 .support-mode small { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
 .support-email { max-width: 420px; }
 .help-open span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Settings → Hands-off */
+.ho-ready { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+.ho-check { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; border: 1px solid var(--border); }
+.ho-check.ok { color: #067647; background: #ecfdf3; border-color: #abefc6; }
+.ho-check.warn { color: #93370d; background: #fffaeb; border-color: #fedf89; }
+.ho-step { padding: 14px 0; border-top: 1px solid var(--border); }
+.ho-step h3, .ho-health h3 { font-size: 15px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+.ho-num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent, #4f46e5); color: #fff; font-size: 12px; }
+.ho-step > .check { display: flex; margin: 6px 0; }
+.ho-sev { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px; }
+.ho-when { display: flex; gap: 8px; }
+.ho-when select { flex: 1; }
+.muted-field { opacity: 0.5; }
+.ho-health { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.ho-health .hint { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ho-events { list-style: none; margin: 8px 0; padding: 0; font-size: 13px; max-height: 220px; overflow: auto; }
+.ho-events li { padding: 4px 0; border-bottom: 1px solid var(--border); color: var(--muted, #475467); overflow-wrap: anywhere; }
+.ho-events time { color: var(--text); margin-right: 6px; font-variant-numeric: tabular-nums; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ho-check.ok { color: #75e0a7; background: #053321; border-color: #085d3a; }
+  :root:not([data-theme="light"]) .ho-check.warn { color: #fec84b; background: #4e1d09; border-color: #93370d; }
+}
+:root[data-theme="dark"] .ho-check.ok { color: #75e0a7; background: #053321; border-color: #085d3a; }
+:root[data-theme="dark"] .ho-check.warn { color: #fec84b; background: #4e1d09; border-color: #93370d; }
