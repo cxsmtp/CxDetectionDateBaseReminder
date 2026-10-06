@@ -98,6 +98,9 @@ test.before(async () => {
   launcher.stdout.on('data', (d) => (log += d));
   launcher.stderr.on('data', (d) => (log += d));
   await waitFor(OWN);
+  // The server answers before it has created the first administrator: sign in once it has.
+  const end = Date.now() + 30_000;
+  while (!/First administrator created/.test(log) && Date.now() < end) await sleep(100);
   await call('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD });
   await call('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD });
 });

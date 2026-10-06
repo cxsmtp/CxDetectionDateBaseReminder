@@ -72,7 +72,7 @@ export class ScmClient {
         await sleep(500 * 2 ** attempt);
         return this.send(path, { method, query, body, attempt: attempt + 1 });
       }
-      throw new ScmError(`Could not reach ${this.name}: ${error.message}`);
+      throw Object.assign(new ScmError(`Could not reach ${this.name}: ${error.cause?.message || error.message}`), { cause: error });
     }
     const text = await response.text();
     let parsed = null;

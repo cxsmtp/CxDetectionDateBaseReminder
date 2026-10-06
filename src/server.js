@@ -53,6 +53,7 @@ import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
 import { deriveConnection, publicConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
+import { checkCxKey, checkEnvFile, explainCxone, explainGit, explainSmtp, refusedByCheck } from './troubleshoot.js';
 import { SettingsStore, applyEnvironmentSmtp, cleanPersonalBranding, hasEnvironmentSmtp, hostOfUrl, isVerified, overlayBranding, parseAddressList, publicSettings, smtpFingerprint, supportChannel } from './settings.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import v8 from 'node:v8';
@@ -269,7 +270,7 @@ function buildTenant({ id, dir }) {
     scanLocations: new TtlCache({ max: 40 }),
     gitChecks: new Map(),
     // The tenant's own Checkmarx One integration session and how it was made (see resolveAutomationSession).
-    state: { automationSessionId: null, bootstrapSessionId: null, integrationFingerprint: null, integrationAttempt: null, integrationFailure: { fingerprint: null, until: 0 }, lastDashboardOrigin: '' },
+    state: { automationSessionId: null, bootstrapSessionId: null, integrationFingerprint: null, integrationAttempt: null, integrationFailure: { fingerprint: null, until: 0 }, lastDashboardOrigin: '', connectionHelp: {} },
   };
 }
 /** The running tenant's own variables (its integration session and the like). */
@@ -1570,7 +1571,13 @@ app.post(
     const { apiKey, baseUrl = '', iamUrl = '', tenant = '' } = req.body ?? {};
     // Use this session's own key when none is pasted (signed in with a Checkmarx One key).
     const key = String(apiKey ?? '').trim() || (req.session.via === 'cxone' ? req.session.connection.apiKey : '');
-    if (!key) return res.status(400).json({ error: 'Paste a Checkmarx One API key.' });
+    if (!key) return res.status(400).json({ error: 'Paste a Checkmarx One API key.', help: explainCxone(new Error('no key'), { apiKey: '' }) });
+    // A key that cannot work (its ID, cut short, quoted, expired) is said so before it is tried.
+    const malformed = checkCxKey(key);
+    if (malformed && malformed !== 'cx.key-no-issuer') {
+      const help = explainCxone(new Error('malformed'), { apiKey: key });
+      return res.status(400).json({ error: help.problem, help });
+    }
     const overrides = { baseUrl: String(baseUrl).trim().replace(/\/+$/, ''), iamUrl: String(iamUrl).trim().replace(/\/+$/, ''), tenant: String(tenant).trim() };
     const session = await withTimeout(
       sessions.create(key, {
@@ -1582,6 +1589,7 @@ app.post(
     );
     settingsStore.save({ automationApiKey: key, integrationOverrides: overrides });
     activateIntegration(session, key, overrides);
+    noteConnectionHelp('cxone', { ok: true });
     audit.record({ type: 'settings', outcome: 'changed', reason: `Checkmarx One integration connected to tenant ${session.connection.tenant}.`, actor: await adminActor(req), details: { tenant: session.connection.tenant, baseUrl: session.connection.baseUrl } });
     res.json(integrationStatus());
   }),
@@ -1661,6 +1669,14 @@ function connectionStatus(settings = settingsStore.get()) {
   };
 }
 
+/** Remember why a connection last failed (cleared when it works), for the header's connection chips. */
+function noteConnectionHelp(part, outcome) {
+  if (!outcome || outcome.superseded) return;
+  tstate.connectionHelp ??= {};
+  if (outcome.ok) delete tstate.connectionHelp[part];
+  else if (outcome.help) tstate.connectionHelp[part] = outcome.help;
+}
+
 /** Checks run one at a time: a second caller waits for the first and then checks again. */
 let checkQueue = Promise.resolve();
 function checkConnections(options) {
@@ -1697,7 +1713,7 @@ async function runConnectionCheck({ rollback = false, trigger = 'check', actor =
         audit.record({ type: 'settings', outcome: 'changed', reason: `Checkmarx One integration checked and in use (tenant ${session.connection.tenant}).`, actor: actor ?? SYSTEM_ACTOR, details: { tenant: session.connection.tenant, baseUrl: session.connection.baseUrl, trigger } });
       }
     } catch (error) {
-      result.cxone = { ok: false, error: error.message, timedOut: Boolean(error.timedOut) };
+      result.cxone = { ok: false, error: error.message, timedOut: Boolean(error.timedOut), help: explainCxone(error, { apiKey: key, ...overrides }) };
       const good = guard.lastGood('cxone');
       const current = settingsStore.get();
       const unchanged = cxoneFingerprint(current.automationApiKey, current.integrationOverrides ?? {}) === tried;
@@ -1713,7 +1729,7 @@ async function runConnectionCheck({ rollback = false, trigger = 'check', actor =
           await resolveAutomationSession();
         }
         result.cxone.rolledBack = true;
-        parts.push({ part: 'cxone', error: error.message, timedOut: Boolean(error.timedOut), attempted: describeCxone({ overrides }), restored: describeCxone(good), restoredAt: good.at });
+        parts.push({ part: 'cxone', error: error.message, timedOut: Boolean(error.timedOut), help: result.cxone.help, attempted: describeCxone({ overrides }), restored: describeCxone(good), restoredAt: good.at });
       }
     }
   }
@@ -1733,16 +1749,18 @@ async function runConnectionCheck({ rollback = false, trigger = 'check', actor =
         result.smtp = { ok: true, host: settings.smtp.host, message: outcome?.message ?? '' };
       }
     } catch (error) {
-      result.smtp = { ok: false, error: error.message, timedOut: Boolean(error.timedOut) || /timed? ?out|ETIMEDOUT/i.test(error.message) };
+      result.smtp = { ok: false, error: error.message, timedOut: Boolean(error.timedOut) || /timed? ?out|ETIMEDOUT/i.test(error.message), help: error.help ?? explainSmtp(error, settings.smtp) };
       const unchanged = smtpFingerprint(settingsStore.get().smtp) === tried;
       if (rollback && good && unchanged && smtpFingerprint(good) !== tried) {
         settingsStore.restoreSmtp(good);
         result.smtp.rolledBack = true;
-        parts.push({ part: 'smtp', error: error.message, timedOut: result.smtp.timedOut, attempted, restored: describeSmtp(good), restoredAt: good.at });
+        parts.push({ part: 'smtp', error: error.message, timedOut: result.smtp.timedOut, help: result.smtp.help, attempted, restored: describeSmtp(good), restoredAt: good.at });
       }
     }
   }
 
+  // What the header shows while a connection does not work: why, and how to fix it.
+  for (const part of ['cxone', 'smtp']) noteConnectionHelp(part, result[part]);
   if (parts.length) {
     result.notice = guard.addNotice({ trigger, actor: who, parts });
     audit.record({
@@ -1814,16 +1832,21 @@ app.post(
   '/api/settings/import-env',
   requirePermission('integration.cxone', 'integration.smtp', 'settings.links', 'beta.use'),
   asyncRoute(async (req, res) => {
-    const vars = parseEnvText(req.body?.text);
+    const all = parseEnvText(req.body?.text);
+    // Checked before anything is applied: a value that cannot work is not applied, so the working one stays.
+    const findings = checkEnvFile(req.body?.text, all, { known: Object.keys(ENV_SETTINGS), isKnown: (name) => Boolean(numberedVariable(name)) });
+    const skipped = refusedByCheck(findings);
+    const vars = Object.fromEntries(Object.entries(all).filter(([name]) => !skipped.has(name)));
     const { changes, applied, refused, ignored } = settingsFromEnv(vars, (permission) => can(req, permission));
     if (!applied.length) {
-      if (refused.length) return res.status(403).json({ error: `Your role cannot set ${refused.join(', ')}.`, applied, refused, ignored });
+      if (refused.length) return res.status(403).json({ error: `Your role cannot set ${refused.join(', ')}.`, applied, refused, ignored, findings });
+      if (skipped.size) return res.status(400).json({ error: 'Nothing was applied: the file has mistakes that would break the connections. Each one is listed below with how to fix it.', applied, refused, ignored, findings });
       const blank = Object.keys(vars).some((name) => Object.hasOwn(ENV_SETTINGS, name) || numberedVariable(name));
       return res.status(400).json({
         error: blank
           ? 'Every setting in that file is blank, so nothing changed. Fill in the values you want to set (blank ones keep what is set now) and upload it again.'
           : 'No setting this page understands was found in that file.',
-        applied, refused, ignored,
+        applied, refused, ignored, findings,
       });
     }
     if (changes.cxone) {
@@ -1841,9 +1864,9 @@ app.post(
     if (changes.instances) settingsStore.save({ beta: { instances: changes.instances } });
     guard.touch();
     const actor = await adminActor(req);
-    audit.record({ type: 'settings', outcome: 'changed', reason: `Settings imported from a .env file: ${applied.join(', ')}.`, actor, details: { applied, refused, ignored, secrets: applied.filter(isSecretVariable) } });
+    audit.record({ type: 'settings', outcome: 'changed', reason: `Settings imported from a .env file: ${applied.join(', ')}.`, actor, details: { applied, refused, ignored, notApplied: [...skipped], secrets: applied.filter(isSecretVariable) } });
     const check = await checkConnections({ rollback: false, trigger: 'import', actor });
-    res.json({ applied, refused, ignored, check, settings: settingsFor(req, settingsStore.get()), integration: integrationStatus() });
+    res.json({ applied, refused, ignored, findings, check, settings: settingsFor(req, settingsStore.get()), integration: integrationStatus() });
   }),
 );
 
@@ -1983,7 +2006,11 @@ app.post(
     // what is on screen rather than what was last saved.
     // Only the mail server part of the form is saved here: this route is the SMTP permission's.
     const settings = req.body?.smtp ? settingsStore.save({ smtp: req.body.smtp }) : settingsStore.get();
-    const result = await testConnection(settings.smtp);
+    const result = await testConnection(settings.smtp).catch((error) => {
+      noteConnectionHelp('smtp', { ok: false, help: error.help });
+      throw error;
+    });
+    noteConnectionHelp('smtp', { ok: true });
     const saved = settingsStore.markVerified();
     guard.recordGood('smtp', saved.smtp);
     res.json({ ...result, settings: settingsFor(req, saved) });
@@ -8087,6 +8114,7 @@ async function connectionsStatus() {
       source: cx.source,
       pending: cx.pending,
       reason: cx.connected ? (cx.pending ? 'A changed connection is being checked; the last known good one is in use.' : '') : 'Not connected: an Admin connects it under Settings → Checkmarx One integration, or with CX_API_KEY.',
+      help: (!cx.connected || cx.pending) ? tstate.connectionHelp?.cxone : undefined,
     },
     smtp: {
       ok: Boolean(smtp.host) && verified,
@@ -8096,6 +8124,7 @@ async function connectionsStatus() {
       from: smtp.fromAddress || smtp.user || '',
       verifiedAt: verified ? settings.verifiedAt ?? null : null,
       reason: !smtp.host ? 'No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.' : verified ? '' : 'Not tested with these settings: Settings → Email server → Test connection.',
+      help: verified ? undefined : tstate.connectionHelp?.smtp,
     },
     // Every git host and instance, for the header's Git chip (one logo each).
     git,
@@ -8118,7 +8147,7 @@ async function checkGitInstance(provider, set) {
   }
   const result = (await checkScmConnections(scmClients(set.scm), set.scm, [provider]))[provider];
   if (!result) throw new Error(provider === 'azure' ? 'set the organisation address (AZURE_DEVOPS_ORG_URL) too' : 'no answer');
-  if (!result.ok) throw new Error(result.reason.replace(/^[^:]*refused: /, ''));
+  if (!result.ok) throw Object.assign(new Error(result.reason.replace(/^[^:]*refused: /, '')), { help: result.help });
   return result.who ?? '';
 }
 
@@ -8155,7 +8184,7 @@ async function gitConnections(settings = settingsStore.get()) {
       checks.push(
         checkGitInstance(provider, set)
           .then((who) => ({ ok: true, who: String(who ?? ''), reason: '' }))
-          .catch((error) => ({ ok: false, who: '', reason: `${SCM_LABELS[provider]} refused the token: ${error.message}` }))
+          .catch((error) => ({ ok: false, who: '', reason: `${SCM_LABELS[provider]} refused the token: ${error.message}`, help: error.help ?? explainGit(provider, error, { url, variable: entry.variables }) }))
           .then((result) => {
             const at = Date.now();
             gitChecks.set(key, { at, result });
@@ -8645,6 +8674,17 @@ function authorMessage(author, items, settings) {
 }
 
 // eslint-disable-next-line no-unused-vars -- Express identifies error handlers by arity.
+/**
+ * A Checkmarx One connection that failed while connecting, signing in or changing
+ * settings: what went wrong and how to fix it (src/troubleshoot.js).
+ */
+function connectionHelp(req, error) {
+  if (!/^\/api\/(integration|settings|session|automation\/arm)/.test(req.path)) return null;
+  if (!['AuthError', 'ConnectionError', 'CxApiError'].includes(error?.name) && !error?.timedOut) return null;
+  const body = req.body ?? {};
+  return explainCxone(error, { apiKey: typeof body.apiKey === 'string' && body.apiKey.trim() ? body.apiKey : undefined, baseUrl: body.baseUrl, iamUrl: body.iamUrl, tenant: body.tenant });
+}
+
 app.use((error, req, res, next) => {
   // A body over its route's size limit: said plainly, not as a parser message.
   if (error.type === 'entity.too.large') {
@@ -8664,7 +8704,7 @@ app.use((error, req, res, next) => {
     return res.status(500).json({ error: 'Something went wrong on the server. The details are in its log.' });
   }
   if (error.status >= 500) diagnostics.error('upstream-error', error, { route: req.route ? `${req.baseUrl}${req.route.path}` : '(unmatched)', status: error.status });
-  res.status(error.status).json({ error: error.message ?? 'Unexpected error.', detail: error.body ?? undefined });
+  res.status(error.status).json({ error: error.message ?? 'Unexpected error.', detail: error.body ?? undefined, help: error.help ?? connectionHelp(req, error) ?? undefined });
 });
 
 /**

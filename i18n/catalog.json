@@ -13,6 +13,18 @@
    "busy line"
   ]
  },
+ "\"Secure connection from the start\" does not match the port, so the connection stalled.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "\"Secure connection from the start\" does not match the port.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "({0} = {1} results)": {
   "kind": "text",
   "seen": [
@@ -924,6 +936,18 @@
    "Dashboard › small › Get help"
   ]
  },
+ "A GitHub token starts with github_pat_, ghp_, gho_ or ghs_. Create one under GitHub → Settings → Developer settings → Personal access tokens.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "A key is one long line that starts with eyJ and has exactly two dots in it.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "A new feature or an improvement. Follow it until it is done.": {
   "kind": "text",
   "seen": [
@@ -978,6 +1002,18 @@
    "first start › li › HTTPS",
    "sign in › li › HTTPS",
    "Dashboard › li › HTTPS"
+  ]
+ },
+ "A token is made for one organisation: use the one it was created in.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "A token of a dedicated account with its own limits avoids sharing them with other tools.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "A token with read access to the repositories (and <code>read:org</code> for verified-domain emails). Stored on this server like the SMTP password, and never shown again.": {
@@ -1247,6 +1283,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Address": {
+  "kind": "text",
+  "seen": [
+   "settings › How to fix it › What was tried › label"
   ]
  },
  "Address — blank uses <code>REPORT_SERVER_URL</code>, else the address this page is open on": {
@@ -2079,12 +2121,30 @@
    "Dashboard › p › Create the first administrator"
   ]
  },
+ "An external address may need relaying to be allowed for the sending account: ask your mail administrator.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "An independent project, not a Checkmarx product, provided as is: no warranty, support or bug fixing. Checkmarx and the author are not responsible for its use or for any credit discrepancy. Audit figures support your own calculation only.": {
   "kind": "text",
   "seen": [
    "first start › p › About CxMissionZero",
    "sign in › p › About CxMissionZero",
    "Dashboard › p › About CxMissionZero"
+  ]
+ },
+ "An internal name must be resolvable from where MissionZero runs: inside a container, use the full name (for example mail.company.local) or the IP address.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "An OAuth client secret is not an API key: create an API key under Identity and Access Management → API Keys.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Analysing the findings…": {
@@ -2263,6 +2323,30 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Ask the mail server's administrator to renew its certificate.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Ask your mail administrator why the sending account or the server's address is blocked, and to unblock it.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Ask your network team to allow outgoing connections from MissionZero to the mail server on this port. MissionZero does not use a web proxy for mail.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Ask your network team to allow outgoing HTTPS (port 443) from MissionZero's server to your Checkmarx One addresses (the IAM and API hosts, *.checkmarx.net on the cloud).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Asking Checkmarx One to rescan…": {
@@ -2502,6 +2586,24 @@
    "sign in › span › Match usernames to email addresses"
   ]
  },
+ "Azure DevOps did not accept the token for this organisation.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Azure DevOps needs the organisation as well as the token.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "AZURE_DEVOPS_ORG_URL is not an Azure DevOps organisation.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Back to http and HTTPS side by side": {
   "kind": "text",
   "seen": [
@@ -2657,12 +2759,24 @@
    "Dashboard › option › Bitbucket"
   ]
  },
+ "Bitbucket Cloud: use an app password with Repositories and Account read permissions, and set BITBUCKET_USERNAME to your Bitbucket username (not your email address). A workspace or repository access token works alone, without a username.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Bitbucket Data Center / Server": {
   "kind": "text",
   "seen": [
    "first start › option › Bitbucket",
    "sign in › option › Bitbucket",
    "Dashboard › option › Bitbucket"
+  ]
+ },
+ "Bitbucket Data Center: create an HTTP access token with Project read and Repository read, and set BITBUCKET_URL to your Bitbucket address.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Blame through the host's API": {
@@ -3023,6 +3137,12 @@
    "Beta › Code authors › confidence badge: medium confidence, please check"
   ]
  },
+ "Check \"Secure connection from the start\": on for port 465, off for 587, 25 and 2525.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Check again": {
   "kind": "text",
   "seen": [
@@ -3063,6 +3183,66 @@
    "Dashboard › button › Hands-off: set it up once, then leave it"
   ]
  },
+ "Check that it is for this tenant and region: a key from another tenant is refused.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check that MissionZero's server can resolve internet names: inside a container, check its DNS.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check that the mail service is running on that server, and that its firewall allows connections from MissionZero.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check that the token has not expired and was created in this organisation (a token is made for one organisation, or for all accessible organisations).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check that the token's account is a member and can see it.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check that the user the key belongs to is still active in Checkmarx One.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check that the username is the mailbox's full email address and the password is current.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check the address (GITHUB_API_URL, GITLAB_URL, AZURE_DEVOPS_ORG_URL or BITBUCKET_URL): leave it blank for github.com, gitlab.com and bitbucket.org.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check the address for typos.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check the address, and ask your network team to allow outgoing HTTPS (port 443) from MissionZero's server to it.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Check the mail server's certificate": {
   "kind": "text",
   "seen": [
@@ -3079,12 +3259,72 @@
    "Dashboard › button › AI check & fix"
   ]
  },
+ "Check the organisation, group or workspace name (GITHUB_ORG, GITLAB_GROUP, BITBUCKET_WORKSPACE).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check the port: 587 (STARTTLS) or 465 (implicit TLS) for most providers, 25 for an internal relay.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check the port: 587 or 465 for most providers. Ports such as 993 (IMAP) or 443 (web) are not for sending mail.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check the server name and port.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check the server's date and time too: a clock far off makes valid certificates look expired.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check the spelling of the server name.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check the username: most servers want the full email address of the sending mailbox.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check this": {
+  "kind": "text",
+  "seen": [
+   "settings › Quick setup (.env) / Email server › fix-it box"
+  ]
+ },
  "Check this browser accepts it": {
   "kind": "text",
   "seen": [
    "first start › button › HTTPS",
    "sign in › button › HTTPS",
    "Dashboard › button › HTTPS"
+  ]
+ },
+ "Check, in order: the API key (whole, current, for this tenant), then the addresses under \"Single-tenant / on-prem addresses\" (blank on the multi-tenant cloud).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check, in order: the server name, the port, \"Secure connection from the start\" (on for 465, off for 587), the username and the password.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Checked by AI": {
@@ -3170,12 +3410,30 @@
    "connection: cxone › h3"
   ]
  },
+ "Checkmarx One answer": {
+  "kind": "text",
+  "seen": [
+   "settings › How to fix it › What was tried › label"
+  ]
+ },
+ "Checkmarx One answered \"not found\": the API address is probably wrong.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Checkmarx One API key": {
   "kind": "text",
   "seen": [
    "first start › span › Create the first administrator",
    "sign in › span › Create the first administrator",
    "Dashboard › span › Create the first administrator"
+  ]
+ },
+ "Checkmarx One asked MissionZero to slow down.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Checkmarx One connected": {
@@ -3192,6 +3450,12 @@
    "first start › button",
    "sign in › button",
    "Dashboard › button"
+  ]
+ },
+ "Checkmarx One had a problem answering.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Checkmarx One identities": {
@@ -3226,10 +3490,22 @@
    "Dashboard › remind › p › Why fewer results than findings: 56 findings here are 28 Checkmarx One results"
   ]
  },
+ "Checkmarx One no longer accepts this API key: it was deleted, revoked, or its user was disabled.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Checkmarx One not connected": {
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Checkmarx One rejected the API key.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Checkmarx One tenant name": {
@@ -3270,6 +3546,12 @@
    "first start › label › Quick setup from a .env file",
    "sign in › label › Quick setup from a .env file",
    "Dashboard › label › Quick setup from a .env file"
+  ]
+ },
+ "Choose a longer expiry when you create it, and note the date: MissionZero shows when the key ends.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Choose a new password": {
@@ -3758,12 +4040,30 @@
    "Dashboard › button › Replace the whole image (a new Node.js or OS base) Beta Companion not running"
   ]
  },
+ "Copy it again in one piece: keys and tokens have no spaces.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Copy the configured Cc/Bcc on per-initiator emails": {
   "kind": "text",
   "seen": [
    "first start › label › Developer addresses",
    "sign in › label › Developer addresses",
    "Dashboard › label › Developer addresses"
+  ]
+ },
+ "Copy the key again in one piece: it is often cut short or broken over two lines.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Copy the token again in one piece, with no spaces, quotes or \"Bearer\" in front.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Counting one credit per result…": {
@@ -3780,12 +4080,48 @@
    "Dashboard › th › Match usernames to email addresses"
   ]
  },
+ "Create a new API key in Checkmarx One (Identity and Access Management → API Keys) and paste it here, or set it as CX_API_KEY.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Create a personal access token in Azure DevOps: User settings → Personal access tokens, for the same organisation, with Code (Read), Graph (Read) and Identity (Read).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Create a token in GitLab: your avatar → Preferences → Access tokens, with the read_api and read_repository scopes.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Create a token on GitHub: Settings → Developer settings → Personal access tokens. Fine-grained: choose your organisation as the resource owner and give Contents and Metadata read access. Classic: the repo and read:org scopes.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Create administrator": {
   "kind": "text",
   "seen": [
    "first start › button › Create the first administrator",
    "sign in › button › Create the first administrator",
    "Dashboard › button › Create the first administrator"
+  ]
+ },
+ "Create an App Password at https://myaccount.google.com/apppasswords (it needs 2-Step Verification) and use it as SMTP_PASS.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Create one in Checkmarx One: Settings → Identity and Access Management → API Keys → Create API key.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Create role": {
@@ -3802,6 +4138,12 @@
    "first start › h2 › Create the first administrator",
    "sign in › h2 › Create the first administrator",
    "Dashboard › h2 › Create the first administrator"
+  ]
+ },
+ "Create the key again after changing its roles if the change does not take effect.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Create the request": {
@@ -4048,6 +4390,24 @@
    "settings › span › Checkmarx One integration",
    "logs › span › Checkmarx One integration",
    "logs › activity › span › Checkmarx One integration"
+  ]
+ },
+ "CX_BASE_URL is the IAM address; it should be the API (ast) address.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "CX_IAM_URL is the API address; it should be the IAM address.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "CX_TENANT should be the tenant name only.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "CxMissionZero": {
@@ -4396,6 +4756,12 @@
    "first start › p › Match usernames to email addresses",
    "sign in › p › Match usernames to email addresses",
    "Dashboard › p › Match usernames to email addresses"
+  ]
+ },
+ "Did you mean:": {
+  "kind": "text",
+  "seen": [
+   "settings › Quick setup (.env) / Email server › fix-it box"
   ]
  },
  "Difference": {
@@ -4876,12 +5242,24 @@
    "message"
   ]
  },
+ "Enter only the name, for example smtp.office365.com: no smtp:// or https:// in front, no port and no path after it.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Enter the activation codes that unlock add-ons on this installation (Hebrew; several Checkmarx One tenants), or turn them off.": {
   "kind": "text",
   "seen": [
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
+  ]
+ },
+ "Enter the address as https://…, for example https://eu.ast.checkmarx.net.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Enter the address requests go to. Until then, Get help keeps the support portal.": {
@@ -4892,10 +5270,34 @@
    "message"
   ]
  },
+ "Enter the mail server name under Settings → Email server, or set SMTP_HOST in the .env file.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Enter the name people use to reach this server, e.g. mz.company.com.": {
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Enter the password again: it may have been changed, have expired, or been pasted with a space or line break.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Enter the server name exactly as it is on its certificate (for example smtp.office365.com, not an IP address or an alias).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Enter the username (usually the full email address of the sending mailbox) and its password.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Enter your current password and choose a new one.": {
@@ -5647,12 +6049,42 @@
    "credits › overview › span"
   ]
  },
+ "For a self-hosted server, use the address you open it with in a browser, and check that MissionZero's server can resolve that name.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "For AI Triage, AI Remediation and rescans, the key also needs the roles that run them.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "For an internal relay addressed by IP, ask for its certificate name, or turn off \"Check the mail server's certificate\" for that relay only.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "For an internal relay with a self-signed certificate, turn off \"Check the mail server's certificate\" (SMTP_REJECT_UNAUTHORIZED=false).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "For each finding: its file and line from Checkmarx One, who last changed that line at the scanned commit (host API or git blame), and their real address. Connect hosts under <a href=\"#/beta/hosts\">Source-code hosts</a>.": {
   "kind": "html",
   "seen": [
    "first start › p › Email the authors of vulnerable code",
    "sign in › p › Email the authors of vulnerable code",
    "Dashboard › p › Email the authors of vulnerable code"
+  ]
+ },
+ "For single-tenant Checkmarx One, use the address you open Checkmarx One with in a browser.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "For the ticked projects; none ticked means every project. Their findings are read fresh from Checkmarx One.": {
@@ -5839,6 +6271,12 @@
    "connection: cxone › h2 › Get started · 1 of 6 done"
   ]
  },
+ "Get your company's root CA certificate (a .pem file) from your network team.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Git": {
   "kind": "text",
   "seen": [
@@ -5894,12 +6332,36 @@
    "sign in › span › Match usernames to email addresses"
   ]
  },
+ "GitHub Enterprise: GITHUB_API_URL ends with /api/v3, for example https://github.company.com/api/v3.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "GitHub refused the token for this organisation until it is authorised for single sign-on.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "GitHub usernames": {
   "kind": "text",
   "seen": [
    "first start › span › Match usernames to email addresses",
    "sign in › span › Match usernames to email addresses",
    "Dashboard › span › Match usernames to email addresses"
+  ]
+ },
+ "GITHUB_API_URL is the web address, not the API address.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "GITHUB_TOKEN does not look like a GitHub token.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "GitLab": {
@@ -6012,6 +6474,12 @@
    "message"
   ]
  },
+ "Gmail needs a 16-character App Password, and this one is not.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Go to any page, setting or action": {
   "kind": "attr:title",
   "seen": [
@@ -6026,6 +6494,18 @@
    "reports › a › No tracked reports yet",
    "credits › a › No tracked reports yet",
    "credits › overview › a › No tracked reports yet"
+  ]
+ },
+ "Google refused the sign-in: Gmail needs an App Password, not the account password.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Google Workspace: an administrator may have to allow less secure sign-in or SMTP relay for the domain.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "GraphQL batch": {
@@ -6332,6 +6812,12 @@
    "Dashboard › summary › How these are worked out"
   ]
  },
+ "How to fix it": {
+  "kind": "text",
+  "seen": [
+   "settings › Quick setup (.env) / Email server › fix-it box"
+  ]
+ },
  "HSTS needs a certificate from IT or a public authority, not a self-signed one.": {
   "kind": "message",
   "seen": [
@@ -6446,12 +6932,126 @@
    "Dashboard › div"
   ]
  },
+ "If it happens every time, ask the mail administrator about the sending limits for this account.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If it happens often, lower CX_MAX_CONCURRENCY (for example to 8).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If it is a self-hosted server with a company certificate, or a proxy inspects HTTPS, mount the company CA certificate and set NODE_EXTRA_CA_CERTS to its path, then restart MissionZero.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If it is an internal relay that accepts mail without signing in, turn off \"Server needs a user name and password\" (SMTP_REQUIRE_AUTH=false).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If it is old, create a new one in Checkmarx One (Identity and Access Management → API Keys).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If it keeps failing, the container or server has no working DNS: check its network settings.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If it lasts, raise a case with Checkmarx support and include the answer below.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If it was not copied then, create a new API key in Checkmarx One and copy it straight away.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If it worked before, check https://status.checkmarx.com and try again in a few minutes.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If the account has multi-factor sign-in, use an app password, or send through a relay that does not need a sign-in.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If the account uses multi-factor sign-in, create an app password for it and use that.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "If the developers have not rescanned within": {
   "kind": "text",
   "seen": [
    "reports › detail › label › Weekly",
    "reports › detail › overview › label › Weekly",
    "reports › detail › remind › label › Weekly"
+  ]
+ },
+ "If the port and setting already match, the server does not speak TLS on this port: ask its administrator which port to use.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If the server is an internal relay that accepts mail without signing in, turn off \"Server needs a user name and password\" (SMTP_REQUIRE_AUTH=false).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If the server needs a sign-in, it usually offers it only after encryption: use port 587 with \"Secure connection from the start\" off, or 465 with it on.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If you set them, check the spelling and the region, for example https://eu.ast.checkmarx.net and https://eu.iam.checkmarx.net.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If you set them, the tenant is the name you sign in to Checkmarx One with, and the IAM URL is your region's, for example https://eu.iam.checkmarx.net.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If your company inspects TLS traffic or uses its own certificate authority, give MissionZero that CA certificate: NODE_EXTRA_CA_CERTS=/certs/company-ca.pem, with the folder mounted into the container.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If your organisation turned it off for everyone, or uses Security defaults, an Exchange administrator must allow it for this mailbox (Set-CASMailbox -SmtpClientAuthenticationDisabled $false).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If your organisation uses Security defaults, SMTP sign-in is blocked: an Exchange administrator must allow it for this mailbox.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Image": {
@@ -6516,6 +7116,12 @@
    "Dashboard › h3 › AI Triage & Remediation from reports"
   ]
  },
+ "In a .env file: SMTP_USER and SMTP_PASS. A blank value keeps what is set now, so a password never set stays empty.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "In a few words": {
   "kind": "attr:placeholder",
   "seen": [
@@ -6530,6 +7136,12 @@
    "settings › p › Beta features",
    "logs › p › Beta features",
    "logs › activity › p › Beta features"
+  ]
+ },
+ "In Checkmarx One, open Identity and Access Management → API Keys (or the key's user) and give it roles that can view projects, scans and results.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "in credits": {
@@ -6552,6 +7164,18 @@
    "first start › p › By project",
    "sign in › p › By project",
    "Dashboard › p › By project"
+  ]
+ },
+ "In the Microsoft 365 admin center, open the sending mailbox → Mail → Manage email apps, and check that Authenticated SMTP is on.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "In the Microsoft 365 admin center, open the sending mailbox → Mail → Manage email apps, and turn on Authenticated SMTP.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Include subdomains (only when every subdomain has HTTPS)": {
@@ -6584,6 +7208,12 @@
    "access › span › Roles & permissions",
    "access › people › span › Roles & permissions",
    "access › roles › span › Roles & permissions"
+  ]
+ },
+ "Inside a container, localhost is the container itself: use the mail server's name or IP address instead.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Install and switch to any published version, or go back to one installed here. Going back to an older version can leave newer data it does not know: a backup is taken before every switch (Audit → Backups).": {
@@ -6694,6 +7324,12 @@
    "message"
   ]
  },
+ "It is often cut short or broken over two lines when copied: copy it again in one piece, with no spaces or line breaks.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "It needs the Podman socket, which can manage every container on the machine, so it does one thing only: it replaces the container named <code>mission-zero</code>, and only with this app's own image (<code>UPDATE_IMAGE</code>), at the version chosen here. It opens no port. Use your own volume name if it is not <code>mission-zero-data</code>; on a rootless Podman machine the socket is <code>/run/user/{0}/podman/podman.sock</code>. Without the companion: <code>podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest</code>, then your usual <code>podman run --replace …</code> line.": {
   "kind": "html",
   "seen": [
@@ -6738,6 +7374,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Keep one line for it and delete the others.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Keep the menu open beside the page": {
@@ -6916,6 +7558,30 @@
    "first start › input › GitLab"
   ]
  },
+ "Leave CX_BASE_URL and CX_IAM_URL blank on the multi-tenant cloud: they are worked out from the key.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Leave CX_BASE_URL blank on the multi-tenant cloud, or set it to your region's ast address, for example https://eu.ast.checkmarx.net (not the iam one).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Leave CX_TENANT and CX_IAM_URL blank on the multi-tenant cloud: they are read from the key.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Leave it blank for github.com. For GitHub Enterprise, use the address followed by /api/v3, for example https://github.company.com/api/v3.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Leave not-exploitable findings out": {
   "kind": "text",
   "seen": [
@@ -6938,6 +7604,12 @@
    "first start › dt › About CxMissionZero",
    "sign in › dt › About CxMissionZero",
    "Dashboard › dt › About CxMissionZero"
+  ]
+ },
+ "line {0}": {
+  "kind": "text",
+  "seen": [
+   "settings › Quick setup (.env) / Email server › fix-it box"
   ]
  },
  "Link straight to that finding in Checkmarx One": {
@@ -7342,6 +8014,30 @@
    "Dashboard › th › Match usernames to email addresses"
   ]
  },
+ "Microsoft 365 refused the sign-in: SMTP sign-in (SMTP AUTH) is turned off for this mailbox or for your organisation.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Microsoft 365 refused the sign-in.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Microsoft 365 sends on port 587, not 465.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Microsoft 365: a new or suspicious account can be held for unusual sending; check the Restricted entities page in the Defender portal.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Mine": {
   "kind": "text",
   "seen": [
@@ -7388,6 +8084,30 @@
    "Dashboard › fetching › b",
    "Dashboard › loaded › b",
    "Dashboard › remind › b"
+  ]
+ },
+ "MissionZero connects directly, not through a web proxy: if outgoing traffic must go through one, ask for these hosts to be allowed directly.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "MissionZero could not reach Checkmarx One.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "MissionZero could not reach the git host.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Mistakes in the file: {0}. Those settings were not applied, so the working ones stay.": {
+  "kind": "message",
+  "seen": [
+   "settings › Quick setup (.env) / Email server › fix-it box"
   ]
  },
  "Monday": {
@@ -7464,6 +8184,12 @@
    "first start › option",
    "sign in › option",
    "Dashboard › option"
+  ]
+ },
+ "Mount it into the container and set NODE_EXTRA_CA_CERTS to its path, for example NODE_EXTRA_CA_CERTS=/certs/company-ca.pem, then restart MissionZero.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Must set password": {
@@ -7688,6 +8414,12 @@
    "settings › activation › p"
   ]
  },
+ "No answer on port 25, which many networks and cloud providers block.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "No author could be reached for these findings.": {
   "kind": "message",
   "seen": [
@@ -7714,6 +8446,12 @@
    "first start › summary › No certificate yet? Create a request (CSR) for IT",
    "sign in › summary › No certificate yet? Create a request (CSR) for IT",
    "Dashboard › summary › No certificate yet? Create a request (CSR) for IT"
+  ]
+ },
+ "No Checkmarx One API key is set.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "No credits used in this period.": {
@@ -7794,6 +8532,12 @@
    "reports › detail › div › Weekly",
    "reports › detail › overview › div › Weekly",
    "reports › detail › remind › div › Weekly"
+  ]
+ },
+ "No mail server is set.": {
+  "kind": "text",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.": {
@@ -8013,6 +8757,12 @@
    "message"
   ]
  },
+ "Not applied": {
+  "kind": "text",
+  "seen": [
+   "settings › Quick setup (.env) / Email server › fix-it box"
+  ]
+ },
  "Not charged": {
   "kind": "text",
   "seen": [
@@ -8160,6 +8910,12 @@
    "message"
   ]
  },
+ "Nothing was applied: the file has mistakes that would break the connections. Each one is listed below with how to fix it.": {
+  "kind": "message",
+  "seen": [
+   "settings › Quick setup (.env) / Email server › fix-it box"
+  ]
+ },
  "Nothing yet.": {
   "kind": "text",
   "seen": [
@@ -8276,6 +9032,12 @@
    "Dashboard › small › Your branding"
   ]
  },
+ "Office 365: smtp.office365.com, port 587. Gmail: smtp.gmail.com, port 587. Leave \"Secure connection from the start\" off for port 587.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "OK, understood": {
   "kind": "text",
   "seen": [
@@ -8312,6 +9074,12 @@
   "kind": "text",
   "seen": [
    "Settings › Activation codes › badge"
+  ]
+ },
+ "On GitHub, open Settings → Developer settings → Personal access tokens, find the token, choose Configure SSO and authorise it for your organisation.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "On: emailed on the first day of each month, for the month before.": {
@@ -8428,6 +9196,18 @@
    "reports › span",
    "credits › span",
    "credits › overview › span"
+  ]
+ },
+ "Open \"Single-tenant / on-prem addresses\" under Settings → Checkmarx One and enter the API URL (CX_BASE_URL), for example https://eu.ast.checkmarx.net.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Open \"Single-tenant / on-prem addresses\" under Settings → Checkmarx One and enter the IAM URL and the tenant name (CX_IAM_URL and CX_TENANT in a .env file).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Open Checkmarx One results, weighted by severity: critical {0}, high {1}, medium {2}, low {3}.": {
@@ -8550,6 +9330,18 @@
    "Dashboard › p › Only these projects or people — optional"
   ]
  },
+ "Or ask the mail administrator to allow relaying from the address MissionZero runs on.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Or ask the network team to exclude *.checkmarx.net from HTTPS inspection.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "or drop it here. Read in this browser and sent only to this server.": {
   "kind": "text",
   "seen": [
@@ -8564,6 +9356,24 @@
    "first start › span › HTTPS",
    "sign in › span › HTTPS",
    "Dashboard › span › HTTPS"
+  ]
+ },
+ "Or keep it off and use port 587.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Or keep it on and use port 465.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Or leave the addresses blank: they are worked out from the API key on the multi-tenant cloud.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Or use your organisation's certificate:": {
@@ -8594,6 +9404,12 @@
   "kind": "text",
   "seen": [
    "Audit › entry details: where the action came from (IP address · browser), not an email sender"
+  ]
+ },
+ "Otherwise ask your network team to allow outgoing connections from MissionZero to the mail server on port 25.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Outcome": {
@@ -8678,6 +9494,36 @@
    "Dashboard (advanced) › label › SLA"
   ]
  },
+ "Paste it as AZURE_DEVOPS_TOKEN, and set AZURE_DEVOPS_ORG_URL to the organisation, for example https://dev.azure.com/acme.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Paste it under Settings → Checkmarx One, or set CX_API_KEY in the .env file.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Paste only the key itself: it starts with eyJ.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Paste only the token itself.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Paste the 16-character App Password as the password (SMTP_PASS). Spaces in it are removed for you.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Paste the activation code first.": {
   "kind": "message",
   "seen": [
@@ -8688,6 +9534,24 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Paste the key without quotes. In a .env file write CX_API_KEY=eyJ… with nothing around the value.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Paste the whole token (it starts with github_pat_ or ghp_), with no spaces or quotes, as GITHUB_TOKEN.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Paste the whole token (it usually starts with glpat-), with no spaces or quotes, as GITLAB_TOKEN.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Path — <code>{projectId}</code> is substituted for a templated endpoint": {
@@ -8894,6 +9758,30 @@
    "first start › span › Email server (SMTP)",
    "sign in › span › Email server (SMTP)",
    "Dashboard › span › Email server (SMTP)"
+  ]
+ },
+ "Port 465 is encrypted from the first byte: turn \"Secure connection from the start\" on (SMTP_SECURE=true).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Port 465 needs \"Secure connection from the start\" on (SMTP_SECURE=true). Ports 587, 25 and 2525 need it off (SMTP_SECURE=false).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Port 465: SMTP_SECURE=true. Ports 587, 25 and 2525: SMTP_SECURE=false.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Port 587 (and 25, 2525) starts unencrypted and then upgrades: turn \"Secure connection from the start\" off (SMTP_SECURE=false).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Preparing preview…": {
@@ -9168,6 +10056,12 @@
    "Dashboard › strong › Match usernames to email addresses"
   ]
  },
+ "Put the port in its own field (SMTP_PORT in the .env file).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Putting the certificate to use…": {
   "kind": "busy",
   "seen": [
@@ -9218,6 +10112,24 @@
    "first start › option › Automation",
    "sign in › option › Automation",
    "Dashboard › option › Automation"
+  ]
+ },
+ "Read Checkmarx One's answer below: it usually names the problem.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Read the answer below: it usually names the problem.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Read the server's answer below: it usually names the problem.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Read the terms of use": {
@@ -9595,6 +10507,12 @@
    "first start › button › Azure DevOps"
   ]
  },
+ "Remove the quotes, or put one at each end. Values need no quotes.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Remove the stored Checkmarx One key? Password sign-ins, report triage and automation stop working until a key is stored again (unless CX_API_KEY is set on the server).": {
   "kind": "message",
   "seen": [
@@ -9679,6 +10597,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Replace it with your real value, or leave it blank to keep what is set now.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Replace the image": {
@@ -10854,6 +11778,12 @@
    "access › roles › small › Roles & permissions"
   ]
  },
+ "Send fewer projects in one report, or ask the mail administrator to raise the message size limit.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Send follow-ups": {
   "kind": "text",
   "seen": [
@@ -10908,6 +11838,12 @@
    "first start › button › Email server (SMTP)",
    "sign in › button › Email server (SMTP)",
    "Dashboard › button › Email server (SMTP)"
+  ]
+ },
+ "Send the server's answer to your mail administrator.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Send the status now": {
@@ -11052,6 +11988,12 @@
    "Dashboard › p › Tenants"
   ]
  },
+ "Server": {
+  "kind": "text",
+  "seen": [
+   "settings › How to fix it › What was tried › label"
+  ]
+ },
  "Server address": {
   "kind": "text",
   "seen": [
@@ -11064,6 +12006,12 @@
   "kind": "text",
   "seen": [
    "settings › handsoff › Hands-off: set it up once, then leave it"
+  ]
+ },
+ "Server answer": {
+  "kind": "text",
+  "seen": [
+   "settings › How to fix it › What was tried › label"
   ]
  },
  "Server load": {
@@ -11122,6 +12070,24 @@
    "impact › detail › a"
   ]
  },
+ "Set AZURE_DEVOPS_ORG_URL to the organisation, for example https://dev.azure.com/acme, or just acme.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Set CX_BASE_URL to the ast address, for example https://eu.ast.checkmarx.net, and CX_IAM_URL to the iam one. On the multi-tenant cloud, leave both blank.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Set CX_IAM_URL to the iam address, for example https://eu.iam.checkmarx.net. On the multi-tenant cloud, leave it blank.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Set only when the mail covers a single project": {
   "kind": "text",
   "seen": [
@@ -11136,6 +12102,18 @@
    "Dashboard › a › Get started · 1 of 6 done",
    "Dashboard (advanced) › a › Get started · 1 of 6 done",
    "connection: cxone › a › Get started · 1 of 6 done"
+  ]
+ },
+ "Set SMTP_PORT=587 and SMTP_SECURE=false.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Set SMTP_USER to the sending mailbox's address and SMTP_PASS to its password, or set SMTP_REQUIRE_AUTH=false for a relay that needs no sign-in.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Set the credit pool <span class=\"badge warn\">Admin</span>": {
@@ -11184,6 +12162,12 @@
    "Dashboard › strong › Get started · 1 of 6 done",
    "Dashboard (advanced) › strong › Get started · 1 of 6 done",
    "connection: cxone › strong › Get started · 1 of 6 done"
+  ]
+ },
+ "Setting names are upper case.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "settings": {
@@ -11527,6 +12511,12 @@
    "first start › button › Create the first administrator"
   ]
  },
+ "Sign in with a mailbox account (turn on \"Server needs a user name and password\"), so the server knows who is sending.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Sign in with key": {
   "kind": "text",
   "seen": [
@@ -11585,6 +12575,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Signs in as": {
+  "kind": "text",
+  "seen": [
+   "settings › How to fix it › What was tried › label"
   ]
  },
  "Since the first reading": {
@@ -11659,6 +12655,30 @@
    "logs › activity › h3 › Beta features"
   ]
  },
+ "SMTP_HOST must be a plain host name.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "SMTP_PORT must be a number from 1 to 65535.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "SMTP_REQUIRE_AUTH is true but SMTP_USER is empty.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "SMTP_SECURE does not match SMTP_PORT, so the connection will stall.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "smtp.example.com": {
   "kind": "attr:placeholder",
   "seen": [
@@ -11681,6 +12701,18 @@
    "first start › p › Activation codes",
    "sign in › p › Activation codes",
    "Dashboard › p › Activation codes"
+  ]
+ },
+ "Some providers need SMTP sending turned on for the mailbox first: ask your mail administrator.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Something answered on this port, but not a mail server.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Something does not work, or you are stuck. The support team answers you here.": {
@@ -12254,6 +13286,18 @@
    "busy line"
   ]
  },
+ "Test it from the server: nslookup followed by the server name.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Test it from the server: Test-NetConnection with the server name and -Port, or telnet with the server name and port.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Test mode: decide and log, but send nothing": {
   "kind": "text",
   "seen": [
@@ -12304,6 +13348,12 @@
    "help › filtered › span › Submit a support case"
   ]
  },
+ "That does not look like a whole Checkmarx One API key.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "That file is larger than {0} KB — not a .env file?": {
   "kind": "message",
   "seen": [
@@ -12322,6 +13372,12 @@
    "message"
   ]
  },
+ "That is the API key's ID, not the key.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "That person's email address": {
   "kind": "text",
   "seen": [
@@ -12336,6 +13392,36 @@
    "first start › p › Reminder server address",
    "sign in › p › Reminder server address",
    "Dashboard › p › Reminder server address"
+  ]
+ },
+ "The API key does not say which tenant it belongs to.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The API key has expired.": {
+  "kind": "text",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The API key has quotes around it.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The API key starts with \"Bearer\" or \"token\".": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The API key works, but its roles do not allow this.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "The app name and logo appear in this app; the company name and logo also head every reminder and report. For reminders, an <code>https</code> logo URL is best — most mail clients block embedded images.": {
@@ -12360,10 +13446,46 @@
    "message"
   ]
  },
+ "The certificate presented for Checkmarx One has expired.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The certificate presented for Checkmarx One is not trusted, usually because a company proxy inspects HTTPS.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "The chart appears after two weeks of readings.": {
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "The Checkmarx One address could not be found (DNS).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The Checkmarx One address must start with https://.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The Checkmarx One API address could not be worked out.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The Checkmarx One connection failed for a reason MissionZero does not recognise.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "The Checkmarx One tenant you are working in": {
@@ -12444,6 +13566,48 @@
    "message"
   ]
  },
+ "The git host accepted the token, but it lacks a permission this needs.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The git host answered \"not found\": the organisation, group or workspace name, or the address, is wrong, or the token cannot see it.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The git host is limiting how many requests this token may make.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The git host refused the request for a reason MissionZero does not recognise.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The git host rejected the token: it is wrong, expired or revoked.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The git host's address could not be found (DNS).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The git host's certificate is not trusted.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "The image’s own version": {
   "kind": "text",
   "seen": [
@@ -12460,6 +13624,12 @@
    "logs › activity › span › Available variables"
   ]
  },
+ "The key is the long text shown once when the key is created; it starts with eyJ and has two dots in it.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "The languages you work in.": {
   "kind": "text",
   "seen": [
@@ -12472,6 +13642,120 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "The mail server asked to try again later (too many messages or connections).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server blocked mail from this account or address.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server closed the connection.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server did not answer in time.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server does not offer a sign-in on this connection.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server name could not be found (DNS).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server name is not a plain host name.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server only accepts a sign-in over an encrypted connection.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server only sends for signed-in accounts.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server refused a recipient address.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server refused the connection on this port.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server refused the username or password.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server test failed for a reason MissionZero does not recognise.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server will not pass mail on to other domains from MissionZero.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server will not send with this From address.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server's certificate has expired.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server's certificate is for a different name than the one entered.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server's certificate is not trusted.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The message is larger than the mail server accepts.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "The monthly summary goes to": {
@@ -12488,6 +13772,12 @@
    "first start › p › AI Triage & Remediation from reports",
    "sign in › p › AI Triage & Remediation from reports",
    "Dashboard › p › AI Triage & Remediation from reports"
+  ]
+ },
+ "The name server did not answer when looking up the mail server.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "The new certificate is in use. Nothing restarted.": {
@@ -12522,6 +13812,12 @@
    "help › filtered › p › Submit a support case"
   ]
  },
+ "The port is not a valid number.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "The private key is made and kept on this server. Send IT the request; when the certificate comes back, upload just that file above (and its chain, if they send one). It pairs with the key by itself.": {
   "kind": "text",
   "seen": [
@@ -12536,6 +13832,18 @@
    "settings › span › Available variables",
    "logs › span › Available variables",
    "logs › activity › span › Available variables"
+  ]
+ },
+ "The server may only accept connections from known addresses: ask its administrator to allow the address MissionZero sends from.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The server needs a username and password, and one of them is empty.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "The server reads projects and findings with its own key.": {
@@ -12572,6 +13880,12 @@
    "help › raised › p › Submit a support case",
    "help › mine › p › Submit a support case",
    "help › filtered › p › Submit a support case"
+  ]
+ },
+ "The tenant name or IAM address is wrong.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "The trend appears after the second reading (hourly, or Refresh).": {
@@ -12656,10 +13970,34 @@
    "message"
   ]
  },
+ "This address is not https.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "This build has no maintainer key, so no code can be checked.": {
   "kind": "text",
   "seen": [
    "Settings › Activation codes"
+  ]
+ },
+ "This is almost always a company proxy or firewall with an old certificate: ask your network team to renew it or to exclude *.checkmarx.net from HTTPS inspection.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "This is not a web address.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "This is not an email address.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "This is who gets reminders everywhere: here, scheduled runs and tracked reports' follow-ups.": {
@@ -12675,6 +14013,18 @@
    "Dashboard › p › Send reminder",
    "Dashboard (advanced) › p › Send reminder",
    "connection: cxone › p › Send reminder"
+  ]
+ },
+ "This key or token contains spaces or a line break.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "This line is not a setting.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "This month": {
@@ -12699,6 +14049,42 @@
    "settings › p › Update & recovery",
    "logs › p › Update & recovery",
    "logs › activity › p › Update & recovery"
+  ]
+ },
+ "This setting is in the file more than once: only the last one counts.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "This setting name is not known, and looks like a misspelling.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "This setting takes true or false.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "This token starts with \"Bearer\" or \"token\".": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "This value has a quote at only one end.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "This value is still the example text from a template.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Thursday": {
@@ -12781,6 +14167,12 @@
    "Dashboard › span › Submit a support case"
   ]
  },
+ "TLS": {
+  "kind": "text",
+  "seen": [
+   "settings › How to fix it › What was tried › label"
+  ]
+ },
  "TLS {0}.{1} (every browser)": {
   "kind": "text",
   "seen": [
@@ -12811,6 +14203,12 @@
    "first start › span › Match usernames to email addresses",
    "sign in › span › Match usernames to email addresses",
    "Dashboard › span › Match usernames to email addresses"
+  ]
+ },
+ "To send as another address (a shared mailbox), the signed-in account needs Send As permission for it: Microsoft 365 admin center → the shared mailbox → Send as.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "To set up a tenant, choose it at the top of the page. Then connect its Checkmarx One and email server here in Settings, and add its people under People & roles: they work only in that tenant.": {
@@ -13049,6 +14447,18 @@
    "logs › activity › span › Available variables"
   ]
  },
+ "Try again in a few minutes, and check https://status.checkmarx.com.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Try again in a minute.": {
+  "kind": "text",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Tuesday": {
   "kind": "text",
   "seen": [
@@ -13077,6 +14487,18 @@
   "kind": "message",
   "seen": [
    "settings › handsoff › Hands-off: set it up once, then leave it"
+  ]
+ },
+ "Turn on \"Server needs a user name and password\" (SMTP_REQUIRE_AUTH=true) and enter the mailbox's username and password.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Turn on 2-Step Verification for the Google account, then create an App Password at https://myaccount.google.com/apppasswords.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Turn on hands-off": {
@@ -13167,6 +14589,12 @@
   "kind": "text",
   "seen": [
    "Settings › Activation codes › before a date: valid until that date"
+  ]
+ },
+ "Until then, an internal relay can be used with \"Check the mail server's certificate\" turned off (SMTP_REJECT_UNAUTHORIZED=false).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Up {0}% in this period: from {1} to {2}.": {
@@ -13331,6 +14759,18 @@
    "Dashboard › a › AI Triage & Remediation from reports"
   ]
  },
+ "Use 587 for STARTTLS (most servers, Office 365, Gmail), 465 for implicit TLS, or 25 for an internal relay.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Use https://: the key and tokens are only sent over an encrypted connection.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Use my branding": {
   "kind": "text",
   "seen": [
@@ -13355,6 +14795,18 @@
    "Dashboard › p › Create the first administrator"
   ]
  },
+ "Use port 587 with \"Secure connection from the start\" off (it upgrades with STARTTLS), or port 465 with it on.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Use port 587 with STARTTLS if your mail server offers it.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Use selected matches": {
   "kind": "text",
   "seen": [
@@ -13363,12 +14815,30 @@
    "Dashboard › button › Match usernames to email addresses"
   ]
  },
+ "Use the full Gmail address the App Password belongs to as the username.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Use the name shown under \"Did you mean\", as in the sample file.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Use the organisation’s": {
   "kind": "text",
   "seen": [
    "first start › button › Your branding",
    "sign in › button › Your branding",
    "Dashboard › button › Your branding"
+  ]
+ },
+ "Use the signed-in mailbox's own address as the From address (SMTP_FROM), or leave it blank to use the username.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Use this computer's time zone": {
@@ -13787,6 +15257,12 @@
    "Dashboard › p › Mail template"
   ]
  },
+ "Variable": {
+  "kind": "text",
+  "seen": [
+   "settings › How to fix it › What was tried › label"
+  ]
+ },
  "Verification rescan started": {
   "kind": "busy",
   "seen": [
@@ -13921,10 +15397,28 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "Wait a few minutes and send again: MissionZero tries again on its next run.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Wait a minute and try again.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "Wait for the data fetch to complete.": {
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Wait for the limit to reset (usually within an hour) and try again.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Waiting for reply": {
@@ -13997,6 +15491,12 @@
    "logs › p",
    "logs › activity › p",
    "logs › troubleshooting › p"
+  ]
+ },
+ "What was tried": {
+  "kind": "text",
+  "seen": [
+   "settings › Quick setup (.env) / Email server › fix-it box"
   ]
  },
  "What you send now:": {
@@ -14167,12 +15667,66 @@
    "Dashboard › span › Bitbucket"
   ]
  },
+ "Worth checking in the file:": {
+  "kind": "message",
+  "seen": [
+   "settings › Quick setup (.env) / Email server › fix-it box"
+  ]
+ },
  "Write a backup into the server’s backup folder.": {
   "kind": "text",
   "seen": [
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
+  ]
+ },
+ "Write each setting on its own line as NAME=value, with no spaces in the name and nothing before it (no \"set\" or \"$env:\").": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Write one address, for example missionzero@company.com.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Write only the name, for example smtp.office365.com: no smtp:// in front, no :587 or path after it. Put the port in SMTP_PORT.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Write the name in capitals, as in the sample file.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Write the name you sign in to Checkmarx One with, for example acme: not an address. On the multi-tenant cloud, leave it blank.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Write the organisation, for example https://dev.azure.com/acme, or just acme.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Write the whole address starting with https://, for example https://mission-zero.company.com.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Write true or false. For SMTP_SECURE: true for port 465 (SSL/TLS), false for 587 (STARTTLS).": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
  "Written": {

@@ -75,7 +75,7 @@ export class GitHubClient {
         await sleep(500 * 2 ** attempt);
         return this.#send(url, init, bucket, attempt + 1);
       }
-      throw new GitHubError(`Could not reach GitHub: ${error.message}`);
+      throw Object.assign(new GitHubError(`Could not reach GitHub: ${error.cause?.message || error.message}`), { cause: error });
     }
     this.#noteLimits(response, bucket);
     const text = await response.text();

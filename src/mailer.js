@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 
 import { isVerified } from './settings.js';
+import { explainSmtp, networkCode } from './troubleshoot.js';
 
 /**
  * SMTP transport built from the administrator's own settings.
@@ -12,12 +13,17 @@ import { isVerified } from './settings.js';
 const GMAIL_HOSTS = /(^|\.)(gmail|googlemail)\.com$/i;
 
 export class MailError extends Error {
-  constructor(message, status = 400) {
+  /** `help`: what went wrong and how to fix it (src/troubleshoot.js). */
+  constructor(message, status = 400, help = null) {
     super(message);
     this.name = 'MailError';
     this.status = status;
+    if (help) this.help = help;
   }
 }
+
+/** A failed connection or send, with its explanation. */
+const failed = (prefix, error, smtp, status) => new MailError(`${prefix}: ${friendly(error, smtp)}`, status, explainSmtp(error, smtp));
 
 /**
  * Google shows an App Password as four space-separated groups ("abcd efgh ijkl
@@ -35,7 +41,7 @@ export function normalizePassword(smtp) {
 }
 
 export function buildTransport(smtp) {
-  if (!smtp.host) throw new MailError('No SMTP host is configured. Set one on the Settings page.');
+  if (!smtp.host) throw new MailError('No SMTP host is configured. Set one on the Settings page.', 400, explainSmtp(new Error('no host'), smtp));
 
   return nodemailer.createTransport({
     host: smtp.host,
@@ -100,7 +106,7 @@ const friendly = (error, smtp = {}) => {
     return `The server rejected those credentials for ${smtp.user || '(no username)'}.`;
   }
 
-  if (code === 'ECONNREFUSED') {
+  if (code === 'ECONNREFUSED' || networkCode(error) === 'ECONNREFUSED') {
     return `Nothing is listening on ${smtp.host}:${smtp.port}.`;
   }
 
@@ -139,7 +145,7 @@ export async function testConnection(smtp) {
     await transport.verify();
     return { ok: true, message: `Connected to ${smtp.host}:${smtp.port} and authenticated.` };
   } catch (error) {
-    throw new MailError(`SMTP test failed: ${friendly(error, smtp)}`, 400);
+    throw failed('SMTP test failed', error, smtp, 400);
   } finally {
     transport.close();
   }
@@ -162,7 +168,7 @@ export async function sendTestEmail(smtp, to) {
     });
     return { ok: true, messageId: info.messageId, accepted: info.accepted ?? [] };
   } catch (error) {
-    throw new MailError(`Test message failed: ${friendly(error, smtp)}`, 400);
+    throw failed('Test message failed', error, smtp, 400);
   } finally {
     transport.close();
   }
@@ -232,7 +238,7 @@ export async function sendReminderMail(settings, message, overrides = {}) {
     } catch {
       /* never in the way of the real error */
     }
-    throw new MailError(`Sending failed: ${friendly(error, settings.smtp)}`, 502);
+    throw failed('Sending failed', error, settings.smtp, 502);
   } finally {
     transport.close();
   }

@@ -416,11 +416,44 @@ function setStatus(id, message, kind = '') {
   const el = $(id);
   el.textContent = message;
   el.className = `status ${kind}`;
+  showHelp(el, null);
 }
 
-/** Errors from Checkmarx and SMTP carry a detail body; it is usually the answer. */
+/** Errors from Checkmarx and SMTP carry a detail body; it is usually the answer. A connection error also says how to fix it. */
 function showError(id, error) {
-  setStatus(id, error.detail ? `${error.message} — ${error.detail}` : error.message, 'error');
+  const help = error.body?.help;
+  // With an explanation, the raw detail goes under "What was tried" instead of the status line.
+  setStatus(id, error.detail && !help ? `${error.message} — ${error.detail}` : error.message, 'error');
+  showHelp($(id), help);
+}
+
+/**
+ * What went wrong and how to fix it (the server's src/troubleshoot.js): one sentence, numbered
+ * steps, and, folded away, what was tried and the other side's own answer.
+ */
+function helpHtml(help, { open = true } = {}) {
+  if (!help?.problem) return '';
+  const facts = (help.facts ?? []).map(([label, value]) => `<div><span class="k">${escapeHtml(label)}</span><span class="v" translate="no">${escapeHtml(value)}</span></div>`).join('');
+  return `<div class="fix-help" role="note">
+    <p class="fix-problem">${escapeHtml(help.problem)}</p>
+    <details class="fix-how"${open ? ' open' : ''}><summary>How to fix it</summary>
+      <ol class="fix-steps">${(help.steps ?? []).map((step) => `<li>${escapeHtml(step)}</li>`).join('')}</ol>
+    </details>
+    ${facts ? `<details class="fix-facts"><summary>What was tried</summary><div class="kv">${facts}</div></details>` : ''}
+  </div>`;
+}
+
+/** Put the explanation right under a status line (or take it away). */
+function showHelp(el, help) {
+  if (!el) return;
+  let box = el.nextElementSibling?.classList.contains('fix-help-slot') ? el.nextElementSibling : null;
+  if (!help?.problem) return box?.remove();
+  if (!box) {
+    box = document.createElement('div');
+    box.className = 'fix-help-slot';
+    el.after(box);
+  }
+  box.innerHTML = helpHtml(help);
 }
 
 function handleAuthLoss(error) {
@@ -1534,7 +1567,7 @@ function renderMoreHosts(git) {
   if (!box || !extra.length) return;
   box.innerHTML = `<ul class="git-rows">${extra
     .map((i) => `<li class="git-row ${i.ok ? 'ok' : 'bad'}"><span class="git-logo ${i.ok ? 'ok' : 'bad'}" data-provider="${i.provider}">${GIT_LOGOS[i.provider]}<b>${i.n}</b></span>
-      <span class="git-row-text"><strong>${escapeHtml(gitName(i))}</strong><small>${escapeHtml([i.host, i.owner, i.ok && i.who ? `as ${i.who}` : ''].filter(Boolean).join(' · '))}</small>${i.ok ? '' : `<small class="git-why">${escapeHtml(i.reason)}</small>`}</span>
+      <span class="git-row-text"><strong>${escapeHtml(gitName(i))}</strong><small>${escapeHtml([i.host, i.owner, i.ok && i.who ? `as ${i.who}` : ''].filter(Boolean).join(' · '))}</small>${i.ok ? '' : `<small class="git-why">${escapeHtml(i.reason)}</small>${helpHtml(i.help, { open: false })}`}</span>
       <span class="conn-state ${i.ok ? 'ok' : 'bad'}">${i.ok ? 'Connected' : 'Not working'}</span></li>`)
     .join('')}</ul>`;
 }
@@ -1551,6 +1584,7 @@ function showConnection(key) {
   pop.innerHTML = `<h3>${escapeHtml(meta.title)} <span class="conn-state ${c.ok ? 'ok' : 'bad'}">${c.ok ? 'Connected' : 'Not connected'}</span></h3>
     ${rows.length ? `<dl>${rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd>`).join('')}</dl>` : ''}
     ${c.reason ? `<p class="conn-reason">${escapeHtml(c.reason)}</p>` : ''}
+    ${helpHtml(c.help)}
     <p class="conn-reason"><a href="${meta.settings}">Settings →</a></p>`;
   pop.hidden = false;
 }
@@ -1564,7 +1598,7 @@ function showGitConnections(git, pop) {
       <span class="git-row-text"><strong>${escapeHtml(gitName(i))}</strong>
         <small>${escapeHtml([i.host, i.owner, i.ok && i.who ? `as ${i.who}` : ''].filter(Boolean).join(' · '))}</small>
         <small class="muted">${escapeHtml(source(i))}${i.checkedAt ? ` · checked ${escapeHtml(new Date(i.checkedAt).toLocaleTimeString())}` : ''}</small>
-        ${i.ok ? '' : `<small class="git-why">${escapeHtml(i.reason)}</small>`}</span>
+        ${i.ok ? '' : `<small class="git-why">${escapeHtml(i.reason)}</small>${helpHtml(i.help, { open: false })}`}</span>
       <span class="conn-state ${i.ok ? 'ok' : 'bad'}">${i.ok ? 'Connected' : 'Not working'}</span>
     </li>`;
   pop.innerHTML = `<h3>Git hosts <span class="conn-state ${git.ok ? 'ok' : git.connected ? 'warn' : 'bad'}">${git.total ? `${git.connected} of ${git.total} connected` : 'None connected'}</span></h3>
@@ -2491,11 +2525,12 @@ function scheduleCheck() {
   autosave.check = setTimeout(() => checkConnections({ rollback: false }), CHECK_MS);
 }
 
-function renderGuardLine(id, kind, text, extra = '') {
+function renderGuardLine(id, kind, text, extra = '', help = null) {
   const el = $(id);
   el.hidden = !text;
   el.className = `guard-line ${kind}`;
   el.innerHTML = `<span>${escapeHtml(text)}</span>${extra ? `<span class="muted">${escapeHtml(extra)}</span>` : ''}`;
+  showHelp(el, text ? help : null);
 }
 
 const goodSince = (good) => (good?.at ? ` (working since ${new Date(good.at).toLocaleString()})` : '');
@@ -2510,7 +2545,8 @@ function renderConnectionGuard(status, result = autosave.lastCheck) {
     const failed = result?.cxone && result.cxone.ok === false && !result.cxone.superseded;
     renderGuardLine('integration-guard', failed ? 'bad' : 'warn',
       failed ? `Not working: ${result.cxone.error}` : 'Saved — not checked yet.',
-      cx ? `${cxGood} It comes back when you leave Settings if this still fails.` : 'There is no earlier working connection to go back to.');
+      cx ? `${cxGood} It comes back when you leave Settings if this still fails.` : 'There is no earlier working connection to go back to.',
+      failed ? result.cxone.help : null);
   } else if (result?.cxone?.ok) {
     renderGuardLine('integration-guard', 'ok', `Checked and in use: tenant ${result.cxone.tenant}.`, 'This is now the working connection.');
   } else {
@@ -2522,7 +2558,8 @@ function renderConnectionGuard(status, result = autosave.lastCheck) {
     const failed = result?.smtp && result.smtp.ok === false && !result.smtp.superseded;
     renderGuardLine('smtp-guard', failed ? 'bad' : 'warn',
       failed ? `Not working: ${result.smtp.error}` : 'Saved — not tested yet.',
-      mail ? `${mailGood} It comes back when you leave Settings if this still fails.` : 'There is no earlier working mail server to go back to.');
+      mail ? `${mailGood} It comes back when you leave Settings if this still fails.` : 'There is no earlier working mail server to go back to.',
+      failed ? result.smtp.help : null);
   } else if (result?.smtp?.ok) {
     renderGuardLine('smtp-guard', 'ok', `Connection test passed: ${result.smtp.host}.`, 'This is now the working mail server.');
   } else {
@@ -2631,6 +2668,7 @@ function noticeHtml(notice) {
       return `<div class="notice-item">
         <h3>${isCx ? 'Checkmarx One connection' : 'Email server (SMTP)'}</h3>
         <p class="why">${part.timedOut ? 'The connection timed out' : 'It did not work'} with the new settings (${escapeHtml(tried)}): ${escapeHtml(part.error)}</p>
+        ${helpHtml(part.help, { open: false })}
         <p>Back in use: the previous working setup${part.restoredAt ? `, working since ${escapeHtml(new Date(part.restoredAt).toLocaleString())}` : ''}:</p>
         <div class="kv">${rows.map(([k, v]) => `<div><span class="k">${k}</span><span class="v">${escapeHtml(v || '—')}</span></div>`).join('')}</div>
       </div>`;
@@ -2660,6 +2698,20 @@ $('notice-settings').addEventListener('click', () => $('notice-dialog').close())
 // Quick setup from a .env file
 // ---------------------------------------------------------------------------
 
+/** What the .env check found, line by line: what is wrong, how to fix it, and whether it was applied. */
+function envFindingsHtml(findings = []) {
+  if (!findings.length) return '';
+  const item = (f) => `<li class="env-finding ${f.level}">
+      <div class="env-finding-head"><code translate="no">${escapeHtml(f.name)}</code>${f.line ? ` <span class="muted">line ${f.line}</span>` : ''}
+        <span class="conn-state ${f.level === 'error' ? 'bad' : 'warn'}">${f.level === 'error' ? 'Not applied' : 'Check this'}</span></div>
+      <div>${escapeHtml(f.problem)}</div>
+      ${f.suggestion ? `<div class="env-suggest"><span>Did you mean:</span> <code translate="no">${escapeHtml(f.suggestion)}</code></div>` : ''}
+      <ol class="fix-steps">${f.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join('')}</ol>
+    </li>`;
+  const errors = findings.filter((f) => f.level === 'error').length;
+  return `<div class="env-findings"><div class="env-findings-title">${errors ? `Mistakes in the file: ${errors}. Those settings were not applied, so the working ones stay.` : 'Worth checking in the file:'}</div><ul>${findings.map(item).join('')}</ul></div>`;
+}
+
 async function importEnvFile(file) {
   if (!file) return;
   if (file.size > 64 * 1024) {
@@ -2680,19 +2732,23 @@ async function importEnvFile(file) {
     state.connections = result.check.status;
     renderConnectionGuard(result.check.status, result.check);
     autosave.connectionEdited = Boolean(result.check.status.pending.cxone || result.check.status.pending.smtp);
-    const line = (ok, label, r) => (r ? `<li>${ok ? '✓' : '✗'} ${escapeHtml(label)}: ${escapeHtml(r.ok ? (r.tenant ? `connected to tenant ${r.tenant}` : 'connection test passed') : r.error ?? 'not checked')}</li>` : '');
+    const line = (ok, label, r) => (r ? `<li>${ok ? '✓' : '✗'} ${escapeHtml(label)}: ${escapeHtml(r.ok ? (r.tenant ? `connected to tenant ${r.tenant}` : 'connection test passed') : r.error ?? 'not checked')}${r.ok ? '' : helpHtml(r.help)}</li>` : '');
     const checks = line(result.check.cxone?.ok, 'Checkmarx One', result.check.cxone) + line(result.check.smtp?.ok, 'Mail server', result.check.smtp);
     const failed = (result.check.cxone && !result.check.cxone.ok) || (result.check.smtp && !result.check.smtp.ok);
     $('env-result').innerHTML = `<div class="env-result">
       <div>Applied: ${result.applied.map((n) => `<code>${escapeHtml(n)}</code>`).join(' ')}</div>
       ${checks ? `<ul>${checks}</ul>` : ''}
       ${failed ? '<div class="error-hint">Correct it here, or leave Settings and the last known good settings come back.</div>' : ''}
+      ${envFindingsHtml(result.findings)}
       ${result.refused.length ? `<div class="error-hint">Your role cannot set: ${result.refused.map((n) => `<code>${escapeHtml(n)}</code>`).join(' ')}</div>` : ''}
       ${result.ignored.length ? `<div class="muted">Not settings here (only read when the server starts): ${result.ignored.map((n) => `<code>${escapeHtml(n)}</code>`).join(' ')}</div>` : ''}
     </div>`;
     setStatus('env-status', failed ? `Imported ${file.name}, but a connection does not work yet.` : `Imported ${file.name}.`, failed ? 'error' : 'ok');
   } catch (error) {
-    if (!handleAuthLoss(error)) showError('env-status', error);
+    if (!handleAuthLoss(error)) {
+      showError('env-status', error);
+      $('env-result').innerHTML = envFindingsHtml(error.body?.findings);
+    }
   } finally {
     $('env-file').value = '';
   }
@@ -9479,6 +9535,7 @@ document.addEventListener('click', async (event) => {
       const result = (await api('/api/beta/scm/check', { method: 'POST', body: JSON.stringify({ provider: id }) }))[id];
       status.textContent = result?.ok ? `Connected${result.who ? ` as ${result.who}` : ''}.` : result?.reason ?? 'Not connected.';
       status.className = `status ${result?.ok ? 'ok' : 'error'}`;
+      showHelp(status, result?.ok ? null : result?.help);
     } catch (error) {
       if (!handleAuthLoss(error)) {
         status.textContent = error.message;
