@@ -1223,6 +1223,12 @@
    "message"
   ]
  },
+ "Add who gets the weekly status, or untick it.": {
+  "kind": "message",
+  "seen": [
+   "settings › handsoff › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Add, change and remove users and roles — never beyond their own permissions.": {
   "kind": "text",
   "seen": [
@@ -1805,6 +1811,14 @@
    "Dashboard › span"
   ]
  },
+ "All checks pass.": {
+  "kind": "text",
+  "seen": [
+   "settings › span › Hands-off: set it up once, then leave it",
+   "logs › span › Hands-off: set it up once, then leave it",
+   "logs › activity › span › Hands-off: set it up once, then leave it"
+  ]
+ },
  "All outcomes": {
   "kind": "text",
   "seen": [
@@ -2025,6 +2039,14 @@
    "Dashboard › span › HTTPS"
   ]
  },
+ "Also read replies: one word, such as PAUSE, RESUME, RUN, STATUS or STOP": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Hands-off: set it up once, then leave it",
+   "sign in › span › Hands-off: set it up once, then leave it",
+   "Dashboard › span › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Also running by itself": {
   "kind": "text",
   "seen": [
@@ -2075,6 +2097,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Answer four questions and MissionZero runs on its own: it reminds developers, emails a short status each week, takes requests from that email, and looks after itself. Nobody has to sign in again.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Hands-off: set it up once, then leave it",
+   "sign in › p › Hands-off: set it up once, then leave it",
+   "Dashboard › p › Hands-off: set it up once, then leave it"
   ]
  },
  "Answer support cases & enhancements": {
@@ -3001,6 +3031,14 @@
    "Dashboard › button"
   ]
  },
+ "Check and remind": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Hands-off: set it up once, then leave it",
+   "sign in › span › Hands-off: set it up once, then leave it",
+   "Dashboard › span › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Check every (minutes)": {
   "kind": "text",
   "seen": [
@@ -3015,6 +3053,14 @@
    "first start › button › Update & recovery",
    "sign in › button › Update & recovery",
    "Dashboard › button › Update & recovery"
+  ]
+ },
+ "Check now": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Hands-off: set it up once, then leave it",
+   "sign in › button › Hands-off: set it up once, then leave it",
+   "Dashboard › button › Hands-off: set it up once, then leave it"
   ]
  },
  "Check the mail server's certificate": {
@@ -3130,6 +3176,14 @@
    "first start › span › Create the first administrator",
    "sign in › span › Create the first administrator",
    "Dashboard › span › Create the first administrator"
+  ]
+ },
+ "Checkmarx One connected": {
+  "kind": "text",
+  "seen": [
+   "settings › span › Hands-off: set it up once, then leave it",
+   "logs › span › Hands-off: set it up once, then leave it",
+   "logs › activity › span › Hands-off: set it up once, then leave it"
   ]
  },
  "Checkmarx One connection": {
@@ -3578,6 +3632,12 @@
    "Dashboard › strong › Get started · 1 of 6 done",
    "Dashboard (advanced) › strong › Get started · 1 of 6 done",
    "connection: cxone › strong › Get started · 1 of 6 done"
+  ]
+ },
+ "Connect Checkmarx One first (Settings → Checkmarx One).": {
+  "kind": "message",
+  "seen": [
+   "settings › handsoff › Hands-off: set it up once, then leave it"
   ]
  },
  "Connect the server to Checkmarx One (its API key and endpoints).": {
@@ -4124,6 +4184,14 @@
    "credits › projects › th › Show as a table"
   ]
  },
+ "Day of the week": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "first start › select › Hands-off: set it up once, then leave it",
+   "sign in › select › Hands-off: set it up once, then leave it",
+   "Dashboard › select › Hands-off: set it up once, then leave it"
+  ]
+ },
  "days": {
   "kind": "text",
   "seen": [
@@ -4532,6 +4600,14 @@
    "connection: cxone › p › Send reminder"
   ]
  },
+ "Each developer, for the projects they scanned": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Hands-off: set it up once, then leave it",
+   "sign in › option › Hands-off: set it up once, then leave it",
+   "Dashboard › option › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Each person receives only their own projects…": {
   "kind": "busy",
   "seen": [
@@ -4602,6 +4678,14 @@
    "Dashboard › span › Create the first administrator"
   ]
  },
+ "Email a short status every week": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Hands-off: set it up once, then leave it",
+   "sign in › span › Hands-off: set it up once, then leave it",
+   "Dashboard › span › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Email a support case": {
   "kind": "text",
   "seen": [
@@ -4646,6 +4730,14 @@
    "first start › button › Monthly summary by email",
    "sign in › button › Monthly summary by email",
    "Dashboard › button › Monthly summary by email"
+  ]
+ },
+ "Email leadership the monthly impact summary": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Hands-off: set it up once, then leave it",
+   "sign in › span › Hands-off: set it up once, then leave it",
+   "Dashboard › span › Hands-off: set it up once, then leave it"
   ]
  },
  "Email on their own commits: in the repositories listed below, or by commit search ({0} a minute).": {
@@ -4700,6 +4792,12 @@
    "first start › button",
    "sign in › button",
    "Dashboard › button"
+  ]
+ },
+ "Email server tested": {
+  "kind": "text",
+  "seen": [
+   "settings › handsoff › Hands-off: set it up once, then leave it"
   ]
  },
  "Email server: not connected — No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.": {
@@ -4878,6 +4976,14 @@
    "reports › detail › remind › span › Weekly"
   ]
  },
+ "Every {0} hours": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Hands-off: set it up once, then leave it",
+   "sign in › option › Hands-off: set it up once, then leave it",
+   "Dashboard › option › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Every AI request (charged, refused, failed or not), allocation, credit setting, report and backup — who, when, from where, the balance after and Checkmarx One's answer. Append-only and hash-chained; open <b>Details</b> for the full entry.": {
   "kind": "html",
   "seen": [
@@ -4908,6 +5014,14 @@
    "audit › p",
    "audit › log › p",
    "audit › checks › p"
+  ]
+ },
+ "Every day": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Hands-off: set it up once, then leave it",
+   "sign in › option › Hands-off: set it up once, then leave it",
+   "Dashboard › option › Hands-off: set it up once, then leave it"
   ]
  },
  "Every finding in a reminder links straight to it in the platform. If a link lands in the wrong place, correct the template here — the example below updates as you type.": {
@@ -4962,12 +5076,28 @@
    "Dashboard › span › Quick setup from a .env file"
   ]
  },
+ "Every status email has buttons: send the reminders now, pause for a week, resume, stop the status. Each asks once more before it acts.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Hands-off: set it up once, then leave it",
+   "sign in › p › Hands-off: set it up once, then leave it",
+   "Dashboard › p › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Every version": {
   "kind": "text",
   "seen": [
    "first start › h3 › Update & recovery",
    "sign in › h3 › Update & recovery",
    "Dashboard › h3 › Update & recovery"
+  ]
+ },
+ "Every week": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Hands-off: set it up once, then leave it",
+   "sign in › option › Hands-off: set it up once, then leave it",
+   "Dashboard › option › Hands-off: set it up once, then leave it"
   ]
  },
  "Everyone has an email address — nothing needs your attention.": {
@@ -5593,6 +5723,14 @@
    "Dashboard › label › Fetch"
   ]
  },
+ "Friday": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Hands-off: set it up once, then leave it",
+   "sign in › option › Hands-off: set it up once, then leave it",
+   "Dashboard › option › Hands-off: set it up once, then leave it"
+  ]
+ },
  "From": {
   "kind": "text",
   "seen": [
@@ -5920,6 +6058,34 @@
    "first start › span",
    "sign in › span",
    "Dashboard › span"
+  ]
+ },
+ "Hands-off": {
+  "kind": "text",
+  "seen": [
+   "first start › a",
+   "sign in › a",
+   "Dashboard › a"
+  ]
+ },
+ "Hands-off is off.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Hands-off is on. MissionZero now runs on its own.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Hands-off: set it up once, then leave it": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Hands-off: set it up once, then leave it",
+   "sign in › h2 › Hands-off: set it up once, then leave it",
+   "Dashboard › h2 › Hands-off: set it up once, then leave it"
   ]
  },
  "Has {0}–{1}d": {
@@ -6506,6 +6672,14 @@
    "connection: cxone › strong › Get started · 1 of 6 done"
   ]
  },
+ "It also checks itself every few minutes, puts right what it can, and tells the administrators.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Hands-off: set it up once, then leave it",
+   "sign in › p › Hands-off: set it up once, then leave it",
+   "Dashboard › p › Hands-off: set it up once, then leave it"
+  ]
+ },
  "It has a short template to fill in, and the answers come back by email.": {
   "kind": "text",
   "seen": [
@@ -6646,6 +6820,14 @@
    "settings › b › HTTPS",
    "logs › b › HTTPS",
    "logs › activity › b › HTTPS"
+  ]
+ },
+ "Last check:": {
+  "kind": "text",
+  "seen": [
+   "settings › span › Hands-off: set it up once, then leave it",
+   "logs › span › Hands-off: set it up once, then leave it",
+   "logs › activity › span › Hands-off: set it up once, then leave it"
   ]
  },
  "Last month": {
@@ -7002,6 +7184,14 @@
    "sign in › a"
   ]
  },
+ "Mailbox server (IMAP), for the email server's account": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Hands-off: set it up once, then leave it",
+   "sign in › span › Hands-off: set it up once, then leave it",
+   "Dashboard › span › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Main": {
   "kind": "attr:aria-label",
   "seen": [
@@ -7198,6 +7388,14 @@
    "Dashboard › fetching › b",
    "Dashboard › loaded › b",
    "Dashboard › remind › b"
+  ]
+ },
+ "Monday": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Hands-off: set it up once, then leave it",
+   "sign in › option › Hands-off: set it up once, then leave it",
+   "Dashboard › option › Hands-off: set it up once, then leave it"
   ]
  },
  "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credits).": {
@@ -8500,6 +8698,12 @@
    "Dashboard › span › Risks endpoint"
   ]
  },
+ "Paused until": {
+  "kind": "text",
+  "seen": [
+   "settings › handsoff › Hands-off: set it up once, then leave it"
+  ]
+ },
  "People": {
   "kind": "text",
   "seen": [
@@ -9312,6 +9516,22 @@
    "sign in › button › Projects"
   ]
  },
+ "Remind developers about their ageing findings": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Hands-off: set it up once, then leave it",
+   "sign in › span › Hands-off: set it up once, then leave it",
+   "Dashboard › span › Hands-off: set it up once, then leave it"
+  ]
+ },
+ "Remind when a finding is older than (days)": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Hands-off: set it up once, then leave it",
+   "sign in › span › Hands-off: set it up once, then leave it",
+   "Dashboard › span › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Reminder server address": {
   "kind": "text",
   "seen": [
@@ -9334,6 +9554,14 @@
    "first start › p",
    "sign in › p",
    "Dashboard › p"
+  ]
+ },
+ "Reminders go to": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Hands-off: set it up once, then leave it",
+   "sign in › span › Hands-off: set it up once, then leave it",
+   "Dashboard › span › Hands-off: set it up once, then leave it"
   ]
  },
  "Reminders sent": {
@@ -9473,6 +9701,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Replies to MissionZero's emails arrive in the mailbox it sends from. It reads only unread mail there, acts only on a reply from the address the email went to, and marks it read.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Hands-off: set it up once, then leave it",
+   "sign in › p › Hands-off: set it up once, then leave it",
+   "Dashboard › p › Hands-off: set it up once, then leave it"
   ]
  },
  "Report": {
@@ -9813,6 +10049,14 @@
    "first start › p › HTTPS",
    "sign in › p › HTTPS",
    "Dashboard › p › HTTPS"
+  ]
+ },
+ "Saturday": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Hands-off: set it up once, then leave it",
+   "sign in › option › Hands-off: set it up once, then leave it",
+   "Dashboard › option › Hands-off: set it up once, then leave it"
   ]
  },
  "saucer": {
@@ -10580,6 +10824,14 @@
    "Dashboard › span › Developers"
   ]
  },
+ "Self-check": {
+  "kind": "text",
+  "seen": [
+   "first start › h3 › Hands-off: set it up once, then leave it",
+   "sign in › h3 › Hands-off: set it up once, then leave it",
+   "Dashboard › h3 › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Self-signed certificate made": {
   "kind": "busy",
   "seen": [
@@ -10656,6 +10908,14 @@
    "first start › button › Email server (SMTP)",
    "sign in › button › Email server (SMTP)",
    "Dashboard › button › Email server (SMTP)"
+  ]
+ },
+ "Send the status now": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Hands-off: set it up once, then leave it",
+   "sign in › button › Hands-off: set it up once, then leave it",
+   "Dashboard › button › Hands-off: set it up once, then leave it"
   ]
  },
  "Send to": {
@@ -10800,6 +11060,12 @@
    "Dashboard › a"
   ]
  },
+ "Server address set: the email buttons work": {
+  "kind": "text",
+  "seen": [
+   "settings › handsoff › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Server load": {
   "kind": "text",
   "seen": [
@@ -10880,6 +11146,14 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "Set the server address (Settings → Server address) so the email buttons work.": {
+  "kind": "text",
+  "seen": [
+   "settings › span › Hands-off: set it up once, then leave it",
+   "logs › span › Hands-off: set it up once, then leave it",
+   "logs › activity › span › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Set their own names, logo and colours under Settings → Your branding, for their demonstrations: the reports and emails they make then carry them. Everyone else keeps the organisation’s.": {
   "kind": "text",
   "seen": [
@@ -10894,6 +11168,14 @@
    "Dashboard › span › Get started · 1 of 6 done",
    "Dashboard › a › Get started · 1 of 6 done",
    "Dashboard (advanced) › span › Get started · 1 of 6 done"
+  ]
+ },
+ "Set up and test the email server first (Settings → Email server).": {
+  "kind": "text",
+  "seen": [
+   "settings › span › Hands-off: set it up once, then leave it",
+   "logs › span › Hands-off: set it up once, then leave it",
+   "logs › activity › span › Hands-off: set it up once, then leave it"
   ]
  },
  "Set up email": {
@@ -11003,6 +11285,14 @@
    "Jump to › search › span",
    "dashboard › span",
    "dashboard › remind › span"
+  ]
+ },
+ "Settings → Hands-off": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span",
+   "Jump to › search › span",
+   "dashboard › span"
   ]
  },
  "Settings → HTTPS": {
@@ -11570,6 +11860,14 @@
    "help › filtered › summary › Status history"
   ]
  },
+ "Steer it by email": {
+  "kind": "text",
+  "seen": [
+   "first start › h3 › Hands-off: set it up once, then leave it",
+   "sign in › h3 › Hands-off: set it up once, then leave it",
+   "Dashboard › h3 › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Still open: {0}": {
   "kind": "attr:title",
   "seen": [
@@ -11676,6 +11974,14 @@
    "first start › span › Activity log",
    "sign in › span › Activity log",
    "Dashboard › span › Activity log"
+  ]
+ },
+ "Sunday": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Hands-off: set it up once, then leave it",
+   "sign in › option › Hands-off: set it up once, then leave it",
+   "Dashboard › option › Hands-off: set it up once, then leave it"
   ]
  },
  "Super Admin: tenants <span class=\"badge warn\">Admin</span>": {
@@ -12124,6 +12430,14 @@
    "Dashboard › summary › The fixed list Email is not set up yet: test it under Settings → Email server."
   ]
  },
+ "The fixed list (Dashboard → Remind)": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Hands-off: set it up once, then leave it",
+   "sign in › option › Hands-off: set it up once, then leave it",
+   "Dashboard › option › Hands-off: set it up once, then leave it"
+  ]
+ },
  "The fixed list is saved.": {
   "kind": "message",
   "seen": [
@@ -12158,6 +12472,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "The monthly summary goes to": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Hands-off: set it up once, then leave it",
+   "sign in › span › Hands-off: set it up once, then leave it",
+   "Dashboard › span › Hands-off: set it up once, then leave it"
   ]
  },
  "The most AI credits this app may spend. {0} means no limit.": {
@@ -12232,6 +12554,18 @@
    "Dashboard › p › Checkmarx One integration"
   ]
  },
+ "The status went to {0} people.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "The status went to {0} person.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "The support team has been told. You get an email with every answer.": {
   "kind": "text",
   "seen": [
@@ -12254,6 +12588,18 @@
    "first start › section",
    "sign in › section",
    "Dashboard › section"
+  ]
+ },
+ "The weekly status goes to": {
+  "kind": "text",
+  "seen": [
+   "settings › handsoff › Hands-off: set it up once, then leave it"
+  ]
+ },
+ "The weekly status, on": {
+  "kind": "text",
+  "seen": [
+   "settings › handsoff › Hands-off: set it up once, then leave it"
   ]
  },
  "Their own branding": {
@@ -12355,7 +12701,21 @@
    "logs › activity › p › Update & recovery"
   ]
  },
+ "Thursday": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Hands-off: set it up once, then leave it",
+   "sign in › option › Hands-off: set it up once, then leave it",
+   "Dashboard › option › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Tick at least one finding with an author.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Tick at least one severity.": {
   "kind": "message",
   "seen": [
    "message"
@@ -12689,12 +13049,42 @@
    "logs › activity › span › Available variables"
   ]
  },
+ "Tuesday": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Hands-off: set it up once, then leave it",
+   "sign in › option › Hands-off: set it up once, then leave it",
+   "Dashboard › option › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Turn it on to follow up without anyone remembering to.": {
   "kind": "text",
   "seen": [
    "reports › detail › span › Weekly",
    "reports › detail › overview › span › Weekly",
    "reports › detail › remind › span › Weekly"
+  ]
+ },
+ "Turn off hands-off": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Hands-off: set it up once, then leave it",
+   "sign in › button › Hands-off: set it up once, then leave it",
+   "Dashboard › button › Hands-off: set it up once, then leave it"
+  ]
+ },
+ "Turn off hands-off? Automatic reminders and the weekly status stop. The self-check keeps running.": {
+  "kind": "message",
+  "seen": [
+   "settings › handsoff › Hands-off: set it up once, then leave it"
+  ]
+ },
+ "Turn on hands-off": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Hands-off: set it up once, then leave it",
+   "sign in › button › Hands-off: set it up once, then leave it",
+   "Dashboard › button › Hands-off: set it up once, then leave it"
   ]
  },
  "Turn on HTTPS in four steps. Nobody is signed out while you do.": {
@@ -13553,6 +13943,14 @@
    "reports › detail › remind › span › Weekly"
   ]
  },
+ "Wednesday": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Hands-off: set it up once, then leave it",
+   "sign in › option › Hands-off: set it up once, then leave it",
+   "Dashboard › option › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Week": {
   "kind": "message",
   "seen": [
@@ -13585,6 +13983,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "What should MissionZero do on its own?": {
+  "kind": "message",
+  "seen": [
+   "settings › handsoff › Hands-off: set it up once, then leave it"
   ]
  },
  "What this browser asked the server, and the troubleshooting log": {
@@ -13639,6 +14043,12 @@
    "logs › activity › span › Available variables"
   ]
  },
+ "When?": {
+  "kind": "text",
+  "seen": [
+   "settings › handsoff › Hands-off: set it up once, then leave it"
+  ]
+ },
  "Where": {
   "kind": "text",
   "seen": [
@@ -13653,6 +14063,12 @@
    "first start › p › Get help",
    "sign in › p › Get help",
    "Dashboard › p › Get help"
+  ]
+ },
+ "Which findings?": {
+  "kind": "text",
+  "seen": [
+   "settings › handsoff › Hands-off: set it up once, then leave it"
   ]
  },
  "Who": {
@@ -13699,6 +14115,12 @@
    "settings › span › Available variables",
    "logs › span › Available variables",
    "logs › activity › span › Available variables"
+  ]
+ },
+ "Who?": {
+  "kind": "text",
+  "seen": [
+   "settings › handsoff › Hands-off: set it up once, then leave it"
   ]
  },
  "Whose": {
