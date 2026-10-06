@@ -5511,6 +5511,8 @@ function serverTimeZone() {
 async function runDueTrackedReminders(session) {
   const settings = sendingSettings();
   const now = Date.now();
+  // Hands-off mode, paused from an email: scheduled follow-ups wait too (they run when it resumes).
+  if (isPaused(settings.handsOff, now)) return;
   for (const report of trackedReports.list()) {
     const auto = report.automation;
     if (!auto?.enabled || !auto.nextRunAt || Date.parse(auto.nextRunAt) > now) continue;
