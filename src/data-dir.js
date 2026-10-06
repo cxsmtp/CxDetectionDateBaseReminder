@@ -35,6 +35,7 @@ export const STATE_FILES = [
   'activation.json',
   'languages.json',
   'tenants.json',
+  'support.json',
 ];
 
 /** A tenant's own files, in tenants/<id>/ (several Checkmarx One tenants: src/tenancy.js). */

@@ -85,6 +85,12 @@ export const DEFAULT_SETTINGS = {
    * money figures (0 = not shown); who gets the monthly summary (none = not sent).
    */
   impact: { triageMinutes: 20, fixMinutes: 120, hourlyRate: 0, creditPrice: 0, currency: 'USD', monthlyTo: [] },
+  /**
+   * Get help (src/support.js): 'portal' keeps a numbered queue in this app; 'email' sends
+   * people to their own email app, addressed to `email`, for installations whose mail
+   * cannot leave the network. SUPPORT_EMAIL / SUPPORT_MODE give the defaults.
+   */
+  support: { mode: '', email: '' },
   /** SLAs (Beta, src/sla.js): days to fix each severity, and escalation of overdue findings. */
   sla: structuredClone(DEFAULT_SLA),
   /**
@@ -147,6 +153,30 @@ export const DEFAULT_SETTINGS = {
  * https (and data: for a pasted inline image) is accepted -- never javascript:
  * or a plain-http URL that would trip mixed-content warnings.
  */
+/** Get help, checked: the portal or email; email needs one valid address. Empty values fall back to SUPPORT_MODE / SUPPORT_EMAIL. */
+export function mergeSupport(current, incoming = null) {
+  const out = { ...DEFAULT_SETTINGS.support, ...(current ?? {}) };
+  if (!incoming) return out;
+  if ('mode' in incoming) {
+    if (!['portal', 'email', ''].includes(incoming.mode)) throw Object.assign(new Error('Get help: choose the support portal or email.'), { status: 400 });
+    out.mode = incoming.mode;
+  }
+  if ('email' in incoming) {
+    const [address = ''] = parseAddressList(incoming.email);
+    if (String(incoming.email ?? '').trim() && !address) throw Object.assign(new Error('Get help: enter one email address, such as support@company.com.'), { status: 400 });
+    out.email = address;
+  }
+  return out;
+}
+
+/** How people ask for help here: the settings, else the environment's defaults, else the portal. */
+export function supportChannel(settings, env = process.env) {
+  const s = settings?.support ?? {};
+  const email = s.email || parseAddressList(env.SUPPORT_EMAIL ?? '')[0] || '';
+  const wanted = s.mode || (env.SUPPORT_MODE === 'email' ? 'email' : 'portal');
+  return { mode: wanted === 'email' && email ? 'email' : 'portal', email, chosen: s.mode || '' };
+}
+
 /** Impact settings, checked: whole minutes 1–10,000, rates and prices 0–1,000,000, a 3-letter currency. */
 export function mergeImpact(current, incoming = null) {
   const out = { ...DEFAULT_SETTINGS.impact, ...(current ?? {}) };
@@ -391,8 +421,9 @@ export function mergeSettings(current, incoming = {}) {
   if (incoming.reminders && 'audience' in incoming.reminders) reminders.audience = AUDIENCES.includes(incoming.reminders.audience) ? incoming.reminders.audience : reminders.audience;
 
   const impact = mergeImpact(current.impact, incoming.impact);
+  const support = mergeSupport(current.support, incoming.support);
 
-  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders, impact };
+  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders, impact, support };
 
   // The automation credential is set through its own route, not this form.
   if (typeof incoming.automationApiKey === 'string') next.automationApiKey = incoming.automationApiKey.trim();
@@ -552,6 +583,7 @@ export function publicSettings(settings) {
     sla: mergeSla(settings.sla),
     reminders: { ...DEFAULT_SETTINGS.reminders, ...(settings.reminders ?? {}) },
     impact: mergeImpact(settings.impact),
+    support: mergeSupport(settings.support),
     verifiedAt: settings.verifiedAt,
     verified: isVerified(settings),
   };
@@ -622,6 +654,7 @@ export class SettingsStore {
         features: mergeFeatures(raw.features),
         sla: mergeSla(raw.sla),
         impact: mergeImpact(raw.impact),
+        support: mergeSupport(raw.support),
         // One choice for who gets reminders; before, scheduled runs had their own (keep what they did).
         reminders: raw.reminders?.audience && AUDIENCES.includes(raw.reminders.audience)
           ? { audience: raw.reminders.audience }

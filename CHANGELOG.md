@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.53 | 527/s, 0 (main 524, 0) | 0.3 s | 96 ms | 530 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.52 | 504/s, 2 (main 518, 0) | 7.5 s | 483 ms | 526 | 0 vulnerabilities | Rescan 27982f85 (MZ-01.00.52): 1 critical, 20 high, 14 medium, 18 low, all judged not exploitable; 12 closed in code (see [status](docs/status.md)) |
 | MZ-01.00.51 | 480/s, 0 (main 514, 0) | 9.4 s | 951 ms | 526 | 0 vulnerabilities | Scan 82d48cec of MZ-01.00.50: 6 critical, 20 high, 17 medium, 19 low, being triaged (see [status](docs/status.md)) |
 | MZ-01.00.50 | 510/s, 0 (main 506, 10) | 5.9 s | 341 ms | 525 | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
@@ -38,6 +39,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.53 — 2026-10-06 02:15 UTC · [#76](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/76)
+- **Get help, at the bottom of the menu.** Point at it and choose **Submit a support case**, **Request an enhancement** or **Track my requests**. On a phone it is in the menu under your name ([support](docs/support.md)).
+- **A number for every request.** Support cases are SUP-0001 and up, enhancements ENH-0001 and up. The number is shown at once and emailed with a link to follow it.
+- **A conversation, and a status you can follow.** Each request has a thread between the person who raised it and the support team. Its status is New, In progress, Waiting for reply, Completed or Declined, with a history of every change. Each answer and status change is emailed to the person who raised it.
+- **A queue for the support team.** People whose role has the new **Answer support cases & enhancements** permission (Admins, to start with) see every request from the tenants they work in; a Super Admin sees every tenant. They get an email for each new request, answer, and move it on. Everyone else sees only their own requests.
+- **Support by email for offline servers.** Under **Settings → Get help**, an Admin can send requests to an email address instead of the portal. Get help then opens each person's own email app with a short template, so nothing has to leave the server. `SUPPORT_MODE` and `SUPPORT_EMAIL` set the default for a build you hand out.
+- **Fourteen languages.** Everything new is translated and reviewed twice. A request's own "New" and "Open" have their own wording, apart from the plural "new findings" ([languages](docs/languages.md)).
+- **Status.** The branch served 527 requests a second with 0 failed (main 524, 0 failed). Report opens took 330 ms and triage polls 96 ms at p95 (main 4.7 s and 142 ms), on a calm host; the benchmark does not call Get help ([performance](docs/performance.md)). No finding was sent twice. 530 tests pass; `npm audit` finds 0 vulnerabilities. No new Checkmarx One scan: the 53 results of the last one are all judged not exploitable.
 
 ## MZ-01.00.52 — 2026-10-05 19:14 UTC · [#75](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/75)
 - **No credentials written in the tests.** Test servers' passwords, the backup passphrase and the stand-in Checkmarx One keys are made fresh on every run, so the code no longer holds anything a scanner reads as a hard-coded secret. That removes all 5 critical results of the last scan.

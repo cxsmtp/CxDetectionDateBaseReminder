@@ -100,6 +100,10 @@
           </a>
         </nav>
         <div class="sidebar-tools" id="sidebar-tools" hidden>
+          <button type="button" id="help-open" class="side-btn help-open" aria-haspopup="menu" aria-expanded="false" aria-controls="help-pop">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6" /><path d="M12 17h.01" /></svg>
+            <span>Get help</span>
+          </button>
           <button type="button" id="sidebar-pin" class="side-btn sidebar-pin" aria-pressed="true" title="Hide the menu: it becomes a slim bar of icons and opens when you point at it">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M16 10l-2 2 2 2" /></svg>
             <span id="sidebar-pin-label">Hide menu</span>
@@ -112,6 +116,18 @@
         <p class="sidebar-foot">Act · Follow up · Prove — down to zero</p>
         <a href="#/settings/about" id="app-version" class="app-version" title="CxMissionZero version — about and terms of use" hidden></a>
       </aside>
+      <!-- Get help: opens when the button above is pointed at (or clicked, or focused) -->
+      <div class="help-pop" id="help-pop" role="menu" aria-label="Get help" hidden>
+        <a href="#/help/case" role="menuitem" class="help-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z" /><path d="M9 9h6" /><path d="M9 12h4" /></svg>
+          <span><strong>Submit a support case</strong><small>Something does not work, or you are stuck. The support team answers you here.</small></span>
+        </a>
+        <a href="#/help/enhancement" role="menuitem" class="help-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6" /><path d="M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" /></svg>
+          <span><strong>Request an enhancement</strong><small>A new feature or an improvement. Follow it until it is done.</small></span>
+        </a>
+        <a href="#/help" role="menuitem" class="help-track">Track my requests</a>
+      </div>
 
       <div class="content">
         <header class="topbar">
@@ -164,6 +180,7 @@
                 <p class="hint" id="me-detail"></p>
                 <a class="button primary" id="me-profile" href="#/settings/profile">Your profile</a>
                 <label class="switch adv-switch"><input type="checkbox" id="me-advanced" /> <span><strong>Show advanced options</strong><small>Fine-tuning most people never need</small></span></label>
+                <a class="button" id="me-help" href="#/help">Get help</a>
                 <button type="button" id="me-password">Change password</button>
                 <button type="button" id="me-refresh" class="ghost">Refresh — start over</button>
                 <button type="button" id="disconnect" class="ghost">Sign out</button>
@@ -601,6 +618,7 @@
                   <a href="#/settings/features" data-set="features" data-perm="features.manage">Beta features</a>
                   <a href="#/settings/activation" data-set="activation" data-perm="activation.manage">Activation codes</a>
                   <a href="#/settings/tenants" data-set="tenants" data-perm="tenants.manage">Tenants</a>
+                  <a href="#/settings/support" data-set="support" data-perm="support.manage">Get help</a>
                   <a href="#/settings/update" data-set="update" data-perm="system.update">Update &amp; recovery</a>
                   <a href="#/settings/about" data-set="about">About &amp; terms of use</a>
                 </div>
@@ -1247,6 +1265,17 @@
                   <p class="hint">It needs the Podman socket, which can manage every container on the machine, so it does one thing only: it replaces the container named <code>mission-zero</code>, and only with this app's own image (<code>UPDATE_IMAGE</code>), at the version chosen here. It opens no port. Use your own volume name if it is not <code>mission-zero-data</code>; on a rootless Podman machine the socket is <code>/run/user/1000/podman/podman.sock</code>. Without the companion: <code>podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest</code>, then your usual <code>podman run --replace …</code> line.</p>
                 </div>
               </details>
+            </section>
+
+            <section class="panel" id="set-support" data-edit-perm="support.manage">
+              <h2>Get help</h2>
+              <p class="hint wide">Where support cases and enhancement requests go when people use <strong>Get help</strong> at the bottom of the menu.</p>
+              <div class="support-modes" role="radiogroup" aria-label="How people ask for help">
+                <label class="support-mode"><input type="radio" name="support-mode" value="portal" /> <span><strong>Support portal in CxMissionZero</strong><small>A form, a numbered queue (SUP-0001, ENH-0001) and email updates. People with “Answer support cases &amp; enhancements” answer them here.</small></span></label>
+                <label class="support-mode"><input type="radio" name="support-mode" value="email" /> <span><strong>Email</strong><small>Get help opens each person's own email app, addressed to the address below, with the details filled in. For a server that cannot send email out of its network.</small></span></label>
+              </div>
+              <label class="field support-email"><span>Send requests to</span><input id="support-email" type="email" spellcheck="false" placeholder="support@company.com" /></label>
+              <p class="hint" id="support-note"></p>
             </section>
 
             <section class="panel" id="set-about">
@@ -1934,6 +1963,74 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <span class="status" id="iam-matrix-status"></span>
               </div>
             </section>
+            </div>
+          </div>
+
+          <!-- ================= Get help ================= -->
+          <div id="page-help" class="page help-page" hidden>
+            <div class="help-bar">
+              <a class="button-like primary" id="help-bar-case" href="#/help/case">Submit a support case</a>
+              <a class="button-like" id="help-bar-enh" href="#/help/enhancement">Request an enhancement</a>
+              <span class="help-filters">
+                <label><span class="sr-only">Type</span>
+                  <select id="help-kind" aria-label="Type">
+                    <option value="">Cases and enhancements</option>
+                    <option value="case">Support cases</option>
+                    <option value="enhancement">Enhancements</option>
+                  </select>
+                </label>
+                <label><span class="sr-only">Status</span>
+                  <select id="help-status" aria-label="Status" data-i18n-ctx="request">
+                    <option value="open">Open</option>
+                    <option value="">Any status</option>
+                    <option value="new">New</option>
+                    <option value="in-progress">In progress</option>
+                    <option value="waiting">Waiting for reply</option>
+                    <option value="completed">Completed</option>
+                    <option value="declined">Declined</option>
+                  </select>
+                </label>
+                <label id="help-whose-box" hidden><span class="sr-only">Whose</span>
+                  <select id="help-whose" aria-label="Whose">
+                    <option value="all">Everyone's</option>
+                    <option value="mine">Mine</option>
+                  </select>
+                </label>
+              </span>
+            </div>
+            <div class="help-grid">
+              <section class="panel help-queue" aria-label="Requests">
+                <div class="panel-head"><h2 id="help-queue-title">My requests</h2><span class="hint" id="help-count"></span></div>
+                <div id="help-list"><p class="hint">Loading…</p></div>
+              </section>
+              <section class="panel help-detail" id="help-detail" aria-live="polite">
+                <form id="help-form" class="help-form" hidden autocomplete="off">
+                  <h2 id="help-form-title">Submit a support case</h2>
+                  <p class="hint" id="help-form-hint">Tell the support team what is not working, or where you are stuck. You get an email with the case number, and every answer.</p>
+                  <label class="field"><span>Title</span><input id="help-subject" maxlength="200" required placeholder="In a few words" /></label>
+                  <label class="field"><span>Description</span><textarea id="help-text" rows="8" maxlength="10000" required placeholder="What happened, what you expected, and the steps to see it"></textarea></label>
+                  <label class="field help-priority" id="help-priority-box"><span>Priority</span>
+                    <select id="help-priority">
+                      <option value="low">Low</option>
+                      <option value="normal" selected>Normal</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent: work is blocked</option>
+                    </select>
+                  </label>
+                  <div class="actions compact"><button type="submit" class="primary" id="help-submit">Submit</button><a class="button-like" href="#/help">Cancel</a></div>
+                  <p class="status" id="help-form-status"></p>
+                </form>
+                <div id="help-view" hidden></div>
+                <div id="help-mail" class="help-empty" hidden>
+                  <h2>Get help by email</h2>
+                  <p class="hint"><span>Support here is by email. Your email app opens, addressed to</span> <strong id="help-mail-to" translate="no"></strong>. <span>It has a short template to fill in, and the answers come back by email.</span></p>
+                  <div class="actions compact"><a class="button-like primary" id="help-mail-case" href="#/help">Email a support case</a><a class="button-like" id="help-mail-enh" href="#/help">Email an enhancement request</a></div>
+                </div>
+                <div id="help-empty" class="help-empty">
+                  <h2>Get help</h2>
+                  <p class="hint">Raise a support case when something does not work, or request an enhancement for something new. Each gets a number, sent to you by email, and you can follow it here until it is done.</p>
+                </div>
+              </section>
             </div>
           </div>
 

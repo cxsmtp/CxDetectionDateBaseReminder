@@ -145,6 +145,33 @@ try {
     const tabs = await page.evaluate(() => [...document.querySelectorAll('#rp-sheet [data-rp-tab], #rp-sheet .ptab')].map((t) => t.dataset.rpTab ?? t.dataset.pt));
     for (const tab of tabs) await click(`#rp-sheet [data-rp-tab="${tab}"], #rp-sheet .ptab[data-pt="${tab}"]`, `reports › detail › ${tab}`, 900);
   }
+  // Get help: the sidebar menu, both forms, a request just raised (with its thank-you), and the queue.
+  await page.evaluate(() => (location.hash = '#/dashboard'));
+  await page.hover('#help-open').catch(() => {});
+  await grab('Get help › menu', 400);
+  await page.evaluate(() => (location.hash = '#/help/enhancement'));
+  await grab('help › enhancement', 900);
+  await page.evaluate(() => (location.hash = '#/help/case'));
+  await grab('help › case', 900);
+  await page.fill('#help-subject', 'Sample').catch(() => {});
+  await page.fill('#help-text', 'Sample').catch(() => {});
+  await page.selectOption('#help-priority', 'high').catch(() => {});
+  await click('#help-submit', 'help › raised', 2000);
+  await page.selectOption('#help-whose', 'mine').catch(() => {});
+  await grab('help › mine', 400);
+  await page.selectOption('#help-status', 'completed').catch(() => {});
+  await grab('help › filtered', 400);
+  // Get help by email (Settings → Get help): the menu and the page.
+  await page.evaluate(() => fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ support: { mode: 'email', email: 'support@example.com' } }) }));
+  await page.reload();
+  await page.evaluate(() => (location.hash = '#/help'));
+  await grab('help › by email', 1500);
+  await page.hover('#help-open').catch(() => {});
+  await grab('Get help › menu by email', 400);
+  await page.evaluate(() => (location.hash = '#/settings/support'));
+  await grab('settings › support (email)', 900);
+  await page.fill('#support-email', '').catch(() => {});
+  await grab('settings › support (no address)', 300);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => (location.hash = '#/dashboard'));
   await grab('phone', 1200);

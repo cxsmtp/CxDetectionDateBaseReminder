@@ -57,6 +57,7 @@ export const PERMISSIONS = [
   { id: 'activation.manage', group: 'Settings', label: 'Activation codes', description: 'Enter the activation codes that unlock add-ons on this installation (Hebrew; several Checkmarx One tenants), or turn them off.', special: true },
   { id: 'tenants.manage', group: 'Settings', label: 'Super Admin: tenants', description: 'With a tenants activation code: turn on several Checkmarx One tenants, add, rename and remove them, switch between them, and choose who works in which.', special: true },
   { id: 'features.manage', group: 'Beta', label: 'Make Beta features final', description: 'Promote a Beta feature to a standard one (or put it back in Beta) for everyone in the organisation.', special: true },
+  { id: 'support.manage', group: 'Access', label: 'Answer support cases & enhancements', description: 'See the support cases and enhancement requests raised in the tenants they work in, answer them, and mark them in progress, completed or declined. Gets an email for each new request.' },
   { id: 'iam.view', group: 'Access', label: 'View users & roles', description: 'See who has access and what each role allows.' },
   { id: 'iam.manage', group: 'Access', label: 'Manage users & roles', description: 'Add, change and remove users and roles — never beyond their own permissions.' },
   { id: 'system.metrics', group: 'Access', label: 'Server load', description: 'See the server’s load and cache figures.' },

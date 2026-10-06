@@ -313,6 +313,14 @@
    "Dashboard › remind › small"
   ]
  },
+ "{0} of {1} tracked report verified at zero by a rescan": {
+  "kind": "attr:title",
+  "seen": [
+   "help › by email › a",
+   "Get help › menu by email › a",
+   "settings › support (email) › a"
+  ]
+ },
  "{0} of {1} tracked reports verified at zero by a rescan": {
   "kind": "attr:title",
   "seen": [
@@ -453,6 +461,14 @@
    "credits › span › Credits used over time",
    "credits › overview › span › Credits used over time",
    "credits › projects › span › Credits used over time"
+  ]
+ },
+ "{0} shown": {
+  "kind": "text",
+  "seen": [
+   "help › enhancement › span › Support queue",
+   "help › case › span › Support queue",
+   "help › filtered › span › My requests"
   ]
  },
  "{0} still open": {
@@ -900,6 +916,22 @@
    "Dashboard › span › Send reminder"
   ]
  },
+ "A form, a numbered queue (SUP-{0}, ENH-{1}) and email updates. People with “Answer support cases & enhancements” answer them here.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Get help",
+   "sign in › small › Get help",
+   "Dashboard › small › Get help"
+  ]
+ },
+ "A new feature or an improvement. Follow it until it is done.": {
+  "kind": "text",
+  "seen": [
+   "first start › small",
+   "sign in › small",
+   "Dashboard › small"
+  ]
+ },
  "A password": {
   "kind": "text",
   "seen": [
@@ -1177,6 +1209,14 @@
    "Dashboard › button › Tenants"
   ]
  },
+ "Add to your request": {
+  "kind": "text",
+  "seen": [
+   "help › raised › span › Submit a support case",
+   "help › mine › span › Submit a support case",
+   "help › filtered › span › Submit a support case"
+  ]
+ },
  "Add who gets the monthly summary first.": {
   "kind": "message",
   "seen": [
@@ -1242,6 +1282,14 @@
   ]
  },
  "Admin: Allocate credits to projects": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
+ "Admin: Answer support cases & enhancements": {
   "kind": "attr:aria-label",
   "seen": [
    "access › input › Roles & permissions",
@@ -1997,6 +2045,20 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Answer": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Answer support cases & enhancements": {
+  "kind": "text",
+  "seen": [
+   "access › span › Roles & permissions",
+   "access › people › span › Roles & permissions",
+   "access › roles › span › Roles & permissions"
   ]
  },
  "Any age": {
@@ -2755,6 +2817,14 @@
    "Dashboard › fetching › span"
   ]
  },
+ "Cases and enhancements": {
+  "kind": "text",
+  "seen": [
+   "first start › option",
+   "sign in › option",
+   "Dashboard › option"
+  ]
+ },
  "Cc": {
   "kind": "text",
   "seen": [
@@ -3386,6 +3456,14 @@
    "first start › span",
    "sign in › span",
    "Dashboard › span"
+  ]
+ },
+ "Completed": {
+  "kind": "text",
+  "seen": [
+   "first start › option",
+   "sign in › option",
+   "Dashboard › option"
   ]
  },
  "Confidence": {
@@ -4078,6 +4156,14 @@
    "Dashboard › button"
   ]
  },
+ "Declined": {
+  "kind": "text",
+  "seen": [
+   "first start › option",
+   "sign in › option",
+   "Dashboard › option"
+  ]
+ },
  "Default domain — appended to a username when nothing else resolves": {
   "kind": "text",
   "seen": [
@@ -4118,6 +4204,12 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Describe the feature or improvement you would like, and why it helps. You get an email with its number, and can follow it until it is done.": {
+  "kind": "text",
+  "seen": [
+   "help › enhancement › p › Request an enhancement"
   ]
  },
  "Description": {
@@ -4472,6 +4564,22 @@
    "Dashboard › span › Create the first administrator"
   ]
  },
+ "Email a support case": {
+  "kind": "text",
+  "seen": [
+   "first start › a › Submit a support case",
+   "sign in › a › Submit a support case",
+   "Dashboard › a › Submit a support case"
+  ]
+ },
+ "Email an enhancement request": {
+  "kind": "text",
+  "seen": [
+   "first start › a › Submit a support case",
+   "sign in › a › Submit a support case",
+   "Dashboard › a › Submit a support case"
+  ]
+ },
  "Email for expiry notices (optional)": {
   "kind": "text",
   "seen": [
@@ -4600,6 +4708,20 @@
    "busy line"
   ]
  },
+ "Enhancement": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Enhancements": {
+  "kind": "text",
+  "seen": [
+   "first start › option",
+   "sign in › option",
+   "Dashboard › option"
+  ]
+ },
  "Enter at least one address to send to.": {
   "kind": "message",
   "seen": [
@@ -4624,6 +4746,14 @@
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
+  ]
+ },
+ "Enter the address requests go to. Until then, Get help keeps the support portal.": {
+  "kind": "text",
+  "seen": [
+   "settings › support (no address) › p › Get help",
+   "phone › p › Get help",
+   "message"
   ]
  },
  "Enter the name people use to reach this server, e.g. mz.company.com.": {
@@ -4830,6 +4960,14 @@
   "kind": "text",
   "seen": [
    "Settings › Activation codes › under Who may use Hebrew"
+  ]
+ },
+ "Everyone's": {
+  "kind": "text",
+  "seen": [
+   "first start › option",
+   "sign in › option",
+   "Dashboard › option"
   ]
  },
  "Everything except the Admin-only integrations, credit budget and backups — including users and roles.": {
@@ -5485,6 +5623,30 @@
    "message"
   ]
  },
+ "Get help": {
+  "kind": "text",
+  "seen": [
+   "first start › span",
+   "first start › div",
+   "first start › a"
+  ]
+ },
+ "Get help by email": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Submit a support case",
+   "sign in › h2 › Submit a support case",
+   "Dashboard › h2 › Submit a support case"
+  ]
+ },
+ "Get help opens each person's own email app, addressed to the address below, with the details filled in. For a server that cannot send email out of its network.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Get help",
+   "sign in › small › Get help",
+   "Dashboard › small › Get help"
+  ]
+ },
  "Get started <span class=\"muted\">· {0} of {1} done</span>": {
   "kind": "html",
   "seen": [
@@ -5764,6 +5926,12 @@
    "message"
   ]
  },
+ "Help": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Here": {
   "kind": "text",
   "seen": [
@@ -5926,6 +6094,14 @@
    "first start › p › SLAs Beta",
    "sign in › p › SLAs Beta",
    "Dashboard › p › SLAs Beta"
+  ]
+ },
+ "How people ask for help": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "first start › div › Get help",
+   "sign in › div › Get help",
+   "Dashboard › div › Get help"
   ]
  },
  "How the rescan works": {
@@ -6128,6 +6304,14 @@
    "Dashboard › h3 › AI Triage & Remediation from reports"
   ]
  },
+ "In a few words": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "first start › input › Submit a support case",
+   "sign in › input › Submit a support case",
+   "Dashboard › input › Submit a support case"
+  ]
+ },
  "In Beta": {
   "kind": "text",
   "seen": [
@@ -6140,6 +6324,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "In progress": {
+  "kind": "text",
+  "seen": [
+   "first start › option",
+   "sign in › option",
+   "Dashboard › option"
   ]
  },
  "In the chosen period: results AI Triage checked or showed not exploitable, fixes with AI and by hand (only once Checkmarx One no longer reports them), median days to fix, and credits used. Open is what is open now.": {
@@ -6266,6 +6458,20 @@
    "Dashboard › strong › Get started · 1 of 6 done",
    "Dashboard (advanced) › strong › Get started · 1 of 6 done",
    "connection: cxone › strong › Get started · 1 of 6 done"
+  ]
+ },
+ "It has a short template to fill in, and the answers come back by email.": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Submit a support case",
+   "sign in › span › Submit a support case",
+   "Dashboard › span › Submit a support case"
+  ]
+ },
+ "It is now in the list of enhancements. You get an email whenever its status changes.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "It needs the Podman socket, which can manage every container on the machine, so it does one thing only: it replaces the container named <code>mission-zero</code>, and only with this app's own image (<code>UPDATE_IMAGE</code>), at the version chosen here. It opens no port. Use your own volume name if it is not <code>mission-zero-data</code>; on a rootless Podman machine the socket is <code>/run/user/{0}/podman/podman.sock</code>. Without the companion: <code>podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest</code>, then your usual <code>podman run --replace …</code> line.": {
@@ -6892,6 +7098,14 @@
    "Dashboard › th › Match usernames to email addresses"
   ]
  },
+ "Mine": {
+  "kind": "text",
+  "seen": [
+   "first start › option",
+   "sign in › option",
+   "Dashboard › option"
+  ]
+ },
  "Minutes to fix one finding by hand": {
   "kind": "text",
   "seen": [
@@ -6978,6 +7192,12 @@
    "Dashboard › h2 › More connections to the same host"
   ]
  },
+ "More detail, or an answer to the support team": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "More options": {
   "kind": "text",
   "seen": [
@@ -7000,6 +7220,14 @@
    "first start › option › People",
    "sign in › option › People",
    "Dashboard › option › People"
+  ]
+ },
+ "My requests": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › My requests",
+   "sign in › h2 › My requests",
+   "Dashboard › h2 › My requests"
   ]
  },
  "MZ-{0} installed.": {
@@ -7370,6 +7598,13 @@
    "message"
   ]
  },
+ "No requests yet. Raise one with the buttons above.": {
+  "kind": "text",
+  "seen": [
+   "help › enhancement › p › Support queue",
+   "help › case › p › Support queue"
+  ]
+ },
  "No runs yet.": {
   "kind": "text",
   "seen": [
@@ -7498,6 +7733,14 @@
    "Dashboard › small › Match usernames to email addresses"
   ]
  },
+ "Normal": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Submit a support case",
+   "sign in › option › Submit a support case",
+   "Dashboard › option › Submit a support case"
+  ]
+ },
  "Not accepted yet.": {
   "kind": "message",
   "seen": [
@@ -7595,6 +7838,13 @@
  "Nothing confirmed to remediate at those severities.": {
   "kind": "message",
   "seen": [
+   "message"
+  ]
+ },
+ "Nothing is stored in CxMissionZero: the conversation happens by email.": {
+  "kind": "text",
+  "seen": [
+   "settings › support (email) › p › Get help",
    "message"
   ]
  },
@@ -7984,6 +8234,22 @@
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
+  ]
+ },
+ "Opens your email app, addressed to the support team, with a short template to fill in.": {
+  "kind": "text",
+  "seen": [
+   "help › by email › small",
+   "Get help › menu by email › small",
+   "settings › support (email) › small"
+  ]
+ },
+ "Opens your email app: say what you would like, and who it helps.": {
+  "kind": "text",
+  "seen": [
+   "help › by email › small",
+   "Get help › menu by email › small",
+   "settings › support (email) › small"
   ]
  },
  "Optional: load only these. Type a name, or press Enter to add every match.": {
@@ -8442,6 +8708,14 @@
    "Dashboard › span › AI Triage & Remediation from reports"
   ]
  },
+ "Priority": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Submit a support case",
+   "sign in › span › Submit a support case",
+   "Dashboard › span › Submit a support case"
+  ]
+ },
  "Probing candidate paths…": {
   "kind": "message",
   "seen": [
@@ -8624,6 +8898,22 @@
    "first start › h2 › Quick setup from a .env file",
    "sign in › h2 › Quick setup from a .env file",
    "Dashboard › h2 › Quick setup from a .env file"
+  ]
+ },
+ "Raise a support case when something does not work, or request an enhancement for something new. Each gets a number, sent to you by email, and you can follow it here until it is done.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Submit a support case",
+   "sign in › p › Submit a support case",
+   "Dashboard › p › Submit a support case"
+  ]
+ },
+ "Raised by": {
+  "kind": "text",
+  "seen": [
+   "help › raised › span › Submit a support case",
+   "help › mine › span › Submit a support case",
+   "help › filtered › span › Submit a support case"
   ]
  },
  "Re-report everything past a threshold on every run": {
@@ -9181,10 +9471,30 @@
    "Dashboard › span › Azure DevOps"
   ]
  },
+ "Request an enhancement": {
+  "kind": "text",
+  "seen": [
+   "first start › strong",
+   "first start › a",
+   "sign in › strong"
+  ]
+ },
  "Request ready to send to IT": {
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "request|New": {
+  "kind": "text",
+  "seen": [
+   "help › status of one request (chip and option)"
+  ]
+ },
+ "request|Open": {
+  "kind": "text",
+  "seen": [
+   "help › status filter: requests not yet completed or declined"
   ]
  },
  "Requests": {
@@ -9193,6 +9503,20 @@
    "credits › th › Show as a table",
    "credits › overview › th › Show as a table",
    "credits › projects › th › Show as a table"
+  ]
+ },
+ "Requests are kept here, numbered, and answered by the support team.": {
+  "kind": "text",
+  "seen": [
+   "settings › p › Get help",
+   "logs › p › Get help",
+   "logs › activity › p › Get help"
+  ]
+ },
+ "Requests go by email here, so none are listed.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Rescan now to verify": {
@@ -9499,6 +9823,18 @@
    "message"
   ]
  },
+ "Saved, and emailed.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Saved, but an email could not be sent:": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Saved.": {
   "kind": "message",
   "seen": [
@@ -9718,6 +10054,14 @@
   ]
  },
  "Security Analyst: Allocate credits to projects": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
+ "Security Analyst: Answer support cases & enhancements": {
   "kind": "attr:aria-label",
   "seen": [
    "access › input › Roles & permissions",
@@ -10043,6 +10387,14 @@
    "access › roles › small › Roles & permissions"
   ]
  },
+ "See the support cases and enhancement requests raised in the tenants they work in, answer them, and mark them in progress, completed or declined. Gets an email for each new request.": {
+  "kind": "text",
+  "seen": [
+   "access › small › Roles & permissions",
+   "access › people › small › Roles & permissions",
+   "access › roles › small › Roles & permissions"
+  ]
+ },
  "See tracked reports, their progress, and download them.": {
   "kind": "text",
   "seen": [
@@ -10085,6 +10437,14 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Send": {
+  "kind": "text",
+  "seen": [
+   "help › raised › button › Submit a support case",
+   "help › mine › button › Submit a support case",
+   "help › filtered › button › Submit a support case"
   ]
  },
  "Send a tracked report’s follow-up reminder.": {
@@ -10133,6 +10493,14 @@
    "first start › button › Send reminder",
    "sign in › button › Send reminder",
    "Dashboard › button › Send reminder"
+  ]
+ },
+ "Send requests to": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Get help",
+   "sign in › span › Get help",
+   "Dashboard › span › Get help"
   ]
  },
  "Send test email": {
@@ -10472,6 +10840,14 @@
    "Jump to › span",
    "Jump to › search › span",
    "dashboard › span"
+  ]
+ },
+ "Settings → Get help": {
+  "kind": "text",
+  "seen": [
+   "Jump to › search › span",
+   "dashboard › span",
+   "dashboard › remind › span"
   ]
  },
  "Settings → HTTPS": {
@@ -10854,6 +11230,14 @@
    "Dashboard › p › Activation codes"
   ]
  },
+ "Something does not work, or you are stuck. The support team answers you here.": {
+  "kind": "text",
+  "seen": [
+   "first start › small",
+   "sign in › small",
+   "Dashboard › small"
+  ]
+ },
  "Sort by": {
   "kind": "attr:aria-label",
   "seen": [
@@ -11015,6 +11399,14 @@
    "sign in › select › People"
   ]
  },
+ "Status history": {
+  "kind": "text",
+  "seen": [
+   "help › raised › summary › Status history",
+   "help › mine › summary › Status history",
+   "help › filtered › summary › Status history"
+  ]
+ },
  "Still open: {0}": {
   "kind": "attr:title",
   "seen": [
@@ -11085,6 +11477,28 @@
    "Dashboard › span › Mail template"
   ]
  },
+ "Submit": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Submit a support case",
+   "sign in › button › Submit a support case",
+   "Dashboard › button › Submit a support case"
+  ]
+ },
+ "Submit a support case": {
+  "kind": "text",
+  "seen": [
+   "first start › strong",
+   "first start › a",
+   "first start › h2 › Submit a support case"
+  ]
+ },
+ "Submitting…": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "Success <em data-log-count=\"success\">{0}</em>": {
   "kind": "html",
   "seen": [
@@ -11107,6 +11521,60 @@
    "access › span › Roles & permissions",
    "access › people › span › Roles & permissions",
    "access › roles › span › Roles & permissions"
+  ]
+ },
+ "Support case": {
+  "kind": "text",
+  "seen": [
+   "help › raised › span › Submit a support case",
+   "help › mine › span › Submit a support case",
+   "help › filtered › span › Submit a support case"
+  ]
+ },
+ "Support cases": {
+  "kind": "text",
+  "seen": [
+   "first start › option",
+   "sign in › option",
+   "Dashboard › option"
+  ]
+ },
+ "Support cases and enhancement requests: raise one, follow it, and talk to the support team": {
+  "kind": "text",
+  "seen": [
+   "help › enhancement › p",
+   "help › case › p",
+   "help › raised › p"
+  ]
+ },
+ "Support here is by email. Your email app opens, addressed to": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Submit a support case",
+   "sign in › span › Submit a support case",
+   "Dashboard › span › Submit a support case"
+  ]
+ },
+ "Support portal in CxMissionZero": {
+  "kind": "text",
+  "seen": [
+   "first start › strong › Get help",
+   "sign in › strong › Get help",
+   "Dashboard › strong › Get help"
+  ]
+ },
+ "Support queue": {
+  "kind": "text",
+  "seen": [
+   "help › enhancement › h2 › Support queue",
+   "help › case › h2 › Support queue",
+   "help › raised › h2 › Support queue"
+  ]
+ },
+ "Support team": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "Sure": {
@@ -11223,6 +11691,14 @@
    "first start › label › AI check & fix",
    "sign in › label › AI check & fix",
    "Dashboard › label › AI check & fix"
+  ]
+ },
+ "Tell the support team what is not working, or where you are stuck. You get an email with the case number, and every answer.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Submit a support case",
+   "sign in › p › Submit a support case",
+   "Dashboard › p › Submit a support case"
   ]
  },
  "Template preview": {
@@ -11351,6 +11827,14 @@
    "message"
   ]
  },
+ "Thank you. Your number is": {
+  "kind": "text",
+  "seen": [
+   "help › raised › span › Submit a support case",
+   "help › mine › span › Submit a support case",
+   "help › filtered › span › Submit a support case"
+  ]
+ },
  "That file is larger than {0} KB — not a .env file?": {
   "kind": "message",
   "seen": [
@@ -11461,6 +11945,14 @@
    "Dashboard › small › Match usernames to email addresses"
   ]
  },
+ "The email with your number could not be sent:": {
+  "kind": "text",
+  "seen": [
+   "help › raised › span › Submit a support case",
+   "help › mine › span › Submit a support case",
+   "help › filtered › span › Submit a support case"
+  ]
+ },
  "The fixed list": {
   "kind": "text",
   "seen": [
@@ -11531,6 +12023,14 @@
    "message"
   ]
  },
+ "The person who raised it gets an email with the new status.": {
+  "kind": "text",
+  "seen": [
+   "help › raised › p › Submit a support case",
+   "help › mine › p › Submit a support case",
+   "help › filtered › p › Submit a support case"
+  ]
+ },
  "The private key is made and kept on this server. Send IT the request; when the certificate comes back, upload just that file above (and its chain, if they send one). It pairs with the key by itself.": {
   "kind": "text",
   "seen": [
@@ -11561,6 +12061,14 @@
    "first start › p › Checkmarx One integration",
    "sign in › p › Checkmarx One integration",
    "Dashboard › p › Checkmarx One integration"
+  ]
+ },
+ "The support team has been told. You get an email with every answer.": {
+  "kind": "text",
+  "seen": [
+   "help › raised › p › Submit a support case",
+   "help › mine › p › Submit a support case",
+   "help › filtered › p › Submit a support case"
   ]
  },
  "The trend appears after the second reading (hourly, or Refresh).": {
@@ -11728,6 +12236,14 @@
    "reports › detail › remind › span › Weekly"
   ]
  },
+ "Title": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Submit a support case",
+   "sign in › span › Submit a support case",
+   "Dashboard › span › Submit a support case"
+  ]
+ },
  "TLS {0}.{1} (every browser)": {
   "kind": "text",
   "seen": [
@@ -11852,6 +12368,14 @@
    "first start › button › Projects",
    "first start › button › Send reminder",
    "sign in › button › Projects"
+  ]
+ },
+ "Track my requests": {
+  "kind": "text",
+  "seen": [
+   "first start › a",
+   "sign in › a",
+   "Dashboard › a"
   ]
  },
  "Tracked report <span class=\"rp-chip tone-warning\"><span aria-hidden=\"true\">!</span>Needs follow-up</span>": {
@@ -12136,6 +12660,14 @@
    "message"
   ]
  },
+ "Update status": {
+  "kind": "text",
+  "seen": [
+   "help › raised › button › Submit a support case",
+   "help › mine › button › Submit a support case",
+   "help › filtered › button › Submit a support case"
+  ]
+ },
  "Update to {0}? A backup is taken first. People see \"reconnecting…\" for a few seconds, and if it does not start, the current version comes back by itself.": {
   "kind": "message",
   "seen": [
@@ -12208,6 +12740,20 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Urgent": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Urgent: work is blocked": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Submit a support case",
+   "sign in › option › Submit a support case",
+   "Dashboard › option › Submit a support case"
   ]
  },
  "Usage by project and over time →": {
@@ -12291,6 +12837,14 @@
   ]
  },
  "User: Allocate credits to projects": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
+ "User: Answer support cases & enhancements": {
   "kind": "attr:aria-label",
   "seen": [
    "access › input › Roles & permissions",
@@ -12656,6 +13210,14 @@
    "Dashboard › button › Integrity"
   ]
  },
+ "Verify: {0} of {1} tracked report verified at zero by a rescan": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "help › by email › a",
+   "Get help › menu by email › a",
+   "settings › support (email) › a"
+  ]
+ },
  "Verify: {0} of {1} tracked reports verified at zero by a rescan": {
   "kind": "attr:aria-label",
   "seen": [
@@ -12758,6 +13320,14 @@
    "message"
   ]
  },
+ "Waiting for reply": {
+  "kind": "text",
+  "seen": [
+   "first start › option",
+   "sign in › option",
+   "Dashboard › option"
+  ]
+ },
  "was {0} when saved": {
   "kind": "text",
   "seen": [
@@ -12794,12 +13364,24 @@
    "Dashboard › p › Roles & permissions"
   ]
  },
+ "What happened, what you expected, and the steps to see it": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
  "What this browser asked the server, and the troubleshooting log": {
   "kind": "text",
   "seen": [
    "logs › p",
    "logs › activity › p",
    "logs › troubleshooting › p"
+  ]
+ },
+ "What you would like, who it helps, and how you would use it": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "When a finding is already past several thresholds": {
@@ -12832,6 +13414,14 @@
    "first start › th › Email the authors of vulnerable code",
    "sign in › th › Email the authors of vulnerable code",
    "Dashboard › th › Email the authors of vulnerable code"
+  ]
+ },
+ "Where support cases and enhancement requests go when people use <strong>Get help</strong> at the bottom of the menu.": {
+  "kind": "html",
+  "seen": [
+   "first start › p › Get help",
+   "sign in › p › Get help",
+   "Dashboard › p › Get help"
   ]
  },
  "Who": {
@@ -12878,6 +13468,14 @@
    "settings › span › Available variables",
    "logs › span › Available variables",
    "logs › activity › span › Available variables"
+  ]
+ },
+ "Whose": {
+  "kind": "text",
+  "seen": [
+   "first start › span",
+   "first start › select",
+   "sign in › span"
   ]
  },
  "Why fewer results than findings: {0} findings here are {1} Checkmarx One results": {
@@ -12955,6 +13553,12 @@
   ]
  },
  "You signed in with a Checkmarx One key: set a password to also sign in with your email.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Your answer: it is emailed to the person who raised it": {
   "kind": "message",
   "seen": [
    "message"
