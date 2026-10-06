@@ -596,6 +596,10 @@ table.probe tr.miss .snippet { color: var(--muted); }
 #auto-credential { margin: 14px 0; }
 
 .brand-preview { margin-top: 6px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: #fff; color: #0f172a; }
+.mb-colour { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#mb-preview .hint { color: #475467; margin: 0 0 8px; }
+#mb-preview { margin-bottom: 10px; }
+#set-mybrand .switch + .hint { margin: 10px 0 6px; }
 
 #credit-usage .table-wrap, #credit-allocations .table-wrap { margin-top: 4px; }
 #credit-usage tfoot th, #credit-allocations tfoot th { border-top: 2px solid var(--border); background: var(--surface-2); }

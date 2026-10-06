@@ -484,7 +484,8 @@ function applyPermissions() {
   for (const el of document.querySelectorAll('[data-perm]')) el.classList.toggle('perm-hidden', !canAny(el.dataset.perm));
   // Settings: Your profile is everyone's; every other section needs settings.view.
   const settingsToo = can('settings.view');
-  for (const el of document.querySelectorAll('#set-nav .set-group:not(.set-you), #set-nav [data-set]:not([data-set="profile"]), #autosave-note')) el.classList.toggle('no-settings', !settingsToo);
+  for (const el of document.querySelectorAll('#set-nav .set-group:not(.set-you), #set-nav [data-set]:not([data-set="profile"]):not([data-set="mybrand"]), #autosave-note')) el.classList.toggle('no-settings', !settingsToo);
+  applyMyAppBranding();
   renderFeatureStages();
   // Optional columns can depend on permissions (SLAs).
   try {
@@ -609,10 +610,127 @@ document.addEventListener('click', async (event) => {
   }
 });
 
+// ---- Settings → Your branding: one's own names, logo and colours, for demonstrations ----
+
+const MB_FIELDS = [['mb-app', 'appName'], ['mb-name', 'companyName'], ['mb-logo', 'logoUrl'], ['mb-height', 'logoHeight'], ['mb-cta', 'callToAction']];
+const myBrand = { org: null, timer: null };
+
+/** The header's name and logo: the organisation's, with this person's own over it while they use it. */
+function applyMyAppBranding() {
+  const b = state.me?.branding;
+  if (b) applyAppBranding({ name: b.appName, logoUrl: b.logoUrl });
+}
+
+async function refreshMyAppBranding() {
+  try {
+    state.me = await api('/api/me', { quiet: true });
+    applyMyAppBranding();
+  } catch {}
+}
+
+async function loadMyBranding() {
+  if (!can('branding.personal')) return;
+  try {
+    renderMyBranding(await api('/api/me/branding', { quiet: true }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('mb-status', error);
+  }
+}
+
+function renderMyBranding({ branding: b, organisation: o }) {
+  myBrand.org = o;
+  $('mb-on').checked = b.on;
+  for (const [id, key] of MB_FIELDS) {
+    if (document.activeElement !== $(id)) $(id).value = b[key] || '';
+    const org = o[key];
+    $(id).placeholder = key === 'logoUrl' && String(org).startsWith('data:') ? 'The organisation’s uploaded logo' : String(org || '');
+  }
+  const hex = (c) => (/^#[0-9a-f]{6}$/i.test(c ?? '') ? c : '#1d4ed8');
+  $('mb-accent').value = hex(b.accentColor || o.accentColor);
+  $('mb-accent').dataset.org = b.accentColor ? '' : '1';
+  $('mb-accent-org').hidden = !b.accentColor;
+  renderMyBrandPreview();
+}
+
+function myBrandingPayload() {
+  return {
+    on: $('mb-on').checked,
+    ...Object.fromEntries(MB_FIELDS.map(([id, key]) => [key, key === 'logoHeight' ? Number($(id).value) || 0 : $(id).value])),
+    accentColor: $('mb-accent').dataset.org === '1' ? '' : $('mb-accent').value,
+  };
+}
+
+/** The head of a reminder or report as it will look: the organisation's, with yours over it. */
+function renderMyBrandPreview() {
+  const o = myBrand.org ?? {};
+  const p = myBrandingPayload();
+  const pick = (key) => p[key] || o[key];
+  const url = pick('logoUrl');
+  const name = pick('companyName');
+  const box = $('mb-preview');
+  const head = url && /^(https:\/\/|data:image\/)/i.test(url)
+    ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(name || '')}" style="height:${Number(pick('logoHeight')) || 40}px;max-width:260px;display:block" />`
+    : name
+      ? `<strong style="font-size:17px" translate="no">${escapeHtml(name)}</strong>`
+      : '<span class="hint">No logo or company name: a plain header.</span>';
+  box.innerHTML = `<p class="hint">${p.on ? 'What you send now:' : 'What you would send with it on:'} <b translate="no">${escapeHtml(pick('appName') || 'CxMissionZero')}</b></p>
+    <div style="border-bottom:2px solid ${escapeHtml(p.accentColor || o.accentColor || '#1d4ed8')};padding-bottom:10px">${head}</div>
+    ${pick('callToAction') ? `<p style="margin:10px 0 0" translate="no">${escapeHtml(pick('callToAction'))}</p>` : ''}`;
+}
+
+async function saveMyBranding() {
+  clearTimeout(myBrand.timer);
+  setStatus('mb-status', 'Saving…');
+  try {
+    const result = await api('/api/me/branding', { method: 'PUT', body: JSON.stringify(myBrandingPayload()), quiet: true });
+    state.me = result.me;
+    applyMyAppBranding();
+    renderMyBranding(result);
+    setStatus('mb-status', result.branding.on ? 'Saved. What you send now carries your branding.' : 'Saved. You use the organisation’s branding.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('mb-status', error);
+  }
+}
+
+$('set-mybrand').addEventListener('input', (event) => {
+  if (event.target.id === 'mb-logo-file') return;
+  if (event.target.id === 'mb-accent') {
+    $('mb-accent').dataset.org = '';
+    $('mb-accent-org').hidden = false;
+  }
+  renderMyBrandPreview();
+  clearTimeout(myBrand.timer);
+  myBrand.timer = setTimeout(saveMyBranding, 700);
+});
+$('mb-on').addEventListener('change', saveMyBranding);
+$('mb-accent-org').addEventListener('click', () => {
+  $('mb-accent').dataset.org = '1';
+  saveMyBranding();
+});
+$('mb-clear').addEventListener('click', () => {
+  if (!confirm('Clear your branding? You go back to the organisation’s.')) return;
+  for (const [id] of MB_FIELDS) $(id).value = '';
+  $('mb-accent').dataset.org = '1';
+  $('mb-on').checked = false;
+  saveMyBranding();
+});
+$('mb-logo-file').addEventListener('change', () => {
+  const file = $('mb-logo-file').files[0];
+  $('mb-logo-file').value = '';
+  if (!file) return;
+  if (file.size > 200 * 1024) return alert('That image is larger than 200 KB. Please use a smaller logo.');
+  const reader = new FileReader();
+  reader.onload = () => {
+    $('mb-logo').value = reader.result;
+    $('mb-logo').dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  reader.readAsDataURL(file);
+});
+
 // ---- Activation codes: add-ons unlocked by the maintainer (Hebrew, several tenants) ----
 
 async function loadActivation() {
-  if (!can('activation.manage')) return;
+  if (!canAny('activation.manage activation.view')) return;
   try {
     renderActivation(await api('/api/activation', { quiet: true }));
   } catch (error) {
@@ -653,6 +771,12 @@ function renderActivation(a) {
     </div>`);
   }
   $('act-list').innerHTML = rows.join('');
+  // Seeing the page is not changing it: an Admin enters codes and chooses who may use Hebrew.
+  $('act-view-only').hidden = Boolean(a.canManage);
+  if (!a.canManage) {
+    for (const box of $('act-list').querySelectorAll('#act-people-list input')) box.disabled = true;
+    $('act-people-save')?.remove();
+  }
 }
 
 $('act-list').addEventListener('input', (event) => {
@@ -799,6 +923,7 @@ $('tn-list').addEventListener('click', async (event) => {
 
 const reloadSettingsPage = () => {
   renderProfile();
+  loadMyBranding();
   if (!can('settings.view')) return;
   loadFeatures();
   loadActivation();
@@ -1564,15 +1689,18 @@ function renderSettings() {
   $('sla-issues').checked = Boolean(sla.openIssues);
   $('sla-status').textContent = sla.escalate && !(sla.escalateTo ?? []).length ? 'Add at least one address to escalate to.' : '';
 
-  $('brand-app').value = s.branding.appName || 'CxMissionZero';
-  $('brand-name').value = s.branding.companyName;
-  $('brand-logo').value = s.branding.logoUrl;
-  $('brand-icon').value = s.branding.iconUrl ?? '';
-  renderIconPreview();
-  $('brand-height').value = s.branding.logoHeight;
-  $('brand-accent').value = /^#[0-9a-f]{6}$/i.test(s.branding.accentColor) ? s.branding.accentColor : '#1d4ed8';
-  $('brand-cta').value = s.branding.callToAction;
-  renderBrandPreview();
+  // The Branding page only for those who may see it (the server leaves it out otherwise).
+  if (s.branding) {
+    $('brand-app').value = s.branding.appName || 'CxMissionZero';
+    $('brand-name').value = s.branding.companyName;
+    $('brand-logo').value = s.branding.logoUrl;
+    $('brand-icon').value = s.branding.iconUrl ?? '';
+    renderIconPreview();
+    $('brand-height').value = s.branding.logoHeight;
+    $('brand-accent').value = /^#[0-9a-f]{6}$/i.test(s.branding.accentColor) ? s.branding.accentColor : '#1d4ed8';
+    $('brand-cta').value = s.branding.callToAction;
+    renderBrandPreview();
+  }
 
   $('link-base').value = s.links.baseUrl;
   $('link-project').value = s.links.project;
@@ -2098,7 +2226,7 @@ const NOT_SAVED = new Set(['test-to', 'env-file', 'brand-logo-file', 'brand-icon
 
 /** Which save an edit belongs to: the settings form, automation, the integration draft, or none. */
 function autosaveKind(el) {
-  if (!el?.id || NOT_SAVED.has(el.id) || el.disabled || el.closest('[hidden]')?.id === 'probe-results' || el.closest('#set-https')) return '';
+  if (!el?.id || NOT_SAVED.has(el.id) || el.disabled || el.closest('[hidden]')?.id === 'probe-results' || el.closest('#set-https') || el.closest('#set-mybrand')) return '';
   if (INTEGRATION_FIELDS.has(el.id)) return 'draft';
   if (el.closest('#set-automation')) return 'automation';
   if (el.matches('input, select, textarea')) return 'settings';
@@ -2166,7 +2294,11 @@ async function saveSettings() {
     renderLinkExamples(saved.linkExamples);
     renderRecipientHint();
     $('password-state').textContent = saved.smtp.passwordSet ? '(stored)' : '(not set)';
-    applyAppBranding({ name: saved.branding.appName, logoUrl: saved.branding.logoUrl, iconVersion: iconKey(saved.branding.iconUrl) });
+    if (payload.branding && saved.branding) {
+      applyAppIcon(iconKey(saved.branding.iconUrl));
+      // The header shows this person's branding: the organisation's, with their own over it.
+      if (JSON.stringify(before?.branding) !== JSON.stringify(saved.branding)) refreshMyAppBranding();
+    }
     if (JSON.stringify(before?.links) !== JSON.stringify(saved.links)) loadReportServer();
     if (JSON.stringify(before?.aiTriage) !== JSON.stringify(saved.aiTriage)) loadPool();
     if (payload.smtp && !saved.verified && saved.smtp.host) {

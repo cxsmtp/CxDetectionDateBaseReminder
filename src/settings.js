@@ -211,6 +211,45 @@ export function isSafeImageUrl(url) {
   }
 }
 
+/**
+ * A person's own branding (Settings → Your branding), checked. Empty fields mean
+ * "the organisation's"; `on` says whether it is in use now. A wrong logo or colour
+ * is refused with a reason, since nobody else reviews it before it is sent.
+ */
+export function cleanPersonalBranding(current = {}, input = {}) {
+  const out = { on: false, appName: '', companyName: '', logoUrl: '', logoHeight: 0, accentColor: '', callToAction: '', ...current };
+  const refuse = (message) => {
+    throw Object.assign(new Error(message), { status: 400 });
+  };
+  if ('on' in input) out.on = input.on === true;
+  if ('appName' in input) out.appName = String(input.appName ?? '').trim().slice(0, 60);
+  if ('companyName' in input) out.companyName = String(input.companyName ?? '').trim().slice(0, 120);
+  if ('callToAction' in input) out.callToAction = String(input.callToAction ?? '').trim().slice(0, 500);
+  if ('logoHeight' in input) {
+    const height = Math.round(Number(input.logoHeight) || 0);
+    out.logoHeight = height ? Math.min(200, Math.max(16, height)) : 0;
+  }
+  if ('accentColor' in input) {
+    const colour = String(input.accentColor ?? '').trim();
+    if (colour && !/^#[0-9a-f]{6}$/i.test(colour)) refuse('The colour must be a hex colour, such as #1d4ed8.');
+    out.accentColor = colour;
+  }
+  if ('logoUrl' in input) {
+    const url = String(input.logoUrl ?? '').trim();
+    if (url && (!isSafeImageUrl(url) || url.length > 400_000)) refuse('The logo must be an https address, or an image (PNG, JPG, GIF, SVG or WebP) of up to 300 KB.');
+    out.logoUrl = url;
+  }
+  return out;
+}
+
+/** The organisation's branding with a person's own over it: only the fields they filled in. */
+export function overlayBranding(branding, own) {
+  if (!own) return branding;
+  const out = { ...branding };
+  for (const key of ['appName', 'companyName', 'logoUrl', 'logoHeight', 'accentColor', 'callToAction']) if (own[key]) out[key] = own[key];
+  return out;
+}
+
 /** Who gets reminders: each developer, the fixed list, or both. */
 export const AUDIENCES = ['initiator', 'list', 'both'];
 

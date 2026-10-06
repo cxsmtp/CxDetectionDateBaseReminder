@@ -8,8 +8,10 @@ import {
   DEFAULT_SETTINGS,
   SettingsStore,
   applyEnvironmentSmtp,
+  cleanPersonalBranding,
   isVerified,
   mergeSettings,
+  overlayBranding,
   parseAddressList,
   publicSettings,
   smtpFingerprint,
@@ -216,4 +218,19 @@ test('who gets reminders: one choice; an older setup keeps what its scheduled ru
   const file = tempFile();
   fs.writeFileSync(file, JSON.stringify({ automation: { groupBy: 'none' }, reminders: { audience: 'both' } }));
   assert.equal(new SettingsStore({ file }).get().reminders.audience, 'both', 'once chosen, the choice stands');
+});
+
+test('one’s own branding: checked field by field, and only filled-in fields replace the organisation’s', () => {
+  const own = cleanPersonalBranding({}, { on: true, companyName: '  Globex  ', logoHeight: 500, accentColor: '#ABCDEF' });
+  assert.deepEqual(own, { on: true, appName: '', companyName: 'Globex', logoUrl: '', logoHeight: 200, accentColor: '#ABCDEF', callToAction: '' });
+  assert.throws(() => cleanPersonalBranding({}, { accentColor: 'red' }), /hex colour/);
+  assert.throws(() => cleanPersonalBranding({}, { logoUrl: 'http://plain.example/logo.png' }), /https/);
+  assert.throws(() => cleanPersonalBranding({}, { logoUrl: `data:image/png;base64,${'A'.repeat(400_001)}` }), /300 KB/);
+  assert.equal(cleanPersonalBranding({ on: true }, { on: 'yes' }).on, false, 'only a real true turns it on');
+  const org = DEFAULT_SETTINGS.branding;
+  const mixed = overlayBranding(org, own);
+  assert.equal(mixed.companyName, 'Globex');
+  assert.equal(mixed.appName, org.appName, 'empty: the organisation’s');
+  assert.equal(mixed.callToAction, org.callToAction);
+  assert.equal(overlayBranding(org, null), org);
 });

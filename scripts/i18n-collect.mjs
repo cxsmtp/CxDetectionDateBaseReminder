@@ -138,6 +138,16 @@ try {
     await page.evaluate((h) => (location.hash = h), href);
     await grab(`settings › ${href.split('/').pop()}`, 900);
   }
+  // Your branding, on and with a name; and Activation codes as someone who may only see it.
+  await page.evaluate(() => (location.hash = '#/settings/mybrand'));
+  await page.check('#mb-on').catch(() => {});
+  await page.fill('#mb-name', 'Globex').catch(() => {});
+  await grab('settings › mybrand (on)', 1500);
+  await page.uncheck('#mb-on').catch(() => {});
+  await grab('settings › mybrand (off)', 1200);
+  await page.evaluate(() => (location.hash = '#/settings/activation'));
+  await page.evaluate(() => (document.getElementById('act-view-only').hidden = false));
+  await grab('settings › activation (view only)', 600);
   // Reports: open the saved report and each of its tabs.
   await page.evaluate(() => (location.hash = '#/reports'));
   await grab('reports', 1500);
