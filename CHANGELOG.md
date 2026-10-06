@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.57 | 499/s, 0 (main 512, 10) | 6.4 s | 627 ms | 557 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.56 | 494/s, 0 (main 495, 0) | 5.5 s | 345 ms | 548 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.55 | 522/s, 0 (main 514, 0) | 4.7 s | 311 ms | 534 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.54 | 523/s, 0 (main 520, 0) | 7.0 s (second run 4.9 s) | 212 ms | 534 | 0 vulnerabilities (`proxy-addr` updated) | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -42,6 +43,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.57 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+
+- **Says what is wrong, and how to fix it.** When the email server, Checkmarx One or a git host does not connect, a **How to fix it** box gives the problem in one sentence and the steps that fix it, most likely first, under the button, in the header's connection chips and in the rollback notice.
+- **The email server's usual traps, named.** A port and "Secure connection from the start" that do not match, Microsoft 365 with SMTP sign-in turned off, Gmail needing an App Password, a name that cannot be found, a certificate not trusted, a From address or relay refused, a blocked or busy server: each has its own explanation, with the server's own answer under **What was tried** and never the password.
+- **Checkmarx One keys and git tokens.** The key's ID, a key cut short, in quotes or expired is refused before it is tried; a revoked key, the wrong tenant or region, missing roles, a company proxy's certificate and a firewall are each told apart, and so are a wrong, expired, unauthorised (single sign-on) or under-scoped GitHub, GitLab, Azure DevOps or Bitbucket token.
+- **.env files checked before they are used.** Every line is read first: a mistake (a port that is not a number, `SMTP_SECURE=ssl`, `smtp://` in the host, a misspelt name with **Did you mean**, the key's ID, an example value left in) is listed with its line and how to fix it, and is not applied, so the working setting stays.
+- **A troubleshooting page.** [When a connection does not work](docs/troubleshooting.md) lists every problem it recognises and the steps for each, the same sentences the page shows.
+- **In all fourteen languages.** The 259 new sentences were translated and reviewed twice; setting names, commands and other products' screen names stay in English so they can be found.
+- **Status.** 557 tests pass; 0 vulnerabilities in `npm audit --omit=dev`; on a quiet host 499 requests a second with 0 failed (report opens p95 6.4 s, triage polls 627 ms), against main's 466–512; no new Checkmarx One scan, as the connector needs signing in again ([status](docs/status.md)).
 
 ## MZ-01.00.56 — 2026-10-06 13:32 UTC · [#79](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/79)
 - **Hands-off: set it up once, then leave it.** Settings → Hands-off asks four questions: what MissionZero should do, which findings, who, and when. It then reminds developers and emails a short weekly status on its own, so nobody has to sign in ([hands-off](docs/hands-off.md)).

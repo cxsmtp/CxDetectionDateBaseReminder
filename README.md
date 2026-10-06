@@ -231,7 +231,8 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.56** | 494/s, 0 failed (main 495, 0 failed) | 5.5 s | 345 ms | 548 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.57** | 499/s, 0 failed (main 512, 10 failed) | 6.4 s | 627 ms | 557 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| MZ-01.00.56 | 494/s, 0 failed (main 495, 0 failed) | 5.5 s | 345 ms | 548 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.55 | 522/s, 0 failed (main 514, 0 failed) | 4.7 s | 311 ms | 534 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.54 | 523/s, 0 failed (main 520, 0 failed) | 7.0 s (second run 4.9 s) | 212 ms | 534 pass | 0 vulnerabilities (`proxy-addr` updated) | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.53 | 527/s, 0 failed (main 524, 0 failed) | 0.3 s | 96 ms | 530 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
