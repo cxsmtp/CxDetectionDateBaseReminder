@@ -1032,7 +1032,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.53** | 527/s, 0 failed (main 524, 0 failed) | 0.3 s | 96 ms | 530 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.54** | 523/s, 0 failed (main 520, 0 failed) | 7.0 s (second run 4.9 s) | 212 ms | 534 pass | 0 vulnerabilities (`proxy-addr` updated) | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| MZ-01.00.53 | 527/s, 0 failed (main 524, 0 failed) | 0.3 s | 96 ms | 530 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.52 | 504/s, 2 failed (main 518, 0 failed) | 7.5 s | 483 ms | 526 pass | 0 vulnerabilities | Rescan 27982f85 (MZ-01.00.52): 1 critical, 20 high, 14 medium, 18 low, all judged not exploitable; 12 closed in code |
 | MZ-01.00.51 | 480/s, 0 failed (main 514, 0 failed) | 9.4 s | 951 ms | 526 pass | 0 vulnerabilities | Scan 82d48cec of MZ-01.00.50: 6 critical, 20 high, 17 medium, 19 low, being triaged |
 | MZ-01.00.50 | 510/s, 0 failed (main 506, 10 failed) | 5.9 s | 341 ms | 525 pass | 0 vulnerabilities | Last scan (MZ-01.00.26): no critical, high or medium open; 15 low judged false positives |
