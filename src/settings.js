@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { DEFAULT_AUTOMATION, mergeAutomation } from './automation-config.js';
+import { DEFAULT_HANDS_OFF, mergeHandsOff } from './hands-off.js';
 import { mergeFeatures } from './features.js';
 import { DEFAULT_LINK_TEMPLATES, PREVIOUS_LINK_DEFAULTS } from './links.js';
 import { DEFAULT_TEMPLATE } from './template.js';
@@ -91,6 +92,8 @@ export const DEFAULT_SETTINGS = {
    * cannot leave the network. SUPPORT_EMAIL / SUPPORT_MODE give the defaults.
    */
   support: { mode: '', email: '' },
+  /** Hands-off mode (src/hands-off.js): the weekly status, pausing, and replies by email. */
+  handsOff: { ...DEFAULT_HANDS_OFF },
   /** SLAs (Beta, src/sla.js): days to fix each severity, and escalation of overdue findings. */
   sla: structuredClone(DEFAULT_SLA),
   /**
@@ -461,8 +464,9 @@ export function mergeSettings(current, incoming = {}) {
 
   const impact = mergeImpact(current.impact, incoming.impact);
   const support = mergeSupport(current.support, incoming.support);
+  const handsOff = mergeHandsOff(current.handsOff, incoming.handsOff);
 
-  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders, impact, support };
+  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders, impact, support, handsOff };
 
   // The automation credential is set through its own route, not this form.
   if (typeof incoming.automationApiKey === 'string') next.automationApiKey = incoming.automationApiKey.trim();
@@ -623,6 +627,7 @@ export function publicSettings(settings) {
     reminders: { ...DEFAULT_SETTINGS.reminders, ...(settings.reminders ?? {}) },
     impact: mergeImpact(settings.impact),
     support: mergeSupport(settings.support),
+    handsOff: mergeHandsOff(settings.handsOff),
     verifiedAt: settings.verifiedAt,
     verified: isVerified(settings),
   };
@@ -694,6 +699,7 @@ export class SettingsStore {
         sla: mergeSla(raw.sla),
         impact: mergeImpact(raw.impact),
         support: mergeSupport(raw.support),
+        handsOff: mergeHandsOff(raw.handsOff),
         // One choice for who gets reminders; before, scheduled runs had their own (keep what they did).
         reminders: raw.reminders?.audience && AUDIENCES.includes(raw.reminders.audience)
           ? { audience: raw.reminders.audience }

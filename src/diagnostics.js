@@ -69,6 +69,7 @@ export class Diagnostics {
   #version;
   #startedAt = new Date().toISOString();
   #pending = [];
+  #errorTimes = [];
   #lines = 0;
 
   constructor({ file, maxEntries = 20_000, version = '' }) {
@@ -95,7 +96,14 @@ export class Diagnostics {
   }
 
   error(event, error, fields = {}) {
+    this.#errorTimes.push(Date.now());
+    if (this.#errorTimes.length > 1000) this.#errorTimes.splice(0, this.#errorTimes.length - 1000);
     this.record('error', event, { ...fields, errorType: error?.name || 'Error', message: error?.message ?? String(error ?? '') });
+  }
+
+  /** How many errors were recorded in the last `ms` milliseconds (the self-check's error rate). */
+  recentErrors(ms, now = Date.now()) {
+    return this.#errorTimes.filter((t) => now - t <= ms).length;
   }
 
   discrepancy(event, fields = {}) {
