@@ -42,7 +42,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.55 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.55 — 2026-10-06 12:27 UTC · [#78](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/78)
 - **Only what is unlocked is listed.** Settings → Activation codes no longer lists add-ons nobody has unlocked, such as a language or several tenants. Until a code is applied it says **No add-ons are unlocked yet**. What a code unlocks is switched on at once and appears there, and an expired one stays listed so it can be renewed ([activation codes](docs/activation-codes.md)).
 - **Settings → Tenants appears with its code.** The Tenants section is shown only once a tenants activation code has been applied.
 - **Fourteen languages.** The page's new wording is translated and reviewed twice ([languages](docs/languages.md)).
