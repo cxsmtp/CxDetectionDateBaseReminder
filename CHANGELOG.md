@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.55 | 522/s, 0 (main 514, 0) | 4.7 s | 311 ms | 534 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.54 | 523/s, 0 (main 520, 0) | 7.0 s (second run 4.9 s) | 212 ms | 534 | 0 vulnerabilities (`proxy-addr` updated) | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.53 | 527/s, 0 (main 524, 0) | 0.3 s | 96 ms | 530 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.52 | 504/s, 2 (main 518, 0) | 7.5 s | 483 ms | 526 | 0 vulnerabilities | Rescan 27982f85 (MZ-01.00.52): 1 critical, 20 high, 14 medium, 18 low, all judged not exploitable; 12 closed in code (see [status](docs/status.md)) |
@@ -40,6 +41,12 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.55 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+- **Only what is unlocked is listed.** Settings → Activation codes no longer lists add-ons nobody has unlocked, such as a language or several tenants. Until a code is applied it says **No add-ons are unlocked yet**. What a code unlocks is switched on at once and appears there, and an expired one stays listed so it can be renewed ([activation codes](docs/activation-codes.md)).
+- **Settings → Tenants appears with its code.** The Tenants section is shown only once a tenants activation code has been applied.
+- **Fourteen languages.** The page's new wording is translated and reviewed twice ([languages](docs/languages.md)).
+- **Status.** The branch served 522 requests a second with 0 failed (main 514, 0 failed). Report opens took 4.7 s at p95 (main 6.7 s) ([performance](docs/performance.md)). No finding was sent twice. 534 tests pass, with two start-up waits fixed so they no longer race the first Admin's creation. `npm audit` finds 0 vulnerabilities. No new Checkmarx One scan: the connector needs signing in again.
 
 ## MZ-01.00.54 — 2026-10-06 08:54 UTC · [#77](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/77)
 - **Your branding, for demonstrations.** Under **Settings → Your branding**, each Admin and Security Analyst can set their own app name, company name, logo, colour and call to action. With **Use my branding** on, the reports they download and the reminders they send carry it, and the app shows them their own name and logo. Any field left empty keeps the organisation's ([branding](docs/branding.md)).
