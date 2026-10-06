@@ -1005,6 +1005,7 @@ label.button-like:focus-within { outline: 2px solid var(--accent); outline-offse
    ========================================================================== */
 
 .perm-hidden { display: none !important; }
+.addon-hidden { display: none !important; }
 .panel.read-only :is(input, select, textarea):disabled { opacity: 0.75; cursor: default; }
 .panel.read-only button:disabled { display: none; }
 .view-only { margin-inline-start: 6px; vertical-align: middle; }

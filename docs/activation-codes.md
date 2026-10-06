@@ -14,7 +14,7 @@ Everything else works without a code.
 1. Open **Settings → Activation codes**. You need the **Activation codes** permission; Admins have it.
 2. Paste the code you were sent, then select **Apply the code**.
 
-The section then shows what is unlocked, for which organisation and until when. It warns 30 days before a code expires.
+What the code unlocks is switched on at once. The section then shows it, for which organisation and until when, and warns 30 days before the code expires. It lists only what a code has unlocked (an expired one stays listed, to renew); before the first code it says **No add-ons are unlocked yet**. **Settings → Tenants** appears once a tenants code is applied.
 
 With Hebrew on, tick the people who may use it under **Who may use Hebrew**, then **Save who may use Hebrew**. Only they are offered it. A new Hebrew code starts with nobody chosen; a renewed one keeps the people chosen.
 

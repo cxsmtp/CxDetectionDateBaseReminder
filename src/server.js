@@ -1018,6 +1018,8 @@ function describeMe(session, user) {
     configNotices: held.has('integration.cxone') || held.has('integration.smtp') ? guard.unseen(user.id) : [],
     // The page's languages this person may use (Hebrew only for the people chosen).
     languages: languageAccess.available(user.id),
+    // Add-ons a code has unlocked (in date or not): until then the page does not show them.
+    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled },
     // Get help: the support portal here, or email to an address (installations whose mail cannot leave).
     support: (({ mode, email }) => ({ mode, email }))(supportChannel(settingsStore.get())),
     // The name and logo the page shows this person: theirs while they present their own branding.
@@ -3402,7 +3404,8 @@ function activationView(req) {
     // Seeing the page (activation.view) is not changing it.
     canManage: can(req, 'activation.manage'),
     keyConfigured: ISSUER_KEYS.length > 0,
-    languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)])),
+    // Only the add-ons a code has unlocked (expired ones too, to renew): nothing else is named.
+    languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)]).filter(([, s]) => s.on || s.expired)),
     // Everyone who can sign in, to choose who may use a gated language (as far as this person may see people).
     people: iam.users().filter((u) => !u.disabled && withinReach(req, u)).map((u) => ({ id: u.id, name: u.name, email: u.email })),
     tenants: activations.tenants(),

@@ -43,7 +43,7 @@ test.before(async () => {
   server.stderr.on('data', (d) => (log += d));
   children.push(server);
   const end = Date.now() + 15000;
-  while (!/running on/.test(log)) {
+  while (!(/running on/.test(log) && /First administrator created/.test(log))) {
     if (Date.now() > end) throw new Error(log);
     await sleep(100);
   }
@@ -71,6 +71,11 @@ test('Hebrew is neither offered nor served before activation', async () => {
   assert.equal(r.status, 400);
   assert.match(r.body.error, /not available/);
   assert.equal((await fetch(`${BASE}/i18n/de.json`)).status, 200, 'open languages are served');
+  // Nothing a code has not unlocked is listed: the page names no add-on before its code.
+  const page = await admin('GET', '/api/activation');
+  assert.deepEqual(page.body.languages, {});
+  assert.equal(page.body.tenants, null);
+  assert.equal((await admin('GET', '/api/me')).body.unlocked.tenants, false, 'Settings → Tenants stays hidden');
 });
 
 test('a Hebrew activation code turns it on; a deactivation code turns it off', async () => {
@@ -120,6 +125,7 @@ test('a multi-tenant code is recorded; a code from another key is refused; all o
   assert.equal(r.body.tenants.org, 'Acme Bank');
   assert.equal(r.body.tenants.maxTenants, 4);
   assert.equal(r.body.tenants.valid, true);
+  assert.equal((await admin('GET', '/api/me')).body.unlocked.tenants, true, 'Settings → Tenants appears at once');
   // Signed by someone else's key.
   const other = path.join(dir, 'other.pem');
   script('keygen', other);
