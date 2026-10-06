@@ -43,7 +43,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.56 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.56 — 2026-10-06 13:32 UTC · [#79](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/79)
 - **Hands-off: set it up once, then leave it.** Settings → Hands-off asks four questions: what MissionZero should do, which findings, who, and when. It then reminds developers and emails a short weekly status on its own, so nobody has to sign in ([hands-off](docs/hands-off.md)).
 - **Steer it by email.** The weekly status has buttons (send the reminders now, pause for 7 days, resume, stop the status) that act after one more click. With **Also read replies** on, a reply of one word works too: PAUSE, RESUME, RUN, STATUS, STOP or SOLVED. It is only taken from the address the email was sent to.
 - **It looks after itself.** Every 5 minutes it checks Checkmarx One, the email server, its automatic runs, its error rate and its memory. It repairs what it can: it puts back the last working connection, signs in again, or goes back to the previous version when one installed less than a day ago broke something. It emails the administrators when something needs them, and again when it works.
