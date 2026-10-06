@@ -132,9 +132,8 @@ test('someone added in a tenant works only there, without server-wide permission
   assert.equal((await local('GET', '/api/backup')).status, 403);
   assert.equal((await local('POST', '/api/tenants', { name: 'Mine' })).status, 403);
   const people = await local('GET', '/api/iam');
-  // The people who can work in their tenant: themselves, and the Super Admin (whom they cannot change).
-  assert.deepEqual(people.body.users.map((u) => u.email).sort(), ['admin@acme.io', 'eu-admin@acme.io']);
-  assert.equal(people.body.users.find((u) => u.email === 'admin@acme.io').canManage, false);
+  // The people who can work in their tenant, as far as their own permissions reach: not the Super Admin above them.
+  assert.deepEqual(people.body.users.map((u) => u.email).sort(), ['eu-admin@acme.io']);
   assert.equal((await local('POST', '/api/iam/roles', { name: 'Tenant role', permissions: ['findings.fetch'] })).status, 403, 'roles are shared: not theirs to change');
 });
 

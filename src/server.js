@@ -53,7 +53,8 @@ import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
 import { deriveConnection, publicConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
-import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, hostOfUrl, isVerified, parseAddressList, publicSettings, smtpFingerprint, supportChannel } from './settings.js';
+import { SettingsStore, applyEnvironmentSmtp, cleanPersonalBranding, hasEnvironmentSmtp, hostOfUrl, isVerified, overlayBranding, parseAddressList, publicSettings, smtpFingerprint, supportChannel } from './settings.js';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
 import { ENV_SETTINGS, isSecretVariable, parseEnvText, settingsFromEnv } from './env-import.js';
 import { addSla, slaSummary } from './sla.js';
@@ -84,6 +85,8 @@ import {
 } from './session.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
+/** Whose own branding (Settings → Your branding) the current request is made with: see presenting(). */
+const presenter = new AsyncLocalStorage();
 
 const projectDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -191,7 +194,8 @@ function buildTenant({ id, dir }) {
       resolveSession: () => (terms.organisation() ? sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) : null),
       state: automationState,
       // Runs send through the last known good mail server while a change waits to be checked.
-      settingsStore: { get: () => sendingSettings() },
+      // Always the organisation's branding, even for a run started by someone presenting their own.
+      settingsStore: { get: () => presenter.exit(() => sendingSettings()) },
       config: () => activeConfig(),
       isVerified,
       // Scheduled reminders can also email the code authors, once that feature is final.
@@ -815,15 +819,41 @@ function requireSession(req, res, next) {
     session.tenantId = allowed[0];
   }
   req.tenantId = session.tenantId;
-  tenancy.run(req.tenantId, () => {
-    // Password sessions use the integration; make sure it is up (it is re-created from the stored key if needed).
-    if (session.linked && !integrationSession()) {
-      resolveAutomationSession().then(() => next(), next);
-      return;
-    }
-    next();
-  });
+  const run = () =>
+    tenancy.run(req.tenantId, () => {
+      // Password sessions use the integration; make sure it is up (it is re-created from the stored key if needed).
+      if (session.linked && !integrationSession()) {
+        resolveAutomationSession().then(() => next(), next);
+        return;
+      }
+      next();
+    });
+  // Someone presenting their own branding: what this request makes carries it, and nothing after it does.
+  const own = ownBranding(user, req.permissions);
+  if (!own) return run();
+  const context = { own, done: false };
+  const end = () => (context.done = true);
+  res.on('finish', end);
+  res.on('close', end);
+  presenter.run(context, run);
 }
+
+/**
+ * Settings → Your branding: a person's own names, logo and colours, for their
+ * demonstrations. In use while they hold branding.personal and have it on; empty
+ * fields keep the organisation's. It applies only to what their own requests make
+ * (reports, reminder emails), never to scheduled runs or anyone else's.
+ */
+function ownBranding(user, permissions = permissionsFor(user)) {
+  const own = user?.branding;
+  return own?.on && permissions.has('branding.personal') ? own : null;
+}
+/** The branding of whoever this request is for, while the request lasts; null for the organisation's. */
+function presenting() {
+  const context = presenter.getStore();
+  return context && !context.done ? context.own : null;
+}
+const brandingNow = (branding) => overlayBranding(branding, presenting());
 
 const can = (req, permission) => Boolean(req.permissions?.has(permission));
 
@@ -990,6 +1020,8 @@ function describeMe(session, user) {
     languages: languageAccess.available(user.id),
     // Get help: the support portal here, or email to an address (installations whose mail cannot leave).
     support: (({ mode, email }) => ({ mode, email }))(supportChannel(settingsStore.get())),
+    // The name and logo the page shows this person: theirs while they present their own branding.
+    branding: (({ appName, logoUrl }) => ({ appName: appName || 'CxMissionZero', logoUrl: logoUrl || '', own: Boolean(ownBranding(user, held)) }))(overlayBranding(settings.branding, ownBranding(user, held))),
     // Several Checkmarx One tenants: the one this person works in now, and the ones they may switch to.
     tenancy: tenancy.enabled
       ? {
@@ -1263,11 +1295,39 @@ app.put(
 /** A person's picture: for themselves, and for anyone who may see people and roles. */
 app.get('/api/users/:id/avatar', requireSession, (req, res) => {
   if (req.params.id !== req.user.id && !can(req, 'iam.view')) return res.status(403).json({ error: 'Your role does not allow this.' });
+  const owner = iam.user(req.params.id);
+  if (owner && !withinReach(req, owner)) return res.status(404).json({ error: 'No picture.' });
   const avatar = iam.avatar(req.params.id);
   if (!avatar) return res.status(404).json({ error: 'No picture.' });
   res.set({ 'Content-Type': avatar.type, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" });
   res.send(avatar.bytes);
 });
+
+/** Settings → Your branding: one's own, and the organisation's it falls back to field by field. */
+function personalBrandingView(user) {
+  const { appName, companyName, logoUrl, logoHeight, accentColor, callToAction } = settingsStore.get().branding;
+  return { branding: cleanPersonalBranding(user.branding ?? {}), organisation: { appName, companyName, logoUrl, logoHeight, accentColor, callToAction } };
+}
+
+app.get('/api/me/branding', requirePermission('branding.personal'), (req, res) => res.json(personalBrandingView(req.user)));
+
+app.put(
+  '/api/me/branding',
+  requirePermission('branding.personal'),
+  asyncRoute(async (req, res) => {
+    const next = cleanPersonalBranding(req.user.branding ?? {}, req.body ?? {});
+    const { before } = iam.setBranding(req.user.id, next);
+    const prior = cleanPersonalBranding(before ?? {});
+    const changed = Object.keys(next).filter((k) => prior[k] !== next[k]);
+    if (changed.length) {
+      const what = changed.length === 1 && changed[0] === 'on' ? (next.on ? 'turned their own branding on' : 'went back to the organisation’s branding') : `changed their own branding: ${changed.join(', ')}`;
+      // The logo itself can be large; the log says only whether there is one.
+      const summary = (b) => b && { ...b, logoUrl: b.logoUrl ? (b.logoUrl.startsWith('data:') ? '(uploaded image)' : b.logoUrl) : '' };
+      audit.record({ type: 'iam', outcome: 'changed', reason: `${req.user.email} ${what}.`, actor: await adminActor(req), details: { before: summary(prior), after: summary(next) } });
+    }
+    res.json({ ...personalBrandingView(iam.user(req.user.id)), me: describeMe(req.session, iam.user(req.user.id)) });
+  }),
+);
 
 app.get('/api/me/profile/options', requireSession, (req, res) => res.json({ languages: PROFILE_LANGUAGES.filter((code) => languageAccess.isAvailable(code, req.user.id)), programmingLanguages: PROGRAMMING_LANGUAGES }));
 
@@ -1288,10 +1348,17 @@ function mayChangeRoles(req) {
   return !tenancy.enabled || isSuperAdmin(req.permissions) || tenantsOf(req.user, req.permissions).includes(DEFAULT_TENANT);
 }
 
+/**
+ * Whether this person may know `user` exists: their role holds nothing beyond this
+ * person's own permissions. A Security Analyst sees analysts and below, never who
+ * the Admins are; an Admin sees everyone. Themselves always.
+ */
+const withinReach = (req, user) => user.id === req.user.id || iam.canGrant(req.permissions, permissionsFor({ ...user, disabled: false }));
+
 function iamView(req) {
   return {
-    users: iam.users().filter((u) => sharesTenant(req, u)).map((u) => ({ ...u, canManage: can(req, 'iam.manage') && iam.canGrant(req.permissions, iam.permissionsOf({ ...iam.user(u.id), disabled: false })) && u.id !== req.user.id })),
-    roles: iam.roles().map((r) => ({ ...r, canManage: can(req, 'iam.manage') && mayChangeRoles(req) && !r.locked && iam.canGrant(req.permissions, r.permissions), canAssign: can(req, 'iam.manage') && iam.canGrant(req.permissions, r.permissions) })),
+    users: iam.users().filter((u) => sharesTenant(req, u) && withinReach(req, u)).map((u) => ({ ...u, canManage: can(req, 'iam.manage') && iam.canGrant(req.permissions, iam.permissionsOf({ ...iam.user(u.id), disabled: false })) && u.id !== req.user.id })),
+    roles: iam.roles().filter((r) => r.id === req.user.role || iam.canGrant(req.permissions, r.permissions)).map((r) => ({ ...r, canManage: can(req, 'iam.manage') && mayChangeRoles(req) && !r.locked && iam.canGrant(req.permissions, r.permissions), canAssign: can(req, 'iam.manage') && iam.canGrant(req.permissions, r.permissions) })),
     permissions: PERMISSIONS,
     me: { id: req.user.id, permissions: [...req.permissions] },
     tenants: tenancy.enabled && isSuperAdmin(req.permissions) ? tenancy.list().map((t) => ({ id: t.id, name: tenantName(t.id) })) : null,
@@ -1301,7 +1368,7 @@ function iamView(req) {
 /** A user this person may change: 404 for someone outside the tenants they work in. */
 function visibleUser(req, id) {
   const user = iam.user(id);
-  if (!user || !sharesTenant(req, user)) throw Object.assign(new Error('No such user.'), { status: 404 });
+  if (!user || !sharesTenant(req, user) || !withinReach(req, user)) throw Object.assign(new Error('No such user.'), { status: 404 });
   return user;
 }
 
@@ -1512,6 +1579,8 @@ function smtpPending(settings = settingsStore.get()) {
  * sending — so editing Settings never stops reminders.
  */
 function sendingSettings(settings = settingsStore.get()) {
+  const own = presenting();
+  if (own) settings = { ...settings, branding: overlayBranding(settings.branding, own) };
   if (!smtpPending(settings)) return settings;
   const good = guard.lastGood('smtp');
   if (!good) return settings;
@@ -1789,6 +1858,8 @@ function permittedSettings(req, body = {}) {
 function settingsFor(req, settings) {
   const view = publicSettings(settings);
   if (!can(req, 'settings.view') && !can(req, 'integration.smtp')) view.smtp = { passwordSet: view.smtp.passwordSet };
+  // The Branding page is for those allowed to see it (the header still shows the name and logo).
+  if (!can(req, 'branding.view') && !can(req, 'settings.branding')) delete view.branding;
   if (!can(req, 'beta.use')) delete view.beta;
   else {
     // Whether a token is in use, as the server would use it: an environment token
@@ -2079,7 +2150,8 @@ app.post(
     if (!(await resolveAutomationSession())) {
       return res.status(409).json({ error: 'Connect the server to Checkmarx One first (Settings → Checkmarx One).' });
     }
-    const run = await scheduler.tick({ force: true });
+    // Automation is the organisation's: its emails never carry the branding of whoever pressed Run now.
+    const run = await presenter.exit(() => scheduler.tick({ force: true }));
     res.json({ run, status: scheduler.status });
   }),
 );
@@ -3325,20 +3397,22 @@ app.delete('/api/https/acme', requirePermission('security.https'), httpsRoute(as
 
 // ---- Activation codes (Settings → Activation codes): add-ons unlocked by the maintainer ----
 
-function activationView() {
+function activationView(req) {
   return {
+    // Seeing the page (activation.view) is not changing it.
+    canManage: can(req, 'activation.manage'),
     keyConfigured: ISSUER_KEYS.length > 0,
     languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)])),
-    // Everyone who can sign in, to choose who may use a gated language.
-    people: iam.users().filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.name, email: u.email })),
+    // Everyone who can sign in, to choose who may use a gated language (as far as this person may see people).
+    people: iam.users().filter((u) => !u.disabled && withinReach(req, u)).map((u) => ({ id: u.id, name: u.name, email: u.email })),
     tenants: activations.tenants(),
     history: activations.history().slice(0, 10),
   };
 }
 
-app.get('/api/activation', requirePermission('activation.manage'), (req, res) => {
+app.get('/api/activation', requirePermission('activation.manage', 'activation.view'), (req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json(activationView());
+  res.json(activationView(req));
 });
 
 app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(async (req, res) => {
@@ -3360,7 +3434,7 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
   }
   activations.record(result, actor.user);
   audit.record({ type: 'settings', outcome: 'changed', reason: `Activation code applied: ${what}.`, actor, details: { activation: { id: result.id, org: result.org, scope: result.scope, action: result.action || 'activate', expires: result.expires } } });
-  res.json({ applied: what, ...activationView() });
+  res.json({ applied: what, ...activationView(req) });
 }));
 
 // ---------------------------------------------------------------------------
@@ -3503,7 +3577,7 @@ app.put('/api/activation/languages/:code/users', requirePermission('activation.m
   const name = code === 'he' ? 'Hebrew' : code;
   const emails = (list) => (list ?? []).map((id) => iam.user(id)?.email ?? id);
   audit.record({ type: 'settings', outcome: 'changed', reason: ids.length ? `${name} is open to ${ids.length === 1 ? '1 person' : `${ids.length} people`}: ${emails(ids).join(', ')}.` : `${name} is open to nobody until people are chosen.`, actor: await adminActor(req), details: { activation: { language: code, before: before === null ? 'everyone' : emails(before), after: emails(ids) } } });
-  res.json(activationView());
+  res.json(activationView(req));
 }));
 
 app.get('/api/report-server', requireSession, (req, res) => {
@@ -6165,7 +6239,7 @@ app.get('/api/impact', requirePermission('reports.view'), (req, res) => {
 app.get('/api/impact/summary.html', requirePermission('reports.view'), (req, res) => {
   const days = IMPACT_DAYS.includes(String(req.query.days)) ? String(req.query.days) : '90';
   const settings = settingsStore.get();
-  const { html } = impactSummary(impactFor({ days }), { appName: settings.branding?.appName || 'CxMissionZero', periodLabel: impactPeriodLabel(days) });
+  const { html } = impactSummary(impactFor({ days }), { appName: brandingNow(settings.branding)?.appName || 'CxMissionZero', periodLabel: impactPeriodLabel(days) });
   res.set('Content-Disposition', `attachment; filename="impact-${new Date().toISOString().slice(0, 10)}.html"`);
   res.type('html').send(html);
 });
@@ -6247,7 +6321,8 @@ async function mailSupport(req, ticket, event, { fromTeam = false, message = nul
   return tenancy.run(tenant, async () => {
     const settings = sendingSettings();
     const url = resolveReportServer(req, settings).url;
-    const appName = settings.branding?.appName || 'CxMissionZero';
+    // Support is between this person and the team: the organisation's name, never a demonstration's.
+    const appName = settingsStore.get().branding?.appName || 'CxMissionZero';
     const self = String(req.user.email ?? '').toLowerCase();
     const jobs = [];
     if (event !== 'message' || fromTeam) {
@@ -6467,7 +6542,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     tenant: connection.tenant,
     links: settings.links,
     connection,
-    branding: settings.branding,
+    branding: brandingNow(settings.branding),
     initiatorsByProject,
     initiator,
   });
@@ -6527,7 +6602,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
       ? rescanTokens.issue({ reportId: tracked.id, round: tracked.round ?? 1, email: audience.recipient, exp: Date.now() + RESCAN_REPORT_GRANT_MS })
       : '',
     connection: { tenant: connection.tenant, iamUrl: connection.iamUrl, baseUrl: connection.baseUrl },
-    branding: settings.branding,
+    branding: brandingNow(settings.branding),
     allowRetriage: Boolean(settings.aiTriage?.allowRetriage),
     allowReremediation: Boolean(settings.aiTriage?.allowReremediation),
     adminContact: adminContact(settings),

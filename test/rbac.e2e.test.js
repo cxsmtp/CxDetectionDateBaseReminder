@@ -173,16 +173,18 @@ test('a mixed settings save keeps only the sections the role may change', async 
 
 test('nobody can raise their own access: an analyst cannot make or change admins', async () => {
   const { body } = await as.analyst('GET', '/api/iam');
-  const admin = body.users.find((u) => u.email === 'admin@acme.io');
+  // Analysts and below only: who the Admins are, and the Admin role, stay out of sight.
+  assert.equal(body.users.find((u) => u.email === 'admin@acme.io'), undefined);
+  assert.equal(body.roles.find((r) => r.id === 'admin'), undefined);
+  const admin = (await as.admin('GET', '/api/iam')).body.users.find((u) => u.email === 'admin@acme.io');
   const user = body.users.find((u) => u.email === 'uma@acme.io');
   const analyst = body.users.find((u) => u.email === 'ana@acme.io');
-  assert.equal(admin.canManage, false);
-  assert.equal(body.roles.find((r) => r.id === 'admin').canAssign, false);
   assert.equal((await as.analyst('POST', '/api/iam/users', { email: 'x@acme.io', role: 'admin' })).status, 403);
-  assert.equal((await as.analyst('PATCH', `/api/iam/users/${admin.id}`, { disabled: true })).status, 403);
+  assert.equal((await as.analyst('PATCH', `/api/iam/users/${admin.id}`, { disabled: true })).status, 404, 'as if there were no such user');
   assert.equal((await as.analyst('PATCH', `/api/iam/users/${analyst.id}`, { role: 'user' })).status, 400, 'not your own role');
   assert.equal((await as.analyst('POST', '/api/iam/roles', { name: 'Mail', permissions: ['integration.smtp'] })).status, 403);
-  assert.equal((await as.analyst('POST', `/api/iam/users/${admin.id}/password`, { password: 'hijacked password 1' })).status, 403);
+  assert.equal((await as.analyst('POST', `/api/iam/users/${admin.id}/password`, { password: 'hijacked password 1' })).status, 404);
+  assert.equal((await as.analyst('GET', `/api/users/${admin.id}/avatar`)).status, 404);
   // Within their own permissions it works.
   const role = await as.analyst('POST', '/api/iam/roles', { name: 'Auditor', permissions: ['audit.view', 'audit.export'] });
   assert.equal(role.status, 201);

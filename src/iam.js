@@ -41,7 +41,9 @@ export const PERMISSIONS = [
   { id: 'settings.recipients', group: 'Settings', label: 'Recipient list', description: 'Change the default To / Cc / Bcc.' },
   { id: 'settings.initiators', group: 'Settings', label: 'Initiator addresses', description: 'Change how scan initiators are resolved to addresses.' },
   { id: 'settings.template', group: 'Settings', label: 'Email template', description: 'Change the reminder email template.' },
-  { id: 'settings.branding', group: 'Settings', label: 'Branding', description: 'Change names, logo and colours.' },
+  { id: 'branding.view', group: 'Settings', label: 'See the Branding page', description: 'Open Settings → Branding: the organisation’s names, logo and colours that everyone uses by default.' },
+  { id: 'settings.branding', group: 'Settings', label: 'Branding', description: 'Change the organisation’s names, logo and colours.' },
+  { id: 'branding.personal', group: 'Settings', label: 'Their own branding', description: 'Set their own names, logo and colours under Settings → Your branding, for their demonstrations: the reports and emails they make then carry them. Everyone else keeps the organisation’s.' },
   { id: 'settings.links', group: 'Settings', label: 'Links & server address', description: 'Change links into Checkmarx One and the reminder server address.' },
   { id: 'settings.ai', group: 'Settings', label: 'AI Triage & Remediation rules', description: 'Allow triage and remediation from reports, re-triage, and the administrator contact.' },
   { id: 'settings.automation', group: 'Settings', label: 'Automation', description: 'Change, run and reset automatic reminders.' },
@@ -54,6 +56,7 @@ export const PERMISSIONS = [
   { id: 'backup.run', group: 'Audit & data', label: 'Back up to the folder', description: 'Write a backup into the server’s backup folder.' },
   { id: 'backup.manage', group: 'Audit & data', label: 'Download & restore backups', description: 'Backups hold the SMTP password, API keys and users — so this is an Admin permission.', special: true },
   { id: 'beta.use', group: 'Beta', label: 'Beta features', description: 'Code authors and GitHub identity matching, and their GitHub token.' },
+  { id: 'activation.view', group: 'Settings', label: 'See the Activation codes page', description: 'Open Settings → Activation codes read-only: which add-ons are unlocked, and until when.' },
   { id: 'activation.manage', group: 'Settings', label: 'Activation codes', description: 'Enter the activation codes that unlock add-ons on this installation (Hebrew; several Checkmarx One tenants), or turn them off.', special: true },
   { id: 'tenants.manage', group: 'Settings', label: 'Super Admin: tenants', description: 'With a tenants activation code: turn on several Checkmarx One tenants, add, rename and remove them, switch between them, and choose who works in which.', special: true },
   { id: 'features.manage', group: 'Beta', label: 'Make Beta features final', description: 'Promote a Beta feature to a standard one (or put it back in Beta) for everyone in the organisation.', special: true },
@@ -78,7 +81,8 @@ export const DEFAULT_ROLES = {
   analyst: {
     name: 'Security Analyst',
     description: 'Everything except the Admin-only integrations, credit budget and backups — including users and roles.',
-    permissions: PERMISSION_IDS.filter((id) => !ADMIN_ONLY.includes(id)),
+    // Seeing the Activation codes page is the Admin's to hand out.
+    permissions: PERMISSION_IDS.filter((id) => !ADMIN_ONLY.includes(id) && id !== 'activation.view'),
     builtin: true,
   },
   user: {
@@ -378,6 +382,16 @@ export class IamStore {
     else delete user.avatar;
     this.#save();
     return publicUser(user);
+  }
+
+  /** A person's own branding (Settings → Your branding), already checked (cleanPersonalBranding). */
+  setBranding(id, branding) {
+    const user = this.user(id);
+    if (!user) throw fail(404, 'No such user.');
+    const before = user.branding ?? null;
+    user.branding = branding;
+    this.#save();
+    return { before, after: branding };
   }
 
   /** A person's picture: {type, bytes}, or null. */

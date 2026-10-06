@@ -595,6 +595,7 @@
                 <div class="set-nav-list">
                 <p class="set-group set-you">You</p>
                   <a href="#/settings/profile" data-set="profile">Your profile</a>
+                  <a href="#/settings/mybrand" data-set="mybrand" data-perm="branding.personal">Your branding</a>
                 <p class="set-group" data-perm="integration.cxone integration.smtp settings.links beta.use">Start</p>
                   <a href="#/settings/import" data-set="import" data-perm="integration.cxone integration.smtp settings.links beta.use">Quick setup (.env)</a>
                 <p class="set-group">Connections</p>
@@ -611,12 +612,12 @@
                 <p class="set-group">Reports &amp; brand</p>
                   <a href="#/settings/server" data-set="server">Server address</a>
                   <a href="#/settings/links" data-set="links" data-advanced>Links into Checkmarx One</a>
-                  <a href="#/settings/branding" data-set="branding">Branding</a>
+                  <a href="#/settings/branding" data-set="branding" data-perm="branding.view settings.branding">Branding</a>
                 <p class="set-group" data-perm="security.https">Security</p>
                   <a href="#/settings/https" data-set="https" data-perm="security.https">HTTPS</a>
                 <p class="set-group">About</p>
                   <a href="#/settings/features" data-set="features" data-perm="features.manage">Beta features</a>
-                  <a href="#/settings/activation" data-set="activation" data-perm="activation.manage">Activation codes</a>
+                  <a href="#/settings/activation" data-set="activation" data-perm="activation.manage activation.view">Activation codes</a>
                   <a href="#/settings/tenants" data-set="tenants" data-perm="tenants.manage">Tenants</a>
                   <a href="#/settings/support" data-set="support" data-perm="support.manage">Get help</a>
                   <a href="#/settings/update" data-set="update" data-perm="system.update">Update &amp; recovery</a>
@@ -661,6 +662,27 @@
                 <div class="pl-picks" id="pf-langs"></div>
               </div>
               <span class="status" id="pf-status"></span>
+            </section>
+
+            <section class="panel" id="set-mybrand" data-perm="branding.personal">
+              <h2>Your branding</h2>
+              <p class="hint wide">For your demonstrations: your own names, logo and colours. While it is on, the reports you download and the reminders you send carry them, and this app shows you your app name and logo. Everyone else, and every scheduled run, keeps the organisation’s branding.</p>
+              <label class="switch"><input type="checkbox" id="mb-on" /> <span><strong>Use my branding</strong><small>Off: you use the organisation’s branding, like everyone else.</small></span></label>
+              <p class="hint">Leave a field empty to use the organisation’s, shown in grey.</p>
+              <div class="grid2">
+                <label class="field"><span>App name</span><input id="mb-app" maxlength="60" /></label>
+                <label class="field"><span>Company name</span><input id="mb-name" maxlength="120" /></label>
+                <label class="field"><span>Company logo — https URL, or upload one</span><input id="mb-logo" spellcheck="false" /></label>
+                <label class="field"><span>Upload a logo (PNG, JPG, SVG or WebP, up to 200 KB)</span><input id="mb-logo-file" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" /></label>
+                <label class="field"><span>Logo height, in pixels</span><input id="mb-height" type="number" min="16" max="200" /></label>
+                <div class="field"><span>Accent colour</span><div class="mb-colour"><input id="mb-accent" type="color" aria-label="Accent colour" /> <button type="button" class="sm ghost" id="mb-accent-org">Use the organisation’s</button></div></div>
+              </div>
+              <label class="field"><span>Call to action — shown above the findings</span><textarea id="mb-cta" rows="2" spellcheck="false"></textarea></label>
+              <div id="mb-preview" class="brand-preview"></div>
+              <div class="actions compact">
+                <button type="button" class="ghost sm" id="mb-clear">Clear my branding</button>
+                <span class="status" id="mb-status"></span>
+              </div>
             </section>
 
             <div class="autosave-note" id="autosave-note" data-perm="integration.smtp settings.recipients settings.initiators settings.template settings.branding settings.links settings.ai settings.automation integration.cxone credits.limit">
@@ -953,7 +975,7 @@
               </div>
             </section>
 
-            <section class="panel" id="set-branding" data-edit-perm="settings.branding">
+            <section class="panel" id="set-branding" data-perm="branding.view settings.branding" data-edit-perm="settings.branding">
               <h2>Branding</h2>
               <p class="hint wide">
                 The app name and logo appear in this app; the company name and logo also head every reminder and report.
@@ -1185,15 +1207,18 @@
               <div class="feat-list" id="feat-list"><p class="hint">Loading…</p></div>
               <p class="status" id="feat-status"></p>
             </section>
-            <section class="panel" id="set-activation" data-perm="activation.manage">
+            <section class="panel" id="set-activation" data-perm="activation.manage activation.view">
               <h2>Activation codes</h2>
               <p class="hint wide">Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.</p>
               <div class="act-list" id="act-list"><p class="hint">Loading…</p></div>
-              <label class="field"><span>Activation code</span><textarea id="act-code" rows="3" spellcheck="false" autocomplete="off" placeholder="MZ1.…"></textarea></label>
-              <div class="actions compact">
-                <button type="button" class="primary" id="act-apply">Apply the code</button>
-                <span class="status" id="act-status"></span>
+              <div id="act-enter" data-perm="activation.manage">
+                <label class="field"><span>Activation code</span><textarea id="act-code" rows="3" spellcheck="false" autocomplete="off" placeholder="MZ1.…"></textarea></label>
+                <div class="actions compact">
+                  <button type="button" class="primary" id="act-apply">Apply the code</button>
+                </div>
               </div>
+              <p class="hint" id="act-view-only" hidden>You can see what is unlocked. An Admin enters the codes.</p>
+              <span class="status" id="act-status"></span>
             </section>
             <section class="panel" id="set-tenants" data-perm="tenants.manage">
               <h2>Tenants</h2>

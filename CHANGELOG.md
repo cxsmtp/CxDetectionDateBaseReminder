@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.54 | 523/s, 0 (main 520, 0) | 7.0 s (second run 4.9 s) | 212 ms | 534 | 0 vulnerabilities (`proxy-addr` updated) | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.53 | 527/s, 0 (main 524, 0) | 0.3 s | 96 ms | 530 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.52 | 504/s, 2 (main 518, 0) | 7.5 s | 483 ms | 526 | 0 vulnerabilities | Rescan 27982f85 (MZ-01.00.52): 1 critical, 20 high, 14 medium, 18 low, all judged not exploitable; 12 closed in code (see [status](docs/status.md)) |
 | MZ-01.00.51 | 480/s, 0 (main 514, 0) | 9.4 s | 951 ms | 526 | 0 vulnerabilities | Scan 82d48cec of MZ-01.00.50: 6 critical, 20 high, 17 medium, 19 low, being triaged (see [status](docs/status.md)) |
@@ -39,6 +40,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.54 — 2026-10-06 08:54 UTC · [#77](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/77)
+- **Your branding, for demonstrations.** Under **Settings → Your branding**, each Admin and Security Analyst can set their own app name, company name, logo, colour and call to action. With **Use my branding** on, the reports they download and the reminders they send carry it, and the app shows them their own name and logo. Any field left empty keeps the organisation's ([branding](docs/branding.md)).
+- **The organisation's branding stays the default.** Everyone else, and every scheduled run, uses the branding an Admin set under **Settings → Branding**. **Run now** under Automation and Get help emails do too.
+- **Who sees the Branding page and the Activation codes page.** Two new permissions decide it: **See the Branding page** and **See the Activation codes page**. A third, **Their own branding**, decides who gets Settings → Your branding. Activation codes can now be shown read-only. Entering codes stays with Admins.
+- **Each person sees their own level and below.** People & roles lists only the people and roles within the viewer's own permissions. A Security Analyst no longer sees who the Admins are, or the Admin role. To move someone down, change their role to Security Analyst.
+- **Upgrading.** Existing roles keep what they had. Give Security Analysts the new permissions under People & roles if they should have them. Without **See the Branding page** or **Branding**, the Branding page is now hidden.
+- **Fourteen languages.** Everything new is translated and reviewed twice ([languages](docs/languages.md)).
+- **Status.** Two pairs with main, all with 0 failed requests: the branch served 523 and 515 requests a second against main's 520 and 523. Report opens at p95 took 7.0 and 4.9 s, against main's 4.2 and 4.0 s. That path does not reach the changed code, and the same code moved 2 s between runs ([performance](docs/performance.md)). No finding was sent twice. 534 tests pass. `npm audit` finds 0 vulnerabilities, after updating `proxy-addr` for a critical advisory. No new Checkmarx One scan: the connector needs signing in again.
 
 ## MZ-01.00.53 — 2026-10-06 02:15 UTC · [#76](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/76)
 - **Get help, at the bottom of the menu.** Point at it and choose **Submit a support case**, **Request an enhancement** or **Track my requests**. On a phone it is in the menu under your name ([support](docs/support.md)).
