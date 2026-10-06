@@ -7484,6 +7484,12 @@
    "message"
   ]
  },
+ "No add-ons are unlocked yet.": {
+  "kind": "text",
+  "seen": [
+   "settings › activation › p"
+  ]
+ },
  "No author could be reached for these findings.": {
   "kind": "message",
   "seen": [
@@ -11379,7 +11385,7 @@
    "connection: cxone › li › Get started · 1 of 6 done"
   ]
  },
- "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": {
+ "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": {
   "kind": "text",
   "seen": [
    "first start › p › Activation codes",
