@@ -437,11 +437,11 @@ Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
 - **Hebrew:** an activation code switches Hebrew on; tick the people who may use it under **Who may use Hebrew** (only they are offered it); a deactivation code removes it.
 - **Several tenants:** for organisations that run more than one Checkmarx One tenant (the Super Admin tasks).
 
-Paste the code and select **Apply the code**. The page shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** enter codes. Roles with **See the Activation codes page** see the section read-only: what is unlocked, and until when. [How codes are issued](activation-codes.md).
+Paste the code and select **Apply the code**. What it unlocks is switched on at once. The page lists only what a code has unlocked: until then it says **No add-ons are unlocked yet**, and **Settings → Tenants** is not shown. It shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** enter codes. Roles with **See the Activation codes page** see the section read-only: what is unlocked, and until when. [How codes are issued](activation-codes.md).
 
 ### Tenants (Super Admin)
 
-For organisations that run several Checkmarx One tenants, with a tenants activation code. Turn on **Several tenants**, then **Add tenant**: each tenant has its own connection, email server, settings, credits, reports, audit log and people. Choose a tenant at the top of the page to work in it. **Rename** and **Remove** are next to each tenant; removing one keeps its files. People added while you work in a tenant work only there; a Super Admin changes that with **Tenants** on each person under People & roles. The whole story: [several tenants](multi-tenant.md).
+For organisations that run several Checkmarx One tenants. This section appears once a tenants activation code has been applied. Turn on **Several tenants**, then **Add tenant**: each tenant has its own connection, email server, settings, credits, reports, audit log and people. Choose a tenant at the top of the page to work in it. **Rename** and **Remove** are next to each tenant; removing one keeps its files. People added while you work in a tenant work only there; a Super Admin changes that with **Tenants** on each person under People & roles. The whole story: [several tenants](multi-tenant.md).
 
 ### About & terms of use
 The version, the licence, the project's address, which version of the terms you accepted, and **Read the terms of use**.
@@ -1032,7 +1032,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.54** | 523/s, 0 failed (main 520, 0 failed) | 7.0 s (second run 4.9 s) | 212 ms | 534 pass | 0 vulnerabilities (`proxy-addr` updated) | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.55** | 522/s, 0 failed (main 514, 0 failed) | 4.7 s | 311 ms | 534 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| MZ-01.00.54 | 523/s, 0 failed (main 520, 0 failed) | 7.0 s (second run 4.9 s) | 212 ms | 534 pass | 0 vulnerabilities (`proxy-addr` updated) | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.53 | 527/s, 0 failed (main 524, 0 failed) | 0.3 s | 96 ms | 530 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.52 | 504/s, 2 failed (main 518, 0 failed) | 7.5 s | 483 ms | 526 pass | 0 vulnerabilities | Rescan 27982f85 (MZ-01.00.52): 1 critical, 20 high, 14 medium, 18 low, all judged not exploitable; 12 closed in code |
 | MZ-01.00.51 | 480/s, 0 failed (main 514, 0 failed) | 9.4 s | 951 ms | 526 pass | 0 vulnerabilities | Scan 82d48cec of MZ-01.00.50: 6 critical, 20 high, 17 medium, 19 low, being triaged |

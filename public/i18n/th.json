@@ -1473,7 +1473,6 @@
   "Settings → Activation codes": "การตั้งค่า → รหัสเปิดใช้งาน",
   "Several tenants": "หลายเทนแนนต์",
   "Skip the self-check (only when this server cannot reach its own public name, though the internet can)": "ข้ามการตรวจสอบตนเอง (เฉพาะเมื่อเซิร์ฟเวอร์นี้เข้าถึงชื่อสาธารณะของตนเองไม่ได้ แต่อินเทอร์เน็ตเข้าถึงได้)",
-  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": "ส่วนเสริมบางรายการปลดล็อกได้ด้วยรหัสจากผู้ดูแลรักษา CxMissionZero ได้แก่ ภาษาฮีบรู และการใช้หลายเทนแนนต์ของ Checkmarx One วางรหัสที่คุณได้รับ ระบบจะตรวจสอบรหัสที่นี่โดยไม่ส่งข้อมูลใดออกไป",
   "Stop automatic renewal": "หยุดการต่ออายุอัตโนมัติ",
   "Stop renewing the Let's Encrypt certificate by itself? It stays in use until it expires or you replace it.": "หยุดต่ออายุใบรับรอง Let's Encrypt โดยอัตโนมัติหรือไม่ ใบรับรองจะยังใช้งานอยู่จนกว่าจะหมดอายุหรือจนกว่าคุณจะแทนที่ใบรับรองนี้",
   "Test with the Let's Encrypt staging service first (browsers do not trust its certificates)": "ทดสอบกับสภาพแวดล้อมทดสอบ (staging) ของ Let's Encrypt ก่อน (เบราว์เซอร์ไม่เชื่อถือใบรับรองจากบริการนี้)",
@@ -1842,6 +1841,8 @@
   "What you send now:": "สิ่งที่คุณส่งขณะนี้:",
   "What you would send with it on:": "สิ่งที่คุณจะส่งเมื่อเปิด:",
   "You can see what is unlocked. An Admin enters the codes.": "คุณดูได้ว่ามีอะไรปลดล็อกแล้ว ผู้ดูแลระบบเป็นผู้ป้อนรหัส",
-  "Your branding": "แบรนด์ของคุณ"
+  "Your branding": "แบรนด์ของคุณ",
+  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": "ส่วนเสริมบางรายการปลดล็อกได้ด้วยรหัสจากผู้ดูแลรักษา CxMissionZero วางรหัสที่คุณได้รับ ระบบจะตรวจสอบรหัสที่นี่โดยไม่ส่งข้อมูลใดออกไป และจะเปิดใช้สิ่งที่รหัสปลดล็อกทันที",
+  "No add-ons are unlocked yet.": "ยังไม่มีส่วนเสริมที่ปลดล็อกแล้ว"
  }
 }

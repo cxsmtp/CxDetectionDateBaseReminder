@@ -1473,7 +1473,6 @@
   "Settings → Activation codes": "Einstellungen → Aktivierungscodes",
   "Several tenants": "Mehrere Tenants",
   "Skip the self-check (only when this server cannot reach its own public name, though the internet can)": "Selbstprüfung überspringen (nur wenn dieser Server seinen eigenen öffentlichen Namen nicht erreicht, das Internet aber schon)",
-  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": "Einige Zusatzfunktionen werden mit einem Code des Maintainers von CxMissionZero freigeschaltet: Hebräisch und mehrere Checkmarx One-Tenants. Fügen Sie den Code ein, den Sie erhalten haben; er wird hier geprüft, ohne dass etwas irgendwohin gesendet wird.",
   "Stop automatic renewal": "Automatische Erneuerung beenden",
   "Stop renewing the Let's Encrypt certificate by itself? It stays in use until it expires or you replace it.": "Die automatische Erneuerung des Let's Encrypt-Zertifikats beenden? Es bleibt in Verwendung, bis es abläuft oder Sie es ersetzen.",
   "Test with the Let's Encrypt staging service first (browsers do not trust its certificates)": "Zuerst mit dem Staging-Dienst von Let's Encrypt testen (Browser vertrauen dessen Zertifikaten nicht)",
@@ -1842,6 +1841,8 @@
   "What you send now:": "Was Sie jetzt senden:",
   "What you would send with it on:": "Was Sie mit aktivierter Option senden würden:",
   "You can see what is unlocked. An Admin enters the codes.": "Sie sehen, was freigeschaltet ist. Ein Admin gibt die Codes ein.",
-  "Your branding": "Ihr Branding"
+  "Your branding": "Ihr Branding",
+  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": "Einige Zusatzfunktionen werden mit einem Code des Maintainers von CxMissionZero freigeschaltet. Fügen Sie den Code ein, den Sie erhalten haben: Er wird hier geprüft, ohne dass etwas irgendwohin gesendet wird, und was er freischaltet, wird sofort aktiviert.",
+  "No add-ons are unlocked yet.": "Noch keine Zusatzfunktionen freigeschaltet."
  }
 }

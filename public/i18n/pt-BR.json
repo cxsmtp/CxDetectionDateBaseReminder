@@ -1265,7 +1265,6 @@
   "SLAs and escalation <span class=\"badge warn\">Beta</span>": "SLAs e escalonamento <span class=\"badge warn\">Beta</span>",
   "smtp.example.com": "smtp.example.com",
   "So readers can triage and remediate straight from the emailed report.": "Para que os leitores possam fazer a triagem e a correção diretamente no relatório recebido por e-mail.",
-  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": "Alguns complementos são desbloqueados com um código fornecido pelo mantenedor do CxMissionZero: hebraico e vários tenants do Checkmarx One. Cole o código que você recebeu; ele é verificado aqui, sem enviar nada a lugar nenhum.",
   "Sort by": "Ordenar por",
   "Source-code host": "Host de código-fonte",
   "Source-code hosts": "Hosts de código-fonte",
@@ -1842,6 +1841,8 @@
   "What you send now:": "O que você envia agora:",
   "What you would send with it on:": "O que você enviaria com a opção ativada:",
   "You can see what is unlocked. An Admin enters the codes.": "Você pode ver o que está liberado. Um Administrador informa os códigos.",
-  "Your branding": "Sua identidade visual"
+  "Your branding": "Sua identidade visual",
+  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": "Alguns complementos são desbloqueados com um código fornecido pelo mantenedor do CxMissionZero. Cole o código que você recebeu: ele é verificado aqui, sem enviar nada a lugar nenhum, e o que ele desbloqueia é ativado imediatamente.",
+  "No add-ons are unlocked yet.": "Ainda não há complementos desbloqueados."
  }
 }

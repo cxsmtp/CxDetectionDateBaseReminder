@@ -486,6 +486,8 @@ function applyPermissions() {
   const settingsToo = can('settings.view');
   for (const el of document.querySelectorAll('#set-nav .set-group:not(.set-you), #set-nav [data-set]:not([data-set="profile"]):not([data-set="mybrand"]), #autosave-note')) el.classList.toggle('no-settings', !settingsToo);
   applyMyAppBranding();
+  // Settings → Tenants only once a tenants activation code has been applied.
+  for (const el of document.querySelectorAll('[data-set="tenants"], #set-tenants')) el.classList.toggle('addon-hidden', !state.me?.unlocked?.tenants);
   renderFeatureStages();
   // Optional columns can depend on permissions (SLAs).
   try {
@@ -743,6 +745,11 @@ async function refreshMyLanguages() {
   try {
     const me = await api('/api/me', { quiet: true });
     if (Array.isArray(me.languages)) languagesChanged(me.languages, true);
+    // A tenants code just applied brings Settings → Tenants.
+    if (state.me) {
+      state.me = me;
+      applyPermissions();
+    }
   } catch {}
 }
 
@@ -750,11 +757,13 @@ function renderActivation(a) {
   const date = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
   const he = a.languages?.he ?? { on: false };
   const t = a.tenants;
+  // Only what a code has unlocked (or whose code ran out): an add-on appears, switched on, when its code is applied.
   const rows = [
     // Each English piece is its own element, so the page translator can reach it.
-    `<div class="act-row"><strong>Hebrew</strong><span>${he.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(he.expires))}</b>${he.org ? ` · ${escapeHtml(he.org)}` : ''}` : he.expired ? `<span class="badge warn">Expired</span> <b>${escapeHtml(date(he.expires))}</b>` : '<span class="badge muted">Off</span>'}</span></div>`,
-    `<div class="act-row"><strong>Several tenants</strong><span>${t ? `${t.valid ? '<span class="badge ok">Unlocked</span>' : '<span class="badge warn">Expired</span>'} ${escapeHtml(t.org)} · <span>Up to ${t.maxTenants} tenants</span> · <span>Until</span> <b>${escapeHtml(date(t.expires))}</b>${t.warn ? ` <strong class="https-note warn">${t.daysLeft} days left</strong>` : ''}` : '<span class="badge muted">Not unlocked</span>'}</span></div>`,
+    ...(he.on || he.expired ? [`<div class="act-row"><strong>Hebrew</strong><span>${he.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(he.expires))}</b>${he.org ? ` · ${escapeHtml(he.org)}` : ''}` : `<span class="badge warn">Expired</span> <b>${escapeHtml(date(he.expires))}</b>`}</span></div>`] : []),
+    ...(t ? [`<div class="act-row"><strong>Several tenants</strong><span>${t.valid ? '<span class="badge ok">Unlocked</span>' : '<span class="badge warn">Expired</span>'} ${escapeHtml(t.org)} · <span>Up to ${t.maxTenants} tenants</span> · <span>Until</span> <b>${escapeHtml(date(t.expires))}</b>${t.warn ? ` <strong class="https-note warn">${t.daysLeft} days left</strong>` : ''}</span></div>`] : []),
   ];
+  if (!rows.length) rows.push('<p class="hint">No add-ons are unlocked yet.</p>');
   if (!a.keyConfigured) rows.push('<p class="hint">This build has no maintainer key, so no code can be checked.</p>');
   // Hebrew is open only to the people chosen here.
   if (he.on) {
@@ -1122,7 +1131,7 @@ const SETTINGS_KEY = 'mz-settings-section';
 
 function showSettingsSection(id) {
   const links = [...document.querySelectorAll('#set-nav [data-set]')];
-  const usable = links.filter((a) => !a.classList.contains('perm-hidden') && !a.classList.contains('no-settings') && !(a.hasAttribute('data-advanced') && document.body.classList.contains('simple')));
+  const usable = links.filter((a) => !a.classList.contains('perm-hidden') && !a.classList.contains('no-settings') && !a.classList.contains('addon-hidden') && !(a.hasAttribute('data-advanced') && document.body.classList.contains('simple')));
   let saved = '';
   try {
     saved = localStorage.getItem(SETTINGS_KEY) || '';
@@ -6714,7 +6723,7 @@ function paletteEntries() {
   }
   if (pageOk('settings')) {
     for (const a of document.querySelectorAll('#set-nav [data-set]')) {
-      if (a.classList.contains('perm-hidden') || a.classList.contains('no-settings')) continue;
+      if (a.classList.contains('perm-hidden') || a.classList.contains('no-settings') || a.classList.contains('addon-hidden')) continue;
       entries.push({ label: `Settings → ${a.textContent.trim()}`, group: STAGE_LABELS.setup, stage: 'setup', href: a.getAttribute('href') });
     }
   }

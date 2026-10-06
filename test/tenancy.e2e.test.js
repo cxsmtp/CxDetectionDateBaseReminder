@@ -44,7 +44,7 @@ test.before(async () => {
   server.stderr.on('data', (d) => (log += d));
   children.push(server);
   const end = Date.now() + 15000;
-  while (!/running on/.test(log)) {
+  while (!(/running on/.test(log) && /First administrator created/.test(log))) {
     if (Date.now() > end) throw new Error(log);
     await sleep(100);
   }

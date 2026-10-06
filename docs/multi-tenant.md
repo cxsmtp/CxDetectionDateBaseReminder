@@ -13,7 +13,7 @@ It needs a **tenants activation code** from the maintainer of CxMissionZero ([ac
 ## Turning it on
 
 1. **Apply the code.** In **Settings → Activation codes**, paste the tenants code and select **Apply the code**.
-2. **Switch it on.** In **Settings → Tenants**, turn on **Several tenants**.
+2. **Switch it on.** **Settings → Tenants** appears once the code is applied. Turn on **Several tenants** there.
 3. **Add a tenant.** Type its name (for example *Acme EU*) and select **Add tenant**. Add as many as the code allows. The first tenant, the one you already had, counts as one.
 4. **Set the tenant up.** Choose it in the tenant switcher at the top of the page, next to the connection chips. Then, as for a new server:
    - connect its Checkmarx One and email server in **Settings**;

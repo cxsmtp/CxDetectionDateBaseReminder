@@ -1473,7 +1473,6 @@
   "Settings → Activation codes": "Cài đặt → Mã kích hoạt",
   "Several tenants": "Nhiều tenant",
   "Skip the self-check (only when this server cannot reach its own public name, though the internet can)": "Bỏ qua bước tự kiểm tra (chỉ khi máy chủ này không truy cập được tên công khai của chính nó, dù Internet vẫn truy cập được)",
-  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": "Một số tiện ích bổ sung được mở khóa bằng mã do người duy trì CxMissionZero cung cấp: tiếng Do Thái và nhiều tenant Checkmarx One. Hãy dán mã bạn đã nhận được; mã được kiểm tra ngay tại đây, không gửi bất cứ dữ liệu nào ra ngoài.",
   "Stop automatic renewal": "Dừng gia hạn tự động",
   "Stop renewing the Let's Encrypt certificate by itself? It stays in use until it expires or you replace it.": "Dừng tự động gia hạn chứng chỉ Let's Encrypt? Chứng chỉ vẫn được sử dụng cho đến khi hết hạn hoặc bạn thay thế.",
   "Test with the Let's Encrypt staging service first (browsers do not trust its certificates)": "Thử trước với dịch vụ staging của Let's Encrypt (trình duyệt không tin cậy chứng chỉ của dịch vụ này)",
@@ -1842,6 +1841,8 @@
   "What you send now:": "Những gì bạn gửi bây giờ:",
   "What you would send with it on:": "Những gì bạn sẽ gửi khi bật:",
   "You can see what is unlocked. An Admin enters the codes.": "Bạn có thể xem những gì đã được mở khóa. Quản trị viên là người nhập mã.",
-  "Your branding": "Nhận diện thương hiệu của bạn"
+  "Your branding": "Nhận diện thương hiệu của bạn",
+  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": "Một số tiện ích bổ sung được mở khóa bằng mã do người duy trì CxMissionZero cung cấp. Hãy dán mã bạn đã nhận được: mã được kiểm tra ngay tại đây, không gửi bất cứ dữ liệu nào ra ngoài, và những gì mã mở khóa sẽ được bật ngay lập tức.",
+  "No add-ons are unlocked yet.": "Chưa có tiện ích bổ sung nào được mở khóa."
  }
 }

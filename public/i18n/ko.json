@@ -1473,7 +1473,6 @@
   "Settings → Activation codes": "설정 → 활성화 코드",
   "Several tenants": "여러 테넌트",
   "Skip the self-check (only when this server cannot reach its own public name, though the internet can)": "자체 점검 건너뛰기(인터넷에서는 접속할 수 있지만 이 서버가 자신의 공개 이름에 접속할 수 없는 경우에만)",
-  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": "일부 추가 기능은 CxMissionZero 유지 관리자에게 받은 코드로 잠금 해제됩니다: 히브리어, 여러 Checkmarx One 테넌트. 받은 코드를 붙여 넣으세요. 코드는 이곳에서 확인되며 어디로도 전송되지 않습니다.",
   "Stop automatic renewal": "자동 갱신 중지",
   "Stop renewing the Let's Encrypt certificate by itself? It stays in use until it expires or you replace it.": "Let's Encrypt 인증서 자동 갱신을 중지하시겠습니까? 인증서는 만료되거나 교체할 때까지 계속 사용됩니다.",
   "Test with the Let's Encrypt staging service first (browsers do not trust its certificates)": "먼저 Let's Encrypt 스테이징 서비스로 테스트(브라우저는 해당 인증서를 신뢰하지 않음)",
@@ -1842,6 +1841,8 @@
   "What you send now:": "현재 보내는 내용:",
   "What you would send with it on:": "켜면 보내게 될 내용:",
   "You can see what is unlocked. An Admin enters the codes.": "잠금 해제된 항목을 확인할 수 있습니다. 코드는 관리자가 입력합니다.",
-  "Your branding": "내 브랜딩"
+  "Your branding": "내 브랜딩",
+  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": "일부 추가 기능은 CxMissionZero 유지 관리자에게 받은 코드로 잠금 해제됩니다. 받은 코드를 붙여 넣으세요. 코드는 이곳에서 확인되며 어디로도 전송되지 않습니다. 잠금 해제된 추가 기능은 즉시 켜집니다.",
+  "No add-ons are unlocked yet.": "아직 잠금 해제된 추가 기능이 없습니다."
  }
 }

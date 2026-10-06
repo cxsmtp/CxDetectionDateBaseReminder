@@ -1473,7 +1473,6 @@
   "Settings → Activation codes": "Pengaturan → Kode aktivasi",
   "Several tenants": "Beberapa tenant",
   "Skip the self-check (only when this server cannot reach its own public name, though the internet can)": "Lewati pemeriksaan mandiri (hanya jika server ini tidak dapat menjangkau nama publiknya sendiri, meskipun internet bisa)",
-  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": "Beberapa fitur tambahan dibuka dengan kode dari pengelola CxMissionZero: bahasa Ibrani dan beberapa tenant Checkmarx One. Tempelkan kode yang dikirimkan kepada Anda; kode diperiksa di sini, tanpa mengirim apa pun ke mana pun.",
   "Stop automatic renewal": "Hentikan perpanjangan otomatis",
   "Stop renewing the Let's Encrypt certificate by itself? It stays in use until it expires or you replace it.": "Hentikan perpanjangan otomatis sertifikat Let's Encrypt? Sertifikat tetap digunakan hingga kedaluwarsa atau Anda menggantinya.",
   "Test with the Let's Encrypt staging service first (browsers do not trust its certificates)": "Uji coba dengan layanan staging Let's Encrypt terlebih dahulu (browser tidak memercayai sertifikatnya)",
@@ -1842,6 +1841,8 @@
   "What you send now:": "Yang Anda kirim sekarang:",
   "What you would send with it on:": "Yang akan Anda kirim jika diaktifkan:",
   "You can see what is unlocked. An Admin enters the codes.": "Anda dapat melihat apa yang terbuka. Admin yang memasukkan kode.",
-  "Your branding": "Identitas merek Anda"
+  "Your branding": "Identitas merek Anda",
+  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": "Beberapa fitur tambahan dibuka dengan kode dari pengelola CxMissionZero. Tempelkan kode yang dikirimkan kepada Anda: kode diperiksa di sini, tanpa mengirim apa pun ke mana pun, dan apa yang dibukanya langsung diaktifkan.",
+  "No add-ons are unlocked yet.": "Belum ada fitur tambahan yang terbuka."
  }
 }
