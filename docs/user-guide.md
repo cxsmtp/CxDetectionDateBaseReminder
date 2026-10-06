@@ -213,6 +213,7 @@ As an Admin, open **Settings** and work down this list.
 | 5 | AI Triage & Remediation from reports | Decide what developers may run from their reports, and set the credit pool. |
 | 6 | Branding | Company name, logo and colour for emails and reports. |
 | 7 | Automation (optional) | Turn on age-threshold reminders. Start with **Test mode**. |
+| 8 | Hands-off (optional) | Or answer four questions under **Settings → Hands-off**: MissionZero then reminds, reports weekly and looks after itself, and nobody needs to sign in. |
 
 Then go to the **Dashboard**, click **Load findings**, and send your first reminder.
 
@@ -430,6 +431,18 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 | --- | --- |
 | **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Dashboard's Remind panel links to it, and Settings → Automation can email code authors on every run. |
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
+
+### Hands-off (set it up once)
+
+For teams that would rather not sign in to one more tool. **Settings → Hands-off** asks four questions:
+1. What MissionZero does on its own: remind developers, a weekly status, the monthly summary.
+2. Which findings: severities, and their age in days.
+3. Who: where reminders go, who gets the status, who gets the summary.
+4. When: how often it checks, and the status's day and hour.
+
+**Turn on hands-off** saves it all. The weekly status has buttons that act after one more click: **Send the reminders now**, **Pause for 7 days** or **Resume**, and **Stop sending me this**. With **Also read replies** ticked, a reply that starts with one word also works: PAUSE, RESUME, RUN, STATUS, STOP or SOLVED. MissionZero acts only when the reply comes from the address it wrote to.
+
+**Self-check.** Every 5 minutes MissionZero checks Checkmarx One, the email server, its automatic runs and its error rate, and puts right what it can. It emails the administrators when something needs them, and again when it works. With auto-update on, a problem it cannot fix becomes a support case that the administrators forward to the maintainer; they close it with **Mark as solved** or a SOLVED reply. The box at the bottom shows what is wrong now and the last events; **Check now** runs a check. Details: [hands-off](hands-off.md).
 
 ### Activation codes (Admin)
 
@@ -1032,7 +1045,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.55** | 522/s, 0 failed (main 514, 0 failed) | 4.7 s | 311 ms | 534 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.56** | 494/s, 0 failed (main 495, 0 failed) | 5.5 s | 345 ms | 548 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| MZ-01.00.55 | 522/s, 0 failed (main 514, 0 failed) | 4.7 s | 311 ms | 534 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.54 | 523/s, 0 failed (main 520, 0 failed) | 7.0 s (second run 4.9 s) | 212 ms | 534 pass | 0 vulnerabilities (`proxy-addr` updated) | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.53 | 527/s, 0 failed (main 524, 0 failed) | 0.3 s | 96 ms | 530 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.52 | 504/s, 2 failed (main 518, 0 failed) | 7.5 s | 483 ms | 526 pass | 0 vulnerabilities | Rescan 27982f85 (MZ-01.00.52): 1 critical, 20 high, 14 medium, 18 low, all judged not exploitable; 12 closed in code |

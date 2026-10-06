@@ -598,6 +598,7 @@
                   <a href="#/settings/mybrand" data-set="mybrand" data-perm="branding.personal">Your branding</a>
                 <p class="set-group" data-perm="integration.cxone integration.smtp settings.links beta.use">Start</p>
                   <a href="#/settings/import" data-set="import" data-perm="integration.cxone integration.smtp settings.links beta.use">Quick setup (.env)</a>
+                  <a href="#/settings/handsoff" data-set="handsoff" data-perm="settings.automation settings.view">Hands-off</a>
                 <p class="set-group">Connections</p>
                   <a href="#/settings/connection" data-set="connection">Checkmarx One</a>
                   <a href="#/settings/smtp" data-set="smtp">Email server</a>
@@ -689,6 +690,81 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10" /></svg>
               <p>Changes save as you type. If a new Checkmarx One or email connection does not work, the previous working one comes back when you leave this page.</p>
             </div>
+
+            <section class="panel" id="set-handsoff" data-perm="settings.automation settings.view" data-edit-perm="settings.automation">
+              <h2>Hands-off: set it up once, then leave it</h2>
+              <p class="hint wide">Answer four questions and MissionZero runs on its own: it reminds developers, emails a short status each week, takes requests from that email, and looks after itself. Nobody has to sign in again.</p>
+              <div class="ho-ready" id="ho-ready"></div>
+
+              <div class="ho-step">
+                <h3><span class="ho-num" translate="no">1</span> <span>What should MissionZero do on its own?</span></h3>
+                <label class="check"><input type="checkbox" id="ho-remind" /> <span>Remind developers about their ageing findings</span></label>
+                <label class="check"><input type="checkbox" id="ho-status" /> <span>Email a short status every week</span></label>
+                <label class="check" data-perm="settings.ai"><input type="checkbox" id="ho-monthly" /> <span>Email leadership the monthly impact summary</span></label>
+                <p class="hint">It also checks itself every few minutes, puts right what it can, and tells the administrators.</p>
+              </div>
+
+              <div class="ho-step">
+                <h3><span class="ho-num" translate="no">2</span> <span>Which findings?</span></h3>
+                <div class="ho-sev" id="ho-sev">
+                  <label class="check"><input type="checkbox" value="CRITICAL" /> <span>Critical</span></label>
+                  <label class="check"><input type="checkbox" value="HIGH" /> <span>High</span></label>
+                  <label class="check"><input type="checkbox" value="MEDIUM" /> <span>Medium</span></label>
+                  <label class="check"><input type="checkbox" value="LOW" /> <span>Low</span></label>
+                </div>
+                <label class="field"><span>Remind when a finding is older than (days)</span><input id="ho-thresholds" placeholder="30, 60, 90" /></label>
+              </div>
+
+              <div class="ho-step">
+                <h3><span class="ho-num" translate="no">3</span> <span>Who?</span></h3>
+                <label class="field"><span>Reminders go to</span><select id="ho-audience">
+                  <option value="initiator">Each developer, for the projects they scanned</option>
+                  <option value="list">The fixed list (Dashboard → Remind)</option>
+                  <option value="both">Both</option>
+                </select></label>
+                <label class="field"><span>The weekly status goes to</span><textarea id="ho-status-to" rows="2" spellcheck="false" placeholder="appsec-lead@company.com"></textarea></label>
+                <label class="field" data-perm="settings.ai"><span>The monthly summary goes to</span><textarea id="ho-monthly-to" rows="2" spellcheck="false" placeholder="ciso@company.com"></textarea></label>
+              </div>
+
+              <div class="ho-step">
+                <h3><span class="ho-num" translate="no">4</span> <span>When?</span></h3>
+                <div class="grid2">
+                  <label class="field"><span>Check and remind</span><select id="ho-every">
+                    <option value="360">Every 6 hours</option>
+                    <option value="1440">Every day</option>
+                    <option value="10080">Every week</option>
+                  </select></label>
+                  <label class="field"><span>The weekly status, on</span><span class="ho-when"><select id="ho-day" aria-label="Day of the week">
+                    <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option>
+                  </select><select id="ho-hour" aria-label="Hour" translate="no"></select></span></label>
+                </div>
+              </div>
+
+              <div class="ho-step">
+                <h3>Steer it by email</h3>
+                <p class="hint">Every status email has buttons: send the reminders now, pause for a week, resume, stop the status. Each asks once more before it acts.</p>
+                <label class="check"><input type="checkbox" id="ho-replies" /> <span>Also read replies: one word, such as PAUSE, RESUME, RUN, STATUS or STOP</span></label>
+                <div class="grid2" id="ho-imap" hidden>
+                  <label class="field"><span>Mailbox server (IMAP), for the email server's account</span><input id="ho-imap-host" spellcheck="false" /></label>
+                  <label class="field"><span>Port</span><input id="ho-imap-port" type="number" min="1" max="65535" /></label>
+                </div>
+                <p class="hint" id="ho-imap-hint" hidden>Replies to MissionZero's emails arrive in the mailbox it sends from. It reads only unread mail there, acts only on a reply from the address the email went to, and marks it read.</p>
+              </div>
+
+              <div class="actions compact">
+                <button type="button" class="primary" id="ho-save">Turn on hands-off</button>
+                <button type="button" class="ghost" id="ho-send">Send the status now</button>
+                <button type="button" class="ghost danger" id="ho-off" hidden>Turn off hands-off</button>
+                <span class="status" id="ho-status-line"></span>
+              </div>
+
+              <div class="ho-health">
+                <h3>Self-check</h3>
+                <p class="hint" id="ho-health-sum"></p>
+                <ul class="ho-events" id="ho-events"></ul>
+                <div class="actions compact"><button type="button" class="ghost sm" id="ho-check" data-view-ok>Check now</button></div>
+              </div>
+            </section>
 
             <section class="panel" id="set-import" data-perm="integration.cxone integration.smtp settings.links beta.use">
               <h2>Quick setup from a .env file</h2>

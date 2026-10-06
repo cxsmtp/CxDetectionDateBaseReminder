@@ -612,6 +612,135 @@ document.addEventListener('click', async (event) => {
   }
 });
 
+// ---- Settings → Hands-off: set it up once (four questions), then steer it by email ----
+
+const handsOff = { data: null };
+const fmtDateTime = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
+
+async function loadHandsOff() {
+  if (!canAny('settings.automation settings.view')) return;
+  try {
+    renderHandsOff(await api('/api/hands-off', { quiet: true }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('ho-status-line', error);
+  }
+}
+
+function renderHandsOff(d) {
+  handsOff.data = d;
+  const h = d.handsOff;
+  const a = d.automation;
+  if (!$('ho-hour').options.length) $('ho-hour').innerHTML = Array.from({ length: 24 }, (_, i) => `<option value="${i}">${String(i).padStart(2, '0')}:00</option>`).join('');
+  $('ho-ready').innerHTML = [
+    [d.ready.cxone, 'Checkmarx One connected', 'Connect Checkmarx One first (Settings → Checkmarx One).'],
+    [d.ready.smtp, 'Email server tested', 'Set up and test the email server first (Settings → Email server).'],
+    [d.ready.serverUrl, 'Server address set: the email buttons work', 'Set the server address (Settings → Server address) so the email buttons work.'],
+  ].map(([ok, yes, no]) => `<span class="ho-check ${ok ? 'ok' : 'warn'}">${ok ? '✓' : '!'} <span>${escapeHtml(ok ? yes : no)}</span></span>`).join('') + (d.paused ? `<span class="ho-check warn">⏸ <span>Paused until</span> <b>${escapeHtml(fmtDateTime(h.pausedUntil))}</b></span>` : '');
+  // The form shows what is saved, unless it is being edited.
+  if (!handsOff.editing) {
+    $('ho-remind').checked = a.enabled;
+    $('ho-status').checked = h.statusTo.length > 0;
+    $('ho-monthly').checked = (d.monthlyTo ?? []).length > 0;
+    for (const box of $('ho-sev').querySelectorAll('input')) box.checked = !a.severities.length || a.severities.includes(box.value);
+    $('ho-thresholds').value = a.thresholds.join(', ');
+    $('ho-audience').value = d.audience;
+    $('ho-status-to').value = h.statusTo.join('\n');
+    $('ho-monthly-to').value = (d.monthlyTo ?? []).join('\n');
+    $('ho-every').value = ['360', '1440', '10080'].includes(String(a.intervalMinutes)) ? String(a.intervalMinutes) : '1440';
+    $('ho-day').value = String(h.statusDay);
+    $('ho-hour').value = String(h.statusHour);
+    $('ho-replies').checked = h.replies;
+    $('ho-imap-host').value = h.imapHost;
+    $('ho-imap-port').value = String(h.imapPort);
+  }
+  $('ho-imap-host').placeholder = state.settings?.smtp?.host || 'imap.company.com';
+  renderHandsOffToggles();
+  $('ho-save').textContent = h.on ? 'Save' : 'Turn on hands-off';
+  $('ho-off').hidden = !h.on;
+  renderHealth(d.health);
+}
+
+function renderHandsOffToggles() {
+  $('ho-imap').hidden = !$('ho-replies').checked;
+  $('ho-imap-hint').hidden = !$('ho-replies').checked;
+  $('ho-status-to').closest('.field').classList.toggle('muted-field', !$('ho-status').checked);
+  $('ho-monthly-to').closest('.field').classList.toggle('muted-field', !$('ho-monthly').checked);
+}
+
+function renderHealth(health) {
+  if (!health) return;
+  const open = health.problems ?? [];
+  $('ho-health-sum').innerHTML = open.length
+    ? open.map((p) => `<span class="ho-check warn">! <span translate="no">${escapeHtml(p.title)}</span>: <span translate="no">${escapeHtml(p.detail)}</span></span>`).join('')
+    : `<span class="ho-check ok">✓ <span>All checks pass.</span></span> ${health.lastCheckAt ? `<span>Last check:</span> <b>${escapeHtml(fmtDateTime(health.lastCheckAt))}</b>` : ''}`;
+  $('ho-events').innerHTML = (health.events ?? []).slice(0, 8).map((e) => `<li><time>${escapeHtml(fmtDateTime(e.at))}</time> <span translate="no">${escapeHtml(e.message)}</span></li>`).join('');
+}
+
+function handsOffPayload(on = true) {
+  const severities = [...$('ho-sev').querySelectorAll('input:checked')].map((b) => b.value);
+  return {
+    handsOff: {
+      on,
+      statusTo: $('ho-status').checked ? $('ho-status-to').value : '',
+      statusDay: Number($('ho-day').value),
+      statusHour: Number($('ho-hour').value),
+      replies: $('ho-replies').checked,
+      imapHost: $('ho-imap-host').value.trim(),
+      imapPort: Number($('ho-imap-port').value) || 993,
+    },
+    automation: { enabled: on && $('ho-remind').checked, thresholds: $('ho-thresholds').value, severities: severities.length === 4 ? [] : severities, intervalMinutes: Number($('ho-every').value) },
+    audience: $('ho-audience').value,
+    ...(can('settings.ai') ? { monthlyTo: $('ho-monthly').checked ? $('ho-monthly-to').value : '' } : {}),
+  };
+}
+
+async function saveHandsOff(on = true) {
+  if (on && $('ho-status').checked && !$('ho-status-to').value.trim()) return setStatus('ho-status-line', 'Add who gets the weekly status, or untick it.', 'error');
+  if (on && !$('ho-sev').querySelector('input:checked')) return setStatus('ho-status-line', 'Tick at least one severity.', 'error');
+  setStatus('ho-status-line', 'Saving…');
+  try {
+    await api('/api/hands-off', { method: 'PUT', body: JSON.stringify(handsOffPayload(on)), quiet: true });
+    handsOff.editing = false;
+    await loadHandsOff();
+    loadAutomation();
+    setStatus('ho-status-line', on ? 'Hands-off is on. MissionZero now runs on its own.' : 'Hands-off is off.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('ho-status-line', error);
+  }
+}
+
+$('set-handsoff').addEventListener('input', () => {
+  handsOff.editing = true;
+  renderHandsOffToggles();
+});
+$('set-handsoff').addEventListener('change', () => {
+  handsOff.editing = true;
+  renderHandsOffToggles();
+});
+$('ho-save').addEventListener('click', () => saveHandsOff(true));
+$('ho-off').addEventListener('click', () => {
+  if (confirm('Turn off hands-off? Automatic reminders and the weekly status stop. The self-check keeps running.')) saveHandsOff(false);
+});
+$('ho-send').addEventListener('click', async () => {
+  setStatus('ho-status-line', 'Sending…');
+  try {
+    const r = await api('/api/hands-off/status', { method: 'POST', quiet: true });
+    setStatus('ho-status-line', r.sent === 1 ? 'The status went to 1 person.' : `The status went to ${r.sent} people.`, 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('ho-status-line', error);
+  }
+});
+$('ho-check').addEventListener('click', async () => {
+  $('ho-check').disabled = true;
+  try {
+    renderHealth((await api('/api/hands-off/check', { method: 'POST', quiet: true })).health);
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('ho-status-line', error);
+  } finally {
+    $('ho-check').disabled = false;
+  }
+});
+
 // ---- Settings → Your branding: one's own names, logo and colours, for demonstrations ----
 
 const MB_FIELDS = [['mb-app', 'appName'], ['mb-name', 'companyName'], ['mb-logo', 'logoUrl'], ['mb-height', 'logoHeight'], ['mb-cta', 'callToAction']];
@@ -933,6 +1062,7 @@ $('tn-list').addEventListener('click', async (event) => {
 const reloadSettingsPage = () => {
   renderProfile();
   loadMyBranding();
+  loadHandsOff();
   if (!can('settings.view')) return;
   loadFeatures();
   loadActivation();
@@ -2235,7 +2365,7 @@ const NOT_SAVED = new Set(['test-to', 'env-file', 'brand-logo-file', 'brand-icon
 
 /** Which save an edit belongs to: the settings form, automation, the integration draft, or none. */
 function autosaveKind(el) {
-  if (!el?.id || NOT_SAVED.has(el.id) || el.disabled || el.closest('[hidden]')?.id === 'probe-results' || el.closest('#set-https') || el.closest('#set-mybrand')) return '';
+  if (!el?.id || NOT_SAVED.has(el.id) || el.disabled || el.closest('[hidden]')?.id === 'probe-results' || el.closest('#set-https') || el.closest('#set-mybrand') || el.closest('#set-handsoff')) return '';
   if (INTEGRATION_FIELDS.has(el.id)) return 'draft';
   if (el.closest('#set-automation')) return 'automation';
   if (el.matches('input, select, textarea')) return 'settings';

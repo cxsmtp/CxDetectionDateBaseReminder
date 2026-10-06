@@ -103,6 +103,9 @@ export function createBackup({ dataDir, settingsFile = '', passphrase = '', now 
   };
 }
 
+/** Is this an encrypted backup? Only those are emailed, and only those are restored from a mailbox. */
+export const isSealed = (buffer) => Buffer.isBuffer(buffer) && buffer.subarray(0, MAGIC_SEALED.length).equals(MAGIC_SEALED);
+
 function seal(plain, passphrase) {
   const salt = randomBytes(16);
   const iv = randomBytes(12);

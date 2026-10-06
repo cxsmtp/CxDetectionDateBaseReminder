@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.56 | 494/s, 0 (main 495, 0) | 5.5 s | 345 ms | 548 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.55 | 522/s, 0 (main 514, 0) | 4.7 s | 311 ms | 534 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.54 | 523/s, 0 (main 520, 0) | 7.0 s (second run 4.9 s) | 212 ms | 534 | 0 vulnerabilities (`proxy-addr` updated) | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.53 | 527/s, 0 (main 524, 0) | 0.3 s | 96 ms | 530 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -41,6 +42,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.56 — 2026-10-06 13:32 UTC · [#79](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/79)
+- **Hands-off: set it up once, then leave it.** Settings → Hands-off asks four questions: what MissionZero should do, which findings, who, and when. It then reminds developers and emails a short weekly status on its own, so nobody has to sign in ([hands-off](docs/hands-off.md)).
+- **Steer it by email.** The weekly status has buttons (send the reminders now, pause for 7 days, resume, stop the status) that act after one more click. With **Also read replies** on, a reply of one word works too: PAUSE, RESUME, RUN, STATUS, STOP or SOLVED. It is only taken from the address the email was sent to.
+- **It looks after itself.** Every 5 minutes it checks Checkmarx One, the email server, its automatic runs, its error rate and its memory. It repairs what it can: it puts back the last working connection, signs in again, or goes back to the previous version when one installed less than a day ago broke something. It emails the administrators when something needs them, and again when it works.
+- **A support case, raised by itself.** With auto-update on and the internet reachable, a problem it cannot fix becomes a support case. The administrators are asked to forward it, with the troubleshooting log, to the maintainer (`MAINTAINER_EMAIL`). They close it with **Mark as solved** or a SOLVED reply.
+- **Backed up before it stops.** When the service is stopped, killed or crashes, MissionZero backs up first and emails the administrators the encrypted copy, with how to bring it back. A stop the server asked for itself sends no email.
+- **A backup mailbox, for a rebuild with nothing to touch.** With `BACKUP_EMAIL`, every encrypted backup is also emailed to that mailbox. A new server with an empty state folder, the mailbox's password and the same `BACKUP_PASSPHRASE` finds the newest backup there and restores itself ([backups](docs/audit-and-backup.md)).
+- **Fourteen languages.** Settings → Hands-off is translated and reviewed twice ([languages](docs/languages.md)).
+- **Status.** Two pairs with main, all with 0 failed requests: on the final code, 494 requests a second against main's 495. Report opens took 5.5 s at p95 (main 7.1 s) ([performance](docs/performance.md)). No finding was sent twice. 548 tests pass. `npm audit` finds 0 vulnerabilities, with `imapflow` added for reading mail. No new Checkmarx One scan: the connector needs signing in again.
 
 ## MZ-01.00.55 — 2026-10-06 12:27 UTC · [#78](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/78)
 - **Only what is unlocked is listed.** Settings → Activation codes no longer lists add-ons nobody has unlocked, such as a language or several tenants. Until a code is applied it says **No add-ons are unlocked yet**. What a code unlocks is switched on at once and appears there, and an expired one stays listed so it can be renewed ([activation codes](docs/activation-codes.md)).

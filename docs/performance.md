@@ -151,6 +151,10 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.53 (main) | 2 | 12.6 s / 0 | 64,269 / 0 | 523 | 64 / 3,956 ms | 8 / 125 ms | none |
 | MZ-01.00.54 (main) | 1 | 10.4 s / 0 | 63,402 / 0 | 514 | 76 / 6,726 ms | 12 / 333 ms | none |
 | **MZ-01.00.55** | 1 | 10.5 s / 0 | 63,724 / **0** | **522** | 78 / **4,747 ms** | 9 / **311 ms** | none |
+| MZ-01.00.55 (main) | 1 | 10.9 s / 0 | 63,130 / 0 | 501 | 81 / 6,746 ms | 18 / 521 ms | none |
+| MZ-01.00.56 (draft) | 1 | 10.5 s / 0 | 62,899 / 0 | 504 | 69 / 6,092 ms | 19 / 730 ms | none |
+| **MZ-01.00.56** | 2 | 10.0 s / 0 | 63,386 / **0** | **494** | 75 / **5,539 ms** | 14 / **345 ms** | none |
+| MZ-01.00.55 (main) | 2 | 9.4 s / 0 | 63,096 / 0 | 495 | 65 / 7,143 ms | 12 / 316 ms | none |
 
 **MZ-01.00.37: what the differences were.** Two pairs with main, alternating. Report opens at p95 were 4.1 and 5.1 s on the branch against 7.2 and 5.1 s on main; triage results 201 and 179 ms against 257 and 123 ms; requests a second 519 and 508 against 504 and 518, with 0 failed requests and no finding sent twice in any run. The first branch run's opening burst took 16.3 s, a little above the 7.4–15.8 s seen before, and its fetches were slower (17 s against 12 s at the median); in the second pair the burst took 9.9 s (main 8.0 s) and fetches matched main (13.5 s against 13.0 s at the median). What the fetch now does in addition is one pass over each project's findings to count what is past its SLA, which is a few microseconds a finding next to reading them from Checkmarx One. Escalation runs only on the automation's schedule, which the benchmark does not use.
 
@@ -159,6 +163,14 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 **MZ-01.00.54: what the differences were.** Two pairs, alternating main and branch, all four with 0 failed requests and no finding sent twice. The branch served 523 and 515 requests a second, against main's 520 and 523. At p50 every operation matched main. At p95, report opens took 7.0 and 4.9 s on the branch against 4.2 and 4.0 s on main, and triage polls 212 and 191 ms against 244 and 125 ms. The same branch code gave 7.0 s and then 4.9 s, so this host's tail moves by 2 s from run to run. The slower tail is the host, not the change, because report opens never reach the changed code: they go to `/api/relay/hello`, which needs no sign-in. On signed-in routes the release adds one check of the person's own branding. The new per-request context (an `AsyncLocalStorage`) is never switched on unless someone has turned on their own branding, and nobody in the benchmark has. A first main run, made while tests were running alongside it, is left out: it had 12 failed requests at 509 a second. After the benchmark, `proxy-addr` moved from 2.0.7 to 2.0.8 for a security fix: a patch release that only changes how trusted proxy addresses are matched.
 
 **MZ-01.00.55: what the differences were.** One pair, main then branch, both with 0 failed requests and no finding sent twice. The branch served 522 requests a second against main's 514. Report opens took 4.7 s at p95 (main 6.7 s), and triage polls 311 ms (main 333 ms). The release changes only the Activation codes page and adds one flag to the sign-in answer (`/api/me`), so nothing on the measured paths is slower.
+
+**MZ-01.00.56: what the differences were.** Two pairs with main, all four with 0 failed requests and no finding sent twice. The first branch run was of an earlier draft, and tests ran alongside its last seconds, so it is shown but not used. On the final code the branch served 494 requests a second against main's 495 and 501. Report opens took 5.5 s at p95 against 7.1 and 6.7 s. Triage polls took 345 ms against 316 and 521 ms: within the spread of main's own runs.
+
+What this release adds while the benchmark runs:
+- **A self-check every 5 minutes.** It asks Checkmarx One one small question, connects to the mail server, and reads a counter.
+- **A five-minute look at whether the weekly status is due.**
+
+Nothing on the measured paths changed. The work done when the server stops (a backup, and the emails) happens after the benchmark ends.
 
 **MZ-01.00.52: what the differences were.** One pair, main then branch. The branch served 504 requests a second against main's 518, with a slightly faster tail: report opens 7.5 s against 7.6 s at p95, triage polls 483 against 600 ms. It had 2 failed requests, one report hello and one triage-results poll. Both happened while the host stalled (health checks up to 7.3 s; main's run reached 6.2 s), and neither request touches this release's one server change: temporary report file names now come from `crypto.randomBytes`. The rest of the release is tests and the Caddy compose file. No finding was sent twice.
 

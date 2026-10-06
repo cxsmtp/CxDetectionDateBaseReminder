@@ -470,6 +470,12 @@ export class Scheduler {
     // Overlapping passes would double-send, so a slow run simply skips a beat.
     if (this.#running) return { ok: false, skipped: true, reason: 'A run is already in progress.' };
 
+    // Hands-off mode: paused from an email (a link or a PAUSE reply) until a date. Run now still runs.
+    const pausedUntil = this.#settingsStore.get().handsOff?.pausedUntil;
+    if (!force && pausedUntil && Date.parse(pausedUntil) > Date.now()) {
+      return { ok: true, skipped: true, reason: `Paused until ${pausedUntil}.` };
+    }
+
     this.#running = true;
     try {
       const session = this.#resolve();
