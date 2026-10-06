@@ -1473,7 +1473,6 @@
   "Settings → Activation codes": "Paramètres → Codes d'activation",
   "Several tenants": "Plusieurs locataires",
   "Skip the self-check (only when this server cannot reach its own public name, though the internet can)": "Ignorer l'auto-vérification (uniquement si ce serveur ne peut pas joindre son propre nom public, alors qu'Internet le peut)",
-  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": "Certains modules complémentaires se débloquent avec un code fourni par le mainteneur de CxMissionZero : l'hébreu et plusieurs locataires Checkmarx One. Collez le code que vous avez reçu ; il est vérifié ici, sans que rien ne soit envoyé ailleurs.",
   "Stop automatic renewal": "Arrêter le renouvellement automatique",
   "Stop renewing the Let's Encrypt certificate by itself? It stays in use until it expires or you replace it.": "Arrêter le renouvellement automatique du certificat Let's Encrypt ? Il reste en service jusqu'à son expiration ou jusqu'à ce que vous le remplaciez.",
   "Test with the Let's Encrypt staging service first (browsers do not trust its certificates)": "Tester d'abord avec le service de préproduction (staging) de Let's Encrypt (les navigateurs ne font pas confiance à ses certificats)",
@@ -1842,6 +1841,8 @@
   "What you send now:": "Ce que vous envoyez maintenant :",
   "What you would send with it on:": "Ce que vous enverriez avec l'option activée :",
   "You can see what is unlocked. An Admin enters the codes.": "Vous pouvez voir ce qui est débloqué. Un Admin saisit les codes.",
-  "Your branding": "Votre image de marque"
+  "Your branding": "Votre image de marque",
+  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": "Certains modules complémentaires se débloquent avec un code fourni par le mainteneur de CxMissionZero. Collez le code que vous avez reçu : il est vérifié ici, sans que rien ne soit envoyé ailleurs, et ce qu'il débloque est activé immédiatement.",
+  "No add-ons are unlocked yet.": "Aucun module complémentaire n'est encore débloqué."
  }
 }

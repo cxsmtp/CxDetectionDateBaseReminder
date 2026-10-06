@@ -1473,7 +1473,6 @@
   "Settings → Activation codes": "设置 → 激活码",
   "Several tenants": "多个租户",
   "Skip the self-check (only when this server cannot reach its own public name, though the internet can)": "跳过自检（仅当互联网可以访问此服务器，但此服务器本身无法访问其公共名称时）",
-  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": "部分附加功能需使用 CxMissionZero 维护者提供的激活码解锁：希伯来语，以及多个 Checkmarx One 租户。请粘贴您收到的激活码；激活码在此处验证，不会发送到任何地方。",
   "Stop automatic renewal": "停止自动续期",
   "Stop renewing the Let's Encrypt certificate by itself? It stays in use until it expires or you replace it.": "要停止自动续期 Let's Encrypt 证书吗？该证书将继续使用，直到过期或被您替换。",
   "Test with the Let's Encrypt staging service first (browsers do not trust its certificates)": "先使用 Let's Encrypt 测试环境进行测试（浏览器不信任其证书）",
@@ -1842,6 +1841,8 @@
   "What you send now:": "您现在发送的内容：",
   "What you would send with it on:": "开启后您将发送的内容：",
   "You can see what is unlocked. An Admin enters the codes.": "您可以查看已解锁的内容。激活码由管理员输入。",
-  "Your branding": "个人品牌设置"
+  "Your branding": "个人品牌设置",
+  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": "部分附加功能需使用 CxMissionZero 维护者提供的激活码解锁。请粘贴您收到的激活码；激活码在此处验证，不会发送到任何地方，其解锁的功能会立即启用。",
+  "No add-ons are unlocked yet.": "尚未解锁任何附加功能。"
  }
 }

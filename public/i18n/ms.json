@@ -1473,7 +1473,6 @@
   "Settings → Activation codes": "Tetapan → Kod pengaktifan",
   "Several tenants": "Beberapa penyewa",
   "Skip the self-check (only when this server cannot reach its own public name, though the internet can)": "Langkau semakan kendiri (hanya apabila pelayan ini tidak dapat mencapai nama awamnya sendiri, walaupun internet boleh)",
-  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": "Sesetengah ciri tambahan dibuka kunci dengan kod daripada penyelenggara CxMissionZero: bahasa Ibrani dan beberapa penyewa Checkmarx One. Tampal kod yang dihantar kepada anda; kod disemak di sini, tanpa menghantar apa-apa ke mana-mana.",
   "Stop automatic renewal": "Hentikan pembaharuan automatik",
   "Stop renewing the Let's Encrypt certificate by itself? It stays in use until it expires or you replace it.": "Hentikan pembaharuan automatik sijil Let's Encrypt? Sijil kekal digunakan sehingga tamat tempoh atau anda menggantikannya.",
   "Test with the Let's Encrypt staging service first (browsers do not trust its certificates)": "Uji dengan perkhidmatan staging Let's Encrypt terlebih dahulu (pelayar tidak mempercayai sijilnya)",
@@ -1842,6 +1841,8 @@
   "What you send now:": "Apa yang anda hantar sekarang:",
   "What you would send with it on:": "Apa yang akan anda hantar jika ia dihidupkan:",
   "You can see what is unlocked. An Admin enters the codes.": "Anda boleh melihat apa yang telah dibuka kunci. Kod dimasukkan oleh Pentadbir.",
-  "Your branding": "Penjenamaan anda"
+  "Your branding": "Penjenamaan anda",
+  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": "Sesetengah ciri tambahan dibuka kunci dengan kod daripada penyelenggara CxMissionZero. Tampal kod yang dihantar kepada anda: kod disemak di sini, tanpa menghantar apa-apa ke mana-mana, dan apa yang dibuka kunci olehnya dihidupkan serta-merta.",
+  "No add-ons are unlocked yet.": "Belum ada ciri tambahan yang dibuka kunci."
  }
 }

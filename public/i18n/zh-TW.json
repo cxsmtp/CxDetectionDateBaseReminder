@@ -1473,7 +1473,6 @@
   "Settings → Activation codes": "設定 → 啟用碼",
   "Several tenants": "多個租戶",
   "Skip the self-check (only when this server cannot reach its own public name, though the internet can)": "略過自我檢查（僅限網際網路可連線至此伺服器，但此伺服器本身無法連線至其公開名稱時）",
-  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": "部分附加功能需使用 CxMissionZero 維護者提供的啟用碼解鎖：希伯來文，以及多個 Checkmarx One 租戶。請貼上您收到的啟用碼；啟用碼會在此處驗證，不會傳送至任何地方。",
   "Stop automatic renewal": "停止自動更新",
   "Stop renewing the Let's Encrypt certificate by itself? It stays in use until it expires or you replace it.": "要停止自動更新 Let's Encrypt 憑證嗎？此憑證會繼續使用，直到到期或您將其取代為止。",
   "Test with the Let's Encrypt staging service first (browsers do not trust its certificates)": "先使用 Let's Encrypt 測試環境進行測試（瀏覽器不信任其憑證）",
@@ -1842,6 +1841,8 @@
   "What you send now:": "您現在寄送的內容：",
   "What you would send with it on:": "開啟後您將寄送的內容：",
   "You can see what is unlocked. An Admin enters the codes.": "您可以查看已解鎖的項目。啟用碼由管理員輸入。",
-  "Your branding": "個人品牌設定"
+  "Your branding": "個人品牌設定",
+  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": "部分附加功能需使用 CxMissionZero 維護者提供的啟用碼解鎖。請貼上您收到的啟用碼；啟用碼會在此處驗證，不會傳送至任何地方，其解鎖的功能會立即啟用。",
+  "No add-ons are unlocked yet.": "尚未解鎖任何附加功能。"
  }
 }

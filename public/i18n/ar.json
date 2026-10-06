@@ -1473,7 +1473,6 @@
   "Settings → Activation codes": "الإعدادات ← رموز التفعيل",
   "Several tenants": "عدة مستأجرين",
   "Skip the self-check (only when this server cannot reach its own public name, though the internet can)": "تخطي التحقق الذاتي (فقط عندما يتعذر على هذا الخادم الوصول إلى اسمه العام، مع أن الوصول إليه ممكن من الإنترنت)",
-  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero: Hebrew, and several Checkmarx One tenants. Paste the code you were sent; it is checked here, with nothing sent anywhere.": "تُتاح بعض الإضافات برمز من الجهة المسؤولة عن صيانة CxMissionZero: العبرية، وعدة مستأجرين في Checkmarx One. الصق الرمز الذي أُرسل إليك؛ يتم التحقق منه هنا، دون إرسال أي شيء إلى أي مكان.",
   "Stop automatic renewal": "إيقاف التجديد التلقائي",
   "Stop renewing the Let's Encrypt certificate by itself? It stays in use until it expires or you replace it.": "هل تريد إيقاف التجديد التلقائي لشهادة Let's Encrypt؟ تظل الشهادة قيد الاستخدام حتى تنتهي صلاحيتها أو تستبدلها.",
   "Test with the Let's Encrypt staging service first (browsers do not trust its certificates)": "الاختبار أولًا باستخدام بيئة الاختبار لدى Let's Encrypt (لا تثق المتصفحات بشهاداتها)",
@@ -1842,6 +1841,8 @@
   "What you send now:": "ما ترسله الآن:",
   "What you would send with it on:": "ما سترسله عند تفعيلها:",
   "You can see what is unlocked. An Admin enters the codes.": "يمكنك رؤية ما هو مُتاح. يُدخل المسؤول الرموز.",
-  "Your branding": "هويتك المرئية"
+  "Your branding": "هويتك المرئية",
+  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": "تُتاح بعض الإضافات برمز من الجهة المسؤولة عن صيانة CxMissionZero. الصق الرمز الذي أُرسل إليك: يتم التحقق منه هنا، دون إرسال أي شيء إلى أي مكان، ويُفعَّل ما يُتيحه على الفور.",
+  "No add-ons are unlocked yet.": "لا توجد إضافات مُتاحة بعد."
  }
 }
