@@ -322,8 +322,11 @@ These are the same sentences the page shows.
 **This setting is in the file more than once: only the last one counts.** — applied, worth checking
 1. Keep one line for it and delete the others.
 
-**This value is still the example text from a template.** — applied, worth checking
+**This value is still the example text from a template.** — not applied (a password that looks like one is applied, and pointed out)
 1. Replace it with your real value, or leave it blank to keep what is set now.
+
+**CX_TENANT should be the tenant name only.** — not applied
+1. Write the name you sign in to Checkmarx One with, for example acme: not an address. On the multi-tenant cloud, leave it blank.
 
 **This value has a quote at only one end.** — not applied
 1. Remove the quotes, or put one at each end. Values need no quotes.
@@ -369,9 +372,6 @@ These are the same sentences the page shows.
 
 **CX_IAM_URL is the API address; it should be the IAM address.** — not applied
 1. Set CX_IAM_URL to the iam address, for example https://eu.iam.checkmarx.net. On the multi-tenant cloud, leave it blank.
-
-**CX_TENANT should be the tenant name only.** — not applied
-1. Write the name you sign in to Checkmarx One with, for example acme: not an address. On the multi-tenant cloud, leave it blank.
 
 **GITHUB_API_URL is the web address, not the API address.** — not applied
 1. Leave it blank for github.com. For GitHub Enterprise, use the address followed by /api/v3, for example https://github.company.com/api/v3.
