@@ -128,6 +128,14 @@ half-restored. There are three ways to make one:
 - **Audit → Download backup**, or **Back up to folder now**.
 - **Command line**, with the server running or stopped:
   `npm run backup -- /mnt/backups/`.
+- **Before stopping.** When the server is stopped or killed with a signal (SIGTERM or
+  SIGINT), or crashes under its launcher, it writes everything to disk and makes one
+  more backup into `BACKUP_DIR`. When nobody asked for the stop from the Update page,
+  it also emails the administrators the backup and how to restore it. The backup is
+  attached only when it is encrypted with `BACKUP_PASSPHRASE`; otherwise the email
+  says where it is on the server. There is at most one such email every 6 hours
+  (`LAST_WORDS_EVERY_HOURS`). A forced kill (SIGKILL, power loss) cannot be caught:
+  the scheduled backups cover that ([hands-off](hands-off.md)).
 
 The backup contains the SMTP password and any stored API key. Set
 `BACKUP_PASSPHRASE` to encrypt backups (AES-256-GCM, key derived with scrypt).

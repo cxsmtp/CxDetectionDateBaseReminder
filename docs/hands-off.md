@@ -97,6 +97,20 @@ MissionZero then raises a support case (SUP-…, under **Get help**, from **Miss
 
 The email carries the troubleshooting log: no personal data, keys or findings. To close the case, use **Mark as solved**, or reply `SOLVED`. One case is raised per problem while it lasts. When the problem clears, the case says so, and stays open until an administrator closes it.
 
+**Before it stops.** When the service is stopped or killed by a signal, or crashes under its launcher, MissionZero first:
+1. Writes everything to disk and makes a backup into the backup folder.
+2. Emails the administrators the backup, with how to bring it back. The steps are:
+   - Start it again with the same data folder, and nothing needs restoring.
+   - If the data folder is lost, start a new MissionZero with the same `BACKUP_PASSPHRASE`, then open **Audit → State folder & backups → Restore from backup…** and choose the file. On the server, `npm run restore -- <file> --yes` does the same.
+
+The backup is attached only when it is encrypted (`BACKUP_PASSPHRASE`), because it holds the passwords and keys. Otherwise the email says where it is on the server.
+
+Some stops send no email:
+- A stop MissionZero asked for itself (an update, a version switch, a restart from the Update page). It still backs up.
+- A restart loop: there is at most one such email every 6 hours.
+
+All of this fits in the 10 seconds containers allow. A forced kill (SIGKILL, a power cut) cannot be caught; the daily backups cover that.
+
 **Errors that escape.** An error the code did not catch is recorded in the troubleshooting log, and the server keeps serving. Under the launcher, an uncaught exception restarts the server; the launcher already restarts a crash with a growing pause, and rolls back a version that does not start.
 
 The **Self-check** box on Settings → Hands-off shows what is wrong now, when the last check ran, and the last events. **Check now** runs a check straight away.
