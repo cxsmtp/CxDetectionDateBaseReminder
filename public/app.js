@@ -1179,6 +1179,7 @@ async function showConnected(me) {
   await loadSettings();
   applyPermissions();
   initTabs();
+  applySupportChannel();
   route();
   renderGettingStarted();
   loadReportServer();
@@ -1590,6 +1591,11 @@ function renderSettings() {
   $('ai-admin-contact').value = s.aiTriage?.adminContact ?? '';
   $('ai-limit').value = String(s.aiTriage?.monthlyCreditLimit ?? 0);
   $('ai-pool-period').value = s.aiTriage?.poolPeriod === 'all' ? 'all' : 'month';
+  const support = s.support ?? {};
+  const channel = state.me?.support ?? { mode: 'portal', email: '' };
+  for (const box of document.querySelectorAll('input[name="support-mode"]')) box.checked = box.value === (support.mode || channel.mode);
+  $('support-email').value = support.email || channel.email || '';
+  renderSupportNote();
   const impact = s.impact ?? {};
   $('impact-triage-min').value = String(impact.triageMinutes ?? 20);
   $('impact-fix-min').value = String(impact.fixMinutes ?? 120);
@@ -1963,6 +1969,7 @@ function settingsPayload() {
         .concat(/^[A-Za-z]{3}$/.test($('impact-currency').value.trim()) ? [['currency', $('impact-currency').value.trim()]] : [])
         .concat([['monthlyTo', $('impact-monthly-to').value]]),
     ),
+    support: supportSettings(),
   };
   // Only send a password when one was typed, so saving an unrelated field
   // never has to round-trip the stored secret through the browser.
@@ -1980,8 +1987,38 @@ function settingsPayload() {
   }
   if (!payload.aiTriage) delete payload.aiTriage;
   if (!can('settings.ai')) delete payload.impact;
+  if (!can('support.manage') || !payload.support) delete payload.support;
   return payload;
 }
+
+/** Settings → Get help: what is sent (email mode only once the address looks right, so typing never errors). */
+function supportSettings() {
+  const mode = document.querySelector('input[name="support-mode"]:checked')?.value;
+  if (!mode) return undefined;
+  const email = $('support-email').value.trim();
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (mode === 'email' && !valid) return undefined;
+  const out = { mode, email: valid ? email : '' };
+  // Applied here at once: the Get help menu follows without a reload.
+  if (state.me) state.me.support = { mode, email: out.email || state.me.support?.email || '' };
+  applySupportChannel();
+  return out;
+}
+
+function renderSupportNote() {
+  const mode = document.querySelector('input[name="support-mode"]:checked')?.value;
+  const email = $('support-email').value.trim();
+  $('support-email').closest('.field').hidden = mode !== 'email';
+  const note = $('support-note');
+  note.className = 'hint';
+  if (mode === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    note.textContent = 'Enter the address requests go to. Until then, Get help keeps the support portal.';
+    note.className = 'status warn';
+  } else {
+    note.textContent = mode === 'email' ? 'Nothing is stored in CxMissionZero: the conversation happens by email.' : 'Requests are kept here, numbered, and answered by the support team.';
+  }
+}
+for (const el of [...document.querySelectorAll('input[name="support-mode"]'), $('support-email')]) el.addEventListener('input', renderSupportNote);
 
 // ---------------------------------------------------------------------------
 // The credit pool (Settings → AI & credits; live while the page is open)
@@ -6291,6 +6328,45 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+/** Email mode: a mailto: link to the support address, with a short template and the context the team needs. */
+function supportMailto(kind) {
+  const isCase = kind === 'case';
+  const me = state.me?.user ?? {};
+  const tenant = state.me?.tenancy?.current?.name ?? '';
+  const body = [
+    isCase ? 'What happened:' : 'What I would like:', '', '',
+    isCase ? 'What I expected:' : 'Who it helps, and how I would use it:', '', '',
+    ...(isCase ? ['Steps to see it:', '', '', 'Priority (low, normal, high, urgent): normal', ''] : []),
+    '---',
+    `From: ${me.name ? `${me.name} ` : ''}<${me.email ?? ''}>`,
+    `Version: ${$('app-version').textContent.trim()}`,
+    ...(tenant ? [`Tenant: ${tenant}`] : []),
+    `Server: ${location.origin}`,
+  ].join('\n');
+  const subject = isCase ? 'Support case: ' : 'Enhancement request: ';
+  return `mailto:${state.me.support.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+/** Get help follows the installation's choice (Settings → Get help): the portal here, or each person's email app. */
+function applySupportChannel() {
+  const email = state.me?.support?.mode === 'email' && state.me.support.email ? state.me.support.email : '';
+  const [caseItem, enhItem] = $('help-pop').querySelectorAll('.help-item');
+  caseItem.href = email ? supportMailto('case') : '#/help/case';
+  enhItem.href = email ? supportMailto('enhancement') : '#/help/enhancement';
+  caseItem.querySelector('small').textContent = email
+    ? 'Opens your email app, addressed to the support team, with a short template to fill in.'
+    : 'Something does not work, or you are stuck. The support team answers you here.';
+  enhItem.querySelector('small').textContent = email
+    ? 'Opens your email app: say what you would like, and who it helps.'
+    : 'A new feature or an improvement. Follow it until it is done.';
+  $('help-pop').querySelector('.help-track').hidden = Boolean(email);
+  $('help-bar-case').href = caseItem.href;
+  $('help-bar-enh').href = enhItem.href;
+  $('help-mail-case').href = caseItem.href;
+  $('help-mail-enh').href = enhItem.href;
+  $('help-mail-to').textContent = email;
+}
+
 async function loadHelp() {
   try {
     help.data = await api('/api/support');
@@ -6321,7 +6397,7 @@ function renderHelpList() {
           <span class="hint">${r.mine ? '' : `<span translate="no">${escapeHtml(r.requester.name || r.requester.email)}</span>${r.tenant ? ` · <span translate="no">${escapeHtml(r.tenant)}</span>` : ''} · `}${helpWhen(r.updatedAt)}</span>
         </a></li>`)
         .join('')}</ul>`
-    : `<p class="hint">${all.length ? 'Nothing matches these filters.' : 'No requests yet. Raise one with the buttons above.'}</p>`;
+    : `<p class="hint">${all.length ? 'Nothing matches these filters.' : state.me?.support?.mode === 'email' ? 'Requests go by email here, so none are listed.' : 'No requests yet. Raise one with the buttons above.'}</p>`;
 }
 for (const id of ['help-kind', 'help-status', 'help-whose']) $(id).addEventListener('change', renderHelpList);
 
@@ -6331,7 +6407,13 @@ function helpRoute(view) {
   $('help-form').hidden = true;
   $('help-view').hidden = true;
   $('help-empty').hidden = true;
-  if (v === 'case' || v === 'enhancement') {
+  $('help-mail').hidden = true;
+  applySupportChannel();
+  const byEmail = state.me?.support?.mode === 'email' && Boolean(state.me.support.email);
+  if (byEmail && !/^(SUP|ENH)-\d+$/i.test(v)) {
+    help.open = '';
+    $('help-mail').hidden = false;
+  } else if (v === 'case' || v === 'enhancement') {
     help.open = '';
     openHelpForm(v);
   } else if (/^(SUP|ENH)-\d+$/i.test(v)) {

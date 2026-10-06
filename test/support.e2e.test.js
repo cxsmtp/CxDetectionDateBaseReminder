@@ -137,3 +137,20 @@ test('an enhancement has its own numbers, and support.manage is a permission the
   assert.ok(JSON.stringify(roles.body).includes('support.manage'));
   assert.equal((await admin('GET', '/api/support')).body.requests.length, 3);
 });
+
+test('email mode: an Admin sends Get help to an address instead of the portal; the address must be valid', async () => {
+  assert.deepEqual((await uma('GET', '/api/me')).body.support, { mode: 'portal', email: '' });
+  assert.equal((await admin('PUT', '/api/settings', { support: { mode: 'email', email: 'not an address' } })).status, 400);
+  await uma('PUT', '/api/settings', { support: { mode: 'email', email: 'vendor@example.com' } });
+  assert.equal((await uma('GET', '/api/me')).body.support.mode, 'portal', 'only the support team may change it');
+  const saved = await admin('PUT', '/api/settings', { support: { mode: 'email', email: 'vendor@example.com' } });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.deepEqual((await uma('GET', '/api/me')).body.support, { mode: 'email', email: 'vendor@example.com' });
+  const refused = await uma('POST', '/api/support', { kind: 'case', subject: 'x', text: 'x' });
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.email, 'vendor@example.com');
+  // Requests already raised stay readable and answerable.
+  assert.equal((await uma('GET', '/api/support/SUP-0001')).status, 200);
+  await admin('PUT', '/api/settings', { support: { mode: 'portal' } });
+  assert.equal((await uma('GET', '/api/me')).body.support.mode, 'portal');
+});

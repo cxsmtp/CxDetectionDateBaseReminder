@@ -1009,6 +1009,8 @@ Each request gets a number (SUP-0001 for cases, ENH-0001 for enhancements). It i
 
 **The support team** are the people whose role has **Answer support cases & enhancements**: Admins, and anyone else given it under People & roles. They see the **Support queue** for the tenants they work in (a Super Admin sees every tenant), get an email for every new request, answer, and change the status. Every answer and status change is emailed to the person who raised the request. Emails go through **Settings → Email**; when it is not set up, the request is still saved, and the page says the email was not sent. More: [support](support.md).
 
+**Settings → Get help** (Admins): keep the **support portal**, or choose **Email**. With Email, Get help opens each person's own email app instead of a form, addressed to the address you enter, with a short template. Use it on a server whose mail cannot leave its network. `SUPPORT_MODE=email` and `SUPPORT_EMAIL=…` set the default when the container starts.
+
 ---
 
 ## Performance and security status

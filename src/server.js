@@ -53,7 +53,7 @@ import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
 import { deriveConnection, publicConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
-import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, hostOfUrl, isVerified, parseAddressList, publicSettings, smtpFingerprint } from './settings.js';
+import { SettingsStore, applyEnvironmentSmtp, hasEnvironmentSmtp, hostOfUrl, isVerified, parseAddressList, publicSettings, smtpFingerprint, supportChannel } from './settings.js';
 import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
 import { ENV_SETTINGS, isSecretVariable, parseEnvText, settingsFromEnv } from './env-import.js';
 import { addSla, slaSummary } from './sla.js';
@@ -988,6 +988,8 @@ function describeMe(session, user) {
     configNotices: held.has('integration.cxone') || held.has('integration.smtp') ? guard.unseen(user.id) : [],
     // The page's languages this person may use (Hebrew only for the people chosen).
     languages: languageAccess.available(user.id),
+    // Get help: the support portal here, or email to an address (installations whose mail cannot leave).
+    support: (({ mode, email }) => ({ mode, email }))(supportChannel(settingsStore.get())),
     // Several Checkmarx One tenants: the one this person works in now, and the ones they may switch to.
     tenancy: tenancy.enabled
       ? {
@@ -1746,6 +1748,8 @@ const SETTINGS_SECTIONS = {
   beta: 'beta.use',
   // The Impact page's minutes, rates and monthly summary: whoever sets the AI rules.
   impact: 'settings.ai',
+  // How people ask for help (the portal, or email to an address): the support team's.
+  support: 'support.manage',
 };
 
 /**
@@ -6281,6 +6285,8 @@ app.get('/api/support/:id', requireSession, (req, res) => {
 app.post('/api/support', requireSession, asyncRoute(async (req, res) => {
   const kind = req.body?.kind;
   if (!SUPPORT_KINDS[kind]) return res.status(400).json({ error: 'Choose a support case or an enhancement.' });
+  const channel = supportChannel(settingsStore.get());
+  if (channel.mode === 'email') return res.status(409).json({ error: `Requests go by email here: write to ${channel.email}.`, email: channel.email });
   if (supportDesk.raisedSince(req.user.id, new Date(Date.now() - 3_600_000).toISOString()) >= 20) {
     return res.status(429).json({ error: 'You raised 20 requests in the last hour. Add to one of them instead, or try again later.' });
   }

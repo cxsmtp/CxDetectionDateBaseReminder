@@ -47,6 +47,21 @@ Emails go through the mail server of the tenant the request was raised in (**Set
 
 If the mail server is not set up or not tested, the request is still saved and numbered. The page then says that the email could not be sent, and why.
 
+## Support by email instead (offline installations)
+
+Some servers cannot send email out of their network. Then the support team outside would never hear of a request raised in the portal. For those installations, an Admin (anyone with **Answer support cases & enhancements**) can switch Get help to email, under **Settings → Get help**:
+
+- **Support portal in CxMissionZero** (the default) is everything above: a form, numbered requests, a queue, and email updates.
+- **Email** has **Send requests to**, the address requests go to: yours, or your vendor's. With it, **Submit a support case** and **Request an enhancement** open each person's own email app, which sends from their own mailbox. The message is addressed to that address, with a subject and a short template to fill in:
+  - for a case: what happened, what was expected, the steps, and a priority;
+  - for an enhancement: what they would like, and who it helps.
+
+  The message ends with who is asking, the CxMissionZero version, the tenant and the server address. Nothing is stored in CxMissionZero, and the conversation carries on by email. Requests raised in the portal before the switch can still be read and answered on the **Get help** page.
+
+Until a valid address is entered, Get help stays on the portal.
+
+The defaults can be set when the container starts, for example in a build you hand out: `SUPPORT_MODE=email` and `SUPPORT_EMAIL=support@company.com` (see `.env.example`). A choice made under **Settings → Get help** wins over them.
+
 ## Limits and storage
 
 - **Size.** A title can be up to 200 characters, and each message up to 10,000.

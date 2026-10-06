@@ -2639,3 +2639,10 @@ body.scrolling main table tbody { pointer-events: none; }
 }
 a.button-like.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 a.button-like.primary:hover { filter: brightness(1.05); }
+.support-modes { display: grid; gap: 8px; margin: 10px 0 12px; }
+.support-mode { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+.support-mode:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.support-mode input { margin-top: 3px; }
+.support-mode span { display: grid; gap: 2px; }
+.support-mode small { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+.support-email { max-width: 420px; }

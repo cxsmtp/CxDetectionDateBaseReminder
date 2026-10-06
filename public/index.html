@@ -618,6 +618,7 @@
                   <a href="#/settings/features" data-set="features" data-perm="features.manage">Beta features</a>
                   <a href="#/settings/activation" data-set="activation" data-perm="activation.manage">Activation codes</a>
                   <a href="#/settings/tenants" data-set="tenants" data-perm="tenants.manage">Tenants</a>
+                  <a href="#/settings/support" data-set="support" data-perm="support.manage">Get help</a>
                   <a href="#/settings/update" data-set="update" data-perm="system.update">Update &amp; recovery</a>
                   <a href="#/settings/about" data-set="about">About &amp; terms of use</a>
                 </div>
@@ -1264,6 +1265,17 @@
                   <p class="hint">It needs the Podman socket, which can manage every container on the machine, so it does one thing only: it replaces the container named <code>mission-zero</code>, and only with this app's own image (<code>UPDATE_IMAGE</code>), at the version chosen here. It opens no port. Use your own volume name if it is not <code>mission-zero-data</code>; on a rootless Podman machine the socket is <code>/run/user/1000/podman/podman.sock</code>. Without the companion: <code>podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest</code>, then your usual <code>podman run --replace …</code> line.</p>
                 </div>
               </details>
+            </section>
+
+            <section class="panel" id="set-support" data-edit-perm="support.manage">
+              <h2>Get help</h2>
+              <p class="hint wide">Where support cases and enhancement requests go when people use <strong>Get help</strong> at the bottom of the menu.</p>
+              <div class="support-modes" role="radiogroup" aria-label="How people ask for help">
+                <label class="support-mode"><input type="radio" name="support-mode" value="portal" /> <span><strong>Support portal in CxMissionZero</strong><small>A form, a numbered queue (SUP-0001, ENH-0001) and email updates. People with “Answer support cases &amp; enhancements” answer them here.</small></span></label>
+                <label class="support-mode"><input type="radio" name="support-mode" value="email" /> <span><strong>Email</strong><small>Get help opens each person's own email app, addressed to the address below, with the details filled in. For a server that cannot send email out of its network.</small></span></label>
+              </div>
+              <label class="field support-email"><span>Send requests to</span><input id="support-email" type="email" spellcheck="false" placeholder="support@company.com" /></label>
+              <p class="hint" id="support-note"></p>
             </section>
 
             <section class="panel" id="set-about">
@@ -1957,8 +1969,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
           <!-- ================= Get help ================= -->
           <div id="page-help" class="page help-page" hidden>
             <div class="help-bar">
-              <a class="button-like primary" href="#/help/case">Submit a support case</a>
-              <a class="button-like" href="#/help/enhancement">Request an enhancement</a>
+              <a class="button-like primary" id="help-bar-case" href="#/help/case">Submit a support case</a>
+              <a class="button-like" id="help-bar-enh" href="#/help/enhancement">Request an enhancement</a>
               <span class="help-filters">
                 <label><span class="sr-only">Type</span>
                   <select id="help-kind" aria-label="Type">
@@ -2009,6 +2021,11 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <p class="status" id="help-form-status"></p>
                 </form>
                 <div id="help-view" hidden></div>
+                <div id="help-mail" class="help-empty" hidden>
+                  <h2>Get help by email</h2>
+                  <p class="hint"><span>Support here is by email. Your email app opens, addressed to</span> <strong id="help-mail-to" translate="no"></strong><span>, with a short template to fill in. The answers come back by email.</span></p>
+                  <div class="actions compact"><a class="button-like primary" id="help-mail-case" href="#/help">Email a support case</a><a class="button-like" id="help-mail-enh" href="#/help">Email an enhancement request</a></div>
+                </div>
                 <div id="help-empty" class="help-empty">
                   <h2>Get help</h2>
                   <p class="hint">Raise a support case when something does not work, or request an enhancement for something new. Each gets a number, sent to you by email, and you can follow it here until it is done.</p>
