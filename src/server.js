@@ -6598,6 +6598,9 @@ app.post('/a/:token', asyncRoute(async (req, res) => {
   }
 }));
 
+/** Tenants whose mailbox could not be read, and how many times in a row (the self-check reports 3). */
+const inboxFailures = new Map();
+
 /** Replies to MissionZero's emails: one word each, from the address the email went to. */
 async function inboxTick() {
   for (const id of tenancy.ids()) {
@@ -6608,8 +6611,11 @@ async function inboxTick() {
       let messages;
       try {
         messages = await readReplies({ host: handsOff.imapHost || smtp.host, port: handsOff.imapPort, secure: handsOff.imapPort === 993, user: smtp.user, password: smtp.password, rejectUnauthorized: smtp.rejectUnauthorized });
+        inboxFailures.delete(id);
       } catch (error) {
         diagnostics.error('inbox', error);
+        const failed = inboxFailures.get(id) ?? { count: 0 };
+        inboxFailures.set(id, { count: failed.count + 1, error: error.message });
         return;
       }
       for (const message of messages) await handleReply(message).catch((error) => diagnostics.error('inbox-reply', error));
@@ -6664,6 +6670,8 @@ async function tenantProblems() {
       found.push({ key: `smtp:${id}`, title: 'Email server', detail: error.message, tenant: id });
     }
   }
+  const inbox = inboxFailures.get(id);
+  if (settings.handsOff.on && settings.handsOff.replies && inbox?.count >= 3) found.push({ key: `inbox:${id}`, title: 'Reading replies', detail: inbox.error, tenant: id });
   if (settings.automation.enabled) {
     const runs = (scheduler.status.runs ?? []).filter((r) => !r.skipped).slice(0, 2);
     if (runs.length === 2 && runs.every((r) => !r.ok)) found.push({ key: `automation:${id}`, title: 'Automatic reminders', detail: runs[0].error || runs[0].failures?.[0]?.error || 'The last two runs failed.', tenant: id });
