@@ -102,3 +102,64 @@ function readTestInbox(dir) {
   }
   return out;
 }
+
+/** What a backup email's subject starts with: how a new server finds the backups in the mailbox. */
+export const BACKUP_SUBJECT = 'MissionZero backup';
+
+/** The parts of a message that are .mzbackup attachments. */
+function backupParts(node, out = []) {
+  if (!node) return out;
+  for (const child of node.childNodes ?? []) backupParts(child, out);
+  const name = node.dispositionParameters?.filename || node.parameters?.name || '';
+  if (/\.mzbackup$/i.test(name)) out.push({ part: node.part || '1', name });
+  return out;
+}
+
+/**
+ * The newest backup in a mailbox that `accept(buffer)` takes (it checks the
+ * passphrase), or null: { buffer, name, date }. Reads only messages whose subject
+ * starts with BACKUP_SUBJECT, the newest 20, and changes nothing in the mailbox.
+ * Tests read *.mzbackup files from MZ_TEST_BACKUP_MAILBOX_DIR instead (test runner only).
+ */
+export async function findBackupInMailbox(account, accept) {
+  const testDir = process.env.NODE_TEST_CONTEXT && process.env.MZ_TEST_BACKUP_MAILBOX_DIR;
+  if (testDir) {
+    const names = fs.existsSync(testDir) ? fs.readdirSync(testDir).filter((n) => n.endsWith('.mzbackup')).sort().reverse() : [];
+    for (const name of names) {
+      const buffer = fs.readFileSync(path.join(testDir, name));
+      if (accept(buffer)) return { buffer, name, date: '' };
+    }
+    return null;
+  }
+  const { ImapFlow } = await import('imapflow');
+  const client = new ImapFlow({
+    host: account.host,
+    port: account.port,
+    secure: account.secure !== false,
+    auth: { user: account.user, pass: account.password },
+    tls: { rejectUnauthorized: account.rejectUnauthorized !== false },
+    logger: false,
+    socketTimeout: 60_000,
+  });
+  await client.connect();
+  const lock = await client.getMailboxLock('INBOX', { readOnly: true });
+  try {
+    const uids = (await client.search({ subject: BACKUP_SUBJECT }, { uid: true })) || [];
+    const messages = [];
+    for await (const m of client.fetch(uids.slice(-20), { uid: true, envelope: true, bodyStructure: true }, { uid: true })) messages.push(m);
+    messages.sort((a, b) => new Date(b.envelope?.date ?? 0) - new Date(a.envelope?.date ?? 0));
+    for (const message of messages) {
+      for (const part of backupParts(message.bodyStructure)) {
+        const { content } = await client.download(String(message.uid), part.part, { uid: true });
+        const chunks = [];
+        for await (const chunk of content) chunks.push(chunk);
+        const buffer = Buffer.concat(chunks);
+        if (accept(buffer)) return { buffer, name: part.name, date: message.envelope?.date ? new Date(message.envelope.date).toISOString() : '' };
+      }
+    }
+    return null;
+  } finally {
+    lock.release();
+    await client.logout().catch(() => {});
+  }
+}

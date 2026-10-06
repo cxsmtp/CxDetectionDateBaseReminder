@@ -141,6 +141,40 @@ The backup contains the SMTP password and any stored API key. Set
 `BACKUP_PASSPHRASE` to encrypt backups (AES-256-GCM, key derived with scrypt).
 Keep the passphrase somewhere other than the server: it is needed to restore.
 
+## The backup mailbox: rebuilding without touching anything
+
+Set `BACKUP_EMAIL` to a mailbox kept for backups. Every encrypted backup is then
+emailed there: the scheduled ones, the one before stopping, the one before switching
+versions, and **Back up to folder now**. It needs `BACKUP_PASSPHRASE` (an
+unencrypted backup is never emailed, because it holds the passwords and keys) and a
+tested email server. A backup over 15 MB is not emailed, and the audit log says so.
+
+To rebuild, start a new server with an empty state folder and these settings:
+
+| Setting | What it is |
+| --- | --- |
+| `BACKUP_EMAIL` | The same backup mailbox. |
+| `BACKUP_EMAIL_PASSWORD` | The mailbox's password. |
+| `BACKUP_PASSPHRASE` | The same passphrase as the old server. |
+| `BACKUP_EMAIL_IMAP_HOST` | The mailbox server. It defaults to `SMTP_HOST`. |
+| `BACKUP_EMAIL_IMAP_PORT` | The port. It defaults to 993. |
+| `BACKUP_EMAIL_USER` | The account. It defaults to `BACKUP_EMAIL`. |
+
+Before anything loads, the server reads the mailbox. It looks at the newest 20 emails
+whose subject starts with "MissionZero backup", takes the newest backup that opens
+with the passphrase, and restores it. It then starts as the old server was: the same
+people and passwords, settings, credits, tracked reports and audit log. Nobody has to
+sign in or upload anything.
+
+- **What it accepts.** Only an encrypted backup that opens with the passphrase. A
+  backup someone else put in the mailbox, encrypted or not, is passed over.
+- **When it looks.** Only while the state folder is new, so a running server is
+  never replaced by a backup.
+- **It changes nothing in the mailbox.** It only reads it.
+- **When nothing is found.** If nothing usable is there, or the mailbox does not
+  answer within 90 seconds, the server starts fresh and the log says why.
+- **The audit log.** The restore is recorded there, with the mailbox it came from.
+
 ## Rebuilding a server from scratch
 
 1. Install the application on the new server (`npm ci`).

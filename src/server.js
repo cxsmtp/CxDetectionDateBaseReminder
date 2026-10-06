@@ -28,7 +28,7 @@ import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
 import { IamStore, PERMISSIONS, PROFILE_LANGUAGES, PROGRAMMING_LANGUAGES, generatePassword, publicUser } from './iam.js';
 import { insideProject, migrateLegacyData, prepareDataDir, resolveDataDir } from './data-dir.js';
-import { PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, listBackups, readBackup, writeBackupTo } from './backup.js';
+import { PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, isSealed, listBackups, readBackup, writeBackupTo } from './backup.js';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
@@ -59,7 +59,7 @@ import v8 from 'node:v8';
 import { Watchdog, rollbackTarget, shouldNotify, shouldRaiseCase } from './watchdog.js';
 import { COMMANDS, isPaused, parseCommand, statusDue, systemEmail } from './hands-off.js';
 import { findReferences, peekTenant, readAction, replyReference, signAction } from './action-links.js';
-import { readReplies } from './mail-inbox.js';
+import { BACKUP_SUBJECT, findBackupInMailbox, readReplies } from './mail-inbox.js';
 import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
 import { ENV_SETTINGS, isSecretVariable, parseEnvText, settingsFromEnv } from './env-import.js';
 import { addSla, slaSummary } from './sla.js';
@@ -116,6 +116,54 @@ const migrated = migrateLegacyData(dataDir, { legacyDir: path.join(projectDir, '
 if (migrated.length) {
   console.log(`[data] Copied ${migrated.length} file(s) from ${path.join(projectDir, 'data')} to ${dataDir}: ${migrated.join(', ')}`);
   console.log('[data] The old copies are left in place; delete them once this server runs well from the new folder.');
+}
+/**
+ * The backup mailbox (BACKUP_EMAIL): every encrypted backup is emailed there, and a new
+ * server (an empty state folder) with the mailbox's password and the same passphrase
+ * brings the newest one back by itself, before anything loads. Only an encrypted backup
+ * that opens with BACKUP_PASSPHRASE is taken, so nobody else can plant one.
+ */
+const backupMailbox = {
+  email: process.env.BACKUP_EMAIL?.trim().toLowerCase() || '',
+  password: process.env.BACKUP_EMAIL_PASSWORD || '',
+  host: process.env.BACKUP_EMAIL_IMAP_HOST?.trim() || process.env.SMTP_HOST?.trim() || '',
+  port: Number(process.env.BACKUP_EMAIL_IMAP_PORT) || 993,
+  user: process.env.BACKUP_EMAIL_USER?.trim() || process.env.BACKUP_EMAIL?.trim() || '',
+};
+let restoredFromMailbox = null;
+{
+  const passphrase = process.env.BACKUP_PASSPHRASE || '';
+  const fresh = !fs.existsSync(path.join(dataDir, 'iam.json')) && !fs.existsSync(path.join(dataDir, PENDING_RESTORE));
+  if (fresh && backupMailbox.email && backupMailbox.password && backupMailbox.host && passphrase) {
+    console.log(`[data] A new state folder: looking for a backup in ${backupMailbox.email}…`);
+    let bundle = null;
+    const opens = (buffer) => {
+      if (!isSealed(buffer)) return false;
+      try {
+        bundle = readBackup(buffer, { passphrase });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    try {
+      const found = await Promise.race([
+        findBackupInMailbox({ host: backupMailbox.host, port: backupMailbox.port, secure: backupMailbox.port === 993, user: backupMailbox.user, password: backupMailbox.password }, opens),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('the mailbox did not answer within 90 seconds')), 90_000).unref()),
+      ]);
+      if (found && bundle) {
+        const pending = path.join(dataDir, PENDING_RESTORE);
+        fs.writeFileSync(`${pending}.partial`, zlib.gzipSync(Buffer.from(JSON.stringify(bundle))), { mode: 0o600 });
+        fs.renameSync(`${pending}.partial`, pending);
+        restoredFromMailbox = { name: found.name, date: found.date };
+        console.log(`[data] Found ${found.name} in ${backupMailbox.email}: restoring it.`);
+      } else {
+        console.log(`[data] No backup that opens with BACKUP_PASSPHRASE in ${backupMailbox.email}: starting fresh.`);
+      }
+    } catch (error) {
+      console.warn(`! [data] Could not read the backup mailbox ${backupMailbox.email} (${error.message}): starting fresh.`);
+    }
+  }
 }
 // A restore uploaded from the Audit page is applied here, before anything loads.
 let restoredAtStart = null;
@@ -276,7 +324,7 @@ if (restoredAtStart) {
   audit.record({
     type: 'backup',
     outcome: 'changed',
-    reason: `State restored from the backup of ${restoredAtStart.createdAt} (host ${restoredAtStart.host}).`,
+    reason: `State restored from the backup of ${restoredAtStart.createdAt} (host ${restoredAtStart.host})${restoredFromMailbox ? `, found by itself in the backup mailbox ${backupMailbox.email} (${restoredFromMailbox.name})` : ''}.`,
     actor: { kind: 'system', user: 'reminder server' },
     details: { restore: { createdAt: restoredAtStart.createdAt, files: restoredAtStart.files, sha256: restoredAtStart.sha256, replacedDir: restoredAtStart.replacedDir } },
   });
@@ -7574,6 +7622,8 @@ const backupConfig = {
   passphrase: process.env.BACKUP_PASSPHRASE || '',
 };
 let lastBackup = null;
+/** The largest backup that is attached to an email (most mail servers refuse much more). */
+const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 
 /** Everything written to disk first, so the backup is a consistent picture. */
 async function settleState() {
@@ -7600,12 +7650,49 @@ async function backupToFolder(actor, trigger) {
       actor,
       details: { backup: { file, ...summary, removed } },
     });
+    mailBackupCopy(file, summary, trigger).catch(() => {});
   } catch (error) {
     lastBackup = { at: new Date().toISOString(), ok: false, error: error.message, trigger };
     audit.record({ type: 'backup', outcome: 'failed', reason: `${trigger} backup to ${backupConfig.dir} failed: ${error.message}`, actor });
     console.error(`! [backup] ${error.message}`);
   }
   return lastBackup;
+}
+
+/**
+ * A copy of a backup to the backup mailbox (BACKUP_EMAIL), so a new server can bring it back
+ * by itself. Encrypted backups only (BACKUP_PASSPHRASE): never one that holds the passwords
+ * and keys in the clear. Returns whether it went.
+ */
+async function mailBackupCopy(file, summary, trigger) {
+  if (!backupMailbox.email) return false;
+  if (!summary.encrypted) {
+    console.warn('! [backup] BACKUP_EMAIL is set, but backups are not encrypted: set BACKUP_PASSPHRASE to email them.');
+    return false;
+  }
+  if (summary.size > MAX_ATTACHMENT_BYTES) {
+    audit.record({ type: 'backup', outcome: 'failed', reason: `${trigger} backup not emailed to ${backupMailbox.email}: ${Math.round(summary.size / 1048576)} MB is too large to attach.`, actor: SYSTEM_ACTOR });
+    return false;
+  }
+  return tenancy.run(DEFAULT_TENANT, async () => {
+    if (!isVerified(sendingSettings())) return false;
+    const name = path.basename(file);
+    const result = await sendSystemMail([backupMailbox.email], {
+      ...systemEmail({
+        appName: appNameNow(),
+        subject: `${BACKUP_SUBJECT} ${summary.createdAt.slice(0, 16).replace('T', ' ')} UTC`,
+        lines: [
+          `${trigger} backup of MissionZero, encrypted with BACKUP_PASSPHRASE: ${name}.`,
+          'Keep this email. A new MissionZero started with BACKUP_EMAIL, BACKUP_EMAIL_PASSWORD and the same BACKUP_PASSPHRASE finds the newest backup here and restores it by itself.',
+        ],
+        facts: [['Files', String(summary.files)], ['Size', `${Math.max(1, Math.round(summary.size / 1024))} KB`], ['Version', `MZ-${PACKAGE_VERSION}`]],
+        replyHelp: false,
+      }),
+      subject: `${BACKUP_SUBJECT} ${summary.createdAt.slice(0, 16).replace('T', ' ')} UTC`,
+    }, { attachments: [{ filename: name, content: fs.readFileSync(file), contentType: 'application/octet-stream' }] });
+    if (result.sent) audit.record({ type: 'backup', outcome: 'info', reason: `${trigger} backup emailed to ${backupMailbox.email} (${name}).`, actor: SYSTEM_ACTOR });
+    return result.sent > 0;
+  });
 }
 
 if (backupConfig.intervalHours > 0) {
@@ -8804,7 +8891,6 @@ const STOP_BUDGET_MS = Math.max(2, Number(process.env.SHUTDOWN_BUDGET_SECONDS ??
 const LAST_WORDS_FILE = path.join(dataDir, 'last-words.json');
 /** At most one "MissionZero stopped" email in this long (a restart loop must not flood anyone). */
 const LAST_WORDS_EVERY_MS = Math.max(0, Number(process.env.LAST_WORDS_EVERY_HOURS ?? 6)) * 3600_000;
-const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 
 /**
  * Before stopping for a reason nobody here asked for (the service stopped or killed,
@@ -8823,7 +8909,12 @@ async function lastWords(reason, deadline) {
   } catch (error) {
     console.error(`! [backup] Before stopping: ${error.message}`);
   }
-  if (plannedStop) return backup;
+  // The backup mailbox gets every backup, planned stop or not.
+  const copy = backup ? mailBackupCopy(backup.file, backup.summary, 'Before stopping').catch(() => false) : Promise.resolve(false);
+  if (plannedStop) {
+    await Promise.race([copy, new Promise((resolve) => setTimeout(resolve, Math.max(0, deadline - Date.now())))]);
+    return backup;
+  }
   let previous = {};
   try {
     previous = JSON.parse(fs.readFileSync(LAST_WORDS_FILE, 'utf8'));
@@ -8858,7 +8949,7 @@ async function lastWords(reason, deadline) {
       }), { attachments });
     }
   }).catch(() => {});
-  await Promise.race([send, new Promise((resolve) => setTimeout(resolve, Math.max(0, deadline - Date.now())))]);
+  await Promise.race([Promise.all([send, copy]), new Promise((resolve) => setTimeout(resolve, Math.max(0, deadline - Date.now())))]);
   return backup;
 }
 

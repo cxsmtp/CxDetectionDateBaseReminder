@@ -105,6 +105,8 @@ The email carries the troubleshooting log: no personal data, keys or findings. T
 
 The backup is attached only when it is encrypted (`BACKUP_PASSPHRASE`), because it holds the passwords and keys. Otherwise the email says where it is on the server.
 
+With `BACKUP_EMAIL` set, every encrypted backup also goes to that mailbox. A new server started with the mailbox's password and the same passphrase then finds the newest backup there and restores itself, with nothing to touch ([the backup mailbox](audit-and-backup.md#the-backup-mailbox-rebuilding-without-touching-anything)).
+
 Some stops send no email:
 - A stop MissionZero asked for itself (an update, a version switch, a restart from the Update page). It still backs up.
 - A restart loop: there is at most one such email every 6 hours.

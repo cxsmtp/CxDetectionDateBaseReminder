@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { readBackup } from '../src/backup.js';
+import { createBackup, readBackup } from '../src/backup.js';
 import { freePort } from './free-port.js';
 import { fakeSmtp } from './fake-smtp.js';
 import { FIRST_PASSWORD, NEXT_PASSWORD, PASSPHRASE } from './test-credentials.js';
@@ -57,6 +57,7 @@ async function start(dataDir, env = {}) {
   }
   return {
     log: () => log,
+    call,
     stop: () => new Promise((resolve) => {
       server.once('exit', (code) => resolve(code));
       server.kill('SIGTERM');
@@ -86,7 +87,8 @@ test('stopped by someone: a backup first, and the encrypted copy to the administ
   const bundle = readBackup(Buffer.from(part[1].replace(/\s+/g, ''), 'base64'), { passphrase: PASSPHRASE });
   assert.ok(bundle.files['iam.json'], 'with the people in it');
 
-  // A restart loop: the next stop backs up again, but emails nobody.
+  // A restart loop: the next stop backs up again, but emails nobody. (Backups are named to the second.)
+  await sleep(1100);
   const again = await start(dataDir, { BACKUP_PASSPHRASE: PASSPHRASE });
   await again.stop();
   assert.equal(fs.readdirSync(path.join(dataDir, 'backups')).filter((f) => f.endsWith('.mzbackup')).length, 2);
@@ -102,4 +104,43 @@ test('without a passphrase the copy is never attached: the email says where it i
   assert.equal(stoppedMails().length, before + 1);
   assert.match(readable(mail.raw), /not attached because it is not encrypted/);
   assert.doesNotMatch(mail.raw, /\.mzbackup"?\r\nContent-Transfer-Encoding: base64/);
+});
+
+test('every backup goes to the backup mailbox, and a new server brings the newest one back by itself', async () => {
+  const mailbox = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-mailbox-'));
+  const env = { BACKUP_PASSPHRASE: PASSPHRASE, BACKUP_EMAIL: 'vault@acme.io', BACKUP_EMAIL_PASSWORD: 'mailbox password', BACKUP_EMAIL_IMAP_HOST: '127.0.0.1', MZ_TEST_BACKUP_MAILBOX_DIR: mailbox, LAST_WORDS_EVERY_HOURS: '0' };
+  const first = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-mail-a-'));
+  const a = await start(first, env);
+  assert.equal((await a.call('POST', '/api/backup/now')).status, 200);
+  const sent = await (async () => {
+    for (let i = 0; i < 50; i++) {
+      const m = smtp.messages.find((x) => x.to.includes('vault@acme.io'));
+      if (m) return m;
+      await sleep(100);
+    }
+    return null;
+  })();
+  assert.ok(sent, 'the backup was emailed to the backup mailbox');
+  assert.match(sent.raw, /Subject: MissionZero backup /);
+  const attachment = /filename="?(mission-zero-[^"\r\n]+\.mzbackup)"?[\s\S]*?\r\n\r\n([A-Za-z0-9+/=\r\n]+?)\r\n--/.exec(sent.raw);
+  assert.ok(attachment, 'attached');
+  fs.writeFileSync(path.join(mailbox, attachment[1]), Buffer.from(attachment[2].replace(/\s+/g, ''), 'base64'));
+  await a.stop();
+
+  // Someone plants a newer, unencrypted backup in the mailbox: it must never be taken.
+  const forgedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'forged-'));
+  fs.writeFileSync(path.join(forgedDir, 'iam.json'), JSON.stringify({ users: [{ id: 'x', email: 'mallory@evil.example', role: 'admin' }] }));
+  fs.writeFileSync(path.join(mailbox, 'mission-zero-2999-01-01T00-00-00.mzbackup'), createBackup({ dataDir: forgedDir }).buffer);
+
+  // A new server, an empty state folder: it finds the real backup and starts as the old one was.
+  const second = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-mail-b-'));
+  const b = await start(second, env);
+  assert.match(b.log(), /Found mission-zero-.*\.mzbackup in vault@acme\.io: restoring it/);
+  assert.doesNotMatch(b.log(), /2999-01-01/);
+  const me = await b.call('GET', '/api/me');
+  assert.equal(me.body.user.email, 'admin@acme.io', 'signed in with the password set on the old server');
+  assert.equal((await b.call('GET', '/api/settings')).body.smtp.host, '127.0.0.1', 'with its settings');
+  const audit = (await b.call('GET', '/api/audit?types=backup&limit=20')).body.entries.map((e) => e.reason).join('\n');
+  assert.match(audit, /found by itself in the backup mailbox vault@acme\.io/);
+  await b.stop();
 });
