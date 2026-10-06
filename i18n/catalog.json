@@ -9485,6 +9485,18 @@
    "busy line"
   ]
  },
+ "request|New": {
+  "kind": "text",
+  "seen": [
+   "help › status of one request (chip and option)"
+  ]
+ },
+ "request|Open": {
+  "kind": "text",
+  "seen": [
+   "help › status filter: requests not yet completed or declined"
+  ]
+ },
  "Requests": {
   "kind": "text",
   "seen": [

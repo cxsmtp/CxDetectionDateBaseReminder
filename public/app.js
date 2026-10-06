@@ -6278,7 +6278,7 @@ const HELP_KIND = { case: 'Support case', enhancement: 'Enhancement' };
 const HELP_PRIORITY = { low: 'Low', normal: 'Normal', high: 'High', urgent: 'Urgent' };
 const helpChip = (status) => {
   const [label, tone] = HELP_STATUS[status] ?? [status, ''];
-  return `<span class="rp-chip${tone ? ` tone-${tone}` : ''}">${label}</span>`;
+  return `<span class="rp-chip${tone ? ` tone-${tone}` : ''}" data-i18n-ctx="request">${label}</span>`;
 };
 const helpWhen = (iso) => `<time datetime="${escapeHtml(iso)}" translate="no">${escapeHtml(new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))}</time>`;
 
@@ -6516,7 +6516,7 @@ function renderHelpRequest(r, team) {
       <div class="actions compact"><button type="submit" class="primary">Send</button></div>
     </form>
     ${team ? `<div class="help-set">
-      <label class="field"><span>Status</span><select data-help-status>${statusOptions}</select></label>
+      <label class="field"><span>Status</span><select data-help-status data-i18n-ctx="request">${statusOptions}</select></label>
       <button type="button" data-help-set="${escapeHtml(r.id)}">Update status</button>
       <p class="hint">The person who raised it gets an email with the new status.</p>
     </div>` : ''}
