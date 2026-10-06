@@ -40,7 +40,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.53 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.53 — 2026-10-06 02:15 UTC · [#76](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/76)
 - **Get help, at the bottom of the menu.** Point at it and choose **Submit a support case**, **Request an enhancement** or **Track my requests**. On a phone it is in the menu under your name ([support](docs/support.md)).
 - **A number for every request.** Support cases are SUP-0001 and up, enhancements ENH-0001 and up. The number is shown at once and emailed with a link to follow it.
 - **A conversation, and a status you can follow.** Each request has a thread between the person who raised it and the support team. Its status is New, In progress, Waiting for reply, Completed or Declined, with a history of every change. Each answer and status change is emailed to the person who raised it.
