@@ -45,7 +45,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.58 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.58 — 2026-10-07 09:41 UTC · [#81](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/81)
 
 - **Hebrew is seen by the Admin who switches it on.** A first Hebrew activation code used to turn Hebrew on for nobody, not even the Admin who applied it, so it showed as on but was in nobody's language list; now that Admin is offered it at once, and ticks everyone else under **Who may use Hebrew**.
 - **Servers where it was stuck are put right by themselves.** A server where an older version left Hebrew on for nobody gives it to the Admin who applied the code on its next start; a list an Admin emptied on purpose is left as it is.
