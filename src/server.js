@@ -650,6 +650,18 @@ const LETSENCRYPT_DOMAIN = String(process.env.LETSENCRYPT_DOMAIN ?? '').trim();
 // Add-ons unlocked by an activation code from the maintainer (src/activation.js): Hebrew, several tenants.
 const activations = new ActivationStore({ file: path.join(dataDir, 'activation.json') });
 const languageAccess = new LanguageAccess({ file: path.join(dataDir, 'languages.json') });
+/**
+ * Hebrew switched on by an older version with nobody chosen, not even the Admin who applied the
+ * code: give it to that Admin, so it is never on with nobody able to see it. Run at start, once
+ * the people are known.
+ */
+function adoptStuckLanguages() {
+  for (const code of Object.keys(GATED_LANGUAGES)) {
+    const applier = activations.history().find((h) => h.scope === GATED_LANGUAGES[code] && h.action === 'activate')?.by;
+    const user = applier ? iam.findByEmail(applier) : null;
+    if (user && languageAccess.adopt(code, user.id)) console.log(`[languages] ${code} was on for nobody: now open to ${user.email}, who applied its code.`);
+  }
+}
 
 /** Let's Encrypt's check (HTTP-01): answered over plain http in every HTTPS mode, before anything else. */
 function acmeChallengeAnswer(req, res) {
@@ -3512,8 +3524,10 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
   }
   let what;
   if (result.scope.startsWith('lang:')) {
-    const applied = languageAccess.apply(result);
-    what = `${applied.code === 'he' ? 'Hebrew' : applied.code} ${applied.on ? `turned on until ${result.expires.slice(0, 10)}` : 'turned off'}`;
+    const first = !Array.isArray(languageAccess.status(result.scope.slice('lang:'.length)).users);
+    const applied = languageAccess.apply(result, { by: req.user.id });
+    const users = languageAccess.status(applied.code).users ?? [];
+    what = `${applied.code === 'he' ? 'Hebrew' : applied.code} ${applied.on ? `turned on until ${result.expires.slice(0, 10)}${first && users.length === 1 && users[0] === req.user.id ? `, open to ${req.user.email}` : ''}` : 'turned off'}`;
   } else {
     what = `several Checkmarx One tenants unlocked for ${result.org}: up to ${result.maxTenants}, until ${result.expires.slice(0, 10)}`;
   }
@@ -8867,6 +8881,7 @@ const server = httpsManager.listen({ app, httpsOnly: httpsOnlyAnswer, port: conf
   // The deployment's own connections (CX_API_KEY, SMTP_*) belong to the first tenant.
   await tenancy.run(DEFAULT_TENANT, async () => {
     await prepareAccess();
+    adoptStuckLanguages();
     await bootstrap();
     await verifyEnvironmentSmtp();
   });

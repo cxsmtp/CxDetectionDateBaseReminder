@@ -934,6 +934,7 @@ function renderActivation(a) {
     rows.push(`<div class="act-people">
       <strong>Who may use Hebrew</strong>
       <p class="hint">${everyone ? 'Everyone, because Hebrew was turned on before people could be chosen. Choose people to keep it for them only.' : 'Only the people ticked here are offered Hebrew. Everyone else never sees it.'}</p>
+      ${!everyone && !chosen.size ? '<p class="https-note warn">Nobody is offered Hebrew yet, so nobody sees it in the language list. Tick the people who should have it, yourself included, then save.</p>' : ''}
       <input type="search" id="act-people-filter" placeholder="Search people" aria-label="Search people" />
       <div class="act-people-list" id="act-people-list">${(a.people ?? [])
         .map((p) => `<label class="check" data-person="${escapeHtml(`${p.name} ${p.email}`.toLowerCase())}"><input type="checkbox" value="${escapeHtml(p.id)}" ${chosen.has(p.id) ? 'checked' : ''} /> <span translate="no">${escapeHtml(p.name || p.email)}</span>${p.name ? ` <small class="muted" translate="no">${escapeHtml(p.email)}</small>` : ''}</label>`)

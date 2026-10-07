@@ -16,7 +16,7 @@ Everything else works without a code.
 
 What the code unlocks is switched on at once. The section then shows it, for which organisation and until when, and warns 30 days before the code expires. It lists only what a code has unlocked (an expired one stays listed, to renew); before the first code it says **No add-ons are unlocked yet**. **Settings → Tenants** appears once a tenants code is applied.
 
-With Hebrew on, tick the people who may use it under **Who may use Hebrew**, then **Save who may use Hebrew**. Only they are offered it. A new Hebrew code starts with nobody chosen; a renewed one keeps the people chosen.
+With Hebrew on, tick the people who may use it under **Who may use Hebrew**, then **Save who may use Hebrew**. Only they are offered it. A new Hebrew code starts with the Admin who applied it, so they see Hebrew in the language list at once; tick everyone else who should have it. A renewed code keeps the people chosen. If nobody is ticked, the page says so: nobody sees Hebrew until people are chosen. A server where an older version left Hebrew on for nobody gives it to the Admin who applied the code on its next start.
 
 Codes are checked on the server against the maintainer's public key, which is built into CxMissionZero. Nothing is sent anywhere. Every code applied, or refused, is recorded in the audit log (type **System**) with who entered it.
 

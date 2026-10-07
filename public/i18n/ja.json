@@ -2159,6 +2159,7 @@
   "line {0}": "{0}行目",
   "Mistakes in the file: {0}. Those settings were not applied, so the working ones stay.": "ファイル内の誤り：{0}件。これらの設定は適用されなかったため、正常な設定はそのまま維持されます。",
   "Worth checking in the file:": "ファイル内で確認をお勧めする項目：",
-  "Nothing was applied: the file has mistakes that would break the connections. Each one is listed below with how to fix it.": "何も適用されませんでした：ファイルに、接続を妨げる誤りがあります。各項目と修正方法を以下に示します。"
+  "Nothing was applied: the file has mistakes that would break the connections. Each one is listed below with how to fix it.": "何も適用されませんでした：ファイルに、接続を妨げる誤りがあります。各項目と修正方法を以下に示します。",
+  "Nobody is offered Hebrew yet, so nobody sees it in the language list. Tick the people who should have it, yourself included, then save.": "ヘブライ語はまだ誰にも提供されていないため、どのユーザーの言語一覧にも表示されません。ヘブライ語を利用するユーザーに、ご自身も含めてチェックを入れてから保存してください。"
  }
 }

@@ -2159,6 +2159,7 @@
   "line {0}": "Zeile {0}",
   "Mistakes in the file: {0}. Those settings were not applied, so the working ones stay.": "Fehler in der Datei: {0}. Diese Einstellungen wurden nicht angewendet, die bisherigen, funktionierenden Werte bleiben also erhalten.",
   "Worth checking in the file:": "In der Datei zu prüfen:",
-  "Nothing was applied: the file has mistakes that would break the connections. Each one is listed below with how to fix it.": "Nichts wurde angewendet: Die Datei enthält Fehler, durch die die Verbindungen nicht mehr funktionieren würden. Jeder Fehler ist unten mit seiner Lösung aufgeführt."
+  "Nothing was applied: the file has mistakes that would break the connections. Each one is listed below with how to fix it.": "Nichts wurde angewendet: Die Datei enthält Fehler, durch die die Verbindungen nicht mehr funktionieren würden. Jeder Fehler ist unten mit seiner Lösung aufgeführt.",
+  "Nobody is offered Hebrew yet, so nobody sees it in the language list. Tick the people who should have it, yourself included, then save.": "Hebräisch wird noch niemandem angeboten und erscheint daher bei niemandem in der Sprachliste. Kreuzen Sie die Personen an, die es verwenden sollen (auch sich selbst), und speichern Sie dann."
  }
 }

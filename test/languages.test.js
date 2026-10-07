@@ -24,9 +24,10 @@ test('open languages are always available; Hebrew is not until activated', () =>
 test('a Hebrew activation code switches it on, for the people chosen, until the code expires', () => {
   const f = file();
   const access = new LanguageAccess({ file: f });
-  access.apply(activate(Date.now() + 365 * DAY));
+  access.apply(activate(Date.now() + 365 * DAY), { by: 'admin' });
   assert.equal(access.status('he').on, true);
-  assert.deepEqual(access.status('he').users, [], 'a new code starts with nobody chosen');
+  assert.deepEqual(access.status('he').users, ['admin'], 'a new code starts with the Admin who applied it');
+  assert.equal(access.isAvailable('he', 'admin'), true, 'so it is never on with nobody able to see it');
   assert.equal(access.isAvailable('he', 'u1'), false);
   access.setUsers('he', ['u1', 'u2', 'u1']);
   assert.deepEqual(access.status('he').users, ['u1', 'u2']);
@@ -38,9 +39,28 @@ test('a Hebrew activation code switches it on, for the people chosen, until the 
   assert.equal(new LanguageAccess({ file: f }).isAvailable('he', 'u1'), true);
   // Past the code's expiry it drops off on its own, without a deactivation code.
   assert.equal(access.isAvailable('he', 'u1', Date.now() + 400 * DAY), false);
-  // A renewed code keeps the people chosen.
-  access.apply(activate(Date.now() + 700 * DAY));
+  // A renewed code keeps the people chosen, whoever applies it.
+  access.apply(activate(Date.now() + 700 * DAY), { by: 'someone-else' });
   assert.deepEqual(access.status('he').users, ['u1', 'u2']);
+  // Emptied on purpose by an Admin: a renewal keeps it empty.
+  access.setUsers('he', []);
+  access.apply(activate(Date.now() + 800 * DAY), { by: 'admin' });
+  assert.deepEqual(access.status('he').users, []);
+});
+
+test('Hebrew left on for nobody by an older version is given to the Admin who applied it; a list emptied on purpose is not', () => {
+  const f = file();
+  const expires = new Date(Date.now() + 100 * DAY).toISOString();
+  fs.writeFileSync(f, JSON.stringify({ gated: { he: { on: true, org: 'Acme', expires, users: [] } } }));
+  const access = new LanguageAccess({ file: f });
+  assert.equal(access.isAvailable('he', 'admin'), false, 'the old state: on, and nobody sees it');
+  assert.equal(access.adopt('he', 'admin'), true);
+  assert.deepEqual(access.status('he').users, ['admin']);
+  assert.equal(new LanguageAccess({ file: f }).isAvailable('he', 'admin'), true, 'kept');
+  assert.equal(access.adopt('he', 'other'), false, 'only while nobody is chosen');
+  access.setUsers('he', []);
+  assert.equal(access.adopt('he', 'admin'), false, 'an Admin chose nobody on purpose');
+  assert.equal(new LanguageAccess({ file: file() }).adopt('he', 'admin'), false, 'nothing to adopt when it is off');
 });
 
 test('Hebrew turned on before people could be chosen stays open to everyone until people are chosen', () => {

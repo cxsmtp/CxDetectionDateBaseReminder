@@ -2159,6 +2159,7 @@
   "line {0}": "{0}번 줄",
   "Mistakes in the file: {0}. Those settings were not applied, so the working ones stay.": "파일의 오류: {0}건. 해당 설정은 적용되지 않았으며, 정상적인 설정은 그대로 유지됩니다.",
   "Worth checking in the file:": "파일에서 확인해 볼 항목:",
-  "Nothing was applied: the file has mistakes that would break the connections. Each one is listed below with how to fix it.": "아무것도 적용되지 않았습니다: 파일에 연결이 작동하지 않게 만드는 오류가 있습니다. 아래에 각 오류와 해결 방법이 나와 있습니다."
+  "Nothing was applied: the file has mistakes that would break the connections. Each one is listed below with how to fix it.": "아무것도 적용되지 않았습니다: 파일에 연결이 작동하지 않게 만드는 오류가 있습니다. 아래에 각 오류와 해결 방법이 나와 있습니다.",
+  "Nobody is offered Hebrew yet, so nobody sees it in the language list. Tick the people who should have it, yourself included, then save.": "아직 히브리어가 제공된 사용자가 없어 누구의 언어 목록에도 히브리어가 표시되지 않습니다. 본인을 포함해 히브리어를 사용할 사용자를 선택한 후 저장하세요."
  }
 }

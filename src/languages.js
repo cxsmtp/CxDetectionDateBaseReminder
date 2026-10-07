@@ -3,8 +3,10 @@
  * behind an activation code (see src/activation.js). Today only Hebrew (he) is
  * gated: it appears only while a valid Hebrew activation code is in force, and a
  * deactivation code (or the code expiring) removes it. With the code in force, an Admin
- * chooses the people who may use it: only they are offered it (`users`). Turned on before
- * people could be chosen (MZ-01.00.47), it stays open to everyone until people are chosen.
+ * chooses the people who may use it: only they are offered it (`users`). The Admin who applies
+ * the first code is one of them from the start, so it never sits switched on with nobody able to
+ * see it. Turned on before people could be chosen (MZ-01.00.47), it stays open to everyone until
+ * people are chosen.
  * The state is server-wide, kept in languages.json, and re-checked against the clock on
  * every read.
  */
@@ -77,6 +79,8 @@ export class LanguageAccess {
     if (!(code in GATED_LANGUAGES)) throw Object.assign(new Error('That language is not behind an activation code.'), { status: 400 });
     if (!entry?.on) throw Object.assign(new Error('Turn the language on with its activation code first.'), { status: 409 });
     entry.users = [...new Set((Array.isArray(userIds) ? userIds : []).map(String).filter(Boolean))].slice(0, 10_000);
+    // Chosen by an Admin: an empty list now means nobody, on purpose.
+    entry.chosenAt = new Date().toISOString();
     this.#save();
     return this.status(code);
   }
@@ -86,15 +90,20 @@ export class LanguageAccess {
    * gated language: "activate" switches it on until the code's expiry, "deactivate" off.
    * Returns { code, on } or throws for a non-language or invalid result.
    */
-  apply(result) {
+  apply(result, { by = null } = {}) {
     if (!result?.valid && result?.action !== 'deactivate') throw Object.assign(new Error(result?.reason || 'This activation code is not valid.'), { status: 400 });
     const code = String(result.scope ?? '').startsWith('lang:') ? result.scope.slice('lang:'.length) : '';
     if (!code || !(code in GATED_LANGUAGES)) throw Object.assign(new Error('This code does not unlock a language.'), { status: 400 });
     if (result.action === 'activate') {
       if (!result.valid) throw Object.assign(new Error(result.reason || 'This activation code is not valid.'), { status: 400 });
-      // A renewed code keeps the people already chosen; a first one starts with nobody chosen.
+      // A renewed code keeps the people already chosen; a first one starts with the person who applied it (`by`).
       const previous = this.#state.gated[code];
-      this.#state.gated[code] = { on: true, org: result.org ?? '', expires: result.expires, activatedAt: new Date().toISOString(), users: Array.isArray(previous?.users) ? previous.users : [] };
+      const kept = Array.isArray(previous?.users) && (previous.users.length || previous.chosenAt);
+      this.#state.gated[code] = {
+        on: true, org: result.org ?? '', expires: result.expires, activatedAt: new Date().toISOString(),
+        users: kept ? previous.users : by ? [String(by)] : [],
+        ...(kept && previous.chosenAt ? { chosenAt: previous.chosenAt } : {}),
+      };
     } else if (result.action === 'deactivate') {
       // A deactivation code is honoured whether or not it is itself still in date.
       this.#state.gated[code] = { on: false, org: result.org ?? '', expires: result.expires ?? '', deactivatedAt: new Date().toISOString() };
@@ -103,5 +112,18 @@ export class LanguageAccess {
     }
     this.#save();
     return { code, on: this.#state.gated[code].on };
+  }
+
+  /**
+   * A language switched on with nobody chosen, by an older version (which started a first code
+   * with nobody, not even the Admin who applied it): give it to `userId`, the person who applied
+   * the code. A list an Admin emptied on purpose is left alone. Returns whether it changed.
+   */
+  adopt(code, userId) {
+    const entry = this.#state.gated[code];
+    if (!userId || !entry?.on || !Array.isArray(entry.users) || entry.users.length || entry.chosenAt) return false;
+    entry.users = [String(userId)];
+    this.#save();
+    return true;
   }
 }

@@ -448,7 +448,7 @@ For teams that would rather not sign in to one more tool. **Settings → Hands-o
 ### Activation codes (Admin)
 
 Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
-- **Hebrew:** an activation code switches Hebrew on; tick the people who may use it under **Who may use Hebrew** (only they are offered it); a deactivation code removes it.
+- **Hebrew:** an activation code switches Hebrew on, for the Admin who applied it to start with; tick everyone else who may use it under **Who may use Hebrew** (only they are offered it); a deactivation code removes it. When nobody is ticked, the page warns that nobody sees Hebrew.
 - **Several tenants:** for organisations that run more than one Checkmarx One tenant (the Super Admin tasks).
 
 Paste the code and select **Apply the code**. What it unlocks is switched on at once. The page lists only what a code has unlocked: until then it says **No add-ons are unlocked yet**, and **Settings → Tenants** is not shown. It shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** enter codes. Roles with **See the Activation codes page** see the section read-only: what is unlocked, and until when. [How codes are issued](activation-codes.md).
@@ -1049,7 +1049,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.57** | 499/s, 0 failed (main 512, 10 failed) | 6.4 s | 627 ms | 557 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.58** | 502/s, 0 failed (main 514, 31 failed) | 11.8 s | 648 ms | 559 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| MZ-01.00.57 | 499/s, 0 failed (main 512, 10 failed) | 6.4 s | 627 ms | 557 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.56 | 494/s, 0 failed (main 495, 0 failed) | 5.5 s | 345 ms | 548 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.55 | 522/s, 0 failed (main 514, 0 failed) | 4.7 s | 311 ms | 534 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.54 | 523/s, 0 failed (main 520, 0 failed) | 7.0 s (second run 4.9 s) | 212 ms | 534 pass | 0 vulnerabilities (`proxy-addr` updated) | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
@@ -1141,6 +1142,7 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | The email server, Checkmarx One or a git host does not connect | Read the **How to fix it** box under the button (or in the header chip): it names the problem and the steps. Every problem it recognises is in [When a connection does not work](troubleshooting.md). |
 | "Settings rolled back to the last known good configuration" | The new Checkmarx One key or mail server did not work. The message says what failed and how to fix it; fix it and try again. |
 | SMTP test times out | Usually the port and **Secure connection from the start** do not match: 465 needs it on, 587 needs it off. Otherwise a firewall is blocking the port. |
+| Hebrew is on (Settings → Activation codes) but not in the language list | Only the people ticked under **Who may use Hebrew** are offered it. Tick yourself and the others, then **Save who may use Hebrew**. |
 | Gmail refuses the password | Use an App Password, not your normal password. |
 | An uploaded .env file "Not applied" | That line has a mistake (listed with its line number and how to fix it); the setting that worked is kept. Fix the line and upload again. |
 | The report says it cannot reach the server | Be on the company network or VPN. Check **Settings → Reminder server address**, and use **Change address** in the report if the server moved. |
