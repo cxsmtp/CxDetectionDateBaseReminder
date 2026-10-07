@@ -8673,6 +8673,12 @@
    "Dashboard › p › Create the first administrator"
   ]
  },
+ "Nobody is offered Hebrew yet, so nobody sees it in the language list. Tick the people who should have it, yourself included, then save.": {
+  "kind": "message",
+  "seen": [
+   "settings › activation › Who may use Hebrew"
+  ]
+ },
  "Nobody selected: reminders go to everyone in the results.": {
   "kind": "text",
   "seen": [

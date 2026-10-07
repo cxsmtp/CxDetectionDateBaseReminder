@@ -85,8 +85,12 @@ test('a Hebrew activation code turns it on; a deactivation code turns it off', a
   assert.match(on.body.applied, /Hebrew turned on until/);
   assert.equal(on.body.languages.he.on, true);
   assert.equal(on.body.languages.he.org, 'Acme Bank');
-  assert.deepEqual(on.body.languages.he.users, [], 'nobody is chosen yet');
-  // On, but open to nobody until people are chosen.
+  const adminId = (await admin('GET', '/api/me')).body.user.id;
+  assert.deepEqual(on.body.languages.he.users, [adminId], 'open to the Admin who applied it, from the start');
+  assert.match(on.body.applied, /open to admin@acme\.io/);
+  assert.ok((await admin('GET', '/api/me')).body.languages.includes('he'), 'so they see it in the language list at once');
+  // Emptied on purpose: open to nobody until people are chosen.
+  assert.equal((await admin('PUT', '/api/activation/languages/he/users', { users: [] })).status, 200);
   assert.equal((await admin('GET', '/i18n/he.json')).status, 404);
   assert.ok(!(await admin('GET', '/api/me')).body.languages.includes('he'));
   assert.equal((await admin('PUT', '/api/me/profile', { language: 'he' })).status, 400);
