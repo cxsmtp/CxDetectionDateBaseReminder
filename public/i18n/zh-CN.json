@@ -2159,6 +2159,7 @@
   "line {0}": "第 {0} 行",
   "Mistakes in the file: {0}. Those settings were not applied, so the working ones stay.": "文件中的错误：{0} 个。这些设置未应用，因此仍保留可正常工作的设置。",
   "Worth checking in the file:": "文件中值得检查的内容：",
-  "Nothing was applied: the file has mistakes that would break the connections. Each one is listed below with how to fix it.": "未应用任何设置：文件中的错误会导致连接无法正常工作。下方列出了每个错误及其修复方法。"
+  "Nothing was applied: the file has mistakes that would break the connections. Each one is listed below with how to fix it.": "未应用任何设置：文件中的错误会导致连接无法正常工作。下方列出了每个错误及其修复方法。",
+  "Nobody is offered Hebrew yet, so nobody sees it in the language list. Tick the people who should have it, yourself included, then save.": "目前尚未向任何人提供希伯来语，因此所有人的语言列表中都不会出现该选项。请勾选需要使用希伯来语的人员（包括您自己），然后保存。"
  }
 }
