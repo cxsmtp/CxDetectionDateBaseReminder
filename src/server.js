@@ -48,6 +48,7 @@ import { TERMINAL, closure, newerThan, rescanRequest, verificationResult } from 
 import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
+import { reportI18n } from './report-i18n.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -7202,9 +7203,14 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
       remediationEnabled: Boolean(settings.aiTriage?.remediationEnabled),
     },
   });
+  // In the reader's language: the recipient's profile (or, opened by someone, theirs). A gated
+  // language travels only in a report for someone it is on for.
+  const readerEmail = /^[^\s,@]+@[^\s,@]+$/.test(audience.recipient ?? '') ? audience.recipient : String(audience.actor?.user ?? '');
+  const reader = readerEmail ? iam.findByEmail(readerEmail) : null;
   const html = generateHtmlReport(reportData, {
     findings,
     bulkFindings,
+    i18n: reportI18n({ codes: languageAccess.available(reader?.id ?? null), preferred: reader?.profile?.language ?? '' }),
     relayUrl,
     remediationViaRelay: true,
     portalUrl: settings.links.baseUrl,

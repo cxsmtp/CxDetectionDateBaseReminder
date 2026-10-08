@@ -241,7 +241,7 @@ function reportMain() {
         throw new CxError(L('Cannot reach the reminder server at {0}. It must be running and reachable from this computer (company network or VPN). If it moved, use “Change” next to its address.', base));
       }
       reached = true;
-      if (offline) serverState(L('Connected'), 'good'); // back after a restart
+      if (offline) serverState(L('Connected'), 'good', 'connected'); // back after a restart
       let parsed = null;
       try {
         parsed = await response.json();
@@ -408,7 +408,7 @@ function reportMain() {
   function renderTriage(f) {
     if (notExploitable(f)) {
       if (!f.hidden) {
-        if (f.touched) log(`AI Triage: ${f.title} → ${(VERDICTS[f.triage?.status] || VERDICTS[f.state] || ['not exploitable'])[0]} — removed from this report.`, 'success');
+        if (f.touched) log(L('AI Triage: {0} → {1} — removed from this report.', f.title, (VERDICTS[f.triage?.status] || VERDICTS[f.state] || [L('Not exploitable')])[0]), 'success');
         hideNotExploitable(f);
       }
       updateBulk();
@@ -445,29 +445,29 @@ function reportMain() {
         if (t.summary) {
           const details = document.createElement('details');
           const summary = document.createElement('summary');
-          summary.textContent = 'Why';
+          summary.textContent = L('Why');
           const text = document.createElement('p');
-          text.textContent = t.summary + (t.confidence ? ` (confidence ${t.confidence})` : '');
+          text.textContent = t.summary + (t.confidence ? ` ${L('(confidence {0})', t.confidence)}` : '');
           details.append(summary, text);
           cell.append(details);
         }
       } else if (f.noRecord) {
         const chip = document.createElement('span');
         chip.className = 'chip chip-warn';
-        chip.textContent = 'No verdict';
+        chip.textContent = L('No verdict');
         const sub = document.createElement('div');
         sub.className = 'sub';
-        sub.textContent = 'Sent for AI Triage, but Checkmarx One has not produced a result for this finding. Check it in Checkmarx One.';
+        sub.textContent = L('Sent for AI Triage, but Checkmarx One has not produced a result for this finding. Check it in Checkmarx One.');
         cell.append(chip, sub);
       } else if (f.triagedAt && !(t.status === 'IN_PROGRESS')) {
         const chip = document.createElement('span');
         chip.className = 'chip chip-muted';
-        chip.textContent = 'Triaged';
-        chip.title = `Sent for AI Triage on ${new Date(f.triagedAt).toLocaleString()}`;
+        chip.textContent = L('Triaged');
+        chip.title = L('Sent for AI Triage on {0}', new Date(f.triagedAt).toLocaleString());
         const sub = document.createElement('div');
         sub.className = 'sub';
         sub.textContent = f.state === 'TO_VERIFY' || !f.state
-          ? `${new Date(f.triagedAt).toLocaleDateString()} · no verdict published yet — still “To verify” in Checkmarx One`
+          ? L('{0} · no verdict published yet — still “To verify” in Checkmarx One', new Date(f.triagedAt).toLocaleDateString())
           : new Date(f.triagedAt).toLocaleDateString();
         cell.append(chip, sub);
       } else {
@@ -478,8 +478,8 @@ function reportMain() {
         const done = hasVerdict(f) || Boolean(f.triagedAt);
         const locked = !busy && done && !retriageAllowed();
         btn.disabled = busy || locked;
-        btn.textContent = busy ? 'Triaging…' : locked ? 'Triaged' : done ? 'Re-triage' : 'Triage';
-        btn.title = locked ? 'Already triaged. Triaging again is switched off by your administrator.' : '';
+        btn.textContent = L(busy ? 'Triaging…' : locked ? 'Triaged' : done ? 'Re-triage' : 'Triage');
+        btn.title = locked ? L('Already triaged. Triaging again is switched off by your administrator.') : '';
       }
       // A verdict may have just confirmed it: Remediate follows.
       if (tr.querySelector('[data-action="remediate"]')) renderRemediation(f);
@@ -499,7 +499,8 @@ function reportMain() {
     const running = findings.filter(isRunning).length;
     for (const btn of bulkButtons()) {
       const severity = btn.dataset.severity;
-      const label = SEVERITY_LABELS[severity];
+      const words = BULK_WORDS[severity];
+      if (!words) continue;
       const candidates = triageCandidates(severity);
       const n = candidates.length;
       const results = resultCount(candidates);
@@ -507,41 +508,42 @@ function reportMain() {
       const any = findings.some((f) => f.severity === severity);
       btn.textContent = n
         ? results < n
-          ? `Triage all ${label} (${n} findings · ${results} results)`
-          : `Triage all ${label} (${n})`
-        : busy
-          ? `Triaging ${label}…`
-          : any
-            ? `All ${label} triaged`
-            : `No ${label} findings`;
+          ? L(words.shared, n, results)
+          : L(words.all, n)
+        : L(busy ? words.busy : any ? words.done : words.none);
       btn.disabled = bulkRunning || n === 0;
-      btn.title = results < n ? `${n} findings here are ${results} Checkmarx One results: rows sharing a result are triaged together and charged once, so this uses ${results} credit(s).` : '';
+      btn.title = results < n ? L('{0} findings here are {1} Checkmarx One results: rows sharing a result are triaged together and charged once, so this uses {1} credit(s).', n, results) : '';
     }
     // Critical/high findings AI cannot act on (IaC, …): say so, rather than leave them looking forgotten.
     const manual = findings.filter((f) => f.shown && !f.hidden && f.aiUnavailable && (f.severity === 'CRITICAL' || f.severity === 'HIGH')).length;
     $('bulk-progress').textContent = [
-      running ? `${running} triage job${running === 1 ? '' : 's'} running…` : '',
-      manual ? `${manual} critical/high finding${manual === 1 ? '' : 's'} need${manual === 1 ? 's' : ''} a manual fix in Checkmarx One (AI Triage covers SAST and SCA only).` : '',
+      running ? L(running === 1 ? '{0} triage job running…' : '{0} triage jobs running…', running) : '',
+      manual ? L(manual === 1 ? '{0} critical/high finding needs a manual fix in Checkmarx One (AI Triage covers SAST and SCA only).' : '{0} critical/high findings need a manual fix in Checkmarx One (AI Triage covers SAST and SCA only).', manual) : '',
     ].filter(Boolean).join(' · ');
   }
 
+  let connectedTenant;
   function setConnectedUI(tenant) {
+    connectedTenant = tenant;
     const btn = $('connect');
-    btn.textContent = backend ? `✓ Connected to Checkmarx One · ${tenant}` : 'Connect to act on these findings';
+    btn.textContent = backend ? L('✓ Connected to Checkmarx One · {0}', tenant) : L('Connect to act on these findings');
     btn.classList.toggle('connected', Boolean(backend));
     if (!backend) $('bulk-credits').textContent = '';
   }
 
   /** null means the administrator set no monthly limit. */
+  let lastRemaining;
   function showCredits(remaining) {
+    lastRemaining = remaining;
     if (!backend) return;
     $('bulk-credits').textContent =
       remaining === null || remaining === undefined
-        ? 'AI Triage uses 1 credit per Checkmarx One result (rows that share one count once), AI Remediation 3.'
-        : `AI Triage uses 1 credit per Checkmarx One result (rows that share one count once), AI Remediation 3 · ${remaining} left this month across all projects.`;
+        ? L('AI Triage uses 1 credit per Checkmarx One result (rows that share one count once), AI Remediation 3.')
+        : L('AI Triage uses 1 credit per Checkmarx One result (rows that share one count once), AI Remediation 3 · {0} left this month across all projects.', remaining);
   }
 
-  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  /** `one` for 1, `many` otherwise, in the reader's language ({0} is the number). */
+  const plural = (n, one, many) => L(n === 1 ? one : many, n);
 
   /** Merge fresh balances; with `flash`, highlight the projects whose balance moved. */
   function updateCredits(projects, flash = false) {
@@ -553,10 +555,10 @@ function reportMain() {
         moved.add(id);
         const used = (kind) => before[kind].remaining - c[kind].remaining;
         const parts = [
-          used('triage') > 0 ? `${plural(used('triage'), 'triage credit')} used, ${c.triage.remaining} left` : '',
-          used('remediation') > 0 ? `${plural(used('remediation'), 'remediation credit')} used, ${c.remediation.remaining} left` : '',
+          used('triage') > 0 ? L(used('triage') === 1 ? '{0} triage credit used, {1} left' : '{0} triage credits used, {1} left', used('triage'), c.triage.remaining) : '',
+          used('remediation') > 0 ? L(used('remediation') === 1 ? '{0} remediation credit used, {1} left' : '{0} remediation credits used, {1} left', used('remediation'), c.remediation.remaining) : '',
         ].filter(Boolean);
-        if (parts.length) log(`${projectNames.get(id) || id}: ${parts.join('; ')}.`, 'info');
+        if (parts.length) log(L('{0}: {1}.', projectNames.get(id) || id, parts.join('; ')), 'info');
       }
       credits[id] = c;
     }
@@ -579,12 +581,12 @@ function reportMain() {
       const value = document.createElement('b');
       value.className = out ? 'out' : '';
       value.textContent = k.allocated
-        ? `${k.remaining} of ${k.allocated} left${unit ? ` (${unit(k.remaining)})` : ''}`
-        : 'none allocated';
+        ? L('{0} of {1} left', k.remaining, k.allocated) + (unit ? ` (${unit(k.remaining)})` : '')
+        : L('none allocated');
       row.append(name, value);
       const bar = document.createElement('div');
       bar.className = 'credit-bar';
-      bar.title = `${k.used} used`;
+      bar.title = L('{0} used', k.used);
       const fill = document.createElement('span');
       fill.style.width = `${pct}%`;
       bar.append(fill);
@@ -602,8 +604,8 @@ function reportMain() {
         name.textContent = projectNames.get(id) || id;
         card.append(
           name,
-          line('AI Triage', c.triage, (n) => plural(n, 'result')),
-          line('AI Remediation', c.remediation, (n) => plural(Math.floor(n / 3), 'remediation')),
+          line(L('AI Triage'), c.triage, (n) => plural(n, '{0} result', '{0} results')),
+          line(L('AI Remediation'), c.remediation, (n) => plural(Math.floor(n / 3), '{0} remediation', '{0} remediations')),
         );
         return card;
       });
@@ -623,10 +625,10 @@ function reportMain() {
     const lines = [...cost].map(([id, n]) => {
       const left = credits[id]?.[kind]?.remaining;
       const name = projectNames.get(id) || id;
-      if (left === undefined) return `${name}: ${n} credit(s)`;
+      if (left === undefined) return L('{0}: {1} credit(s)', name, n);
       return left < n
-        ? `${name}: needs ${n}, only ${left} left`
-        : `${name}: ${n} credit(s) — ${left} left now, ${left - n} after`;
+        ? L('{0}: needs {1}, only {2} left', name, n, left)
+        : L('{0}: {1} credit(s) — {2} left now, {3} after', name, n, left, left - n);
     });
     return lines.length ? `\n\n${lines.join('\n')}` : '';
   }
@@ -681,37 +683,40 @@ function reportMain() {
   /** How Checkmarx One knows, by engine (the same words as howKnown in html-report.js). */
   function howKnown(scanner) {
     const engine = String(scanner || '').toUpperCase();
-    if (engine === 'SCA') return 'This project uses a version of the package with a published vulnerability that its code can reach; a fixed version removes it.';
-    if (engine === 'SAST') return 'Checkmarx One followed the data from where it enters the application to this code, and nothing on the way makes it safe.';
-    return 'Checkmarx One matched this code or configuration against a known vulnerable pattern.';
+    if (engine === 'SCA') return L('This project uses a version of the package with a published vulnerability that its code can reach; a fixed version removes it.');
+    if (engine === 'SAST') return L('Checkmarx One followed the data from where it enters the application to this code, and nothing on the way makes it safe.');
+    return L('Checkmarx One matched this code or configuration against a known vulnerable pattern.');
   }
 
   function renderConfirmedWhy(f, tr) {
     const box = tr.querySelector('.state-why');
     if (!box || f.aiUnavailable) return;
-    const t = f.triage || {};
+    // AI Triage's latest record, else what the report was made with.
+    const t = f.triage || f.ai || {};
     if (!CONFIRMED.has(f.state) && !CONFIRMED.has(t.status)) {
       box.replaceChildren();
       return;
     }
     // Said once: Why and Fix; "why?" adds only what those two lines do not say.
-    const advice = f.advice || { what: 'Checkmarx One judged this finding a real vulnerability.', fix: 'Remediate asks AI Remediation for a fix.' };
-    const verdict = [t.reachability, t.exploitability].filter(Boolean).map((v) => v.replace(/_/g, ' ').toLowerCase()).join(' and ');
+    // The report's own advice is in the reader's language; AI Triage's own words stay as Checkmarx One wrote them.
+    const advice = f.advice ? { what: L(f.advice.what), fix: L(f.advice.fix) } : { what: L('Checkmarx One judged this finding a real vulnerability.'), fix: L('Remediate asks AI Remediation for a fix.') };
+    const verdictWords = [t.reachability, t.exploitability].filter(Boolean).map((v) => SUB_LABELS[v] || v.replace(/_/g, ' ').toLowerCase());
+    const verdict = verdictWords.length === 2 ? L('{0} and {1}', verdictWords[0].toLowerCase(), verdictWords[1].toLowerCase()) : (verdictWords[0] || '').toLowerCase();
     const whyFull = t.reason || advice.what;
     const fixFull = t.recommendation || advice.fix;
     const why = firstSentence(whyFull, 160);
     const fix = firstSentence(fixFull, 160);
     const more = [
       why !== whyFull ? whyFull : howKnown(f.scanner),
-      verdict && `AI Triage judged it ${verdict}${t.confidence ? ` (confidence ${t.confidence})` : ''}.`,
-      t.reason && advice.what !== t.reason ? `This kind of finding: ${advice.what}` : '',
-      fix !== fixFull ? `Fix in full: ${fixFull}` : '',
+      verdict && (t.confidence ? L('AI Triage judged it {0} (confidence {1}).', verdict, t.confidence) : L('AI Triage judged it {0}.', verdict)),
+      t.reason && advice.what !== t.reason ? L('This kind of finding: {0}', advice.what) : '',
+      fix !== fixFull ? L('Fix in full: {0}', fixFull) : '',
     ].filter(Boolean);
-    const details = el('details', { className: 'why-more' }, el('summary', { textContent: 'why?' }), ...more.map((text) => el('p', { textContent: text })));
-    const next = el('p', {}, config.remediateHere ? 'Remediate asks Checkmarx One AI Remediation for the code change (a pull request when the project is connected to its repository).' : 'Checkmarx One shows the full data flow.');
-    if (/^https?:\/\//i.test(f.url || '')) next.append(' ', el('a', { href: f.url, target: '_blank', rel: 'noopener', textContent: 'Open in Checkmarx One' }));
+    const details = el('details', { className: 'why-more' }, el('summary', { textContent: L('why?') }), ...more.map((text) => el('p', { textContent: text })));
+    const next = el('p', {}, config.remediateHere ? L('Remediate asks Checkmarx One AI Remediation for the code change (a pull request when the project is connected to its repository).') : L('Checkmarx One shows the full data flow.'));
+    if (/^https?:\/\//i.test(f.url || '')) next.append(' ', el('a', { href: f.url, target: '_blank', rel: 'noopener', textContent: L('Open in Checkmarx One') }));
     details.append(next);
-    box.replaceChildren(para('Why:', why, 'why-line'), para('Fix:', fix, 'why-line'), details);
+    box.replaceChildren(para(L('Why:'), why, 'why-line'), para(L('Fix:'), fix, 'why-line'), details);
   }
 
   async function pollTriage(list) {
@@ -732,13 +737,13 @@ function reportMain() {
           f.triage = { status: '' };
           f.noRecord = true;
           renderTriage(f);
-          log(`AI Triage: ${f.title} → no result from Checkmarx One ${Math.round((Date.now() - sentAt) / 60000)} min after it was sent. The report keeps checking.`, 'error');
+          log(L('AI Triage: {0} → no result from Checkmarx One {1} min after it was sent. The report keeps checking.', f.title, Math.round((Date.now() - sentAt) / 60000)), 'error');
           return;
         }
         if (status && !WAITING.has(status)) {
           f.settled = true;
           renderTriage(f);
-          log(`AI Triage: ${f.title} → ${(VERDICTS[status] || [status])[0]}`, status === 'FAILED' ? 'error' : 'success');
+          log(L('AI Triage: {0} → {1}', f.title, (VERDICTS[status] || [status])[0]), status === 'FAILED' ? 'error' : 'success');
         } else {
           still.push(f);
         }
@@ -749,10 +754,10 @@ function reportMain() {
     for (const f of waiting) {
       // Analysis finished without changing the finding: it stays "To verify".
       if (effectiveStatus(f) === 'TO_VERIFY') f.settled = true;
-      else f.triage = { ...(f.triage || {}), status: '', note: 'Still running — see Checkmarx One' };
+      else f.triage = { ...(f.triage || {}), status: '', note: L('Still running — see Checkmarx One') };
       renderTriage(f);
     }
-    if (waiting.length) log(`${waiting.length} finding(s) had no final AI Triage verdict yet; see Checkmarx One for the latest.`, 'info');
+    if (waiting.length) log(L('{0} finding(s) had no final AI Triage verdict yet; see Checkmarx One for the latest.', waiting.length), 'info');
   }
 
   async function triage(list) {
@@ -774,8 +779,8 @@ function reportMain() {
         started.push(...group);
         log(
           result.published
-            ? `AI Triage started for ${group.length} finding(s).`
-            : `AI Triage already running for ${group.length} finding(s); following it.`,
+            ? L('AI Triage started for {0} finding(s).', group.length)
+            : L('AI Triage already running for {0} finding(s); following it.', group.length),
           'pending',
         );
       } else if (result.retriage) {
@@ -817,12 +822,13 @@ function reportMain() {
   async function bulkTriage(severity) {
     const list = triageCandidates(severity);
     if (!list.length) return;
-    const label = SEVERITY_LABELS[severity];
+    const words = BULK_WORDS[severity];
+    if (!words) return;
     const projects = new Set(list.map((f) => f.projectId)).size;
-    const where = projects > 1 ? ` across ${projects} projects` : '';
+    const ask = projects > 1 ? L(words.askAcross, list.length, projects) : L(words.ask, list.length);
     const results = resultCount(list);
-    const shared = results < list.length ? ` They are ${results} Checkmarx One results: rows sharing a result are triaged together and charged once.` : '';
-    if (!confirm(`Run AI Triage on all ${list.length} ${label} finding(s)${where}?${shared} This uses ${results} Checkmarx One credit(s).${afterText(list, 'triage', 1)}`)) return;
+    const shared = results < list.length ? ` ${L('They are {0} Checkmarx One results: rows sharing a result are triaged together and charged once.', results)}` : '';
+    if (!confirm(`${ask}${shared} ${L('This uses {0} Checkmarx One credit(s).', results)}${afterText(list, 'triage', 1)}`)) return;
     bulkRunning = true;
     updateBulk();
     try {
@@ -839,10 +845,14 @@ function reportMain() {
     f.hidden = true;
     const tr = row(f);
     if (tr) tr.hidden = true;
+    labelHidden();
+  }
+
+  function labelHidden() {
     const n = findings.filter((x) => x.hidden && x.shown).length;
     const note = $('hidden-note');
     note.hidden = n === 0;
-    note.textContent = `${n} finding${n === 1 ? '' : 's'} triaged as not exploitable (or proposed so) ${n === 1 ? 'is' : 'are'} not shown.`;
+    note.textContent = L(n === 1 ? '{0} finding triaged as not exploitable (or proposed so) is not shown.' : '{0} findings triaged as not exploitable (or proposed so) are not shown.', n);
   }
 
   /**
@@ -881,7 +891,7 @@ function reportMain() {
       renderTriage(f);
     });
     const done = eligible.filter((f) => hasVerdict(f) || f.triagedAt).length;
-    log(`Loaded Checkmarx One states: ${done} of ${eligible.length} eligible findings already triaged.`, 'success');
+    log(L('Loaded Checkmarx One states: {0} of {1} eligible findings already triaged.', done, eligible.length), 'success');
     reportStateErrors();
     markRefreshed();
     if (resumed.length) pollTriage(resumed).catch(reportError);
@@ -899,22 +909,22 @@ function reportMain() {
 
   function reportStateErrors() {
     if (!stateErrors.size) return;
-    const message = `Could not read current states from Checkmarx One: ${[...stateErrors][0]}`;
+    const message = L('Could not read current states from Checkmarx One: {0}', [...stateErrors][0]);
     log(message, 'error');
-    banner(`${message} The report keeps trying every minute.`, 'warn');
+    banner(`${message} ${L('The report keeps trying every minute.')}`, 'warn');
     stateErrors.clear();
   }
 
-  function markRefreshed() {
-    lastRefresh = Date.now();
+  function markRefreshed(at = Date.now()) {
+    lastRefresh = at;
     const el = $('last-refresh');
-    if (el) el.textContent = `Updated ${new Date(lastRefresh).toLocaleTimeString()}`;
+    if (el) el.textContent = L('Updated {0}', new Date(lastRefresh).toLocaleTimeString());
   }
 
   async function refreshStates({ manual = false } = {}) {
     if (!backend || refreshing) return;
     refreshing = true;
-    if (manual) $('last-refresh').textContent = 'Updating…';
+    if (manual) $('last-refresh').textContent = L('Updating…');
     try {
       const list = findings.filter((f) => !f.aiUnavailable && !f.hidden);
       const answers = await backend.results(list);
@@ -932,12 +942,12 @@ function reportMain() {
       });
       reportStateErrors();
       markRefreshed();
-      if (manual) log('Report refreshed from Checkmarx One.', 'success');
+      if (manual) log(L('Report refreshed from Checkmarx One.'), 'success');
       backend.credits?.().catch(() => {});
     } catch (error) {
-      log(`Could not refresh: ${error.message}`, 'error');
+      log(L('Could not refresh: {0}', error.message), 'error');
       if (manual) reportError(error);
-      if ($('last-refresh')) $('last-refresh').textContent = 'Update failed — retrying';
+      if ($('last-refresh')) $('last-refresh').textContent = L('Update failed — retrying');
     } finally {
       refreshing = false;
     }
@@ -987,7 +997,7 @@ function reportMain() {
     const r = body?.results?.[0];
     if (!r) return null;
     const job = String(r.jobStatus || r.status || '').toUpperCase();
-    if (job === 'FAILED' || r.data?.error) return { failed: r.data?.error || r.autoPr?.error_msg || 'AI Remediation failed.' };
+    if (job === 'FAILED' || r.data?.error) return { failed: r.data?.error || r.autoPr?.error_msg || L('AI Remediation failed.') };
     const data = r.data;
     if (!r.finishedAt && !data?.summary && !data?.file_changes?.length) return null;
     const patch = (data?.file_changes || [])
@@ -1033,14 +1043,14 @@ function reportMain() {
       // The fence: only a finding triaged and confirmed can be remediated.
       const fenced = !done && !r?.running && !isConfirmed(f);
       btn.disabled = r?.running === true || locked || fenced;
-      btn.textContent = r?.running ? 'Remediating…' : locked ? 'Remediated' : done ? 'Re-remediate' : 'Remediate';
+      btn.textContent = L(r?.running ? 'Remediating…' : locked ? 'Remediated' : done ? 'Re-remediate' : 'Remediate');
       btn.title = locked
-        ? 'Already remediated. Remediating again is switched off by your administrator.'
-        : fenced ? 'Remediate works once triage has confirmed this finding (state Confirmed).' : '';
+        ? L('Already remediated. Remediating again is switched off by your administrator.')
+        : fenced ? L('Remediate works once triage has confirmed this finding (state Confirmed).') : '';
     }
     if (!r) return;
     if (r.running) {
-      out.textContent = 'AI Remediation running in Checkmarx One — it triages the finding, writes a fix and opens a pull request. This can take several minutes.';
+      out.textContent = L('AI Remediation running in Checkmarx One — it triages the finding, writes a fix and opens a pull request. This can take several minutes.');
       return;
     }
     if (r.failed) {
@@ -1051,20 +1061,20 @@ function reportMain() {
     const headline = document.createElement('p');
     headline.className = 'fix-headline';
     if (r.doneElsewhere) {
-      headline.textContent = '✓ Already remediated';
+      headline.textContent = L('✓ Already remediated');
       out.append(headline);
-      if (f.url) out.append(link('View the fix in Checkmarx One', f.url));
+      if (f.url) out.append(link(L('View the fix in Checkmarx One'), f.url));
       return;
     }
     if (r.prUrl) {
-      headline.append('✓ Remediation opened ');
-      const pr = link(`PR ${prNumber(r.prUrl) || ''}`.trim(), r.prUrl);
+      headline.append(`${L('✓ Remediation opened')} `);
+      const pr = link(L('PR {0}', prNumber(r.prUrl) || '').trim(), r.prUrl);
       pr.style.display = 'inline';
       headline.append(pr);
     } else if (r.prError) {
-      headline.textContent = `✓ Fix suggested — no pull request: ${r.prError}`;
+      headline.textContent = L('✓ Fix suggested — no pull request: {0}', r.prError);
     } else {
-      headline.textContent = '✓ Fix suggested (no pull request: the project is not connected to a code repository)';
+      headline.textContent = L('✓ Fix suggested (no pull request: the project is not connected to a code repository)');
     }
     out.append(headline);
     if (r.summary) {
@@ -1076,13 +1086,13 @@ function reportMain() {
       const more = document.createElement('details');
       more.className = 'fix-more';
       const summary = document.createElement('summary');
-      summary.textContent = 'Why and how';
+      summary.textContent = L('Why and how');
       more.append(summary);
-      for (const [label, text] of [['Why', r.why], ['How', r.how]]) {
+      for (const [label, text] of [[L('Why:'), r.why], [L('How:'), r.how]]) {
         if (!text) continue;
         const p = document.createElement('p');
         const b = document.createElement('b');
-        b.textContent = `${label}: `;
+        b.textContent = `${label} `;
         p.append(b, text);
         more.append(p);
       }
@@ -1091,13 +1101,13 @@ function reportMain() {
     if (r.tests?.length) {
       const p = document.createElement('p');
       p.className = 'muted';
-      p.textContent = `Includes ${r.tests.length} test file${r.tests.length === 1 ? '' : 's'} Checkmarx One wrote for the fix: ${r.tests.join(', ')}.`;
+      p.textContent = L(r.tests.length === 1 ? 'Includes {0} test file Checkmarx One wrote for the fix: {1}.' : 'Includes {0} test files Checkmarx One wrote for the fix: {1}.', r.tests.length, r.tests.join(', '));
       out.append(p);
     }
-    if (f.url) out.append(link('View the fix in Checkmarx One', f.url));
+    if (f.url) out.append(link(L('View the fix in Checkmarx One'), f.url));
     if (r.patch) {
       const blob = URL.createObjectURL(new Blob([r.patch], { type: 'text/x-diff' }));
-      out.append(link(`Download patch (${r.files} file${r.files === 1 ? '' : 's'})`, blob, `${f.title.replace(/[^\w.-]+/g, '_').slice(0, 60)}.patch`));
+      out.append(link(L(r.files === 1 ? 'Download patch ({0} file)' : 'Download patch ({0} files)', r.files), blob, `${f.title.replace(/[^\w.-]+/g, '_').slice(0, 60)}.patch`));
     }
     if (r.changes?.length) out.append(workspaceActions(f, r));
   }
@@ -1113,13 +1123,13 @@ function reportMain() {
       f.remediation = result;
       renderRemediation(f);
       if (result.failed) {
-        log(`AI Remediation failed for ${f.title}: ${result.failed}`, 'error');
+        log(L('AI Remediation failed for {0}: {1}', f.title, result.failed), 'error');
       } else {
-        log(`AI Remediation ready: ${f.title}${result.prUrl ? ` — opened PR ${prNumber(result.prUrl)}`.trimEnd() : ''}`, 'success');
+        log(result.prUrl ? L('AI Remediation ready: {0} — opened PR {1}', f.title, prNumber(result.prUrl)).trimEnd() : L('AI Remediation ready: {0}', f.title), 'success');
       }
       return;
     }
-    f.remediation = { failed: 'Still running — the result will appear on the finding in Checkmarx One.' };
+    f.remediation = { failed: L('Still running — the result will appear on the finding in Checkmarx One.') };
     renderRemediation(f);
   }
 
@@ -1136,21 +1146,23 @@ function reportMain() {
         backend.remediationAllowed = (await backend.connect()).remediation !== false;
       } catch {}
       if (backend.remediationAllowed === false) {
-        f.remediation = { failed: 'AI Remediation from reports is switched off. Ask your Checkmarx One reminder administrator to allow it.' };
+        f.remediation = { failed: L('AI Remediation from reports is switched off. Ask your Checkmarx One reminder administrator to allow it.') };
         return renderRemediation(f);
       }
     }
-    const again = isRemediated(f) ? ' again' : '';
-    if (!confirm(`Run Checkmarx One AI Remediation${again} for "${f.title}"? It uses 3 Checkmarx One credits and, for repository-connected projects, opens a pull request.${afterText([f], 'remediation', 3)}`)) return;
+    const ask = isRemediated(f)
+      ? L('Run Checkmarx One AI Remediation again for “{0}”? It uses 3 Checkmarx One credits and, for repository-connected projects, opens a pull request.', f.title)
+      : L('Run Checkmarx One AI Remediation for “{0}”? It uses 3 Checkmarx One credits and, for repository-connected projects, opens a pull request.', f.title);
+    if (!confirm(`${ask}${afterText([f], 'remediation', 3)}`)) return;
     const previous = f.remediation;
     f.remediation = { running: true };
     renderRemediation(f);
     try {
       const started = await backend.remediate(f);
-      log(started.published ? `AI Remediation started: ${f.title}` : `AI Remediation already running for ${f.title}; following it.`, 'pending');
+      log(started.published ? L('AI Remediation started: {0}', f.title) : L('AI Remediation already running for {0}; following it.', f.title), 'pending');
     } catch (error) {
       if (error.status === 409 && error.body?.running) {
-        log(`AI Remediation already running for ${f.title}; following it.`, 'pending');
+        log(L('AI Remediation already running for {0}; following it.', f.title), 'pending');
       } else if (error.status === 409 && error.body?.remediated) {
         // Remediated meanwhile (in Checkmarx One, or from another report): show that result.
         f.remediation = remediationFromBody(error.body.body) || previous || { doneElsewhere: true };
@@ -1202,7 +1214,7 @@ function reportMain() {
         renderRemediation(f);
       }
     });
-    if (done) log(`${done} finding(s) in this report are already remediated.`, 'info');
+    if (done) log(L('{0} finding(s) in this report are already remediated.', done), 'info');
   }
 
   // ---------------------------------------------------------------------------
@@ -1225,7 +1237,7 @@ function reportMain() {
   async function openProjectReport(p, button) {
     if (!p) return;
     if (!config.relayUrl) {
-      openServerForm(`Enter the reminder server address to open the report for ${p.projectName}.`);
+      openServerForm(L('Enter the reminder server address to open the report for {0}.', p.projectName));
       return;
     }
     const tab = window.open('', '_blank');
@@ -1235,13 +1247,13 @@ function reportMain() {
         tab.opener = null;
       } catch {}
       try {
-        tab.document.title = `${p.projectName} — building the report…`;
-        tab.document.body.innerHTML = '<p style="font:16px system-ui,sans-serif;padding:32px;color:#374151">Building the report…</p>';
-        tab.document.body.firstChild.textContent = `Building the report for ${p.projectName}…`;
+        tab.document.title = L('{0} — building the report…', p.projectName);
+        tab.document.body.innerHTML = '<p style="font:16px system-ui,sans-serif;padding:32px;color:#374151"></p>';
+        tab.document.body.firstChild.textContent = L('Building the report for {0}…', p.projectName);
       } catch {}
     }
     button.disabled = true;
-    projectReportStatus(`Building the report for ${p.projectName} (${p.count} finding${p.count === 1 ? '' : 's'})…`);
+    projectReportStatus(L(p.count === 1 ? 'Building the report for {0} ({1} finding)…' : 'Building the report for {0} ({1} findings)…', p.projectName, p.count));
     try {
       const answer = await relayBackend().projectReport(p);
       const url = URL.createObjectURL(new Blob([answer.html], { type: 'text/html' }));
@@ -1261,12 +1273,13 @@ function reportMain() {
           shown = true;
         } catch {}
       }
-      const where = shown ? 'opened in a new tab and downloaded' : 'downloaded (allow pop-ups for this page to open it in a tab too)';
-      projectReportStatus(`The report for ${p.projectName} was ${where} as ${link.download}.`, 'ok');
-      log(`Report for ${p.projectName}: ${where}.`, 'success');
+      projectReportStatus(shown
+        ? L('The report for {0} was opened in a new tab and downloaded as {1}.', p.projectName, link.download)
+        : L('The report for {0} was downloaded as {1} (allow pop-ups for this page to open it in a tab too).', p.projectName, link.download), 'ok');
+      log(shown ? L('Report for {0}: opened in a new tab and downloaded.', p.projectName) : L('Report for {0}: downloaded (allow pop-ups for this page to open it in a tab too).', p.projectName), 'success');
     } catch (error) {
       if (tab && !tab.closed) tab.close();
-      projectReportStatus(`Could not build the report for ${p.projectName}: ${error.message}`, 'error');
+      projectReportStatus(L('Could not build the report for {0}: {1}', p.projectName, error.message), 'error');
       reportError(error);
     } finally {
       button.disabled = false;
@@ -1289,7 +1302,7 @@ function reportMain() {
       status = await candidate.connect();
     } catch (error) {
       // The server went HTTPS only, and says where: follow it (once), when it answers there.
-      if (!moved && error.status === 426 && error.body?.movedTo && (await switchServer(error.body.movedTo, 'The reminder server now uses HTTPS'))) {
+      if (!moved && error.status === 426 && error.body?.movedTo && (await switchServer(error.body.movedTo, L('The reminder server now uses HTTPS')))) {
         return connect({ quiet, moved: true });
       }
       throw error;
@@ -1304,20 +1317,20 @@ function reportMain() {
     } catch {}
     setConnectedUI(status.tenant);
     showServer();
-    serverState('Connected', 'good');
+    serverState(L('Connected'), 'good', 'connected');
     $('server-prompt').hidden = true;
     showCredits(status.creditsRemaining);
     updateBulk();
     banner('');
-    if (!quiet) log(`Connected to Checkmarx One (${status.tenant}) through the reminder server.`, 'success');
+    if (!quiet) log(L('Connected to Checkmarx One ({0}) through the reminder server.', status.tenant), 'success');
     for (const f of findings) if (hasVerdict(f)) renderTriage(f);
     loadExistingTriage().catch(reportError);
     loadExistingRemediation().catch(reportError);
-    candidate.credits().catch((error) => log(`Could not read credits: ${error.message}`, 'error'));
+    candidate.credits().catch((error) => log(L('Could not read credits: {0}', error.message), 'error'));
     if (config.rescan) candidate.rescanState().then(renderRescan).catch(() => {});
     // The server answers on HTTPS too: use it from now on, if it works from this computer.
     if (status.httpsUrl && /^http:/i.test(String(config.relayUrl || ''))) {
-      switchServer(status.httpsUrl, 'A secure (HTTPS) connection to the reminder server works from this computer')
+      switchServer(status.httpsUrl, L('A secure (HTTPS) connection to the reminder server works from this computer'))
         .then((switched) => (switched ? connect({ quiet: true, moved: true }) : null))
         .catch(() => {});
     }
@@ -1327,17 +1340,19 @@ function reportMain() {
   // Rescan your fixes: the developer goes first (a tracked report's round is closed)
   // ---------------------------------------------------------------------------
 
+  let lastRescan;
   function renderRescan(s) {
     const card = $('rescan-card');
     if (!card || !s) return;
+    lastRescan = s;
     const until = s.dueAt ? new Date(s.dueAt).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
     const view = {
-      ready: ['', '⟳', 'Everything here is dealt with. Prove it: rescan now', `You have until ${until} (${s.hoursLeft} h).${s.onBehalf ? ' After that it is rescanned on your behalf.' : ''} You get the result by email.`, 'Rescan now', false],
-      scanning: ['wait', '⟳', 'Rescanning…', `${s.startedBy ? `Started by ${s.startedBy}` : s.automatic ? 'Started on your behalf' : 'Started'}. You get the result by email.`, '', true],
-      zero: ['ok', '✓', 'Verified at zero', 'The rescan found nothing left in scope. Every fix worked.', '', true],
-      verified: ['wait', '✓', 'Rescanned', `${s.result?.fixed ?? 0} fixed, ${s.result?.stillFound ?? 0} still found. The updated report has been emailed to you.`, '', true],
-      opening: ['', '⟳', 'Everything here is dealt with', 'The rescan button opens in a minute.', '', true],
-      'open-findings': ['wait', '•', 'Rescan unlocks when everything here is dealt with', `${s.open ?? 'Some'} finding${s.open === 1 ? '' : 's'} left to triage or fix. Then you rescan to prove the fixes.`, 'Rescan', true],
+      ready: ['', '⟳', L('Everything here is dealt with. Prove it: rescan now'), `${L(s.onBehalf ? 'You have until {0} ({1} h). After that it is rescanned on your behalf.' : 'You have until {0} ({1} h).', until, s.hoursLeft)} ${L('You get the result by email.')}`, L('Rescan now'), false],
+      scanning: ['wait', '⟳', L('Rescanning…'), `${s.startedBy ? L('Started by {0}.', s.startedBy) : s.automatic ? L('Started on your behalf.') : L('Started.')} ${L('You get the result by email.')}`, '', true],
+      zero: ['ok', '✓', L('Verified at zero'), L('The rescan found nothing left in scope. Every fix worked.'), '', true],
+      verified: ['wait', '✓', L('Rescanned'), L('{0} fixed, {1} still found. The updated report has been emailed to you.', s.result?.fixed ?? 0, s.result?.stillFound ?? 0), '', true],
+      opening: ['', '⟳', L('Everything here is dealt with'), L('The rescan button opens in a minute.'), '', true],
+      'open-findings': ['wait', '•', L('Rescan unlocks when everything here is dealt with'), s.open == null ? L('Some findings left to triage or fix. Then you rescan to prove the fixes.') : L(s.open === 1 ? '{0} finding left to triage or fix. Then you rescan to prove the fixes.' : '{0} findings left to triage or fix. Then you rescan to prove the fixes.', s.open), L('Rescan'), true],
     }[s.state];
     if (!view || !s.sameRound) {
       card.hidden = true;
@@ -1359,14 +1374,14 @@ function reportMain() {
     card.append(go);
     go.addEventListener('click', async () => {
       go.disabled = true;
-      go.textContent = 'Starting…';
+      go.textContent = L('Starting…');
       try {
         renderRescan({ ...(await backend.rescan()), sameRound: true });
-        log('Rescan started: Checkmarx One scans the same repository, branch and engines again. The result comes by email.', 'success');
+        log(L('Rescan started: Checkmarx One scans the same repository, branch and engines again. The result comes by email.'), 'success');
       } catch (error) {
         go.disabled = false;
-        go.textContent = 'Rescan now';
-        log(`Could not start the rescan: ${error.message}`, 'error');
+        go.textContent = L('Rescan now');
+        log(L('Could not start the rescan: {0}', error.message), 'error');
       }
     });
   }
@@ -1385,7 +1400,7 @@ function reportMain() {
       else localStorage.removeItem(SERVER_STORE);
     } catch {}
     showServer();
-    log(`${reason}: now using ${base}.`, 'info');
+    log(L('{0}: now using {1}.', reason, base), 'info');
     return true;
   }
 
@@ -1398,14 +1413,14 @@ function reportMain() {
     showServer();
     renderCredits();
     updateBulk();
-    log('Disconnected from Checkmarx One.', 'info');
+    log(L('Disconnected from Checkmarx One.'), 'info');
   }
 
   /** Connect first if needed (once, however many buttons are clicked), then act. */
   function requireConnection(action) {
     if (backend) return action();
     if (!config.relayUrl) {
-      openServerForm('Enter the reminder server address to connect.');
+      openServerForm(L('Enter the reminder server address to connect.'));
       return;
     }
     connecting ??= connect().finally(() => {
@@ -1420,7 +1435,10 @@ function reportMain() {
 
   const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\]|0\.0\.0\.0)$/i;
 
-  function serverState(text, kind = '') {
+  // What the state says (connected, unreachable, …), whatever language it is shown in.
+  let serverKind = '';
+  function serverState(text, kind = '', what = kind === 'bad' ? 'unreachable' : '') {
+    serverKind = what;
     const el = $('server-state');
     el.textContent = text;
     el.className = `server-state ${kind}`;
@@ -1428,15 +1446,15 @@ function reportMain() {
 
   function showServer() {
     const url = String(config.relayUrl || '').replace(/\/+$/, '');
-    $('server-url').textContent = url || 'not set';
-    $('server-change').textContent = url ? 'Change' : 'Enter address';
+    $('server-url').textContent = url || L('not set');
+    $('server-change').textContent = url ? L('Change') : L('Enter address');
     $('server-reset').hidden = !ORIGINAL_SERVER || url === ORIGINAL_SERVER;
-    if (!url) serverState('Needed to triage from this report', 'warn');
-    else if (url !== ORIGINAL_SERVER && /^https:/i.test(url) && /^http:/i.test(ORIGINAL_SERVER)) serverState('Switched to HTTPS', 'good');
-    else if (url !== ORIGINAL_SERVER) serverState('Changed in this browser', 'warn');
+    if (!url) serverState(L('Needed to triage from this report'), 'warn');
+    else if (url !== ORIGINAL_SERVER && /^https:/i.test(url) && /^http:/i.test(ORIGINAL_SERVER)) serverState(L('Switched to HTTPS'), 'good');
+    else if (url !== ORIGINAL_SERVER) serverState(L('Changed in this browser'), 'warn');
     else {
       try {
-        serverState(LOOPBACK.test(new URL(url).hostname) ? 'Only reachable on the server’s own computer' : '', LOOPBACK.test(new URL(url).hostname) ? 'warn' : '');
+        serverState(LOOPBACK.test(new URL(url).hostname) ? L('Only reachable on the server’s own computer') : '', LOOPBACK.test(new URL(url).hostname) ? 'warn' : '');
       } catch {
         serverState('');
       }
@@ -1458,9 +1476,9 @@ function reportMain() {
     try {
       url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
     } catch {
-      throw new CxError('That is not a web address, e.g. https://cx-reminder.example.com');
+      throw new CxError(L('That is not a web address, e.g. {0}', 'https://cx-reminder.example.com'));
     }
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new CxError('Use an http or https address.');
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new CxError(L('Use an http or https address.'));
     const base = `${url.origin}${url.pathname}`.replace(/\/+$/, '');
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = controller && setTimeout(() => controller.abort(), 10000);
@@ -1469,13 +1487,13 @@ function reportMain() {
       const response = await fetch(`${base}/api/relay/ping`, { signal: controller?.signal, cache: 'no-store' });
       body = await response.json().catch(() => null);
     } catch {
-      throw new CxError(`No reminder server answered at ${base}. Check the address, and that you are on the company network or VPN.`);
+      throw new CxError(L('No reminder server answered at {0}. Check the address, and that you are on the company network or VPN.', base));
     } finally {
       if (timer) clearTimeout(timer);
     }
     // An old http address of a server that is HTTPS only now: it says where it went.
     if (body?.movedTo && !followed) return checkServer(String(body.movedTo), true);
-    if (body?.service !== 'mission-zero-relay') throw new CxError(`${base} answered, but it is not a reminder server. Check the address.`);
+    if (body?.service !== 'mission-zero-relay') throw new CxError(L('{0} answered, but it is not a reminder server. Check the address.', base));
     return base;
   }
 
@@ -1488,7 +1506,7 @@ function reportMain() {
     if (backend) disconnect();
     showServer();
     $('server-form').hidden = true;
-    log(`Reminder server set to ${base}.`, 'info');
+    log(L('Reminder server set to {0}.', base), 'info');
     await connect();
   }
 
@@ -1522,7 +1540,7 @@ function reportMain() {
 
   $('connect').addEventListener('click', () => {
     if (!backend) return requireConnection(() => {});
-    if (confirm('Disconnect from Checkmarx One?')) disconnect();
+    if (confirm(L('Disconnect from Checkmarx One?'))) disconnect();
   });
   for (const btn of bulkButtons()) {
     btn.addEventListener('click', () => requireConnection(() => bulkTriage(btn.dataset.severity)));
@@ -1612,13 +1630,13 @@ function reportMain() {
   function askCodeRoot(f) {
     const name = repoName(f);
     const answer = prompt(
-      `Where do you keep your code on this computer? Asked once: each repository then opens from that folder by its name (${name} → <folder>${/Win/.test(navigator.platform) ? '\\' : '/'}${name}).\n\nFor example C:\\src or /home/you/src`,
+      `${L('Where do you keep your code on this computer? Asked once: each repository then opens from that folder by its name ({0}).', `${name} → <folder>${/Win/.test(navigator.platform) ? '\\' : '/'}${name}`)}\n\n${L('For example {0} or {1}', 'C:\\src', '/home/you/src')}`,
       codeRoot(),
     );
     if (answer === null) return '';
     const root = cleanFolder(answer);
     if (!absolute(root)) {
-      alert('Enter the full path of the folder: starting with a drive letter (C:\\…) or with /.');
+      alert(L('Enter the full path of the folder: starting with a drive letter (C:\\…) or with /.'));
       return '';
     }
     saveWorkspacePrefs({ ...workspacePrefs(), parent: root });
@@ -1628,11 +1646,11 @@ function reportMain() {
   /** A repository kept somewhere else, or under another name. */
   function askFolder(f) {
     const name = repoName(f);
-    const answer = prompt(`Where is ${name} on this computer? Its full folder path.`, folderFor(f) || (codeRoot() ? joinPath(codeRoot(), name) : ''));
+    const answer = prompt(L('Where is {0} on this computer? Its full folder path.', name), folderFor(f) || (codeRoot() ? joinPath(codeRoot(), name) : ''));
     if (answer === null) return '';
     const folder = cleanFolder(answer);
     if (!absolute(folder)) {
-      alert('Enter the full path of the folder: starting with a drive letter (C:\\…) or with /.');
+      alert(L('Enter the full path of the folder: starting with a drive letter (C:\\…) or with /.'));
       return '';
     }
     const prefs = workspacePrefs();
@@ -1674,11 +1692,11 @@ function reportMain() {
     const file = f.loc.path.split('/').map(encodeURIComponent).join('/');
     const line = f.loc.line || 1;
     if (!project) return null;
-    if (host === 'github.com') return { label: 'github.dev (in the browser)', url: `https://github.dev/${project}/blob/${branch}/${file}#L${line}` };
-    if (/(^|\.)gitlab\./.test(host)) return { label: 'GitLab Web IDE', url: `https://${host}/-/ide/project/${project}/edit/${branch}/-/${file}` };
-    if (host === 'bitbucket.org') return { label: 'View on Bitbucket', url: `https://bitbucket.org/${project}/src/${branch}/${file}#lines-${line}` };
+    if (host === 'github.com') return { label: L('github.dev (in the browser)'), url: `https://github.dev/${project}/blob/${branch}/${file}#L${line}` };
+    if (/(^|\.)gitlab\./.test(host)) return { label: L('GitLab Web IDE'), url: `https://${host}/-/ide/project/${project}/edit/${branch}/-/${file}` };
+    if (host === 'bitbucket.org') return { label: L('View on Bitbucket'), url: `https://bitbucket.org/${project}/src/${branch}/${file}#lines-${line}` };
     if (host === 'dev.azure.com') {
-      return { label: 'View in Azure Repos', url: `https://dev.azure.com/${project}?path=/${file}&version=GB${branch}&line=${line}&lineEnd=${line}&lineStartColumn=1&lineEndColumn=1&_a=contents` };
+      return { label: L('View in Azure Repos'), url: `https://dev.azure.com/${project}?path=/${file}&version=GB${branch}&line=${line}&lineEnd=${line}&lineStartColumn=1&lineEndColumn=1&_a=contents` };
     }
     return null;
   }
@@ -1737,10 +1755,10 @@ function reportMain() {
     if (f.loc?.path) fillOpenOptions(f, list);
     const sub = document.createElement('p');
     sub.className = 'ide-sub';
-    sub.textContent = 'Apply its AI fix with';
+    sub.textContent = L('Apply its AI fix with');
     list.append(sub);
     for (const fixer of FIXERS) {
-      const b = textLink(fixer.name, (event) => fixFinding(f, fixer.id, event.currentTarget));
+      const b = textLink(L(fixer.name), (event) => fixFinding(f, fixer.id, event.currentTarget));
       b.className = 'link-button ide-fix';
       list.append(b);
     }
@@ -1749,11 +1767,11 @@ function reportMain() {
   function fillOpenOptions(f, list) {
     const sub = document.createElement('p');
     sub.className = 'ide-sub';
-    sub.textContent = 'Open this finding in';
+    sub.textContent = L('Open this finding in');
     list.append(sub);
     const where = document.createElement('p');
     where.className = 'ide-where';
-    where.textContent = `${f.loc.path}${f.loc.line ? `, line ${f.loc.line}` : ''}`;
+    where.textContent = f.loc.line ? L('{0}, line {1}', f.loc.path, f.loc.line) : f.loc.path;
     list.append(where);
     for (const ide of IDES) {
       list.append(
@@ -1782,10 +1800,10 @@ function reportMain() {
     const note = document.createElement('p');
     note.className = 'ide-note';
     if (folder) {
-      note.append(`Opens ${joinPath(folder, f.loc.path.replace(/\//g, /^[A-Za-z]:/.test(folder) ? '\\' : '/'))}. `);
-      note.append(textLink('Somewhere else?', () => askFolder(f) && fillIdeMenu(f, list)));
+      note.append(`${L('Opens {0}.', joinPath(folder, f.loc.path.replace(/\//g, /^[A-Za-z]:/.test(folder) ? '\\' : '/')))} `);
+      note.append(textLink(L('Somewhere else?'), () => askFolder(f) && fillIdeMenu(f, list)));
     } else {
-      note.append('The first time, it asks where you keep your code; after that it is one click.');
+      note.append(L('The first time, it asks where you keep your code; after that it is one click.'));
     }
     list.append(note);
 
@@ -1793,7 +1811,7 @@ function reportMain() {
     if (repo) {
       const clone = document.createElement('p');
       clone.className = 'ide-note';
-      clone.append('Not on this computer yet? Clone and open: ');
+      clone.append(`${L('Not on this computer yet? Clone and open:')} `);
       for (const ide of IDES) clone.append(textLink(ide.name, () => openInIde(cloneLink(ide.scheme, repo.url))), ' · ');
       clone.append(textLink('JetBrains', () => openInIde(jetbrainsCloneLink(select.value, repo.url))));
       list.append(clone);
@@ -1807,7 +1825,7 @@ function reportMain() {
     menu.className = 'ide-menu';
     const summary = document.createElement('summary');
     summary.textContent = '▾';
-    summary.title = 'Other ways to open or fix this finding';
+    summary.title = L('Other ways to open or fix this finding');
     summary.setAttribute('aria-label', summary.title);
     const list = document.createElement('div');
     list.className = 'ide-list';
@@ -1841,7 +1859,7 @@ function reportMain() {
     if (ideId === 'web') {
       const web = webLink(f);
       if (web) window.open(web.url, '_blank', 'noopener');
-      else log('This repository has no browser editor link (only GitHub, GitLab, Bitbucket and Azure Repos do).', 'error');
+      else log(L('This repository has no browser editor link (only GitHub, GitLab, Bitbucket and Azure Repos do).'), 'error');
       return;
     }
     const ide = IDES.find((i) => i.scheme === ideId) ?? IDES[0];
@@ -1868,10 +1886,10 @@ function reportMain() {
   async function fixFinding(f, fixId = defaultFix(), button = null) {
     const fixer = FIXERS.find((x) => x.id === fixId) ?? FIXERS[0];
     if (!f.remediation?.changes?.length) {
-      return showToolOutput(f, ['No fix yet: remediate this finding with Checkmarx One AI first (Remediate, on this row, once it is confirmed). Its fix can then be applied here in one click.']);
+      return showToolOutput(f, [L('No fix yet: remediate this finding with Checkmarx One AI first (Remediate, on this row, once it is confirmed). Its fix can then be applied here in one click.')]);
     }
     if (fixer.id === 'git') return requireConnection(() => copyGitCommand(f, button ?? document.createElement('button')));
-    return applyInWorkspace(f).catch((error) => log(`Could not apply the fix: ${error.message}`, 'error'));
+    return applyInWorkspace(f).catch((error) => log(L('Could not apply the fix: {0}', error.message), 'error'));
   }
 
   /** One click per finding: open it in your IDE, apply its AI fix; ▾ for anything else. */
@@ -1895,11 +1913,12 @@ function reportMain() {
   }
   function labelRowButtons() {
     for (const { open, fix } of rowButtons) {
-      if (open) open.textContent = `Open in ${nameOf(OPENERS, defaultIde()).replace(/ \(.*$/, '').replace(/^The browser$/, 'the browser')}`;
-      fix.textContent = defaultFix() === 'git' ? 'Apply AI fix (git apply)' : 'Apply AI fix';
+      if (open) open.textContent = defaultIde() === 'web' ? L('Open in the browser') : L('Open in {0}', nameOf(OPENERS, defaultIde()));
+      fix.textContent = defaultFix() === 'git' ? L('Apply AI fix (git apply)') : L('Apply AI fix');
     }
+    for (const option of [...$('tool-ide').options, ...$('tool-fix').options]) option.text = L(nameOf([...OPENERS, ...FIXERS], option.value));
     const folder = codeRoot();
-    $('tool-folder').textContent = folder ? `Code folder: ${folder}` : '';
+    $('tool-folder').textContent = folder ? L('Code folder: {0}', folder) : '';
   }
 
   for (const f of findings) {
@@ -1950,7 +1969,7 @@ function reportMain() {
   /** What one file change would do in the picked folder; nothing is written here. */
   async function planChange(dir, change) {
     const parts = MZPatch.segments(change.path);
-    if (!parts) return { path: change.path, ok: false, error: 'Its path leads outside the folder: not applied.', diff: change.diff };
+    if (!parts) return { path: change.path, ok: false, error: L('Its path leads outside the folder: not applied.'), diff: change.diff };
     const { created } = MZPatch.parse(change.diff);
     let folder = dir;
     let missing = false;
@@ -1969,8 +1988,8 @@ function reportMain() {
       } catch {}
     }
     const path = parts.join('/');
-    if (text === null && !created) return { path, ok: false, error: 'Not in this folder: is it the right repository and branch?', diff: change.diff };
-    if (text !== null && created) return { path, ok: false, error: 'Already exists, but the fix would create it.', diff: change.diff };
+    if (text === null && !created) return { path, ok: false, error: L('Not in this folder: is it the right repository and branch?'), diff: change.diff };
+    if (text !== null && created) return { path, ok: false, error: L('Already exists, but the fix would create it.'), diff: change.diff };
     return { path, parts, created, diff: change.diff, ...MZPatch.apply(text ?? '', change.diff) };
   }
 
@@ -1992,12 +2011,12 @@ function reportMain() {
       const form = document.createElement('form');
       form.method = 'dialog';
       const h2 = document.createElement('h2');
-      h2.textContent = ok ? `Apply the fix to ${folderName}?` : `The fix does not fit ${folderName} as it is`;
+      h2.textContent = ok ? L('Apply the fix to {0}?', folderName) : L('The fix does not fit {0} as it is', folderName);
       const intro = document.createElement('p');
       intro.className = 'dialog-hint';
       intro.textContent = ok
-        ? `${f.title}: ${plans.length} file${plans.length === 1 ? '' : 's'} change. Nothing is written until you choose Write changes; review them afterwards with git diff.`
-        : 'Nothing was written. Pull the latest code and try again, or use the git command, which shows exactly where it stops.';
+        ? `${L(plans.length === 1 ? '{0}: the fix changes {1} file.' : '{0}: the fix changes {1} files.', f.title, plans.length)} ${L('Nothing is written until you choose Write changes; review them afterwards with git diff.')}`
+        : L('Nothing was written. Pull the latest code and try again, or use the git command, which shows exactly where it stops.');
       const list = document.createElement('ul');
       list.className = 'apply-list';
       for (const p of plans) {
@@ -2007,14 +2026,14 @@ function reportMain() {
         const status = document.createElement('span');
         status.className = p.ok ? 'apply-ok' : 'apply-bad';
         status.textContent = p.ok
-          ? ` ✓ ${p.changes} change${p.changes === 1 ? '' : 's'}${p.created ? ', new file' : ''}${p.moved ? `; ${p.moved} found a few lines away (the file changed since the scan)` : ''}`
+          ? ` ✓ ${L(p.changes === 1 ? '{0} change' : '{0} changes', p.changes)}${p.created ? `, ${L('new file')}` : ''}${p.moved ? `; ${L('{0} found a few lines away (the file changed since the scan)', p.moved)}` : ''}`
           : ` ✗ ${p.error}`;
         li.append(name, status);
         list.append(li);
       }
       const diff = document.createElement('details');
       const summary = document.createElement('summary');
-      summary.textContent = 'Show the changes';
+      summary.textContent = L('Show the changes');
       const pre = document.createElement('pre');
       pre.className = 'apply-diff';
       pre.textContent = plans.map((p) => `# ${p.path}\n${p.diff}`).join('\n\n');
@@ -2024,13 +2043,13 @@ function reportMain() {
       const cancel = document.createElement('button');
       cancel.className = 'btn btn-outline';
       cancel.value = 'cancel';
-      cancel.textContent = ok ? 'Cancel' : 'Close';
+      cancel.textContent = ok ? L('Cancel') : L('Close');
       actions.append(cancel);
       if (ok) {
         const write = document.createElement('button');
         write.className = 'btn';
         write.value = 'write';
-        write.textContent = 'Write changes';
+        write.textContent = L('Write changes');
         actions.append(write);
       }
       form.append(h2, intro, list, diff, actions);
@@ -2052,32 +2071,32 @@ function reportMain() {
       const id = `mz-${MZPatch.repoKey(repoOf(f)?.url || f.projectId).replace(/[^\w-]+/g, '-')}`.slice(0, 32);
       dir = await window.showDirectoryPicker({ id, mode: 'readwrite' });
     } catch (error) {
-      if (error?.name !== 'AbortError') log(`Could not open the folder: ${error.message}`, 'error');
+      if (error?.name !== 'AbortError') log(L('Could not open the folder: {0}', error.message), 'error');
       return;
     }
     const expected = repoOf(f)?.url || '';
     const remotes = await gitRemotes(dir);
     if (remotes === null) {
-      if (!confirm(`${dir.name} is not a git checkout (it has no .git folder), so the change cannot be reviewed or undone with git. Apply the fix to it anyway?`)) return;
+      if (!confirm(L('{0} is not a git checkout (it has no .git folder), so the change cannot be reviewed or undone with git. Apply the fix to it anyway?', dir.name))) return;
     } else if (expected && remotes.length && !remotes.some((url) => MZPatch.repoKey(url) === MZPatch.repoKey(expected))) {
-      if (!confirm(`${dir.name} is a checkout of ${remotes[0]}, but this fix is for ${expected}. Apply it anyway?`)) return;
+      if (!confirm(L('{0} is a checkout of {1}, but this fix is for {2}. Apply it anyway?', dir.name, remotes[0], expected))) return;
     }
     const plans = [];
     for (const change of r.changes) plans.push(await planChange(dir, change));
     if (!(await previewFix(f, dir.name, plans))) return;
     for (const plan of plans) await writeChange(dir, plan);
-    const files = plans.length === 1 ? plans[0].path : `${plans.length} files`;
-    log(`Fix written to ${dir.name}: ${files}. Review it with git diff, then commit.`, 'success');
+    const files = plans.length === 1 ? plans[0].path : L('{0} files', plans.length);
+    log(L('Fix written to {0}: {1}. Review it with git diff, then commit.', dir.name, files), 'success');
     const done = document.createElement('p');
     done.className = 'fix-written';
-    done.textContent = `✓ Written to ${dir.name} (${files}). Review with git diff, then commit.`;
+    done.textContent = L('✓ Written to {0} ({1}). Review with git diff, then commit.', dir.name, files);
     row(f)?.querySelector('.ws-actions')?.append(done);
     // Straight to the change, in the IDE this reader uses (when the report knows where the folder is).
     const ide = IDES.find((i) => i.scheme === workspacePrefs().ide) ?? IDES[0];
     const folder = folderFor(f);
     if (folder && folder.split(/[\\/]/).pop() === dir.name) {
       const first = plans[0].path === f.loc?.path ? f.loc : { path: plans[0].path, line: 0, column: 0 };
-      done.append(' ', textLink(`Open it in ${ide.name}`, () => openInIde(fileLink(ide.scheme, folder, first))));
+      done.append(' ', textLink(L('Open it in {0}', ide.name), () => openInIde(fileLink(ide.scheme, folder, first))));
     }
   }
 
@@ -2085,7 +2104,7 @@ function reportMain() {
     button.disabled = true;
     try {
       const { url } = await backend.patchLink(f);
-      if (!safeHref(url) || !/^https?:/i.test(url) || /["\s]/.test(url)) throw new Error('The server sent an address that is not a web link.');
+      if (!safeHref(url) || !/^https?:/i.test(url) || /["\s]/.test(url)) throw new Error(L('The server sent an address that is not a web link.'));
       const command = `curl -fsSL "${url}" -o mz-fix.patch && git apply --recount mz-fix.patch`;
       const copied = await copyText(command);
       const box = row(f)?.querySelector('.ws-actions');
@@ -2093,15 +2112,15 @@ function reportMain() {
       const shown = document.createElement('div');
       shown.className = 'git-command';
       const hint = document.createElement('p');
-      hint.textContent = `${copied ? 'Copied. ' : ''}Run it in the repository folder (cmd, PowerShell or a shell). The link works for 7 days.`;
+      hint.textContent = `${copied ? `${L('Copied.')} ` : ''}${L('Run it in the repository folder (cmd, PowerShell or a shell). The link works for 7 days.')}`;
       const code = document.createElement('code');
       code.textContent = command;
       shown.append(hint, code);
       box?.append(shown);
       if (!copied) getSelection()?.selectAllChildren(code);
-      log(`git command for ${f.title} ${copied ? 'copied' : 'ready to copy'}.`, 'success');
+      log(copied ? L('git command for {0} copied.', f.title) : L('git command for {0} ready to copy.', f.title), 'success');
     } catch (error) {
-      log(`Could not make the git command: ${error.message}`, 'error');
+      log(L('Could not make the git command: {0}', error.message), 'error');
     } finally {
       button.disabled = false;
     }
@@ -2114,19 +2133,19 @@ function reportMain() {
     if (typeof window.showDirectoryPicker === 'function') {
       box.append(
         smallButton(
-          'Apply fix in my workspace',
-          () => applyInWorkspace(f).catch((error) => log(`Could not apply the fix: ${error.message}`, 'error')),
+          L('Apply fix in my workspace'),
+          () => applyInWorkspace(f).catch((error) => log(L('Could not apply the fix: {0}', error.message), 'error')),
           Boolean(r.prUrl),
         ),
       );
     }
-    const git = smallButton('Copy git command', () => requireConnection(() => copyGitCommand(f, git)));
-    git.title = 'A one-line command that downloads this fix and applies it with git, run in the repository folder.';
+    const git = smallButton(L('Copy git command'), () => requireConnection(() => copyGitCommand(f, git)));
+    git.title = L('A one-line command that downloads this fix and applies it with git, run in the repository folder.');
     box.append(git);
     if (typeof window.showDirectoryPicker !== 'function') {
       const note = document.createElement('p');
       note.className = 'muted';
-      note.textContent = 'Open this report in Chrome or Edge to apply the fix from here, or use the git command.';
+      note.textContent = L('Open this report in Chrome or Edge to apply the fix from here, or use the git command.');
       box.append(note);
     }
     return box;
@@ -2149,27 +2168,27 @@ function reportMain() {
 
   function autoConnect() {
     if (!config.relayUrl) {
-      serverState('Needed to triage from this report', 'warn');
-      showConnectPrompt('This report does not say which reminder server to use. Enter its address to connect.');
+      serverState(L('Needed to triage from this report'), 'warn');
+      showConnectPrompt(L('This report does not say which reminder server to use. Enter its address to connect.'));
       return;
     }
-    serverState('Connecting…');
+    serverState(L('Connecting…'));
     $('server-prompt').hidden = true;
     connecting ??= connect({ quiet: true }).finally(() => {
       connecting = null;
     });
     connecting.then(
-      () => log('Connected to the reminder server automatically.', 'success'),
+      () => log(L('Connected to the reminder server automatically.'), 'success'),
       (error) => {
-        log(`Could not connect automatically: ${error.message}`, 'error');
-        if (/^(Connected|Unreachable)$/.test($('server-state').textContent) === false) serverState('Not connected', 'bad');
-        showConnectPrompt(`Could not connect to the reminder server automatically: ${error.message}`);
+        log(L('Could not connect automatically: {0}', error.message), 'error');
+        if (serverKind !== 'connected' && serverKind !== 'unreachable') serverState(L('Not connected'), 'bad', 'not-connected');
+        showConnectPrompt(L('Could not connect to the reminder server automatically: {0}', error.message));
       },
     );
   }
 
   $('server-connect').addEventListener('click', () => {
-    if (!config.relayUrl) return openServerForm('Enter the reminder server address to connect.');
+    if (!config.relayUrl) return openServerForm(L('Enter the reminder server address to connect.'));
     autoConnect();
   });
   $('server-fix').addEventListener('click', () => openServerForm());
@@ -2178,11 +2197,19 @@ function reportMain() {
   // Another language chosen in the report: what is on screen now is written again in it.
   relabel = () => {
     applyLabels();
+    const kind = serverKind;
     setConnectedUI(backend ? connectedTenant : undefined);
     showServer();
-    if (backend) serverState(L('Connected'), 'good');
+    if (backend) serverState(L('Connected'), 'good', 'connected');
+    else if (kind === 'unreachable') serverState(L('Unreachable'), 'bad');
+    else if (kind === 'not-connected') serverState(L('Not connected'), 'bad', 'not-connected');
+    showCredits(lastRemaining);
     renderCredits();
-    for (const f of findings) if (f.shown) renderTriage(f);
+    if (lastRefresh) markRefreshed(lastRefresh);
+    if (lastRescan) renderRescan(lastRescan);
+    labelHidden();
+    // Only what the report itself rewrote; the rest the server wrote, and applyLabels relabelled it.
+    for (const f of findings) if (f.shown && !f.hidden && (f.triage || f.triagedAt || f.noRecord || (f.state && f.state !== 'TO_VERIFY'))) renderTriage(f);
     for (const f of findings) if (f.remediation) renderRemediation(f);
     if (rowButtons.length) labelRowButtons();
     updateBulk();
@@ -2199,6 +2226,13 @@ function applyLabels() {
       values = JSON.parse(el.dataset.v || '[]');
     } catch {}
     el.textContent = L(el.dataset.l, ...values);
+  }
+  for (const el of document.querySelectorAll('[data-l-title]')) {
+    let values = [];
+    try {
+      values = JSON.parse(el.dataset.vTitle || '[]');
+    } catch {}
+    el.title = L(el.dataset.lTitle, ...values);
   }
 }
 
