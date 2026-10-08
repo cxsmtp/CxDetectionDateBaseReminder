@@ -5,8 +5,9 @@
  * other language the reader picks in the report comes from this server when it is reachable
  * (GET /api/relay/report-words/<code>), and is kept in their browser.
  *
- * i18n/report-keys.json lists the report's wording (scripts/i18n-report.mjs); the translations are
- * the page's own, public/i18n/<code>.json.
+ * src/report/report-keys.json lists the report's wording (scripts/i18n-report.mjs); the translations are
+ * the page's own, public/i18n/<code>.json. Both ship in the container image (src/ and public/).
+ * Without them a report is still made, in English: a language is never a reason for a report to fail.
  */
 import { readFileSync } from 'node:fs';
 
@@ -17,9 +18,17 @@ const read = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), '
 let keys = null;
 const cache = new Map();
 
-/** The report's wording, English. */
+/** The report's wording, English ([] when the list cannot be read: the report is then in English only). */
 export function reportKeys() {
-  keys ??= read('../i18n/report-keys.json');
+  if (!keys) {
+    try {
+      const list = read('./report/report-keys.json');
+      keys = Array.isArray(list) ? list.filter((key) => typeof key === 'string') : [];
+    } catch (error) {
+      console.error(`[report languages] Reports are in English only: their wording list could not be read (${error.message}).`);
+      keys = [];
+    }
+  }
   return keys;
 }
 

@@ -69,7 +69,7 @@ The interactive HTML report (attached to reminders, or downloaded) is in the sam
 
 **How it works:**
 - The report carries the page's own translator (`public/i18n.js`), its start-up (`src/report/i18n-boot.client.js`) and the translations of its own wording.
-- That wording is listed in `i18n/report-keys.json`; `scripts/i18n-report.mjs` collects it.
+- That wording is listed in `src/report/report-keys.json`, which ships with the server; `scripts/i18n-report.mjs` collects it. If the list cannot be read, reports are still made, in English.
 - Wording with a name in it ("{0} — vulnerability report", "tenant {0}") is written by the report's script from `data-l` and `data-v`, so the name is never translated.
 - `GET /api/relay/report-words/<code>` serves one open language's words to a report.
 

@@ -165,6 +165,8 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.57 (main) | 1 | 16.4 s / 0 | 62,463 / 31 | 514 | 79 / 10,685 ms | 15 / 322 ms | none |
 | **MZ-01.00.59** | 1 | 10.3 s / 0 | 63,841 / **0** | **513** | 64 / **6,162 ms** | 9 / **229 ms** | none |
 | MZ-01.00.58 (main) | 1 | 10.1 s / 0 | 63,584 / 0 | 518 | 75 / 6,451 ms | 8 / 214 ms | none |
+| **MZ-01.00.60** | 1 | 9.5 s / 0 | 62,998 / **0** | **505** | 110 / **6,946 ms** | 17 / **501 ms** | none |
+| MZ-01.00.59 (main) | 1 | 10.6 s / 0 | 62,962 / 0 | 499 | 103 / 7,948 ms | 15 / 545 ms | none |
 
 **MZ-01.00.37: what the differences were.** Two pairs with main, alternating. Report opens at p95 were 4.1 and 5.1 s on the branch against 7.2 and 5.1 s on main; triage results 201 and 179 ms against 257 and 123 ms; requests a second 519 and 508 against 504 and 518, with 0 failed requests and no finding sent twice in any run. The first branch run's opening burst took 16.3 s, a little above the 7.4–15.8 s seen before, and its fetches were slower (17 s against 12 s at the median); in the second pair the burst took 9.9 s (main 8.0 s) and fetches matched main (13.5 s against 13.0 s at the median). What the fetch now does in addition is one pass over each project's findings to count what is past its SLA, which is a few microseconds a finding next to reading them from Checkmarx One. Escalation runs only on the automation's schedule, which the benchmark does not use.
 
@@ -181,6 +183,8 @@ What this release adds while the benchmark runs:
 - **A five-minute look at whether the weekly status is due.**
 
 Nothing on the measured paths changed. The work done when the server stops (a backup, and the emails) happens after the benchmark ends.
+
+**MZ-01.00.60: what the differences were.** One pair, branch first, both with 0 failed requests and no finding sent twice. The branch served 505 requests a second against main's 499. At p95, report opens took 6.9 s (main 7.9 s) and triage polls 501 ms (main 545 ms). The release moves one file into `src/` and adds a fallback around building a report's languages, so the measured paths do the same work as before. In the burst, 238 triage-result polls on the branch were turned away as busy and retried, as designed, and none failed.
 
 **MZ-01.00.59: what the differences were.** One pair on a quiet host, branch first, both with 0 failed and no finding sent twice. The branch served 513 requests a second against main's 518. At p95, report opens took 6.2 s (main 6.5 s), triage polls 229 ms (main 214 ms), and building a report from the Dashboard 9.0 s (main 11.5 s).
 
