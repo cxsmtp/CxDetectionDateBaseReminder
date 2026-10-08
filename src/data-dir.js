@@ -37,10 +37,11 @@ export const STATE_FILES = [
   'tenants.json',
   'support.json',
   'watchdog.json',
+  'projections.json',
 ];
 
 /** A tenant's own files, in tenants/<id>/ (several Checkmarx One tenants: src/tenancy.js). */
-export const TENANT_FILES = ['settings.json', 'audit.key', 'triage-credits.json', 'credit-allocations.json', 'tracked-reports.json', 'known-initiators.json', 'automation-state.json', 'connection-guard.json', 'scan-attribution.json', 'finding-journal.json'];
+export const TENANT_FILES = ['settings.json', 'audit.key', 'triage-credits.json', 'credit-allocations.json', 'tracked-reports.json', 'known-initiators.json', 'automation-state.json', 'connection-guard.json', 'scan-attribution.json', 'finding-journal.json', 'projections.json'];
 /** A tenant's id: its folder's name. */
 export const TENANT_ID = /^[a-z0-9][a-z0-9-]{1,39}$/;
 export const STATE_DIRS = ['audit'];

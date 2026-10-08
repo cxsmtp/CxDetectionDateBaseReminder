@@ -49,6 +49,7 @@ import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { reportI18n, reportWords } from './report-i18n.js';
+import { ProjectionStore, readProjectLines } from './projections.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -240,6 +241,7 @@ function buildTenant({ id, dir }) {
     creditLedger,
     allocations: new CreditAllocations({ file: path.join(dir, 'credit-allocations.json'), ledger: creditLedger }),
     trackedReports: new TrackedReports({ file: path.join(dir, 'tracked-reports.json') }),
+    projections: new ProjectionStore({ file: path.join(dir, 'projections.json') }),
     reportFiles: new ReportFiles({ dir: path.join(dir, 'report-files'), ttlDays: 30 }),
     guard: new ConnectionGuard({ file: path.join(dir, 'connection-guard.json') }),
     audit: new AuditLog({ dir: path.join(dir, 'audit'), keyFile: path.join(dir, 'audit.key') }),
@@ -293,6 +295,7 @@ const allocations = scoped(tenancy, 'allocations');
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const trackedReports = scoped(tenancy, 'trackedReports');
+const projections = scoped(tenancy, 'projections');
 const findingJournal = scoped(tenancy, 'findingJournal');
 const reportFiles = scoped(tenancy, 'reportFiles');
 const guard = scoped(tenancy, 'guard');
@@ -680,7 +683,12 @@ app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY, httpsManager.m
 httpsManager.onChange((mode) => app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY, mode !== 'http')));
 // Security headers on every response, including the static pages (src/security.js).
 app.disable('x-powered-by');
-app.use(securityHeaders({ scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')), hsts: () => httpsManager.hstsHeader() }));
+app.use(securityHeaders({
+  scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')),
+  hsts: () => httpsManager.hstsHeader(),
+  // Credit projections shows the backlog cost calculator inside its own page.
+  frameable: (req) => req.method === 'GET' && req.path.startsWith('/projections/calculator/'),
+}));
 // Big replies (the page's script, the fetch stream, full results, downloads) shrink
 // 5-10x for a remote office or VPN: brotli or gzip at a quick level, the fetch stream
 // flushed line by line. Small, frequent ones (report polls) are left alone: compressing
@@ -3283,6 +3291,60 @@ app.get('/api/relay/report-words/:code', (req, res) => {
   res.set('Cache-Control', 'public, max-age=3600');
   res.json({ language: req.params.code, version: PACKAGE_VERSION, strings });
 });
+
+// ---------------------------------------------------------------------------
+// Credit projections (src/projections.js): saved customer profiles, each with an à la carte
+// projection (the backlog cost calculator) and a Fusion projection (lines of code per project).
+// ---------------------------------------------------------------------------
+
+const projectionError = (res, error) => res.status(error.status ?? 500).json({ error: error.status ? error.message : 'The projection could not be saved.' });
+
+app.get('/api/projections', requirePermission('projections.use'), (req, res) => {
+  res.json({ profiles: projections.list() });
+});
+app.post('/api/projections', requirePermission('projections.use'), (req, res) => {
+  try {
+    res.status(201).json({ profile: projections.create({ name: req.body?.name, by: req.user.email }) });
+  } catch (error) {
+    projectionError(res, error);
+  }
+});
+app.get('/api/projections/:id', requirePermission('projections.use'), (req, res) => {
+  try {
+    res.json({ profile: projections.get(String(req.params.id)) });
+  } catch (error) {
+    projectionError(res, error);
+  }
+});
+app.put('/api/projections/:id', requirePermission('projections.use'), (req, res) => {
+  try {
+    const body = req.body ?? {};
+    const patch = {};
+    for (const key of ['name', 'alaCarte', 'fusion']) if (body[key] !== undefined) patch[key] = body[key];
+    res.json({ profile: projections.update(String(req.params.id), patch, req.user.email) });
+  } catch (error) {
+    projectionError(res, error);
+  }
+});
+app.delete('/api/projections/:id', requirePermission('projections.use'), (req, res) => {
+  try {
+    projections.remove(String(req.params.id));
+    res.json({ ok: true });
+  } catch (error) {
+    projectionError(res, error);
+  }
+});
+/** Fusion: every project in the tenant with the lines of code its last scan counted. */
+app.post(
+  '/api/projections/fusion/lines',
+  requirePermission('projections.use'),
+  asyncRoute(async (req, res) => {
+    const client = req.session.client ?? integrationSession()?.client;
+    if (!client) return res.status(409).json({ error: 'Connect to Checkmarx One first (Settings → Checkmarx One), or type each project’s lines of code by hand.' });
+    const projects = await readProjectLines(client);
+    res.json({ projects, readAt: new Date().toISOString() });
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // HTTPS (Settings → HTTPS, Admin only): see src/https-manager.js
