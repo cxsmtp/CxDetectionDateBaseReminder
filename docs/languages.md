@@ -186,3 +186,13 @@ While checking this release, five German and five French entries were found with
 **Added in MZ-01.00.58.** 1 entry in all fourteen languages: the warning on **Settings → Activation codes** when Hebrew is on but nobody is ticked under **Who may use Hebrew**. It uses each file's words for Hebrew, ticking and saving. Translated, then reviewed twice:
 - **Review 1:** 4 corrections. Malay "anda" is lower case as in its file, Spanish speaks of people who will *use* Hebrew, the Thai sentence no longer stops mid-verb, and Hebrew uses the file's word for "user".
 - **Review 2:** 9 corrections. The Chinese files no longer call the language "it", German and Korean say Hebrew appears in nobody's list, and Spanish, French, Malay and Indonesian drop a casual "so".
+
+**Added in MZ-01.00.59.** 407 entries in all fourteen languages: everything the interactive HTML report says. That covers its page, buttons, messages and confirmations, the credits panel, the tools for opening and fixing code, and the fix advice under a confirmed finding (64 sentences). Product, engine and tool names, code, headers, paths and numbers stay as they are. Checkmarx One's own state name “To verify” stays in English, because that is what Checkmarx One shows. Two entries are new kinds:
+- **"That language could not be loaded…":** the message when the reminder server does not answer.
+- **`verdict|Not exploitable`:** one finding's verdict, in the singular. The app's "Not exploitable" is a filter of many findings, plural in several languages. In Arabic every verdict agrees with the masculine الاكتشاف.
+
+Each entry was translated, then reviewed twice:
+- **Review 1:** 247 corrections. "✓ Remediation opened" now leads into its "PR #42" link in every language, instead of reading "remediation started". French "reachable" (the AI Triage verdict about code) no longer reads as "can be contacted". Japanese, Korean, Malay and Indonesian now keep it apart from the server's "Unreachable". Credit counts read correctly for 1 in German, French, Spanish, Portuguese and Hebrew. Vietnamese and Thai "encode" no longer reads as "encrypt", and Arabic and Hebrew arrows point right to left.
+- **Review 2:** 132 corrections, 29 of them Vietnamese AI feature names in lower case mid-sentence, as its file writes them. Hebrew "reachable" is no longer the server's word. German "Uncertain" no longer reads as "insecure", and Simplified Chinese "Secret" no longer reads as "key". Spanish and Portuguese "Verified at zero" now says that nothing is left. Japanese and Korean "prove the fixes" now says the fixes worked.
+
+The late message was corrected in seven languages by the first review and in none by the second. The singular verdict needed no correction.
