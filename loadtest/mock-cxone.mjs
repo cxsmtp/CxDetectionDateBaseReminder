@@ -27,6 +27,8 @@ const rescanStatus = (scan) => { const age = Date.now() - scan.at; return age < 
 const latestRescan = (pid) => [...rescans.entries()].filter(([, s]) => s.projectId === pid && rescanStatus(s) === 'Completed').sort((a, b) => b[1].at - a[1].at)[0];
 const fixedByRescan = (pid, alt, riskId) => { const last = latestRescan(pid); const t = remediated.get(alt); return Boolean(last && t && t < last[1].at && !INEFFECTIVE.has(riskId)); };
 const day = (n) => new Date(Date.now() - n * 86400000).toISOString();
+/** Lines of code project p<i>'s last scan counted: fixed per project, 1,500 to 49,499. */
+const mockLoc = (i) => 1500 + ((i * 7919) % 48000);
 // SHARED=1: like a real tenant, some findings are another code path into the same vulnerable code
 // (risk i+4 shares risk i's similarity group, for i in 0–3, 8–11, …), so they are one result.
 const SHARED = process.env.SHARED === '1';
@@ -90,6 +92,15 @@ http.createServer((req, res) => {
       }
       if (u.pathname === '/api/scans') { bump('scans'); return send(200, { scans: [] }); }
       let sm;
+      // Lines of code a scan counted (Credit projections → Fusion): one project in seven has no SAST
+      // scan metadata; half of those still have it in the scan's own SAST details, half have none.
+      if ((sm = u.pathname.match(/^\/api\/sast-metadata\/([^/]+)$/))) {
+        bump('sast-metadata');
+        const id = decodeURIComponent(sm[1]);
+        const i = Number((rescans.get(id)?.projectId ?? id.replace(/^scan-/, '')).replace(/^p/, ''));
+        if (!Number.isInteger(i) || i % 7 === 3) return send(404, { message: 'no SAST metadata for this scan' });
+        return send(200, { scanId: id, loc: mockLoc(i), fileCount: 40 + (i % 300), isIncremental: false, queryPreset: 'ASA Premium' });
+      }
       if ((sm = u.pathname.match(/^\/api\/scans\/([^/]+)$/))) {
         bump('scan-get');
         const id = decodeURIComponent(sm[1]);
@@ -97,7 +108,9 @@ http.createServer((req, res) => {
         if (re) return send(200, { id, projectId: re.projectId, status: rescanStatus(re), branch: 'main', engines: ['sast', 'sca', 'kics'], metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${re.projectId}`, branch: 'main' } } } });
         const pid = id.replace(/^scan-/, '');
         if (UPLOADS.has(pid)) return send(200, { id, projectId: pid, status: 'Completed', sourceType: 'upload', engines: ['sast'] });
-        return send(200, { id, projectId: pid, status: 'Completed', branch: 'main', engines: ['sast', 'sca', 'kics'], metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch: 'main', commit_id: 'abc123' } } } });
+        const i = Number(pid.replace(/^p/, ''));
+        const statusDetails = [{ name: 'general', status: 'Completed' }, { name: 'sast', status: 'Completed', ...(i % 14 === 3 ? {} : { loc: mockLoc(i) }) }];
+        return send(200, { id, projectId: pid, status: 'Completed', branch: 'main', engines: ['sast', 'sca', 'kics'], statusDetails, metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch: 'main', commit_id: 'abc123' } } } });
       }
       if (u.pathname === '/api/risks/' || u.pathname === '/api/risks') {
         bump('risks');

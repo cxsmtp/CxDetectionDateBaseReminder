@@ -2077,7 +2077,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <aside class="panel pj-profiles" aria-label="Projection profiles">
                 <div class="pj-profiles-head">
                   <h2>Profiles</h2>
-                  <button type="button" class="primary small" id="pj-new">New profile</button>
+                  <button type="button" class="primary" id="pj-new">New profile</button>
                 </div>
                 <p class="hint">One profile per customer. Everything in it is saved as you go, on this server, so you can open it again and carry on.</p>
                 <ul class="pj-list" id="pj-list"></ul>
@@ -2087,17 +2087,17 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div class="pj-head">
                   <label class="pj-name"><span class="sr-only">Profile name</span><input type="text" id="pj-name" maxlength="120" autocomplete="off" translate="no" /></label>
                   <span class="status" id="pj-saved" aria-live="polite"></span>
-                  <button type="button" class="ghost small" id="pj-delete">Delete profile</button>
+                  <button type="button" class="link danger" id="pj-delete">Delete profile</button>
                 </div>
                 <div class="ptabs" data-ptabs="projections" role="tablist" aria-label="Kinds of projection">
-                  <button type="button" role="tab" class="ptab" data-pt="alacarte" aria-selected="true">À la carte: triage &amp; remediation</button>
-                  <button type="button" role="tab" class="ptab" data-pt="fusion" aria-selected="false">Fusion: scans</button>
+                  <button type="button" role="tab" class="ptab" data-pt="alacarte" aria-selected="true" title="The credits that triage and remediation of the customer’s backlog take">À la carte</button>
+                  <button type="button" role="tab" class="ptab" data-pt="fusion" aria-selected="false" title="The credits one Fusion scan of each project takes">Fusion</button>
                 </div>
-                <div data-ptpanel="alacarte" class="pj-panel">
+                <div data-ptpanel="projections:alacarte" class="pj-panel">
                   <p class="hint pj-intro">Upload the customer’s two Checkmarx One exports (<strong>Total vulnerabilities by severity</strong> and <strong>Fixed vulnerabilities by severity</strong>), choose what to fix, and see the credits it takes and how fast the backlog clears. <strong>Export customer report</strong> hands them an interactive copy.</p>
                   <iframe id="pj-frame" class="pj-frame" title="Backlog cost calculator" src="about:blank"></iframe>
                 </div>
-                <div data-ptpanel="fusion" class="pj-panel" hidden>
+                <div data-ptpanel="projections:fusion" class="pj-panel" hidden>
                   <section class="panel">
                     <h2>Fusion: what one scan of each project costs</h2>
                     <p class="hint">Fusion is bought in bundles of lines of code. Each project is rounded up to whole bundles on its own: with 10,000-line bundles, projects of 12,000 and 18,000 lines take <strong>2 + 2 = 4</strong> bundles, not the 3 that their 30,000 lines together would make.</p>
@@ -2111,18 +2111,18 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                     </div>
                   </section>
                   <div class="pj-kpis" id="pj-kpis"></div>
-                  <p class="callout" id="pj-rounding" hidden></p>
+                  <p class="pj-callout" id="pj-rounding" hidden></p>
                   <section class="panel">
                     <div class="pj-table-head">
                       <h2>Projects</h2>
                       <input type="search" id="pj-filter" placeholder="Find a project" aria-label="Find a project" />
-                      <button type="button" class="ghost small" id="pj-all">Include all</button>
-                      <button type="button" class="ghost small" id="pj-none">Include none</button>
-                      <button type="button" class="ghost small" id="pj-add">Add a project by hand</button>
-                      <button type="button" class="ghost small" id="pj-csv">Download CSV</button>
+                      <button type="button" class="secondary" id="pj-all">Include all</button>
+                      <button type="button" class="secondary" id="pj-none">Include none</button>
+                      <button type="button" class="secondary" id="pj-add">Add a project by hand</button>
+                      <button type="button" class="secondary" id="pj-csv">Download CSV</button>
                     </div>
-                    <div class="table-scroll">
-                      <table class="data pj-table">
+                    <div class="table-wrap">
+                      <table class="data-table pj-table">
                         <thead><tr><th>Include</th><th>Project</th><th>Last scan</th><th title="As counted by the last scan; type a number to use another">Lines of code</th><th>Bundles</th><th>Credits per scan</th></tr></thead>
                         <tbody id="pj-rows"></tbody>
                       </table>
