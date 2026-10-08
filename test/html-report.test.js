@@ -82,8 +82,8 @@ test("beyond the top 50, each project opens its own report from the reminder ser
   const data = buildReportData(risks, { tenant: 't', connection, links: DEFAULT_LINK_TEMPLATES });
   const html = generateHtmlReport(data, { signProjectReport: (id) => ({ exp: 1, sig: `sig-${id}` }), projectReportScope: { severities: ['HIGH'] } });
   const more = html.match(/<section class="more">[\s\S]*?<\/section>/)[0];
-  assert.match(more, /<button type="button" class="btn btn-outline" data-project-report="0"[^>]*>Proj \(1\) →<\/button>/);
-  assert.match(more, /data-project-report="1"[^>]*>Other \(1\) →/);
+  assert.match(more, /<button type="button" class="btn btn-outline" data-project-report="0"[^>]*><span translate="no">Proj<\/span> \(1\) →<\/button>/);
+  assert.match(more, /data-project-report="1"[^>]*><span translate="no">Other<\/span> \(1\) →/);
   assert.doesNotMatch(more, /checkmarx|riskhub|<a /i, 'no link to Checkmarx One');
   const payload = JSON.parse(html.match(/id="report-data">([\s\S]*?)<\/script>/)[1]);
   assert.deepEqual(payload.projectReports.map((p) => [p.projectId, p.sig, p.scope.severities]), [['p1', 'sig-p1', ['HIGH']], ['p2', 'sig-p2', ['HIGH']]]);
@@ -183,12 +183,12 @@ test('the report shows its reminder server address, and one without an address c
     });
 
   const withServer = build('https://cx-reminder.corp.example/');
-  assert.match(withServer, /<code id="server-url" class="server-url">https:\/\/cx-reminder\.corp\.example<\/code>/);
+  assert.match(withServer, /<code id="server-url" class="server-url" translate="no">https:\/\/cx-reminder\.corp\.example<\/code>/);
   assert.match(withServer, /id="server-change"[^>]*>Change</);
   assert.ok(!/id="connect"[^>]*disabled/.test(withServer));
 
   const without = build('');
-  assert.match(without, /<code id="server-url" class="server-url">not set<\/code>/);
+  assert.match(without, /<code id="server-url" class="server-url" translate="no">not set<\/code>/);
   assert.match(without, /id="server-change"[^>]*>Enter address</);
   assert.ok(!/id="connect"[^>]*disabled/.test(without), 'Connect asks for the address instead of being disabled');
   assert.equal(island(without).findings[0].grant, 'g', 'findings are signed, so the reader can triage once connected');
@@ -217,9 +217,9 @@ test('rows that are one Checkmarx One result are marked, and the report says how
   const html = generateHtmlReport(buildReportData(risks, { tenant: 't' }));
   assert.match(html, /3 findings here are 2 Checkmarx One results/);
   assert.equal((html.match(/class="shared-note"/g) ?? []).length, 2, 'both rows of the shared result are marked');
-  assert.match(html, /Same result R1<\/span> also listed <a class="shared-link" href="#row-\d" data-twin="\d">(below ↓|above ↑)<\/a>/);
-  assert.match(html, /triaged together, 1 credit/);
-  assert.match(html, /<summary>why\?<\/summary><p>Checkmarx One gave these 2 rows the same result ID \(<code>ALT-A<\/code>\)/);
+  assert.match(html, /Same result R1<\/span> <span>Also listed:<\/span> <a class="shared-link" href="#row-\d" data-twin="\d">(below ↓|above ↑)<\/a>/);
+  assert.match(html, /Triaged together, 1 credit/);
+  assert.match(html, /<summary>why\?<\/summary><p><span>Checkmarx One gave these 2 rows the same result ID, so they are one result \(R1\)\.<\/span> <code>ALT-A<\/code>/);
 
   const unique = generateHtmlReport(buildReportData([risk(4, 'HIGH'), risk(5, 'HIGH')], { tenant: 't' }));
   assert.ok(!unique.includes('class="shared-explainer"'), 'no note when every row is its own result');
@@ -255,8 +255,8 @@ test('a confirmed finding says why and how to fix it, with "why?" for the detail
     const key = island(html).findings.findIndex((f) => f.riskId === `r${n}`);
     return html.slice(html.indexOf(`<tr data-key="${key}"`), html.indexOf('</tr>', html.indexOf(`<tr data-key="${key}"`)));
   };
-  assert.match(row(1), /<b>Why:<\/b> Input from the request is written into the page without encoding, so an attacker can run script in a victim&#39;s browser\.<\/p>/);
-  assert.match(row(1), /<b>Fix:<\/b> Encode output for its context \(HTML, attribute, JavaScript, URL\) or use the template engine&#39;s auto-escaping; validate input against an allow-list\.<\/p>/);
+  assert.match(row(1), /<b>Why:<\/b> <span translate="no">Input from the request is written into the page without encoding, so an attacker can run script in a victim&#39;s browser\.<\/span><\/p>/);
+  assert.match(row(1), /<b>Fix:<\/b> <span translate="no">Encode output for its context \(HTML, attribute, JavaScript, URL\) or use the template engine&#39;s auto-escaping; validate input against an allow-list\.<\/span><\/p>/);
   assert.match(row(1), /<summary>why\?<\/summary>[\s\S]*Checkmarx One followed the data from where it enters the application to this code[\s\S]*AI Remediation/);
   // Said once: the why and the fix are not repeated under "why?", and nobody is credited with confirming it.
   assert.equal(row(1).split('Input from the request is written').length - 1, 1, 'the why appears once');
@@ -286,6 +286,6 @@ test('each finding carries its file and line, and each project its repository, f
 
 test('a package finding says which version to upgrade to', () => {
   const html = generateHtmlReport(buildReportData([{ ...risk(1, 'HIGH'), scanner: 'SCA', fixVersion: '4.17.21' }, risk(2, 'LOW')], { tenant: 't' }));
-  assert.match(html, /upgrade to 4\.17\.21/);
-  assert.equal((html.match(/upgrade to /g) ?? []).length, 1);
+  assert.match(html, /data-l="upgrade to \{0\}" data-v="\[&quot;4\.17\.21&quot;\]" translate="no">upgrade to 4\.17\.21</);
+  assert.equal((html.match(/>upgrade to /g) ?? []).length, 1);
 });

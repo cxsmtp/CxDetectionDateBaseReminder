@@ -27,7 +27,7 @@ Self-hosted, one container, nothing to install for developers.
 | **Hands-off follow-up** | Age-threshold automation that never nags twice, and tracked reports that measure progress and send follow-ups. |
 | **Accountable** | A hash-chained audit log of every credit and change, role-based access, one-file backups, and a privacy-safe troubleshooting log. |
 | **Easy to work in** | Pages grouped as Act, Follow up, Prove and Set up, in tabs instead of long scrolls; every page keeps your work when you switch; Jump to (Ctrl K); a layout that fits phone, tablet, laptop and wide screens. |
-| **In your language** | Menus and options in Japanese, Traditional Chinese (Taiwan), Simplified Chinese, Korean, Spanish, Brazilian Portuguese, German, French, Arabic, Vietnamese, Thai, Malay and Indonesian, as well as English; Hebrew with an activation code, for the people an Admin chooses. Arabic and Hebrew read right to left. Each translation was checked by two separate reviews and by automated checks ([languages](docs/languages.md)). Each person has a profile with their own picture, language, time zone (picked up from their computer) and programming languages. |
+| **In your language** | Menus and options in Japanese, Traditional Chinese (Taiwan), Simplified Chinese, Korean, Spanish, Brazilian Portuguese, German, French, Arabic, Vietnamese, Thai, Malay and Indonesian, as well as English; Hebrew with an activation code, for the people an Admin chooses. Arabic and Hebrew read right to left. The interactive HTML report too: it opens in its reader's language, and they can switch it. Each translation was checked by two separate reviews and by automated checks ([languages](docs/languages.md)). Each person has a profile with their own picture, language, time zone (picked up from their computer) and programming languages. |
 | **Scales** | 3000 people at once on 2 vCPU / 4 GB, 6 failed of 64,320 requests; a report opens in 53 ms (p50) ([benchmark](docs/performance.md)). |
 
 ## Architecture
@@ -231,7 +231,8 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.58** | 502/s, 0 failed (main 514, 31 failed) | 11.8 s | 648 ms | 559 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.59** | 513/s, 0 failed (main 518, 0 failed) | 6.2 s | 229 ms | 565 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| MZ-01.00.58 | 502/s, 0 failed (main 514, 31 failed) | 11.8 s | 648 ms | 559 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.57 | 499/s, 0 failed (main 512, 10 failed) | 6.4 s | 627 ms | 557 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.56 | 494/s, 0 failed (main 495, 0 failed) | 5.5 s | 345 ms | 548 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.55 | 522/s, 0 failed (main 514, 0 failed) | 4.7 s | 311 ms | 534 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
@@ -277,7 +278,7 @@ How it is measured, and what is open and why: [Performance and security status](
 | [Performance and sizing](docs/performance.md) | The 3000-user benchmark and the recommended server size. |
 | [Performance and security status](docs/status.md) | Every version's benchmark, tests, dependency audit and Checkmarx One scan result. |
 | [Audit log and backups](docs/audit-and-backup.md) | The tamper-evident audit log, backups, restore, moving servers. |
-| [Languages](docs/languages.md) | The fifteen languages, right-to-left Arabic and Hebrew, and how translations are kept current and reviewed. |
+| [Languages](docs/languages.md) | The fifteen languages, in the app and the interactive report, right-to-left Arabic and Hebrew, and how translations are kept current and reviewed. |
 | [Several tenants](docs/multi-tenant.md) | One server for several Checkmarx One tenants, each with its own connection, settings, credits, reports, audit log and people; a Super Admin manages them (with an activation code). |
 | [When a connection does not work](docs/troubleshooting.md) | Every email server, Checkmarx One, git host and .env file problem MissionZero recognises, and the steps that fix each one. |
 | [Hands-off and self-healing](docs/hands-off.md) | Set it up once, steer it by email (links and one-word replies), and how it checks, repairs and reports on itself. |

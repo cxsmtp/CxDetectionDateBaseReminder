@@ -27,6 +27,21 @@ export const BULK_SEVERITIES = ['CRITICAL', 'HIGH'];
 const CLIENT_SCRIPT = ['./report/patch.client.js', './report/report.client.js']
   .map((file) => readFileSync(new URL(file, import.meta.url), 'utf8'))
   .join('\n');
+// The page's own translator (public/i18n.js), run inside the report with the report's words.
+const I18N_SCRIPT = readFileSync(new URL('../public/i18n.js', import.meta.url), 'utf8');
+const I18N_BOOT = readFileSync(new URL('./report/i18n-boot.client.js', import.meta.url), 'utf8');
+
+/** English with {0}, {1}… filled in: what a reader without the report's script sees. */
+const fill = (text, values) => String(text).replace(/\{(\d+)\}/g, (all, i) => (i < values.length ? String(values[i]) : all));
+
+/**
+ * Wording with names or addresses in it, which the page's translator cannot look up as it stands:
+ * the report's script writes it again in the reader's language from the English (data-l) and the
+ * values (data-v), which are never translated.
+ */
+function tx(text, ...values) {
+  return `<span data-l="${escapeHtml(text)}"${values.length ? ` data-v="${escapeHtml(JSON.stringify(values.map(String)))}"` : ''} translate="no">${escapeHtml(fill(text, values))}</span>`;
+}
 
 const SEVERITY_RANK = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO', 'UNKNOWN'];
 const rank = (severity) => {
@@ -138,6 +153,9 @@ export function generateHtmlReport(reportData, options = {}) {
       ...(codeLocation(f.codeLocation) ? { loc: codeLocation(f.codeLocation) } : {}),
       aiUnavailable: aiUnavailableReason(f),
       ...(index < findings.length ? { advice: fixAdvice(f) } : {}),
+      ...(index < findings.length && (f.aiReachability || f.aiExploitability)
+        ? { ai: { reachability: String(f.aiReachability ?? ''), exploitability: String(f.aiExploitability ?? '') } }
+        : {}),
     };
     return options.sign && !client.aiUnavailable ? { ...client, ...options.sign(client) } : client;
   });
@@ -194,7 +212,9 @@ export function generateHtmlReport(reportData, options = {}) {
     projectReports,
   };
 
-  const title = projects.length === 1 ? `${projects[0].projectName} — vulnerability report` : 'Vulnerability report';
+  const title = projects.length === 1 ? fill('{0} — vulnerability report', [projects[0].projectName]) : 'Vulnerability report';
+  const titleHtml = projects.length === 1 ? tx('{0} — vulnerability report', projects[0].projectName) : 'Vulnerability report';
+  const i18n = reportLanguages(options.i18n, relayUrl);
   const logoUrl = safeLogo(branding.logoUrl);
   const logo = logoUrl
     ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(branding.companyName || 'Logo')}" height="${Number(branding.logoHeight) || 32}">`
@@ -208,7 +228,7 @@ export function generateHtmlReport(reportData, options = {}) {
   const projectLinks = projectReports
     .map(
       (p, i) =>
-        `<button type="button" class="btn btn-outline" data-project-report="${i}" title="Builds this project's own report and opens it in a new tab (also downloaded)">${escapeHtml(p.projectName)} (${p.count}) →</button>`,
+        `<button type="button" class="btn btn-outline" data-project-report="${i}" title="Builds this project's own report and opens it in a new tab (also downloaded)"><span translate="no">${escapeHtml(p.projectName)}</span> (${p.count}) →</button>`,
     )
     .join('');
   const singleProject = projects.length === 1;
@@ -226,7 +246,7 @@ export function generateHtmlReport(reportData, options = {}) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<title>${escapeHtml(title)}</title>
+<title${projects.length === 1 ? ` data-l="{0} — vulnerability report" data-v="${escapeHtml(JSON.stringify([String(projects[0].projectName ?? '')]))}" translate="no"` : ''}>${escapeHtml(title)}</title>
 <style>${styles(accent)}</style>
 </head>
 <body>
@@ -234,12 +254,15 @@ export function generateHtmlReport(reportData, options = {}) {
   <div class="top-inner">
     <div>
       ${logo ? `<div class="brand">${logo}</div>` : ''}
-      <h1>${escapeHtml(title)}</h1>
-      <p class="meta">${total} open finding${total === 1 ? '' : 's'}${projects.length > 1 ? ` across ${projects.length} projects` : ''}
-        · top ${findings.length} shown (worst severity, then oldest)
-        · generated ${escapeHtml(reportData.generatedAt ?? '')} UTC${connection.tenant ? ` · tenant ${escapeHtml(connection.tenant)}` : ''}</p>
+      <h1>${titleHtml}</h1>
+      <p class="meta"><span>${projects.length > 1 ? `${total} open findings across ${projects.length} projects` : total === 1 ? '1 open finding' : `${total} open findings`}</span>
+        · <span>top ${findings.length} shown (worst severity, then oldest)</span>
+        · ${tx('generated {0} UTC', reportData.generatedAt ?? '')}${connection.tenant ? ` · ${tx('tenant {0}', connection.tenant)}` : ''}</p>
     </div>
-    <button id="connect" class="btn btn-light" type="button">Connect to act on these findings</button>
+    <div class="top-actions">
+      ${i18n ? `<label class="lang-pick" hidden><span>Language</span> <select id="report-lang" translate="no"></select></label>` : ''}
+      <button id="connect" class="btn btn-light" type="button">Connect to act on these findings</button>
+    </div>
   </div>
   <div class="counts summary">
     <span class="count count-total"><b>${total}</b> open</span>
@@ -261,7 +284,7 @@ export function generateHtmlReport(reportData, options = {}) {
   <section class="server" id="server" aria-label="Reminder server">
     <div class="server-row">
       <span class="server-label">Reminder server</span>
-      <code id="server-url" class="server-url">${relayUrl ? escapeHtml(relayUrl.replace(/\/+$/, '')) : 'not set'}</code>
+      <code id="server-url" class="server-url" translate="no">${relayUrl ? escapeHtml(relayUrl.replace(/\/+$/, '')) : 'not set'}</code>
       <span id="server-state" class="server-state"></span>
       <button id="server-change" class="btn btn-outline btn-small" type="button">${relayUrl ? 'Change' : 'Enter address'}</button>
     </div>
@@ -307,7 +330,7 @@ export function generateHtmlReport(reportData, options = {}) {
       ${remediateHere ? 'Triage and Remediate go' : 'Triage goes'} through the reminder server shown above, which must be reachable from this computer (company network or VPN).</p>
     </details>
     ${resultsShown < shownAi.length
-      ? `<p class="shared-explainer"><strong>${shownAi.length} findings here are ${resultsShown} Checkmarx One results.</strong> Checkmarx One can list one result once per code path that reaches it; AI Triage works on the result, so those rows are triaged together and charged once. Rows that are the same result carry the same label and colour (${[...labels.values()].slice(0, 3).map((n) => `<span class="shared-chip shared-c${n % SHARED_COLOURS}">R${n + 1}</span>`).join(' ')}${labels.size > 3 ? ' …' : ''}), and each one links to the other rows of its result.</p>`
+      ? `<p class="shared-explainer"><strong>${shownAi.length} findings here are ${resultsShown} Checkmarx One results.</strong> <span>Checkmarx One can list one result once per code path that reaches it; AI Triage works on the result, so those rows are triaged together and charged once.</span> <span>Rows that are the same result carry the same label and colour, and each one links to the other rows of its result.</span> <span class="shared-chips" translate="no">${[...labels.values()].slice(0, 3).map((n) => `<span class="shared-chip shared-c${n % SHARED_COLOURS}">R${n + 1}</span>`).join(' ')}${labels.size > 3 ? ' …' : ''}</span></p>`
       : ''}
   </section>
 
@@ -357,11 +380,11 @@ ${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere,
   <p id="hidden-note" class="muted hidden-note" hidden></p>
 
   <details id="activity" class="activity">
-    <summary>Activity (<span id="activity-count">0</span>)</summary>
+    <summary><span>Activity</span> (<span id="activity-count">0</span>)</summary>
     <ul id="activity-list"></ul>
   </details>
-  <p class="onprem-note"><b>This report talks only to your organisation's reminder server.</b> ${escapeHtml(ON_PREMISE_NOTICE)}</p>
-  <p class="muted disclaimer">${escapeHtml(SUPPORTING_NOTICE)} Triaging or remediating from this report means accepting those terms.</p>
+  <p class="onprem-note"><b>This report talks only to your organisation's reminder server.</b> <span>${escapeHtml(ON_PREMISE_NOTICE)}</span></p>
+  <p class="muted disclaimer"><span>${escapeHtml(SUPPORTING_NOTICE)}</span> <span>Triaging or remediating from this report means accepting those terms.</span></p>
 </main>
 <dialog id="credit-dialog" class="dialog" aria-labelledby="credit-dialog-title">
   <form method="dialog">
@@ -376,16 +399,38 @@ ${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere,
   </form>
 </dialog>
 <script type="application/json" id="report-data">${jsonForScript(payload)}</script>
+${i18n ? `<script type="application/json" id="report-i18n">${jsonForScript(i18n)}</script>
+<script type="module">${`${I18N_SCRIPT}\n${I18N_BOOT}`.replace(/<\/script/gi, '<\\/script')}</script>` : ''}
 <script>${CLIENT_SCRIPT.replace(/<\/script/gi, '<\\/script')}</script>
 </body>
 </html>`;
+}
+
+/**
+ * The languages a report offers (see report-i18n.js): {default, languages: [[code, name]],
+ * strings: {code: {English: translation}} for the ones it carries, fetch, version}, or null for a
+ * report in English only. Without a server address it offers only what it carries.
+ */
+function reportLanguages(given, relayUrl) {
+  if (!given || typeof given !== 'object') return null;
+  const strings = {};
+  for (const [code, words] of Object.entries(given.strings ?? {})) {
+    if (/^[a-z]{2}(-[A-Z]{2})?$/.test(code) && code !== 'en' && words && typeof words === 'object') strings[code] = words;
+  }
+  const fetch = given.fetch === true && Boolean(relayUrl);
+  const languages = (Array.isArray(given.languages) ? given.languages : [])
+    .filter((pair) => Array.isArray(pair) && /^[a-z]{2}(-[A-Z]{2})?$/.test(String(pair[0])) && (pair[0] === 'en' || strings[pair[0]] || fetch))
+    .map(([code, name]) => [String(code), String(name ?? code)]);
+  if (!languages.some(([code]) => code !== 'en')) return null;
+  const start = languages.some(([code]) => code === given.default) ? given.default : '';
+  return { default: start, languages, strings, fetch, version: String(given.version ?? '') };
 }
 
 function aiUnavailableReason(finding) {
   if (finding.aiUnavailable) return finding.aiUnavailable;
   const scanner = String(finding.scanner || '').toUpperCase();
   if (!AI_SCANNERS.has(scanner)) {
-    return `AI Triage and Remediation support SAST and SCA only (this is ${scanner || 'an unknown engine'}).`;
+    return scanner ? fill('AI Triage and Remediation support SAST and SCA only (this is {0}).', [scanner]) : 'AI Triage and Remediation support SAST and SCA only (this is an unknown engine).';
   }
   if (!finding.alternateId || !finding.groupId || !finding.scanId) {
     return 'Checkmarx One identifiers for this finding are not available.';
@@ -400,8 +445,8 @@ function findingRow(finding, client, remediateHere, shared = null) {
   const severity = String(finding.severity || 'UNKNOWN').toUpperCase();
   const url = safeHttpUrl(finding.url);
   const title = url
-    ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(finding.title)}</a>`
-    : escapeHtml(finding.title);
+    ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" translate="no">${escapeHtml(finding.title)}</a>`
+    : `<span translate="no">${escapeHtml(finding.title)}</span>`;
   const location = finding.location && finding.location !== '—' ? escapeHtml(finding.location) : '';
   const state = String(finding.state || '').toUpperCase();
   const stateLabel = STATE_LABELS[state] ?? (state ? state.replace(/_/g, ' ').toLowerCase() : '—');
@@ -410,10 +455,10 @@ function findingRow(finding, client, remediateHere, shared = null) {
   return `<tr data-key="${client.key}" id="row-${client.key}" data-sev="${escapeHtml(severity)}"${shared ? ` class="shared-row shared-c${shared.color}" data-result="${shared.label}"` : ''}>
   <td class="sev-cell"><span class="sev sev-${escapeHtml(severity.toLowerCase())}">${escapeHtml(severity)}</span></td>
   <td class="finding"><div class="finding-title">${title}</div>
-    <div class="sub">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}${finding.fixVersion ? ` · <span class="fix-version" title="The version Checkmarx One recommends">upgrade to ${escapeHtml(finding.fixVersion)}</span>` : ''}</div>${shared ? `\n    ${sharedNoteHtml(shared)}` : ''}</td>
+    <div class="sub"><span translate="no">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</span>${finding.fixVersion ? ` · <span class="fix-version" title="The version Checkmarx One recommends">${tx('upgrade to {0}', finding.fixVersion)}</span>` : ''}</div>${shared ? `\n    ${sharedNoteHtml(shared)}` : ''}</td>
   <td class="meta-cell" data-label="Type" title="${escapeHtml(finding.scanner || '')}">${escapeHtml(engineLabel(finding.scanner))}</td>
   <td class="meta-cell" data-label="Age">${age}</td>
-  <td class="state-cell" data-label="State"><span class="state-label">${escapeHtml(stateLabel)}</span><div class="state-why">${CONFIRMED_STATES.has(state) && !client.aiUnavailable ? confirmedWhyHtml(client.advice ?? fixAdvice(finding), { ...aiFromRisk(finding), scanner: finding.scanner, url, remediateHere }) : ''}</div></td>
+  <td class="state-cell" data-label="State"><span class="state-label" data-i18n-ctx="verdict">${escapeHtml(stateLabel)}</span><div class="state-why">${CONFIRMED_STATES.has(state) && !client.aiUnavailable ? confirmedWhyHtml(client.advice ?? fixAdvice(finding), { ...aiFromRisk(finding), scanner: finding.scanner, url, remediateHere }) : ''}</div></td>
   <td class="ai-cell" data-label="Triage result">${client.aiUnavailable ? manualCell(finding, client.aiUnavailable) : '—'}</td>
   <td class="actions-cell">
     ${client.aiUnavailable
@@ -436,7 +481,8 @@ function findingRow(finding, client, remediateHere, shared = null) {
 const SHARED_COLOURS = 6;
 const CONFIRMED_STATES = new Set(['CONFIRMED', 'URGENT']);
 const shortId = (id) => (String(id).length > 10 ? `${String(id).slice(0, 8)}…` : String(id));
-const where = (location) => String(location ?? '').trim() || 'the same place';
+const SAME_PLACE = '\u0000same';
+const where = (location) => String(location ?? '').trim() || SAME_PLACE;
 /** "…/app/routes/session.js :: render" → "session.js :: render". */
 const shortPlace = (location) => String(location ?? '').replace(/^.*[\\/]/, '');
 
@@ -447,15 +493,22 @@ const shortPlace = (location) => String(location ?? '').replace(/^.*[\\/]/, '');
 function sharedNoteHtml(shared) {
   const here = shared.location;
   const twins = shared.twins
-    .map((t) => `<a class="shared-link" href="#row-${t.key}" data-twin="${t.key}">${t.below ? 'below ↓' : 'above ↑'}</a>${t.location && t.location !== here ? ` (${escapeHtml(shortPlace(t.location))})` : ''}`)
+    .map((t) => `<a class="shared-link" href="#row-${t.key}" data-twin="${t.key}">${t.below ? 'below ↓' : 'above ↑'}</a>${t.location && t.location !== here ? ` <span translate="no">(${escapeHtml(shortPlace(t.location))})</span>` : ''}`)
     .join(', ');
   const rows = shared.twins.length + 1;
   const places = [...new Set(shared.locations.map(where))];
   const paths = places.length === 1
-    ? `Here every path ends at ${escapeHtml(places[0])}; the rows differ in the route the data takes to get there.`
-    : `Here the paths are reported at ${places.map(escapeHtml).join(' and ')}: different routes into the same vulnerable code.`;
-  return `<div class="shared-note"><span class="shared-chip shared-c${shared.color}">Same result ${shared.label}</span> also listed ${twins} · triaged together, 1 credit.
-      <details class="why-more"><summary>why?</summary><p>Checkmarx One gave these ${rows} rows the same ${shared.idKind} (<code>${escapeHtml(shortId(shared.id))}</code>), so they are one result (${shared.label}). It lists a result once for each code path it found from the input to the vulnerable code. ${paths} AI Triage judges the result, so it is triaged once, charged 1 credit, and its verdict applies to all ${rows} rows; fixing it clears them all.</p></details></div>`;
+    ? places[0] === SAME_PLACE
+      ? '<span>Here every path ends at the same place; the rows differ in the route the data takes to get there.</span>'
+      : tx('Here every path ends at {0}; the rows differ in the route the data takes to get there.', places[0])
+    : tx('Here the paths are reported at {0}: different routes into the same vulnerable code.', places.join(', '));
+  const sameId = {
+    'result ID': `Checkmarx One gave these ${rows} rows the same result ID, so they are one result (${shared.label}).`,
+    'group ID': `Checkmarx One gave these ${rows} rows the same group ID, so they are one result (${shared.label}).`,
+    'risk ID': `Checkmarx One gave these ${rows} rows the same risk ID, so they are one result (${shared.label}).`,
+  }[shared.idKind];
+  return `<div class="shared-note"><span class="shared-chip shared-c${shared.color}">Same result ${shared.label}</span> <span>Also listed:</span> ${twins} · <span>Triaged together, 1 credit.</span>
+      <details class="why-more"><summary>why?</summary><p><span>${sameId}</span> <code>${escapeHtml(shortId(shared.id))}</code> <span>It lists a result once for each code path it found from the input to the vulnerable code.</span> ${paths} <span>AI Triage judges the result, so it is triaged once, charged 1 credit, and its verdict applies to all ${rows} rows; fixing it clears them all.</span></p></details></div>`;
 }
 
 /** AI Triage fields the risks API carried (the ai-insights source), for the first rendering. */
@@ -500,18 +553,25 @@ function confirmedWhyHtml(advice, { reason = '', recommendation = '', reachabili
     reason && advice.what !== reason ? `This kind of finding: ${advice.what}` : '',
     fix !== fixFull ? `Fix in full: ${fixFull}` : '',
   ].filter(Boolean);
-  return `<p class="why-line"><b>Why:</b> ${escapeHtml(why)}</p><p class="why-line"><b>Fix:</b> ${escapeHtml(fix)}</p>
+  // The report's script writes this again in the reader's language when it starts (report.client.js).
+  return `<p class="why-line"><b>Why:</b> <span translate="no">${escapeHtml(why)}</span></p><p class="why-line"><b>Fix:</b> <span translate="no">${escapeHtml(fix)}</span></p>
       <details class="why-more"><summary>why?</summary>
-        ${more.map((text) => `<p>${escapeHtml(text)}</p>`).join('')}
-        <p>${remediateHere ? 'Remediate asks Checkmarx One AI Remediation for the code change (a pull request when the project is connected to its repository).' : 'Checkmarx One shows the full data flow.'}${url ? ` <a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open in Checkmarx One</a>` : ''}</p>
+        ${more.map((text) => `<p translate="no">${escapeHtml(text)}</p>`).join('')}
+        <p><span>${remediateHere ? 'Remediate asks Checkmarx One AI Remediation for the code change (a pull request when the project is connected to its repository).' : 'Checkmarx One shows the full data flow.'}</span>${url ? ` <a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open in Checkmarx One</a>` : ''}</p>
       </details>`;
 }
 
 /** Why AI cannot act on this finding, in a few words, with the full reason on hover. */
 function manualCell(finding, reason) {
   const engine = String(finding.scanner || '').toUpperCase();
-  const short = engine && !['SAST', 'SCA'].includes(engine) ? `No AI for ${['KICS', 'IAC'].includes(engine) ? 'IaC' : engine} findings` : 'AI not available';
-  return `<span class="chip chip-muted" title="${escapeHtml(reason)}">Manual fix</span><div class="sub">${escapeHtml(short)} — fix it in Checkmarx One</div>`;
+  const short = engine && !['SAST', 'SCA'].includes(engine)
+    ? tx('No AI for {0} findings — fix it in Checkmarx One', ['KICS', 'IAC'].includes(engine) ? 'IaC' : engine)
+    : 'AI not available — fix it in Checkmarx One';
+  const known = /^AI Triage and Remediation support SAST and SCA only \(this is (.+)\)\.$/.exec(reason);
+  const tip = known && known[1] !== 'an unknown engine'
+    ? ` title="${escapeHtml(reason)}" data-l-title="AI Triage and Remediation support SAST and SCA only (this is {0})." data-v-title="${escapeHtml(JSON.stringify([known[1]]))}"`
+    : ` title="${escapeHtml(reason)}"`;
+  return `<span class="chip chip-muted"${tip}>Manual fix</span><div class="sub">${short}</div>`;
 }
 
 function styles(accent) {
@@ -764,6 +824,21 @@ tr.shared-row.twin-hi > td, tr.shared-row:target > td { background: color-mix(in
   tr { break-inside: avoid; }
   a { color: #000; }
 }
+/* The language picker, and right-to-left languages (Arabic, Hebrew). */
+.top-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.lang-pick { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.lang-pick select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.5); background: rgba(255,255,255,.14); color: #fff; }
+.lang-pick option { color: #1f2330; }
+th { text-align: start; }
+.refresh-box { margin-left: 0; margin-inline-start: auto; }
+.row-tools .ide-list { right: auto; inset-inline-end: 0; }
+.apply-list { padding-left: 0; padding-inline-start: 18px; }
+.ide-list .ide-folder { text-align: start; }
+.more-links .btn { text-align: start; }
+[dir="rtl"] tr.shared-row > td:first-child { box-shadow: inset -4px 0 0 var(--twin); }
+[dir="rtl"] .activity time { margin-right: 0; margin-left: 6px; }
+@media (max-width: 760px) { .top-actions { justify-content: stretch; } .top-actions > * { flex: 1 1 auto; } }
+@media print { .lang-pick { display: none !important; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
 
 /* Summary tiles, the lifecycle strip (found → fix it here → every credit audited), filters, calmer rows. */

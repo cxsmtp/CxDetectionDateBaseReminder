@@ -49,6 +49,12 @@
    "Dashboard › remind › span › Projects"
   ]
  },
+ "(confidence {0})": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "(not set)": {
   "kind": "text",
   "seen": [
@@ -71,6 +77,48 @@
    "first start › span › Update & recovery",
    "sign in › span › Update & recovery",
    "Dashboard › span › Update & recovery"
+  ]
+ },
+ "{0} — building the report…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} — vulnerability report": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} · no verdict published yet — still “To verify” in Checkmarx One": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} and {1}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} answered, but it is not a reminder server. Check the address.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} change": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} changes": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "{0} Checkmarx One result awaiting triage at these severities ({1} credit)": {
@@ -131,6 +179,18 @@
    "Dashboard › p › Allocated vs used"
   ]
  },
+ "{0} critical/high finding needs a manual fix in Checkmarx One (AI Triage covers SAST and SCA only).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} critical/high findings need a manual fix in Checkmarx One (AI Triage covers SAST and SCA only).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "{0} day (try it first)": {
   "kind": "text",
   "seen": [
@@ -177,6 +237,12 @@
    "logs › activity › span › Activity log"
   ]
  },
+ "{0} files": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "{0} files, {1}.{2} KB": {
   "kind": "text",
   "seen": [
@@ -185,12 +251,36 @@
    "audit › checks › dd › State folder & backups"
   ]
  },
+ "{0} finding left to triage or fix. Then you rescan to prove the fixes.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} finding triaged as not exploitable (or proposed so) is not shown.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} finding(s) had no final AI Triage verdict yet; see Checkmarx One for the latest.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "{0} finding(s) in {1}.{2}s via /api/risks/ · {3} API request(s)": {
   "kind": "text",
   "seen": [
    "Dashboard › fetching › p › Fetch",
    "Dashboard › loaded › p › Fetch",
    "Dashboard › remind › p › Fetch"
+  ]
+ },
+ "{0} finding(s) in this report are already remediated.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "{0} finding(s) in this round are still open. Rescan anyway? Checkmarx One scans each project again (this uses scans, not AI credits).": {
@@ -207,12 +297,48 @@
    "reports › detail › remind › span › Weekly"
   ]
  },
+ "{0} findings here are {1} Checkmarx One results: rows sharing a result are triaged together and charged once, so this uses {1} credit(s).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} findings here are {1} Checkmarx One results.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} findings left to triage or fix. Then you rescan to prove the fixes.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} findings triaged as not exploitable (or proposed so) are not shown.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "{0} fixed by hand": {
   "kind": "text",
   "seen": [
    "impact › span",
    "impact › exec › span",
    "impact › detail › span"
+  ]
+ },
+ "{0} fixed, {1} still found. The updated report has been emailed to you.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} found a few lines away (the file changed since the scan)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "{0} h": {
@@ -237,6 +363,18 @@
    "impact › span",
    "impact › exec › span",
    "impact › detail › span"
+  ]
+ },
+ "{0} is a checkout of {1}, but this fix is for {2}. Apply it anyway?": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} is not a git checkout (it has no .git folder), so the change cannot be reviewed or undone with git. Apply the fix to it anyway?": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "{0} left of {1} allocated, {2} used · needs {3} for {4} Checkmarx One results ({5} findings — rows that share one result are triaged, and charged, once) still to triage (critical, high) · {6} more needed than allocated — allocate it on purpose": {
@@ -303,6 +441,12 @@
    "connection: cxone › div › Get started · 1 of 6 done"
   ]
  },
+ "{0} of {1} left": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "{0} of {1} people": {
   "kind": "message",
   "seen": [
@@ -325,6 +469,12 @@
    "Dashboard › remind › small"
   ]
  },
+ "{0} of {1} shown": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "{0} of {1} tracked report verified at zero by a rescan": {
   "kind": "attr:title",
   "seen": [
@@ -341,12 +491,30 @@
    "Dashboard › remind › a"
   ]
  },
+ "{0} open finding": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} open findings": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "{0} open findings (awaiting triage, confirmed or new). Remind the people who can act on them.": {
   "kind": "text",
   "seen": [
    "reports › detail › p › Weekly",
    "reports › detail › overview › p › Weekly",
    "reports › detail › remind › p › Weekly"
+  ]
+ },
+ "{0} open findings across {1} projects": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "{0} open findings in {1} projects": {
@@ -467,6 +635,18 @@
    "Dashboard › loaded › p › Only these projects or people — optional"
   ]
  },
+ "{0} remediation credit used, {1} left": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} remediation credits used, {1} left": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "{0} requests · {1} projects": {
   "kind": "text",
   "seen": [
@@ -499,12 +679,42 @@
    "Dashboard › remind › button"
   ]
  },
+ "{0} triage credit used, {1} left": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} triage credits used, {1} left": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} triage job running…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0} triage jobs running…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "{0} triaged or no longer detected": {
   "kind": "text",
   "seen": [
    "reports › span",
    "credits › span",
    "credits › overview › span"
+  ]
+ },
+ "{0} used": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "{0} users per request; includes your organisation's verified-domain emails. Needs a token.": {
@@ -571,6 +781,54 @@
    "Dashboard › label › Age"
   ]
  },
+ "{0}, line {1}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0}: {1} {2} credit(s) needed, {3} left": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0}: {1} credit(s)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0}: {1} credit(s) — {2} left now, {3} after": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0}: needs {1}, only {2} left": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0}: now using {1}.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0}: the fix changes {1} file.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "{0}: the fix changes {1} files.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "{0}/{1}/{2}, {3}:{4}:{5} AM": {
   "kind": "text",
   "seen": [
@@ -585,6 +843,12 @@
    "reports › span",
    "credits › span",
    "credits › overview › span"
+  ]
+ },
+ "{0}d": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "/tmp/i{0}n-{1}QoFX{2}/backups — same disk as the state: set BACKUP_DIR to another disk or share": {
@@ -611,6 +875,12 @@
    "Dashboard › remind › p › AI check & fix"
   ]
  },
+ "<b>{0}</b> open": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "<b>{0}</b> people": {
   "kind": "html",
   "seen": [
@@ -627,6 +897,12 @@
    "Dashboard › remind › span › Developers"
   ]
  },
+ "<b>{0}d</b> oldest": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "<b>On premise, your data stays yours.</b> Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add; and, only when an Admin checks for or installs updates, the registry its own image comes from). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.": {
   "kind": "html",
   "seen": [
@@ -641,6 +917,30 @@
    "first start › p › Replace the whole image (a new Node.js or OS base) Beta Companion not running",
    "sign in › p › Replace the whole image (a new Node.js or OS base) Beta Companion not running",
    "Dashboard › p › Replace the whole image (a new Node.js or OS base) Beta Companion not running"
+  ]
+ },
+ "<i aria-hidden=\"true\"></i><b>{0}</b> critical": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "<i aria-hidden=\"true\"></i><b>{0}</b> high": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "<i aria-hidden=\"true\"></i><b>{0}</b> low": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "<i aria-hidden=\"true\"></i><b>{0}</b> medium": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "<i aria-hidden=\"true\"></i>Act": {
@@ -673,6 +973,30 @@
    "first start › p",
    "sign in › p",
    "Dashboard › p"
+  ]
+ },
+ "<i class=\"dot dot-critical\" aria-hidden=\"true\"></i>Critical <em>{0}</em>": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "<i class=\"dot dot-high\" aria-hidden=\"true\"></i>High <em>{0}</em>": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "<i class=\"dot dot-low\" aria-hidden=\"true\"></i>Low <em>{0}</em>": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "<i class=\"dot dot-medium\" aria-hidden=\"true\"></i>Medium <em>{0}</em>": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "<i class=\"key key-remediation\"></i>AI Remediation": {
@@ -882,6 +1206,42 @@
    "Dashboard › label › Age"
   ]
  },
+ "✓ Already remediated": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "✓ Connected to Checkmarx One · {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "✓ Fix suggested — no pull request: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "✓ Fix suggested (no pull request: the project is not connected to a code repository)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "✓ Remediation opened": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "✓ Written to {0} ({1}). Review with git diff, then commit.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "✗ Mail server: not set up yet — automation cannot send. Fill in Email server above.": {
   "kind": "text",
   "seen": [
@@ -902,6 +1262,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "A cookie is set without Secure / HttpOnly / SameSite, so it can leak or be read by script.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "A credit pool limits what AI Triage and Remediation may spend.": {
@@ -956,12 +1322,30 @@
    "Dashboard › small"
   ]
  },
+ "A one-line command that downloads this fix and applies it with git, run in the repository folder.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "A package this project uses has a known vulnerability that the code can reach.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "A password": {
   "kind": "text",
   "seen": [
    "settings › dd › Your profile",
    "logs › dd › Your profile",
    "logs › activity › dd › Your profile"
+  ]
+ },
+ "A password, key or token is written in the code, where anyone with the code can read it.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "A personal access token with <strong>Code (read)</strong>, <strong>Graph (read)</strong> and <strong>Identity (read)</strong>. Azure DevOps has no blame API: blame uses git on a clone made with this token. Usernames: the organisation directory, identity search, commits.": {
@@ -996,6 +1380,18 @@
    "Dashboard › p › More connections to the same host"
   ]
  },
+ "A secure (HTTPS) connection to the reminder server works from this computer": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "A state-changing request can be made from another site using the victim's session.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "A strict Content Security Policy, no framing and no MIME sniffing, on every page.": {
   "kind": "text",
   "seen": [
@@ -1022,6 +1418,12 @@
    "first start › p › GitHub",
    "sign in › p › GitHub",
    "Dashboard › p › GitHub"
+  ]
+ },
+ "A weak algorithm or predictable random values protect sensitive data.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "ABCD-EFGH-JKLM": {
@@ -1054,6 +1456,12 @@
    "first start › h2 › About CxMissionZero",
    "sign in › h2 › About CxMissionZero",
    "Dashboard › h2 › About CxMissionZero"
+  ]
+ },
+ "above ↑": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Accent colour": {
@@ -1159,6 +1567,12 @@
    "reports › detail › remind › span › Weekly"
   ]
  },
+ "Actions": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Activation code": {
   "kind": "text",
   "seen": [
@@ -1189,6 +1603,12 @@
    "first start › option › People",
    "sign in › option › People",
    "Dashboard › option › People"
+  ]
+ },
+ "Activity": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Activity in this browser": {
@@ -1297,6 +1717,12 @@
    "first start › span › Reminder server address",
    "sign in › span › Reminder server address",
    "Dashboard › span › Reminder server address"
+  ]
+ },
+ "Address of your reminder server — ask whoever sent this report if you do not know it.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Address saved": {
@@ -1641,6 +2067,12 @@
    "Dashboard › span › AI Triage & Remediation from reports"
   ]
  },
+ "Administrator: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Advanced options hidden: the essentials only.": {
   "kind": "message",
   "seen": [
@@ -1733,6 +2165,12 @@
    "credits › overview › span"
   ]
  },
+ "AI not available — fix it in Checkmarx One": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "AI Remediation": {
   "kind": "text",
   "seen": [
@@ -1741,12 +2179,54 @@
    "sign in › strong › AI check & fix"
   ]
  },
+ "AI Remediation already running for {0}; following it.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "AI Remediation credits left / allocated, and what confirmed findings still need": {
   "kind": "attr:title",
   "seen": [
    "first start › th › Projects",
    "sign in › th › Projects",
    "Dashboard › th › Projects"
+  ]
+ },
+ "AI Remediation failed for {0}: {1}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Remediation failed.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Remediation from reports is switched off. Ask your Checkmarx One reminder administrator to allow it.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Remediation ready: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Remediation ready: {0} — opened PR {1}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Remediation running in Checkmarx One — it triages the finding, writes a fix and opens a pull request. This can take several minutes.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "AI Remediation started": {
@@ -1759,6 +2239,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "AI Remediation started: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "AI Triage": {
@@ -1785,6 +2271,30 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "AI Triage already running for {0} finding(s); following it.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Triage and Remediation are not available for this finding: fix it in Checkmarx One": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Triage and Remediation support SAST and SCA only (this is {0}).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Triage and Remediation support SAST and SCA only (this is an unknown engine).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "AI Triage checks whether a finding is real: {0} credit. AI Remediation proposes a fix for a confirmed finding: {1} credits. Give the projects the credits first; nothing is spent until you press a button.": {
   "kind": "text",
   "seen": [
@@ -1801,6 +2311,24 @@
    "Dashboard › th › Projects"
   ]
  },
+ "AI Triage judged it {0} (confidence {1}).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Triage judged it {0}.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Triage judges the result, so it is triaged once, charged {0} credit, and its verdict applies to all {1} rows; fixing it clears them all.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "AI Triage started": {
   "kind": "busy",
   "seen": [
@@ -1811,6 +2339,42 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "AI Triage uses 1 credit per Checkmarx One result (rows that share one count once), AI Remediation 3 · {0} left this month across all projects.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Triage uses 1 credit per Checkmarx One result (rows that share one count once), AI Remediation 3.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Triage verdict, or the finding's Checkmarx One state once triaged": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Triage: {0} → {1}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Triage: {0} → {1} — removed from this report.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "AI Triage: {0} → no result from Checkmarx One {1} min after it was sent. The report keeps checking.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "All": {
@@ -1845,6 +2409,12 @@
    "Dashboard › span"
   ]
  },
+ "All <em>{0}</em>": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "All changes are saved.": {
   "kind": "text",
   "seen": [
@@ -1859,6 +2429,18 @@
    "settings › span › Hands-off: set it up once, then leave it",
    "logs › span › Hands-off: set it up once, then leave it",
    "logs › activity › span › Hands-off: set it up once, then leave it"
+  ]
+ },
+ "All critical triaged": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "All high triaged": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "All outcomes": {
@@ -2057,12 +2639,42 @@
    "access › roles › small › Roles & permissions"
   ]
  },
+ "Allow-list destination hosts, block private and metadata addresses, and do not follow redirects to other hosts.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Already exists, but the fix would create it.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Already remediated. Remediating again is switched off by your administrator.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Already triaged. Triaging again is switched off by your administrator.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Also email the code authors: the developer who last changed each vulnerable line gets the findings in their code": {
   "kind": "text",
   "seen": [
    "first start › label › Automation",
    "sign in › label › Automation",
    "Dashboard › label › Automation"
+  ]
+ },
+ "Also listed:": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Also open an issue in the repository": {
@@ -2299,12 +2911,54 @@
    "logs › activity › span › Tenants"
   ]
  },
+ "Apply AI fix": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Apply AI fix (git apply)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Apply AI fixes": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Apply fix in my workspace": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Apply in my workspace": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Apply its AI fix with": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Apply the code": {
   "kind": "text",
   "seen": [
    "first start › button › Activation codes",
    "sign in › button › Activation codes",
    "Dashboard › button › Activation codes"
+  ]
+ },
+ "Apply the fix to {0}?": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Applying the .env file and checking each connection…": {
@@ -2325,10 +2979,28 @@
    "busy line"
   ]
  },
+ "Ask the administrator": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Ask the mail server's administrator to renew its certificate.": {
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Ask your administrator ({0}) to allocate more credits.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Ask your administrator to allocate more credits.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Ask your mail administrator why the sending account or the server's address is blocked, and to unblock it.": {
@@ -2554,6 +3226,12 @@
    "credits › projects › span › Credits used over time"
   ]
  },
+ "Avoid the shell: call the program with an argument list (execFile/spawn without shell), and allow-list the values passed.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Awaiting": {
   "kind": "text",
   "seen": [
@@ -2699,6 +3377,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "below ↓": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Beta": {
@@ -2877,6 +3561,30 @@
    "message"
   ]
  },
+ "Building the report for {0} ({1} finding)…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Building the report for {0} ({1} findings)…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Building the report for {0}…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Builds this project's own report and opens it in a new tab (also downloaded)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Built": {
   "kind": "text",
   "seen": [
@@ -2971,12 +3679,24 @@
    "sign in › button › Create the first administrator"
   ]
  },
+ "Cannot reach the reminder server at {0}. It must be running and reachable from this computer (company network or VPN). If it moved, use “Change” next to its address.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Cap AI credits": {
   "kind": "text",
   "seen": [
    "Dashboard › strong › Get started · 1 of 6 done",
    "Dashboard (advanced) › strong › Get started · 1 of 6 done",
    "connection: cxone › strong › Get started · 1 of 6 done"
+  ]
+ },
+ "Cap sizes and counts taken from input, and add timeouts and rate limits.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "caped speedster": {
@@ -2991,6 +3711,12 @@
    "first start › option",
    "sign in › option",
    "Dashboard › option"
+  ]
+ },
+ "Cast input to the expected type (string, number), reject objects and $-operators, and use the driver's query builders.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Cc": {
@@ -3021,12 +3747,24 @@
    "busy line"
   ]
  },
+ "Change": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Change →": {
   "kind": "text",
   "seen": [
    "settings › a › Automation",
    "logs › a › Automation",
    "logs › activity › a › Automation"
+  ]
+ },
+ "Change address": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Change how scan initiators are resolved to addresses.": {
@@ -3109,6 +3847,12 @@
    "Dashboard › option › Credit audit log"
   ]
  },
+ "Changed in this browser": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Changes save as you type. If a new Checkmarx One or email connection does not work, the previous working one comes back when you leave this page.": {
   "kind": "text",
   "seen": [
@@ -3141,6 +3885,12 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Check & connect": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Check again": {
@@ -3181,6 +3931,12 @@
    "first start › button › Hands-off: set it up once, then leave it",
    "sign in › button › Hands-off: set it up once, then leave it",
    "Dashboard › button › Hands-off: set it up once, then leave it"
+  ]
+ },
+ "Check ownership or permission on the server for every record before reading or changing it; scope queries by the current user.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Check that it is for this tenant and region: a key from another tenant is refused.": {
@@ -3436,6 +4192,12 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "Checkmarx One can list one result once per code path that reaches it; AI Triage works on the result, so those rows are triaged together and charged once.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Checkmarx One connected": {
   "kind": "text",
   "seen": [
@@ -3452,10 +4214,34 @@
    "Dashboard › button"
   ]
  },
+ "Checkmarx One followed the data from where it enters the application to this code, and nothing on the way makes it safe.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Checkmarx One found a path from untrusted input to a sensitive operation that nothing on the way makes safe.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Checkmarx One gave these {0} rows the same result ID, so they are one result (R{1}).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Checkmarx One had a problem answering.": {
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Checkmarx One identifiers for this finding are not available.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Checkmarx One identities": {
@@ -3482,12 +4268,24 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "Checkmarx One judged this finding a real vulnerability.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Checkmarx One lists one result once for every code path (data flow) that reaches the same vulnerable code. Each line below is one result: AI Triage judges it once ({0} credit), and one fix in that code closes all of its findings.": {
   "kind": "text",
   "seen": [
    "Dashboard › fetching › p › Why fewer results than findings: 56 findings here are 28 Checkmarx One results",
    "Dashboard › loaded › p › Why fewer results than findings: 56 findings here are 28 Checkmarx One results",
    "Dashboard › remind › p › Why fewer results than findings: 56 findings here are 28 Checkmarx One results"
+  ]
+ },
+ "Checkmarx One matched this code or configuration against a known vulnerable pattern.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Checkmarx One no longer accepts this API key: it was deleted, revoked, or its user was disabled.": {
@@ -3506,6 +4304,18 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Checkmarx One shows the full data flow.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Checkmarx One state — updates once connected": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Checkmarx One tenant name": {
@@ -3692,6 +4502,12 @@
    "Dashboard › button › Send reminder"
   ]
  },
+ "Code": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Code authors (git blame) <span class=\"badge warn\">Beta</span>": {
   "kind": "html",
   "seen": [
@@ -3720,6 +4536,12 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Code folder: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Collapse all": {
@@ -3848,6 +4670,12 @@
    "Dashboard › th › Match usernames to email addresses"
   ]
  },
+ "Configuration": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Configure and test the mail server.": {
   "kind": "text",
   "seen": [
@@ -3930,6 +4758,12 @@
    "access › roles › small › Roles & permissions"
   ]
  },
+ "Connect to act on these findings": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Connect to Checkmarx One first.": {
   "kind": "message",
   "seen": [
@@ -3954,6 +4788,18 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Connected to Checkmarx One ({0}) through the reminder server.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Connected to the reminder server automatically.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Connecting to Checkmarx One…": {
@@ -4004,6 +4850,18 @@
    "settings › import › p"
   ]
  },
+ "Contact your Checkmarx One reminder administrator.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Container": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Container start setting (HTTPS=off)": {
   "kind": "text",
   "seen": [
@@ -4032,12 +4890,24 @@
    "message"
   ]
  },
+ "Copied.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Copy command": {
   "kind": "text",
   "seen": [
    "first start › button › Replace the whole image (a new Node.js or OS base) Beta Companion not running",
    "sign in › button › Replace the whole image (a new Node.js or OS base) Beta Companion not running",
    "Dashboard › button › Replace the whole image (a new Node.js or OS base) Beta Companion not running"
+  ]
+ },
+ "Copy git command": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Copy it again in one piece: keys and tokens have no spaces.": {
@@ -4064,6 +4934,66 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Could not apply the fix: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Could not build the report for {0}: {1}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Could not connect automatically: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Could not connect to the reminder server automatically: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Could not make the git command: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Could not open the folder: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Could not read credits: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Could not read current states from Checkmarx One: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Could not refresh: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Could not start the rescan: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Counting one credit per result…": {
@@ -4302,6 +5232,12 @@
    "busy line"
   ]
  },
+ "Credits request: {0} for {1}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Credits updated": {
   "kind": "busy",
   "seen": [
@@ -4336,6 +5272,12 @@
    "first start › option › Projects",
    "first start › label › Severity",
    "first start › span › AI check & fix"
+  ]
+ },
+ "CRITICAL": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "CRITICAL / HIGH / MEDIUM / LOW": {
@@ -4494,6 +5436,18 @@
    "Dashboard › fetching › span",
    "Dashboard › loaded › span",
    "Dashboard › remind › span"
+  ]
+ },
+ "Data is read or changed by an id from the request without checking that the signed-in user may access it.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Data saved earlier (database, file) is written into the page without encoding, so script stored by one user runs for every viewer.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Date of that project's latest scan": {
@@ -4686,6 +5640,12 @@
    "Dashboard › span › Roles & permissions"
   ]
  },
+ "Deserialise only plain data (JSON) into validated shapes; never use serialisers that can create arbitrary types on untrusted input.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Destinations": {
   "kind": "attr:aria-label",
   "seen": [
@@ -4770,6 +5730,12 @@
    "message"
   ]
  },
+ "Disable DTDs and external entities in the XML parser.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Disabled": {
   "kind": "text",
   "seen": [
@@ -4784,6 +5750,18 @@
    "first start › button › Roles & permissions",
    "sign in › button › Roles & permissions",
    "Dashboard › button › Roles & permissions"
+  ]
+ },
+ "Disconnect from Checkmarx One?": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Disconnected from Checkmarx One.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Do the credits the audit log recorded as charged match the ledger the balances come from?": {
@@ -4832,6 +5810,18 @@
    "first start › button › Send reminder",
    "sign in › button › Send reminder",
    "Dashboard › button › Send reminder"
+  ]
+ },
+ "Download patch ({0} file)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Download patch ({0} files)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Download the audit log as CSV or JSON Lines.": {
@@ -5182,6 +6172,12 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "Email the administrator": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Email the authors of {0} finding(s)?": {
   "kind": "message",
   "seen": [
@@ -5210,6 +6206,18 @@
    "busy line"
   ]
  },
+ "Encode output for its context (HTML, attribute, JavaScript, URL) or use the template engine's auto-escaping; validate input against an allow-list.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Encode stored data when it is output, use auto-escaping templates, and sanitise rich text with a vetted library.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Enhancement": {
   "kind": "message",
   "seen": [
@@ -5222,6 +6230,12 @@
    "first start › option",
    "sign in › option",
    "Dashboard › option"
+  ]
+ },
+ "Enter address": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Enter at least one address to send to.": {
@@ -5270,6 +6284,12 @@
    "message"
   ]
  },
+ "Enter the full path of the folder: starting with a drive letter (C:\\…) or with /.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Enter the mail server name under Settings → Email server, or set SMTP_HOST in the .env file.": {
   "kind": "message",
   "seen": [
@@ -5286,6 +6306,18 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Enter the reminder server address to connect.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Enter the reminder server address to open the report for {0}.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Enter the server name exactly as it is on its certificate (for example smtp.office365.com, not an IP address or an alias).": {
@@ -5362,6 +6394,18 @@
    "logs › activity › li › Beta features"
   ]
  },
+ "Escape input before using it in a RegExp, and rewrite patterns without nested quantifiers (or use a safe regex engine).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Escape LDAP special characters in input and use the library's filter builders.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Event": {
   "kind": "text",
   "seen": [
@@ -5408,6 +6452,12 @@
    "first start › p",
    "sign in › p",
    "Dashboard › p"
+  ]
+ },
+ "Every credit audited": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Every credit spent, refused or failed — who, when, where, and the balance after": {
@@ -5548,6 +6598,18 @@
    "access › roles › th › Roles & permissions"
   ]
  },
+ "Everything here is dealt with": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Everything here is dealt with. Prove it: rescan now": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Everything that runs by itself, in one place. First, age reminders: people are emailed once when a finding gets older than each age limit you set. Below them, the follow-ups and rescans set on tracked reports, and SLA escalation.": {
   "kind": "text",
   "seen": [
@@ -5598,6 +6660,12 @@
   "kind": "text",
   "seen": [
    "Settings › Activation codes › badge"
+  ]
+ },
+ "Exploitable": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Export": {
@@ -5740,6 +6808,12 @@
    "first start › li › Quick setup from a .env file",
    "sign in › li › Quick setup from a .env file",
    "Dashboard › li › Quick setup from a .env file"
+  ]
+ },
+ "Filter findings": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Filter projects": {
@@ -5966,6 +7040,36 @@
    "Dashboard › remind › span"
   ]
  },
+ "Fix in Checkmarx One": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Fix in full: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Fix it here": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Fix written to {0}: {1}. Review it with git diff, then commit.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Fix:": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Fix: {0} with a fix asked for: merge it, then rescan": {
   "kind": "attr:aria-label",
   "seen": [
@@ -5996,6 +7100,12 @@
    "impact › span",
    "impact › th › By project",
    "impact › exec › span"
+  ]
+ },
+ "Fixes come from Checkmarx One AI Remediation: remediate a finding, then apply its fix in one click. Chosen once, remembered in this browser; ▾ on a finding picks another way, for that finding only.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Follow every tracked scope down to zero": {
@@ -6081,6 +7191,12 @@
    "Dashboard › p › Email the authors of vulnerable code"
   ]
  },
+ "For example {0} or {1}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "For single-tenant Checkmarx One, use the address you open Checkmarx One with in a browser.": {
   "kind": "message",
   "seen": [
@@ -6131,6 +7247,12 @@
    "Dashboard › th › Match usernames to email addresses"
   ]
  },
+ "Found by Checkmarx One": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Free certificate from Let's Encrypt": {
   "kind": "text",
   "seen": [
@@ -6179,6 +7301,12 @@
    "Dashboard › span › Email server (SMTP)"
   ]
  },
+ "From finding to fix": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "from Let's Encrypt": {
   "kind": "text",
   "seen": [
@@ -6205,6 +7333,12 @@
    "first start › button › People",
    "sign in › button › People",
    "Dashboard › button › People"
+  ]
+ },
+ "generated {0} UTC": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Generating HTML report…": {
@@ -6293,6 +7427,18 @@
    "Dashboard › span › Send reminder"
   ]
  },
+ "git command for {0} copied.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "git command for {0} ready to copy.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Git connections": {
   "kind": "attr:aria-label",
   "seen": [
@@ -6362,6 +7508,12 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "github.dev (in the browser)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "GitLab": {
@@ -6632,6 +7784,24 @@
    "Dashboard › th › Update & recovery"
   ]
  },
+ "Here every path ends at {0}; the rows differ in the route the data takes to get there.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Here the paths are reported at {0}: different routes into the same vulnerable code.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Hi,": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Hide": {
   "kind": "text",
   "seen": [
@@ -6678,6 +7848,12 @@
    "first start › option › Projects",
    "first start › label › Severity",
    "first start › span › AI check & fix"
+  ]
+ },
+ "HIGH": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "History": {
@@ -6812,10 +7988,22 @@
    "Dashboard › summary › How these are worked out"
   ]
  },
+ "How this report works": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "How to fix it": {
   "kind": "text",
   "seen": [
    "settings › Quick setup (.env) / Email server › fix-it box"
+  ]
+ },
+ "How:": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "HSTS needs a certificate from IT or a public authority, not a self-signed one.": {
@@ -7186,6 +8374,18 @@
    "Dashboard › label › HTTPS"
   ]
  },
+ "Includes {0} test file Checkmarx One wrote for the fix: {1}.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Includes {0} test files Checkmarx One wrote for the fix: {1}.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Info": {
   "kind": "text",
   "seen": [
@@ -7208,6 +8408,96 @@
    "access › span › Roles & permissions",
    "access › people › span › Roles & permissions",
    "access › roles › span › Roles & permissions"
+  ]
+ },
+ "Input builds or is matched by a regular expression that can take exponential time.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input can set properties on Object.prototype, changing behaviour across the application.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input controls how much work or memory the server spends, so an attacker can exhaust it.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input decides where the user is redirected, so a link to this site can send people to an attacker's site.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input decides which address the server connects to, so an attacker can reach internal services.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input from the request is written into the page without encoding, so an attacker can run script in a victim's browser.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input is evaluated as code (eval, Function, vm), so an attacker can run code on the server.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input is used to build a file path, so an attacker can read or write files outside the intended folder.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input is written into an HTTP header, so an attacker can add headers or split the response.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input is written to logs unencoded, so an attacker can forge log entries.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input reaches a NoSQL query as an object or operator, so an attacker can change what the query matches.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input reaches a SQL query built by string concatenation, so an attacker can change the query.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input reaches an LDAP query, so an attacker can change what it matches.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input reaches an operating-system command, so an attacker can run commands on the server.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Input reaches an XPath query, so an attacker can change what it selects.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Inside a container, localhost is the container itself: use the mail server's name or IP address instead.": {
@@ -7302,6 +8592,12 @@
    "connection: cxone › strong › Get started · 1 of 6 done"
   ]
  },
+ "Issue a new session id at sign-in (regenerate the session).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "It also checks itself every few minutes, puts right what it can, and tells the administrators.": {
   "kind": "text",
   "seen": [
@@ -7330,6 +8626,12 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "It lists a result once for each code path it found from the input to the vulnerable code.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "It needs the Podman socket, which can manage every container on the machine, so it does one thing only: it replaces the container named <code>mission-zero</code>, and only with this app's own image (<code>UPDATE_IMAGE</code>), at the version chosen here. It opens no port. Use your own volume name if it is not <code>mission-zero-data</code>; on a rootless Podman machine the socket is <code>/run/user/{0}/podman/podman.sock</code>. Without the companion: <code>podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest</code>, then your usual <code>podman run --replace …</code> line.": {
   "kind": "html",
   "seen": [
@@ -7338,12 +8640,24 @@
    "Dashboard › p › Replace the whole image (a new Node.js or OS base) Beta Companion not running"
   ]
  },
+ "Its path leads outside the folder: not applied.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "jdoe, ci-service": {
   "kind": "attr:placeholder",
   "seen": [
    "first start › input › People",
    "sign in › input › People",
    "Dashboard › input › People"
+  ]
+ },
+ "JetBrains IDE": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Jump to": {
@@ -7368,6 +8682,12 @@
    "first start › span",
    "sign in › span",
    "Dashboard › span"
+  ]
+ },
+ "Keep certificate validation on (rejectUnauthorized: true) and trust a private CA explicitly if one is needed.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Keep menu open": {
@@ -7716,6 +9036,12 @@
    "Dashboard › remind › span › Send reminder"
   ]
  },
+ "Loaded Checkmarx One states: {0} of {1} eligible findings already triaged.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Loading…": {
   "kind": "text",
   "seen": [
@@ -7834,6 +9160,12 @@
    "first start › span › AI check & fix"
   ]
  },
+ "LOW": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Lowest TLS version": {
   "kind": "text",
   "seen": [
@@ -7916,6 +9248,12 @@
    "access › span › Roles & permissions",
    "access › people › span › Roles & permissions",
    "access › roles › span › Roles & permissions"
+  ]
+ },
+ "Manual fix": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Match usernames <span class=\"badge warn\" data-beta-badge=\"identityMatching\">Beta</span>": {
@@ -8004,6 +9342,12 @@
    "first start › option › Projects",
    "first start › label › Severity",
    "first start › span › AI check & fix"
+  ]
+ },
+ "MEDIUM": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Method": {
@@ -8192,12 +9536,24 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "Move it to a secret store or environment variable, rotate the exposed value, and remove it from history.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Must set password": {
   "kind": "text",
   "seen": [
    "first start › option › People",
    "sign in › option › People",
    "Dashboard › option › People"
+  ]
+ },
+ "my report": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "My requests": {
@@ -8282,6 +9638,12 @@
    "Dashboard › button › Fetch"
   ]
  },
+ "Needed to triage from this report": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Needs a DNS name that points at this server, and port {0} open to the internet: Let's Encrypt checks the name there.": {
   "kind": "text",
   "seen": [
@@ -8320,6 +9682,12 @@
    "reports › span",
    "credits › span",
    "credits › overview › span"
+  ]
+ },
+ "new file": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "New name for this tenant:": {
@@ -8414,6 +9782,24 @@
    "settings › activation › p"
   ]
  },
+ "No AI for {0} findings — fix it in Checkmarx One": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "No AI Remediation credits left": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "No AI Triage credits left": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "No answer on port 25, which many networks and cloud providers block.": {
   "kind": "message",
   "seen": [
@@ -8454,12 +9840,24 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "No credits left": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "No credits used in this period.": {
   "kind": "text",
   "seen": [
    "credits › div › Credits used over time",
    "credits › overview › div › Credits used over time",
    "credits › projects › div › Credits used over time"
+  ]
+ },
+ "No critical findings": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "No date": {
@@ -8470,12 +9868,24 @@
    "Dashboard › label › Age"
   ]
  },
+ "No fix yet: remediate this finding with Checkmarx One AI first (Remediate, on this row, once it is confirmed). Its fix can then be applied here in one click.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "No fixes in this period yet.": {
   "kind": "text",
   "seen": [
    "impact › p › Time to fix, AI-assisted and by hand",
    "impact › exec › p › Time to fix, AI-assisted and by hand",
    "impact › detail › p › Time to fix, AI-assisted and by hand"
+  ]
+ },
+ "No high findings": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "No limit": {
@@ -8608,6 +10018,12 @@
    "message"
   ]
  },
+ "No reminder server answered at {0}. Check the address, and that you are on the company network or VPN.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "No requests yet. Raise one with the buttons above.": {
   "kind": "text",
   "seen": [
@@ -8665,6 +10081,12 @@
    "message"
   ]
  },
+ "No verdict": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Nobody has access yet. Enter the setup code printed in the server log at start-up, and the administrator's details. They can then add the rest of the team under <strong>Access</strong>.": {
   "kind": "html",
   "seen": [
@@ -8693,6 +10115,12 @@
    "impact › span",
    "impact › exec › span",
    "impact › detail › span"
+  ]
+ },
+ "none allocated": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "none due": {
@@ -8777,12 +10205,24 @@
    "Dashboard › option › Credit audit log"
   ]
  },
+ "Not checked yet": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Not confirmed with Checkmarx One yet. <b>Refresh &amp; verify</b> re-reads the findings (someone may be working on them) and confirms the credits needed twice; allocating does it too, and refuses if the two reads disagree.": {
   "kind": "html",
   "seen": [
    "Dashboard › fetching › span › AI check & fix",
    "Dashboard › loaded › span › AI check & fix",
    "Dashboard › remind › span › AI check & fix"
+  ]
+ },
+ "Not connected": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Not connected to Checkmarx One: only projects that already hold credits are listed.": {
@@ -8813,12 +10253,36 @@
    "reports › detail › remind › th › Weekly"
   ]
  },
+ "Not in this folder: is it the right repository and branch?": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Not on this computer yet? Clone and open:": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Not reachable": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Not scheduled": {
   "kind": "text",
   "seen": [
    "reports › span",
    "credits › span",
    "credits › overview › span"
+  ]
+ },
+ "not set": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "not set up": {
@@ -8868,6 +10332,12 @@
   "seen": [
    "settings › support (email) › p › Get help",
    "message"
+  ]
+ },
+ "Nothing is written until you choose Write changes; review them afterwards with git diff.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Nothing matches these filters.": {
@@ -8920,6 +10390,12 @@
   "kind": "message",
   "seen": [
    "settings › Quick setup (.env) / Email server › fix-it box"
+  ]
+ },
+ "Nothing was written. Pull the latest code and try again, or use the git command, which shows exactly where it stops.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Nothing yet.": {
@@ -9158,6 +10634,12 @@
    "reports › detail › remind › summary › Only for this report…"
   ]
  },
+ "Only reachable on the server’s own computer": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Only the people ticked here are offered Hebrew. Everyone else never sees it.": {
   "kind": "text",
   "seen": [
@@ -9186,6 +10668,12 @@
    "reports › detail › label › Only for this report…",
    "reports › detail › overview › label › Only for this report…",
    "reports › detail › remind › label › Only for this report…"
+  ]
+ },
+ "Only what AI can act on": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Only while something is still open": {
@@ -9222,6 +10710,12 @@
    "first start › p › Security debt, week by week",
    "sign in › p › Security debt, week by week",
    "Dashboard › p › Security debt, week by week"
+  ]
+ },
+ "Open code in": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Open findings": {
@@ -9264,12 +10758,42 @@
    "impact › detail › span"
   ]
  },
+ "Open in {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Open in Checkmarx One": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Open in the browser": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Open it in {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Open now": {
   "kind": "text",
   "seen": [
    "reports › span",
    "credits › span",
    "credits › overview › span"
+  ]
+ },
+ "Open one project's own report (built by the reminder server, opens in a new tab):": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Open Settings": {
@@ -9310,6 +10834,30 @@
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
+  ]
+ },
+ "Open this finding in": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Open this report in Chrome or Edge to apply the fix from here, or use the git command.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Open-source package": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Opens {0}.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Opens your email app, addressed to the support team, with a short template to fill in.": {
@@ -9412,6 +10960,12 @@
    "Audit › entry details: where the action came from (IP address · browser), not an email sender"
   ]
  },
+ "Other ways to open or fix this finding": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Otherwise ask your network team to allow outgoing connections from MissionZero to the mail server on port 25.": {
   "kind": "message",
   "seen": [
@@ -9454,6 +11008,18 @@
    "audit › span › Credit audit log",
    "audit › log › span › Credit audit log",
    "audit › checks › span › Credit audit log"
+  ]
+ },
+ "Pages can be framed by another site and used to trick clicks.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Pages do not send a Content-Security-Policy, so injected script is not contained.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Password": {
@@ -9726,6 +11292,12 @@
    "message"
   ]
  },
+ "Please allocate more Checkmarx One credits so I can act on findings from my report:": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "PolyForm Internal Use {0}.{1}.{2} — see <code>LICENSE</code>": {
   "kind": "html",
   "seen": [
@@ -9788,6 +11360,12 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "PR {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Preparing preview…": {
@@ -9904,6 +11482,12 @@
    "first start › span › Submit a support case",
    "sign in › span › Submit a support case",
    "Dashboard › span › Submit a support case"
+  ]
+ },
+ "Probably safe (AI)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Probing candidate paths…": {
@@ -10112,12 +11696,30 @@
    "help › filtered › span › Submit a support case"
   ]
  },
+ "Re-remediate": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Re-report everything past a threshold on every run": {
   "kind": "text",
   "seen": [
    "first start › option › Automation",
    "sign in › option › Automation",
    "Dashboard › option › Automation"
+  ]
+ },
+ "Re-triage": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Reachable": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Read Checkmarx One's answer below: it usually names the problem.": {
@@ -10264,10 +11866,22 @@
    "busy line"
   ]
  },
+ "Reconnecting…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Recording it in the audit log…": {
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Redirect only to relative paths or an allow-list of destinations; never to a URL taken straight from the request.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Refills": {
@@ -10328,6 +11942,18 @@
    "Dashboard › option › Credit audit log"
   ]
  },
+ "Reject __proto__, constructor and prototype keys, use Object.create(null) or Map for lookups, and keep merge libraries up to date.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Reject CR and LF in values written to headers, and use the framework's header APIs.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Reload this page's data": {
   "kind": "attr:aria-label",
   "seen": [
@@ -10368,6 +11994,18 @@
    "Dashboard › small › AI Triage & Remediation from reports"
   ]
  },
+ "Remediate asks AI Remediation for a fix.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Remediate asks Checkmarx One AI Remediation for the code change (a pull request when the project is connected to its repository).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Remediate the confirmed findings?": {
   "kind": "text",
   "seen": [
@@ -10382,12 +12020,36 @@
    "message"
   ]
  },
+ "Remediate works once triage has confirmed this finding (state Confirmed).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Remediate: {0} confirmed, waiting for a fix": {
   "kind": "attr:aria-label",
   "seen": [
    "Dashboard › fetching › button",
    "Dashboard › loaded › button",
    "Dashboard › remind › button"
+  ]
+ },
+ "Remediated": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Remediating…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "remediation": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Remediation": {
@@ -10450,12 +12112,24 @@
    "Dashboard › span › Hands-off: set it up once, then leave it"
   ]
  },
+ "Reminder server": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Reminder server address": {
   "kind": "text",
   "seen": [
    "first start › h2 › Reminder server address",
    "sign in › h2 › Reminder server address",
    "Dashboard › h2 › Reminder server address"
+  ]
+ },
+ "Reminder server set to {0}.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "reminder server<small>system</small>": {
@@ -10487,6 +12161,12 @@
   "seen": [
    "Dashboard › reminder preview › span",
    "busy line"
+  ]
+ },
+ "Remove eval-style calls; parse data with JSON.parse or a proper parser, and map input to a fixed set of actions.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Remove picture": {
@@ -10657,6 +12337,24 @@
    "Dashboard › option › Automation"
   ]
  },
+ "Report for {0}: downloaded (allow pop-ups for this page to open it in a tab too).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Report for {0}: opened in a new tab and downloaded.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Report refreshed from Checkmarx One.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Report sections": {
   "kind": "attr:aria-label",
   "seen": [
@@ -10777,12 +12475,54 @@
    "message"
   ]
  },
+ "Require a CSRF token (or SameSite=strict cookies plus an Origin check) on every state-changing request.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Rescan": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Rescan now": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Rescan now to verify": {
   "kind": "text",
   "seen": [
    "reports › detail › button › Weekly",
    "reports › detail › overview › button › Weekly",
    "reports › detail › remind › button › Weekly"
+  ]
+ },
+ "Rescan started: Checkmarx One scans the same repository, branch and engines again. The result comes by email.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Rescan unlocks when everything here is dealt with": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Rescanned": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Rescanning…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Reset": {
@@ -10805,6 +12545,18 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Resolve the path and check it stays inside the allowed base folder; map input to known file names rather than using it directly.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Responses do not send Strict-Transport-Security, so browsers may connect over plain HTTP and be intercepted.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Restart the server": {
@@ -10847,6 +12599,18 @@
    "first start › label › State folder & backups",
    "sign in › label › State folder & backups",
    "Dashboard › label › State folder & backups"
+  ]
+ },
+ "Return generic error messages, log details server-side only, and mask personal data.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Risk accepted": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Risks endpoint": {
@@ -10895,12 +12659,42 @@
    "reports › detail › remind › p › Weekly"
   ]
  },
+ "Rows that are the same result carry the same label and colour, and each one links to the other rows of its result.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Run AI Triage & Remediation": {
   "kind": "text",
   "seen": [
    "access › span › Roles & permissions",
    "access › people › span › Roles & permissions",
    "access › roles › span › Roles & permissions"
+  ]
+ },
+ "Run AI Triage on all {0} critical finding(s) across {1} projects?": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Run AI Triage on all {0} critical finding(s)?": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Run AI Triage on all {0} high finding(s) across {1} projects?": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Run AI Triage on all {0} high finding(s)?": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Run AI Triage on what is still awaiting triage, and AI Remediation on what it confirmed. The buttons turn gold once the projects have the credits. Allocate credits here: what the ticked severities need, plus any extra.": {
@@ -10915,6 +12709,24 @@
    "first start › label › Automation",
    "sign in › label › Automation",
    "Dashboard › label › Automation"
+  ]
+ },
+ "Run Checkmarx One AI Remediation again for “{0}”? It uses 3 Checkmarx One credits and, for repository-connected projects, opens a pull request.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Run Checkmarx One AI Remediation for “{0}”? It uses 3 Checkmarx One credits and, for repository-connected projects, opens a pull request.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Run it in the repository folder (cmd, PowerShell or a shell). The link works for 7 days.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Run once now": {
@@ -10979,6 +12791,12 @@
    "first start › p › HTTPS",
    "sign in › p › HTTPS",
    "Dashboard › p › HTTPS"
+  ]
+ },
+ "Same result R{0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Saturday": {
@@ -11222,12 +13040,30 @@
    "logs › activity › li › Beta features"
   ]
  },
+ "Script in the page writes untrusted data into the DOM (innerHTML, document.write, eval).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Search": {
   "kind": "text",
   "seen": [
    "first start › span › Credit audit log",
    "sign in › span › Credit audit log",
    "Dashboard › span › Credit audit log"
+  ]
+ },
+ "Search findings": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Search findings, projects, files": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Search logs": {
@@ -11292,6 +13128,12 @@
    "first start › input",
    "sign in › input",
    "Dashboard › input"
+  ]
+ },
+ "Secret": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Secure connection from the start (port {0})": {
@@ -11776,6 +13618,24 @@
    "help › filtered › button › Submit a support case"
   ]
  },
+ "Send \"Strict-Transport-Security: max-age=31536000; includeSubDomains\" on every HTTPS response (for example with helmet in Express).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Send \"X-Frame-Options: DENY\" or a CSP frame-ancestors directive.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Send a Content-Security-Policy that allows only your own scripts (for example with helmet).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Send a tracked report’s follow-up reminder.": {
   "kind": "text",
   "seen": [
@@ -11934,6 +13794,12 @@
    "reports › detail › remind › p › Weekly"
   ]
  },
+ "Sensitive data (errors, stack traces, personal data) is sent to users or logs.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Sent {0} email(s)": {
   "kind": "message",
   "seen": [
@@ -11954,6 +13820,18 @@
    "first start › span › Activity log",
    "sign in › span › Activity log",
    "Dashboard › span › Activity log"
+  ]
+ },
+ "Sent for AI Triage on {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Sent for AI Triage, but Checkmarx One has not produced a result for this finding. Check it in Checkmarx One.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Sent the summary for {0}-{1}. Recipients: {2}.": {
@@ -12108,6 +13986,12 @@
    "Dashboard › a › Get started · 1 of 6 done",
    "Dashboard (advanced) › a › Get started · 1 of 6 done",
    "connection: cxone › a › Get started · 1 of 6 done"
+  ]
+ },
+ "Set Secure, HttpOnly and SameSite on session cookies.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Set SMTP_PORT=587 and SMTP_SECURE=false.": {
@@ -12503,6 +14387,24 @@
    "Dashboard › summary › Show as a table"
   ]
  },
+ "Show the changes": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Showing {0} of {1} findings: the worst and oldest first.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Showing {0} of {1} findings. Open one project's own report (built by the reminder server, opens in a new tab):": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Showing {0} of {1} projects": {
   "kind": "text",
   "seen": [
@@ -12709,6 +14611,12 @@
    "Dashboard › p › Activation codes"
   ]
  },
+ "Some findings left to triage or fix. Then you rescan to prove the fixes.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Some providers need SMTP sending turned on for the mailbox first: ask your mail administrator.": {
   "kind": "message",
   "seen": [
@@ -12727,6 +14635,12 @@
    "first start › small",
    "sign in › small",
    "Dashboard › small"
+  ]
+ },
+ "Somewhere else?": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Sort by": {
@@ -12821,6 +14735,24 @@
    "reports › detail › remind › button › Weekly"
   ]
  },
+ "Started by {0}.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Started on your behalf.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Started.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Starting AI Remediation…": {
   "kind": "busy",
   "seen": [
@@ -12856,6 +14788,18 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Starting…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "State": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "State & backups": {
@@ -12914,6 +14858,18 @@
    "reports › detail › remind › span › Weekly"
   ]
  },
+ "Still running — see Checkmarx One": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Still running — the result will appear on the finding in Checkmarx One.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Still working: this takes longer than usual…": {
   "kind": "busy",
   "seen": [
@@ -12966,6 +14922,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Strip or encode newlines and control characters before logging input; prefer structured (JSON) logging.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Subject": {
@@ -13084,6 +15046,12 @@
    "message"
   ]
  },
+ "Supporting information only: figures here are worked out from Checkmarx One data at a moment in time and may be incomplete or wrong. Checkmarx's own records are authoritative, and this must not be used or shared with Checkmarx as evidence in any claim, dispute or credit request. CxMissionZero is an independent project, not a Checkmarx product, provided as is with no warranty or support (see its terms of use).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Sure": {
   "kind": "text",
   "seen": [
@@ -13118,6 +15086,12 @@
    "settings › span › AI Triage & Remediation from reports",
    "logs › span › AI Triage & Remediation from reports",
    "logs › activity › span › AI Triage & Remediation from reports"
+  ]
+ },
+ "Switched to HTTPS": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Switching…": {
@@ -13230,6 +15204,12 @@
    "first start › span › Single-tenant / on-prem addresses",
    "sign in › span › Single-tenant / on-prem addresses",
    "Dashboard › span › Single-tenant / on-prem addresses"
+  ]
+ },
+ "tenant {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Tenants": {
@@ -13346,6 +15326,12 @@
    "message"
   ]
  },
+ "Thank you.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Thank you. Your number is": {
   "kind": "text",
   "seen": [
@@ -13378,10 +15364,22 @@
    "message"
   ]
  },
+ "That is not a web address, e.g. {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "That is the API key's ID, not the key.": {
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "That language could not be loaded: the reminder server did not answer. The report stays in the language it was in.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "That person's email address": {
@@ -13444,6 +15442,12 @@
    "reports › detail › p › Weekly",
    "reports › detail › overview › p › Weekly",
    "reports › detail › remind › p › Weekly"
+  ]
+ },
+ "The browser (github.dev, GitLab…)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "The certificate is self-signed: after the switch every browser warns. Upload your company certificate first (step {0}).": {
@@ -13548,6 +15552,18 @@
    "help › raised › span › Submit a support case",
    "help › mine › span › Submit a support case",
    "help › filtered › span › Submit a support case"
+  ]
+ },
+ "The first time, it asks where you keep your code; after that it is one click.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "The fix does not fit {0} as it is": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "The fixed list": {
@@ -13832,12 +15848,54 @@
    "Dashboard › p › No certificate yet? Create a request (CSR) for IT"
   ]
  },
+ "The reminder server answered {0}.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "The reminder server now uses HTTPS": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "The rendered subject line (body templates only)": {
   "kind": "text",
   "seen": [
    "settings › span › Available variables",
    "logs › span › Available variables",
    "logs › activity › span › Available variables"
+  ]
+ },
+ "The report for {0} was downloaded as {1} (allow pop-ups for this page to open it in a tab too).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "The report for {0} was opened in a new tab and downloaded as {1}.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "The report keeps trying every minute.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "The rescan button opens in a minute.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "The rescan found nothing left in scope. Every fix worked.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "The server may only accept connections from known addresses: ask its administrator to allow the address MissionZero sends from.": {
@@ -13860,12 +15918,24 @@
    "connection: cxone › li › Get started · 1 of 6 done"
   ]
  },
+ "The server sent an address that is not a web link.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "The server's own connection to Checkmarx One. People who sign in with a password, triage from emailed reports, and automatic reminders all use it. Only an Admin can change it.": {
   "kind": "text",
   "seen": [
    "first start › p › Checkmarx One integration",
    "sign in › p › Checkmarx One integration",
    "Dashboard › p › Checkmarx One integration"
+  ]
+ },
+ "The session id is kept across sign-in, so an attacker who planted it can take over the session.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "The status went to {0} people.": {
@@ -13900,6 +15970,12 @@
    "reports › detail › p › Weekly",
    "reports › detail › overview › p › Weekly",
    "reports › detail › remind › p › Weekly"
+  ]
+ },
+ "The version Checkmarx One recommends": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "The way to Mission Zero": {
@@ -13960,6 +16036,12 @@
    "first start › p › Troubleshooting log",
    "sign in › p › Troubleshooting log",
    "Dashboard › p › Troubleshooting log"
+  ]
+ },
+ "They are {0} Checkmarx One results: rows sharing a result are triaged together and charged once.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "They choose their own at first sign-in.": {
@@ -14027,6 +16109,12 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "This kind of finding: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "This line is not a setting.": {
   "kind": "message",
   "seen": [
@@ -14047,6 +16135,30 @@
    "settings › b › HTTPS",
    "logs › b › HTTPS",
    "logs › activity › b › HTTPS"
+  ]
+ },
+ "This project uses a version of the package with a published vulnerability that its code can reach; a fixed version removes it.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "This report does not say which reminder server to use. Enter its address to connect.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "This report talks only to your organisation's reminder server.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "This repository has no browser editor link (only GitHub, GitLab, Bitbucket and Azure Repos do).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "This server was started with a custom command, so it cannot switch versions itself. Start the image with its own start command (no command after the image name) to update from here; until then, update with podman pull.": {
@@ -14079,6 +16191,12 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "This uses {0} Checkmarx One credit(s).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "This value has a quote at only one end.": {
@@ -14195,6 +16313,12 @@
    "Dashboard › option › HTTPS"
   ]
  },
+ "TLS certificates are not checked, so connections can be intercepted.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "To": {
   "kind": "text",
   "seen": [
@@ -14295,6 +16419,12 @@
    "message"
   ]
  },
+ "top {0} shown (worst severity, then oldest)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Total": {
   "kind": "text",
   "seen": [
@@ -14369,6 +16499,12 @@
    "credits › overview › span"
   ]
  },
+ "triage": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Triage": {
   "kind": "text",
   "seen": [
@@ -14401,6 +16537,30 @@
    "Dashboard › small › AI Triage & Remediation from reports"
   ]
  },
+ "Triage all critical ({0} findings · {1} results)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Triage all critical ({0})": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Triage all high ({0} findings · {1} results)": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Triage all high ({0})": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Triage and remediation credits each project used": {
   "kind": "text",
   "seen": [
@@ -14417,10 +16577,34 @@
    "Dashboard › th › Projects"
   ]
  },
+ "Triage failed": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Triage is allocated": {
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Triage result": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or high finding in this report, across all its projects. Remediate opens the finding in Checkmarx One. Triage goes through the reminder server shown above, which must be reachable from this computer (company network or VPN).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or high finding in this report, across all its projects. Remediate runs Checkmarx One AI Remediation and links to the suggested fix (or its pull request). Triage and Remediate go through the reminder server shown above, which must be reachable from this computer (company network or VPN).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Triage with AI Assist now": {
@@ -14435,6 +16619,42 @@
    "Dashboard › fetching › button",
    "Dashboard › loaded › button",
    "Dashboard › remind › button"
+  ]
+ },
+ "Triaged": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Triaged together, {0} credit.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Triaging critical…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Triaging high…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Triaging or remediating from this report means accepting those terms.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Triaging…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Troubleshooting log": {
@@ -14571,6 +16791,12 @@
    "Dashboard › input › Only these projects or people — optional"
   ]
  },
+ "Uncertain": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Unknown date": {
   "kind": "text",
   "seen": [
@@ -14583,6 +16809,12 @@
   "kind": "text",
   "seen": [
    "Settings › Activation codes › badge"
+  ]
+ },
+ "Unreachable": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Unsure": {
@@ -14601,6 +16833,12 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Untrusted data is deserialised into objects, which can run code or change program state.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Up {0}% in this period: from {1} to {2}.": {
@@ -14647,6 +16885,12 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "Update failed — retrying": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Update now": {
   "kind": "text",
   "seen": [
@@ -14673,6 +16917,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Updated {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Updates & system": {
@@ -14703,6 +16953,24 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Updating…": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Upgrade the package to the version Checkmarx One recommends (or remove it); then rebuild and rescan.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "upgrade to {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Upload a logo (PNG, JPG, SVG or WebP, up to {0} KB)": {
@@ -14771,10 +17039,22 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "Use an http or https address.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Use https://: the key and tokens are only sent over an encrypted connection.": {
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Use modern algorithms (AES-GCM, SHA-256+, bcrypt/scrypt/argon2 for passwords) and crypto.randomBytes / randomUUID for secrets.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Use my branding": {
@@ -14801,6 +17081,18 @@
    "Dashboard › p › Create the first administrator"
   ]
  },
+ "Use parameterised queries or prepared statements (or the ORM's query builder); never concatenate input into SQL.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Use parameterised XPath (variables) or escape input before building the query.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Use port 587 with \"Secure connection from the start\" off (it upgrades with STARTTLS), or port 465 with it on.": {
   "kind": "message",
   "seen": [
@@ -14821,6 +17113,12 @@
    "Dashboard › button › Match usernames to email addresses"
   ]
  },
+ "Use textContent or setAttribute instead of innerHTML, avoid eval, and sanitise any HTML with a vetted library such as DOMPurify.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Use the full Gmail address the App Password belongs to as the username.": {
   "kind": "message",
   "seen": [
@@ -14839,6 +17137,12 @@
    "first start › button › Your branding",
    "sign in › button › Your branding",
    "Dashboard › button › Your branding"
+  ]
+ },
+ "Use the report's address": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Use the signed-in mailbox's own address as the From address (SMTP_FROM), or leave it blank to use the username.": {
@@ -15247,6 +17551,12 @@
    "logs › activity › span › Checkmarx One integration"
   ]
  },
+ "Validate or sanitise the input where it enters, or protect the operation where it is used; Remediate asks AI Remediation for a concrete fix.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Value of that time": {
   "kind": "text",
   "seen": [
@@ -15269,6 +17579,12 @@
    "settings › How to fix it › What was tried › label"
   ]
  },
+ "verdict|Not exploitable": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Verification rescan started": {
   "kind": "busy",
   "seen": [
@@ -15281,6 +17597,12 @@
    "first start › option › Credit audit log",
    "sign in › option › Credit audit log",
    "Dashboard › option › Credit audit log"
+  ]
+ },
+ "Verified at zero": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Verify": {
@@ -15371,6 +17693,18 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "View in Azure Repos": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "View on Bitbucket": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "View settings": {
   "kind": "text",
   "seen": [
@@ -15387,6 +17721,12 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "View the fix in Checkmarx One": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "View tracked reports": {
   "kind": "text",
   "seen": [
@@ -15401,6 +17741,18 @@
    "access › span › Roles & permissions",
    "access › people › span › Roles & permissions",
    "access › roles › span › Roles & permissions"
+  ]
+ },
+ "Vulnerability report": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Vulnerable": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Wait a few minutes and send again: MissionZero tries again on its next run.": {
@@ -15563,6 +17915,18 @@
    "Dashboard › th › Email the authors of vulnerable code"
   ]
  },
+ "Where do you keep your code on this computer? Asked once: each repository then opens from that folder by its name ({0}).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Where is {0} on this computer? Its full folder path.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Where support cases and enhancement requests go when people use <strong>Get help</strong> at the bottom of the menu.": {
   "kind": "html",
   "seen": [
@@ -15637,12 +18001,36 @@
    "sign in › span"
   ]
  },
+ "Why": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Why and how": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Why fewer results than findings: {0} findings here are {1} Checkmarx One results": {
   "kind": "text",
   "seen": [
    "Dashboard › fetching › summary › Why fewer results than findings: 56 findings here are 28 Checkmarx One results",
    "Dashboard › loaded › summary › Why fewer results than findings: 56 findings here are 28 Checkmarx One results",
    "Dashboard › remind › summary › Why fewer results than findings: 56 findings here are 28 Checkmarx One results"
+  ]
+ },
+ "Why:": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "why?": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "With a tenants activation code: turn on several Checkmarx One tenants, add, rename and remove them, switch between them, and choose who works in which.": {
@@ -15685,6 +18073,12 @@
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
+  ]
+ },
+ "Write changes": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Write each setting on its own line as NAME=value, with no spaces in the name and nothing before it (no \"set\" or \"$env:\").": {
@@ -15743,6 +18137,12 @@
    "Dashboard › th › State folder & backups"
   ]
  },
+ "XML is parsed with external entities enabled, so an attacker can read files or reach internal hosts.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "You": {
   "kind": "text",
   "seen": [
@@ -15773,10 +18173,34 @@
    "message"
   ]
  },
+ "You get the result by email.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "You have until {0} ({1} h).": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "You have until {0} ({1} h). After that it is rescanned on your behalf.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "You signed in with a Checkmarx One key: set a password to also sign in with your email.": {
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Your administrator allocates Checkmarx One credits for AI Triage and AI Remediation from reports. Send them a request and try again once they have added credits.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Your answer: it is emailed to the person who raised it": {
@@ -15799,6 +18223,12 @@
    "settings › span › Available variables",
    "logs › span › Available variables",
    "logs › activity › span › Available variables"
+  ]
+ },
+ "Your credits": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Your logo, shown in the header": {
@@ -15831,6 +18261,12 @@
    "first start › a",
    "first start › h2 › Your profile",
    "sign in › a"
+  ]
+ },
+ "Your tools": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "zero by {0}-{1}-{2} at this pace": {

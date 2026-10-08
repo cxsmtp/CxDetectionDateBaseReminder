@@ -77,3 +77,9 @@ export function fixAdvice(finding) {
     fix: 'Validate or sanitise the input where it enters, or protect the operation where it is used; Remediate asks AI Remediation for a concrete fix.',
   };
 }
+
+/** Every sentence fixAdvice can return: the report carries their translations (scripts/i18n-report.mjs). */
+export function adviceTexts() {
+  const generic = [fixAdvice({ scanner: 'SCA' }), fixAdvice({ title: '' })];
+  return [...new Set([...ADVICE.flatMap(([, what, fix]) => [what, fix]), ...generic.flatMap(({ what, fix }) => [what, fix])])];
+}

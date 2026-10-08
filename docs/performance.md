@@ -163,6 +163,8 @@ Every change is benchmarked on main before it and on its branch after it: 3000 p
 | MZ-01.00.56 (main) | 3 | 10.2 s / 0 | 60,076 / 328 | 466 | 80 / 16,400 ms | 43 / 1,541 ms | none |
 | **MZ-01.00.58** | 1 | 11.6 s / 0 | 61,919 / **0** | **502** | 99 / **11,820 ms** | 16 / **648 ms** | none |
 | MZ-01.00.57 (main) | 1 | 16.4 s / 0 | 62,463 / 31 | 514 | 79 / 10,685 ms | 15 / 322 ms | none |
+| **MZ-01.00.59** | 1 | 10.3 s / 0 | 63,841 / **0** | **513** | 64 / **6,162 ms** | 9 / **229 ms** | none |
+| MZ-01.00.58 (main) | 1 | 10.1 s / 0 | 63,584 / 0 | 518 | 75 / 6,451 ms | 8 / 214 ms | none |
 
 **MZ-01.00.37: what the differences were.** Two pairs with main, alternating. Report opens at p95 were 4.1 and 5.1 s on the branch against 7.2 and 5.1 s on main; triage results 201 and 179 ms against 257 and 123 ms; requests a second 519 and 508 against 504 and 518, with 0 failed requests and no finding sent twice in any run. The first branch run's opening burst took 16.3 s, a little above the 7.4–15.8 s seen before, and its fetches were slower (17 s against 12 s at the median); in the second pair the burst took 9.9 s (main 8.0 s) and fetches matched main (13.5 s against 13.0 s at the median). What the fetch now does in addition is one pass over each project's findings to count what is past its SLA, which is a few microseconds a finding next to reading them from Checkmarx One. Escalation runs only on the automation's schedule, which the benchmark does not use.
 
@@ -179,6 +181,13 @@ What this release adds while the benchmark runs:
 - **A five-minute look at whether the weekly status is due.**
 
 Nothing on the measured paths changed. The work done when the server stops (a backup, and the emails) happens after the benchmark ends.
+
+**MZ-01.00.59: what the differences were.** One pair on a quiet host, branch first, both with 0 failed and no finding sent twice. The branch served 513 requests a second against main's 518. At p95, report opens took 6.2 s (main 6.5 s), triage polls 229 ms (main 214 ms), and building a report from the Dashboard 9.0 s (main 11.5 s).
+
+What the release adds on the measured paths:
+- **Building a report:** a few more steps. The person it is for is looked up by email. Their language's words are taken from memory (read from disk once per language), and the translator is put in the page.
+- **Report size:** a 60-finding report went from 208 KB to 244 KB with no language of its own. With its reader's language it is 295 to 303 KB (German, Arabic, Japanese).
+- **The language route:** `GET /api/relay/report-words/<code>` answers from memory. The benchmark does not call it, as its readers stay in English.
 
 **MZ-01.00.58: what the differences were.** One pair, branch first on a quiet host. The branch served 502 requests a second with 0 failed; main 514 with 31 failed. The branch's tail was slower (report opens 11.8 s against 10.7 s, triage polls 648 against 322 ms at p95), and its run had a 30 s health check: the host stalled. The release changes the Activation codes page and one step at start-up, none of which the benchmark calls. No finding was sent twice.
 
