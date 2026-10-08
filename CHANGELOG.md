@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.59 | 513/s, 0 (main 518, 0) | 6.2 s | 229 ms | 565 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.58 | 502/s, 0 (main 514, 31) | 11.8 s | 648 ms | 559 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.57 | 499/s, 0 (main 512, 10) | 6.4 s | 627 ms | 557 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.56 | 494/s, 0 (main 495, 0) | 5.5 s | 345 ms | 548 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -44,6 +45,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.59 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+
+- **The interactive report speaks its reader's language.** It opens in the language of the person it was made for (their profile), else their browser's, in any of the fifteen; Arabic and Hebrew read right to left.
+- **Switch it in the report.** A **Language** list at the top changes everything at once, including what the report wrote itself, and the choice is remembered in that browser.
+- **Small enough to email.** A report carries only its reader's language; another one comes from the reminder server when picked and is then kept in the browser, so a report grows by about 60 KB, not 880.
+- **Everything the report says.** Headings, buttons, counts, messages and confirmations, the credits panel, the open-and-fix tools and the advice under a confirmed finding: 407 entries, each translated and reviewed twice in all fourteen languages.
+- **Names stay as they are.** Finding titles, project names, paths, code and what Checkmarx One's AI wrote are never translated; Hebrew travels only in the reports of people it is on for.
+- **Safe words only.** Translations from the server or the browser's storage must carry exactly the markup of their English, so nothing planted can run in a report.
+- **Status.** 565 tests pass; 0 vulnerabilities in `npm audit --omit=dev`; 513 requests a second with 0 failed (main 518, 0 failed); no new Checkmarx One scan, as the connector needs signing in again ([status](docs/status.md)).
 
 ## MZ-01.00.58 — 2026-10-07 09:41 UTC · [#81](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/81)
 
