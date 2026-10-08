@@ -15382,6 +15382,12 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "That language could not be loaded: the reminder server did not answer. The report stays in the language it was in.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "That person's email address": {
   "kind": "text",
   "seen": [

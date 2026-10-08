@@ -134,9 +134,18 @@ async function pageKeys() {
   return keys;
 }
 
+/** Everything the report's scripts write themselves, and the advice: what needs no browser to find. */
+export function scriptKeys() {
+  const boot = fs.readFileSync(path.join(ROOT, 'src/report/i18n-boot.client.js'), 'utf8');
+  return new Set([...clientKeys(), ...clientKeys(boot), ...adviceTexts()]);
+}
+
+const main = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 const onlyStatic = process.argv.includes('--static');
-const all = new Set([...clientKeys(), ...adviceTexts(), ...(onlyStatic ? [] : await pageKeys())]);
-if (onlyStatic) {
+const all = main ? new Set([...scriptKeys(), ...(onlyStatic ? [] : await pageKeys())]) : null;
+if (!main) {
+  // Imported (by the tests): nothing to write.
+} else if (onlyStatic) {
   console.log([...all].sort().join('\n'));
 } else {
   const keys = [...all].sort((a, b) => a.localeCompare(b));

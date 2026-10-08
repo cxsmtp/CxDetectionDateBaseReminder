@@ -103,3 +103,27 @@ test('a report can only ask for the projects and scope it was signed with', asyn
   }
   assert.equal((await relay(link)).status, 200);
 });
+
+test('a report opens in its reader\'s language: it carries that one, and the server gives any other open one', async () => {
+  const islandOf = (html) => JSON.parse(html.match(/<script type="application\/json" id="report-i18n">([\s\S]*?)<\/script>/)[1]);
+  assert.equal((await admin('PUT', '/api/me/profile', { language: 'ja' })).status, 200);
+  const report = await admin('POST', '/api/reports/html', { projectIds: ['p0'], severities: ['CRITICAL', 'HIGH'] });
+  assert.equal(report.status, 200);
+  const i18n = islandOf(report.text);
+  assert.equal(i18n.default, 'ja', 'the profile language of the person it was made for');
+  assert.deepEqual(Object.keys(i18n.strings), ['ja'], 'only that language travels in the report');
+  assert.ok(i18n.languages.some(([code]) => code === 'de') && i18n.fetch, 'the others are offered, from the server');
+  assert.ok(!i18n.languages.some(([code]) => code === 'he'), 'a language behind an activation code is not offered to someone it is not on for');
+  assert.match(report.text, /<script type="module">/);
+
+  const words = await fetch(`${BASE}/api/relay/report-words/de`);
+  assert.equal(words.status, 200);
+  assert.equal(words.headers.get('access-control-allow-origin'), '*', 'a report opened from disk may ask');
+  const body = await words.json();
+  assert.equal(body.language, 'de');
+  assert.ok(Object.keys(body.strings).length > 0);
+  assert.equal((await fetch(`${BASE}/api/relay/report-words/he`)).status, 404, 'never served without its activation');
+  assert.equal((await fetch(`${BASE}/api/relay/report-words/en`)).status, 404);
+  assert.equal((await fetch(`${BASE}/api/relay/report-words/..%2F..%2Fpackage`)).status, 404);
+  assert.equal((await admin('PUT', '/api/me/profile', { language: '' })).status, 200);
+});

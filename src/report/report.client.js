@@ -2289,6 +2289,7 @@ function startReport() {
   reportFilters();
 }
 window.MZReportStart = startReport;
+window.MZReportStarted = () => reportStarted;
 /** The reader chose another language: the translator has the new words; show them. */
 window.MZReportRelabel = () => {
   if (!reportStarted) return;

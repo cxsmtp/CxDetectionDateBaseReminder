@@ -349,6 +349,7 @@
  "tenant {0}",
  "Thank you.",
  "That is not a web address, e.g. {0}",
+ "That language could not be loaded: the reminder server did not answer. The report stays in the language it was in.",
  "The browser (github.dev, GitLab…)",
  "The first time, it asks where you keep your code; after that it is one click.",
  "The fix does not fit {0} as it is",

@@ -48,7 +48,7 @@ import { TERMINAL, closure, newerThan, rescanRequest, verificationResult } from 
 import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
-import { reportI18n } from './report-i18n.js';
+import { reportI18n, reportWords } from './report-i18n.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -3270,6 +3270,18 @@ function creditRefusal(projectId, projectName, kind, credits, limit) {
 app.get('/api/relay/ping', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json({ service: 'mission-zero-relay', ok: true });
+});
+
+/**
+ * The report's wording in another language, for a reader who picks it in a report (it carries only
+ * its reader's own). Open languages only: a language behind an activation code travels inside the
+ * reports of the people it is on for, and is never served here.
+ */
+app.get('/api/relay/report-words/:code', (req, res) => {
+  const strings = reportWords(String(req.params.code));
+  if (!strings) return res.status(404).json({ error: 'That language is not available.' });
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.json({ language: req.params.code, version: PACKAGE_VERSION, strings });
 });
 
 // ---------------------------------------------------------------------------

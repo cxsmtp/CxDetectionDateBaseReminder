@@ -214,7 +214,7 @@ export function generateHtmlReport(reportData, options = {}) {
 
   const title = projects.length === 1 ? fill('{0} — vulnerability report', [projects[0].projectName]) : 'Vulnerability report';
   const titleHtml = projects.length === 1 ? tx('{0} — vulnerability report', projects[0].projectName) : 'Vulnerability report';
-  const i18n = reportLanguages(options.i18n);
+  const i18n = reportLanguages(options.i18n, relayUrl);
   const logoUrl = safeLogo(branding.logoUrl);
   const logo = logoUrl
     ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(branding.companyName || 'Logo')}" height="${Number(branding.logoHeight) || 32}">`
@@ -407,20 +407,23 @@ ${i18n ? `<script type="application/json" id="report-i18n">${jsonForScript(i18n)
 }
 
 /**
- * The languages a report carries: {default, languages: [[code, name]], strings: {code: {English: translation}}}
- * (see report-i18n.js), or null for a report in English only.
+ * The languages a report offers (see report-i18n.js): {default, languages: [[code, name]],
+ * strings: {code: {English: translation}} for the ones it carries, fetch, version}, or null for a
+ * report in English only. Without a server address it offers only what it carries.
  */
-function reportLanguages(given) {
+function reportLanguages(given, relayUrl) {
   if (!given || typeof given !== 'object') return null;
   const strings = {};
   for (const [code, words] of Object.entries(given.strings ?? {})) {
     if (/^[a-z]{2}(-[A-Z]{2})?$/.test(code) && code !== 'en' && words && typeof words === 'object') strings[code] = words;
   }
-  if (!Object.keys(strings).length) return null;
+  const fetch = given.fetch === true && Boolean(relayUrl);
   const languages = (Array.isArray(given.languages) ? given.languages : [])
-    .filter((pair) => Array.isArray(pair) && (pair[0] === 'en' || strings[pair[0]]))
+    .filter((pair) => Array.isArray(pair) && /^[a-z]{2}(-[A-Z]{2})?$/.test(String(pair[0])) && (pair[0] === 'en' || strings[pair[0]] || fetch))
     .map(([code, name]) => [String(code), String(name ?? code)]);
-  return { default: strings[given.default] || given.default === 'en' ? given.default : '', languages, strings };
+  if (!languages.some(([code]) => code !== 'en')) return null;
+  const start = languages.some(([code]) => code === given.default) ? given.default : '';
+  return { default: start, languages, strings, fetch, version: String(given.version ?? '') };
 }
 
 function aiUnavailableReason(finding) {
