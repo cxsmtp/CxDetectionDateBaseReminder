@@ -79,6 +79,8 @@ jobs:
           # The terms of use ship in the image, and hold everything back until an Admin accepts them.
           curl -skf https://127.0.0.1:3000/api/terms | grep -q 'Not a Checkmarx product'
           docker exec mz test -f LICENSE
+          # An interactive report builds inside the image, with a language carried, and its language route answers.
+          docker exec mz node --input-type=module -e "import { generateHtmlReport } from './src/html-report.js'; import { reportI18n } from './src/report-i18n.js'; const i18n = reportI18n({ preferred: 'ja' }); if (!i18n.strings.ja) throw new Error('no Japanese words in the image'); const html = generateHtmlReport({ projects: [{ projectId: 'p', projectName: 'P', risks: [{ title: 'T', severity: 'HIGH' }] }] }, { relayUrl: 'https://mz.example', i18n }); if (!html.includes('id=\"report-i18n\"')) throw new Error('no languages in the report');"
       - name: HTTPS=off serves plain http (a laptop, or behind a reverse proxy)
         run: |
           docker run -d --name mz-http -p 3001:3000 -e HTTPS=off --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true mission-zero:test

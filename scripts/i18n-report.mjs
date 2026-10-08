@@ -2,7 +2,7 @@
 // what its script writes (every L('…') in src/report/report.client.js, and its word tables), the
 // fix advice it shows (src/fix-advice.js), and what the report's page says, read the way
 // public/i18n.js looks it up from sample reports that between them show every part of the page.
-// Writes i18n/report-keys.json and adds what is new to i18n/catalog.json (kind "report"); `npm test`
+// Writes src/report/report-keys.json (shipped with the server) and adds what is new to i18n/catalog.json (kind "report"); `npm test`
 // then lists what each language is missing.
 //
 //   node scripts/i18n-report.mjs            (needs Playwright: PLAYWRIGHT=/path/to/playwright/index.mjs)
@@ -152,7 +152,7 @@ if (!main) {
   console.log([...all].sort().join('\n'));
 } else {
   const keys = [...all].sort((a, b) => a.localeCompare(b));
-  fs.writeFileSync(path.join(ROOT, 'i18n/report-keys.json'), `${JSON.stringify(keys, null, 1)}\n`);
+  fs.writeFileSync(path.join(ROOT, 'src/report/report-keys.json'), `${JSON.stringify(keys, null, 1)}\n`);
   const file = path.join(ROOT, 'i18n/catalog.json');
   const catalog = JSON.parse(fs.readFileSync(file, 'utf8'));
   let added = 0;
@@ -163,5 +163,5 @@ if (!main) {
   }
   const sorted = Object.fromEntries(Object.entries(catalog).sort(([a], [b]) => a.localeCompare(b)));
   fs.writeFileSync(file, `${JSON.stringify(sorted, null, 1)}\n`);
-  console.log(`${keys.length} pieces of report wording → i18n/report-keys.json (${added} new in i18n/catalog.json)`);
+  console.log(`${keys.length} pieces of report wording → src/report/report-keys.json (${added} new in i18n/catalog.json)`);
 }

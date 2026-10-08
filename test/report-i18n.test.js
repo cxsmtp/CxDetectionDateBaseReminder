@@ -70,3 +70,15 @@ test('the translator and its start-up are inlined as one module that parses, and
   assert.equal(islandOf(html).strings.ja.Triage, '</script><script>alert(1)</script>');
   assert.match(html, /<select id="report-lang" translate="no">/);
 });
+
+test('everything a report reads while the server runs ships in the container image', () => {
+  // The image copies only some folders (Dockerfile); a file outside them makes every report fail there.
+  const dockerfile = fs.readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8');
+  const shipped = [...dockerfile.matchAll(/^COPY (?!--from)(\S+) \.\/\1\s*$/gm)].map((m) => m[1]);
+  assert.ok(shipped.includes('src') && shipped.includes('public'), `the image copies ${shipped.join(', ')}`);
+  for (const file of ['src/report/report-keys.json', 'src/report/i18n-boot.client.js', 'src/report/report.client.js', 'src/report/patch.client.js', 'public/i18n.js', 'public/i18n/ja.json']) {
+    assert.ok(shipped.includes(file.split('/')[0]), `${file} is not in the image`);
+    assert.ok(fs.existsSync(new URL(`../${file}`, import.meta.url)), `${file} is missing`);
+  }
+  assert.ok(reportKeys().length > 300, 'the report\'s wording list is read');
+});

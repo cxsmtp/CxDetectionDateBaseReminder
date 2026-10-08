@@ -7217,12 +7217,19 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   });
   // In the reader's language: the recipient's profile (or, opened by someone, theirs). A gated
   // language travels only in a report for someone it is on for.
-  const readerEmail = /^[^\s,@]+@[^\s,@]+$/.test(audience.recipient ?? '') ? audience.recipient : String(audience.actor?.user ?? '');
-  const reader = readerEmail ? iam.findByEmail(readerEmail) : null;
+  // A language is never a reason for a report to fail: without one, it is in English.
+  let i18n = null;
+  try {
+    const readerEmail = /^[^\s,@]+@[^\s,@]+$/.test(audience.recipient ?? '') ? audience.recipient : String(audience.actor?.user ?? '');
+    const reader = readerEmail ? iam.findByEmail(readerEmail) : null;
+    i18n = reportI18n({ codes: languageAccess.available(reader?.id ?? null), preferred: reader?.profile?.language ?? '' });
+  } catch (error) {
+    console.error(`[report languages] This report is in English only: ${error.message}`);
+  }
   const html = generateHtmlReport(reportData, {
     findings,
     bulkFindings,
-    i18n: reportI18n({ codes: languageAccess.available(reader?.id ?? null), preferred: reader?.profile?.language ?? '' }),
+    i18n,
     relayUrl,
     remediationViaRelay: true,
     portalUrl: settings.links.baseUrl,
