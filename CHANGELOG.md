@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.60 | 505/s, 0 (main 499, 0) | 6.9 s | 501 ms | 566 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.59 | 513/s, 0 (main 518, 0) | 6.2 s | 229 ms | 565 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.58 | 502/s, 0 (main 514, 31) | 11.8 s | 648 ms | 559 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.57 | 499/s, 0 (main 512, 10) | 6.4 s | 627 ms | 557 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -45,6 +46,13 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.60 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+
+- **HTML reports download again in the container.** MZ-01.00.59 read the report's word list from a folder the container image does not carry, so every report there failed with "500 Internal Server Error"; the list now ships with the server.
+- **A language never stops a report.** If the report's translations cannot be read, the report is still made, in English, and the server's log says why.
+- **Checked where it runs.** A test now makes sure every file reports read is in the image, and the container build checks that a report with a language builds inside it before an image is published.
+- **Status.** 566 tests pass; 0 vulnerabilities in `npm audit --omit=dev`; 505 requests a second with 0 failed (main 499, 0 failed); no new Checkmarx One scan, as the connector needs signing in again ([status](docs/status.md)).
 
 ## MZ-01.00.59 — 2026-10-08 05:24 UTC · [#82](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/82)
 
