@@ -47,7 +47,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.60 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.60 — 2026-10-08 06:21 UTC · [#83](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/83)
 
 - **HTML reports download again in the container.** MZ-01.00.59 read the report's word list from a folder the container image does not carry, so every report there failed with "500 Internal Server Error"; the list now ships with the server.
 - **A language never stops a report.** If the report's translations cannot be read, the report is still made, in English, and the server's log says why.
