@@ -87,7 +87,7 @@ What is translated, and what is not:
   - logs and code;
   - the terms of use, whose English text is the binding version.
 - While something runs, the status line says plainly what is happening in every language other than English.
-- The emailed report and reminder emails stay in English.
+- The interactive report is in your language too (see [The emailed report](#the-emailed-report)); reminder emails stay in English.
 
 **Your profile.** Open your name at the top right, then **Your profile** (also Settings → Your profile). Every person has one, whatever their role:
 - **Picture:** PNG, JPEG or WebP. It is cut to a square and made small in your browser before it is saved.
@@ -748,6 +748,9 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
 *For developers.* Your reminder email has a button, **Let's start fixing the vulnerabilities**, and the same report attached.
 
 1. **Open it.** Click the button (it downloads the report; the link works for 30 days) or open the attachment. Any browser works, and nothing needs installing.
+   - It opens in your profile's language, else your browser's. **Language** at the top switches it.
+   - Your profile's language works offline. Any other language comes from the reminder server the first time, and is then kept in your browser.
+   - Finding titles, project names, code, and what Checkmarx One's AI wrote stay as they are.
 2. **It connects by itself** to the reminder server shown at the top.
    - If it cannot, it says why. Click **Connect** to try again.
    - If the server moved, click **Change address**. The report checks that the new address really is the reminder server, and remembers it.

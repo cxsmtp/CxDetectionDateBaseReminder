@@ -23,14 +23,21 @@
   }
 
   const kept = (code) => `mz-report-words:${island.version}:${code}`;
+  // Words from outside the report (the server, or this browser's storage, which another local file
+  // could write to) may carry exactly the markup of their English and nothing more: a sentence is
+  // put in as HTML, so a word with any other tag or attribute is left out.
+  const tagsOf = (text) => (String(text).match(/<\/?[a-zA-Z][^>]*>/g) || []).map((tag) => tag.replace(/\s+/g, ' ')).sort().join('\n');
+  const safe = (map) =>
+    Object.fromEntries(Object.entries(map && typeof map === 'object' ? map : {}).filter(([english, out]) => typeof out === 'string' && tagsOf(english) === tagsOf(out)));
   const fetched = {};
   /** A language's words: carried, kept from before, or asked for (a few seconds at most). */
   async function words(code) {
+    if (code === 'en') return {};
     if (carried[code]) return carried[code];
     if (fetched[code]) return fetched[code];
     try {
       const saved = JSON.parse(localStorage.getItem(kept(code)) || 'null');
-      if (saved && typeof saved === 'object') return (fetched[code] = saved);
+      if (saved && typeof saved === 'object') return (fetched[code] = safe(saved));
     } catch {}
     if (!island.fetch || !server()) throw new Error(`${code}: not in this report`);
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
@@ -42,7 +49,7 @@
       try {
         localStorage.setItem(kept(code), JSON.stringify(body.strings));
       } catch {}
-      return (fetched[code] = body.strings);
+      return (fetched[code] = safe(body.strings));
     } finally {
       if (timer) clearTimeout(timer);
     }

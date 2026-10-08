@@ -30,7 +30,7 @@ CxMissionZero's page is available in fifteen languages. Fourteen are open to eve
 **What stays as it is:**
 - **Names and data:** project, person and finding names from Checkmarx One, logs and code.
 - **The terms of use:** the English text is the binding version.
-- **Emails:** the emailed report and reminder emails stay in English.
+- **Emails:** reminder emails stay in English. The interactive report they carry is translated (below).
 
 **Right to left.** In Arabic and Hebrew the whole page is mirrored: the menu is on the right, text starts on the right, and arrows in menu paths point left (Settings ← HTTPS). Charts, code, addresses and numbers keep their left-to-right order.
 
@@ -39,6 +39,39 @@ CxMissionZero's page is available in fifteen languages. Fourteen are open to eve
 **Tone.** While an action runs, every language other than English shows plain, factual status lines, such as "Verifying with Checkmarx One…" instead of a quip.
 
 **Dates and times** are shown in each person's own time zone (their profile; by default their computer's), in their language's format.
+
+## The interactive report
+
+The interactive HTML report (attached to reminders, or downloaded) is in the same languages as the page.
+
+**Which language it opens in:**
+1. the language its reader chose in the report before, in that browser;
+2. else the language in the profile of the person it was made for (a reminder to one developer, or the person who downloaded it);
+3. else the browser's language, when it is one of these;
+4. else English.
+
+**Switching.** The **Language** list at the top of the report switches it at any time.
+- **Carried in the report:** the profile's language, and Hebrew for the people it is on for. These work offline.
+- **Fetched when picked:** any other language comes from the reminder server, which the report reaches anyway to triage. It is then kept in that browser, so it works offline from then on.
+- **No server address:** a report that has none offers only what it carries.
+- **Size:** each language adds about 60 KB, so a report does not carry all fifteen.
+
+**What is translated:** the headings, the buttons, the counts, the filters and the table headings. Also the messages and confirmations, the credits panel, the **Why** and **Fix** lines under a confirmed finding, and the tools for opening and fixing code.
+
+**What stays as it is:**
+- finding titles, project names, file paths, addresses and code;
+- what Checkmarx One wrote itself: AI Triage's summary and reasons, and AI Remediation's description of its fix;
+- messages the reminder server sends back, such as a refusal for lack of credits.
+
+**Hebrew** travels only in the reports of people it is on for; the reminder server never hands it out.
+
+**Right to left.** In Arabic and Hebrew the report is mirrored like the page.
+
+**How it works:**
+- The report carries the page's own translator (`public/i18n.js`), its start-up (`src/report/i18n-boot.client.js`) and the translations of its own wording.
+- That wording is listed in `i18n/report-keys.json`; `scripts/i18n-report.mjs` collects it.
+- Wording with a name in it ("{0} — vulnerability report", "tenant {0}") is written by the report's script from `data-l` and `data-v`, so the name is never translated.
+- `GET /api/relay/report-words/<code>` serves one open language's words to a report.
 
 ## How it works
 
@@ -52,7 +85,7 @@ CxMissionZero's page is available in fifteen languages. Fourteen are open to eve
 
 ## Keeping it current
 
-1. **Collect the English:** run `scripts/i18n-collect.mjs`. It needs Playwright and opens every page, tab, Settings section, panel and dialog with sample data, recording each piece of English exactly as the page will look it up. It writes `i18n/catalog.json`.
+1. **Collect the English:** run `scripts/i18n-collect.mjs` for the page, and `scripts/i18n-report.mjs` for the interactive report. It needs Playwright and opens every page, tab, Settings section, panel and dialog with sample data, recording each piece of English exactly as the page will look it up. It writes `i18n/catalog.json`.
 2. **Translate:** add each new or changed entry to every language file, following `i18n/GLOSSARY.md`: rules, register for each language, core terms, and terms that must stay distinct.
 3. **Check:** run `node scripts/i18n-check.mjs`. `npm test` runs the same checks and fails on any missing entry. The checks cover:
    - placeholders, markup and `<code>` kept exactly;
