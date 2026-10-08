@@ -141,6 +141,7 @@ All state lives in one folder: `/data` in the container, `DATA_DIR` elsewhere (d
 | Credit ledger, per-project allocations | `triage-credits.json`, `credit-allocations.json` |
 | Audit log (append-only, hash-chained) | `audit/audit-YYYY-MM.jsonl`, `audit.key` |
 | Tracked reports, emailed reports kept for download | `tracked-reports.json`, `report-files/` |
+| Credit projections (customer profiles: exports' weekly figures, plan, Fusion projects) | `projections.json` |
 | Resolved initiator addresses, automation state | `known-initiators.json`, `automation-state.json` |
 | Last known good connections | `connection-guard.json` |
 | Sign-ins (session ids as SHA-256 only) and each person's fetched data, so restarts sign nobody out | `sessions/` |

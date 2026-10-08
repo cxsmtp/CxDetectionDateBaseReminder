@@ -1,4 +1,5 @@
 import { nextSpeedster } from './speedsters.js';
+import { fusionEstimate, fusionTerms, wholeNumber } from './projections/fusion.js';
 import { availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
@@ -214,6 +215,9 @@ const ACTIVITIES = [
   ['POST', /^\/api\/beta\/authors\/notify$/, 'Emailing the code authors…', 'Code authors emailed'],
   ['GET', /^\/api\/audit\/verify/, 'Verifying the audit log…', 'Audit log verified'],
   ['GET', /^\/api\/audit\/reconcile/, 'Reconciling with the credit ledger…', 'Reconciled'],
+  ['POST', /^\/api\/projections\/fusion\/lines$/, 'Reading lines of code from Checkmarx One…', 'Lines of code read'],
+  ['POST', /^\/api\/projections$/, 'Creating the profile…', 'Profile created'],
+  ['DELETE', /^\/api\/projections\/[^/]+$/, 'Deleting the profile…', 'Profile deleted'],
 ];
 /**
  * While an action runs, its flare says something light-hearted (a new line every
@@ -483,6 +487,7 @@ const PAGE_PERMS = {
   beta: 'beta.use feature.codeAuthors feature.identityMatching',
   logs: '',
   help: '', // everyone may ask for help
+  projections: 'projections.use',
 };
 
 /**
@@ -563,7 +568,7 @@ const ROUTE_ALIASES = { iam: 'access', 'credit-control': 'credits' };
 const STAGES = { dashboard: 'act', beta: 'act', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', access: 'setup', settings: 'setup', logs: 'setup' };
 const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', setup: 'Set up' };
 /** The tab group on each page (data-ptabs). */
-const PAGE_TABS = { dashboard: 'dash', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs' };
+const PAGE_TABS = { dashboard: 'dash', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', projections: 'projections' };
 const visitedPages = new Set();
 const scrollMemory = new Map();
 
@@ -1125,6 +1130,7 @@ const PAGE_LOADERS = {
   audit: () => renderAudit(),
   access: () => loadAccess(),
   help: () => loadHelp(),
+  projections: () => loadProjections(),
 };
 
 /**
@@ -1148,6 +1154,7 @@ const PAGE_RETURN = {
   reports: () => loadTrackedReports(),
   beta: () => renderBetaScope(),
   help: () => loadHelp(),
+  projections: () => loadProjections({ reopen: false }),
 };
 
 function route() {
@@ -1160,7 +1167,7 @@ function route() {
   const previous = state.page;
   if (previous && previous !== target) scrollMemory.set(previous, window.scrollY);
   for (const page of Object.keys(PAGE_PERMS)) $(`page-${page}`).hidden = page !== target;
-  for (const tab of document.querySelectorAll('.tab')) {
+  for (const tab of document.querySelectorAll('.tab, .side-link')) {
     tab.classList.toggle('active', tab.dataset.route === target);
     if (tab.dataset.route === target) tab.setAttribute('aria-current', 'page');
     else tab.removeAttribute('aria-current');
@@ -1328,6 +1335,7 @@ const PAGE_TITLES = {
   audit: ['Audit', 'Every credit spent, refused or failed — who, when, where, and the balance after'],
   beta: ['Beta', 'Find who wrote the vulnerable code, and match usernames to email addresses'],
   help: ['Get help', 'Support cases and enhancement requests: raise one, follow it, and talk to the support team'],
+  projections: ['Credit projections', 'What a customer would spend: triage and remediation of their backlog, and Fusion scans of each project'],
 };
 
 function setPageTitle(page) {
@@ -6891,21 +6899,397 @@ $('help-view').addEventListener('click', async (event) => {
   }
 });
 
+// ---- Credit projections: saved customer profiles, à la carte and Fusion ----
+// À la carte is the backlog cost calculator (public/projections/calculator), shown in a frame from
+// this server: it tells this page what changed, and is handed the profile back when it is opened.
+// Fusion is drawn here, from the lines of code each project's last scan counted.
+
+const pj = { profiles: [], open: null, frameFor: '', frameReady: false, pending: null, timer: null, saving: null };
+const PJ_OPEN_KEY = 'mz-projection';
+/** "Saved 10:42" by the profile's name: the time is the reader's own and is not translated. */
+function pjSaved(label, at, kind = 'muted') {
+  const el = $('pj-saved');
+  el.className = `status ${kind}`;
+  el.innerHTML = at ? `${escapeHtml(label)} <time datetime="${escapeHtml(at)}" translate="no">${escapeHtml(new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time>` : escapeHtml(label);
+}
+
+async function loadProjections({ reopen = true } = {}) {
+  try {
+    pj.profiles = (await api('/api/projections')).profiles ?? [];
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    $('pj-list').innerHTML = `<li class="status error">${escapeHtml(error.message)}</li>`;
+    return;
+  }
+  renderPjList();
+  if (!reopen && pj.open && pj.profiles.some((p) => p.id === pj.open.id)) return;
+  let last = '';
+  try {
+    last = localStorage.getItem(PJ_OPEN_KEY) || '';
+  } catch {}
+  const first = pj.profiles.find((p) => p.id === last) ?? pj.profiles[0];
+  if (first) await openProjection(first.id);
+  else showProjection(null);
+}
+
+function renderPjList() {
+  $('pj-empty').hidden = pj.profiles.length > 0;
+  $('pj-list').innerHTML = pj.profiles
+    .map((p) => {
+      const parts = [p.hasAlaCarte ? 'À la carte' : '', p.fusionProjects === 1 ? 'Fusion: 1 project' : p.fusionProjects ? `Fusion: ${p.fusionProjects} projects` : ''].filter(Boolean).map((part) => `<span>${escapeHtml(part)}</span>`);
+      const on = p.id === pj.open?.id;
+      return `<li><button type="button" class="pj-item${on ? ' on' : ''}" data-pj="${escapeHtml(p.id)}"${on ? ' aria-current="true"' : ''}>
+        <span class="pj-item-name" translate="no">${escapeHtml(p.name)}</span>
+        ${p.customer && p.customer !== p.name ? `<span class="pj-item-sub" translate="no">${escapeHtml(p.customer)}</span>` : ''}
+        <span class="pj-item-sub">${parts.length ? `${parts.join(' · ')} · ` : ''}<time datetime="${escapeHtml(p.updatedAt)}" translate="no">${escapeHtml(fmtDateTime(p.updatedAt))}</time></span>
+      </button></li>`;
+    })
+    .join('');
+}
+
+function showProjection(profile) {
+  pj.open = profile;
+  $('pj-main').hidden = !profile;
+  renderPjList();
+  if (!profile) {
+    pj.frameFor = '';
+    $('pj-frame').src = 'about:blank';
+    return;
+  }
+  try {
+    localStorage.setItem(PJ_OPEN_KEY, profile.id);
+  } catch {}
+  $('pj-name').value = profile.name;
+  pjSaved('Saved', profile.updatedAt);
+  // A fresh calculator for each profile: it asks for the profile's state once it is ready.
+  pj.frameFor = profile.id;
+  pj.frameReady = false;
+  $('pj-frame').src = `/projections/calculator/index.html?p=${encodeURIComponent(profile.id)}`;
+  setStatus('pj-read-note', '');
+  renderFusion();
+}
+
+async function openProjection(id) {
+  await flushProjection();
+  try {
+    showProjection((await api(`/api/projections/${encodeURIComponent(id)}`)).profile);
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    toast(error.message, 'bad');
+    if (error.status === 404) loadProjections();
+  }
+}
+
+/** What changed is saved a moment after the last change, quietly; the line by the name says when. */
+function saveProjection(patch) {
+  if (!pj.open) return;
+  pj.pending = { id: pj.open.id, patch: { ...(pj.pending?.id === pj.open.id ? pj.pending.patch : {}), ...patch } };
+  pjSaved('Saving…');
+  clearTimeout(pj.timer);
+  pj.timer = setTimeout(flushProjection, 800);
+}
+
+async function flushProjection() {
+  clearTimeout(pj.timer);
+  while (pj.saving) await pj.saving;
+  const job = pj.pending;
+  if (!job) return;
+  pj.pending = null;
+  const run = (async () => {
+    try {
+      const { profile } = await api(`/api/projections/${encodeURIComponent(job.id)}`, { method: 'PUT', body: JSON.stringify(job.patch), quiet: true });
+      pj.profiles = pj.profiles.map((p) => (p.id === profile.id ? profile : p));
+      renderPjList();
+      if (pj.open?.id === job.id && !pj.pending) pjSaved('Saved', profile.updatedAt, 'ok');
+    } catch (error) {
+      if (handleAuthLoss(error)) return;
+      if (pj.open?.id === job.id) {
+        pjSaved('Not saved:', null, 'error');
+        $('pj-saved').append(` ${error.message}`);
+      }
+      // Kept, to go with the next change (unless it is too big to ever save, or the profile is gone).
+      if (![404, 413].includes(error.status) && !pj.pending) pj.pending = job;
+    }
+  })();
+  pj.saving = run;
+  try {
+    await run;
+  } finally {
+    if (pj.saving === run) pj.saving = null;
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushProjection();
+});
+
+$('pj-list').addEventListener('click', (event) => {
+  const item = event.target.closest('[data-pj]');
+  if (item && item.dataset.pj !== pj.open?.id) openProjection(item.dataset.pj);
+});
+$('pj-new').addEventListener('click', async () => {
+  await flushProjection();
+  try {
+    const { profile } = await api('/api/projections', { method: 'POST', body: JSON.stringify({ name: `Projection ${pj.profiles.length + 1}` }) });
+    pj.profiles = [{ id: profile.id, name: profile.name, customer: '', updatedAt: profile.updatedAt, hasAlaCarte: false, fusionProjects: 0 }, ...pj.profiles];
+    showProjection(profile);
+    $('pj-name').focus();
+    $('pj-name').select();
+  } catch (error) {
+    if (!handleAuthLoss(error)) toast(error.message, 'bad');
+  }
+});
+$('pj-name').addEventListener('input', () => {
+  const name = $('pj-name').value.trim();
+  if (!pj.open || !name) return;
+  pj.open.name = name;
+  saveProjection({ name });
+});
+$('pj-delete').addEventListener('click', async () => {
+  if (!pj.open || !confirm(`Delete this profile?\n\n${pj.open.name}\n\nIts à la carte projection, uploaded exports and Fusion projects go with it. This cannot be undone.`)) return;
+  const { id } = pj.open;
+  if (pj.pending?.id === id) pj.pending = null;
+  try {
+    await api(`/api/projections/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    if (error.status !== 404) return toast(error.message, 'bad');
+  }
+  pj.profiles = pj.profiles.filter((p) => p.id !== id);
+  pj.open = null;
+  if (pj.profiles[0]) openProjection(pj.profiles[0].id);
+  else showProjection(null);
+});
+
+// The calculator in its frame: only this server's own page, in this frame, for the profile open.
+window.addEventListener('message', (event) => {
+  const frame = $('pj-frame');
+  if (event.origin !== location.origin || event.source !== frame.contentWindow || !pj.open || pj.frameFor !== pj.open.id) return;
+  const { type, state: saved, height } = event.data ?? {};
+  if (type === 'mz-calc-ready') {
+    pj.frameReady = true;
+    frame.contentWindow.postMessage({ type: 'mz-calc-load', state: pj.open.alaCarte ?? null }, location.origin);
+  } else if (type === 'mz-calc-change' && pj.frameReady && saved && typeof saved === 'object') {
+    // Only from the calculator that was handed this profile: a change still on its way from the one before is not this profile's.
+    pj.open.alaCarte = saved;
+    saveProjection({ alaCarte: saved });
+  } else if (type === 'mz-calc-height' && Number.isFinite(height)) frame.style.height = `${Math.max(480, Math.ceil(height) + 4)}px`;
+});
+
+// ---- Fusion ----
+
+const pjFusion = () => (pj.open.fusion ??= { ...fusionTerms(), readAt: null, projects: [] });
+const pjSaveFusion = () => saveProjection({ fusion: pjFusion() });
+const pjShown = () => {
+  const words = $('pj-filter').value.trim().toLowerCase();
+  return pjFusion().projects.filter((p) => !words || String(p.name).toLowerCase().includes(words));
+};
+
+function renderFusion() {
+  const fusion = pjFusion();
+  $('pj-bundle').value = fusion.bundleLoc;
+  $('pj-price').value = fusion.creditsPerBundle;
+  const note = $('pj-read-note');
+  if (!note.classList.contains('error') && !note.classList.contains('ok')) {
+    note.className = 'hint';
+    note.innerHTML = fusion.readAt ? `Last read <time datetime="${escapeHtml(fusion.readAt)}" translate="no">${escapeHtml(fmtDateTime(fusion.readAt))}</time>` : '';
+  }
+  renderFusionRows();
+}
+
+const PJ_SOURCE = {
+  'sast-metadata': 'Counted by the last scan (SAST scan metadata)',
+  scan: 'Counted by the last scan (the scan’s SAST details)',
+  none: 'Its last scan did not count lines of code: type them in',
+  manual: 'Added by hand',
+};
+
+function renderFusionRows() {
+  const fusion = pjFusion();
+  const estimate = fusionEstimate(fusion.projects, fusion);
+  const byId = new Map(estimate.rows.map((row) => [row.id, row]));
+  const shown = pjShown();
+  $('pj-rows').innerHTML = shown
+    .map((p) => {
+      const row = byId.get(p.id);
+      const manual = p.source === 'manual';
+      const scanned = wholeNumber(p.loc);
+      const changed = !manual && wholeNumber(p.locOverride) !== null && wholeNumber(p.locOverride) !== scanned;
+      return `<tr data-pjrow="${escapeHtml(p.id)}" class="${row.included ? '' : 'pj-off'}">
+        <td><input type="checkbox" data-pj-include${row.included ? ' checked' : ''} aria-label="Include ${escapeHtml(p.name)}" /></td>
+        <td>${manual ? `<span class="pj-name-cell"><input type="text" class="pj-cell-name" data-pj-pname value="${escapeHtml(p.name)}" maxlength="200" aria-label="Project name" translate="no" /><button type="button" class="ghost pj-remove" data-pj-remove title="Remove this project">Remove</button></span>` : `<span translate="no">${escapeHtml(p.name)}</span>`}</td>
+        <td>${p.scanAt ? `<time datetime="${escapeHtml(p.scanAt)}" translate="no">${escapeHtml(formatDate(p.scanAt))}</time>` : manual ? '—' : '<span class="hint">No scan</span>'}</td>
+        <td><input type="text" inputmode="numeric" class="pj-loc" data-pj-loc value="${row.lines ?? ''}" placeholder="${manual ? 'Lines of code' : scanned === null ? 'Type them' : ''}" aria-label="Lines of code of ${escapeHtml(p.name)}" title="${escapeHtml(PJ_SOURCE[p.source] ?? '')}" />${changed ? `<span class="pj-was">Scan counted ${fmt(scanned)} <button type="button" class="link" data-pj-reset>Use it</button></span>` : ''}</td>
+        <td class="num" data-pj-bundles>${row.included && row.lines ? fmt(row.bundles) : '—'}</td>
+        <td class="num" data-pj-credits>${row.included && row.lines ? fmt(row.credits) : '—'}</td>
+      </tr>`;
+    })
+    .join('');
+  $('pj-rows-empty').hidden = fusion.projects.length > 0;
+  $('pj-rows-empty').innerHTML = fusion.projects.length
+    ? ''
+    : 'No projects yet. <strong>Read lines of code from Checkmarx One</strong> lists every project in this tenant with what its last scan counted; or add projects by hand for a prospect.';
+  if (fusion.projects.length && !shown.length) {
+    $('pj-rows-empty').hidden = false;
+    $('pj-rows-empty').textContent = 'No project matches that name.';
+  }
+  renderFusionTotals(estimate);
+}
+
+/** Totals only (while lines of code are typed, so the field being typed in keeps its place). */
+function renderFusionTotals(estimate = fusionEstimate(pjFusion().projects, pjFusion())) {
+  const kpi = (label, value, sub = '') => `<div class="rp-kpi"><span class="rp-tile-label">${escapeHtml(label)}</span><span class="rp-kpi-value">${value}</span>${sub ? `<span class="rp-tile-sub">${sub}</span>` : ''}</div>`;
+  $('pj-kpis').innerHTML = [
+    kpi('Projects counted', fmt(estimate.projects), estimate.unknown ? `<span class="pj-warn">Still without lines of code: ${fmt(estimate.unknown)}</span>` : 'Included, with lines of code'),
+    kpi('Lines of code', fmt(estimate.loc), 'Of the projects counted'),
+    kpi('Bundles', fmt(estimate.bundles), `Of ${fmt(estimate.bundleLoc)} lines, each project rounded up`),
+    kpi('Credits per scan', fmt(estimate.credits), `${fmt(estimate.creditsPerBundle)} per bundle: one Fusion scan of every project counted`),
+  ].join('');
+  const rounding = $('pj-rounding');
+  rounding.hidden = !estimate.bundles;
+  if (!estimate.bundles) rounding.textContent = '';
+  else if (estimate.roundingBundles > 0) rounding.textContent = `Counted project by project: ${fmt(estimate.bundles)} bundles. The same ${fmt(estimate.loc)} lines added up first would be ${fmt(estimate.pooledBundles)}: the ${fmt(estimate.roundingBundles)} more come from rounding each project up to whole bundles, which is how Fusion counts them.`;
+  else rounding.textContent = `Counted project by project: ${fmt(estimate.bundles)} bundles, the same as the ${fmt(estimate.loc)} lines added up: no project is rounded up.`;
+  for (const tr of $('pj-rows').querySelectorAll('tr[data-pjrow]')) {
+    const row = estimate.rows.find((r) => r.id === tr.dataset.pjrow);
+    if (!row) continue;
+    tr.querySelector('[data-pj-bundles]').textContent = row.included && row.lines ? fmt(row.bundles) : '—';
+    tr.querySelector('[data-pj-credits]').textContent = row.included && row.lines ? fmt(row.credits) : '—';
+  }
+}
+
+const pjProject = (el) => pjFusion().projects.find((p) => p.id === el.closest('tr[data-pjrow]')?.dataset.pjrow);
+
+$('pj-rows').addEventListener('input', (event) => {
+  const project = pjProject(event.target);
+  if (!project) return;
+  if (event.target.matches('[data-pj-loc]')) {
+    const typed = wholeNumber(event.target.value);
+    // What the scan counted needs nothing kept; anything else is kept as typed.
+    project.locOverride = project.source !== 'manual' && typed === wholeNumber(project.loc) ? null : typed;
+    renderFusionTotals();
+  } else if (event.target.matches('[data-pj-pname]')) project.name = event.target.value.trim() || 'Unnamed project';
+  else return;
+  pjSaveFusion();
+});
+$('pj-rows').addEventListener('change', (event) => {
+  const project = pjProject(event.target);
+  if (!project) return;
+  if (event.target.matches('[data-pj-include]')) {
+    project.included = event.target.checked;
+    event.target.closest('tr').classList.toggle('pj-off', !project.included);
+    renderFusionTotals();
+    pjSaveFusion();
+  } else if (event.target.matches('[data-pj-loc]')) renderFusionRows(); // "Scan counted …" appears or goes
+});
+$('pj-rows').addEventListener('click', (event) => {
+  const project = pjProject(event.target);
+  if (!project) return;
+  if (event.target.closest('[data-pj-reset]')) project.locOverride = null;
+  else if (event.target.closest('[data-pj-remove]')) pjFusion().projects = pjFusion().projects.filter((p) => p !== project);
+  else return;
+  renderFusionRows();
+  pjSaveFusion();
+});
+
+for (const id of ['pj-bundle', 'pj-price']) {
+  $(id).addEventListener('input', () => {
+    const fusion = pjFusion();
+    Object.assign(fusion, fusionTerms({ bundleLoc: $('pj-bundle').value, creditsPerBundle: $('pj-price').value }));
+    renderFusionTotals();
+    pjSaveFusion();
+  });
+  $(id).addEventListener('change', renderFusion);
+}
+$('pj-filter').addEventListener('input', renderFusionRows);
+for (const [id, on] of [['pj-all', true], ['pj-none', false]]) {
+  $(id).addEventListener('click', () => {
+    for (const project of pjShown()) project.included = on;
+    renderFusionRows();
+    pjSaveFusion();
+  });
+}
+$('pj-add').addEventListener('click', () => {
+  const fusion = pjFusion();
+  const id = `manual-${Date.now().toString(36)}`;
+  fusion.projects.push({ id, name: `Project ${fusion.projects.length + 1}`, loc: null, locOverride: null, scanId: '', scanAt: null, source: 'manual', included: true });
+  $('pj-filter').value = '';
+  renderFusionRows();
+  pjSaveFusion();
+  $('pj-rows').querySelector(`tr[data-pjrow="${CSS.escape(id)}"] [data-pj-pname]`)?.select();
+});
+
+$('pj-read').addEventListener('click', async () => {
+  if (!pj.open) return;
+  const id = pj.open.id;
+  setStatus('pj-read-note', '');
+  try {
+    const { projects, readAt } = await api('/api/projections/fusion/lines', { method: 'POST' });
+    if (pj.open?.id !== id) return;
+    const fusion = pjFusion();
+    const before = new Map(fusion.projects.map((p) => [p.id, p]));
+    // Read again: the new counts, with what was typed over them and each include box kept.
+    const read = projects.map((p) => ({ ...p, locOverride: before.get(p.id)?.locOverride ?? null, included: before.get(p.id)?.included ?? true }));
+    const ids = new Set(read.map((p) => p.id));
+    const gone = fusion.projects.filter((p) => p.source !== 'manual' && !ids.has(p.id)).length;
+    fusion.projects = [...read, ...fusion.projects.filter((p) => p.source === 'manual')];
+    fusion.readAt = readAt;
+    const missing = read.filter((p) => wholeNumber(p.loc) === null).length;
+    renderFusion();
+    pjSaveFusion();
+    // Projects without a count are flagged in the totals above the table, and their field asks for one.
+    if (read.length === 1) setStatus('pj-read-note', 'Read 1 project from Checkmarx One.', missing ? 'warn' : 'ok');
+    else setStatus('pj-read-note', `Read ${fmt(read.length)} projects from Checkmarx One.`, missing ? 'warn' : 'ok');
+    if (gone === 1) toast('1 project read before is no longer in Checkmarx One: it was taken off.', 'warn');
+    else if (gone) toast(`${fmt(gone)} projects read before are no longer in Checkmarx One: they were taken off.`, 'warn');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('pj-read-note', error);
+  }
+});
+
+$('pj-csv').addEventListener('click', () => {
+  if (!pj.open) return;
+  const fusion = pjFusion();
+  const estimate = fusionEstimate(fusion.projects, fusion);
+  // A cell that starts like a formula is kept as text when the file is opened in a spreadsheet.
+  const cell = (v) => {
+    let text = String(v ?? '');
+    if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const rows = [
+    ['Project', 'Project ID', 'Included', 'Last scan', 'Scan ID', 'Lines of code (last scan)', 'Lines of code (used)', 'Where the lines came from', 'Bundles', 'Credits per scan'],
+    ...estimate.rows.map((r) => [r.name, r.source === 'manual' ? '' : r.id, r.included ? 'yes' : 'no', formatDate(r.scanAt), r.scanId, r.loc ?? '', r.lines ?? '', PJ_SOURCE[r.source] ?? '', r.bundles, r.credits]),
+    [],
+    ['Total', '', estimate.projects, '', '', '', estimate.loc, '', estimate.bundles, estimate.credits],
+    ['Bundle size (lines of code)', estimate.bundleLoc],
+    ['Credits per bundle, per scan', estimate.creditsPerBundle],
+    ['Bundles if the lines were added up first', estimate.pooledBundles],
+  ];
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([rows.map((r) => r.map(cell).join(',')).join('\n')], { type: 'text/csv' }));
+  link.download = `fusion-${String(pj.open.name).replace(/[^\w.-]+/g, '-').slice(0, 60) || 'projection'}-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+});
+
 // ---- Jump to: every page, tab, Settings section and common action ----------
+
+/** A page outside Act → Prove: Get help, or one of the tools under it (Credit projections). */
+const paletteGroup = (page) => STAGE_LABELS[STAGES[page]] ?? (page === 'help' ? 'Help' : 'Tools');
 
 function paletteEntries() {
   const entries = [];
   const pageOk = (page) => !PAGE_PERMS[page] || canAny(PAGE_PERMS[page]);
   for (const [page, [title, sub]] of Object.entries(PAGE_TITLES)) {
     if (page === 'connect' || !pageOk(page)) continue;
-    entries.push({ label: title, hint: sub, group: STAGE_LABELS[STAGES[page]] ?? 'Help', stage: STAGES[page], href: `#/${page}` });
+    entries.push({ label: title, hint: sub, group: paletteGroup(page), stage: STAGES[page], href: `#/${page}` });
   }
   for (const bar of document.querySelectorAll('[data-ptabs]')) {
     const page = Object.keys(PAGE_TABS).find((p) => PAGE_TABS[p] === bar.dataset.ptabs);
     if (!page || !pageOk(page)) continue;
     for (const tab of tabsOf(bar.dataset.ptabs).filter(usableTab)) {
       const label = tab.childNodes[0]?.textContent.trim() || tab.textContent.trim();
-      entries.push({ label: `${PAGE_TITLES[page][0]} → ${label}`, group: STAGE_LABELS[STAGES[page]], stage: STAGES[page], href: page === 'dashboard' ? null : `#/${page}/${tab.dataset.pt}`, tab: page === 'dashboard' ? tab.dataset.pt : null });
+      entries.push({ label: `${PAGE_TITLES[page][0]} → ${label}`, group: paletteGroup(page), stage: STAGES[page], href: page === 'dashboard' ? null : `#/${page}/${tab.dataset.pt}`, tab: page === 'dashboard' ? tab.dataset.pt : null });
     }
   }
   if (pageOk('settings')) {

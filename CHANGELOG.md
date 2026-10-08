@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.61 | 505/s, 0 (main 508, 0) | 7.7 s | 426 ms | 577 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.60 | 505/s, 0 (main 499, 0) | 6.9 s | 501 ms | 566 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.59 | 513/s, 0 (main 518, 0) | 6.2 s | 229 ms | 565 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.58 | 502/s, 0 (main 514, 31) | 11.8 s | 648 ms | 559 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -46,6 +47,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.61 — 2026-10-08 09:16 UTC · [#84](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/84)
+
+- **Credit projections.** A new page at the bottom of the sidebar, above Get help, works out the credits a customer would need from their own data, for showing them live.
+- **Saved customer profiles.** Each customer is a profile that saves itself as you go, on the server, so a projection can be opened again later and carried on; profiles are in every backup.
+- **À la carte.** The backlog cost calculator is built in: upload the customer's two Checkmarx One exports (total and fixed vulnerabilities by severity) and see what triage and remediation of their backlog cost in credits, and when it reaches zero.
+- **Fusion, project by project.** Reads every project's lines of code from its last scan and rounds each project up to whole bundles on its own (12,000 + 18,000 lines are 2 + 2 = 4 bundles, not 3), with the difference shown; bundle size and credits per bundle are set per profile.
+- **Adjust and share.** Type over any count, leave projects out, add projects by hand for a prospect, and download the Fusion projection as a CSV file.
+- **Who may use it.** A new **Credit projections** permission; Admins have it, and Security Analysts on new installations.
+- **In every language.** The page is in all fourteen other languages, each reviewed twice; the calculator itself stays in English.
+- **Status.** 577 tests pass; 0 vulnerabilities in `npm audit --omit=dev`; 505 requests a second with 0 failed (main 508, 0 failed; a first branch run had 42 failed during a host stall); no new Checkmarx One scan, as the connector needs signing in again ([status](docs/status.md)).
 
 ## MZ-01.00.60 — 2026-10-08 06:21 UTC · [#83](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/83)
 

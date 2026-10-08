@@ -157,6 +157,21 @@ try {
   }
   // Get help: the sidebar menu, both forms, a request just raised (with its thank-you), and the queue.
   await page.evaluate(() => (location.hash = '#/dashboard'));
+  // Credit projections: none yet, then a profile with its Fusion projects read, one typed over and one added by hand.
+  await page.evaluate(() => (location.hash = '#/projections'));
+  await grab('projections › none', 900);
+  await click('#pj-new', 'projections › new', 2000);
+  await click('#page-projections .ptab[data-pt="fusion"]', 'projections › fusion', 600);
+  await click('#pj-read', 'projections › read', 4000);
+  await page.fill('#pj-rows tr:nth-child(1) [data-pj-loc]', '123456').catch(() => {});
+  await page.press('#pj-rows tr:nth-child(1) [data-pj-loc]', 'Tab').catch(() => {});
+  await click('#pj-add', 'projections › added', 1500);
+  await page.fill('#pj-filter', 'zzz').catch(() => {});
+  await grab('projections › no match', 400);
+  await page.fill('#pj-filter', '').catch(() => {});
+  await click('#pj-none', 'projections › none included', 400);
+  await click('#page-projections .ptab[data-pt="alacarte"]', 'projections › à la carte', 900);
+  await click('#pj-delete', 'projections › deleted', 1500);
   await page.hover('#help-open').catch(() => {});
   await grab('Get help › menu', 400);
   await page.evaluate(() => (location.hash = '#/help/enhancement'));
@@ -222,7 +237,7 @@ for (const line of source.split('\n')) {
 }
 
 // Numbers become {0}, {1}…; sample data (names, addresses) is left out.
-const SAMPLE = /@|\bProject \d|\bFinding p\d|\bp\d+-r\d|\bdev-?\d|\bWeekly\b|acme|127\.0\.0\.1|\bsim-|handler\d|file\d\.js|correct horse/i;
+const SAMPLE = /@|\bProject \d|\bProjection \d|\bFinding p\d|\bp\d+-r\d|\bdev-?\d|\bWeekly\b|acme|127\.0\.0\.1|\bsim-|handler\d|file\d\.js|correct horse/i;
 const catalog = {};
 for (const [key, { kind, places }] of [...found].sort(([a], [b]) => a.localeCompare(b))) {
   if (SAMPLE.test(key)) continue;

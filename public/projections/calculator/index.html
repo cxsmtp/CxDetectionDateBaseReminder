@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkmarx Backlog Cost Calculator</title>
+<meta name="description" content="Turn Checkmarx One vulnerability exports into a credit forecast: what the backlog costs to triage and remediate, how fast it can be cleared, and an interactive report for the customer.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236B34FC'/%3E%3Cpath d='M9 16.4l4.6 4.6L23 10' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <span class="brandmark" id="brandmark"></span>
+    <span class="divider" aria-hidden="true"></span>
+    <span class="title">
+      <strong>Backlog Cost Calculator</strong>
+      <span>Credit forecasting for triage &amp; remediation</span>
+    </span>
+    <span class="spacer"></span>
+    <button type="button" class="ghost" id="btn-sample">Load sample data</button>
+    <button type="button" class="ghost icon" id="btn-theme" title="Switch light / dark" aria-label="Switch light / dark">◐</button>
+    <button type="button" class="primary" id="btn-export" disabled>Export customer report</button>
+  </header>
+
+  <!-- ============================================================ step 1 -- -->
+  <section class="card" id="card-input">
+    <header>
+      <span class="step-badge">1</span>
+      <h2>Customer &amp; data</h2>
+      <span class="sub">Two Checkmarx One exports: the open backlog, and what was fixed each week.</span>
+    </header>
+
+    <div class="grid three" style="margin-bottom:16px">
+      <label class="field">
+        <span>Customer name</span>
+        <input type="text" id="customer-name" placeholder="e.g. Northwind Bank" autocomplete="organization">
+      </label>
+      <label class="field">
+        <span>Prepared by</span>
+        <input type="text" id="prepared-by" placeholder="Your name or team">
+      </label>
+      <label class="field">
+        <span>Company logo for the report <span class="hint">(optional)</span></span>
+        <input type="file" id="logo-file" accept="image/svg+xml,image/png,image/jpeg">
+      </label>
+    </div>
+
+    <div class="grid two">
+      <div class="dropzone" id="drop-total" tabindex="0" role="button"
+           aria-label="Upload the total open vulnerabilities export">
+        <h3>Total vulnerabilities by severity</h3>
+        <p class="hint">The open backlog at the end of each week.</p>
+        <p class="file" id="file-total">Drop the .xlsx here, or click to choose</p>
+      </div>
+      <div class="dropzone" id="drop-fixed" tabindex="0" role="button"
+           aria-label="Upload the fixed vulnerabilities export">
+        <h3>Fixed vulnerabilities by severity</h3>
+        <p class="hint">What was actually closed during each week.</p>
+        <p class="file" id="file-fixed">Drop the .xlsx here, or click to choose</p>
+      </div>
+    </div>
+    <input type="file" id="file-input" class="hidden" accept=".xlsx,.xlsm,.csv,.tsv" multiple>
+
+    <div id="input-messages" style="margin-top:14px"></div>
+  </section>
+
+  <!-- =========================================================== results -- -->
+  <div id="results" class="hidden">
+
+    <!-- ---------------------------------------------------- where it stands -- -->
+    <div class="section-head">
+      <p class="section-title">Where the backlog stands</p>
+      <div class="chip-row" id="window-chips" role="group" aria-label="Timeline for the rates below"></div>
+    </div>
+    <p class="chip-caption" id="window-caption"></p>
+
+    <div class="grid four" id="kpis"></div>
+    <div class="card" style="margin-top:14px"><p class="headline" id="headline"></p></div>
+
+    <!-- ----------------------------------------------------------- the plan -- -->
+    <p class="section-title">Choose what to fix</p>
+    <section class="card">
+      <header>
+        <span class="step-badge">2</span>
+        <h2>Adjust the plan</h2>
+        <span class="sub">How many of each severity to put through triage, and how many of those come back false positive.</span>
+      </header>
+      <div class="sev-grid" id="sev-grid"></div>
+
+      <div class="plan-tools">
+        <label class="field">
+          <span>Set the false-positive rate for every severity at once:
+            <output id="fp-all-out">—</output></span>
+          <input type="range" id="fp-all" min="0" max="100" step="1" value="30">
+        </label>
+        <div class="plan-buttons">
+          <button type="button" class="ghost" id="btn-all">Select all</button>
+          <button type="button" class="ghost" id="btn-none">Select none</button>
+          <button type="button" class="ghost" id="btn-critical-high">Critical + High only</button>
+          <button type="button" class="ghost" id="btn-reset">Reset</button>
+        </div>
+      </div>
+
+      <details class="table-view">
+        <summary>Credit rates</summary>
+        <div class="grid two" style="margin-top:12px">
+          <label class="field">
+            <span>Credits per triage</span>
+            <input type="number" id="rate-triage" min="0" step="0.5" value="1">
+          </label>
+          <label class="field">
+            <span>Credits per remediation</span>
+            <input type="number" id="rate-remediation" min="0" step="0.5" value="3">
+          </label>
+        </div>
+        <p class="hint" style="margin-top:10px">
+          Every selected finding is triaged. Only the true positives are remediated —
+          a false positive costs its triage credit and stops there. These rates are
+          locked and read-only in the exported report.
+        </p>
+      </details>
+    </section>
+
+    <!-- ---------------------------------------------------------- the cost -- -->
+    <p class="section-title">What it costs in Checkmarx credits</p>
+    <div class="grid four" id="cost-kpis"></div>
+
+    <section class="card" style="margin-top:14px">
+      <header>
+        <h2>Estimate</h2>
+        <span class="sub">Every number that matters, by severity, in one place.</span>
+      </header>
+      <div class="table-scroll" id="table-cost"></div>
+    </section>
+
+    <!-- ------------------------------------------------------ how fast -- -->
+    <div class="section-head">
+      <p class="section-title">How fast the debt dies</p>
+      <div class="chip-row" id="horizon-chips" role="group" aria-label="Forecast horizon"></div>
+    </div>
+    <section class="card chart-card">
+      <header>
+        <h2>Backlog forecast</h2>
+        <span class="sub" id="forecast-sub"></span>
+      </header>
+      <label class="field" style="max-width:420px;margin-bottom:8px">
+        <span>Work through <output id="pace-out">0</output> findings per week</span>
+        <input type="range" id="pace" min="0" max="100" step="1" value="50">
+        <span class="hint" id="pace-hint"></span>
+      </label>
+      <div class="chart-wrap" id="chart-forecast"></div>
+      <div class="legend" id="legend-forecast"></div>
+      <div class="callout" id="forecast-note" style="margin-top:14px"></div>
+    </section>
+
+    <!-- ------------------------------------------------------------- trend -- -->
+    <p class="section-title">The trend behind the numbers</p>
+    <section class="card chart-card">
+      <header>
+        <h2>Open findings over time</h2>
+        <span class="sub" id="trend-sub"></span>
+      </header>
+      <div class="chart-wrap" id="chart-backlog"></div>
+      <div class="legend" id="legend-backlog"></div>
+      <details class="table-view"><summary>Show the weekly data</summary>
+        <div class="table-scroll" id="table-backlog"></div>
+      </details>
+    </section>
+
+    <section class="card chart-card">
+      <header>
+        <h2>Debt rate against fix rate</h2>
+        <span class="sub">Findings arriving each week against findings closed each week — counts, not percentages.</span>
+      </header>
+      <div class="chart-wrap" id="chart-flow"></div>
+      <div class="legend" id="legend-flow"></div>
+      <details class="table-view"><summary>Show the weekly data</summary>
+        <div class="table-scroll" id="table-flow"></div>
+      </details>
+    </section>
+
+    <!-- ------------------------------------------------------------ export -- -->
+    <p class="section-title">Hand it to the customer</p>
+    <section class="card no-print">
+      <header>
+        <span class="step-badge">3</span>
+        <h2>Export the interactive report</h2>
+      </header>
+      <p class="hint" style="margin-bottom:12px">
+        One self-contained HTML file. The customer moves the same two sliders per
+        severity and picks their own timeline — the credit rates behind each
+        finding are fixed and read-only. It prints straight to PDF.
+      </p>
+      <div class="grid three">
+        <label class="field">
+          <span>Report title</span>
+          <input type="text" id="report-title" placeholder="Security debt: cost to clear">
+        </label>
+        <label class="field">
+          <span>Valid until <span class="hint">(optional)</span></span>
+          <input type="text" id="report-validity" placeholder="e.g. 31 December 2026">
+        </label>
+        <div style="display:flex;align-items:flex-end;gap:10px">
+          <button type="button" class="primary" id="btn-export-2">Download report</button>
+          <button type="button" class="ghost" id="btn-csv">Download CSV</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="footer">
+    <span>Checkmarx Backlog Cost Calculator</span>
+    <span>Everything runs in your browser — no upload leaves this machine.</span>
+    <span>Credits: 1 per triage, 3 per remediation — both editable.</span>
+  </footer>
+
+</div>
+
+<script src="assets/js/brand.js"></script>
+<script src="assets/js/xlsx-lite.js"></script>
+<script src="assets/js/parse.js"></script>
+<script src="assets/js/model.js"></script>
+<script src="assets/js/charts.js"></script>
+<script src="assets/js/report.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

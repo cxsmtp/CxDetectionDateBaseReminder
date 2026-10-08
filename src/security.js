@@ -99,15 +99,19 @@ const isHttps = (req) => Boolean(req.secure);
  * response ('' for none): the HTTPS settings decide, and never with a self-signed certificate,
  * where pinning browsers to HTTPS would only lock them out if the server goes back to http.
  */
-export function securityHeaders({ scriptHashes = [], hsts = true } = {}) {
+export function securityHeaders({ scriptHashes = [], hsts = true, frameable = () => false } = {}) {
   const csp = contentSecurityPolicy(scriptHashes);
+  // A page this server's own pages show inside themselves (Credit projections' calculator): framed by
+  // this origin only, never by anyone else.
+  const ownFrame = csp.replace("frame-ancestors 'none'", "frame-ancestors 'self'");
   return (req, res, next) => {
+    const framed = frameable(req);
     res.set('X-Content-Type-Options', 'nosniff');
-    res.set('X-Frame-Options', 'DENY');
+    res.set('X-Frame-Options', framed ? 'SAMEORIGIN' : 'DENY');
     res.set('Referrer-Policy', 'same-origin');
     res.set('Cross-Origin-Opener-Policy', 'same-origin');
     res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
-    res.set('Content-Security-Policy', csp);
+    res.set('Content-Security-Policy', framed ? ownFrame : csp);
     const value = typeof hsts === 'function' ? hsts() : hsts ? 'max-age=31536000; includeSubDomains' : '';
     if (value && isHttps(req)) res.set('Strict-Transport-Security', value);
     next();

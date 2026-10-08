@@ -46,7 +46,7 @@ const CASUAL = {
   'pt-BR': /(?<![\p{L}\d_])(tu|teu|tua|teus|tuas|contigo)(?![\p{L}\d_])/iu,
 };
 // Stays in English everywhere (brands, protocol names): an entry made only of these may be identical.
-const KEEP = /^(?:[\s\d{}.,:;·•—–\-+()/&|→←…'"%#*!?]|CxMissionZero|Mission Zero|Checkmarx One|Checkmarx|GitHub|GitLab|Azure DevOps|Bitbucket|Jira|SAST|SCA|IaC|KICS|API Security|API|SMTP|HTTPS|HTTP|TLS|SLAs|SLA|URL|PAT|IDE|AI|VS Code|JetBrains|Cursor|Kiro|Podman|Docker|Beta|Git|Cc|Bcc|Cloud|Data Center|Server|latest|OK|ID|CSV|JSON|PDF|HTML|PEM|PFX|MZ|UTC|GMT|Ctrl|Cmd|K|N\/A|v\d|[A-Z_]{2,}|\.env|\.pfx|[a-z0-9.-]+\.[a-z]{2,}|\S+@\S+|\S*\/\S*)+$/;
+const KEEP = /^(?:[\s\d{}.,:;·•—–\-+()/&|→←…'"%#*!?]|CxMissionZero|Mission Zero|Checkmarx One|Checkmarx|Fusion|GitHub|GitLab|Azure DevOps|Bitbucket|Jira|SAST|SCA|IaC|KICS|API Security|API|SMTP|HTTPS|HTTP|TLS|SLAs|SLA|URL|PAT|IDE|AI|VS Code|JetBrains|Cursor|Kiro|Podman|Docker|Beta|Git|Cc|Bcc|Cloud|Data Center|Server|latest|OK|ID|CSV|JSON|PDF|HTML|PEM|PFX|MZ|UTC|GMT|Ctrl|Cmd|K|N\/A|v\d|[A-Z_]{2,}|\.env|\.pfx|[a-z0-9.-]+\.[a-z]{2,}|\S+@\S+|\S*\/\S*)+$/;
 
 /** Problems with one translation: [] when it is fine. */
 export function problems(english, translation, lang) {

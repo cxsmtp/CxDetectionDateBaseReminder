@@ -30,6 +30,7 @@ CxMissionZero's page is available in fifteen languages. Fourteen are open to eve
 **What stays as it is:**
 - **Names and data:** project, person and finding names from Checkmarx One, logs and code.
 - **The terms of use:** the English text is the binding version.
+- **The backlog cost calculator** on Credit projections → À la carte: it is a separate tool shown inside the page, and stays in English. The rest of Credit projections, the Fusion tab included, is translated.
 - **Emails:** reminder emails stay in English. The interactive report they carry is translated (below).
 
 **Right to left.** In Arabic and Hebrew the whole page is mirrored: the menu is on the right, text starts on the right, and arrows in menu paths point left (Settings ← HTTPS). Charts, code, addresses and numbers keep their left-to-right order.
@@ -196,3 +197,7 @@ Each entry was translated, then reviewed twice:
 - **Review 2:** 132 corrections, 29 of them Vietnamese AI feature names in lower case mid-sentence, as its file writes them. Hebrew "reachable" is no longer the server's word. German "Uncertain" no longer reads as "insecure", and Simplified Chinese "Secret" no longer reads as "key". Spanish and Portuguese "Verified at zero" now says that nothing is left. Japanese and Korean "prove the fixes" now says the fixes worked.
 
 The late message was corrected in seven languages by the first review and in none by the second. The singular verdict needed no correction.
+
+**Added in MZ-01.00.61.** 77 entries in all fourteen languages: the **Credit projections** page (profiles, the Fusion tab, its totals and messages, and the permission). The backlog cost calculator on the À la carte tab stays in English, and so do the two Checkmarx One export names it asks for, so people can find them in Checkmarx One. "Fusion" stays as it is, also on its own as a tab label; the checks now allow that. Numbers the page formats itself (10,000, 10.000 or 10 000, the reader's way) are one placeholder, so each language's own thousands separator works. Each entry was translated, then reviewed twice:
+- **Review 1:** 106 corrections. "Remove" a project now reads "take out of the projection", not "delete", in Japanese, Indonesian, Vietnamese and Korean, and "taken off" says *from the projection* in seven languages. "Profile" in both Chinese files no longer reads as a settings file. Thai "Include" no longer reads as "Total", and "Read lines of code" as reading the code itself. The fixed example text uses each language's own thousands separator.
+- **Review 2:** 27 corrections. Arabic uses the dual for the two example projects. Hebrew no longer compares bundles with lines. Spanish and Portuguese tooltips address the reader as their files do, and the Chinese "No scan" reads "no scan yet". Japanese and Korean needed none.
