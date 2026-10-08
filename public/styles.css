@@ -2739,7 +2739,8 @@ a.button-like.primary:hover { filter: brightness(1.05); }
 .pj-table td { vertical-align: middle; }
 .pj-table tr.pj-off td:not(:first-child) { opacity: 0.5; }
 .pj-loc { width: 12ch; text-align: end; font-variant-numeric: tabular-nums; }
-.pj-cell-name { width: min(100%, 28ch); }
+.pj-name-cell { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pj-cell-name { flex: 1 1 auto; width: 22ch; min-width: 12ch; }
 .pj-was { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 @media (max-width: 1100px) {
@@ -2753,4 +2754,4 @@ a.button-like.primary:hover { filter: brightness(1.05); }
   .pj-table-head input[type="search"] { flex: 1 1 100%; }
   .pj-frame { border-radius: 10px; }
 }
-.pj-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
+button.pj-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }

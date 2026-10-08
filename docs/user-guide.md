@@ -47,6 +47,8 @@ The coloured label next to each page title says which group the page is in.
 - **↻** (top right) reloads the data of the page you are on and keeps your filters and tabs.
 - **Refresh** (bottom of the sidebar; in the menu under your name on a phone) starts over: CxMissionZero reloads and every page opens as new. Saved settings, reports and credits are not affected.
 
+**Credit projections** (bottom of the sidebar, above Get help; on a phone, through Jump to): the credits a customer would need, for triage and remediation of their backlog and for Fusion scans of their projects. See [Credit projections](#credit-projections).
+
 **Get help** (bottom of the sidebar; in the menu under your name on a phone): point at it and choose **Submit a support case** or **Request an enhancement**, or **Track my requests**. See [Get help](#get-help-support-cases-and-enhancements).
 
 **Jump to (Ctrl K, or ⌘K on a Mac)** goes to any page, tab, Settings section or common action: type a few letters (for example *smtp*, *allocated*, *backups*) and press Enter.
@@ -116,6 +118,8 @@ Everyone signs in and has one role. Tabs and buttons you are not allowed to use 
 | **Admin** | Everything, including the Checkmarx One integration, the email server, the credit pool and backups. |
 | **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, beta. |
 | **User** | Fetch findings, send reminders, follow tracked reports, see credits. Settings are read-only. No Access, Audit or Beta. |
+
+**Credit projections** is for Admins and, on new installations, Security Analysts; give it to any role with **Credit projections** on People & roles.
 
 Every role can raise support cases and enhancement requests under **Get help**. Admins answer them (**Answer support cases & enhancements**); on a new installation Security Analysts can too.
 
@@ -1023,6 +1027,16 @@ Send it to whoever maintains CxMissionZero when something goes wrong. **It captu
 **Activity log.** What this browser asked the server, newest first, 100 lines a page. By default it shows each answer (**Success** and **Errors**, with counts); tick **Sent** to see each request as it goes out too. Searchable. **Export** saves it; **Clear** empties it.
 
 ---
+
+## Credit projections
+
+**Credit projections** (bottom of the sidebar) works out the credits a customer would need, from their own data, for showing them live. Each customer is a **profile**, saved on this server as you go: open it again later and carry on. **New profile** starts one; click one in the list to open it; **Delete profile** removes it. The line by its name says when it was last saved.
+
+**À la carte** (triage and remediation of the backlog). Upload the customer's two Checkmarx One exports, **Total vulnerabilities by severity** and **Fixed vulnerabilities by severity** (or **Load sample data**). Then choose, per severity, how many findings to triage and how many are expected to be false positives. The calculator shows the credits (1 per triage and 3 per remediation, both changeable) and when the backlog reaches zero. **Export customer report** downloads an interactive copy for the customer. This calculator stays in English.
+
+**Fusion** (one scan of each project). Set the **lines of code per bundle** (10,000) and the **credits per bundle, per scan** (1). Then **Read lines of code from Checkmarx One**: every project is listed with what its last scan counted. Each project is rounded up to whole bundles on its own, so 12,000 and 18,000 lines are 2 + 2 = 4 bundles, not the 3 that 30,000 lines would make; the page shows that difference. Type over any count, leave projects out, add projects by hand for a prospect, and **Download CSV**.
+
+More: [credit projections](credit-projections.md).
 
 ## Get help: support cases and enhancements
 

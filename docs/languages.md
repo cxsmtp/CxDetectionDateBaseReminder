@@ -30,6 +30,7 @@ CxMissionZero's page is available in fifteen languages. Fourteen are open to eve
 **What stays as it is:**
 - **Names and data:** project, person and finding names from Checkmarx One, logs and code.
 - **The terms of use:** the English text is the binding version.
+- **The backlog cost calculator** on Credit projections → À la carte: it is a separate tool shown inside the page, and stays in English. The rest of Credit projections, the Fusion tab included, is translated.
 - **Emails:** reminder emails stay in English. The interactive report they carry is translated (below).
 
 **Right to left.** In Arabic and Hebrew the whole page is mirrored: the menu is on the right, text starts on the right, and arrows in menu paths point left (Settings ← HTTPS). Charts, code, addresses and numbers keep their left-to-right order.

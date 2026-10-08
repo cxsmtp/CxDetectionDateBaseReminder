@@ -10822,7 +10822,7 @@
    "credits › overview › small"
   ]
  },
- "Of {0},{1} lines, each project rounded up": {
+ "Of {0} lines, each project rounded up": {
   "kind": "text",
   "seen": [
    "projections › new › span › Fusion: what one scan of each project costs",
@@ -13494,7 +13494,7 @@
    "message"
   ]
  },
- "Scan counted {0},{1}": {
+ "Scan counted {0}": {
   "kind": "text",
   "seen": [
    "projections › added › span › Projects",

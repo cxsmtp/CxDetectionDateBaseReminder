@@ -6904,7 +6904,7 @@ $('help-view').addEventListener('click', async (event) => {
 // this server: it tells this page what changed, and is handed the profile back when it is opened.
 // Fusion is drawn here, from the lines of code each project's last scan counted.
 
-const pj = { profiles: [], open: null, frameFor: '', pending: null, timer: null, saving: null };
+const pj = { profiles: [], open: null, frameFor: '', frameReady: false, pending: null, timer: null, saving: null };
 const PJ_OPEN_KEY = 'mz-projection';
 /** "Saved 10:42" by the profile's name: the time is the reader's own and is not translated. */
 function pjSaved(label, at, kind = 'muted') {
@@ -6963,6 +6963,7 @@ function showProjection(profile) {
   pjSaved('Saved', profile.updatedAt);
   // A fresh calculator for each profile: it asks for the profile's state once it is ready.
   pj.frameFor = profile.id;
+  pj.frameReady = false;
   $('pj-frame').src = `/projections/calculator/index.html?p=${encodeURIComponent(profile.id)}`;
   setStatus('pj-read-note', '');
   renderFusion();
@@ -6990,11 +6991,11 @@ function saveProjection(patch) {
 
 async function flushProjection() {
   clearTimeout(pj.timer);
-  await pj.saving;
+  while (pj.saving) await pj.saving;
   const job = pj.pending;
   if (!job) return;
   pj.pending = null;
-  pj.saving = (async () => {
+  const run = (async () => {
     try {
       const { profile } = await api(`/api/projections/${encodeURIComponent(job.id)}`, { method: 'PUT', body: JSON.stringify(job.patch), quiet: true });
       pj.profiles = pj.profiles.map((p) => (p.id === profile.id ? profile : p));
@@ -7010,8 +7011,12 @@ async function flushProjection() {
       if (![404, 413].includes(error.status) && !pj.pending) pj.pending = job;
     }
   })();
-  await pj.saving;
-  pj.saving = null;
+  pj.saving = run;
+  try {
+    await run;
+  } finally {
+    if (pj.saving === run) pj.saving = null;
+  }
 }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') flushProjection();
@@ -7060,8 +7065,11 @@ window.addEventListener('message', (event) => {
   const frame = $('pj-frame');
   if (event.origin !== location.origin || event.source !== frame.contentWindow || !pj.open || pj.frameFor !== pj.open.id) return;
   const { type, state: saved, height } = event.data ?? {};
-  if (type === 'mz-calc-ready') frame.contentWindow.postMessage({ type: 'mz-calc-load', state: pj.open.alaCarte ?? null }, location.origin);
-  else if (type === 'mz-calc-change' && saved && typeof saved === 'object') {
+  if (type === 'mz-calc-ready') {
+    pj.frameReady = true;
+    frame.contentWindow.postMessage({ type: 'mz-calc-load', state: pj.open.alaCarte ?? null }, location.origin);
+  } else if (type === 'mz-calc-change' && pj.frameReady && saved && typeof saved === 'object') {
+    // Only from the calculator that was handed this profile: a change still on its way from the one before is not this profile's.
     pj.open.alaCarte = saved;
     saveProjection({ alaCarte: saved });
   } else if (type === 'mz-calc-height' && Number.isFinite(height)) frame.style.height = `${Math.max(480, Math.ceil(height) + 4)}px`;
@@ -7108,7 +7116,7 @@ function renderFusionRows() {
       const changed = !manual && wholeNumber(p.locOverride) !== null && wholeNumber(p.locOverride) !== scanned;
       return `<tr data-pjrow="${escapeHtml(p.id)}" class="${row.included ? '' : 'pj-off'}">
         <td><input type="checkbox" data-pj-include${row.included ? ' checked' : ''} aria-label="Include ${escapeHtml(p.name)}" /></td>
-        <td>${manual ? `<input type="text" class="pj-cell-name" data-pj-pname value="${escapeHtml(p.name)}" maxlength="200" aria-label="Project name" translate="no" /> <button type="button" class="ghost pj-remove" data-pj-remove title="Remove this project">Remove</button>` : `<span translate="no">${escapeHtml(p.name)}</span>`}</td>
+        <td>${manual ? `<span class="pj-name-cell"><input type="text" class="pj-cell-name" data-pj-pname value="${escapeHtml(p.name)}" maxlength="200" aria-label="Project name" translate="no" /><button type="button" class="ghost pj-remove" data-pj-remove title="Remove this project">Remove</button></span>` : `<span translate="no">${escapeHtml(p.name)}</span>`}</td>
         <td>${p.scanAt ? `<time datetime="${escapeHtml(p.scanAt)}" translate="no">${escapeHtml(formatDate(p.scanAt))}</time>` : manual ? '—' : '<span class="hint">No scan</span>'}</td>
         <td><input type="text" inputmode="numeric" class="pj-loc" data-pj-loc value="${row.lines ?? ''}" placeholder="${manual ? 'Lines of code' : scanned === null ? 'Type them' : ''}" aria-label="Lines of code of ${escapeHtml(p.name)}" title="${escapeHtml(PJ_SOURCE[p.source] ?? '')}" />${changed ? `<span class="pj-was">Scan counted ${fmt(scanned)} <button type="button" class="link" data-pj-reset>Use it</button></span>` : ''}</td>
         <td class="num" data-pj-bundles>${row.included && row.lines ? fmt(row.bundles) : '—'}</td>
