@@ -1693,7 +1693,7 @@ function reportMain() {
     const line = f.loc.line || 1;
     if (!project) return null;
     if (host === 'github.com') return { label: L('github.dev (in the browser)'), url: `https://github.dev/${project}/blob/${branch}/${file}#L${line}` };
-    if (/(^|\.)gitlab\./.test(host)) return { label: L('GitLab Web IDE'), url: `https://${host}/-/ide/project/${project}/edit/${branch}/-/${file}` };
+    if (/(^|\.)gitlab\./.test(host)) return { label: 'GitLab Web IDE', url: `https://${host}/-/ide/project/${project}/edit/${branch}/-/${file}` };
     if (host === 'bitbucket.org') return { label: L('View on Bitbucket'), url: `https://bitbucket.org/${project}/src/${branch}/${file}#lines-${line}` };
     if (host === 'dev.azure.com') {
       return { label: L('View in Azure Repos'), url: `https://dev.azure.com/${project}?path=/${file}&version=GB${branch}&line=${line}&lineEnd=${line}&lineStartColumn=1&lineEndColumn=1&_a=contents` };

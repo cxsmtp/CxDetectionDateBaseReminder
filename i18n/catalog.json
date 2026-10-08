@@ -7524,12 +7524,6 @@
    "sign in › span › Match usernames to email addresses"
   ]
  },
- "GitLab Web IDE": {
-  "kind": "report",
-  "seen": [
-   "interactive HTML report"
-  ]
- },
  "GitLab, Azure DevOps and Bitbucket": {
   "kind": "text",
   "seen": [
