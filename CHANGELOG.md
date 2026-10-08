@@ -46,7 +46,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.59 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.59 — 2026-10-08 05:24 UTC · [#82](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/82)
 
 - **The interactive report speaks its reader's language.** It opens in the language of the person it was made for (their profile), else their browser's, in any of the fifteen; Arabic and Hebrew read right to left.
 - **Switch it in the report.** A **Language** list at the top changes everything at once, including what the report wrote itself, and the choice is remembered in that browser.
