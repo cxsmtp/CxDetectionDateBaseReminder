@@ -286,7 +286,14 @@ function restore(root = document.documentElement) {
   }
 }
 
+/** Where translations come from: this server (the page), or the report's own copy (src/html-report.js). */
+let loader = null;
+export function setLoader(fn) {
+  loader = fn;
+}
+
 async function load(code) {
+  if (loader) return new Map(Object.entries((await loader(code)) ?? {}).filter(([, out]) => typeof out === 'string' && out));
   const response = await fetch(`/i18n/${code}.json`, { credentials: 'same-origin' });
   if (!response.ok) throw new Error(`No ${code} translation (${response.status})`);
   const body = await response.json();
@@ -368,10 +375,9 @@ export function deviceTimeZone() {
   }
 }
 
-/** Start in the preferred language. Native dialogs speak it too. */
-export function startI18n() {
+/** Start in the preferred language (or `code`, when the caller knows better). Native dialogs speak it too. */
+export function startI18n(code = preferredLanguage()) {
   patchDates();
-  const code = preferredLanguage();
   const confirm = window.confirm.bind(window);
   const alert = window.alert.bind(window);
   const prompt = window.prompt.bind(window);

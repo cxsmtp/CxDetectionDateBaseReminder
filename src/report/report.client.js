@@ -13,7 +13,18 @@
  */
 'use strict';
 
-(() => {
+/**
+ * The report's words in the reader's language. `L('Report for {0}: {1}.', name, where)` looks the
+ * English up in the translations the report carries (the translator sets them before the report
+ * starts) and puts the values in: names, addresses, numbers and Checkmarx One's own words go in as
+ * values and are never translated. Without translations it is the English itself.
+ */
+const L = (text, ...values) => {
+  const out = (window.MZReportWords && window.MZReportWords.get(text)) || text;
+  return values.length ? out.replace(/\{(\d+)\}/g, (all, i) => (i < values.length ? String(values[i]) : all)) : out;
+};
+
+function reportMain() {
   const DATA = JSON.parse(document.getElementById('report-data').textContent);
   const config = DATA.config;
   const findings = DATA.findings;
@@ -52,7 +63,8 @@
   // finding itself settles a little later, so that is still worth waiting on.
   const WAITING = new Set(['IN_PROGRESS', 'NOT_TRIAGED', 'PENDING', 'QUEUED', 'RUNNING', 'TO_VERIFY']);
 
-  const VERDICTS = {
+  // Looked up when shown (L), so a language chosen later applies to them too.
+  const VERDICT_WORDS = {
     VULNERABLE: ['Vulnerable', 'bad'],
     PROPOSED_NOT_EXPLOITABLE: ['Probably safe (AI)', 'good'],
     NOT_EXPLOITABLE: ['Not exploitable', 'good'],
@@ -64,20 +76,29 @@
     FAILED: ['Triage failed', 'bad'],
     IN_PROGRESS: ['Triaging…', 'busy'],
   };
-  const SUB_LABELS = {
+  const VERDICTS = new Proxy(VERDICT_WORDS, { get: (words, status) => (words[status] ? [L(words[status][0]), words[status][1]] : undefined) });
+  const SUB_WORDS = {
     REACHABLE: 'Reachable',
     NOT_REACHABLE: 'Not reachable',
     EXPLOITABLE: 'Exploitable',
     NOT_EXPLOITABLE: 'Not exploitable',
   };
-  const SEVERITY_LABELS = { CRITICAL: 'critical', HIGH: 'high' };
-  const STATE_LABELS = {
+  const SUB_LABELS = new Proxy(SUB_WORDS, { get: (words, key) => (words[key] ? L(words[key]) : undefined) });
+  /** The "triage all" button's words, per severity (each language has its own word order). */
+  const BULK_WORDS = {
+    CRITICAL: { all: 'Triage all critical ({0})', shared: 'Triage all critical ({0} findings · {1} results)', busy: 'Triaging critical…', done: 'All critical triaged', none: 'No critical findings',
+      ask: 'Run AI Triage on all {0} critical finding(s)?', askAcross: 'Run AI Triage on all {0} critical finding(s) across {1} projects?' },
+    HIGH: { all: 'Triage all high ({0})', shared: 'Triage all high ({0} findings · {1} results)', busy: 'Triaging high…', done: 'All high triaged', none: 'No high findings',
+      ask: 'Run AI Triage on all {0} high finding(s)?', askAcross: 'Run AI Triage on all {0} high finding(s) across {1} projects?' },
+  };
+  const STATE_WORDS = {
     TO_VERIFY: 'Not checked yet',
     CONFIRMED: 'Confirmed',
     URGENT: 'Urgent',
     NOT_EXPLOITABLE: 'Not exploitable',
     PROPOSED_NOT_EXPLOITABLE: 'Probably safe (AI)',
   };
+  const STATE_LABELS = new Proxy(STATE_WORDS, { get: (words, key) => (words[key] ? L(words[key]) : undefined) });
 
   let backend = null;
   // Credits per project, from the reminder server: {triage: {allocated, used, remaining}, remediation: {...}}.
@@ -149,25 +170,25 @@
     for (const r of refusals) log(r.error, 'error');
     const to = needs.find((n) => n.adminContact)?.adminContact || contact();
     if (!dialog || typeof dialog.showModal !== 'function') {
-      alert(`${text}\n\nAsk your administrator${to ? ` (${to})` : ''} to allocate more credits.`);
+      alert(`${text}\n\n${to ? L('Ask your administrator ({0}) to allocate more credits.', to) : L('Ask your administrator to allocate more credits.')}`);
       return;
     }
-    const kind = KIND_LABELS[needs[0]?.kind] || 'AI Triage';
-    $('credit-dialog-title').textContent = `No ${kind} credits left`;
+    const kind = L(KIND_LABELS[needs[0]?.kind] || 'AI Triage');
+    $('credit-dialog-title').textContent = needs[0]?.kind === 'remediation' ? L('No AI Remediation credits left') : L('No AI Triage credits left');
     $('credit-dialog-text').textContent = text;
     const mail = $('credit-dialog-mail');
-    $('credit-dialog-to').textContent = to ? `Administrator: ${to}` : '';
+    $('credit-dialog-to').textContent = to ? L('Administrator: {0}', to) : '';
     if (to) {
-      const lines = needs.map((n) => `- ${n.projectName || n.projectId}: ${n.needed} ${KIND_LABELS[n.kind] || n.kind} credit(s) needed, ${n.left} left`);
-      const subject = `Credits request: ${kind} for ${[...new Set(needs.map((n) => n.projectName || n.projectId))].join(', ') || 'my report'}`;
-      const body = `Hi,\n\nPlease allocate more Checkmarx One credits so I can act on findings from my report:\n\n${lines.join('\n') || text}\n\nThank you.`;
+      const lines = needs.map((n) => `- ${L('{0}: {1} {2} credit(s) needed, {3} left', n.projectName || n.projectId, n.needed, L(KIND_LABELS[n.kind] || n.kind), n.left)}`);
+      const subject = L('Credits request: {0} for {1}', kind, [...new Set(needs.map((n) => n.projectName || n.projectId))].join(', ') || L('my report'));
+      const body = `${L('Hi,')}\n\n${L('Please allocate more Checkmarx One credits so I can act on findings from my report:')}\n\n${lines.join('\n') || text}\n\n${L('Thank you.')}`;
       mail.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      mail.textContent = 'Email the administrator';
+      mail.textContent = L('Email the administrator');
       mail.title = to;
       mail.hidden = false;
     } else {
       mail.hidden = true;
-      $('credit-dialog-text').textContent = `${text} Contact your Checkmarx One reminder administrator.`;
+      $('credit-dialog-text').textContent = `${text} ${L('Contact your Checkmarx One reminder administrator.')}`;
     }
     if (!dialog.open) dialog.showModal();
   }
@@ -212,15 +233,15 @@
         // No answer at all: the server may be restarting for an update (a few seconds).
         // Nothing reached it, so asking again is safe; the server never sends one finding twice anyway.
         if (reached && !controller?.signal.aborted && offline < 6) {
-          serverState('Reconnecting…', 'warn');
+          serverState(L('Reconnecting…'), 'warn');
           await sleep(2000);
           return post(path, body, attempt, timeoutMs, offline + 1);
         }
-        serverState('Unreachable', 'bad');
-        throw new CxError(`Cannot reach the reminder server at ${base}. It must be running and reachable from this computer (company network or VPN). If it moved, use "Change" next to its address.`);
+        serverState(L('Unreachable'), 'bad');
+        throw new CxError(L('Cannot reach the reminder server at {0}. It must be running and reachable from this computer (company network or VPN). If it moved, use “Change” next to its address.', base));
       }
       reached = true;
-      if (offline) serverState('Connected', 'good'); // back after a restart
+      if (offline) serverState(L('Connected'), 'good'); // back after a restart
       let parsed = null;
       try {
         parsed = await response.json();
@@ -234,7 +255,7 @@
           return post(path, body, attempt + 1);
         }
       }
-      if (!response.ok) throw new CxError(parsed?.error || `The reminder server answered ${response.status}.`, response.status, parsed);
+      if (!response.ok) throw new CxError(parsed?.error || L('The reminder server answered {0}.', response.status), response.status, parsed);
       return parsed;
     }
 
@@ -2154,12 +2175,37 @@
   $('server-fix').addEventListener('click', () => openServerForm());
   $('refresh-now').addEventListener('click', () => (backend ? refreshStates({ manual: true }) : requireConnection(() => {})));
 
+  // Another language chosen in the report: what is on screen now is written again in it.
+  relabel = () => {
+    applyLabels();
+    setConnectedUI(backend ? connectedTenant : undefined);
+    showServer();
+    if (backend) serverState(L('Connected'), 'good');
+    renderCredits();
+    for (const f of findings) if (f.shown) renderTriage(f);
+    for (const f of findings) if (f.remediation) renderRemediation(f);
+    if (rowButtons.length) labelRowButtons();
+    updateBulk();
+  };
+
   autoConnect();
-})();
+}
+
+/** Sentences the server wrote with values in them (data-l, data-v): in the reader's language. */
+function applyLabels() {
+  for (const el of document.querySelectorAll('[data-l]')) {
+    let values = [];
+    try {
+      values = JSON.parse(el.dataset.v || '[]');
+    } catch {}
+    el.textContent = L(el.dataset.l, ...values);
+  }
+}
 
 // Filters: severity, text and "only what AI can act on". Rows the report hides
 // itself (triaged not exploitable) stay hidden whatever the filter says.
-(() => {
+let refilter = () => {};
+function reportFilters() {
   const bar = document.getElementById('report-filters');
   if (!bar) return;
   const rows = [...document.querySelectorAll('#findings tbody tr[data-key]')];
@@ -2180,7 +2226,7 @@
       if (match && !tr.hidden) shown += 1;
     }
     const filtering = severity || words.length || actionable.checked;
-    count.textContent = filtering ? `${shown} of ${rows.filter((tr) => !tr.hidden).length} shown` : '';
+    count.textContent = filtering ? L('{0} of {1} shown', shown, rows.filter((tr) => !tr.hidden).length) : '';
   }
   bar.addEventListener('click', (event) => {
     const button = event.target.closest('[data-filter-sev]');
@@ -2194,4 +2240,26 @@
   });
   search.addEventListener('input', apply);
   actionable.addEventListener('change', apply);
-})();
+  refilter = apply;
+}
+
+// The report starts once its language is known: the translator (in the report) calls
+// MZReportStart. A browser without it, or a report without translations, starts in English.
+let relabel = () => {};
+let reportStarted = false;
+function startReport() {
+  if (reportStarted) return;
+  reportStarted = true;
+  applyLabels();
+  reportMain();
+  reportFilters();
+}
+window.MZReportStart = startReport;
+/** The reader chose another language: the translator has the new words; show them. */
+window.MZReportRelabel = () => {
+  if (!reportStarted) return;
+  relabel();
+  refilter();
+};
+if (!document.getElementById('report-i18n')) startReport();
+else setTimeout(startReport, 4000);
