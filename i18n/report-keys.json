@@ -231,6 +231,7 @@
  "Its path leads outside the folder: not applied.",
  "JetBrains IDE",
  "Keep certificate validation on (rejectUnauthorized: true) and trust a private CA explicitly if one is needed.",
+ "Language",
  "Loaded Checkmarx One states: {0} of {1} eligible findings already triaged.",
  "LOW",
  "Manual fix",

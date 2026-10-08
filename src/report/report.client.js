@@ -125,6 +125,10 @@ function reportMain() {
       this.body = body;
     }
   }
+  /** An error the report wrote itself: it keeps its English and values, to be shown again in another language. */
+  const fail = (text, ...values) => Object.assign(new CxError(L(text, ...values)), { words: [text, ...values] });
+  /** An error's message in the reader's language now (the server's own words stay as they are). */
+  const said = (error) => (error?.words ? L(...error.words) : error?.message ?? '');
 
   const NOT_EXPLOITABLE = new Set(['NOT_EXPLOITABLE', 'PROPOSED_NOT_EXPLOITABLE']);
 
@@ -244,7 +248,7 @@ function reportMain() {
           return post(path, body, attempt, timeoutMs, offline + 1);
         }
         serverState(L('Unreachable'), 'bad');
-        throw new CxError(L('Cannot reach the reminder server at {0}. It must be running and reachable from this computer (company network or VPN). If it moved, use “Change” next to its address.', base));
+        throw fail('Cannot reach the reminder server at {0}. It must be running and reachable from this computer (company network or VPN). If it moved, use “Change” next to its address.', base);
       }
       reached = true;
       if (offline) serverState(L('Connected'), 'good', 'connected'); // back after a restart
@@ -1482,9 +1486,9 @@ function reportMain() {
     try {
       url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
     } catch {
-      throw new CxError(L('That is not a web address, e.g. {0}', 'https://cx-reminder.example.com'));
+      throw fail('That is not a web address, e.g. {0}', 'https://cx-reminder.example.com');
     }
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new CxError(L('Use an http or https address.'));
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw fail('Use an http or https address.');
     const base = `${url.origin}${url.pathname}`.replace(/\/+$/, '');
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = controller && setTimeout(() => controller.abort(), 10000);
@@ -1493,13 +1497,13 @@ function reportMain() {
       const response = await fetch(`${base}/api/relay/ping`, { signal: controller?.signal, cache: 'no-store' });
       body = await response.json().catch(() => null);
     } catch {
-      throw new CxError(L('No reminder server answered at {0}. Check the address, and that you are on the company network or VPN.', base));
+      throw fail('No reminder server answered at {0}. Check the address, and that you are on the company network or VPN.', base);
     } finally {
       if (timer) clearTimeout(timer);
     }
     // An old http address of a server that is HTTPS only now: it says where it went.
     if (body?.movedTo && !followed) return checkServer(String(body.movedTo), true);
-    if (body?.service !== 'mission-zero-relay') throw new CxError(L('{0} answered, but it is not a reminder server. Check the address.', base));
+    if (body?.service !== 'mission-zero-relay') throw fail('{0} answered, but it is not a reminder server. Check the address.', base);
     return base;
   }
 
@@ -2166,16 +2170,19 @@ function reportMain() {
   // and offer to connect (or to correct the address).
   // ---------------------------------------------------------------------------
 
+  // Why the report is not connected, written again when the reader picks another language.
+  let promptReason = null;
   function showConnectPrompt(reason) {
+    promptReason = reason;
     const prompt = $('server-prompt');
-    $('server-prompt-text').textContent = reason;
+    $('server-prompt-text').textContent = reason();
     prompt.hidden = false;
   }
 
   function autoConnect() {
     if (!config.relayUrl) {
       serverState(L('Needed to triage from this report'), 'warn');
-      showConnectPrompt(L('This report does not say which reminder server to use. Enter its address to connect.'));
+      showConnectPrompt(() => L('This report does not say which reminder server to use. Enter its address to connect.'));
       return;
     }
     serverState(L('Connecting…'));
@@ -2188,7 +2195,7 @@ function reportMain() {
       (error) => {
         log(L('Could not connect automatically: {0}', error.message), 'error');
         if (serverKind !== 'connected' && serverKind !== 'unreachable') serverState(L('Not connected'), 'bad', 'not-connected');
-        showConnectPrompt(L('Could not connect to the reminder server automatically: {0}', error.message));
+        showConnectPrompt(() => L('Could not connect to the reminder server automatically: {0}', said(error)));
       },
     );
   }
@@ -2214,6 +2221,7 @@ function reportMain() {
     if (lastRefresh) markRefreshed(lastRefresh);
     if (lastRescan) renderRescan(lastRescan);
     labelHidden();
+    if (promptReason && !$('server-prompt').hidden) $('server-prompt-text').textContent = promptReason();
     // Only what the report itself rewrote; the rest the server wrote, and applyLabels relabelled it.
     for (const f of findings) if (f.shown && !f.hidden && (f.triage || f.triagedAt || f.noRecord || (f.state && f.state !== 'TO_VERIFY'))) renderTriage(f);
     for (const f of findings) if (f.remediation) renderRemediation(f);

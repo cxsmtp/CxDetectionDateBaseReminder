@@ -21,13 +21,13 @@ const CLIENT = fs.readFileSync(path.join(ROOT, 'src/report/report.client.js'), '
 const unquote = (literal) => JSON.parse(literal[0] === '"' ? literal : `"${literal.slice(1, -1).replace(/\\'/g, "'").replace(/"/g, '\\"')}"`);
 const LITERAL = /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"/g;
 
-/** The first argument of every L(…) call: each string literal in it (a ternary names two). */
+/** The first argument of every L(…) and fail(…) call: each string literal in it (a ternary names two). */
 export function clientKeys(source = CLIENT) {
   const keys = new Set();
-  for (let at = source.indexOf('L('); at !== -1; at = source.indexOf('L(', at + 2)) {
+  for (const name of ['L(', 'fail(']) for (let at = source.indexOf(name); at !== -1; at = source.indexOf(name, at + name.length)) {
     if (/[\w$.`]/.test(source[at - 1] ?? '')) continue; // fooL(, x.L( or one in a comment's `code`
     let depth = 0;
-    let end = at + 2;
+    let end = at + name.length;
     let quote = '';
     for (; end < source.length; end += 1) {
       const c = source[end];
@@ -43,7 +43,7 @@ export function clientKeys(source = CLIENT) {
         depth -= 1;
       } else if (c === ',' && depth === 0) break;
     }
-    for (const [literal] of source.slice(at + 2, end).matchAll(LITERAL)) {
+    for (const [literal] of source.slice(at + name.length, end).matchAll(LITERAL)) {
       const text = unquote(literal);
       if (/\p{L}/u.test(text)) keys.add(text);
     }
@@ -93,7 +93,8 @@ function sampleReports() {
   const single = { generatedAt: '2026-10-08 10:00', projects: [{ projectId: 'p1', projectName: 'One', risks: [risk(1, { url: '' })] }] };
   const project = () => ({ exp: 1, sig: 's' });
   return [
-    generateHtmlReport(one, { relayUrl: 'https://mz.example', remediationViaRelay: true, sign, connection: { tenant: 'acme' } }),
+    // With languages to pick from: the picker's label.
+    generateHtmlReport(one, { relayUrl: 'https://mz.example', remediationViaRelay: true, sign, connection: { tenant: 'acme' }, i18n: { languages: [['en', 'English'], ['ja', '日本語']], strings: { ja: { x: 'y' } }, fetch: true } }),
     generateHtmlReport(two, { sign, signProjectReport: project }),
     generateHtmlReport(small, { relayUrl: 'https://mz.example', sign, signProjectReport: project, remediationViaRelay: true }),
     generateHtmlReport(single, { relayUrl: 'https://mz.example', sign }),
