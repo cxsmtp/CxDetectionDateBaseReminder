@@ -142,7 +142,9 @@ export function scriptKeys() {
 
 const main = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 const onlyStatic = process.argv.includes('--static');
-const all = main ? new Set([...scriptKeys(), ...(onlyStatic ? [] : await pageKeys())]) : null;
+// A page word looked up in one sense ("verdict|Confirmed") falls back to the plain wording: it is listed
+// only when the script has that sense too, so it needs its own translation.
+const all = main ? new Set([...scriptKeys(), ...(onlyStatic ? [] : [...(await pageKeys())].filter((key) => !/^[a-z]+\|/.test(key) || scriptKeys().has(key)))]) : null;
 if (!main) {
   // Imported (by the tests): nothing to write.
 } else if (onlyStatic) {

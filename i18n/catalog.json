@@ -17579,6 +17579,12 @@
    "settings › How to fix it › What was tried › label"
   ]
  },
+ "verdict|Not exploitable": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Verification rescan started": {
   "kind": "busy",
   "seen": [

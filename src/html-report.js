@@ -458,7 +458,7 @@ function findingRow(finding, client, remediateHere, shared = null) {
     <div class="sub"><span translate="no">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</span>${finding.fixVersion ? ` · <span class="fix-version" title="The version Checkmarx One recommends">${tx('upgrade to {0}', finding.fixVersion)}</span>` : ''}</div>${shared ? `\n    ${sharedNoteHtml(shared)}` : ''}</td>
   <td class="meta-cell" data-label="Type" title="${escapeHtml(finding.scanner || '')}">${escapeHtml(engineLabel(finding.scanner))}</td>
   <td class="meta-cell" data-label="Age">${age}</td>
-  <td class="state-cell" data-label="State"><span class="state-label">${escapeHtml(stateLabel)}</span><div class="state-why">${CONFIRMED_STATES.has(state) && !client.aiUnavailable ? confirmedWhyHtml(client.advice ?? fixAdvice(finding), { ...aiFromRisk(finding), scanner: finding.scanner, url, remediateHere }) : ''}</div></td>
+  <td class="state-cell" data-label="State"><span class="state-label" data-i18n-ctx="verdict">${escapeHtml(stateLabel)}</span><div class="state-why">${CONFIRMED_STATES.has(state) && !client.aiUnavailable ? confirmedWhyHtml(client.advice ?? fixAdvice(finding), { ...aiFromRisk(finding), scanner: finding.scanner, url, remediateHere }) : ''}</div></td>
   <td class="ai-cell" data-label="Triage result">${client.aiUnavailable ? manualCell(finding, client.aiUnavailable) : '—'}</td>
   <td class="actions-cell">
     ${client.aiUnavailable

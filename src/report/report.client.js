@@ -20,7 +20,13 @@
  * values and are never translated. Without translations it is the English itself.
  */
 const L = (text, ...values) => {
-  const out = (window.MZReportWords && window.MZReportWords.get(text)) || text;
+  const words = window.MZReportWords;
+  let out = words && words.get(text);
+  // "verdict|Not exploitable": that wording in one sense (one finding's verdict, not a filter of many),
+  // else the plain wording.
+  const bar = text.indexOf('|');
+  if (!out && bar > 0 && /^[a-z]+$/.test(text.slice(0, bar))) text = text.slice(bar + 1);
+  out = out || (words && words.get(text)) || text;
   return values.length ? out.replace(/\{(\d+)\}/g, (all, i) => (i < values.length ? String(values[i]) : all)) : out;
 };
 
@@ -67,7 +73,7 @@ function reportMain() {
   const VERDICT_WORDS = {
     VULNERABLE: ['Vulnerable', 'bad'],
     PROPOSED_NOT_EXPLOITABLE: ['Probably safe (AI)', 'good'],
-    NOT_EXPLOITABLE: ['Not exploitable', 'good'],
+    NOT_EXPLOITABLE: ['verdict|Not exploitable', 'good'],
     UNCERTAIN: ['Uncertain', 'warn'],
     RISK_ACCEPTED: ['Risk accepted', 'muted'],
     TO_VERIFY: ['Not checked yet', 'muted'],
@@ -81,7 +87,7 @@ function reportMain() {
     REACHABLE: 'Reachable',
     NOT_REACHABLE: 'Not reachable',
     EXPLOITABLE: 'Exploitable',
-    NOT_EXPLOITABLE: 'Not exploitable',
+    NOT_EXPLOITABLE: 'verdict|Not exploitable',
   };
   const SUB_LABELS = new Proxy(SUB_WORDS, { get: (words, key) => (words[key] ? L(words[key]) : undefined) });
   /** The "triage all" button's words, per severity (each language has its own word order). */
@@ -95,7 +101,7 @@ function reportMain() {
     TO_VERIFY: 'Not checked yet',
     CONFIRMED: 'Confirmed',
     URGENT: 'Urgent',
-    NOT_EXPLOITABLE: 'Not exploitable',
+    NOT_EXPLOITABLE: 'verdict|Not exploitable',
     PROPOSED_NOT_EXPLOITABLE: 'Probably safe (AI)',
   };
   const STATE_LABELS = new Proxy(STATE_WORDS, { get: (words, key) => (words[key] ? L(words[key]) : undefined) });
@@ -408,7 +414,7 @@ function reportMain() {
   function renderTriage(f) {
     if (notExploitable(f)) {
       if (!f.hidden) {
-        if (f.touched) log(L('AI Triage: {0} → {1} — removed from this report.', f.title, (VERDICTS[f.triage?.status] || VERDICTS[f.state] || [L('Not exploitable')])[0]), 'success');
+        if (f.touched) log(L('AI Triage: {0} → {1} — removed from this report.', f.title, (VERDICTS[f.triage?.status] || VERDICTS[f.state] || [L('verdict|Not exploitable')])[0]), 'success');
         hideNotExploitable(f);
       }
       updateBulk();
