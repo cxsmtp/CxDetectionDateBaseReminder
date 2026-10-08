@@ -48,7 +48,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.61 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.61 — 2026-10-08 09:16 UTC · [#84](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/84)
 
 - **Credit projections.** A new page at the bottom of the sidebar, above Get help, works out the credits a customer would need from their own data, for showing them live.
 - **Saved customer profiles.** Each customer is a profile that saves itself as you go, on the server, so a projection can be opened again later and carried on; profiles are in every backup.
