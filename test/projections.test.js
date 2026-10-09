@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { generateKeyPairSync, sign } from 'node:crypto';
 
-import { allocate, analyse, backlogForecast, frequencyOf, fusionEstimate, fusionSettings, seriesRows, severityForecast, suggestedScans, trCost, unitsOf, weeklyTrend } from '../public/calculator/model.js';
+import { allocate, analyse, backlogForecast, creditSummary, frequencyOf, fusionEstimate, fusionSettings, seriesRows, severityForecast, suggestedScans, totalsSettings, trCost, unitsOf, weeklyTrend } from '../public/calculator/model.js';
 import { buildReport, reportFileName } from '../public/calculator/report.js';
 import { MAX_PROFILE_BYTES, ProjectionStore, ReportStore, cleanFusion, cleanReportData, cleanTr, readFusionOffer, readFusionProjects } from '../src/projections.js';
 import { ActivationStore, checkCode } from '../src/activation.js';
@@ -115,6 +115,20 @@ test('Fusion: scans from the default, scan frequency, criticality and the projec
   assert.equal(est.byFrequency.find((f) => f.id === 'month').projects, 1);
 });
 
+test('credits required: both parts, an extra % on top, and whole bundles of credits', () => {
+  const sum = creditSummary(24000, 700.5, { extraPercent: 10 });
+  assert.equal(sum.base, 24700.5);
+  assert.equal(sum.extra, 2470.05);
+  assert.equal(sum.total, 27170.55);
+  assert.equal(sum.bundles, 3, '27,170.55 credits ÷ 10,000 = 2.72, rounded up to 3 bundles');
+  assert.equal(creditSummary(20000, null, {}).bundles, 2, 'exactly 2 bundles is not rounded up to 3');
+  assert.equal(creditSummary(null, 100, { bundleCredits: 50 }).bundles, 2);
+  assert.deepEqual(creditSummary(null, null, {}), { settings: { extraPercent: 0, bundleCredits: 10000 }, tr: null, fusion: null, base: 0, extra: 0, total: 0, exactBundles: 0, bundles: 0 });
+  assert.deepEqual(totalsSettings({ extraPercent: '12.345', bundleCredits: '5,000' }), { extraPercent: 12.35, bundleCredits: 5000 });
+  assert.deepEqual(totalsSettings({ extraPercent: -5, bundleCredits: 0 }), { extraPercent: 0, bundleCredits: 10000 });
+  assert.equal(totalsSettings({ extraPercent: 9000 }).extraPercent, 500);
+});
+
 test('customers: saved per field, reopened from disk, and an MZ-01.00.61 profile carried over', () => {
   const dir = tmp('calc-');
   const file = path.join(dir, 'projections.json');
@@ -133,6 +147,9 @@ test('customers: saved per field, reopened from disk, and an MZ-01.00.61 profile
   const summary = store.update(a.id, { fusion: { periodMonths: 6, defaultScans: 4, models: [{ id: 'opus', name: 'Opus-4.7', creditsPer10k: 2.5 }], projects: [{ id: 'p1', name: 'One', loc: 12000, frequency: 'month', criticality: 4, source: 'sast-metadata' }] } }, 'kim@acme.io');
   assert.equal(summary.hasTr, true);
   assert.equal(summary.fusionProjects, 1);
+  assert.deepEqual(store.get(a.id).totals, { extraPercent: 0, bundleCredits: 10000 });
+  store.update(a.id, { totals: { extraPercent: '15', bundleCredits: 'lots' } }, 'kim@acme.io');
+  assert.deepEqual(new ProjectionStore({ file }).get(a.id).totals, { extraPercent: 15, bundleCredits: 10000 });
   const again = new ProjectionStore({ file });
   const reopened = again.get(a.id);
   assert.equal(reopened.tr.lookbackMonths, 6);

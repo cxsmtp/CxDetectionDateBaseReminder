@@ -321,3 +321,34 @@ export function fusionEstimate(projects = [], value = {}) {
   });
   return { settings, rows, totals, byFrequency, byModel };
 }
+
+// --- Credits required: both parts, the extra asked for on top, and the bundles that buys --------
+
+export const BUNDLE_CREDITS = 10000;
+export const MAX_EXTRA_PERCENT = 500;
+
+/** The extra credits (a % on top of what is worked out) and the credits in one bundle, cleaned. */
+export function totalsSettings(value = {}) {
+  const extra = amount(value?.extraPercent);
+  const bundle = wholeNumber(value?.bundleCredits);
+  return {
+    extraPercent: extra === null ? 0 : Math.round(clamp(extra, 0, MAX_EXTRA_PERCENT) * 100) / 100,
+    bundleCredits: bundle ? clamp(bundle, 1, 100000000) : BUNDLE_CREDITS,
+  };
+}
+
+/**
+ * The credits required: triage & remediation plus Fusion (either may be null: not worked out),
+ * the extra % on top, and the bundles that covers: total ÷ credits per bundle, rounded up to a
+ * whole bundle (exactBundles keeps the fraction).
+ */
+export function creditSummary(trCredits, fusionCredits, value = {}) {
+  const settings = totalsSettings(value);
+  const tr = Number.isFinite(trCredits) ? trCredits : null;
+  const fusion = Number.isFinite(fusionCredits) ? fusionCredits : null;
+  const base = (tr ?? 0) + (fusion ?? 0);
+  const extra = (base * settings.extraPercent) / 100;
+  const total = base + extra;
+  const exactBundles = total / settings.bundleCredits;
+  return { settings, tr, fusion, base, extra, total, exactBundles, bundles: total > 0 ? Math.ceil(exactBundles - 1e-9) : 0 };
+}

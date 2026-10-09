@@ -2,7 +2,7 @@
 // loaded from anywhere), from the data a generated report keeps. Prints to PDF from the browser.
 // Every name and figure is escaped: the data may hold what a customer's exports or projects said.
 
-import { FREQUENCIES, SEVERITIES } from './model.js';
+import { FREQUENCIES, SEVERITIES, creditSummary } from './model.js';
 import { SEVERITY_COLOURS, backlogTrendChart, forecastChart, monthLabel, ratesChart, severityChart } from './charts.js';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -88,7 +88,8 @@ function fusionSection(f) {
 /** The report's HTML. `data` is what generating it saved: see page.js reportData(). */
 export function buildReport(data) {
   const title = `${data.customer || 'Customer'}: Checkmarx credits projection`;
-  const total = (data.tr?.totals.credits ?? 0) + (data.fusion?.totals.credits ?? 0);
+  // Reports made before the extra % and bundles were added carry no summary: work it out with none.
+  const sum = creditSummary(data.tr?.totals.credits ?? null, data.fusion?.totals.credits ?? null, data.summary?.settings);
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title>
 <style>
@@ -132,7 +133,9 @@ footer{color:#6b7280;font-size:12px;max-width:1060px;margin:0 auto;padding:0 20p
   <div class="grand">
     ${data.tr ? `<div class="tile"><span>Triage &amp; remediation</span><b>${num(data.tr.totals.credits, 1)}</b><small>${num(data.tr.totals.selected)} findings</small></div>` : ''}
     ${data.fusion ? `<div class="tile"><span>Fusion scans</span><b>${num(data.fusion.totals.credits, 1)}</b><small>${num(data.fusion.totals.scans)} scans, ${num(data.fusion.periodMonths)} months</small></div>` : ''}
-    <div class="tile gold"><span>Total</span><b>${num(total, 1)}</b><small>credits</small></div>
+    ${sum.settings.extraPercent ? `<div class="tile"><span>Extra credits</span><b>${num(sum.extra, 1)}</b><small>${num(sum.settings.extraPercent, 2)}% on top of ${num(sum.base, 1)}</small></div>` : ''}
+    <div class="tile gold"><span>Total credits required</span><b>${num(sum.total, 1)}</b><small>${sum.settings.extraPercent ? `including ${num(sum.settings.extraPercent, 2)}% extra` : 'credits'}</small></div>
+    <div class="tile gold"><span>Bundles</span><b>${num(sum.bundles)}</b><small>of ${num(sum.settings.bundleCredits)} credits: ${num(sum.total, 1)} ÷ ${num(sum.settings.bundleCredits)} = ${num(sum.exactBundles, 2)}${sum.bundles !== sum.exactBundles && sum.total ? ', rounded up' : ''}</small></div>
   </div>
 </section>
 ${data.tr ? trSection(data.tr) : ''}

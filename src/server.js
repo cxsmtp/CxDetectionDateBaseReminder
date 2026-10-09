@@ -3301,7 +3301,7 @@ app.get('/api/relay/report-words/:code', (req, res) => {
 // ---------------------------------------------------------------------------
 // Cx Credits Calculator (src/projections.js, public/calculator/): customers, each with a triage &
 // remediation projection and a Fusion projection, and the reports made from them. Needs the
-// calculator's activation code (Settings → Activation codes) and the Credit projections permission.
+// calculator's activation code (Settings → Activation codes) and the Cx Credits Calculator permission.
 // ---------------------------------------------------------------------------
 
 const projectionError = (res, error) => res.status(error.status ?? 500).json({ error: error.status ? error.message : 'The projection could not be saved.' });
@@ -3353,7 +3353,7 @@ app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) =>
 app.put('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
   const body = req.body ?? {};
   const patch = {};
-  for (const key of ['name', 'tr', 'fusion']) if (body[key] !== undefined) patch[key] = body[key];
+  for (const key of ['name', 'tr', 'fusion', 'totals']) if (body[key] !== undefined) patch[key] = body[key];
   res.json({ customer: projections.update(String(req.params.id), patch, req.user.email) });
 }));
 app.delete('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {

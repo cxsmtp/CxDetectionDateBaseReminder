@@ -2712,6 +2712,14 @@ a.button-like.primary:hover { filter: brightness(1.05); }
 .calc-customer { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
 .calc-customer .field { margin-bottom: 0; flex: 1 1 220px; }
 .calc-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.calc-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
+.calc-sum-item { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.calc-sum-item > span { color: var(--muted); font-size: 12px; font-weight: 600; }
+.calc-sum-item b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.calc-sum-item .calc-num { width: 100%; max-width: 14ch; }
+.calc-sum-item .hint { margin: 0; font-size: 11.5px; }
+.calc-sum-key { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.calc-sum-key b { color: var(--accent); }
 .calc-report-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; border-top: 1px solid var(--border); padding-top: 10px; }
 .calc-report-bar .hint { margin: 0; }
 .calc-panel { display: grid; gap: 14px; min-width: 0; }

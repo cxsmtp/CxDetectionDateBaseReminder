@@ -12,11 +12,13 @@ import {
   amount,
   analyse,
   backlogForecast,
+  creditSummary,
   fusionEstimate,
   fusionSettings,
   seriesRows,
   severityForecast,
   suggestedScans,
+  totalsSettings,
   trCost,
   weeklyTrend,
   wholeNumber,
@@ -67,13 +69,13 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderCustomers() {
     $('calc-empty').hidden = c.customers.length > 0;
     $('calc-customer').innerHTML = c.customers.map((x) => `<option value="${esc(x.id)}"${x.id === c.open?.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
-    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate']) $(id).disabled = !c.open;
+    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle']) $(id).disabled = !c.open;
   }
 
   function renderOrg() {
     const org = me()?.organisationName;
     $('calc-org-line').innerHTML = org
-      ? `Reports are made in the name of <b translate="no">${esc(org)}</b>.`
+      ? `<span>Name on the reports:</span> <b translate="no">${esc(org)}</b>`
       : can('settings.branding')
         ? 'Give your organisation’s name for the reports in <a href="#/settings/about">Settings → About &amp; terms</a>.'
         : 'Reports carry your organisation’s name once an Admin gives it (Settings → About &amp; terms).';
@@ -92,6 +94,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       localStorage.setItem(OPEN_KEY, customer.id);
     } catch {}
     $('calc-name').value = customer.name;
+    c.trCredits = null;
+    c.fusionCredits = null;
+    $('calc-extra').value = totals().extraPercent || '';
+    $('calc-bundle').value = totals().bundleCredits;
     saved('Saved', customer.updatedAt, 'muted');
     syncDraft();
     setStatus('calc-upload-status', '');
@@ -252,7 +258,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       const parsed = parse.parseWorkbook(sheets, file.name);
       c.open.tr = { ...tr(), [kind]: parsed };
       save({ tr: c.open.tr });
-      setStatus('calc-upload-status', parsed.warnings?.length ? parsed.warnings.join(' ') : `${file.name}: ${parsed.weeks.length} weeks read.`, parsed.warnings?.length ? 'warn' : 'ok');
+      setStatus('calc-upload-status', parsed.warnings?.length ? parsed.warnings.join(' ') : `${num(parsed.weeks.length)} weeks read.`, parsed.warnings?.length ? 'warn' : 'ok');
       syncDraft();
       renderTr();
     } catch (error) {
@@ -304,7 +310,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     for (const slot of ['totals', 'fixed']) {
       const s = tr()?.[slot];
       $(`calc-slot-${slot}`).classList.toggle('ok', Boolean(s));
-      $(`calc-file-${slot}-name`).innerHTML = s ? `<span translate="no">${esc(s.meta?.fileName || 'Saved data')}</span> · ${num(s.weeks.length)} weeks, <span translate="no">${esc(s.weeks[0])} → ${esc(s.weeks[s.weeks.length - 1])}</span>` : 'Choose or drop the .xlsx export';
+      $(`calc-file-${slot}-name`).innerHTML = s ? `${s.meta?.fileName ? `<span translate="no">${esc(s.meta.fileName)}</span>` : '<span>Saved data</span>'} · <span>${num(s.weeks.length)} weeks</span> · <span translate="no">${esc(s.weeks[0])} → ${esc(s.weeks[s.weeks.length - 1])}</span>` : 'Choose or drop the .xlsx export';
     }
   }
 
@@ -312,17 +318,19 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!c.open) return;
     renderSlots();
     const f = trFigures();
+    c.trCredits = f ? f.cost.totals.credits : null;
+    renderSummary();
     if (!f) {
       $('calc-tr').innerHTML = `<p class="hint calc-wait">Upload both exports from the customer's Checkmarx One (or load the sample data) to see their backlog, its trend and the credits a plan takes.</p>`;
       return;
     }
     const { analysis, cost } = f;
     const lookback = (m) => (m ? `${m}-month` : 'latest');
-    const sevHead = (s) => `<th><span class="calc-sev"><i style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span></th>`;
+    const sevHead = (s) => `<th><span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span></th>`;
     const row = (label, cells, total, cls = '') => `<tr class="${cls}"><td>${label}</td>${cells.map((v) => `<td class="num">${v}</td>`).join('')}<td class="num calc-total">${total}</td></tr>`;
     const R = cost.rows;
     $('calc-tr').innerHTML = `
-      <p class="calc-snapshot">Backlog for <b translate="no">${esc(c.open.name)}</b> as of <time translate="no">${esc(analysis.latestDate)}</time>, against <time translate="no">${esc(analysis.previousDate)}</time>.</p>
+      <p class="calc-snapshot">Backlog as of <time>${esc(analysis.latestDate)}</time>, compared with <time>${esc(analysis.previousDate)}</time>.</p>
       <section class="panel calc-edit">
         <h2>Choose what to fix</h2>
         <p class="hint">Per severity: how many open findings to triage, the false positives expected, and the credits triage and remediation take. Changes count once you select <strong>Apply</strong>.</p>
@@ -330,7 +338,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
           const d = c.draft[s];
           const open = analysis.perSeverity[s].current;
           return `<div class="calc-sev-box" data-sev="${s}">
-            <div class="calc-sev-top"><span class="calc-sev"><i style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span><span class="hint">${num(open)} open</span></div>
+            <div class="calc-sev-top"><span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span><span class="hint">${num(open)} open</span></div>
             <input type="range" min="0" max="${open}" value="${Math.min(d.selected, open)}" data-f="selected" aria-label="${s}: to triage" />
             <div class="calc-row"><input type="number" min="0" max="${open}" value="${Math.min(d.selected, open)}" data-f="selected" aria-label="${s}: to triage" />
               <span><button type="button" class="ghost small-btn" data-set="0">None</button><button type="button" class="ghost small-btn" data-set="${open}">All</button></span></div>
@@ -349,7 +357,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       </section>
       <section class="panel">
         <div class="calc-section-head"><h2>Final matrix</h2>
-          <div class="calc-lookback calc-edit" role="group" aria-label="Debt and fix rate over">${LOOKBACKS.map((m) => `<button type="button" class="${tr().lookbackMonths === m ? 'on' : ''}" data-lookback="${m}">${m ? `${m} months` : 'Latest'}</button>`).join('')}</div></div>
+          <div class="calc-lookback calc-edit" role="group" aria-label="Period for debt increase and fix rate">${LOOKBACKS.map((m) => `<button type="button" class="${tr().lookbackMonths === m ? 'on' : ''}" data-lookback="${m}">${m ? `${m} months` : 'Latest'}</button>`).join('')}</div></div>
         <p class="hint">Every figure that matters, by severity. Debt increase and fix rate: ${lookback(tr().lookbackMonths) === 'latest' ? 'the latest week' : `over the last ${tr().lookbackMonths} months`}.</p>
         <div class="table-wrap"><table class="data-table calc-matrix">
           <thead><tr><th>Figure</th>${SEVERITIES.map(sevHead).join('')}<th class="num">Total</th></tr></thead>
@@ -488,6 +496,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   function renderKpis(est = estimate()) {
     const t = est.totals;
+    c.fusionCredits = est.rows.some((r) => r.included && r.units) ? t.credits : null;
+    renderSummary();
     const kpi = (label, value, sub, cls = '') => `<div class="rp-kpi ${cls}"><span class="rp-tile-label">${esc(label)}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${sub}</span></div>`;
     $('calc-fkpis').innerHTML = [
       kpi('Projects', num(t.projects), t.unknownLines ? `<span class="calc-warn">Still without lines of code: ${num(t.unknownLines)}</span>` : 'Included, with lines of code'),
@@ -750,13 +760,41 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   }
 
+  // --- Credits required: both tabs together, an extra % on top, and the bundles that buys ----------
+
+  const totals = () => totalsSettings(c.open?.totals);
+
+  function renderSummary() {
+    if (!c.open) return;
+    const sum = creditSummary(c.trCredits, c.fusionCredits, totals());
+    $('calc-sum-tr').textContent = num(sum.tr, 1);
+    $('calc-sum-fusion').textContent = num(sum.fusion, 1);
+    $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.total, 1);
+    $('calc-sum-extra').textContent = sum.extra ? `Includes ${num(sum.extra, 1)} extra` : '';
+    $('calc-sum-bundles').textContent = sum.total ? num(sum.bundles) : '—';
+    $('calc-sum-exact').textContent = sum.total && sum.bundles !== sum.exactBundles ? `${num(sum.exactBundles, 2)}, rounded up` : '';
+  }
+
+  function setTotals(field, input) {
+    if (!c.open) return;
+    c.open.totals = totalsSettings({ ...totals(), [field]: input.value });
+    renderSummary();
+    save({ totals: c.open.totals });
+  }
+  $('calc-extra').addEventListener('input', (event) => setTotals('extraPercent', event.target));
+  $('calc-bundle').addEventListener('input', (event) => setTotals('bundleCredits', event.target));
+  $('calc-extra').addEventListener('change', (event) => (event.target.value = totals().extraPercent || ''));
+  $('calc-bundle').addEventListener('change', (event) => (event.target.value = totals().bundleCredits));
+
   /** Everything a report shows, as figures: what the server keeps, and the file is built from. */
   function reportData() {
     const t = trFigures();
     const est = estimate();
     const fusionCounted = est.rows.some((r) => r.included && r.units);
     const who = me()?.user;
+    const summary = creditSummary(t ? t.cost.totals.credits : null, fusionCounted ? est.totals.credits : null, totals());
     return {
+      summary,
       organisation: me()?.organisationName ?? '',
       customer: c.open.name,
       preparedBy: who?.name || who?.email || '',
@@ -832,7 +870,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         <td translate="no">${esc(r.createdBy)}</td>
         <td class="num">${r.trCredits === null ? '—' : num(r.trCredits, 1)}</td>
         <td class="num">${r.fusionCredits === null ? '—' : num(r.fusionCredits, 1)}</td>
+        <td class="num">${r.extraPercent ? `${num(r.extraPercent, 2)}%` : '—'}</td>
         <td class="num"><b>${num(r.totalCredits, 1)}</b></td>
+        <td class="num">${r.bundles === undefined ? '—' : num(r.bundles)}</td>
         <td><button type="button" class="secondary" data-download>Download</button> <button type="button" class="ghost calc-remove" data-delete-report>Delete</button></td></tr>`,
       )
       .join('');

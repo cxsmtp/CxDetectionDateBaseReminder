@@ -93,7 +93,7 @@ export function lineChart(points, lines, { palette = PAGE_PALETTE, width = 760, 
     })
     .join('');
   const legend = lines
-    .map((l) => `<span class="cc-key"><i class="cc-swatch${l.dash ? ' dashed' : ''}" style="--c:${l.colour}"></i>${esc(l.label)}</span>`)
+    .map((l) => `<span class="cc-key"><i class="cc-swatch${l.dash ? ' dashed' : ''}" translate="no" style="--c:${l.colour}"></i>${esc(l.label)}</span>`)
     .join('');
   return `<figure class="cc-chart"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}" style="width:100%;height:auto;display:block">${grid}${xLabels}${series}</svg><figcaption class="cc-legend">${legend}</figcaption></figure>`;
 }

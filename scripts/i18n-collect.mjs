@@ -7,7 +7,7 @@
 //
 // Maintainers run it after changing the page's wording; `npm test` then lists what each
 // language is missing.
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -23,6 +23,10 @@ const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 const KEY = `${b64({ alg: 'none' })}.${b64({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' })}.sig`;
 const PASSWORD = 'correct horse battery 1';
 const children = [];
+// A throwaway activation key, so the add-ons behind a code (the Cx Credits Calculator) can be visited.
+const KEY_FILE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-key-')), 'issuer.pem');
+const activation = (...args) => execFileSync(process.execPath, ['scripts/activation.mjs', ...args], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const ACTIVATION_KEY = activation('keygen', KEY_FILE).split('\n').pop();
 const stop = () => children.forEach((child) => child.kill());
 
 function start(env) {
@@ -78,16 +82,17 @@ try {
   await new Promise((r) => setTimeout(r, 800));
 
   // Signed out, then signed in with sample data.
-  app = start({ ACCEPT_TERMS: 'tests@acme.io', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: PASSWORD });
+  app = start({ ACCEPT_TERMS: 'tests@acme.io', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: PASSWORD, NODE_TEST_CONTEXT: 'child', MZ_ACTIVATION_TEST_KEY: ACTIVATION_KEY });
   await app.ready();
   await new Promise((r) => setTimeout(r, 1500));
   await page.goto(BASE);
   await grab('sign in');
-  await page.evaluate(async (password) => {
+  await page.evaluate(async ([password, code]) => {
     const post = (u, b) => fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
     await post('/api/session/password', { email: 'admin@acme.io', password });
     await post('/api/me/password', { current: password, next: `${password}2` });
-  }, PASSWORD);
+    await post('/api/activation', { code });
+  }, [PASSWORD, activation('calculator', KEY_FILE, 'Sample', 'on')]);
   await page.goto(`${BASE}/#/dashboard`);
   await page.reload();
   await grab('Dashboard', 2500);
@@ -157,21 +162,37 @@ try {
   }
   // Get help: the sidebar menu, both forms, a request just raised (with its thank-you), and the queue.
   await page.evaluate(() => (location.hash = '#/dashboard'));
-  // Credit projections: none yet, then a profile with its Fusion projects read, one typed over and one added by hand.
-  await page.evaluate(() => (location.hash = '#/projections'));
-  await grab('projections › none', 900);
-  await click('#pj-new', 'projections › new', 2000);
-  await click('#page-projections .ptab[data-pt="fusion"]', 'projections › fusion', 600);
-  await click('#pj-read', 'projections › read', 4000);
-  await page.fill('#pj-rows tr:nth-child(1) [data-pj-loc]', '123456').catch(() => {});
-  await page.press('#pj-rows tr:nth-child(1) [data-pj-loc]', 'Tab').catch(() => {});
-  await click('#pj-add', 'projections › added', 1500);
-  await page.fill('#pj-filter', 'zzz').catch(() => {});
-  await grab('projections › no match', 400);
-  await page.fill('#pj-filter', '').catch(() => {});
-  await click('#pj-none', 'projections › none included', 400);
-  await click('#page-projections .ptab[data-pt="alacarte"]', 'projections › à la carte', 900);
-  await click('#pj-delete', 'projections › deleted', 1500);
+  // Cx Credits Calculator: no customer yet, then one with the sample exports, a plan, Fusion projects
+  // read with models added, a report generated, and the reports list.
+  await page.evaluate(() => (location.hash = '#/calculator'));
+  await grab('calculator › none', 900);
+  await click('#calc-new', 'calculator › new', 2000);
+  await click('#page-calculator .ptab[data-pt="tr"]', 'calculator › triage & remediation', 600);
+  await click('#calc-sample', 'calculator › sample data', 4000);
+  await page.fill('.calc-sev-box[data-sev="High"] input[type="number"][data-f="selected"]', '10').catch(() => {});
+  await grab('calculator › plan changed', 400);
+  await click('.calc-sev-box[data-sev="High"] [data-apply]', 'calculator › applied', 800);
+  await click('#calc-present', 'calculator › customer view', 600);
+  await click('#calc-present', 'calculator › edit view', 400);
+  await click('#page-calculator .ptab[data-pt="fusion"]', 'calculator › fusion', 600);
+  await click('#calc-read', 'calculator › read', 5000);
+  await click('#calc-add-model', 'calculator › model added', 600);
+  await page.fill('#calc-models tr:nth-child(1) [data-m="creditsPer10k"]', '2.5').catch(() => {});
+  await click('#calc-suggest', 'calculator › suggested', 800);
+  await page.fill('#calc-rows tr:nth-child(1) [data-p="loc"]', '123456').catch(() => {});
+  await page.press('#calc-rows tr:nth-child(1) [data-p="loc"]', 'Tab').catch(() => {});
+  await click('#calc-add', 'calculator › project added', 1200);
+  await page.fill('#calc-filter', 'zzz').catch(() => {});
+  await grab('calculator › no match', 400);
+  await page.fill('#calc-filter', '').catch(() => {});
+  await click('#calc-generate', 'calculator › report generated', 2500);
+  await click('#page-calculator .ptab[data-pt="reports"]', 'calculator › reports', 1200);
+  await click('#calc-reports [data-delete-report]', 'calculator › report deleted', 1500);
+  await click('#calc-delete', 'calculator › customer deleted', 1500);
+  await page.evaluate(() => (location.hash = '#/settings/activation'));
+  await grab('settings › activation (calculator on)', 900);
+  await page.evaluate(() => (location.hash = '#/settings/about'));
+  await grab('settings › about', 600);
   await page.hover('#help-open').catch(() => {});
   await grab('Get help › menu', 400);
   await page.evaluate(() => (location.hash = '#/help/enhancement'));
@@ -237,7 +258,7 @@ for (const line of source.split('\n')) {
 }
 
 // Numbers become {0}, {1}…; sample data (names, addresses) is left out.
-const SAMPLE = /@|\bProject \d|\bProjection \d|\bFinding p\d|\bp\d+-r\d|\bdev-?\d|\bWeekly\b|acme|127\.0\.0\.1|\bsim-|handler\d|file\d\.js|correct horse/i;
+const SAMPLE = /@|\bProject \d|\bProjection \d|\bCustomer \d|_Vulnerabilities_by_Severity|\bFinding p\d|\bp\d+-r\d|\bdev-?\d|\bWeekly\b|acme|127\.0\.0\.1|\bsim-|handler\d|file\d\.js|correct horse/i;
 const catalog = {};
 for (const [key, { kind, places }] of [...found].sort(([a], [b]) => a.localeCompare(b))) {
   if (SAMPLE.test(key)) continue;

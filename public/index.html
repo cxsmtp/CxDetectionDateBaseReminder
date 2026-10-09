@@ -2086,6 +2086,14 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <span class="status" id="calc-saved" aria-live="polite"></span>
                 </div>
               </div>
+              <div class="calc-sum" role="group" aria-label="Credits required">
+                <div class="calc-sum-item"><span>Triage &amp; remediation</span><b id="calc-sum-tr">—</b></div>
+                <div class="calc-sum-item"><span>Fusion</span><b id="calc-sum-fusion">—</b></div>
+                <label class="calc-sum-item"><span>Extra credits (%)</span><input type="text" inputmode="decimal" id="calc-extra" class="calc-num" placeholder="0" autocomplete="off" /></label>
+                <div class="calc-sum-item calc-sum-key"><span>Total credits required</span><b id="calc-sum-total">—</b><small class="hint" id="calc-sum-extra"></small></div>
+                <label class="calc-sum-item"><span>Credits per bundle</span><input type="text" inputmode="numeric" id="calc-bundle" class="calc-num" placeholder="10000" autocomplete="off" /></label>
+                <div class="calc-sum-item calc-sum-key"><span>Bundles</span><b id="calc-sum-bundles">—</b><small class="hint" id="calc-sum-exact"></small></div>
+              </div>
               <div class="calc-report-bar">
                 <p class="hint" id="calc-org-line"></p>
                 <button type="button" class="primary" id="calc-generate">Generate projection report</button>
@@ -2102,9 +2110,9 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <section class="panel calc-uploads" id="calc-uploads">
                 <div class="calc-upload-row">
                   <label class="calc-slot" id="calc-slot-totals"><input type="file" id="calc-file-totals" accept=".xlsx,.csv,.tsv" hidden />
-                    <b>Total Vulnerabilities by Severity</b><span class="hint" id="calc-file-totals-name">Choose or drop the .xlsx export</span></label>
+                    <b translate="no">Total Vulnerabilities by Severity</b><span class="hint" id="calc-file-totals-name">Choose or drop the .xlsx export</span></label>
                   <label class="calc-slot" id="calc-slot-fixed"><input type="file" id="calc-file-fixed" accept=".xlsx,.csv,.tsv" hidden />
-                    <b>Fixed Vulnerabilities by Severity</b><span class="hint" id="calc-file-fixed-name">Choose or drop the .xlsx export</span></label>
+                    <b translate="no">Fixed Vulnerabilities by Severity</b><span class="hint" id="calc-file-fixed-name">Choose or drop the .xlsx export</span></label>
                 </div>
                 <div class="calc-upload-actions">
                   <button type="button" class="ghost" id="calc-sample">Load sample data</button>
@@ -2172,7 +2180,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div class="calc-section-head"><h2>Projection reports</h2>
                   <label class="check"><input type="checkbox" id="calc-reports-mine" checked /> This customer only</label></div>
                 <p class="hint">Every report generated is kept here. Download it again at any time: the file is named after the customer and when the report was made.</p>
-                <div class="table-wrap"><table class="data-table"><thead><tr><th>Customer</th><th>Made</th><th>By</th><th>Triage &amp; remediation</th><th>Fusion</th><th>Total credits</th><th></th></tr></thead><tbody id="calc-reports"></tbody></table></div>
+                <div class="table-wrap"><table class="data-table"><thead><tr><th>Customer</th><th>Made</th><th>By</th><th>Triage &amp; remediation</th><th>Fusion</th><th>Extra</th><th>Total credits</th><th>Bundles</th><th></th></tr></thead><tbody id="calc-reports"></tbody></table></div>
                 <p class="hint" id="calc-reports-empty">No reports yet. <strong>Generate projection report</strong> makes one from the customer's triage &amp; remediation and Fusion figures.</p>
               </section>
             </div>

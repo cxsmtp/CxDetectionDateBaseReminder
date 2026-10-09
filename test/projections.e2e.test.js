@@ -159,6 +159,12 @@ test('reports are kept, listed, downloaded again and deleted', async () => {
   const made = await ana('POST', '/api/projections/reports', { customerId, data });
   assert.equal(made.status, 201, made.text);
   assert.equal(made.body.report.totalCredits, 150.5);
+  assert.equal(made.body.report.bundles, 1);
+  const extra = await ana('POST', '/api/projections/reports', { customerId, data: { ...data, summary: { settings: { extraPercent: 20, bundleCredits: 100 } } } });
+  assert.equal(extra.body.report.totalCredits, 180.6, 'the extra % on top, worked out again by the server');
+  assert.equal(extra.body.report.extraPercent, 20);
+  assert.equal(extra.body.report.bundles, 2, '180.6 credits in bundles of 100');
+  assert.equal((await admin('DELETE', `/api/projections/reports/${extra.body.report.id}`)).status, 200);
   assert.equal(made.body.report.customer, 'Globex — renewal');
   assert.equal((await ana('POST', '/api/projections/reports', { customerId: 'nope', data })).status, 404);
   const list = await admin('GET', `/api/projections/reports?customer=${customerId}`);

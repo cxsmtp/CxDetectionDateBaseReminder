@@ -14,7 +14,7 @@ import { randomUUID } from 'node:crypto';
 
 import { mapWithConcurrency } from './cxone/client.js';
 import { getLastScans, lastScanDate, listProjects } from './cxone/projects.js';
-import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, amount, frequencyOf, fusionSettings, wholeNumber } from '../public/calculator/model.js';
+import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, amount, creditSummary, frequencyOf, fusionSettings, totalsSettings, wholeNumber } from '../public/calculator/model.js';
 
 export const MAX_PROFILES = 200;
 /** One profile, saved: the two exports' weekly series fit well inside this. */
@@ -153,13 +153,13 @@ export class ProjectionStore {
   create({ name, by }) {
     if (this.#profiles.length >= MAX_PROFILES) throw fail(409, `There are already ${MAX_PROFILES} customers. Delete one first.`);
     const now = new Date().toISOString();
-    const profile = { id: randomUUID(), name: text(name, 120) || 'New customer', createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({}) };
+    const profile = { id: randomUUID(), name: text(name, 120) || 'New customer', createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({}), totals: totalsSettings({}) };
     this.#profiles.push(profile);
     this.#save();
     return structuredClone(profile);
   }
 
-  /** Save what changed: the customer's name, the T&R projection, the Fusion projection (each optional). */
+  /** Save what changed: the customer's name, the T&R projection, the Fusion projection, the extra % and bundle size (each optional). */
   update(id, patch = {}, by = '') {
     const index = this.#profiles.findIndex((p) => p.id === id);
     if (index === -1) throw fail(404, 'That customer no longer exists.');
@@ -167,6 +167,7 @@ export class ProjectionStore {
     if (patch.name !== undefined) next.name = text(patch.name, 120) || next.name;
     if (patch.tr !== undefined) next.tr = cleanTr(patch.tr);
     if (patch.fusion !== undefined) next.fusion = cleanFusion(patch.fusion);
+    if (patch.totals !== undefined) next.totals = totalsSettings(patch.totals);
     next.updatedAt = new Date().toISOString();
     next.updatedBy = text(by, 254);
     if (Buffer.byteLength(JSON.stringify(next)) > MAX_PROFILE_BYTES) throw fail(413, 'This customer is too large to save (over 3 MB). Use exports covering fewer weeks.');
@@ -256,7 +257,9 @@ export class ReportStore {
       fusionCredits: finite(clean?.fusion?.totals?.credits, null),
       data: clean,
     };
-    report.totalCredits = (report.trCredits ?? 0) + (report.fusionCredits ?? 0);
+    // The total with the extra % on top, and the bundles it takes, worked out again here.
+    const sum = creditSummary(report.trCredits, report.fusionCredits, clean?.summary?.settings);
+    Object.assign(report, { extraPercent: sum.settings.extraPercent, bundleCredits: sum.settings.bundleCredits, totalCredits: sum.total, bundles: sum.bundles });
     const body = JSON.stringify(report);
     if (Buffer.byteLength(body) > MAX_REPORT_BYTES) throw fail(413, 'This report is too large to keep (over 4 MB).');
     writeJson(this.#file(report.id), report);
