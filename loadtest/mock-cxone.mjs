@@ -73,7 +73,7 @@ http.createServer((req, res) => {
       }
       if (!issued.has(String(req.headers.authorization || '').replace(/^Bearer /, ''))) return send(401, {});
       const offset = Number(u.searchParams.get('offset') || 0);
-      if (u.pathname === '/api/projects') { bump('projects'); const all = Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}` })); const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: PROJECTS }); }
+      if (u.pathname === '/api/projects') { bump('projects'); const all = Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800) })); const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: PROJECTS }); }
       if (u.pathname === '/api/projects/last-scan') {
         bump('last-scan');
         return send(200, Object.fromEntries(Array.from({ length: PROJECTS }, (_, i) => {
@@ -90,7 +90,22 @@ http.createServer((req, res) => {
         rescans.set(id, { projectId: pid, at: Date.now(), tags: body.tags ?? {} });
         return send(201, { id, status: 'Queued' });
       }
-      if (u.pathname === '/api/scans') { bump('scans'); return send(200, { scans: [] }); }
+      if (u.pathname === '/api/scans') {
+        bump('scans');
+        // The tenant's completed scans since a date (Cx Credits Calculator → Fusion: how often each
+        // project is scanned): project i is scanned 400, 100, 20, 4 or 0 times a year, by i % 5.
+        if (!u.searchParams.get('from-date')) return send(200, { scans: [] });
+        const perYear = [400, 100, 20, 4, 0];
+        const total = Array.from({ length: PROJECTS }, (_, i) => perYear[i % 5]).reduce((a, n) => a + n, 0);
+        const lim = Math.min(1000, Number(u.searchParams.get('limit') || 100));
+        const scans = [];
+        for (let k = offset, i = 0, before = 0; k < Math.min(total, offset + lim); k += 1) {
+          while (before + perYear[i % 5] <= k) before += perYear[i++ % 5];
+          const n = k - before;
+          scans.push({ id: `hist-p${i}-${n}`, projectId: `p${i}`, status: 'Completed', createdAt: new Date(Date.now() - ((n + 0.5) * 365 * 86400000) / perYear[i % 5]).toISOString() });
+        }
+        return send(200, { scans, totalCount: total, filteredTotalCount: total });
+      }
       let sm;
       // Lines of code a scan counted (Credit projections → Fusion): one project in seven has no SAST
       // scan metadata; half of those still have it in the scan's own SAST details, half have none.

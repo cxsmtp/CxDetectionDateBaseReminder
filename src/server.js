@@ -49,7 +49,7 @@ import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { reportI18n, reportWords } from './report-i18n.js';
-import { ProjectionStore, readProjectLines } from './projections.js';
+import { ProjectionStore, ReportStore, readFusionOffer, readFusionProjects } from './projections.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -77,7 +77,7 @@ import { ActivationStore, ISSUER_KEYS, checkCode } from './activation.js';
 import { GATED_LANGUAGES, LanguageAccess } from './languages.js';
 import { DEFAULT_TENANT, Tenancy, scoped, scopedState } from './tenancy.js';
 import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
-import { SUPPORTING_NOTICE, Terms } from './terms.js';
+import { SUPPORTING_NOTICE, Terms, cleanName } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
 import { journeyOf } from './journey.js';
@@ -242,6 +242,7 @@ function buildTenant({ id, dir }) {
     allocations: new CreditAllocations({ file: path.join(dir, 'credit-allocations.json'), ledger: creditLedger }),
     trackedReports: new TrackedReports({ file: path.join(dir, 'tracked-reports.json') }),
     projections: new ProjectionStore({ file: path.join(dir, 'projections.json') }),
+    projectionReports: new ReportStore({ dir: path.join(dir, 'projection-reports') }),
     reportFiles: new ReportFiles({ dir: path.join(dir, 'report-files'), ttlDays: 30 }),
     guard: new ConnectionGuard({ file: path.join(dir, 'connection-guard.json') }),
     audit: new AuditLog({ dir: path.join(dir, 'audit'), keyFile: path.join(dir, 'audit.key') }),
@@ -296,6 +297,7 @@ const allocations = scoped(tenancy, 'allocations');
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const trackedReports = scoped(tenancy, 'trackedReports');
 const projections = scoped(tenancy, 'projections');
+const projectionReports = scoped(tenancy, 'projectionReports');
 const findingJournal = scoped(tenancy, 'findingJournal');
 const reportFiles = scoped(tenancy, 'reportFiles');
 const guard = scoped(tenancy, 'guard');
@@ -317,6 +319,8 @@ const audit = new Proxy(tenantAudit, {
 // the utility (reports and automation included), then each person before they first use it.
 const terms = new Terms({ file: path.join(dataDir, 'terms.json'), textFile: path.join(projectDir, 'TERMS.md') });
 try {
+  // ORGANISATION_NAME: the organisation's name (else the Admin gives it when accepting the terms).
+  if (cleanName(process.env.ORGANISATION_NAME) && !terms.organisationName()) terms.setOrganisationName(process.env.ORGANISATION_NAME);
   if (terms.acceptFromEnvironment(process.env.ACCEPT_TERMS)) {
     audit.record({ type: 'access', outcome: 'changed', reason: `Terms of use v${terms.version} accepted for the organisation and everyone using this installation by ${terms.organisation().by} (ACCEPT_TERMS).`, actor: { kind: 'system', user: terms.organisation().by }, details: { terms: { version: terms.version, hash: terms.hash, via: 'ACCEPT_TERMS' } } });
     console.log(`[terms] Terms of use v${terms.version} accepted for the organisation by ${terms.organisation().by} (ACCEPT_TERMS).`);
@@ -686,8 +690,6 @@ app.disable('x-powered-by');
 app.use(securityHeaders({
   scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')),
   hsts: () => httpsManager.hstsHeader(),
-  // Credit projections shows the backlog cost calculator inside its own page.
-  frameable: (req) => req.method === 'GET' && req.path.startsWith('/projections/calculator/'),
 }));
 // Big replies (the page's script, the fetch stream, full results, downloads) shrink
 // 5-10x for a remote office or VPN: brotli or gzip at a quick level, the fetch stream
@@ -1096,7 +1098,9 @@ function describeMe(session, user) {
     // The page's languages this person may use (Hebrew only for the people chosen).
     languages: languageAccess.available(user.id),
     // Add-ons a code has unlocked (in date or not): until then the page does not show them.
-    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled },
+    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, calculator: Boolean(activations.calculator()) },
+    // The organisation's name (given with the terms of use), for what CxMissionZero makes for others.
+    organisationName: terms.organisationName(),
     // Get help: the support portal here, or email to an address (installations whose mail cannot leave).
     support: (({ mode, email }) => ({ mode, email }))(supportChannel(settingsStore.get())),
     // The name and logo the page shows this person: theirs while they present their own branding.
@@ -1303,8 +1307,10 @@ app.post('/api/terms/accept', requireSession, asyncRoute(async (req, res) => {
   const actor = { kind: 'user', user: req.user.email, ip: clientIp(req), userAgent: String(req.get('user-agent') ?? '').slice(0, 200) };
   if (!terms.organisation()) {
     if (req.user.role !== 'admin' || !req.body?.forOrganisation) return res.status(403).json({ error: 'An administrator must accept the terms of use for the organisation first.' });
-    terms.acceptForOrganisation({ by: req.user.email, ip: clientIp(req) });
-    audit.record({ type: 'access', outcome: 'changed', reason: `Terms of use v${terms.version} accepted for the organisation by ${req.user.email}.`, actor, details: { terms: { version: terms.version, hash: terms.hash, scope: 'organisation' } } });
+    const name = cleanName(req.body?.organisationName);
+    if (!name && !terms.organisationName()) return res.status(400).json({ error: 'Write your organisation’s name: it goes on the projection reports and other documents CxMissionZero makes.' });
+    terms.acceptForOrganisation({ by: req.user.email, ip: clientIp(req), name });
+    audit.record({ type: 'access', outcome: 'changed', reason: `Terms of use v${terms.version} accepted for the organisation by ${req.user.email}${name ? ` (organisation name: ${name})` : ''}.`, actor, details: { terms: { version: terms.version, hash: terms.hash, scope: 'organisation' } } });
   }
   if (!terms.acceptedBy(req.user.id)) {
     terms.acceptForUser({ userId: req.user.id, email: req.user.email, ip: clientIp(req) });
@@ -3293,58 +3299,92 @@ app.get('/api/relay/report-words/:code', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Credit projections (src/projections.js): saved customer profiles, each with an à la carte
-// projection (the backlog cost calculator) and a Fusion projection (lines of code per project).
+// Cx Credits Calculator (src/projections.js, public/calculator/): customers, each with a triage &
+// remediation projection and a Fusion projection, and the reports made from them. Needs the
+// calculator's activation code (Settings → Activation codes) and the Credit projections permission.
 // ---------------------------------------------------------------------------
 
 const projectionError = (res, error) => res.status(error.status ?? 500).json({ error: error.status ? error.message : 'The projection could not be saved.' });
+const CALCULATOR_OFF = 'The Cx Credits Calculator is not turned on here: it needs its activation code (Settings → Activation codes).';
+/** The calculator: the permission, and its activation code in date. */
+function requireCalculator(req, res, next) {
+  requirePermission('projections.use')(req, res, (error) => {
+    if (error) return next(error);
+    if (!activations.calculator()) return res.status(403).json({ error: CALCULATOR_OFF });
+    next();
+  });
+}
+const calculatorRoute = (fn) => (req, res) => {
+  try {
+    fn(req, res);
+  } catch (error) {
+    projectionError(res, error);
+  }
+};
 
-app.get('/api/projections', requirePermission('projections.use'), (req, res) => {
-  res.json({ profiles: projections.list() });
+app.get('/api/projections', requireCalculator, (req, res) => {
+  res.json({ customers: projections.list(), organisationName: terms.organisationName() });
 });
-app.post('/api/projections', requirePermission('projections.use'), (req, res) => {
-  try {
-    res.status(201).json({ profile: projections.create({ name: req.body?.name, by: req.user.email }) });
-  } catch (error) {
-    projectionError(res, error);
-  }
+app.post('/api/projections', requireCalculator, calculatorRoute((req, res) => {
+  const customer = projections.create({ name: req.body?.name, by: req.user.email });
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Cx Credits Calculator: customer "${customer.name}" added.`, actor: { kind: 'user', user: req.user.email, ip: clientIp(req) } });
+  res.status(201).json({ customer });
+}));
+/** Reports made from the calculator, newest first (one customer's with ?customer=). */
+app.get('/api/projections/reports', requireCalculator, (req, res) => {
+  res.json({ reports: projectionReports.list(String(req.query.customer ?? '')) });
 });
-app.get('/api/projections/:id', requirePermission('projections.use'), (req, res) => {
-  try {
-    res.json({ profile: projections.get(String(req.params.id)) });
-  } catch (error) {
-    projectionError(res, error);
-  }
-});
-app.put('/api/projections/:id', requirePermission('projections.use'), (req, res) => {
-  try {
-    const body = req.body ?? {};
-    const patch = {};
-    for (const key of ['name', 'alaCarte', 'fusion']) if (body[key] !== undefined) patch[key] = body[key];
-    res.json({ profile: projections.update(String(req.params.id), patch, req.user.email) });
-  } catch (error) {
-    projectionError(res, error);
-  }
-});
-app.delete('/api/projections/:id', requirePermission('projections.use'), (req, res) => {
-  try {
-    projections.remove(String(req.params.id));
-    res.json({ ok: true });
-  } catch (error) {
-    projectionError(res, error);
-  }
-});
-/** Fusion: every project in the tenant with the lines of code its last scan counted. */
+app.post('/api/projections/reports', requireCalculator, calculatorRoute((req, res) => {
+  const customer = projections.get(String(req.body?.customerId ?? ''));
+  const report = projectionReports.add({ customerId: customer.id, customer: customer.name, by: req.user.email, data: req.body?.data });
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Cx Credits Calculator: projection report made for "${customer.name}" (${Math.round(report.totalCredits).toLocaleString('en')} credits).`, actor: { kind: 'user', user: req.user.email, ip: clientIp(req) } });
+  res.status(201).json({ report });
+}));
+app.get('/api/projections/reports/:id', requireCalculator, calculatorRoute((req, res) => {
+  res.json({ report: projectionReports.get(String(req.params.id)) });
+}));
+app.delete('/api/projections/reports/:id', requireCalculator, calculatorRoute((req, res) => {
+  projectionReports.remove(String(req.params.id));
+  res.json({ ok: true });
+}));
+app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
+  res.json({ customer: projections.get(String(req.params.id)) });
+}));
+app.put('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
+  const body = req.body ?? {};
+  const patch = {};
+  for (const key of ['name', 'tr', 'fusion']) if (body[key] !== undefined) patch[key] = body[key];
+  res.json({ customer: projections.update(String(req.params.id), patch, req.user.email) });
+}));
+app.delete('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
+  const { name } = projections.get(String(req.params.id));
+  projections.remove(String(req.params.id));
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Cx Credits Calculator: customer "${name}" deleted.`, actor: { kind: 'user', user: req.user.email, ip: clientIp(req) } });
+  res.json({ ok: true });
+}));
+/**
+ * Fusion: every project in the tenant (lines of code from its last scan, criticality, how often it
+ * is scanned), and the Fusion models and remaining credits when the tenant says them.
+ */
 app.post(
-  '/api/projections/fusion/lines',
-  requirePermission('projections.use'),
+  '/api/projections/fusion/read',
+  requireCalculator,
   asyncRoute(async (req, res) => {
     const client = req.session.client ?? integrationSession()?.client;
-    if (!client) return res.status(409).json({ error: 'Connect to Checkmarx One first (Settings → Checkmarx One), or type each project’s lines of code by hand.' });
-    const projects = await readProjectLines(client);
-    res.json({ projects, readAt: new Date().toISOString() });
+    if (!client) return res.status(409).json({ error: 'Connect to Checkmarx One first (Settings → Checkmarx One), or add each project by hand.' });
+    const [projects, offer] = await Promise.all([readFusionProjects(client), readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null }))]);
+    res.json({ projects, ...offer, readAt: new Date().toISOString() });
   }),
 );
+/** The organisation's name on what the calculator makes (also given with the terms of use). */
+app.put('/api/organisation-name', requirePermission('settings.branding'), asyncRoute(async (req, res) => {
+  const name = cleanName(req.body?.name);
+  if (!name) return res.status(400).json({ error: 'Write your organisation’s name.' });
+  const before = terms.organisationName();
+  terms.setOrganisationName(name);
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Organisation name ${before ? `changed from "${before}" to` : 'set to'} "${name}".`, actor: await adminActor(req) });
+  res.json({ organisationName: name });
+}));
 
 // ---------------------------------------------------------------------------
 // HTTPS (Settings → HTTPS, Admin only): see src/https-manager.js
@@ -3578,6 +3618,7 @@ function activationView(req) {
     // Everyone who can sign in, to choose who may use a gated language (as far as this person may see people).
     people: iam.users().filter((u) => !u.disabled && withinReach(req, u)).map((u) => ({ id: u.id, name: u.name, email: u.email })),
     tenants: activations.tenants(),
+    calculator: activations.calculator(),
     history: activations.history().slice(0, 10),
   };
 }
@@ -3603,6 +3644,8 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
     const applied = languageAccess.apply(result, { by: req.user.id });
     const users = languageAccess.status(applied.code).users ?? [];
     what = `${applied.code === 'he' ? 'Hebrew' : applied.code} ${applied.on ? `turned on until ${result.expires.slice(0, 10)}${first && users.length === 1 && users[0] === req.user.id ? `, open to ${req.user.email}` : ''}` : 'turned off'}`;
+  } else if (result.scope === 'calculator') {
+    what = result.action === 'activate' ? `Cx Credits Calculator turned on until ${result.expires.slice(0, 10)}` : 'Cx Credits Calculator turned off';
   } else {
     what = `several Checkmarx One tenants unlocked for ${result.org}: up to ${result.maxTenants}, until ${result.expires.slice(0, 10)}`;
   }

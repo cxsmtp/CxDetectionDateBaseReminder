@@ -1,4 +1,5 @@
-/*
+/* From CxBacklogCostCalculator (commit 5da1f84), used as is by the Cx Credits Calculator.
+ *
  * parse.js — turn a Checkmarx One export into a normalised weekly series.
  *
  * The two exports the calculator expects arrive in different shapes, and the

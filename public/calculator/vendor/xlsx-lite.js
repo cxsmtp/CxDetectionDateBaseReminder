@@ -1,4 +1,5 @@
-/*
+/* From CxBacklogCostCalculator (commit 5da1f84), used as is by the Cx Credits Calculator.
+ *
  * xlsx-lite — a dependency-free .xlsx reader.
  *
  * An .xlsx file is a ZIP container of XML parts. This module unzips it with the
