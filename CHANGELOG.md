@@ -49,7 +49,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.62 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.62 — 2026-10-09 21:32 UTC · [#85](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/85)
 
 - **Cx Credits Calculator.** Credit projections is now the Cx Credits Calculator, in a new **Plan** group at the bottom of the menu, after Act, Follow up and Prove: the credits a customer needs for triage and remediation of their backlog and for Fusion scans, saved per customer.
 - **Behind an activation code and a permission.** It appears only once its activation code is applied, and then only for roles with the **Cx Credits Calculator** permission, so it can stay off on a customer's own installation; a deactivation code hides it again and keeps its customers and reports.
