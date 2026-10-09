@@ -39,6 +39,7 @@ The sidebar is grouped by what you came to do:
 | **Act** | Dashboard, Beta | Fetch ageing findings, see who owns them, remind them, triage and remediate; find who wrote the vulnerable code. |
 | **Follow up** | Reports | Follow tracked scopes down to zero and schedule follow-ups. |
 | **Prove** | Credit Control, Impact, Audit | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups. |
+| **Plan** | Cx Credits Calculator | The credits a customer needs for triage and remediation of their backlog and for Fusion scans, and projection reports. Shown once its activation code is applied, to the people with its permission. |
 | **Set up** | People & roles, Settings, Logs | People and roles, configuration, troubleshooting. |
 
 The coloured label next to each page title says which group the page is in.
@@ -46,8 +47,6 @@ The coloured label next to each page title says which group the page is in.
 **Every page keeps what you were doing.** Go to another page and come back: your filters, tabs, selections, open rows, typed text and unsaved role changes are still there, and so is the scroll position.
 - **↻** (top right) reloads the data of the page you are on and keeps your filters and tabs.
 - **Refresh** (bottom of the sidebar; in the menu under your name on a phone) starts over: CxMissionZero reloads and every page opens as new. Saved settings, reports and credits are not affected.
-
-**Credit projections** (bottom of the sidebar, above Get help; on a phone, through Jump to): the credits a customer would need, for triage and remediation of their backlog and for Fusion scans of their projects. See [Credit projections](#credit-projections).
 
 **Get help** (bottom of the sidebar; in the menu under your name on a phone): point at it and choose **Submit a support case** or **Request an enhancement**, or **Track my requests**. See [Get help](#get-help-support-cases-and-enhancements).
 
@@ -119,7 +118,7 @@ Everyone signs in and has one role. Tabs and buttons you are not allowed to use 
 | **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, beta. |
 | **User** | Fetch findings, send reminders, follow tracked reports, see credits. Settings are read-only. No Access, Audit or Beta. |
 
-**Credit projections** is for Admins and, on new installations, Security Analysts; give it to any role with **Credit projections** on People & roles.
+**Cx Credits Calculator** appears only once its [activation code](#activation-codes-admin) is applied. Then it is for Admins and, on new installations, Security Analysts; give it to any role with **Cx Credits Calculator** on People & roles.
 
 Every role can raise support cases and enhancement requests under **Get help**. Admins answer them (**Answer support cases & enhancements**); on a new installation Security Analysts can too.
 
@@ -187,7 +186,7 @@ CxMissionZero is an independent project, not a Checkmarx product. Using it means
 - **Supporting information only.** Its credit figures, audit log and reports help your own calculation. They are never evidence in a claim or dispute with Checkmarx, whose records are authoritative.
 
 **When they are asked for**
-- **The first Admin**, right after choosing a password at the first sign-in. The terms show in full: scroll to the end, tick **I have read these terms and accept them for myself and on behalf of my organisation**, then **Accept and continue**. Until then nothing can be used, by anyone:
+- **The first Admin**, right after choosing a password at the first sign-in. The terms show in full: scroll to the end, give **Your organisation’s name** (it goes on the Cx Credits Calculator's reports; change it later under **Settings → About & terms**), tick **I have read these terms and accept them for myself and on behalf of my organisation**, then **Accept and continue**. Until then nothing can be used, by anyone:
   - the Dashboard and Settings;
   - emailed reports (they say the server is not in use yet);
   - automatic reminders.
@@ -198,7 +197,7 @@ CxMissionZero is an independent project, not a Checkmarx product. Using it means
 
 **Read them any time:** **Settings → About & terms of use** (or click the version at the bottom of the sidebar); or the link on the sign-in page.
 
-**Automated setups:** `ACCEPT_TERMS=you@company.com` in the container options accepts the terms for the organisation and everyone, under your name (in the log and the audit log). Anything but an email address stops the start.
+**Automated setups:** `ACCEPT_TERMS=you@company.com` in the container options accepts the terms for the organisation and everyone, under your name (in the log and the audit log). Anything but an email address stops the start. `ORGANISATION_NAME=Acme Partners` gives the organisation's name the same way.
 
 **Licence.** [PolyForm Internal Use 1.0.0](../LICENSE): use and adapt it inside your own organisation; do not sell it, distribute it, or run it as a service for others. Improvements are welcome: [CONTRIBUTING.md](../CONTRIBUTING.md).
 
@@ -454,6 +453,7 @@ For teams that would rather not sign in to one more tool. **Settings → Hands-o
 Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
 - **Hebrew:** an activation code switches Hebrew on, for the Admin who applied it to start with; tick everyone else who may use it under **Who may use Hebrew** (only they are offered it); a deactivation code removes it. When nobody is ticked, the page warns that nobody sees Hebrew.
 - **Several tenants:** for organisations that run more than one Checkmarx One tenant (the Super Admin tasks).
+- **Cx Credits Calculator:** an activation code shows the [Cx Credits Calculator](#cx-credits-calculator) to the people with its permission; a deactivation code hides it again and keeps its customers and reports.
 
 Paste the code and select **Apply the code**. What it unlocks is switched on at once. The page lists only what a code has unlocked: until then it says **No add-ons are unlocked yet**, and **Settings → Tenants** is not shown. It shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** enter codes. Roles with **See the Activation codes page** see the section read-only: what is unlocked, and until when. [How codes are issued](activation-codes.md).
 
@@ -462,7 +462,7 @@ Paste the code and select **Apply the code**. What it unlocks is switched on at 
 For organisations that run several Checkmarx One tenants. This section appears once a tenants activation code has been applied. Turn on **Several tenants**, then **Add tenant**: each tenant has its own connection, email server, settings, credits, reports, audit log and people. Choose a tenant at the top of the page to work in it. **Rename** and **Remove** are next to each tenant; removing one keeps its files. People added while you work in a tenant work only there; a Super Admin changes that with **Tenants** on each person under People & roles. The whole story: [several tenants](multi-tenant.md).
 
 ### About & terms of use
-The version, the licence, the project's address, which version of the terms you accepted, and **Read the terms of use**.
+The version, the licence, the project's address, which version of the terms you accepted, and **Read the terms of use**. **Organisation** is your organisation's name, given when the terms were accepted for it; it goes on the Cx Credits Calculator's reports. Roles with **Branding** (Admins) can change it here.
 
 ### Quick setup from a .env file
 Sets the connections from one file, the same file you can start the container with.
@@ -1028,15 +1028,19 @@ Send it to whoever maintains CxMissionZero when something goes wrong. **It captu
 
 ---
 
-## Credit projections
+## Cx Credits Calculator
 
-**Credit projections** (bottom of the sidebar) works out the credits a customer would need, from their own data, for showing them live. Each customer is a **profile**, saved on this server as you go: open it again later and carry on. **New profile** starts one; click one in the list to open it; **Delete profile** removes it. The line by its name says when it was last saved.
+**Cx Credits Calculator** (menu group **Plan**; on a phone, through Jump to) works out the credits a customer needs, from their own data, and makes a report of it. It appears once its [activation code](#activation-codes-admin) is applied, for the people with its permission. Each **customer** is saved on this server as you go: **New customer** starts one, **Customer** switches between them, **Delete customer** removes one (its reports stay).
 
-**À la carte** (triage and remediation of the backlog). Upload the customer's two Checkmarx One exports, **Total vulnerabilities by severity** and **Fixed vulnerabilities by severity** (or **Load sample data**). Then choose, per severity, how many findings to triage and how many are expected to be false positives. The calculator shows the credits (1 per triage and 3 per remediation, both changeable) and when the backlog reaches zero. **Export customer report** downloads an interactive copy for the customer. This calculator stays in English.
+**Triage & remediation.** Drop the customer's two Checkmarx One exports, **Total Vulnerabilities by Severity** and **Fixed Vulnerabilities by Severity**, on their boxes (or **Load sample data**). Per severity, choose how many findings to triage, the false positives expected, and the credits per triage and per remediation (1 and 3 to start with), then **Apply**. The page shows the credits, the final matrix by severity, the last months week by week, and the backlog forecast with and without the plan. **Customer view** hides the editing controls for showing the customer.
 
-**Fusion** (one scan of each project). Set the **lines of code per bundle** (10,000) and the **credits per bundle, per scan** (1). Then **Read lines of code from Checkmarx One**: every project is listed with what its last scan counted. Each project is rounded up to whole bundles on its own, so 12,000 and 18,000 lines are 2 + 2 = 4 bundles, not the 3 that 30,000 lines would make; the page shows that difference. Type over any count, leave projects out, add projects by hand for a prospect, and **Download CSV**.
+**Fusion.** **Read projects from Checkmarx One** lists every project with its lines of code, criticality and how often it was scanned in the last year, the most often scanned first. Each project is rounded up to whole 10K LOC units on its own, and a scan costs its model's credits per 10K LOC. Add the **Fusion models** and their rates as Checkmarx One shows them (when the tenant says them, they are filled in, with the credits remaining). Set the **projection period**, a **default** number of scans and model, then numbers for each **scan frequency** (**Suggest from how often they are scanned** fills them in) and each **criticality**, and choose which wins when both set one. A number or model typed on a project wins over everything. **Download CSV** downloads the table.
 
-More: [credit projections](credit-projections.md).
+**Credits required.** The strip at the top adds both tabs together. Type an **Extra credits (%)** to add a margin on top; **Total credits required** includes it. **Bundles** is the total ÷ **Credits per bundle** (10,000), rounded up to a whole bundle.
+
+**Projection reports.** **Generate projection report** downloads one HTML report, named after the customer and the time (for example `Globex_Cx-credits-projection_2026-10-09_2047.html`), in your organisation's name, and keeps it on the **Projection reports** tab to download again.
+
+More: [Cx Credits Calculator](credit-projections.md).
 
 ## Get help: support cases and enhancements
 
