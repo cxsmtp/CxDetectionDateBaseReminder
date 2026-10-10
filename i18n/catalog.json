@@ -1492,6 +1492,12 @@
    "Dashboard › p › GitLab"
   ]
  },
+ "A rescan proves the fixes (Reports → Verify)": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard › fetching › a"
+  ]
+ },
  "A second connection to the same host: the same variables numbered, e.g. <code>GITHUB_TOKEN_{0}</code> with <code>GITHUB_API_URL_{1}</code>, up to <code>_{2}</code>. <a href=\"#/beta/hosts\">Git hosts →</a>": {
   "kind": "html",
   "seen": [
@@ -2033,6 +2039,14 @@
    "access › roles › input › Roles & permissions"
   ]
  },
+ "Admin: Delete reports": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
  "Admin: Download & restore backups": {
   "kind": "attr:aria-label",
   "seen": [
@@ -2074,6 +2088,14 @@
   ]
  },
  "Admin: Fetch findings": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
+ "Admin: Hebrew": {
   "kind": "attr:aria-label",
   "seen": [
    "access › input › Roles & permissions",
@@ -6149,6 +6171,14 @@
    "Dashboard › button"
   ]
  },
+ "Delete reports <span class=\"badge warn\">Admin role only</span>": {
+  "kind": "html",
+  "seen": [
+   "access › span › Roles & permissions",
+   "access › people › span › Roles & permissions",
+   "access › roles › span › Roles & permissions"
+  ]
+ },
  "Delete this customer?": {
   "kind": "dialog",
   "seen": [
@@ -6165,6 +6195,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Delete tracked reports and the Cx Credits Calculator’s projection reports. Only the Admin role holds it: it cannot be given to another role.": {
+  "kind": "text",
+  "seen": [
+   "access › small › Roles & permissions",
+   "access › people › small › Roles & permissions",
+   "access › roles › small › Roles & permissions"
   ]
  },
  "Deleting the customer…": {
@@ -7192,12 +7230,6 @@
    "settings › li › Beta features",
    "logs › li › Beta features",
    "logs › activity › li › Beta features"
-  ]
- },
- "Everyone, because Hebrew was turned on before people could be chosen. Choose people to keep it for them only.": {
-  "kind": "text",
-  "seen": [
-   "Settings › Activation codes › under Who may use Hebrew"
   ]
  },
  "Everyone's": {
@@ -8548,24 +8580,6 @@
    "logs › activity › strong › Activation codes"
   ]
  },
- "Hebrew is open to {0} people.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Hebrew is open to {0} person.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Hebrew is open to nobody until people are chosen.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
  "Help": {
   "kind": "message",
   "seen": [
@@ -9640,6 +9654,14 @@
    "first start › label",
    "first start › span › Your profile",
    "sign in › label"
+  ]
+ },
+ "Languages <span class=\"muted\">{0}</span>": {
+  "kind": "html",
+  "seen": [
+   "access › button › Roles & permissions",
+   "access › people › button › Roles & permissions",
+   "access › roles › button › Roles & permissions"
   ]
  },
  "Last {0} days": {
@@ -11154,12 +11176,6 @@
    "Dashboard › p › Create the first administrator"
   ]
  },
- "Nobody is offered Hebrew yet, so nobody sees it in the language list. Tick the people who should have it, yourself included, then save.": {
-  "kind": "message",
-  "seen": [
-   "settings › activation › Who may use Hebrew"
-  ]
- },
  "Nobody selected: reminders go to everyone in the results.": {
   "kind": "text",
   "seen": [
@@ -11631,6 +11647,14 @@
    "Dashboard › small › Your branding"
   ]
  },
+ "Offered Hebrew (עברית) in their language list. Listed here only while a Hebrew activation code is in force; Admins always have it.": {
+  "kind": "text",
+  "seen": [
+   "access › small › Roles & permissions",
+   "access › people › small › Roles & permissions",
+   "access › roles › small › Roles & permissions"
+  ]
+ },
  "Office 365: smtp.office365.com, port 587. Gmail: smtp.gmail.com, port 587. Leave \"Secure connection from the start\" off for port 587.": {
   "kind": "message",
   "seen": [
@@ -11755,12 +11779,6 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
-  ]
- },
- "Only the people ticked here are offered Hebrew. Everyone else never sees it.": {
-  "kind": "text",
-  "seen": [
-   "Settings › Activation codes › under Who may use Hebrew"
   ]
  },
  "Only these projects or people <span class=\"muted\">— optional</span>": {
@@ -11937,7 +11955,7 @@
    "access › roles › small › Roles & permissions"
   ]
  },
- "Open the Cx Credits Calculator (once its activation code is applied): work out and save the credits a customer needs for triage and remediation of their backlog and for Fusion scans of their projects, and make projection reports.": {
+ "Open the Cx Credits Calculator: work out and save the credits a customer needs for triage and remediation of their backlog and for Fusion scans of their projects, and make projection reports. Admins have it; tick it for any other role that should.": {
   "kind": "text",
   "seen": [
    "access › small › Roles & permissions",
@@ -14078,6 +14096,14 @@
    "first start › button › Azure DevOps"
   ]
  },
+ "Save and schedule tracked reports, and verify their fixes with a Checkmarx One rescan (starts scans).": {
+  "kind": "text",
+  "seen": [
+   "access › small › Roles & permissions",
+   "access › people › small › Roles & permissions",
+   "access › roles › small › Roles & permissions"
+  ]
+ },
  "Save list": {
   "kind": "text",
   "seen": [
@@ -14116,20 +14142,6 @@
    "first start › p › Send reminder",
    "sign in › p › Send reminder",
    "Dashboard › p › Send reminder"
-  ]
- },
- "Save who may use Hebrew": {
-  "kind": "button",
-  "seen": [
-   "Settings › Activation codes"
-  ]
- },
- "Save, schedule and delete tracked reports, and verify their fixes with a Checkmarx One rescan (starts scans).": {
-  "kind": "text",
-  "seen": [
-   "access › small › Roles & permissions",
-   "access › people › small › Roles & permissions",
-   "access › roles › small › Roles & permissions"
   ]
  },
  "saved": {
@@ -14535,6 +14547,14 @@
    "access › roles › input › Roles & permissions"
   ]
  },
+ "Security Analyst: Delete reports": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
  "Security Analyst: Download & restore backups": {
   "kind": "attr:aria-label",
   "seen": [
@@ -14576,6 +14596,14 @@
   ]
  },
  "Security Analyst: Fetch findings": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
+ "Security Analyst: Hebrew": {
   "kind": "attr:aria-label",
   "seen": [
    "access › input › Roles & permissions",
@@ -18777,6 +18805,14 @@
    "access › roles › input › Roles & permissions"
   ]
  },
+ "User: Delete reports": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
  "User: Download & restore backups": {
   "kind": "attr:aria-label",
   "seen": [
@@ -18818,6 +18854,14 @@
   ]
  },
  "User: Fetch findings": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "access › input › Roles & permissions",
+   "access › people › input › Roles & permissions",
+   "access › roles › input › Roles & permissions"
+  ]
+ },
+ "User: Hebrew": {
   "kind": "attr:aria-label",
   "seen": [
    "access › input › Roles & permissions",
@@ -19159,6 +19203,12 @@
    "Dashboard › remind › a"
   ]
  },
+ "Verify: A rescan proves the fixes (Reports → Verify)": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "Dashboard › fetching › a"
+  ]
+ },
  "Verifying key against Checkmarx One…": {
   "kind": "message",
   "seen": [
@@ -19495,12 +19545,6 @@
    "reports › detail › remind › label › Weekly"
   ]
  },
- "Who may use Hebrew": {
-  "kind": "text",
-  "seen": [
-   "Settings › Activation codes › heading of the people list"
-  ]
- },
  "Who ran that project's latest scan": {
   "kind": "text",
   "seen": [
@@ -19515,6 +19559,14 @@
    "settings › span › Available variables",
    "logs › span › Available variables",
    "logs › activity › span › Available variables"
+  ]
+ },
+ "Who sees Hebrew: the roles with the <strong>Hebrew</strong> permission, under <a href=\"#/access/roles\">People &amp; roles</a>. Admins always have it; tick it for Security Analyst or any other role that should.": {
+  "kind": "html",
+  "seen": [
+   "settings › p › Activation codes",
+   "logs › p › Activation codes",
+   "logs › activity › p › Activation codes"
   ]
  },
  "Who?": {

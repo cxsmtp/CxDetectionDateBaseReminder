@@ -1,10 +1,10 @@
-// Cx Credits Calculator, end to end: nothing until its activation code is applied, then only for
-// the people with the permission; customers saved and reopened; the Fusion read against the mock
-// Checkmarx One (lines of code, criticality, how often each project is scanned); reports kept and
-// downloaded again; the organisation name; and off again with a deactivation code.
+// Cx Credits Calculator, end to end: a permission, no activation code (Admins have it; Security
+// Analysts once an Admin ticks it); customers saved and reopened; the Fusion read against the mock
+// Checkmarx One (lines of code, criticality, how often each project is scanned); reports kept,
+// downloaded again and deleted by Admins only; the organisation name; and off again by unticking it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -21,10 +21,6 @@ const PROJECTS = 30;
 const children = [];
 let log = '';
 let dataDir = '';
-const keyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'calc-key-'));
-const keyFile = path.join(keyDir, 'issuer.pem');
-const script = (...args) => execFileSync(process.execPath, ['scripts/activation.mjs', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-const publicKey = script('keygen', keyFile).split('\n').pop();
 
 function browser() {
   let cookie = '';
@@ -52,7 +48,7 @@ test.before(async () => {
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', ORGANISATION_NAME: 'Acme Partners',
       CX_API_KEY: mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' }), CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme',
-      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, MZ_ACTIVATION_TEST_KEY: publicKey,
+      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -79,25 +75,25 @@ test.after(() => {
 
 let customerId = '';
 
-test('nothing until its activation code is applied: not in the menu, refused by the server', async () => {
-  const me = (await admin('GET', '/api/me')).body;
-  assert.equal(me.unlocked.calculator, false);
-  assert.ok(me.permissions.includes('projections.use'), 'the permission alone is not enough');
-  const refused = await admin('GET', '/api/projections');
-  assert.equal(refused.status, 403);
-  assert.match(refused.body.error, /activation code/);
-  assert.equal((await admin('POST', '/api/projections/fusion/read', {})).status, 403);
+/** Tick (or untick) the calculator for the built-in Security Analyst role, as an Admin does on People & roles. */
+async function analystsGetCalculator(on) {
+  const role = (await admin('GET', '/api/iam')).body.roles.find((r) => r.id === 'analyst');
+  const permissions = on ? [...role.permissions, 'projections.use'] : role.permissions.filter((p) => p !== 'projections.use');
+  const r = await admin('PUT', '/api/iam/roles/analyst', { name: role.name, description: role.description, permissions });
+  assert.equal(r.status, 200, r.text);
+}
 
-  const code = script('calculator', keyFile, 'Acme Partners', 'on');
-  const applied = await admin('POST', '/api/activation', { code });
-  assert.equal(applied.status, 200, applied.text);
-  assert.match(applied.body.applied, /Cx Credits Calculator turned on/);
-  assert.equal(applied.body.calculator.org, 'Acme Partners');
-  assert.equal((await admin('GET', '/api/me')).body.unlocked.calculator, true);
+test('a permission, with no activation code: Admins have it from the start, other roles once an Admin ticks it', async () => {
+  const me = (await admin('GET', '/api/me')).body;
+  assert.equal(me.unlocked.calculator, undefined, 'nothing to unlock');
+  assert.ok(me.permissions.includes('projections.use'));
+  assert.equal((await admin('GET', '/api/projections')).status, 200);
+  assert.equal((await ana('GET', '/api/projections')).status, 403, 'not for Security Analysts until an Admin gives it to them');
+  await analystsGetCalculator(true);
+  assert.equal((await ana('GET', '/api/projections')).status, 200);
 });
 
-test('then for the people with the permission only', async () => {
-  assert.equal((await ana('GET', '/api/projections')).status, 200, 'Security Analysts have it on a new installation');
+test('never for a role without the permission', async () => {
   assert.equal((await uma('GET', '/api/me')).body.permissions.includes('projections.use'), false);
   for (const [method, url] of [['GET', '/api/projections'], ['POST', '/api/projections'], ['POST', '/api/projections/fusion/read'], ['GET', '/api/projections/reports'], ['POST', '/api/projections/reports'], ['GET', '/api/projections/x'], ['PUT', '/api/projections/x'], ['DELETE', '/api/projections/x']]) {
     assert.equal((await uma(method, url, method === 'GET' ? undefined : {})).status, 403, `${method} ${url}`);
@@ -172,6 +168,7 @@ test('reports are kept, listed, downloaded again and deleted', async () => {
   const got = await admin('GET', `/api/projections/reports/${made.body.report.id}`);
   assert.equal(got.body.report.data.tr.totals.credits, 120.5);
   assert.ok(fs.existsSync(path.join(dataDir, 'projection-reports', `${made.body.report.id}.json`)), 'kept with the tenant’s data, and in backups');
+  assert.equal((await ana('DELETE', `/api/projections/reports/${made.body.report.id}`)).status, 403, 'deleting a report is the Admin role’s alone');
   assert.equal((await admin('DELETE', `/api/projections/reports/${made.body.report.id}`)).status, 200);
   assert.equal((await admin('GET', `/api/projections/reports/${made.body.report.id}`)).status, 404);
 });
@@ -184,12 +181,9 @@ test('the organisation name: an Admin may change it, a User may not', async () =
   assert.equal((await ana('GET', '/api/me')).body.organisationName, 'Acme Partners EMEA');
 });
 
-test('a deactivation code turns it off again; the customers stay for when it is back', async () => {
-  const off = await admin('POST', '/api/activation', { code: script('calculator', keyFile, 'Acme Partners', 'off') });
-  assert.equal(off.status, 200, off.text);
-  assert.match(off.body.applied, /turned off/);
+test('unticked again, the calculator is gone for that role; the customers stay for when it is back', async () => {
+  await analystsGetCalculator(false);
   assert.equal((await ana('GET', '/api/projections')).status, 403);
-  assert.equal((await admin('GET', '/api/me')).body.unlocked.calculator, false);
-  await admin('POST', '/api/activation', { code: script('calculator', keyFile, 'Acme Partners', 'on') });
+  await analystsGetCalculator(true);
   assert.equal((await ana('GET', '/api/projections')).body.customers.length, 1);
 });

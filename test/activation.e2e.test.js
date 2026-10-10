@@ -85,42 +85,46 @@ test('a Hebrew activation code turns it on; a deactivation code turns it off', a
   assert.match(on.body.applied, /Hebrew turned on until/);
   assert.equal(on.body.languages.he.on, true);
   assert.equal(on.body.languages.he.org, 'Acme Bank');
-  const adminId = (await admin('GET', '/api/me')).body.user.id;
-  assert.deepEqual(on.body.languages.he.users, [adminId], 'open to the Admin who applied it, from the start');
-  assert.match(on.body.applied, /open to admin@acme\.io/);
-  assert.ok((await admin('GET', '/api/me')).body.languages.includes('he'), 'so they see it in the language list at once');
-  // Emptied on purpose: open to nobody until people are chosen.
-  assert.equal((await admin('PUT', '/api/activation/languages/he/users', { users: [] })).status, 200);
-  assert.equal((await admin('GET', '/i18n/he.json')).status, 404);
-  assert.ok(!(await admin('GET', '/api/me')).body.languages.includes('he'));
-  assert.equal((await admin('PUT', '/api/me/profile', { language: 'he' })).status, 400);
+  assert.match(on.body.applied, /for the roles with its permission/);
+  assert.equal('users' in on.body.languages.he, false, 'no list of people any more');
+  assert.equal('people' in on.body, false);
+  assert.ok((await admin('GET', '/api/me')).body.languages.includes('he'), 'Admins always have it, so they see it at once');
+  assert.equal((await admin('GET', '/i18n/he.json')).status, 200);
+  assert.equal((await admin('PUT', '/api/me/profile', { language: 'he' })).status, 200);
 
-  // Chosen people only: the Admin chooses themselves, not the analyst.
+  // A Security Analyst sees it once an Admin ticks the Hebrew permission for the role.
   const analyst = browser();
   const added = await admin('POST', '/api/iam/users', { email: 'analyst@acme.io', name: 'Analyst', role: 'analyst', password: 'analyst password 1' });
   assert.equal(added.status, 201, JSON.stringify(added.body));
   await analyst('POST', '/api/session/password', { email: 'analyst@acme.io', password: 'analyst password 1' });
   await analyst('POST', '/api/me/password', { current: 'analyst password 1', next: 'analyst password 22' });
-  const me = (await admin('GET', '/api/me')).body.user.id;
-  const chosen = await admin('PUT', '/api/activation/languages/he/users', { users: [me] });
-  assert.equal(chosen.status, 200, JSON.stringify(chosen.body));
-  assert.deepEqual(chosen.body.languages.he.users, [me]);
-  assert.ok(chosen.body.people.some((p) => p.email === 'analyst@acme.io'), 'the people to choose from');
-  assert.equal((await admin('GET', '/i18n/he.json')).status, 200);
-  assert.ok((await admin('GET', '/api/health')).body.languages.includes('he'));
-  assert.ok((await admin('GET', '/api/me')).body.languages.includes('he'));
-  assert.equal((await admin('PUT', '/api/me/profile', { language: 'he' })).status, 200);
-  assert.equal((await analyst('GET', '/i18n/he.json')).status, 404, 'never sent to anyone else');
+  assert.equal((await analyst('GET', '/i18n/he.json')).status, 404, 'never sent to a role without it');
   assert.ok(!(await analyst('GET', '/api/health')).body.languages.includes('he'));
   assert.equal(await heServed(), 404, 'nor to someone not signed in');
-  assert.equal((await analyst('PUT', '/api/activation/languages/he/users', { users: [] })).status, 403, 'only Admins choose');
-  assert.equal((await admin('PUT', '/api/activation/languages/he/users', { users: ['nobody'] })).status, 400);
+  const iam = (await admin('GET', '/api/iam')).body;
+  assert.ok(iam.permissions.some((p) => p.id === 'language.he'), 'listed on People & roles while Hebrew is on');
+  const role = iam.roles.find((r) => r.id === 'analyst');
+  assert.ok(!role.permissions.includes('language.he'));
+  const ticked = await admin('PUT', '/api/iam/roles/analyst', { name: role.name, description: role.description, permissions: [...role.permissions, 'language.he'] });
+  assert.equal(ticked.status, 200, JSON.stringify(ticked.body));
+  assert.equal((await analyst('GET', '/i18n/he.json')).status, 200);
+  assert.ok((await analyst('GET', '/api/me')).body.languages.includes('he'));
+  assert.equal((await analyst('PUT', '/api/me/profile', { language: 'he' })).status, 200);
+  assert.equal((await admin('PUT', '/api/activation/languages/he/users', { users: [] })).status, 404, 'the old list of people is gone');
 
   const off = await admin('POST', '/api/activation', { code: script('lang', keyFile, 'Acme Bank', 'he', 'off') });
   assert.equal(off.status, 200, JSON.stringify(off.body));
   assert.match(off.body.applied, /Hebrew turned off/);
   assert.equal((await admin('GET', '/i18n/he.json')).status, 404);
   assert.ok(!(await admin('GET', '/api/health')).body.languages.includes('he'));
+  assert.equal((await analyst('GET', '/i18n/he.json')).status, 404);
+  // Off: not listed on People & roles, and a role saved meanwhile keeps it for when Hebrew is back.
+  const after = (await admin('GET', '/api/iam')).body;
+  assert.ok(!after.permissions.some((p) => p.id === 'language.he'));
+  const kept = after.roles.find((r) => r.id === 'analyst');
+  const saved = await admin('PUT', '/api/iam/roles/analyst', { name: kept.name, description: kept.description, permissions: kept.permissions.filter((p) => p !== 'language.he') });
+  assert.equal(saved.status, 200);
+  assert.ok(saved.body.roles.find((r) => r.id === 'analyst').permissions.includes('language.he'));
 });
 
 test('a multi-tenant code is recorded; a code from another key is refused; all of it audited', async () => {
@@ -140,7 +144,8 @@ test('a multi-tenant code is recorded; a code from another key is refused; all o
   const reasons = audit.entries.map((e) => e.reason).join('\n');
   assert.match(reasons, /Activation code applied: Hebrew turned on/);
   assert.match(reasons, /Activation code applied: Hebrew turned off/);
-  assert.match(reasons, /Hebrew is open to 1 person: admin@acme\.io/);
   assert.match(reasons, /Activation code applied: several Checkmarx One tenants unlocked for Acme Bank/);
   assert.match(reasons, /Activation code refused/);
+  const roles = (await admin('GET', '/api/audit?types=iam&limit=50')).body.entries.map((e) => e.reason).join('\n');
+  assert.match(roles, /Changed role "Security Analyst": added language\.he/, 'who may see Hebrew is a role change, on record');
 });

@@ -92,7 +92,7 @@ try {
     await post('/api/session/password', { email: 'admin@acme.io', password });
     await post('/api/me/password', { current: password, next: `${password}2` });
     await post('/api/activation', { code });
-  }, [PASSWORD, activation('calculator', KEY_FILE, 'Sample', 'on')]);
+  }, [PASSWORD, activation('lang', KEY_FILE, 'Sample', 'he', 'on')]);
   await page.goto(`${BASE}/#/dashboard`);
   await page.reload();
   await grab('Dashboard', 2500);
@@ -190,7 +190,7 @@ try {
   await click('#calc-reports [data-delete-report]', 'calculator › report deleted', 1500);
   await click('#calc-delete', 'calculator › customer deleted', 1500);
   await page.evaluate(() => (location.hash = '#/settings/activation'));
-  await grab('settings › activation (calculator on)', 900);
+  await grab('settings › activation (Hebrew on)', 900);
   await page.evaluate(() => (location.hash = '#/settings/about'));
   await grab('settings › about', 600);
   await page.hover('#help-open').catch(() => {});

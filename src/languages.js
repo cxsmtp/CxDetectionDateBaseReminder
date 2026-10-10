@@ -1,14 +1,12 @@
 /**
  * Which languages the page offers. Most are open to everyone; a few are gated
  * behind an activation code (see src/activation.js). Today only Hebrew (he) is
- * gated: it appears only while a valid Hebrew activation code is in force, and a
- * deactivation code (or the code expiring) removes it. With the code in force, an Admin
- * chooses the people who may use it: only they are offered it (`users`). The Admin who applies
- * the first code is one of them from the start, so it never sits switched on with nobody able to
- * see it. Turned on before people could be chosen (MZ-01.00.47), it stays open to everyone until
- * people are chosen.
+ * gated: it is on only while a valid Hebrew activation code is in force, and a
+ * deactivation code (or the code expiring) turns it off. While it is on, the people offered it
+ * are those whose role holds its permission (`language.he`, People & roles; Admins always do):
+ * the caller passes the gated languages a person's role allows.
  * The state is server-wide, kept in languages.json, and re-checked against the clock on
- * every read.
+ * every read. (MZ-01.00.58 to 62 kept a list of people here instead; it is no longer read.)
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -44,45 +42,32 @@ export class LanguageAccess {
     fs.renameSync(tmp, this.#file);
   }
 
-  /**
-   * The gated languages switched on, not past their activation code's expiry, and open to this
-   * person (`userId`; without one, only those open to everyone).
-   */
-  activeGated(userId = null, now = Date.now()) {
-    return Object.keys(GATED_LANGUAGES).filter((code) => {
-      const entry = this.#state.gated[code];
-      if (entry?.on !== true || Date.parse(entry.expires) <= now) return false;
-      return !Array.isArray(entry.users) || (Boolean(userId) && entry.users.includes(userId));
-    });
+  /** Is this gated language switched on, and its activation code not past its expiry? */
+  isOn(code, now = Date.now()) {
+    const entry = this.#state.gated[code];
+    return code in GATED_LANGUAGES && entry?.on === true && Date.parse(entry.expires) > now;
   }
 
-  /** May this person (or, without one, anyone) be offered this language now? */
-  isAvailable(code, userId = null, now = Date.now()) {
-    return OPEN_LANGUAGES.includes(code) || this.activeGated(userId, now).includes(code);
+  /** The gated languages switched on that a person may use: `allowed` is what their role permits. */
+  activeGated(allowed = [], now = Date.now()) {
+    return Object.keys(GATED_LANGUAGES).filter((code) => allowed.includes(code) && this.isOn(code, now));
   }
 
-  /** Every language code available to this person now, open ones first. */
-  available(userId = null, now = Date.now()) {
-    return [...OPEN_LANGUAGES, ...this.activeGated(userId, now)];
+  /** May someone whose role permits `allowed` be offered this language now? */
+  isAvailable(code, allowed = [], now = Date.now()) {
+    return OPEN_LANGUAGES.includes(code) || this.activeGated(allowed, now).includes(code);
   }
 
-  /** What a gated language's state is (for the Settings page), including when it lapses, and who may use it (null: everyone). */
+  /** Every language code available to someone whose role permits `allowed`, open ones first. */
+  available(allowed = [], now = Date.now()) {
+    return [...OPEN_LANGUAGES, ...this.activeGated(allowed, now)];
+  }
+
+  /** What a gated language's state is (for the Settings page), including when it lapses. */
   status(code) {
     const entry = this.#state.gated[code];
     if (!entry?.on) return { code, on: false };
-    return { code, on: Date.parse(entry.expires) > Date.now(), org: entry.org ?? '', expires: entry.expires, expired: Date.parse(entry.expires) <= Date.now(), users: Array.isArray(entry.users) ? [...entry.users] : null };
-  }
-
-  /** Choose the people who may use a gated language (their user ids). Returns the new status. */
-  setUsers(code, userIds) {
-    const entry = this.#state.gated[code];
-    if (!(code in GATED_LANGUAGES)) throw Object.assign(new Error('That language is not behind an activation code.'), { status: 400 });
-    if (!entry?.on) throw Object.assign(new Error('Turn the language on with its activation code first.'), { status: 409 });
-    entry.users = [...new Set((Array.isArray(userIds) ? userIds : []).map(String).filter(Boolean))].slice(0, 10_000);
-    // Chosen by an Admin: an empty list now means nobody, on purpose.
-    entry.chosenAt = new Date().toISOString();
-    this.#save();
-    return this.status(code);
+    return { code, on: Date.parse(entry.expires) > Date.now(), org: entry.org ?? '', expires: entry.expires, expired: Date.parse(entry.expires) <= Date.now() };
   }
 
   /**
@@ -96,14 +81,7 @@ export class LanguageAccess {
     if (!code || !(code in GATED_LANGUAGES)) throw Object.assign(new Error('This code does not unlock a language.'), { status: 400 });
     if (result.action === 'activate') {
       if (!result.valid) throw Object.assign(new Error(result.reason || 'This activation code is not valid.'), { status: 400 });
-      // A renewed code keeps the people already chosen; a first one starts with the person who applied it (`by`).
-      const previous = this.#state.gated[code];
-      const kept = Array.isArray(previous?.users) && (previous.users.length || previous.chosenAt);
-      this.#state.gated[code] = {
-        on: true, org: result.org ?? '', expires: result.expires, activatedAt: new Date().toISOString(),
-        users: kept ? previous.users : by ? [String(by)] : [],
-        ...(kept && previous.chosenAt ? { chosenAt: previous.chosenAt } : {}),
-      };
+      this.#state.gated[code] = { on: true, org: result.org ?? '', expires: result.expires, activatedAt: new Date().toISOString(), ...(by ? { by: String(by) } : {}) };
     } else if (result.action === 'deactivate') {
       // A deactivation code is honoured whether or not it is itself still in date.
       this.#state.gated[code] = { on: false, org: result.org ?? '', expires: result.expires ?? '', deactivatedAt: new Date().toISOString() };
@@ -112,18 +90,5 @@ export class LanguageAccess {
     }
     this.#save();
     return { code, on: this.#state.gated[code].on };
-  }
-
-  /**
-   * A language switched on with nobody chosen, by an older version (which started a first code
-   * with nobody, not even the Admin who applied it): give it to `userId`, the person who applied
-   * the code. A list an Admin emptied on purpose is left alone. Returns whether it changed.
-   */
-  adopt(code, userId) {
-    const entry = this.#state.gated[code];
-    if (!userId || !entry?.on || !Array.isArray(entry.users) || entry.users.length || entry.chosenAt) return false;
-    entry.users = [String(userId)];
-    this.#save();
-    return true;
   }
 }

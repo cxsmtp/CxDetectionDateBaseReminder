@@ -124,7 +124,10 @@ const MATRIX = [
   ['GET', '/api/scope/options', null, true, true, true],
   ['GET', '/api/settings/connections', null, true, true, true],
   ['POST', '/api/settings/notices/ack', {}, true, true, true],
-  ['POST', '/api/tracked-reports', {}, true, true, false],
+  // Every role saves, schedules and rescans tracked reports; only the Admin role deletes them.
+  ['POST', '/api/tracked-reports', {}, true, true, true],
+  ['DELETE', '/api/tracked-reports/no-such-report', null, true, false, false],
+  ['DELETE', '/api/projections/reports/no-such-report', null, true, false, false],
   ['POST', '/api/triage/run', {}, true, true, false],
   ['POST', '/api/credits/allocate', {}, true, true, false],
   ['POST', '/api/credits/give', {}, true, true, false],

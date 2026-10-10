@@ -26,7 +26,7 @@ import { poolSummary, resolveRange, usageSeries } from './credit-usage.js';
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
-import { IamStore, PERMISSIONS, PROFILE_LANGUAGES, PROGRAMMING_LANGUAGES, generatePassword, publicUser } from './iam.js';
+import { IamStore, LANGUAGE_PERMISSIONS, PERMISSIONS, PROFILE_LANGUAGES, PROGRAMMING_LANGUAGES, generatePassword, publicUser } from './iam.js';
 import { insideProject, migrateLegacyData, prepareDataDir, resolveDataDir } from './data-dir.js';
 import { PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, isSealed, listBackups, readBackup, writeBackupTo } from './backup.js';
 import fs from 'node:fs';
@@ -658,18 +658,13 @@ const LETSENCRYPT_DOMAIN = String(process.env.LETSENCRYPT_DOMAIN ?? '').trim();
 // Add-ons unlocked by an activation code from the maintainer (src/activation.js): Hebrew, several tenants.
 const activations = new ActivationStore({ file: path.join(dataDir, 'activation.json') });
 const languageAccess = new LanguageAccess({ file: path.join(dataDir, 'languages.json') });
-/**
- * Hebrew switched on by an older version with nobody chosen, not even the Admin who applied the
- * code: give it to that Admin, so it is never on with nobody able to see it. Run at start, once
- * the people are known.
- */
-function adoptStuckLanguages() {
-  for (const code of Object.keys(GATED_LANGUAGES)) {
-    const applier = activations.history().find((h) => h.scope === GATED_LANGUAGES[code] && h.action === 'activate')?.by;
-    const user = applier ? iam.findByEmail(applier) : null;
-    if (user && languageAccess.adopt(code, user.id)) console.log(`[languages] ${code} was on for nobody: now open to ${user.email}, who applied its code.`);
-  }
+/** The gated languages (Hebrew) a person's role allows: its `language.<code>` permission. */
+function allowedLanguages(userId) {
+  const perms = userId ? iam.permissionsOf(iam.user(userId)) : new Set();
+  return Object.entries(LANGUAGE_PERMISSIONS).filter(([perm]) => perms.has(perm)).map(([, code]) => code);
 }
+/** Permissions that mean nothing right now (a language whose activation code is not in force): not listed on People & roles. */
+const dormantPermissions = () => Object.entries(LANGUAGE_PERMISSIONS).filter(([, code]) => !languageAccess.isOn(code)).map(([perm]) => perm);
 
 /** Let's Encrypt's check (HTTP-01): answered over plain http in every HTTPS mode, before anything else. */
 function acmeChallengeAnswer(req, res) {
@@ -770,7 +765,7 @@ app.use('/api', (req, res, next) => {
 app.use('/i18n', (req, res, next) => {
   const code = req.path.match(/^\/([\w-]+)\.json$/)?.[1];
   // Only to the people it is open to (their sign-in), so nobody else ever receives it.
-  if (code && code in GATED_LANGUAGES && !languageAccess.isAvailable(code, sessions.peek(readSessionCookie(req))?.userId)) return res.status(404).json({ error: 'That language is not available.' });
+  if (code && code in GATED_LANGUAGES && !languageAccess.isAvailable(code, allowedLanguages(sessions.peek(readSessionCookie(req))?.userId))) return res.status(404).json({ error: 'That language is not available.' });
   next();
 });
 const staticFiles = express.static(publicDir);
@@ -981,7 +976,7 @@ app.get('/api/health', (req, res) => {
     templateVariables: TEMPLATE_VARIABLES,
     defaultTemplate: DEFAULT_TEMPLATE,
     // The page's languages available here (Hebrew only once activated, and only for the people chosen).
-    languages: languageAccess.available(sessions.peek(readSessionCookie(req))?.userId),
+    languages: languageAccess.available(allowedLanguages(sessions.peek(readSessionCookie(req))?.userId)),
     // Shown in the header before anyone connects.
     app: {
       name: settingsStore.get().branding.appName || 'CxMissionZero',
@@ -1096,9 +1091,9 @@ function describeMe(session, user) {
     // Connection settings put back because new ones did not work: shown once to each administrator.
     configNotices: held.has('integration.cxone') || held.has('integration.smtp') ? guard.unseen(user.id) : [],
     // The page's languages this person may use (Hebrew only for the people chosen).
-    languages: languageAccess.available(user.id),
+    languages: languageAccess.available(allowedLanguages(user.id)),
     // Add-ons a code has unlocked (in date or not): until then the page does not show them.
-    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, calculator: Boolean(activations.calculator()) },
+    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled },
     // The organisation's name (given with the terms of use), for what CxMissionZero makes for others.
     organisationName: terms.organisationName(),
     // Get help: the support portal here, or email to an address (installations whose mail cannot leave).
@@ -1352,7 +1347,7 @@ app.put(
   asyncRoute(async (req, res) => {
     const patch = {};
     for (const key of ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages']) if (key in (req.body ?? {})) patch[key] = req.body[key];
-    if (patch.language && !languageAccess.isAvailable(String(patch.language), req.user.id)) return res.status(400).json({ error: 'That language is not available.' });
+    if (patch.language && !languageAccess.isAvailable(String(patch.language), allowedLanguages(req.user.id))) return res.status(400).json({ error: 'That language is not available.' });
     const { before, after } = iam.updateProfile(req.user.id, patch);
     const changed = [
       ...(before.name !== after.name ? ['name'] : []),
@@ -1414,7 +1409,7 @@ app.put(
   }),
 );
 
-app.get('/api/me/profile/options', requireSession, (req, res) => res.json({ languages: PROFILE_LANGUAGES.filter((code) => languageAccess.isAvailable(code, req.user.id)), programmingLanguages: PROGRAMMING_LANGUAGES }));
+app.get('/api/me/profile/options', requireSession, (req, res) => res.json({ languages: PROFILE_LANGUAGES.filter((code) => languageAccess.isAvailable(code, allowedLanguages(req.user.id))), programmingLanguages: PROGRAMMING_LANGUAGES }));
 
 // ---------------------------------------------------------------------------
 // Access: users and roles
@@ -1444,7 +1439,7 @@ function iamView(req) {
   return {
     users: iam.users().filter((u) => sharesTenant(req, u) && withinReach(req, u)).map((u) => ({ ...u, canManage: can(req, 'iam.manage') && iam.canGrant(req.permissions, iam.permissionsOf({ ...iam.user(u.id), disabled: false })) && u.id !== req.user.id })),
     roles: iam.roles().filter((r) => r.id === req.user.role || iam.canGrant(req.permissions, r.permissions)).map((r) => ({ ...r, canManage: can(req, 'iam.manage') && mayChangeRoles(req) && !r.locked && iam.canGrant(req.permissions, r.permissions), canAssign: can(req, 'iam.manage') && iam.canGrant(req.permissions, r.permissions) })),
-    permissions: PERMISSIONS,
+    permissions: PERMISSIONS.filter((p) => !dormantPermissions().includes(p.id)),
     me: { id: req.user.id, permissions: [...req.permissions] },
     tenants: tenancy.enabled && isSuperAdmin(req.permissions) ? tenancy.list().map((t) => ({ id: t.id, name: tenantName(t.id) })) : null,
   };
@@ -1543,7 +1538,12 @@ app.put(
   requirePermission('iam.manage'),
   asyncRoute(async (req, res) => {
     if (!mayChangeRoles(req)) return res.status(403).json({ error: 'Roles are shared by every tenant, so only people who work in the first tenant change them.' });
-    const { before, after } = iam.saveRole(req.params.id, req.body ?? {}, actorOf(req));
+    // A permission not listed right now (Hebrew while its code is not in force) keeps what the role had.
+    const dormant = dormantPermissions();
+    const held = iam.role(req.params.id)?.permissions ?? [];
+    const asked = Array.isArray(req.body?.permissions) ? req.body.permissions : [];
+    const body = { ...(req.body ?? {}), permissions: [...asked.filter((p) => !dormant.includes(p)), ...held.filter((p) => dormant.includes(p))] };
+    const { before, after } = iam.saveRole(req.params.id, body, actorOf(req));
     const added = after.permissions.filter((p) => !before.permissions.includes(p));
     const removed = before.permissions.filter((p) => !after.permissions.includes(p));
     if (added.length || removed.length || before.description !== after.description || before.name !== after.name) {
@@ -3301,19 +3301,12 @@ app.get('/api/relay/report-words/:code', (req, res) => {
 // ---------------------------------------------------------------------------
 // Cx Credits Calculator (src/projections.js, public/calculator/): customers, each with a triage &
 // remediation projection and a Fusion projection, and the reports made from them. Needs the
-// calculator's activation code (Settings → Activation codes) and the Cx Credits Calculator permission.
+// Cx Credits Calculator permission (Admins have it; an Admin ticks it for other roles).
 // ---------------------------------------------------------------------------
 
 const projectionError = (res, error) => res.status(error.status ?? 500).json({ error: error.status ? error.message : 'The projection could not be saved.' });
-const CALCULATOR_OFF = 'The Cx Credits Calculator is not turned on here: it needs its activation code (Settings → Activation codes).';
-/** The calculator: the permission, and its activation code in date. */
-function requireCalculator(req, res, next) {
-  requirePermission('projections.use')(req, res, (error) => {
-    if (error) return next(error);
-    if (!activations.calculator()) return res.status(403).json({ error: CALCULATOR_OFF });
-    next();
-  });
-}
+/** The calculator: its permission. */
+const requireCalculator = requirePermission('projections.use');
 const calculatorRoute = (fn) => (req, res) => {
   try {
     fn(req, res);
@@ -3343,7 +3336,7 @@ app.post('/api/projections/reports', requireCalculator, calculatorRoute((req, re
 app.get('/api/projections/reports/:id', requireCalculator, calculatorRoute((req, res) => {
   res.json({ report: projectionReports.get(String(req.params.id)) });
 }));
-app.delete('/api/projections/reports/:id', requireCalculator, calculatorRoute((req, res) => {
+app.delete('/api/projections/reports/:id', requirePermission('reports.delete'), calculatorRoute((req, res) => {
   projectionReports.remove(String(req.params.id));
   res.json({ ok: true });
 }));
@@ -3615,10 +3608,7 @@ function activationView(req) {
     keyConfigured: ISSUER_KEYS.length > 0,
     // Only the add-ons a code has unlocked (expired ones too, to renew): nothing else is named.
     languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)]).filter(([, s]) => s.on || s.expired)),
-    // Everyone who can sign in, to choose who may use a gated language (as far as this person may see people).
-    people: iam.users().filter((u) => !u.disabled && withinReach(req, u)).map((u) => ({ id: u.id, name: u.name, email: u.email })),
     tenants: activations.tenants(),
-    calculator: activations.calculator(),
     history: activations.history().slice(0, 10),
   };
 }
@@ -3640,12 +3630,8 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
   }
   let what;
   if (result.scope.startsWith('lang:')) {
-    const first = !Array.isArray(languageAccess.status(result.scope.slice('lang:'.length)).users);
     const applied = languageAccess.apply(result, { by: req.user.id });
-    const users = languageAccess.status(applied.code).users ?? [];
-    what = `${applied.code === 'he' ? 'Hebrew' : applied.code} ${applied.on ? `turned on until ${result.expires.slice(0, 10)}${first && users.length === 1 && users[0] === req.user.id ? `, open to ${req.user.email}` : ''}` : 'turned off'}`;
-  } else if (result.scope === 'calculator') {
-    what = result.action === 'activate' ? `Cx Credits Calculator turned on until ${result.expires.slice(0, 10)}` : 'Cx Credits Calculator turned off';
+    what = `${applied.code === 'he' ? 'Hebrew' : applied.code} ${applied.on ? `turned on until ${result.expires.slice(0, 10)}, for the roles with its permission (People & roles)` : 'turned off'}`;
   } else {
     what = `several Checkmarx One tenants unlocked for ${result.org}: up to ${result.maxTenants}, until ${result.expires.slice(0, 10)}`;
   }
@@ -3781,20 +3767,6 @@ app.put('/api/iam/users/:id/tenants', requireSuperAdmin, asyncRoute(async (req, 
     session.lastScan = null;
   }
   res.json(iamView(req));
-}));
-
-/** Who may use a gated language (Hebrew): chosen by an Admin, with its activation code in force. */
-app.put('/api/activation/languages/:code/users', requirePermission('activation.manage'), asyncRoute(async (req, res) => {
-  const code = req.params.code;
-  const ids = Array.isArray(req.body?.users) ? req.body.users.map(String) : [];
-  const unknown = ids.filter((id) => !iam.user(id));
-  if (unknown.length) return res.status(400).json({ error: 'No such user.' });
-  const before = languageAccess.status(code).users;
-  const status = languageAccess.setUsers(code, ids);
-  const name = code === 'he' ? 'Hebrew' : code;
-  const emails = (list) => (list ?? []).map((id) => iam.user(id)?.email ?? id);
-  audit.record({ type: 'settings', outcome: 'changed', reason: ids.length ? `${name} is open to ${ids.length === 1 ? '1 person' : `${ids.length} people`}: ${emails(ids).join(', ')}.` : `${name} is open to nobody until people are chosen.`, actor: await adminActor(req), details: { activation: { language: code, before: before === null ? 'everyone' : emails(before), after: emails(ids) } } });
-  res.json(activationView(req));
 }));
 
 app.get('/api/report-server', requireSession, (req, res) => {
@@ -6237,7 +6209,7 @@ app.post(
   }),
 );
 
-app.delete('/api/tracked-reports/:id', requirePermission('reports.manage'), (req, res) => {
+app.delete('/api/tracked-reports/:id', requirePermission('reports.delete'), (req, res) => {
   if (!trackedReports.delete(req.params.id)) return res.status(404).json({ error: 'No such report.' });
   res.json({ deleted: true });
 });
@@ -7327,7 +7299,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   try {
     const readerEmail = /^[^\s,@]+@[^\s,@]+$/.test(audience.recipient ?? '') ? audience.recipient : String(audience.actor?.user ?? '');
     const reader = readerEmail ? iam.findByEmail(readerEmail) : null;
-    i18n = reportI18n({ codes: languageAccess.available(reader?.id ?? null), preferred: reader?.profile?.language ?? '' });
+    i18n = reportI18n({ codes: languageAccess.available(allowedLanguages(reader?.id ?? null)), preferred: reader?.profile?.language ?? '' });
   } catch (error) {
     console.error(`[report languages] This report is in English only: ${error.message}`);
   }
@@ -9011,7 +8983,6 @@ const server = httpsManager.listen({ app, httpsOnly: httpsOnlyAnswer, port: conf
   // The deployment's own connections (CX_API_KEY, SMTP_*) belong to the first tenant.
   await tenancy.run(DEFAULT_TENANT, async () => {
     await prepareAccess();
-    adoptStuckLanguages();
     await bootstrap();
     await verifyEnvironmentSmtp();
   });

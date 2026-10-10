@@ -1,5 +1,6 @@
-// A server where an older version turned Hebrew on for nobody, not even the Admin who applied the
-// code: on its next start, Hebrew is opened to that Admin, so it is never on with nobody able to see it.
+// A server where an older version kept Hebrew on for a list of people that left everyone else out
+// (or nobody at all): with MZ-01.00.63 the list no longer decides. Admins see Hebrew at once, and
+// anyone else once their role holds the Hebrew permission.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -12,7 +13,7 @@ import { FIRST_PASSWORD, NEXT_PASSWORD } from './test-credentials.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-test('Hebrew left on for nobody is opened to the Admin who applied its code', async (t) => {
+test('Hebrew left on for nobody by an older version: every Admin sees it now, others by their role', async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'he-stuck-'));
   const expires = new Date(Date.now() + 100 * 86_400_000).toISOString();
   fs.writeFileSync(path.join(dataDir, 'languages.json'), JSON.stringify({ gated: { he: { on: true, org: 'Acme', expires, activatedAt: new Date().toISOString(), users: [] } } }));
@@ -32,7 +33,6 @@ test('Hebrew left on for nobody is opened to the Admin who applied its code', as
     if (Date.now() > end) throw new Error(log);
     await sleep(100);
   }
-  assert.match(log, /he was on for nobody: now open to admin@acme\.io/);
   let cookie = '';
   const call = async (method, url, body) => {
     const r = await fetch(base + url, { method, headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, body: body ? JSON.stringify(body) : undefined });

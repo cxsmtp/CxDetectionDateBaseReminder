@@ -530,7 +530,6 @@ function applyPermissions() {
   // Settings → Tenants only once a tenants activation code has been applied.
   for (const el of document.querySelectorAll('[data-set="tenants"], #set-tenants')) el.classList.toggle('addon-hidden', !state.me?.unlocked?.tenants);
   // The Cx Credits Calculator: only once its activation code is applied.
-  for (const el of document.querySelectorAll('[data-addon="calculator"]')) el.classList.toggle('addon-hidden', !state.me?.unlocked?.calculator);
   renderFeatureStages();
   // Optional columns can depend on permissions (SLAs).
   try {
@@ -933,52 +932,16 @@ function renderActivation(a) {
   const rows = [
     // Each English piece is its own element, so the page translator can reach it.
     ...(he.on || he.expired ? [`<div class="act-row"><strong>Hebrew</strong><span>${he.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(he.expires))}</b>${he.org ? ` · ${escapeHtml(he.org)}` : ''}` : `<span class="badge warn">Expired</span> <b>${escapeHtml(date(he.expires))}</b>`}</span></div>`] : []),
-    ...(a.calculator ? [`<div class="act-row"><strong>Cx Credits Calculator</strong><span><span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(a.calculator.expires))}</b> · ${escapeHtml(a.calculator.org)}${a.calculator.warn ? ` <strong class="https-note warn">${a.calculator.daysLeft} days left</strong>` : ''}</span></div>`] : []),
     ...(t ? [`<div class="act-row"><strong>Several tenants</strong><span>${t.valid ? '<span class="badge ok">Unlocked</span>' : '<span class="badge warn">Expired</span>'} ${escapeHtml(t.org)} · <span>Up to ${t.maxTenants} tenants</span> · <span>Until</span> <b>${escapeHtml(date(t.expires))}</b>${t.warn ? ` <strong class="https-note warn">${t.daysLeft} days left</strong>` : ''}</span></div>`] : []),
   ];
   if (!rows.length) rows.push('<p class="hint">No add-ons are unlocked yet.</p>');
   if (!a.keyConfigured) rows.push('<p class="hint">This build has no maintainer key, so no code can be checked.</p>');
-  // Hebrew is open only to the people chosen here.
-  if (he.on) {
-    const everyone = !Array.isArray(he.users);
-    const chosen = new Set(he.users ?? []);
-    rows.push(`<div class="act-people">
-      <strong>Who may use Hebrew</strong>
-      <p class="hint">${everyone ? 'Everyone, because Hebrew was turned on before people could be chosen. Choose people to keep it for them only.' : 'Only the people ticked here are offered Hebrew. Everyone else never sees it.'}</p>
-      ${!everyone && !chosen.size ? '<p class="https-note warn">Nobody is offered Hebrew yet, so nobody sees it in the language list. Tick the people who should have it, yourself included, then save.</p>' : ''}
-      <input type="search" id="act-people-filter" placeholder="Search people" aria-label="Search people" />
-      <div class="act-people-list" id="act-people-list">${(a.people ?? [])
-        .map((p) => `<label class="check" data-person="${escapeHtml(`${p.name} ${p.email}`.toLowerCase())}"><input type="checkbox" value="${escapeHtml(p.id)}" ${chosen.has(p.id) ? 'checked' : ''} /> <span translate="no">${escapeHtml(p.name || p.email)}</span>${p.name ? ` <small class="muted" translate="no">${escapeHtml(p.email)}</small>` : ''}</label>`)
-        .join('')}</div>
-      <div class="actions compact"><button type="button" class="primary" id="act-people-save">Save who may use Hebrew</button></div>
-    </div>`);
-  }
+  // Who sees Hebrew is a permission on the roles, listed there while Hebrew is on.
+  if (he.on) rows.push('<p class="hint">Who sees Hebrew: the roles with the <strong>Hebrew</strong> permission, under <a href="#/access/roles">People &amp; roles</a>. Admins always have it; tick it for Security Analyst or any other role that should.</p>');
   $('act-list').innerHTML = rows.join('');
-  // Seeing the page is not changing it: an Admin enters codes and chooses who may use Hebrew.
+  // Seeing the page is not changing it: an Admin enters codes.
   $('act-view-only').hidden = Boolean(a.canManage);
-  if (!a.canManage) {
-    for (const box of $('act-list').querySelectorAll('#act-people-list input')) box.disabled = true;
-    $('act-people-save')?.remove();
-  }
 }
-
-$('act-list').addEventListener('input', (event) => {
-  if (event.target.id !== 'act-people-filter') return;
-  const term = event.target.value.trim().toLowerCase();
-  for (const row of $('act-list').querySelectorAll('[data-person]')) row.hidden = Boolean(term) && !row.dataset.person.includes(term);
-});
-
-$('act-list').addEventListener('click', async (event) => {
-  if (event.target.id !== 'act-people-save') return;
-  const users = [...$('act-list').querySelectorAll('#act-people-list input:checked')].map((input) => input.value);
-  try {
-    renderActivation(await api('/api/activation/languages/he/users', { method: 'PUT', body: JSON.stringify({ users }) }));
-    setStatus('act-status', users.length ? (users.length === 1 ? 'Hebrew is open to 1 person.' : `Hebrew is open to ${users.length} people.`) : 'Hebrew is open to nobody until people are chosen.', 'ok');
-    refreshMyLanguages();
-  } catch (error) {
-    if (!handleAuthLoss(error)) showError('act-status', error);
-  }
-});
 
 $('act-apply').addEventListener('click', async () => {
   const code = $('act-code').value.trim();
@@ -1166,7 +1129,7 @@ const PAGE_RETURN = {
 function route() {
   if (!state.me) return;
   const { name, view } = parseRoute();
-  const allowed = (page) => page in PAGE_PERMS && (!PAGE_PERMS[page] || canAny(PAGE_PERMS[page])) && (page !== 'calculator' || Boolean(state.me?.unlocked?.calculator));
+  const allowed = (page) => page in PAGE_PERMS && (!PAGE_PERMS[page] || canAny(PAGE_PERMS[page]));
   const target = allowed(name) ? name : 'dashboard';
   if (target !== name && location.hash) history.replaceState(null, '', '#/dashboard');
 
@@ -4057,7 +4020,7 @@ function renderReportDetail(id) {
       <div class="rp-d-actions">
         <button type="button" data-report-refresh="${rid}">Refresh</button>
         <button type="button" data-report-html="${rid}">Download HTML</button>
-        ${can('reports.manage') ? `<button type="button" class="link danger" data-report-delete="${rid}">Delete</button>` : ''}
+        ${can('reports.delete') ? `<button type="button" class="link danger" data-report-delete="${rid}">Delete</button>` : ''}
         <button type="button" class="ghost rp-close" data-rp-close aria-label="Close">✕</button>
       </div>
     </header>
@@ -6926,7 +6889,7 @@ const paletteGroup = (page) => STAGE_LABELS[STAGES[page]] ?? (page === 'help' ? 
 
 function paletteEntries() {
   const entries = [];
-  const pageOk = (page) => (!PAGE_PERMS[page] || canAny(PAGE_PERMS[page])) && (page !== 'calculator' || Boolean(state.me?.unlocked?.calculator));
+  const pageOk = (page) => !PAGE_PERMS[page] || canAny(PAGE_PERMS[page]);
   for (const [page, [title, sub]] of Object.entries(PAGE_TITLES)) {
     if (page === 'connect' || !pageOk(page)) continue;
     entries.push({ label: title, hint: sub, group: paletteGroup(page), stage: STAGES[page], href: `#/${page}` });
@@ -8018,9 +7981,10 @@ function renderMatrix() {
       const folded = collapsedGroups.has(group) && !q;
       const granted = roles.map((r) => inGroup.filter((p) => valueOf(r, p.id)).length);
       const rows = folded ? '' : inGroup
-        .map((p) => `<tr><td><span class="perm-label">${escapeHtml(p.label)}${p.special ? ' <span class="badge warn">Admin</span>' : ''}</span><small class="perm-desc">${escapeHtml(p.description)}</small></td>${roles
+        .map((p) => `<tr><td><span class="perm-label">${escapeHtml(p.label)}${p.adminOnly ? ' <span class="badge warn">Admin role only</span>' : p.special ? ' <span class="badge warn">Admin</span>' : ''}</span><small class="perm-desc">${escapeHtml(p.description)}</small></td>${roles
           .map((r) => {
-            const editable = r.canManage && mine.has(p.id);
+            // An Admin-role-only permission (deleting reports) is never given to another role.
+            const editable = r.canManage && mine.has(p.id) && !p.adminOnly;
             const checked = valueOf(r, p.id);
             return `<td class="cell"><input type="checkbox" data-matrix-role="${escapeHtml(r.id)}" data-matrix-perm="${escapeHtml(p.id)}" ${checked ? 'checked' : ''} ${editable ? '' : 'disabled'} aria-label="${escapeHtml(r.name)}: ${escapeHtml(p.label)}" /></td>`;
           })

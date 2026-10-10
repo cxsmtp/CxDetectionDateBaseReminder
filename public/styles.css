@@ -2481,9 +2481,6 @@ button.is-golden:focus-visible { outline: 2px solid #c99418; outline-offset: 3px
   button.is-golden:not(:disabled)::after { display: none; }
 }
 /* Who may use a gated language (Hebrew): a short, searchable list of people. */
-.act-people { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
-.act-people-list { display: grid; gap: 4px; max-height: 240px; overflow-y: auto; padding: 4px 2px; }
-.act-people-list label[hidden] { display: none; }
 /* The tenant switcher (several Checkmarx One tenants): the same control as the language, with the tenant's name. */
 .tenant-pick .tenant-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
 .tn-list { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 6px; }
