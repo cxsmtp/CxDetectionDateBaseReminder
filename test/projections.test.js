@@ -267,7 +267,7 @@ test('reading Fusion data from Checkmarx One: lines, criticality, scans in a yea
   assert.equal(said.remainingCredits, 29467);
 });
 
-test('the calculator activation code: on and off, recorded, and only for its scope', () => {
+test('the calculator is a permission now: a "calculator" activation code is no longer accepted', () => {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
   const keys = [publicKey.export({ format: 'der', type: 'spki' }).toString('base64')];
   const code = (payload) => {
@@ -275,18 +275,14 @@ test('the calculator activation code: on and off, recorded, and only for its sco
     return `${head}.${sign(null, Buffer.from(head), privateKey).toString('base64url')}`;
   };
   const now = Date.parse('2026-10-09T00:00:00Z');
-  const on = checkCode(code({ scope: 'calculator', action: 'activate' }), { keys, now });
-  assert.equal(on.valid, true);
-  assert.equal(on.scope, 'calculator');
-  assert.equal(checkCode(code({ scope: 'calculator' }), { keys, now }).valid, false, 'needs on or off');
-  const store = new ActivationStore({ file: path.join(tmp('act-'), 'activation.json') });
-  assert.equal(store.calculator(now), null);
-  store.record(on, 'admin@acme.io');
-  assert.equal(store.calculator(now).org, 'Acme');
-  assert.equal(store.calculator(Date.parse('2027-02-01')), null, 'off once it expires');
-  store.record(checkCode(code({ scope: 'calculator', action: 'deactivate' }), { keys, now }), 'admin@acme.io');
-  assert.equal(store.calculator(now), null);
-  assert.equal(store.tenants(), null, 'other add-ons untouched');
+  assert.equal(checkCode(code({ scope: 'calculator', action: 'activate' }), { keys, now }).valid, false);
+  assert.equal(checkCode(code({ scope: 'lang:he', action: 'activate' }), { keys, now }).valid, true, 'Hebrew codes still are');
+  // A server that applied one under MZ-01.00.62 starts as before.
+  const file = path.join(tmp('act-'), 'activation.json');
+  fs.writeFileSync(file, JSON.stringify({ tenants: null, calculator: { org: 'Acme', scope: 'calculator', action: 'activate', expires: '2027-01-01T00:00:00Z' }, history: [] }));
+  const store = new ActivationStore({ file });
+  assert.equal(store.tenants(), null);
+  assert.equal(typeof store.calculator, 'undefined');
 });
 
 test('the organisation name: given with the terms, kept when they change, one clean line', () => {

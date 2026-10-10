@@ -873,7 +873,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         <td class="num">${r.extraPercent ? `${num(r.extraPercent, 2)}%` : '—'}</td>
         <td class="num"><b>${num(r.totalCredits, 1)}</b></td>
         <td class="num">${r.bundles === undefined ? '—' : num(r.bundles)}</td>
-        <td><button type="button" class="secondary" data-download>Download</button> <button type="button" class="ghost calc-remove" data-delete-report>Delete</button></td></tr>`,
+        <td><button type="button" class="secondary" data-download>Download</button> ${can('reports.delete') ? '<button type="button" class="ghost calc-remove" data-delete-report>Delete</button>' : ''}</td></tr>`,
       )
       .join('');
   }

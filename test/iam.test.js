@@ -27,7 +27,13 @@ test('default roles: Admin holds everything; Security Analyst all but the Admin-
   for (const p of ['iam.view', 'iam.manage', 'credits.allocate', 'settings.template', 'audit.view', 'triage.run']) {
     assert.ok(DEFAULT_ROLES.analyst.permissions.includes(p), p);
   }
-  assert.deepEqual(new Set(DEFAULT_ROLES.user.permissions), new Set(['findings.fetch', 'reminders.send', 'initiators.tag', 'reports.view', 'reports.remind', 'credits.view', 'settings.view']));
+  assert.deepEqual(new Set(DEFAULT_ROLES.user.permissions), new Set(['findings.fetch', 'reminders.send', 'initiators.tag', 'reports.view', 'reports.remind', 'reports.manage', 'credits.view', 'settings.view']));
+  // The Admin's to hand out: the Cx Credits Calculator, Hebrew; and deleting reports, which no other role can hold.
+  for (const p of ['projections.use', 'language.he', 'reports.delete']) {
+    assert.ok(DEFAULT_ROLES.admin.permissions.includes(p), p);
+    assert.ok(!DEFAULT_ROLES.analyst.permissions.includes(p), p);
+    assert.ok(!DEFAULT_ROLES.user.permissions.includes(p), p);
+  }
   assert.ok(!DEFAULT_ROLES.user.permissions.some((p) => p.startsWith('iam.')), 'IAM is hidden from users');
 });
 
@@ -115,4 +121,37 @@ test('role ids are only ever the roles themselves: "constructor" and "__proto__"
     assert.throws(() => store.saveRole(id, { name: 'x', permissions: [] }, { actorPerms: new Set(PERMISSION_IDS) }), /No such role/, id);
   }
   assert.equal(Object.getPrototypeOf({}).polluted, undefined);
+});
+
+test('deleting reports is the Admin role\'s alone: no other role can hold it, whoever builds it', async () => {
+  const { iam, admin } = await seeded();
+  const as = (user) => ({ actorPerms: iam.permissionsOf(user) });
+  assert.ok(iam.permissionsOf(admin).has('reports.delete'));
+  assert.throws(() => iam.saveRole(null, { name: 'Cleaner', permissions: ['reports.view', 'reports.delete'] }, as(admin)), { status: 400, message: /Only the Admin role can delete reports/ });
+  assert.throws(() => iam.saveRole('analyst', { permissions: [...iam.role('analyst').permissions, 'reports.delete'] }, as(admin)), { status: 400 });
+});
+
+test('MZ-01.00.63, once, on roles an older version saved: the calculator off for Security Analysts, managing reports for every role, deleting them for Admins only', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'iam-mig-')), 'iam.json');
+  fs.writeFileSync(file, JSON.stringify({
+    version: 1,
+    users: [],
+    roles: {
+      analyst: { permissions: ['findings.fetch', 'reports.view', 'reports.manage', 'projections.use', 'iam.view'] },
+      user: { permissions: ['findings.fetch', 'reports.view', 'reports.remind'] },
+      'role-x': { name: 'Auditors', permissions: ['audit.view', 'reports.delete'] },
+    },
+  }));
+  const iam = new IamStore({ file });
+  assert.ok(!iam.role('analyst').permissions.includes('projections.use'), 'an Admin ticks the calculator for whoever should have it');
+  for (const id of ['analyst', 'user', 'role-x']) {
+    for (const p of ['reports.view', 'reports.remind', 'reports.manage']) assert.ok(iam.role(id).permissions.includes(p), `${id}: ${p}`);
+    assert.ok(!iam.role(id).permissions.includes('reports.delete'), `${id}: never deletes reports`);
+  }
+  assert.ok(JSON.parse(fs.readFileSync(file, 'utf8')).migrations.includes('roles-1.0.63'), 'kept, so it is made once');
+  // Made once: the calculator ticked again for Security Analysts afterwards stays ticked.
+  const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+  raw.roles.analyst.permissions.push('projections.use');
+  fs.writeFileSync(file, JSON.stringify(raw));
+  assert.ok(new IamStore({ file }).role('analyst').permissions.includes('projections.use'));
 });

@@ -11,9 +11,6 @@
 //   node scripts/activation.mjs lang <private-key-file> "<organisation>" he on|off [months=12]
 //       Prints a Hebrew activation code ("on") or deactivation code ("off").
 //
-//   node scripts/activation.mjs calculator <private-key-file> "<organisation>" on|off [months=12]
-//       Prints a Cx Credits Calculator activation code ("on") or deactivation code ("off").
-//
 //   node scripts/activation.mjs show <code>
 //       What a code says (without checking its signature).
 import fs from 'node:fs';
@@ -25,7 +22,7 @@ const [command, ...args] = process.argv.slice(2);
 const b64url = (data) => Buffer.from(data).toString('base64url');
 
 function usage() {
-  console.error('Usage:\n  keygen <private-key-file>\n  issue <private-key-file> "<organisation>" <max-tenants> [months]\n  lang <private-key-file> "<organisation>" he on|off [months]\n  calculator <private-key-file> "<organisation>" on|off [months]\n  show <code>');
+  console.error('Usage:\n  keygen <private-key-file>\n  issue <private-key-file> "<organisation>" <max-tenants> [months]\n  lang <private-key-file> "<organisation>" he on|off [months]\n  show <code>');
   process.exit(2);
 }
 
@@ -67,14 +64,6 @@ if (command === 'keygen') {
   const { code, full } = makeCode(key, { org: org.trim(), scope: `lang:${langCode}`, action }, months);
   console.log(code);
   console.error(`For ${full.org}: Hebrew ${action === 'activate' ? 'ON' : 'OFF'}, until ${full.expires.slice(0, 10)}.`);
-} else if (command === 'calculator') {
-  const [file, org, onOff, months = '12'] = args;
-  if (!file || !org || !['on', 'off'].includes(onOff)) usage();
-  const key = createPrivateKey(fs.readFileSync(file));
-  const action = onOff === 'on' ? 'activate' : 'deactivate';
-  const { code, full } = makeCode(key, { org: org.trim(), scope: 'calculator', action }, months);
-  console.log(code);
-  console.error(`For ${full.org}: Cx Credits Calculator ${action === 'activate' ? 'ON' : 'OFF'}, until ${full.expires.slice(0, 10)}.`);
 } else if (command === 'show') {
   const read = readCode(args[0]);
   if (!read) {

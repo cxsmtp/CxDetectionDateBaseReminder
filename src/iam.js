@@ -11,7 +11,7 @@
  *                     the utility-wide monthly credit limit (plus backups,
  *                     which carry those secrets)
  *   Security Analyst  everything else, including users and roles
- *   User              fetch findings, send reminders, follow tracked reports
+ *   User              fetch findings, send reminders, follow and manage tracked reports
  *
  * Nobody can hand out more than they hold: a user may only assign roles, and
  * build roles, whose permissions are all their own, and may only change users
@@ -32,7 +32,8 @@ export const PERMISSIONS = [
   { id: 'initiators.tag', group: 'Dashboard', label: 'Tag initiator addresses', description: 'Give a scan initiator without an address an email address, from the dashboard.' },
   { id: 'reports.view', group: 'Tracked reports', label: 'View tracked reports', description: 'See tracked reports, their progress, and download them.' },
   { id: 'reports.remind', group: 'Tracked reports', label: 'Send follow-ups', description: 'Send a tracked report’s follow-up reminder.' },
-  { id: 'reports.manage', group: 'Tracked reports', label: 'Manage tracked reports', description: 'Save, schedule and delete tracked reports, and verify their fixes with a Checkmarx One rescan (starts scans).' },
+  { id: 'reports.manage', group: 'Tracked reports', label: 'Manage tracked reports', description: 'Save and schedule tracked reports, and verify their fixes with a Checkmarx One rescan (starts scans).' },
+  { id: 'reports.delete', group: 'Tracked reports', label: 'Delete reports', description: 'Delete tracked reports and the Cx Credits Calculator’s projection reports. Only the Admin role holds it: it cannot be given to another role.', special: true, adminOnly: true },
   { id: 'triage.run', group: 'AI & credits', label: 'Run AI Triage & Remediation', description: 'Start AI Triage or Remediation from the dashboard or a tracked report (spends credits).' },
   { id: 'credits.view', group: 'AI & credits', label: 'View credits', description: 'See credit balances and usage.' },
   { id: 'credits.allocate', group: 'AI & credits', label: 'Allocate credits to projects', description: 'Give projects credits out of the credit pool, or take extra credits back.' },
@@ -60,7 +61,8 @@ export const PERMISSIONS = [
   { id: 'activation.manage', group: 'Settings', label: 'Activation codes', description: 'Enter the activation codes that unlock add-ons on this installation (Hebrew; several Checkmarx One tenants), or turn them off.', special: true },
   { id: 'tenants.manage', group: 'Settings', label: 'Super Admin: tenants', description: 'With a tenants activation code: turn on several Checkmarx One tenants, add, rename and remove them, switch between them, and choose who works in which.', special: true },
   { id: 'features.manage', group: 'Beta', label: 'Make Beta features final', description: 'Promote a Beta feature to a standard one (or put it back in Beta) for everyone in the organisation.', special: true },
-  { id: 'projections.use', group: 'AI & credits', label: 'Cx Credits Calculator', description: 'Open the Cx Credits Calculator (once its activation code is applied): work out and save the credits a customer needs for triage and remediation of their backlog and for Fusion scans of their projects, and make projection reports.' },
+  { id: 'projections.use', group: 'AI & credits', label: 'Cx Credits Calculator', description: 'Open the Cx Credits Calculator: work out and save the credits a customer needs for triage and remediation of their backlog and for Fusion scans of their projects, and make projection reports. Admins have it; tick it for any other role that should.' },
+  { id: 'language.he', group: 'Languages', label: 'Hebrew', description: 'Offered Hebrew (עברית) in their language list. Listed here only while a Hebrew activation code is in force; Admins always have it.', language: 'he' },
   { id: 'support.manage', group: 'Access', label: 'Answer support cases & enhancements', description: 'See the support cases and enhancement requests raised in the tenants they work in, answer them, and mark them in progress, completed or declined. Gets an email for each new request.' },
   { id: 'iam.view', group: 'Access', label: 'View users & roles', description: 'See who has access and what each role allows.' },
   { id: 'iam.manage', group: 'Access', label: 'Manage users & roles', description: 'Add, change and remove users and roles — never beyond their own permissions.' },
@@ -70,6 +72,10 @@ export const PERMISSIONS = [
 ];
 export const PERMISSION_IDS = PERMISSIONS.map((p) => p.id);
 const ADMIN_ONLY = PERMISSIONS.filter((p) => p.special).map((p) => p.id);
+/** Held by the Admin role alone: never by any other role, whoever builds it. */
+export const ADMIN_ROLE_ONLY = PERMISSIONS.filter((p) => p.adminOnly).map((p) => p.id);
+/** Permissions that only mean something with an add-on on (a language behind an activation code). */
+export const LANGUAGE_PERMISSIONS = Object.fromEntries(PERMISSIONS.filter((p) => p.language).map((p) => [p.id, p.language]));
 
 export const DEFAULT_ROLES = {
   admin: {
@@ -82,14 +88,14 @@ export const DEFAULT_ROLES = {
   analyst: {
     name: 'Security Analyst',
     description: 'Everything except the Admin-only integrations, credit budget and backups — including users and roles.',
-    // Seeing the Activation codes page is the Admin's to hand out.
-    permissions: PERMISSION_IDS.filter((id) => !ADMIN_ONLY.includes(id) && id !== 'activation.view'),
+    // Seeing the Activation codes page, the Cx Credits Calculator and Hebrew are the Admin's to hand out.
+    permissions: PERMISSION_IDS.filter((id) => !ADMIN_ONLY.includes(id) && !['activation.view', 'projections.use', 'language.he'].includes(id)),
     builtin: true,
   },
   user: {
     name: 'User',
     description: 'Fetch findings, send reminders and follow tracked reports. Settings are read-only; users and roles are hidden.',
-    permissions: ['findings.fetch', 'reminders.send', 'initiators.tag', 'reports.view', 'reports.remind', 'credits.view', 'settings.view'],
+    permissions: ['findings.fetch', 'reminders.send', 'initiators.tag', 'reports.view', 'reports.remind', 'reports.manage', 'credits.view', 'settings.view'],
     builtin: true,
   },
 };
@@ -140,9 +146,13 @@ export class IamStore {
   #state;
   #mtime = 0;
 
+  #migrated = false;
+
   constructor({ file }) {
     this.#file = file;
     this.#state = this.#load();
+    // A change made once to the roles an older version saved is kept, so it is never made twice.
+    if (this.#migrated) this.#save();
   }
 
   /** Pick up changes another process made (e.g. `node scripts/reset-admin.mjs` on a running server). */
@@ -169,16 +179,23 @@ export class IamStore {
       roles[id] = {
         ...role,
         // Admin always holds every permission, including ones added later.
-        permissions: role.locked ? [...PERMISSION_IDS] : validPermissions(stored?.permissions ?? role.permissions),
+        permissions: role.locked ? [...PERMISSION_IDS] : rolePermissions(stored?.permissions ?? role.permissions),
         description: stored?.description ?? role.description,
       };
     }
     for (const [id, role] of Object.entries(raw.roles ?? {})) {
       if (DEFAULT_ROLES[id] || ['__proto__', 'constructor', 'prototype'].includes(id)) continue;
-      roles[id] = { name: String(role.name ?? id), description: String(role.description ?? ''), permissions: validPermissions(role.permissions), builtin: false };
+      roles[id] = { name: String(role.name ?? id), description: String(role.description ?? ''), permissions: rolePermissions(role.permissions), builtin: false };
     }
     const users = Array.isArray(raw.users) ? raw.users.filter((u) => u?.id && u?.email) : [];
-    return { version: 1, roles, users };
+    const migrations = Array.isArray(raw.migrations) ? raw.migrations.filter((m) => typeof m === 'string') : [];
+    const state = { version: 1, roles, users, migrations };
+    if (Object.keys(raw).length && !migrations.includes(ROLES_1_0_63)) {
+      migrateRoles1063(state);
+      this.#migrated = true;
+    }
+    if (!state.migrations.includes(ROLES_1_0_63)) state.migrations.push(ROLES_1_0_63);
+    return state;
   }
 
   #save() {
@@ -478,6 +495,7 @@ export class IamStore {
     if (id && !existing) throw fail(404, 'No such role.');
     if (existing?.locked) throw fail(400, `${existing.name} always holds every permission and cannot be changed.`);
     const perms = validPermissions(permissions);
+    if (perms.some((p) => ADMIN_ROLE_ONLY.includes(p))) throw fail(400, `Only the Admin role can ${perms.includes('reports.delete') ? 'delete reports' : 'hold that permission'}.`);
     if (!this.canGrant(actorPerms, perms)) throw fail(403, 'A role cannot hold permissions you do not have yourself.');
     if (existing && !this.canGrant(actorPerms, existing.permissions)) {
       throw fail(403, `You cannot change "${existing.name}": it holds permissions you do not have.`);
@@ -514,6 +532,27 @@ export class IamStore {
 
 function validPermissions(list) {
   return [...new Set((Array.isArray(list) ? list : []).filter((p) => PERMISSION_IDS.includes(p)))];
+}
+
+/** What a role other than Admin may hold: known permissions, never an Admin-role-only one. */
+function rolePermissions(list) {
+  return validPermissions(list).filter((p) => !ADMIN_ROLE_ONLY.includes(p));
+}
+
+/**
+ * MZ-01.00.63, once, on roles an older version saved: the Cx Credits Calculator is no longer
+ * behind an activation code, so the built-in Security Analyst role stops holding it (an Admin
+ * ticks it for whoever should); and every role may now save, schedule and rescan tracked reports,
+ * while deleting them is the Admin role's alone.
+ */
+const ROLES_1_0_63 = 'roles-1.0.63';
+function migrateRoles1063(state) {
+  const analyst = state.roles.analyst;
+  if (analyst) analyst.permissions = analyst.permissions.filter((p) => p !== 'projections.use');
+  for (const role of Object.values(state.roles)) {
+    if (role.locked) continue;
+    role.permissions = [...new Set([...role.permissions, 'reports.view', 'reports.remind', 'reports.manage'])];
+  }
 }
 
 function cleanAliases(list) {

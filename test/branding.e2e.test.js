@@ -121,7 +121,7 @@ test('who may brand, and who may see the Branding and Activation codes pages', a
   const seen = await uma('GET', '/api/activation');
   assert.equal(seen.status, 200, JSON.stringify(seen.body));
   assert.equal(seen.body.canManage, false);
-  assert.deepEqual(seen.body.people.map((p) => p.email), ['uma@acme.io'], 'only the people within their reach');
+  assert.equal(seen.body.people, undefined, 'no list of people: who sees Hebrew is a role permission now');
   assert.equal((await uma('POST', '/api/activation', { code: 'MZ1.x' })).status, 403, 'seeing is not entering codes');
   assert.equal((await admin('GET', '/api/activation')).body.canManage, true);
 });

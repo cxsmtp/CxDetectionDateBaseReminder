@@ -46,10 +46,10 @@ export function readCode(code) {
 
 /**
  * What a code may unlock. "tenants" is several Checkmarx One tenants; "lang:<code>" a gated
- * language; "calculator" the Cx Credits Calculator (credit projections for customers).
+ * language. (MZ-01.00.62's "calculator" scope is gone: the Cx Credits Calculator is a permission.)
  */
-export const SCOPES = new Set(['tenants', 'lang:he', 'calculator']);
-/** For a language or calculator scope, whether the code turns it on or off. */
+export const SCOPES = new Set(['tenants', 'lang:he']);
+/** For a language scope, whether the code turns it on or off. */
 export const ACTIONS = new Set(['activate', 'deactivate']);
 
 /**
@@ -76,7 +76,7 @@ export function checkCode(code, { now = Date.now(), keys = trustedKeys() } = {})
   const base = p.v === 1 && p.id && p.org && SCOPES.has(scope) && Number.isFinite(expires);
   const forTenants = scope === 'tenants' && Number.isInteger(p.maxTenants) && p.maxTenants >= 2;
   const action = String(p.action ?? '');
-  const forLang = (scope.startsWith('lang:') || scope === 'calculator') && ACTIONS.has(action);
+  const forLang = scope.startsWith('lang:') && ACTIONS.has(action);
   if (!base || !(forTenants || forLang)) return fail('This activation code is not valid.');
   const daysLeft = Math.ceil((expires - now) / DAY_MS);
   const info = {
@@ -106,9 +106,9 @@ export class ActivationStore {
     this.#file = file;
     try {
       const raw = JSON.parse(readFileSync(file, 'utf8'));
-      this.#state = { tenants: raw.tenants ?? null, calculator: raw.calculator ?? null, history: Array.isArray(raw.history) ? raw.history : [] };
+      this.#state = { tenants: raw.tenants ?? null, history: Array.isArray(raw.history) ? raw.history : [] };
     } catch {
-      this.#state = { tenants: null, calculator: null, history: [] };
+      this.#state = { tenants: null, history: [] };
     }
   }
 
@@ -123,7 +123,6 @@ export class ActivationStore {
   record(result, by = '') {
     const entry = { id: result.id, org: result.org, scope: result.scope, action: result.action || 'activate', expires: result.expires, at: new Date().toISOString(), by: String(by ?? '') };
     if (result.scope === 'tenants') this.#state.tenants = { ...entry, maxTenants: result.maxTenants };
-    if (result.scope === 'calculator') this.#state.calculator = entry;
     this.#state.history = [entry, ...this.#state.history].slice(0, 50);
     this.#save();
     return entry;
@@ -135,15 +134,6 @@ export class ActivationStore {
     if (!t) return null;
     const daysLeft = Math.ceil((Date.parse(t.expires) - now) / DAY_MS);
     return { org: t.org, maxTenants: t.maxTenants, expires: t.expires, at: t.at, by: t.by, daysLeft, valid: daysLeft > 0, warn: daysLeft > 0 && daysLeft <= WARN_DAYS };
-  }
-
-  /** The Cx Credits Calculator: on (a code turned it on and has not expired), with when it ends; or null. */
-  calculator(now = Date.now()) {
-    const c = this.#state.calculator;
-    if (!c || c.action !== 'activate') return null;
-    const daysLeft = Math.ceil((Date.parse(c.expires) - now) / DAY_MS);
-    if (daysLeft <= 0) return null;
-    return { org: c.org, expires: c.expires, at: c.at, by: c.by, daysLeft, warn: daysLeft <= WARN_DAYS };
   }
 
   history() {
