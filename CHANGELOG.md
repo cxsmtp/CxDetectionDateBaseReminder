@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.63 | 415/s, 203 (main 394, 585; slower host) | 18.6 s | 10.9 s | 585 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.62 | 501/s, 0 (main 509, 0) | 7.3 s | 586 ms | 584 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.61 | 505/s, 0 (main 508, 0) | 7.7 s | 426 ms | 577 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.60 | 505/s, 0 (main 499, 0) | 6.9 s | 501 ms | 566 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -49,7 +50,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.62 — 2026-10-09 21:32 UTC · [#85](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/85)
+## MZ-01.00.63 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+
+- **Cx Credits Calculator by permission only.** It no longer needs an activation code: Admins have it, and any other role once an Admin ticks **Cx Credits Calculator** on People & roles; the built-in Security Analyst role no longer has it by default (taken off once, on this update).
+- **Hebrew for the roles you choose.** With its activation code applied, **People & roles** lists a **Hebrew** permission: Admins always have it, and ticking it for Security Analyst (or any role) offers Hebrew to everyone with that role at once. This replaces the per-person list that left everyone but the Admin who applied the code without Hebrew.
+- **Deleting reports is the Admin's alone.** A separate **Delete reports** permission, which only the Admin role can hold, now guards deleting tracked reports and the calculator's projection reports.
+- **Everything else on reports, for everyone.** Saving, scheduling, follow-ups and rescans of tracked reports are open to every role, and roles saved by an older version get them once, on this update.
+- **In every language.** The new permissions and notes are in all fourteen other languages, each reviewed twice.
+- **Status.** 585 tests pass; 0 vulnerabilities in `npm audit --omit=dev`; measured on a slower host, where the branch served 415 requests a second against main's 394, with fewer failures than main in both pairs; no new Checkmarx One scan, as the connector needs signing in again ([status](docs/status.md)).
+
+## MZ-01.00.62 — 2026-10-10 01:42 UTC · [#85](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/85)
 
 - **Cx Credits Calculator.** Credit projections is now the Cx Credits Calculator, in a new **Plan** group at the bottom of the menu, after Act, Follow up and Prove: the credits a customer needs for triage and remediation of their backlog and for Fusion scans, saved per customer.
 - **Behind an activation code and a permission.** It appears only once its activation code is applied, and then only for roles with the **Cx Credits Calculator** permission, so it can stay off on a customer's own installation; a deactivation code hides it again and keeps its customers and reports.
