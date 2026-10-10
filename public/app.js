@@ -937,7 +937,7 @@ function renderActivation(a) {
   if (!rows.length) rows.push('<p class="hint">No add-ons are unlocked yet.</p>');
   if (!a.keyConfigured) rows.push('<p class="hint">This build has no maintainer key, so no code can be checked.</p>');
   // Who sees Hebrew is a permission on the roles, listed there while Hebrew is on.
-  if (he.on) rows.push('<p class="hint act-people">Who sees Hebrew: the roles with the <strong>Hebrew</strong> permission, under <a href="#/access/roles">People &amp; roles</a>. Admins always have it; tick it for Security Analyst or any other role that should.</p>');
+  if (he.on) rows.push('<p class="hint">Who sees Hebrew: the roles with the <strong>Hebrew</strong> permission, under <a href="#/access/roles">People &amp; roles</a>. Admins always have it; tick it for Security Analyst or any other role that should.</p>');
   $('act-list').innerHTML = rows.join('');
   // Seeing the page is not changing it: an Admin enters codes.
   $('act-view-only').hidden = Boolean(a.canManage);

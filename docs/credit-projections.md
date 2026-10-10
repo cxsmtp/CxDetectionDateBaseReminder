@@ -10,26 +10,15 @@ At the top, a summary strip adds the two together, with an extra % on top if you
 
 It is in the side menu under **Plan**, after Act, Follow up and Prove. On a phone, open it with **Jump to** (Ctrl K) → *Cx Credits Calculator*.
 
-## Turning it on
+## Who can use it
 
-The calculator is **off until its activation code is applied**, and then only for the people with its permission. Both are needed.
+It is a permission, with no activation code: **Cx Credits Calculator** (`projections.use`, in the *AI & credits* group on People & roles).
+- **Admins** have it, always.
+- **Every other role** gets it only when an Admin ticks it for that role under **People & roles**. So on a customer's own installation (a proof of value, say), where everyone else is a Security Analyst, nobody but the Admins sees it unless an Admin decides otherwise.
+- Taking it away hides the calculator from that role at once; its customers and reports are kept for when it is given back.
+- **Deleting a projection report** is the separate **Delete reports** permission, which only the Admin role can hold.
 
-**1. The activation code.** It is issued with the same private key as the other [activation codes](activation-codes.md), on the machine that holds `issuer-key.pem`:
-
-```
-node scripts/activation.mjs calculator issuer-key.pem "Acme Partners" on
-```
-
-- Add a number of months at the end for a code that lasts other than 12 months.
-- An Admin pastes the code under **Settings → Activation codes**. The calculator turns on straight away for this server, in every tenant.
-- `off` instead of `on` makes a deactivation code: the calculator disappears from the menu and the server refuses its requests. The customers and reports are kept for when it is turned on again.
-- Each code is recorded in the credit audit log.
-
-**2. The permission.** **Cx Credits Calculator** (`projections.use`, in the *AI & credits* group on People & roles):
-- **Admins** have it.
-- **Security Analysts** have it on a new installation. On an installation that existed before MZ-01.00.61, an Admin ticks it for the role, or for any other role, under **People & roles**.
-
-So you can keep the calculator off on a customer's own installation (a proof of value, say), and on for your own.
+From MZ-01.00.62 to this version: the calculator no longer needs its activation code, and the built-in Security Analyst role no longer has the permission by default (it was taken off once, on the update). An Admin ticks it again for whoever should have it. A calculator code applied under MZ-01.00.62 is simply no longer used.
 
 Everyone with the permission in a tenant sees the same customers and reports. With several tenants, each tenant has its own.
 
@@ -141,6 +130,6 @@ For example, 24,000 + 700.5 credits with 10% extra is 27,170.55 credits: 2.72 bu
 - The file is named after the customer and the time it was made, on your clock: `Globex_Cx-credits-projection_2026-10-09_2047.html`.
 - It is one HTML file with everything in it: no scripts and nothing loaded from anywhere. Open it in any browser, or print it to PDF.
 - It carries your organisation's name and who made it, then **Credits required** (each part, the extra, the total and the bundles), then the triage & remediation figures and charts, then the Fusion models, scans by frequency and every project.
-- **Projection reports** lists every report, newest first: customer, when, by whom, each part, the extra %, the total and the bundles. **This customer only** narrows it to the customer open. **Download** makes the same file again; **Delete** removes the report after you confirm.
+- **Projection reports** lists every report, newest first: customer, when, by whom, each part, the extra %, the total and the bundles. **This customer only** narrows it to the customer open. **Download** makes the same file again; **Delete** removes the report after you confirm, and is there only for Admins (the **Delete reports** permission).
 
 Up to 500 reports are kept per tenant (the oldest go first), each up to 4 MB, in the `projection-reports/` folder of the data folder, and in every backup.

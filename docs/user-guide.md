@@ -118,7 +118,11 @@ Everyone signs in and has one role. Tabs and buttons you are not allowed to use 
 | **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, beta. |
 | **User** | Fetch findings, send reminders, follow tracked reports, see credits. Settings are read-only. No Access, Audit or Beta. |
 
-**Cx Credits Calculator** appears only once its [activation code](#activation-codes-admin) is applied. Then it is for Admins and, on new installations, Security Analysts; give it to any role with **Cx Credits Calculator** on People & roles.
+**Cx Credits Calculator** is for Admins; give it to any other role by ticking **Cx Credits Calculator** on People & roles.
+
+**Deleting reports** (tracked reports, and the calculator's projection reports) is for the Admin role only: the **Delete reports** permission cannot be given to another role. Everything else on tracked reports (saving, scheduling, follow-ups, rescans) every role can do.
+
+**Hebrew**, once its activation code is applied, is for the roles with the **Hebrew** permission: Admins always; tick it for any other role on People & roles.
 
 Every role can raise support cases and enhancement requests under **Get help**. Admins answer them (**Answer support cases & enhancements**); on a new installation Security Analysts can too.
 
@@ -451,9 +455,8 @@ For teams that would rather not sign in to one more tool. **Settings → Hands-o
 ### Activation codes (Admin)
 
 Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
-- **Hebrew:** an activation code switches Hebrew on, for the Admin who applied it to start with; tick everyone else who may use it under **Who may use Hebrew** (only they are offered it); a deactivation code removes it. When nobody is ticked, the page warns that nobody sees Hebrew.
+- **Hebrew:** an activation code switches Hebrew on; a deactivation code removes it. Who sees it is a role permission: **Hebrew** on People & roles (listed while Hebrew is on). Admins always have it; tick it for Security Analyst or any other role.
 - **Several tenants:** for organisations that run more than one Checkmarx One tenant (the Super Admin tasks).
-- **Cx Credits Calculator:** an activation code shows the [Cx Credits Calculator](#cx-credits-calculator) to the people with its permission; a deactivation code hides it again and keeps its customers and reports.
 
 Paste the code and select **Apply the code**. What it unlocks is switched on at once. The page lists only what a code has unlocked: until then it says **No add-ons are unlocked yet**, and **Settings → Tenants** is not shown. It shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** enter codes. Roles with **See the Activation codes page** see the section read-only: what is unlocked, and until when. [How codes are issued](activation-codes.md).
 
@@ -850,7 +853,7 @@ Save a scope from the Dashboard (**Save as tracked report**) and follow it over 
 | **Verify** | Prove the fixes with a Checkmarx One rescan, then start the next round (below). |
 | **History** | Every reading: awaiting, confirmed, not exploitable, no longer detected, new, matching now. |
 
-At the top of the panel: **Refresh** (re-reads now; reports also update hourly, and every few minutes after someone triages or remediates), **Download HTML** (the interactive report for its open findings) and **Delete** (its history in the audit log stays).
+At the top of the panel: **Refresh** (re-reads now; reports also update hourly, and every few minutes after someone triages or remediates), **Download HTML** (the interactive report for its open findings) and **Delete** (Admins only; its history in the audit log stays).
 
 ### Verify: rescan, see what is really fixed, next round
 
@@ -878,7 +881,7 @@ A tracked report is worked in **rounds**. Round 1 is the scope it was saved with
 - **In CxMissionZero:** it remembers, for each rescan it starts, whose work it verifies (the initiator of the scan before it) and who asked. Reminders, reports, tracked reports and the Dashboard go on naming that developer.
 - **In Checkmarx One:** the rescan carries the tags `verifies-work-of` (the developer) and `requested-by` (you, or "automatic verification").
 
-Who: anyone with **Manage tracked reports** (Admins and Security Analysts by default). Every rescan, result, switch and new round is in the audit log (type **Verification rescans**).
+Who: anyone with **Manage tracked reports** (every role by default). Every rescan, result, switch and new round is in the audit log (type **Verification rescans**).
 
 "Sent for remediation" counts AI Remediation sent from CxMissionZero. A fix made any other way (by hand, or remediated directly in Checkmarx One) counts as fixed when the rescan no longer finds it. **Rescan now** is always there for that.
 
@@ -1030,7 +1033,7 @@ Send it to whoever maintains CxMissionZero when something goes wrong. **It captu
 
 ## Cx Credits Calculator
 
-**Cx Credits Calculator** (menu group **Plan**; on a phone, through Jump to) works out the credits a customer needs, from their own data, and makes a report of it. It appears once its [activation code](#activation-codes-admin) is applied, for the people with its permission. Each **customer** is saved on this server as you go: **New customer** starts one, **Customer** switches between them, **Delete customer** removes one (its reports stay).
+**Cx Credits Calculator** (menu group **Plan**; on a phone, through Jump to) works out the credits a customer needs, from their own data, and makes a report of it. It is for Admins, and for any role an Admin gives the **Cx Credits Calculator** permission to. Each **customer** is saved on this server as you go: **New customer** starts one, **Customer** switches between them, **Delete customer** removes one (its reports stay).
 
 **Triage & remediation.** Drop the customer's two Checkmarx One exports, **Total Vulnerabilities by Severity** and **Fixed Vulnerabilities by Severity**, on their boxes (or **Load sample data**). Per severity, choose how many findings to triage, the false positives expected, and the credits per triage and per remediation (1 and 3 to start with), then **Apply**. The page shows the credits, the final matrix by severity, the last months week by week, and the backlog forecast with and without the plan. **Customer view** hides the editing controls for showing the customer.
 
@@ -1166,7 +1169,7 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | The email server, Checkmarx One or a git host does not connect | Read the **How to fix it** box under the button (or in the header chip): it names the problem and the steps. Every problem it recognises is in [When a connection does not work](troubleshooting.md). |
 | "Settings rolled back to the last known good configuration" | The new Checkmarx One key or mail server did not work. The message says what failed and how to fix it; fix it and try again. |
 | SMTP test times out | Usually the port and **Secure connection from the start** do not match: 465 needs it on, 587 needs it off. Otherwise a firewall is blocking the port. |
-| Hebrew is on (Settings → Activation codes) but not in the language list | Only the people ticked under **Who may use Hebrew** are offered it. Tick yourself and the others, then **Save who may use Hebrew**. |
+| Hebrew is on (Settings → Activation codes) but not in the language list | Only roles with the **Hebrew** permission are offered it (Admins always). On **People & roles**, tick **Hebrew** for the role, then **Save**; it applies at once. |
 | Gmail refuses the password | Use an App Password, not your normal password. |
 | An uploaded .env file "Not applied" | That line has a mistake (listed with its line number and how to fix it); the setting that worked is kept. Fix the line and upload again. |
 | The report says it cannot reach the server | Be on the company network or VPN. Check **Settings → Reminder server address**, and use **Change address** in the report if the server moved. |
