@@ -107,7 +107,8 @@ audit/audit-YYYY-MM.jsonl   the audit log
 audit.key                   the audit log's HMAC key
 report-signing.key          signs report permissions: emailed reports stay valid after a restore
 tracked-reports.json, known-initiators.json, automation-state.json
-projections.json            Credit projections: each customer's saved profile
+projections.json            Cx Credits Calculator: each customer, as saved
+projection-reports/         Cx Credits Calculator: every projection report made, one file each
 git-cache/                  Beta clones: a cache, never backed up
 report-files/               emailed reports for the email's download button, kept 30 days, never backed up
 backups/                    default BACKUP_DIR (better on another disk)

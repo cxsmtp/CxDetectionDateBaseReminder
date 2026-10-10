@@ -85,6 +85,11 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
             <span>Audit</span>
           </a>
+          <p class="nav-group" data-stage="plan" data-perm="projections.use" data-addon="calculator" title="Work out the Checkmarx One credits a customer needs"><i aria-hidden="true"></i>Plan</p>
+          <a href="#/calculator" data-route="calculator" class="tab" data-stage="plan" data-perm="projections.use" data-addon="calculator">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 7h8" /><path d="M8 11h2" /><path d="M14 11h2" /><path d="M8 15h2" /><path d="M14 15h2" /><path d="M8 18h2" /><path d="M14 18h2" /></svg>
+            <span>Cx Credits Calculator</span>
+          </a>
           <p class="nav-group" data-stage="setup" title="People, settings and logs"><i aria-hidden="true"></i>Set up</p>
           <a href="#/access" data-route="access" class="tab" data-stage="setup" data-perm="iam.view">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5" /></svg>
@@ -100,10 +105,6 @@
           </a>
         </nav>
         <div class="sidebar-tools" id="sidebar-tools" hidden>
-          <a href="#/projections" id="projections-open" class="side-btn side-link" data-route="projections" data-perm="projections.use" title="Project the credits a customer needs: triage and remediation of their backlog, and Fusion scans of each project">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 7h8" /><path d="M8 11h2" /><path d="M14 11h2" /><path d="M8 15h2" /><path d="M14 15h2" /><path d="M8 18h2" /><path d="M14 18h2" /></svg>
-            <span>Credit projections</span>
-          </a>
           <button type="button" id="help-open" class="side-btn help-open" aria-haspopup="menu" aria-expanded="false" aria-controls="help-pop">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6" /><path d="M12 17h.01" /></svg>
             <span>Get help</span>
@@ -1391,6 +1392,8 @@
                 <div><dt>Licence</dt><dd>PolyForm Internal Use 1.0.0 — see <code>LICENSE</code></dd></div>
                 <div><dt>Project</dt><dd><a href="https://github.com/cxsmtp/CxDetectionDateBaseReminder" target="_blank" rel="noopener noreferrer">github.com/cxsmtp/CxDetectionDateBaseReminder</a> — contributions welcome</dd></div>
                 <div><dt>Terms accepted</dt><dd id="about-terms-state">—</dd></div>
+                <div><dt>Organisation</dt><dd><span id="about-org" translate="no">—</span>
+                  <span class="about-org-edit" data-perm="settings.branding"><input type="text" id="about-org-input" maxlength="120" aria-label="Organisation name" autocomplete="organization" /> <button type="button" id="about-org-save">Save</button> <span class="status" id="about-org-status"></span></span></dd></div>
               </dl>
               <p class="onprem-note"><b>On premise, your data stays yours.</b> Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add; and, only when an Admin checks for or installs updates, the registry its own image comes from). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
               <div class="terms-card">
@@ -2071,65 +2074,114 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             </div>
           </div>
 
-          <!-- ================= Credit projections ================= -->
-          <div id="page-projections" class="page projections-page" hidden>
-            <div class="pj-layout">
-              <aside class="panel pj-profiles" aria-label="Projection profiles">
-                <div class="pj-profiles-head">
-                  <h2>Profiles</h2>
-                  <button type="button" class="primary" id="pj-new">New profile</button>
+          <!-- ================= Cx Credits Calculator ================= -->
+          <div id="page-calculator" class="page calc-page" hidden>
+            <section class="panel calc-head">
+              <div class="calc-customer">
+                <label class="field"><span>Customer</span><select id="calc-customer" translate="no"></select></label>
+                <label class="field calc-rename"><span>Name</span><input type="text" id="calc-name" maxlength="120" autocomplete="off" translate="no" /></label>
+                <div class="calc-head-actions">
+                  <button type="button" class="secondary" id="calc-new">New customer</button>
+                  <button type="button" class="link danger" id="calc-delete">Delete customer</button>
+                  <span class="status" id="calc-saved" aria-live="polite"></span>
                 </div>
-                <p class="hint">One profile per customer. Everything in it is saved as you go, on this server, so you can open it again and carry on.</p>
-                <ul class="pj-list" id="pj-list"></ul>
-                <p class="hint" id="pj-empty" hidden>No profiles yet. Start one with <strong>New profile</strong>.</p>
-              </aside>
-              <section class="pj-main" id="pj-main" hidden>
-                <div class="pj-head">
-                  <label class="pj-name"><span class="sr-only">Profile name</span><input type="text" id="pj-name" maxlength="120" autocomplete="off" translate="no" /></label>
-                  <span class="status" id="pj-saved" aria-live="polite"></span>
-                  <button type="button" class="link danger" id="pj-delete">Delete profile</button>
+              </div>
+              <div class="calc-sum" role="group" aria-label="Credits required">
+                <div class="calc-sum-item"><span>Triage &amp; remediation</span><b id="calc-sum-tr">—</b></div>
+                <div class="calc-sum-item"><span>Fusion</span><b id="calc-sum-fusion">—</b></div>
+                <label class="calc-sum-item"><span>Extra credits (%)</span><input type="text" inputmode="decimal" id="calc-extra" class="calc-num" placeholder="0" autocomplete="off" /></label>
+                <div class="calc-sum-item calc-sum-key"><span>Total credits required</span><b id="calc-sum-total">—</b><small class="hint" id="calc-sum-extra"></small></div>
+                <label class="calc-sum-item"><span>Credits per bundle</span><input type="text" inputmode="numeric" id="calc-bundle" class="calc-num" placeholder="10000" autocomplete="off" /></label>
+                <div class="calc-sum-item calc-sum-key"><span>Bundles</span><b id="calc-sum-bundles">—</b><small class="hint" id="calc-sum-exact"></small></div>
+              </div>
+              <div class="calc-report-bar">
+                <p class="hint" id="calc-org-line"></p>
+                <button type="button" class="primary" id="calc-generate">Generate projection report</button>
+              </div>
+              <p class="hint" id="calc-empty" hidden>No customers yet. Start with <strong>New customer</strong>: each customer keeps its own uploads, plan and Fusion projects, saved as you go.</p>
+            </section>
+            <div class="ptabs" role="tablist" aria-label="Cx Credits Calculator" data-ptabs="calculator">
+              <button type="button" role="tab" class="ptab" data-pt="tr">Triage &amp; remediation</button>
+              <button type="button" role="tab" class="ptab" data-pt="fusion">Fusion</button>
+              <button type="button" role="tab" class="ptab" data-pt="reports">Projection reports</button>
+            </div>
+
+            <div data-ptpanel="calculator:tr" class="calc-panel">
+              <section class="panel calc-uploads" id="calc-uploads">
+                <div class="calc-upload-row">
+                  <label class="calc-slot" id="calc-slot-totals"><input type="file" id="calc-file-totals" accept=".xlsx,.csv,.tsv" hidden />
+                    <b translate="no">Total Vulnerabilities by Severity</b><span class="hint" id="calc-file-totals-name">Choose or drop the .xlsx export</span></label>
+                  <label class="calc-slot" id="calc-slot-fixed"><input type="file" id="calc-file-fixed" accept=".xlsx,.csv,.tsv" hidden />
+                    <b translate="no">Fixed Vulnerabilities by Severity</b><span class="hint" id="calc-file-fixed-name">Choose or drop the .xlsx export</span></label>
                 </div>
-                <div class="ptabs" data-ptabs="projections" role="tablist" aria-label="Kinds of projection">
-                  <button type="button" role="tab" class="ptab" data-pt="alacarte" aria-selected="true" title="The credits that triage and remediation of the customer’s backlog take">À la carte</button>
-                  <button type="button" role="tab" class="ptab" data-pt="fusion" aria-selected="false" title="The credits one Fusion scan of each project takes">Fusion</button>
+                <div class="calc-upload-actions">
+                  <button type="button" class="ghost" id="calc-sample">Load sample data</button>
+                  <button type="button" class="ghost" id="calc-present" aria-pressed="false">Customer view</button>
+                  <span class="status" id="calc-upload-status"></span>
                 </div>
-                <div data-ptpanel="projections:alacarte" class="pj-panel">
-                  <p class="hint pj-intro">Upload the customer’s two Checkmarx One exports (<strong>Total vulnerabilities by severity</strong> and <strong>Fixed vulnerabilities by severity</strong>), choose what to fix, and see the credits it takes and how fast the backlog clears. <strong>Export customer report</strong> hands them an interactive copy.</p>
-                  <iframe id="pj-frame" class="pj-frame" title="Backlog cost calculator" src="about:blank"></iframe>
+              </section>
+              <div id="calc-tr"></div>
+            </div>
+
+            <div data-ptpanel="calculator:fusion" class="calc-panel" hidden>
+              <section class="panel">
+                <h2>Fusion scans: what each project needs</h2>
+                <p class="hint">Each project's lines of code are rounded up to whole 10K units on their own, and one Fusion scan costs its model's credits per 10K LOC. Read the projects from Checkmarx One, set a default number of scans, then give more to the projects scanned most often or most critical.</p>
+                <div class="calc-terms">
+                  <label class="field"><span>Projection period (months)</span><input type="number" id="calc-period" min="1" max="60" step="1" /></label>
+                  <label class="field"><span>Default Fusion scans per project</span><input type="number" id="calc-default-scans" min="0" step="1" /></label>
+                  <label class="field"><span>Default model</span><select id="calc-default-model"></select></label>
+                  <label class="field"><span>When frequency and criticality both set a number</span>
+                    <select id="calc-combine"><option value="higher">Use the higher</option><option value="frequency">Scan frequency wins</option><option value="criticality">Criticality wins</option></select></label>
                 </div>
-                <div data-ptpanel="projections:fusion" class="pj-panel" hidden>
-                  <section class="panel">
-                    <h2>Fusion: what one scan of each project costs</h2>
-                    <p class="hint">Fusion is bought in bundles of lines of code. Each project is rounded up to whole bundles on its own: with 10,000-line bundles, projects of 12,000 and 18,000 lines take <strong>2 + 2 = 4</strong> bundles, not the 3 that their 30,000 lines together would make.</p>
-                    <div class="pj-terms">
-                      <label class="field"><span>Lines of code per bundle</span><input type="number" id="pj-bundle" min="1" step="1000" inputmode="numeric" /></label>
-                      <label class="field"><span>Credits per bundle, per scan</span><input type="number" id="pj-price" min="0" step="0.5" inputmode="decimal" /></label>
-                      <div class="pj-read">
-                        <button type="button" class="primary" id="pj-read">Read lines of code from Checkmarx One</button>
-                        <span class="hint" id="pj-read-note"></span>
-                      </div>
-                    </div>
-                  </section>
-                  <div class="pj-kpis" id="pj-kpis"></div>
-                  <p class="pj-callout" id="pj-rounding" hidden></p>
-                  <section class="panel">
-                    <div class="pj-table-head">
-                      <h2>Projects</h2>
-                      <input type="search" id="pj-filter" placeholder="Find a project" aria-label="Find a project" />
-                      <button type="button" class="secondary" id="pj-all">Include all</button>
-                      <button type="button" class="secondary" id="pj-none">Include none</button>
-                      <button type="button" class="secondary" id="pj-add">Add a project by hand</button>
-                      <button type="button" class="secondary" id="pj-csv">Download CSV</button>
-                    </div>
-                    <div class="table-wrap">
-                      <table class="data-table pj-table">
-                        <thead><tr><th>Include</th><th>Project</th><th>Last scan</th><th title="As counted by the last scan; type a number to use another">Lines of code</th><th>Bundles</th><th>Credits per scan</th></tr></thead>
-                        <tbody id="pj-rows"></tbody>
-                      </table>
-                    </div>
-                    <p class="hint" id="pj-rows-empty">No projects yet. <strong>Read lines of code from Checkmarx One</strong> lists every project in this tenant with what its last scan counted; or add projects by hand for a prospect.</p>
-                  </section>
+                <div class="calc-read">
+                  <button type="button" class="primary" id="calc-read">Read projects from Checkmarx One</button>
+                  <span class="hint" id="calc-read-note"></span>
                 </div>
+              </section>
+              <section class="panel">
+                <div class="calc-section-head"><h2>Fusion models</h2><button type="button" class="secondary" id="calc-add-model">Add a model</button></div>
+                <p class="hint">The models the tenant offers and their credits per 10K LOC, read with the projects when Checkmarx One says them; otherwise type them as Checkmarx One shows them when a scan is started.</p>
+                <div class="table-wrap"><table class="data-table calc-models"><thead><tr><th>Model</th><th>Credits per 10K LOC</th><th>From</th><th></th></tr></thead><tbody id="calc-models"></tbody></table></div>
+                <p class="hint" id="calc-models-empty">No model yet: projects are counted in scans and 10K units, without credits, until a model has its credits per 10K LOC.</p>
+              </section>
+              <section class="panel">
+                <h2>Fusion scans by how often projects are scanned</h2>
+                <p class="hint">How often each project was scanned in the last year. Leave a number empty to use the default. <button type="button" class="link" id="calc-suggest">Suggest from how often they are scanned</button></p>
+                <div class="table-wrap"><table class="data-table calc-rules"><thead><tr><th>Scanned today</th><th>Projects</th><th>Fusion scans per project</th><th>Model</th></tr></thead><tbody id="calc-freq"></tbody></table></div>
+              </section>
+              <section class="panel">
+                <h2>Fusion scans by criticality</h2>
+                <p class="hint">The criticality each project has in Checkmarx One (5 is the most critical). Leave a number empty to use the default.</p>
+                <div class="table-wrap"><table class="data-table calc-rules"><thead><tr><th>Criticality</th><th>Projects</th><th>Fusion scans per project</th><th>Model</th></tr></thead><tbody id="calc-crit"></tbody></table></div>
+              </section>
+              <div class="calc-kpis" id="calc-fkpis"></div>
+              <section class="panel">
+                <div class="calc-table-head">
+                  <h2>Projects</h2>
+                  <input type="search" id="calc-filter" placeholder="Find a project" aria-label="Find a project" />
+                  <button type="button" class="secondary" id="calc-all">Include all</button>
+                  <button type="button" class="secondary" id="calc-none">Include none</button>
+                  <button type="button" class="secondary" id="calc-add">Add a project by hand</button>
+                  <button type="button" class="secondary" id="calc-csv">Download CSV</button>
+                </div>
+                <div class="table-wrap">
+                  <table class="data-table calc-projects">
+                    <thead><tr><th>Include</th><th>Project</th><th>Criticality</th><th>Scanned today</th><th>Lines of code</th><th>10K units</th><th>Fusion scans</th><th>Model</th><th>Credits</th></tr></thead>
+                    <tbody id="calc-rows"></tbody>
+                  </table>
+                </div>
+                <p class="hint" id="calc-rows-empty">No projects yet. <strong>Read projects from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.</p>
+              </section>
+            </div>
+
+            <div data-ptpanel="calculator:reports" class="calc-panel" hidden>
+              <section class="panel">
+                <div class="calc-section-head"><h2>Projection reports</h2>
+                  <label class="check"><input type="checkbox" id="calc-reports-mine" checked /> This customer only</label></div>
+                <p class="hint">Every report generated is kept here. Download it again at any time: the file is named after the customer and when the report was made.</p>
+                <div class="table-wrap"><table class="data-table"><thead><tr><th>Customer</th><th>Made</th><th>By</th><th>Triage &amp; remediation</th><th>Fusion</th><th>Extra</th><th>Total credits</th><th>Bundles</th><th></th></tr></thead><tbody id="calc-reports"></tbody></table></div>
+                <p class="hint" id="calc-reports-empty">No reports yet. <strong>Generate projection report</strong> makes one from the customer's triage &amp; remediation and Fusion figures.</p>
               </section>
             </div>
           </div>
@@ -2306,6 +2358,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
         <div class="terms-foot">
           <p class="hint" id="terms-scroll-hint">Read to the end to accept.</p>
           <p class="https-note warn" id="terms-wait" hidden>An administrator must accept these terms for your organisation before CxMissionZero can be used. Ask them to sign in, then try again.</p>
+          <label class="field terms-org" id="terms-org-label" hidden><span>Your organisation’s name</span><input type="text" id="terms-org" maxlength="120" autocomplete="organization" placeholder="For example Acme Corporation" /><small class="hint">It goes on the credit projection reports and other documents CxMissionZero makes. An Admin can change it later in Settings → About &amp; terms.</small></label>
           <label class="check" id="terms-check-label"><input type="checkbox" id="terms-check" disabled /> <span id="terms-check-text">I have read these terms and accept them.</span></label>
           <div class="actions compact">
             <button type="button" class="primary" id="terms-accept" disabled>Accept and continue</button>

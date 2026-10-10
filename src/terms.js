@@ -24,6 +24,8 @@ export const SUPPORTING_NOTICE =
   'CxMissionZero is an independent project, not a Checkmarx product, provided as is with no warranty or support (see its terms of use).';
 
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
+/** An organisation's name: one line, at most 120 characters. */
+export const cleanName = (value) => String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
 
 export class Terms {
   #file;
@@ -66,9 +68,21 @@ export class Terms {
     return entry?.hash === this.hash ? entry : null;
   }
 
-  acceptForOrganisation({ by, ip = '', via = 'page', everyone = false }) {
+  acceptForOrganisation({ by, ip = '', via = 'page', everyone = false, name = '' }) {
     this.#state.organisation = { version: this.version, hash: this.hash, by, ip, via, everyone, at: new Date().toISOString() };
+    if (cleanName(name)) this.#state.organisationName = cleanName(name);
     this.#save();
+  }
+
+  /** The organisation's name, as the Admin who accepted the terms gave it (kept when the terms change). */
+  organisationName() {
+    return this.#state.organisationName ?? '';
+  }
+
+  setOrganisationName(name) {
+    this.#state.organisationName = cleanName(name);
+    this.#save();
+    return this.#state.organisationName;
   }
 
   acceptForUser({ userId, email, ip = '' }) {

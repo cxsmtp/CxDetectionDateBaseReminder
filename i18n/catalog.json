@@ -97,6 +97,30 @@
    "interactive HTML report"
   ]
  },
+ "{0} (default)": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "calculator › new › input › Fusion scans by how often projects are scanned",
+   "calculator › new › input › Fusion scans by criticality",
+   "calculator › triage & remediation › input › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "{0} (least critical)": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › td › Fusion scans by criticality",
+   "calculator › triage & remediation › td › Fusion scans by criticality",
+   "calculator › sample data › td › Fusion scans by criticality"
+  ]
+ },
+ "{0} (most critical)": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › td › Fusion scans by criticality",
+   "calculator › triage & remediation › td › Fusion scans by criticality",
+   "calculator › sample data › td › Fusion scans by criticality"
+  ]
+ },
  "{0} and {1}": {
   "kind": "report",
   "seen": [
@@ -393,6 +417,14 @@
    "Dashboard › remind › td › Projects"
   ]
  },
+ "{0} lines, each project rounded up": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › span",
+   "calculator › triage & remediation › span",
+   "calculator › sample data › span"
+  ]
+ },
  "{0} message(s) covering {1} finding(s) — SMTP not verified, sending is disabled": {
   "kind": "text",
   "seen": [
@@ -491,6 +523,14 @@
    "Dashboard › remind › a"
   ]
  },
+ "{0} open": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span › Choose what to fix",
+   "calculator › plan changed › span › Choose what to fix",
+   "calculator › applied › span › Choose what to fix"
+  ]
+ },
  "{0} open finding": {
   "kind": "report",
   "seen": [
@@ -539,14 +579,6 @@
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
-  ]
- },
- "{0} per bundle: one Fusion scan of every project counted": {
-  "kind": "text",
-  "seen": [
-   "projections › new › span › Fusion: what one scan of each project costs",
-   "projections › fusion › span › Fusion: what one scan of each project costs",
-   "projections › read › span › Fusion: what one scan of each project costs"
   ]
  },
  "{0} person": {
@@ -691,12 +723,36 @@
    "reports › detail › remind › span › Weekly"
   ]
  },
+ "{0} to {1} times a week": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › td › Fusion scans by how often projects are scanned",
+   "calculator › triage & remediation › td › Fusion scans by how often projects are scanned",
+   "calculator › sample data › td › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "{0} to {1} times a week<small class=\"hint\">{2} scans in a year</small>": {
+  "kind": "html",
+  "seen": [
+   "calculator › read › td › Projects",
+   "calculator › model added › td › Projects",
+   "calculator › suggested › td › Projects"
+  ]
+ },
  "{0} to verify: AI Triage or a person decides whether each is real": {
   "kind": "attr:title",
   "seen": [
    "Dashboard › fetching › button",
    "Dashboard › loaded › button",
    "Dashboard › remind › button"
+  ]
+ },
+ "{0} triage + {1} remediation": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span",
+   "calculator › plan changed › span",
+   "calculator › applied › span"
   ]
  },
  "{0} triage credit used, {1} left": {
@@ -753,6 +809,20 @@
    "Dashboard › option › HTTPS"
   ]
  },
+ "{0} weeks": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span",
+   "calculator › plan changed › span",
+   "calculator › applied › span"
+  ]
+ },
+ "{0} weeks read.": {
+  "kind": "text",
+  "seen": [
+   "calculator › upload › p"
+  ]
+ },
  "{0} with a fix asked for: merge it, then rescan": {
   "kind": "attr:title",
   "seen": [
@@ -767,6 +837,14 @@
    "first start › option › HTTPS",
    "sign in › option › HTTPS",
    "Dashboard › option › HTTPS"
+  ]
+ },
+ "{0}-month plan by severity": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › h2 › 3-month plan by severity",
+   "calculator › plan changed › h2 › 3-month plan by severity",
+   "calculator › applied › h2 › 3-month plan by severity"
   ]
  },
  "{0}–{1} days": {
@@ -805,6 +883,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "{0}, rounded up": {
+  "kind": "text",
+  "seen": [
+   "calculator › small"
   ]
  },
  "{0}: {1} {2} credit(s) needed, {3} left": {
@@ -869,6 +953,22 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "{0}K LOC units": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › span",
+   "calculator › triage & remediation › span",
+   "calculator › sample data › span"
+  ]
+ },
+ "{0}K units": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Projects",
+   "sign in › th › Projects",
+   "Dashboard › th › Projects"
   ]
  },
  "/tmp/i{0}n-{1}QoFX{2}/backups — same disk as the state: set BACKUP_DIR to another disk or share": {
@@ -972,6 +1072,14 @@
   ]
  },
  "<i aria-hidden=\"true\"></i>Follow up": {
+  "kind": "html",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
+  ]
+ },
+ "<i aria-hidden=\"true\"></i>Plan": {
   "kind": "html",
   "seen": [
    "first start › p",
@@ -1334,14 +1442,6 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
- "À la carte": {
-  "kind": "text",
-  "seen": [
-   "first start › button › Fusion: what one scan of each project costs",
-   "sign in › button › Fusion: what one scan of each project costs",
-   "Dashboard › button › Fusion: what one scan of each project costs"
-  ]
- },
  "A new feature or an improvement. Follow it until it is done.": {
   "kind": "text",
   "seen": [
@@ -1484,6 +1584,54 @@
    "first start › h2 › About CxMissionZero",
    "sign in › h2 › About CxMissionZero",
    "Dashboard › h2 › About CxMissionZero"
+  ]
+ },
+ "About once a month": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › td › Fusion scans by how often projects are scanned",
+   "calculator › triage & remediation › td › Fusion scans by how often projects are scanned",
+   "calculator › sample data › td › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "About once a month<small class=\"hint\">{0} scans in a year</small>": {
+  "kind": "html",
+  "seen": [
+   "calculator › read › td › Projects",
+   "calculator › model added › td › Projects",
+   "calculator › suggested › td › Projects"
+  ]
+ },
+ "About once a year": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › td › Fusion scans by how often projects are scanned",
+   "calculator › triage & remediation › td › Fusion scans by how often projects are scanned",
+   "calculator › sample data › td › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "About once in {0} months": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › td › Fusion scans by how often projects are scanned",
+   "calculator › triage & remediation › td › Fusion scans by how often projects are scanned",
+   "calculator › sample data › td › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "About once in {0} months<small class=\"hint\">{1} scans in a year</small>": {
+  "kind": "html",
+  "seen": [
+   "calculator › read › td › Projects",
+   "calculator › model added › td › Projects",
+   "calculator › suggested › td › Projects"
+  ]
+ },
+ "About once in {0} weeks": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › td › Fusion scans by how often projects are scanned",
+   "calculator › triage & remediation › td › Fusion scans by how often projects are scanned",
+   "calculator › sample data › td › Fusion scans by how often projects are scanned"
   ]
  },
  "above ↑": {
@@ -1655,6 +1803,22 @@
    "Dashboard › h2 › Activity log"
   ]
  },
+ "Actual backlog": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span › Backlog trend and forecast",
+   "calculator › plan changed › span › Backlog trend and forecast",
+   "calculator › applied › span › Backlog trend and forecast"
+  ]
+ },
+ "Add a model": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Fusion models",
+   "sign in › button › Fusion models",
+   "Dashboard › button › Fusion models"
+  ]
+ },
  "Add a project by hand": {
   "kind": "text",
   "seen": [
@@ -1747,6 +1911,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Adding the customer…": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
   ]
  },
  "Address": {
@@ -1855,7 +2025,7 @@
    "access › roles › input › Roles & permissions"
   ]
  },
- "Admin: Credit projections": {
+ "Admin: Cx Credits Calculator": {
   "kind": "attr:aria-label",
   "seen": [
    "access › input › Roles & permissions",
@@ -2941,6 +3111,14 @@
    "Dashboard › span › Branding"
   ]
  },
+ "Applied": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › button › Choose what to fix",
+   "calculator › plan changed › button › Choose what to fix",
+   "calculator › applied › button › Choose what to fix"
+  ]
+ },
  "Applied.": {
   "kind": "message",
   "seen": [
@@ -3029,14 +3207,6 @@
   "kind": "busy",
   "seen": [
    "busy line"
-  ]
- },
- "As counted by the last scan; type a number to use another": {
-  "kind": "attr:title",
-  "seen": [
-   "first start › th › Projects",
-   "sign in › th › Projects",
-   "Dashboard › th › Projects"
   ]
  },
  "Ask the administrator": {
@@ -3220,6 +3390,14 @@
    "message"
   ]
  },
+ "Automatic": {
+  "kind": "text",
+  "seen": [
+   "calculator › read › option › Projects",
+   "calculator › model added › option › Projects",
+   "calculator › suggested › option › Projects"
+  ]
+ },
  "Automatic follow-up": {
   "kind": "text",
   "seen": [
@@ -3373,12 +3551,52 @@
    "message"
   ]
  },
- "Backlog cost calculator": {
-  "kind": "attr:title",
+ "Backlog": {
+  "kind": "text",
   "seen": [
-   "first start › iframe › Fusion: what one scan of each project costs",
-   "sign in › iframe › Fusion: what one scan of each project costs",
-   "Dashboard › iframe › Fusion: what one scan of each project costs"
+   "calculator › sample data › span › The last 3 months, week by week",
+   "calculator › plan changed › span › The last 3 months, week by week",
+   "calculator › applied › span › The last 3 months, week by week"
+  ]
+ },
+ "Backlog (open vulnerabilities)": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › h3 › The last 3 months, week by week",
+   "calculator › plan changed › h3 › The last 3 months, week by week",
+   "calculator › applied › h3 › The last 3 months, week by week"
+  ]
+ },
+ "Backlog after": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › td › Final matrix",
+   "calculator › plan changed › td › Final matrix",
+   "calculator › applied › td › Final matrix"
+  ]
+ },
+ "Backlog as of <time>{0}-{1}-{2}</time>, compared with <time>{3}-{4}-{5}</time>.": {
+  "kind": "html",
+  "seen": [
+   "calculator › sample data › p",
+   "calculator › plan changed › p",
+   "calculator › applied › p"
+  ]
+ },
+ "Backlog cleared": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span",
+   "calculator › plan changed › span",
+   "calculator › applied › span"
+  ]
+ },
+ "Backlog trend and forecast": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › h2 › Backlog trend and forecast",
+   "calculator › plan changed › h2 › Backlog trend and forecast",
+   "calculator › applied › h2 › Backlog trend and forecast"
   ]
  },
  "Backup & restore": {
@@ -3664,9 +3882,7 @@
  "Bundles": {
   "kind": "text",
   "seen": [
-   "first start › th › Projects",
-   "sign in › th › Projects",
-   "Dashboard › th › Projects"
+   "calculator › div"
   ]
  },
  "Busiest: none yet": {
@@ -3675,6 +3891,14 @@
    "credits › span › Credits used over time",
    "credits › overview › span › Credits used over time",
    "credits › projects › span › Credits used over time"
+  ]
+ },
+ "By": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Projection reports",
+   "sign in › th › Projection reports",
+   "Dashboard › th › Projection reports"
   ]
  },
  "By day": {
@@ -4290,6 +4514,14 @@
    "Dashboard › button"
   ]
  },
+ "Checkmarx One did not say which Fusion models it offers: add them under Fusion models, with their credits per {0}K LOC.": {
+  "kind": "text",
+  "seen": [
+   "calculator › read › div",
+   "calculator › model added › div",
+   "calculator › suggested › div"
+  ]
+ },
  "Checkmarx One followed the data from where it enters the application to this code, and nothing on the way makes it safe.": {
   "kind": "report",
   "seen": [
@@ -4504,6 +4736,14 @@
    "message"
   ]
  },
+ "Choose or drop the .xlsx export": {
+  "kind": "text",
+  "seen": [
+   "first start › span",
+   "sign in › span",
+   "Dashboard › span"
+  ]
+ },
  "Choose people": {
   "kind": "text",
   "seen": [
@@ -4522,6 +4762,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Choose what to fix": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › h2 › Choose what to fix",
+   "calculator › plan changed › h2 › Choose what to fix",
+   "calculator › applied › h2 › Choose what to fix"
   ]
  },
  "Clear": {
@@ -5088,18 +5336,6 @@
    "projections › none included › input › Projects"
   ]
  },
- "Counted project by project: {0} bundles, the same as the {1} lines added up: no project is rounded up.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
- "Counted project by project: {0} bundles. The same {1} lines added up first would be {2}: the {3} more come from rounding each project up to whole bundles, which is how Fusion counts them.": {
-  "kind": "message",
-  "seen": [
-   "message"
-  ]
- },
  "Counting one credit per result…": {
   "kind": "busy",
   "seen": [
@@ -5194,12 +5430,6 @@
    "busy line"
   ]
  },
- "Creating the profile…": {
-  "kind": "busy",
-  "seen": [
-   "busy line"
-  ]
- },
  "Creating…": {
   "kind": "message",
   "seen": [
@@ -5254,26 +5484,6 @@
    "first start › h3 › AI Triage & Remediation from reports",
    "sign in › h3 › AI Triage & Remediation from reports",
    "Dashboard › h3 › AI Triage & Remediation from reports"
-  ]
- },
- "Credit projections": {
-  "kind": "text",
-  "seen": [
-   "first start › span",
-   "sign in › span",
-   "Dashboard › span"
-  ]
- },
- "Credit projections → À la carte": {
-  "kind": "text",
-  "seen": [
-   "Jump to › span"
-  ]
- },
- "Credit projections → Fusion": {
-  "kind": "text",
-  "seen": [
-   "Jump to › span"
   ]
  },
  "Credit settings": {
@@ -5348,12 +5558,18 @@
    "message"
   ]
  },
- "Credits per bundle, per scan": {
+ "Credits per {0}K LOC": {
   "kind": "text",
   "seen": [
-   "first start › span › Fusion: what one scan of each project costs",
-   "sign in › span › Fusion: what one scan of each project costs",
-   "Dashboard › span › Fusion: what one scan of each project costs"
+   "first start › th › Fusion models",
+   "sign in › th › Fusion models",
+   "Dashboard › th › Fusion models"
+  ]
+ },
+ "Credits per bundle": {
+  "kind": "text",
+  "seen": [
+   "calculator › label"
   ]
  },
  "Credits per finding closed": {
@@ -5364,12 +5580,28 @@
    "impact › exec › span"
   ]
  },
- "Credits per scan": {
+ "Credits per remediation": {
   "kind": "text",
   "seen": [
-   "first start › th › Projects",
-   "sign in › th › Projects",
-   "Dashboard › th › Projects"
+   "calculator › sample data › span › Choose what to fix",
+   "calculator › sample data › td › Final matrix",
+   "calculator › plan changed › span › Choose what to fix"
+  ]
+ },
+ "Credits per triage": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span › Choose what to fix",
+   "calculator › sample data › td › Final matrix",
+   "calculator › plan changed › span › Choose what to fix"
+  ]
+ },
+ "Credits per triage and per remediation start at Checkmarx One's {0} and {1}: set them to the customer's agreement. The false-positive rate is your estimate for this customer.": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › p › Choose what to fix",
+   "calculator › plan changed › p › Choose what to fix",
+   "calculator › applied › p › Choose what to fix"
   ]
  },
  "Credits refreshed": {
@@ -5378,10 +5610,22 @@
    "busy line"
   ]
  },
+ "Credits remaining in the tenant": {
+  "kind": "text",
+  "seen": [
+   "calculator › read › span › Fusion"
+  ]
+ },
  "Credits request: {0} for {1}": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Credits required": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "calculator › div"
   ]
  },
  "Credits updated": {
@@ -5442,12 +5686,52 @@
    "Dashboard › input › Automation"
   ]
  },
+ "Critical, with the plan": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span › 3-month plan by severity",
+   "calculator › plan changed › span › 3-month plan by severity",
+   "calculator › applied › span › 3-month plan by severity"
+  ]
+ },
+ "Critical: to triage": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "calculator › sample data › input › Choose what to fix",
+   "calculator › plan changed › input › Choose what to fix",
+   "calculator › applied › input › Choose what to fix"
+  ]
+ },
+ "Criticality": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Fusion scans by criticality",
+   "first start › th › Projects",
+   "sign in › th › Fusion scans by criticality"
+  ]
+ },
+ "Criticality wins": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Fusion scans: what each project needs",
+   "sign in › option › Fusion scans: what each project needs",
+   "Dashboard › option › Fusion scans: what each project needs"
+  ]
+ },
  "Currency": {
   "kind": "text",
   "seen": [
    "first start › span › AI Triage & Remediation from reports",
    "sign in › span › AI Triage & Remediation from reports",
    "Dashboard › span › AI Triage & Remediation from reports"
+  ]
+ },
+ "Current backlog": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › td › Final matrix",
+   "calculator › plan changed › td › Final matrix",
+   "calculator › applied › td › Final matrix"
   ]
  },
  "Current password": {
@@ -5464,6 +5748,64 @@
    "first start › option",
    "sign in › option",
    "Dashboard › option"
+  ]
+ },
+ "Customer": {
+  "kind": "text",
+  "seen": [
+   "first start › span",
+   "first start › th › Projection reports",
+   "sign in › span"
+  ]
+ },
+ "Customer added": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › span",
+   "calculator › triage & remediation › span",
+   "busy line"
+  ]
+ },
+ "Customer deleted": {
+  "kind": "text",
+  "seen": [
+   "calculator › customer deleted › span",
+   "settings › activation (calculator on) › span",
+   "settings › about › span"
+  ]
+ },
+ "Customer view": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
+ "Cx Credits Calculator": {
+  "kind": "text",
+  "seen": [
+   "first start › span",
+   "first start › div",
+   "sign in › span"
+  ]
+ },
+ "Cx Credits Calculator → Fusion": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Cx Credits Calculator → Projection reports": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Cx Credits Calculator → Triage & remediation": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
   ]
  },
  "CX_API_KEY (environment)": {
@@ -5714,6 +6056,22 @@
    "message"
   ]
  },
+ "Debt increase": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › td › Final matrix",
+   "calculator › plan changed › td › Final matrix",
+   "calculator › applied › td › Final matrix"
+  ]
+ },
+ "Debt increase rate": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span › The last 3 months, week by week",
+   "calculator › plan changed › span › The last 3 months, week by week",
+   "calculator › applied › span › The last 3 months, week by week"
+  ]
+ },
  "Decline and sign out": {
   "kind": "text",
   "seen": [
@@ -5730,12 +6088,35 @@
    "Dashboard › option"
   ]
  },
+ "Default": {
+  "kind": "text",
+  "seen": [
+   "calculator › read › small › Projects",
+   "calculator › model added › small › Projects"
+  ]
+ },
  "Default domain — appended to a username when nothing else resolves": {
   "kind": "text",
   "seen": [
    "first start › span › Developer addresses",
    "sign in › span › Developer addresses",
    "Dashboard › span › Developer addresses"
+  ]
+ },
+ "Default Fusion scans per project": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion scans: what each project needs",
+   "sign in › span › Fusion scans: what each project needs",
+   "Dashboard › span › Fusion scans: what each project needs"
+  ]
+ },
+ "Default model": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion scans: what each project needs",
+   "sign in › span › Fusion scans: what each project needs",
+   "Dashboard › span › Fusion scans: what each project needs"
   ]
  },
  "Default restored and saved.": {
@@ -5760,15 +6141,21 @@
    "reports › detail › remind › button › Weekly"
   ]
  },
- "Delete profile": {
+ "Delete customer": {
   "kind": "text",
   "seen": [
-   "first start › button › Fusion: what one scan of each project costs",
-   "sign in › button › Fusion: what one scan of each project costs",
-   "Dashboard › button › Fusion: what one scan of each project costs"
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
   ]
  },
- "Delete this profile?": {
+ "Delete this customer?": {
+  "kind": "dialog",
+  "seen": [
+   "dialog"
+  ]
+ },
+ "Delete this projection report? It cannot be undone.": {
   "kind": "dialog",
   "seen": [
    "dialog"
@@ -5780,7 +6167,13 @@
    "message"
   ]
  },
- "Deleting the profile…": {
+ "Deleting the customer…": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "Deleting the report…": {
   "kind": "busy",
   "seen": [
    "busy line"
@@ -5952,6 +6345,13 @@
    "impact › p › Security debt, week by week",
    "impact › exec › p › Security debt, week by week",
    "impact › detail › p › Security debt, week by week"
+  ]
+ },
+ "Download": {
+  "kind": "text",
+  "seen": [
+   "calculator › report generated › button › Projection reports",
+   "calculator › reports › button › Projection reports"
   ]
  },
  "Download &amp; restore backups <span class=\"badge warn\">Admin</span>": {
@@ -6150,6 +6550,14 @@
    "reports › detail › p › How the rescan works",
    "reports › detail › overview › p › How the rescan works",
    "reports › detail › remind › p › How the rescan works"
+  ]
+ },
+ "Each project's lines of code are rounded up to whole {0}K units on their own, and one Fusion scan costs its model's credits per {1}K LOC. Read the projects from Checkmarx One, set a default number of scans, then give more to the projects scanned most often or most critical.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion scans: what each project needs",
+   "sign in › p › Fusion scans: what each project needs",
+   "Dashboard › p › Fusion scans: what each project needs"
   ]
  },
  "Each request as it is sent; its answer shows under Success or Errors": {
@@ -6406,6 +6814,12 @@
    "Dashboard › option"
   ]
  },
+ "Enough for this projection": {
+  "kind": "text",
+  "seen": [
+   "calculator › read › span › Fusion"
+  ]
+ },
  "Enter address": {
   "kind": "report",
   "seen": [
@@ -6580,6 +6994,14 @@
    "interactive HTML report"
   ]
  },
+ "Estimated true positives": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span",
+   "calculator › plan changed › span",
+   "calculator › applied › span"
+  ]
+ },
  "Event": {
   "kind": "text",
   "seen": [
@@ -6650,6 +7072,20 @@
    "Dashboard › option › Hands-off: set it up once, then leave it"
   ]
  },
+ "Every figure that matters, by severity. Debt increase and fix rate: over the last {0} months.": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › p › Final matrix",
+   "calculator › plan changed › p › Final matrix",
+   "calculator › applied › p › Final matrix"
+  ]
+ },
+ "Every figure that matters, by severity. Debt increase and fix rate: the latest week.": {
+  "kind": "text",
+  "seen": [
+   "calculator › p › Final matrix"
+  ]
+ },
  "Every finding in a reminder links straight to it in the platform. If a link lands in the wrong place, correct the template here — the example below updates as you type.": {
   "kind": "text",
   "seen": [
@@ -6692,6 +7128,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Every report generated is kept here. Download it again at any time: the file is named after the customer and when the report was made.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Projection reports",
+   "sign in › p › Projection reports",
+   "Dashboard › p › Projection reports"
   ]
  },
  "Every setting, explained, with blanks to fill in. Blank values keep what is set now.": {
@@ -6824,6 +7268,14 @@
    "Dashboard › button"
   ]
  },
+ "Exit customer view": {
+  "kind": "text",
+  "seen": [
+   "calculator › customer view › button",
+   "calculator › fusion › button",
+   "calculator › read › button"
+  ]
+ },
  "Expand all": {
   "kind": "message",
   "seen": [
@@ -6874,12 +7326,24 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "Extra": {
+  "kind": "text",
+  "seen": [
+   "calculator › th › Projection reports"
+  ]
+ },
  "Extra credits": {
   "kind": "text",
   "seen": [
    "first start › summary › Extra credits",
    "sign in › summary › Extra credits",
    "Dashboard › summary › Extra credits"
+  ]
+ },
+ "Extra credits (%)": {
+  "kind": "text",
+  "seen": [
+   "calculator › label"
   ]
  },
  "Extra credits each": {
@@ -6912,6 +7376,22 @@
    "first start › option › Credit audit log",
    "sign in › option › Credit audit log",
    "Dashboard › option › Credit audit log"
+  ]
+ },
+ "False positives (estimated)": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › td › Final matrix",
+   "calculator › plan changed › td › Final matrix",
+   "calculator › applied › td › Final matrix"
+  ]
+ },
+ "False positives %": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span › Choose what to fix",
+   "calculator › plan changed › span › Choose what to fix",
+   "calculator › applied › span › Choose what to fix"
   ]
  },
  "Fetch": {
@@ -6960,6 +7440,14 @@
    "connection: cxone › strong › Get started · 1 of 6 done"
   ]
  },
+ "Figure": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › th › Final matrix",
+   "calculator › plan changed › th › Final matrix",
+   "calculator › applied › th › Final matrix"
+  ]
+ },
  "File or package": {
   "kind": "text",
   "seen": [
@@ -6996,6 +7484,14 @@
    "first start › input › Allocated vs used",
    "sign in › input › Allocated vs used",
    "Dashboard › input › Allocated vs used"
+  ]
+ },
+ "Final matrix": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › h2 › Final matrix",
+   "calculator › plan changed › h2 › Final matrix",
+   "calculator › applied › h2 › Final matrix"
   ]
  },
  "Find a permission": {
@@ -7154,6 +7650,14 @@
    "logs › activity › span › Available variables"
   ]
  },
+ "Findings to triage": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span",
+   "calculator › plan changed › span",
+   "calculator › applied › span"
+  ]
+ },
  "Findings tracked": {
   "kind": "text",
   "seen": [
@@ -7238,6 +7742,22 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Fix rate": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span › The last 3 months, week by week",
+   "calculator › sample data › td › Final matrix",
+   "calculator › plan changed › span › The last 3 months, week by week"
+  ]
+ },
+ "Fix rate and debt increase rate (%)": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › h3 › The last 3 months, week by week",
+   "calculator › plan changed › h3 › The last 3 months, week by week",
+   "calculator › applied › h3 › The last 3 months, week by week"
   ]
  },
  "Fix written to {0}: {1}. Review it with git diff, then commit.": {
@@ -7399,6 +7919,22 @@
    "Dashboard › p › Your branding"
   ]
  },
+ "Forecast, no action": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span › Backlog trend and forecast",
+   "calculator › plan changed › span › Backlog trend and forecast",
+   "calculator › applied › span › Backlog trend and forecast"
+  ]
+ },
+ "Forecast, with this plan": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span › Backlog trend and forecast",
+   "calculator › plan changed › span › Backlog trend and forecast",
+   "calculator › applied › span › Backlog trend and forecast"
+  ]
+ },
  "Format": {
   "kind": "text",
   "seen": [
@@ -7511,34 +8047,52 @@
    "Dashboard › button › Fusion: what one scan of each project costs"
   ]
  },
- "Fusion is bought in bundles of lines of code. Each project is rounded up to whole bundles on its own: with {0},{1}-line bundles, projects of {2},{3} and {4},{5} lines take <strong>{6} + {7} = {8}</strong> bundles, not the {9} that their {10},{11} lines together would make.": {
-  "kind": "html",
-  "seen": [
-   "first start › p › Fusion: what one scan of each project costs",
-   "sign in › p › Fusion: what one scan of each project costs",
-   "Dashboard › p › Fusion: what one scan of each project costs"
-  ]
- },
- "Fusion: {0} project": {
+ "Fusion models": {
   "kind": "text",
   "seen": [
-   "projections"
+   "first start › h2 › Fusion models",
+   "sign in › h2 › Fusion models",
+   "Dashboard › h2 › Fusion models"
   ]
  },
- "Fusion: {0} projects": {
+ "Fusion scans": {
   "kind": "text",
   "seen": [
-   "projections › read › span › Profiles",
-   "projections › added › span › Profiles",
-   "projections › no match › span › Profiles"
+   "first start › th › Projects",
+   "sign in › th › Projects",
+   "Dashboard › th › Projects"
   ]
  },
- "Fusion: what one scan of each project costs": {
+ "Fusion scans by criticality": {
   "kind": "text",
   "seen": [
-   "first start › h2 › Fusion: what one scan of each project costs",
-   "sign in › h2 › Fusion: what one scan of each project costs",
-   "Dashboard › h2 › Fusion: what one scan of each project costs"
+   "first start › h2 › Fusion scans by criticality",
+   "sign in › h2 › Fusion scans by criticality",
+   "Dashboard › h2 › Fusion scans by criticality"
+  ]
+ },
+ "Fusion scans by how often projects are scanned": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Fusion scans by how often projects are scanned",
+   "sign in › h2 › Fusion scans by how often projects are scanned",
+   "Dashboard › h2 › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "Fusion scans per project": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Fusion scans by how often projects are scanned",
+   "first start › th › Fusion scans by criticality",
+   "sign in › th › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "Fusion scans: what each project needs": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Fusion scans: what each project needs",
+   "sign in › h2 › Fusion scans: what each project needs",
+   "Dashboard › h2 › Fusion scans: what each project needs"
   ]
  },
  "Gave {0} AI Triage and {1} AI Remediation credits.": {
@@ -7553,6 +8107,14 @@
    "first start › button › People",
    "sign in › button › People",
    "Dashboard › button › People"
+  ]
+ },
+ "Generate projection report": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
   ]
  },
  "generated {0} UTC": {
@@ -7571,6 +8133,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Generating the projection report…": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
   ]
  },
  "Generating the report and sending it to the recipient list…": {
@@ -7832,6 +8400,14 @@
    "credits › Allocated vs used"
   ]
  },
+ "Give your organisation’s name for the reports in <a href=\"#/settings/about\">Settings → About &amp; terms</a>.": {
+  "kind": "html",
+  "seen": [
+   "calculator › p",
+   "calculator › tr › p",
+   "calculator › fusion › p"
+  ]
+ },
  "Given to projects, not used": {
   "kind": "text",
   "seen": [
@@ -8076,6 +8652,22 @@
    "interactive HTML report"
   ]
  },
+ "High, with the plan": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span › 3-month plan by severity",
+   "calculator › plan changed › span › 3-month plan by severity",
+   "calculator › applied › span › 3-month plan by severity"
+  ]
+ },
+ "High: to triage": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "calculator › sample data › input › Choose what to fix",
+   "calculator › plan changed › input › Choose what to fix",
+   "calculator › applied › input › Choose what to fix"
+  ]
+ },
  "History": {
   "kind": "text",
   "seen": [
@@ -8184,12 +8776,36 @@
    "Dashboard › p › SLAs Beta"
   ]
  },
+ "How often each project was scanned in the last year. Leave a number empty to use the default.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion scans by how often projects are scanned",
+   "sign in › p › Fusion scans by how often projects are scanned",
+   "Dashboard › p › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "How often it is scanned": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "calculator › project added › select › Projects",
+   "calculator › report generated › select › Projects",
+   "calculator › reports › select › Projects"
+  ]
+ },
  "How people ask for help": {
   "kind": "attr:aria-label",
   "seen": [
    "first start › div › Get help",
    "sign in › div › Get help",
    "Dashboard › div › Get help"
+  ]
+ },
+ "How the backlog, the fix rate and the rate the debt grows moved each week: where the current backlog comes from.": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › p › The last 3 months, week by week",
+   "calculator › plan changed › p › The last 3 months, week by week",
+   "calculator › applied › p › The last 3 months, week by week"
   ]
  },
  "How the rescan works": {
@@ -8626,6 +9242,12 @@
    "projections › none included › span › Fusion: what one scan of each project costs"
   ]
  },
+ "Includes {0} extra": {
+  "kind": "text",
+  "seen": [
+   "calculator › small"
+  ]
+ },
  "Includes {0} test file Checkmarx One wrote for the fix: {1}.": {
   "kind": "report",
   "seen": [
@@ -8858,6 +9480,14 @@
    "Dashboard › p › Hands-off: set it up once, then leave it"
   ]
  },
+ "It goes on the credit projection reports and other documents CxMissionZero makes. An Admin can change it later in Settings → About & terms.": {
+  "kind": "text",
+  "seen": [
+   "first start › small",
+   "sign in › small",
+   "Dashboard › small"
+  ]
+ },
  "It has a short template to fill in, and the answers come back by email.": {
   "kind": "text",
   "seen": [
@@ -8890,12 +9520,6 @@
    "first start › p › Replace the whole image (a new Node.js or OS base) Beta Companion not running",
    "sign in › p › Replace the whole image (a new Node.js or OS base) Beta Companion not running",
    "Dashboard › p › Replace the whole image (a new Node.js or OS base) Beta Companion not running"
-  ]
- },
- "Its à la carte projection, uploaded exports and Fusion projects go with it. This cannot be undone.": {
-  "kind": "dialog",
-  "seen": [
-   "dialog"
   ]
  },
  "Its last scan did not count lines of code: type them in": {
@@ -9010,14 +9634,6 @@
    "Dashboard › span › Bitbucket"
   ]
  },
- "Kinds of projection": {
-  "kind": "attr:aria-label",
-  "seen": [
-   "first start › div › Fusion: what one scan of each project costs",
-   "sign in › div › Fusion: what one scan of each project costs",
-   "Dashboard › div › Fusion: what one scan of each project costs"
-  ]
- },
  "Language": {
   "kind": "attr:title",
   "seen": [
@@ -9080,14 +9696,6 @@
    "projections"
   ]
  },
- "Last scan": {
-  "kind": "text",
-  "seen": [
-   "first start › th › Projects",
-   "sign in › th › Projects",
-   "Dashboard › th › Projects"
-  ]
- },
  "Last sent: {0}-{1}.": {
   "kind": "message",
   "seen": [
@@ -9124,6 +9732,14 @@
    "settings › option › Replace the whole image (a new Node.js or OS base) Beta Companion not running",
    "logs › option › Replace the whole image (a new Node.js or OS base) Beta Companion not running",
    "logs › activity › option › Replace the whole image (a new Node.js or OS base) Beta Companion not running"
+  ]
+ },
+ "Latest": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › button › Final matrix",
+   "calculator › plan changed › button › Final matrix",
+   "calculator › applied › button › Final matrix"
   ]
  },
  "Latest published": {
@@ -9228,21 +9844,6 @@
    "Dashboard › th › Projects"
   ]
  },
- "Lines of code per bundle": {
-  "kind": "text",
-  "seen": [
-   "first start › span › Fusion: what one scan of each project costs",
-   "sign in › span › Fusion: what one scan of each project costs",
-   "Dashboard › span › Fusion: what one scan of each project costs"
-  ]
- },
- "Lines of code read": {
-  "kind": "text",
-  "seen": [
-   "projections › read › span",
-   "busy line"
-  ]
- },
  "Link straight to that finding in Checkmarx One": {
   "kind": "text",
   "seen": [
@@ -9329,6 +9930,14 @@
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
+  ]
+ },
+ "Load sample data": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
   ]
  },
  "Load the developers": {
@@ -9477,12 +10086,36 @@
    "interactive HTML report"
   ]
  },
+ "Low, with the plan": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span › 3-month plan by severity",
+   "calculator › plan changed › span › 3-month plan by severity",
+   "calculator › applied › span › 3-month plan by severity"
+  ]
+ },
+ "Low: to triage": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "calculator › sample data › input › Choose what to fix",
+   "calculator › plan changed › input › Choose what to fix",
+   "calculator › applied › input › Choose what to fix"
+  ]
+ },
  "Lowest TLS version": {
   "kind": "text",
   "seen": [
    "first start › span › HTTPS",
    "sign in › span › HTTPS",
    "Dashboard › span › HTTPS"
+  ]
+ },
+ "Made": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Projection reports",
+   "sign in › th › Projection reports",
+   "Dashboard › th › Projection reports"
   ]
  },
  "Mail server test finished": {
@@ -9661,6 +10294,22 @@
    "interactive HTML report"
   ]
  },
+ "Medium, with the plan": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span › 3-month plan by severity",
+   "calculator › plan changed › span › 3-month plan by severity",
+   "calculator › applied › span › 3-month plan by severity"
+  ]
+ },
+ "Medium: to triage": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "calculator › sample data › input › Choose what to fix",
+   "calculator › plan changed › input › Choose what to fix",
+   "calculator › applied › input › Choose what to fix"
+  ]
+ },
  "Method": {
   "kind": "text",
   "seen": [
@@ -9765,6 +10414,20 @@
    "settings › Quick setup (.env) / Email server › fix-it box"
   ]
  },
+ "Model": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Fusion models",
+   "first start › th › Fusion scans by how often projects are scanned",
+   "first start › th › Fusion scans by criticality"
+  ]
+ },
+ "Model name": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "calculator › input › Fusion models"
+  ]
+ },
  "Monday": {
   "kind": "text",
   "seen": [
@@ -9831,6 +10494,22 @@
    "first start › summary › More options",
    "sign in › summary › More options",
    "Dashboard › summary › More options"
+  ]
+ },
+ "More than {0} times a week": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › td › Fusion scans by how often projects are scanned",
+   "calculator › triage & remediation › td › Fusion scans by how often projects are scanned",
+   "calculator › sample data › td › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "More than {0} times a week<small class=\"hint\">{1} scans in a year</small>": {
+  "kind": "html",
+  "seen": [
+   "calculator › read › td › Projects",
+   "calculator › model added › td › Projects",
+   "calculator › suggested › td › Projects"
   ]
  },
  "Most open": {
@@ -9927,6 +10606,12 @@
    "Settings › Tenants › field placeholder"
   ]
  },
+ "Name on the reports:": {
+  "kind": "text",
+  "seen": [
+   "calculator › p"
+  ]
+ },
  "Name or id": {
   "kind": "attr:placeholder",
   "seen": [
@@ -9995,6 +10680,14 @@
    "credits › overview › span"
   ]
  },
+ "New customer": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
  "new file": {
   "kind": "report",
   "seen": [
@@ -10019,14 +10712,6 @@
    "first start › span › Create the first administrator",
    "sign in › span › Create the first administrator",
    "Dashboard › span › Create the first administrator"
-  ]
- },
- "New profile": {
-  "kind": "text",
-  "seen": [
-   "first start › button › Profiles",
-   "sign in › button › Profiles",
-   "Dashboard › button › Profiles"
   ]
  },
  "New role": {
@@ -10179,6 +10864,14 @@
    "interactive HTML report"
   ]
  },
+ "No customers yet. Start with <strong>New customer</strong>: each customer keeps its own uploads, plan and Fusion projects, saved as you go.": {
+  "kind": "html",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
+  ]
+ },
  "No date": {
   "kind": "text",
   "seen": [
@@ -10275,6 +10968,30 @@
    "connection: smtp › p"
   ]
  },
+ "No model": {
+  "kind": "text",
+  "seen": [
+   "calculator › model added › option › Fusion scans: what each project needs",
+   "calculator › suggested › option › Fusion scans: what each project needs",
+   "calculator › project added › option › Fusion scans: what each project needs"
+  ]
+ },
+ "No model yet": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › option › Fusion scans: what each project needs",
+   "calculator › triage & remediation › option › Fusion scans: what each project needs",
+   "calculator › sample data › option › Fusion scans: what each project needs"
+  ]
+ },
+ "No model yet: projects are counted in scans and {0}K units, without credits, until a model has its credits per {1}K LOC.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion models",
+   "sign in › p › Fusion models",
+   "Dashboard › p › Fusion models"
+  ]
+ },
  "No open findings at the start of the period.": {
   "kind": "message",
   "seen": [
@@ -10295,14 +11012,6 @@
    "settings › p › AI Triage & Remediation from reports",
    "logs › p › AI Triage & Remediation from reports",
    "logs › activity › p › AI Triage & Remediation from reports"
-  ]
- },
- "No profiles yet. Start one with <strong>New profile</strong>.": {
-  "kind": "html",
-  "seen": [
-   "first start › p › Profiles",
-   "sign in › p › Profiles",
-   "Dashboard › p › Profiles"
   ]
  },
  "No project has an allocation yet — give credits above, or on the Dashboard.": {
@@ -10334,7 +11043,7 @@
    "credits › projects › p › By project, in this period"
   ]
  },
- "No projects yet. <strong>Read lines of code from Checkmarx One</strong> lists every project in this tenant with what its last scan counted; or add projects by hand for a prospect.": {
+ "No projects yet. <strong>Read projects from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.": {
   "kind": "html",
   "seen": [
    "first start › p › Projects",
@@ -10366,6 +11075,14 @@
    "interactive HTML report"
   ]
  },
+ "No reports yet. <strong>Generate projection report</strong> makes one from the customer's triage &amp; remediation and Fusion figures.": {
+  "kind": "html",
+  "seen": [
+   "first start › p › Projection reports",
+   "sign in › p › Projection reports",
+   "Dashboard › p › Projection reports"
+  ]
+ },
  "No requests yet. Raise one with the buttons above.": {
   "kind": "text",
   "seen": [
@@ -10379,12 +11096,6 @@
    "settings › p › Automation",
    "logs › p › Automation",
    "logs › activity › p › Automation"
-  ]
- },
- "No scan": {
-  "kind": "text",
-  "seen": [
-   "projections"
   ]
  },
  "No severities": {
@@ -10463,6 +11174,14 @@
    "impact › span",
    "impact › exec › span",
    "impact › detail › span"
+  ]
+ },
+ "None": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › button › Choose what to fix",
+   "calculator › plan changed › button › Choose what to fix",
+   "calculator › applied › button › Choose what to fix"
   ]
  },
  "none allocated": {
@@ -10601,10 +11320,32 @@
    "reports › detail › remind › th › Weekly"
   ]
  },
+ "Not given yet": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Not in the last year": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › td › Fusion scans by how often projects are scanned",
+   "calculator › triage & remediation › td › Fusion scans by how often projects are scanned",
+   "calculator › sample data › td › Fusion scans by how often projects are scanned"
+  ]
+ },
  "Not in this folder: is it the right repository and branch?": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Not known": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "calculator › model added › input › Fusion models",
+   "calculator › suggested › input › Fusion models",
+   "calculator › project added › input › Fusion models"
   ]
  },
  "Not on this computer yet? Clone and open:": {
@@ -10709,6 +11450,12 @@
   ]
  },
  "Nothing to remediate: no finding of these severities is confirmed and not yet remediated.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Nothing to report yet: upload the two exports, or read the Fusion projects first.": {
   "kind": "message",
   "seen": [
    "message"
@@ -10822,20 +11569,20 @@
    "credits › overview › small"
   ]
  },
- "Of {0} lines, each project rounded up": {
+ "of {0} open": {
   "kind": "text",
   "seen": [
-   "projections › new › span › Fusion: what one scan of each project costs",
-   "projections › fusion › span › Fusion: what one scan of each project costs",
-   "projections › read › span › Fusion: what one scan of each project costs"
+   "calculator › sample data › span",
+   "calculator › plan changed › span",
+   "calculator › applied › span"
   ]
  },
- "Of the projects counted": {
+ "of the current backlog": {
   "kind": "text",
   "seen": [
-   "projections › new › span › Fusion: what one scan of each project costs",
-   "projections › fusion › span › Fusion: what one scan of each project costs",
-   "projections › read › span › Fusion: what one scan of each project costs"
+   "calculator › sample data › span",
+   "calculator › plan changed › span",
+   "calculator › applied › span"
   ]
  },
  "Off": {
@@ -10964,14 +11711,6 @@
    "Dashboard › span › Send reminder"
   ]
  },
- "One profile per customer. Everything in it is saved as you go, on this server, so you can open it again and carry on.": {
-  "kind": "text",
-  "seen": [
-   "first start › p › Profiles",
-   "sign in › p › Profiles",
-   "Dashboard › p › Profiles"
-  ]
- },
  "One request per file: GitHub (GraphQL), GitLab and Bitbucket Data Center (REST), when their token is set": {
   "kind": "text",
   "seen": [
@@ -11096,14 +11835,6 @@
    "interactive HTML report"
   ]
  },
- "Open Credit projections: build and save customer projections of the credits that triage and remediation of a backlog, and Fusion scans of each project, would take.": {
-  "kind": "text",
-  "seen": [
-   "access › small › Roles & permissions",
-   "access › people › small › Roles & permissions",
-   "access › roles › small › Roles & permissions"
-  ]
- },
  "Open findings": {
   "kind": "text",
   "seen": [
@@ -11199,6 +11930,14 @@
   ]
  },
  "Open Settings → Branding: the organisation’s names, logo and colours that everyone uses by default.": {
+  "kind": "text",
+  "seen": [
+   "access › small › Roles & permissions",
+   "access › people › small › Roles & permissions",
+   "access › roles › small › Roles & permissions"
+  ]
+ },
+ "Open the Cx Credits Calculator (once its activation code is applied): work out and save the credits a customer needs for triage and remediation of their backlog and for Fusion scans of their projects, and make projection reports.": {
   "kind": "text",
   "seen": [
    "access › small › Roles & permissions",
@@ -11340,6 +12079,20 @@
    "Dashboard › span › No certificate yet? Create a request (CSR) for IT"
   ]
  },
+ "Organisation name": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "first start › input › About CxMissionZero",
+   "sign in › input › About CxMissionZero",
+   "Dashboard › input › About CxMissionZero"
+  ]
+ },
+ "Organisation name saved": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
  "origin|From": {
   "kind": "text",
   "seen": [
@@ -11364,6 +12117,14 @@
    "first start › span › Credit audit log",
    "first start › th › Credit audit log",
    "sign in › span › Credit audit log"
+  ]
+ },
+ "Over {0} months": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › span",
+   "calculator › triage & remediation › span",
+   "calculator › sample data › span"
   ]
  },
  "Overrides — one <code>username = email</code> per line": {
@@ -11590,6 +12351,14 @@
    "Dashboard › p › Allocated vs used"
   ]
  },
+ "Per severity: how many open findings to triage, the false positives expected, and the credits triage and remediation take. Changes count once you select <strong>Apply</strong>.": {
+  "kind": "html",
+  "seen": [
+   "calculator › sample data › p › Choose what to fix",
+   "calculator › plan changed › p › Choose what to fix",
+   "calculator › applied › p › Choose what to fix"
+  ]
+ },
  "Period": {
   "kind": "text",
   "seen": [
@@ -11604,6 +12373,14 @@
    "first start › form",
    "sign in › form",
    "Dashboard › form"
+  ]
+ },
+ "Period for debt increase and fix rate": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "calculator › sample data › div › Final matrix",
+   "calculator › plan changed › div › Final matrix",
+   "calculator › applied › div › Final matrix"
   ]
  },
  "Permission": {
@@ -11888,38 +12665,6 @@
    "busy line"
   ]
  },
- "Profile created": {
-  "kind": "text",
-  "seen": [
-   "projections › new › span",
-   "projections › fusion › span",
-   "busy line"
-  ]
- },
- "Profile deleted": {
-  "kind": "text",
-  "seen": [
-   "projections › deleted › span",
-   "Get help › menu › span",
-   "help › enhancement › span"
-  ]
- },
- "Profile name": {
-  "kind": "text",
-  "seen": [
-   "first start › span › Fusion: what one scan of each project costs",
-   "sign in › span › Fusion: what one scan of each project costs",
-   "Dashboard › span › Fusion: what one scan of each project costs"
-  ]
- },
- "Profiles": {
-  "kind": "text",
-  "seen": [
-   "first start › h2 › Profiles",
-   "sign in › h2 › Profiles",
-   "Dashboard › h2 › Profiles"
-  ]
- },
  "Programming languages": {
   "kind": "text",
   "seen": [
@@ -11966,20 +12711,28 @@
    "logs › activity › span › Available variables"
   ]
  },
- "Project the credits a customer needs: triage and remediation of their backlog, and Fusion scans of each project": {
-  "kind": "attr:title",
+ "Projection period (months)": {
+  "kind": "text",
   "seen": [
-   "first start › a",
-   "sign in › a",
-   "Dashboard › a"
+   "first start › span › Fusion scans: what each project needs",
+   "sign in › span › Fusion scans: what each project needs",
+   "Dashboard › span › Fusion scans: what each project needs"
   ]
  },
- "Projection profiles": {
-  "kind": "attr:aria-label",
+ "Projection report generated": {
+  "kind": "text",
   "seen": [
-   "first start › aside › Profiles",
-   "sign in › aside › Profiles",
-   "Dashboard › aside › Profiles"
+   "calculator › report generated › span",
+   "calculator › reports › span",
+   "busy line"
+  ]
+ },
+ "Projection reports": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "first start › h2 › Projection reports",
+   "sign in › button"
   ]
  },
  "Projects": {
@@ -11988,14 +12741,6 @@
    "first start › section › Projects",
    "first start › h2 › Projects",
    "sign in › section › Projects"
-  ]
- },
- "Projects counted": {
-  "kind": "text",
-  "seen": [
-   "projections › new › span › Fusion: what one scan of each project costs",
-   "projections › fusion › span › Fusion: what one scan of each project costs",
-   "projections › read › span › Fusion: what one scan of each project costs"
   ]
  },
  "Projects for commit lookups — group/project, one per line": {
@@ -12022,12 +12767,26 @@
    "Dashboard › label"
   ]
  },
+ "Projects read": {
+  "kind": "text",
+  "seen": [
+   "calculator › read › span",
+   "busy line"
+  ]
+ },
  "Projects someone fetched in the last couple of minutes are normally reused when nothing was rescanned or triaged from here since. Tick to read every project from Checkmarx One again.": {
   "kind": "attr:title",
   "seen": [
    "first start › label › Fetch",
    "sign in › label › Fetch",
    "Dashboard › label › Fetch"
+  ]
+ },
+ "Projects whose model has no credits per {0}K LOC: {1}": {
+  "kind": "text",
+  "seen": [
+   "calculator › read › span",
+   "calculator › model added › span"
   ]
  },
  "Projects with nothing open, of those fetched": {
@@ -12190,12 +12949,12 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
- "Read lines of code from Checkmarx One": {
+ "Read projects from Checkmarx One": {
   "kind": "text",
   "seen": [
-   "first start › button › Fusion: what one scan of each project costs",
-   "sign in › button › Fusion: what one scan of each project costs",
-   "Dashboard › button › Fusion: what one scan of each project costs"
+   "first start › button › Fusion scans: what each project needs",
+   "sign in › button › Fusion scans: what each project needs",
+   "Dashboard › button › Fusion scans: what each project needs"
   ]
  },
  "Read the answer below: it usually names the problem.": {
@@ -12248,7 +13007,7 @@
    "message"
   ]
  },
- "Reading lines of code from Checkmarx One…": {
+ "Reading projects from Checkmarx One…": {
   "kind": "busy",
   "seen": [
    "busy line"
@@ -12695,14 +13454,6 @@
    "message"
   ]
  },
- "Remove this project": {
-  "kind": "attr:title",
-  "seen": [
-   "projections › added › button › Projects",
-   "projections › none included › button › Projects",
-   "projections › à la carte › button › Projects"
-  ]
- },
  "Removed": {
   "kind": "busy",
   "seen": [
@@ -12821,6 +13572,14 @@
    "credits › overview › span"
   ]
  },
+ "Report deleted": {
+  "kind": "text",
+  "seen": [
+   "calculator › report deleted › span",
+   "calculator › customer deleted › span",
+   "settings › activation (calculator on) › span"
+  ]
+ },
  "Report each threshold once (recommended)": {
   "kind": "text",
   "seen": [
@@ -12869,6 +13628,12 @@
    "first start › p",
    "sign in › p",
    "Dashboard › p"
+  ]
+ },
+ "Reports carry your organisation’s name once an Admin gives it (Settings → About & terms).": {
+  "kind": "text",
+  "seen": [
+   "calculator › p"
   ]
  },
  "Reports issued": {
@@ -13482,6 +14247,12 @@
    "busy line"
   ]
  },
+ "Saving the organisation name…": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
  "Saving the tracked report…": {
   "kind": "busy",
   "seen": [
@@ -13497,9 +14268,33 @@
  "Scan counted {0}": {
   "kind": "text",
   "seen": [
-   "projections › added › span › Projects",
-   "projections › none included › span › Projects",
-   "projections › à la carte › span › Projects"
+   "calculator › project added › small › Projects",
+   "calculator › report generated › small › Projects",
+   "calculator › reports › small › Projects"
+  ]
+ },
+ "Scan frequency": {
+  "kind": "text",
+  "seen": [
+   "calculator › suggested › small › Projects",
+   "calculator › project added › small › Projects",
+   "calculator › report generated › small › Projects"
+  ]
+ },
+ "Scan frequency wins": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Fusion scans: what each project needs",
+   "sign in › option › Fusion scans: what each project needs",
+   "Dashboard › option › Fusion scans: what each project needs"
+  ]
+ },
+ "Scanned today": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Fusion scans by how often projects are scanned",
+   "first start › th › Projects",
+   "sign in › th › Fusion scans by how often projects are scanned"
   ]
  },
  "Schedule": {
@@ -13732,7 +14527,7 @@
    "access › roles › input › Roles & permissions"
   ]
  },
- "Security Analyst: Credit projections": {
+ "Security Analyst: Cx Credits Calculator": {
   "kind": "attr:aria-label",
   "seen": [
    "access › input › Roles & permissions",
@@ -14480,6 +15275,12 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "Set here": {
+  "kind": "text",
+  "seen": [
+   "calculator › small › Projects"
+  ]
+ },
  "Set only when the mail covers a single project": {
   "kind": "text",
   "seen": [
@@ -14853,6 +15654,12 @@
    "Dashboard › fetching › span"
   ]
  },
+ "Short by {0}": {
+  "kind": "text",
+  "seen": [
+   "calculator › read › span › Fusion"
+  ]
+ },
  "Show": {
   "kind": "attr:aria-label",
   "seen": [
@@ -15111,6 +15918,14 @@
    "connection: cxone › li › Get started · 1 of 6 done"
   ]
  },
+ "Solid: the backlog so far. Dashed: the next {0} months with the findings above fixed evenly, against the pace new ones arrive. Log scale, as severities differ by orders of magnitude.": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › p › 3-month plan by severity",
+   "calculator › plan changed › p › 3-month plan by severity",
+   "calculator › applied › p › 3-month plan by severity"
+  ]
+ },
  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": {
   "kind": "text",
   "seen": [
@@ -15187,6 +16002,14 @@
    "first start › span › Branding",
    "sign in › span › Branding",
    "Dashboard › span › Branding"
+  ]
+ },
+ "stage|Plan": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span",
+   "calculator › span",
+   "calculator › tr › span"
   ]
  },
  "stage|Set up": {
@@ -15490,6 +16313,14 @@
    "first start › span › Activity log",
    "sign in › span › Activity log",
    "Dashboard › span › Activity log"
+  ]
+ },
+ "Suggest from how often they are scanned": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Fusion scans by how often projects are scanned",
+   "sign in › button › Fusion scans by how often projects are scanned",
+   "Dashboard › button › Fusion scans by how often projects are scanned"
   ]
  },
  "Sunday": {
@@ -15960,6 +16791,14 @@
    "reports › detail › remind › p › Weekly"
   ]
  },
+ "The backlog grew by {0} a month on average recently: fixes are not keeping pace with new findings.": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › p › Backlog trend and forecast",
+   "calculator › plan changed › p › Backlog trend and forecast",
+   "calculator › applied › p › Backlog trend and forecast"
+  ]
+ },
  "The browser (github.dev, GitLab…)": {
   "kind": "report",
   "seen": [
@@ -16014,6 +16853,14 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "The Checkmarx One credits a customer needs: triage and remediation of their backlog, and Fusion scans of their projects": {
+  "kind": "text",
+  "seen": [
+   "calculator › p",
+   "calculator › tr › p",
+   "calculator › fusion › p"
+  ]
+ },
  "The Checkmarx One tenant you are working in": {
   "kind": "attr:title",
   "seen": [
@@ -16038,20 +16885,12 @@
    "credits › projects › p"
   ]
  },
- "The credits one Fusion scan of each project takes": {
-  "kind": "attr:title",
+ "The criticality each project has in Checkmarx One ({0} is the most critical). Leave a number empty to use the default.": {
+  "kind": "text",
   "seen": [
-   "first start › button › Fusion: what one scan of each project costs",
-   "sign in › button › Fusion: what one scan of each project costs",
-   "Dashboard › button › Fusion: what one scan of each project costs"
-  ]
- },
- "The credits that triage and remediation of the customer’s backlog take": {
-  "kind": "attr:title",
-  "seen": [
-   "first start › button › Fusion: what one scan of each project costs",
-   "sign in › button › Fusion: what one scan of each project costs",
-   "Dashboard › button › Fusion: what one scan of each project costs"
+   "first start › p › Fusion scans by criticality",
+   "sign in › p › Fusion scans by criticality",
+   "Dashboard › p › Fusion scans by criticality"
   ]
  },
  "The Dashboard's Remind panel links straight to it.": {
@@ -16084,6 +16923,12 @@
    "help › raised › span › Submit a support case",
    "help › mine › span › Submit a support case",
    "help › filtered › span › Submit a support case"
+  ]
+ },
+ "The file reader could not be loaded. Reload the page.": {
+  "kind": "message",
+  "seen": [
+   "message"
   ]
  },
  "The first time, it asks where you keep your code; after that it is one click.": {
@@ -16190,6 +17035,14 @@
    "first start › p › Your profile",
    "sign in › p › Your profile",
    "Dashboard › p › Your profile"
+  ]
+ },
+ "The last {0} months, week by week": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › h2 › The last 3 months, week by week",
+   "calculator › plan changed › h2 › The last 3 months, week by week",
+   "calculator › applied › h2 › The last 3 months, week by week"
   ]
  },
  "The last request did not finish (the server restarted). Try again.": {
@@ -16310,6 +17163,14 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The models the tenant offers and their credits per {0}K LOC, read with the projects when Checkmarx One says them; otherwise type them as Checkmarx One shows them when a scan is started.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion models",
+   "sign in › p › Fusion models",
+   "Dashboard › p › Fusion models"
   ]
  },
  "The monthly summary goes to": {
@@ -16538,6 +17399,12 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "Their uploads, plan and Fusion projects go with them. Reports already made are kept.": {
+  "kind": "dialog",
+  "seen": [
+   "dialog"
+  ]
+ },
  "Theme: follow the device": {
   "kind": "attr:title",
   "seen": [
@@ -16600,6 +17467,14 @@
   "kind": "text",
   "seen": [
    "Settings › Activation codes"
+  ]
+ },
+ "This customer only": {
+  "kind": "text",
+  "seen": [
+   "first start › label › Projection reports",
+   "sign in › label › Projection reports",
+   "Dashboard › label › Projection reports"
   ]
  },
  "This is almost always a company proxy or firewall with an old certificate: ask your network team to renew it or to exclude *.checkmarx.net from HTTPS inspection.": {
@@ -16867,6 +17742,14 @@
    "Dashboard › span › Match usernames to email addresses"
   ]
  },
+ "to remediate": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › span",
+   "calculator › plan changed › span",
+   "calculator › applied › span"
+  ]
+ },
  "To send as another address (a shared mailbox), the signed-in account needs Send As permission for it: Microsoft 365 admin center → the shared mailbox → Send as.": {
   "kind": "message",
   "seen": [
@@ -16879,6 +17762,14 @@
    "first start › p › Tenants",
    "sign in › p › Tenants",
    "Dashboard › p › Tenants"
+  ]
+ },
+ "To triage": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › td › Final matrix",
+   "calculator › plan changed › td › Final matrix",
+   "calculator › applied › td › Final matrix"
   ]
  },
  "to triage ({0} credits)": {
@@ -16969,6 +17860,20 @@
    "first start › th › Projects",
    "sign in › th › Projects",
    "Dashboard › th › Projects"
+  ]
+ },
+ "Total credits": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Projection reports",
+   "sign in › th › Projection reports",
+   "Dashboard › th › Projection reports"
+  ]
+ },
+ "Total credits required": {
+  "kind": "text",
+  "seen": [
+   "calculator › div"
   ]
  },
  "Track": {
@@ -17065,6 +17970,14 @@
    "reports › span",
    "credits › span",
    "credits › overview › span"
+  ]
+ },
+ "Triage & remediation": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "first start › th › Projection reports",
+   "sign in › button"
   ]
  },
  "Triage a finding again when it already has a verdict (spends credits again)": {
@@ -17203,6 +18116,14 @@
    "sign in › button"
   ]
  },
+ "True positives (estimated)": {
+  "kind": "text",
+  "seen": [
+   "calculator › sample data › td › Final matrix",
+   "calculator › plan changed › td › Final matrix",
+   "calculator › applied › td › Final matrix"
+  ]
+ },
  "Truthy only when more than one project is covered": {
   "kind": "text",
   "seen": [
@@ -17337,6 +18258,14 @@
    "projections › none included › input › Projects"
   ]
  },
+ "Typed here": {
+  "kind": "text",
+  "seen": [
+   "calculator › model added › td › Fusion models",
+   "calculator › suggested › td › Fusion models",
+   "calculator › project added › td › Fusion models"
+  ]
+ },
  "Uncertain": {
   "kind": "report",
   "seen": [
@@ -17355,6 +18284,22 @@
   "kind": "text",
   "seen": [
    "Settings › Activation codes › badge"
+  ]
+ },
+ "Unnamed model": {
+  "kind": "text",
+  "seen": [
+   "calculator › model added › option › Fusion scans: what each project needs",
+   "calculator › model added › option › Fusion scans by how often projects are scanned",
+   "calculator › model added › option › Fusion scans by criticality"
+  ]
+ },
+ "Unnamed model · {0}": {
+  "kind": "text",
+  "seen": [
+   "calculator › suggested › option › Fusion scans: what each project needs",
+   "calculator › suggested › option › Fusion scans by how often projects are scanned",
+   "calculator › suggested › option › Fusion scans by criticality"
   ]
  },
  "Unreachable": {
@@ -17543,20 +18488,19 @@
    "access › roles › small › Roles & permissions"
   ]
  },
+ "Upload both exports from the customer's Checkmarx One (or load the sample data) to see their backlog, its trend and the credits a plan takes.": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › p",
+   "calculator › triage & remediation › p"
+  ]
+ },
  "Upload it here.": {
   "kind": "text",
   "seen": [
    "first start › li › Quick setup from a .env file",
    "sign in › li › Quick setup from a .env file",
    "Dashboard › li › Quick setup from a .env file"
-  ]
- },
- "Upload the customer’s two Checkmarx One exports (<strong>Total vulnerabilities by severity</strong> and <strong>Fixed vulnerabilities by severity</strong>), choose what to fix, and see the credits it takes and how fast the backlog clears. <strong>Export customer report</strong> hands them an interactive copy.": {
-  "kind": "html",
-  "seen": [
-   "first start › p › Fusion: what one scan of each project costs",
-   "sign in › p › Fusion: what one scan of each project costs",
-   "Dashboard › p › Fusion: what one scan of each project costs"
   ]
  },
  "Uploaded certificate removed": {
@@ -17685,6 +18629,14 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Use the higher": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Fusion scans: what each project needs",
+   "sign in › option › Fusion scans: what each project needs",
+   "Dashboard › option › Fusion scans: what each project needs"
   ]
  },
  "Use the name shown under \"Did you mean\", as in the sample file.": {
@@ -17817,7 +18769,7 @@
    "access › roles › input › Roles & permissions"
   ]
  },
- "User: Credit projections": {
+ "User: Cx Credits Calculator": {
   "kind": "attr:aria-label",
   "seen": [
    "access › input › Roles & permissions",
@@ -18385,14 +19337,6 @@
    "message"
   ]
  },
- "What a customer would spend: triage and remediation of their backlog, and Fusion scans of each project": {
-  "kind": "text",
-  "seen": [
-   "projections › p",
-   "projections › none › p",
-   "projections › new › p"
-  ]
- },
  "What a manual triage and a manual fix take in your teams, to work out the hours AI saved. Add an hourly cost and the price of one credit to see money too; leave them at {0} to show hours only.": {
   "kind": "text",
   "seen": [
@@ -18469,6 +19413,14 @@
    "reports › detail › p › Weekly",
    "reports › detail › overview › p › Weekly",
    "reports › detail › remind › p › Weekly"
+  ]
+ },
+ "When frequency and criticality both set a number": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion scans: what each project needs",
+   "sign in › span › Fusion scans: what each project needs",
+   "Dashboard › span › Fusion scans: what each project needs"
   ]
  },
  "When the reminder was produced (UTC)": {
@@ -18623,6 +19575,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Work out the Checkmarx One credits a customer needs": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
   ]
  },
  "Working…": {
@@ -18823,6 +19783,14 @@
    "first start › p › Email server (SMTP)",
    "sign in › p › Email server (SMTP)",
    "Dashboard › p › Email server (SMTP)"
+  ]
+ },
+ "Your organisation’s name": {
+  "kind": "text",
+  "seen": [
+   "first start › span",
+   "sign in › span",
+   "Dashboard › span"
   ]
  },
  "Your own key from <strong>Checkmarx One → Identity &amp; Access Management → API Keys</strong>. Its identity must be added to a person under <strong>Access</strong>, and it must be for this server's Checkmarx One tenant. The key stays in the server's memory for this session only.": {

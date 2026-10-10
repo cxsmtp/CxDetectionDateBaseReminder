@@ -80,9 +80,14 @@ test('nothing works until an Admin accepts the terms for the organisation, then 
   // Accepting: for the organisation, only the current version, only by an Admin.
   assert.equal((await admin('POST', '/api/terms/accept', { version: '0.9', forOrganisation: true })).status, 409);
   assert.equal((await admin('POST', '/api/terms/accept', { version: '1.0' })).status, 403, 'the Admin says it is for the organisation');
-  const accepted = await admin('POST', '/api/terms/accept', { version: '1.0', forOrganisation: true });
+  // The Admin names the organisation (for what CxMissionZero makes, such as projection reports).
+  const unnamed = await admin('POST', '/api/terms/accept', { version: '1.0', forOrganisation: true });
+  assert.equal(unnamed.status, 400);
+  assert.match(unnamed.json.error, /organisation’s name/);
+  const accepted = await admin('POST', '/api/terms/accept', { version: '1.0', forOrganisation: true, organisationName: ' Acme  Corporation ' });
   assert.equal(accepted.status, 200);
   assert.equal(accepted.json.terms.accepted, true);
+  assert.equal(accepted.json.organisationName, 'Acme Corporation');
   const opened = await admin('GET', '/api/report-server');
   assert.equal(opened.status, 200, JSON.stringify(opened.json));
   const reportNow = await (await fetch(`${base}/api/relay/hello`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).json();
