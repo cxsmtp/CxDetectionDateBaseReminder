@@ -50,7 +50,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.63 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.63 — 2026-10-10 02:18 UTC · [#86](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/86)
 
 - **Cx Credits Calculator by permission only.** It no longer needs an activation code: Admins have it, and any other role once an Admin ticks **Cx Credits Calculator** on People & roles; the built-in Security Analyst role no longer has it by default (taken off once, on this update).
 - **Hebrew for the roles you choose.** With its activation code applied, **People & roles** lists a **Hebrew** permission: Admins always have it, and ticking it for Security Analyst (or any role) offers Hebrew to everyone with that role at once. This replaces the per-person list that left everyone but the Admin who applied the code without Hebrew.
