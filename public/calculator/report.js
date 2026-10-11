@@ -174,7 +174,7 @@ export function buildReport(data, { t, lang = 'en', dir = 'ltr' } = {}) {
     <div>
       <div class="eyebrow">${data.organisation ? esc(data.organisation) : w('Checkmarx credits projection')}</div>
       <h1>${w('{0}: credits projection', customer)}</h1>
-      <div class="meta">${data.preparedBy ? w('Made {0} by {1}', made, esc(data.preparedBy)) : w('Made {0}', made)}${data.organisation ? `, ${esc(data.organisation)}` : ''}</div>
+      <div class="meta">${data.preparedBy ? w('Made {0} by {1}', made, esc(data.preparedBy)) : w('Made {0}', made)}</div>
     </div>
     <fieldset class="theme"><legend>${w('Theme')}</legend>
       <input type="radio" name="theme" id="theme-auto" checked><label for="theme-auto">${w('Auto')}</label>
