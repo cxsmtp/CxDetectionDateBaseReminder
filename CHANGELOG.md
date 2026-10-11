@@ -51,7 +51,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.64 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.64 — 2026-10-11 12:28 UTC · [#87](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/87)
 
 - **Both tabs from Checkmarx One.** **Read from Checkmarx One** at the top of the Cx Credits Calculator now fills triage & remediation as well as Fusion from the connected tenant: the backlog and fixes week by week over the last 52 weeks come from every project's scans, so the two exports are only needed for a tenant this server is not connected to.
 - **Scans counted project by project.** How often each project is scanned is now counted per project, so a tenant's projects no longer all show *Not in the last year* when counting every scan at once failed quietly.
