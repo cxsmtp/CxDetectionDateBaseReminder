@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.64 | 526/s, 0 (main 521, 0) | 5.9 s | 246 ms | 591 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.63 | 415/s, 203 (main 394, 585; slower host) | 18.6 s | 10.9 s | 585 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.62 | 501/s, 0 (main 509, 0) | 7.3 s | 586 ms | 584 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.61 | 505/s, 0 (main 508, 0) | 7.7 s | 426 ms | 577 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -49,6 +50,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.64 — 2026-10-11 12:28 UTC · [#87](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/87)
+
+- **Both tabs from Checkmarx One.** **Read from Checkmarx One** at the top of the Cx Credits Calculator now fills triage & remediation as well as Fusion from the connected tenant: the backlog and fixes week by week over the last 52 weeks come from every project's scans, so the two exports are only needed for a tenant this server is not connected to.
+- **Scans counted project by project.** How often each project is scanned is now counted per project, so a tenant's projects no longer all show *Not in the last year* when counting every scan at once failed quietly.
+- **Reads in the background, and by itself.** The read runs on the server with a progress bar, a customer with nothing read yet reads when it is opened, and the first customer is named after your organisation from the terms dialog.
+- **Fusion starts from how the customer works.** The scans per frequency start at what each group runs today, the explanation says so plainly, and the notice is a green line across the panel.
+- **Clearer page.** Larger headings and labels, centred project counts, a slider that sits at the very start at 0, and tables that keep long names inside them in every language.
+- **A report to hand over.** The projection report has Auto, Light and Dark themes, keeps every table inside the page, and is written in the language the page is in, right to left for Arabic and Hebrew; its 68 new lines are in all fourteen languages, each reviewed twice.
+- **Status.** 591 tests pass; 0 vulnerabilities in `npm audit --omit=dev`; 526 requests a second with 0 failed against main's 521 with 0, report opens at p95 5.9 s against 6.4 s; no new Checkmarx One scan, as the connector needs signing in again ([status](docs/status.md)).
 
 ## MZ-01.00.63 — 2026-10-10 02:18 UTC · [#86](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/86)
 

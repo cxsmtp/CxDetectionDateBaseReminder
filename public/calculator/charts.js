@@ -1,14 +1,20 @@
 // Cx Credits Calculator: the charts, as SVG text, for the page and for the report it downloads.
-// Colours come as CSS values (`var(--text)` on the page, fixed colours in the report). Every
-// point carries a <title>, so pointing at it says what it is.
+// Colours come as CSS values (`var(--text)` on the page, the report's own theme in the report). Every
+// point carries a <title>, so pointing at it says what it is. The report passes its translator as
+// `palette.t` (the page translates the legends where they are shown).
 
 import { SEVERITIES } from './model.js';
+
+const same = (text) => text;
+/** The wording in the reader's language: `{0}` in `text` is `args[0]`. */
+const words = (palette, text, ...args) => (palette.t ?? same)(text).replace(/\{(\d+)\}/g, (whole, i) => args[i] ?? whole);
 
 export const SEVERITY_COLOURS = { Critical: '#dc2626', High: '#ea580c', Medium: '#d97706', Low: '#2563eb' };
 export const PAGE_PALETTE = { ink: 'var(--text)', muted: 'var(--muted)', grid: 'var(--border)', forecast: '#dc2626', plan: '#7c3aed', fixRate: '#16a34a', debtRate: '#dc2626', severity: SEVERITY_COLOURS };
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const num = (n, digits = 0) => (n === null || n === undefined || !Number.isFinite(n) ? '—' : Number(n).toLocaleString(undefined, { maximumFractionDigits: digits }));
+// Rounding never shows "-0".
+const num = (n, digits = 0) => (n === null || n === undefined || !Number.isFinite(n) ? '—' : (Math.abs(n) < 0.5 * 10 ** -digits ? 0 : Number(n)).toLocaleString(undefined, { maximumFractionDigits: digits }));
 export const monthLabel = (month) => {
   const [y, m] = String(month).split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(undefined, { month: 'short', year: '2-digit', timeZone: 'UTC' });
@@ -55,7 +61,7 @@ export function lineChart(points, lines, { palette = PAGE_PALETTE, width = 760, 
   const xLabels = points
     .map((p, i) => {
       const last = i === n - 1;
-      if (!(last || (i % stride === 0 && x(n - 1) - x(i) > 48))) return '';
+      if (!(last || (i % stride === 0 && x(n - 1) - x(i) > 72 && (i === 0 || x(i) - x(0) > 72)))) return '';
       return `<text x="${x(i).toFixed(1)}" y="${height - 9}" text-anchor="${i === 0 ? 'start' : last ? 'end' : 'middle'}" style="fill:${palette.muted};font-size:10.5px">${esc(p.label)}</text>`;
     })
     .join('');
@@ -95,12 +101,12 @@ export function lineChart(points, lines, { palette = PAGE_PALETTE, width = 760, 
   const legend = lines
     .map((l) => `<span class="cc-key"><i class="cc-swatch${l.dash ? ' dashed' : ''}" translate="no" style="--c:${l.colour}"></i>${esc(l.label)}</span>`)
     .join('');
-  return `<figure class="cc-chart"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}" style="width:100%;height:auto;display:block">${grid}${xLabels}${series}</svg><figcaption class="cc-legend">${legend}</figcaption></figure>`;
+  return `<figure class="cc-chart"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}" style="width:100%;height:auto;display:block;direction:ltr">${grid}${xLabels}${series}</svg><figcaption class="cc-legend">${legend}</figcaption></figure>`;
 }
 
 /** The backlog over the last weeks. */
 export function backlogTrendChart(weekly, palette = PAGE_PALETTE) {
-  return lineChart(weekly.map((w) => ({ label: weekLabel(w.date), backlog: w.backlog })), [{ key: 'backlog', colour: palette.ink, label: 'Backlog' }], { palette, width: 380, height: 210, title: 'Backlog' });
+  return lineChart(weekly.map((w) => ({ label: weekLabel(w.date), backlog: w.backlog })), [{ key: 'backlog', colour: palette.ink, label: words(palette, 'Backlog') }], { palette, width: 380, height: 210, title: words(palette, 'Backlog') });
 }
 
 /** Fix rate against how fast the debt grows, per week. */
@@ -108,10 +114,10 @@ export function ratesChart(weekly, palette = PAGE_PALETTE) {
   return lineChart(
     weekly.map((w) => ({ label: weekLabel(w.date), fixRate: w.fixRate, debtRate: w.debtRate })),
     [
-      { key: 'fixRate', colour: palette.fixRate, label: 'Fix rate' },
-      { key: 'debtRate', colour: palette.debtRate, dash: '5 4', label: 'Debt increase rate' },
+      { key: 'fixRate', colour: palette.fixRate, label: words(palette, 'Fix rate') },
+      { key: 'debtRate', colour: palette.debtRate, dash: '5 4', label: words(palette, 'Debt increase rate') },
     ],
-    { palette, width: 380, height: 210, suffix: '%', zeroBased: false, title: 'Fix rate and debt increase rate' },
+    { palette, width: 380, height: 210, suffix: '%', zeroBased: false, title: words(palette, 'Fix rate and debt increase rate') },
   );
 }
 
@@ -120,19 +126,19 @@ export function forecastChart(points, palette = PAGE_PALETTE) {
   return lineChart(
     points.map((p) => ({ label: monthLabel(p.month), actual: p.actual, forecast: p.forecast, withPlan: p.withPlan })),
     [
-      { key: 'actual', colour: palette.ink, label: 'Actual backlog', noLabel: true },
-      { key: 'forecast', colour: palette.forecast, dash: '5 4', label: 'Forecast, no action' },
-      { key: 'withPlan', colour: palette.plan, dash: '5 4', label: 'Forecast, with this plan' },
+      { key: 'actual', colour: palette.ink, label: words(palette, 'Actual backlog'), noLabel: true },
+      { key: 'forecast', colour: palette.forecast, dash: '5 4', label: words(palette, 'Forecast, no action') },
+      { key: 'withPlan', colour: palette.plan, dash: '5 4', label: words(palette, 'Forecast, with this plan') },
     ],
-    { palette, title: 'Backlog trend and forecast' },
+    { palette, title: words(palette, 'Backlog trend and forecast') },
   );
 }
 
 /** Per severity: history, and 3 months of the plan (dashed). Log scale. */
 export function severityChart(points, palette = PAGE_PALETTE) {
   const lines = SEVERITIES.flatMap((s) => [
-    { key: s, colour: palette.severity[s], label: s, noLabel: true },
-    { key: `${s}F`, colour: palette.severity[s], dash: '5 4', label: `${s}, with the plan` },
+    { key: s, colour: palette.severity[s], label: words(palette, s), noLabel: true },
+    { key: `${s}F`, colour: palette.severity[s], dash: '5 4', label: words(palette, '{0}, with the plan', words(palette, s)) },
   ]);
-  return lineChart(points.map((p) => ({ ...p, label: monthLabel(p.month) })), lines, { palette, log: true, height: 330, title: '3-month fix plan by severity' });
+  return lineChart(points.map((p) => ({ ...p, label: monthLabel(p.month) })), lines, { palette, log: true, height: 330, title: words(palette, '3-month fix plan by severity') });
 }

@@ -25,6 +25,7 @@ import {
 } from './model.js';
 import { SEVERITY_COLOURS, backlogTrendChart, forecastChart, ratesChart, severityChart } from './charts.js';
 import { buildReport, reportFileName } from './report.js';
+import { RTL, currentLanguage, t } from '../i18n.js';
 
 const OPEN_KEY = 'mz-calc-customer';
 const FREQ_LABEL = Object.fromEntries(FREQUENCIES.map((f) => [f.id, f.label]));
@@ -40,6 +41,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   const c = { customers: [], open: null, pending: null, timer: null, saving: null, draft: {}, dirty: {}, present: false, remainingCredits: null, reports: [] };
   const num = (n, digits = 0) => (n === null || n === undefined || !Number.isFinite(Number(n)) ? '—' : Number(n).toLocaleString(undefined, { maximumFractionDigits: digits }));
   const pct = (n) => (n === null || n === undefined || !Number.isFinite(n) ? '—' : `${n > 0 ? '+' : ''}${n.toFixed(1)}%`);
+  // The report is written in the language the page is in.
+  const reportHtml = (data, generatedAt) => buildReport({ ...data, generatedAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr' });
   const savedAt = (iso) => `<time datetime="${esc(iso)}" translate="no">${esc(new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time>`;
 
   // ---- Customers ----------------------------------------------------------------------------
@@ -62,8 +65,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       last = localStorage.getItem(OPEN_KEY) || '';
     } catch {}
     const first = c.customers.find((x) => x.id === last) ?? c.customers[0];
-    if (first) await open(first.id);
-    else show(null);
+    if (first) return open(first.id);
+    show(null);
+    // The first visit: a customer in the organisation's name, read from Checkmarx One straight away.
+    if (me()?.organisationName) await create().catch((error) => handleAuthLoss(error));
   }
 
   function renderCustomers() {
@@ -88,6 +93,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     for (const panel of document.querySelectorAll('#page-calculator .calc-panel')) panel.classList.toggle('calc-none', !customer);
     if (!customer) {
       $('calc-tr').innerHTML = '';
+      $('calc-read').disabled = true;
       return;
     }
     try {
@@ -101,10 +107,13 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     saved('Saved', customer.updatedAt, 'muted');
     syncDraft();
     setStatus('calc-upload-status', '');
-    setStatus('calc-read-note', '');
+    $('calc-alt').open = customer.tr?.totals?.meta?.source === 'upload';
+    if (!reading.timer) setStatus('calc-read-note', '');
+    $('calc-read').disabled = Boolean(reading.timer);
     renderTr();
     renderFusion();
     loadReports();
+    autoRead();
   }
 
   async function open(id) {
@@ -174,12 +183,19 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     save({ name });
   });
   $('calc-name').addEventListener('change', renderCustomers);
-  $('calc-new').addEventListener('click', async () => {
+  /** A new customer: named after the organisation given when the terms were first accepted, while no customer has that name. */
+  async function create() {
     await flush();
+    const org = String(me()?.organisationName ?? '').trim();
+    const name = org && !c.customers.some((x) => x.name.trim().toLowerCase() === org.toLowerCase()) ? org : `Customer ${c.customers.length + 1}`;
+    const { customer } = await api('/api/projections', { method: 'POST', body: JSON.stringify({ name }) });
+    c.customers = [...c.customers, { id: customer.id, name: customer.name, updatedAt: customer.updatedAt }];
+    show(customer);
+    return customer;
+  }
+  $('calc-new').addEventListener('click', async () => {
     try {
-      const { customer } = await api('/api/projections', { method: 'POST', body: JSON.stringify({ name: `Customer ${c.customers.length + 1}` }) });
-      c.customers = [...c.customers, { id: customer.id, name: customer.name, updatedAt: customer.updatedAt }];
-      show(customer);
+      await create();
       $('calc-name').focus();
       $('calc-name').select();
     } catch (error) {
@@ -307,6 +323,13 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   });
 
   function renderSlots() {
+    const t = tr()?.totals;
+    const range = t?.weeks?.length ? ` · <span translate="no">${esc(t.weeks[0])} → ${esc(t.weeks[t.weeks.length - 1])}</span>` : '';
+    $('calc-tr-source').innerHTML = !t
+      ? '<span>Nothing read yet: <strong>Read from Checkmarx One</strong> at the top reads the backlog and fixes, week by week.</span>'
+      : t.meta?.source === 'cxone'
+        ? `<b>From Checkmarx One</b> · <span>Last read <time translate="no">${esc(fmtDateTime(t.meta.readAt))}</time></span> · <span>${num(t.meta.projects)} projects, ${num(t.meta.scans)} scans</span>${range}`
+        : `<b>From the two exports</b>${range}`;
     for (const slot of ['totals', 'fixed']) {
       const s = tr()?.[slot];
       $(`calc-slot-${slot}`).classList.toggle('ok', Boolean(s));
@@ -321,7 +344,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     c.trCredits = f ? f.cost.totals.credits : null;
     renderSummary();
     if (!f) {
-      $('calc-tr').innerHTML = `<p class="hint calc-wait">Upload both exports from the customer's Checkmarx One (or load the sample data) to see their backlog, its trend and the credits a plan takes.</p>`;
+      $('calc-tr').innerHTML = `<p class="hint calc-wait">Read from Checkmarx One (or use the two exports) to see the backlog, its trend and the credits a plan takes.</p>`;
       return;
     }
     const { analysis, cost } = f;
@@ -339,7 +362,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
           const open = analysis.perSeverity[s].current;
           return `<div class="calc-sev-box" data-sev="${s}">
             <div class="calc-sev-top"><span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span><span class="hint">${num(open)} open</span></div>
-            <input type="range" min="0" max="${open}" value="${Math.min(d.selected, open)}" data-f="selected" aria-label="${s}: to triage" />
+            <input type="range" min="0" max="${open}" value="${Math.min(d.selected, open)}" data-f="selected" aria-label="${s}: to triage" style="--p:${fill(d.selected, open)}%" />
             <div class="calc-row"><input type="number" min="0" max="${open}" value="${Math.min(d.selected, open)}" data-f="selected" aria-label="${s}: to triage" />
               <span><button type="button" class="ghost small-btn" data-set="0">None</button><button type="button" class="ghost small-btn" data-set="${open}">All</button></span></div>
             <label class="calc-row"><span>Credits per triage</span><input type="number" min="0" step="0.5" value="${d.triageCost}" data-f="triageCost" /></label>
@@ -394,6 +417,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       </section>`;
   }
 
+  /** How far along its track a slider's thumb is, for the filled part (0 is at the very start). */
+  const fill = (value, max) => (max > 0 ? Math.round((Math.min(value, max) / max) * 1000) / 10 : 0);
+
   function setDraft(box, field, value) {
     const s = box.dataset.sev;
     const max = Number(box.querySelector('input[type="range"]').max);
@@ -401,6 +427,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (field === 'selected') {
       v = Math.min(max, Math.round(v));
       for (const input of box.querySelectorAll('[data-f="selected"]')) if (Number(input.value) !== v) input.value = v;
+      box.querySelector('input[type="range"]').style.setProperty('--p', `${fill(v, max)}%`);
     }
     if (field === 'fpPercent') v = Math.min(100, v);
     c.draft[s][field] = v;
@@ -459,11 +486,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-default-scans').value = f.defaultScans;
     $('calc-combine').value = f.combine;
     $('calc-default-model').innerHTML = modelOptions(f.defaultModel, f.models.length ? 'No model' : 'No model yet');
-    const note = $('calc-read-note');
-    if (!note.classList.contains('error') && !note.classList.contains('ok') && !note.classList.contains('warn')) {
-      note.className = 'hint';
-      note.innerHTML = f.readAt ? `Last read <time translate="no">${esc(fmtDateTime(f.readAt))}</time>` : '';
-    }
+    renderReadNote();
     renderModels();
     renderRules();
     renderProjects();
@@ -698,38 +721,128 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-rows').querySelector(`tr[data-row="${CSS.escape(id)}"] [data-p="name"]`)?.select();
   });
 
-  $('calc-read').addEventListener('click', async () => {
-    if (!c.open) return;
-    const id = c.open.id;
-    setStatus('calc-read-note', '');
+  // ---- Reading Checkmarx One: both tabs come from the tenant's projects and their scans ----------
+
+  const reading = { customer: null, timer: null, auto: false };
+
+  function readProgress(job) {
+    const running = job?.state === 'running';
+    const bar = $('calc-read-progress');
+    bar.hidden = !running;
+    $('calc-read').disabled = running || !c.open;
+    if (!running) return;
+    const part = job.total ? job.done / job.total : 0;
+    bar.value = Math.round(job.step === 'summaries' ? 60 + part * 40 : part * 60);
+    if (job.step === 'summaries') setStatus('calc-read-note', `Reading the findings of each scan: ${num(job.done)} of ${num(job.total)}…`, 'muted');
+    else if (job.total) setStatus('calc-read-note', `Reading the projects and their scans: ${num(job.done)} of ${num(job.total)}…`, 'muted');
+    else setStatus('calc-read-note', 'Reading the projects…', 'muted');
+  }
+
+  /** The last read, under the button, when nothing else is said there. */
+  function renderReadNote() {
+    const note = $('calc-read-note');
+    if (!c.open || reading.timer || ['error', 'ok', 'warn'].some((k) => note.classList.contains(k))) return;
+    const at = c.open.fusion?.readAt ?? c.open.tr?.totals?.meta?.readAt;
+    note.className = 'status hint';
+    note.innerHTML = at ? `Last read <time translate="no">${esc(fmtDateTime(at))}</time>` : 'Not read yet';
+  }
+
+  /** Start a read (or follow the one running in this tenant), then put what it found in the customer open. */
+  async function readCxOne({ auto = false } = {}) {
+    if (!c.open || reading.timer) return;
+    reading.customer = c.open.id;
+    reading.auto = auto;
+    setStatus('calc-read-note', 'Reading the projects…', 'muted');
     try {
-      const body = await api('/api/projections/fusion/read', { method: 'POST' });
-      if (c.open?.id !== id) return;
-      const f = fusion();
-      const before = new Map(f.projects.map((p) => [p.id, p]));
-      const keep = (p) => ({ locOverride: before.get(p.id)?.locOverride ?? null, included: before.get(p.id)?.included ?? true, scansOverride: before.get(p.id)?.scansOverride ?? null, modelOverride: before.get(p.id)?.modelOverride ?? null });
-      const read = body.projects.map((p) => ({ ...p, ...keep(p) }));
-      const ids = new Set(read.map((p) => p.id));
-      const gone = f.projects.filter((p) => p.source !== 'manual' && !ids.has(p.id)).length;
-      f.projects = [...read, ...f.projects.filter((p) => p.source === 'manual')];
-      f.readAt = body.readAt;
-      // The tenant's models replace those read before; models typed here stay.
-      if (body.models?.length) {
-        f.models = [...body.models, ...f.models.filter((m) => m.source !== 'tenant' && !body.models.some((t) => t.id === m.id))].slice(0, 20);
-        if (!f.models.some((m) => m.id === f.defaultModel)) f.defaultModel = f.models[0]?.id ?? null;
-      }
-      c.remainingCredits = body.remainingCredits ?? null;
-      renderFusion();
-      saveFusion();
-      if (read.length === 1) setStatus('calc-read-note', 'Read 1 project from Checkmarx One.', 'ok');
-      else setStatus('calc-read-note', `Read ${num(read.length)} projects from Checkmarx One.`, 'ok');
-      if (!body.models?.length) toast('Checkmarx One did not say which Fusion models it offers: add them under Fusion models, with their credits per 10K LOC.', 'warn', 9000);
-      if (gone === 1) toast('1 project read before is no longer in Checkmarx One: it was taken off.', 'warn');
-      else if (gone) toast(`${num(gone)} projects read before are no longer in Checkmarx One: they were taken off.`, 'warn');
+      readProgress(await api('/api/projections/read', { method: 'POST', quiet: true }));
+      poll();
     } catch (error) {
-      if (!handleAuthLoss(error)) showError('calc-read-note', error);
+      readProgress(null);
+      if (handleAuthLoss(error)) return;
+      if (auto && error.status === 409) return setStatus('calc-read-note', 'Not connected to Checkmarx One: connect it under Settings, or use the two exports.', 'muted');
+      showError('calc-read-note', error);
     }
-  });
+  }
+
+  function poll() {
+    reading.timer = setTimeout(async () => {
+      let job;
+      try {
+        job = await api('/api/projections/read', { quiet: true });
+      } catch (error) {
+        reading.timer = null;
+        readProgress(null);
+        if (!handleAuthLoss(error)) showError('calc-read-note', error);
+        return;
+      }
+      if (job.state === 'running') {
+        readProgress(job);
+        return poll();
+      }
+      reading.timer = null;
+      readProgress(null);
+      if (job.state === 'failed') return setStatus('calc-read-note', job.error || 'Checkmarx One could not be read.', 'error');
+      const blank = c.open && !c.open.tr?.totals && !c.open.fusion?.projects?.length;
+      if (job.state !== 'done' || !c.open || (c.open.id !== reading.customer && !blank)) return renderReadNote();
+      applyRead(job.result);
+    }, 1500);
+  }
+
+  function applyRead(body) {
+    const f = fusion();
+    const before = new Map(f.projects.map((p) => [p.id, p]));
+    const keep = (p) => ({ locOverride: before.get(p.id)?.locOverride ?? null, included: before.get(p.id)?.included ?? true, scansOverride: before.get(p.id)?.scansOverride ?? null, modelOverride: before.get(p.id)?.modelOverride ?? null });
+    const read = (body.projects ?? []).map((p) => ({ ...p, ...keep(p) }));
+    const ids = new Set(read.map((p) => p.id));
+    const gone = f.projects.filter((p) => p.source !== 'manual' && !ids.has(p.id)).length;
+    f.projects = [...read, ...f.projects.filter((p) => p.source === 'manual')];
+    f.readAt = body.readAt;
+    // The tenant's models replace those read before; models typed here stay.
+    if (body.models?.length) {
+      f.models = [...body.models, ...f.models.filter((m) => m.source !== 'tenant' && !body.models.some((t) => t.id === m.id))].slice(0, 20);
+      if (!f.models.some((m) => m.id === f.defaultModel)) f.defaultModel = f.models[0]?.id ?? null;
+    }
+    // No number set for any frequency yet: start from the scans each group runs today.
+    if (FREQUENCIES.every((q) => f.byFrequency[q.id].scans === null)) for (const q of FREQUENCIES) f.byFrequency[q.id].scans = suggestedScans(q.id, f.periodMonths);
+    c.remainingCredits = body.remainingCredits ?? null;
+    const patch = { fusion: f };
+    if (body.tr?.totals && body.tr?.fixed) {
+      c.open.tr = { ...tr(), totals: body.tr.totals, fixed: body.tr.fixed };
+      patch.tr = c.open.tr;
+      syncDraft();
+    }
+    save(patch);
+    renderTr();
+    renderFusion();
+    if (!body.tr) setStatus('calc-read-note', `Read ${num(read.length)} projects from Checkmarx One; none had a scan to read the findings of.`, 'warn');
+    else if (read.length === 1) setStatus('calc-read-note', 'Read 1 project and its scans from Checkmarx One.', 'ok');
+    else setStatus('calc-read-note', `Read ${num(read.length)} projects and their scans from Checkmarx One.`, 'ok');
+    if (!body.models?.length && !f.models.length) toast('Checkmarx One did not say which Fusion models it offers: add them under Fusion models, with their credits per 10K LOC.', 'warn', 9000);
+    if (gone === 1) toast('1 project read before is no longer in Checkmarx One: it was taken off.', 'warn');
+    else if (gone) toast(`${num(gone)} projects read before are no longer in Checkmarx One: they were taken off.`, 'warn');
+  }
+
+  $('calc-read').addEventListener('click', () => readCxOne());
+
+  /** A customer with nothing read yet reads Checkmarx One by itself; a read already running is followed. */
+  async function autoRead() {
+    if (!c.open || reading.timer) return;
+    const empty = !c.open.tr?.totals && !c.open.fusion?.projects?.length;
+    let job = null;
+    try {
+      job = await api('/api/projections/read', { quiet: true });
+    } catch {}
+    if (!c.open) return;
+    if (job?.state === 'running') {
+      reading.customer = c.open.id;
+      readProgress(job);
+      return poll();
+    }
+    if (!empty) return;
+    // A read finished in the last few minutes (for another customer, say) serves this one too.
+    if (job?.state === 'done' && Date.now() - Date.parse(job.finishedAt) < 15 * 60_000) return applyRead(job.result);
+    readCxOne({ auto: true });
+  }
 
   $('calc-csv').addEventListener('click', () => {
     if (!c.open) return;
@@ -838,7 +951,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!data.tr && !data.fusion) return toast('Nothing to report yet: upload the two exports, or read the Fusion projects first.', 'warn');
     try {
       const { report } = await api('/api/projections/reports', { method: 'POST', body: JSON.stringify({ customerId: c.open.id, data }) });
-      download(new Blob([buildReport({ ...data, generatedAt: report.createdAt })], { type: 'text/html' }), reportFileName(report.customer, report.createdAt));
+      download(new Blob([reportHtml(data, report.createdAt)], { type: 'text/html' }), reportFileName(report.customer, report.createdAt));
       loadReports();
     } catch (error) {
       if (!handleAuthLoss(error)) toast(error.message, 'bad');
@@ -885,7 +998,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     try {
       if (event.target.closest('[data-download]')) {
         const { report } = await api(`/api/projections/reports/${encodeURIComponent(id)}`, { quiet: true });
-        download(new Blob([buildReport({ ...report.data, generatedAt: report.createdAt })], { type: 'text/html' }), reportFileName(report.customer, report.createdAt));
+        download(new Blob([reportHtml(report.data, report.createdAt)], { type: 'text/html' }), reportFileName(report.customer, report.createdAt));
       } else if (event.target.closest('[data-delete-report]')) {
         if (!confirm('Delete this projection report? It cannot be undone.')) return;
         await api(`/api/projections/reports/${encodeURIComponent(id)}`, { method: 'DELETE' });

@@ -10,7 +10,7 @@ import { generateKeyPairSync, sign } from 'node:crypto';
 
 import { allocate, analyse, backlogForecast, creditSummary, frequencyOf, fusionEstimate, fusionSettings, seriesRows, severityForecast, suggestedScans, totalsSettings, trCost, unitsOf, weeklyTrend } from '../public/calculator/model.js';
 import { buildReport, reportFileName } from '../public/calculator/report.js';
-import { MAX_PROFILE_BYTES, ProjectionStore, ReportStore, cleanFusion, cleanReportData, cleanTr, readFusionOffer, readFusionProjects } from '../src/projections.js';
+import { MAX_PROFILE_BYTES, ProjectionStore, ReportStore, cleanFusion, cleanReportData, cleanTr, countersOf, readFusionOffer, readFusionProjects, readTenant, weeklyBacklog } from '../src/projections.js';
 import { ActivationStore, checkCode } from '../src/activation.js';
 import { Terms, cleanName } from '../src/terms.js';
 import { STATE_DIRS } from '../src/data-dir.js';
@@ -229,22 +229,54 @@ test('the report file: named after the customer and the time, everything escaped
   assert.match(html, /<svg/);
 });
 
+test('the report file: in the page\'s language, with a light and a dark theme, and long names kept inside their tables', () => {
+  const long = 'a-very-long-project-name-without-any-spaces-that-would-push-a-table-out-of-its-box-'.repeat(3);
+  const est = fusionEstimate([{ id: 'x', name: long, loc: 120000, frequency: 'month' }], { models: [{ id: 'm', name: 'Opus-4.7', creditsPer10k: 2.5 }], defaultScans: 2 });
+  const data = { organisation: 'Acme', customer: long, generatedAt: '2026-10-09T10:00:00Z', fusion: { periodMonths: 12, defaultScans: 2, defaultModel: 'm', models: est.settings.models, rules: est.settings.byFrequency, byFrequency: est.byFrequency, byModel: est.byModel, totals: est.totals, remainingCredits: null, rows: est.rows } };
+  const french = new Map([['Projects', 'Projets'], ['Fusion scans over {0} months.', 'Analyses Fusion sur {0} mois.'], ['Theme', 'Thème'], ['Dark', 'Sombre']]);
+  const asked = [];
+  const html = buildReport(data, { t: (text) => (asked.push(text), french.get(text) ?? text), lang: 'fr' });
+  assert.match(html, /<html lang="fr" dir="ltr">/);
+  assert.match(html, /<th>Projets<\/th>/);
+  assert.match(html, /Analyses Fusion sur 12 mois\./, 'the figures go into the translated wording');
+  assert.match(html, /<legend>Thème<\/legend>/);
+  assert.ok(asked.includes('{0}: credits projection'), 'every line is asked of the translator');
+  // Themes: Auto follows the system, Light and Dark are chosen with CSS alone (no script in the file).
+  assert.match(html, /id="theme-auto" checked/);
+  assert.match(html, /prefers-color-scheme:dark/);
+  assert.match(html, /:root:has\(#theme-dark:checked\)/);
+  assert.doesNotMatch(html, /<script/i);
+  // Every table scrolls inside its own box, and names wrap.
+  assert.equal((html.match(/<table/g) ?? []).length, (html.match(/<div class="scroll"><table/g) ?? []).length);
+  assert.match(html, /<td class="name">a-very-long/);
+  assert.match(html, /td\.name\{[^}]*overflow-wrap:anywhere/);
+  assert.match(buildReport(data, { lang: 'ar', dir: 'rtl' }), /<html lang="ar" dir="rtl">/);
+});
+
 test('reading Fusion data from Checkmarx One: lines, criticality, scans in a year; models and credits when the tenant says them', async () => {
   const now = Date.parse('2026-10-09T00:00:00Z');
+  const iso = (days) => new Date(now - days * 86400000).toISOString();
+  const history = {
+    p1: Array.from({ length: 300 }, (_, i) => ({ id: `a${i}`, projectId: 'p1', createdAt: iso(i) })),
+    p2: [1, 2, 3, 4].map((d) => ({ id: `b${d}`, projectId: 'p2', createdAt: iso(d) })),
+    p3: [],
+  };
   const client = {
-    async *paginate(url, { query } = {}) {
+    async *paginate(url) {
       if (url === '/api/projects') yield* [{ id: 'p1', name: 'Busy', criticality: 5, createdAt: '2020-01-01T00:00:00Z' }, { id: 'p2', name: 'New', criticality: 2, createdAt: '2026-09-25T00:00:00Z' }, { id: 'p3', name: 'Never' }];
-      if (url === '/api/scans') {
-        assert.equal(query.statuses, 'Completed');
-        yield* Array.from({ length: 300 }, (_, i) => ({ projectId: 'p1', createdAt: new Date(now - i * 86400000).toISOString() }));
-        yield* [1, 2, 3, 4].map((d) => ({ projectId: 'p2', createdAt: new Date(now - d * 86400000).toISOString() }));
-      }
     },
-    async request(url) {
-      if (url === '/api/projects/last-scan') return { p1: { id: 's1', updatedAt: '2026-10-08T00:00:00Z' }, p2: { id: 's2' } };
-      if (url === '/api/sast-metadata/s1') return { loc: 12000 };
-      if (url === '/api/sast-metadata/s2') throw new Error('404');
-      if (url === '/api/scans/s2') return { statusDetails: [{ name: 'sast', loc: 18000 }] };
+    async request(url, { query } = {}) {
+      if (url === '/api/scans') {
+        // Scans are counted project by project, in pages, with the total Checkmarx One gives.
+        assert.equal(query.statuses, 'Completed');
+        const all = history[query['project-id']].filter((x) => (!query['from-date'] || x.createdAt >= query['from-date']) && (!query['to-date'] || x.createdAt < query['to-date']));
+        return { filteredTotalCount: all.length, scans: all.slice(query.offset ?? 0, (query.offset ?? 0) + query.limit) };
+      }
+      if (url === '/api/scan-summary') return { scansSummaries: query['scan-ids'].map((scanId) => ({ scanId, sastCounters: { severityCounters: [{ severity: 'HIGH', counter: 2 }] } })) };
+      if (url === '/api/projects/last-scan') return { p1: { id: 'a0', updatedAt: '2026-10-08T00:00:00Z' }, p2: { id: 'b1' } };
+      if (url === '/api/sast-metadata/a0') return { loc: 12000 };
+      if (url === '/api/sast-metadata/b1') throw new Error('404');
+      if (url === '/api/scans/b1') return { statusDetails: [{ name: 'sast', loc: 18000 }] };
       throw new Error(`unexpected ${url}`);
     },
   };
@@ -265,6 +297,79 @@ test('reading Fusion data from Checkmarx One: lines, criticality, scans in a yea
   });
   assert.deepEqual(said.models.map((m) => [m.name, m.creditsPer10k, m.source]), [['Opus-4.7', 2.5, 'tenant'], ['Haiku-4.5', 1.5, 'tenant']]);
   assert.equal(said.remainingCredits, 29467);
+});
+
+test('a scan summary counts every engine by severity, and what is new', () => {
+  const c = countersOf({
+    scanId: 's',
+    sastCounters: { severityCounters: [{ severity: 'HIGH', counter: 4 }, { severity: 'LOW', counter: 10 }], severityStatusCounters: [{ severity: 'HIGH', status: 'NEW', counter: 1 }, { severity: 'LOW', status: 'RECURRENT', counter: 9 }] },
+    kicsCounters: { severityCounters: [{ severity: 'MEDIUM', counter: 3 }, { severity: 'CRITICAL', counter: 1 }] },
+    scaCounters: null,
+    totalCounter: 18,
+  });
+  assert.deepEqual(c.total, { Critical: 1, High: 4, Medium: 3, Low: 10, Info: 0 });
+  assert.deepEqual(c.fresh, { Critical: 0, High: 1, Medium: 0, Low: 0, Info: 0 });
+});
+
+test('the backlog and fixes week by week come from each project\'s scans, as the two exports have them', () => {
+  const now = Date.parse('2026-10-09T00:00:00Z');
+  const at = (days) => new Date(now - days * 86400000).toISOString();
+  const sum = (high, fresh = 0) => ({ total: { Critical: 0, High: high, Medium: 0, Low: 0, Info: 0 }, fresh: { Critical: 0, High: fresh, Medium: 0, Low: 0, Info: 0 } });
+  const summaries = new Map([
+    ['old', sum(10)],
+    ['w2', sum(8, 1)],
+    ['w1', sum(5)],
+    ['q', sum(7)],
+  ]);
+  const perProject = [
+    { before: { id: 'old', createdAt: at(400) }, scans: [{ id: 'w1', createdAt: at(1) }, { id: 'w2', createdAt: at(9) }] },
+    { before: null, scans: [{ id: 'q', createdAt: at(3) }] },
+  ];
+  const w = weeklyBacklog(perProject, summaries, { now, weeks: 3 });
+  assert.deepEqual(w.totals.weeks, ['2026-09-25', '2026-10-02', '2026-10-09']);
+  assert.deepEqual(w.totals.bySeverity.High, [10, 8, 12], 'the scan before the window counts until the next one; a new project from its first scan');
+  assert.deepEqual(w.fixed.bySeverity.High, [0, 3, 3], '10 + 1 new - 8, then 8 - 5');
+  assert.equal(w.scans, 4);
+});
+
+test('one read of the tenant gives both tabs: the Fusion projects and the weekly backlog', async () => {
+  const now = Date.parse('2026-10-09T00:00:00Z');
+  const scans = { p1: [{ id: 's2', createdAt: new Date(now - 2 * 86400000).toISOString() }, { id: 's1', createdAt: new Date(now - 20 * 86400000).toISOString() }] };
+  const steps = [];
+  const client = {
+    async *paginate(url) {
+      if (url === '/api/projects') yield { id: 'p1', name: 'One', createdAt: '2020-01-01T00:00:00Z' };
+    },
+    async request(url, { query } = {}) {
+      if (url === '/api/scans') return query['to-date'] ? { scans: [] } : { filteredTotalCount: 2, scans: scans.p1 };
+      if (url === '/api/scan-summary') return { scansSummaries: query['scan-ids'].map((scanId) => ({ scanId, sastCounters: { severityCounters: [{ severity: 'MEDIUM', counter: scanId === 's1' ? 9 : 6 }] } })) };
+      if (url === '/api/projects/last-scan') return { p1: { id: 's2' } };
+      if (url === '/api/sast-metadata/s2') return { loc: 25000 };
+      throw new Error(`unexpected ${url}`);
+    },
+  };
+  const out = await readTenant(client, { now, weeks: 4, onProgress: (step, done, total) => steps.push(`${step} ${done}/${total}`) });
+  assert.equal(out.projects[0].scanCount, 2);
+  assert.equal(out.projects[0].loc, 25000);
+  assert.deepEqual(out.tr.totals.bySeverity.Medium, [0, 9, 9, 6]);
+  assert.deepEqual(out.tr.fixed.bySeverity.Medium, [0, 0, 0, 3]);
+  assert.equal(out.tr.totals.meta.source, 'cxone');
+  assert.deepEqual([out.tr.totals.meta.projects, out.tr.totals.meta.scans], [1, 2]);
+  assert.deepEqual(steps, ['projects 0/1', 'projects 1/1', 'summaries 0/2', 'summaries 2/2']);
+  // What is saved keeps where it came from.
+  const saved = cleanTr({ totals: out.tr.totals, fixed: out.tr.fixed });
+  assert.equal(saved.totals.meta.source, 'cxone');
+  assert.equal(saved.totals.meta.scans, 2);
+  assert.equal(cleanTr({ totals: { weeks: ['2026-01-01'], bySeverity: {}, meta: { fileName: 'x.xlsx' } } }).totals.meta.source, 'upload');
+});
+
+test('a new Fusion projection starts from the scans each frequency runs today; a saved one keeps its own', () => {
+  const fresh = fusionSettings({ periodMonths: 6 });
+  assert.equal(fresh.byFrequency['more-5-week'].scans, 26);
+  assert.equal(fresh.byFrequency.rare.scans, 1);
+  const kept = fusionSettings({ byFrequency: { month: { scans: 3 } } });
+  assert.equal(kept.byFrequency.month.scans, 3);
+  assert.equal(kept.byFrequency['more-5-week'].scans, null);
 });
 
 test('the calculator is a permission now: a "calculator" activation code is no longer accepted', () => {

@@ -301,7 +301,7 @@ button.link:hover:not(:disabled) { text-decoration: underline; }
 button.sm { min-height: 30px; padding: 0 11px; font-size: 13px; }
 button.big { min-height: 44px; padding: 0 22px; font-size: 14.5px; font-weight: 650; }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]),
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"]),
 select,
 textarea {
   font: inherit;
@@ -317,7 +317,7 @@ textarea {
 textarea { width: 100%; resize: vertical; line-height: 1.5; }
 textarea.code, .code { font: 12.5px/1.6 var(--mono); }
 select { padding-inline-end: 30px; cursor: pointer; }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+input:not([type="range"]):focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin: 0; flex: 0 0 auto; cursor: pointer; }
 input[type="color"] { width: 64px; height: var(--control-h); padding: 3px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); }
 input[type="file"] { font-size: 13px; color: var(--muted); max-width: 100%; }
@@ -2738,7 +2738,15 @@ a.button-like.primary:hover { filter: brightness(1.05); }
 .calc-row span { font-size: 12.5px; color: var(--muted); }
 .calc-row input[type="number"] { width: 9ch; text-align: end; }
 .calc-sev-box .calc-row:first-of-type input[type="number"] { width: 12ch; }
-.calc-sev-box input[type="range"] { width: 100%; accent-color: var(--accent); }
+/* The slider: the part up to the thumb filled, so 0 reads as empty and the thumb sits at the very start. */
+.calc-sev-box input[type="range"] { --p: 0%; -webkit-appearance: none; appearance: none; width: 100%; height: 22px; margin: 0; padding: 0; background: transparent; cursor: pointer; }
+.calc-sev-box input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--accent) var(--p), var(--border-strong) var(--p)); }
+[dir="rtl"] .calc-sev-box input[type="range"]::-webkit-slider-runnable-track { background: linear-gradient(to left, var(--accent) var(--p), var(--border-strong) var(--p)); }
+.calc-sev-box input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin-top: -6px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); }
+.calc-sev-box input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--border-strong); }
+.calc-sev-box input[type="range"]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
+.calc-sev-box input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); }
+.calc-sev-box input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .small-btn { min-height: 0; padding: 3px 8px; font-size: 12px; }
 .calc-apply { width: 100%; }
 .calc-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
@@ -2759,8 +2767,37 @@ a.button-like.primary:hover { filter: brightness(1.05); }
 .calc-warn { color: var(--warn); font-weight: 600; }
 .calc-terms { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 16px; }
 .calc-terms .field { margin-bottom: 0; flex: 1 1 200px; }
-.calc-read { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }
-.calc-read button { white-space: normal; max-width: 100%; }
+.calc-source { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border-top: 1px solid var(--border); padding-top: 10px; }
+.calc-source button { white-space: normal; max-width: 100%; }
+.calc-source-state { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; flex: 1 1 260px; min-width: 0; }
+.calc-source-state .status { margin: 0; overflow-wrap: anywhere; }
+.calc-source-state progress { flex: 1 1 160px; max-width: 320px; height: 8px; accent-color: var(--accent); }
+.calc-tr-source { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; color: var(--muted); font-size: 13px; }
+.calc-tr-source b { color: var(--text); }
+.calc-uploads > .calc-upload-actions:first-child { margin-top: 0; }
+.calc-alt { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.calc-alt > summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--accent); padding: 4px 0; }
+.calc-alt[open] > summary { margin-bottom: 6px; }
+/* What the Fusion tab is about: a highlighted line across the whole panel, not a box. */
+.calc-notice { margin: 0 0 14px; padding: 10px 14px; max-width: none; border-inline-start: 4px solid var(--ok); background: var(--ok-soft); color: var(--text); font-size: 14px; font-weight: 550; line-height: 1.5; border-radius: 0 8px 8px 0; }
+[dir="rtl"] .calc-notice { border-radius: 8px 0 0 8px; }
+.calc-explain { max-width: none; font-size: 13.5px; line-height: 1.55; }
+.calc-page h2 { font-size: 18px; font-weight: 700; }
+.calc-page .panel > h2, .calc-page .calc-section-head h2, .calc-page .calc-table-head h2 { margin-bottom: 10px; }
+.calc-page .calc-section-head h2, .calc-page .calc-table-head h2 { margin-bottom: 0; }
+.calc-page h3 { font-size: 14px; }
+.calc-terms .field > span, .calc-customer .field > span { font-size: 14px; font-weight: 650; color: var(--text); }
+.calc-rules th:nth-child(2), .calc-rules td:nth-child(2) { text-align: center; }
+.calc-projects, .calc-rules, .calc-models { table-layout: auto; }
+.calc-projects td, .calc-rules td, .calc-models td, .calc-matrix td { overflow-wrap: anywhere; }
+.calc-projects td:nth-child(2) { min-width: 14ch; max-width: 40ch; }
+/* The projects table fits its panel: headings wrap, and the boxes in it are no wider than their numbers. */
+.calc-projects th { white-space: normal; }
+.calc-projects .calc-num { width: 9ch; }
+.calc-projects select { max-width: 16ch; }
+.calc-projects td:nth-child(2), .calc-projects td:nth-child(4), .calc-projects td small { white-space: normal; }
+.calc-projects td:nth-child(4) { min-width: 14ch; max-width: 24ch; }
+.calc-projects td:nth-child(7) small { max-width: 12ch; }
 .calc-num { width: 11ch; text-align: end; font-variant-numeric: tabular-nums; }
 .calc-rules td, .calc-models td { vertical-align: middle; }
 .calc-models input[type="text"]:not(.calc-num) { width: min(100%, 26ch); }
@@ -2778,7 +2815,7 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .cc-key { display: inline-flex; align-items: center; gap: 6px; }
 .cc-swatch { display: inline-block; width: 16px; height: 3px; border-radius: 2px; background: var(--c); }
 .cc-swatch.dashed { background: repeating-linear-gradient(90deg, var(--c) 0 5px, transparent 5px 9px); }
-.calc-presenting .calc-edit, .calc-presenting #calc-uploads { display: none; }
+.calc-presenting .calc-edit, .calc-presenting #calc-alt, .calc-presenting .calc-source { display: none; }
 .terms-org { margin: 10px 0 4px; }
 .about-org-edit { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-inline-start: 10px; }
 .about-org-edit input { width: min(100%, 26ch); }

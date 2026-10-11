@@ -50,7 +50,20 @@ function series(value) {
     bySeverity[s] = weeks.map((_, i) => Math.max(0, finite(list[i], 0)));
   }
   const meta = value.meta && typeof value.meta === 'object' ? value.meta : {};
-  return { weeks, bySeverity, meta: { fileName: text(meta.fileName, 200), sheet: text(meta.sheet, 200), layout: text(meta.layout, 20), exportedAt: meta.exportedAt ? text(meta.exportedAt, 40) : null } };
+  return {
+    weeks,
+    bySeverity,
+    meta: {
+      source: meta.source === 'cxone' ? 'cxone' : 'upload',
+      fileName: text(meta.fileName, 200),
+      sheet: text(meta.sheet, 200),
+      layout: text(meta.layout, 20),
+      exportedAt: meta.exportedAt ? text(meta.exportedAt, 40) : null,
+      readAt: iso(meta.readAt),
+      projects: wholeNumber(meta.projects),
+      scans: wholeNumber(meta.scans),
+    },
+  };
 }
 
 const perSeverity = (value, fallback, lo, hi) => Object.fromEntries(PLAN.map((s) => [s, Math.min(hi, Math.max(lo, finite(value?.[s], fallback[s])))]));
@@ -280,19 +293,176 @@ export class ReportStore {
 // ---------------------------------------------------------------------------------------------
 
 /** Completed scans per project in the last year (one paginated read of the tenant's scan list). */
-async function scanCounts(client, { now = Date.now(), days = 365 } = {}) {
-  const from = new Date(now - days * DAY).toISOString();
-  const counts = new Map();
-  for await (const scan of client.paginate('/api/scans', { query: { 'from-date': from, statuses: 'Completed', sort: '-created_at' }, itemsKey: 'scans', limit: 200, maxItems: 100_000 })) {
-    const id = scan?.projectId;
-    if (!id) continue;
-    const at = Date.parse(scan.createdAt ?? scan.updatedAt ?? '');
-    const entry = counts.get(id) ?? { count: 0, first: Infinity };
-    entry.count += 1;
-    if (Number.isFinite(at)) entry.first = Math.min(entry.first, at);
-    counts.set(id, entry);
+const SEVERITY_NAME = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low', INFO: 'Info', INFORMATION: 'Info' };
+const zeros = () => Object.fromEntries(SEVERITIES.map((s) => [s, 0]));
+const SCAN_PAGE = 200;
+/** Scans kept per project for the weekly backlog: enough for a project scanned several times a day. */
+const MAX_SCANS_PER_PROJECT = 600;
+const SUMMARY_CHUNK = 40;
+
+/**
+ * One project's completed scans since `from`, newest first (up to the cap), how many there are,
+ * and the last one before `from` (the backlog the window starts with). A project without a scan
+ * since then: its last scan is that one.
+ */
+async function projectScans(client, projectId, { from, lastScan }) {
+  const scans = [];
+  let count = null;
+  for (let offset = 0; scans.length < MAX_SCANS_PER_PROJECT; offset += SCAN_PAGE) {
+    const page = await client.request('/api/scans', { query: { 'project-id': projectId, statuses: 'Completed', 'from-date': from, sort: '-created_at', offset, limit: SCAN_PAGE }, retries: 2, background: true });
+    const items = (Array.isArray(page?.scans) ? page.scans : []).filter((x) => x?.id && (!x.projectId || x.projectId === projectId));
+    count ??= wholeNumber(page?.filteredTotalCount ?? page?.totalCount);
+    scans.push(...items);
+    if (items.length < SCAN_PAGE) break;
   }
-  return counts;
+  const at = (scan) => Date.parse(scan?.createdAt ?? scan?.updatedAt ?? '');
+  scans.sort((a, b) => at(b) - at(a));
+  let before = null;
+  if (!scans.length && lastScan?.id && at(lastScan) < Date.parse(from)) before = lastScan;
+  else {
+    try {
+      const page = await client.request('/api/scans', { query: { 'project-id': projectId, statuses: 'Completed', 'to-date': from, sort: '-created_at', limit: 1 }, retries: 1, background: true });
+      const found = (Array.isArray(page?.scans) ? page.scans : []).find((x) => x?.id && at(x) < Date.parse(from));
+      if (found) before = found;
+    } catch {}
+  }
+  return { scans, count: count ?? scans.length, before };
+}
+
+/** A scan summary's results by severity, and the new ones, over every engine it lists. */
+export function countersOf(summary) {
+  const total = zeros();
+  const fresh = zeros();
+  const add = (into, severity, n) => {
+    const name = SEVERITY_NAME[String(severity ?? '').toUpperCase()];
+    const value = wholeNumber(n);
+    if (name && value) into[name] += value;
+  };
+  for (const [key, counters] of Object.entries(summary ?? {})) {
+    if (!/Counters$/.test(key) || !counters || typeof counters !== 'object') continue;
+    for (const c of Array.isArray(counters.severityCounters) ? counters.severityCounters : []) add(total, c?.severity, c?.counter);
+    for (const c of Array.isArray(counters.severityStatusCounters) ? counters.severityStatusCounters : []) if (/^new$/i.test(String(c?.status ?? ''))) add(fresh, c?.severity, c?.counter);
+  }
+  return { total, fresh };
+}
+
+/** Summaries (results by severity) of these scans, keyed by scan id. */
+async function scanSummaries(client, scanIds, { concurrency = 6, onChunk } = {}) {
+  const chunks = [];
+  for (let i = 0; i < scanIds.length; i += SUMMARY_CHUNK) chunks.push(scanIds.slice(i, i + SUMMARY_CHUNK));
+  const out = new Map();
+  await mapWithConcurrency(chunks, concurrency, async (ids) => {
+    try {
+      const body = await client.request('/api/scan-summary', { query: { 'scan-ids': ids }, retries: 2, background: true });
+      for (const summary of Array.isArray(body?.scansSummaries) ? body.scansSummaries : []) if (summary?.scanId) out.set(summary.scanId, countersOf(summary));
+    } catch {}
+    onChunk?.(ids.length);
+  });
+  return out;
+}
+
+/**
+ * The tenant's backlog and fixes, week by week, as the two Checkmarx One exports give them
+ * ("Total" and "Fixed Vulnerabilities by Severity"), worked out from every project's scans:
+ * the backlog at a week's end is each project's last scan by then, added up; a week's fixes are
+ * what each scan that week no longer reports (the scan before it, plus what it found new, less
+ * what it reports). A project scanned before the window counts from its last scan before it.
+ */
+export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks = 52 } = {}) {
+  const ends = [];
+  for (let k = weeks - 1; k >= 0; k -= 1) ends.push(now - k * 7 * DAY);
+  const totals = Object.fromEntries(SEVERITIES.map((s) => [s, ends.map(() => 0)]));
+  const fixed = Object.fromEntries(SEVERITIES.map((s) => [s, ends.map(() => 0)]));
+  const at = (scan) => Date.parse(scan?.createdAt ?? scan?.updatedAt ?? '');
+  let scansUsed = 0;
+  for (const { scans, before } of perProject) {
+    const timeline = [...(before ? [before] : []), ...[...scans].reverse()].filter((scan) => summaries.has(scan.id) && Number.isFinite(at(scan)));
+    if (!timeline.length) continue;
+    scansUsed += timeline.length;
+    let k = 0;
+    for (let w = 0; w < ends.length; w += 1) {
+      while (k + 1 < timeline.length && at(timeline[k + 1]) <= ends[w]) k += 1;
+      if (at(timeline[k]) > ends[w]) continue;
+      const { total } = summaries.get(timeline[k].id);
+      for (const s of SEVERITIES) totals[s][w] += total[s];
+    }
+    for (let i = 1; i < timeline.length; i += 1) {
+      const t = at(timeline[i]);
+      const w = ends.findIndex((end) => t <= end && t > end - 7 * DAY);
+      if (w === -1) continue;
+      const prev = summaries.get(timeline[i - 1].id).total;
+      const { total, fresh } = summaries.get(timeline[i].id);
+      for (const s of SEVERITIES) fixed[s][w] += Math.max(0, prev[s] + fresh[s] - total[s]);
+    }
+  }
+  const days = ends.map((t) => new Date(t).toISOString().slice(0, 10));
+  return { totals: { weeks: days, bySeverity: totals }, fixed: { weeks: days, bySeverity: fixed }, scans: scansUsed };
+}
+
+/**
+ * Everything the Cx Credits Calculator reads from the tenant, in one pass over its projects:
+ * for Fusion, each project's lines of code (its last scan), criticality and how often it was
+ * scanned in the last year (counted project by project); for triage & remediation, the backlog
+ * and fixes week by week over the last `weeks` weeks, from the same scans' summaries.
+ * `onProgress(step, done, total)` follows it: "projects" (each project's scans and lines of code), then "summaries".
+ */
+export async function readTenant(client, { concurrency = 8, now = Date.now(), weeks = 52, onProgress = () => {} } = {}) {
+  const projects = (await listProjects(client)).slice(0, MAX_PROJECTS);
+  onProgress('projects', 0, projects.length);
+  const lastScans = await getLastScans(client, projects.map((p) => p.id)).catch(() => ({}));
+  const yearAgo = now - 365 * DAY;
+  const from = new Date(Math.min(yearAgo, now - weeks * 7 * DAY)).toISOString();
+  let done = 0;
+  const perProject = await mapWithConcurrency(projects, concurrency, async (project) => {
+    const lastScan = lastScans[project.id] ?? null;
+    let history = { scans: [], count: 0, before: null, failed: false };
+    try {
+      history = { ...(await projectScans(client, project.id, { from, lastScan })), failed: false };
+    } catch {
+      history.failed = true;
+    }
+    const latest = history.scans[0] ?? lastScan ?? history.before;
+    const lines = latest?.id ? await linesOfScan(client, latest.id) : { loc: null, source: 'none' };
+    onProgress('projects', (done += 1), projects.length);
+    return { project, lastScan, latest, lines, ...history };
+  });
+
+  // Fusion: how often each project was scanned in the last year (a younger project: since it was created).
+  const rows = perProject.map(({ project, latest, lines, scans, count, failed }) => {
+    const born = Date.parse(project.createdAt ?? '');
+    const windowDays = Math.max(7, Math.min(365, (now - Math.max(yearAgo, Number.isFinite(born) ? born : 0)) / DAY));
+    const inYear = scans.length >= MAX_SCANS_PER_PROJECT || count > scans.length ? count : scans.filter((x) => Date.parse(x.createdAt ?? '') >= yearAgo).length;
+    // Scans that could not be listed: the last scan still says whether it was within the year.
+    const lastAt = Date.parse(lastScanDate(latest) ?? '');
+    const scanCount = failed ? (lastAt >= yearAgo ? 1 : 0) : inYear;
+    const frequency = frequencyOf(scanCount, windowDays);
+    return {
+      id: project.id,
+      name: project.name,
+      criticality: CRITICALITIES.includes(Number(project.criticality)) ? Number(project.criticality) : null,
+      scanCount,
+      scansPerWeek: Math.round(frequency.perWeek * 100) / 100,
+      frequency: frequency.id,
+      lastScanAt: lastScanDate(latest),
+      scanId: latest?.id ?? '',
+      ...lines,
+      included: true,
+    };
+  });
+
+  // Triage & remediation: the scans' summaries, then the weeks.
+  const ids = [...new Set(perProject.flatMap(({ scans, before }) => [...(before ? [before.id] : []), ...scans.map((x) => x.id)]))];
+  let summarised = 0;
+  onProgress('summaries', 0, ids.length);
+  const summaries = await scanSummaries(client, ids, { onChunk: (n) => onProgress('summaries', (summarised += n), ids.length) });
+  const weekly = weeklyBacklog(perProject, summaries, { now, weeks });
+  const readAt = new Date(now).toISOString();
+  const meta = { source: 'cxone', readAt, projects: projects.length, scans: weekly.scans };
+  return {
+    projects: rows,
+    tr: summaries.size ? { totals: { ...weekly.totals, meta }, fixed: { ...weekly.fixed, meta } } : null,
+    readAt,
+  };
 }
 
 /** Lines of code a scan counted: its SAST scan metadata, else the scan's own SAST details. */
@@ -311,34 +481,9 @@ async function linesOfScan(client, scanId) {
   return { loc: null, source: 'none' };
 }
 
-/**
- * Every project in the tenant for Fusion: lines of code from its last scan, its criticality, and
- * how often it was scanned over the last year (a project younger than that: since it was created).
- */
-export async function readFusionProjects(client, { concurrency = 8, now = Date.now() } = {}) {
-  const projects = (await listProjects(client)).slice(0, MAX_PROJECTS);
-  const [lastScans, counts] = await Promise.all([getLastScans(client, projects.map((p) => p.id)).catch(() => ({})), scanCounts(client, { now }).catch(() => new Map())]);
-  const rows = await mapWithConcurrency(projects, concurrency, async (project) => {
-    const scan = lastScans[project.id];
-    const stats = counts.get(project.id) ?? { count: 0, first: Infinity };
-    const born = Date.parse(project.createdAt ?? '');
-    const windowDays = Math.max(7, Math.min(365, (now - Math.max(now - 365 * DAY, Number.isFinite(born) ? born : 0)) / DAY));
-    const frequency = frequencyOf(stats.count, windowDays);
-    const lines = scan?.id ? await linesOfScan(client, scan.id) : { loc: null, source: 'none' };
-    return {
-      id: project.id,
-      name: project.name,
-      criticality: CRITICALITIES.includes(Number(project.criticality)) ? Number(project.criticality) : null,
-      scanCount: stats.count,
-      scansPerWeek: Math.round(frequency.perWeek * 100) / 100,
-      frequency: frequency.id,
-      lastScanAt: lastScanDate(scan),
-      scanId: scan?.id ?? '',
-      ...lines,
-      included: true,
-    };
-  });
-  return rows;
+/** Every project in the tenant for Fusion (see readTenant). */
+export async function readFusionProjects(client, options = {}) {
+  return (await readTenant(client, options)).projects;
 }
 
 /** The first number under any of these keys, at any depth (an answer whose shape is not documented). */

@@ -257,6 +257,18 @@ for (const line of source.split('\n')) {
   }
 }
 
+// The Cx Credits Calculator's report file: every line it writes goes through its translator, w('…')
+// in report.js and words(palette, '…') in charts.js, with {0}, {1}… for the figures.
+where.place = 'calculator report';
+for (const file of ['public/calculator/report.js', 'public/calculator/charts.js']) {
+  const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
+  for (const [, quote, text] of code.matchAll(/\b(?:w|words\(palette,|L\.t)\(?\s*(['"])((?:(?!\1)[^\\]|\\.)*)\1/g)) {
+    if (quote && /\p{L}/u.test(text)) record([{ key: text.replace(/\\(['"])/g, '$1').replace(/\{(\d+)\}/g, (whole, i) => i), kind: 'report', tag: '', near: '' }]);
+  }
+  // Who set a project's scans, as the report says it.
+  for (const [, list] of code.matchAll(/const FROM = \{([^}]*)\}/g)) for (const [, text] of list.matchAll(/:\s*'([^']+)'/g)) record([{ key: text, kind: 'report', tag: '', near: '' }]);
+}
+
 // Numbers become {0}, {1}…; sample data (names, addresses) is left out.
 const SAMPLE = /@|\bProject \d|\bProjection \d|\bCustomer \d|_Vulnerabilities_by_Severity|\bFinding p\d|\bp\d+-r\d|\bdev-?\d|\bWeekly\b|acme|127\.0\.0\.1|\bsim-|handler\d|file\d\.js|correct horse/i;
 const catalog = {};

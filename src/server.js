@@ -49,7 +49,7 @@ import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { reportI18n, reportWords } from './report-i18n.js';
-import { ProjectionStore, ReportStore, readFusionOffer, readFusionProjects } from './projections.js';
+import { ProjectionStore, ReportStore, readFusionOffer, readTenant } from './projections.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -3340,6 +3340,40 @@ app.delete('/api/projections/reports/:id', requirePermission('reports.delete'), 
   projectionReports.remove(String(req.params.id));
   res.json({ ok: true });
 }));
+/**
+ * Reading the tenant for the calculator (both tabs: each project's lines of code, criticality and
+ * scans for Fusion; the backlog and fixes week by week for triage & remediation) takes a while on
+ * a big tenant, so it runs in the background, one per tenant, and the page follows it.
+ */
+const calculatorReads = new Map();
+const readView = (job) => (job ? { id: job.id, state: job.state, step: job.step, done: job.done, total: job.total, startedAt: job.startedAt, finishedAt: job.finishedAt ?? null, error: job.error ?? null, ...(job.state === 'done' ? { result: job.result } : {}) } : { state: 'none' });
+app.post(
+  '/api/projections/read',
+  requireCalculator,
+  (req, res) => {
+    const client = req.session.client ?? integrationSession()?.client;
+    if (!client) return res.status(409).json({ error: 'Connect to Checkmarx One first (Settings → Checkmarx One).' });
+    const key = tenancy.current().id;
+    const running = calculatorReads.get(key);
+    if (running?.state === 'running') return res.status(202).json(readView(running));
+    const job = { id: randomUUID(), state: 'running', step: 'projects', done: 0, total: 0, startedAt: new Date().toISOString(), by: req.user.email };
+    calculatorReads.set(key, job);
+    Promise.all([
+      readTenant(client, { onProgress: (step, done, total) => Object.assign(job, { step, done, total }) }),
+      readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null })),
+    ])
+      .then(([tenant, offer]) => Object.assign(job, { state: 'done', result: { ...tenant, ...offer }, finishedAt: new Date().toISOString() }))
+      .catch((error) => {
+        console.error(`[calculator] Reading Checkmarx One failed: ${error.message}`);
+        Object.assign(job, { state: 'failed', error: error.status === 401 || error.status === 403 ? 'Checkmarx One refused the read: check the connection under Settings → Checkmarx One.' : `Checkmarx One could not be read: ${error.message}`, finishedAt: new Date().toISOString() });
+      });
+    res.status(202).json(readView(job));
+  },
+);
+app.get('/api/projections/read', requireCalculator, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(readView(calculatorReads.get(tenancy.current().id)));
+});
 app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
   res.json({ customer: projections.get(String(req.params.id)) });
 }));
@@ -3365,8 +3399,8 @@ app.post(
   asyncRoute(async (req, res) => {
     const client = req.session.client ?? integrationSession()?.client;
     if (!client) return res.status(409).json({ error: 'Connect to Checkmarx One first (Settings → Checkmarx One), or add each project by hand.' });
-    const [projects, offer] = await Promise.all([readFusionProjects(client), readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null }))]);
-    res.json({ projects, ...offer, readAt: new Date().toISOString() });
+    const [tenant, offer] = await Promise.all([readTenant(client), readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null }))]);
+    res.json({ ...tenant, ...offer });
   }),
 );
 /** The organisation's name on what the calculator makes (also given with the terms of use). */

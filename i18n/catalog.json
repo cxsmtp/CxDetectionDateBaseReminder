@@ -7,6 +7,12 @@
    "Dashboard › remind › span › AI check & fix"
   ]
  },
+ ", rounded up": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  ".env file applied": {
   "kind": "busy",
   "seen": [
@@ -39,6 +45,12 @@
    "first start › span › Extra credits",
    "sign in › span › Extra credits",
    "Dashboard › span › Extra credits"
+  ]
+ },
+ "({0}/week)": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "({0}d)": {
@@ -313,6 +325,12 @@
    "message"
   ]
  },
+ "{0} findings": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "{0} findings are {1} Checkmarx One results: rows that share one are triaged, and charged, once": {
   "kind": "attr:title",
   "seen": [
@@ -415,6 +433,12 @@
    "Dashboard › fetching › td › Projects",
    "Dashboard › loaded › td › Projects",
    "Dashboard › remind › td › Projects"
+  ]
+ },
+ "{0} lines of code": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "{0} lines, each project rounded up": {
@@ -679,12 +703,24 @@
    "message"
   ]
  },
+ "{0} projects without a model rate are not counted": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "{0} projects, {1} people. Pick as you type; Enter adds every project whose name contains the text.": {
   "kind": "text",
   "seen": [
    "Dashboard › narrow › p › Only these projects or people — optional",
    "Dashboard › fetching › p › Only these projects or people — optional",
    "Dashboard › loaded › p › Only these projects or people — optional"
+  ]
+ },
+ "{0} projects, {1} scans": {
+  "kind": "text",
+  "seen": [
+   "calculator › triage & remediation"
   ]
  },
  "{0} remediation credit used, {1} left": {
@@ -705,6 +741,12 @@
    "credits › span › Credits used over time",
    "credits › overview › span › Credits used over time",
    "credits › projects › span › Credits used over time"
+  ]
+ },
+ "{0} scans, {1} months": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "{0} shown": {
@@ -839,6 +881,12 @@
    "Dashboard › option › HTTPS"
   ]
  },
+ "{0}-month fix plan by severity": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "{0}-month plan by severity": {
   "kind": "text",
   "seen": [
@@ -891,6 +939,12 @@
    "calculator › small"
   ]
  },
+ "{0}, with the plan": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "{0}: {1} {2} credit(s) needed, {3} left": {
   "kind": "report",
   "seen": [
@@ -907,6 +961,18 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "{0}: Checkmarx credits projection": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "{0}: credits projection": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "{0}: needs {1}, only {2} left": {
@@ -949,6 +1015,12 @@
    "credits › overview › span"
   ]
  },
+ "{0}% on top of {1}": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "{0}d": {
   "kind": "report",
   "seen": [
@@ -969,6 +1041,12 @@
    "first start › th › Projects",
    "sign in › th › Projects",
    "Dashboard › th › Projects"
+  ]
+ },
+ "{0}K units × scans": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "/tmp/i{0}n-{1}QoFX{2}/backups — same disk as the state: set BACKUP_DIR to another disk or share": {
@@ -2977,6 +3055,12 @@
    "Dashboard › p › Create the first administrator"
   ]
  },
+ "An estimate made with CxMissionZero's Cx Credits Calculator from Checkmarx One data and the assumptions above. Credit rates and the credits actually used are set by Checkmarx and your agreement with them.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "An external address may need relaying to be allowed for the sending account: ask your mail administrator.": {
   "kind": "message",
   "seen": [
@@ -3392,6 +3476,12 @@
    "busy line"
   ]
  },
+ "Auto": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Auto-update": {
   "kind": "text",
   "seen": [
@@ -3550,6 +3640,12 @@
    "Dashboard › button › HTTPS"
   ]
  },
+ "Back to the suggested numbers": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Back up to folder now": {
   "kind": "text",
   "seen": [
@@ -3597,6 +3693,12 @@
    "calculator › applied › td › Final matrix"
   ]
  },
+ "Backlog as of {0}, against {1}.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Backlog as of <time>{0}-{1}-{2}</time>, compared with <time>{3}-{4}-{5}</time>.": {
   "kind": "html",
   "seen": [
@@ -3611,6 +3713,12 @@
    "calculator › sample data › span",
    "calculator › plan changed › span",
    "calculator › applied › span"
+  ]
+ },
+ "Backlog history: {0} to {1}.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Backlog trend and forecast": {
@@ -3959,6 +4067,18 @@
    "first start › h2 › By project, in this period",
    "sign in › h2 › By project, in this period",
    "Dashboard › h2 › By project, in this period"
+  ]
+ },
+ "By scan frequency": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "By severity": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "By week": {
@@ -4474,6 +4594,18 @@
    "busy line"
   ]
  },
+ "Checkmarx credits projection": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Checkmarx Fusion": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Checkmarx One": {
   "kind": "text",
   "seen": [
@@ -4534,6 +4666,12 @@
    "first start › button",
    "sign in › button",
    "Dashboard › button"
+  ]
+ },
+ "Checkmarx One could not be read.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
   ]
  },
  "Checkmarx One did not say which Fusion models it offers: add them under Fusion models, with their credits per {0}K LOC.": {
@@ -4628,6 +4766,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Checkmarx One refused the read: check the connection under Settings → Checkmarx One.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
   ]
  },
  "Checkmarx One rejected the API key.": {
@@ -5110,6 +5254,12 @@
    "interactive HTML report"
   ]
  },
+ "Connect to Checkmarx One first (Settings → Checkmarx One).": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Connect to Checkmarx One first.": {
   "kind": "message",
   "seen": [
@@ -5524,6 +5674,12 @@
    "Dashboard › option › Credit audit log"
   ]
  },
+ "credits": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Credits": {
   "kind": "text",
   "seen": [
@@ -5630,6 +5786,12 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Credits remaining in the Checkmarx One tenant when this was made: {0}.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Credits remaining in the tenant": {
@@ -5892,6 +6054,12 @@
    "Dashboard › a"
   ]
  },
+ "Dark": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Dashboard": {
   "kind": "text",
   "seen": [
@@ -6076,6 +6244,18 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Debt growth and fix rate over the last {0} months.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Debt growth and fix rate over the latest week.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Debt increase": {
@@ -6590,12 +6770,22 @@
    "reports › detail › remind › p › How the rescan works"
   ]
  },
- "Each project's lines of code are rounded up to whole {0}K units on their own, and one Fusion scan costs its model's credits per {1}K LOC. Read the projects from Checkmarx One, set a default number of scans, then give more to the projects scanned most often or most critical.": {
+ "each project rounded up": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Each project's lines of code are rounded up to whole {0}K units on their own, and one Fusion scan costs its model's credits per {1}K LOC. The projects come from Checkmarx One with how often each is scanned: the rules below start from that, and you can give more scans to the projects scanned most often or most critical.": {
   "kind": "text",
   "seen": [
-   "first start › p › Fusion scans: what each project needs",
-   "sign in › p › Fusion scans: what each project needs",
-   "Dashboard › p › Fusion scans: what each project needs"
+   "calculator"
+  ]
+ },
+ "Each project's lines of code are rounded up to whole {0}K units on their own; one scan costs its model's credits per {1}K LOC. Projects scanned most often come first.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Each request as it is sent; its answer shows under Success or Errors": {
@@ -7146,6 +7336,12 @@
    "first start › option › AI Triage & Remediation from reports",
    "sign in › option › AI Triage & Remediation from reports",
    "Dashboard › option › AI Triage & Remediation from reports"
+  ]
+ },
+ "every project counted": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Every project has used what it was given. Nothing is waiting to be taken back.": {
@@ -7784,6 +7980,12 @@
    "calculator › plan changed › span › The last 3 months, week by week"
   ]
  },
+ "Fix rate and debt increase rate": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Fix rate and debt increase rate (%)": {
   "kind": "text",
   "seen": [
@@ -7891,6 +8093,12 @@
    "reports › span",
    "credits › span",
    "credits › overview › span"
+  ]
+ },
+ "For a prospect whose tenant this server is not connected to: drop their two weekly exports from Checkmarx One → Analytics on the boxes below.": {
+  "kind": "text",
+  "seen": [
+   "calculator › triage & remediation"
   ]
  },
  "For a self-hosted server, use the address you open it with in a browser, and check that MissionZero's server can resolve that name.": {
@@ -8051,6 +8259,14 @@
    "Dashboard › span › Email server (SMTP)"
   ]
  },
+ "From Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › b › Use the two Checkmarx One exports instead",
+   "calculator › triage & remediation › b › Use the two Checkmarx One exports instead",
+   "calculator › plan changed › b › Use the two Checkmarx One exports instead"
+  ]
+ },
  "From finding to fix": {
   "kind": "report",
   "seen": [
@@ -8069,6 +8285,12 @@
    "first start › span › Email server (SMTP)",
    "sign in › span › Email server (SMTP)",
    "Dashboard › span › Email server (SMTP)"
+  ]
+ },
+ "From the two exports": {
+  "kind": "text",
+  "seen": [
+   "calculator › triage & remediation"
   ]
  },
  "Fusion": {
@@ -8109,6 +8331,12 @@
    "first start › h2 › Fusion scans by how often projects are scanned",
    "sign in › h2 › Fusion scans by how often projects are scanned",
    "Dashboard › h2 › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "Fusion scans over {0} months.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Fusion scans per project": {
@@ -8790,14 +9018,6 @@
    "Dashboard › p › SLAs Beta"
   ]
  },
- "How often each project was scanned in the last year. Leave a number empty to use the default.": {
-  "kind": "text",
-  "seen": [
-   "first start › p › Fusion scans by how often projects are scanned",
-   "sign in › p › Fusion scans by how often projects are scanned",
-   "Dashboard › p › Fusion scans by how often projects are scanned"
-  ]
- },
  "How often it is scanned": {
   "kind": "attr:aria-label",
   "seen": [
@@ -9272,6 +9492,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "including {0}% extra": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Info": {
@@ -9852,6 +10078,12 @@
    "Dashboard › dt › About CxMissionZero"
   ]
  },
+ "Light": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "line {0}": {
   "kind": "text",
   "seen": [
@@ -10138,6 +10370,18 @@
    "first start › th › Projection reports",
    "sign in › th › Projection reports",
    "Dashboard › th › Projection reports"
+  ]
+ },
+ "Made {0}": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Made {0} by {1}": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Mail server test finished": {
@@ -10448,6 +10692,12 @@
   "kind": "attr:placeholder",
   "seen": [
    "calculator › input › Fusion models"
+  ]
+ },
+ "Models": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Monday": {
@@ -10886,12 +11136,10 @@
    "interactive HTML report"
   ]
  },
- "No customers yet. Start with <strong>New customer</strong>: each customer keeps its own uploads, plan and Fusion projects, saved as you go.": {
+ "No customers yet. Start with <strong>New customer</strong>: each customer keeps its own Checkmarx One data, plan and Fusion projects, saved as you go.": {
   "kind": "html",
   "seen": [
-   "first start › p",
-   "sign in › p",
-   "Dashboard › p"
+   "calculator"
   ]
  },
  "No date": {
@@ -10998,6 +11246,12 @@
    "calculator › project added › option › Fusion scans: what each project needs"
   ]
  },
+ "No model set.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "No model yet": {
   "kind": "text",
   "seen": [
@@ -11065,12 +11319,10 @@
    "credits › projects › p › By project, in this period"
   ]
  },
- "No projects yet. <strong>Read projects from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.": {
+ "No projects yet. <strong>Read from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.": {
   "kind": "html",
   "seen": [
-   "first start › p › Projects",
-   "sign in › p › Projects",
-   "Dashboard › p › Projects"
+   "calculator"
   ]
  },
  "No readings yet.": {
@@ -11308,6 +11560,12 @@
    "interactive HTML report"
   ]
  },
+ "Not connected to Checkmarx One: connect it under Settings, or use the two exports.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Not connected to Checkmarx One: only projects that already hold credits are listed.": {
   "kind": "message",
   "seen": [
@@ -11374,6 +11632,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Not read yet": {
+  "kind": "text",
+  "seen": [
+   "calculator › triage & remediation"
   ]
  },
  "Not saved:": {
@@ -11455,6 +11719,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Nothing read yet: <strong>Read from Checkmarx One</strong> at the top reads the backlog and fixes, week by week.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
   ]
  },
  "Nothing scheduled. Open a report, then <strong>Schedule</strong>, to send its follow-ups automatically.": {
@@ -11583,6 +11853,12 @@
    "reports › small",
    "credits › small",
    "credits › overview › small"
+  ]
+ },
+ "of {0} credits: {1} ÷ {2} = {3}": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "of {0} open": {
@@ -12135,6 +12411,12 @@
    "first start › span › Credit audit log",
    "first start › th › Credit audit log",
    "sign in › span › Credit audit log"
+  ]
+ },
+ "over {0} months": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Over {0} months": {
@@ -12761,6 +13043,12 @@
    "sign in › section › Projects"
   ]
  },
+ "Projects are grouped by how often Checkmarx One scanned them in the last {0} months. Each row is the number of Fusion scans one project of that group needs over the projection period: it starts at the scans the group runs today, so the forecast follows how the customer really works. Change a number to plan more or fewer; leave it empty to use the default.": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Projects for commit lookups — group/project, one per line": {
   "kind": "text",
   "seen": [
@@ -12947,18 +13235,22 @@
    "interactive HTML report"
   ]
  },
- "Read {0} project from Checkmarx One.": {
+ "Read {0} projects and their scans from Checkmarx One.": {
   "kind": "message",
   "seen": [
-   "message"
+   "calculator"
   ]
  },
- "Read {0} projects from Checkmarx One.": {
+ "Read {0} projects from Checkmarx One; none had a scan to read the findings of.": {
   "kind": "message",
   "seen": [
-   "message",
-   "projections › read › span › Fusion: what one scan of each project costs",
-   "projections › added › span › Fusion: what one scan of each project costs"
+   "calculator"
+  ]
+ },
+ "Read 1 project and its scans from Checkmarx One.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
   ]
  },
  "Read Checkmarx One's answer below: it usually names the problem.": {
@@ -12967,12 +13259,16 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
- "Read projects from Checkmarx One": {
+ "Read from Checkmarx One": {
   "kind": "text",
   "seen": [
-   "first start › button › Fusion scans: what each project needs",
-   "sign in › button › Fusion scans: what each project needs",
-   "Dashboard › button › Fusion scans: what each project needs"
+   "calculator"
+  ]
+ },
+ "Read from Checkmarx One (or use the two exports) to see the backlog, its trend and the credits a plan takes.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
   ]
  },
  "Read the answer below: it usually names the problem.": {
@@ -13029,6 +13325,24 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Reading the findings of each scan: {0} of {1}…": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Reading the projects and their scans: {0} of {1}…": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Reading the projects…": {
+  "kind": "message",
+  "seen": [
+   "calculator"
   ]
  },
  "Reading the repository history…": {
@@ -15291,6 +15605,12 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "Set by": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Set CX_BASE_URL to the ast address, for example https://eu.ast.checkmarx.net, and CX_IAM_URL to the iam one. On the multi-tenant cloud, leave both blank.": {
   "kind": "message",
   "seen": [
@@ -15301,6 +15621,12 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Set for the project": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Set here": {
@@ -15954,6 +16280,12 @@
    "calculator › applied › p › 3-month plan by severity"
   ]
  },
+ "Solid: the backlog so far. Dashed: the next {0} months with the findings above fixed evenly, against the pace new ones arrive. Log scale.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": {
   "kind": "text",
   "seen": [
@@ -16341,14 +16673,6 @@
    "first start › span › Activity log",
    "sign in › span › Activity log",
    "Dashboard › span › Activity log"
-  ]
- },
- "Suggest from how often they are scanned": {
-  "kind": "text",
-  "seen": [
-   "first start › button › Fusion scans by how often projects are scanned",
-   "sign in › button › Fusion scans by how often projects are scanned",
-   "Dashboard › button › Fusion scans by how often projects are scanned"
   ]
  },
  "Sunday": {
@@ -16825,6 +17149,20 @@
    "calculator › sample data › p › Backlog trend and forecast",
    "calculator › plan changed › p › Backlog trend and forecast",
    "calculator › applied › p › Backlog trend and forecast"
+  ]
+ },
+ "The backlog grew by {0} a month on average recently.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "The backlog shrank by {0} a month on average recently.": {
+  "kind": "report",
+  "seen": [
+   "calculator report",
+   "calculator › new › p › Backlog trend and forecast",
+   "calculator › triage & remediation › p › Backlog trend and forecast"
   ]
  },
  "The browser (github.dev, GitLab…)": {
@@ -17431,6 +17769,12 @@
   "kind": "dialog",
   "seen": [
    "dialog"
+  ]
+ },
+ "Theme": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Theme: follow the device": {
@@ -18516,13 +18860,6 @@
    "access › roles › small › Roles & permissions"
   ]
  },
- "Upload both exports from the customer's Checkmarx One (or load the sample data) to see their backlog, its trend and the credits a plan takes.": {
-  "kind": "text",
-  "seen": [
-   "calculator › new › p",
-   "calculator › triage & remediation › p"
-  ]
- },
  "Upload it here.": {
   "kind": "text",
   "seen": [
@@ -18691,6 +19028,12 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Use the two Checkmarx One exports instead": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "Use this computer's time zone": {
