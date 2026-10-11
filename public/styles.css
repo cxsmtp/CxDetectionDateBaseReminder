@@ -2795,7 +2795,9 @@ a.button-like.primary:hover { filter: brightness(1.05); }
 .calc-projects th { white-space: normal; }
 .calc-projects .calc-num { width: 9ch; }
 .calc-projects select { max-width: 16ch; }
-.calc-projects td:nth-child(4) { min-width: 14ch; }
+.calc-projects td:nth-child(2), .calc-projects td:nth-child(4), .calc-projects td small { white-space: normal; }
+.calc-projects td:nth-child(4) { min-width: 14ch; max-width: 24ch; }
+.calc-projects td:nth-child(7) small { max-width: 12ch; }
 .calc-num { width: 11ch; text-align: end; font-variant-numeric: tabular-nums; }
 .calc-rules td, .calc-models td { vertical-align: middle; }
 .calc-models input[type="text"]:not(.calc-num) { width: min(100%, 26ch); }

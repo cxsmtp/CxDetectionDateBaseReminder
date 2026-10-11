@@ -61,7 +61,7 @@ export function lineChart(points, lines, { palette = PAGE_PALETTE, width = 760, 
   const xLabels = points
     .map((p, i) => {
       const last = i === n - 1;
-      if (!(last || (i % stride === 0 && x(n - 1) - x(i) > 48 && (i === 0 || x(i) - x(0) > 48)))) return '';
+      if (!(last || (i % stride === 0 && x(n - 1) - x(i) > 72 && (i === 0 || x(i) - x(0) > 72)))) return '';
       return `<text x="${x(i).toFixed(1)}" y="${height - 9}" text-anchor="${i === 0 ? 'start' : last ? 'end' : 'middle'}" style="fill:${palette.muted};font-size:10.5px">${esc(p.label)}</text>`;
     })
     .join('');
@@ -101,7 +101,7 @@ export function lineChart(points, lines, { palette = PAGE_PALETTE, width = 760, 
   const legend = lines
     .map((l) => `<span class="cc-key"><i class="cc-swatch${l.dash ? ' dashed' : ''}" translate="no" style="--c:${l.colour}"></i>${esc(l.label)}</span>`)
     .join('');
-  return `<figure class="cc-chart"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}" style="width:100%;height:auto;display:block">${grid}${xLabels}${series}</svg><figcaption class="cc-legend">${legend}</figcaption></figure>`;
+  return `<figure class="cc-chart"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}" style="width:100%;height:auto;display:block;direction:ltr">${grid}${xLabels}${series}</svg><figcaption class="cc-legend">${legend}</figcaption></figure>`;
 }
 
 /** The backlog over the last weeks. */
