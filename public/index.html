@@ -2121,17 +2121,17 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 </div>
                 <details class="calc-alt" id="calc-alt">
                   <summary>Use the two Checkmarx One exports instead</summary>
-                  <p class="hint">For a prospect whose tenant this server is not connected to: their weekly <b translate="no">Total Vulnerabilities by Severity</b> and <b translate="no">Fixed Vulnerabilities by Severity</b> exports, from Checkmarx One → Analytics.</p>
-                <div class="calc-upload-row">
-                  <label class="calc-slot" id="calc-slot-totals"><input type="file" id="calc-file-totals" accept=".xlsx,.csv,.tsv" hidden />
-                    <b translate="no">Total Vulnerabilities by Severity</b><span class="hint" id="calc-file-totals-name">Choose or drop the .xlsx export</span></label>
-                  <label class="calc-slot" id="calc-slot-fixed"><input type="file" id="calc-file-fixed" accept=".xlsx,.csv,.tsv" hidden />
-                    <b translate="no">Fixed Vulnerabilities by Severity</b><span class="hint" id="calc-file-fixed-name">Choose or drop the .xlsx export</span></label>
-                </div>
-                <div class="calc-upload-actions">
-                  <button type="button" class="ghost" id="calc-sample">Load sample data</button>
-                  <span class="status" id="calc-upload-status"></span>
-                </div>
+                  <p class="hint">For a prospect whose tenant this server is not connected to: drop their two weekly exports from Checkmarx One → Analytics on the boxes below.</p>
+                  <div class="calc-upload-row">
+                    <label class="calc-slot" id="calc-slot-totals"><input type="file" id="calc-file-totals" accept=".xlsx,.csv,.tsv" hidden />
+                      <b translate="no">Total Vulnerabilities by Severity</b><span class="hint" id="calc-file-totals-name">Choose or drop the .xlsx export</span></label>
+                    <label class="calc-slot" id="calc-slot-fixed"><input type="file" id="calc-file-fixed" accept=".xlsx,.csv,.tsv" hidden />
+                      <b translate="no">Fixed Vulnerabilities by Severity</b><span class="hint" id="calc-file-fixed-name">Choose or drop the .xlsx export</span></label>
+                  </div>
+                  <div class="calc-upload-actions">
+                    <button type="button" class="ghost" id="calc-sample">Load sample data</button>
+                    <span class="status" id="calc-upload-status"></span>
+                  </div>
                 </details>
               </section>
               <div id="calc-tr"></div>

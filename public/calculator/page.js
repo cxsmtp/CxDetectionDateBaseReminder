@@ -328,7 +328,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-tr-source').innerHTML = !t
       ? '<span>Nothing read yet: <strong>Read from Checkmarx One</strong> at the top reads the backlog and fixes, week by week.</span>'
       : t.meta?.source === 'cxone'
-        ? `<b>From Checkmarx One</b> · <span>read <time translate="no">${esc(fmtDateTime(t.meta.readAt))}</time></span> · <span>${num(t.meta.projects)} projects, ${num(t.meta.scans)} scans</span>${range}`
+        ? `<b>From Checkmarx One</b> · <span>Last read <time translate="no">${esc(fmtDateTime(t.meta.readAt))}</time></span> · <span>${num(t.meta.projects)} projects, ${num(t.meta.scans)} scans</span>${range}`
         : `<b>From the two exports</b>${range}`;
     for (const slot of ['totals', 'fixed']) {
       const s = tr()?.[slot];
@@ -814,8 +814,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     save(patch);
     renderTr();
     renderFusion();
-    const projects = read.length === 1 ? '1 project' : `${num(read.length)} projects`;
-    setStatus('calc-read-note', body.tr ? `Read ${projects} and their scans from Checkmarx One.` : `Read ${projects} from Checkmarx One; none had a scan to read the findings of.`, body.tr ? 'ok' : 'warn');
+    if (!body.tr) setStatus('calc-read-note', `Read ${num(read.length)} projects from Checkmarx One; none had a scan to read the findings of.`, 'warn');
+    else if (read.length === 1) setStatus('calc-read-note', 'Read 1 project and its scans from Checkmarx One.', 'ok');
+    else setStatus('calc-read-note', `Read ${num(read.length)} projects and their scans from Checkmarx One.`, 'ok');
     if (!body.models?.length && !f.models.length) toast('Checkmarx One did not say which Fusion models it offers: add them under Fusion models, with their credits per 10K LOC.', 'warn', 9000);
     if (gone === 1) toast('1 project read before is no longer in Checkmarx One: it was taken off.', 'warn');
     else if (gone) toast(`${num(gone)} projects read before are no longer in Checkmarx One: they were taken off.`, 'warn');
