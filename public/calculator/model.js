@@ -250,13 +250,16 @@ export function fusionSettings(value = {}) {
     return w === null ? null : Math.min(w, 10000);
   };
   const rule = (r) => ({ scans: scans(r?.scans), model: model(r?.model) });
+  const periodMonths = clamp(wholeNumber(v.periodMonths) ?? 12, 1, 60);
+  // A new projection starts from the scans each frequency runs today; one saved keeps what it has.
+  const byFrequency = v.byFrequency && typeof v.byFrequency === 'object' ? v.byFrequency : Object.fromEntries(FREQUENCIES.map((f) => [f.id, { scans: suggestedScans(f.id, periodMonths) }]));
   return {
-    periodMonths: clamp(wholeNumber(v.periodMonths) ?? 12, 1, 60),
+    periodMonths,
     defaultScans: scans(v.defaultScans) ?? 1,
     defaultModel: model(v.defaultModel) ?? models[0]?.id ?? null,
     combine: COMBINE.includes(v.combine) ? v.combine : 'higher',
     models,
-    byFrequency: Object.fromEntries(FREQUENCIES.map((f) => [f.id, rule(v.byFrequency?.[f.id])])),
+    byFrequency: Object.fromEntries(FREQUENCIES.map((f) => [f.id, rule(byFrequency[f.id])])),
     byCriticality: Object.fromEntries(CRITICALITIES.map((c) => [c, rule(v.byCriticality?.[c])])),
   };
 }

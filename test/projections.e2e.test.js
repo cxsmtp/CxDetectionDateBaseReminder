@@ -95,7 +95,7 @@ test('a permission, with no activation code: Admins have it from the start, othe
 
 test('never for a role without the permission', async () => {
   assert.equal((await uma('GET', '/api/me')).body.permissions.includes('projections.use'), false);
-  for (const [method, url] of [['GET', '/api/projections'], ['POST', '/api/projections'], ['POST', '/api/projections/fusion/read'], ['GET', '/api/projections/reports'], ['POST', '/api/projections/reports'], ['GET', '/api/projections/x'], ['PUT', '/api/projections/x'], ['DELETE', '/api/projections/x']]) {
+  for (const [method, url] of [['GET', '/api/projections'], ['POST', '/api/projections'], ['POST', '/api/projections/fusion/read'], ['POST', '/api/projections/read'], ['GET', '/api/projections/read'], ['GET', '/api/projections/reports'], ['POST', '/api/projections/reports'], ['GET', '/api/projections/x'], ['PUT', '/api/projections/x'], ['DELETE', '/api/projections/x']]) {
     assert.equal((await uma(method, url, method === 'GET' ? undefined : {})).status, 403, `${method} ${url}`);
   }
   assert.equal((await fetch(`${BASE}/api/projections`)).status, 401, 'signed out');
@@ -148,6 +148,34 @@ test('Fusion reads every project: lines of code, criticality and how often it is
   assert.equal(est.rows[0].frequency, 'more-5-week', 'most often scanned first');
   assert.equal(est.rows[0].model, 'opus');
   assert.ok(est.totals.credits > 0);
+});
+
+test('one read in the background fills both tabs from Checkmarx One: the backlog week by week, and the projects', async () => {
+  assert.equal((await ana('GET', '/api/projections/read')).body.state, 'none', 'nothing read yet');
+  const started = await ana('POST', '/api/projections/read', {});
+  assert.equal(started.status, 202, started.text);
+  assert.equal(started.body.state, 'running');
+  const again = await admin('POST', '/api/projections/read', {});
+  assert.equal(again.body.id, started.body.id, 'one read at a time per tenant: a second one follows the first');
+  let job = started.body;
+  const end = Date.now() + 20000;
+  while (job.state === 'running') {
+    assert.ok(Date.now() < end, 'the read finishes');
+    await sleep(100);
+    job = (await ana('GET', '/api/projections/read')).body;
+  }
+  assert.equal(job.state, 'done', job.error ?? '');
+  const { projects, tr } = job.result;
+  assert.equal(projects.length, PROJECTS);
+  assert.equal(tr.totals.weeks.length, 52);
+  assert.equal(tr.totals.meta.source, 'cxone');
+  assert.equal(tr.totals.meta.projects, PROJECTS);
+  const backlog = (i) => ['Critical', 'High', 'Medium', 'Low'].reduce((n, s) => n + tr.totals.bySeverity[s][i], 0);
+  assert.ok(backlog(51) > 0 && backlog(0) > backlog(51), 'the mock’s backlog shrinks over the year');
+  assert.ok(tr.fixed.bySeverity.Low.some((n) => n > 0), 'fixes week by week');
+  const saved = await ana('PUT', `/api/projections/${customerId}`, { tr: { totals: tr.totals, fixed: tr.fixed } });
+  assert.equal(saved.status, 200, saved.text);
+  assert.equal((await ana('GET', `/api/projections/${customerId}`)).body.customer.tr.totals.meta.scans, tr.totals.meta.scans);
 });
 
 test('reports are kept, listed, downloaded again and deleted', async () => {

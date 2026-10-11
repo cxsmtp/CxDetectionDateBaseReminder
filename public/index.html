@@ -2086,6 +2086,13 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <span class="status" id="calc-saved" aria-live="polite"></span>
                 </div>
               </div>
+              <div class="calc-source">
+                <button type="button" class="primary" id="calc-read">Read from Checkmarx One</button>
+                <div class="calc-source-state">
+                  <span class="status" id="calc-read-note" aria-live="polite"></span>
+                  <progress id="calc-read-progress" max="100" value="0" hidden></progress>
+                </div>
+              </div>
               <div class="calc-sum" role="group" aria-label="Credits required">
                 <div class="calc-sum-item"><span>Triage &amp; remediation</span><b id="calc-sum-tr">—</b></div>
                 <div class="calc-sum-item"><span>Fusion</span><b id="calc-sum-fusion">—</b></div>
@@ -2098,7 +2105,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <p class="hint" id="calc-org-line"></p>
                 <button type="button" class="primary" id="calc-generate">Generate projection report</button>
               </div>
-              <p class="hint" id="calc-empty" hidden>No customers yet. Start with <strong>New customer</strong>: each customer keeps its own uploads, plan and Fusion projects, saved as you go.</p>
+              <p class="hint" id="calc-empty" hidden>No customers yet. Start with <strong>New customer</strong>: each customer keeps its own Checkmarx One data, plan and Fusion projects, saved as you go.</p>
             </section>
             <div class="ptabs" role="tablist" aria-label="Cx Credits Calculator" data-ptabs="calculator">
               <button type="button" role="tab" class="ptab" data-pt="tr">Triage &amp; remediation</button>
@@ -2108,6 +2115,13 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
 
             <div data-ptpanel="calculator:tr" class="calc-panel">
               <section class="panel calc-uploads" id="calc-uploads">
+                <div class="calc-upload-actions">
+                  <span class="calc-tr-source" id="calc-tr-source"></span>
+                  <button type="button" class="ghost" id="calc-present" aria-pressed="false">Customer view</button>
+                </div>
+                <details class="calc-alt" id="calc-alt">
+                  <summary>Use the two Checkmarx One exports instead</summary>
+                  <p class="hint">For a prospect whose tenant this server is not connected to: their weekly <b translate="no">Total Vulnerabilities by Severity</b> and <b translate="no">Fixed Vulnerabilities by Severity</b> exports, from Checkmarx One → Analytics.</p>
                 <div class="calc-upload-row">
                   <label class="calc-slot" id="calc-slot-totals"><input type="file" id="calc-file-totals" accept=".xlsx,.csv,.tsv" hidden />
                     <b translate="no">Total Vulnerabilities by Severity</b><span class="hint" id="calc-file-totals-name">Choose or drop the .xlsx export</span></label>
@@ -2116,9 +2130,9 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 </div>
                 <div class="calc-upload-actions">
                   <button type="button" class="ghost" id="calc-sample">Load sample data</button>
-                  <button type="button" class="ghost" id="calc-present" aria-pressed="false">Customer view</button>
                   <span class="status" id="calc-upload-status"></span>
                 </div>
+                </details>
               </section>
               <div id="calc-tr"></div>
             </div>
@@ -2126,17 +2140,13 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             <div data-ptpanel="calculator:fusion" class="calc-panel" hidden>
               <section class="panel">
                 <h2>Fusion scans: what each project needs</h2>
-                <p class="hint">Each project's lines of code are rounded up to whole 10K units on their own, and one Fusion scan costs its model's credits per 10K LOC. Read the projects from Checkmarx One, set a default number of scans, then give more to the projects scanned most often or most critical.</p>
+                <p class="calc-notice">Each project's lines of code are rounded up to whole 10K units on their own, and one Fusion scan costs its model's credits per 10K LOC. The projects come from Checkmarx One with how often each is scanned: the rules below start from that, and you can give more scans to the projects scanned most often or most critical.</p>
                 <div class="calc-terms">
                   <label class="field"><span>Projection period (months)</span><input type="number" id="calc-period" min="1" max="60" step="1" /></label>
                   <label class="field"><span>Default Fusion scans per project</span><input type="number" id="calc-default-scans" min="0" step="1" /></label>
                   <label class="field"><span>Default model</span><select id="calc-default-model"></select></label>
                   <label class="field"><span>When frequency and criticality both set a number</span>
                     <select id="calc-combine"><option value="higher">Use the higher</option><option value="frequency">Scan frequency wins</option><option value="criticality">Criticality wins</option></select></label>
-                </div>
-                <div class="calc-read">
-                  <button type="button" class="primary" id="calc-read">Read projects from Checkmarx One</button>
-                  <span class="hint" id="calc-read-note"></span>
                 </div>
               </section>
               <section class="panel">
@@ -2147,7 +2157,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </section>
               <section class="panel">
                 <h2>Fusion scans by how often projects are scanned</h2>
-                <p class="hint">How often each project was scanned in the last year. Leave a number empty to use the default. <button type="button" class="link" id="calc-suggest">Suggest from how often they are scanned</button></p>
+                <p class="hint calc-explain">Projects are grouped by how often Checkmarx One scanned them in the last 12 months. Each row is the number of Fusion scans one project of that group needs over the projection period: it starts at the scans the group runs today, so the forecast follows how the customer really works. Change a number to plan more or fewer; leave it empty to use the default. <button type="button" class="link" id="calc-suggest">Back to the suggested numbers</button></p>
                 <div class="table-wrap"><table class="data-table calc-rules"><thead><tr><th>Scanned today</th><th>Projects</th><th>Fusion scans per project</th><th>Model</th></tr></thead><tbody id="calc-freq"></tbody></table></div>
               </section>
               <section class="panel">
@@ -2171,7 +2181,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                     <tbody id="calc-rows"></tbody>
                   </table>
                 </div>
-                <p class="hint" id="calc-rows-empty">No projects yet. <strong>Read projects from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.</p>
+                <p class="hint" id="calc-rows-empty">No projects yet. <strong>Read from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.</p>
               </section>
             </div>
 

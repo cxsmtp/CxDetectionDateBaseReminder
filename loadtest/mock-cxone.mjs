@@ -94,8 +94,21 @@ http.createServer((req, res) => {
         bump('scans');
         // The tenant's completed scans since a date (Cx Credits Calculator → Fusion: how often each
         // project is scanned): project i is scanned 400, 100, 20, 4 or 0 times a year, by i % 5.
-        if (!u.searchParams.get('from-date')) return send(200, { scans: [] });
         const perYear = [400, 100, 20, 4, 0];
+        // One project's scans (Cx Credits Calculator): those since from-date, newest first, or
+        // with to-date the one before it (every project also has a scan 400 days ago).
+        const pid = u.searchParams.get('project-id');
+        if (pid) {
+          const i = Number(pid.replace(/^p/, ''));
+          const n = perYear[i % 5];
+          const all = [...Array.from({ length: n }, (_, k) => ({ id: `hist-p${i}-${k}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() })), { id: `old-p${i}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
+          const fromDate = Date.parse(u.searchParams.get('from-date') ?? '');
+          const toDate = Date.parse(u.searchParams.get('to-date') ?? '');
+          const hits = all.filter((x) => (!Number.isFinite(fromDate) || Date.parse(x.createdAt) >= fromDate) && (!Number.isFinite(toDate) || Date.parse(x.createdAt) <= toDate));
+          const lim = Math.min(1000, Number(u.searchParams.get('limit') || 100));
+          return send(200, { scans: hits.slice(offset, offset + lim), totalCount: all.length, filteredTotalCount: hits.length });
+        }
+        if (!u.searchParams.get('from-date')) return send(200, { scans: [] });
         const total = Array.from({ length: PROJECTS }, (_, i) => perYear[i % 5]).reduce((a, n) => a + n, 0);
         const lim = Math.min(1000, Number(u.searchParams.get('limit') || 100));
         const scans = [];
@@ -106,13 +119,29 @@ http.createServer((req, res) => {
         }
         return send(200, { scans, totalCount: total, filteredTotalCount: total });
       }
+      if (u.pathname === '/api/scan-summary') {
+        bump('scan-summary');
+        // Results by severity of each scan: the older the scan, the bigger the backlog; a few new each scan.
+        const perYear = [400, 100, 20, 4, 0];
+        const scansSummaries = u.searchParams.getAll('scan-ids').map((scanId) => {
+          const m = scanId.match(/^(?:hist-p(\d+)-(\d+)|old-p(\d+))$/);
+          if (!m) return null;
+          const i = Number(m[1] ?? m[3]);
+          const age = m[3] !== undefined ? 1.1 : (Number(m[2]) + 0.5) / perYear[i % 5];
+          const base = { CRITICAL: i % 3, HIGH: 5 + (i % 7), MEDIUM: 20 + (i % 11), LOW: 40 + (i % 13) };
+          const severityCounters = Object.entries(base).map(([severity, b]) => ({ severity, counter: Math.round(b * (1 + 0.5 * age)) }));
+          const severityStatusCounters = Object.entries(base).map(([severity, b]) => ({ severity, status: 'NEW', counter: Math.round(b * 0.02) }));
+          return { scanId, sastCounters: { severityCounters, severityStatusCounters, totalCounter: severityCounters.reduce((a, c) => a + c.counter, 0) }, kicsCounters: { severityCounters: [{ severity: 'LOW', counter: 2 }] } };
+        }).filter(Boolean);
+        return send(200, { scansSummaries, totalCount: scansSummaries.length });
+      }
       let sm;
       // Lines of code a scan counted (Credit projections → Fusion): one project in seven has no SAST
       // scan metadata; half of those still have it in the scan's own SAST details, half have none.
       if ((sm = u.pathname.match(/^\/api\/sast-metadata\/([^/]+)$/))) {
         bump('sast-metadata');
         const id = decodeURIComponent(sm[1]);
-        const i = Number((rescans.get(id)?.projectId ?? id.replace(/^scan-/, '')).replace(/^p/, ''));
+        const i = Number((rescans.get(id)?.projectId ?? id.replace(/^scan-/, '').replace(/^hist-(p\d+)-\d+$/, '$1').replace(/^old-/, '')).replace(/^p/, ''));
         if (!Number.isInteger(i) || i % 7 === 3) return send(404, { message: 'no SAST metadata for this scan' });
         return send(200, { scanId: id, loc: mockLoc(i), fileCount: 40 + (i % 300), isIncremental: false, queryPreset: 'ASA Premium' });
       }
