@@ -295,17 +295,12 @@ const emptyCounts = () =>
 // ---------------------------------------------------------------------------
 
 /**
- * The Dashboard's fetches, all of them together, use at most this many of the connection's calls
- * at once (CX_FETCH_SLOTS; by default all but 4 of CX_MAX_CONCURRENCY): a fetch reads many projects
- * at once to be quick, and the calls left over keep report opens and the like from queuing behind it.
+ * Requests one read keeps waiting or running against Checkmarx One at once: a fetch reads many
+ * projects side by side to be quick, but never queues more than this many calls (CX_FETCH_SLOTS,
+ * by default CX_MAX_CONCURRENCY), so a report opened meanwhile waits behind a short queue.
  */
-const fetchGates = new WeakMap();
-function fetchGate(client) {
-  if (!fetchGates.has(client)) {
-    const limit = Number(client.load?.limit) || 24;
-    fetchGates.set(client, new Semaphore(Math.max(1, Math.min(limit, Number(process.env.CX_FETCH_SLOTS) || limit - 4))));
-  }
-  return fetchGates.get(client);
+export function readGate(client, slots = Number(process.env.CX_FETCH_SLOTS) || Number(client.load?.limit) || 24) {
+  return new Semaphore(Math.max(1, slots));
 }
 
 /**
@@ -399,9 +394,8 @@ export async function collectProjectRisks(
   client,
   config,
   projects,
-  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null, gated = false } = {},
+  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null, gate = null } = {},
 ) {
-  const gate = gated ? fetchGate(client) : null;
   const source = createRiskSource(client, config);
   await source.prime?.(projects);
   let reusedHere = 0;

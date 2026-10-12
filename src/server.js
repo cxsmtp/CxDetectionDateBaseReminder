@@ -13,7 +13,7 @@ import { VersionStore } from './updates/store.js';
 import { SendGuard } from './send-guard.js';
 import { Diagnostics } from './diagnostics.js';
 import { filterProjectsByActivity, getLastScans, lastScanDate, listProjects } from './cxone/projects.js';
-import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, projectReads, selectRisks, summariseProject } from './cxone/risks.js';
+import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, projectReads, readGate, selectRisks, summariseProject } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject, projectsInScope, scanInitiator, scanInitiatorEmail } from './cxone/initiators.js';
 import { AI_SCANNERS, resolveAiIds, resultRowsFor } from './cxone/ai-assist.js';
@@ -2432,8 +2432,8 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
       detectionWindow,
       keep: vulnerability ? (risk) => matchesVulnerability(vulnerability, risk) : null,
       names,
-      // Fetches together use at most part of the connection's calls (see fetchGate), so report opens never queue behind them.
-      gated: true,
+      // Its many projects at once never queue more calls than the connection runs at once (readGate).
+      gate: readGate(client),
       onProject: onProject ? (summary) => onProject(earlyRow(summary)) : null,
       shared: { identity: readerIdentity(req.session), lastScans, fresh: req.query.fresh === '1' },
       shouldStop,
@@ -4616,6 +4616,8 @@ async function notifyOnBehalf(session, kind, started, initiatorsByProject, actor
 const VERIFY_TTL_MS = 10 * 60 * 1000;
 /** Projects verified at once (each with its two reads side by side); the connection's limit still caps the calls. */
 const VERIFY_AT_ONCE = Math.max(1, Number(process.env.CX_VERIFY_CONCURRENCY) || 8);
+/** Calls to Checkmarx One one verify keeps waiting or running at once (3 projects × 4 pages ahead, as before MZ-01.00.65). */
+const VERIFY_SLOTS = 12;
 
 /**
  * One complete, independent read from Checkmarx One of what a project needs:
@@ -4623,8 +4625,8 @@ const VERIFY_AT_ONCE = Math.max(1, Number(process.env.CX_VERIFY_CONCURRENCY) || 
  * AI Triage and AI Remediation would be sent (results API). Returns the exact
  * billed result ids, not an estimate.
  */
-async function readProjectNeed(session, project, { detectionWindow = null, scanIdOf = () => '', severities = null, keep = null } = {}) {
-  const read = await collectProjectRisks(session.client, activeConfig(), [{ id: project.projectId, name: project.projectName }], { detectionWindow, keep });
+async function readProjectNeed(session, project, { detectionWindow = null, scanIdOf = () => '', severities = null, keep = null, gate = null } = {}) {
+  const read = await collectProjectRisks(session.client, activeConfig(), [{ id: project.projectId, name: project.projectName }], { detectionWindow, keep, gate });
   const summary = read.projects[0];
   if (summary.error) throw Object.assign(new Error(`${project.projectName}: ${summary.error}`), { status: 502 });
   const rule = severities?.length ? severities : allocations.severitiesOf(project.projectId);
@@ -4670,7 +4672,8 @@ async function verifyNeeds(session, projects, { severities = null } = {}) {
   // The same findings the Dashboard shows: its date window, and its vulnerability search.
   const vulnerability = vulnerabilityQuery(scan?.vulnerability);
   const keep = vulnerability ? (risk) => matchesVulnerability(vulnerability, risk) : null;
-  const options = { detectionWindow: scan?.detectionWindow ?? null, scanIdOf: (id) => scan?.initiators?.[id]?.scanId ?? '', severities, keep };
+  // Its projects and their two reads side by side, never queuing more calls than one verify did before (VERIFY_SLOTS).
+  const options = { detectionWindow: scan?.detectionWindow ?? null, scanIdOf: (id) => scan?.initiators?.[id]?.scanId ?? '', severities, keep, gate: readGate(session.client, VERIFY_SLOTS) };
   const out = await mapWithConcurrency(projects, VERIFY_AT_ONCE, async (p) => {
     try {
       const { first, second, agreed } = await doubleRead(session, p, options);
