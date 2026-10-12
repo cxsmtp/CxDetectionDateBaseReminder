@@ -5050,11 +5050,16 @@ async function readProjectNeed(session, project, { detectionWindow = null, scanI
  * The scans whose result ids a credit check of this project will look up: those its fetched
  * findings name, and its latest scan. Reading them is the slow part of a check on a large scan.
  */
-function warmProject(session, project) {
+function warmProject(session, project, severities = null) {
+  // Only what the check will look up: AI-eligible findings of the severities counted, not yet matched.
+  const rule = severities?.length ? severities : allocations.severitiesOf(project.projectId);
+  const latest = session.lastScan?.initiators?.[project.projectId]?.scanId ?? '';
   const ids = new Set();
-  for (const r of project.risks ?? []) if (r.scanId && AI_SCANNERS.has(r.scanner)) ids.add(r.scanId);
-  const latest = session.lastScan?.initiators?.[project.projectId]?.scanId;
-  if (latest) ids.add(latest);
+  for (const r of project.risks ?? []) {
+    if (!AI_SCANNERS.has(r.scanner) || r.alternateId || !rule.includes(r.severity)) continue;
+    const id = r.scanId || latest;
+    if (id) ids.add(id);
+  }
   for (const id of [...ids].slice(0, 5)) warmScanResults(session.client, id);
 }
 
@@ -5069,8 +5074,6 @@ function warmProject(session, project) {
  * `agreed` only when every billed result id matches.
  */
 async function doubleRead(session, project, options) {
-  // The result-id lookup starts now, beside the two reads of the findings, instead of after them.
-  warmProject(session, project);
   const [first, second] = await Promise.all([readProjectNeed(session, project, options), readProjectNeed(session, project, options)]);
   const same = (a, b) => a.length === b.length && a.every((id, i) => id === b[i]);
   const agreed =

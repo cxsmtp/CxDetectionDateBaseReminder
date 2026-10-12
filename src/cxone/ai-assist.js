@@ -66,9 +66,26 @@ function scanResultIds(client, scanId) {
  * Start reading a scan's result ids ahead of need (no wait, no error): a credit check started
  * meanwhile, or right after, finds the lookup table ready or joins the read already under way.
  */
+const WARM_AT_ONCE = 2;
+let warming = 0;
+const warmQueue = [];
 export function warmScanResults(client, scanId) {
   if (!scanId || !(RESULT_IDS_TTL_MS > 0)) return;
-  scanResultIds(client, scanId).catch(() => {});
+  // Two scans at a time at most, so reading ahead never crowds out what people are waiting for.
+  if (warmQueue.length >= 50) return;
+  warmQueue.push(() => scanResultIds(client, scanId));
+  pumpWarm();
+}
+function pumpWarm() {
+  while (warming < WARM_AT_ONCE && warmQueue.length) {
+    warming += 1;
+    warmQueue.shift()()
+      .catch(() => {})
+      .finally(() => {
+        warming -= 1;
+        pumpWarm();
+      });
+  }
 }
 
 async function readScanResults(client, scanId, { nodes = true } = {}) {
