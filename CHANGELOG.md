@@ -56,7 +56,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.69 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.69 — 2026-10-12 12:36 UTC · [#92](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/92)
 
 - **Through your company's proxy.** Settings → Network & proxy takes the proxy (with a user name and password if it asks for one, and the hosts that skip it). The usual `HTTPS_PROXY` / `NO_PROXY` work too. Saving restarts the server for a few seconds to use it, and every HTTPS connection then goes through it.
 - **A check, and a sheet for the network team.** **Check the connection** tries the way to Checkmarx One step by step (proxy, connection, certificate, Checkmarx One) before anything is saved, and says what to ask for; a proxy that does not let Checkmarx One through is not saved. The same page lists every connection the server makes or takes, with the one proxy rule Checkmarx One needs, to copy or download for a ticket.
