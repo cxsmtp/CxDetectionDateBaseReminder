@@ -2,7 +2,7 @@ import { CxApiError, mapWithConcurrency } from './client.js';
 import { RISK_PATH_CANDIDATES, isProbeMiss } from './discovery.js';
 import { getLastScans } from './projects.js';
 import { withinWindow } from '../window.js';
-import { TtlCache } from '../ttl-cache.js';
+import { Semaphore, TtlCache } from '../ttl-cache.js';
 
 export const AGE_BUCKETS = [
   { id: '0-30', label: 'Last 30 days', min: 0, max: 30 },
@@ -173,7 +173,7 @@ class RisksApiSource {
     return [this.#resolvedPath, ...RISK_PATH_CANDIDATES.filter((p) => p !== this.#resolvedPath)];
   }
 
-  async fetchForProject(project, { detectionWindow = null, background = false } = {}) {
+  async fetchForProject(project, { detectionWindow = null, gate = null } = {}) {
     let lastMiss;
 
     for (const candidate of this.#candidates()) {
@@ -199,7 +199,7 @@ class RisksApiSource {
           query,
           limit: RISKS_PAGE_SIZE,
           maxItems: 20_000,
-          background,
+          gate,
         })) {
           items.push(item);
         }
@@ -295,6 +295,20 @@ const emptyCounts = () =>
 // ---------------------------------------------------------------------------
 
 /**
+ * The Dashboard's fetches, all of them together, use at most this many of the connection's calls
+ * at once (CX_FETCH_SLOTS; by default all but 4 of CX_MAX_CONCURRENCY): a fetch reads many projects
+ * at once to be quick, and the calls left over keep report opens and the like from queuing behind it.
+ */
+const fetchGates = new WeakMap();
+function fetchGate(client) {
+  if (!fetchGates.has(client)) {
+    const limit = Number(client.load?.limit) || 24;
+    fetchGates.set(client, new Semaphore(Math.max(1, Math.min(limit, Number(process.env.CX_FETCH_SLOTS) || limit - 4))));
+  }
+  return fetchGates.get(client);
+}
+
+/**
  * How long a project's findings, once read, serve everyone else who fetches
  * the same project through the same Checkmarx One key (CX_FETCH_CACHE_SECONDS,
  * 0 switches it off). A read is reused only while the project's latest scan
@@ -333,8 +347,8 @@ const scanIdOf = (scan) => String(scan?.id ?? scan?.scanId ?? '');
  * still current, else one read from Checkmarx One (shared with anyone asking
  * for the same project at the same moment). Resolves {items, reused}.
  */
-async function readProject(source, project, detectionWindow, shared, background = false) {
-  const load = () => source.fetchForProject(project, { detectionWindow, background });
+async function readProject(source, project, detectionWindow, shared, gate = null) {
+  const load = () => source.fetchForProject(project, { detectionWindow, gate });
   const changing = (volatileUntil.get(String(project.id)) ?? 0) > Date.now();
   if (!shared?.identity || !(READ_TTL_MS > 0) || changing) {
     read += 1;
@@ -385,8 +399,9 @@ export async function collectProjectRisks(
   client,
   config,
   projects,
-  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null, background = false } = {},
+  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null, gated = false } = {},
 ) {
+  const gate = gated ? fetchGate(client) : null;
   const source = createRiskSource(client, config);
   await source.prime?.(projects);
   let reusedHere = 0;
@@ -402,7 +417,7 @@ export async function collectProjectRisks(
     }
     let summary;
     try {
-      const { items: raw, reused: wasReused } = await readProject(source, project, detectionWindow, shared, background);
+      const { items: raw, reused: wasReused } = await readProject(source, project, detectionWindow, shared, gate);
       if (wasReused) reusedHere += 1;
       const risks = raw
         .map((item) => normalizeShared(item, project, now))
