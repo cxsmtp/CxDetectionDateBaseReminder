@@ -68,7 +68,7 @@ export function loadConfig(env = process.env) {
     reportServerUrl: (env.REPORT_SERVER_URL?.trim() || env.PUBLIC_URL?.trim() || (env.LETSENCRYPT_DOMAIN?.trim() ? `https://${env.LETSENCRYPT_DOMAIN.trim().split(/[\s,]+/)[0].toLowerCase()}` : '')).replace(/\/+$/, ''),
 
     session: { idleMs: int(env.SESSION_IDLE_MINUTES, 480) * 60_000 },
-    concurrency: Math.max(1, int(env.CX_FETCH_CONCURRENCY, 10)),
+    concurrency: Math.max(1, int(env.CX_FETCH_CONCURRENCY, 24)),
     port: int(env.PORT, 3000),
     host: env.HOST?.trim() || '127.0.0.1',
   };

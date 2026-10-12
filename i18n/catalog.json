@@ -287,6 +287,12 @@
    "audit › checks › dd › State folder & backups"
   ]
  },
+ "{0} finding": {
+  "kind": "message",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "{0} finding left to triage or fix. Then you rescan to prove the fixes.": {
   "kind": "report",
   "seen": [
@@ -1796,11 +1802,10 @@
    "Dashboard › p › About CxMissionZero"
   ]
  },
- "Act on Checkmarx One findings, follow them up to zero, and prove every credit": {
+ "Act on findings, follow them up, prove every credit": {
   "kind": "text",
   "seen": [
-   "first start › p",
-   "sign in › p"
+   "dashboard"
   ]
  },
  "Act on the selection": {
@@ -1869,6 +1874,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Activity and troubleshooting": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
   ]
  },
  "Activity in this browser": {
@@ -2507,6 +2518,12 @@
    "interactive HTML report"
   ]
  },
+ "AI Remediation credits": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "AI Remediation credits left / allocated, and what confirmed findings still need": {
   "kind": "attr:title",
   "seen": [
@@ -2623,6 +2640,12 @@
    "first start › p › How credits work",
    "sign in › p › How credits work",
    "Dashboard › p › How credits work"
+  ]
+ },
+ "AI Triage credits": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
   ]
  },
  "AI Triage credits left / allocated, and what is still needed": {
@@ -5338,14 +5361,6 @@
    "busy line"
   ]
  },
- "Connections, reminders, AI and credits, reports, security — saved as you type": {
-  "kind": "text",
-  "seen": [
-   "settings › p",
-   "settings › profile › p",
-   "settings › import › p"
-  ]
- },
  "Contact your Checkmarx One reminder administrator.": {
   "kind": "report",
   "seen": [
@@ -5722,6 +5737,12 @@
    "first start › button › AI check & fix",
    "sign in › button › AI check & fix",
    "Dashboard › button › AI check & fix"
+  ]
+ },
+ "Credits given, used and left": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
   ]
  },
  "Credits must be whole numbers, not negative, and no more than {0} at a time.": {
@@ -7284,12 +7305,10 @@
    "interactive HTML report"
   ]
  },
- "Every credit spent, refused or failed — who, when, where, and the balance after": {
+ "Every credit spent, refused or failed": {
   "kind": "text",
   "seen": [
-   "audit › p",
-   "audit › log › p",
-   "audit › checks › p"
+   "dashboard"
   ]
  },
  "Every day": {
@@ -7738,12 +7757,30 @@
    "Dashboard › input › Projects"
   ]
  },
+ "Find a vulnerability": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
+  ]
+ },
+ "Find a vulnerability: SQL injection, SSRF…": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "Find ageing findings, see who owns them and remind them": {
   "kind": "attr:title",
   "seen": [
    "first start › p",
    "sign in › p",
    "Dashboard › p"
+  ]
+ },
+ "Find ageing vulnerabilities and fix them": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
   ]
  },
  "Find code authors": {
@@ -7760,14 +7797,6 @@
    "settings › p › Beta features",
    "logs › p › Beta features",
    "logs › activity › p › Beta features"
-  ]
- },
- "Find who wrote the vulnerable code, and match usernames to email addresses": {
-  "kind": "text",
-  "seen": [
-   "beta › p",
-   "beta › authors › p",
-   "beta › identity › p"
   ]
  },
  "Finding": {
@@ -7900,6 +7929,12 @@
    "first start › label › Age",
    "sign in › label › Age",
    "Dashboard › label › Age"
+  ]
+ },
+ "Findings: {0} in {1} projects. Every action here works on these only.": {
+  "kind": "message",
+  "seen": [
+   "dashboard"
   ]
  },
  "Fine-tuning most people never need": {
@@ -8052,10 +8087,10 @@
    "Dashboard › p"
   ]
  },
- "Follow every tracked scope down to zero: progress, follow-ups and schedules": {
+ "Follow every tracked scope to zero": {
   "kind": "text",
   "seen": [
-   "reports › p"
+   "dashboard"
   ]
  },
  "Follow on Reports": {
@@ -8960,14 +8995,6 @@
    "first start › span › AI Triage & Remediation from reports",
    "sign in › span › AI Triage & Remediation from reports",
    "Dashboard › span › AI Triage & Remediation from reports"
-  ]
- },
- "Hours AI saved, findings it cleared, and how fast the security debt is shrinking": {
-  "kind": "text",
-  "seen": [
-   "impact › p",
-   "impact › exec › p",
-   "impact › detail › p"
   ]
  },
  "Hours saved": {
@@ -9944,6 +9971,12 @@
    "projections"
   ]
  },
+ "Last scanned by": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "Last sent: {0}-{1}.": {
   "kind": "message",
   "seen": [
@@ -9996,14 +10029,6 @@
    "first start › span › Update & recovery",
    "sign in › span › Update & recovery",
    "Dashboard › span › Update & recovery"
-  ]
- },
- "Latest scan by": {
-  "kind": "text",
-  "seen": [
-   "first start › th › Projects",
-   "sign in › th › Projects",
-   "Dashboard › th › Projects"
   ]
  },
  "Least progress": {
@@ -11735,6 +11760,12 @@
    "credits › overview › li › Upcoming follow-ups"
   ]
  },
+ "Nothing to remediate here: no project shown has confirmed findings of these severities.": {
+  "kind": "message",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "Nothing to remediate: no finding of these severities is confirmed and not yet remediated.": {
   "kind": "message",
   "seen": [
@@ -11765,6 +11796,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Nothing to triage here: no project shown has findings of these severities left to triage.": {
+  "kind": "message",
+  "seen": [
+   "dashboard"
   ]
  },
  "Nothing to triage: these findings are already triaged, or were sent for triage in the last {0} minutes.": {
@@ -11953,20 +11990,10 @@
    "sign in › button › Credit audit log"
   ]
  },
- "Oldest": {
-  "kind": "attr:data-label",
-  "seen": [
-   "Dashboard › fetching › td › Projects",
-   "Dashboard › loaded › td › Projects",
-   "Dashboard › remind › td › Projects"
-  ]
- },
- "Oldest first detection": {
+ "Oldest open since": {
   "kind": "text",
   "seen": [
-   "first start › th › Projects",
-   "sign in › th › Projects",
-   "Dashboard › th › Projects"
+   "dashboard"
   ]
  },
  "On": {
@@ -12055,6 +12082,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Only the findings of this vulnerability are loaded, and every action here works on them. Several at once: separate them with commas.": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
   ]
  },
  "Only these projects or people <span class=\"muted\">— optional</span>": {
@@ -12265,6 +12298,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Open vulnerabilities of every severity, in the period chosen above": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
   ]
  },
  "Open-source package": {
@@ -14484,6 +14523,12 @@
    "Dashboard › span › Match usernames to email addresses"
   ]
  },
+ "Saved as you type": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "Saved, after credits": {
   "kind": "message",
   "seen": [
@@ -15145,14 +15190,6 @@
   "kind": "busy",
   "seen": [
    "busy line"
-  ]
- },
- "See ageing vulnerabilities, then remind owners, triage and remediate them": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › p",
-   "Dashboard (advanced) › p",
-   "connection: cxone › p"
   ]
  },
  "See credit balances and usage.": {
@@ -16056,6 +16093,12 @@
    "Dashboard › summary › Show as a table"
   ]
  },
+ "Show every finding": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "Show the changes": {
   "kind": "report",
   "seen": [
@@ -16707,12 +16750,10 @@
    "Dashboard › option"
   ]
  },
- "Support cases and enhancement requests: raise one, follow it, and talk to the support team": {
+ "Support cases and enhancements": {
   "kind": "text",
   "seen": [
-   "help › enhancement › p",
-   "help › case › p",
-   "help › raised › p"
+   "dashboard"
   ]
  },
  "Support here is by email. Your email app opens, addressed to": {
@@ -17219,14 +17260,6 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
- "The Checkmarx One credits a customer needs: triage and remediation of their backlog, and Fusion scans of their projects": {
-  "kind": "text",
-  "seen": [
-   "calculator › p",
-   "calculator › tr › p",
-   "calculator › fusion › p"
-  ]
- },
  "The Checkmarx One tenant you are working in": {
   "kind": "attr:title",
   "seen": [
@@ -17243,12 +17276,10 @@
    "access › roles › small › Roles & permissions"
   ]
  },
- "The credit pool, what each project was given and used, and spending over time": {
+ "The credits a customer needs": {
   "kind": "text",
   "seen": [
-   "credits › p",
-   "credits › overview › p",
-   "credits › projects › p"
+   "dashboard"
   ]
  },
  "The criticality each project has in Checkmarx One ({0} is the most critical). Leave a number empty to use the default.": {
@@ -18246,6 +18277,12 @@
   "kind": "text",
   "seen": [
    "calculator › div"
+  ]
+ },
+ "Total vulnerabilities": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
   ]
  },
  "Track": {
@@ -19738,6 +19775,12 @@
    "Dashboard › p › AI Triage & Remediation from reports"
   ]
  },
+ "What AI saved and cleared": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "What each role may do. Changes apply at once to everyone with the role. You can only grant permissions you hold yourself; <span class=\"badge warn\">Admin</span> marks the Admin-only permissions.": {
   "kind": "html",
   "seen": [
@@ -19756,14 +19799,6 @@
   "kind": "message",
   "seen": [
    "settings › handsoff › Hands-off: set it up once, then leave it"
-  ]
- },
- "What this browser asked the server, and the troubleshooting log": {
-  "kind": "text",
-  "seen": [
-   "logs › p",
-   "logs › activity › p",
-   "logs › troubleshooting › p"
   ]
  },
  "What was tried": {
@@ -19814,6 +19849,12 @@
    "first start › span › Fusion scans: what each project needs",
    "sign in › span › Fusion scans: what each project needs",
    "Dashboard › span › Fusion scans: what each project needs"
+  ]
+ },
+ "When the oldest open vulnerability was first found, and how many days ago": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
   ]
  },
  "When the reminder was produced (UTC)": {
@@ -19872,12 +19913,10 @@
    "Dashboard › th › Credit audit log"
   ]
  },
- "Who can sign in, and what each role may do": {
+ "Who can sign in, and what they may do": {
   "kind": "text",
   "seen": [
-   "access › p",
-   "access › people › p",
-   "access › roles › p"
+   "dashboard"
   ]
  },
  "Who gets reminders everywhere: each developer (their own projects)": {
@@ -19904,12 +19943,24 @@
    "logs › activity › span › Available variables"
   ]
  },
+ "Who ran the project's last scan: reminders go to them": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "Who sees Hebrew: the roles with the <strong>Hebrew</strong> permission, under <a href=\"#/access/roles\">People &amp; roles</a>. Admins always have it; tick it for Security Analyst or any other role that should.": {
   "kind": "html",
   "seen": [
    "settings › p › Activation codes",
    "logs › p › Activation codes",
    "logs › activity › p › Activation codes"
+  ]
+ },
+ "Who wrote the code, and their email": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
   ]
  },
  "Who?": {

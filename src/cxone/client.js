@@ -181,10 +181,11 @@ export class CxClient {
    * shared limit on calls to Checkmarx One), and handed out in order. The end
    * is where it always was: the total, or the first short page.
    */
-  async *paginate(path, { query = {}, itemsKey, limit = 100, maxItems = 10_000, offsetIsPage = false, parallel = PAGES_AT_ONCE } = {}) {
+  async *paginate(path, { query = {}, itemsKey, limit = 100, maxItems = 10_000, offsetIsPage = false, parallel = PAGES_AT_ONCE, gate = null } = {}) {
     let offset = 0;
     let fetched = 0;
-    const read = (at) => this.request(path, { query: { ...query, offset: at, limit } });
+    // `gate`: a Semaphore the caller shares between many reads (a fetch's pages), on top of the connection's own limit.
+    const read = (at) => (gate ? gate.run(() => this.request(path, { query: { ...query, offset: at, limit } })) : this.request(path, { query: { ...query, offset: at, limit } }));
 
     while (fetched < maxItems) {
       const page = await read(offset);

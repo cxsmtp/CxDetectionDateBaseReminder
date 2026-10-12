@@ -12,6 +12,7 @@ Self-hosted, one container, nothing to install for developers.
 | --- | --- |
 | **Know what is ageing** | Every project's findings bucketed by first detection (≤ 30, 31–60, > 60 days), streamed in as they are read. **Stop** part-way keeps what has loaded, ready to use. |
 | **SLAs (Beta)** | Days to fix each severity: what is past its SLA and due within 7 days, in total and per project, and one escalation email per finding that goes past it. |
+| **Go after one weakness** | **Find a vulnerability** on the Dashboard (*SQL injection*, *SSRF*, *CWE-89*, several at once): only its findings load, from every project that has them, and reminders, AI triage and remediation and credits then act on those alone. |
 | **The right person, only their projects** | Reminders go to whoever ran each project's latest scan, by email, as a summary or one per project. The server refuses any email that would show someone a project they did not scan. |
 | **Fix from the inbox** | An interactive report in every email: **Triage** and **Remediate** with Checkmarx One AI, see the verdict, open the pull request. Developers pick their IDE once (VS Code, Cursor, Kiro, Windsurf, Antigravity, JetBrains). Then every finding is **Open in …** and **Apply AI fix**, one click each: the fix Checkmarx One AI Remediation wrote lands in their own checkout, even when there is no pull request. |
 | **Credits under control** | A credit pool, and per-project allocations, given on the Dashboard or on Credit Control. Every action re-checks Checkmarx One twice first and stops if anyone changed the findings meanwhile. Never two requests for one vulnerability, and unused credits are taken back. |
@@ -188,7 +189,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `CX_API_KEY` ⬆ | The integration key: password sign-ins, report triage, automation. An Admin can also store it in Settings. |
 | `CX_BASE_URL`, `CX_IAM_URL`, `CX_TENANT` ⬆ | Single-tenant / on-prem only. Otherwise worked out from the key. |
 | `CX_RISK_SOURCE`, `CX_RISKS_PATH` | Where findings come from (`risk-insights` with `/api/risks/`, or `scan-results`). `/api/risks/ai-insights` adds AI status. |
-| `CX_MAX_CONCURRENCY` (24), `CX_FETCH_CONCURRENCY` (10), `CX_PAGES_AT_ONCE` (4) | Calls to Checkmarx One at once; projects read at once per fetch; pages of one big project read at once. |
+| `CX_MAX_CONCURRENCY` (24), `CX_FETCH_CONCURRENCY` (24), `CX_VERIFY_CONCURRENCY` (8), `CX_PAGES_AT_ONCE` (4) | Calls to Checkmarx One at once; projects read at once per fetch; projects verified at once by the credit checks; pages of one big project read at once. |
 | `HTTP_COMPRESSION` (on), `HTTP_COMPRESSION_MIN_KB` (32) | Compress big replies (the page, the fetch stream, downloads). `off` when your reverse proxy compresses. |
 | `CX_FETCH_CACHE_SECONDS` (120) | A project someone fetched this recently is reused by the next fetch (same key, same latest scan, not triaged from here since). `0` switches it off. |
 | **Email** | |
@@ -233,7 +234,7 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.64** | 526/s, 0 failed (main 521, 0) | 5.9 s | 246 ms | 591 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.65** | 511/s, 0 failed (main 520, 0) | 5.0 s | 276 ms | 595 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.60 | 505/s, 0 failed (main 499, 0 failed) | 6.9 s | 501 ms | 566 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.59 | 513/s, 0 failed (main 518, 0 failed) | 6.2 s | 229 ms | 565 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.58 | 502/s, 0 failed (main 514, 31 failed) | 11.8 s | 648 ms | 559 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |

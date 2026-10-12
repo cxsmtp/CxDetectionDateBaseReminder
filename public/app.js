@@ -31,6 +31,8 @@ const VERIFY_TTL_MS = 10 * 60 * 1000;
 const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
 const state = {
+  // The vulnerability search the data was loaded with ('' for every finding).
+  vulnerability: '',
   connection: null,
   settings: null,
   health: null,
@@ -1293,18 +1295,18 @@ function showSettingsSection(id) {
 }
 
 const PAGE_TITLES = {
-  connect: ['Sign in', 'Act on Checkmarx One findings, follow them up to zero, and prove every credit'],
-  dashboard: ['Dashboard', 'See ageing vulnerabilities, then remind owners, triage and remediate them'],
-  reports: ['Reports', 'Follow every tracked scope down to zero: progress, follow-ups and schedules'],
-  credits: ['Credit Control', 'The credit pool, what each project was given and used, and spending over time'],
-  impact: ['Impact', 'Hours AI saved, findings it cleared, and how fast the security debt is shrinking'],
-  settings: ['Settings', 'Connections, reminders, AI and credits, reports, security — saved as you type'],
-  logs: ['Logs', 'What this browser asked the server, and the troubleshooting log'],
-  access: ['People & roles', 'Who can sign in, and what each role may do'],
-  audit: ['Audit', 'Every credit spent, refused or failed — who, when, where, and the balance after'],
-  beta: ['Beta', 'Find who wrote the vulnerable code, and match usernames to email addresses'],
-  help: ['Get help', 'Support cases and enhancement requests: raise one, follow it, and talk to the support team'],
-  calculator: ['Cx Credits Calculator', 'The Checkmarx One credits a customer needs: triage and remediation of their backlog, and Fusion scans of their projects'],
+  connect: ['Sign in', 'Act on findings, follow them up, prove every credit'],
+  dashboard: ['Dashboard', 'Find ageing vulnerabilities and fix them'],
+  reports: ['Reports', 'Follow every tracked scope to zero'],
+  credits: ['Credit Control', 'Credits given, used and left'],
+  impact: ['Impact', 'What AI saved and cleared'],
+  settings: ['Settings', 'Saved as you type'],
+  logs: ['Logs', 'Activity and troubleshooting'],
+  access: ['People & roles', 'Who can sign in, and what they may do'],
+  audit: ['Audit', 'Every credit spent, refused or failed'],
+  beta: ['Beta', 'Who wrote the code, and their email'],
+  help: ['Get help', 'Support cases and enhancements'],
+  calculator: ['Cx Credits Calculator', 'The credits a customer needs'],
 };
 
 function setPageTitle(page) {
@@ -2923,6 +2925,7 @@ function windowParams() {
   // Named projects (by id) and people: only these are fetched.
   for (const id of scopePick.projects.keys()) params.append('project', id);
   for (const who of scopePick.initiators) params.append('initiator', who);
+  if (state.vulnerability) params.set('vulnerability', state.vulnerability);
   for (const prefix of ['activity', 'detection']) {
     const preset = $(`${prefix}-preset`).value;
     params.set(`${prefix}Preset`, preset);
@@ -3107,6 +3110,8 @@ function visibleProjects() {
     if (bucket && !(p.counts?.[bucket] > 0)) return false;
     if (picked.size > 0 && !picked.has(p.initiator || p.initiatorEmail || '')) return false;
     if (hideEmpty && p.totalRisks === 0) return false;
+    // Searching a vulnerability: projects without it are not shown, even while loading.
+    if (state.vulnerability && p.totalRisks === 0 && !p.error) return false;
     return true;
   });
 
@@ -3382,15 +3387,21 @@ const OPTIONAL_COLUMNS = [
   { id: 'sev:HIGH', group: 'Severity', label: 'High', value: (p) => p.bySeverity?.HIGH ?? 0 },
   { id: 'sev:MEDIUM', group: 'Severity', label: 'Medium', value: (p) => p.bySeverity?.MEDIUM ?? 0 },
   { id: 'sev:LOW', group: 'Severity', label: 'Low', value: (p) => p.bySeverity?.LOW ?? 0 },
-  // SLAs (Beta): shown by default to those who may use them, until someone picks their own columns.
-  { id: 'sla:overdue', group: 'SLA', label: 'Past SLA', title: 'Open findings past the days their severity has to be fixed (Settings → SLAs)', value: (p) => p.sla?.overdue ?? 0, alert: true, perm: 'feature.sla', byDefault: true },
+  // SLAs (Beta): columns to add under "Columns", for those who may use them.
+  { id: 'sla:overdue', group: 'SLA', label: 'Past SLA', title: 'Open findings past the days their severity has to be fixed (Settings → SLAs)', value: (p) => p.sla?.overdue ?? 0, alert: true, perm: 'feature.sla' },
   { id: 'sla:soon', group: 'SLA', label: 'Due ≤ 7d', title: 'Open findings due within 7 days', value: (p) => p.sla?.dueSoon ?? 0, perm: 'feature.sla' },
 ];
 const COLUMNS_KEY = 'mz-project-columns';
 let columnsChosen = false;
 const shownColumns = (() => {
   try {
-    const saved = JSON.parse(localStorage.getItem(COLUMNS_KEY) ?? 'null');
+    let saved = JSON.parse(localStorage.getItem(COLUMNS_KEY) ?? 'null');
+    // MZ-01.00.65: "Past SLA" is no longer shown unless chosen; a choice saved before it was optional drops it once.
+    if (Array.isArray(saved) && !localStorage.getItem(`${COLUMNS_KEY}-65`)) {
+      saved = saved.filter((id) => id !== 'sla:overdue');
+      localStorage.setItem(COLUMNS_KEY, JSON.stringify(saved));
+    }
+    localStorage.setItem(`${COLUMNS_KEY}-65`, '1');
     if (Array.isArray(saved)) {
       columnsChosen = true;
       return new Set(saved.filter((id) => OPTIONAL_COLUMNS.some((c) => c.id === id)));
@@ -3453,7 +3464,7 @@ function exportProjectsCsv() {
   if (!rows.length) return;
   const cellText = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ''));
   const credit = (p, kind, key) => p.credits?.[kind]?.[key] ?? '';
-  const header = ['Project', 'Project id', 'Total', ...availableColumns().map((c) => `${c.group}: ${c.label}`), 'Oldest first detection', 'Oldest (days)', 'Latest scan by', 'Initiator email',
+  const header = ['Project', 'Project id', 'Total vulnerabilities', ...availableColumns().map((c) => `${c.group}: ${c.label}`), 'Oldest open since', 'Oldest (days)', 'Last scanned by', 'Initiator email',
     'Triage allocated', 'Triage used', 'Triage left', 'Triage needed', 'Remediation allocated', 'Remediation used', 'Remediation left', 'Remediation needed'];
   const lines = rows.map((p) => [
     p.projectName, p.projectId, p.totalRisks, ...availableColumns().map((c) => c.value(p)), formatDate(p.oldestFirstDetectedAt), p.maxAgeDays ?? '', p.initiator ?? '', p.initiatorEmail ?? '',
@@ -3503,17 +3514,17 @@ function renderProjects() {
               ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.projectName)}</a>`
               : escapeHtml(p.projectName)
           }${p.error ? `<span class="err">${escapeHtml(p.error)}</span>` : ''}</td>
-          <td class="num c-count" data-label="Total">${p.totalRisks}</td>
+          <td class="num c-count" data-label="Total vulnerabilities">${p.totalRisks}</td>
           ${activeColumns().map((c) => {
             const v = c.value(p);
             return `<td class="num c-count ${v > 0 ? (c.alert ? 'aged' : '') : 'zero'}" data-label="${escapeHtml(c.label)}">${v}</td>`;
           }).join('')}
-          <td class="c-oldest" data-label="Oldest">${formatDate(p.oldestFirstDetectedAt)}${
+          <td class="c-oldest" data-label="Oldest open since">${formatDate(p.oldestFirstDetectedAt)}${
             p.maxAgeDays === null ? '' : ` <span class="zero">(${p.maxAgeDays}d)</span>`
           }</td>
-          <td class="initiator c-wide" data-label="Latest scan by" translate="no">${renderInitiator(p)}</td>
-          ${creditCell(p, 'triage').replace('<td class="', '<td data-label="Triage credits" class="c-half ')}
-          ${creditCell(p, 'remediation').replace('<td class="', '<td data-label="Remediation credits" class="c-half ')}
+          <td class="initiator c-wide" data-label="Last scanned by" translate="no">${renderInitiator(p)}</td>
+          ${creditCell(p, 'triage').replace('<td class="', '<td data-label="AI Triage credits" class="c-half ')}
+          ${creditCell(p, 'remediation').replace('<td class="', '<td data-label="AI Remediation credits" class="c-half ')}
         </tr>${state.creditEditor === p.projectId ? creditEditorRow(p) : ''}`;
       })
       .join('') +
@@ -4666,10 +4677,29 @@ function creditCell(project, kind) {
   return `<td class="num credits" title="${escapeHtml(title)}"><button type="button" class="credit-edit" data-credit-edit="${escapeHtml(project.projectId)}" aria-label="Edit ${escapeHtml(project.projectName)} credits">${figures}</button></td>`;
 }
 
-/** Selected projects, or every shown one when none is selected. */
+/** Selected projects, or every shown one when none is selected (while a credit action runs: the projects it acts on). */
+let actionScope = null;
 function allocationScope() {
+  if (actionScope) return actionScope;
   const shown = visibleProjects().filter((p) => !p.error);
   return state.selected.size ? shown.filter((p) => state.selected.has(p.projectId)) : shown;
+}
+
+/**
+ * The projects an action has work in: something to triage, or confirmed findings to remediate,
+ * for the ticked severities or the project's own. Only these are read from Checkmarx One again,
+ * so a credit action on a few projects' findings does not re-read every project shown.
+ */
+function workScope(kind) {
+  const scope = allocationScope();
+  if (kind !== 'triage' && kind !== 'remediation') return scope;
+  const ticked = allocSeverities();
+  return scope.filter((p) => {
+    const c = p.credits ?? {};
+    const severities = new Set([...ticked, ...(c.severities ?? [])]);
+    const by = kind === 'triage' ? c.toTriage : c.toRemediateBySeverity;
+    return [...severities].some((s) => (by?.[s] ?? 0) > 0);
+  });
 }
 
 const allocSeverities = () => [...document.querySelectorAll('.alloc-sev:checked')].map((box) => box.value);
@@ -4823,10 +4853,21 @@ function pictureChanges(before, after) {
  * remediated in Checkmarx One, or from a report), the action is cancelled and
  * the panel now shows the real numbers; clicking again goes ahead with them.
  */
-async function guardedAction(label, run) {
+async function guardedAction(label, run, kind = null) {
   if (state.fetching) return setStatus('alloc-status', 'Wait for the data fetch to complete.', 'error');
-  const scope = allocationScope();
-  if (!scope.length) return setStatus('alloc-status', 'Fetch the projects first.', 'error');
+  if (!allocationScope().length) return setStatus('alloc-status', 'Fetch the projects first.', 'error');
+  const scope = workScope(kind);
+  if (!scope.length) return setStatus('alloc-status', kind === 'remediation' ? 'Nothing to remediate here: no project shown has confirmed findings of these severities.' : 'Nothing to triage here: no project shown has findings of these severities left to triage.', 'ok');
+  actionScope = scope;
+  try {
+    return await checkThenRun(label, run, scope);
+  } finally {
+    actionScope = null;
+    renderAllocation();
+  }
+}
+
+async function checkThenRun(label, run, scope) {
   const before = creditPicture(scope);
   const check = await verifyWithCheckmarx({ before: label });
   if (!check?.ok) {
@@ -5204,6 +5245,7 @@ async function restoreLastScan({ force = false } = {}) {
   }
   if (!result?.projects || (state.projects.length && !force) || state.fetching) return;
   restoreScope(result.request, result.projects);
+  showVulnerabilitySearch(result);
   state.lastScan = result;
   state.projects = result.projects;
   renderTotals(totalsOf(state.projects));
@@ -5257,7 +5299,25 @@ async function stopFetch() {
 let fetchAbort = null;
 $('fetch-stop').addEventListener('click', stopFetch);
 
+/** The vulnerability search the data was loaded with: its box, the line saying so, and names to suggest. */
+function showVulnerabilitySearch(result) {
+  state.vulnerability = result?.vulnerability ?? result?.request?.vulnerability ?? '';
+  $('vuln-q').value = state.vulnerability;
+  const names = result?.vulnerabilityNames ?? [];
+  if (names.length) {
+    $('vuln-names').innerHTML = names.map((n) => `<option value="${escapeHtml(String(n.name).replace(/_/g, ' '))}">${escapeHtml(`${n.count} finding${n.count === 1 ? '' : 's'}`)}</option>`).join('');
+  }
+  const line = $('vuln-active');
+  line.hidden = !state.vulnerability;
+  if (!state.vulnerability) return;
+  const findings = result?.totals?.risks ?? 0;
+  const projects = result?.totals?.projects ?? 0;
+  line.innerHTML = `<b translate="no">${escapeHtml(state.vulnerability)}</b> · <span>Findings: ${findings} in ${projects} projects. Every action here works on these only.</span> <button type="button" class="link" id="vuln-clear">Show every finding</button>`;
+}
+
 async function fetchProjects() {
+  // What is in the search box is what is loaded: empty, every finding.
+  state.vulnerability = $('vuln-q').value.trim().slice(0, 200);
   const button = $('fetch');
   const stop = $('fetch-stop');
   button.disabled = true;
@@ -5306,6 +5366,7 @@ async function fetchProjects() {
     setFetching(false);
     state.lastScan = result;
     state.projects = result.projects;
+    showVulnerabilitySearch(result);
     renderTotals(result.totals);
     collectInitiators();
     renderInitiatorList();
@@ -5632,6 +5693,17 @@ document.addEventListener('click', (event) => {
 $('activity-preset').addEventListener('change', () => toggleRange('activity'));
 $('detection-preset').addEventListener('change', () => toggleRange('detection'));
 $('fetch').addEventListener('click', fetchProjects);
+// Search a vulnerability: load only its findings (or every finding again when the box is emptied).
+$('vuln-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (state.fetching || !can('findings.fetch')) return;
+  fetchProjects();
+});
+$('vuln-active').addEventListener('click', (event) => {
+  if (!event.target.closest('#vuln-clear') || state.fetching) return;
+  $('vuln-q').value = '';
+  fetchProjects();
+});
 
 // Search waits for a pause in typing; the drop-downs and the box apply at once.
 let filterTimer = null;
@@ -5830,9 +5902,9 @@ $('alloc-clear').addEventListener('click', () => guardedAction('Taking back extr
   if (!confirm(`Take back the extra credits added to ${state.selected.size ? 'the' : 'all'} ${scope.length} ${state.selected.size ? 'selected' : 'shown'} project(s)? Credits already used stay counted.`)) return;
   return allocateCredits({ clearExtras: true }, (n) => `Extra credits removed from ${n} project(s).`);
 }));
-$('run-triage').addEventListener('click', () => guardedAction('Triage', runTriageNow));
-$('run-remediation').addEventListener('click', () => guardedAction('Remediation', runRemediationNow));
-$('alloc-triage').addEventListener('click', () => guardedAction('Allocating for triage', () => allocateNeeded('triage')));
+$('run-triage').addEventListener('click', () => guardedAction('Triage', runTriageNow, 'triage'));
+$('run-remediation').addEventListener('click', () => guardedAction('Remediation', runRemediationNow, 'remediation'));
+$('alloc-triage').addEventListener('click', () => guardedAction('Allocating for triage', () => allocateNeeded('triage'), 'triage'));
 $('alloc-verify').addEventListener('click', () => verifyWithCheckmarx());
 $('alloc-reclaim').addEventListener('click', () => guardedAction('Taking back unused credits', reclaimUnused));
 
@@ -5886,7 +5958,7 @@ async function verifyWithCheckmarx({ before = '' } = {}) {
     renderAllocation();
   }
 }
-$('alloc-remediation').addEventListener('click', () => guardedAction('Allocating for remediation', () => allocateNeeded('remediation')));
+$('alloc-remediation').addEventListener('click', () => guardedAction('Allocating for remediation', () => allocateNeeded('remediation'), 'remediation'));
 $('track-save').addEventListener('click', saveTrackedReport);
 // Reports page: rows and agenda open a report; the detail panel holds every action.
 for (const id of ['reports-list', 'rp-upcoming']) {

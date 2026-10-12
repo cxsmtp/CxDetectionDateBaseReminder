@@ -13,11 +13,12 @@ import { VersionStore } from './updates/store.js';
 import { SendGuard } from './send-guard.js';
 import { Diagnostics } from './diagnostics.js';
 import { filterProjectsByActivity, getLastScans, lastScanDate, listProjects } from './cxone/projects.js';
-import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, projectReads, selectRisks, summariseProject } from './cxone/risks.js';
+import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, projectReads, readGate, selectRisks, summariseProject } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject, projectsInScope, scanInitiator, scanInitiatorEmail } from './cxone/initiators.js';
 import { AI_SCANNERS, resolveAiIds, resultRowsFor } from './cxone/ai-assist.js';
 import { mapWithConcurrency } from './cxone/client.js';
+import { matchesVulnerability, topNames, vulnerabilityQuery } from './vuln-search.js';
 import { ReportGrants } from './report-grants.js';
 import { gitPatch, patchLinks } from './remediation-patch.js';
 import { CREDIT_COST, CreditLedger, monthOf } from './credits.js';
@@ -2373,6 +2374,9 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
 
   const started = Date.now();
   const settings = settingsStore.get();
+  // A vulnerability search ("SQL injection", "SSRF"): only the findings it names are kept.
+  const vulnerability = vulnerabilityQuery(req.query.vulnerability);
+  const names = new Map();
   const allProjects = await listProjects(client);
   // Named projects or people: fetched whatever their last scan date (they were
   // asked for by hand); otherwise the activity window decides.
@@ -2426,6 +2430,10 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     }),
     collectProjectRisks(client, active, projects, {
       detectionWindow,
+      keep: vulnerability ? (risk) => matchesVulnerability(vulnerability, risk) : null,
+      names,
+      // Its many projects at once never queue more calls than the connection runs at once (readGate).
+      gate: readGate(client),
       onProject: onProject ? (summary) => onProject(earlyRow(summary)) : null,
       shared: { identity: readerIdentity(req.session), lastScans, fresh: req.query.fresh === '1' },
       shouldStop,
@@ -2448,6 +2456,9 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   }
   result.initiators = initiators.byProject;
   result.detectionWindow = detectionWindow;
+  // Searched: the projects with no finding of that vulnerability are not part of the result.
+  result.vulnerability = vulnerability?.text ?? '';
+  if (vulnerability) result.projects = result.projects.filter((p) => p.totalRisks > 0 || p.error);
   for (const summary of result.projects) {
     if (summary.error) diagnostics.discrepancy('project-read-failed', { project: summary.projectId, message: summary.error });
   }
@@ -2470,6 +2481,9 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     },
     projectsTotal: allProjects.length,
     projectsSkipped: skipped,
+    // The search, and the names of every finding read (most frequent first), to suggest as people type.
+    vulnerability: result.vulnerability,
+    vulnerabilityNames: topNames(names),
     // Stop pressed: how many of the projects in scope were read before it, and how many were not.
     stopped: result.notRead > 0,
     projectsPlanned: projects.length,
@@ -2510,6 +2524,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
       detectionPreset: q('detectionPreset'), detectionFrom: q('detectionFrom'), detectionTo: q('detectionTo'),
       projects: scope.projectIds,
       initiators: scope.initiators,
+      vulnerability: result.vulnerability,
     },
   };
   saveFetchedData(req.session);
@@ -4599,6 +4614,10 @@ async function notifyOnBehalf(session, kind, started, initiatorsByProject, actor
 
 /** A verification is good for this long; allocating "what is needed" asks for a fresh one after that. */
 const VERIFY_TTL_MS = 10 * 60 * 1000;
+/** Projects verified at once (each with its two reads side by side); the connection's limit still caps the calls. */
+const VERIFY_AT_ONCE = Math.max(1, Number(process.env.CX_VERIFY_CONCURRENCY) || 8);
+/** Calls to Checkmarx One one verify keeps waiting or running at once (3 projects × 4 pages ahead, as before MZ-01.00.65). */
+const VERIFY_SLOTS = 12;
 
 /**
  * One complete, independent read from Checkmarx One of what a project needs:
@@ -4606,8 +4625,8 @@ const VERIFY_TTL_MS = 10 * 60 * 1000;
  * AI Triage and AI Remediation would be sent (results API). Returns the exact
  * billed result ids, not an estimate.
  */
-async function readProjectNeed(session, project, { detectionWindow = null, scanIdOf = () => '', severities = null } = {}) {
-  const read = await collectProjectRisks(session.client, activeConfig(), [{ id: project.projectId, name: project.projectName }], { detectionWindow });
+async function readProjectNeed(session, project, { detectionWindow = null, scanIdOf = () => '', severities = null, keep = null, gate = null } = {}) {
+  const read = await collectProjectRisks(session.client, activeConfig(), [{ id: project.projectId, name: project.projectName }], { detectionWindow, keep, gate });
   const summary = read.projects[0];
   if (summary.error) throw Object.assign(new Error(`${project.projectName}: ${summary.error}`), { status: 502 });
   const rule = severities?.length ? severities : allocations.severitiesOf(project.projectId);
@@ -4632,10 +4651,12 @@ async function readProjectNeed(session, project, { detectionWindow = null, scanI
  * credit needs are replaced by what Checkmarx One said; on disagreement (the
  * data is changing, e.g. someone is triaging) nothing is trusted.
  */
-/** Two independent reads of one project; `agreed` only when every billed result id matches. */
+/**
+ * Two independent reads of one project, side by side (each its own requests to Checkmarx One);
+ * `agreed` only when every billed result id matches.
+ */
 async function doubleRead(session, project, options) {
-  const first = await readProjectNeed(session, project, options);
-  const second = await readProjectNeed(session, project, options);
+  const [first, second] = await Promise.all([readProjectNeed(session, project, options), readProjectNeed(session, project, options)]);
   const same = (a, b) => a.length === b.length && a.every((id, i) => id === b[i]);
   const agreed =
     same(first.triage.results, second.triage.results) &&
@@ -4648,8 +4669,12 @@ const DISAGREED = 'Checkmarx One gave different results on the two reads — the
 
 async function verifyNeeds(session, projects, { severities = null } = {}) {
   const scan = session.lastScan;
-  const options = { detectionWindow: scan?.detectionWindow ?? null, scanIdOf: (id) => scan?.initiators?.[id]?.scanId ?? '', severities };
-  const out = await mapWithConcurrency(projects, 3, async (p) => {
+  // The same findings the Dashboard shows: its date window, and its vulnerability search.
+  const vulnerability = vulnerabilityQuery(scan?.vulnerability);
+  const keep = vulnerability ? (risk) => matchesVulnerability(vulnerability, risk) : null;
+  // Its projects and their two reads side by side, never queuing more calls than one verify did before (VERIFY_SLOTS).
+  const options = { detectionWindow: scan?.detectionWindow ?? null, scanIdOf: (id) => scan?.initiators?.[id]?.scanId ?? '', severities, keep, gate: readGate(session.client, VERIFY_SLOTS) };
+  const out = await mapWithConcurrency(projects, VERIFY_AT_ONCE, async (p) => {
     try {
       const { first, second, agreed } = await doubleRead(session, p, options);
       const verified = {
@@ -5007,11 +5032,11 @@ app.post(
     const RECENT_MS = 30 * 60 * 1000;
     const originals = new Map();
     const findings = [];
-    for (const p of projects) {
-      let live = null;
-      try {
-        live = await projectStates(req.session, p.projectId);
-      } catch {}
+    // Live states, read side by side, and only for projects with a finding of these severities left to triage.
+    const candidate = (r) => wanted.includes(r.severity) && (!r.state || r.state === 'TO_VERIFY');
+    const lives = await mapWithConcurrency(projects, VERIFY_AT_ONCE, async (p) => ((p.risks ?? []).some(candidate) ? projectStates(req.session, p.projectId).catch(() => null) : null));
+    for (const [i, p] of projects.entries()) {
+      const live = lives[i];
       for (const r of p.risks ?? []) {
         const state = live?.get(r.riskId) ?? r.state;
         if (!wanted.includes(r.severity) || (state && state !== 'TO_VERIFY')) continue;
