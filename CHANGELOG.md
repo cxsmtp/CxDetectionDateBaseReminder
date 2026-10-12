@@ -54,7 +54,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.67 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.67 — 2026-10-12 09:54 UTC · [#90](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/90)
 
 - **One click to the answer.** In the Cx Credits Calculator, Generate projection report reads Checkmarx One when needed and writes the report with every default already set. Customize opens the rest, Start again clears the page, and Email sends the report.
 - **Findings still to come count too.** Triage and remediation adds the findings that the last 3 months' trend says will arrive over the projection period, plus more found once Fusion is on (20% by default), minus the false positives FAE keeps from being reported (10% by default). Today's backlog and what is ahead are shown apart.
