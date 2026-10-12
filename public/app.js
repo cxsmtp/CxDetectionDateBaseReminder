@@ -1,4 +1,3 @@
-import { nextSpeedster } from './speedsters.js';
 import { initCalculator } from './calculator/page.js';
 import { availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
 
@@ -98,24 +97,24 @@ const NEEDS_FETCHED_DATA = /^\/api\/(credits\/allocate|triage\/run|remediation\/
 const FETCHING_MESSAGE = 'Data is still being fetched. Triage, remediation and credit allocation unlock when the fetch is complete.';
 
 // ---------------------------------------------------------------------------
-// Flares, bottom right: amber with a flying hero while an action is in
-// progress (and the part of the page it came from is paused), green when it
-// is done, red when it failed. One per action, so several can run at once.
+// Progress, bottom right: one quiet card per action while it runs (a spinner,
+// what it is doing, for how many projects, for how long, and a slim moving
+// bar), a tick when it is done, a cross when it failed. The part of the page
+// the action came from is paused meanwhile. Several can run at once.
 // ---------------------------------------------------------------------------
 
-// Done: a green disc pops in and the tick draws itself (pathLength 1 lets CSS draw it).
-const DONE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="tick-disc" cx="12" cy="12" r="11" fill="#16a34a" /><path class="tick-mark" pathLength="1" d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>';
-const FAILED_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#dc2626" /><path d="M8 8l8 8M16 8l-8 8" stroke="#fff" stroke-width="2.4" stroke-linecap="round" /></svg>';
+const DONE_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="currentColor" /><path class="tick-mark" pathLength="1" d="M6 10.4l2.6 2.6L14 7.6" fill="none" stroke="var(--surface)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>';
+const FAILED_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="currentColor" /><path d="M7 7l6 6M13 7l-6 6" stroke="var(--surface)" stroke-width="1.8" stroke-linecap="round" /></svg>';
 
 const flares = new Map();
-const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let flareSeq = 0;
 /**
- * Show or update the flare `key`: kind busy | done | failed. `spoken` is what a
- * screen reader announces instead of the lines on screen, for a busy flare whose
- * lines change every second.
+ * Show or update the card `key`: kind busy | done | failed. `details` are the
+ * short facts under the main line (each translated on its own). `spoken` is
+ * what a screen reader announces instead of the lines on screen, for a busy
+ * card whose lines change every second.
  */
-function flare(key, kind, text, hint = '', spoken = '') {
+function flare(key, kind, text, details = '', spoken = '') {
   let el = flares.get(key);
   if (!el) {
     el = document.createElement('div');
@@ -126,33 +125,22 @@ function flare(key, kind, text, hint = '', spoken = '') {
     flares.set(key, el);
   }
   clearTimeout(el.hideTimer);
-  clearTimeout(el.settleTimer);
   const icon = el.querySelector('.flare-icon');
-  if (el.dataset.kind !== kind) {
-    icon.classList.remove('settling');
-    if (kind === 'busy') {
-      // A different fast thing for every action.
-      const speedster = nextSpeedster();
-      icon.innerHTML = speedster.svg;
-      icon.title = speedster.name;
-    } else if (kind === 'done' && el.dataset.kind === 'busy' && !reducedMotion.matches) {
-      // It glides to a stop, then the tick pops in.
-      icon.classList.add('settling');
-      el.settleTimer = setTimeout(() => {
-        icon.classList.remove('settling');
-        icon.innerHTML = DONE_SVG;
-        icon.title = '';
-      }, 520);
-    } else {
-      icon.innerHTML = kind === 'done' ? DONE_SVG : FAILED_SVG;
-      icon.title = '';
-    }
-  }
+  if (el.dataset.kind !== kind) icon.innerHTML = kind === 'done' ? DONE_SVG : kind === 'failed' ? FAILED_SVG : '';
   el.dataset.kind = kind;
   el.className = `flare ${kind}`;
   el.querySelector('.flare-main').textContent = text;
-  el.querySelector('small').textContent = hint;
-  el.querySelector('small').hidden = !hint;
+  const small = el.querySelector('small');
+  const parts = (Array.isArray(details) ? details : [details]).filter(Boolean).map(String);
+  // Only the parts that changed are rewritten (the clock, every second), so the rest keeps its translation.
+  if (small.children.length !== parts.length) small.replaceChildren(...parts.map(() => document.createElement('span')));
+  parts.forEach((part, i) => {
+    if (small.children[i].dataset.src !== part) {
+      small.children[i].dataset.src = part;
+      small.children[i].textContent = part;
+    }
+  });
+  small.hidden = !parts.length;
   for (const line of el.querySelectorAll('.flare-main, small')) line.toggleAttribute('aria-hidden', Boolean(spoken));
   const sr = el.querySelector('.flare-sr');
   if (sr.textContent !== spoken) sr.textContent = spoken;
@@ -225,35 +213,24 @@ const ACTIVITIES = [
   ['PUT', /^\/api\/organisation-name$/, 'Saving the organisation name…', 'Organisation name saved'],
 ];
 /**
- * While an action runs, its flare says something light-hearted (a new line every
- * few seconds, themed to the action) over a live line: what it is doing, for how
- * many projects, and for how long. Like a spinner, but you can read it.
+ * While an action runs, its card names the step it is on (a new one every few
+ * seconds, in plain words), for how many projects, and for how long.
  */
-const QUIPS = [
-  [/^\/api\/(credits\/verify|tracked-reports\/[^/]+\/refresh)/, ['Reading it twice, trusting it once…', 'Comparing notes with Checkmarx One…', 'Counting results, then counting them again…', 'Making sure nobody moved the goalposts…', 'Spotting what changed since you looked…', 'Matching every finding to its result…']],
-  [/^\/api\/(triage|tracked-reports\/[^/]+\/triage)/, ['Waking up the AI…', 'Weighing true against false positives…', 'Reading the code so you do not have to…', 'Booking one credit per result, not per row…', 'Asking the hard questions…', 'Following the data flow…']],
-  [/^\/api\/remediation/, ['Waking up the AI…', 'Sharpening the fix…', 'Teaching the bug some manners…', 'Drafting the pull request…', 'Booking one credit per result, not per row…', 'Following the data flow…']],
-  [/^\/api\/(credits|tracked-reports\/[^/]+\/allocate)/, ['Balancing the books…', 'Counting credits twice…', 'Nothing spent that is not needed…', 'Checking the pool is big enough…', 'Writing it into the audit log…']],
-  [/^\/api\/(reminders|tracked-reports\/[^/]+\/remind|beta\/authors\/notify|settings\/smtp\/send-test)/, ['Licking the stamps…', 'Addressing the envelopes…', 'Only their own projects, nobody else\'s…', 'Finding the right inboxes…', 'Sending at the speed of SMTP…', 'Folding the reports neatly…']],
-  [/^\/api\/(integration|settings)/, ['Testing the wires…', 'Shaking hands with the server…', 'Turning the dials…', 'Checking every connection…', 'Keeping the last good settings handy…']],
-  [/^\/api\/(backup|audit)/, ['Following the hash chain…', 'Checking every link…', 'Packing everything neatly…', 'Nothing missing, nothing changed…']],
-  [/^\/api\/beta/, ['Digging through the history…', 'Asking git who wrote this…', 'Matching names to faces…']],
-  [/./, ['Revving up…', 'On it…', 'Moving fast, breaking nothing…', 'Putting things in order…', 'Almost there…']],
+const STEPS = [
+  [/^\/api\/(credits\/verify|tracked-reports\/[^/]+\/refresh)/, ['Verifying with Checkmarx One…', 'Comparing the two reads…', 'Matching each finding to its result…']],
+  [/^\/api\/(triage|tracked-reports\/[^/]+\/triage)/, ['Running AI Triage…', 'Analysing the findings…', 'Counting one credit per result…']],
+  [/^\/api\/remediation/, ['Running AI Remediation…', 'Preparing the fix…', 'Counting one credit per result…']],
+  [/^\/api\/(credits|tracked-reports\/[^/]+\/allocate)/, ['Updating the credit allocation…', 'Checking the credit pool…', 'Recording it in the audit log…']],
+  [/^\/api\/(reminders|tracked-reports\/[^/]+\/remind|beta\/authors\/notify|settings\/smtp\/send-test)/, ['Preparing the emails…', 'Sending the emails…', 'Each person receives only their own projects…']],
+  [/^\/api\/(integration|settings)/, ['Testing the connection…', 'Applying the settings…']],
+  [/^\/api\/(backup|audit)/, ['Verifying the audit log…', 'Checking every entry…']],
+  [/^\/api\/beta/, ['Reading the repository history…', 'Matching people to email addresses…']],
+  [/./, ['Working…', 'Processing…']],
 ];
-const SLOW_QUIPS = ['Still on it — a big one…', 'Taking the scenic route…', 'Worth the wait…'];
-// In every other language the busy line is plain and factual: word play does not translate.
-const PLAIN_QUIPS = [
-  [QUIPS[0][0], ['Verifying with Checkmarx One…', 'Comparing the two reads…', 'Matching each finding to its result…']],
-  [QUIPS[1][0], ['Running AI Triage…', 'Analysing the findings…', 'Counting one credit per result…']],
-  [QUIPS[2][0], ['Running AI Remediation…', 'Preparing the fix…', 'Counting one credit per result…']],
-  [QUIPS[3][0], ['Updating the credit allocation…', 'Checking the credit pool…', 'Recording it in the audit log…']],
-  [QUIPS[4][0], ['Preparing the emails…', 'Sending the emails…', 'Each person receives only their own projects…']],
-  [QUIPS[5][0], ['Testing the connection…', 'Applying the settings…']],
-  [QUIPS[6][0], ['Verifying the audit log…', 'Checking every entry…']],
-  [QUIPS[7][0], ['Reading the repository history…', 'Matching people to email addresses…']],
-  [QUIPS[8][0], ['Working…', 'Processing…']],
-];
-const PLAIN_SLOW = ['Still working: this takes longer than usual…'];
+const SLOW_STEP = 'Still working: this takes longer than usual…';
+
+/** 0:07, 1:43, 12:05 */
+const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
 /** "12 projects" when the request names projects. */
 function scopeOf(body) {
@@ -265,25 +242,16 @@ function scopeOf(body) {
   }
 }
 
-/** Keep the busy flare `key` alive: a new quip every 3 s, the clock every second. Returns stop(). */
+/** Keep the busy card `key` alive: the next step every 4 s, the clock every second. Returns stop(). */
 function startBusyFlare(key, path, activity, body) {
   const route = path.split('?')[0];
-  const plain = currentLanguage() !== 'en';
-  const quips = (plain ? PLAIN_QUIPS : QUIPS).find(([pattern]) => pattern.test(route))[1];
-  const slow = plain ? PLAIN_SLOW : SLOW_QUIPS;
-  const label = activity.busy.replace(/…$/, '');
+  const steps = STEPS.find(([pattern]) => pattern.test(route))[1];
   const scope = scopeOf(body);
   const started = Date.now();
-  let turn = Math.floor(Math.random() * quips.length);
-  let shown = '';
   const draw = () => {
     const seconds = Math.floor((Date.now() - started) / 1000);
-    const quip = seconds >= 15 && Math.floor(seconds / 3) % 2 ? slow[Math.floor(seconds / 6) % slow.length] : quips[(turn + Math.floor(seconds / 3)) % quips.length];
-    flare(key, 'busy', quip, [label, scope, `${seconds}s`].filter(Boolean).join(' · '), activity.busy);
-    if (quip !== shown && shown && !reducedMotion.matches) {
-      flares.get(key)?.querySelector('.flare-main').animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'ease-out' });
-    }
-    shown = quip;
+    const step = seconds >= 20 && Math.floor(seconds / 4) % 3 === 2 ? SLOW_STEP : steps[Math.floor(seconds / 4) % steps.length];
+    flare(key, 'busy', activity.busy, [step, scope, clock(seconds)], activity.busy);
   };
   draw();
   const timer = setInterval(draw, 1000);
