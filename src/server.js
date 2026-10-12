@@ -12,7 +12,7 @@ import { UpdateService } from './updates/service.js';
 import { VersionStore } from './updates/store.js';
 import { SendGuard } from './send-guard.js';
 import { Diagnostics } from './diagnostics.js';
-import { filterProjectsByActivity, getLastScans, lastScanDate, listProjects } from './cxone/projects.js';
+import { filterProjectsByActivity, getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, projectReads, readGate, selectRisks, summariseProject } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject, projectsInScope, scanInitiator, scanInitiatorEmail } from './cxone/initiators.js';
@@ -2282,7 +2282,7 @@ app.post('/api/automation/reset', requirePermission('settings.automation'), (req
 function fetchScope(query) {
   const list = (value, max) =>
     [...new Set([].concat(value ?? []).map((v) => String(v).trim()).filter(Boolean))].slice(0, max).map((v) => v.slice(0, 200));
-  return { projectIds: list(query.project, 500), initiators: list(query.initiator, 100) };
+  return { projectIds: list(query.project, 500), initiators: list(query.initiator, 100), applications: list(query.application, 100) };
 }
 
 /** A scan initiator's known address: an administrator's override, else one remembered from earlier fetches. */
@@ -2302,7 +2302,7 @@ app.get(
     const cached = req.session.scopeOptions;
     if (cached && req.query.refresh !== '1' && Date.now() - cached.at < 5 * 60_000) return res.json(cached.data);
     const { client } = req.session;
-    const projects = await listProjects(client);
+    const [projects, applications] = await Promise.all([listProjects(client), listApplications(client).catch(() => [])]);
     let scans = {};
     let warning = null;
     try {
@@ -2310,6 +2310,7 @@ app.get(
     } catch (error) {
       warning = `Who ran each project's latest scan could not be read: ${error.message}`;
     }
+    const known = new Set(projects.map((p) => p.id));
     const settings = settingsStore.get();
     const people = new Map();
     for (const project of projects) {
@@ -2323,6 +2324,10 @@ app.get(
     const data = {
       projects: projects.map((p) => ({ id: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name)),
       initiators: [...people.values()].sort((a, b) => b.projects - a.projects || a.initiator.localeCompare(b.initiator)),
+      // Checkmarx One applications, with how many of their projects this key can see.
+      applications: applications
+        .map((a) => ({ id: a.id, name: a.name, projects: a.projectIds.filter((id) => known.has(id)).length }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
       warning,
     };
     req.session.scopeOptions = { at: Date.now(), data };
@@ -2381,12 +2386,20 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   // Named projects or people: fetched whatever their last scan date (they were
   // asked for by hand); otherwise the activity window decides.
   const scope = fetchScope(req.query);
+  // Named applications: their projects are named projects.
+  if (scope.applications.length) {
+    const wanted = new Set(scope.applications);
+    const applications = await listApplications(client).catch(() => []);
+    const named = applications.filter((a) => wanted.has(a.id));
+    scope.projectIds = [...new Set([...scope.projectIds, ...named.flatMap((a) => a.projectIds)])].slice(0, 5000);
+    scope.applicationNames = named.map((a) => a.name);
+  }
   let projects, skipped, warning, lastScans;
-  if (scope.projectIds.length || scope.initiators.length) {
+  if (scope.projectIds.length || scope.initiators.length || scope.applications.length) {
     lastScans = scope.initiators.length ? await getLastScans(client, allProjects.map((p) => p.id)) : {};
     projects = projectsInScope(allProjects, scope, lastScans, (username) => initiatorEmailOf(username, settings));
     skipped = allProjects.length - projects.length;
-    warning = projects.length ? null : 'No project matches the projects or people named in the scope.';
+    warning = projects.length ? null : 'No project matches the applications, projects or people named in the scope.';
   } else {
     ({ projects, skipped, warning, lastScans } = await filterProjectsByActivity(client, allProjects, activityWindow));
   }
@@ -2488,7 +2501,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     stopped: result.notRead > 0,
     projectsPlanned: projects.length,
     projectsNotRead: result.notRead ?? 0,
-    scope: { projects: scope.projectIds.length, initiators: scope.initiators },
+    scope: { projects: scope.projectIds.length, initiators: scope.initiators, applications: scope.applicationNames ?? [] },
     warning,
     initiatorNotes: initiators.notes,
     unresolvedInitiators: initiators.unresolved,
@@ -2522,8 +2535,10 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     request: {
       activityPreset: q('activityPreset'), activityFrom: q('activityFrom'), activityTo: q('activityTo'),
       detectionPreset: q('detectionPreset'), detectionFrom: q('detectionFrom'), detectionTo: q('detectionTo'),
-      projects: scope.projectIds,
+      projects: fetchScope(req.query).projectIds,
       initiators: scope.initiators,
+      applications: scope.applications,
+      applicationNames: scope.applicationNames ?? [],
       vulnerability: result.vulnerability,
     },
   };

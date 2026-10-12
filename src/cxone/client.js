@@ -210,6 +210,27 @@ export class CxClient {
       // only reliable end marker there.
       if (offsetIsPage) {
         offset += 1;
+        // A few pages ahead at once (their count is not known): read in order, stop at the first short
+        // page, and drop what was asked for beyond it. One long walk takes a quarter of the round trips.
+        if (parallel > 1) {
+          for (;;) {
+            const batch = Array.from({ length: parallel }, (_, i) => {
+              const pending = read(offset + i);
+              pending.catch(() => {});
+              return pending;
+            });
+            for (const pending of batch) {
+              const rows = extractItems(await pending, itemsKey);
+              for (const item of rows) {
+                yield item;
+                fetched += 1;
+                if (fetched >= maxItems) return;
+              }
+              if (rows.length < limit) return;
+              offset += 1;
+            }
+          }
+        }
         continue;
       }
       if (Number.isFinite(total) && fetched >= total) return;

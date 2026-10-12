@@ -24,6 +24,23 @@ export async function listProjects(client, { maxItems = 5000 } = {}) {
   return projects;
 }
 
+/**
+ * The tenant's applications (groups of projects in Checkmarx One): id, name and their projects.
+ * A tenant without the applications service gives none.
+ */
+export async function listApplications(client, { maxItems = 2000 } = {}) {
+  const applications = [];
+  for await (const app of client.paginate('/api/applications', { itemsKey: 'applications', limit: 100, maxItems })) {
+    if (!app?.id) continue;
+    applications.push({
+      id: String(app.id),
+      name: String(app.name ?? app.id),
+      projectIds: (Array.isArray(app.projectIds) ? app.projectIds : []).map(String),
+    });
+  }
+  return applications;
+}
+
 // A long list of project ids in the query string will trip request-line limits,
 // so last-scan lookups go out in chunks.
 const LAST_SCAN_CHUNK = 50;

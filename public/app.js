@@ -2923,6 +2923,7 @@ function toggleRange(prefix) {
 function windowParams() {
   const params = new URLSearchParams();
   // Named projects (by id) and people: only these are fetched.
+  for (const id of scopePick.applications.keys()) params.append('application', id);
   for (const id of scopePick.projects.keys()) params.append('project', id);
   for (const who of scopePick.initiators) params.append('initiator', who);
   if (state.vulnerability) params.set('vulnerability', state.vulnerability);
@@ -2941,10 +2942,11 @@ const presetLabel = (id) => state.health?.windowPresets.find((p) => p.id === id)
 
 function updateScopeSummary() {
   const detection = $('detection-preset').value;
-  const named = scopePick.projects.size + scopePick.initiators.size;
+  const named = scopeNamed();
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   const projectsPart = named
     ? [
+        scopePick.applications.size && plural(scopePick.applications.size, 'application'),
         scopePick.projects.size && plural(scopePick.projects.size, 'named project'),
         scopePick.initiators.size && `${scopePick.initiators.size === 1 ? '1 person' : `${scopePick.initiators.size} people`}'s projects`,
       ].filter(Boolean).join(' + ')
@@ -2952,9 +2954,9 @@ function updateScopeSummary() {
   $('scope-summary').textContent = `Projects: ${projectsPart} · Findings: ${presetLabel(detection)}`;
   // Naming projects or people replaces the "last scanned in" window.
   $('activity-preset').disabled = Boolean(named);
-  $('activity-preset').title = named ? 'Named projects and people are fetched whatever their last scan date.' : '';
+  $('activity-preset').title = named ? 'Named applications, projects and people are fetched whatever their last scan date.' : '';
   $('activity-hint').textContent = named
-    ? 'Not used while projects or people are named below: those are fetched whatever their last scan date.'
+    ? 'Not used while applications, projects or people are named below: those are fetched whatever their last scan date.'
     : 'Skips projects with no scan in this window.';
 
   $('detection-hint').textContent = ['7d', '30d'].includes(detection)
@@ -2969,7 +2971,9 @@ function updateScopeSummary() {
 // Scope: fetch only named projects, or the projects named people last scanned
 // ---------------------------------------------------------------------------
 
-const scopePick = { projects: new Map(), initiators: new Set(), options: null, loading: null };
+const scopePick = { applications: new Map(), projects: new Map(), initiators: new Set(), options: null, loading: null };
+/** Applications, projects and people named. */
+const scopeNamed = () => scopePick.applications.size + scopePick.projects.size + scopePick.initiators.size;
 
 /** Project names and latest-scan initiators, for the suggestions (loaded on first use). */
 function loadScopeOptions() {
@@ -2979,13 +2983,16 @@ function loadScopeOptions() {
   scopePick.loading = api('/api/scope/options')
     .then((data) => {
       scopePick.options = data;
+      $('scope-application-options').replaceChildren(
+        ...(data.applications ?? []).map((a) => Object.assign(document.createElement('option'), { value: a.name, label: `${a.projects} project${a.projects === 1 ? '' : 's'}` })),
+      );
       const projectList = $('scope-project-options');
       const peopleList = $('scope-initiator-options');
       projectList.replaceChildren(...data.projects.map((p) => Object.assign(document.createElement('option'), { value: p.name })));
       peopleList.replaceChildren(
         ...data.initiators.map((i) => Object.assign(document.createElement('option'), { value: i.initiator, label: `${i.email ? `${i.email} · ` : ''}${i.projects} project${i.projects === 1 ? '' : 's'}` })),
       );
-      setScopeHint(data.warning || `${data.projects.length} projects, ${data.initiators.length} people. Pick as you type; Enter adds every project whose name contains the text.`, data.warning ? 'error' : '');
+      setScopeHint(data.warning || `${(data.applications ?? []).length} applications, ${data.projects.length} projects, ${data.initiators.length} people. Pick as you type; Enter adds every name that contains the text.`, data.warning ? 'error' : '');
       return data;
     })
     .catch((error) => {
@@ -3017,6 +3024,21 @@ async function addScopeProjects(text) {
   return matches.length;
 }
 
+/** Add the application with this exact name, else every application whose name contains the text. Returns how many. */
+async function addScopeApplications(text) {
+  const wanted = text.trim().toLowerCase();
+  if (!wanted) return 0;
+  const options = await loadScopeOptions();
+  if (!options) return 0;
+  const all = options.applications ?? [];
+  const exact = all.filter((a) => a.name.toLowerCase() === wanted);
+  const matches = exact.length ? exact : all.filter((a) => a.name.toLowerCase().includes(wanted));
+  for (const a of matches) scopePick.applications.set(a.id, a.name);
+  if (!all.length) setScopeHint('Checkmarx One lists no applications for this key.', 'error');
+  else if (!matches.length) setScopeHint(`No application name contains "${text.trim()}".`, 'error');
+  return matches.length;
+}
+
 function addScopeInitiator(text) {
   const who = text.trim();
   if (who) scopePick.initiators.add(who);
@@ -3043,19 +3065,22 @@ function renderScopeChips() {
       box.insertBefore(chip, input);
     }
   };
+  draw($('scope-applications'), [...scopePick.applications], 'application');
   draw($('scope-projects'), [...scopePick.projects], 'project');
   draw($('scope-initiators'), [...scopePick.initiators].map((who) => [who, who]), 'initiator');
   updateScopeSummary();
   syncNarrow();
 }
 
-for (const [inputId, kind] of [['scope-project-input', 'project'], ['scope-initiator-input', 'initiator']]) {
+const scopeStore = (kind) => (kind === 'application' ? scopePick.applications : kind === 'project' ? scopePick.projects : scopePick.initiators);
+for (const [inputId, kind] of [['scope-application-input', 'application'], ['scope-project-input', 'project'], ['scope-initiator-input', 'initiator']]) {
   const input = $(inputId);
   input.addEventListener('focus', () => loadScopeOptions());
   const commit = async () => {
     const value = input.value;
     input.value = '';
-    if (kind === 'project') await addScopeProjects(value);
+    if (kind === 'application') await addScopeApplications(value);
+    else if (kind === 'project') await addScopeProjects(value);
     else addScopeInitiator(value);
     renderScopeChips();
   };
@@ -3065,7 +3090,7 @@ for (const [inputId, kind] of [['scope-project-input', 'project'], ['scope-initi
       event.preventDefault();
       commit();
     } else if (event.key === 'Backspace' && !input.value) {
-      const store = kind === 'project' ? scopePick.projects : scopePick.initiators;
+      const store = scopeStore(kind);
       const last = [...store.keys()].pop();
       if (last !== undefined) {
         store.delete(last);
@@ -3077,9 +3102,11 @@ for (const [inputId, kind] of [['scope-project-input', 'project'], ['scope-initi
   input.addEventListener('input', () => {
     const value = input.value.trim().toLowerCase();
     if (!value || !scopePick.options) return;
-    const exact = kind === 'project'
-      ? scopePick.options.projects.some((p) => p.name.toLowerCase() === value)
-      : scopePick.options.initiators.some((i) => i.initiator.toLowerCase() === value);
+    const exact = kind === 'application'
+      ? (scopePick.options.applications ?? []).some((a) => a.name.toLowerCase() === value)
+      : kind === 'project'
+        ? scopePick.options.projects.some((p) => p.name.toLowerCase() === value)
+        : scopePick.options.initiators.some((i) => i.initiator.toLowerCase() === value);
     if (exact) commit();
   });
 }
@@ -3087,8 +3114,7 @@ for (const [inputId, kind] of [['scope-project-input', 'project'], ['scope-initi
 $('scope-pick').addEventListener('click', (event) => {
   const button = event.target.closest('[data-remove-scope]');
   if (!button) return;
-  if (button.dataset.removeScope === 'project') scopePick.projects.delete(button.dataset.key);
-  else scopePick.initiators.delete(button.dataset.key);
+  scopeStore(button.dataset.removeScope).delete(button.dataset.key);
   renderScopeChips();
 });
 
@@ -5270,8 +5296,10 @@ function restoreScope(request, projects) {
     toggleRange(prefix);
   }
   const names = new Map(projects.map((p) => [p.projectId, p.projectName]));
+  scopePick.applications.clear();
   scopePick.projects.clear();
   scopePick.initiators.clear();
+  (request.applications ?? []).forEach((id, i) => scopePick.applications.set(id, request.applicationNames?.[i] ?? id));
   for (const id of request.projects ?? []) scopePick.projects.set(id, names.get(id) ?? id);
   for (const who of request.initiators ?? []) scopePick.initiators.add(who);
   renderScopeChips();
@@ -6314,16 +6342,16 @@ document.addEventListener('keydown', (event) => {
 
 // Scope: narrowing to named projects or people folds away until it is wanted.
 function syncNarrow(open) {
-  const chips = scopePick.projects.size + scopePick.initiators.size;
+  const chips = scopeNamed();
   const show = open ?? (chips > 0 || $('narrow-toggle').getAttribute('aria-expanded') === 'true');
   $('scope-pick').classList.toggle('folded', !show);
   $('narrow-toggle').setAttribute('aria-expanded', String(show));
-  $('narrow-toggle').textContent = show ? (chips ? `Narrowed to ${chips} name${chips === 1 ? '' : 's'}` : 'Hide narrowing') : 'Narrow to projects or people';
+  $('narrow-toggle').textContent = show ? (chips ? `Narrowed to ${chips} name${chips === 1 ? '' : 's'}` : 'Hide narrowing') : 'Narrow to applications, projects or people';
 }
 $('narrow-toggle').addEventListener('click', () => {
   const open = $('narrow-toggle').getAttribute('aria-expanded') !== 'true';
   syncNarrow(open);
-  if (open) $('scope-project-input').focus();
+  if (open) $('scope-application-input').focus();
 });
 
 // The email / report preview opens as a sheet over the page.
