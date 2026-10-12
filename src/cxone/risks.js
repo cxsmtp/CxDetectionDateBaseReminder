@@ -173,7 +173,7 @@ class RisksApiSource {
     return [this.#resolvedPath, ...RISK_PATH_CANDIDATES.filter((p) => p !== this.#resolvedPath)];
   }
 
-  async fetchForProject(project, { detectionWindow = null } = {}) {
+  async fetchForProject(project, { detectionWindow = null, background = false } = {}) {
     let lastMiss;
 
     for (const candidate of this.#candidates()) {
@@ -199,6 +199,7 @@ class RisksApiSource {
           query,
           limit: RISKS_PAGE_SIZE,
           maxItems: 20_000,
+          background,
         })) {
           items.push(item);
         }
@@ -332,8 +333,8 @@ const scanIdOf = (scan) => String(scan?.id ?? scan?.scanId ?? '');
  * still current, else one read from Checkmarx One (shared with anyone asking
  * for the same project at the same moment). Resolves {items, reused}.
  */
-async function readProject(source, project, detectionWindow, shared) {
-  const load = () => source.fetchForProject(project, { detectionWindow });
+async function readProject(source, project, detectionWindow, shared, background = false) {
+  const load = () => source.fetchForProject(project, { detectionWindow, background });
   const changing = (volatileUntil.get(String(project.id)) ?? 0) > Date.now();
   if (!shared?.identity || !(READ_TTL_MS > 0) || changing) {
     read += 1;
@@ -384,7 +385,7 @@ export async function collectProjectRisks(
   client,
   config,
   projects,
-  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null } = {},
+  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null, background = false } = {},
 ) {
   const source = createRiskSource(client, config);
   await source.prime?.(projects);
@@ -401,7 +402,7 @@ export async function collectProjectRisks(
     }
     let summary;
     try {
-      const { items: raw, reused: wasReused } = await readProject(source, project, detectionWindow, shared);
+      const { items: raw, reused: wasReused } = await readProject(source, project, detectionWindow, shared, background);
       if (wasReused) reusedHere += 1;
       const risks = raw
         .map((item) => normalizeShared(item, project, now))

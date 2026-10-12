@@ -2432,6 +2432,9 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
       detectionWindow,
       keep: vulnerability ? (risk) => matchesVulnerability(vulnerability, risk) : null,
       names,
+      // Its pages yield to report opens and other quick calls waiting for the connection: a fetch
+      // still uses every free call to Checkmarx One, without making developers' reports wait.
+      background: true,
       onProject: onProject ? (summary) => onProject(earlyRow(summary)) : null,
       shared: { identity: readerIdentity(req.session), lastScans, fresh: req.query.fresh === '1' },
       shouldStop,
