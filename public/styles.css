@@ -197,7 +197,7 @@ code { font: 12px var(--mono); background: var(--surface-3); padding: 1px 5px; b
 }
 .tab svg { width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .tab:hover { background: var(--surface-2); color: var(--text); }
-.tab.active { background: var(--surface-3); color: var(--text); }
+.tab.active { background: var(--accent-soft); color: var(--accent); }
 .sidebar-foot { margin: auto 8px 30px; font-size: 11px; color: var(--muted); line-height: 1.4; }
 
 .content { min-width: 0; display: flex; flex-direction: column; }
@@ -1305,11 +1305,14 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 .conn-group { position: relative; display: flex; gap: 6px; flex: 0 0 auto; }
 .conn-chip { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px 0 9px; border-radius: 6px; font-size: 12.5px; font-weight: 500; box-shadow: none; }
 .conn-chip svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.conn-chip::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
-.conn-chip.ok { color: var(--text); }
-.conn-chip.ok::after { background: var(--ok); }
-.conn-chip.bad { color: var(--text); border-color: color-mix(in srgb, var(--danger) 45%, var(--border-strong)); }
-.conn-chip.bad::after { background: var(--danger); }
+.conn-chip::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.conn-chip.ok { border-color: color-mix(in srgb, #16a34a 55%, transparent); color: #15803d; background: color-mix(in srgb, #16a34a 8%, var(--surface)); }
+.conn-chip.ok::after { background: #16a34a; box-shadow: 0 0 0 3px color-mix(in srgb, #16a34a 22%, transparent); }
+.conn-chip.bad { border-color: color-mix(in srgb, #dc2626 55%, transparent); color: #b91c1c; background: color-mix(in srgb, #dc2626 7%, var(--surface)); }
+.conn-chip.bad::after { background: #dc2626; box-shadow: 0 0 0 3px color-mix(in srgb, #dc2626 20%, transparent); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .conn-chip.ok { color: #4ade80; } :root:not([data-theme="light"]) .conn-chip.bad { color: #f87171; } }
+:root[data-theme="dark"] .conn-chip.ok { color: #4ade80; }
+:root[data-theme="dark"] .conn-chip.bad { color: #f87171; }
 .conn-pop { position: absolute; inset-inline-end: 0; top: calc(100% + 8px); z-index: 60; width: min(340px, calc(100vw - 32px)); padding: 14px 16px; border-radius: var(--radius); border: 0; background: var(--surface); box-shadow: var(--shadow-pop); font-size: 13px; }
 .conn-pop h3 { margin: 0 0 8px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .conn-pop dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
@@ -1327,8 +1330,8 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 .git-logos { display: inline-flex; align-items: center; gap: 4px; }
 .git-logo { position: relative; width: 20px; height: 20px; flex: none; border-radius: 50%; display: inline-grid; place-items: center; background: var(--surface); box-shadow: 0 0 0 1.5px var(--border-strong); }
 .git-logo svg, .conn-chip .git-logo svg { width: 13px; height: 13px; fill: currentColor; stroke: none; }
-.git-logo.ok { box-shadow: 0 0 0 1.5px var(--border-strong); }
-.git-logo.bad { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--danger) 55%, var(--border-strong)); }
+.git-logo.ok { box-shadow: 0 0 0 2px #16a34a; }
+.git-logo.bad { box-shadow: 0 0 0 2px #dc2626; }
 .git-logo.off { opacity: 0.55; box-shadow: 0 0 0 1px var(--border); width: 18px; height: 18px; vertical-align: middle; margin-inline-end: 4px; }
 .git-logo b { position: absolute; inset-inline-end: -5px; bottom: -4px; min-width: 12px; height: 12px; padding: 0 2px; border-radius: 6px; background: var(--text); color: var(--surface); font-size: 9px; line-height: 12px; text-align: center; font-weight: 600; }
 .git-logo[data-provider="github"] { color: var(--text); }
@@ -1355,33 +1358,58 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
   .git-logos .git-logo b { display: none; }
 }
 
-/* Progress, bottom right: a quiet card per action. A spinner and a slim moving bar while it runs, a tick when done, a cross when it failed. */
+/* Progress flares, bottom right: amber with a fast icon (a different one each time) while something is in progress, green when done, red when it failed. */
 .flares { position: fixed; inset-inline-end: 20px; bottom: 20px; z-index: 45; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
-.flare {
-  position: relative; overflow: hidden; display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 10px;
-  width: min(380px, calc(100vw - 32px)); padding: 12px 14px 13px; border-radius: 8px; border: 1px solid var(--border);
-  background: var(--surface); color: var(--text); box-shadow: var(--shadow-pop); font-size: 13px; pointer-events: auto; animation: flare-in 0.18s ease-out;
-}
-.flare-text { display: grid; gap: 2px; min-width: 0; line-height: 1.35; }
-.flare-main { font-weight: 500; }
-.flare-text small { display: flex; flex-wrap: wrap; gap: 0 6px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.flare-text small span + span::before { content: "·"; margin-inline-end: 6px; color: var(--border-strong); }
-.flare-icon { display: grid; place-items: center; width: 18px; height: 18px; margin-top: 0.5px; }
-.flare-icon svg { width: 16px; height: 16px; }
-.flare.busy .flare-icon::before { content: ""; width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--border-strong); border-top-color: var(--text); animation: flare-spin 0.8s linear infinite; }
-.flare.busy::after { content: ""; position: absolute; inset-inline-start: 0; bottom: 0; width: 28%; height: 2px; background: var(--accent); animation: flare-bar 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-.flare.done .flare-icon { color: var(--ok); }
-.flare.failed { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
-.flare.failed .flare-icon { color: var(--danger); }
-.flare.done .tick-mark { stroke-dasharray: 1; stroke-dashoffset: 1; animation: tick-draw 0.28s ease-out 0.05s forwards; }
+.flare { display: flex; align-items: center; gap: 10px; max-width: min(460px, calc(100vw - 32px)); padding: 8px 16px 8px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #111; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18); pointer-events: auto; animation: flare-in 0.2s ease-out; }
+.flare.busy { background: #fde68a; border: 1px solid #f59e0b; }
+.flare.done { background: #bbf7d0; border: 1px solid #16a34a; }
+.flare.failed { background: #fecaca; border: 1px solid #dc2626; }
+.flare-text { display: flex; flex-direction: column; line-height: 1.3; }
+.flare-text small { font-weight: 500; font-size: 11.5px; opacity: 0.8; display: flex; flex-wrap: wrap; gap: 0 5px; font-variant-numeric: tabular-nums; }
+.flare-text small span + span::before { content: "·"; margin-inline-end: 5px; }
+.flare-icon { flex: none; display: grid; place-items: center; width: 64px; height: 32px; }
+.flare-icon svg { width: 64px; height: 32px; overflow: visible; }
+.flare.done .flare-icon svg, .flare.failed .flare-icon svg { width: 22px; height: 22px; }
+.flare.done .flare-icon.settling svg { width: 64px; height: 32px; }
+/* The fast icons (public/speedsters.js): streaks rush past, the body bobs, parts spin, flicker, flap and run. */
+.sp-body { animation: sp-bob 0.22s ease-in-out infinite alternate; }
+.sp-streak { animation: sp-streak 0.28s linear infinite; }
+.sp-streak.b { animation-delay: 0.09s; }
+.sp-streak.c { animation-delay: 0.18s; }
+.sp-spin, .sp-spin-x, .sp-flame, .sp-flap, .sp-run { transform-box: fill-box; }
+.sp-spin { transform-origin: center; animation: sp-spin 0.3s linear infinite; }
+.sp-spin-x { transform-origin: center; animation: sp-spin-x 0.08s linear infinite alternate; }
+.sp-spin-x.b { animation-delay: 0.04s; }
+.sp-flame { transform-origin: 100% 50%; animation: sp-flame 0.1s ease-in-out infinite alternate; }
+.sp-flame.b { animation-duration: 0.07s; }
+.sp-flap { transform-origin: 100% 50%; animation: sp-flap 0.14s ease-in-out infinite alternate; }
+.sp-flap.b { animation-delay: 0.07s; }
+.sp-run { transform-origin: 0% 0%; animation: sp-run 0.16s ease-in-out infinite alternate; }
+.sp-run.b { animation-direction: alternate-reverse; }
+.sp-blink { animation: sp-blink 0.4s steps(2) infinite; }
+.sp-blink.b { animation-delay: 0.2s; }
+@keyframes sp-bob { from { transform: translate(0, 0); } to { transform: translate(1.2px, -1.4px); } }
+@keyframes sp-streak { from { transform: translateX(10px); opacity: 0.9; } to { transform: translateX(-16px); opacity: 0; } }
+@keyframes sp-spin { to { transform: rotate(360deg); } }
+@keyframes sp-spin-x { from { transform: scaleX(1); } to { transform: scaleX(0.2); } }
+@keyframes sp-flame { from { transform: scaleX(0.7); opacity: 0.8; } to { transform: scaleX(1.15); opacity: 1; } }
+@keyframes sp-flap { from { transform: scaleY(0.75) skewX(-5deg); } to { transform: scaleY(1.1) skewX(4deg); } }
+@keyframes sp-run { from { transform: rotate(-18deg); } to { transform: rotate(18deg); } }
+@keyframes sp-blink { from { opacity: 1; } to { opacity: 0.2; } }
+/* Done: everything freezes where it is, the streaks and flames fade, and it glides forward to a stop... */
+.flare-icon.settling * { animation-play-state: paused; }
+.flare-icon.settling .sp-streaks { transition: opacity 0.3s ease-out; opacity: 0; }
+.flare-icon.settling .sp-flame { animation: none; opacity: 0; }
+.flare-icon.settling svg { animation: sp-settle 0.52s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
+@keyframes sp-settle { 0% { transform: translateX(0); opacity: 1; } 60% { transform: translateX(6px); opacity: 1; } 100% { transform: translateX(7px) scale(0.85); opacity: 0; } }
+/* ...then the green disc pops in and the tick draws itself. */
+.flare.done .tick-disc { transform-box: fill-box; transform-origin: center; animation: tick-pop 0.36s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+.flare.done .tick-mark { stroke-dasharray: 1; stroke-dashoffset: 1; animation: tick-draw 0.3s ease-out 0.2s forwards; }
+@keyframes tick-pop { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes tick-draw { to { stroke-dashoffset: 0; } }
-@keyframes flare-spin { to { transform: rotate(360deg); } }
-@keyframes flare-bar { from { transform: translateX(-100%); } to { transform: translateX(360%); } }
-[dir="rtl"] .flare.busy::after { animation-name: flare-bar-rtl; }
-@keyframes flare-bar-rtl { from { transform: translateX(100%); } to { transform: translateX(-360%); } }
-@keyframes flare-in { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .flare, .flare::after, .flare-icon::before { animation: none !important; } .flare.done .tick-mark { stroke-dashoffset: 0; } }
-@media (max-width: 760px) { .flares { inset-inline-start: 16px; inset-inline-end: 16px; bottom: calc(110px + env(safe-area-inset-bottom)); align-items: stretch; } .flare { width: auto; } }
+@keyframes flare-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .flare, .flare-icon *, .flare-icon svg { animation: none !important; } .flare.done .tick-mark { stroke-dashoffset: 0; } }
+@media (max-width: 760px) { .flares { inset-inline-start: 16px; inset-inline-end: 16px; bottom: calc(110px + env(safe-area-inset-bottom)); align-items: stretch; } .flare { border-radius: 14px; max-width: none; } }
 /* Paused while its action runs: no second click on the same thing. */
 [aria-busy="true"] button, [aria-busy="true"] input[type="checkbox"], [aria-busy="true"] select { pointer-events: none; opacity: 0.6; }
 
@@ -1694,16 +1722,16 @@ body.rp-locked { overflow: hidden; }
    ========================================================================== */
 
 :root {
-  --act: #2856c9;
-  --followup: #b45a2a;
-  --prove: #2b7d55;
+  --act: #2a78d6;
+  --followup: #d9480f;
+  --prove: #0e9f6e;
   --setup: #6b7280;
-  --plan: #5d5a9e;
+  --plan: #7c3aed;
   --rail-w: 420px;
 }
-:root[data-theme="dark"] { --act: #82a4f4; --followup: #d99467; --prove: #5fbf8e; --setup: #9097a1; --plan: #a3a0dc; }
+:root[data-theme="dark"] { --act: #5b9df0; --followup: #f08a5a; --prove: #34c79a; --setup: #9ca3af; --plan: #a78bfa; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --act: #82a4f4; --followup: #d99467; --prove: #5fbf8e; --setup: #9097a1; --plan: #a3a0dc; }
+  :root:not([data-theme="light"]) { --act: #5b9df0; --followup: #f08a5a; --prove: #34c79a; --setup: #9ca3af; --plan: #a78bfa; }
 }
 [data-stage="act"] { --stage: var(--act); }
 [data-stage="followup"] { --stage: var(--followup); }
@@ -1723,10 +1751,10 @@ main { max-width: 1760px; padding-bottom: 72px; }
   margin: 12px 12px 4px; font-size: 11.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: color-mix(in srgb, var(--muted) 82%, var(--bg));
 }
 .nav-group:first-child { margin-top: 2px; }
-.nav-group i { display: none; }
+.nav-group i { width: 8px; height: 8px; border-radius: 3px; background: var(--stage); flex: 0 0 auto; }
 .tab { position: relative; padding: 8px 12px; }
-.tab.active::before { content: ""; position: absolute; inset-inline-start: -14px; top: 9px; bottom: 9px; width: 2px; border-radius: 0 2px 2px 0; background: var(--text); }
-.tab.active svg { color: var(--text); }
+.tab.active::before { content: ""; position: absolute; inset-inline-start: -14px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--stage, var(--accent)); }
+.tab.active svg { color: var(--stage, var(--accent)); }
 .sidebar-tools { margin-top: auto; display: grid; gap: 2px; padding-top: 10px; border-top: 1px solid var(--border); }
 .side-btn {
   justify-content: flex-start; gap: 11px; width: 100%; min-height: 38px; padding: 0 12px;
@@ -1742,8 +1770,8 @@ main { max-width: 1760px; padding-bottom: 72px; }
 .topbar-actions { flex: 0 0 auto; }
 .page-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stage-chip {
-  flex: 0 0 auto; padding: 0 10px 0 0; font-size: 13px; font-weight: 500; color: var(--muted);
-  border-inline-end: 1px solid var(--border-strong); line-height: 1.1;
+  flex: 0 0 auto; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--stage); background: color-mix(in srgb, var(--stage) 12%, transparent); border: 1px solid color-mix(in srgb, var(--stage) 30%, transparent);
 }
 .jump-btn {
   gap: 8px; justify-content: flex-start; color: var(--muted); font-weight: 500; background: var(--surface); padding: 0 10px;
@@ -1799,8 +1827,8 @@ kbd {
 .gs-head h2 { font-size: 14px; }
 .gs-head > div:first-child { flex: 1 1 auto; min-width: 0; }
 .gs-head .hint { margin: 2px 0 0; }
-.gs-meter { flex: 0 0 160px; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
-.gs-meter span { display: block; height: 100%; background: var(--text); }
+.gs-meter { flex: 0 0 160px; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.gs-meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--act), var(--followup), var(--prove)); }
 /* One row: a horizontal stepper. Each step is a mark on a line, its name, and its one action. */
 .gs-steps {
   list-style: none; margin: 0; padding: 2px 0 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(132px, 1fr);
@@ -1810,21 +1838,21 @@ kbd {
 /* The line to the next step: green once this step is done. */
 .gs-step:not(:last-child)::after {
   content: ''; position: absolute; top: 11px; inset-inline-start: 30px; inset-inline-end: 6px; height: 2px; border-radius: 1px;
-  background: var(--border);
+  background: color-mix(in srgb, var(--stage) 35%, var(--border));
 }
-.gs-step.done:not(:last-child)::after { background: var(--text); }
+.gs-step.done:not(:last-child)::after { background: var(--ok); }
 .gs-step strong { font-size: 13px; line-height: 1.25; font-weight: 600; }
 .gs-step.done strong { color: var(--muted); font-weight: 500; }
 .gs-mark {
-  width: 22px; height: 22px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--surface);
-  border: 1.5px solid var(--border-strong); font-size: 11px; font-weight: 600; color: var(--primary-ink);
+  width: 24px; height: 24px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--surface);
+  border: 2px solid var(--stage); font-size: 12px; font-weight: 800; color: #fff; box-shadow: 0 0 0 4px color-mix(in srgb, var(--stage) 14%, transparent);
 }
-.gs-step.done .gs-mark { background: var(--primary); border-color: var(--primary); box-shadow: none; }
+.gs-step.done .gs-mark { background: var(--ok); border-color: var(--ok); box-shadow: none; }
 .gs-text { display: grid; gap: 1px; min-width: 0; margin-top: 4px; }
 .gs-text small { color: var(--muted); font-size: 12px; line-height: 1.35; }
-.gs-stage { font-size: 11.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.gs-stage { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--stage); }
 .gs-step > button, .gs-step > a { margin-top: 3px; }
-.gs-done { font-size: 12px; color: var(--muted); font-weight: 500; }
+.gs-done { font-size: 12px; color: var(--ok); font-weight: 650; }
 
 a.button-like, .button-like.sm {
   min-height: var(--control-h); padding: 0 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface);
@@ -1989,7 +2017,7 @@ body.sheet-open { overflow: hidden; }
   .set-group { display: none; }
   .set-nav a { white-space: nowrap; flex: 0 0 auto; }
   .nav-group { margin: 8px auto 2px; width: 24px; height: 2px; padding: 0; overflow: hidden; color: transparent; background: var(--stage); border-radius: 2px; }
-  .nav-group i { display: none; }
+  .nav-group i { width: 8px; height: 8px; border-radius: 3px; background: var(--stage); flex: 0 0 auto; }
   .tab.active::before { inset-inline-start: -8px; }
   .side-btn { flex-direction: column; gap: 4px; justify-content: center; font-size: 10.5px; padding: 8px 4px; min-height: 0; }
   .sidebar-tools { width: 100%; }
@@ -2196,28 +2224,28 @@ main { max-width: none; }
 .journey { display: flex; align-items: center; gap: 28px; margin: 0 0 16px; padding: 14px 22px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); }
 .jz { position: relative; display: flex; align-items: center; gap: 12px; flex: none; padding-inline-end: 26px; border-inline-end: 1px solid var(--border); }
 .jz-ring { width: 52px; height: 52px; transform: rotate(-90deg); }
-.jz-bg { fill: none; stroke: var(--surface-3); stroke-width: 4; }
-.jz-fg { fill: none; stroke: var(--text); stroke-width: 4; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
+.jz-bg { fill: none; stroke: var(--surface-3); stroke-width: 5; }
+.jz-fg { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
 .jz.all .jz-fg { stroke: var(--ok); }
 .jz-pct { position: absolute; inset-inline-start: 0; width: 52px; text-align: center; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .jz-text { display: flex; flex-direction: column; line-height: 1.25; }
 .jz-text b { font-size: 14px; font-weight: 600; }
 .jz-text small { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .jtrack { position: relative; flex: 1; display: flex; justify-content: space-between; list-style: none; margin: 0; padding: 0; min-width: 0; }
-.jtrack::before, .jtrack::after { content: ""; position: absolute; top: 13px; inset-inline-start: 16px; height: 1.5px; border-radius: 1px; }
-.jtrack::before { inset-inline-end: 16px; background: var(--border); }
-.jtrack::after { width: calc((100% - 32px) * var(--jfill, 0)); background: var(--text); transition: width 0.6s ease; }
+.jtrack::before, .jtrack::after { content: ""; position: absolute; top: 15px; inset-inline-start: 16px; height: 2px; border-radius: 2px; }
+.jtrack::before { inset-inline-end: 16px; background: var(--surface-3); }
+.jtrack::after { width: calc((100% - 32px) * var(--jfill, 0)); background: linear-gradient(90deg, var(--ok), color-mix(in srgb, var(--ok) 60%, var(--accent))); transition: width 0.6s ease; }
 .jstep { position: relative; z-index: 1; display: flex; justify-content: center; }
 .jnode { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 0; padding: 0; border: 0; background: none; box-shadow: none; color: var(--text); font: inherit; text-decoration: none; cursor: default; }
 a.jnode, button.jnode { cursor: pointer; }
-.jdot { display: grid; place-items: center; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 999px; background: var(--surface); border: 1.5px solid var(--border-strong); font-size: 12.5px; font-weight: 500; font-variant-numeric: tabular-nums; transition: transform 0.15s ease, border-color 0.15s ease; }
+.jdot { display: grid; place-items: center; min-width: 32px; height: 32px; padding: 0 8px; border-radius: 999px; background: var(--surface); border: 2px solid var(--border-strong); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; transition: transform 0.15s ease, border-color 0.15s ease; }
 .jdot svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-a.jnode:hover .jdot, button.jnode:hover .jdot { border-color: var(--text); }
-.jlabel { font-size: 11.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); white-space: nowrap; }
-.jstep.is-done .jdot { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
-.jstep.is-now .jdot { background: var(--surface); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.jstep.is-now .jlabel { color: var(--text); }
-.jstep.is-alert .jdot { background: var(--surface); border-color: var(--danger); color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
+a.jnode:hover .jdot, button.jnode:hover .jdot { transform: scale(1.08); border-color: var(--accent); }
+.jlabel { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.jstep.is-done .jdot { background: var(--ok); border-color: var(--ok); color: #fff; }
+.jstep.is-now .jdot { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 5px var(--accent-soft); }
+.jstep.is-now .jlabel { color: var(--accent); }
+.jstep.is-alert .jdot { background: var(--danger); border-color: var(--danger); color: #fff; box-shadow: 0 0 0 5px var(--danger-soft); }
 .jstep.is-todo .jdot { color: var(--muted); }
 @media (max-width: 720px) {
   .journey { flex-direction: column; align-items: stretch; gap: 14px; padding: 14px 16px; }
@@ -2440,14 +2468,40 @@ label.button-like.sm { cursor: pointer; }
 .lang-pick svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
 .lang-pick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; min-height: 0; font-size: 16px; }
 /* Credits in place: "Check with AI now", "Fix with AI now" and a tracked report's "Triage now"
-   act on everything selected, across projects, in one click. When the credits are there to do it
-   they turn a flat, quiet gold: ready to go, without movement. */
-button.is-golden:not(:disabled) { color: var(--gold-ink); background: var(--gold); border-color: var(--gold-edge); box-shadow: none; font-weight: 500; }
-button.is-golden:hover:not(:disabled) { background: var(--gold-hover); border-color: var(--gold-edge); }
-button.is-golden:focus-visible { outline: 2px solid var(--gold-edge); outline-offset: 2px; }
-:root { --gold: #c9a24a; --gold-hover: #d4af5a; --gold-edge: #a8832f; --gold-ink: #1c1405; }
-:root[data-theme="dark"] { --gold: #cfae62; --gold-hover: #dabb72; --gold-edge: #e2c27e; --gold-ink: #17110a; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --gold: #cfae62; --gold-hover: #dabb72; --gold-edge: #e2c27e; --gold-ink: #17110a; } }
+   act on everything selected, across projects, in one click. They turn gold, with a slow glow,
+   a flowing gradient and a light sweeping across them. Still gold, without motion, for people
+   who ask for less motion. */
+button.is-golden:not(:disabled) {
+  position: relative; overflow: hidden; isolation: isolate;
+  color: #3a2300; border-color: #c99418; font-weight: 750; letter-spacing: 0.01em;
+  background: linear-gradient(120deg, #fff1b8 0%, #f8d55c 28%, #e3a812 52%, #f8d55c 76%, #fff1b8 100%);
+  background-size: 220% 100%;
+  text-shadow: 0 1px 0 rgba(255, 248, 220, 0.6);
+  box-shadow: 0 0 0 1px rgba(255, 214, 92, 0.55), 0 2px 10px rgba(227, 168, 18, 0.45), 0 0 22px 4px rgba(248, 213, 92, 0.35);
+  animation: golden-flow 5s ease-in-out infinite, golden-glow 2.6s ease-in-out infinite;
+}
+button.is-golden:not(:disabled)::after {
+  content: ""; position: absolute; z-index: -1; top: -20%; bottom: -20%; left: -60%; width: 38%;
+  transform: skewX(-22deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  animation: golden-sweep 3.4s ease-in-out infinite;
+}
+button.is-golden:hover:not(:disabled) { background: linear-gradient(120deg, #fff6cf 0%, #fbdf72 28%, #ecb424 52%, #fbdf72 76%, #fff6cf 100%); background-size: 220% 100%; transform: translateY(-1px); }
+button.is-golden:focus-visible { outline: 2px solid #c99418; outline-offset: 3px; }
+:root[data-theme="dark"] button.is-golden:not(:disabled) { box-shadow: 0 0 0 1px rgba(255, 214, 92, 0.6), 0 0 18px 3px rgba(248, 200, 60, 0.45), 0 0 40px 10px rgba(248, 200, 60, 0.18); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) button.is-golden:not(:disabled) { box-shadow: 0 0 0 1px rgba(255, 214, 92, 0.6), 0 0 18px 3px rgba(248, 200, 60, 0.45), 0 0 40px 10px rgba(248, 200, 60, 0.18); }
+}
+@keyframes golden-flow { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes golden-glow {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(248, 213, 92, 0)); }
+  50% { filter: drop-shadow(0 0 8px rgba(248, 213, 92, 0.75)); }
+}
+@keyframes golden-sweep { 0% { left: -60%; } 55%, 100% { left: 130%; } }
+@media (prefers-reduced-motion: reduce) {
+  button.is-golden:not(:disabled) { animation: none; }
+  button.is-golden:not(:disabled)::after { display: none; }
+}
 
 /* Who may use a gated language (Hebrew): a short, searchable list of people. */
 /* The tenant switcher (several Checkmarx One tenants): the same control as the language, with the tenant's name. */

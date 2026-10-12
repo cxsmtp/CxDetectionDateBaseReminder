@@ -1,3 +1,4 @@
+import { nextSpeedster } from './speedsters.js';
 import { initCalculator } from './calculator/page.js';
 import { availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
 
@@ -97,19 +98,20 @@ const NEEDS_FETCHED_DATA = /^\/api\/(credits\/allocate|triage\/run|remediation\/
 const FETCHING_MESSAGE = 'Data is still being fetched. Triage, remediation and credit allocation unlock when the fetch is complete.';
 
 // ---------------------------------------------------------------------------
-// Progress, bottom right: one quiet card per action while it runs (a spinner,
-// what it is doing, for how many projects, for how long, and a slim moving
-// bar), a tick when it is done, a cross when it failed. The part of the page
-// the action came from is paused meanwhile. Several can run at once.
+// Flares, bottom right: amber with a flying hero while an action is in
+// progress (and the part of the page it came from is paused), green when it
+// is done, red when it failed. One per action, so several can run at once.
 // ---------------------------------------------------------------------------
 
-const DONE_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="currentColor" /><path class="tick-mark" pathLength="1" d="M6 10.4l2.6 2.6L14 7.6" fill="none" stroke="var(--surface)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>';
-const FAILED_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="currentColor" /><path d="M7 7l6 6M13 7l-6 6" stroke="var(--surface)" stroke-width="1.8" stroke-linecap="round" /></svg>';
+// Done: a green disc pops in and the tick draws itself (pathLength 1 lets CSS draw it).
+const DONE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="tick-disc" cx="12" cy="12" r="11" fill="#16a34a" /><path class="tick-mark" pathLength="1" d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>';
+const FAILED_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#dc2626" /><path d="M8 8l8 8M16 8l-8 8" stroke="#fff" stroke-width="2.4" stroke-linecap="round" /></svg>';
 
 const flares = new Map();
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let flareSeq = 0;
 /**
- * Show or update the card `key`: kind busy | done | failed. `details` are the
+ * Show or update the flare `key`: kind busy | done | failed. `details` are the
  * short facts under the main line (each translated on its own). `spoken` is
  * what a screen reader announces instead of the lines on screen, for a busy
  * card whose lines change every second.
@@ -125,8 +127,28 @@ function flare(key, kind, text, details = '', spoken = '') {
     flares.set(key, el);
   }
   clearTimeout(el.hideTimer);
+  clearTimeout(el.settleTimer);
   const icon = el.querySelector('.flare-icon');
-  if (el.dataset.kind !== kind) icon.innerHTML = kind === 'done' ? DONE_SVG : kind === 'failed' ? FAILED_SVG : '';
+  if (el.dataset.kind !== kind) {
+    icon.classList.remove('settling');
+    if (kind === 'busy') {
+      // A different fast thing for every action.
+      const speedster = nextSpeedster();
+      icon.innerHTML = speedster.svg;
+      icon.title = speedster.name;
+    } else if (kind === 'done' && el.dataset.kind === 'busy' && !reducedMotion.matches) {
+      // It glides to a stop, then the tick pops in.
+      icon.classList.add('settling');
+      el.settleTimer = setTimeout(() => {
+        icon.classList.remove('settling');
+        icon.innerHTML = DONE_SVG;
+        icon.title = '';
+      }, 520);
+    } else {
+      icon.innerHTML = kind === 'done' ? DONE_SVG : FAILED_SVG;
+      icon.title = '';
+    }
+  }
   el.dataset.kind = kind;
   el.className = `flare ${kind}`;
   el.querySelector('.flare-main').textContent = text;
