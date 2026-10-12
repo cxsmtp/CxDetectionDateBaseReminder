@@ -3034,6 +3034,8 @@
   "Credits per 10K LOC": "الأرصدة لكل 10K LOC",
   "Using the proxy": "يتصل الخادم عبر الوكيل",
   "Using the proxy from the container (HTTPS_PROXY)": "يتصل الخادم عبر الوكيل المحدد في الحاوية (HTTPS_PROXY)",
-  "Settings → Network & proxy": "الإعدادات ← الشبكة والوكيل"
+  "Settings → Network & proxy": "الإعدادات ← الشبكة والوكيل",
+  "In the same share per severity as the backlog chosen.": "بالنسبة نفسها لكل درجة خطورة كما في الاكتشافات المتراكمة المختارة.",
+  "New findings are counted in the same share per severity as the backlog chosen.": "تُحتسب الاكتشافات الجديدة بالنسبة نفسها لكل درجة خطورة كما في الاكتشافات المتراكمة المختارة."
  }
 }

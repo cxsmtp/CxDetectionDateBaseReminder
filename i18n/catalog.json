@@ -21342,5 +21342,17 @@
   "seen": [
    "Jump to (search): the page name"
   ]
+ },
+ "In the same share per severity as the backlog chosen.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, card \"Still to come\" under What the projection counts: note under the line \"{0} new a month now, …\", shown when only part of the backlog is chosen under Customize per severity (the new findings counted are in the same proportion, severity by severity)"
+  ]
+ },
+ "New findings are counted in the same share per severity as the backlog chosen.": {
+  "kind": "report",
+  "seen": [
+   "the projection report (a file sent to the customer), in the list of assumptions: the same rule as a full sentence"
+  ]
  }
 }

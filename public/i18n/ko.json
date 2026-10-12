@@ -3034,6 +3034,8 @@
   "Credits per 10K LOC": "10K LOC당 크레딧",
   "Using the proxy": "프록시 사용 중",
   "Using the proxy from the container (HTTPS_PROXY)": "컨테이너에 설정된 프록시(HTTPS_PROXY) 사용 중",
-  "Settings → Network & proxy": "설정 → 네트워크 및 프록시"
+  "Settings → Network & proxy": "설정 → 네트워크 및 프록시",
+  "In the same share per severity as the backlog chosen.": "심각도별로 선택한 백로그와 같은 비율로 집계됩니다.",
+  "New findings are counted in the same share per severity as the backlog chosen.": "신규 탐지 결과는 심각도별로 선택한 백로그와 같은 비율로 집계됩니다."
  }
 }

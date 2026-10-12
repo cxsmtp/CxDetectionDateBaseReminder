@@ -3034,6 +3034,8 @@
   "Credits per 10K LOC": "Créditos por 10K LOC",
   "Using the proxy": "Usando o proxy",
   "Using the proxy from the container (HTTPS_PROXY)": "Usando o proxy do contêiner (HTTPS_PROXY)",
-  "Settings → Network & proxy": "Configurações → Rede e proxy"
+  "Settings → Network & proxy": "Configurações → Rede e proxy",
+  "In the same share per severity as the backlog chosen.": "Na mesma proporção por gravidade que o backlog escolhido.",
+  "New findings are counted in the same share per severity as the backlog chosen.": "Os novos achados são contabilizados na mesma proporção por gravidade que o backlog escolhido."
  }
 }

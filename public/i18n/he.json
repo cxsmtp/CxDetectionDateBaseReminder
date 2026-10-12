@@ -3034,6 +3034,8 @@
   "Credits per 10K LOC": "קרדיטים לכל 10K LOC",
   "Using the proxy": "חיבור דרך ה-proxy",
   "Using the proxy from the container (HTTPS_PROXY)": "חיבור דרך ה-proxy שהוגדר בקונטיינר (HTTPS_PROXY)",
-  "Settings → Network & proxy": "הגדרות ← רשת ו-proxy"
+  "Settings → Network & proxy": "הגדרות ← רשת ו-proxy",
+  "In the same share per severity as the backlog chosen.": "לפי חומרה, באותו שיעור כמו בצבר הממצאים שנבחר.",
+  "New findings are counted in the same share per severity as the backlog chosen.": "ממצאים חדשים נכללים לפי חומרה, באותו שיעור כמו בצבר הממצאים שנבחר."
  }
 }
