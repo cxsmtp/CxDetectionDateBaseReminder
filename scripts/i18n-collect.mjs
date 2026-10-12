@@ -169,6 +169,9 @@ try {
   await click('#calc-new', 'calculator › new', 2000);
   await click('#page-calculator .ptab[data-pt="tr"]', 'calculator › triage & remediation', 600);
   await click('#calc-sample', 'calculator › sample data', 4000);
+  await click('.calc-custom > summary', 'calculator › customize', 400);
+  await click('#calc-scope-toggle', 'calculator › scope', 400);
+  await click('#calc-email-open', 'calculator › email', 400);
   await page.fill('.calc-sev-box[data-sev="High"] input[type="number"][data-f="selected"]', '10').catch(() => {});
   await grab('calculator › plan changed', 400);
   await click('.calc-sev-box[data-sev="High"] [data-apply]', 'calculator › applied', 800);
@@ -176,6 +179,10 @@ try {
   await click('#calc-present', 'calculator › edit view', 400);
   await click('#page-calculator .ptab[data-pt="fusion"]', 'calculator › fusion', 600);
   await click('#calc-read', 'calculator › read', 5000);
+  await page.fill('#calc-scope-applications', 'Mobile').catch(() => {});
+  await click('#calc-scope-form button[type="submit"]', 'calculator › scoped', 1500);
+  await click('#page-calculator .ptab[data-pt="tr"]', 'calculator › scoped triage', 800);
+  await click('#page-calculator .ptab[data-pt="fusion"]', 'calculator › scoped fusion', 600);
   await click('#calc-add-model', 'calculator › model added', 600);
   await page.fill('#calc-models tr:nth-child(1) [data-m="creditsPer10k"]', '2.5').catch(() => {});
   await click('#calc-suggest', 'calculator › suggested', 800);

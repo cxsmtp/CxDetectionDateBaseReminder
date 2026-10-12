@@ -79,7 +79,7 @@ http.createServer((req, res) => {
       }
       if (!issued.has(String(req.headers.authorization || '').replace(/^Bearer /, ''))) return send(401, {});
       const offset = Number(u.searchParams.get('offset') || 0);
-      if (u.pathname === '/api/projects') { bump('projects'); const all = Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800) })); const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: PROJECTS }); }
+      if (u.pathname === '/api/projects') { bump('projects'); const all = Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800), groups: [`team-${'abc'[i % 3]}`] })); const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: PROJECTS }); }
       if (u.pathname === '/api/applications') {
         bump('applications');
         // Four applications, each grouping every fourth project.

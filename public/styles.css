@@ -2858,3 +2858,49 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 
 /* In the one-strip totals a warning is the number's colour alone; the cell keeps the strip's hairline. */
 .dash-top .totals > div.sla-over, .dash-top .totals > div.sla-soon { border-color: var(--border); }
+
+/* ---- Cx Credits Calculator, MZ-01.00.67: scope, what the projection counts, one-click bar ---- */
+.calc-scope { display: grid; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
+.calc-scope-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-width: 0; }
+.calc-scope-label { font-size: 12px; font-weight: 500; color: var(--muted); }
+.calc-scope-summary { font-weight: 500; overflow-wrap: anywhere; }
+.calc-scope-summary.on { color: var(--accent); }
+.calc-scope-form { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.calc-scope-form .hint { margin: 0; max-width: none; }
+.calc-scope-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 10px 14px; }
+.calc-scope-grid .field { margin: 0; }
+.calc-scope-checks { border: 0; padding: 0; margin: 0; background: none; }
+.calc-scope-checks legend { padding: 0 0 4px; }
+.calc-scope-checks > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.calc-report-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.calc-email { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; }
+.calc-email .field { margin: 0; flex: 1 1 320px; }
+.calc-steps { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; margin: 6px 0 12px; }
+.calc-step { flex: 1 1 130px; display: grid; gap: 2px; align-content: start; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.calc-step-label { font-size: 12px; color: var(--muted); }
+.calc-step b { font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.calc-step small { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.calc-step-key { border-color: var(--border-strong); background: var(--surface-2); }
+.calc-step-gold { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: var(--accent-soft); }
+.calc-step-gold b { color: var(--accent); }
+.calc-op { align-self: center; color: var(--muted); font-size: 16px; padding: 0 2px; }
+.calc-assume { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 13px; }
+.calc-assume-num { display: inline-flex; align-items: center; gap: 8px; }
+.calc-assume-num span { color: var(--muted); }
+.calc-assume-num .calc-num { width: 7ch; text-align: end; }
+.calc-custom > summary { cursor: pointer; list-style: none; display: grid; gap: 2px; }
+.calc-custom > summary::-webkit-details-marker { display: none; }
+.calc-custom > summary h2 { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+.calc-custom > summary h2::before { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s; }
+.calc-custom[open] > summary h2::before { transform: rotate(45deg); }
+.calc-custom[open] > summary { margin-bottom: 12px; }
+.calc-badge { display: inline-flex; padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 500; color: var(--ok); background: var(--ok-soft); white-space: nowrap; }
+.calc-model-name { font-weight: 500; }
+.calc-models input[data-m="name"] { width: 100%; min-width: 24ch; }
+.calc-more { display: flex; justify-content: center; padding-top: 10px; }
+.cc-chart svg text { font-family: var(--font); }
+.cc-minis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
+@media (max-width: 760px) { .cc-minis { grid-template-columns: minmax(0, 1fr); } }
+.cc-mini h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 2px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.cc-mini .cc-swatch { width: 10px; height: 10px; border-radius: 3px; }
+.calc-presenting .calc-scope-toggle, .calc-presenting .calc-assume, .calc-presenting .calc-custom { display: none; }

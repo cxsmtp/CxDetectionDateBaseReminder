@@ -13,8 +13,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import { mapWithConcurrency } from './cxone/client.js';
-import { getLastScans, lastScanDate, listProjects } from './cxone/projects.js';
-import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, amount, creditSummary, frequencyOf, fusionSettings, totalsSettings, wholeNumber } from '../public/calculator/model.js';
+import { getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
+import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, aheadSettings, amount, cleanScope, creditSummary, frequencyOf, fusionSettings, totalsSettings, wholeNumber } from '../public/calculator/model.js';
 
 export const MAX_PROFILES = 200;
 /** One profile, saved: the two exports' weekly series fit well inside this. */
@@ -67,18 +67,21 @@ function series(value) {
 }
 
 const perSeverity = (value, fallback, lo, hi) => Object.fromEntries(PLAN.map((s) => [s, Math.min(hi, Math.max(lo, finite(value?.[s], fallback[s])))]));
+/** How many of each severity to triage: a number, or null for every open one (the default). */
+const chosen = (value) => Object.fromEntries(PLAN.map((s) => [s, value?.[s] === null || value?.[s] === undefined || value?.[s] === '' ? null : Math.min(1e9, Math.max(0, finite(value[s], 0)))]));
 
-/** The triage & remediation projection: the two exports, and the plan per severity. */
+/** The triage & remediation projection: the backlog read, the plan per severity, and what is still to come. */
 export function cleanTr(value) {
   const v = value && typeof value === 'object' ? value : {};
   return {
     totals: series(v.totals),
     fixed: series(v.fixed),
-    selected: perSeverity(v.selected, { Critical: 0, High: 0, Medium: 0, Low: 0 }, 0, 1e9),
+    selected: chosen(v.selected),
     triageCost: perSeverity(v.triageCost, DEFAULT_TR.triageCost, 0, 1000),
     fpPercent: perSeverity(v.fpPercent, DEFAULT_TR.fpPercent, 0, 100),
     remediationCost: perSeverity(v.remediationCost, DEFAULT_TR.remediationCost, 0, 1000),
     lookbackMonths: LOOKBACKS.includes(Number(v.lookbackMonths)) ? Number(v.lookbackMonths) : DEFAULT_TR.lookbackMonths,
+    ...aheadSettings(v),
   };
 }
 
@@ -99,6 +102,9 @@ export function cleanFusion(value) {
     lastScanAt: iso(p?.lastScanAt),
     scanId: text(p?.scanId, 100),
     source: ['sast-metadata', 'scan', 'none', 'manual'].includes(p?.source) ? p.source : 'manual',
+    applications: (Array.isArray(p?.applications) ? p.applications : []).slice(0, 50).map((a) => text(a, 200)).filter(Boolean),
+    groups: (Array.isArray(p?.groups) ? p.groups : []).slice(0, 50).map((g) => text(g, 200)).filter(Boolean),
+    initiator: text(p?.initiator, 254),
     included: p?.included !== false,
     scansOverride: wholeNumber(p?.scansOverride),
     modelOverride: models.has(p?.modelOverride) ? p.modelOverride : null,
@@ -108,6 +114,13 @@ export function cleanFusion(value) {
 
 /** A profile from MZ-01.00.61 (its à la carte calculator state): the exports and plan carry over. */
 function migrate(profile) {
+  // Before MZ-01.00.67 nothing chosen was 0 everywhere: now it is every open finding (null).
+  if (profile.tr && !profile.planVersion) {
+    const sel = profile.tr.selected ?? {};
+    const none = PLAN.every((s) => !Number(sel[s]));
+    const lookback = LOOKBACKS.includes(Number(profile.tr.lookbackMonths)) ? profile.tr.lookbackMonths : DEFAULT_TR.lookbackMonths;
+    return { ...profile, planVersion: 2, tr: { ...profile.tr, lookbackMonths: lookback, ...(none ? { selected: Object.fromEntries(PLAN.map((s) => [s, null])) } : {}) } };
+  }
   if (profile.tr || !profile.alaCarte) return profile;
   const a = profile.alaCarte;
   const selected = Object.fromEntries(PLAN.map((s) => [s, finite(a.plan?.[s]?.selected, 0)]));
@@ -117,7 +130,7 @@ function migrate(profile) {
   const tr = cleanTr({ totals: a.totals, fixed: a.fixed, selected, fpPercent, triageCost: Object.fromEntries(PLAN.map((s) => [s, triage])), remediationCost: Object.fromEntries(PLAN.map((s) => [s, remediation])) });
   const fusion = profile.fusion ? cleanFusion({ ...profile.fusion, defaultScans: 1, models: profile.fusion.creditsPerBundle ? [{ id: 'model-1', name: '', creditsPer10k: profile.fusion.creditsPerBundle, source: 'manual' }] : [] }) : cleanFusion({});
   const { alaCarte, ...rest } = profile;
-  return { ...rest, customer: profile.customer || a.customer || '', tr, fusion };
+  return { ...rest, planVersion: 2, customer: profile.customer || a.customer || '', tr, fusion };
 }
 
 const summary = (p) => ({
@@ -166,13 +179,13 @@ export class ProjectionStore {
   create({ name, by }) {
     if (this.#profiles.length >= MAX_PROFILES) throw fail(409, `There are already ${MAX_PROFILES} customers. Delete one first.`);
     const now = new Date().toISOString();
-    const profile = { id: randomUUID(), name: text(name, 120) || 'New customer', createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({}), totals: totalsSettings({}) };
+    const profile = { id: randomUUID(), name: text(name, 120) || 'New customer', planVersion: 2, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({}), totals: totalsSettings({}), scope: cleanScope({}) };
     this.#profiles.push(profile);
     this.#save();
     return structuredClone(profile);
   }
 
-  /** Save what changed: the customer's name, the T&R projection, the Fusion projection, the extra % and bundle size (each optional). */
+  /** Save what changed: the customer's name, the T&R projection, the Fusion projection, the extra % and bundle size, the scope (each optional). */
   update(id, patch = {}, by = '') {
     const index = this.#profiles.findIndex((p) => p.id === id);
     if (index === -1) throw fail(404, 'That customer no longer exists.');
@@ -181,6 +194,7 @@ export class ProjectionStore {
     if (patch.tr !== undefined) next.tr = cleanTr(patch.tr);
     if (patch.fusion !== undefined) next.fusion = cleanFusion(patch.fusion);
     if (patch.totals !== undefined) next.totals = totalsSettings(patch.totals);
+    if (patch.scope !== undefined) next.scope = cleanScope(patch.scope);
     next.updatedAt = new Date().toISOString();
     next.updatedBy = text(by, 254);
     if (Buffer.byteLength(JSON.stringify(next)) > MAX_PROFILE_BYTES) throw fail(413, 'This customer is too large to save (over 3 MB). Use exports covering fewer weeks.');
@@ -371,20 +385,27 @@ async function scanSummaries(client, scanIds, { concurrency = 6, onChunk } = {})
 export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks = 52 } = {}) {
   const ends = [];
   for (let k = weeks - 1; k >= 0; k -= 1) ends.push(now - k * 7 * DAY);
-  const totals = Object.fromEntries(SEVERITIES.map((s) => [s, ends.map(() => 0)]));
-  const fixed = Object.fromEntries(SEVERITIES.map((s) => [s, ends.map(() => 0)]));
+  const blank = () => Object.fromEntries(SEVERITIES.map((s) => [s, ends.map(() => 0)]));
+  const totals = blank();
+  const fixed = blank();
   const at = (scan) => Date.parse(scan?.createdAt ?? scan?.updatedAt ?? '');
   let scansUsed = 0;
-  for (const { scans, before } of perProject) {
+  // Each project's own weeks too, so the backlog of any set of projects can be added up later.
+  const byProject = new Map();
+  for (const { project, scans, before } of perProject) {
     const timeline = [...(before ? [before] : []), ...[...scans].reverse()].filter((scan) => summaries.has(scan.id) && Number.isFinite(at(scan)));
     if (!timeline.length) continue;
     scansUsed += timeline.length;
+    const own = { t: blank(), f: blank(), scans: timeline.length };
     let k = 0;
     for (let w = 0; w < ends.length; w += 1) {
       while (k + 1 < timeline.length && at(timeline[k + 1]) <= ends[w]) k += 1;
       if (at(timeline[k]) > ends[w]) continue;
       const { total } = summaries.get(timeline[k].id);
-      for (const s of SEVERITIES) totals[s][w] += total[s];
+      for (const s of SEVERITIES) {
+        totals[s][w] += total[s];
+        own.t[s][w] += total[s];
+      }
     }
     for (let i = 1; i < timeline.length; i += 1) {
       const t = at(timeline[i]);
@@ -392,11 +413,75 @@ export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks =
       if (w === -1) continue;
       const prev = summaries.get(timeline[i - 1].id).total;
       const { total, fresh } = summaries.get(timeline[i].id);
-      for (const s of SEVERITIES) fixed[s][w] += Math.max(0, prev[s] + fresh[s] - total[s]);
+      for (const s of SEVERITIES) {
+        const gone = Math.max(0, prev[s] + fresh[s] - total[s]);
+        fixed[s][w] += gone;
+        own.f[s][w] += gone;
+      }
     }
+    if (project?.id) byProject.set(String(project.id), own);
   }
   const days = ends.map((t) => new Date(t).toISOString().slice(0, 10));
-  return { totals: { weeks: days, bySeverity: totals }, fixed: { weeks: days, bySeverity: fixed }, scans: scansUsed };
+  return { totals: { weeks: days, bySeverity: totals }, fixed: { weeks: days, bySeverity: fixed }, scans: scansUsed, byProject };
+}
+
+/**
+ * The backlog and fixes, week by week, of these projects only (ids), from a read's own weeks per
+ * project: the same two series the whole tenant has, for a scope.
+ */
+export function seriesFor(read, ids) {
+  const weeks = Array.isArray(read?.weeks) ? read.weeks : [];
+  const blank = () => Object.fromEntries(SEVERITIES.map((s) => [s, weeks.map(() => 0)]));
+  const totals = blank();
+  const fixed = blank();
+  let projects = 0;
+  let scans = 0;
+  for (const id of new Set((Array.isArray(ids) ? ids : []).map(String))) {
+    const own = Object.hasOwn(read?.series ?? {}, id) ? read.series[id] : null;
+    if (!own) continue;
+    projects += 1;
+    scans += wholeNumber(own.scans) ?? 0;
+    for (const s of SEVERITIES) {
+      for (let w = 0; w < weeks.length; w += 1) {
+        totals[s][w] += Number(own.t?.[s]?.[w]) || 0;
+        fixed[s][w] += Number(own.f?.[s]?.[w]) || 0;
+      }
+    }
+  }
+  const meta = { source: 'cxone', readAt: read?.readAt ?? null, projects, scans, scoped: true };
+  return { totals: { weeks, bySeverity: totals, meta }, fixed: { weeks, bySeverity: fixed, meta } };
+}
+
+/**
+ * The last read of the tenant for the calculator: each project's weeks, kept on the server (too
+ * many to send to the page or save with a customer). One file per tenant, replaced by every read;
+ * not in backups (the next read makes it again).
+ */
+export class TenantReadStore {
+  #file;
+  #cache = null;
+
+  constructor({ file }) {
+    this.#file = file;
+  }
+
+  save({ readAt, weeks, byProject }) {
+    const series = {};
+    for (const [id, own] of byProject ?? []) series[id] = { scans: own.scans, t: own.t, f: own.f };
+    const value = { readAt, weeks, series };
+    writeJson(this.#file, value);
+    this.#cache = value;
+  }
+
+  get() {
+    if (this.#cache) return this.#cache;
+    try {
+      this.#cache = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
+    } catch {
+      this.#cache = null;
+    }
+    return this.#cache;
+  }
 }
 
 /**
@@ -407,7 +492,10 @@ export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks =
  * `onProgress(step, done, total)` follows it: "projects" (each project's scans and lines of code), then "summaries".
  */
 export async function readTenant(client, { concurrency = 8, now = Date.now(), weeks = 52, onProgress = () => {} } = {}) {
-  const projects = (await listProjects(client)).slice(0, MAX_PROJECTS);
+  const [projects, applications] = await Promise.all([listProjects(client).then((list) => list.slice(0, MAX_PROJECTS)), listApplications(client).catch(() => [])]);
+  // Each project's applications, by name (a project may be in several).
+  const appsOf = new Map();
+  for (const app of applications) for (const id of app.projectIds) appsOf.set(id, [...(appsOf.get(id) ?? []), app.name]);
   onProgress('projects', 0, projects.length);
   const lastScans = await getLastScans(client, projects.map((p) => p.id)).catch(() => ({}));
   const yearAgo = now - 365 * DAY;
@@ -428,7 +516,7 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
   });
 
   // Fusion: how often each project was scanned in the last year (a younger project: since it was created).
-  const rows = perProject.map(({ project, latest, lines, scans, count, failed }) => {
+  const rows = perProject.map(({ project, latest, lastScan, lines, scans, count, failed }) => {
     const born = Date.parse(project.createdAt ?? '');
     const windowDays = Math.max(7, Math.min(365, (now - Math.max(yearAgo, Number.isFinite(born) ? born : 0)) / DAY));
     const inYear = scans.length >= MAX_SCANS_PER_PROJECT || count > scans.length ? count : scans.filter((x) => Date.parse(x.createdAt ?? '') >= yearAgo).length;
@@ -439,6 +527,9 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
     return {
       id: project.id,
       name: project.name,
+      applications: (appsOf.get(String(project.id)) ?? []).slice(0, 50),
+      groups: (Array.isArray(project.groups) ? project.groups : []).map((g) => String(g?.name ?? g ?? '')).filter(Boolean).slice(0, 50),
+      initiator: String(latest?.initiator ?? lastScan?.initiator ?? '').slice(0, 254),
       criticality: CRITICALITIES.includes(Number(project.criticality)) ? Number(project.criticality) : null,
       scanCount,
       scansPerWeek: Math.round(frequency.perWeek * 100) / 100,
@@ -460,8 +551,11 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
   const meta = { source: 'cxone', readAt, projects: projects.length, scans: weekly.scans };
   return {
     projects: rows,
+    applications: [...new Set(applications.map((a) => a.name))].sort((a, b) => a.localeCompare(b)),
     tr: summaries.size ? { totals: { ...weekly.totals, meta }, fixed: { ...weekly.fixed, meta } } : null,
     readAt,
+    // Each project's weeks: kept on the server (TenantReadStore), never sent to the page.
+    perProject: { readAt, weeks: weekly.totals.weeks, byProject: weekly.byProject },
   };
 }
 

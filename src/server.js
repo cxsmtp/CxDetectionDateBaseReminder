@@ -50,7 +50,8 @@ import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { reportI18n, reportWords } from './report-i18n.js';
-import { ProjectionStore, ReportStore, readFusionOffer, readTenant } from './projections.js';
+import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
+import { reportFileName as projectionFileName } from '../public/calculator/report.js';
 import { buildReminder, buildReportData, buildReportEmail } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -244,6 +245,7 @@ function buildTenant({ id, dir }) {
     trackedReports: new TrackedReports({ file: path.join(dir, 'tracked-reports.json') }),
     projections: new ProjectionStore({ file: path.join(dir, 'projections.json') }),
     projectionReports: new ReportStore({ dir: path.join(dir, 'projection-reports') }),
+    projectionReads: new TenantReadStore({ file: path.join(dir, 'projection-read.json') }),
     reportFiles: new ReportFiles({ dir: path.join(dir, 'report-files'), ttlDays: 30 }),
     guard: new ConnectionGuard({ file: path.join(dir, 'connection-guard.json') }),
     audit: new AuditLog({ dir: path.join(dir, 'audit'), keyFile: path.join(dir, 'audit.key') }),
@@ -299,6 +301,7 @@ const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const trackedReports = scoped(tenancy, 'trackedReports');
 const projections = scoped(tenancy, 'projections');
 const projectionReports = scoped(tenancy, 'projectionReports');
+const projectionReads = scoped(tenancy, 'projectionReads');
 const findingJournal = scoped(tenancy, 'findingJournal');
 const reportFiles = scoped(tenancy, 'reportFiles');
 const guard = scoped(tenancy, 'guard');
@@ -3366,6 +3369,47 @@ app.post('/api/projections/reports', requireCalculator, calculatorRoute((req, re
 app.get('/api/projections/reports/:id', requireCalculator, calculatorRoute((req, res) => {
   res.json({ report: projectionReports.get(String(req.params.id)) });
 }));
+/**
+ * Email a projection report: the file the page made (in its language) goes as an attachment, to
+ * up to 10 addresses typed in. Only a whole report file, with no script in it, is sent; the
+ * maintainer's address never is (the server writes to nobody outside on its own).
+ */
+const MAIL_RE = /^(?=[^]{3,254}$)[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
+app.post('/api/projections/reports/:id/email', requireCalculator, asyncRoute(async (req, res) => {
+  let report;
+  try {
+    report = projectionReports.get(String(req.params.id));
+  } catch (error) {
+    return projectionError(res, error);
+  }
+  const typed = Array.isArray(req.body?.to) ? req.body.to : String(req.body?.to ?? '').split(/[\s,;]+/);
+  const to = [...new Set(typed.map((a) => String(a ?? '').trim().toLowerCase()).filter(Boolean))];
+  if (!to.length) return res.status(400).json({ error: 'Type at least one email address.' });
+  if (to.length > 10) return res.status(400).json({ error: 'At most 10 addresses at a time.' });
+  const bad = to.filter((a) => !MAIL_RE.test(a));
+  if (bad.length) return res.status(400).json({ error: `Not an email address: ${bad.slice(0, 3).join(', ')}.` });
+  if (to.includes(MAINTAINER_EMAIL.toLowerCase())) return res.status(400).json({ error: 'That address cannot be sent to from here.' });
+  const html = String(req.body?.html ?? '');
+  // The calculator's own file: no script, no handlers, nothing embedded or posted anywhere (checked in its tags; names in text are escaped).
+  const tags = html.match(/<[^>]*>/g) ?? [];
+  if (!/^<!doctype html>/i.test(html) || Buffer.byteLength(html) > 3.5 * 1024 * 1024 || tags.some((tag) => /^<\/?(script|iframe|object|embed|form|link|meta\s+http-equiv|base)\b|\son\w+\s*=|javascript:|\s(src|href|action)\s*=\s*["']?(?!#)/i.test(tag))) {
+    return res.status(400).json({ error: 'That is not a projection report file.' });
+  }
+  const settings = sendingSettings();
+  if (!isVerified(settings)) return res.status(409).json({ error: 'The email server is not set up and tested yet (Settings → Email server).' });
+  const plain = (v, max) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
+  const subject = plain(req.body?.subject, 200) || `${report.customer}: Checkmarx credits projection`;
+  const lines = (Array.isArray(req.body?.lines) ? req.body.lines : []).slice(0, 8).map((l) => plain(l, 300)).filter(Boolean);
+  const text = [...lines, '', `${report.createdBy} · ${new Date(report.createdAt).toUTCString()}`].join('\n');
+  const htmlBody = `<div style="font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#14171c">${lines.map((l) => `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`).join('')}<p style="margin:16px 0 0;color:#5c636e;font-size:12px">${escapeHtml(report.createdBy)} · ${escapeHtml(new Date(report.createdAt).toUTCString())}</p></div>`;
+  try {
+    await sendReminderMail(settings, { subject, html: htmlBody, text }, { exact: true, to, cc: [], bcc: [], attachments: [{ filename: projectionFileName(report.customer, report.createdAt), content: html, contentType: 'text/html' }] });
+  } catch (error) {
+    return res.status(502).json({ error: `The email could not be sent: ${error.message}` });
+  }
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Cx Credits Calculator: projection report for "${report.customer}" emailed to ${to.length} address(es).`, actor: { kind: 'user', user: req.user.email, ip: clientIp(req) }, details: { recipients: to } });
+  res.json({ sent: to.length });
+}));
 app.delete('/api/projections/reports/:id', requirePermission('reports.delete'), calculatorRoute((req, res) => {
   projectionReports.remove(String(req.params.id));
   res.json({ ok: true });
@@ -3388,11 +3432,16 @@ app.post(
     if (running?.state === 'running') return res.status(202).json(readView(running));
     const job = { id: randomUUID(), state: 'running', step: 'projects', done: 0, total: 0, startedAt: new Date().toISOString(), by: req.user.email };
     calculatorReads.set(key, job);
+    // Each project's weeks stay on the server, for any scope picked later; the page gets the rest.
+    const reads = tenancy.current().projectionReads;
     Promise.all([
       readTenant(client, { onProgress: (step, done, total) => Object.assign(job, { step, done, total }) }),
       readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null })),
     ])
-      .then(([tenant, offer]) => Object.assign(job, { state: 'done', result: { ...tenant, ...offer }, finishedAt: new Date().toISOString() }))
+      .then(([{ perProject, ...tenant }, offer]) => {
+        reads.save(perProject);
+        Object.assign(job, { state: 'done', result: { ...tenant, ...offer }, finishedAt: new Date().toISOString() });
+      })
       .catch((error) => {
         console.error(`[calculator] Reading Checkmarx One failed: ${error.message}`);
         Object.assign(job, { state: 'failed', error: error.status === 401 || error.status === 403 ? 'Checkmarx One refused the read: check the connection under Settings → Checkmarx One.' : `Checkmarx One could not be read: ${error.message}`, finishedAt: new Date().toISOString() });
@@ -3404,13 +3453,20 @@ app.get('/api/projections/read', requireCalculator, (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json(readView(calculatorReads.get(tenancy.current().id)));
 });
+/** The backlog and fixes, week by week, of the projects in a customer's scope, from the last read. */
+app.post('/api/projections/series', requireCalculator, (req, res) => {
+  const read = projectionReads.get();
+  if (!read?.weeks?.length) return res.status(409).json({ error: 'Read Checkmarx One first: the scope is worked out from the last read.' });
+  const ids = Array.isArray(req.body?.projectIds) ? req.body.projectIds.slice(0, 5000).map((id) => String(id).slice(0, 100)) : [];
+  res.json(seriesFor(read, ids));
+});
 app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
   res.json({ customer: projections.get(String(req.params.id)) });
 }));
 app.put('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
   const body = req.body ?? {};
   const patch = {};
-  for (const key of ['name', 'tr', 'fusion', 'totals']) if (body[key] !== undefined) patch[key] = body[key];
+  for (const key of ['name', 'tr', 'fusion', 'totals', 'scope']) if (body[key] !== undefined) patch[key] = body[key];
   res.json({ customer: projections.update(String(req.params.id), patch, req.user.email) });
 }));
 app.delete('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
@@ -3429,7 +3485,8 @@ app.post(
   asyncRoute(async (req, res) => {
     const client = req.session.client ?? integrationSession()?.client;
     if (!client) return res.status(409).json({ error: 'Connect to Checkmarx One first (Settings → Checkmarx One), or add each project by hand.' });
-    const [tenant, offer] = await Promise.all([readTenant(client), readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null }))]);
+    const [{ perProject, ...tenant }, offer] = await Promise.all([readTenant(client), readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null }))]);
+    projectionReads.save(perProject);
     res.json({ ...tenant, ...offer });
   }),
 );

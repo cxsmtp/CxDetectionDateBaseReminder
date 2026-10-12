@@ -6,6 +6,10 @@
 // severity (how many findings to triage, the expected false positives, the credits each step
 // takes) gives the credits. False positives pay their triage credit only.
 //
+// Ahead: over the projection period, the findings still to come at the pace of the lookback
+// (arrivals: what the backlog grew by, plus what was fixed meanwhile), the extra findings Fusion
+// reports once it scans the code, and those FAE keeps from being reported (false positives only).
+//
 // Fusion: one Fusion scan of a project costs its model's credits per 10K lines of code, with each
 // project rounded up to whole 10K units on its own (12,000 lines are 2 units). How many Fusion
 // scans each project needs follows from a default, how often the project is scanned today, and
@@ -17,8 +21,12 @@ export const DEFAULT_TR = Object.freeze({
   remediationCost: { Critical: 3, High: 3, Medium: 3, Low: 3 },
   fpPercent: { Critical: 30, High: 30, Medium: 30, Low: 30 },
   lookbackMonths: 3,
+  includeFuture: true,
+  fusionUpliftPercent: 20,
+  faePercent: 10,
 });
-export const LOOKBACKS = [0, 3, 6, 9, 12];
+// The trend is always read over months (a single week says too little to project from).
+export const LOOKBACKS = [3, 6, 9, 12];
 export const UNIT_LOC = 10000;
 
 /** A whole number ≥ 0 from whatever was typed or read; null when there is none. */
@@ -87,8 +95,11 @@ export function analyse(totalRows, fixedRows, lookbackMonths = DEFAULT_TR.lookba
     const prior = previous[s];
     perSeverity[s] = { current, prior, fixed: fixedSince[s], debtRate: prior ? ((current - prior) / prior) * 100 : null, fixRate: current ? (fixedSince[s] / current) * 100 : null };
   }
+  // New findings a month over the lookback: what the backlog grew by, plus what was fixed meanwhile.
+  const spanMonths = Math.max(0.25, daysBetween(previous.date, latest.date) / 30.44);
+  for (const s of SEVERITIES) perSeverity[s].arrivals = Math.max(0, (perSeverity[s].current - perSeverity[s].prior + perSeverity[s].fixed) / spanMonths);
   const sum = (key) => SEVERITIES.reduce((a, s) => a + perSeverity[s][key], 0);
-  const total = { current: sum('current'), prior: sum('prior'), fixed: sum('fixed') };
+  const total = { current: sum('current'), prior: sum('prior'), fixed: sum('fixed'), arrivals: sum('arrivals') };
   total.debtRate = total.prior ? ((total.current - total.prior) / total.prior) * 100 : null;
   total.fixRate = total.current ? (total.fixed / total.current) * 100 : null;
   // The last week of each month stands for the month.
@@ -101,6 +112,7 @@ export function analyse(totalRows, fixedRows, lookbackMonths = DEFAULT_TR.lookba
     latestDate: latest.date,
     previousDate: previous.date,
     lookbackMonths,
+    spanMonths,
     perSeverity,
     total,
     history,
@@ -127,6 +139,63 @@ export function trCost(analysis, plan) {
     for (const key of Object.keys(totals)) totals[key] += row[key];
   }
   return { rows, totals };
+}
+
+/** Findings to triage per severity: the plan's number, or every open one when it is not set (null). */
+export function resolveSelected(analysis, selected = {}) {
+  return Object.fromEntries(SEVERITIES.map((s) => {
+    const open = analysis?.perSeverity[s].current ?? 0;
+    const n = selected?.[s];
+    return [s, n === null || n === undefined ? open : clamp(wholeNumber(n) ?? 0, 0, open)];
+  }));
+}
+
+/** The assumptions about what is still to come, made safe to compute with. */
+export function aheadSettings(value = {}) {
+  const v = value && typeof value === 'object' ? value : {};
+  const pct = (x, fallback, hi) => clamp(amount(x) ?? fallback, 0, hi);
+  return {
+    includeFuture: v.includeFuture !== false,
+    fusionUpliftPercent: pct(v.fusionUpliftPercent, DEFAULT_TR.fusionUpliftPercent, 300),
+    faePercent: pct(v.faePercent, DEFAULT_TR.faePercent, 100),
+  };
+}
+
+/**
+ * The credits over the projection period, per severity: the backlog chosen now, the findings still
+ * to come at the lookback's pace, the extra Fusion reports (when Fusion is part of it) on both,
+ * less the false positives FAE keeps from being reported. FAE never removes more than the false
+ * positives among the new findings, so true positives (what remediation pays for) stay the same.
+ * `plan` = the saved T&R plan; `months` the projection period; `fusion` whether Fusion is in it.
+ */
+export function trProjection(analysis, plan = {}, { months = 12, fusion = false } = {}) {
+  const ahead = aheadSettings(plan);
+  const selected = resolveSelected(analysis, plan.selected);
+  const period = clamp(Number(months) || 12, 1, 60);
+  const rows = {};
+  const keys = ['backlog', 'selected', 'future', 'fusionExtra', 'faeAvoided', 'toTriage', 'truePositives', 'triageCredits', 'remediationCredits', 'credits', 'backlogCredits', 'aheadCredits', 'backlogAfter'];
+  const totals = Object.fromEntries(keys.map((k) => [k, 0]));
+  for (const s of SEVERITIES) {
+    const backlog = analysis?.perSeverity[s].current ?? 0;
+    const triageCost = amount(plan.triageCost?.[s]) ?? DEFAULT_TR.triageCost[s];
+    const fp = clamp(amount(plan.fpPercent?.[s]) ?? DEFAULT_TR.fpPercent[s], 0, 100);
+    const remediationCost = amount(plan.remediationCost?.[s]) ?? DEFAULT_TR.remediationCost[s];
+    const chosen = selected[s];
+    const future = ahead.includeFuture ? (analysis?.perSeverity[s].arrivals ?? 0) * period : 0;
+    const fusionExtra = fusion ? ((chosen + future) * ahead.fusionUpliftPercent) / 100 : 0;
+    const fresh = future + fusionExtra;
+    const faeAvoided = Math.min((fresh * ahead.faePercent) / 100, (fresh * fp) / 100);
+    const reported = chosen + fresh;
+    const toTriage = reported - faeAvoided;
+    const truePositives = reported * (1 - fp / 100);
+    const triageCredits = toTriage * triageCost;
+    const remediationCredits = truePositives * remediationCost;
+    const backlogCredits = chosen * triageCost + chosen * (1 - fp / 100) * remediationCost;
+    const row = { backlog, selected: chosen, future, fusionExtra, faeAvoided, toTriage, truePositives, triageCost, fp, remediationCost, triageCredits, remediationCredits, credits: triageCredits + remediationCredits, backlogCredits, aheadCredits: triageCredits + remediationCredits - backlogCredits, backlogAfter: backlog - chosen };
+    rows[s] = row;
+    for (const k of keys) totals[k] += row[k];
+  }
+  return { rows, totals, months: period, ahead, fusion: Boolean(fusion) };
 }
 
 const addMonths = (month, n) => {
@@ -171,17 +240,69 @@ export function severityForecast(analysis, cost, months = 3) {
   return points;
 }
 
+/**
+ * Backlog by month, then over the projection period: as it goes (the lookback's net change each
+ * month), and with the plan: the chosen backlog worked down evenly, new findings triaged as they come.
+ */
+export function planForecast(analysis, projection) {
+  if (!analysis?.history.length || !projection) return [];
+  const points = analysis.history.map((h) => ({ month: h.month, actual: h.open, asIs: null, withPlan: null }));
+  const last = points[points.length - 1];
+  last.asIs = last.actual;
+  last.withPlan = last.actual;
+  const { months, totals, ahead } = projection;
+  for (let i = 1; i <= months; i += 1) {
+    const drift = ahead.includeFuture ? 0 : analysis.monthlyChange * i;
+    points.push({
+      month: addMonths(last.month, i),
+      actual: null,
+      asIs: Math.max(0, last.actual + analysis.monthlyChange * i),
+      withPlan: Math.max(0, last.actual - (totals.selected * i) / months + drift),
+    });
+  }
+  return points;
+}
+
+/** Per severity: the backlog by month, then with the plan over the projection period (one small chart each). */
+export function severityPlan(analysis, projection) {
+  if (!analysis?.history.length || !projection) return {};
+  const out = {};
+  for (const s of SEVERITIES) {
+    const points = analysis.history.map((h) => ({ month: h.month, actual: h[s], withPlan: null }));
+    const last = points[points.length - 1];
+    last.withPlan = last.actual;
+    const { months, rows, ahead } = projection;
+    for (let i = 1; i <= months; i += 1) {
+      const drift = ahead.includeFuture ? 0 : analysis.monthlyChangeBySeverity[s] * i;
+      points.push({ month: addMonths(last.month, i), actual: null, withPlan: Math.max(0, last.actual - (rows[s].selected * i) / months + drift) });
+    }
+    out[s] = points;
+  }
+  return out;
+}
+
 /** The last `weeks` weeks: the backlog, what was fixed, the fix rate and how fast the debt grew. */
 export function weeklyTrend(totalRows, fixedRows, weeks = 52) {
   const fixedByWeek = new Map();
   for (const r of fixedRows) fixedByWeek.set(r.date, (fixedByWeek.get(r.date) ?? 0) + r.count);
   const rows = totalRows.slice(-weeks);
-  return rows.map((r, i) => {
+  const out = rows.map((r, i) => {
     const backlog = SEVERITIES.reduce((a, s) => a + r[s], 0);
     const fixed = fixedByWeek.get(r.date) ?? 0;
     const prev = i ? SEVERITIES.reduce((a, s) => a + rows[i - 1][s], 0) : null;
     return { date: r.date, backlog, fixed, fixRate: backlog ? (fixed / backlog) * 100 : null, debtRate: prev ? ((backlog - prev) / prev) * 100 : null };
   });
+  // The same rates over the last 4 weeks: a week alone jumps about too much to read a trend from.
+  out.forEach((w, i) => {
+    const span = out.slice(Math.max(0, i - 3), i + 1);
+    const avg = (key) => {
+      const vals = span.map((x) => x[key]).filter((v) => v !== null && Number.isFinite(v));
+      return vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : null;
+    };
+    w.fixRate4 = avg('fixRate');
+    w.debtRate4 = avg('debtRate');
+  });
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -354,4 +475,75 @@ export function creditSummary(trCredits, fusionCredits, value = {}) {
   const total = base + extra;
   const exactBundles = total / settings.bundleCredits;
   return { settings, tr, fusion, base, extra, total, exactBundles, bundles: total > 0 ? Math.ceil(exactBundles - 1e-9) : 0 };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Which projects count: the same choices as narrowing the Dashboard, for both parts
+// ---------------------------------------------------------------------------------------------
+
+const MAX_SCOPE_ITEMS = 50;
+const list = (value, max, size = MAX_SCOPE_ITEMS) =>
+  [...new Set((Array.isArray(value) ? value : []).map((v) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max)).filter(Boolean))].slice(0, size);
+
+/**
+ * The scope, cleaned: applications, groups and people (who ran the last scan) by name, scan
+ * frequencies, criticalities, and project names with wildcards (* any text, ? one character).
+ * Empty everywhere: every project.
+ */
+export function cleanScope(value = {}) {
+  const v = value && typeof value === 'object' ? value : {};
+  const ids = new Set(FREQUENCIES.map((f) => f.id));
+  return {
+    applications: list(v.applications, 200),
+    groups: list(v.groups, 200),
+    initiators: list(v.initiators, 254),
+    names: list(v.names, 100, 20),
+    frequencies: list(v.frequencies, 20).filter((f) => ids.has(f)),
+    criticalities: [...new Set((Array.isArray(v.criticalities) ? v.criticalities : []).map(Number).filter((c) => CRITICALITIES.includes(c)))],
+  };
+}
+
+export const scopeActive = (scope) => Object.values(cleanScope(scope)).some((v) => v.length);
+
+/**
+ * Does `text` match `pattern`, ignoring case? `*` is any text, `?` one character. A linear walk
+ * with one step back to the last `*`, so no pattern can make it slow.
+ */
+export function globMatch(pattern, text) {
+  const p = String(pattern ?? '').toLowerCase();
+  const t = String(text ?? '').toLowerCase();
+  let i = 0;
+  let j = 0;
+  let star = -1;
+  let mark = 0;
+  while (j < t.length) {
+    if (i < p.length && (p[i] === '?' || p[i] === t[j])) {
+      i += 1;
+      j += 1;
+    } else if (i < p.length && p[i] === '*') {
+      star = i;
+      mark = j;
+      i += 1;
+    } else if (star !== -1) {
+      i = star + 1;
+      mark += 1;
+      j = mark;
+    } else return false;
+  }
+  while (i < p.length && p[i] === '*') i += 1;
+  return i === p.length;
+}
+
+/** Is this project in the scope? Every choice made must hold (any one of its values will do). */
+export function inScope(project, scope) {
+  const sc = cleanScope(scope);
+  const lower = (v) => String(v ?? '').toLowerCase();
+  const anyOf = (wanted, have) => !wanted.length || (Array.isArray(have) ? have : [have]).some((h) => wanted.some((w) => lower(w) === lower(h)));
+  if (!anyOf(sc.applications, project?.applications ?? [])) return false;
+  if (!anyOf(sc.groups, project?.groups ?? [])) return false;
+  if (!anyOf(sc.initiators, project?.initiator ?? '')) return false;
+  if (sc.frequencies.length && !sc.frequencies.includes(project?.frequency)) return false;
+  if (sc.criticalities.length && !sc.criticalities.includes(Number(project?.criticality))) return false;
+  if (sc.names.length && !sc.names.some((pattern) => globMatch(pattern.includes('*') || pattern.includes('?') ? pattern : `*${pattern}*`, project?.name))) return false;
+  return true;
 }

@@ -2101,14 +2101,39 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 </div>
               </div>
               <div class="calc-source">
-                <button type="button" class="primary" id="calc-read">Read from Checkmarx One</button>
+                <button type="button" class="secondary" id="calc-read">Read from Checkmarx One</button>
                 <div class="calc-source-state">
                   <span class="status" id="calc-read-note" aria-live="polite"></span>
                   <progress id="calc-read-progress" max="100" value="0" hidden></progress>
                 </div>
               </div>
+              <div class="calc-scope" id="calc-scope-box">
+                <div class="calc-scope-line">
+                  <span class="calc-scope-label">Projects</span>
+                  <span id="calc-scope-summary" class="calc-scope-summary">All projects</span>
+                  <button type="button" class="link" id="calc-scope-toggle" aria-expanded="false" aria-controls="calc-scope-form">Narrow the projects</button>
+                </div>
+                <form class="calc-scope-form" id="calc-scope-form" hidden autocomplete="off">
+                  <p class="hint">Count only some projects, for triage &amp; remediation and for Fusion alike. Leave a field empty to keep every project. Names take wildcards: <code translate="no">payments-*</code>, <code translate="no">*-api</code>.</p>
+                  <div class="calc-scope-grid">
+                    <label class="field"><span>Applications</span><input type="text" id="calc-scope-applications" list="calc-scope-applications-list" placeholder="Any application" /><datalist id="calc-scope-applications-list"></datalist></label>
+                    <label class="field"><span>Groups</span><input type="text" id="calc-scope-groups" list="calc-scope-groups-list" placeholder="Any group" /><datalist id="calc-scope-groups-list"></datalist></label>
+                    <label class="field"><span>Project names</span><input type="text" id="calc-scope-names" placeholder="Any name, e.g. payments-*" /></label>
+                    <label class="field"><span>Last scanned by</span><input type="text" id="calc-scope-initiators" list="calc-scope-initiators-list" placeholder="Anyone" /><datalist id="calc-scope-initiators-list"></datalist></label>
+                  </div>
+                  <p class="hint calc-scope-several">Several at once: separate them with commas.</p>
+                  <fieldset class="calc-scope-checks"><legend>How often they are scanned</legend><div id="calc-scope-frequencies"></div></fieldset>
+                  <fieldset class="calc-scope-checks"><legend>Criticality</legend><div id="calc-scope-criticalities"></div></fieldset>
+                  <div class="actions compact">
+                    <button type="submit" class="primary">Apply</button>
+                    <button type="button" class="ghost" id="calc-scope-clear">Every project</button>
+                    <span class="status" id="calc-scope-status" aria-live="polite"></span>
+                  </div>
+                </form>
+              </div>
               <div class="calc-sum" role="group" aria-label="Credits required">
-                <div class="calc-sum-item"><span>Triage &amp; remediation</span><b id="calc-sum-tr">—</b></div>
+                <label class="calc-sum-item"><span>Projection period</span><select id="calc-horizon"><option value="6">6 months</option><option value="12">12 months</option><option value="18">18 months</option><option value="24">24 months</option><option value="36">36 months</option></select></label>
+                <div class="calc-sum-item"><span>Triage &amp; remediation</span><b id="calc-sum-tr">—</b><small class="hint" id="calc-sum-tr-split"></small></div>
                 <div class="calc-sum-item"><span>Fusion</span><b id="calc-sum-fusion">—</b></div>
                 <label class="calc-sum-item"><span>Extra credits (%)</span><input type="text" inputmode="decimal" id="calc-extra" class="calc-num" placeholder="0" autocomplete="off" /></label>
                 <div class="calc-sum-item calc-sum-key"><span>Total credits required</span><b id="calc-sum-total">—</b><small class="hint" id="calc-sum-extra"></small></div>
@@ -2117,8 +2142,17 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </div>
               <div class="calc-report-bar">
                 <p class="hint" id="calc-org-line"></p>
-                <button type="button" class="primary" id="calc-generate">Generate projection report</button>
+                <div class="calc-report-actions">
+                  <button type="button" class="ghost" id="calc-restart" title="Clear every choice made for this customer and read Checkmarx One again">Start again</button>
+                  <button type="button" class="secondary" id="calc-email-open" aria-expanded="false" aria-controls="calc-email-form">Email the report</button>
+                  <button type="button" class="primary" id="calc-generate">Generate projection report</button>
+                </div>
               </div>
+              <form class="calc-email" id="calc-email-form" hidden autocomplete="off">
+                <label class="field"><span>Send the report to</span><input type="text" id="calc-email-to" placeholder="name@company.com, other@company.com" /></label>
+                <button type="submit" class="primary">Send</button>
+                <span class="status" id="calc-email-status" aria-live="polite"></span>
+              </form>
               <p class="hint" id="calc-empty" hidden>No customers yet. Start with <strong>New customer</strong>: each customer keeps its own Checkmarx One data, plan and Fusion projects, saved as you go.</p>
             </section>
             <div class="ptabs" role="tablist" aria-label="Cx Credits Calculator" data-ptabs="calculator">
@@ -2156,7 +2190,6 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <h2>Fusion scans: what each project needs</h2>
                 <p class="calc-notice">Each project's lines of code are rounded up to whole 10K units on their own, and one Fusion scan costs its model's credits per 10K LOC. The projects come from Checkmarx One with how often each is scanned: the rules below start from that, and you can give more scans to the projects scanned most often or most critical.</p>
                 <div class="calc-terms">
-                  <label class="field"><span>Projection period (months)</span><input type="number" id="calc-period" min="1" max="60" step="1" /></label>
                   <label class="field"><span>Default Fusion scans per project</span><input type="number" id="calc-default-scans" min="0" step="1" /></label>
                   <label class="field"><span>Default model</span><select id="calc-default-model"></select></label>
                   <label class="field"><span>When frequency and criticality both set a number</span>
@@ -2166,7 +2199,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <section class="panel">
                 <div class="calc-section-head"><h2>Fusion models</h2><button type="button" class="secondary" id="calc-add-model">Add a model</button></div>
                 <p class="hint">The models the tenant offers and their credits per 10K LOC, read with the projects when Checkmarx One says them; otherwise type them as Checkmarx One shows them when a scan is started.</p>
-                <div class="table-wrap"><table class="data-table calc-models"><thead><tr><th>Model</th><th>Credits per 10K LOC</th><th>From</th><th></th></tr></thead><tbody id="calc-models"></tbody></table></div>
+                <div class="table-wrap"><table class="data-table calc-models"><thead><tr><th>Model</th><th>Credits per 10K LOC</th><th></th></tr></thead><tbody id="calc-models"></tbody></table></div>
                 <p class="hint" id="calc-models-empty">No model yet: projects are counted in scans and 10K units, without credits, until a model has its credits per 10K LOC.</p>
               </section>
               <section class="panel">
@@ -2183,6 +2216,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <section class="panel">
                 <div class="calc-table-head">
                   <h2>Projects</h2>
+                  <span class="hint" id="calc-rows-count"></span>
                   <input type="search" id="calc-filter" placeholder="Find a project" aria-label="Find a project" />
                   <button type="button" class="secondary" id="calc-all">Include all</button>
                   <button type="button" class="secondary" id="calc-none">Include none</button>
@@ -2195,6 +2229,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                     <tbody id="calc-rows"></tbody>
                   </table>
                 </div>
+                <div class="calc-more" id="calc-rows-more" hidden><button type="button" class="secondary" id="calc-rows-more-btn">Show more</button></div>
                 <p class="hint" id="calc-rows-empty">No projects yet. <strong>Read from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.</p>
               </section>
             </div>

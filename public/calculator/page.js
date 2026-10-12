@@ -6,24 +6,29 @@
 
 import {
   CRITICALITIES,
+  DEFAULT_TR,
   FREQUENCIES,
   LOOKBACKS,
   SEVERITIES,
+  aheadSettings,
   amount,
   analyse,
-  backlogForecast,
+  cleanScope,
   creditSummary,
   fusionEstimate,
   fusionSettings,
+  inScope,
+  planForecast,
+  scopeActive,
   seriesRows,
-  severityForecast,
+  severityPlan,
   suggestedScans,
   totalsSettings,
-  trCost,
+  trProjection,
   weeklyTrend,
   wholeNumber,
 } from './model.js';
-import { SEVERITY_COLOURS, backlogTrendChart, forecastChart, ratesChart, severityChart } from './charts.js';
+import { SEVERITY_COLOURS, backlogTrendChart, forecastChart, ratesChart, severityCharts } from './charts.js';
 import { buildReport, reportFileName } from './report.js';
 import { RTL, currentLanguage, t } from '../i18n.js';
 
@@ -74,7 +79,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderCustomers() {
     $('calc-empty').hidden = c.customers.length > 0;
     $('calc-customer').innerHTML = c.customers.map((x) => `<option value="${esc(x.id)}"${x.id === c.open?.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
-    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle']) $(id).disabled = !c.open;
+    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle']) $(id).disabled = !c.open;
   }
 
   function renderOrg() {
@@ -104,6 +109,11 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     c.fusionCredits = null;
     $('calc-extra').value = totals().extraPercent || '';
     $('calc-bundle').value = totals().bundleCredits;
+    renderHorizon();
+    renderScope();
+    $('calc-email-form').hidden = true;
+    $('calc-email-open').setAttribute('aria-expanded', 'false');
+    rowsShown = ROWS_PAGE;
     saved('Saved', customer.updatedAt, 'muted');
     syncDraft();
     setStatus('calc-upload-status', '');
@@ -224,24 +234,29 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   function syncDraft() {
     for (const s of SEVERITIES) {
-      c.draft[s] = { selected: tr().selected[s] ?? 0, triageCost: tr().triageCost[s], fpPercent: tr().fpPercent[s], remediationCost: tr().remediationCost[s] };
+      c.draft[s] = { selected: tr().selected[s] ?? null, triageCost: tr().triageCost[s], fpPercent: tr().fpPercent[s], remediationCost: tr().remediationCost[s] };
       c.dirty[s] = false;
     }
   }
 
-  /** The figures behind the tab and the report: null until both exports are in. */
+  /** The projection period (months), shared by both parts. */
+  const horizon = () => fusion()?.periodMonths ?? 12;
+  /** Whether Fusion is part of this projection: some project counted. */
+  const fusionOn = () => estimate().rows.some((r) => r.included && r.units);
+
+  /** The figures behind the tab and the report: null until the backlog is read. */
   function trFigures() {
     if (!c.open?.tr?.totals || !c.open.tr.fixed) return null;
     const { totalRows, fixedRows } = seriesRows(tr().totals, tr().fixed);
     const analysis = analyse(totalRows, fixedRows, tr().lookbackMonths);
     if (!analysis) return null;
-    const cost = trCost(analysis, tr());
+    const projection = trProjection(analysis, tr(), { months: horizon(), fusion: fusionOn() });
     return {
       analysis,
-      cost,
+      projection,
       weekly: weeklyTrend(totalRows, fixedRows, 52),
-      forecast: backlogForecast(analysis, cost.totals.selected, 6),
-      severityForecast: severityForecast(analysis, cost, 3),
+      forecast: planForecast(analysis, projection),
+      bySeverity: severityPlan(analysis, projection),
     };
   }
 
@@ -341,30 +356,94 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!c.open) return;
     renderSlots();
     const f = trFigures();
-    c.trCredits = f ? f.cost.totals.credits : null;
+    c.trCredits = f ? f.projection.totals.credits : null;
+    c.trSplit = f ? f.projection.totals : null;
     renderSummary();
     if (!f) {
-      $('calc-tr').innerHTML = `<p class="hint calc-wait">Read from Checkmarx One (or use the two exports) to see the backlog, its trend and the credits a plan takes.</p>`;
+      $('calc-tr').innerHTML = `<p class="hint calc-wait">Read from Checkmarx One (or use the two exports) to see the backlog, its trend and the credits it takes.</p>`;
       return;
     }
-    const { analysis, cost } = f;
-    const lookback = (m) => (m ? `${m}-month` : 'latest');
+    const { analysis, projection } = f;
+    c.trFusionOn = projection.fusion;
+    const P = projection.totals;
+    const A = projection.ahead;
+    const months = projection.months;
     const sevHead = (s) => `<th><span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span></th>`;
     const row = (label, cells, total, cls = '') => `<tr class="${cls}"><td>${label}</td>${cells.map((v) => `<td class="num">${v}</td>`).join('')}<td class="num calc-total">${total}</td></tr>`;
-    const R = cost.rows;
+    const R = projection.rows;
+    const step = (label, value, sub, cls = '') => `<div class="calc-step ${cls}"><span class="calc-step-label">${label}</span><b>${value}</b><small>${sub}</small></div>`;
     $('calc-tr').innerHTML = `
-      <p class="calc-snapshot">Backlog as of <time>${esc(analysis.latestDate)}</time>, compared with <time>${esc(analysis.previousDate)}</time>.</p>
-      <section class="panel calc-edit">
-        <h2>Choose what to fix</h2>
-        <p class="hint">Per severity: how many open findings to triage, the false positives expected, and the credits triage and remediation take. Changes count once you select <strong>Apply</strong>.</p>
+      <p class="calc-snapshot">Backlog as of <time>${esc(analysis.latestDate)}</time>; the trend over the ${num(tr().lookbackMonths)} months before it.</p>
+      <section class="panel calc-flow">
+        <div class="calc-section-head"><h2>What the projection counts</h2>
+          <div class="calc-lookback calc-edit" role="group" aria-label="Trend over">${LOOKBACKS.map((m) => `<button type="button" class="${tr().lookbackMonths === m ? 'on' : ''}" data-lookback="${m}">${m} months</button>`).join('')}</div></div>
+        <div class="calc-steps">
+          ${step('Backlog today', num(P.selected), P.selected === P.backlog ? 'every open finding' : `of ${num(P.backlog)} open`)}
+          <span class="calc-op" aria-hidden="true">+</span>
+          ${step('Still to come', num(P.future), A.includeFuture ? `${num(analysis.total.arrivals)} new a month × ${num(months)} months` : 'not counted')}
+          <span class="calc-op" aria-hidden="true">+</span>
+          ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? `${num(A.fusionUpliftPercent)}% more findings` : 'Fusion not in the projection')}
+          <span class="calc-op" aria-hidden="true">−</span>
+          ${step('Kept away by FAE', num(P.faeAvoided), `${num(A.faePercent)}% fewer false positives reported`)}
+          <span class="calc-op" aria-hidden="true">=</span>
+          ${step('To triage', num(P.toTriage), `${num(P.truePositives)} to remediate`, 'calc-step-key')}
+          <span class="calc-op" aria-hidden="true">→</span>
+          ${step('Credits', num(P.credits, 1), `${num(P.backlogCredits, 1)} backlog + ${num(P.aheadCredits, 1)} ahead`, 'calc-step-gold')}
+        </div>
+        <div class="calc-assume calc-edit">
+          <label class="check"><input type="checkbox" data-ahead="includeFuture"${A.includeFuture ? ' checked' : ''} /> Count findings still to come</label>
+          <label class="calc-assume-num"><span>More found by Fusion (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="fusionUpliftPercent" value="${A.fusionUpliftPercent}" /></label>
+          <label class="calc-assume-num"><span>FAE: fewer false positives (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="faePercent" value="${A.faePercent}" /></label>
+          <button type="button" class="link" data-ahead-reset>Defaults</button>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Backlog trend and forecast</h2>
+        <p class="hint">${analysis.monthlyChange >= 0 ? `The backlog grew by ${num(analysis.monthlyChange)} a month on average recently.` : `The backlog shrank by ${num(-analysis.monthlyChange)} a month on average recently.`} Shaded: the next ${num(months)} months.</p>
+        ${forecastChart(f.forecast)}
+      </section>
+      <section class="panel">
+        <h2>The last ${num(Math.round(f.weekly.length / 4.345))} months, week by week</h2>
+        <div class="calc-pair"><div><h3>Backlog (open vulnerabilities)</h3>${backlogTrendChart(f.weekly)}</div><div><h3>Fix rate and debt increase rate, 4-week average (%)</h3>${ratesChart(f.weekly)}</div></div>
+      </section>
+      <section class="panel">
+        <h2>By severity</h2>
+        <p class="hint">The backlog so far, then with the plan over the next ${num(months)} months (dashed). Each severity on its own scale.</p>
+        ${severityCharts(f.bySeverity)}
+      </section>
+      <section class="panel">
+        <h2>Final matrix</h2>
+        <p class="hint">Every figure that matters, by severity. Debt increase and fix rate: over the last ${num(tr().lookbackMonths)} months.</p>
+        <div class="table-wrap"><table class="data-table calc-matrix">
+          <thead><tr><th>Figure</th>${SEVERITIES.map(sevHead).join('')}<th class="num">Total</th></tr></thead>
+          <tbody>
+            ${row('Current backlog', SEVERITIES.map((s) => num(analysis.perSeverity[s].current)), num(analysis.total.current))}
+            ${row('Debt increase', SEVERITIES.map((s) => pct(analysis.perSeverity[s].debtRate)), pct(analysis.total.debtRate), 'muted')}
+            ${row('Fix rate', SEVERITIES.map((s) => pct(analysis.perSeverity[s].fixRate)), pct(analysis.total.fixRate), 'muted')}
+            ${row('New findings a month', SEVERITIES.map((s) => num(analysis.perSeverity[s].arrivals)), num(analysis.total.arrivals), 'muted')}
+            ${row('Backlog to triage', SEVERITIES.map((s) => num(R[s].selected)), num(P.selected))}
+            ${row(`Still to come (${num(months)} months)`, SEVERITIES.map((s) => num(R[s].future)), num(P.future))}
+            ${row('More found by Fusion', SEVERITIES.map((s) => num(R[s].fusionExtra)), num(P.fusionExtra))}
+            ${row('Kept away by FAE', SEVERITIES.map((s) => `−${num(R[s].faeAvoided)}`), `−${num(P.faeAvoided)}`, 'muted')}
+            ${row('To triage', SEVERITIES.map((s) => num(R[s].toTriage)), num(P.toTriage), 'strong')}
+            ${row('False positives (estimated)', SEVERITIES.map((s) => `${num(R[s].fp)}%`), '—', 'muted')}
+            ${row('True positives (estimated)', SEVERITIES.map((s) => num(R[s].truePositives)), num(P.truePositives))}
+            ${row('Triage credits', SEVERITIES.map((s) => num(R[s].triageCredits, 1)), num(P.triageCredits, 1))}
+            ${row('Remediation credits', SEVERITIES.map((s) => num(R[s].remediationCredits, 1)), num(P.remediationCredits, 1))}
+            ${row('Credits', SEVERITIES.map((s) => num(R[s].credits, 1)), num(P.credits, 1), 'gold')}
+          </tbody></table></div>
+      </section>
+      <details class="panel calc-edit calc-custom"${Object.values(c.dirty).some(Boolean) ? ' open' : ''}>
+        <summary><h2>Customize per severity</h2><span class="hint">How many of the backlog to triage, the false positives expected, and the credits each step takes. Everything starts from the defaults.</span></summary>
         <div class="calc-sev-grid">${SEVERITIES.map((s) => {
           const d = c.draft[s];
           const open = analysis.perSeverity[s].current;
+          const chosen = d.selected === null || d.selected === undefined ? open : Math.min(d.selected, open);
           return `<div class="calc-sev-box" data-sev="${s}">
             <div class="calc-sev-top"><span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span><span class="hint">${num(open)} open</span></div>
-            <input type="range" min="0" max="${open}" value="${Math.min(d.selected, open)}" data-f="selected" aria-label="${s}: to triage" style="--p:${fill(d.selected, open)}%" />
-            <div class="calc-row"><input type="number" min="0" max="${open}" value="${Math.min(d.selected, open)}" data-f="selected" aria-label="${s}: to triage" />
-              <span><button type="button" class="ghost small-btn" data-set="0">None</button><button type="button" class="ghost small-btn" data-set="${open}">All</button></span></div>
+            <input type="range" min="0" max="${open}" value="${chosen}" data-f="selected" aria-label="${s}: to triage" style="--p:${fill(chosen, open)}%" />
+            <div class="calc-row"><input type="number" min="0" max="${open}" value="${chosen}" data-f="selected" aria-label="${s}: to triage" />
+              <span><button type="button" class="ghost small-btn" data-set="0">None</button><button type="button" class="ghost small-btn" data-set="all">All</button></span></div>
             <label class="calc-row"><span>Credits per triage</span><input type="number" min="0" step="0.5" value="${d.triageCost}" data-f="triageCost" /></label>
             <label class="calc-row"><span>False positives %</span><input type="number" min="0" max="100" step="1" value="${d.fpPercent}" data-f="fpPercent" /></label>
             <label class="calc-row"><span>Credits per remediation</span><input type="number" min="0" step="0.5" value="${d.remediationCost}" data-f="remediationCost" /></label>
@@ -372,49 +451,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
           </div>`;
         }).join('')}</div>
         <p class="hint">Credits per triage and per remediation start at Checkmarx One's 1 and 3: set them to the customer's agreement. The false-positive rate is your estimate for this customer.</p>
-      </section>
-      <section class="panel">
-        <h2>The last ${num(Math.round(f.weekly.length / 4.345))} months, week by week</h2>
-        <p class="hint">How the backlog, the fix rate and the rate the debt grows moved each week: where the current backlog comes from.</p>
-        <div class="calc-pair"><div><h3>Backlog (open vulnerabilities)</h3>${backlogTrendChart(f.weekly)}</div><div><h3>Fix rate and debt increase rate (%)</h3>${ratesChart(f.weekly)}</div></div>
-      </section>
-      <section class="panel">
-        <div class="calc-section-head"><h2>Final matrix</h2>
-          <div class="calc-lookback calc-edit" role="group" aria-label="Period for debt increase and fix rate">${LOOKBACKS.map((m) => `<button type="button" class="${tr().lookbackMonths === m ? 'on' : ''}" data-lookback="${m}">${m ? `${m} months` : 'Latest'}</button>`).join('')}</div></div>
-        <p class="hint">Every figure that matters, by severity. Debt increase and fix rate: ${lookback(tr().lookbackMonths) === 'latest' ? 'the latest week' : `over the last ${tr().lookbackMonths} months`}.</p>
-        <div class="table-wrap"><table class="data-table calc-matrix">
-          <thead><tr><th>Figure</th>${SEVERITIES.map(sevHead).join('')}<th class="num">Total</th></tr></thead>
-          <tbody>
-            ${row('Current backlog', SEVERITIES.map((s) => num(analysis.perSeverity[s].current)), num(analysis.total.current))}
-            ${row('Debt increase', SEVERITIES.map((s) => pct(analysis.perSeverity[s].debtRate)), pct(analysis.total.debtRate), 'muted')}
-            ${row('Fix rate', SEVERITIES.map((s) => pct(analysis.perSeverity[s].fixRate)), pct(analysis.total.fixRate), 'muted')}
-            ${row('To triage', SEVERITIES.map((s) => num(R[s].selected)), num(cost.totals.selected), 'strong')}
-            ${row('Credits per triage', SEVERITIES.map((s) => num(R[s].triageCost, 2)), '—', 'muted')}
-            ${row('False positives (estimated)', SEVERITIES.map((s) => `${num(R[s].fp)}%`), '—', 'muted')}
-            ${row('True positives (estimated)', SEVERITIES.map((s) => num(R[s].truePositives)), num(cost.totals.truePositives))}
-            ${row('Credits per remediation', SEVERITIES.map((s) => num(R[s].remediationCost, 2)), '—', 'muted')}
-            ${row('Triage credits', SEVERITIES.map((s) => num(R[s].triageCredits, 1)), num(cost.totals.triageCredits, 1))}
-            ${row('Remediation credits', SEVERITIES.map((s) => num(R[s].remediationCredits, 1)), num(cost.totals.remediationCredits, 1))}
-            ${row('Credits', SEVERITIES.map((s) => num(R[s].credits, 1)), num(cost.totals.credits, 1), 'gold')}
-            ${row('Backlog after', SEVERITIES.map((s) => num(R[s].backlogAfter)), num(cost.totals.backlogAfter))}
-          </tbody></table></div>
-      </section>
-      <div class="calc-kpis">
-        <div class="rp-kpi"><span class="rp-tile-label">Findings to triage</span><span class="rp-kpi-value">${num(cost.totals.selected)}</span><span class="rp-tile-sub">of ${num(analysis.total.current)} open</span></div>
-        <div class="rp-kpi"><span class="rp-tile-label">Estimated true positives</span><span class="rp-kpi-value">${num(cost.totals.truePositives)}</span><span class="rp-tile-sub">to remediate</span></div>
-        <div class="rp-kpi calc-gold"><span class="rp-tile-label">Credits</span><span class="rp-kpi-value">${num(cost.totals.credits, 1)}</span><span class="rp-tile-sub">${num(cost.totals.triageCredits, 1)} triage + ${num(cost.totals.remediationCredits, 1)} remediation</span></div>
-        <div class="rp-kpi"><span class="rp-tile-label">Backlog cleared</span><span class="rp-kpi-value">${analysis.total.current ? `${((cost.totals.selected / analysis.total.current) * 100).toFixed(1)}%` : '—'}</span><span class="rp-tile-sub">of the current backlog</span></div>
-      </div>
-      <section class="panel">
-        <h2>Backlog trend and forecast</h2>
-        <p class="hint">${analysis.monthlyChange >= 0 ? `The backlog grew by ${num(analysis.monthlyChange)} a month on average recently: fixes are not keeping pace with new findings.` : `The backlog shrank by ${num(-analysis.monthlyChange)} a month on average recently.`}</p>
-        ${forecastChart(f.forecast)}
-      </section>
-      <section class="panel">
-        <h2>3-month plan by severity</h2>
-        <p class="hint">Solid: the backlog so far. Dashed: the next 3 months with the findings above fixed evenly, against the pace new ones arrive. Log scale, as severities differ by orders of magnitude.</p>
-        ${severityChart(f.severityForecast)}
-      </section>`;
+      </details>`;
   }
 
   /** How far along its track a slider's thumb is, for the filled part (0 is at the very start). */
@@ -423,6 +460,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function setDraft(box, field, value) {
     const s = box.dataset.sev;
     const max = Number(box.querySelector('input[type="range"]').max);
+    if (field === 'selected' && value === 'all') value = max;
     let v = amount(value) ?? 0;
     if (field === 'selected') {
       v = Math.min(max, Math.round(v));
@@ -448,9 +486,11 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (box && event.target.closest('[data-apply]')) {
       const s = box.dataset.sev;
       const d = c.draft[s];
+      const open = Number(box.querySelector('input[type="range"]').max);
       c.open.tr = {
         ...tr(),
-        selected: { ...tr().selected, [s]: d.selected },
+        // Every open finding stays "every open finding" (null), so a later read keeps it whole.
+        selected: { ...tr().selected, [s]: d.selected === null || d.selected >= open ? null : d.selected },
         triageCost: { ...tr().triageCost, [s]: d.triageCost },
         fpPercent: { ...tr().fpPercent, [s]: d.fpPercent },
         remediationCost: { ...tr().remediationCost, [s]: d.remediationCost },
@@ -465,12 +505,31 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       save({ tr: c.open.tr });
       renderTr();
     }
+    if (event.target.closest('[data-ahead-reset]')) {
+      c.open.tr = { ...tr(), includeFuture: DEFAULT_TR.includeFuture, fusionUpliftPercent: DEFAULT_TR.fusionUpliftPercent, faePercent: DEFAULT_TR.faePercent };
+      save({ tr: c.open.tr });
+      renderTr();
+    }
+  });
+  // What is still to come: changes count at once (the figures follow as it is typed).
+  $('calc-tr').addEventListener('change', (event) => {
+    const key = event.target.dataset.ahead;
+    if (!key) return;
+    const value = key === 'includeFuture' ? event.target.checked : amount(event.target.value);
+    c.open.tr = { ...tr(), ...aheadSettings({ ...tr(), [key]: value }) };
+    save({ tr: c.open.tr });
+    renderTr();
   });
 
   // ---- Fusion -------------------------------------------------------------------------------
 
-  const fusion = () => c.open.fusion;
-  const estimate = () => fusionEstimate(fusion().projects, fusion());
+  const fusion = () => c.open?.fusion;
+  const scope = () => cleanScope(c.open?.scope);
+  /** The projects that count: those in the scope (a project added by hand always is). */
+  const scoped = () => fusion().projects.filter((p) => p.source === 'manual' || inScope(p, scope()));
+  const estimate = () => fusionEstimate(scoped(), fusion());
+  const ROWS_PAGE = 100;
+  let rowsShown = ROWS_PAGE;
   const saveFusion = () => save({ fusion: fusion() });
   const modelOptions = (selected, blank) =>
     `<option value="">${esc(blank)}</option>` + fusion().models.map((m) => `<option value="${esc(m.id)}"${m.id === selected ? ' selected' : ''}>${esc(m.name || 'Unnamed model')}${m.creditsPer10k === null ? '' : ` · ${num(m.creditsPer10k, 2)}`}</option>`).join('');
@@ -482,7 +541,6 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderFusion() {
     if (!c.open) return;
     const f = fusion();
-    $('calc-period').value = f.periodMonths;
     $('calc-default-scans').value = f.defaultScans;
     $('calc-combine').value = f.combine;
     $('calc-default-model').innerHTML = modelOptions(f.defaultModel, f.models.length ? 'No model' : 'No model yet');
@@ -498,9 +556,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-models').innerHTML = f.models
       .map(
         (m) => `<tr data-model="${esc(m.id)}">
-        <td><input type="text" value="${esc(m.name)}" maxlength="80" data-m="name" aria-label="Model name" translate="no" placeholder="Model name" />${m.description ? `<small class="hint" translate="no">${esc(m.description)}</small>` : ''}</td>
-        <td><input type="text" inputmode="decimal" class="calc-num" value="${m.creditsPer10k ?? ''}" data-m="creditsPer10k" aria-label="Credits per 10K LOC" placeholder="Not known" /></td>
-        <td>${m.source === 'tenant' ? 'Checkmarx One' : 'Typed here'}</td>
+        <td>${m.source === 'tenant'
+          ? `<span class="calc-model-name" translate="no">${esc(m.name)}</span> <span class="calc-badge">From Checkmarx One</span>${m.description ? `<small class="hint" translate="no">${esc(m.description)}</small>` : ''}`
+          : `<input type="text" value="${esc(m.name)}" maxlength="80" data-m="name" aria-label="Model name" translate="no" placeholder="Type the model's name, as Checkmarx One shows it" />`}</td>
+        <td><input type="text" inputmode="decimal" class="calc-num" value="${m.creditsPer10k ?? ''}" data-m="creditsPer10k" aria-label="Credits per 10K LOC" placeholder="Type the credits" /></td>
         <td><button type="button" class="ghost calc-remove" data-remove-model>Remove</button></td></tr>`,
       )
       .join('');
@@ -508,7 +567,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   function renderRules() {
     const f = fusion();
-    const rows = f.projects;
+    const rows = scoped();
     const ruleRow = (key, label, count, rule, attr) => `<tr ${attr}="${key}">
       <td>${label}</td><td class="num">${num(count)}</td>
       <td><input type="text" inputmode="numeric" class="calc-num" value="${rule.scans ?? ''}" data-r="scans" placeholder="${num(f.defaultScans)} (default)" aria-label="Fusion scans per project" /></td>
@@ -519,7 +578,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   function renderKpis(est = estimate()) {
     const t = est.totals;
-    c.fusionCredits = est.rows.some((r) => r.included && r.units) ? t.credits : null;
+    const on = est.rows.some((r) => r.included && r.units);
+    c.fusionCredits = on ? t.credits : null;
+    // Fusion coming in or going out changes what triage & remediation counts (the findings Fusion adds).
+    if (c.trFusionOn !== undefined && c.trFusionOn !== on) renderTr();
     renderSummary();
     const kpi = (label, value, sub, cls = '') => `<div class="rp-kpi ${cls}"><span class="rp-tile-label">${esc(label)}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${sub}</span></div>`;
     $('calc-fkpis').innerHTML = [
@@ -552,11 +614,21 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const est = estimate();
     const words = $('calc-filter').value.trim().toLowerCase();
     const rows = est.rows.filter((p) => !words || String(p.name).toLowerCase().includes(words));
-    $('calc-rows').innerHTML = rows.map(rowHtml).join('');
+    // A long list a page at a time: the totals above always count every project in the scope.
+    $('calc-rows').innerHTML = rows.slice(0, rowsShown).map(rowHtml).join('');
+    $('calc-rows-more').hidden = rows.length <= rowsShown;
+    $('calc-rows-more-btn').textContent = `Show ${num(Math.min(ROWS_PAGE, rows.length - rowsShown))} more of ${num(rows.length - rowsShown)}`;
+    const all = fusion().projects.length;
+    $('calc-rows-count').textContent = all ? (scopeActive(scope()) ? `${num(est.rows.length)} of ${num(all)} projects in the scope` : `${num(all)} projects`) : '';
     $('calc-rows-empty').hidden = est.rows.length > 0 && rows.length > 0;
     if (est.rows.length && !rows.length) $('calc-rows-empty').textContent = 'No project matches that name.';
+    else if (all && !est.rows.length) $('calc-rows-empty').textContent = 'No project is in the scope: narrow the projects differently at the top.';
     renderKpis(est);
   }
+  $('calc-rows-more-btn').addEventListener('click', () => {
+    rowsShown += ROWS_PAGE;
+    renderProjects();
+  });
 
   /** Totals and each row's figures, while something is typed (so the field keeps its place). */
   function refreshFigures() {
@@ -615,10 +687,19 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     Object.assign(c.open.fusion, fusionSettings(fusion()), { projects: fusion().projects, readAt: fusion().readAt });
     saveFusion();
   };
-  $('calc-period').addEventListener('change', () => {
-    fusion().periodMonths = wholeNumber($('calc-period').value) ?? 12;
+  /** The projection period, at the top: both parts use it. */
+  function renderHorizon() {
+    const months = horizon();
+    const select = $('calc-horizon');
+    if (![...select.options].some((o) => Number(o.value) === months)) select.append(Object.assign(document.createElement('option'), { value: String(months), textContent: `${months} months` }));
+    select.value = String(months);
+  }
+  $('calc-horizon').addEventListener('change', () => {
+    if (!c.open) return;
+    fusion().periodMonths = wholeNumber($('calc-horizon').value) ?? 12;
     settingsChanged();
     renderFusion();
+    renderTr();
   });
   $('calc-default-scans').addEventListener('input', () => {
     fusion().defaultScans = wholeNumber($('calc-default-scans').value) ?? 0;
@@ -698,7 +779,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-models').querySelector(`tr[data-model="${CSS.escape(id)}"] input`)?.focus();
   });
 
-  $('calc-filter').addEventListener('input', renderProjects);
+  $('calc-filter').addEventListener('input', () => {
+    rowsShown = ROWS_PAGE;
+    renderProjects();
+  });
   for (const [id, on] of [
     ['calc-all', true],
     ['calc-none', false],
@@ -721,9 +805,113 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-rows').querySelector(`tr[data-row="${CSS.escape(id)}"] [data-p="name"]`)?.select();
   });
 
+  // ---- Scope: which projects count, for both parts (as narrowing the Dashboard) --------------
+
+  const splitList = (text) => String(text ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+  const FREQ_BOXES = FREQUENCIES.map((q) => `<label class="pill-check"><input type="checkbox" value="${q.id}" /> ${esc(q.label)}</label>`).join('');
+  $('calc-scope-frequencies').innerHTML = FREQ_BOXES;
+  $('calc-scope-criticalities').innerHTML = CRITICALITIES.map((k) => `<label class="pill-check"><input type="checkbox" value="${k}" /> ${k}</label>`).join('');
+
+  /** What the scope fields show, and the names offered as one types (from the last read). */
+  function renderScope() {
+    if (!c.open) return;
+    const sc = scope();
+    const projects = fusion()?.projects ?? [];
+    const offer = (id, values) => {
+      $(id).replaceChildren(...[...new Set(values)].filter(Boolean).sort((a, b) => a.localeCompare(b)).slice(0, 500).map((v) => Object.assign(document.createElement('option'), { value: v })));
+    };
+    offer('calc-scope-applications-list', projects.flatMap((p) => p.applications ?? []));
+    offer('calc-scope-groups-list', projects.flatMap((p) => p.groups ?? []));
+    offer('calc-scope-initiators-list', projects.map((p) => p.initiator));
+    $('calc-scope-applications').value = sc.applications.join(', ');
+    $('calc-scope-groups').value = sc.groups.join(', ');
+    $('calc-scope-names').value = sc.names.join(', ');
+    $('calc-scope-initiators').value = sc.initiators.join(', ');
+    for (const box of $('calc-scope-frequencies').querySelectorAll('input')) box.checked = sc.frequencies.includes(box.value);
+    for (const box of $('calc-scope-criticalities').querySelectorAll('input')) box.checked = sc.criticalities.includes(Number(box.value));
+    renderScopeSummary();
+  }
+
+  function renderScopeSummary() {
+    const sc = scope();
+    const all = (fusion()?.projects ?? []).filter((p) => p.source !== 'manual');
+    const inIt = all.filter((p) => inScope(p, sc)).length;
+    const parts = [
+      sc.applications.length && `${sc.applications.length === 1 ? 'Application' : 'Applications'}: ${sc.applications.join(', ')}`,
+      sc.groups.length && `${sc.groups.length === 1 ? 'Group' : 'Groups'}: ${sc.groups.join(', ')}`,
+      sc.names.length && `Names: ${sc.names.join(', ')}`,
+      sc.initiators.length && `Last scanned by: ${sc.initiators.join(', ')}`,
+      sc.frequencies.length && `Scanned: ${sc.frequencies.map((id) => FREQ_LABEL[id]).join(', ')}`,
+      sc.criticalities.length && `Criticality: ${sc.criticalities.join(', ')}`,
+    ].filter(Boolean);
+    const el = $('calc-scope-summary');
+    el.textContent = !parts.length ? (all.length ? `All ${num(all.length)} projects` : 'All projects') : `${num(inIt)} of ${num(all.length)} projects · ${parts.join(' · ')}`;
+    el.classList.toggle('on', parts.length > 0);
+  }
+
+  $('calc-scope-toggle').addEventListener('click', () => {
+    const form = $('calc-scope-form');
+    form.hidden = !form.hidden;
+    $('calc-scope-toggle').setAttribute('aria-expanded', String(!form.hidden));
+    if (!form.hidden) $('calc-scope-applications').focus();
+  });
+
+  /** Use the scope: Fusion counts its projects, and triage & remediation reads their backlog (from the last read). */
+  async function applyScope({ quiet = false } = {}) {
+    if (!c.open) return;
+    renderScopeSummary();
+    rowsShown = ROWS_PAGE;
+    renderRules();
+    renderProjects();
+    const fromTenant = tr()?.totals?.meta?.source === 'cxone';
+    if (!fromTenant) {
+      if (!quiet && scopeActive(scope())) setStatus('calc-scope-status', 'Fusion follows the scope. Triage & remediation comes from the two exports, which cover every project.', 'warn');
+      return renderTr();
+    }
+    const ids = fusion().projects.filter((p) => p.source !== 'manual' && inScope(p, scope())).map((p) => p.id);
+    try {
+      const series = await api('/api/projections/series', { method: 'POST', body: JSON.stringify({ projectIds: ids }), quiet: true });
+      c.open.tr = { ...tr(), totals: series.totals, fixed: series.fixed };
+      save({ tr: c.open.tr });
+      if (!quiet) setStatus('calc-scope-status', `${num(ids.length)} projects counted.`, 'ok');
+    } catch (error) {
+      if (handleAuthLoss(error)) return;
+      if (!quiet) showError('calc-scope-status', error);
+    }
+    renderTr();
+  }
+
+  $('calc-scope-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!c.open) return;
+    const checked = (id) => [...$(id).querySelectorAll('input:checked')].map((box) => box.value);
+    c.open.scope = cleanScope({
+      applications: splitList($('calc-scope-applications').value),
+      groups: splitList($('calc-scope-groups').value),
+      names: splitList($('calc-scope-names').value),
+      initiators: splitList($('calc-scope-initiators').value),
+      frequencies: checked('calc-scope-frequencies'),
+      criticalities: checked('calc-scope-criticalities').map(Number),
+    });
+    save({ scope: c.open.scope });
+    applyScope();
+  });
+  $('calc-scope-clear').addEventListener('click', () => {
+    if (!c.open) return;
+    c.open.scope = cleanScope({});
+    save({ scope: c.open.scope });
+    renderScope();
+    applyScope();
+  });
+
   // ---- Reading Checkmarx One: both tabs come from the tenant's projects and their scans ----------
 
-  const reading = { customer: null, timer: null, auto: false };
+  const reading = { customer: null, timer: null, auto: false, waiters: [] };
+  /** Resolves when the read running now has finished (true when it gave data). */
+  const readFinished = () => new Promise((resolve) => reading.waiters.push(resolve));
+  const settle = (ok) => {
+    for (const resolve of reading.waiters.splice(0)) resolve(ok);
+  };
 
   function readProgress(job) {
     const running = job?.state === 'running';
@@ -758,6 +946,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       poll();
     } catch (error) {
       readProgress(null);
+      settle(false);
       if (handleAuthLoss(error)) return;
       if (auto && error.status === 409) return setStatus('calc-read-note', 'Not connected to Checkmarx One: connect it under Settings, or use the two exports.', 'muted');
       showError('calc-read-note', error);
@@ -772,6 +961,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       } catch (error) {
         reading.timer = null;
         readProgress(null);
+        settle(false);
         if (!handleAuthLoss(error)) showError('calc-read-note', error);
         return;
       }
@@ -781,10 +971,17 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       }
       reading.timer = null;
       readProgress(null);
-      if (job.state === 'failed') return setStatus('calc-read-note', job.error || 'Checkmarx One could not be read.', 'error');
+      if (job.state === 'failed') {
+        settle(false);
+        return setStatus('calc-read-note', job.error || 'Checkmarx One could not be read.', 'error');
+      }
       const blank = c.open && !c.open.tr?.totals && !c.open.fusion?.projects?.length;
-      if (job.state !== 'done' || !c.open || (c.open.id !== reading.customer && !blank)) return renderReadNote();
+      if (job.state !== 'done' || !c.open || (c.open.id !== reading.customer && !blank)) {
+        settle(false);
+        return renderReadNote();
+      }
       applyRead(job.result);
+      settle(true);
     }, 1500);
   }
 
@@ -812,8 +1009,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       syncDraft();
     }
     save(patch);
+    renderScope();
     renderTr();
     renderFusion();
+    if (scopeActive(scope())) applyScope({ quiet: true });
     if (!body.tr) setStatus('calc-read-note', `Read ${num(read.length)} projects from Checkmarx One; none had a scan to read the findings of.`, 'warn');
     else if (read.length === 1) setStatus('calc-read-note', 'Read 1 project and its scans from Checkmarx One.', 'ok');
     else setStatus('calc-read-note', `Read ${num(read.length)} projects and their scans from Checkmarx One.`, 'ok');
@@ -881,6 +1080,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!c.open) return;
     const sum = creditSummary(c.trCredits, c.fusionCredits, totals());
     $('calc-sum-tr').textContent = num(sum.tr, 1);
+    $('calc-sum-tr-split').textContent = c.trSplit ? `${num(c.trSplit.backlogCredits, 1)} backlog + ${num(c.trSplit.aheadCredits, 1)} ahead` : '';
     $('calc-sum-fusion').textContent = num(sum.fusion, 1);
     $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.total, 1);
     $('calc-sum-extra').textContent = sum.extra ? `Includes ${num(sum.extra, 1)} extra` : '';
@@ -905,26 +1105,45 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const est = estimate();
     const fusionCounted = est.rows.some((r) => r.included && r.units);
     const who = me()?.user;
-    const summary = creditSummary(t ? t.cost.totals.credits : null, fusionCounted ? est.totals.credits : null, totals());
+    const summary = creditSummary(t ? t.projection.totals.credits : null, fusionCounted ? est.totals.credits : null, totals());
+    const meta = tr()?.totals?.meta ?? {};
+    const sc = scope();
     return {
+      version: 2,
       summary,
       organisation: me()?.organisationName ?? '',
       customer: c.open.name,
       preparedBy: who?.name || who?.email || '',
       generatedAt: new Date().toISOString(),
+      months: horizon(),
+      source: {
+        kind: meta.source === 'cxone' ? 'cxone' : t ? 'upload' : fusion().readAt ? 'cxone' : 'manual',
+        readAt: meta.readAt ?? fusion().readAt ?? null,
+        projects: est.rows.filter((r) => r.source !== 'manual').length,
+        allProjects: fusion().projects.filter((p) => p.source !== 'manual').length,
+        scans: meta.scans ?? null,
+        scoped: scopeActive(sc),
+        scope: sc,
+      },
       tr: t
         ? {
             asOf: t.analysis.latestDate,
             previousDate: t.analysis.previousDate,
             lookbackMonths: t.analysis.lookbackMonths,
-            rows: t.cost.rows,
-            totals: t.cost.totals,
-            analysis: { ...Object.fromEntries(SEVERITIES.map((s) => [s, { debtRate: t.analysis.perSeverity[s].debtRate, fixRate: t.analysis.perSeverity[s].fixRate }])), total: { debtRate: t.analysis.total.debtRate, fixRate: t.analysis.total.fixRate } },
+            months: t.projection.months,
+            fusion: t.projection.fusion,
+            ahead: t.projection.ahead,
+            rows: t.projection.rows,
+            totals: t.projection.totals,
+            analysis: {
+              ...Object.fromEntries(SEVERITIES.map((s) => [s, { current: t.analysis.perSeverity[s].current, arrivals: t.analysis.perSeverity[s].arrivals, debtRate: t.analysis.perSeverity[s].debtRate, fixRate: t.analysis.perSeverity[s].fixRate }])),
+              total: { current: t.analysis.total.current, arrivals: t.analysis.total.arrivals, debtRate: t.analysis.total.debtRate, fixRate: t.analysis.total.fixRate },
+            },
             monthlyChange: t.analysis.monthlyChange,
             history: t.analysis.history.map((h) => ({ month: h.month })),
             weekly: t.weekly,
             forecast: t.forecast,
-            severityForecast: t.severityForecast,
+            bySeverity: t.bySeverity,
           }
         : null,
       fusion: fusionCounted
@@ -944,18 +1163,81 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     };
   }
 
-  $('calc-generate').addEventListener('click', async () => {
-    if (!c.open) return;
+  const hasData = () => Boolean(c.open?.tr?.totals || c.open?.fusion?.projects?.length);
+
+  /**
+   * One click: read Checkmarx One first when nothing is read yet (or follow the read running), then
+   * make the report with every default in place. Returns the report and its file, or null.
+   */
+  async function generate({ download: save = true } = {}) {
+    if (!c.open) return null;
     await flush();
+    if (reading.timer || !hasData()) {
+      const done = readFinished();
+      if (!reading.timer) readCxOne();
+      setStatus('calc-read-note', 'Reading Checkmarx One first, then the report is made…', 'muted');
+      await done;
+      await flush();
+    }
     const data = reportData();
-    if (!data.tr && !data.fusion) return toast('Nothing to report yet: upload the two exports, or read the Fusion projects first.', 'warn');
+    if (!data.tr && !data.fusion) {
+      toast('Nothing to report yet: read Checkmarx One (or use the two exports), or add Fusion projects first.', 'warn');
+      return null;
+    }
     try {
       const { report } = await api('/api/projections/reports', { method: 'POST', body: JSON.stringify({ customerId: c.open.id, data }) });
-      download(new Blob([reportHtml(data, report.createdAt)], { type: 'text/html' }), reportFileName(report.customer, report.createdAt));
+      const html = reportHtml(data, report.createdAt);
+      if (save) download(new Blob([html], { type: 'text/html' }), reportFileName(report.customer, report.createdAt));
       loadReports();
+      return { report, html, data };
     } catch (error) {
       if (!handleAuthLoss(error)) toast(error.message, 'bad');
+      return null;
     }
+  }
+  $('calc-generate').addEventListener('click', () => generate());
+
+  // Email: the report is made (as with Generate) and sent as a file, in the page's language.
+  $('calc-email-open').addEventListener('click', () => {
+    const form = $('calc-email-form');
+    form.hidden = !form.hidden;
+    $('calc-email-open').setAttribute('aria-expanded', String(!form.hidden));
+    setStatus('calc-email-status', '');
+    if (!form.hidden) $('calc-email-to').focus();
+  });
+  $('calc-email-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const to = $('calc-email-to').value.split(/[\s,;]+/).map((a) => a.trim()).filter(Boolean);
+    if (!to.length) return setStatus('calc-email-status', 'Type at least one email address.', 'error');
+    setStatus('calc-email-status', 'Making the report…', 'muted');
+    const made = await generate({ download: false });
+    if (!made) return setStatus('calc-email-status', '');
+    const sum = made.data.summary;
+    const lines = [
+      t('{0}: Checkmarx credits projection').replace('{0}', made.report.customer),
+      t('Total credits required: {0} ({1} bundles of {2}), over {3} months.').replace('{0}', num(sum.total, 1)).replace('{1}', num(sum.bundles)).replace('{2}', num(sum.settings.bundleCredits)).replace('{3}', num(made.data.months)),
+      t('The full projection is attached: open it in any browser.'),
+    ];
+    try {
+      const body = await api(`/api/projections/reports/${encodeURIComponent(made.report.id)}/email`, { method: 'POST', body: JSON.stringify({ to, html: made.html, subject: lines[0], lines: lines.slice(1) }) });
+      setStatus('calc-email-status', body.sent === 1 ? 'Sent to 1 address.' : `Sent to ${num(body.sent)} addresses.`, 'ok');
+    } catch (error) {
+      if (!handleAuthLoss(error)) showError('calc-email-status', error);
+    }
+  });
+
+  // Start again: every choice made for this customer goes back to the defaults, and Checkmarx One is read again.
+  $('calc-restart').addEventListener('click', async () => {
+    if (!c.open) return;
+    if (!confirm(`Start again for ${c.open.name}?\n\nEvery choice made here goes back to the defaults (the projects narrowed, the plan, the Fusion numbers, the extra credits), and Checkmarx One is read again. The Fusion models and their credits stay. Reports already made are kept.`)) return;
+    const models = fusion().models;
+    c.open.scope = cleanScope({});
+    c.open.tr = { totals: null, fixed: null, selected: Object.fromEntries(SEVERITIES.map((s) => [s, null])), triageCost: { ...DEFAULT_TR.triageCost }, fpPercent: { ...DEFAULT_TR.fpPercent }, remediationCost: { ...DEFAULT_TR.remediationCost }, lookbackMonths: DEFAULT_TR.lookbackMonths, ...aheadSettings({}) };
+    c.open.fusion = { ...fusionSettings({ models, defaultModel: models[0]?.id }), projects: [], readAt: null };
+    c.open.totals = totalsSettings({});
+    save({ scope: c.open.scope, tr: c.open.tr, fusion: c.open.fusion, totals: c.open.totals });
+    show(c.open);
+    readCxOne();
   });
 
   async function loadReports() {

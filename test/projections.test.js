@@ -8,9 +8,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { generateKeyPairSync, sign } from 'node:crypto';
 
-import { allocate, analyse, backlogForecast, creditSummary, frequencyOf, fusionEstimate, fusionSettings, seriesRows, severityForecast, suggestedScans, totalsSettings, trCost, unitsOf, weeklyTrend } from '../public/calculator/model.js';
+import { allocate, analyse, backlogForecast, cleanScope, creditSummary, frequencyOf, fusionEstimate, fusionSettings, globMatch, inScope, planForecast, resolveSelected, scopeActive, seriesRows, severityForecast, severityPlan, suggestedScans, totalsSettings, trCost, trProjection, unitsOf, weeklyTrend } from '../public/calculator/model.js';
 import { buildReport, reportFileName } from '../public/calculator/report.js';
-import { MAX_PROFILE_BYTES, ProjectionStore, ReportStore, cleanFusion, cleanReportData, cleanTr, countersOf, readFusionOffer, readFusionProjects, readTenant, weeklyBacklog } from '../src/projections.js';
+import { MAX_PROFILE_BYTES, ProjectionStore, ReportStore, TenantReadStore, cleanFusion, cleanReportData, cleanTr, countersOf, readFusionOffer, readFusionProjects, readTenant, seriesFor, weeklyBacklog } from '../src/projections.js';
 import { ActivationStore, checkCode } from '../src/activation.js';
 import { Terms, cleanName } from '../src/terms.js';
 import { STATE_DIRS } from '../src/data-dir.js';
@@ -22,7 +22,9 @@ const fixed = { weeks: ['2026-03-07', '2026-04-04'], bySeverity: { Critical: [1,
 test('triage & remediation: backlog, debt growth, fix rate, credits and forecasts', () => {
   const { totalRows, fixedRows } = seriesRows(totals, fixed);
   const latest = analyse(totalRows, fixedRows, 0);
-  assert.deepEqual(latest.perSeverity.Critical, { current: 16, prior: 14, fixed: 2, debtRate: (2 / 14) * 100, fixRate: 12.5 });
+  const { arrivals, ...critical } = latest.perSeverity.Critical;
+  assert.deepEqual(critical, { current: 16, prior: 14, fixed: 2, debtRate: (2 / 14) * 100, fixRate: 12.5 });
+  assert.ok(Math.abs(arrivals - 4 / (28 / 30.44)) < 1e-9, 'new a month: grew by 2 and 2 were fixed, over 28 days');
   assert.equal(latest.total.current, 152);
   assert.equal(latest.monthlyChange, 12, '(152 − 116) over 3 months');
   const quarter = analyse(totalRows, fixedRows, 3);
@@ -45,7 +47,9 @@ test('triage & remediation: backlog, debt growth, fix rate, credits and forecast
   assert.equal(bySeverity.length, 4 + 3);
   assert.ok(bySeverity.at(-1).CriticalF >= 0);
   const weekly = weeklyTrend(totalRows, fixedRows, 52);
-  assert.deepEqual(weekly.at(-1), { date: '2026-04-04', backlog: 152, fixed: 6, fixRate: (6 / 152) * 100, debtRate: (12 / 140) * 100 });
+  const { fixRate4, debtRate4, ...week } = weekly.at(-1);
+  assert.deepEqual(week, { date: '2026-04-04', backlog: 152, fixed: 6, fixRate: (6 / 152) * 100, debtRate: (12 / 140) * 100 });
+  assert.ok(Number.isFinite(fixRate4) && Number.isFinite(debtRate4), 'and over the last 4 weeks');
 });
 
 test('Fusion: each project rounded up to whole 10K units on its own, credits per 10K LOC per scan', () => {
@@ -247,7 +251,7 @@ test('the report file: in the page\'s language, with a light and a dark theme, a
   assert.match(html, /:root:has\(#theme-dark:checked\)/);
   assert.doesNotMatch(html, /<script/i);
   // Every table scrolls inside its own box, and names wrap.
-  assert.equal((html.match(/<table/g) ?? []).length, (html.match(/<div class="scroll"><table/g) ?? []).length);
+  assert.equal((html.match(/<table(?! class="calc")/g) ?? []).length, (html.match(/<div class="scroll"><table/g) ?? []).length, 'the two-column sums are narrow; every other table scrolls');
   assert.match(html, /<td class="name">a-very-long/);
   assert.match(html, /td\.name\{[^}]*overflow-wrap:anywhere/);
   assert.match(buildReport(data, { lang: 'ar', dir: 'rtl' }), /<html lang="ar" dir="rtl">/);
@@ -403,4 +407,138 @@ test('the organisation name: given with the terms, kept when they change, one cl
   assert.equal(changed.organisation(), null, 'new terms are asked for again');
   assert.equal(changed.organisationName(), 'Acme Corporation', 'the name stays');
   assert.equal(cleanName('x'.repeat(300)).length, 120);
+});
+
+test('what is ahead: findings still to come at the trend, more from Fusion, fewer false positives with FAE', () => {
+  const { totalRows, fixedRows } = seriesRows(totals, fixed);
+  const quarter = analyse(totalRows, fixedRows, 3);
+  // High grew 100 → 130 in 91 days with 7 fixed: 37 new findings over 2.99 months.
+  const months = 91 / 30.44;
+  assert.ok(Math.abs(quarter.perSeverity.High.arrivals - 37 / months) < 1e-9);
+  assert.equal(quarter.perSeverity.Medium.arrivals, 0, 'flat and nothing fixed: nothing new');
+
+  // Not chosen: every open finding. Nothing ahead counted: the backlog alone, as before.
+  assert.deepEqual(resolveSelected(quarter, {}), { Critical: 16, High: 130, Medium: 5, Low: 1 });
+  assert.deepEqual(resolveSelected(quarter, { High: 999, Low: 0 }), { Critical: 16, High: 130, Medium: 5, Low: 0 });
+  const backlogOnly = trProjection(quarter, { includeFuture: false }, { months: 12 });
+  assert.equal(backlogOnly.totals.toTriage, 152);
+  assert.equal(backlogOnly.totals.aheadCredits, 0);
+  assert.ok(Math.abs(backlogOnly.totals.credits - trCost(quarter, { selected: { Critical: 16, High: 130, Medium: 5, Low: 1 } }).totals.credits) < 1e-9, 'the same credits as the backlog plan');
+
+  // 12 months ahead, Fusion in the projection: +20% of (backlog + still to come), FAE takes 10% of the new ones (30% are false positives).
+  const p = trProjection(quarter, {}, { months: 12, fusion: true });
+  const high = p.rows.High;
+  const future = (37 / months) * 12;
+  assert.ok(Math.abs(high.future - future) < 1e-9);
+  assert.ok(Math.abs(high.fusionExtra - (130 + future) * 0.2) < 1e-9);
+  assert.ok(Math.abs(high.faeAvoided - (future + high.fusionExtra) * 0.1) < 1e-9);
+  assert.ok(Math.abs(high.toTriage - (130 + future + high.fusionExtra - high.faeAvoided)) < 1e-9);
+  assert.ok(Math.abs(high.truePositives - (130 + future + high.fusionExtra) * 0.7) < 1e-9, 'FAE removes false positives only');
+  assert.ok(Math.abs(high.credits - (high.toTriage * 1 + high.truePositives * 3)) < 1e-9);
+  assert.ok(Math.abs(p.totals.backlogCredits + p.totals.aheadCredits - p.totals.credits) < 1e-9);
+  // FAE never takes more than the false positives: at 0% false positives it takes none.
+  const clean = trProjection(quarter, { fpPercent: { High: 0 }, faePercent: 50 }, { months: 12, fusion: true });
+  assert.equal(clean.rows.High.faeAvoided, 0);
+  // Without Fusion, nothing more found by it.
+  assert.equal(trProjection(quarter, {}, { months: 12 }).totals.fusionExtra, 0);
+
+  // The forecast: as it goes (the trend's net change each month), and with the plan (worked down to what is left).
+  const lines = planForecast(quarter, p);
+  assert.equal(lines.length, quarter.history.length + 12);
+  assert.equal(lines.at(-1).withPlan, 0, 'every open finding triaged, new ones as they come');
+  assert.ok(lines.at(-1).asIs > lines[quarter.history.length - 1].actual, 'a growing backlog keeps growing');
+  const minis = severityPlan(quarter, p);
+  assert.deepEqual(Object.keys(minis), ['Critical', 'High', 'Medium', 'Low']);
+  assert.equal(minis.High.at(-1).withPlan, 0);
+});
+
+test('which projects count: applications, groups, people, names with wildcards, frequency, criticality', () => {
+  assert.ok(globMatch('payments-*', 'Payments-API'));
+  assert.ok(globMatch('*-api', 'billing-api') && !globMatch('*-api', 'billing-web'));
+  assert.ok(globMatch('svc-?', 'svc-1') && !globMatch('svc-?', 'svc-10'));
+  assert.ok(globMatch('*', '') && !globMatch('a', ''));
+  const slow = Date.now();
+  assert.equal(globMatch('*a*a*a*a*a*a*a*a*b', 'a'.repeat(5000)), false);
+  assert.ok(Date.now() - slow < 500, 'no pattern makes it slow');
+  const project = { name: 'payments-web', applications: ['Payments'], groups: ['team-a'], initiator: 'kim@acme.io', frequency: 'month', criticality: 4 };
+  assert.ok(inScope(project, {}), 'nothing chosen: every project');
+  assert.ok(inScope(project, { applications: ['payments', 'Mobile'], names: ['web'] }), 'any of an option, all options; a name without wildcards is a part of it');
+  assert.ok(!inScope(project, { applications: ['Payments'], criticalities: [5] }));
+  assert.ok(inScope(project, { groups: ['TEAM-A'], initiators: ['kim@acme.io'], frequencies: ['month', 'year'] }));
+  assert.ok(!inScope(project, { names: ['api-*'] }));
+  assert.ok(!inScope({ name: 'x' }, { applications: ['Payments'] }), 'a project in no application is outside an application scope');
+  const sc = cleanScope({ applications: ['A', 'A', ' ', 'x'.repeat(300)], names: Array.from({ length: 30 }, (_, i) => `n${i}`), frequencies: ['month', 'hourly'], criticalities: [5, '3', 9], evil: 1 });
+  assert.deepEqual(sc.applications, ['A', 'x'.repeat(200)]);
+  assert.equal(sc.names.length, 20);
+  assert.deepEqual([sc.frequencies, sc.criticalities, 'evil' in sc], [['month'], [5, 3], false]);
+  assert.equal(scopeActive({}), false);
+  assert.equal(scopeActive({ groups: ['g'] }), true);
+});
+
+test('a customer from before: nothing chosen becomes every open finding, and "Latest" becomes 3 months', () => {
+  const file = path.join(tmp('calc-old-'), 'projections.json');
+  fs.writeFileSync(file, JSON.stringify({ profiles: [
+    { id: 'a', name: 'Untouched', tr: { totals, fixed, selected: { Critical: 0, High: 0, Medium: 0, Low: 0 }, lookbackMonths: 0 } },
+    { id: 'b', name: 'Chosen', tr: { totals, fixed, selected: { Critical: 4, High: 0, Medium: 0, Low: 0 }, lookbackMonths: 6 } },
+  ] }));
+  const store = new ProjectionStore({ file });
+  assert.deepEqual(store.get('a').tr.selected, { Critical: null, High: null, Medium: null, Low: null });
+  assert.equal(store.get('a').tr.lookbackMonths, 3);
+  assert.deepEqual(store.get('b').tr.selected, { Critical: 4, High: 0, Medium: 0, Low: 0 }, 'a plan someone made is kept');
+  assert.equal(store.get('b').tr.lookbackMonths, 6);
+  const fresh = store.create({ name: 'New', by: 'x' });
+  assert.deepEqual(fresh.tr.selected, { Critical: null, High: null, Medium: null, Low: null });
+  assert.deepEqual([fresh.tr.includeFuture, fresh.tr.fusionUpliftPercent, fresh.tr.faePercent], [true, 20, 10]);
+  assert.deepEqual(cleanTr({ fusionUpliftPercent: 9999, faePercent: -4, includeFuture: false }), { ...cleanTr({}), fusionUpliftPercent: 300, faePercent: 10, includeFuture: false }, 'capped, and what is not a number is the default');
+});
+
+test('each project\'s weeks are kept on the server, and any set of them added up', () => {
+  const now = Date.parse('2026-10-09T00:00:00Z');
+  const at = (days) => new Date(now - days * 86400000).toISOString();
+  const sum = (high) => ({ total: { Critical: 0, High: high, Medium: 0, Low: 0, Info: 0 }, fresh: { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0 } });
+  const summaries = new Map([['a1', sum(10)], ['a2', sum(6)], ['b1', sum(3)]]);
+  const w = weeklyBacklog([
+    { project: { id: 'pa' }, before: null, scans: [{ id: 'a2', createdAt: at(2) }, { id: 'a1', createdAt: at(10) }] },
+    { project: { id: 'pb' }, before: null, scans: [{ id: 'b1', createdAt: at(15) }] },
+  ], summaries, { now, weeks: 3 });
+  assert.deepEqual(w.totals.bySeverity.High, [3, 13, 9]);
+  const file = path.join(tmp('read-'), 'projection-read.json');
+  new TenantReadStore({ file }).save({ readAt: at(0), weeks: w.totals.weeks, byProject: w.byProject });
+  const read = new TenantReadStore({ file }).get();
+  assert.deepEqual(seriesFor(read, ['pa']).totals.bySeverity.High, [0, 10, 6]);
+  assert.deepEqual(seriesFor(read, ['pa']).fixed.bySeverity.High, [0, 0, 4]);
+  assert.deepEqual(seriesFor(read, ['pa', 'pb', 'pa', 'nope']).totals.bySeverity.High, [3, 13, 9], 'every project: the whole');
+  assert.deepEqual([seriesFor(read, ['pb']).totals.meta.projects, seriesFor(read, ['pb']).totals.meta.scans], [1, 1]);
+  assert.equal(seriesFor(read, ['__proto__']).totals.meta.projects, 0);
+  assert.equal((fs.statSync(file).mode & 0o777).toString(8), '600');
+});
+
+test('the report says the answer first, that it comes from live Checkmarx One data, then how, then every figure', () => {
+  const { totalRows, fixedRows } = seriesRows(totals, fixed);
+  const analysis = analyse(totalRows, fixedRows, 3);
+  const projection = trProjection(analysis, {}, { months: 12, fusion: true });
+  const est = fusionEstimate([{ id: 'x', name: 'Payments', loc: 25000, frequency: 'month' }], { models: [{ id: 'm', name: 'Opus-4.7', creditsPer10k: 2.5 }], defaultScans: 2 });
+  const summary = creditSummary(projection.totals.credits, est.totals.credits, { extraPercent: 10 });
+  const data = {
+    version: 2, summary, organisation: 'Acme', customer: 'Globex', generatedAt: '2026-10-09T10:00:00Z', months: 12,
+    source: { kind: 'cxone', readAt: '2026-10-09T09:00:00Z', projects: 1, allProjects: 4, scans: 77, scoped: true, scope: { applications: ['Payments'] } },
+    tr: { asOf: analysis.latestDate, previousDate: analysis.previousDate, lookbackMonths: 3, months: 12, fusion: true, ahead: projection.ahead, rows: projection.rows, totals: projection.totals, analysis: { ...analysis.perSeverity, total: analysis.total }, monthlyChange: analysis.monthlyChange, history: analysis.history, weekly: weeklyTrend(totalRows, fixedRows), forecast: planForecast(analysis, projection), bySeverity: severityPlan(analysis, projection) },
+    fusion: { periodMonths: 12, defaultScans: 2, defaultModel: 'm', models: est.settings.models, rules: est.settings.byFrequency, byFrequency: est.byFrequency, byModel: est.byModel, totals: est.totals, remainingCredits: null, rows: est.rows },
+  };
+  const html = buildReport(data);
+  const at = (text) => html.indexOf(text);
+  assert.ok(at('Total credits required') > 0 && at('Total credits required') < at('Read live from Checkmarx One'), 'the answer first');
+  assert.ok(at('Read live from Checkmarx One') < at('How we got there') && at('How we got there') < at('Assumptions') && at('Assumptions') < at('Appendix: every figure'));
+  assert.match(html, new RegExp(`<b class="big">${Math.round(summary.total).toLocaleString('en')}</b>`));
+  assert.match(html, /77 scans/);
+  assert.match(html, /Projects counted: Applications: Payments/);
+  assert.match(html, /More found by Fusion \(20%\)/);
+  assert.match(html, /Fewer false positives with FAE \(10%\)/);
+  assert.match(html, /class="bar"/);
+  assert.doesNotMatch(html, /<script/i);
+  // A report made before MZ-01.00.67 (backlog only, old forecast) still opens.
+  const cost = trCost(analysis, { selected: { Critical: 4 } });
+  const old = buildReport({ customer: 'Old', generatedAt: '2026-10-01T00:00:00Z', tr: { asOf: analysis.latestDate, previousDate: analysis.previousDate, lookbackMonths: 3, rows: cost.rows, totals: cost.totals, analysis: { ...analysis.perSeverity, total: analysis.total }, monthlyChange: analysis.monthlyChange, history: analysis.history, weekly: weeklyTrend(totalRows, fixedRows), forecast: backlogForecast(analysis, 4), severityForecast: severityForecast(analysis, cost) } });
+  assert.match(old, /Total credits required/);
+  assert.match(old, /<svg/);
 });
