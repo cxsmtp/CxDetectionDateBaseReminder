@@ -830,6 +830,19 @@
                   <span class="status" id="integration-status"></span>
                 </div>
               </form>
+              <details class="disclosure trust-panel" id="trust-panel">
+                <summary>Trusted certificates <span class="hint" id="trust-count"></span></summary>
+                <p class="hint wide">
+                  Certificate authorities MissionZero trusts for its own connections (Checkmarx One, email, git) besides the
+                  public ones: your company proxy's root, or an intermediate a server left out. Used at once, with no restart.
+                </p>
+                <ul class="trust-list" id="trust-list"></ul>
+                <div class="actions compact">
+                  <button type="button" class="link" id="trust-pick">Upload a certificate…</button>
+                  <input type="file" id="trust-file" accept=".pem,.crt,.cer,.der,.txt" hidden />
+                  <span class="status" id="trust-status"></span>
+                </div>
+              </details>
             </section>
 
             <section class="panel" id="set-smtp" data-edit-perm="integration.smtp">

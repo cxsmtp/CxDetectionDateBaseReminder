@@ -162,13 +162,14 @@ export function selfSignedCertificate(names, now = Date.now()) {
  * left out: self-signed). `ca` makes a certificate authority. For self-signed certificates,
  * and in tests for whole chains (root, intermediate, server).
  */
-export function makeCertificate({ subject, issuer = subject, names = [], publicKey, signerKey, ca = false, now = Date.now(), days = 397, notBefore = now - 60_000 }) {
+export function makeCertificate({ subject, issuer = subject, names = [], publicKey, signerKey, ca = false, caIssuers = '', now = Date.now(), days = 397, notBefore = now - 60_000 }) {
   const algorithm = signerKey.asymmetricKeyType === 'rsa' ? seq(oid('1.2.840.113549.1.1.11'), tagged(0x05, Buffer.alloc(0))) : seq(oid('1.2.840.10045.4.3.2'));
   const extensions = [
     ...(names.length ? [seq(oid('2.5.29.17'), octets(subjectAltNames(names)))] : []),
     seq(oid('2.5.29.19'), bool(true), octets(ca ? seq(bool(true)) : seq())), // basicConstraints
     seq(oid('2.5.29.15'), bool(true), octets(ca ? bitString(Buffer.from([0x06]), 1) : bitString(Buffer.from([0x80]), 7))), // keyUsage
     ...(ca ? [] : [seq(oid('2.5.29.37'), octets(seq(oid('1.3.6.1.5.5.7.3.1'))))]), // extKeyUsage: serverAuth
+    ...(caIssuers ? [seq(oid('1.3.6.1.5.5.7.1.1'), octets(seq(seq(oid('1.3.6.1.5.5.7.48.2'), tagged(0x86, Buffer.from(caIssuers, 'ascii'))))))] : []), // where the issuer's certificate is
   ];
   const serial = randomBytes(16);
   serial[0] = (serial[0] & 0x7f) || 1; // positive, and no leading zero byte (DER is strict about both)

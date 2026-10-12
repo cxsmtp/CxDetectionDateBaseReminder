@@ -54,6 +54,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.68 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+
+- **Connect behind a company proxy, in one click.** When the certificate Checkmarx One presents is not trusted (`UNABLE_TO_GET_ISSUER_CERT_LOCALLY` and the like), Settings → Checkmarx One now shows the certificate your network presents: its name, product (Zscaler, Netskope…) and fingerprint. **Trust and connect** trusts it and connects at once, with no restart and no environment variable.
+- **Or upload it.** When only the certificate's name is known, upload your company's root certificate. A one-line Windows command exports every certificate the computer trusts, and from that file only the ones the connection needs are kept.
+- **Incomplete chains fixed on their own.** A server that leaves out its intermediate certificate is completed from the address in its own certificate, kept only when a public root vouches for it, and recorded in the audit log.
+- **Trusted certificates, listed.** Settings → Checkmarx One → Trusted certificates shows who added each one and when, with its fingerprint and **Remove**. The same list is used for email and git, and only Admins of the first tenant change it.
+- **Getting back in.** When the data volume already has people, the start-up log names an administrator and the command that sets a new password (`docker exec mission-zero node scripts/reset-admin.mjs`), now also in the README and troubleshooting guide.
+- **Status.** STATUS_BULLET
+
 ## MZ-01.00.67 — 2026-10-12 09:54 UTC · [#90](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/90)
 
 - **One click to the answer.** In the Cx Credits Calculator, Generate projection report reads Checkmarx One when needed and writes the report with every default already set. Customize opens the rest, Start again clears the page, and Email sends the report.

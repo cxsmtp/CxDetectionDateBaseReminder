@@ -150,8 +150,14 @@ podman logs mission-zero
 ```
 
 The password is also kept in `/data/first-admin-password.txt` until it is changed.
-- If the log shows no password, the volume already holds people from an earlier install.
-- To set a new temporary password, run `podman exec mission-zero node scripts/reset-admin.mjs`.
+- If the log shows no password, the volume already holds people from an earlier install. The log then names an administrator and the command below.
+- To set a new temporary password, run this. It prints the email and the password to sign in with:
+
+```
+podman exec mission-zero node scripts/reset-admin.mjs
+```
+
+  With Docker: `docker exec mission-zero node scripts/reset-admin.mjs`. Add an email (`… reset-admin.mjs ana@acme.io`) to reset that person. The server keeps running.
 - To start from scratch, remove the volume (`podman volume rm mission-zero-data`). This deletes every setting and the audit log.
 
 **Locked out?** Five wrong passwords lock an account for 15 minutes. An Admin or Analyst can set a new temporary password for you on the People & roles page (**Set password**).
@@ -495,6 +501,14 @@ The server's own connection to Checkmarx One. It is used for:
 | Single-tenant / on-prem overrides | IAM URL, API URL and tenant. Only needed when they cannot be worked out from the key (single-tenant or on-prem). Pointing the IAM or API URL at another host clears the stored key: paste it again with the new address. |
 | **Connect & store** | Checks the key (token exchange plus one project call) and stores it. A key that cannot work (its ID, cut short, in quotes, expired) is refused before it is tried. When it does not connect, **How to fix it** says why and what to do. |
 | **Remove stored key** | Removes the stored key. If the server was started with `CX_API_KEY`, it falls back to that key. |
+| **Trusted certificates** | Certificate authorities the server trusts for its own connections (Checkmarx One, email, git) besides the public ones. Each shows who added it, when, and its fingerprint, with **Remove**. **Upload a certificate…** adds a company root certificate (.pem, .crt or .cer). Changes apply at once, with no restart. |
+
+**Behind a company proxy that inspects HTTPS.** When **Connect & store** fails because the certificate is not trusted, the box under it shows what your network presents:
+- **The proxy's root certificate was found:** its name, the product (Zscaler, Netskope, Palo Alto Networks…), how long it is valid and its SHA-256 fingerprint. Check the fingerprint with your network team if you are unsure, then click **Trust and connect**: the certificate is trusted and the connection is tried again.
+- **Only the certificate's name is known:** click **Upload a certificate…** and choose your company's root certificate. Not sure which one? **Export the certificates from Windows** gives one command for cmd that saves every certificate the computer trusts to `company-certificates.pem` on the desktop. Upload that file: only the certificates this connection needs are kept.
+- **A server that left out its intermediate certificate** (browsers fetch it themselves) is completed on its own: the missing certificate is fetched from the address in the server's certificate and kept only if a public root vouches for it. Nothing to click; the audit log records it.
+
+Only Admins of the first tenant change trusted certificates, as they apply to the whole server. Each change is in the audit log.
 
 ### Email server (SMTP) (Admin)
 | Field | Meaning |

@@ -21,6 +21,27 @@ The box shows:
 
 It is in the language you chose. Names of settings, commands and the other products' own screens (for example **Authenticated SMTP** in Microsoft 365) stay as they are, so you can find them.
 
+## Signing in for the first time
+
+On its very first start, with an empty data volume, the server creates an administrator and prints the email and password once in its log (`docker logs mission-zero` or `podman logs mission-zero`).
+
+**No email and password in the log?** The data volume already has people from an earlier install, so nothing new is printed; from MZ-01.00.68 the log names an administrator instead. Set a new temporary password. This prints the email and password to sign in with, while the server keeps running (Windows cmd, one line):
+
+```
+docker exec mission-zero node scripts/reset-admin.mjs
+```
+
+With Podman: `podman exec mission-zero node scripts/reset-admin.mjs`. Add an email to reset that person: `docker exec mission-zero node scripts/reset-admin.mjs ana@acme.io`. You choose your own password at the next sign-in, and the reset is written to the audit log.
+
+To start from scratch instead, remove the container and its volume. This deletes every setting, person and the audit log:
+
+```
+docker rm -f mission-zero
+```
+```
+docker volume rm mission-zero-data
+```
+
 ## A .env file is checked before anything in it is used
 
 When you upload a .env file, every line is read first:
@@ -78,7 +99,7 @@ These are the same sentences the page shows.
 2. For an internal relay addressed by IP, ask for its certificate name, or turn off "Check the mail server's certificate" for that relay only.
 
 **The mail server's certificate is not trusted.**
-1. If your company inspects TLS traffic or uses its own certificate authority, give MissionZero that CA certificate: NODE_EXTRA_CA_CERTS=/certs/company-ca.pem, with the folder mounted into the container.
+1. If your company inspects TLS traffic or uses its own certificate authority, upload that root certificate under Settings → Checkmarx One → Trusted certificates. It is used at once, with no restart.
 2. For an internal relay with a self-signed certificate, turn off "Check the mail server's certificate" (SMTP_REJECT_UNAUTHORIZED=false).
 
 **Something answered on this port, but not a mail server.**
@@ -203,10 +224,30 @@ These are the same sentences the page shows.
 2. If you set them, check the spelling and the region, for example https://eu.ast.checkmarx.net and https://eu.iam.checkmarx.net.
 3. Check that MissionZero's server can resolve internet names: inside a container, check its DNS.
 
-**The certificate presented for Checkmarx One is not trusted, usually because a company proxy inspects HTTPS.**
-1. Get your company's root CA certificate (a .pem file) from your network team.
-2. Mount it into the container and set NODE_EXTRA_CA_CERTS to its path, for example NODE_EXTRA_CA_CERTS=/certs/company-ca.pem, then restart MissionZero.
+<a id="certificates"></a>**The certificate presented for Checkmarx One is not trusted, usually because a company proxy inspects HTTPS.** (`UNABLE_TO_GET_ISSUER_CERT_LOCALLY`, `SELF_SIGNED_CERT_IN_CHAIN`, `UNABLE_TO_VERIFY_LEAF_SIGNATURE`)
+
+From MZ-01.00.68 the box under **Connect & store** says which certificate your network presents and fixes it in place, with no restart:
+1. If it shows the proxy's root certificate (name, product, fingerprint), check it is your company's, then click **Trust and connect**.
+2. Otherwise click **Upload a certificate…** and choose your company's root certificate. Not sure which? On a Windows computer on your company network, run this in cmd and upload `company-certificates.pem` from the desktop; only the certificates this connection needs are kept:
+
+```
+powershell -NoProfile -Command "Get-ChildItem Cert:\LocalMachine\Root, Cert:\LocalMachine\CA, Cert:\CurrentUser\Root | ForEach-Object { '-----BEGIN CERTIFICATE-----'; [Convert]::ToBase64String($_.RawData, 'InsertLineBreaks'); '-----END CERTIFICATE-----' } | Set-Content -Encoding ascii $env:USERPROFILE\Desktop\company-certificates.pem"
+```
+
 3. Or ask the network team to exclude *.checkmarx.net from HTTPS inspection.
+
+A server that left out its intermediate certificate is completed on its own. Trusted certificates are listed, and can be removed, under Settings → Checkmarx One → **Trusted certificates**.
+
+On an earlier version, give the container the same file instead (one line each):
+
+```
+mkdir C:\mz-certs
+```
+```
+docker run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -v C:\mz-certs:/certs:ro -e NODE_EXTRA_CA_CERTS=/certs/company-certificates.pem --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
+
+with `company-certificates.pem` copied into `C:\mz-certs`.
 
 **The certificate presented for Checkmarx One has expired.**
 1. This is almost always a company proxy or firewall with an old certificate: ask your network team to renew it or to exclude *.checkmarx.net from HTTPS inspection.
@@ -262,7 +303,7 @@ These are the same sentences the page shows.
 2. For a self-hosted server, use the address you open it with in a browser, and check that MissionZero's server can resolve that name.
 
 **The git host's certificate is not trusted.**
-1. If it is a self-hosted server with a company certificate, or a proxy inspects HTTPS, mount the company CA certificate and set NODE_EXTRA_CA_CERTS to its path, then restart MissionZero.
+1. If it is a self-hosted server with a company certificate, or a proxy inspects HTTPS, upload your company's root certificate under Settings → Checkmarx One → Trusted certificates. It is used at once, with no restart.
 
 **MissionZero could not reach the git host.**
 1. Check the address, and ask your network team to allow outgoing HTTPS (port 443) from MissionZero's server to it.

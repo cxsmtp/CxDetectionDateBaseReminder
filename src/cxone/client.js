@@ -34,8 +34,10 @@ export function networkReason(error) {
     UND_ERR_CONNECT_TIMEOUT: 'connection timed out',
     UND_ERR_SOCKET: 'connection closed unexpectedly',
     CERT_HAS_EXPIRED: 'TLS certificate expired',
-    UNABLE_TO_VERIFY_LEAF_SIGNATURE: 'TLS certificate not trusted (proxy or missing CA — see NODE_EXTRA_CA_CERTS)',
-    SELF_SIGNED_CERT_IN_CHAIN: 'TLS certificate not trusted (proxy or missing CA — see NODE_EXTRA_CA_CERTS)',
+    UNABLE_TO_VERIFY_LEAF_SIGNATURE: 'its certificate is not trusted here (usually a company proxy that inspects HTTPS)',
+    UNABLE_TO_GET_ISSUER_CERT_LOCALLY: 'its certificate is not trusted here (usually a company proxy that inspects HTTPS)',
+    UNABLE_TO_GET_ISSUER_CERT: 'its certificate is not trusted here (usually a company proxy that inspects HTTPS)',
+    SELF_SIGNED_CERT_IN_CHAIN: 'its certificate is not trusted here (usually a company proxy that inspects HTTPS)',
     DEPTH_ZERO_SELF_SIGNED_CERT: 'self-signed TLS certificate',
   };
   return known[code] || [code, cause?.message || error?.message].filter(Boolean).join(': ') || 'network error';
