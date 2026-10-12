@@ -439,9 +439,125 @@ function helpHtml(help, { open = true } = {}) {
     <details class="fix-how"${open ? ' open' : ''}><summary>How to fix it</summary>
       <ol class="fix-steps">${(help.steps ?? []).map((step) => `<li>${escapeHtml(step)}</li>`).join('')}</ol>
     </details>
+    ${certificateCard(help.certificate)}
     ${facts ? `<details class="fix-facts"><summary>What was tried</summary><div class="kv">${facts}</div></details>` : ''}
   </div>`;
 }
+
+// Every certificate a Windows computer trusts, in one file on its desktop: what an upload needs
+// when nobody knows which certificate the company proxy uses (the server keeps only those needed).
+const WINDOWS_EXPORT = "powershell -NoProfile -Command \"Get-ChildItem Cert:\\LocalMachine\\Root, Cert:\\LocalMachine\\CA, Cert:\\CurrentUser\\Root | ForEach-Object { '-----BEGIN CERTIFICATE-----'; [Convert]::ToBase64String($_.RawData, 'InsertLineBreaks'); '-----END CERTIFICATE-----' } | Set-Content -Encoding ascii $env:USERPROFILE\\Desktop\\company-certificates.pem\"";
+
+/**
+ * A certificate a server presented that is not trusted here (src/trust.js): the root a company
+ * proxy presents, to trust with one click, and in every case an upload, which keeps only what
+ * this connection needs.
+ */
+function certificateCard(cert) {
+  if (!cert || !(can('integration.cxone') || can('integration.smtp'))) return '';
+  const c = cert.candidate;
+  const target = `data-host="${escapeHtml(cert.host ?? '')}" data-port="${Number(cert.port) || 443}"`;
+  return `<div class="cert-card" ${target}>
+    ${c ? `<div class="kv cert-facts">
+        <div><span class="k">Certificate</span><span class="v" translate="no">${escapeHtml(c.subject)}${c.organization && c.organization !== c.subject ? ` · ${escapeHtml(c.organization)}` : ''}</span></div>
+        ${c.vendor ? `<div><span class="k">Product</span><span class="v" translate="no">${escapeHtml(c.vendor)}</span></div>` : ''}
+        <div><span class="k">Valid until</span><span class="v">${escapeHtml(formatDate(c.validTo))}</span></div>
+        <div><span class="k">SHA-256 fingerprint</span><span class="v code cert-fp" translate="no">${escapeHtml(c.fingerprint256)}</span></div>
+      </div>` : ''}
+    <div class="actions compact">
+      ${c ? `<button type="button" class="primary" data-cert-trust="${escapeHtml(c.fingerprint256)}">Trust and connect</button>` : ''}
+      <button type="button" class="${c ? 'link' : 'primary'}" data-cert-pick>Upload a certificate…</button>
+      <input type="file" data-cert-upload accept=".pem,.crt,.cer,.der,.txt" hidden />
+    </div>
+    <details class="cert-windows"><summary>Export the certificates from Windows</summary>
+      <p class="hint">On a Windows computer on your company network, paste this into the command prompt (cmd). It saves company-certificates.pem on the desktop: upload that file here.</p>
+      <pre class="code" translate="no">${escapeHtml(WINDOWS_EXPORT)}</pre>
+      <button type="button" class="link" data-copy-command>Copy the command</button>
+    </details>
+    <p class="status cert-status" role="status"></p>
+  </div>`;
+}
+
+/** A certificate file as the server reads it: PEM text as it is, anything else (DER) in base64. */
+async function certificateFileData(file) {
+  if (file.size > 3_000_000) throw new Error('That file is too large for certificates (3 MB at most).');
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const text = new TextDecoder('latin1').decode(bytes);
+  if (text.includes('-----BEGIN')) return text;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+/** After a certificate is trusted: try the connection the card was shown for again. */
+function retryAfterTrust(card) {
+  if (card.closest('#set-connection')) $('integration-form').requestSubmit();
+  loadTrust();
+}
+
+document.addEventListener('click', async (event) => {
+  const pick = event.target.closest('[data-cert-pick]');
+  if (pick) return pick.closest('.cert-card').querySelector('[data-cert-upload]').click();
+  const copy = event.target.closest('[data-copy-command]');
+  if (copy) {
+    try {
+      await navigator.clipboard.writeText(WINDOWS_EXPORT);
+      copy.textContent = 'Copied';
+    } catch {
+      copy.textContent = 'Select the command and copy it';
+    }
+    return;
+  }
+  const button = event.target.closest('[data-cert-trust]');
+  if (!button) return;
+  const card = button.closest('.cert-card');
+  const status = card.querySelector('.cert-status');
+  button.disabled = true;
+  status.textContent = 'Checking the certificate again and trusting it…';
+  status.className = 'status cert-status';
+  try {
+    await api('/api/trust/presented', { method: 'POST', body: JSON.stringify({ host: card.dataset.host, port: Number(card.dataset.port), fingerprint256: button.dataset.certTrust }) });
+    status.textContent = 'Trusted. Connecting again…';
+    status.className = 'status cert-status ok';
+    retryAfterTrust(card);
+  } catch (error) {
+    button.disabled = false;
+    if (!handleAuthLoss(error)) {
+      status.textContent = error.message;
+      status.className = 'status cert-status error';
+    }
+  }
+});
+
+document.addEventListener('change', async (event) => {
+  const input = event.target.closest('[data-cert-upload]');
+  if (!input?.files?.[0]) return;
+  const card = input.closest('.cert-card');
+  const status = card.querySelector('.cert-status');
+  status.textContent = 'Reading the certificate…';
+  status.className = 'status cert-status';
+  try {
+    const data = await certificateFileData(input.files[0]);
+    const done = await api('/api/trust/upload', { method: 'POST', body: JSON.stringify({ data, host: card.dataset.host || undefined, port: Number(card.dataset.port) || 443 }) });
+    const names = done.added.map((a) => a.subject).join(', ');
+    if (done.trusted === false) {
+      status.textContent = `${names ? `Added ${names}, but ` : ''}${card.dataset.host} is still not trusted. Upload the certificate your network team gives you.`;
+      status.className = 'status cert-status error';
+      loadTrust();
+      return;
+    }
+    status.textContent = names ? `Trusted ${names}. Connecting again…` : 'Already trusted. Connecting again…';
+    status.className = 'status cert-status ok';
+    retryAfterTrust(card);
+  } catch (error) {
+    if (!handleAuthLoss(error)) {
+      status.textContent = error.message;
+      status.className = 'status cert-status error';
+    }
+  } finally {
+    input.value = '';
+  }
+});
 
 /** Put the explanation right under a status line (or take it away). */
 function showHelp(el, help) {
@@ -7862,7 +7978,65 @@ $('test-report-server').addEventListener('click', async () => {
 // Checkmarx One integration (Settings): the server's own connection
 // ---------------------------------------------------------------------------
 
+/** Settings → Checkmarx One → Trusted certificates: the ones added here, each removable. */
+async function loadTrust() {
+  const list = $('trust-list');
+  if (!list) return;
+  let info;
+  try {
+    info = await api('/api/trust');
+  } catch {
+    return;
+  }
+  const certs = info.certificates ?? [];
+  $('trust-count').textContent = certs.length ? `(${certs.length})` : '';
+  const how = { detected: 'Trusted from a connection', uploaded: 'Uploaded', intermediate: 'Fetched to complete a chain' };
+  list.innerHTML = certs.length
+    ? certs
+        .map(
+          (c) => `<li>
+        <div><strong translate="no">${escapeHtml(c.subject)}</strong>${c.vendor ? ` <span class="calc-badge" translate="no">${escapeHtml(c.vendor)}</span>` : ''}${c.expired ? ' <span class="calc-badge warn">Expired</span>' : ''}</div>
+        <div class="hint">${escapeHtml(how[c.source] ?? c.source)}${c.host ? ` · <span translate="no">${escapeHtml(c.host)}</span>` : ''} · ${escapeHtml(formatDate(c.addedAt))}${c.addedBy ? ` · <span translate="no">${escapeHtml(c.addedBy)}</span>` : ''} · valid until ${escapeHtml(formatDate(c.validTo))}</div>
+        <div class="hint code cert-fp" translate="no">${escapeHtml(c.fingerprint256)}</div>
+        <button type="button" class="link" data-trust-remove="${escapeHtml(c.fingerprint256)}">Remove</button>
+      </li>`,
+        )
+        .join('')
+    : '<li class="hint">None: only the public certificate authorities are trusted.</li>';
+}
+
+$('trust-list')?.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-trust-remove]');
+  if (!button) return;
+  if (!confirm('Stop trusting this certificate? Connections that need it stop working until it is trusted again.')) return;
+  try {
+    await api(`/api/trust/${encodeURIComponent(button.dataset.trustRemove)}`, { method: 'DELETE' });
+    setStatus('trust-status', 'Removed.', 'ok');
+    loadTrust();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('trust-status', error);
+  }
+});
+
+$('trust-pick')?.addEventListener('click', () => $('trust-file').click());
+
+$('trust-file')?.addEventListener('change', async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  setStatus('trust-status', 'Reading the certificate…');
+  try {
+    const done = await api('/api/trust/upload', { method: 'POST', body: JSON.stringify({ data: await certificateFileData(file) }) });
+    setStatus('trust-status', done.added.length ? `Trusted ${done.added.map((a) => a.subject).join(', ')}.` : 'Already trusted.', 'ok');
+    loadTrust();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('trust-status', error);
+  } finally {
+    event.target.value = '';
+  }
+});
+
 async function loadIntegration() {
+  loadTrust();
   let info;
   try {
     info = await api('/api/integration');

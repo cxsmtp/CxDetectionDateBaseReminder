@@ -2904,3 +2904,16 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .cc-mini h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 2px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
 .cc-mini .cc-swatch { width: 10px; height: 10px; border-radius: 3px; }
 .calc-presenting .calc-scope-toggle, .calc-presenting .calc-assume, .calc-presenting .calc-custom { display: none; }
+
+/* 1.0.68: a certificate a server presented that is not trusted here, and the trusted list */
+.cert-card { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.cert-card .cert-facts { margin-bottom: 8px; }
+.cert-fp { font-size: 11px; word-break: break-all; }
+.cert-card .actions { gap: 12px; align-items: center; }
+.cert-windows { margin-top: 8px; }
+.cert-windows pre { white-space: pre-wrap; word-break: break-all; font-size: 11px; padding: 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); margin: 6px 0; }
+.trust-panel { margin-top: 14px; }
+.trust-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 8px; }
+.trust-list li { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; display: grid; gap: 2px; justify-items: start; }
+.trust-list li.hint { border: 0; padding: 0; }
+.calc-badge.warn { color: var(--warn); background: var(--warn-soft); }

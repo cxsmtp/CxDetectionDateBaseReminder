@@ -131,7 +131,7 @@ export function explainSmtp(error, smtp = {}) {
   }
   if (isUntrusted(net) || /self.signed|certificate/i.test(text)) {
     return H('smtp.cert-untrusted', 'The mail server\'s certificate is not trusted.', [
-      'If your company inspects TLS traffic or uses its own certificate authority, give MissionZero that CA certificate: NODE_EXTRA_CA_CERTS=/certs/company-ca.pem, with the folder mounted into the container.',
+      'If your company inspects TLS traffic or uses its own certificate authority, upload that root certificate under Settings → Checkmarx One → Trusted certificates. It is used at once, with no restart.',
       'For an internal relay with a self-signed certificate, turn off "Check the mail server\'s certificate" (SMTP_REJECT_UNAUTHORIZED=false).',
     ]);
   }
@@ -322,6 +322,42 @@ const CX_KEY_HELP = {
 };
 
 /**
+ * A certificate Checkmarx One's address presented that is not trusted here, with what was
+ * found (src/trust.js): the root a company proxy presents, to trust with one click, or the
+ * name of the one to upload.
+ */
+function certificateHelp(found, H) {
+  const where = found?.host || 'Checkmarx One';
+  if (found?.status === 'needs-consent') {
+    const c = found.candidate;
+    return H('cx.proxy-cert', `Your network presents its own certificate for ${where}, issued by "${c.subject}"${c.vendor ? ` (${c.vendor})` : ''}. MissionZero does not trust it yet.`, [
+      'This is usually your company\'s proxy, which inspects HTTPS. If you are not sure it is yours, check its fingerprint below with your network team.',
+      'Click Trust and connect. MissionZero then trusts it for its own outgoing connections, at once and with no restart. You can remove it again here.',
+      'Or ask your network team to exclude *.checkmarx.net from HTTPS inspection.',
+    ]);
+  }
+  if (found?.status === 'needs-upload') {
+    return H('cx.proxy-cert', `The certificate for ${where} is issued by "${found.issuer}"${found.vendor ? ` (${found.vendor})` : ''}, which MissionZero does not trust yet. Usually this is your company's proxy, which inspects HTTPS.`, [
+      `Upload the certificate named "${found.issuer}" below (.pem, .crt or .cer). Your network team has it, or your browser shows it when you open https://${where}.`,
+      'Not sure which file? On a Windows computer on your company network, run the command below and upload the file it makes. It holds every certificate Windows trusts, and MissionZero keeps only the ones this connection needs.',
+      'Or ask your network team to exclude *.checkmarx.net from HTTPS inspection.',
+    ]);
+  }
+  return H('cx.proxy-cert', `The certificate presented for ${where} is not trusted, usually because a company proxy inspects HTTPS.`, [
+    'Upload your company\'s root certificate below (.pem, .crt or .cer). It is used at once, with no restart.',
+    'Not sure which file? On a Windows computer on your company network, run the command below and upload the file it makes. MissionZero keeps only the certificates this connection needs.',
+    'Or ask your network team to exclude *.checkmarx.net from HTTPS inspection.',
+  ]);
+}
+
+/** What the browser needs to show the certificate and offer Trust or Upload (no secrets). */
+function certificateView(found) {
+  if (!found?.host) return { status: 'needs-upload', host: '', port: 443 };
+  const { status, host, port, candidate = null, issuer = '', vendor = '' } = found;
+  return { status: status === 'needs-consent' ? 'needs-consent' : 'needs-upload', host, port, candidate, issuer, vendor };
+}
+
+/**
  * Why connecting to Checkmarx One failed, and what to do.
  * context: { apiKey, iamUrl, baseUrl, tenant } as tried (the key is only looked at).
  */
@@ -368,11 +404,7 @@ export function explainCxone(error, context = {}) {
     ]);
   }
   if (isUntrusted(net) || net === 'ERR_TLS_CERT_ALTNAME_INVALID' || /not trusted|self-signed TLS/i.test(text)) {
-    return H('cx.proxy-cert', 'The certificate presented for Checkmarx One is not trusted, usually because a company proxy inspects HTTPS.', [
-      'Get your company\'s root CA certificate (a .pem file) from your network team.',
-      'Mount it into the container and set NODE_EXTRA_CA_CERTS to its path, for example NODE_EXTRA_CA_CERTS=/certs/company-ca.pem, then restart MissionZero.',
-      'Or ask the network team to exclude *.checkmarx.net from HTTPS inspection.',
-    ]);
+    return { ...certificateHelp(error?.certificate, H), certificate: certificateView(error?.certificate) };
   }
   if (net === 'CERT_HAS_EXPIRED') {
     return H('cx.cert-expired', 'The certificate presented for Checkmarx One has expired.', [
@@ -485,7 +517,7 @@ export function explainGit(provider, error, context = {}) {
   }
   if (isUntrusted(net) || net === 'CERT_HAS_EXPIRED' || net === 'ERR_TLS_CERT_ALTNAME_INVALID') {
     return H('git.cert', 'The git host\'s certificate is not trusted.', [
-      'If it is a self-hosted server with a company certificate, or a proxy inspects HTTPS, mount the company CA certificate and set NODE_EXTRA_CA_CERTS to its path, then restart MissionZero.',
+      'If it is a self-hosted server with a company certificate, or a proxy inspects HTTPS, upload your company\'s root certificate under Settings → Checkmarx One → Trusted certificates. It is used at once, with no restart.',
     ]);
   }
   if (isTimeout(net) || net === 'ECONNREFUSED' || net === 'ECONNRESET' || /Could not reach/i.test(text)) {

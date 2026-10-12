@@ -64,6 +64,16 @@ podman logs mission-zero
 
 The log prints the first administrator's email and password, once. Open <https://localhost:3000>, sign in, and choose your own password.
 
+**No email and password in the log?** The data volume already has people from an earlier install, so nothing new is printed. Set a new temporary password for the administrator; it prints the email and password to sign in with:
+
+```
+podman exec mission-zero node scripts/reset-admin.mjs
+```
+
+With Docker: `docker exec mission-zero node scripts/reset-admin.mjs`. Add an email to reset that person instead. The server keeps running, and the reset is written to the audit log.
+
+**Behind a company proxy that inspects HTTPS?** Paste your API key under Settings → Checkmarx One as usual. If the proxy's certificate is not trusted, the page shows it (name, product, fingerprint): click **Trust and connect**, or upload your company's root certificate there. It works at once, with no restart and no environment variable. A server that leaves out its intermediate certificate is completed on its own ([troubleshooting](docs/troubleshooting.md#certificates)).
+
 **HTTPS is the default.** With no certificate given, the server makes a self-signed one, so the browser warns once ("Your connection is not private": **Advanced**, then continue). For a real certificate, see [HTTPS](#https).
 
 **Plain http on your own machine:** add `-e HTTPS=off`, then open <http://localhost:3000>:
@@ -224,7 +234,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `HTTP_REDIRECT_PORT`, `HTTPS_PUBLIC_PORT` (443), `TRUST_PROXY` | Redirect plain http to https; whose `X-Forwarded-*` headers to believe (a proxy on this machine, loopback, by default; nobody when serving HTTPS itself; name a proxy in another container or machine, e.g. `uniquelocal` or its address). |
 | `TZ` | Time zone for automation and email dates, e.g. `Asia/Dubai`. Default UTC. |
 | `NODE_OPTIONS` | e.g. `--max-old-space-size=2048` with `--memory 3g`. |
-| `NODE_EXTRA_CA_CERTS` | A company CA, when a proxy inspects TLS. |
+| `NODE_EXTRA_CA_CERTS` | A company CA, when a proxy inspects TLS. Not needed: Settings → Checkmarx One → Trusted certificates does the same without a restart. |
 | `BACKUP_INTERVAL_HOURS` (24), `BACKUP_KEEP` (14), `BACKUP_PASSPHRASE`, `BACKUP_DIR` | Scheduled, optionally encrypted backups of `/data`. |
 | `SHUTDOWN_DRAIN_SECONDS` (8), `INSTANCE_LOCK_WAIT_SECONDS` (45) | Updates: how long running requests may finish when stopping; how long a new server waits for the old one ([Updating](docs/updating.md)). |
 | `CONNECTION_CHECK_TIMEOUT_MS` (25000), `CONFIG_ROLLBACK_IDLE_MINUTES` (10) | When a changed connection counts as failed, and when an unattended one is rolled back. |
@@ -236,7 +246,7 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.67** | 508/s, 0 failed (main 505, 0) | 6.7 s | 816 ms | 602 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.68** | 486/s, 0 failed (main 487, 0) | 7.9 s | 984 ms | 612 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.60 | 505/s, 0 failed (main 499, 0 failed) | 6.9 s | 501 ms | 566 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.59 | 513/s, 0 failed (main 518, 0 failed) | 6.2 s | 229 ms | 565 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.58 | 502/s, 0 failed (main 514, 31 failed) | 11.8 s | 648 ms | 559 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |

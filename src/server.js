@@ -58,6 +58,7 @@ import { AutomationState, Scheduler } from './automation.js';
 import { deriveConnection, publicConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
 import { checkCxKey, checkEnvFile, explainCxone, explainGit, explainSmtp, refusedByCheck } from './troubleshoot.js';
+import { TrustStore, isUntrustedCode } from './trust.js';
 import { SettingsStore, applyEnvironmentSmtp, cleanPersonalBranding, hasEnvironmentSmtp, hostOfUrl, isVerified, overlayBranding, parseAddressList, publicSettings, smtpFingerprint, supportChannel } from './settings.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import v8 from 'node:v8';
@@ -109,6 +110,8 @@ const projectDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
  */
 const { dir: dataDir, source: dataDirSource } = resolveDataDir(process.env, { cwd: process.cwd() });
 prepareDataDir(dataDir);
+// The certificate authorities outgoing HTTPS trusts, with the ones an Admin added: before anything connects.
+const trust = new TrustStore({ dir: dataDir, log: (line) => console.log(line) });
 // One server per data folder: wait for the previous one (an update) to finish, or refuse.
 const instanceLock = new InstanceLock(dataDir, { staleMs: Math.max(3, Number(process.env.INSTANCE_LOCK_STALE_SECONDS ?? 30)) * 1000 });
 try {
@@ -371,7 +374,12 @@ const DEFAULT_ADMIN_EMAIL = 'admin@mission-zero.local';
 const firstAdminFile = path.join(dataDir, 'first-admin-password.txt');
 
 async function prepareAccess() {
-  if (iam.hasUsers()) return;
+  if (iam.hasUsers()) {
+    // A data volume used before: no new sign-in is printed, so say whom to sign in as and how to get back in.
+    const admin = iam.users().find((u) => u.role === 'admin' && !u.disabled);
+    console.log(`[access] Users already set up in ${dataDir}${admin ? `; an administrator is ${admin.email}` : ''}. Lost the password? Run: node scripts/reset-admin.mjs  (in a container: docker exec <name> node scripts/reset-admin.mjs)`);
+    return;
+  }
   const email = process.env.ADMIN_EMAIL?.trim();
   const password = process.env.ADMIN_PASSWORD ?? '';
   if (email && password) {
@@ -575,7 +583,7 @@ async function resolveAutomationSession() {
 
   const promise = (async () => {
     try {
-      const session = await sessions.create(storedKey, integrationOverrides(settings));
+      const session = await connectCheckmarxOne(storedKey, integrationOverrides(settings));
       activateIntegration(session, storedKey, settings.integrationOverrides ?? {});
       tstate.integrationFailure = { fingerprint: null, until: 0 };
       return session;
@@ -1569,6 +1577,130 @@ app.delete(
 );
 
 // ---------------------------------------------------------------------------
+// Certificates outgoing HTTPS trusts (src/trust.js): a server that left out its
+// intermediate is completed on its own; a company proxy's root is shown to an
+// Admin to trust, or uploaded. Applied at once, no restart.
+// ---------------------------------------------------------------------------
+
+/** The "not trusted" TLS code somewhere in an error's causes (fetch wraps it twice). */
+function untrustedCode(error) {
+  for (let e = error, depth = 0; e && depth < 5; e = e.cause, depth++) if (isUntrustedCode(e.code)) return e.code;
+  return '';
+}
+
+/** The Checkmarx One hosts a key connects to: IAM, then the API. */
+function cxHosts(apiKey, endpoints = {}) {
+  try {
+    const c = deriveConnection(apiKey, endpoints);
+    return [...new Set([c.iamUrl, c.baseUrl].filter(Boolean))].map((u) => {
+      const url = new URL(u);
+      return { host: url.hostname, port: Number(url.port) || 443 };
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Why `hosts` are not trusted, when `error` says so: a server that left out its intermediate is
+ * completed ("repaired"); otherwise what an Admin is shown ("needs-consent" with the root found,
+ * "needs-upload" with the issuer's name). null when the error was something else.
+ */
+async function certificateTrouble(error, hosts) {
+  if (!untrustedCode(error)) return null;
+  let repaired = null;
+  for (const { host, port } of hosts) {
+    let found;
+    try {
+      found = await trust.diagnose(host, port);
+    } catch (cause) {
+      return { status: 'unknown', host, port, error: cause.message };
+    }
+    if (found.status === 'repaired') {
+      repaired = found;
+      audit.record({ type: 'settings', outcome: 'changed', reason: `${host} left out its intermediate certificate: fetched ${found.added.map((a) => `"${a.subject}"`).join(', ')} from its issuer, which a trusted root vouches for.`, actor: SYSTEM_ACTOR, details: { host, port, added: found.added } });
+    } else if (found.status !== 'trusted') {
+      return found;
+    }
+  }
+  return repaired;
+}
+
+/** Connect to Checkmarx One with a key; a certificate chain that could be completed is, and tried once more. */
+async function connectCheckmarxOne(apiKey, endpoints) {
+  try {
+    return await withTimeout(sessions.create(apiKey, endpoints), 'Checkmarx One');
+  } catch (error) {
+    const found = await certificateTrouble(error, cxHosts(apiKey, endpoints));
+    if (found?.status === 'repaired') return withTimeout(sessions.create(apiKey, endpoints), 'Checkmarx One');
+    if (found) error.certificate = found;
+    throw error;
+  }
+}
+
+const SERVER_NAME = /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
+function trustTarget(body) {
+  const host = String(body?.host ?? '').trim().toLowerCase();
+  const port = Number(body?.port ?? 443);
+  if (!SERVER_NAME.test(host) || !Number.isInteger(port) || port < 1 || port > 65535) throw Object.assign(new Error('Give a server name and port, for example eu.iam.checkmarx.net and 443.'), { status: 400 });
+  return { host, port };
+}
+/** Trusted certificates are the whole server's: changed from the first tenant only. */
+function refuseOtherTenants(req, res) {
+  if (mayChangeRoles(req)) return false;
+  res.status(403).json({ error: 'Trusted certificates apply to the whole server, so only people who work in the first tenant change them.' });
+  return true;
+}
+const TRUST_EDIT = ['integration.cxone', 'integration.smtp'];
+
+app.get('/api/trust', requirePermission('settings.view', ...TRUST_EDIT), (req, res) => res.set('Cache-Control', 'no-store').json({ certificates: trust.list() }));
+
+/** Trust the root a server presents, by the fingerprint the Admin was shown (looked up again here). */
+app.post(
+  '/api/trust/presented',
+  requirePermission(...TRUST_EDIT),
+  asyncRoute(async (req, res) => {
+    if (refuseOtherTenants(req, res)) return;
+    const { host, port } = trustTarget(req.body);
+    const actor = await adminActor(req);
+    const done = await trust.trustPresented(host, port, String(req.body?.fingerprint256 ?? ''), { by: actor.user });
+    if (done.added.length) audit.record({ type: 'settings', outcome: 'changed', reason: `Trusted the certificate ${host} presents: ${done.added.map((a) => `"${a.subject}"`).join(', ')}.`, actor, details: { host, port, added: done.added } });
+    res.json({ ...done, certificates: trust.list() });
+  }),
+);
+
+/** Upload certificate authorities; with the server that failed, only those its chain needs are kept. */
+app.post(
+  '/api/trust/upload',
+  requirePermission(...TRUST_EDIT),
+  asyncRoute(async (req, res) => {
+    if (refuseOtherTenants(req, res)) return;
+    const data = String(req.body?.data ?? '');
+    if (!data.trim()) return res.status(400).json({ error: 'Choose a certificate file (.pem, .crt or .cer).' });
+    if (data.length > 3_000_000) return res.status(413).json({ error: 'That file is too large for certificates (3 MB at most).' });
+    const target = req.body?.host ? trustTarget(req.body) : null;
+    const chain = target ? await trust.presented(target.host, target.port).catch(() => null) : null;
+    const actor = await adminActor(req);
+    const added = trust.upload(data, { by: actor.user, chain, host: target?.host ?? '' });
+    if (added.length) audit.record({ type: 'settings', outcome: 'changed', reason: `Trusted uploaded certificate${added.length === 1 ? '' : 's'}: ${added.map((a) => `"${a.subject}"`).join(', ')}.`, actor, details: { host: target?.host ?? '', added } });
+    const now = target ? await trust.diagnose(target.host, target.port, { repair: false }).catch(() => null) : null;
+    res.json({ added, trusted: now ? now.status === 'trusted' : null, certificates: trust.list() });
+  }),
+);
+
+app.delete(
+  '/api/trust/:fingerprint',
+  requirePermission(...TRUST_EDIT),
+  asyncRoute(async (req, res) => {
+    if (refuseOtherTenants(req, res)) return;
+    const removed = trust.remove(String(req.params.fingerprint));
+    if (!removed) return res.status(404).json({ error: 'That certificate is not in the list.' });
+    audit.record({ type: 'settings', outcome: 'changed', reason: `No longer trusts the certificate "${removed.subject}".`, actor: await adminActor(req), details: { removed } });
+    res.json({ certificates: trust.list() });
+  }),
+);
+
+// ---------------------------------------------------------------------------
 // Checkmarx One integration: the server's own connection (Admin)
 // ---------------------------------------------------------------------------
 
@@ -1610,14 +1742,11 @@ app.post(
       return res.status(400).json({ error: help.problem, help });
     }
     const overrides = { baseUrl: String(baseUrl).trim().replace(/\/+$/, ''), iamUrl: String(iamUrl).trim().replace(/\/+$/, ''), tenant: String(tenant).trim() };
-    const session = await withTimeout(
-      sessions.create(key, {
-        baseUrl: overrides.baseUrl || config.overrides.baseUrl,
-        iamUrl: overrides.iamUrl || config.overrides.iamUrl,
-        tenant: overrides.tenant || config.overrides.tenant,
-      }),
-      'Checkmarx One',
-    );
+    const session = await connectCheckmarxOne(key, {
+      baseUrl: overrides.baseUrl || config.overrides.baseUrl,
+      iamUrl: overrides.iamUrl || config.overrides.iamUrl,
+      tenant: overrides.tenant || config.overrides.tenant,
+    });
     settingsStore.save({ automationApiKey: key, integrationOverrides: overrides });
     activateIntegration(session, key, overrides);
     noteConnectionHelp('cxone', { ok: true });
@@ -1734,7 +1863,7 @@ async function runConnectionCheck({ rollback = false, trigger = 'check', actor =
     const overrides = { baseUrl: '', iamUrl: '', tenant: '', ...(settings.integrationOverrides ?? {}) };
     const tried = cxoneFingerprint(key, overrides);
     try {
-      const session = await withTimeout(sessions.create(key, integrationOverrides(settings)), 'Checkmarx One');
+      const session = await connectCheckmarxOne(key, integrationOverrides(settings));
       if (cxoneFingerprint(settingsStore.get().automationApiKey, settingsStore.get().integrationOverrides ?? {}) !== tried) {
         sessions.destroy(session.id);
         result.cxone = { ok: false, superseded: true };
@@ -8984,7 +9113,7 @@ async function bootstrap() {
   if (!config.bootstrapApiKey) return;
   try {
     const result = await retryWithBackoff('CX_API_KEY', () =>
-      sessions.create(config.bootstrapApiKey, config.overrides),
+      connectCheckmarxOne(config.bootstrapApiKey, config.overrides),
     );
     result.pinned = true;
     tstate.bootstrapSessionId = result.id;
