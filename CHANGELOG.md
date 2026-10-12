@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.70 | 511/s, 0 (main 500, 0) | 6.7 s | 452 ms | 628 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.69 | 497/s, 0 (main 497, 0) | 7.5 s | 784 ms | 628 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.68 | 486/s, 0 (main 487, 0) | 7.9 s | 984 ms | 612 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.67 | 508/s, 0 (main 505, 0) | 6.7 s | 816 ms | 602 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -55,6 +56,13 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.70 — 2026-10-12 14:22 UTC · [#93](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/93)
+
+- **Still to come follows your sliders.** In the Cx Credits Calculator, new findings are now counted in the same share per severity as the backlog chosen under Customize per severity. With half of High chosen, half of High's new findings count; a severity set to none adds none. Before, every severity's new findings counted in full, whatever was chosen.
+- **The forecast agrees.** With the plan, the part of each severity not chosen keeps its own trend instead of being assumed handled. The projection report says when new findings follow the share chosen.
+- **In every language.** The two new lines are in all fourteen other languages, each reviewed twice.
+- **Status.** 3000 people at once on 2 vCPU: 511 requests a second with none failed (main 500, 0), report opens 6.7 s at p95 (main 7.7 s), triage polls 452 ms (main 344 ms); 628 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.69 — 2026-10-12 12:36 UTC · [#92](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/92)
 

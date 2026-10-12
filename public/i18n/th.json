@@ -3034,6 +3034,8 @@
   "Credits per 10K LOC": "เครดิตต่อ 10K LOC",
   "Using the proxy": "กำลังใช้พร็อกซี",
   "Using the proxy from the container (HTTPS_PROXY)": "กำลังใช้พร็อกซีจากคอนเทนเนอร์ (HTTPS_PROXY)",
-  "Settings → Network & proxy": "การตั้งค่า → เครือข่ายและพร็อกซี"
+  "Settings → Network & proxy": "การตั้งค่า → เครือข่ายและพร็อกซี",
+  "In the same share per severity as the backlog chosen.": "แยกตามระดับความรุนแรง ในสัดส่วนเดียวกับผลการตรวจพบที่ค้างอยู่ซึ่งเลือกไว้",
+  "New findings are counted in the same share per severity as the backlog chosen.": "ผลการตรวจพบใหม่จะนับแยกตามระดับความรุนแรง ในสัดส่วนเดียวกับผลการตรวจพบที่ค้างอยู่ซึ่งเลือกไว้"
  }
 }

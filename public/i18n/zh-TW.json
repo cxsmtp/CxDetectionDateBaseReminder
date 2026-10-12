@@ -3034,6 +3034,8 @@
   "Credits per 10K LOC": "每 10K LOC 點數",
   "Using the proxy": "目前使用代理伺服器",
   "Using the proxy from the container (HTTPS_PROXY)": "目前使用容器設定的代理伺服器（HTTPS_PROXY）",
-  "Settings → Network & proxy": "設定 → 網路與代理伺服器"
+  "Settings → Network & proxy": "設定 → 網路與代理伺服器",
+  "In the same share per severity as the backlog chosen.": "依各嚴重性所選積壓項目的比例計入。",
+  "New findings are counted in the same share per severity as the backlog chosen.": "新的檢測結果依各嚴重性所選積壓項目的比例計入。"
  }
 }

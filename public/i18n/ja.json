@@ -3034,6 +3034,8 @@
   "Credits per 10K LOC": "10K LOCあたりのクレジット",
   "Using the proxy": "プロキシを使用中",
   "Using the proxy from the container (HTTPS_PROXY)": "コンテナーで設定されたプロキシ（HTTPS_PROXY）を使用中",
-  "Settings → Network & proxy": "設定 → ネットワークとプロキシ"
+  "Settings → Network & proxy": "設定 → ネットワークとプロキシ",
+  "In the same share per severity as the backlog chosen.": "重大度ごとに、選択したバックログと同じ割合で計上します。",
+  "New findings are counted in the same share per severity as the backlog chosen.": "新たな検出結果は、重大度ごとに、選択したバックログと同じ割合で計上するものとします。"
  }
 }

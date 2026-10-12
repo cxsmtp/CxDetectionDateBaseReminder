@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { generateKeyPairSync, sign } from 'node:crypto';
 
-import { aheadMonths, aheadSettings, allocate, analyse, backlogForecast, cleanScope, creditSummary, frequencyOf, fusionEstimate, fusionSettings, globMatch, inScope, planForecast, resolveSelected, scopeActive, seriesRows, severityForecast, severityPlan, suggestedScans, totalsSettings, trCost, trProjection, unitsOf, weeklyTrend } from '../public/calculator/model.js';
+import { aheadMonths, aheadSettings, allocate, analyse, backlogForecast, cleanScope, creditSummary, frequencyOf, fusionEstimate, fusionSettings, globMatch, inScope, planForecast, resolveSelected, scopeActive, seriesRows, severityForecast, severityPlan, suggestedScans, totalsSettings, trCost, trProjection, unitsOf, weeklyTrend, SEVERITIES } from '../public/calculator/model.js';
 import { buildReport, reportFileName } from '../public/calculator/report.js';
 import { MAX_PROFILE_BYTES, ProjectionStore, ReportStore, TenantReadStore, cleanFusion, cleanReportData, cleanTr, countersOf, readFusionOffer, readFusionProjects, readTenant, seriesFor, weeklyBacklog } from '../src/projections.js';
 import { ActivationStore, checkCode } from '../src/activation.js';
@@ -462,6 +462,18 @@ test('what is ahead: findings still to come at the trend, more from Fusion, fewe
   const minis = severityPlan(quarter, p);
   assert.deepEqual(Object.keys(minis), ['Critical', 'High', 'Medium', 'Low']);
   assert.equal(minis.High.at(-1).withPlan, 0);
+  // Only part of the backlog chosen: new findings in the same share per severity, and what is
+  // not chosen keeps its own trend in the forecast.
+  const half = trProjection(quarter, { selected: { High: 65, Critical: 0 } }, { months: 12 });
+  assert.ok(Math.abs(half.rows.High.future - (37 / months) * aheadMonths(12, 2) * 0.5) < 1e-9, 'half of High chosen: half of its new findings');
+  assert.equal(half.rows.Critical.future, 0, 'none chosen: none still to come');
+  assert.ok(Math.abs(half.rows.High.arrivals - (37 / months) * 0.5) < 1e-9);
+  assert.ok(Math.abs(half.totals.arrivals - (half.rows.High.arrivals + half.rows.Low.arrivals + half.rows.Medium.arrivals)) < 1e-9);
+  const halfLines = planForecast(quarter, half);
+  const expected = SEVERITIES.reduce((sum, s) => sum + quarter.monthlyChangeBySeverity[s] * (1 - half.rows[s].share), 0);
+  const start = halfLines[quarter.history.length - 1].actual;
+  assert.ok(Math.abs(halfLines.at(-1).withPlan - Math.max(0, start - half.totals.selected + expected * 12)) < 1e-9, 'the part not chosen keeps growing');
+  assert.ok(severityPlan(quarter, half).Critical.at(-1).withPlan >= quarter.perSeverity.Critical.current, 'Critical not chosen: it keeps its trend');
 });
 
 test('which projects count: applications, groups, people, names with wildcards, frequency, criticality', () => {

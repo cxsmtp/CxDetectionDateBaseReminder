@@ -3034,6 +3034,8 @@
   "Credits per 10K LOC": "Tín dụng mỗi 10K LOC",
   "Using the proxy": "Đang dùng proxy",
   "Using the proxy from the container (HTTPS_PROXY)": "Đang dùng proxy từ container (HTTPS_PROXY)",
-  "Settings → Network & proxy": "Cài đặt → Mạng và proxy"
+  "Settings → Network & proxy": "Cài đặt → Mạng và proxy",
+  "In the same share per severity as the backlog chosen.": "Theo cùng tỷ lệ cho từng mức độ nghiêm trọng như phần tồn đọng đã chọn.",
+  "New findings are counted in the same share per severity as the backlog chosen.": "Phát hiện mới được tính theo cùng tỷ lệ cho từng mức độ nghiêm trọng như phần tồn đọng đã chọn."
  }
 }

@@ -189,6 +189,7 @@ export function assumptionItems(data, sum, L) {
     items.push(w('False positives expected: {0}%.', each('fp', 0)));
     if (tr.ahead) {
       if (!tr.ahead.includeFuture) items.push(w('Findings still to come are not counted.'));
+      else if (Number.isFinite(tr.totals?.selected) && tr.totals.selected < tr.totals.backlog) items.push(w('New findings are counted in the same share per severity as the backlog chosen.'));
       else if (tr.ahead.aiDeclinePercent) items.push(w('New findings arrive at the pace of the last {0} months, then {1}% fewer each month as teams adopt AI.', num(tr.lookbackMonths), num(tr.ahead.aiDeclinePercent)));
       else items.push(w('New findings keep arriving at the pace of the last {0} months.', num(tr.lookbackMonths)));
       if (tr.fusion) items.push(w('Fusion reports {0}% more findings than today.', num(tr.ahead.fusionUpliftPercent)));

@@ -3034,6 +3034,8 @@
   "Credits per 10K LOC": "每 10K LOC 点数",
   "Using the proxy": "当前使用代理",
   "Using the proxy from the container (HTTPS_PROXY)": "当前使用容器设置的代理（HTTPS_PROXY）",
-  "Settings → Network & proxy": "设置 → 网络与代理"
+  "Settings → Network & proxy": "设置 → 网络与代理",
+  "In the same share per severity as the backlog chosen.": "按各严重程度所选积压问题的比例计入。",
+  "New findings are counted in the same share per severity as the backlog chosen.": "新的检测结果按各严重程度所选积压问题的比例计入。"
  }
 }

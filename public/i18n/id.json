@@ -3034,6 +3034,8 @@
   "Credits per 10K LOC": "Kredit per 10K LOC",
   "Using the proxy": "Menggunakan proxy",
   "Using the proxy from the container (HTTPS_PROXY)": "Menggunakan proxy dari container (HTTPS_PROXY)",
-  "Settings → Network & proxy": "Pengaturan → Jaringan & proxy"
+  "Settings → Network & proxy": "Pengaturan → Jaringan & proxy",
+  "In the same share per severity as the backlog chosen.": "Dengan proporsi yang sama per tingkat keparahan seperti pada backlog yang dipilih.",
+  "New findings are counted in the same share per severity as the backlog chosen.": "Temuan baru dihitung dengan proporsi yang sama per tingkat keparahan seperti pada backlog yang dipilih."
  }
 }
