@@ -8894,18 +8894,18 @@ function renderImpact() {
   note.textContent = !d.since
     ? 'No readings yet. Figures start with the next Dashboard fetch (with no date window) or tracked report refresh.'
     : `Readings start on ${d.since.slice(0, 10)}: the period before that is not included.`;
-  const cur = $('impact-currency-note');
-  const wanted = state.me?.user?.profile?.currency;
-  cur.hidden = !d.converted && !(wanted && wanted !== d.organisationCurrency && m.value !== null);
-  cur.innerHTML = d.converted
-    ? `<span>Amounts in your currency, at the rate in your profile:</span> <span translate="no">1 ${escapeHtml(d.converted.from)} = ${escapeHtml(String(d.converted.rate))} ${escapeHtml(d.converted.to)}</span>`
-    : `<span>Amounts are in the organisation's currency. Add an exchange rate in your profile to see them in yours.</span> <a href="#/settings/profile">Currency →</a>`;
+  // Figures from this person's own profile: said once, with where to change them.
+  const mine = $('impact-currency-note');
+  mine.hidden = !d.personal;
+  mine.innerHTML = d.personal
+    ? `<span>Worked out with your own figures from your profile.</span> <a href="#/settings/profile">Change them →</a>`
+    : '';
   const tile = (label, value, sub, hero = false, tone = '') => `<div class="impact-tile${hero ? ' hero' : ''}"><span class="label">${label}</span><span class="value${tone ? ` ${tone}` : ''}">${value}</span><span class="sub">${sub}</span></div>`;
   const debt = d.debt;
   $('impact-tiles').innerHTML = [
     tile('Hours saved', `${num1(d.hours.total)} h`, `<span>${num1(d.hours.triage)} h triage</span> · <span>${num1(d.hours.fix)} h fixing</span>`, true),
     m.value === null
-      ? tile('Value of that time', '—', `<a href="#/settings/ai">Set an hourly cost</a>`)
+      ? tile('Value of that time', '—', `<a href="#/settings/profile">Set an hourly cost</a>`)
       // Amounts carry their currency, so they stay as they are; the words around them are translated on their own.
       : tile(m.cost === null ? 'Value of that time' : 'Saved, after credits', `<span translate="no">${escapeHtml(cashOf(m.net ?? m.value, m.currency))}</span>`, m.cost === null ? '<span>before the cost of credits</span>' : `<span><span translate="no">${escapeHtml(cashOf(m.value, m.currency))}</span> <span>saved</span></span> · <span><span translate="no">${escapeHtml(cashOf(m.cost, m.currency))}</span> <span>in credits</span></span>`),
     tile('Noise removed', num1(d.noiseRemoved), '<span>findings AI Triage showed not exploitable</span>'),
@@ -10138,22 +10138,30 @@ function moneyOf(n, currency, digits) {
   }
 }
 
-/** Your profile → Currency: the currency, and the rate from the organisation's when they differ. */
-function renderProfileCurrency(profile) {
-  const org = state.me?.organisationCurrency || 'USD';
-  const mine = profile.currency || '';
+/** The figures in Your profile → Your Impact figures, as the page holds them (empty: the organisation's). */
+function personalImpact() {
+  const out = { currency: $('pf-currency').value };
+  for (const input of document.querySelectorAll('#pf-impact [data-pi]')) out[input.dataset.pi] = input.value.trim() === '' ? null : Number(input.value);
+  return out;
+}
+
+/** Your profile → Your Impact figures: yours where given, the organisation's in grey where not. */
+function renderPersonalImpact(profile) {
+  const org = state.me?.organisationImpact ?? {};
+  const mine = profile.impact ?? {};
   const select = $('pf-currency');
-  if (document.activeElement !== select) fillCurrencies(select, mine, { first: "The organisation's currency" });
-  const other = Boolean(mine) && mine !== org;
-  $('pf-rate-field').hidden = !other;
-  $('pf-rate-from').textContent = `1 ${org} =`;
-  $('pf-rate-to').textContent = mine;
-  if (document.activeElement !== $('pf-rate')) $('pf-rate').value = profile.currencyRate ?? '';
-  $('pf-rate-hint').innerHTML = !other
-    ? `<span>The organisation's currency:</span> <b translate="no">${escapeHtml(org)}</b>`
-    : profile.currencyRate
-      ? '<span>Amounts are converted at this rate. Update it when the rate moves.</span>'
-      : "<span>Add the rate to see amounts in this currency. Until then they stay in the organisation's currency.</span>";
+  if (document.activeElement !== select) fillCurrencies(select, mine.currency || '', { first: "The organisation's currency" });
+  const own = Boolean(mine.currency) && mine.currency !== org.currency;
+  for (const input of document.querySelectorAll('#pf-impact [data-pi]')) {
+    const key = input.dataset.pi;
+    // In a currency of their own, the organisation's money figures (in another currency) do not apply.
+    const money = key === 'hourlyRate' || key === 'creditPrice';
+    input.placeholder = money && own ? '0' : String(org[key] ?? '');
+    if (document.activeElement !== input) input.value = mine[key] ?? '';
+  }
+  $('pf-impact-hint').innerHTML = own
+    ? `<span>In a currency of your own, give your own hourly cost and price of one credit: the organisation's are in</span> <b translate="no">${escapeHtml(org.currency || 'USD')}</b><span>.</span>`
+    : `<span>The organisation's currency:</span> <b translate="no">${escapeHtml(org.currency || 'USD')}</b>`;
 }
 
 /** "Asia/Tokyo (UTC+09:00)". */
@@ -10198,7 +10206,7 @@ function renderProfile() {
   zones.value = profileZone(profile) || 'UTC';
   zones.disabled = auto;
   const picked = new Set(profile.programmingLanguages ?? []);
-  renderProfileCurrency(profile);
+  renderPersonalImpact(profile);
   $('pf-langs').innerHTML = PROGRAMMING.map((name) => `<label${name === 'Infrastructure as code' ? '' : ' translate="no"'}><input type="checkbox" value="${escapeHtml(name)}"${picked.has(name) ? ' checked' : ''} /> ${escapeHtml(name)}</label>`).join('');
 }
 
@@ -10218,18 +10226,13 @@ function renderProfile() {
     saveProfile(auto ? { timeZoneAuto: true, timeZone: deviceTimeZone() } : { timeZoneAuto: false, timeZone: $('pf-tz').value });
   });
   $('pf-tz').addEventListener('change', () => saveProfile({ timeZoneAuto: false, timeZone: $('pf-tz').value }));
-  $('pf-currency').addEventListener('change', () => {
-    const currency = $('pf-currency').value;
-    const org = state.me?.organisationCurrency || 'USD';
-    // A rate only means something between two currencies: a new currency starts without one.
-    saveProfile(currency && currency !== org ? { currency, currencyRate: null } : { currency: '', currencyRate: null });
-  });
-  let rateTimer = null;
-  $('pf-rate').addEventListener('input', () => {
-    clearTimeout(rateTimer);
-    const rate = $('pf-rate').value.trim();
-    if (rate !== '' && !(Number(rate) > 0)) return;
-    rateTimer = setTimeout(() => saveProfile({ currencyRate: rate === '' ? null : Number(rate) }), 700);
+  $('pf-currency').addEventListener('change', () => saveProfile({ impact: personalImpact() }));
+  let impactTimer = null;
+  $('pf-impact').addEventListener('input', (event) => {
+    if (!event.target.dataset.pi) return;
+    clearTimeout(impactTimer);
+    if (!event.target.checkValidity()) return;
+    impactTimer = setTimeout(() => saveProfile({ impact: personalImpact() }), 700);
   });
   $('pf-langs').addEventListener('change', () => {
     saveProfile({ programmingLanguages: [...$('pf-langs').querySelectorAll('input:checked')].map((box) => box.value) });

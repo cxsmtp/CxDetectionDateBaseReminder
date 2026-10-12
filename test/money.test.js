@@ -27,10 +27,11 @@ test('amounts are written in their currency\'s own way', () => {
   assert.match(formatMoney(5, 'XYZ'), /^XYZ\s5$/, 'a well-formed code Intl does not know: the code with the amount');
 });
 
-test('your profile keeps a currency of your own and the rate from the organisation\'s', () => {
-  assert.deepEqual(cleanProfile({ currency: 'inr', currencyRate: '83.2' }), { currency: 'INR', currencyRate: 83.2 });
-  assert.deepEqual(cleanProfile({ currency: '', currencyRate: null }), { currency: '', currencyRate: null });
-  assert.throws(() => cleanProfile({ currency: 'XYZ' }), /not a currency/);
-  assert.throws(() => cleanProfile({ currencyRate: 0 }), /above 0/);
-  assert.throws(() => cleanProfile({ currencyRate: 'abc' }), /above 0/);
+test('your profile keeps Impact figures of your own, each one checked; empty ones are the organisation\'s', () => {
+  assert.deepEqual(cleanProfile({ impact: { currency: 'inr', hourlyRate: '4000', creditPrice: 150.456, triageMinutes: '45' } }).impact, { currency: 'INR', hourlyRate: 4000, creditPrice: 150.46, triageMinutes: 45, fixMinutes: null });
+  assert.deepEqual(cleanProfile({ impact: {} }).impact, { currency: '', hourlyRate: null, creditPrice: null, triageMinutes: null, fixMinutes: null });
+  assert.deepEqual(cleanProfile({ impact: { hourlyRate: '' } }).impact.hourlyRate, null);
+  assert.throws(() => cleanProfile({ impact: { currency: 'XYZ' } }), /not a currency/);
+  assert.throws(() => cleanProfile({ impact: { hourlyRate: -1 } }), /hourly cost or a credit price/);
+  assert.throws(() => cleanProfile({ impact: { fixMinutes: 0 } }), /Minutes must be/);
 });

@@ -586,6 +586,24 @@ export function validTimeZone(zone) {
 }
 
 /** The profile fields of `patch` that are valid; anything else is refused with a reason. */
+const PERSONAL_IMPACT = { currency: '', hourlyRate: null, creditPrice: null, triageMinutes: null, fixMinutes: null };
+
+/** One person's Impact figures: each one empty (the organisation's) or checked as Settings checks it. */
+export function cleanPersonalImpact(input = {}) {
+  const out = { ...PERSONAL_IMPACT };
+  if (!input || typeof input !== 'object') return out;
+  const currency = validCurrency(input.currency);
+  if (input.currency && !currency) throw fail(400, `"${String(input.currency).slice(0, 8)}" is not a currency this server knows.`);
+  out.currency = currency;
+  for (const [key, min, max, whole] of [['hourlyRate', 0, 1_000_000, false], ['creditPrice', 0, 1_000_000, false], ['triageMinutes', 1, 10_000, true], ['fixMinutes', 1, 10_000, true]]) {
+    if (input[key] === null || input[key] === undefined || input[key] === '') continue;
+    const n = Number(input[key]);
+    if (!Number.isFinite(n) || n < min || n > max) throw fail(400, whole ? 'Minutes must be a whole number from 1 to 10000.' : 'An hourly cost or a credit price must be a number from 0 to 1000000.');
+    out[key] = whole ? Math.round(n) : Math.round(n * 100) / 100;
+  }
+  return out;
+}
+
 export function cleanProfile(patch = {}) {
   const out = {};
   if ('language' in patch) {
@@ -598,17 +616,8 @@ export function cleanProfile(patch = {}) {
     out.timeZone = zone;
   }
   if ('timeZoneAuto' in patch) out.timeZoneAuto = patch.timeZoneAuto !== false;
-  // Their own currency for money on the Impact page, at the rate they give from the organisation's ('' = the organisation's).
-  if ('currency' in patch) {
-    const currency = validCurrency(patch.currency);
-    if (patch.currency && !currency) throw fail(400, `"${String(patch.currency).slice(0, 8)}" is not a currency this server knows.`);
-    out.currency = currency;
-  }
-  if ('currencyRate' in patch) {
-    const rate = patch.currencyRate === null || patch.currencyRate === '' ? null : Number(patch.currencyRate);
-    if (rate !== null && !(Number.isFinite(rate) && rate > 0 && rate <= 1e9)) throw fail(400, 'The exchange rate must be a number above 0.');
-    out.currencyRate = rate;
-  }
+  // Their own Impact figures: currency, hourly cost, credit price and minutes ('' / null: the organisation's).
+  if ('impact' in patch) out.impact = cleanPersonalImpact(patch.impact);
   if ('programmingLanguages' in patch) {
     const list = Array.isArray(patch.programmingLanguages) ? patch.programmingLanguages : [];
     const unknown = list.filter((l) => !PROGRAMMING_LANGUAGES.includes(l));
@@ -652,8 +661,7 @@ export function publicUser(user) {
       timeZone: user.profile?.timeZone ?? '',
       timeZoneAuto: user.profile?.timeZoneAuto !== false,
       programmingLanguages: user.profile?.programmingLanguages ?? [],
-      currency: user.profile?.currency ?? '',
-      currencyRate: user.profile?.currencyRate ?? null,
+      impact: { ...PERSONAL_IMPACT, ...(user.profile?.impact ?? {}) },
     },
     // The picture itself is fetched on its own (GET /api/users/:id/avatar?v=avatarAt).
     avatarAt: user.avatar?.at ?? '',

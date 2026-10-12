@@ -392,25 +392,34 @@ test('stage 11 — Impact: hours saved, noise removed and the debt, from the rea
   assert.match(html, /Hours saved/);
   assert.match(html, /How these are worked out/);
 
-  // Anyone may see the money in their own currency, at the rate they give from the organisation's.
-  assert.equal((await admin('GET', '/api/me')).body.organisationCurrency, 'EUR');
-  assert.equal((await admin('PUT', '/api/me/profile', { currency: 'XYZ' })).status, 400);
-  assert.equal((await admin('PUT', '/api/me/profile', { currency: 'INR', currencyRate: -2 })).status, 400);
-  const chosen = await admin('PUT', '/api/me/profile', { currency: 'inr' });
-  assert.deepEqual([chosen.body.user.profile.currency, chosen.body.user.profile.currencyRate], ['INR', null]);
+  // Anyone may work the Impact out with their own figures: currency, rates and minutes (no exchange rate).
+  assert.equal((await admin('GET', '/api/me')).body.organisationImpact.currency, 'EUR');
+  assert.equal((await admin('PUT', '/api/me/profile', { impact: { currency: 'XYZ' } })).status, 400);
+  assert.equal((await admin('PUT', '/api/me/profile', { impact: { hourlyRate: -2 } })).status, 400);
+  assert.equal((await admin('PUT', '/api/me/profile', { impact: { triageMinutes: 0 } })).status, 400);
+  // Only the minutes: money stays in the organisation's currency and rates.
+  await admin('PUT', '/api/me/profile', { impact: { triageMinutes: 60 } });
+  const minutes = (await admin('GET', '/api/impact?days=30')).body;
+  assert.deepEqual(minutes.personal, ['triageMinutes']);
+  assert.deepEqual([minutes.money.currency, minutes.settings.triageMinutes, minutes.settings.hourlyRate], ['EUR', 60, 100]);
+  assert.equal(minutes.hours.triage, Math.round(after.credits.triage * 10) / 10, 'an hour per result');
+  // A currency of their own: the organisation's money figures (in EUR) are not used until they give theirs.
+  const chosen = await admin('PUT', '/api/me/profile', { impact: { currency: 'inr', triageMinutes: 60 } });
+  assert.deepEqual(chosen.body.user.profile.impact, { currency: 'INR', hourlyRate: null, creditPrice: null, triageMinutes: 60, fixMinutes: null });
   const noRate = (await admin('GET', '/api/impact?days=30')).body;
-  assert.deepEqual([noRate.money.currency, noRate.converted], ['EUR', null], 'without a rate: the organisation\'s currency');
-  await admin('PUT', '/api/me/profile', { currencyRate: 90 });
+  assert.deepEqual([noRate.money.currency, noRate.money.value], ['INR', null], 'no hourly cost of their own yet: hours only');
+  await admin('PUT', '/api/me/profile', { impact: { currency: 'INR', hourlyRate: 4000, creditPrice: 150 } });
   const mine = (await admin('GET', '/api/impact?days=30')).body;
-  assert.deepEqual(mine.converted, { from: 'EUR', to: 'INR', rate: 90 });
-  assert.deepEqual([mine.money.currency, mine.organisationCurrency, mine.settings.hourlyRate, mine.settings.creditPrice], ['INR', 'EUR', 9000, 180]);
-  assert.ok(Math.abs(mine.money.value - after.money.value * 90) < 1, `${mine.money.value} vs ${after.money.value} × 90`);
-  assert.equal(mine.money.cost, after.money.cost * 90);
+  assert.deepEqual(mine.personal, ['currency', 'hourlyRate', 'creditPrice']);
+  assert.deepEqual([mine.money.currency, mine.organisationCurrency, mine.settings.triageMinutes], ['INR', 'EUR', 30]);
+  assert.equal(mine.money.value, Math.round(mine.hours.total * 4000 * 100) / 100);
+  assert.equal(mine.money.cost, mine.credits.total * 150);
   const myPage = await (await fetch(`${BASE}/api/impact/summary.html?days=30`, { headers: { Cookie: cookie } })).text();
-  assert.match(myPage, /Amounts in INR, at 1 EUR = 90 INR/);
+  assert.match(myPage, /Personal figures from the reader's profile: currency, hourly cost, price of one credit/);
   assert.match(myPage, /₹/);
-  await admin('PUT', '/api/me/profile', { currency: '', currencyRate: null });
-  assert.equal((await admin('GET', '/api/impact?days=30')).body.money.currency, 'EUR');
+  await admin('PUT', '/api/me/profile', { impact: {} });
+  const back = (await admin('GET', '/api/impact?days=30')).body;
+  assert.deepEqual([back.money.currency, back.personal], ['EUR', null]);
   // No mail server tested yet: refused with the reason.
   assert.notEqual((await admin('POST', '/api/impact/email', {})).status, 200);
   // With one: last month's summary, to the list only, numbers and no chart (mail clients drop SVG).
