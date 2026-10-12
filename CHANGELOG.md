@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.67 | 508/s, 0 (main 505, 0) | 6.7 s | 816 ms | 602 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.66 | 514/s, 0 (main 501, 0) | 6.1 s | 243 ms | 596 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.65 | 511/s, 0 (main 520, 0) | 5.0 s | 276 ms | 595 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.64 | 526/s, 0 (main 521, 0) | 5.9 s | 246 ms | 591 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -62,7 +63,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **A report that makes the point.** The report opens with the total credits and bundles, says what was read live from Checkmarx One and when, tells today, the coming months and Fusion in three cards, and puts every figure in an appendix. It is written in all fifteen languages, each reviewed twice.
 - **Email from the page.** Up to 10 addresses, through the server's mail settings. The attached report is checked for scripts and outside links, and each send is written to the audit log.
 - **Fusion models you can name.** A model added by hand gets a box for its name, and projects show 100 at a time.
-- **Status.** STATUS_BULLET
+- **Status.** 602 tests pass; 0 vulnerabilities in `npm audit --omit=dev`; 508 requests a second with 0 failed against main's 505, report opens at p95 6.7 s against 9.0 s; the new email route checked for what a report may contain and who it may go to; no new Checkmarx One scan, as the connector needs signing in again ([status](docs/status.md)).
 
 ## MZ-01.00.66 — 2026-10-12 09:02 UTC · [#89](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/89)
 
