@@ -27,6 +27,23 @@ RUN --mount=type=secret,id=ca,required=false \
     if [ -s /run/secrets/ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/ca; fi && \
     npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
+# ---- The file list: every file the image runs, with its SHA-256 (src/integrity/) ----
+# The release workflow signs this exact file (a GitHub build attestation, logged by Sigstore), and the
+# server checks its own files and that signature (Settings → Update & recovery → Software integrity).
+FROM deps AS integrity
+ARG MZ_COMMIT=""
+ARG MZ_REPOSITORY=""
+COPY package.json package-lock.json ./
+COPY src ./src
+COPY public ./public
+COPY scripts ./scripts
+COPY LICENSE TERMS.md CHANGELOG.md ./
+RUN node scripts/integrity.mjs write /app --commit "$MZ_COMMIT" --repository "$MZ_REPOSITORY"
+
+# The file list alone, for the release workflow to sign: docker buildx build --target integrity-out --output type=local,dest=out .
+FROM scratch AS integrity-out
+COPY --from=integrity /app/integrity.json /
+
 # ---- Runtime: Node.js without a package manager, runs as `node` (uid 1000) ----
 FROM docker.io/library/alpine:3.24
 
@@ -47,6 +64,7 @@ COPY src ./src
 COPY public ./public
 COPY scripts ./scripts
 COPY LICENSE TERMS.md CHANGELOG.md ./
+COPY --from=integrity /app/integrity.json ./
 # The Node.js this image runs (# mz-runtime): an update from Settings that needs another one says so.
 RUN node -p "process.versions.node" > .node-version # mz-runtime
 

@@ -22,12 +22,28 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # Pull requests from this repository sign their file list too, so the server's check of a real
+      # attestation is tried before a release (src/integrity/; their ref is refused by the server itself).
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - name: Build
-        run: docker build -t mission-zero:test .
+        run: docker build --build-arg MZ_COMMIT=${{ github.sha }} --build-arg MZ_REPOSITORY=${{ github.repository }} -t mission-zero:test .
+      - name: The file list matches the image
+        run: |
+          docker run --rm --entrypoint node mission-zero:test scripts/integrity.mjs check
+          docker create --name mz-files mission-zero:test > /dev/null
+          docker cp mz-files:/app/integrity.json integrity.json
+          docker rm mz-files > /dev/null
+          grep -q '"repository": "${{ github.repository }}"' integrity.json
+      - name: Sign the file list (pull requests from this repository)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: integrity.json
       - name: Start, turn healthy, sign in
         run: |
           # Run as hardened as compose.yaml does: read-only root, no capabilities, no privilege escalation.
@@ -105,6 +121,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # Signing: the file list and the image get a GitHub build attestation (Sigstore, public log).
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -131,12 +150,38 @@ jobs:
             type=sha
           labels: |
             io.cxmissionzero.version=${{ steps.version.outputs.version }}
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+      - id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            MZ_COMMIT=${{ github.sha }}
+            MZ_REPOSITORY=${{ github.repository }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # The file list the server checks itself against: the same bytes on both platforms, then signed.
+      - name: The file list, identical on amd64 and arm64
+        id: files
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}@${{ steps.build.outputs.digest }}"
+          for platform in linux/amd64 linux/arm64; do
+            docker run --rm --platform "$platform" --entrypoint cat "$image" /app/integrity.json > "integrity-${platform#linux/}.json"
+          done
+          cmp integrity-amd64.json integrity-arm64.json
+          cp integrity-amd64.json integrity.json
+          sha256sum integrity.json
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - name: Sign the file list
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: integrity.json
+      - name: Sign the image
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.files.outputs.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true

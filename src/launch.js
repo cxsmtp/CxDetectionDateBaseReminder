@@ -46,6 +46,7 @@ let readyTimer = null;
 
 function start(target, { trial = false } = {}) {
   current = target;
+  if (/changed since it was installed/.test(target.reason ?? '')) say(target.reason);
   const entry = path.join(target.dir, 'src', 'server.js');
   say(`Starting MZ-${target.version} (${target.source === 'update' ? 'installed from the Update page' : 'the image’s own'}).`);
   child = fork(entry, process.argv.slice(2), {

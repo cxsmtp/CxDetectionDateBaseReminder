@@ -9,6 +9,7 @@ import { config, configProblems } from './config.js';
 import { APP_VERSION, PACKAGE_VERSION } from './version.js';
 import { DEFAULT_IMAGE } from './updates/registry.js';
 import { UpdateService } from './updates/service.js';
+import { IntegrityService } from './integrity/service.js';
 import { VersionStore } from './updates/store.js';
 import { SendGuard } from './send-guard.js';
 import { ActivityLog, describe as describeAction, fieldNames, recordsGet, targetOf } from './activity-log.js';
@@ -1145,6 +1146,8 @@ function describeMe(session, user) {
     integration: { connected: Boolean(integration), tenant },
     // Connection settings put back because new ones did not work: shown once to each administrator.
     configNotices: held.has('integration.cxone') || held.has('integration.smtp') ? guard.unseen(user.id) : [],
+    // Whether the code running is what the release workflow built: for those who look after updates.
+    integrity: held.has('system.update') && integrity.last ? { state: integrity.last.state, summary: integrity.last.summary } : null,
     // The page's languages this person may use (Hebrew only for the people chosen).
     languages: languageAccess.available(allowedLanguages(user.id)),
     // Add-ons a code has unlocked (in date or not): until then the page does not show them.
@@ -8372,6 +8375,37 @@ if (backupConfig.intervalHours > 0) {
 // Settings → Update & recovery (Admin): new versions, rollback, restart, troubleshooting
 // ---------------------------------------------------------------------------
 
+// Software integrity: the running files against the signed file list, and who built it (src/integrity/).
+const integrity = new IntegrityService({
+  appDir: projectDir,
+  dataDir,
+  token: process.env.GITHUB_TOKEN?.trim() || '',
+  record: ({ outcome, reason, details }) => {
+    audit.record({ type: 'system', outcome, reason, actor: SYSTEM_ACTOR, details });
+    if (outcome === 'failure') {
+      console.warn(`[integrity] ${reason}`);
+      diagnostics.discrepancy('software-integrity', { state: details?.state });
+    }
+  },
+});
+integrity.start();
+
+app.get('/api/integrity', requirePermission('system.update'), (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ ...(integrity.last ?? { state: 'checking', summary: 'The first check runs a few seconds after start.' }), repository: integrity.repository });
+});
+
+app.post(
+  '/api/integrity/check',
+  requirePermission('system.update'),
+  asyncRoute(async (req, res) => {
+    // At most one fresh check a minute: each asks GitHub once.
+    const recent = integrity.last && Date.now() - Date.parse(integrity.last.at) < 60_000;
+    const result = recent ? integrity.last : await integrity.check({ reason: `asked by ${req.user?.email ?? 'someone'}` });
+    res.json({ ...result, repository: integrity.repository });
+  }),
+);
+
 const updateStore = new VersionStore({
   dataDir,
   builtInDir: process.env.MZ_BUILTIN_DIR || projectDir,
@@ -8385,6 +8419,8 @@ const updates = new UpdateService({
   supervised: process.env.MZ_SUPERVISOR === '1' && typeof process.send === 'function',
   record: ({ outcome, reason, by, details }) =>
     audit.record({ type: 'system', outcome, reason, actor: by && by !== 'auto-update' ? { kind: 'user', user: by } : SYSTEM_ACTOR, details }),
+  // Only what the release workflow built and signed is installed or switched to.
+  integrity,
   beforeSwitch: (version) => backupToFolder(SYSTEM_ACTOR, `Before switching to ${version === 'built-in' ? 'the image’s own version' : `MZ-${version}`}`),
   // A stop this server asked for (an update, a version switch, a restart): planned, so no "it stopped" email.
   switchTo: (message) => {

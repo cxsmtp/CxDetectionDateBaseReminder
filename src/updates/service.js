@@ -22,6 +22,11 @@ import path from 'node:path';
 
 import { ImageRegistry, UpdateError, appLayers, untarLayer } from './registry.js';
 import { BUILT_IN, compareVersions } from './store.js';
+import { compareFiles, readManifest } from '../integrity/manifest.js';
+import { compareFileMap } from '../integrity/service.js';
+
+/** The first version whose build signs its file list: from it on, an unsigned copy is never installed. */
+const SIGNED_FROM = '1.0.72';
 
 const VERSION_LABEL = 'io.cxmissionzero.version';
 const VERSION = /^\d{1,4}\.\d{1,4}\.\d{1,4}$/;
@@ -65,8 +70,9 @@ export class UpdateService {
   #cacheFile;
   #job = null;
 
-  constructor({ store, runningVersion, image, token = '', supervised = false, record = () => {}, beforeSwitch = async () => {}, switchTo = () => {}, fetch: fetchImpl, arch } = {}) {
+  constructor({ store, runningVersion, image, token = '', supervised = false, record = () => {}, beforeSwitch = async () => {}, switchTo = () => {}, fetch: fetchImpl, arch, integrity = null } = {}) {
     this.store = store;
+    this.integrity = integrity;
     this.runningVersion = runningVersion;
     this.supervised = supervised;
     this.record = record;
@@ -266,12 +272,14 @@ export class UpdateService {
       if (nodeNeeded && nodeNeeded.split('.')[0] !== process.versions.node.split('.')[0]) {
         throw new UpdateError(`That version needs Node.js ${nodeNeeded} (this image has ${process.versions.node}): replace the image itself (full image update, or podman pull).`, 409);
       }
+      job.step = 'Checking that it is genuine';
+      const genuine = await this.#genuine(files);
       job.step = 'Installing';
       const meta = { image: registry.name, tag: ref, digest: image.digest, revision: String(image.labels?.['org.opencontainers.image.revision'] ?? ''), created: image.created, by };
       const installed = this.store.install(files, meta);
       job.version = installed.version;
       job.whatsNew = this.whatsNew(files);
-      this.record({ outcome: 'success', reason: `MZ-${installed.version} installed (${ref}, ${Math.round(registry.downloaded / 1024)} KB checked against its digests)${automatic ? ' automatically' : ''}.`, by, details: { version: installed.version, tag: ref, digest: image.digest } });
+      this.record({ outcome: 'success', reason: `MZ-${installed.version} installed (${ref}, ${Math.round(registry.downloaded / 1024)} KB checked against its digests${genuine ? `; ${genuine}` : ''})${automatic ? ' automatically' : ''}.`, by, details: { version: installed.version, tag: ref, digest: image.digest } });
       if (switchAfter) await this.switch(installed.version, { by, automatic, job });
       else job.state = 'done';
     })().catch((error) => {
@@ -282,10 +290,54 @@ export class UpdateService {
     return job;
   }
 
+  /**
+   * An update's files against the signed file list among them, and that list's signature: anything
+   * else is refused. Versions older than MZ-01.00.72 had no list; they install as before, said so.
+   * Returns a few words for the record. INTEGRITY_OFFLINE=allow accepts a matching file list when
+   * GitHub cannot be reached to confirm who signed it (a server without internet).
+   */
+  async #genuine(files) {
+    if (!this.integrity) return '';
+    let version = '';
+    try {
+      version = String(JSON.parse(files.get('package.json')?.toString('utf8') ?? '{}').version ?? '');
+    } catch {}
+    const r = compareFileMap(files);
+    if (!r) {
+      if (VERSION.test(version) && compareVersions(version, SIGNED_FROM) >= 0) throw new UpdateError(`MZ-${version} has no signed file list, which every release from MZ-01.00.72 has: not installed.`, 422);
+      return 'no signed file list (older than MZ-01.00.72)';
+    }
+    if (r.error || !r.ok) throw new UpdateError(`MZ-${version}'s files differ from its signed file list (${r.counts ? `${r.counts.changed} changed, ${r.counts.missing} missing, ${r.counts.extra} added` : r.error}): not installed.`, 422);
+    return this.#origin(r.digest, version, r.checked);
+  }
+
+  async #origin(digest, version, checked) {
+    const origin = await this.integrity.verifyOrigin(digest);
+    if (origin.ok) return `all ${checked} files match the file list signed by ${origin.repository}'s release workflow (commit ${String(origin.commit).slice(0, 12)})`;
+    if (origin.reachable === false && process.env.INTEGRITY_OFFLINE === 'allow') return `all ${checked} files match their list; who signed it was not confirmed (${origin.reason}; INTEGRITY_OFFLINE=allow)`;
+    const hint = origin.reachable === false ? ' Allow api.github.com over HTTPS (Settings → Network & proxy), or set INTEGRITY_OFFLINE=allow to rely on the file check alone.' : '';
+    throw new UpdateError(`MZ-${version} is not confirmed as built by the release workflow: ${origin.reason}.${hint}`, 422);
+  }
+
+  /** An installed version (or the image's own) is checked again before it runs: its folder could have been changed since. */
+  async #genuineInstalled(version) {
+    if (!this.integrity) return;
+    const entry = version === BUILT_IN ? this.store.builtIn : this.store.list().find((v) => v.version === version);
+    const read = readManifest(entry.dir);
+    if (!read) {
+      if (compareVersions(entry.version, SIGNED_FROM) >= 0 && version !== BUILT_IN) throw new UpdateError(`MZ-${entry.version} has no signed file list: not switched to. Install it again.`, 422);
+      return;
+    }
+    const r = read.error ? { ok: false } : compareFiles(entry.dir, read.manifest);
+    if (!r.ok) throw new UpdateError(`MZ-${entry.version}'s files have changed since it was installed (${r.changed ? `${r.changed.length} changed, ${r.missing.length} missing, ${r.extra.length} added` : read.error}): not switched to. Install it again.`, 422);
+    await this.#origin(read.digest, entry.version, r.checked);
+  }
+
   /** Run `version` (or the image's own) from now: a backup first, then the launcher switches. */
   async switch(version, { by = '', automatic = false, job = null } = {}) {
     if (!this.supervised) throw new UpdateError('Switching versions needs the launcher (the image’s own start command).', 409);
     if (version !== BUILT_IN && !this.store.list().some((v) => v.version === version)) throw new UpdateError(`MZ-${version} is not installed.`, 404);
+    if (!job) await this.#genuineInstalled(version);
     if (job) job.step = 'Backing up before the switch';
     await this.beforeSwitch(version);
     this.store.choose(version, { by: automatic ? 'auto-update' : by });
