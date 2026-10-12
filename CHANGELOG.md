@@ -57,7 +57,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.70 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.70 — 2026-10-12 14:22 UTC · [#93](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/93)
 
 - **Still to come follows your sliders.** In the Cx Credits Calculator, new findings are now counted in the same share per severity as the backlog chosen under Customize per severity. With half of High chosen, half of High's new findings count; a severity set to none adds none. Before, every severity's new findings counted in full, whatever was chosen.
 - **The forecast agrees.** With the plan, the part of each severity not chosen keeps its own trend instead of being assumed handled. The projection report says when new findings follow the share chosen.
