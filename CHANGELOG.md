@@ -53,7 +53,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.66 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.66 — 2026-10-12 09:02 UTC · [#89](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/89)
 
 - **Credits allocate in seconds.** Checking with Checkmarx One reads each scan's result list once, without code paths and 8 pages at a time, and keeps it 10 minutes for your sign-in only: checking 2 projects on a large scan took 6.6 s instead of 35 s.
 - **Narrow to applications.** The Dashboard's scope takes Checkmarx One applications next to projects and people: pick one and every project in it is loaded, alone or with others you name.
