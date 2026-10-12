@@ -53,6 +53,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.67 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+
+- **One click to the answer.** In the Cx Credits Calculator, Generate projection report reads Checkmarx One when needed and writes the report with every default already set. Customize opens the rest, Start again clears the page, and Email sends the report.
+- **Findings still to come count too.** Triage and remediation adds the findings that the last 3 months' trend says will arrive over the projection period, plus more found once Fusion is on (20% by default), minus the false positives FAE keeps from being reported (10% by default). Today's backlog and what is ahead are shown apart.
+- **Narrow it like the Dashboard.** Count only some applications, groups, initiators, scan frequencies, criticalities or project names (with `*` and `?` wildcards), and the figures follow without reading Checkmarx One again.
+- **Trends, not a snapshot.** The final matrix drops "Latest" for the 3-, 6-, 9- or 12-month trend, and the charts are thinner, with labels at the line ends and one small chart per severity.
+- **A report that makes the point.** The report opens with the total credits and bundles, says what was read live from Checkmarx One and when, tells today, the coming months and Fusion in three cards, and puts every figure in an appendix. It is written in all fifteen languages, each reviewed twice.
+- **Email from the page.** Up to 10 addresses, through the server's mail settings. The attached report is checked for scripts and outside links, and each send is written to the audit log.
+- **Fusion models you can name.** A model added by hand gets a box for its name, and projects show 100 at a time.
+- **Status.** STATUS_BULLET
+
 ## MZ-01.00.66 — 2026-10-12 09:02 UTC · [#89](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/89)
 
 - **Credits allocate in seconds.** Checking with Checkmarx One reads each scan's result list once, without code paths and 8 pages at a time, and keeps it 10 minutes for your sign-in only: checking 2 projects on a large scan took 6.6 s instead of 35 s.
