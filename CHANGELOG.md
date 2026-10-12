@@ -60,7 +60,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.73 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.73 — 2026-10-12 18:58 UTC · [#96](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/96)
 
 - **Releases are signed.** MZ-01.00.72's image was published, but the step that signs it stopped: reading the file list from the arm64 image right after the amd64 one is something Docker refuses for two platforms of one image. Each platform's file list is now read from its own image, compared, and then signed with the image. From this release on, Settings → Update & recovery shows **Genuine**.
 - **MZ-01.00.72 stays unsigned.** A server running it shows **Not signed by the release workflow**: its files are what was built, but no signature exists for them. Updating to MZ-01.00.73 is the fix.
