@@ -184,6 +184,8 @@ For example, 24,000 + 700.5 credits with 10% extra is 27,170.55 credits: 2.72 bu
 
 **Generate projection report** makes one report from both tabs and the summary, downloads it, and keeps it on the **Projection reports** tab.
 
+**Download PDF summary** appears once the report is made: three 16:9 pages to present, in the page's language. Page 1 is triage & remediation: the backlog today, the findings still to come, to triage, the credits, and the backlog trend and forecast, with debt added against fixes in one line. Page 2 is Checkmarx Fusion: projects, lines of code, scans and credits, and the credits by how often projects are scanned. Page 3 is the total credits required, in bundles, what they are for, and the assumptions. It is drawn in your browser: nothing is sent anywhere. **PDF** beside each saved report on the **Projection reports** tab makes the same summary for that report.
+
 - The file is named after the customer and the time it was made, on your clock: `Globex_Cx-credits-projection_2026-10-09_2047.html`.
 - It is one HTML file with everything in it: no scripts and nothing loaded from anywhere. Open it in any browser, or print it to PDF (always in the light theme).
 - It is written in the language the page is in when it is made or downloaded again, right to left for Arabic and Hebrew.

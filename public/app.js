@@ -10160,7 +10160,7 @@ function renderPersonalImpact(profile) {
     if (document.activeElement !== input) input.value = mine[key] ?? '';
   }
   $('pf-impact-hint').innerHTML = own
-    ? `<span>In a currency of your own, give your own hourly cost and price of one credit: the organisation's are in</span> <b translate="no">${escapeHtml(org.currency || 'USD')}</b><span>.</span>`
+    ? `<span>In a currency of your own, give your own hourly cost and price of one credit. The organisation's are in:</span> <b translate="no">${escapeHtml(org.currency || 'USD')}</b>`
     : `<span>The organisation's currency:</span> <b translate="no">${escapeHtml(org.currency || 'USD')}</b>`;
 }
 
