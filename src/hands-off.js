@@ -133,7 +133,7 @@ export function systemEmail({ appName = 'CxMissionZero', subject, lines = [], fa
 <h1 style="font-size:18px;margin:0 0 12px">${esc(subject)}</h1>
 ${lines.map((l) => `<p style="margin:0 0 8px">${esc(l)}</p>`).join('')}
 ${facts.length ? `<table role="presentation" style="border-collapse:collapse;margin:8px 0 12px;font-size:13px">${facts.map(([k, v]) => `<tr><td style="padding:2px 12px 2px 0;color:#64748b">${esc(k)}</td><td style="padding:2px 0">${esc(v)}</td></tr>`).join('')}</table>` : ''}
-${buttons.length ? `<p style="margin:12px 0">${buttons.map((b) => `<a href="${esc(b.url)}" style="display:inline-block;margin:0 8px 8px 0;padding:8px 14px;border-radius:8px;background:#4f46e5;color:#fff;text-decoration:none;font-weight:600">${esc(b.label)}</a>`).join('')}</p>` : ''}
+${buttons.length ? `<p style="margin:12px 0">${buttons.map((b) => `<a href="${esc(b.url)}" style="display:inline-block;margin:0 8px 8px 0;padding:8px 14px;border-radius:6px;background:#14171c;color:#fff;text-decoration:none;font-weight:600">${esc(b.label)}</a>`).join('')}</p>` : ''}
 ${help ? `<p style="margin:8px 0;color:#475467;font-size:13px">${esc(help)}</p>` : ''}
 ${footer ? `<p style="margin:8px 0;color:#475467;font-size:13px;white-space:pre-wrap">${esc(footer)}</p>` : ''}
 ${reference ? `<p style="margin:12px 0 0;color:#94a3b8;font-size:12px">${esc(appName)} reference: ${esc(reference)}</p>` : ''}

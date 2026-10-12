@@ -29,9 +29,9 @@ export function debtChartSvg(series, { width = 680, height = 200 } = {}) {
   const ly = y(last.score);
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Security debt from ${day(series[0].at)} to ${day(last.at)}: ${num(series[0].score)} to ${num(last.score)}" style="max-width:${width}px;font-family:inherit">
     ${ticks}
-    <path d="${area}" fill="#4f46e5" fill-opacity="0.1"/>
-    <path d="${line}" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    <circle cx="${lx}" cy="${ly}" r="4" fill="#4f46e5" stroke="#fff" stroke-width="2"/>
+    <path d="${area}" fill="#2856c9" fill-opacity="0.1"/>
+    <path d="${line}" fill="none" stroke="#2856c9" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${lx}" cy="${ly}" r="4" fill="#2856c9" stroke="#fff" stroke-width="2"/>
     <text x="${lx + 8}" y="${ly + 4}" font-size="12" font-weight="600" fill="#0f172a">${num(last.score)}</text>
     <text x="${pad.l}" y="${height - 6}" font-size="11" fill="#64748b">${esc(day(series[0].at))}</text>
     <text x="${width - pad.r}" y="${height - 6}" font-size="11" fill="#64748b" text-anchor="end">${esc(day(last.at))}</text>

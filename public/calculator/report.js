@@ -106,13 +106,13 @@ function fusionSection(f, L) {
 }
 
 const STYLE = `
-:root{color-scheme:light;--bg:#f6f7fb;--card:#fff;--ink:#111827;--muted:#5b6474;--line:#e5e7eb;--grid:#e5e7eb;--row:#eef0f4;--soft:#eef2ff;--soft-line:#c7d2fe;--gold:#4338ca;--plan:#7c3aed;--head1:#1e1b4b;--head2:#4f46e5}
+:root{color-scheme:light;--bg:#f6f7fb;--card:#fff;--ink:#111827;--muted:#5b6474;--line:#e5e7eb;--grid:#e5e7eb;--row:#eef0f4;--soft:#eef2ff;--soft-line:#c7d2fe;--gold:#4338ca;--plan:#7c3aed;--head1:#14171c;--head2:#4f46e5}
 ${'' /* Dark: chosen, or Auto on a system set to dark. */}
-@media (prefers-color-scheme:dark){:root:not(:has(#theme-light:checked)){color-scheme:dark;--bg:#0b0f19;--card:#141925;--ink:#e5e7eb;--muted:#9aa3b2;--line:#273042;--grid:#273042;--row:#1d2433;--soft:#1e2140;--soft-line:#3b3f7a;--gold:#a5b4fc;--plan:#c4b5fd;--head1:#111433;--head2:#3730a3}}
-:root:has(#theme-dark:checked){color-scheme:dark;--bg:#0b0f19;--card:#141925;--ink:#e5e7eb;--muted:#9aa3b2;--line:#273042;--grid:#273042;--row:#1d2433;--soft:#1e2140;--soft-line:#3b3f7a;--gold:#a5b4fc;--plan:#c4b5fd;--head1:#111433;--head2:#3730a3}
+@media (prefers-color-scheme:dark){:root:not(:has(#theme-light:checked)){color-scheme:dark;--bg:#0b0f19;--card:#141925;--ink:#e5e7eb;--muted:#9aa3b2;--line:#273042;--grid:#273042;--row:#1d2433;--soft:#1e2140;--soft-line:#3b3f7a;--gold:#a5b4fc;--plan:#c4b5fd;--head1:#0d0f12;--head2:#3730a3}}
+:root:has(#theme-dark:checked){color-scheme:dark;--bg:#0b0f19;--card:#141925;--ink:#e5e7eb;--muted:#9aa3b2;--line:#273042;--grid:#273042;--row:#1d2433;--soft:#1e2140;--soft-line:#3b3f7a;--gold:#a5b4fc;--plan:#c4b5fd;--head1:#0d0f12;--head2:#3730a3}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow-wrap:anywhere}
-header{background:linear-gradient(120deg,var(--head1),var(--head2));color:#fff;padding:28px 32px}
+header{background:var(--head1);color:#fff;padding:28px 32px}
 header .top{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px 20px}
 header .eyebrow{opacity:.85;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
 header h1{margin:4px 0 6px;font-size:26px;line-height:1.25}

@@ -5570,7 +5570,7 @@ function renderPreview(result) {
           `<div style="font:13px system-ui;padding:8px 12px;background:#eef2ff;border-bottom:1px solid #c7d2fe">
              <strong>To:</strong> ${escapeHtml(m.email)} &nbsp;
              <strong>Subject:</strong> ${escapeHtml(m.subject)} &nbsp;
-             <span style="color:#4f46e5">${m.riskCount} finding(s)${
+             <span style="color:var(--accent)">${m.riskCount} finding(s)${
                m.projectName ? ` in ${escapeHtml(m.projectName)}` : ` across ${m.projectCount} project(s)`
              }</span>
            </div>${m.html}`,

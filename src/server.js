@@ -5537,7 +5537,7 @@ async function mailDevelopers(report, kind) {
   const window = currentWindow(report);
   if (!window?.developers?.length || !isVerified(settings)) return 0;
   const brand = settings.branding?.companyName || settings.branding?.appName || 'Application security';
-  const accent = /^#[0-9a-f]{6}$/i.test(settings.branding?.accentColor ?? '') ? settings.branding.accentColor : '#4f46e5';
+  const accent = /^#[0-9a-f]{6}$/i.test(settings.branding?.accentColor ?? '') ? settings.branding.accentColor : '#2856c9';
   const result = report.verification?.result;
   const due = new Date(window.dueAt).toUTCString().replace(/:\d\d GMT$/, ' UTC');
   let sent = 0;
@@ -6180,7 +6180,7 @@ app.post(
 
 /** The emailed link: one page, no script, one button. */
 const rescanPage = (title, body, { grant = '', button = false } = {}) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/app-icon"><title>${escapeHtmlText(title)}</title>
-<style>body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f5f6fa;color:#111827;display:grid;place-items:center;min-height:100vh}main{max-width:520px;margin:16px;background:#fff;border:1px solid #e3e6ee;border-radius:14px;padding:28px}h1{font-size:20px;margin:0 0 12px}p{line-height:1.5;color:#374151}button{margin-top:12px;background:#4f46e5;color:#fff;border:0;border-radius:9px;padding:12px 20px;font:inherit;font-weight:600;cursor:pointer}small{color:#6b7280}@media(prefers-color-scheme:dark){body{background:#0f1117;color:#e5e7eb}main{background:#171a23;border-color:#2a2f3c}p{color:#cbd5e1}}</style></head>
+<style>body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f5f6fa;color:#111827;display:grid;place-items:center;min-height:100vh}main{max-width:520px;margin:16px;background:#fff;border:1px solid #e3e6ee;border-radius:10px;padding:28px}h1{font-size:20px;margin:0 0 12px}p{line-height:1.5;color:#374151}button{margin-top:12px;background:#14171c;color:#fff;border:0;border-radius:9px;padding:12px 20px;font:inherit;font-weight:600;cursor:pointer}small{color:#6b7280}@media(prefers-color-scheme:dark){body{background:#0f1117;color:#e5e7eb}main{background:#171a23;border-color:#2a2f3c}p{color:#cbd5e1}}</style></head>
 <body><main><h1>${escapeHtmlText(title)}</h1>${body}${button ? `<form method="post" action="/rescan${escapeHtmlText(tenantQuery('?'))}"><input type="hidden" name="g" value="${escapeHtmlText(grant)}"><button type="submit">Rescan now</button></form>` : ''}<p><small>CxMissionZero</small></p></main></body></html>`;
 
 function rescanPageFor(report, grant, token, note = '') {
@@ -6822,7 +6822,7 @@ const ACTION_TITLES = {
 /** The page a link opens: one button, so a mail scanner that opens links never acts. */
 function actionPage(title, message, { confirm = '' } = {}) {
   const page = linkPage(title, message);
-  return confirm ? page.replace('</main>', `<form method="post" style="margin-top:18px"><button type="submit" style="font:inherit;padding:10px 18px;border:0;border-radius:10px;background:#4f46e5;color:#fff;font-weight:600;cursor:pointer">${escapeHtml(confirm)}</button></form></main>`) : page;
+  return confirm ? page.replace('</main>', `<form method="post" style="margin-top:18px"><button type="submit" style="font:inherit;padding:10px 18px;border:0;border-radius:6px;background:#14171c;color:#fff;font-weight:600;cursor:pointer">${escapeHtml(confirm)}</button></form></main>`) : page;
 }
 
 /** A link's token, checked in its own tenant: { tenant, payload } or null. */
@@ -8832,7 +8832,7 @@ const escapeHtmlText = (text) => String(text ?? '').replace(/[&<>"']/g, (c) => (
 /** One author's email: the vulnerable code they wrote, with links to the finding and the commit. */
 function authorMessage(author, items, settings) {
   const brand = settings.branding?.companyName || settings.branding?.appName || 'Application security';
-  const accent = /^#[0-9a-f]{6}$/i.test(settings.branding?.accentColor ?? '') ? settings.branding.accentColor : '#4f46e5';
+  const accent = /^#[0-9a-f]{6}$/i.test(settings.branding?.accentColor ?? '') ? settings.branding.accentColor : '#2856c9';
   const rows = items
     .map((i) => {
       const where = i.location ? `${i.location.path}:${i.location.line}` : '';
