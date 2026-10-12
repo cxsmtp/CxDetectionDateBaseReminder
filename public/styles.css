@@ -2824,3 +2824,11 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
   .calc-table-head h2, .calc-table-head input[type="search"] { flex: 1 1 100%; }
   .calc-report-bar button { width: 100%; }
 }
+
+/* Find a vulnerability (Dashboard scope bar): a search box with its button, and the line saying the data is only that. */
+.vuln-search { display: flex; align-items: center; gap: 6px; flex: 1 1 260px; min-width: 0; max-width: 420px; }
+.vuln-search input[type="search"] { flex: 1 1 auto; min-width: 0; }
+.vuln-search button { flex: 0 0 auto; }
+.vuln-active { margin: 6px 0 0; font-size: 12.5px; padding: 6px 10px; border-radius: 8px; background: var(--accent-soft); color: var(--text); overflow-wrap: anywhere; }
+.vuln-active[hidden] { display: none; }
+.vuln-active .link { margin-inline-start: 4px; }

@@ -59,13 +59,28 @@ async function readScanResults(client, scanId) {
   return rows;
 }
 
+// A scan's rows by engine and similarity id, built once per list: looking each finding up in the
+// whole list was quadratic, and a large project has tens of thousands of both.
+const rowIndexes = new WeakMap();
+function rowsFor(rows, type, similarityId) {
+  let index = rowIndexes.get(rows);
+  if (!index) {
+    index = new Map();
+    for (const row of rows) {
+      const key = `${String(row.type ?? '').toLowerCase()}\u0000${String(row.similarityId ?? '')}`;
+      if (!index.has(key)) index.set(key, []);
+      index.get(key).push(row);
+    }
+    rowIndexes.set(rows, index);
+  }
+  return index.get(`${type}\u0000${similarityId}`) ?? [];
+}
+
 function findRow(rows, finding) {
   const { similarityId, packageIdentifier } = matchKey(finding);
   if (!similarityId) return null;
   const type = finding.scanner.toLowerCase();
-  let matches = rows.filter(
-    (row) => String(row.type ?? '').toLowerCase() === type && String(row.similarityId ?? '') === similarityId,
-  );
+  let matches = rowsFor(rows, type, similarityId);
   // SCA: the same vulnerability in another version of the package is another
   // finding. Never stand one in for the other — AI Triage would run (and
   // charge) for the wrong one, and this one's verdict would never come.

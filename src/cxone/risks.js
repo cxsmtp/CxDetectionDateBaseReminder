@@ -93,6 +93,8 @@ export function normalizeRisk(raw, project, now = new Date()) {
     projectId: project.id,
     projectName: project.name,
     title: String(pick(raw, ['riskName', 'title', 'name', 'queryName', 'cveId']) ?? 'Untitled risk'),
+    // The weakness class, where Checkmarx One gives it (searching "CWE-89" on the Dashboard).
+    cweId: String(pick(raw, ['cweId', 'cwe', 'cweID']) ?? ''),
     severity: String(pick(raw, ['severity', 'riskSeverity', 'severityLevel']) ?? 'UNKNOWN').toUpperCase(),
     state: String(pick(raw, ['state', 'resultState']) ?? '').toUpperCase(),
     status: String(pick(raw, ['status', 'resultStatus']) ?? '').toUpperCase(),
@@ -382,7 +384,7 @@ export async function collectProjectRisks(
   client,
   config,
   projects,
-  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null } = {},
+  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null } = {},
 ) {
   const source = createRiskSource(client, config);
   await source.prime?.(projects);
@@ -405,7 +407,12 @@ export async function collectProjectRisks(
         .map((item) => normalizeShared(item, project, now))
         // The server already applied the window where it could; this also
         // covers the fallback source and any record with an unusable date.
-        .filter((risk) => withinWindow(detectionWindow, risk.firstDetectedAt));
+        .filter((risk) => withinWindow(detectionWindow, risk.firstDetectedAt))
+        // `names` counts every finding's name (suggestions for the vulnerability search); `keep` is that search.
+        .filter((risk) => {
+          if (names) names.set(risk.title, (names.get(risk.title) ?? 0) + 1);
+          return !keep || keep(risk);
+        });
       summary = summariseProject(project, risks, null);
     } catch (error) {
       summary = summariseProject(project, [], error.message ?? String(error));

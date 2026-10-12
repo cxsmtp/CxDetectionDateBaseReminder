@@ -310,9 +310,16 @@
                 <button type="button" class="link narrow-toggle" id="narrow-toggle" aria-expanded="false" aria-controls="scope-pick">Only some projects or people</button>
                 <span class="hint scope-summary" id="scope-summary" hidden></span>
 
+                <form class="vuln-search" id="vuln-form" role="search">
+                  <input type="search" id="vuln-q" list="vuln-names" maxlength="200" autocomplete="off" placeholder="Find a vulnerability: SQL injection, SSRF…" aria-label="Find a vulnerability" title="Only the findings of this vulnerability are loaded, and every action here works on them. Several at once: separate them with commas." />
+                  <datalist id="vuln-names"></datalist>
+                  <button type="submit" class="secondary" data-perm="findings.fetch">Search</button>
+                </form>
+
                 <fieldset class="grow fetch-box">
                   <legend class="sr-only">Fetch</legend>
                   <p class="hint" id="fetch-meta"></p>
+                  <p class="vuln-active" id="vuln-active" hidden></p>
                   <label class="check fetch-fresh" data-advanced title="Projects someone fetched in the last couple of minutes are normally reused when nothing was rescanned or triaged from here since. Tick to read every project from Checkmarx One again."><input type="checkbox" id="fetch-fresh" /> Fresh</label>
                   <div class="fetch-actions">
                     <button id="fetch" class="primary" data-perm="findings.fetch">Load findings</button>
@@ -404,12 +411,12 @@
                     <tr id="projects-head">
                       <th class="checkbox"><input type="checkbox" id="select-all" title="Select all" aria-label="Select all" /></th>
                       <th data-sort="projectName">Project</th>
-                      <th class="num" data-sort="totalRisks">Total</th>
+                      <th class="num" data-sort="totalRisks" title="Open vulnerabilities of every severity, in the period chosen above">Total vulnerabilities</th>
                       <!-- Optional columns (chosen under "Columns") are inserted here. -->
-                      <th data-sort="maxAgeDays">Oldest first detection</th>
-                      <th data-sort="initiator">Latest scan by</th>
-                      <th class="num" title="AI Triage credits left / allocated, and what is still needed">Triage credits</th>
-                      <th class="num" title="AI Remediation credits left / allocated, and what confirmed findings still need">Remediation credits</th>
+                      <th data-sort="maxAgeDays" title="When the oldest open vulnerability was first found, and how many days ago">Oldest open since</th>
+                      <th data-sort="initiator" title="Who ran the project's last scan: reminders go to them">Last scanned by</th>
+                      <th class="num" title="AI Triage credits left / allocated, and what is still needed">AI Triage credits</th>
+                      <th class="num" title="AI Remediation credits left / allocated, and what confirmed findings still need">AI Remediation credits</th>
                     </tr>
                   </thead>
                   <tbody id="projects-body">

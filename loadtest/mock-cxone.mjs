@@ -32,6 +32,9 @@ const mockLoc = (i) => 1500 + ((i * 7919) % 48000);
 // SHARED=1: like a real tenant, some findings are another code path into the same vulnerable code
 // (risk i+4 shares risk i's similarity group, for i in 0–3, 8–11, …), so they are one result.
 const SHARED = process.env.SHARED === '1';
+// VULN_NAMES=1: findings named as Checkmarx One names them (its query names, with their CWE), not "Finding p0-r1".
+const VULN_NAMES = process.env.VULN_NAMES === '1';
+const VULNS = [['SQL_Injection', 89], ['Reflected_XSS_All_Clients', 79], ['SSRF', 918], ['Path_Traversal', 22], ['Hardcoded_password_in_Connection_String', 798], ['Stored_XSS', 79], ['Command_Injection', 78], ['Missing_HSTS_Header', 319], ['Blind_SQL_Injections', 89], ['Server_Side_Request_Forgery', 918], ['XML_External_Entity', 611], ['Log_Forging', 117]];
 const risksFor = (pid) => allRisksFor(pid).filter((r) => !fixedByRescan(pid, `alt-${r.groupId.replace(/^sim-/, '')}`, r.id));
 const allRisksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
   const id = `${pid}-r${i}`;
@@ -39,7 +42,9 @@ const allRisksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
   const alt = `alt-${twin}`;
   const t = triaged.get(alt);
   const state = t && Date.now() - t > FLIP_MS ? (i % 3 ? 'PROPOSED_NOT_EXPLOITABLE' : 'CONFIRMED') : 'TO_VERIFY';
-  return { id, riskName: SHARED ? `Finding ${twin}` : `Finding ${id}`, severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: 'SAST', state, firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}` };
+  const k = Number(twin.split('-r')[1]);
+  const named = VULN_NAMES ? VULNS[k % VULNS.length] : null;
+  return { id, riskName: named ? named[0] : SHARED ? `Finding ${twin}` : `Finding ${id}`, ...(named ? { cweId: named[1] } : {}), severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: 'SAST', state, firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}` };
 });
 // Access tokens are only the ones this mock handed out; request bodies are small.
 const issued = new Set();
