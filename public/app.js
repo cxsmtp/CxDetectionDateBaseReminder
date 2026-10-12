@@ -1990,7 +1990,7 @@ function renderSettings() {
   $('impact-fix-min').value = String(impact.fixMinutes ?? 120);
   $('impact-rate').value = String(impact.hourlyRate ?? 0);
   $('impact-price').value = String(impact.creditPrice ?? 0);
-  $('impact-currency').value = impact.currency ?? 'USD';
+  fillCurrencies($('impact-currency'), impact.currency || 'USD');
   $('impact-monthly-to').value = (impact.monthlyTo ?? []).join(', ');
   $('smtp-password').value = '';
 
@@ -2355,7 +2355,7 @@ function settingsPayload() {
       ]
         .filter(([, value]) => String(value).trim() !== '' && Number.isFinite(Number(value)))
         .map(([key, value]) => [key, Number(value)])
-        .concat(/^[A-Za-z]{3}$/.test($('impact-currency').value.trim()) ? [['currency', $('impact-currency').value.trim()]] : [])
+        .concat($('impact-currency').value ? [['currency', $('impact-currency').value]] : [])
         .concat([['monthlyTo', $('impact-monthly-to').value]]),
     ),
     support: supportSettings(),
@@ -2487,7 +2487,7 @@ const NOT_SAVED = new Set(['test-to', 'env-file', 'brand-logo-file', 'brand-icon
 
 /** Which save an edit belongs to: the settings form, automation, the integration draft, or none. */
 function autosaveKind(el) {
-  if (!el?.id || NOT_SAVED.has(el.id) || el.disabled || el.closest('[hidden]')?.id === 'probe-results' || el.closest('#set-https') || el.closest('#set-mybrand') || el.closest('#set-handsoff')) return '';
+  if (!el?.id || NOT_SAVED.has(el.id) || el.disabled || el.closest('[hidden]')?.id === 'probe-results' || el.closest('#set-https') || el.closest('#set-mybrand') || el.closest('#set-handsoff') || el.closest('#set-profile')) return '';
   if (INTEGRATION_FIELDS.has(el.id)) return 'draft';
   if (el.closest('#set-automation')) return 'automation';
   if (el.matches('input, select, textarea')) return 'settings';
@@ -8870,8 +8870,8 @@ $('credit-allocations').addEventListener('click', (event) => {
 const impact = { data: null, asTable: false };
 const SEV_LABEL = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' };
 const num1 = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 1 }));
-const priceOf = (n, currency) => `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}`;
-const cashOf = (n, currency) => (n === null || n === undefined ? '—' : `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${currency}`);
+const priceOf = (n, currency) => moneyOf(n, currency, 2);
+const cashOf = (n, currency) => moneyOf(n, currency, 0);
 
 async function loadImpact() {
   const days = $('impact-days').value;
@@ -8894,6 +8894,12 @@ function renderImpact() {
   note.textContent = !d.since
     ? 'No readings yet. Figures start with the next Dashboard fetch (with no date window) or tracked report refresh.'
     : `Readings start on ${d.since.slice(0, 10)}: the period before that is not included.`;
+  const cur = $('impact-currency-note');
+  const wanted = state.me?.user?.profile?.currency;
+  cur.hidden = !d.converted && !(wanted && wanted !== d.organisationCurrency && m.value !== null);
+  cur.innerHTML = d.converted
+    ? `<span>Amounts in your currency, at the rate in your profile:</span> <span translate="no">1 ${escapeHtml(d.converted.from)} = ${escapeHtml(String(d.converted.rate))} ${escapeHtml(d.converted.to)}</span>`
+    : `<span>Amounts are in the organisation's currency. Add an exchange rate in your profile to see them in yours.</span> <a href="#/settings/profile">Currency →</a>`;
   const tile = (label, value, sub, hero = false, tone = '') => `<div class="impact-tile${hero ? ' hero' : ''}"><span class="label">${label}</span><span class="value${tone ? ` ${tone}` : ''}">${value}</span><span class="sub">${sub}</span></div>`;
   const debt = d.debt;
   $('impact-tiles').innerHTML = [
@@ -8922,10 +8928,10 @@ function renderImpact() {
     'Time to fix: days from first detection until Checkmarx One no longer reports it. AI-fixed and fixed by hand are compared over the same period.',
   ].map((line) => `<li>${line}</li>`).join('');
   renderImpactProjects();
-  const state = $('impact-monthly-state');
-  if (state) {
+  const monthly = $('impact-monthly-state');
+  if (monthly) {
     // Each sentence its own piece, so each is translated whole.
-    state.innerHTML = d.monthlyOn
+    monthly.innerHTML = d.monthlyOn
       ? `<span>On: emailed on the first day of each month, for the month before.</span> <span>Recipients: ${(d.monthlyTo ?? []).length}.</span>${d.lastSent ? ` <span>Last sent: ${escapeHtml(d.lastSent)}.</span>` : ''}`
       : '<span>Off: add who gets it under Settings → AI & credits.</span>';
     $('impact-send').disabled = !d.monthlyOn;
@@ -10096,6 +10102,60 @@ function saveProfile(patch, { silent = false } = {}) {
 
 const PROGRAMMING = ['Apex', 'C', 'C++', 'C#', 'COBOL', 'Dart', 'Go', 'Groovy', 'Java', 'JavaScript', 'Kotlin', 'Objective-C', 'Perl', 'PHP', 'PL/SQL', 'Python', 'Ruby', 'Rust', 'Scala', 'Swift', 'TypeScript', 'VB.NET', 'Infrastructure as code'];
 
+// Currencies: every one the browser knows (the server checks against the same list), named in
+// the page's language, and amounts written the way that currency is written ("₹1,23,457").
+function currencyCodes() {
+  try {
+    return Intl.supportedValuesOf('currency');
+  } catch {
+    return ['AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'EUR', 'GBP', 'HKD', 'IDR', 'ILS', 'INR', 'JPY', 'KRW', 'MYR', 'SAR', 'SGD', 'THB', 'TWD', 'USD', 'VND', 'AED'];
+  }
+}
+
+function currencyName(code) {
+  try {
+    return new Intl.DisplayNames([currentLanguage(), 'en'], { type: 'currency' }).of(code) || code;
+  } catch {
+    return code;
+  }
+}
+
+/** The select's options: every currency as "INR · Indian Rupee" (`first`: an empty choice on top). */
+function fillCurrencies(select, value, { first = '' } = {}) {
+  const codes = currencyCodes();
+  const list = value && !codes.includes(value) ? [value, ...codes] : codes;
+  select.innerHTML = (first ? `<option value="">${escapeHtml(first)}</option>` : '')
+    + list.map((code) => `<option value="${escapeHtml(code)}" translate="no">${escapeHtml(code)} · ${escapeHtml(currencyName(code))}</option>`).join('');
+  select.value = value;
+}
+
+function moneyOf(n, currency, digits) {
+  if (n === null || n === undefined || !Number.isFinite(Number(n))) return '—';
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: digits }).format(Number(n));
+  } catch {
+    return `${Number(n).toLocaleString(undefined, { maximumFractionDigits: digits })} ${currency}`;
+  }
+}
+
+/** Your profile → Currency: the currency, and the rate from the organisation's when they differ. */
+function renderProfileCurrency(profile) {
+  const org = state.me?.organisationCurrency || 'USD';
+  const mine = profile.currency || '';
+  const select = $('pf-currency');
+  if (document.activeElement !== select) fillCurrencies(select, mine, { first: "The organisation's currency" });
+  const other = Boolean(mine) && mine !== org;
+  $('pf-rate-field').hidden = !other;
+  $('pf-rate-from').textContent = `1 ${org} =`;
+  $('pf-rate-to').textContent = mine;
+  if (document.activeElement !== $('pf-rate')) $('pf-rate').value = profile.currencyRate ?? '';
+  $('pf-rate-hint').innerHTML = !other
+    ? `<span>The organisation's currency:</span> <b translate="no">${escapeHtml(org)}</b>`
+    : profile.currencyRate
+      ? '<span>Amounts are converted at this rate. Update it when the rate moves.</span>'
+      : "<span>Add the rate to see amounts in this currency. Until then they stay in the organisation's currency.</span>";
+}
+
 /** "Asia/Tokyo (UTC+09:00)". */
 function profileZoneLabel(zone) {
   try {
@@ -10138,6 +10198,7 @@ function renderProfile() {
   zones.value = profileZone(profile) || 'UTC';
   zones.disabled = auto;
   const picked = new Set(profile.programmingLanguages ?? []);
+  renderProfileCurrency(profile);
   $('pf-langs').innerHTML = PROGRAMMING.map((name) => `<label${name === 'Infrastructure as code' ? '' : ' translate="no"'}><input type="checkbox" value="${escapeHtml(name)}"${picked.has(name) ? ' checked' : ''} /> ${escapeHtml(name)}</label>`).join('');
 }
 
@@ -10157,6 +10218,19 @@ function renderProfile() {
     saveProfile(auto ? { timeZoneAuto: true, timeZone: deviceTimeZone() } : { timeZoneAuto: false, timeZone: $('pf-tz').value });
   });
   $('pf-tz').addEventListener('change', () => saveProfile({ timeZoneAuto: false, timeZone: $('pf-tz').value }));
+  $('pf-currency').addEventListener('change', () => {
+    const currency = $('pf-currency').value;
+    const org = state.me?.organisationCurrency || 'USD';
+    // A rate only means something between two currencies: a new currency starts without one.
+    saveProfile(currency && currency !== org ? { currency, currencyRate: null } : { currency: '', currencyRate: null });
+  });
+  let rateTimer = null;
+  $('pf-rate').addEventListener('input', () => {
+    clearTimeout(rateTimer);
+    const rate = $('pf-rate').value.trim();
+    if (rate !== '' && !(Number(rate) > 0)) return;
+    rateTimer = setTimeout(() => saveProfile({ currencyRate: rate === '' ? null : Number(rate) }), 700);
+  });
   $('pf-langs').addEventListener('change', () => {
     saveProfile({ programmingLanguages: [...$('pf-langs').querySelectorAll('input:checked')].map((box) => box.value) });
   });

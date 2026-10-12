@@ -24,6 +24,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { validCurrency } from './money.js';
+
 const scrypt = promisify(scryptCb);
 
 export const PERMISSIONS = [
@@ -596,6 +598,17 @@ export function cleanProfile(patch = {}) {
     out.timeZone = zone;
   }
   if ('timeZoneAuto' in patch) out.timeZoneAuto = patch.timeZoneAuto !== false;
+  // Their own currency for money on the Impact page, at the rate they give from the organisation's ('' = the organisation's).
+  if ('currency' in patch) {
+    const currency = validCurrency(patch.currency);
+    if (patch.currency && !currency) throw fail(400, `"${String(patch.currency).slice(0, 8)}" is not a currency this server knows.`);
+    out.currency = currency;
+  }
+  if ('currencyRate' in patch) {
+    const rate = patch.currencyRate === null || patch.currencyRate === '' ? null : Number(patch.currencyRate);
+    if (rate !== null && !(Number.isFinite(rate) && rate > 0 && rate <= 1e9)) throw fail(400, 'The exchange rate must be a number above 0.');
+    out.currencyRate = rate;
+  }
   if ('programmingLanguages' in patch) {
     const list = Array.isArray(patch.programmingLanguages) ? patch.programmingLanguages : [];
     const unknown = list.filter((l) => !PROGRAMMING_LANGUAGES.includes(l));
@@ -639,6 +652,8 @@ export function publicUser(user) {
       timeZone: user.profile?.timeZone ?? '',
       timeZoneAuto: user.profile?.timeZoneAuto !== false,
       programmingLanguages: user.profile?.programmingLanguages ?? [],
+      currency: user.profile?.currency ?? '',
+      currencyRate: user.profile?.currencyRate ?? null,
     },
     // The picture itself is fetched on its own (GET /api/users/:id/avatar?v=avatarAt).
     avatarAt: user.avatar?.at ?? '',

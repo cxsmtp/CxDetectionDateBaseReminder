@@ -682,6 +682,15 @@
                 <p class="hint">The languages you work in.</p>
                 <div class="pl-picks" id="pf-langs"></div>
               </div>
+              <div class="profile-block" id="pf-currency-block">
+                <h3>Currency</h3>
+                <p class="hint">Money on the Impact page and in the summary you download, in the currency you choose.</p>
+                <div class="grid2">
+                  <label class="field"><span>Show amounts in</span><select id="pf-currency"></select></label>
+                  <label class="field" id="pf-rate-field"><span>Exchange rate</span><span class="pf-rate"><span translate="no" id="pf-rate-from"></span> <input id="pf-rate" type="number" min="0" step="any" inputmode="decimal" /> <span translate="no" id="pf-rate-to"></span></span></label>
+                </div>
+                <p class="hint" id="pf-rate-hint"></p>
+              </div>
               <span class="status" id="pf-status"></span>
             </section>
 
@@ -1105,10 +1114,11 @@
                   <a href="#/impact" class="link-arrow">Impact page →</a>
                 </div>
                 <p class="hint wide">What a manual triage and a manual fix take in your teams, to work out the hours AI saved. Add an hourly cost and the price of one credit to see money too; leave them at 0 to show hours only.</p>
+                <p class="hint wide">Each person can see these amounts in a currency of their own, at an exchange rate they set: <a href="#/settings/profile">Your profile → Currency</a>.</p>
                 <div class="grid3">
                   <label class="field"><span>Minutes to triage one finding by hand</span><input id="impact-triage-min" type="number" min="1" max="10000" step="1" inputmode="numeric" /></label>
                   <label class="field"><span>Minutes to fix one finding by hand</span><input id="impact-fix-min" type="number" min="1" max="10000" step="1" inputmode="numeric" /></label>
-                  <label class="field"><span>Currency</span><input id="impact-currency" maxlength="3" spellcheck="false" placeholder="USD" /></label>
+                  <label class="field"><span>Currency</span><select id="impact-currency" translate="no"></select></label>
                   <label class="field"><span>Hourly cost of an engineer</span><input id="impact-rate" type="number" min="0" step="0.01" inputmode="decimal" /></label>
                   <label class="field"><span>Price of one credit</span><input id="impact-price" type="number" min="0" step="0.01" inputmode="decimal" /></label>
                 </div>
@@ -1864,8 +1874,10 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 </select>
               </label>
               <a class="button-like" id="impact-download" href="/api/impact/summary.html?days=90" download>Download the one-page summary</a>
+              <a class="link-arrow impact-currency-link" href="#/settings/profile" id="impact-currency-link">Currency →</a>
             </div>
             <p class="hint impact-note" id="impact-note" hidden></p>
+            <p class="hint impact-note" id="impact-currency-note" hidden></p>
             <div class="ptpanel" data-ptpanel="impact:exec" role="tabpanel">
               <section class="kpis"><div class="impact-tiles" id="impact-tiles"></div></section>
               <section class="panel">

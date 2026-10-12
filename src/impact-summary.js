@@ -4,11 +4,13 @@
  * charts, so the email has the numbers and the table only).
  */
 
+import { formatMoney } from './money.js';
+
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const num = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString('en-US', { maximumFractionDigits: 1 }));
-const cash = (n, currency) => (n === null || n === undefined ? '—' : `${Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 })} ${esc(currency)}`);
+const cash = (n, currency) => esc(formatMoney(n, currency, { digits: 0 }));
 /** A unit price (an hourly cost, a credit): to the cent. */
-const price = (n, currency) => `${Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })} ${esc(currency)}`;
+const price = (n, currency) => esc(formatMoney(n, currency, { digits: 2 }));
 const day = (iso) => String(iso ?? '').slice(0, 10);
 const SEV = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' };
 
@@ -42,7 +44,7 @@ export function debtChartSvg(series, { width = 680, height = 200 } = {}) {
  * The summary as { subject, html, text }. `email`: no chart (most email
  * clients drop SVG), and a link to the Impact page when `pageUrl` is given.
  */
-export function impactSummary(impact, { appName = 'CxMissionZero', periodLabel = '', email = false, pageUrl = '', generatedAt = new Date() } = {}) {
+export function impactSummary(impact, { appName = 'CxMissionZero', periodLabel = '', email = false, pageUrl = '', generatedAt = new Date(), converted = null } = {}) {
   const m = impact.money;
   const debt = impact.debt;
   const debtLine = debt.change === null ? 'No open findings at the start of the period.' : `${debt.change <= 0 ? 'Down' : 'Up'} ${Math.abs(debt.change)}% (from ${num(debt.start)} to ${num(debt.now)})${debt.zeroBy ? `; at this pace it reaches zero by ${esc(debt.zeroBy)}` : ''}.`;
@@ -68,6 +70,7 @@ export function impactSummary(impact, { appName = 'CxMissionZero', periodLabel =
     m.value === null ? 'Money: set an hourly cost and a price per credit to see it.' : `Money: hours × ${price(s.hourlyRate, m.currency)} an hour${m.cost === null ? '' : `, less ${num(impact.credits.total)} credits × ${price(s.creditPrice, m.currency)}`}.`,
     'Security debt: open Checkmarx One results weighted by severity (critical 10, high 5, medium 2, low 1); rows that share a result count once.',
     'Time to fix: days from first detection until Checkmarx One no longer reports it, AI-fixed against fixed by hand over the same period (median, with how many).',
+    converted ? `Amounts in ${esc(converted.to)}, at 1 ${esc(converted.from)} = ${esc(String(converted.rate))} ${esc(converted.to)} (the rate in the reader's profile).` : '',
     impact.partial ? `Readings start on ${esc(day(impact.since))}: the period before that is not included.` : '',
   ].filter(Boolean);
   const title = `${appName}: impact${periodLabel ? `, ${periodLabel}` : ''}`;

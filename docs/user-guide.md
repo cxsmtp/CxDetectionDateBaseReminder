@@ -90,13 +90,14 @@ What is translated, and what is not:
 - While something runs, the status line says plainly what is happening in every language other than English.
 - The interactive report is in your language too (see [The emailed report](#the-emailed-report)); reminder emails stay in English.
 
-**Your profile.** Open your name at the top right, then **Your profile** (also Settings → Your profile). Every person has one, whatever their role:
+<a id="your-profile"></a>**Your profile.** Open your name at the top right, then **Your profile** (also Settings → Your profile). Every person has one, whatever their role:
 - **Picture:** PNG, JPEG or WebP. It is cut to a square and made small in your browser before it is saved.
 - **Email, role and last sign-in:** shown for reference. An administrator manages these under People & roles.
 - **Name:** how you appear in this app.
 - **Language:** the same choice as the globe.
 - **Time zone:** picked up from your computer by default. Untick **Use this computer's time zone** to choose another. Dates and times on every page are shown in it.
 - **Programming languages:** the languages you work in.
+- **Currency:** any country's currency, for money on the Impact page and in the summary you download. Choose it, then give the exchange rate from the organisation's currency, for example **1 USD = 83.2 INR**. Until you give a rate, amounts stay in the organisation's currency. Only you see your choice.
 
 Changes save as you make them and are recorded in the audit log. A time zone or first language picked up from your computer is saved without an audit entry.
 
@@ -610,7 +611,7 @@ The panel shows:
 | --- | --- |
 | Minutes to triage one finding by hand | 20 by default: the hours AI Triage saved. |
 | Minutes to fix one finding by hand | 120 by default: the hours AI Remediation saved. |
-| Hourly cost of an engineer, price of one credit, currency | Money figures; leave them at 0 to show hours only. |
+| Hourly cost of an engineer, price of one credit, currency | Money figures; leave them at 0 to show hours only. The currency is chosen from every country's currency. Each person can see the amounts in their own currency under [Your profile](#your-profile). |
 | Monthly summary to | Who gets the summary on the first day of each month, for the month before. Nobody: not sent. |
 
 ### Branding
@@ -943,7 +944,8 @@ What AI Triage and AI Remediation did for the backlog. Open it from **Prove → 
 | **Period** | The last 30 or 90 days, the last 12 months, or everything since the first reading. |
 | **Executive** tab | **Hours saved**, their value after the cost of credits, **Noise removed** (findings AI Triage showed not exploitable), **Fixed with AI** (with fixes by hand next to it), the **Security debt** change and when it reaches zero at this pace, and **Credits per finding closed**. Below: the security debt week by week (point at the chart for each week, or **Show as a table**), and **Time to fix, AI-assisted and by hand**, by severity. **How these are worked out** lists every assumption. |
 | **Detail** tab | Every project: checked by AI, not exploitable, fixed with AI and by hand, median days to fix, credits, credits per finding closed, and what is open now. **Export CSV**. **Monthly summary by email**: whether it is on, and **Email last month's summary now**. |
-| **Download the one-page summary** | The Executive figures and chart as one page, to print or save as PDF. |
+| **Download the one-page summary** | The Executive figures and chart as one page, to print or save as PDF, in your currency. |
+| **Currency →** | Opens Your profile → Currency: see the amounts in your own currency, at the exchange rate you give. The page then says which rate it used. |
 
 A fix counts only once Checkmarx One no longer reports the finding, and rows that share one result count once. Readings start when this version is installed; the page says so when the period begins earlier.
 

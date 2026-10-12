@@ -1100,6 +1100,8 @@ function describeMe(session, user) {
     permissions,
     features: Object.fromEntries(featureList(settings).map((f) => [f.id, f.stage])),
     via: session.via,
+    // The organisation's currency: Your profile → Currency converts from it.
+    organisationCurrency: settings.impact?.currency || 'USD',
     integration: { connected: Boolean(integration), tenant },
     // Connection settings put back because new ones did not work: shown once to each administrator.
     configNotices: held.has('integration.cxone') || held.has('integration.smtp') ? guard.unseen(user.id) : [],
@@ -1351,7 +1353,7 @@ app.post(
 );
 
 /**
- * One's own profile: name, language, time zone and programming languages. A time zone picked up
+ * One's own profile: name, language, time zone, programming languages and currency. A time zone picked up
  * from the computer by itself (quiet) is stored without an audit entry; everything else is audited.
  */
 app.put(
@@ -1359,7 +1361,7 @@ app.put(
   requireSession,
   asyncRoute(async (req, res) => {
     const patch = {};
-    for (const key of ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages']) if (key in (req.body ?? {})) patch[key] = req.body[key];
+    for (const key of ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages', 'currency', 'currencyRate']) if (key in (req.body ?? {})) patch[key] = req.body[key];
     if (patch.language && !languageAccess.isAvailable(String(patch.language), allowedLanguages(req.user.id))) return res.status(400).json({ error: 'That language is not available.' });
     const { before, after } = iam.updateProfile(req.user.id, patch);
     const changed = [
@@ -6795,12 +6797,12 @@ app.get('/api/credits/views', requirePermission('credits.view'), (req, res) => {
 const IMPACT_DAYS = ['30', '90', '365', 'all'];
 
 /** The Impact figures for the last `days` days ('all': since the first reading), or for [from, to). */
-function impactFor({ days = '90', from = null, to = null } = {}, now = new Date()) {
+function impactFor({ days = '90', from = null, to = null, settings = settingsStore.get().impact } = {}, now = new Date()) {
   const start = from ?? (days === 'all' ? '0000-01-01T00:00:00.000Z' : new Date(now.getTime() - Number(days) * 86_400_000).toISOString());
   return computeImpact({
     journal: findingJournal.entries(),
     ledger: creditLedger.entriesBetween('0000', '9999'),
-    settings: settingsStore.get().impact,
+    settings,
     from: start,
     to,
     now,
@@ -6809,17 +6811,34 @@ function impactFor({ days = '90', from = null, to = null } = {}, now = new Date(
 
 const impactPeriodLabel = (days) => (days === 'all' ? 'since the first reading' : `last ${days} days`);
 
+/**
+ * The Impact settings in this person's own currency (Your profile → Currency), with the hourly
+ * cost and the credit price converted at the rate they gave; the organisation's otherwise.
+ */
+function impactSettingsFor(user) {
+  const org = settingsStore.get().impact;
+  const p = user?.profile ?? {};
+  if (!p.currency || p.currency === org.currency || !(Number(p.currencyRate) > 0)) return { settings: org, converted: null };
+  const rate = Number(p.currencyRate);
+  return {
+    settings: { ...org, hourlyRate: org.hourlyRate * rate, creditPrice: org.creditPrice * rate, currency: p.currency },
+    converted: { from: org.currency, to: p.currency, rate },
+  };
+}
+
 app.get('/api/impact', requirePermission('reports.view'), (req, res) => {
   const days = IMPACT_DAYS.includes(String(req.query.days)) ? String(req.query.days) : '90';
-  const { monthlyTo } = settingsStore.get().impact;
-  res.json({ ...impactFor({ days }), days, monthlyTo: can(req, 'settings.ai') ? monthlyTo : undefined, monthlyOn: monthlyTo.length > 0, lastSent: automationState.impactSent || null });
+  const { monthlyTo, currency: organisationCurrency } = settingsStore.get().impact;
+  const mine = impactSettingsFor(req.user);
+  res.json({ ...impactFor({ days, settings: mine.settings }), converted: mine.converted, organisationCurrency, days, monthlyTo: can(req, 'settings.ai') ? monthlyTo : undefined, monthlyOn: monthlyTo.length > 0, lastSent: automationState.impactSent || null });
 });
 
 /** One page for leadership: download it, then print or save it as PDF from the browser. */
 app.get('/api/impact/summary.html', requirePermission('reports.view'), (req, res) => {
   const days = IMPACT_DAYS.includes(String(req.query.days)) ? String(req.query.days) : '90';
   const settings = settingsStore.get();
-  const { html } = impactSummary(impactFor({ days }), { appName: brandingNow(settings.branding)?.appName || 'CxMissionZero', periodLabel: impactPeriodLabel(days) });
+  const mine = impactSettingsFor(req.user);
+  const { html } = impactSummary(impactFor({ days, settings: mine.settings }), { appName: brandingNow(settings.branding)?.appName || 'CxMissionZero', periodLabel: impactPeriodLabel(days), converted: mine.converted });
   res.set('Content-Disposition', `attachment; filename="impact-${new Date().toISOString().slice(0, 10)}.html"`);
   res.type('html').send(html);
 });

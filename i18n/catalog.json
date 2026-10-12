@@ -3174,12 +3174,6 @@
    "Dashboard › option › Projects"
   ]
  },
- "Any application": {
-  "kind": "attr:placeholder",
-  "seen": [
-   "calculator"
-  ]
- },
  "Any group": {
   "kind": "attr:placeholder",
   "seen": [
@@ -5588,12 +5582,6 @@
   ]
  },
  "Count findings still to come": {
-  "kind": "text",
-  "seen": [
-   "calculator"
-  ]
- },
- "Count only some projects, for triage & remediation and for Fusion alike. Leave a field empty to keep every project. Names take wildcards:": {
   "kind": "text",
   "seen": [
    "calculator"
@@ -8624,12 +8612,6 @@
    "connection: cxone › h2 › Get started · 1 of 6 done"
   ]
  },
- "Get your company's root CA certificate (a .pem file) from your network team.": {
-  "kind": "message",
-  "seen": [
-   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
-  ]
- },
  "Git": {
   "kind": "text",
   "seen": [
@@ -9381,12 +9363,6 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
- "If it is a self-hosted server with a company certificate, or a proxy inspects HTTPS, mount the company CA certificate and set NODE_EXTRA_CA_CERTS to its path, then restart MissionZero.": {
-  "kind": "message",
-  "seen": [
-   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
-  ]
- },
  "If it is an internal relay that accepts mail without signing in, turn off \"Server needs a user name and password\" (SMTP_REQUIRE_AUTH=false).": {
   "kind": "message",
   "seen": [
@@ -9474,12 +9450,6 @@
   ]
  },
  "If you set them, the tenant is the name you sign in to Checkmarx One with, and the IAM URL is your region's, for example https://eu.iam.checkmarx.net.": {
-  "kind": "message",
-  "seen": [
-   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
-  ]
- },
- "If your company inspects TLS traffic or uses its own certificate authority, give MissionZero that CA certificate: NODE_EXTRA_CA_CERTS=/certs/company-ca.pem, with the folder mounted into the container.": {
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
@@ -10851,12 +10821,6 @@
    "Dashboard › remind › b"
   ]
  },
- "MissionZero connects directly, not through a web proxy: if outgoing traffic must go through one, ask for these hosts to be allowed directly.": {
-  "kind": "message",
-  "seen": [
-   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
-  ]
- },
  "MissionZero could not reach Checkmarx One.": {
   "kind": "message",
   "seen": [
@@ -11005,12 +10969,6 @@
    "Dashboard › option"
   ]
  },
- "Mount it into the container and set NODE_EXTRA_CA_CERTS to its path, for example NODE_EXTRA_CA_CERTS=/certs/company-ca.pem, then restart MissionZero.": {
-  "kind": "message",
-  "seen": [
-   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
-  ]
- },
  "Move it to a secret store or environment variable, rotate the exposed value, and remove it from history.": {
   "kind": "report",
   "seen": [
@@ -11109,12 +11067,6 @@
   "kind": "message",
   "seen": [
    "dashboard"
-  ]
- },
- "Narrow the projects": {
-  "kind": "text",
-  "seen": [
-   "calculator"
   ]
  },
  "Narrow to applications, projects or people": {
@@ -12553,12 +12505,6 @@
   ]
  },
  "Or ask the mail administrator to allow relaying from the address MissionZero runs on.": {
-  "kind": "message",
-  "seen": [
-   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
-  ]
- },
- "Or ask the network team to exclude *.checkmarx.net from HTTPS inspection.": {
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
@@ -20669,6 +20615,540 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Network & proxy": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: name of the settings section (side menu and heading)"
+  ]
+ },
+ "How this server reaches Checkmarx One and the other services it uses: directly, or through your company's proxy. Everything it sends is encrypted (HTTPS). Leave the proxy empty to connect directly.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: introduction"
+  ]
+ },
+ "Proxy server": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: field label (the company's web proxy, host:port)"
+  ]
+ },
+ "Checkmarx One address to check": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: field label (the Checkmarx One host the check connects to)"
+  ]
+ },
+ "User name, if the proxy asks for one": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: field label"
+  ]
+ },
+ "Hosts that skip the proxy (comma-separated)": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: field label (like NO_PROXY)"
+  ]
+ },
+ "Saved: leave blank to keep it": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "Settings → Network & proxy: placeholder of the proxy password when one is saved"
+  ]
+ },
+ "Windows sign-in to the proxy (NTLM/Kerberos) is not supported: ask for this server to be allowed by its IP address, or for a user name and password.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: hint; keep NTLM/Kerberos"
+  ]
+ },
+ "Check the connection": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: button that checks the way to Checkmarx One step by step"
+  ]
+ },
+ "Save and restart": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: button (saves the proxy, then the server restarts to use it)"
+  ]
+ },
+ "Stop using the proxy": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: link"
+  ]
+ },
+ "Connecting directly, without a proxy.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: what the server does now"
+  ]
+ },
+ "What your network team needs to allow": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: heading of the network requirements table"
+  ]
+ },
+ "Worked out from this server's settings. Send it to your network team before you install, or when a connection is blocked.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: hint under that heading"
+  ]
+ },
+ "Direction": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table column (incoming or outgoing)"
+  ]
+ },
+ "What": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table column (what the connection is for)"
+  ]
+ },
+ "Route": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table column (directly or through the proxy)"
+  ]
+ },
+ "Incoming": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell, a connection coming in to this server"
+  ]
+ },
+ "Outgoing": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell, a connection this server makes"
+  ]
+ },
+ "People's browsers, and links in emailed reports": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell"
+  ]
+ },
+ "this server": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell, in the Host column"
+  ]
+ },
+ "Mailbox for backups": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell"
+  ]
+ },
+ "Let's Encrypt validation": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell (Let's Encrypt checks the server name; keep Let's Encrypt)"
+  ]
+ },
+ "Updates": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell (new versions from the Update page)"
+  ]
+ },
+ "Certificate authorities (rarely)": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell"
+  ]
+ },
+ "the address in a server's certificate": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell, in the Host column"
+  ]
+ },
+ "Direct": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell, in the Route column"
+  ]
+ },
+ "Through the proxy": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell, in the Route column"
+  ]
+ },
+ "Direct (mail does not go through a web proxy)": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell, in the Route column"
+  ]
+ },
+ "Copy for your network team": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: button"
+  ]
+ },
+ "Download (.txt)": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: link"
+  ]
+ },
+ "Proxy": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: name of a step in the check (the proxy was or was not reached)"
+  ]
+ },
+ "Connection": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: name of a step in the check (the connection to the host)"
+  ]
+ },
+ "Check the proxy address and port with your network team.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: advice under a failed step"
+  ]
+ },
+ "The proxy wants a sign-in: give a user name and password, or ask for this server to be allowed by its IP address.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: advice under a failed step"
+  ]
+ },
+ "The proxy does not allow this host: ask your network team to allow *.checkmarx.net on port 443 for this server.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: advice under a failed step"
+  ]
+ },
+ "Ask your network team to allow this host on port 443 for this server, or set a proxy if one is required.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: advice under a failed step"
+  ]
+ },
+ "Usually a proxy that inspects HTTPS: connect under Settings → Checkmarx One and click Trust and connect, or ask for an exception from inspection.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: advice under a failed certificate step"
+  ]
+ },
+ "Checking through the proxy…": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: status while checking"
+  ]
+ },
+ "Checking the direct connection…": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: status while checking"
+  ]
+ },
+ "Checkmarx One can be reached this way.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: result"
+  ]
+ },
+ "Checkmarx One could not be reached this way: see the steps below.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: result"
+  ]
+ },
+ "Checking through the proxy before saving…": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: status"
+  ]
+ },
+ "Saved. The server restarts to use the proxy; this page reconnects in a few seconds.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: status"
+  ]
+ },
+ "Saved. Restart the server to use the proxy.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: status"
+  ]
+ },
+ "Removed. The server restarts to connect directly.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: status"
+  ]
+ },
+ "Removed. Restart the server to connect directly.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: status"
+  ]
+ },
+ "Copying is blocked here: use Download.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: status"
+  ]
+ },
+ "Stop using the proxy? This server then connects directly, which works only if your network allows it.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: confirmation question"
+  ]
+ },
+ "If outgoing traffic must go through a company proxy, set it under Settings → Network & proxy and click Check the connection: it says where the connection stops.": {
+  "kind": "message",
+  "seen": [
+   "How to fix it: a step in the help shown when a connection fails (Checkmarx One could not be reached)"
+  ]
+ },
+ "Trust and connect": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS): button (trust the proxy's root certificate and connect again)"
+  ]
+ },
+ "Product": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS): label before the security product's name (Zscaler, Netskope…)"
+  ]
+ },
+ "Valid until": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS): label before a date"
+  ]
+ },
+ "SHA-256 fingerprint": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS): label; keep SHA-256"
+  ]
+ },
+ "Upload a certificate…": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS) and Settings → Checkmarx One → Trusted certificates (certificate authorities the server trusts for its own outgoing connections): button"
+  ]
+ },
+ "Export the certificates from Windows": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS): folded section with a command"
+  ]
+ },
+ "On a Windows computer on your company network, paste this into the command prompt (cmd). It saves company-certificates.pem on the desktop: upload that file here.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS): keep company-certificates.pem and cmd"
+  ]
+ },
+ "Copy the command": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS): link"
+  ]
+ },
+ "Checking the certificate again and trusting it…": {
+  "kind": "message",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS): status"
+  ]
+ },
+ "Trusted. Connecting again…": {
+  "kind": "message",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS): status"
+  ]
+ },
+ "Reading the certificate…": {
+  "kind": "message",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS): status"
+  ]
+ },
+ "Already trusted. Connecting again…": {
+  "kind": "message",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS): status"
+  ]
+ },
+ "Already trusted.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Checkmarx One → Trusted certificates (certificate authorities the server trusts for its own outgoing connections): status"
+  ]
+ },
+ "Select the command and copy it": {
+  "kind": "message",
+  "seen": [
+   "Settings → Checkmarx One: the box shown under Connect & store when the certificate Checkmarx One presents is not trusted (usually a company proxy that inspects HTTPS): shown when copying is blocked"
+  ]
+ },
+ "Trusted certificates": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One → Trusted certificates (certificate authorities the server trusts for its own outgoing connections): heading"
+  ]
+ },
+ "Certificate authorities MissionZero trusts for its own connections (Checkmarx One, email, git) besides the public ones: your company proxy's root, or an intermediate a server left out. Used at once, with no restart.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One → Trusted certificates (certificate authorities the server trusts for its own outgoing connections): introduction"
+  ]
+ },
+ "None: only the public certificate authorities are trusted.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One → Trusted certificates (certificate authorities the server trusts for its own outgoing connections): when the list is empty"
+  ]
+ },
+ "Trusted from a connection": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One → Trusted certificates (certificate authorities the server trusts for its own outgoing connections): how a certificate was added"
+  ]
+ },
+ "Uploaded": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One → Trusted certificates (certificate authorities the server trusts for its own outgoing connections): how a certificate was added"
+  ]
+ },
+ "Fetched to complete a chain": {
+  "kind": "text",
+  "seen": [
+   "Settings → Checkmarx One → Trusted certificates (certificate authorities the server trusts for its own outgoing connections): how a certificate was added (a server left out its intermediate certificate)"
+  ]
+ },
+ "Stop trusting this certificate? Connections that need it stop working until it is trusted again.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Checkmarx One → Trusted certificates (certificate authorities the server trusts for its own outgoing connections): confirmation question"
+  ]
+ },
+ "This is usually your company's proxy, which inspects HTTPS. If you are not sure it is yours, check its fingerprint below with your network team.": {
+  "kind": "message",
+  "seen": [
+   "How to fix it: a step in the help shown when a connection fails (certificate not trusted)"
+  ]
+ },
+ "Click Trust and connect. MissionZero then trusts it for its own outgoing connections, at once and with no restart. You can remove it again here.": {
+  "kind": "message",
+  "seen": [
+   "How to fix it: a step in the help shown when a connection fails (certificate not trusted)"
+  ]
+ },
+ "Or ask your network team to exclude *.checkmarx.net from HTTPS inspection.": {
+  "kind": "message",
+  "seen": [
+   "How to fix it: a step in the help shown when a connection fails (certificate not trusted)"
+  ]
+ },
+ "Not sure which file? On a Windows computer on your company network, run the command below and upload the file it makes. It holds every certificate Windows trusts, and MissionZero keeps only the ones this connection needs.": {
+  "kind": "message",
+  "seen": [
+   "How to fix it: a step in the help shown when a connection fails (certificate not trusted)"
+  ]
+ },
+ "Upload your company's root certificate below (.pem, .crt or .cer). It is used at once, with no restart.": {
+  "kind": "message",
+  "seen": [
+   "How to fix it: a step in the help shown when a connection fails (certificate not trusted)"
+  ]
+ },
+ "Not sure which file? On a Windows computer on your company network, run the command below and upload the file it makes. MissionZero keeps only the certificates this connection needs.": {
+  "kind": "message",
+  "seen": [
+   "How to fix it: a step in the help shown when a connection fails (certificate not trusted)"
+  ]
+ },
+ "If your company inspects TLS traffic or uses its own certificate authority, upload that root certificate under Settings → Checkmarx One → Trusted certificates. It is used at once, with no restart.": {
+  "kind": "message",
+  "seen": [
+   "How to fix it: a step in the help shown when a connection fails (the mail server's certificate is not trusted)"
+  ]
+ },
+ "If it is a self-hosted server with a company certificate, or a proxy inspects HTTPS, upload your company's root certificate under Settings → Checkmarx One → Trusted certificates. It is used at once, with no restart.": {
+  "kind": "message",
+  "seen": [
+   "How to fix it: a step in the help shown when a connection fails (the git host's certificate is not trusted)"
+  ]
+ },
+ "{0} new a month now, {1}% fewer each month with AI, over {2} months": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page: under \"Still to come\" (new findings a month today, falling as teams adopt AI)"
+  ]
+ },
+ "AI adoption: fewer new findings each month (%)": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page: assumption field label"
+  ]
+ },
+ "Empty: every project. These applications' projects, plus the projects picked. Enter adds every name that contains the text.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page: hint under the Applications and Projects pickers"
+  ]
+ },
+ "More filters": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page: link that opens the other filters (groups, names, people, frequency, criticality)"
+  ]
+ },
+ "Narrow further, for triage & remediation and for Fusion alike. Names take wildcards:": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page: hint; it is followed by two examples (payments-*, *-api) that stay as they are"
+  ]
+ },
+ "Read Checkmarx One first: the applications come from it.": {
+  "kind": "message",
+  "seen": [
+   "Cx Credits Calculator page: status"
+  ]
+ },
+ "Read Checkmarx One first: the projects come from it.": {
+  "kind": "message",
+  "seen": [
+   "Cx Credits Calculator page: status"
+  ]
+ },
+ "Still to come, {0}% fewer each month with AI": {
+  "kind": "report",
+  "seen": [
+   "the projection report (a file sent to the customer): table row"
+  ]
+ },
+ "New findings arrive at the pace of the last {0} months, then {1}% fewer each month as teams adopt AI.": {
+  "kind": "report",
+  "seen": [
+   "the projection report (a file sent to the customer): assumption"
+  ]
+ },
+ "and {0} more": {
+  "kind": "report",
+  "seen": [
+   "the projection report (a file sent to the customer): after a list of project names"
   ]
  }
 }
