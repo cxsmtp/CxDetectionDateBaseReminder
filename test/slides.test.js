@@ -1,0 +1,69 @@
+// The projection's three-page PDF summary (public/calculator/slides.js): what each page says, and
+// a PDF any reader opens (the pages themselves are drawn in the browser).
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { analyse, creditSummary, fusionEstimate, planForecast, seriesRows, trProjection } from '../public/calculator/model.js';
+import { pdfFromJpegs, slideContent, slidesFileName } from '../public/calculator/slides.js';
+
+const totals = { weeks: ['2026-01-03', '2026-02-07', '2026-03-07', '2026-04-04'], bySeverity: { Critical: [10, 12, 14, 16], High: [100, 110, 120, 130], Medium: [5, 5, 5, 5], Low: [1, 1, 1, 1] } };
+const fixed = { weeks: ['2026-03-07', '2026-04-04'], bySeverity: { Critical: [1, 2], High: [3, 4] } };
+
+function reportData({ withFusion = true, withTr = true } = {}) {
+  const { totalRows, fixedRows } = seriesRows(totals, fixed);
+  const analysis = analyse(totalRows, fixedRows, 3);
+  const projection = trProjection(analysis, {}, { months: 12, fusion: withFusion });
+  const est = fusionEstimate([{ id: 'x', name: 'Payments', loc: 25000, frequency: 'month' }, { id: 'y', name: 'Mobile', loc: 4000, frequency: 'week' }], { models: [{ id: 'm', name: 'Opus-4.7', creditsPer10k: 2.5 }], defaultScans: 2 });
+  return {
+    customer: 'Globex', organisation: 'Acme', generatedAt: '2026-10-09T10:00:00Z', months: 12, preparedBy: 'ana@acme.io',
+    summary: creditSummary(withTr ? projection.totals.credits : null, withFusion ? est.totals.credits : null, { extraPercent: 10 }),
+    tr: withTr ? { lookbackMonths: 3, months: 12, fusion: withFusion, ahead: projection.ahead, rows: projection.rows, totals: projection.totals, analysis: { ...analysis.perSeverity, total: analysis.total }, monthlyChange: analysis.monthlyChange, forecast: planForecast(analysis, projection) } : null,
+    fusion: withFusion ? { periodMonths: 12, byFrequency: est.byFrequency, byModel: est.byModel, totals: est.totals } : null,
+  };
+}
+
+test('three pages: triage & remediation with its forecast, then Fusion, then the credits needed overall', () => {
+  const data = reportData();
+  const s = slideContent(data);
+  assert.deepEqual(s.pages.map((p) => p.kind), ['tr', 'fusion', 'total']);
+  const [tr, fusion, total] = s.pages;
+  assert.equal(s.heading(tr), 'Globex: Triage & remediation');
+  assert.deepEqual(tr.figures.map((f) => f.label), ['Backlog today', 'Still to come, 2% fewer each month with AI', 'To triage', 'Triage & remediation credits']);
+  assert.equal(tr.figures[0].value, '152');
+  assert.equal(tr.chart.kind, 'forecast');
+  assert.ok(tr.chart.points.length > 3, 'the backlog so far and over the next months');
+  assert.match(tr.lines[0], /^Each month, new findings add [\d.]+% to the backlog and fixes take away [\d.]+%\.$/);
+  assert.equal(fusion.figures.at(-1).value, Math.round(data.fusion.totals.credits).toLocaleString());
+  assert.ok(fusion.bars.items.length >= 1 && fusion.bars.items.every((b) => b.value > 0));
+  assert.equal(total.total, Math.round(data.summary.total).toLocaleString());
+  assert.deepEqual(total.parts.map((p) => p.label), ['Backlog today', 'Findings ahead', 'Fusion scans', 'Extra credits']);
+  assert.ok(total.lines.some((l) => /Bundles of 10,000 credits/.test(l)), 'the assumptions, as plain text');
+  assert.ok(total.lines.every((l) => !/[<>]|&amp;/.test(l)));
+  assert.equal(s.footer, `Made ${new Date('2026-10-09T10:00:00Z').toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })} by ana@acme.io`);
+  assert.equal(slidesFileName('Globex & Co', '2026-10-09T10:00:00Z').endsWith('_summary.pdf'), true);
+});
+
+test('a part that is not in the projection says so on its page; the wording follows the reader\'s language', () => {
+  const s = slideContent(reportData({ withFusion: false }), { t: (text) => (text === 'Checkmarx Fusion' ? 'Fusion (fr)' : text), lang: 'fr' });
+  assert.equal(s.pages[1].title, 'Fusion (fr)');
+  assert.deepEqual(s.pages[1].lines, ['Fusion is not in this projection.']);
+  assert.equal(s.pages[0].figures[0].value, (152).toLocaleString('fr'));
+  const noTr = slideContent(reportData({ withTr: false }));
+  assert.deepEqual(noTr.pages[0].lines, ['Triage & remediation is not in this projection.']);
+  assert.deepEqual(noTr.pages[2].parts.map((p) => p.label), ['Fusion scans', 'Extra credits']);
+});
+
+test('the PDF: one picture filling each 16:9 page, with a cross-reference table that points at every object', () => {
+  const jpeg = (n) => ({ bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, n, 1, 2, 3, 0xff, 0xd9]), width: 1920, height: 1080 });
+  const pdf = pdfFromJpegs([jpeg(1), jpeg(2), jpeg(3)], { title: 'Globex: 合計 credits' });
+  const text = Buffer.from(pdf).toString('latin1');
+  assert.ok(text.startsWith('%PDF-1.4\n') && text.endsWith('%%EOF\n'));
+  assert.match(text, /\/Type \/Pages \/Kids \[4 0 R 7 0 R 10 0 R\] \/Count 3/);
+  assert.equal((text.match(/\/MediaBox \[0 0 960 540\]/g) ?? []).length, 3);
+  assert.equal((text.match(/\/Filter \/DCTDecode \/Length 10 >>/g) ?? []).length, 3);
+  assert.match(text, /\/Title <FEFF0047006C006F006200650078003A002054088A08/, 'the title in UTF-16, so any language');
+  const xref = Number(text.match(/startxref\n(\d+)/)[1]);
+  assert.ok(text.slice(xref).startsWith('xref\n0 13\n'));
+  const offsets = text.slice(xref).split('\n').slice(3, 15).map((line) => Number(line.slice(0, 10)));
+  offsets.forEach((at, i) => assert.ok(text.slice(at).startsWith(`${i + 1} 0 obj\n`), `object ${i + 1} is where the table says`));
+});

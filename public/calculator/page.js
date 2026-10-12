@@ -30,6 +30,7 @@ import {
 } from './model.js';
 import { SEVERITY_COLOURS, debtFixChart, forecastChart, severityCharts } from './charts.js';
 import { buildReport, reportFileName } from './report.js';
+import { slidesFileName, slidesPdf } from './slides.js';
 import { RTL, currentLanguage, t } from '../i18n.js';
 
 const OPEN_KEY = 'mz-calc-customer';
@@ -47,6 +48,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   const num = (n, digits = 0) => (n === null || n === undefined || !Number.isFinite(Number(n)) ? '—' : Number(n).toLocaleString(undefined, { maximumFractionDigits: digits }));
   const pct = (n) => (n === null || n === undefined || !Number.isFinite(n) ? '—' : `${n > 0 ? '+' : ''}${n.toFixed(1)}%`);
   // The report is written in the language the page is in.
+  // The report generated last, for its PDF summary (only while its customer is open).
+  let lastMade = null;
   const reportHtml = (data, generatedAt) => buildReport({ ...data, generatedAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr' });
   const savedAt = (iso) => `<time datetime="${esc(iso)}" translate="no">${esc(new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time>`;
 
@@ -1179,6 +1182,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   const totals = () => totalsSettings(c.open?.totals);
 
   function renderSummary() {
+    $('calc-pdf').hidden = !(lastMade && lastMade.customerId === c.open?.id);
     if (!c.open) return;
     const sum = creditSummary(c.trCredits, c.fusionCredits, totals());
     $('calc-sum-tr').textContent = num(sum.tr, 1);
@@ -1291,6 +1295,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       const { report } = await api('/api/projections/reports', { method: 'POST', body: JSON.stringify({ customerId: c.open.id, data }) });
       const html = reportHtml(data, report.createdAt);
       if (save) download(new Blob([html], { type: 'text/html' }), reportFileName(report.customer, report.createdAt));
+      // Once the report is made, its three-page PDF summary can be downloaded too.
+      lastMade = { customerId: c.open.id, report, data };
+      $('calc-pdf').hidden = false;
       loadReports();
       return { report, html, data };
     } catch (error) {
@@ -1299,6 +1306,21 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
   }
   $('calc-generate').addEventListener('click', () => generate());
+
+  /** The three-page PDF summary of a generated report, drawn here in the page's language. */
+  async function downloadPdf(report, data = report.data) {
+    const button = $('calc-pdf');
+    button.disabled = true;
+    try {
+      const pdf = await slidesPdf({ ...data, generatedAt: report.createdAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr' });
+      download(pdf, slidesFileName(report.customer, report.createdAt));
+    } catch (error) {
+      toast(`The PDF could not be made: ${error.message}`, 'bad');
+    } finally {
+      button.disabled = false;
+    }
+  }
+  $('calc-pdf').addEventListener('click', () => lastMade && downloadPdf(lastMade.report, lastMade.data));
 
   // Email: the report is made (as with Generate) and sent as a file, in the page's language.
   $('calc-email-open').addEventListener('click', () => {
@@ -1371,7 +1393,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         <td class="num">${r.extraPercent ? `${num(r.extraPercent, 2)}%` : '—'}</td>
         <td class="num"><b>${num(r.totalCredits, 1)}</b></td>
         <td class="num">${r.bundles === undefined ? '—' : num(r.bundles)}</td>
-        <td><button type="button" class="secondary" data-download>Download</button> ${can('reports.delete') ? '<button type="button" class="ghost calc-remove" data-delete-report>Delete</button>' : ''}</td></tr>`,
+        <td><button type="button" class="secondary" data-download>Download</button> <button type="button" class="ghost" data-pdf>PDF</button> ${can('reports.delete') ? '<button type="button" class="ghost calc-remove" data-delete-report>Delete</button>' : ''}</td></tr>`,
       )
       .join('');
   }
@@ -1384,6 +1406,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       if (event.target.closest('[data-download]')) {
         const { report } = await api(`/api/projections/reports/${encodeURIComponent(id)}`, { quiet: true });
         download(new Blob([reportHtml(report.data, report.createdAt)], { type: 'text/html' }), reportFileName(report.customer, report.createdAt));
+      } else if (event.target.closest('[data-pdf]')) {
+        const { report } = await api(`/api/projections/reports/${encodeURIComponent(id)}`, { quiet: true });
+        await downloadPdf(report);
       } else if (event.target.closest('[data-delete-report]')) {
         if (!confirm('Delete this projection report? It cannot be undone.')) return;
         await api(`/api/projections/reports/${encodeURIComponent(id)}`, { method: 'DELETE' });

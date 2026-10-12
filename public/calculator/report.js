@@ -23,7 +23,7 @@ export function reportFileName(customer, at = new Date()) {
 }
 
 /** Everything the report says, in one language: `w('… {0} …', n)` is the wording, escaped, with the figures in. */
-function wording({ t = (text) => text, lang = 'en' } = {}) {
+export function wording({ t = (text) => text, lang = 'en' } = {}) {
   let locale;
   try {
     locale = new Intl.NumberFormat(lang).resolvedOptions().locale;
@@ -46,7 +46,7 @@ const table = (html, cls = '') => `<div class="scroll"><table${cls ? ` class="${
  * The triage & remediation figures, whichever version made them: a report from before MZ-01.00.67
  * counted the backlog chosen only (nothing ahead).
  */
-function trFigures(tr) {
+export function trFigures(tr) {
   const T = tr.totals ?? {};
   const v = (key, fallback = 0) => (Number.isFinite(T[key]) ? T[key] : fallback);
   return {
@@ -173,6 +173,11 @@ function story(data, L) {
 
 /** The assumptions behind the number, in one short list. */
 function assumptions(data, sum, L) {
+  return `<section><h2>${L.w('Assumptions')}</h2><ul class="assume">${assumptionItems(data, sum, L).map((i) => `<li>${i}</li>`).join('')}</ul></section>`;
+}
+
+/** The assumptions behind the number, each a sentence (escaped HTML). */
+export function assumptionItems(data, sum, L) {
   const { w, num } = L;
   const items = [];
   const tr = data.tr;
@@ -193,7 +198,7 @@ function assumptions(data, sum, L) {
   if (data.fusion) items.push(w("Each project's lines of code are rounded up to whole 10K units on their own; one scan costs its model's credits per 10K LOC."));
   if (sum.settings.extraPercent) items.push(w('{0}% extra credits on top.', num(sum.settings.extraPercent, 2)));
   items.push(w('Bundles of {0} credits, rounded up to whole bundles.', num(sum.settings.bundleCredits)));
-  return `<section><h2>${w('Assumptions')}</h2><ul class="assume">${items.map((i) => `<li>${i}</li>`).join('')}</ul></section>`;
+  return items;
 }
 
 /** Appendix: every triage & remediation figure by severity, and the weekly charts. */
