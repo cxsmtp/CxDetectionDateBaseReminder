@@ -55,7 +55,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.68 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.68 — 2026-10-12 11:06 UTC · [#91](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/91)
 
 - **Connect behind a company proxy, in one click.** When the certificate Checkmarx One presents is not trusted (`UNABLE_TO_GET_ISSUER_CERT_LOCALLY` and the like), Settings → Checkmarx One now shows the certificate your network presents: its name, product (Zscaler, Netskope…) and fingerprint. **Trust and connect** trusts it and connects at once, with no restart and no environment variable.
 - **Or upload it.** When only the certificate's name is known, upload your company's root certificate. A one-line Windows command exports every certificate the computer trusts, and from that file only the ones the connection needs are kept.
