@@ -9,7 +9,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { fusionEstimate } from '../public/calculator/model.js';
+import { fusionEstimate, inScope } from '../public/calculator/model.js';
+import { buildReport } from '../public/calculator/report.js';
 import { freePort } from './free-port.js';
 import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
 
@@ -115,7 +116,8 @@ test('a customer is saved as it is worked on, and opens again as it was left', a
   assert.deepEqual(opened.tr.totals.bySeverity.High, [10, 12]);
   assert.equal(opened.tr.selected.High, 6);
   assert.equal(opened.tr.fpPercent.High, 20);
-  assert.equal(opened.tr.lookbackMonths, 0);
+  assert.equal(opened.tr.lookbackMonths, 3, '"Latest" is gone: the trend is always read over months');
+  assert.deepEqual([opened.tr.selected.Medium, opened.tr.includeFuture, opened.tr.fusionUpliftPercent, opened.tr.faePercent], [null, true, 20, 10], 'not chosen: every open finding; and the defaults for what is ahead');
   assert.equal((await ana('PUT', `/api/projections/${customerId}`, { name: 'Globex — renewal' })).body.customer.name, 'Globex — renewal');
   assert.equal((await ana('PUT', '/api/projections/nope', { name: 'x' })).status, 404);
 });
@@ -176,6 +178,50 @@ test('one read in the background fills both tabs from Checkmarx One: the backlog
   const saved = await ana('PUT', `/api/projections/${customerId}`, { tr: { totals: tr.totals, fixed: tr.fixed } });
   assert.equal(saved.status, 200, saved.text);
   assert.equal((await ana('GET', `/api/projections/${customerId}`)).body.customer.tr.totals.meta.scans, tr.totals.meta.scans);
+  // Each project says its applications, groups and who last scanned it, for narrowing the projects.
+  const p1 = projects.find((p) => p.id === 'p1');
+  assert.deepEqual([p1.applications, p1.groups, p1.initiator], [['Mobile'], ['team-b'], 'dev1@acme.com']);
+  assert.ok(!('perProject' in job.result), 'each project’s weeks stay on the server');
+
+  // A scope: the backlog of its projects only, from the same read (no second read of Checkmarx One).
+  const mobile = projects.filter((p) => inScope(p, { applications: ['mobile'] })).map((p) => p.id);
+  assert.equal(mobile.length, Math.ceil((PROJECTS - 1) / 4));
+  const scoped = await ana('POST', '/api/projections/series', { projectIds: mobile });
+  assert.equal(scoped.status, 200, scoped.text);
+  assert.equal(scoped.body.totals.meta.projects, mobile.length);
+  assert.equal(scoped.body.totals.meta.scoped, true);
+  const whole = await ana('POST', '/api/projections/series', { projectIds: projects.map((p) => p.id) });
+  assert.deepEqual(whole.body.totals.bySeverity, tr.totals.bySeverity, 'every project: the tenant’s own backlog');
+  const rest = await ana('POST', '/api/projections/series', { projectIds: projects.filter((p) => !mobile.includes(p.id)).map((p) => p.id) });
+  const at = (b, i) => ['Critical', 'High', 'Medium', 'Low'].reduce((n, s) => n + b.totals.bySeverity[s][i], 0);
+  assert.equal(at(scoped.body, 51) + at(rest.body, 51), at(whole.body, 51), 'a scope and the rest add up to the whole');
+  assert.equal((await ana('POST', '/api/projections/series', { projectIds: ['__proto__', 'constructor'] })).body.totals.meta.projects, 0);
+  assert.equal((await uma('POST', '/api/projections/series', { projectIds: mobile })).status, 403);
+  const scope = await ana('PUT', `/api/projections/${customerId}`, { scope: { applications: ['Mobile', '<b>'], names: ['web-*'], frequencies: ['month', 'hourly'], criticalities: [5, 9] } });
+  assert.equal(scope.status, 200, scope.text);
+  assert.deepEqual((await ana('GET', `/api/projections/${customerId}`)).body.customer.scope, { applications: ['Mobile', '<b>'], groups: [], initiators: [], names: ['web-*'], frequencies: ['month'], criticalities: [5] });
+});
+
+test('a report is emailed as its file, to the addresses typed, and only when it is one', async () => {
+  const data = { organisation: 'Acme Partners', customer: 'Globex', generatedAt: new Date().toISOString(), tr: { totals: { credits: 12, selected: 3 } } };
+  const made = await ana('POST', '/api/projections/reports', { customerId, data });
+  const id = made.body.report.id;
+  const html = buildReport(data);
+  const send = (body) => ana('POST', `/api/projections/reports/${id}/email`, { html, ...body });
+  assert.equal((await send({ to: '' })).status, 400, 'nobody to send to');
+  assert.match((await send({ to: 'not-an-address' })).body.error, /Not an email address/);
+  assert.equal((await send({ to: Array.from({ length: 11 }, (_, i) => `p${i}@acme.io`) })).status, 400, 'at most 10');
+  assert.equal((await send({ to: 'bhawani.singh@checkmarx.com' })).status, 400, 'the maintainer is never written to from here');
+  for (const bad of ['<html><body>hi</body></html>', `${html}<script>alert(1)</script>`, html.replace('<body>', '<body onload="x()">'), html.replace('<main>', '<main><iframe src="https://evil.example"></iframe>')]) {
+    assert.equal((await ana('POST', `/api/projections/reports/${id}/email`, { to: 'kim@acme.io', html: bad })).status, 400, bad.slice(-80));
+  }
+  assert.equal((await ana('POST', '/api/projections/reports/00000000-0000-0000-0000-000000000000/email', { to: 'kim@acme.io', html })).status, 404);
+  assert.equal((await uma('POST', `/api/projections/reports/${id}/email`, { to: 'kim@acme.io', html })).status, 403);
+  // This server has no tested mail server: said plainly, nothing sent.
+  const unsent = await send({ to: 'kim@acme.io, lee@acme.io' });
+  assert.equal(unsent.status, 409, unsent.text);
+  assert.match(unsent.body.error, /email server/i);
+  assert.equal((await admin('DELETE', `/api/projections/reports/${id}`)).status, 200);
 });
 
 test('reports are kept, listed, downloaded again and deleted', async () => {
