@@ -544,7 +544,8 @@ podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -e TZ=
 | Variable | Default | When to change it |
 | --- | --- | --- |
 | `CX_MAX_CONCURRENCY` | 24 | Calls to Checkmarx One at once. Raise it (e.g. 48) only if your tenant's rate limits allow; it shortens fetch, verify and report times under load. |
-| `CX_FETCH_CONCURRENCY` | 10 | Projects read at once by one fetch. |
+| `CX_FETCH_CONCURRENCY` | 24 | Projects read at once by one fetch (10 before MZ-01.00.65). |
+| `CX_VERIFY_CONCURRENCY` | 8 | Projects verified at once by **Refresh & verify** and the credit actions, each with its two reads side by side (3, one read after the other, before MZ-01.00.65). |
 | `CX_PAGES_AT_ONCE` | 4 | Pages of one big project read at once, once its size is known. |
 | `HTTP_COMPRESSION`, `HTTP_COMPRESSION_MIN_KB` | on, 32 | Compress replies of at least this many KB (brotli or gzip). `off` when a reverse proxy compresses. |
 | `CX_FETCH_CACHE_SECONDS` | 120 | How long a project someone fetched is reused by the next fetch on the same key (see [How it works](how-it-works.md)). Longer means fewer calls and staler states; `0` reads everything every time. |

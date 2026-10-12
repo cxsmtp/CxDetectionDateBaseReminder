@@ -34,7 +34,8 @@ The technical reference: what happens under each feature, where data lives, and 
 4. a suggestion from your tenant's naming pattern (`cx-julian-chuan` → `julian.chuan@company.com`), which waits for someone to confirm it.
 
 **Fetch speed**
-- Initiators and findings are fetched at the same time, with findings for 10 projects at once (`CX_FETCH_CONCURRENCY`).
+- Initiators and findings are fetched at the same time, with findings for 24 projects at once (`CX_FETCH_CONCURRENCY`), so the 24 calls the connection allows (`CX_MAX_CONCURRENCY`) are all in use.
+- **A vulnerability search** (`?vulnerability=`, e.g. *SQL injection, SSRF, CWE-89*) keeps only the findings whose name (or CWE) matches, after reading; the projects without one are left out of the result, and the verified credit reads use the same search.
 - **Big projects, a few pages at once.** The first page of findings says how many there are; the remaining pages are read 4 at a time (`CX_PAGES_AT_ONCE`) and kept in order. Last-scan lookups go out a few chunks at once too.
 - **Shared recent reads.** A project read in the last 2 minutes (`CX_FETCH_CACHE_SECONDS`, 0 switches it off) is reused by the next fetch instead of read again, when all of these hold:
   - it is the same Checkmarx One key on the same tenant (people on different keys never share what they can see);
