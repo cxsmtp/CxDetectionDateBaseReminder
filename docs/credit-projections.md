@@ -110,12 +110,13 @@ Then the page shows:
    | **= To triage** | Each costs its triage credits; the true positives among them are remediated too |
    | **→ Credits** | Split into the backlog today and what is ahead |
 
-   **Count findings still to come**, **AI adoption: fewer new findings each month (%)** (0 to 20; 0 keeps today's pace), **More found by Fusion (%)** and **FAE: fewer false positives (%)** change these, at once; **Defaults** puts them back. A customer saved before MZ-01.00.69 with Fusion on the old 20% default moves to 5%; a value someone typed stays. **3**, **6**, **9** or **12 months** choose the period the trend (new findings a month, debt increase, fix rate) is measured over: 3 by default.
-2. **Customize per severity**, right under it, open: how many of the backlog to triage (**All** is every open finding, and stays every open finding when the next read finds more), the false positives expected (%), and the credits per triage and per remediation (Checkmarx One's 1 and 3 to start with). Changes count once you select **Apply**.
-3. **Backlog trend and forecast:** the backlog by month, then over the projection period (shaded): if nothing changes, and with the plan.
-4. **The last 12 months, week by week:** the backlog, and the fix rate against the rate the debt grows, each over 4 weeks (a single week jumps about too much).
+   **Count findings still to come**, **AI adoption: fewer new findings each month (%)** (0 to 20; 0 keeps today's pace), **More found by Fusion (%)** and **FAE: fewer false positives (%)** change these, at once; **Defaults** puts them back. A customer saved before MZ-01.00.69 with Fusion on the old 20% default moves to 5%; a value someone typed stays. **3**, **6**, **9** or **12 months** choose the period the trend (new findings and fixes a month) is measured over: 3 by default.
+2. **Customize per severity**, right under it, open: how many of the backlog to triage (**All** is every open finding, and stays every open finding when the next read finds more), the false positives expected (%), and the credits per triage and per remediation (Checkmarx One's 1 and 3 to start with). Changes count once you select **Apply**. Each severity's box ends with what it comes to: to triage, to remediate, and the credits. The estimates live here and above, next to their controls.
+3. **Debt added against fixes:** one sentence first: each month new findings add X% to the backlog and fixes take away Y%, so it grows (and how much faster fixing would have to be to keep up) or shrinks. Then the timeline: the two, week by week over the last 12 months, each over 4 weeks (a single week jumps about too much) and as a share of the backlog a month. While the red line is above the green one, the backlog grows. Then a short table by severity: open now, added a month, fixed a month, and the change a month. Added is what the backlog grew by plus what was fixed; both percentages are a share of today's backlog, so they compare directly.
+4. **Backlog trend and forecast:** the backlog by month, then over the projection period (shaded): if nothing changes, and with the plan.
 5. **By severity:** one small chart each, the backlog and then with the plan, each on its own scale.
-6. **The final matrix:** every figure by severity, from the backlog to the credits.
+
+The page no longer has the final matrix of every figure: the projection report's appendix still has it, with added, fixed and the change a month in place of the debt increase and fix rate.
 
 Customers saved before MZ-01.00.67 open with every open finding counted where nothing was chosen, and a trend period of 3 months where it was *Latest* (the latest week, now gone: a single week says too little to project from).
 

@@ -8,7 +8,7 @@
 // Checkmarx One data, then how the number was reached, the assumptions, and last every figure.
 
 import { FREQUENCIES, SEVERITIES, cleanScope, creditSummary } from './model.js';
-import { SEVERITY_COLOURS, backlogTrendChart, forecastChart, monthLabel, ratesChart, severityChart, severityCharts } from './charts.js';
+import { SEVERITY_COLOURS, backlogTrendChart, debtFixChart, forecastChart, monthLabel, ratesChart, severityChart, severityCharts } from './charts.js';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const FROM = { default: 'Default', frequency: 'Scan frequency', criticality: 'Criticality', project: 'Set for the project' };
@@ -206,6 +206,10 @@ function trAppendix(tr, L) {
   const months = Math.round((tr.weekly?.length ?? 0) / 4.345);
   const an = (s) => tr.analysis?.[s] ?? {};
   const hasAhead = Number.isFinite(tr.totals?.toTriage);
+  // Reports from MZ-01.00.69 on: debt added against fixes a month; earlier ones keep their two rates.
+  const hasDebtFix = Number.isFinite(tr.analysis?.total?.fixedMonthly);
+  const signed = (v) => (!Number.isFinite(v) ? '—' : Math.round(v) > 0 ? `+${num(v)}` : Math.round(v) < 0 ? `−${num(-v)}` : '0');
+  const hasWeeklyDebt = tr.weekly?.some((x) => x.addedRate !== undefined);
   return `<section class="appendix">
   <h2>${w('Triage & remediation')}</h2>
   <p class="sub">${w('Backlog as of {0}, against {1}.', esc(date(tr.asOf)), esc(date(tr.previousDate)))}</p>
@@ -213,13 +217,16 @@ function trAppendix(tr, L) {
     <thead><tr><th>${w('By severity')}</th>${SEVERITIES.map((s) => `<th><i class="dot" style="background:${SEVERITY_COLOURS[s]}"></i>${w(s)}</th>`).join('')}<th>${w('Total')}</th></tr></thead>
     <tbody>
       <tr><td>${w('Current backlog')}</td>${cell((r) => num(r.backlog))}<td>${num(f.backlog)}</td></tr>
-      <tr class="muted"><td>${w('Debt increase')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).debtRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.debtRate)}</td></tr>
+      ${hasDebtFix ? `<tr class="muted"><td>${w('Added a month')}</td>${SEVERITIES.map((s) => `<td>${num(an(s).arrivals)}</td>`).join('')}<td>${num(tr.analysis?.total?.arrivals)}</td></tr>
+      <tr class="muted"><td>${w('Fixed a month')}</td>${SEVERITIES.map((s) => `<td>${num(an(s).fixedMonthly)}</td>`).join('')}<td>${num(tr.analysis?.total?.fixedMonthly)}</td></tr>
+      <tr class="muted"><td>${w('Change a month')}</td>${SEVERITIES.map((s) => `<td>${signed(an(s).netMonthly)}</td>`).join('')}<td>${signed(tr.analysis?.total?.netMonthly)}</td></tr>`
+    : `<tr class="muted"><td>${w('Debt increase')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).debtRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.debtRate)}</td></tr>
       <tr class="muted"><td>${w('Fix rate')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).fixRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.fixRate)}</td></tr>
-      ${hasAhead ? `<tr class="muted"><td>${w('New findings a month')}</td>${SEVERITIES.map((s) => `<td>${num(an(s).arrivals)}</td>`).join('')}<td>${num(tr.analysis?.total?.arrivals)}</td></tr>` : ''}
+      ${hasAhead ? `<tr class="muted"><td>${w('New findings a month')}</td>${SEVERITIES.map((s) => `<td>${num(an(s).arrivals)}</td>`).join('')}<td>${num(tr.analysis?.total?.arrivals)}</td></tr>` : ''}`}
       <tr><td>${w('Backlog to triage')}</td>${cell((r) => num(r.selected))}<td>${num(f.selected)}</td></tr>
       ${hasAhead ? `<tr><td>${w('Still to come')}</td>${cell((r) => num(r.future))}<td>${num(f.future)}</td></tr>
       <tr><td>${w('More found by Fusion')}</td>${cell((r) => num(r.fusionExtra))}<td>${num(f.fusionExtra)}</td></tr>
-      <tr class="muted"><td>${w('Kept away by FAE')}</td>${cell((r) => `−${num(r.faeAvoided)}`)}<td>−${num(f.faeAvoided)}</td></tr>
+      <tr class="muted"><td>${w('Kept away by FAE')}</td>${cell((r) => signed(-r.faeAvoided))}<td>${signed(-f.faeAvoided)}</td></tr>
       <tr class="strong"><td>${w('To triage')}</td>${cell((r) => num(r.toTriage))}<td>${num(f.toTriage)}</td></tr>` : ''}
       <tr class="muted"><td>${w('Credits per triage')}</td>${cell((r) => num(r.triageCost, 2))}<td>—</td></tr>
       <tr class="muted"><td>${w('False positives (estimated)')}</td>${cell((r) => `${num(r.fp)}%`)}<td>—</td></tr>
@@ -229,7 +236,7 @@ function trAppendix(tr, L) {
       <tr><td>${w('Remediation credits')}</td>${cell((r) => num(r.remediationCredits, 1))}<td>${num(f.remediationCredits, 1)}</td></tr>
       <tr class="gold"><td>${w('Credits')}</td>${cell((r) => num(r.credits, 1))}<td>${num(f.credits, 1)}</td></tr>
     </tbody>`)}
-  ${tr.weekly?.length ? `<h3>${w('The last {0} months, week by week', num(months))}</h3><div class="pair">${backlogTrendChart(tr.weekly, P)}${ratesChart(tr.weekly, P)}</div>` : ''}
+  ${tr.weekly?.length ? `<h3>${w('The last {0} months, week by week', num(months))}</h3>${hasWeeklyDebt ? debtFixChart(tr.weekly, P) : `<div class="pair">${backlogTrendChart(tr.weekly, P)}${ratesChart(tr.weekly, P)}</div>`}` : ''}
   ${tr.bySeverity ? `<h3>${w('By severity')}</h3>${severityCharts(tr.bySeverity, P)}` : tr.severityForecast?.length ? `<h3>${w('By severity')}</h3>${severityChart(tr.severityForecast, P)}` : ''}
 </section>`;
 }

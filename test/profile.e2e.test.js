@@ -66,11 +66,12 @@ test.after(() => {
 
 test('a person sets their own name, language, time zone and programming languages', async () => {
   const before = (await member('GET', '/api/me')).body.user;
-  assert.deepEqual(before.profile, { language: '', timeZone: '', timeZoneAuto: true, programmingLanguages: [] });
+  const noImpact = { currency: '', hourlyRate: null, creditPrice: null, triageMinutes: null, fixMinutes: null };
+  assert.deepEqual(before.profile, { language: '', timeZone: '', timeZoneAuto: true, programmingLanguages: [], impact: noImpact }, 'Impact figures: the organisation\'s until they give their own');
   const saved = await member('PUT', '/api/me/profile', { name: 'Dev Tanaka', language: 'ja', timeZoneAuto: false, timeZone: 'Asia/Tokyo', programmingLanguages: ['TypeScript', 'Java'] });
   assert.equal(saved.status, 200, JSON.stringify(saved.body));
   assert.equal(saved.body.user.name, 'Dev Tanaka');
-  assert.deepEqual(saved.body.user.profile, { language: 'ja', timeZone: 'Asia/Tokyo', timeZoneAuto: false, programmingLanguages: ['Java', 'TypeScript'] });
+  assert.deepEqual(saved.body.user.profile, { language: 'ja', timeZone: 'Asia/Tokyo', timeZoneAuto: false, programmingLanguages: ['Java', 'TypeScript'], impact: noImpact });
   assert.equal(saved.body.user.email, 'dev@acme.io', 'the email is shown, and cannot be changed here');
   assert.equal((await member('PUT', '/api/me/profile', { email: 'other@acme.io' })).body.user.email, 'dev@acme.io');
 });

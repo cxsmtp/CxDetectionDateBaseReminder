@@ -28,7 +28,7 @@ import {
   weeklyTrend,
   wholeNumber,
 } from './model.js';
-import { SEVERITY_COLOURS, backlogTrendChart, forecastChart, ratesChart, severityCharts } from './charts.js';
+import { SEVERITY_COLOURS, debtFixChart, forecastChart, severityCharts } from './charts.js';
 import { buildReport, reportFileName } from './report.js';
 import { RTL, currentLanguage, t } from '../i18n.js';
 
@@ -412,48 +412,56 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
             <label class="calc-row"><span>Credits per triage</span><input type="number" min="0" step="0.5" value="${d.triageCost}" data-f="triageCost" /></label>
             <label class="calc-row"><span>False positives %</span><input type="number" min="0" max="100" step="1" value="${d.fpPercent}" data-f="fpPercent" /></label>
             <label class="calc-row"><span>Credits per remediation</span><input type="number" min="0" step="0.5" value="${d.remediationCost}" data-f="remediationCost" /></label>
+            <p class="calc-sev-result"><span>To triage</span> <b>${num(R[s].toTriage)}</b> · <span>to remediate</span> <b>${num(R[s].truePositives)}</b> · <b class="calc-gold">${num(R[s].credits, 1)}</b> <span>credits</span></p>
             <button type="button" class="${c.dirty[s] ? 'primary' : 'secondary'} calc-apply" data-apply${c.dirty[s] ? '' : ' disabled'}>${c.dirty[s] ? 'Apply' : 'Applied'}</button>
           </div>`;
         }).join('')}</div>
         <p class="hint">Credits per triage and per remediation start at Checkmarx One's 1 and 3: set them to the customer's agreement. The false-positive rate is your estimate for this customer.</p>
       </details>
+      ${debtFixSection(analysis, f.weekly)}
       <section class="panel">
         <h2>Backlog trend and forecast</h2>
         <p class="hint">${analysis.monthlyChange >= 0 ? `The backlog grew by ${num(analysis.monthlyChange)} a month on average recently.` : `The backlog shrank by ${num(-analysis.monthlyChange)} a month on average recently.`} Shaded: the next ${num(months)} months.</p>
         ${forecastChart(f.forecast)}
       </section>
       <section class="panel">
-        <h2>The last ${num(Math.round(f.weekly.length / 4.345))} months, week by week</h2>
-        <div class="calc-pair"><div><h3>Backlog (open vulnerabilities)</h3>${backlogTrendChart(f.weekly)}</div><div><h3>Fix rate and debt increase rate, 4-week average (%)</h3>${ratesChart(f.weekly)}</div></div>
-      </section>
-      <section class="panel">
         <h2>By severity</h2>
         <p class="hint">The backlog so far, then with the plan over the next ${num(months)} months (dashed). Each severity on its own scale.</p>
         ${severityCharts(f.bySeverity)}
-      </section>
-      <section class="panel">
-        <h2>Final matrix</h2>
-        <p class="hint">Every figure that matters, by severity. Debt increase and fix rate: over the last ${num(tr().lookbackMonths)} months.</p>
-        <div class="table-wrap"><table class="data-table calc-matrix">
-          <thead><tr><th>Figure</th>${SEVERITIES.map(sevHead).join('')}<th class="num">Total</th></tr></thead>
-          <tbody>
-            ${row('Current backlog', SEVERITIES.map((s) => num(analysis.perSeverity[s].current)), num(analysis.total.current))}
-            ${row('Debt increase', SEVERITIES.map((s) => pct(analysis.perSeverity[s].debtRate)), pct(analysis.total.debtRate), 'muted')}
-            ${row('Fix rate', SEVERITIES.map((s) => pct(analysis.perSeverity[s].fixRate)), pct(analysis.total.fixRate), 'muted')}
-            ${row('New findings a month', SEVERITIES.map((s) => num(analysis.perSeverity[s].arrivals)), num(analysis.total.arrivals), 'muted')}
-            ${row('Backlog to triage', SEVERITIES.map((s) => num(R[s].selected)), num(P.selected))}
-            ${row(`Still to come (${num(months)} months)`, SEVERITIES.map((s) => num(R[s].future)), num(P.future))}
-            ${row('More found by Fusion', SEVERITIES.map((s) => num(R[s].fusionExtra)), num(P.fusionExtra))}
-            ${row('Kept away by FAE', SEVERITIES.map((s) => `−${num(R[s].faeAvoided)}`), `−${num(P.faeAvoided)}`, 'muted')}
-            ${row('To triage', SEVERITIES.map((s) => num(R[s].toTriage)), num(P.toTriage), 'strong')}
-            ${row('False positives (estimated)', SEVERITIES.map((s) => `${num(R[s].fp)}%`), '—', 'muted')}
-            ${row('True positives (estimated)', SEVERITIES.map((s) => num(R[s].truePositives)), num(P.truePositives))}
-            ${row('Triage credits', SEVERITIES.map((s) => num(R[s].triageCredits, 1)), num(P.triageCredits, 1))}
-            ${row('Remediation credits', SEVERITIES.map((s) => num(R[s].remediationCredits, 1)), num(P.remediationCredits, 1))}
-            ${row('Credits', SEVERITIES.map((s) => num(R[s].credits, 1)), num(P.credits, 1), 'gold')}
-          </tbody></table></div>
       </section>`;
   }
+
+  /**
+   * Debt added against fixes: one sentence, the timeline, and by severity what new findings add
+   * and fixes take away a month (each also as a share of the backlog), and the difference.
+   */
+  function debtFixSection(analysis, weekly) {
+    const T = analysis.total;
+    const share = (v) => (v === null || v === undefined || !Number.isFinite(v) ? '' : ` <small>${num(v, 1)}%</small>`);
+    const net = (v) => (!Number.isFinite(v) ? '—' : Math.round(v) > 0 ? `<span class="calc-bad">▲ +${num(v)}</span>` : Math.round(v) < 0 ? `<span class="calc-good">▼ −${num(-v)}</span>` : '0');
+    const line = (label, x, cls = '') => `<tr class="${cls}"><td>${label}</td><td class="num">${num(x.current)}</td><td class="num">${num(x.arrivals)}${share(x.addedPct)}</td><td class="num">${num(x.fixedMonthly)}${share(x.fixedPct)}</td><td class="num">${net(x.netMonthly)}</td></tr>`;
+    const faster = T.fixedMonthly > 0 && T.arrivals > T.fixedMonthly ? T.arrivals / T.fixedMonthly : null;
+    const verdict = !Number.isFinite(T.netMonthly)
+      ? ''
+      : T.netMonthly > 0
+        ? faster ? `The backlog grows by ${num(T.netMonthly)} a month: fixing would have to be ${num(faster, 1)} times as fast to keep up.` : `The backlog grows by ${num(T.netMonthly)} a month.`
+        : `The backlog shrinks by ${num(-T.netMonthly)} a month.`;
+    return `<section class="panel calc-debtfix">
+        <h2>Debt added against fixes</h2>
+        <p class="calc-verdict"><span>Each month, new findings add ${num(T.addedPct, 1)}% to the backlog and fixes take away ${num(T.fixedPct, 1)}%.</span> <span>${verdict}</span></p>
+        ${weekly?.length ? debtFixChart(weekly) : ''}
+        <div class="table-wrap"><table class="data-table calc-debt-table">
+          <thead><tr><th>Severity</th><th class="num">Open now</th><th class="num">Added a month</th><th class="num">Fixed a month</th><th class="num">Change a month</th></tr></thead>
+          <tbody>
+            ${SEVERITIES.map((s) => line(`<span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span>`, analysis.perSeverity[s])).join('')}
+            ${line('Total', T, 'strong')}
+          </tbody></table></div>
+        <p class="hint">Over the last ${num(tr().lookbackMonths)} months. Percentages: a share of today's backlog. The estimates (Fusion, FAE, false positives, credits) are set above, under What the projection counts and Customize per severity.</p>
+      </section>`;
+  }
+
+  /** What the report keeps of the analysis for one severity (or the total). */
+  const debtFigures = (x) => ({ current: x.current, arrivals: x.arrivals, debtRate: x.debtRate, fixRate: x.fixRate, fixedMonthly: x.fixedMonthly, netMonthly: x.netMonthly, addedPct: x.addedPct, fixedPct: x.fixedPct });
 
   /** How far along its track a slider's thumb is, for the filled part (0 is at the very start). */
   const fill = (value, max) => (max > 0 ? Math.round((Math.min(value, max) / max) * 1000) / 10 : 0);
@@ -1231,8 +1239,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
             rows: t.projection.rows,
             totals: t.projection.totals,
             analysis: {
-              ...Object.fromEntries(SEVERITIES.map((s) => [s, { current: t.analysis.perSeverity[s].current, arrivals: t.analysis.perSeverity[s].arrivals, debtRate: t.analysis.perSeverity[s].debtRate, fixRate: t.analysis.perSeverity[s].fixRate }])),
-              total: { current: t.analysis.total.current, arrivals: t.analysis.total.arrivals, debtRate: t.analysis.total.debtRate, fixRate: t.analysis.total.fixRate },
+              ...Object.fromEntries(SEVERITIES.map((s) => [s, debtFigures(t.analysis.perSeverity[s])])),
+              total: debtFigures(t.analysis.total),
             },
             monthlyChange: t.analysis.monthlyChange,
             history: t.analysis.history.map((h) => ({ month: h.month })),

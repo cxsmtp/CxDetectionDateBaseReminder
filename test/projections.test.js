@@ -22,9 +22,14 @@ const fixed = { weeks: ['2026-03-07', '2026-04-04'], bySeverity: { Critical: [1,
 test('triage & remediation: backlog, debt growth, fix rate, credits and forecasts', () => {
   const { totalRows, fixedRows } = seriesRows(totals, fixed);
   const latest = analyse(totalRows, fixedRows, 0);
-  const { arrivals, ...critical } = latest.perSeverity.Critical;
+  const { arrivals, fixedMonthly, netMonthly, addedPct, fixedPct, ...critical } = latest.perSeverity.Critical;
   assert.deepEqual(critical, { current: 16, prior: 14, fixed: 2, debtRate: (2 / 14) * 100, fixRate: 12.5 });
   assert.ok(Math.abs(arrivals - 4 / (28 / 30.44)) < 1e-9, 'new a month: grew by 2 and 2 were fixed, over 28 days');
+  // Debt added against fixes, a month, on one footing: both as a share of today's backlog.
+  assert.ok(Math.abs(fixedMonthly - 2 / (28 / 30.44)) < 1e-9);
+  assert.ok(Math.abs(netMonthly - 2 / (28 / 30.44)) < 1e-9, 'added 4, fixed 2: grows by 2 over the 28 days');
+  assert.ok(Math.abs(addedPct - (arrivals / 16) * 100) < 1e-9 && Math.abs(fixedPct - (fixedMonthly / 16) * 100) < 1e-9);
+  assert.ok(Math.abs(latest.total.netMonthly - (latest.total.arrivals - latest.total.fixedMonthly)) < 1e-9);
   assert.equal(latest.total.current, 152);
   assert.equal(latest.monthlyChange, 12, '(152 − 116) over 3 months');
   const quarter = analyse(totalRows, fixedRows, 3);
@@ -47,9 +52,10 @@ test('triage & remediation: backlog, debt growth, fix rate, credits and forecast
   assert.equal(bySeverity.length, 4 + 3);
   assert.ok(bySeverity.at(-1).CriticalF >= 0);
   const weekly = weeklyTrend(totalRows, fixedRows, 52);
-  const { fixRate4, debtRate4, ...week } = weekly.at(-1);
-  assert.deepEqual(week, { date: '2026-04-04', backlog: 152, fixed: 6, fixRate: (6 / 152) * 100, debtRate: (12 / 140) * 100 });
-  assert.ok(Number.isFinite(fixRate4) && Number.isFinite(debtRate4), 'and over the last 4 weeks');
+  const { fixRate4, debtRate4, addedRate4, fixedRate4, ...week } = weekly.at(-1);
+  assert.deepEqual(week, { date: '2026-04-04', backlog: 152, fixed: 6, fixRate: (6 / 152) * 100, debtRate: (12 / 140) * 100, added: 18, addedRate: (18 / 140) * 100, fixedRate: (6 / 140) * 100 });
+  assert.ok([fixRate4, debtRate4, addedRate4, fixedRate4].every(Number.isFinite), 'and over the last 4 weeks');
+  assert.equal(weekly[0].added, null, 'the first week has nothing before it');
 });
 
 test('Fusion: each project rounded up to whole 10K units on its own, credits per 10K LOC per scan', () => {

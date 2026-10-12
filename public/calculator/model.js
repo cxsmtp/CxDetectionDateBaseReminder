@@ -104,6 +104,14 @@ export function analyse(totalRows, fixedRows, lookbackMonths = DEFAULT_TR.lookba
   const total = { current: sum('current'), prior: sum('prior'), fixed: sum('fixed'), arrivals: sum('arrivals') };
   total.debtRate = total.prior ? ((total.current - total.prior) / total.prior) * 100 : null;
   total.fixRate = total.current ? (total.fixed / total.current) * 100 : null;
+  // Debt against fixes, a month, on one footing: what new findings add and what fixes take away,
+  // each as a share of today's backlog; their difference is how fast the backlog moves.
+  for (const x of [...SEVERITIES.map((s) => perSeverity[s]), total]) {
+    x.fixedMonthly = x.fixed / spanMonths;
+    x.netMonthly = x.arrivals - x.fixedMonthly;
+    x.addedPct = x.current ? (x.arrivals / x.current) * 100 : null;
+    x.fixedPct = x.current ? (x.fixedMonthly / x.current) * 100 : null;
+  }
   // The last week of each month stands for the month.
   const byMonth = new Map();
   for (const r of totalRows) byMonth.set(monthKey(r.date), r);
@@ -305,7 +313,9 @@ export function weeklyTrend(totalRows, fixedRows, weeks = 52) {
     const backlog = SEVERITIES.reduce((a, s) => a + r[s], 0);
     const fixed = fixedByWeek.get(r.date) ?? 0;
     const prev = i ? SEVERITIES.reduce((a, s) => a + rows[i - 1][s], 0) : null;
-    return { date: r.date, backlog, fixed, fixRate: backlog ? (fixed / backlog) * 100 : null, debtRate: prev ? ((backlog - prev) / prev) * 100 : null };
+    // Added: what the backlog grew by plus what was fixed; added and fixed as a share of the week's starting backlog.
+    const added = prev === null ? null : Math.max(0, backlog - prev + fixed);
+    return { date: r.date, backlog, fixed, fixRate: backlog ? (fixed / backlog) * 100 : null, debtRate: prev ? ((backlog - prev) / prev) * 100 : null, added, addedRate: prev ? (added / prev) * 100 : null, fixedRate: prev ? (fixed / prev) * 100 : null };
   });
   // The same rates over the last 4 weeks: a week alone jumps about too much to read a trend from.
   out.forEach((w, i) => {
@@ -316,6 +326,8 @@ export function weeklyTrend(totalRows, fixedRows, weeks = 52) {
     };
     w.fixRate4 = avg('fixRate');
     w.debtRate4 = avg('debtRate');
+    w.addedRate4 = avg('addedRate');
+    w.fixedRate4 = avg('fixedRate');
   });
   return out;
 }
