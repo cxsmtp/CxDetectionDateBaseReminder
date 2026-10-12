@@ -2189,6 +2189,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                     <div class="chip-input" id="calc-projects"><input id="calc-project-input" list="calc-scope-projects-list" autocomplete="off" spellcheck="false" placeholder="Type a project name…" /></div>
                     <datalist id="calc-scope-projects-list"></datalist>
                   </div>
+                  <button type="button" class="primary calc-scope-apply" id="calc-scope-apply">Apply</button>
                 </div>
                 <p class="hint calc-scope-several">Empty: every project. These applications' projects, plus the projects picked. Enter adds every name that contains the text.</p>
                 <button type="button" class="link" id="calc-scope-toggle" aria-expanded="false" aria-controls="calc-scope-form">More filters</button>
@@ -2209,12 +2210,12 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </div>
               <div class="calc-sum" role="group" aria-label="Credits required">
                 <label class="calc-sum-item"><span>Projection period</span><select id="calc-horizon"><option value="6">6 months</option><option value="12">12 months</option><option value="18">18 months</option><option value="24">24 months</option><option value="36">36 months</option></select></label>
-                <div class="calc-sum-item"><span>Triage &amp; remediation</span><b id="calc-sum-tr">—</b><small class="hint" id="calc-sum-tr-split"></small></div>
-                <div class="calc-sum-item"><span>Fusion</span><b id="calc-sum-fusion">—</b></div>
+                <div class="calc-sum-item"><span>Triage &amp; remediation <button type="button" class="calc-why" data-why="credits" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-tr">—</b><small class="hint" id="calc-sum-tr-split"></small></div>
+                <div class="calc-sum-item"><span>Fusion <button type="button" class="calc-why" data-why="fusion-credits" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-fusion">—</b></div>
                 <label class="calc-sum-item"><span>Extra credits (%)</span><input type="text" inputmode="decimal" id="calc-extra" class="calc-num" placeholder="0" autocomplete="off" /></label>
-                <div class="calc-sum-item calc-sum-key"><span>Total credits required</span><b id="calc-sum-total">—</b><small class="hint" id="calc-sum-extra"></small></div>
+                <div class="calc-sum-item calc-sum-key"><span>Total credits required <button type="button" class="calc-why" data-why="total" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-total">—</b><small class="hint" id="calc-sum-extra"></small></div>
                 <label class="calc-sum-item"><span>Credits per bundle</span><input type="text" inputmode="numeric" id="calc-bundle" class="calc-num" placeholder="10000" autocomplete="off" /></label>
-                <div class="calc-sum-item calc-sum-key"><span>Bundles</span><b id="calc-sum-bundles">—</b><small class="hint" id="calc-sum-exact"></small></div>
+                <div class="calc-sum-item calc-sum-key"><span>Bundles <button type="button" class="calc-why" data-why="total" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-bundles">—</b><small class="hint" id="calc-sum-exact"></small></div>
               </div>
               <div class="calc-report-bar">
                 <p class="hint" id="calc-org-line"></p>
@@ -2394,6 +2395,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
           <div id="page-logs" class="page logs-page" hidden>
             <div class="ptabs" role="tablist" aria-label="Logs" data-ptabs="logs">
               <button type="button" role="tab" class="ptab" data-pt="activity">Activity in this browser</button>
+              <button type="button" role="tab" class="ptab" data-pt="people" data-perm="audit.view">User activity</button>
               <button type="button" role="tab" class="ptab" data-pt="troubleshooting" data-perm="diagnostics.export">Troubleshooting log</button>
             </div>
             <div class="ptpanel" data-ptpanel="logs:activity" role="tabpanel">
@@ -2423,6 +2425,52 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div class="pager-buttons">
                   <button type="button" class="sm" id="logs-prev">Newer</button>
                   <button type="button" class="sm" id="logs-next">Older</button>
+                </div>
+              </div>
+            </section>
+            </div>
+            <div class="ptpanel" data-ptpanel="logs:people" role="tabpanel" hidden>
+            <section class="panel user-activity" data-perm="audit.view">
+              <div class="panel-head">
+                <div>
+                  <h2>User activity</h2>
+                  <p class="hint">What each person did here, newest first: who, when, from which address, the page or action, the item it was about, the names of the fields they changed (never what they typed: no passwords, keys or text) and how it ended. Sign-ins, refused ones too, are included. Kept for a year, in this tenant's state folder.</p>
+                </div>
+                <div class="log-actions">
+                  <button id="ua-export" type="button" class="sm">Export CSV</button>
+                </div>
+              </div>
+              <form class="audit-filters" id="ua-filters">
+                <label><span>Person</span><select id="ua-user"><option value="">Everyone</option></select></label>
+                <label><span>Kind</span>
+                  <select id="ua-kind">
+                    <option value="">Everything</option>
+                    <option value="action">Actions</option>
+                    <option value="page">Pages visited</option>
+                    <option value="sign-in">Sign-ins</option>
+                    <option value="event">Other events</option>
+                  </select>
+                </label>
+                <label data-i18n-ctx="date"><span>From</span><input type="date" id="ua-from" /></label>
+                <label data-i18n-ctx="date"><span>To</span><input type="date" id="ua-to" /></label>
+                <label class="grow"><span>Search</span><input type="search" id="ua-q" placeholder="Name, email, IP, action, field…" /></label>
+                <div class="audit-filter-actions">
+                  <button type="submit" class="primary sm">Apply</button>
+                  <button type="button" id="ua-reset" class="sm ghost">Reset</button>
+                </div>
+              </form>
+              <p class="status" id="ua-status" aria-live="polite"></p>
+              <div class="table-wrap">
+                <table class="data-table ua-table">
+                  <thead><tr><th>When</th><th>Who</th><th>Page or action</th><th>Details</th><th>Result</th><th data-i18n-ctx="origin">From</th></tr></thead>
+                  <tbody id="ua-body"><tr><td colspan="6" class="hint">Loading…</td></tr></tbody>
+                </table>
+              </div>
+              <div class="pager" id="ua-pager">
+                <span class="hint" id="ua-count"></span>
+                <div class="pager-buttons">
+                  <button type="button" class="sm" id="ua-prev" disabled>Newer</button>
+                  <button type="button" class="sm" id="ua-next" disabled>Older</button>
                 </div>
               </div>
             </section>

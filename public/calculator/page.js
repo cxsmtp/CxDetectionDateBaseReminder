@@ -29,8 +29,9 @@ import {
   wholeNumber,
 } from './model.js';
 import { SEVERITY_COLOURS, debtFixChart, forecastChart, severityCharts } from './charts.js';
-import { buildReport, reportFileName } from './report.js';
+import { buildReport, reportFileName, wording } from './report.js';
 import { slidesFileName, slidesPdf } from './slides.js';
+import { allSections, sectionHtml } from './explain.js';
 import { RTL, currentLanguage, t } from '../i18n.js';
 
 const OPEN_KEY = 'mz-calc-customer';
@@ -82,7 +83,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderCustomers() {
     $('calc-empty').hidden = c.customers.length > 0;
     $('calc-customer').innerHTML = c.customers.map((x) => `<option value="${esc(x.id)}"${x.id === c.open?.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
-    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input']) $(id).disabled = !c.open;
+    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-scope-apply']) $(id).disabled = !c.open;
   }
 
   function renderOrg() {
@@ -374,24 +375,24 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const sevHead = (s) => `<th><span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span></th>`;
     const row = (label, cells, total, cls = '') => `<tr class="${cls}"><td>${label}</td>${cells.map((v) => `<td class="num">${v}</td>`).join('')}<td class="num calc-total">${total}</td></tr>`;
     const R = projection.rows;
-    const step = (label, value, sub, cls = '') => `<div class="calc-step ${cls}"><span class="calc-step-label">${label}</span><b>${value}</b><small>${sub}</small></div>`;
+    const step = (label, value, sub, cls = '', why = '') => `<div class="calc-step ${cls}"><span class="calc-step-label">${label}${why ? whyButton(why) : ''}</span><b>${value}</b><small>${sub}</small></div>`;
     $('calc-tr').innerHTML = `
       <p class="calc-snapshot">Backlog as of <time>${esc(analysis.latestDate)}</time>; the trend over the ${num(tr().lookbackMonths)} months before it.</p>
       <section class="panel calc-flow">
         <div class="calc-section-head"><h2>What the projection counts</h2>
           <div class="calc-lookback calc-edit" role="group" aria-label="Trend over">${LOOKBACKS.map((m) => `<button type="button" class="${tr().lookbackMonths === m ? 'on' : ''}" data-lookback="${m}">${m} months</button>`).join('')}</div></div>
         <div class="calc-steps">
-          ${step('Backlog today', num(P.selected), P.selected === P.backlog ? 'every open finding' : `of ${num(P.backlog)} open`)}
+          ${step('Backlog today', num(P.selected), P.selected === P.backlog ? 'every open finding' : `of ${num(P.backlog)} open`, '', 'backlog')}
           <span class="calc-op" aria-hidden="true">+</span>
-          ${step('Still to come', num(P.future), !A.includeFuture ? 'not counted' : `<span>${A.aiDeclinePercent ? `${num(P.arrivals)} new a month now, ${num(A.aiDeclinePercent)}% fewer each month with AI, over ${num(months)} months` : `${num(P.arrivals)} new a month × ${num(months)} months`}</span>${P.selected < P.backlog ? ' <span class="calc-step-note">In the same share per severity as the backlog chosen.</span>' : ''}`)}
+          ${step('Still to come', num(P.future), !A.includeFuture ? 'not counted' : `<span>${A.aiDeclinePercent ? `${num(P.arrivals)} new a month now, ${num(A.aiDeclinePercent)}% fewer each month with AI, over ${num(months)} months` : `${num(P.arrivals)} new a month × ${num(months)} months`}</span>${P.selected < P.backlog ? ' <span class="calc-step-note">In the same share per severity as the backlog chosen.</span>' : ''}`, '', 'future')}
           <span class="calc-op" aria-hidden="true">+</span>
-          ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? `${num(A.fusionUpliftPercent)}% more findings` : 'Fusion not in the projection')}
+          ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? `${num(A.fusionUpliftPercent)}% more findings` : 'Fusion not in the projection', '', 'fusion')}
           <span class="calc-op" aria-hidden="true">−</span>
-          ${step('Kept away by FAE', num(P.faeAvoided), `${num(A.faePercent)}% fewer false positives reported`)}
+          ${step('Kept away by FAE', num(P.faeAvoided), `${num(A.faePercent)}% fewer false positives reported`, '', 'fae')}
           <span class="calc-op" aria-hidden="true">=</span>
-          ${step('To triage', num(P.toTriage), `${num(P.truePositives)} to remediate`, 'calc-step-key')}
+          ${step('To triage', num(P.toTriage), `${num(P.truePositives)} to remediate`, 'calc-step-key', 'triage')}
           <span class="calc-op" aria-hidden="true">→</span>
-          ${step('Credits', num(P.credits, 1), `${num(P.backlogCredits, 1)} backlog + ${num(P.aheadCredits, 1)} ahead`, 'calc-step-gold')}
+          ${step('Credits', num(P.credits, 1), `${num(P.backlogCredits, 1)} backlog + ${num(P.aheadCredits, 1)} ahead`, 'calc-step-gold', 'credits')}
         </div>
         <div class="calc-assume calc-edit">
           <label class="check"><input type="checkbox" data-ahead="includeFuture"${A.includeFuture ? ' checked' : ''} /> Count findings still to come</label>
@@ -463,8 +464,74 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       </section>`;
   }
 
+  // ---- "?": how each number is worked out, with the figures in -------------------------------
+
+  const whyButton = (key) => `<button type="button" class="calc-why" data-why="${key}" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button>`;
+  const WHY = { backlog: ['backlog'], future: ['future'], fusion: ['fusion'], fae: ['fae'], triage: ['triage', 'remediate'], credits: ['credits'], 'fusion-credits': ['fusion-credits'], total: ['total'] };
+  const pop = document.createElement('div');
+  pop.className = 'calc-pop';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('translate', 'no');
+  pop.hidden = true;
+  document.body.append(pop);
+  let popFor = null;
+  const closePop = () => {
+    pop.hidden = true;
+    popFor?.setAttribute('aria-expanded', 'false');
+    popFor = null;
+  };
+  function openPop(button) {
+    if (popFor === button) return closePop();
+    closePop();
+    const data = reportData();
+    const L = wording({ t, lang: currentLanguage() });
+    const sections = allSections(data, L).filter((x) => WHY[button.dataset.why]?.includes(x.key));
+    if (!sections.length) return;
+    pop.innerHTML = `<button type="button" class="calc-pop-close" aria-label="${esc(t('Close'))}">×</button>${sections.map((x) => `<h4>${x.title}</h4>${sectionHtml(x)}`).join('')}`;
+    pop.dir = RTL.has(currentLanguage()) ? 'rtl' : 'ltr';
+    pop.hidden = false;
+    const r = button.getBoundingClientRect();
+    const width = Math.min(480, window.innerWidth - 24);
+    pop.style.width = `${width}px`;
+    pop.style.left = `${Math.max(12, Math.min(window.scrollX + r.left - 20, window.scrollX + window.innerWidth - width - 12))}px`;
+    pop.style.top = `${window.scrollY + r.bottom + 8}px`;
+    button.setAttribute('aria-expanded', 'true');
+    popFor = button;
+    pop.querySelector('.calc-pop-close').focus();
+  }
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('.calc-why');
+    if (button) return openPop(button);
+    if (event.target.closest('.calc-pop-close') || (!pop.hidden && !event.target.closest('.calc-pop'))) closePop();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !pop.hidden) {
+      const back = popFor;
+      closePop();
+      back?.focus();
+    }
+  });
+
   /** What the report keeps of the analysis for one severity (or the total). */
-  const debtFigures = (x) => ({ current: x.current, arrivals: x.arrivals, debtRate: x.debtRate, fixRate: x.fixRate, fixedMonthly: x.fixedMonthly, netMonthly: x.netMonthly, addedPct: x.addedPct, fixedPct: x.fixedPct });
+  const debtFigures = (x) => ({ current: x.current, prior: x.prior, fixed: x.fixed, arrivals: x.arrivals, debtRate: x.debtRate, fixRate: x.fixRate, fixedMonthly: x.fixedMonthly, netMonthly: x.netMonthly, addedPct: x.addedPct, fixedPct: x.fixedPct });
+
+  /** The triage & remediation figures as the report keeps them: what explains every number too. */
+  const trData = (t) => ({
+    asOf: t.analysis.latestDate,
+    previousDate: t.analysis.previousDate,
+    lookbackMonths: t.analysis.lookbackMonths,
+    months: t.projection.months,
+    paced: t.projection.paced,
+    fusion: t.projection.fusion,
+    ahead: t.projection.ahead,
+    rows: t.projection.rows,
+    totals: t.projection.totals,
+    analysis: {
+      ...Object.fromEntries(SEVERITIES.map((s) => [s, debtFigures(t.analysis.perSeverity[s])])),
+      total: debtFigures(t.analysis.total),
+      spanMonths: t.analysis.spanMonths,
+    },
+  });
 
   /** How far along its track a slider's thumb is, for the filled part (0 is at the very start). */
   const fill = (value, max) => (max > 0 ? Math.round((Math.min(value, max) / max) * 1000) / 10 : 0);
@@ -929,6 +996,22 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
   }
 
+  // Apply: what is typed in Applications and Projects (as Enter does), and the other filters when open.
+  $('calc-scope-apply').addEventListener('click', () => {
+    if (!c.open) return;
+    let typed = false;
+    for (const [inputId, kind] of [['calc-app-input', 'applications'], ['calc-project-input', 'projects']]) {
+      const input = $(inputId);
+      if (!input.value.trim()) continue;
+      typed = true;
+      const value = input.value;
+      input.value = '';
+      pickScope(kind, value);
+    }
+    if (!$('calc-scope-form').hidden) $('calc-scope-form').requestSubmit();
+    else if (!typed) setStatus('calc-scope-status', 'Type an application or project name first.', 'muted');
+  });
+
   for (const [inputId, kind] of [['calc-app-input', 'applications'], ['calc-project-input', 'projects']]) {
     const input = $(inputId);
     const commit = () => {
@@ -1234,18 +1317,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       },
       tr: t
         ? {
-            asOf: t.analysis.latestDate,
-            previousDate: t.analysis.previousDate,
-            lookbackMonths: t.analysis.lookbackMonths,
-            months: t.projection.months,
-            fusion: t.projection.fusion,
-            ahead: t.projection.ahead,
-            rows: t.projection.rows,
-            totals: t.projection.totals,
-            analysis: {
-              ...Object.fromEntries(SEVERITIES.map((s) => [s, debtFigures(t.analysis.perSeverity[s])])),
-              total: debtFigures(t.analysis.total),
-            },
+            ...trData(t),
             monthlyChange: t.analysis.monthlyChange,
             history: t.analysis.history.map((h) => ({ month: h.month })),
             weekly: t.weekly,
@@ -1314,6 +1386,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     try {
       const pdf = await slidesPdf({ ...data, generatedAt: report.createdAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr' });
       download(pdf, slidesFileName(report.customer, report.createdAt));
+      window.mzReportActivity?.('event', 'Downloaded the calculator PDF summary');
     } catch (error) {
       toast(`The PDF could not be made: ${error.message}`, 'bad');
     } finally {

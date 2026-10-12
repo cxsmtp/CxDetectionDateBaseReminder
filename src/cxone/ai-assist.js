@@ -48,11 +48,11 @@ function fetchScanResults(client, scanId, cache = null) {
 
 /**
  * A completed scan's results, without their code-path nodes, for matching findings to result ids:
- * kept 10 minutes per scan (CX_RESULT_IDS_CACHE_SECONDS) and shared, as a scan's result ids never
+ * kept 30 minutes per scan (CX_RESULT_IDS_CACHE_SECONDS) and shared, as a scan's result ids never
  * change. Credit checks read each project's findings and live states afresh every time; only this
  * lookup table is reused, so the two reads, allocating and triaging do not each walk the scan again.
  */
-const RESULT_IDS_TTL_MS = Math.max(0, Number(process.env.CX_RESULT_IDS_CACHE_SECONDS ?? 600) || 0) * 1000;
+const RESULT_IDS_TTL_MS = Math.max(0, Number(process.env.CX_RESULT_IDS_CACHE_SECONDS ?? 1800) || 0) * 1000;
 // Per connection (a signed-in person's Checkmarx One client): never shared between keys or tenants.
 const resultIds = new WeakMap();
 function scanResultIds(client, scanId) {
@@ -60,6 +60,32 @@ function scanResultIds(client, scanId) {
   if (!(RESULT_IDS_TTL_MS > 0)) return read();
   if (!resultIds.has(client)) resultIds.set(client, new TtlCache({ max: 200 }));
   return resultIds.get(client).wrap(String(scanId), read, RESULT_IDS_TTL_MS);
+}
+
+/**
+ * Start reading a scan's result ids ahead of need (no wait, no error): a credit check started
+ * meanwhile, or right after, finds the lookup table ready or joins the read already under way.
+ */
+const WARM_AT_ONCE = 2;
+let warming = 0;
+const warmQueue = [];
+export function warmScanResults(client, scanId) {
+  if (!scanId || !(RESULT_IDS_TTL_MS > 0)) return;
+  // Two scans at a time at most, so reading ahead never crowds out what people are waiting for.
+  if (warmQueue.length >= 50) return;
+  warmQueue.push(() => scanResultIds(client, scanId));
+  pumpWarm();
+}
+function pumpWarm() {
+  while (warming < WARM_AT_ONCE && warmQueue.length) {
+    warming += 1;
+    warmQueue.shift()()
+      .catch(() => {})
+      .finally(() => {
+        warming -= 1;
+        pumpWarm();
+      });
+  }
 }
 
 async function readScanResults(client, scanId, { nodes = true } = {}) {

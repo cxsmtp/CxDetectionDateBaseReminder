@@ -2763,7 +2763,18 @@ a.button-like.primary:hover { filter: brightness(1.05); }
 .calc-sev-top, .calc-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .calc-row span { font-size: 12.5px; color: var(--muted); }
 .calc-row input[type="number"] { width: 9ch; text-align: end; }
-.calc-sev-box .calc-row:first-of-type input[type="number"] { width: 12ch; }
+.calc-sev-box .calc-row:first-of-type input[type="number"] { width: auto; flex: 1 1 14ch; min-width: 0; max-width: 18ch; font-variant-numeric: tabular-nums; }
+.calc-why { display: inline-grid; place-items: center; width: 18px; height: 18px; min-height: 0; margin-inline-start: 6px; padding: 0; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--surface); color: var(--muted); font-size: 11px; font-weight: 600; line-height: 1; cursor: pointer; vertical-align: middle; }
+.calc-why:hover, .calc-why[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+.calc-why:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.calc-pop { position: absolute; z-index: 60; max-height: min(70vh, 560px); overflow: auto; padding: 14px 16px 12px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 12px 32px rgb(0 0 0 / 0.22); font-size: 13px; line-height: 1.5; }
+.calc-pop h4 { margin: 0 24px 6px 0; font-size: 13.5px; }
+.calc-pop h4 + ol { margin-bottom: 10px; }
+.calc-pop-close { position: absolute; inset-inline-end: 8px; top: 6px; width: 26px; height: 26px; min-height: 0; padding: 0; border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; }
+ol.calc-how { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-variant-numeric: tabular-nums; }
+ol.calc-how li.calc-sub { padding-inline-start: 14px; color: var(--muted); }
+ol.calc-how li.calc-total { font-weight: 600; }
+
 /* The slider: the part up to the thumb filled, so 0 reads as empty and the thumb sits at the very start. */
 .calc-sev-box input[type="range"] { --p: 0%; -webkit-appearance: none; appearance: none; width: 100%; height: 22px; margin: 0; padding: 0; background: transparent; cursor: pointer; }
 .calc-sev-box input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--accent) var(--p), var(--border-strong) var(--p)); }
@@ -2945,6 +2956,12 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 /* 1.0.69: the calculator's applications and projects, picked as chips */
 .calc-scope-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 10px 14px; }
 .calc-scope-pick .field { margin: 0; }
+.calc-scope-pick .calc-scope-apply { align-self: end; justify-self: start; min-width: 96px; }
 .calc-scope-pick .field > label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 #calc-scope-box .calc-scope-several { margin: 0; }
 #calc-scope-toggle { justify-self: start; text-align: start; }
+
+/* Logs → User activity */
+.ua-table td.when { white-space: nowrap; }
+.ua-table td.who small { display: block; color: var(--muted); }
+.ua-table td.ua-details { font-size: 12px; max-width: 360px; overflow-wrap: anywhere; }

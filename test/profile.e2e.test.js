@@ -114,3 +114,31 @@ test('changes are audited; the computer’s own time zone and first language are
   assert.ok(all.some((r) => r === 'dev@acme.io changed their picture.'));
   assert.ok(all.some((r) => r === 'dev@acme.io removed their picture.'));
 });
+
+test('user activity: sign-ins, changes (field names only) and pages visited are recorded; only audit viewers read it', async () => {
+  assert.equal((await member('PUT', '/api/me/profile', { name: 'Dev Activity' })).status, 200);
+  assert.equal((await member('POST', '/api/activity', { kind: 'page', name: 'Credit Control › allocations' })).status, 204);
+  assert.equal((await member('POST', '/api/activity', { kind: 'page', name: '<script>' })).status, 400, 'only plain page names');
+  assert.equal((await browser()('POST', '/api/session/password', { email: 'dev@acme.io', password: 'wrong password 1' })).status >= 400, true);
+  assert.equal((await member('GET', '/api/activity')).status, 403, 'a member may not read what others did');
+  const list = await admin('GET', '/api/activity?user=dev%40acme.io&limit=100');
+  assert.equal(list.status, 200, JSON.stringify(list.body));
+  const actions = list.body.entries.map((e) => e.action);
+  assert.ok(actions.includes('Changed their profile'), actions.join(' | '));
+  assert.ok(actions.includes('Opened Credit Control › allocations'));
+  assert.ok(actions.includes('Sign-in refused'));
+  assert.ok(actions.includes('Signed in with a password'));
+  const change = list.body.entries.find((e) => e.action === 'Changed their profile');
+  assert.deepEqual(change.fields, ['name'], 'the field name, never its value');
+  assert.equal(JSON.stringify(list.body).includes('Dev Activity'), true, 'the person\'s own name is shown as who');
+  assert.equal(JSON.stringify(list.body).includes('wrong password'), false, 'no password is ever kept');
+  assert.equal(list.body.entries.find((e) => e.action === 'Sign-in refused').kind, 'sign-in');
+  assert.ok(list.body.people.some((p) => p.email === 'admin@acme.io'));
+  const pages = await admin('GET', '/api/activity?kind=page');
+  assert.ok(pages.body.entries.every((e) => e.kind === 'page'));
+  const csv = await admin('GET', '/api/activity/export');
+  assert.equal(csv.status, 200);
+  assert.match(csv.type, /text\/csv/);
+  assert.match(csv.body.toString(), /dev@acme\.io/);
+  assert.equal((await member('GET', '/api/activity/export')).status, 403);
+});

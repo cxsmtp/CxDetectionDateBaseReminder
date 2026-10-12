@@ -1228,7 +1228,7 @@ const PAGE_RETURN = {
   settings: reloadSettingsPage,
   credits: () => loadUsage(),
   impact: () => loadImpact(),
-  logs: () => renderLogs(),
+  logs: () => renderLogsPage(),
   reports: () => loadTrackedReports(),
   beta: () => renderBetaScope(),
   help: () => loadHelp(),
@@ -1263,6 +1263,7 @@ function route() {
   if (target === 'help') helpRoute(view);
   else if (view && PAGE_TABS[target]) activateTab(PAGE_TABS[target], view, { remember: true });
   if (previous === target) return;
+  reportVisit(PAGE_TITLES[target]?.[0] ?? target);
 
   // Leaving Settings: what was typed is saved; connections that do not work go back to the last known good ones.
   if (previous === 'settings') leaveSettings();
@@ -1347,6 +1348,7 @@ function activateTab(group, name, { remember = true, focus = false } = {}) {
 /** Tabs whose content draws on demand. */
 function onTabShown(group, name) {
   if (group === 'dash') renderRailScope();
+  if (group === 'logs' && name === 'people' && state.page === 'logs') loadUserActivity({ offset: userActivity.offset });
 }
 
 function initTabs() {
@@ -1358,6 +1360,8 @@ document.addEventListener('click', (event) => {
   if (!tab) return;
   const group = tab.closest('[data-ptabs]').dataset.ptabs;
   activateTab(group, tab.dataset.pt);
+  const owner = Object.keys(PAGE_TABS).find((p) => PAGE_TABS[p] === group);
+  reportVisit(`${PAGE_TITLES[owner]?.[0] ?? owner ?? group} › ${tab.dataset.pt}`);
   // The address follows the tab, so a reload or a shared link opens it.
   const page = Object.keys(PAGE_TABS).find((p) => PAGE_TABS[p] === group);
   if (page && page === state.page && page !== 'dashboard') history.replaceState(null, '', `#/${page}/${tab.dataset.pt}`);
@@ -4813,6 +4817,24 @@ function creditCell(project, kind) {
 
 /** Selected projects, or every shown one when none is selected (while a credit action runs: the projects it acts on). */
 let actionScope = null;
+/**
+ * Projects picked (or the AI credits tab open, or a fetch of ten or fewer): the server starts reading their scans'
+ * result ids now, so the check before allocating or running does not wait for that slow part.
+ * Once per set of projects, a moment after the picking stops; never for more than 25.
+ */
+function prepareCredits(scope) {
+  const creditsOpen = document.querySelector('[data-ptpanel="dash:credits"]')?.hidden === false;
+  if (!can('credits.view') || !scope.length || scope.length > 25 || (!state.selected.size && !creditsOpen && scope.length > 10)) return;
+  const ids = scope.map((p) => p.projectId).sort();
+  const key = ids.join('|');
+  if (key === prepareCredits.key) return;
+  clearTimeout(prepareCredits.timer);
+  prepareCredits.timer = setTimeout(() => {
+    prepareCredits.key = key;
+    fetch('/api/credits/prepare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ projectIds: ids }) }).catch(() => {});
+  }, 600);
+}
+
 function allocationScope() {
   if (actionScope) return actionScope;
   const shown = visibleProjects().filter((p) => !p.error);
@@ -4911,6 +4933,7 @@ function renderAllocation() {
     $('remediate-needed').textContent = 'Credits needed are worked out when the data fetch is complete.';
     return;
   }
+  prepareCredits(scope);
   const t = allocationTotals(scope, severities);
   // Take back: what the projects in scope were given and have not used, whatever the severities.
   const unused = scope.reduce((n, p) => n + (p.credits?.triage?.remaining ?? 0) + (p.credits?.remediation?.remaining ?? 0), 0);
@@ -6285,6 +6308,7 @@ $('logs-next').addEventListener('click', () => {
 
 function renderLogsPage() {
   renderLogs();
+  if (!document.querySelector('[data-ptpanel="logs:people"]').hidden) loadUserActivity({ offset: userActivity.offset });
 }
 
 // Logs tab event listeners
@@ -7747,6 +7771,111 @@ function downloadAudit(format) {
 }
 $('audit-export-csv').addEventListener('click', () => downloadAudit('csv'));
 $('audit-export-jsonl').addEventListener('click', () => downloadAudit('jsonl'));
+
+// ---- Logs → User activity: what each person did (GET /api/activity) ---------------------------
+
+const UA_PAGE = 50;
+const userActivity = { offset: 0, total: 0, loaded: false };
+const UA_KINDS = { action: 'Action', page: 'Page', 'sign-in': 'Sign-in', event: 'Event' };
+
+/** The filters as query parameters; a date's day runs from midnight to midnight in this browser's time. */
+function userActivityQuery() {
+  const params = new URLSearchParams();
+  const set = (key, value) => value && params.set(key, value);
+  set('user', $('ua-user').value);
+  set('kind', $('ua-kind').value);
+  set('q', $('ua-q').value.trim());
+  if ($('ua-from').value) set('from', new Date(`${$('ua-from').value}T00:00:00`).toISOString());
+  if ($('ua-to').value) set('to', new Date(`${$('ua-to').value}T23:59:59.999`).toISOString());
+  return params;
+}
+
+function userActivityResult(e) {
+  if (e.status == null) return '';
+  if (e.status >= 400) return `<span class="badge bad">${escapeHtml(e.kind === 'sign-in' ? 'Refused' : 'Failed')}</span> <small class="muted" translate="no">HTTP ${e.status}</small>`;
+  return `<span class="badge ok">Done</span>${e.ms != null ? ` <small class="muted" translate="no">${e.ms} ms</small>` : ''}`;
+}
+
+function renderUserActivity(result) {
+  const select = $('ua-user');
+  const chosen = select.value;
+  select.innerHTML = `<option value="">Everyone</option>${result.people.map((p) => `<option value="${escapeHtml(p.email)}">${escapeHtml(p.name ? `${p.name} (${p.email})` : p.email)}</option>`).join('')}`;
+  select.value = result.people.some((p) => p.email === chosen) ? chosen : '';
+  userActivity.total = result.total;
+  $('ua-body').innerHTML = result.entries.length
+    ? result.entries
+        .map((e) => {
+          // The actions and items are kept as recorded (in English, as in the audit log); the labels around them are translated.
+          const details = [e.target && `<span translate="no">${escapeHtml(e.target)}</span>`, e.fields?.length && `<span class="muted">Fields:</span> <span translate="no">${escapeHtml(e.fields.join(', '))}</span>`].filter(Boolean).join('<br />');
+          return `<tr>
+          <td class="when">${escapeHtml(formatTime(e.at))}</td>
+          <td class="who"><span translate="no">${escapeHtml(e.name || e.user || '—')}</span><small><span translate="no">${escapeHtml(e.name ? e.user : '')}</span>${e.role ? `${e.name ? ' · ' : ''}${escapeHtml(e.role)}` : ''}</small></td>
+          <td><span class="badge muted">${escapeHtml(UA_KINDS[e.kind] ?? e.kind)}</span> <span translate="no">${escapeHtml(e.action)}</span></td>
+          <td class="ua-details">${details}</td>
+          <td>${userActivityResult(e)}</td>
+          <td class="muted" translate="no">${escapeHtml(e.ip || '')}</td>
+        </tr>`;
+        })
+        .join('')
+    : '<tr><td colspan="6" class="hint">Nothing recorded matches these filters.</td></tr>';
+  const first = userActivity.offset;
+  $('ua-prev').disabled = first === 0;
+  $('ua-next').disabled = first + UA_PAGE >= result.total;
+  $('ua-count').textContent = result.total ? `Entries ${(first + 1).toLocaleString()}–${Math.min(first + UA_PAGE, result.total).toLocaleString()} of ${result.total.toLocaleString()}, newest first` : '';
+}
+
+async function loadUserActivity({ offset = 0 } = {}) {
+  if (!can('audit.view')) return;
+  userActivity.offset = Math.max(0, offset);
+  setStatus('ua-status', 'Loading…');
+  try {
+    const params = userActivityQuery();
+    params.set('limit', UA_PAGE);
+    params.set('offset', userActivity.offset);
+    renderUserActivity(await api(`/api/activity?${params}`));
+    userActivity.loaded = true;
+    setStatus('ua-status', '');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('ua-status', error);
+  }
+}
+
+$('ua-filters').addEventListener('submit', (event) => {
+  event.preventDefault();
+  loadUserActivity();
+});
+for (const id of ['ua-user', 'ua-kind', 'ua-from', 'ua-to']) $(id).addEventListener('change', () => loadUserActivity());
+$('ua-reset').addEventListener('click', () => {
+  $('ua-filters').reset();
+  loadUserActivity();
+});
+$('ua-prev').addEventListener('click', () => loadUserActivity({ offset: userActivity.offset - UA_PAGE }));
+$('ua-next').addEventListener('click', () => loadUserActivity({ offset: userActivity.offset + UA_PAGE }));
+$('ua-export').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.href = '/api/activity/export';
+  link.rel = 'noopener';
+  document.body.append(link);
+  link.click();
+  link.remove();
+});
+
+/**
+ * Which page and tab each person opens goes into the user activity log (the server adds who and when).
+ * Fire and forget: a page never waits on it, and the same page twice in a row is sent once.
+ */
+function reportVisit(name) {
+  // A property, not a variable: route() may run before this part of the file has.
+  if (!state.me || !name || name === reportVisit.last) return;
+  reportVisit.last = name;
+  reportActivity('page', name);
+}
+function reportActivity(kind, name) {
+  const clean = String(name).replace(/[^\w .,:/#&()'’›→-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (!clean) return;
+  fetch('/api/activity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', keepalive: true, body: JSON.stringify({ kind, name: clean }) }).catch(() => {});
+}
+window.mzReportActivity = reportActivity;
 
 $('audit-verify').addEventListener('click', async () => {
   const box = $('audit-verify-result');

@@ -53,7 +53,7 @@ Open the calculator and select **Generate projection report**. That is all it ta
 
 ## Which projects count
 
-Under **Read from Checkmarx One**, **Applications** and **Projects** count only some projects, for triage & remediation and Fusion alike, as narrowing the Dashboard does. Type a name and pick it from the list, or press Enter to add every name that contains the text; each one picked becomes a chip, removed with **×**. The figures follow at once. These applications' projects count, plus the projects picked one by one.
+Under **Read from Checkmarx One**, **Applications** and **Projects** count only some projects, for triage & remediation and Fusion alike, as narrowing the Dashboard does. Type a name and pick it from the list, or press Enter (or **Apply**, which also applies **More filters** when they are open) to add every name that contains the text; each one picked becomes a chip, removed with **×**. The figures follow at once. These applications' projects count, plus the projects picked one by one.
 
 **More filters** narrows further:
 
@@ -199,3 +199,11 @@ For example, 24,000 + 700.5 credits with 10% extra is 27,170.55 credits: 2.72 bu
 - **Projection reports** lists every report, newest first: customer, when, by whom, each part, the extra %, the total and the bundles. **This customer only** narrows it to the customer open. **Download** makes the same file again; **Delete** removes the report after you confirm, and is there only for Admins (the **Delete reports** permission).
 
 Up to 500 reports are kept per tenant (the oldest go first), each up to 4 MB, in the `projection-reports/` folder of the data folder, and in every backup.
+
+## How each number is calculated
+
+Every figure says how it was reached, with the customer's own numbers in, in three places that share one source (`public/calculator/explain.js`), so they never disagree:
+
+- **On the page:** the **?** beside each figure opens a small window with its calculation. Backlog today (chosen of open, per severity), still to come (open now − open then + fixed in between, ÷ the months measured, × the share chosen, × the months' worth over the projection with AI adoption), more found by Fusion, kept away by FAE (never more than the false positives), to triage, to remediate (the true positives), credits (per severity, then backlog today and findings ahead), Fusion credits (10K LOC units × scans × each model's rate) and the total in bundles.
+- **In the report:** the assumptions come first, starting with the trend period and the projection period; a closed **How each number is calculated** section at the end opens on a click.
+- **In the PDF summary:** a slide states the trend (added, fixed and the change a month, per severity) and how each number is worked out; an appendix after the slides carries every calculation.

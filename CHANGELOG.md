@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.71 | 488/s, 0 (main 487, 0) | 8.9 s | 627 ms | 636 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.70 | 511/s, 0 (main 500, 0) | 6.7 s | 452 ms | 628 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.69 | 497/s, 0 (main 497, 0) | 7.5 s | 784 ms | 628 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.68 | 486/s, 0 (main 487, 0) | 7.9 s | 984 ms | 612 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -56,6 +57,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.71 — 2026-10-12 17:54 UTC · [#94](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/94)
+
+- **Every number explains itself.** In the Cx Credits Calculator, a **?** beside each figure (backlog today, still to come, more found by Fusion, kept away by FAE, to triage, credits, Fusion credits, the total) opens the exact calculation with the customer's own numbers in.
+- **The report and the PDF show their working.** The projection report states its assumptions first (trend period and projection period included) and ends with a closed **How each number is calculated** section. The PDF summary adds a slide on the trend with how each number is reached, and an appendix with every calculation.
+- **User activity, in detail.** Logs → **User activity** shows what each person did: who, when, from which IP, each page and tab opened, and each action — sign-ins (refused ones too), changes with the names of the fields touched, fetches, allocations, AI runs, reports, downloads and exports — and how it ended. What was typed is never kept. It can be filtered, exported as CSV and is kept for a year in the tenant's state folder.
+- **Apply in the calculator's scope.** The Applications and Projects section has an **Apply** button, and the per-severity number boxes are wide enough for their figures.
+- **Faster credit allocation.** The slow part of the check before allocating, matching findings to Checkmarx One result ids, is now read ahead as soon as projects are picked (or after a fetch of ten or fewer), two scans at a time so nothing else waits, and is kept for 30 minutes. The troubleshooting log records how long each part took.
+- **In every language.** The 47 new entries are in all fourteen other languages, each reviewed twice.
+- **Status.** 3000 people at once on 2 vCPU: 488 requests a second with none failed (main 487, 0), report opens 8.9 s at p95 (main 9.5 s), triage polls 627 ms (main 656 ms), the opening burst 9.4 s like main; 636 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.70 — 2026-10-12 14:22 UTC · [#93](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/93)
 

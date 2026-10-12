@@ -1,11 +1,13 @@
-// Cx Credits Calculator: the projection as a three-page PDF to present, made in the browser from
-// the data a generated report keeps. Page 1: triage & remediation, the backlog and the findings
-// still to come. Page 2: Checkmarx Fusion. Page 3: the credits needed overall.
+// Cx Credits Calculator: the projection as a PDF to present, made in the browser from the data a
+// generated report keeps. Page 1: triage & remediation, the backlog and the findings still to
+// come. Page 2: Checkmarx Fusion. Page 3: the credits needed overall. Page 4: the trend and how each
+// number is calculated. Then an appendix with every calculation, step by step (src: explain.js).
 //
 // Each page is drawn on a canvas (so every language's script and direction is drawn by the
 // browser), kept as a JPEG, and the three are written into a PDF here: no library, nothing sent.
 
-import { FREQUENCIES, creditSummary } from './model.js';
+import { FREQUENCIES, SEVERITIES, aheadMonths, creditSummary } from './model.js';
+import { allSections } from './explain.js';
 import { forecastChart } from './charts.js';
 import { assumptionItems, reportFileName, trFigures, wording } from './report.js';
 
@@ -100,13 +102,54 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
     lines: assumptionItems(data, sum, L).map(plain),
   });
 
+  // 4. The trend, and every number's calculation in one line.
+  const calc = [];
+  if (tr) {
+    const T = tr.totals ?? {};
+    const A = tr.ahead ?? {};
+    const paced = tr.paced ?? aheadMonths(tr.months ?? months, A.aiDeclinePercent ?? 0);
+    const monthly = T.arrivals ?? (paced ? (T.future ?? 0) / paced : 0);
+    const chosen = SEVERITIES.filter((x) => (tr.rows?.[x]?.selected ?? 0) > 0);
+    calc.push({ label: w('Backlog today'), formula: `${chosen.map((x) => num(tr.rows[x].selected)).join(' + ') || '0'} = ${num(T.selected)} (${w('of {0} open', num(T.backlog))})` });
+    calc.push({ label: w('Still to come'), formula: A.includeFuture === false ? '0' : `${num(monthly)} × ${num(paced, 2)} = ${num(T.future)}` });
+    calc.push({ label: w('More found by Fusion'), formula: tr.fusion ? `${num(A.fusionUpliftPercent)}% × (${num(T.selected)} + ${num(T.future)}) = ${num(T.fusionExtra)}` : '0' });
+    calc.push({ label: w('Kept away by FAE'), formula: `≤ ${num(A.faePercent)}% × (${num(T.future)} + ${num(T.fusionExtra)}) = ${num(T.faeAvoided)}` });
+    calc.push({ label: w('To triage'), formula: `${num(T.selected)} + ${num(T.future)} + ${num(T.fusionExtra)} − ${num(T.faeAvoided)} = ${num(T.toTriage)}` });
+    const fps = [...new Set(SEVERITIES.filter((x) => (tr.rows?.[x]?.selected ?? 0) + (tr.rows?.[x]?.future ?? 0) > 0).map((x) => tr.rows[x].fp))];
+    const reported = T.selected + T.future + T.fusionExtra;
+    calc.push({ label: w('To remediate (true positives)'), formula: fps.length === 1 ? `${num(reported)} × ${num(100 - fps[0])}% = ${num(T.truePositives)}` : `${SEVERITIES.filter((x) => tr.rows?.[x]?.truePositives > 0).map((x) => num(tr.rows[x].truePositives)).join(' + ')} = ${num(T.truePositives)}` });
+    calc.push({ label: w('Triage & remediation credits'), formula: `${num(T.triageCredits)} + ${num(T.remediationCredits)} = ${num(T.credits)}` });
+  }
+  if (fu) calc.push({ label: w('Fusion credits'), formula: `Σ ${w('10K units × scans')} × ${w('Credits per 10K LOC')} = ${num(fu.totals?.credits)}` });
+  calc.push({ label: w('Total credits required'), formula: `${sum.tr !== null && sum.fusion !== null ? `${num(sum.tr)} + ${num(sum.fusion)} = ` : ''}${num(sum.base)}${sum.extra ? ` + ${num(sum.settings.extraPercent, 2)}% = ${num(sum.total)}` : ''}; ${num(sum.total)} ÷ ${num(sum.settings.bundleCredits)} = ${num(sum.exactBundles, 2)} → ${num(sum.bundles)}` });
+  const an = (x) => tr?.analysis?.[x] ?? {};
+  pages.push({
+    kind: 'trend',
+    title: w('The trend and how each number is calculated'),
+    subtitle: tr ? w('The trend is measured over the last {0} months; the projection covers the next {1} months.', num(tr.lookbackMonths), num(tr.months ?? months)) : '',
+    trend: tr
+      ? {
+          sentence: Number.isFinite(an('total').addedPct) ? w('Each month, new findings add {0}% to the backlog and fixes take away {1}%.', num(an('total').addedPct, 1), num(an('total').fixedPct, 1)) : '',
+          head: [w('Severity'), w('Open now'), w('Added a month'), w('Fixed a month'), w('Change a month')],
+          rows: [...SEVERITIES.map((x) => [w(x), an(x)]), [w('Total'), an('total')]].map(([label, a]) => [label, num(a.current), num(a.arrivals), num(a.fixedMonthly), Number.isFinite(a.netMonthly) ? `${a.netMonthly > 0.5 ? '+' : a.netMonthly < -0.5 ? '−' : ''}${num(Math.abs(a.netMonthly))}` : '—']),
+        }
+      : null,
+    calcTitle: w('How each number is calculated'),
+    calc,
+  });
+
+  // The appendix: every calculation, step by step, as the report's "How each number is calculated".
+  const appendix = allSections(data, L).map((x) => ({ title: plain(x.title), lines: x.lines.map((l) => ({ text: plain(l.text), sub: Boolean(l.sub), total: Boolean(l.total) })) }));
+
   const made = new Date(data.generatedAt ?? Date.now()).toLocaleDateString(L.locale, { day: 'numeric', month: 'long', year: 'numeric' });
   return {
     customer,
     eyebrow: data.organisation ? plain(data.organisation) : w('Checkmarx credits projection'),
     footer: data.preparedBy ? w('Made {0} by {1}', made, data.preparedBy) : w('Made {0}', made),
     pages,
-    of: (i) => `${i + 1} / ${pages.length}`,
+    appendix,
+    appendixTitle: w('Appendix: how each number is calculated'),
+    of: (i, total = pages.length) => `${i + 1} / ${total}`,
     heading: (page) => `${customer}: ${page.title}`,
   };
 }
@@ -146,7 +189,7 @@ function wrap(ctx, text, max) {
   return out;
 }
 
-function drawPage(ctx, content, page, index, { rtl, images }) {
+function drawPage(ctx, content, page, index, { rtl, images, total }) {
   const X = (x, width = 0) => (rtl ? W - x - width : x);
   const font = (size, weight = 400) => `${weight} ${size}px ${FONT}`;
   const text = (s, x, y, { size = 28, weight = 400, colour = C.ink, align = 'start' } = {}) => {
@@ -170,9 +213,42 @@ function drawPage(ctx, content, page, index, { rtl, images }) {
   text(content.eyebrow, 80, 66, { size: 26, colour: '#c3c8cf' });
   ctx.font = font(48, 600);
   text(wrap(ctx, content.heading(page), W - 360)[0] ?? '', 80, 128, { size: 48, weight: 600, colour: C.white });
-  text(content.of(index), W - 80, 66, { size: 26, colour: '#c3c8cf', align: 'end' });
+  text(content.of(index, total), W - 80, 66, { size: 26, colour: '#c3c8cf', align: 'end' });
   if (page.subtitle) lines(page.subtitle, 80, 232, W - 160, { size: 30, colour: C.muted });
   text(content.footer, 80, H - 40, { size: 22, colour: C.muted });
+
+  if (page.kind === 'trend') {
+    // Left: the trend by severity. Right: one line per number, with its calculation.
+    let y = 300;
+    if (page.trend) {
+      if (page.trend.sentence) y = lines(page.trend.sentence, 80, y, 820, { size: 28, lead: 38 }) + 24;
+      const cols = [80, 330, 490, 650, 810];
+      page.trend.head.forEach((h, i) => lines(h, cols[i] + (i ? 140 : 0), y, i ? 140 : 230, { size: 20, colour: C.muted, lead: 24, align: i ? 'end' : 'start' }));
+      y += 56;
+      page.trend.rows.forEach((row, r) => {
+        if (r === page.trend.rows.length - 1) {
+          ctx.fillStyle = C.line;
+          ctx.fillRect(X(80, 870), y - 34, 870, 2);
+        }
+        row.forEach((cell, i) => text(cell, cols[i] + (i ? 140 : 0), y, { size: 24, weight: r === page.trend.rows.length - 1 ? 600 : 400, align: i ? 'end' : 'start' }));
+        y += 44;
+      });
+    }
+    let cy = 300;
+    text(page.calcTitle, 1000, cy, { size: 28, weight: 600 });
+    cy += 48;
+    for (const item of page.calc) {
+      if (cy > H - 100) break;
+      cy = lines(item.label, 1000, cy, 840, { size: 21, colour: C.muted, lead: 26 });
+      cy = lines(item.formula, 1000, cy + 4, 840, { size: 25, weight: 500, lead: 32 }) + 14;
+    }
+    return;
+  }
+
+  if (page.kind === 'appendix') {
+    for (const row of page.rows) text(row.text, row.x, row.y, row.style);
+    return;
+  }
 
   if (page.kind === 'total') {
     text(page.total, 80, 400, { size: 140, weight: 600, colour: C.accent });
@@ -259,7 +335,45 @@ function drawPage(ctx, content, page, index, { rtl, images }) {
   }
 }
 
-/** The three pages as JPEGs, drawn in the reader's language and direction. */
+/** The appendix flowed into two columns a page, as many pages as it takes. */
+function layoutAppendix(ctx, content) {
+  const font = (size, weight = 400) => `${weight} ${size}px ${FONT}`;
+  const colW = 850;
+  const top = 240;
+  const bottom = H - 90;
+  const rows = [];
+  for (const section of content.appendix) {
+    rows.push({ gap: 14, lead: 38, style: { size: 26, weight: 600, colour: C.ink }, indent: 0, text: section.title, keep: true });
+    for (const l of section.lines) {
+      const style = { size: 21, weight: l.total ? 600 : 400, colour: l.sub ? C.muted : C.ink };
+      ctx.font = font(style.size, style.weight);
+      for (const piece of wrap(ctx, l.text, colW - (l.sub ? 28 : 0))) rows.push({ gap: 0, lead: 29, style, indent: l.sub ? 28 : 0, text: piece });
+    }
+  }
+  const pages = [];
+  let page = null;
+  let col = 2;
+  let y = bottom;
+  for (const [i, r] of rows.entries()) {
+    // A section title never ends a column on its own.
+    const need = r.gap + r.lead + (r.keep && rows[i + 1] ? rows[i + 1].lead : 0);
+    if (y + need > bottom) {
+      col += 1;
+      if (col > 1) {
+        page = { kind: 'appendix', title: content.appendixTitle, subtitle: '', rows: [] };
+        pages.push(page);
+        col = 0;
+      }
+      y = top;
+    }
+    y += r.gap;
+    page.rows.push({ text: r.text, x: 80 + col * (colW + 60) + r.indent, y: y + r.lead - 8, style: r.style });
+    y += r.lead;
+  }
+  return pages;
+}
+
+/** The pages as JPEGs, drawn in the reader's language and direction. */
 export async function drawSlides(data, { t, lang = 'en', dir = 'ltr' } = {}) {
   const content = slideContent(data, { t, lang });
   await document.fonts?.ready;
@@ -268,13 +382,14 @@ export async function drawSlides(data, { t, lang = 'en', dir = 'ltr' } = {}) {
   canvas.height = H;
   const ctx = canvas.getContext('2d');
   const pages = [];
-  for (const [i, page] of content.pages.entries()) {
+  const all = [...content.pages, ...layoutAppendix(ctx, content)];
+  for (const [i, page] of all.entries()) {
     const images = {};
     if (page.chart?.kind === 'forecast') {
       const palette = { ink: C.ink, muted: C.muted, grid: C.line, forecast: '#dc2626', plan: C.accent, t };
       images.chart = await svgImage(forecastChart(page.chart.points, palette), 760, 300).catch(() => null);
     }
-    drawPage(ctx, content, page, i, { rtl: dir === 'rtl', images });
+    drawPage(ctx, content, page, i, { rtl: dir === 'rtl', images, total: all.length });
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
     pages.push({ bytes: new Uint8Array(await blob.arrayBuffer()), width: W, height: H });
   }
