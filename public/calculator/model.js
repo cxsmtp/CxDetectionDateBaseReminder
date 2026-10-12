@@ -196,7 +196,7 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false 
   const period = clamp(Number(months) || 12, 1, 60);
   const paced = aheadMonths(period, ahead.aiDeclinePercent);
   const rows = {};
-  const keys = ['backlog', 'selected', 'future', 'fusionExtra', 'faeAvoided', 'toTriage', 'truePositives', 'triageCredits', 'remediationCredits', 'credits', 'backlogCredits', 'aheadCredits', 'backlogAfter'];
+  const keys = ['backlog', 'selected', 'arrivals', 'future', 'fusionExtra', 'faeAvoided', 'toTriage', 'truePositives', 'triageCredits', 'remediationCredits', 'credits', 'backlogCredits', 'aheadCredits', 'backlogAfter'];
   const totals = Object.fromEntries(keys.map((k) => [k, 0]));
   for (const s of SEVERITIES) {
     const backlog = analysis?.perSeverity[s].current ?? 0;
@@ -204,7 +204,10 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false 
     const fp = clamp(amount(plan.fpPercent?.[s]) ?? DEFAULT_TR.fpPercent[s], 0, 100);
     const remediationCost = amount(plan.remediationCost?.[s]) ?? DEFAULT_TR.remediationCost[s];
     const chosen = selected[s];
-    const future = ahead.includeFuture ? (analysis?.perSeverity[s].arrivals ?? 0) * paced : 0;
+    // New findings in the same share as the backlog chosen for this severity: none chosen, none to come.
+    const share = backlog > 0 ? chosen / backlog : 1;
+    const arrivals = ahead.includeFuture ? (analysis?.perSeverity[s].arrivals ?? 0) * share : 0;
+    const future = arrivals * paced;
     const fusionExtra = fusion ? ((chosen + future) * ahead.fusionUpliftPercent) / 100 : 0;
     const fresh = future + fusionExtra;
     const faeAvoided = Math.min((fresh * ahead.faePercent) / 100, (fresh * fp) / 100);
@@ -214,7 +217,7 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false 
     const triageCredits = toTriage * triageCost;
     const remediationCredits = truePositives * remediationCost;
     const backlogCredits = chosen * triageCost + chosen * (1 - fp / 100) * remediationCost;
-    const row = { backlog, selected: chosen, future, fusionExtra, faeAvoided, toTriage, truePositives, triageCost, fp, remediationCost, triageCredits, remediationCredits, credits: triageCredits + remediationCredits, backlogCredits, aheadCredits: triageCredits + remediationCredits - backlogCredits, backlogAfter: backlog - chosen };
+    const row = { backlog, selected: chosen, share, arrivals, future, fusionExtra, faeAvoided, toTriage, truePositives, triageCost, fp, remediationCost, triageCredits, remediationCredits, credits: triageCredits + remediationCredits, backlogCredits, aheadCredits: triageCredits + remediationCredits - backlogCredits, backlogAfter: backlog - chosen };
     rows[s] = row;
     for (const k of keys) totals[k] += row[k];
   }
@@ -264,6 +267,15 @@ export function severityForecast(analysis, cost, months = 3) {
 }
 
 /**
+ * How the backlog still moves each month with the plan: what it is not triaging keeps its own trend.
+ * With findings still to come counted, that is the share of each severity not chosen; without, all of it.
+ */
+function untriagedDrift(analysis, projection) {
+  const { rows, ahead } = projection;
+  return SEVERITIES.reduce((sum, s) => sum + (analysis.monthlyChangeBySeverity?.[s] ?? 0) * (ahead.includeFuture ? 1 - (rows[s]?.share ?? 1) : 1), 0);
+}
+
+/**
  * Backlog by month, then over the projection period: as it goes (the lookback's net change each
  * month), and with the plan: the chosen backlog worked down evenly, new findings triaged as they come.
  */
@@ -273,14 +285,14 @@ export function planForecast(analysis, projection) {
   const last = points[points.length - 1];
   last.asIs = last.actual;
   last.withPlan = last.actual;
-  const { months, totals, ahead } = projection;
+  const { months, totals } = projection;
+  const drift = untriagedDrift(analysis, projection);
   for (let i = 1; i <= months; i += 1) {
-    const drift = ahead.includeFuture ? 0 : analysis.monthlyChange * i;
     points.push({
       month: addMonths(last.month, i),
       actual: null,
       asIs: Math.max(0, last.actual + analysis.monthlyChange * i),
-      withPlan: Math.max(0, last.actual - (totals.selected * i) / months + drift),
+      withPlan: Math.max(0, last.actual - (totals.selected * i) / months + drift * i),
     });
   }
   return points;
@@ -296,7 +308,7 @@ export function severityPlan(analysis, projection) {
     last.withPlan = last.actual;
     const { months, rows, ahead } = projection;
     for (let i = 1; i <= months; i += 1) {
-      const drift = ahead.includeFuture ? 0 : analysis.monthlyChangeBySeverity[s] * i;
+      const drift = analysis.monthlyChangeBySeverity[s] * (ahead.includeFuture ? 1 - (rows[s].share ?? 1) : 1) * i;
       points.push({ month: addMonths(last.month, i), actual: null, withPlan: Math.max(0, last.actual - (rows[s].selected * i) / months + drift) });
     }
     out[s] = points;
