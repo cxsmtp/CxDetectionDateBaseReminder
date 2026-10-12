@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.69 | 497/s, 0 (main 497, 0) | 7.5 s | 784 ms | 628 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.68 | 486/s, 0 (main 487, 0) | 7.9 s | 984 ms | 612 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.67 | 508/s, 0 (main 505, 0) | 6.7 s | 816 ms | 602 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.66 | 514/s, 0 (main 501, 0) | 6.1 s | 243 ms | 596 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -64,7 +65,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **Every country's currency, and your own.** The Impact currency is picked from every country's currency, and amounts are written the way each one is written (₹1,23,457, ¥1,235). Anyone can choose their own currency under Your profile → Currency, with an exchange rate; their Impact page and downloaded summary then use it and say which rate. **Currency →** on the Impact page goes there.
 - **A calculator that is easier to read.** The matrix of every figure is replaced by **Debt added against fixes**: one sentence on whether the backlog grows or shrinks each month, the two on one timeline as a share of the backlog, and a short table by severity. The estimates sit with their controls: each severity's box shows what it comes to. Applications and Projects are chips at the top, as on the Dashboard; More filters holds the rest. Customize per severity sits right under the projection, open.
 - **In every language.** The new wording (121 entries), and the certificate wording from MZ-01.00.68, is in all fourteen other languages, each reviewed twice.
-- **Status.** STATUS_BULLET
+- **Status.** 3000 people at once on 2 vCPU: 497 requests a second with none failed (main 497, 0), report opens 7.5 s at p95 (main 11.5 s), triage polls 784 ms; 628 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.68 — 2026-10-12 11:06 UTC · [#91](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/91)
 
