@@ -52,7 +52,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.65 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.65 — 2026-10-12 08:03 UTC · [#88](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/88)
 
 - **Findings load faster.** Loading findings reads 24 projects at once instead of 10, so every call the connection to Checkmarx One allows is in use; 151 projects and 94,375 findings took 25.5 s instead of 31 s where Checkmarx One answers in 0.8 s.
 - **Credit actions answer sooner.** Allocating, triaging and remediating check with Checkmarx One only the projects that have something to do, not every project shown, and each project's two reads now run side by side, 8 projects at once: 40 projects verify in 6.3 s instead of 23.4 s.
