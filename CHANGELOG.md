@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.73 | 507/s, 0 (main 497, 10) | 6.8 s | 615 ms | 645 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.72 | 486/s, 0 (main 503, 0) | 8.0 s | 1.0 s | 645 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.71 | 488/s, 0 (main 487, 0) | 8.9 s | 627 ms | 636 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.70 | 511/s, 0 (main 500, 0) | 6.7 s | 452 ms | 628 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -58,6 +59,12 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.73 — 2026-10-12 18:58 UTC · [#96](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/96)
+
+- **Releases are signed.** MZ-01.00.72's image was published, but the step that signs it stopped: reading the file list from the arm64 image right after the amd64 one is something Docker refuses for two platforms of one image. Each platform's file list is now read from its own image, compared, and then signed with the image. From this release on, Settings → Update & recovery shows **Genuine**.
+- **MZ-01.00.72 stays unsigned.** A server running it shows **Not signed by the release workflow**: its files are what was built, but no signature exists for them. Updating to MZ-01.00.73 is the fix.
+- **Status.** 3000 people at once on 2 vCPU: 507 requests a second with none failed (main 497, 10 failed, the same server code), report opens 6.8 s at p95 (main 9.2 s), triage polls 615 ms (main 1,080 ms); 645 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.72 — 2026-10-12 18:47 UTC · [#95](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/95)
 

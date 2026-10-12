@@ -167,9 +167,15 @@ jobs:
       - name: The file list, identical on amd64 and arm64
         id: files
         run: |
-          image="ghcr.io/${GITHUB_REPOSITORY,,}@${{ steps.build.outputs.digest }}"
-          for platform in linux/amd64 linux/arm64; do
-            docker run --rm --platform "$platform" --entrypoint cat "$image" /app/integrity.json > "integrity-${platform#linux/}.json"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          # Each platform's own image (by its manifest digest): docker keeps one platform of an index at a time.
+          index=$(docker buildx imagetools inspect --raw "$image@${{ steps.build.outputs.digest }}")
+          for arch in amd64 arm64; do
+            digest=$(echo "$index" | jq -r --arg arch "$arch" '.manifests[] | select(.platform.os == "linux" and .platform.architecture == $arch) | .digest')
+            test -n "$digest"
+            id=$(docker create --platform "linux/$arch" "$image@$digest")
+            docker cp "$id:/app/integrity.json" "integrity-$arch.json"
+            docker rm "$id" > /dev/null
           done
           cmp integrity-amd64.json integrity-arm64.json
           cp integrity-amd64.json integrity.json
