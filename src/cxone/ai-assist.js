@@ -53,11 +53,13 @@ function fetchScanResults(client, scanId, cache = null) {
  * lookup table is reused, so the two reads, allocating and triaging do not each walk the scan again.
  */
 const RESULT_IDS_TTL_MS = Math.max(0, Number(process.env.CX_RESULT_IDS_CACHE_SECONDS ?? 600) || 0) * 1000;
-const resultIds = new TtlCache({ max: 500 });
+// Per connection (a signed-in person's Checkmarx One client): never shared between keys or tenants.
+const resultIds = new WeakMap();
 function scanResultIds(client, scanId) {
   const read = () => readScanResults(client, scanId, { nodes: false });
   if (!(RESULT_IDS_TTL_MS > 0)) return read();
-  return resultIds.wrap(`${client.baseUrl ?? ''}\u0000${scanId}`, read, RESULT_IDS_TTL_MS);
+  if (!resultIds.has(client)) resultIds.set(client, new TtlCache({ max: 200 }));
+  return resultIds.get(client).wrap(String(scanId), read, RESULT_IDS_TTL_MS);
 }
 
 async function readScanResults(client, scanId, { nodes = true } = {}) {

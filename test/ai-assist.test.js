@@ -59,7 +59,9 @@ test('/api/results is paged by page number and read until a short page, ignoring
   const { client, calls } = fakeClient({ s1: [full, [{ type: 'sast', similarityId: 'last', alternateId: 'on-page-2' }]] });
   const f = finding({ groupId: 'last', scanId: 's1' });
   await resolveAiIds(client, [f]);
-  assert.deepEqual(calls.map((c) => c.offset), [0, 1]);
+  // Page 0, then the next 8 asked for at once; reading stops at page 1, the first short one.
+  assert.deepEqual(calls.map((c) => c.offset), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.ok(calls.every((c) => c['include-nodes'] === false), 'matching needs no code-path nodes');
   assert.equal(f.alternateId, 'on-page-2');
 });
 
