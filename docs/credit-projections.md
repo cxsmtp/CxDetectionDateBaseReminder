@@ -44,11 +44,35 @@ Limits: 200 customers per tenant, and 3 MB per customer: room for years of weekl
 
 Customers are in `projections.json` in the data folder (per tenant), and in every backup. A profile made with MZ-01.00.61's *Credit projections* opens here as a customer, with its exports, plan and Fusion projects; its old credits per bundle become a Fusion model.
 
+## One click
+
+Open the calculator and select **Generate projection report**. That is all it takes: when nothing is read yet it reads Checkmarx One first, then makes the report with every default in place (every open finding, the findings still to come over 12 months at the last 3 months' pace, 20% more found by Fusion, 10% fewer false positives with FAE, 1 and 3 credits per triage and remediation, 30% false positives). Everything below changes the defaults, when you want to.
+
+- **Email the report** makes the report the same way and sends it, as an attachment in the page's language, to up to 10 addresses you type (through Settings → Email server, which must be set up and tested). It is in the audit log.
+- **Start again** clears every choice made for the customer (the projects narrowed, the plan, the Fusion numbers, the extra credits) and reads Checkmarx One again. The Fusion models and their credits stay; reports already made are kept.
+
+## Which projects count
+
+**Narrow the projects**, under **Read from Checkmarx One**, counts only some projects, for triage & remediation and Fusion alike, with the same choices as narrowing the Dashboard:
+
+| Field | Counts the projects… |
+| --- | --- |
+| **Applications** | in these Checkmarx One applications |
+| **Groups** | in these groups, as Checkmarx One lists them |
+| **Project names** | whose name matches: `payments-*`, `*-api`, `svc-?` (`*` any text, `?` one character); a name without wildcards matches any name containing it |
+| **Last scanned by** | whose last scan was run by these people |
+| **How often they are scanned** | scanned this often in the last year |
+| **Criticality** | with these criticalities, 1 to 5 |
+
+Several values in a field: separate them with commas; any of them will do. Every field filled in must hold. Empty fields keep every project, and **Every project** clears them all. The line says how many projects the scope keeps (*10 of 40 projects · Application: Mobile*).
+
+The backlog and fixes of the projects in the scope are added up on the server from the last read, project by project, so narrowing never reads Checkmarx One again. Each project's weeks are kept for this in `projection-read.json` in the data folder (per tenant, replaced by every read, not in backups). When the figures came from the two exports instead, they cover every project: the scope then narrows Fusion only, and the page says so. A project added by hand always counts.
+
 ## Reading Checkmarx One
 
 **Read from Checkmarx One**, at the top of the page, reads the tenant this server is connected to, for both tabs at once:
 
-- every project, with its criticality and the lines of code its last scan counted;
+- every project, with its criticality, its applications and groups, who ran its last scan, and the lines of code its last scan counted;
 - every completed scan of each project in the last 12 months, counted **project by project** (so a project scanned 400 times a year shows 400, however many scans the tenant has in all);
 - each of those scans' results by severity, from Checkmarx One's scan summaries.
 
@@ -74,13 +98,25 @@ That is the same weekly series as Checkmarx One's *Total Vulnerabilities by Seve
 
 Then the page shows:
 
-1. **The backlog as of the latest week**, against the week before.
-2. **Choose what to fix.** Per severity: how many open findings to triage (the slider, filled up to where it is: empty at 0, full at all of them), the false positives expected (%), and the credits per triage and per remediation. They start at Checkmarx One's 1 and 3 credits and 30% false positives: set them to the customer's agreement and your estimate. **All** and **None** by each severity fill in its number in one go. Changes count once you select **Apply**.
-3. **The credits.** Each finding triaged costs its triage credits. The ones expected to be true positives are remediated too and cost the remediation credits; a false positive costs only its triage.
-4. **The final matrix.** Every figure by severity: current backlog, debt increase, fix rate, to triage, false and true positives, credits, and the backlog after. **Latest**, **3**, **6**, **9** and **12 months** choose the period the debt increase and fix rate are worked out over.
-5. **The last 3 months, week by week:** the backlog, and the fix rate against the rate the debt grows.
-6. **Backlog trend and forecast:** the next 6 months with no action and with the plan.
-7. **3-month plan by severity:** each severity's backlog with the plan, on a log scale.
+1. **What the projection counts**, as one line over the **projection period** (chosen at the top, 12 months by default, shared with Fusion):
+
+   | Step | What it is |
+   | --- | --- |
+   | **Backlog today** | The open findings to triage: every one, unless you choose fewer |
+   | **+ Still to come** | New findings a month × the period. New findings a month are what the backlog grew by over the trend period, plus what was fixed meanwhile (never below 0), per severity |
+   | **+ More found by Fusion** | When Fusion is in the projection (some project counted on the Fusion tab): this % more findings, on the backlog and on what is still to come. 20% by default |
+   | **− Kept away by FAE** | FAE keeps this % of the new findings (still to come and found by Fusion) from being reported, among the false positives only: it never takes more than the false positives there are, so the true positives do not change. 10% by default |
+   | **= To triage** | Each costs its triage credits; the true positives among them are remediated too |
+   | **→ Credits** | Split into the backlog today and what is ahead |
+
+   **Count findings still to come**, **More found by Fusion (%)** and **FAE: fewer false positives (%)** change these, at once; **Defaults** puts them back. **3**, **6**, **9** or **12 months** choose the period the trend (new findings a month, debt increase, fix rate) is measured over: 3 by default.
+2. **Backlog trend and forecast:** the backlog by month, then over the projection period (shaded): if nothing changes, and with the plan.
+3. **The last 12 months, week by week:** the backlog, and the fix rate against the rate the debt grows, each over 4 weeks (a single week jumps about too much).
+4. **By severity:** one small chart each, the backlog and then with the plan, each on its own scale.
+5. **The final matrix:** every figure by severity, from the backlog to the credits.
+6. **Customize per severity:** how many of the backlog to triage (**All** is every open finding, and stays every open finding when the next read finds more), the false positives expected (%), and the credits per triage and per remediation (Checkmarx One's 1 and 3 to start with). Changes count once you select **Apply**.
+
+Customers saved before MZ-01.00.67 open with every open finding counted where nothing was chosen, and a trend period of 3 months where it was *Latest* (the latest week, now gone: a single week says too little to project from).
 
 Everything read, uploaded and entered is saved with the customer.
 
@@ -104,19 +140,19 @@ The same read lists every project in the tenant, with:
 - **Criticality**, 1 to 5, as Checkmarx One has it.
 - **How often it is scanned:** its completed scans in the last year (or since it was made, if it is newer), counted project by project, put in one of these: *More than 5 times a week*, *1 to 5 times a week*, *About once in 2 weeks*, *About once a month*, *About once in 2 months*, *About once in 3 months*, *About once in 6 months*, *About once a year*, *Not in the last year*.
 
-The table lists the most often scanned projects first. Reading again updates the projects; every number typed over, every model chosen and every project left out is kept, and projects that are no longer in Checkmarx One are taken off, with a note of how many. You can also add projects by hand, for a prospect.
+The table lists the projects in the scope, the most often scanned first, 100 at a time (**Show more** for the next); the totals always count every project in the scope. Reading again updates the projects; every number typed over, every model chosen and every project left out is kept, and projects that are no longer in Checkmarx One are taken off, with a note of how many. You can also add projects by hand, for a prospect.
 
 ### The models
 
 **Fusion models** lists each model with its credits per 10K LOC.
 
 - When reading the projects, the calculator also asks Checkmarx One for the Fusion models the tenant offers, their rates and the credits remaining in the tenant. **Checkmarx One does not document an API for these yet**, so the calculator tries the likely places and uses what it finds; if the tenant does not say, nothing is made up.
-- Otherwise, **Add a model** and type the name and rate as Checkmarx One shows them when a Fusion scan is started (for example *Opus-4.7*, 2.5; *Haiku-4.5*, 1.5). A rate left empty is *Not known*: projects on that model are counted in scans and 10K units, without credits, and the totals say how many.
+- Otherwise, **Add a model** and type the name and rate as Checkmarx One shows them when a Fusion scan is started (for example *Opus-4.7*, 2.5; *Haiku-4.5*, 1.5). A model read from the tenant is marked **From Checkmarx One**. A rate left empty means projects on that model are counted in scans and 10K units, without credits, and the totals say how many.
 - When the tenant says how many credits remain, a tile shows it, and whether it is enough for the projection.
 
 ### How many Fusion scans each project needs
 
-- **Projection period (months)**: 12 by default, up to 60.
+- **Projection period**, at the top of the page: 6, 12 (the default), 18, 24 or 36 months, for both parts.
 - **Default Fusion scans per project** and **Default model**: what every project gets unless a rule or the project says otherwise.
 - **Fusion scans by how often projects are scanned:** a number of scans, and a model, for each frequency. A new customer starts with the scans each frequency runs today, so the forecast follows how the customer really works: 52 a year for more than 5 times a week, 26 for 1 to 5 times a week, 12 for once in 2 weeks, 6 for once a month, 4 for once in 2 or 3 months, 2 for once in 6 months, 1 otherwise, scaled to the projection period. Change a number to plan more or fewer; empty uses the default. **Back to the suggested numbers** puts them all back. A customer saved before MZ-01.00.64 with every number empty gets them on its next read.
 - **Fusion scans by criticality:** a number, and a model, for each criticality, 5 (most critical) to 1.
@@ -132,7 +168,8 @@ The strip at the top of the page adds both parts together for the customer open:
 
 | Tile | What it is |
 | --- | --- |
-| **Triage & remediation** | The credits of the plan, once both exports are in |
+| **Projection period** | How many months the projection covers, for both parts |
+| **Triage & remediation** | The credits over the period, split into the backlog today and what is ahead |
 | **Fusion** | The credits of the Fusion scans, once there are projects with lines of code |
 | **Extra credits (%)** | A margin to add on top of the two, 0 to 500% (empty is none) |
 | **Total credits required** | Both, with the extra on top |
@@ -150,7 +187,11 @@ For example, 24,000 + 700.5 credits with 10% extra is 27,170.55 credits: 2.72 bu
 - It is written in the language the page is in when it is made or downloaded again, right to left for Arabic and Hebrew.
 - **Auto**, **Light** and **Dark** at the top switch its theme; Auto follows the reader's system.
 - Long project or model names wrap inside their cells, and a table wider than the screen (on a phone) scrolls inside its own box: nothing runs off the page.
-- It carries your organisation's name and who made it, then **Credits required** (each part, the extra, the total and the bundles), then the triage & remediation figures and charts, then the Fusion models, scans by frequency and every project.
+- It says the answer first: **Total credits required**, the bundles and the period, with one bar of what the credits are for (backlog today, findings ahead, Fusion scans, extra).
+- Then that the figures are live: *Read live from Checkmarx One on 12 October 2026: 40 projects, 4,232 scans, 3,653 open vulnerabilities*, the trend period, and the projects counted when the scope was narrowed.
+- Then **How we got there**: today's backlog by severity and its trend, the next months (backlog to triage, still to come, more found by Fusion, fewer false positives with FAE, to triage, to remediate, credits), Fusion (projects, lines of code, 10K units, scans, credits), and the backlog forecast.
+- Then the **Assumptions**, in one short list.
+- Last, **Appendix: every figure**: the matrix by severity and the charts, the Fusion models, scans by frequency and every project. A report made before MZ-01.00.67 opens in the same layout.
 - **Projection reports** lists every report, newest first: customer, when, by whom, each part, the extra %, the total and the bundles. **This customer only** narrows it to the customer open. **Download** makes the same file again; **Delete** removes the report after you confirm, and is there only for Admins (the **Delete reports** permission).
 
 Up to 500 reports are kept per tenant (the oldest go first), each up to 4 MB, in the `projection-reports/` folder of the data folder, and in every backup.

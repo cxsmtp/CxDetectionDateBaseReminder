@@ -2899,7 +2899,8 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .calc-models input[data-m="name"] { width: 100%; min-width: 24ch; }
 .calc-more { display: flex; justify-content: center; padding-top: 10px; }
 .cc-chart svg text { font-family: var(--font); }
-.cc-minis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 12px 20px; }
+.cc-minis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
+@media (max-width: 760px) { .cc-minis { grid-template-columns: minmax(0, 1fr); } }
 .cc-mini h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 2px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
 .cc-mini .cc-swatch { width: 10px; height: 10px; border-radius: 3px; }
 .calc-presenting .calc-scope-toggle, .calc-presenting .calc-assume, .calc-presenting .calc-custom { display: none; }

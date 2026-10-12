@@ -316,7 +316,8 @@ tr.gold td{font-weight:600;color:var(--gold)} table.dense td{padding:5px 8px;fon
 .cc-chart{margin:0;min-width:0} .cc-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-top:4px}
 .cc-key{display:inline-flex;align-items:center;gap:6px} .cc-swatch{display:inline-block;width:16px;height:3px;border-radius:2px;background:var(--c)}
 .cc-swatch.dashed{background:repeating-linear-gradient(90deg,var(--c) 0 5px,transparent 5px 9px)}
-.cc-minis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:10px 18px}
+.cc-minis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px} .cc-legend[hidden]{display:none}
+@media (max-width:640px){.cc-minis{grid-template-columns:minmax(0,1fr)}}
 .cc-mini h4{display:flex;align-items:center;gap:7px;margin:4px 0 2px;font-size:12.5px;font-weight:500;color:var(--muted)} .cc-mini .cc-swatch{width:10px;height:10px;border-radius:3px}
 footer{color:var(--muted);font-size:12px;max-width:1000px;margin:0 auto;padding:0 20px 32px}
 @media (max-width:600px){header{padding:20px 16px} header h1{font-size:20px} main{padding:16px 10px 32px} section{padding:16px 14px}}
