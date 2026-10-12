@@ -3083,6 +3083,23 @@
   "Action": "Tindakan",
   "Fields:": "Medan:",
   "Nothing recorded matches these filters.": "Tiada rekod yang sepadan dengan penapis ini.",
-  "Page or action": "Halaman atau tindakan"
+  "Page or action": "Halaman atau tindakan",
+  "Software integrity": "Integriti perisian",
+  "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": "Setiap fail yang dijalankan oleh pelayan ini dibandingkan dengan senarai yang dibina dan ditandatangani oleh aliran kerja keluaran, dan tandatangan itu disemak dengan GitHub dan log awam Sigstore: semasa dimulakan, setiap 6 jam, dan sebelum memasang atau beralih kepada sebarang kemas kini.",
+  "Files that differ": "Fail yang berbeza",
+  "Genuine": "Tulen",
+  "Files changed": "Fail diubah",
+  "Not signed by the release workflow": "Tidak ditandatangani oleh aliran kerja keluaran",
+  "Not confirmed yet": "Belum disahkan",
+  "Development copy": "Salinan pembangunan",
+  "Checking…": "Menyemak…",
+  "Built from": "Dibina daripada",
+  "Workflow run": "Larian aliran kerja",
+  "Signed": "Ditandatangani",
+  "Files": "Fail",
+  "File list SHA-256": "SHA-256 senarai fail",
+  "Checked": "Disemak",
+  "Software integrity: files changed. Settings → Update & recovery has the details.": "Integriti perisian: fail diubah. Butirannya ada di Tetapan → Kemas kini & pemulihan.",
+  "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": "Integriti perisian: tidak ditandatangani oleh aliran kerja keluaran. Butirannya ada di Tetapan → Kemas kini & pemulihan."
  }
 }

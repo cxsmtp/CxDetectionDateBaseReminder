@@ -3083,6 +3083,23 @@
   "Action": "الإجراء",
   "Fields:": "الحقول:",
   "Nothing recorded matches these filters.": "لا توجد إدخالات مسجلة تطابق عوامل التصفية هذه.",
-  "Page or action": "الصفحة أو الإجراء"
+  "Page or action": "الصفحة أو الإجراء",
+  "Software integrity": "سلامة البرنامج",
+  "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": "يُقارَن كل ملف يشغّله هذا الخادم بالقائمة التي أنشأها سير عمل الإصدار ووقّعها، ويُتحقق من هذا التوقيع مع GitHub والسجل العام لـ Sigstore: عند بدء التشغيل، وكل 6 ساعات، وقبل تثبيت أي تحديث أو الانتقال إليه.",
+  "Files that differ": "الملفات غير المطابقة",
+  "Genuine": "أصلي",
+  "Files changed": "ملفات معدّلة",
+  "Not signed by the release workflow": "غير موقّع من سير عمل الإصدار",
+  "Not confirmed yet": "لم يُؤكَّد بعد",
+  "Development copy": "نسخة تطوير",
+  "Checking…": "جارٍ التحقق…",
+  "Built from": "تم الإنشاء من",
+  "Workflow run": "تشغيل سير العمل",
+  "Signed": "تم التوقيع",
+  "Files": "الملفات",
+  "File list SHA-256": "SHA-256 لقائمة الملفات",
+  "Checked": "تم التحقق",
+  "Software integrity: files changed. Settings → Update & recovery has the details.": "سلامة البرنامج: تم تعديل ملفات. التفاصيل في الإعدادات ← التحديث والاستعادة.",
+  "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": "سلامة البرنامج: غير موقّع من سير عمل الإصدار. التفاصيل في الإعدادات ← التحديث والاستعادة."
  }
 }

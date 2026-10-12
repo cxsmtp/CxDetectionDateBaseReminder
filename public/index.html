@@ -1413,6 +1413,17 @@
                   <span class="hint" id="upd-auto-sub"></span>
                 </div>
               </div>
+              <div class="integrity-box" id="integrity-box">
+                <div class="integrity-head">
+                  <h3>Software integrity</h3>
+                  <span class="badge muted" id="integrity-state">Checking…</span>
+                  <button type="button" class="sm" id="integrity-check">Check now</button>
+                </div>
+                <p class="hint">Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.</p>
+                <p id="integrity-summary" translate="no"></p>
+                <dl class="integrity-facts" id="integrity-facts" hidden></dl>
+                <details id="integrity-files" hidden><summary>Files that differ</summary><pre id="integrity-files-list" translate="no"></pre></details>
+              </div>
               <p class="status warn upd-check-note" id="upd-check-note" role="note" hidden></p>
               <p class="status" id="upd-warn" hidden></p>
               <div class="actions compact">

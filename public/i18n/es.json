@@ -3083,6 +3083,23 @@
   "Action": "Acción",
   "Fields:": "Campos:",
   "Nothing recorded matches these filters.": "Ningún registro coincide con estos filtros.",
-  "Page or action": "Página o acción"
+  "Page or action": "Página o acción",
+  "Software integrity": "Integridad del software",
+  "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": "Cada archivo que ejecuta este servidor se compara con la lista que el flujo de trabajo de publicación generó y firmó, y esa firma se comprueba con GitHub y en el registro público de Sigstore: al iniciarse, cada 6 horas y antes de instalar una actualización o cambiar a otra versión.",
+  "Files that differ": "Archivos que difieren",
+  "Genuine": "Auténtico",
+  "Files changed": "Archivos modificados",
+  "Not signed by the release workflow": "No firmado por el flujo de trabajo de publicación",
+  "Not confirmed yet": "Aún no confirmado",
+  "Development copy": "Copia de desarrollo",
+  "Checking…": "Comprobando…",
+  "Built from": "Compilado a partir de",
+  "Workflow run": "Ejecución del flujo de trabajo",
+  "Signed": "Firmado",
+  "Files": "Archivos",
+  "File list SHA-256": "SHA-256 de la lista de archivos",
+  "Checked": "Comprobado",
+  "Software integrity: files changed. Settings → Update & recovery has the details.": "Integridad del software: archivos modificados. Encontrará los detalles en Configuración → Actualización y recuperación.",
+  "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": "Integridad del software: no firmado por el flujo de trabajo de publicación. Encontrará los detalles en Configuración → Actualización y recuperación."
  }
 }

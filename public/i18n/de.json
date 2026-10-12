@@ -3083,6 +3083,23 @@
   "Action": "Aktion",
   "Fields:": "Felder:",
   "Nothing recorded matches these filters.": "Keine aufgezeichneten Einträge entsprechen diesen Filtern.",
-  "Page or action": "Seite oder Aktion"
+  "Page or action": "Seite oder Aktion",
+  "Software integrity": "Software-Integrität",
+  "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": "Jede Datei, die dieser Server ausführt, wird mit der Liste verglichen, die der Release-Workflow erstellt und signiert hat, und diese Signatur wird bei GitHub und im öffentlichen Sigstore-Log geprüft: beim Start, alle 6 Stunden und vor jeder Installation eines Updates oder jedem Wechsel zu einer anderen Version.",
+  "Files that differ": "Abweichende Dateien",
+  "Genuine": "Original",
+  "Files changed": "Dateien geändert",
+  "Not signed by the release workflow": "Nicht vom Release-Workflow signiert",
+  "Not confirmed yet": "Noch nicht bestätigt",
+  "Development copy": "Entwicklungskopie",
+  "Checking…": "Wird geprüft…",
+  "Built from": "Erstellt aus",
+  "Workflow run": "Workflow-Ausführung",
+  "Signed": "Signiert",
+  "Files": "Dateien",
+  "File list SHA-256": "SHA-256 der Dateiliste",
+  "Checked": "Geprüft",
+  "Software integrity: files changed. Settings → Update & recovery has the details.": "Software-Integrität: Dateien geändert. Details unter Einstellungen → Update & Wiederherstellung.",
+  "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": "Software-Integrität: nicht vom Release-Workflow signiert. Details unter Einstellungen → Update & Wiederherstellung."
  }
 }

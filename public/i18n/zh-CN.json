@@ -3083,6 +3083,23 @@
   "Action": "操作",
   "Fields:": "字段：",
   "Nothing recorded matches these filters.": "没有符合这些筛选条件的记录。",
-  "Page or action": "页面或操作"
+  "Page or action": "页面或操作",
+  "Software integrity": "软件完整性",
+  "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": "此服务器运行的每个文件都会与发布工作流构建并签名的列表进行比对，并通过 GitHub 和 Sigstore 的公开日志检查该签名：在启动时、每 6 小时，以及安装或切换到任何更新之前。",
+  "Files that differ": "不一致的文件",
+  "Genuine": "官方原版",
+  "Files changed": "文件已更改",
+  "Not signed by the release workflow": "未经发布工作流签名",
+  "Not confirmed yet": "尚未确认",
+  "Development copy": "开发副本",
+  "Checking…": "正在检查…",
+  "Built from": "构建来源",
+  "Workflow run": "工作流运行",
+  "Signed": "签名",
+  "Files": "文件",
+  "File list SHA-256": "文件列表 SHA-256",
+  "Checked": "上次检查",
+  "Software integrity: files changed. Settings → Update & recovery has the details.": "软件完整性：文件已更改。详细信息请参阅“设置 → 更新与恢复”。",
+  "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": "软件完整性：未经发布工作流签名。详细信息请参阅“设置 → 更新与恢复”。"
  }
 }

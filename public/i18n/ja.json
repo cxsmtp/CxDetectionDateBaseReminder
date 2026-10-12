@@ -3083,6 +3083,23 @@
   "Action": "操作",
   "Fields:": "項目：",
   "Nothing recorded matches these filters.": "これらのフィルターに一致する記録はありません。",
-  "Page or action": "ページまたは操作"
+  "Page or action": "ページまたは操作",
+  "Software integrity": "ソフトウェアの整合性",
+  "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": "このサーバーで実行されるすべてのファイルを、リリースワークフローがビルドして署名したリストと照合し、その署名をGitHubとSigstoreの公開ログで確認します。確認は、起動時、6時間ごと、および更新のインストール前や切り替え前に行われます。",
+  "Files that differ": "差異のあるファイル",
+  "Genuine": "正規リリース",
+  "Files changed": "ファイル変更あり",
+  "Not signed by the release workflow": "リリースワークフローの署名なし",
+  "Not confirmed yet": "未確認",
+  "Development copy": "開発用コピー",
+  "Checking…": "確認しています…",
+  "Built from": "ビルド元",
+  "Workflow run": "ワークフロー実行",
+  "Signed": "署名",
+  "Files": "ファイル",
+  "File list SHA-256": "ファイル一覧のSHA-256",
+  "Checked": "最終確認日時",
+  "Software integrity: files changed. Settings → Update & recovery has the details.": "ソフトウェアの整合性：ファイルが変更されています。詳細は「設定 → 更新と復旧」を確認してください。",
+  "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": "ソフトウェアの整合性：リリースワークフローによる署名がありません。詳細は「設定 → 更新と復旧」を確認してください。"
  }
 }

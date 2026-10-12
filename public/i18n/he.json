@@ -3083,6 +3083,23 @@
   "Action": "פעולה",
   "Fields:": "שדות:",
   "Nothing recorded matches these filters.": "אין רשומות התואמות למסננים אלה.",
-  "Page or action": "דף או פעולה"
+  "Page or action": "דף או פעולה",
+  "Software integrity": "שלמות התוכנה",
+  "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": "כל קובץ שהשרת הזה מריץ מושווה לרשימה שה-workflow לפרסום גרסאות בנה וחתם, והחתימה נבדקת מול GitHub והיומן הציבורי של Sigstore: בעת ההפעלה, כל 6 שעות, ולפני התקנה של כל עדכון או מעבר אליו.",
+  "Files that differ": "קבצים שאינם תואמים",
+  "Genuine": "מקורי",
+  "Files changed": "קבצים שונו",
+  "Not signed by the release workflow": "לא נחתם על ידי ה-workflow לפרסום גרסאות",
+  "Not confirmed yet": "טרם אומת",
+  "Development copy": "עותק פיתוח",
+  "Checking…": "בדיקה…",
+  "Built from": "נבנה מתוך",
+  "Workflow run": "הרצת workflow",
+  "Signed": "נחתם",
+  "Files": "קבצים",
+  "File list SHA-256": "SHA-256 של רשימת הקבצים",
+  "Checked": "נבדק",
+  "Software integrity: files changed. Settings → Update & recovery has the details.": "שלמות התוכנה: קבצים שונו. הפרטים בדף הגדרות ← עדכון והתאוששות.",
+  "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": "שלמות התוכנה: לא נחתם על ידי ה-workflow לפרסום גרסאות. הפרטים בדף הגדרות ← עדכון והתאוששות."
  }
 }

@@ -8,3 +8,4 @@ coverage/
 
 # Administrator settings (SMTP credentials, recipients, template)
 data/
+/integrity.json

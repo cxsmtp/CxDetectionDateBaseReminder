@@ -11,3 +11,4 @@ docs
 coverage
 Dockerfile
 compose.yaml
+integrity.json

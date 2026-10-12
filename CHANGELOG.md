@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.72 | 486/s, 0 (main 503, 0) | 8.0 s | 1.0 s | 645 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.71 | 488/s, 0 (main 487, 0) | 8.9 s | 627 ms | 636 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.70 | 511/s, 0 (main 500, 0) | 6.7 s | 452 ms | 628 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.69 | 497/s, 0 (main 497, 0) | 7.5 s | 784 ms | 628 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -57,6 +58,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.72 — 2026-10-12 18:47 UTC · [#95](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/95)
+
+- **Proves it is the real thing.** Every release now carries a list of all its files with their SHA-256, and this repository's release workflow signs that list (a GitHub build attestation, recorded in Sigstore's public log). No signing key exists that could leak.
+- **Checks itself, all the time.** The server compares every file it runs with that list and checks the signature: at start, every 6 hours, and on **Check now**. The check runs on the server itself: Sigstore's root, this repository's workflow on main or a version tag, the signature, the files it covers and the public log entry.
+- **Software integrity panel.** Settings → Update & recovery shows Genuine, Files changed (with the files), Not signed by the release workflow, Not confirmed yet or Development copy, with the commit, the workflow run and the log entry. Administrators get an alert at sign-in if files changed or the signature is missing, and every failure goes to the audit log.
+- **Only genuine updates.** An update is installed only when its files match its signed list and the signature checks out; switching to an installed version checks it again, and the launcher runs the image's own version if an installed one was changed. Versions older than MZ-01.00.72 have no list and say so.
+- **Check it yourself.** `podman exec mission-zero node scripts/integrity.mjs check` compares the files; `gh attestation verify` confirms the signature ([software integrity](docs/integrity.md)). The network requirements sheet now lists api.github.com.
+- **In every language.** The panel's 17 new entries are in all fourteen other languages, each reviewed twice.
+- **Status.** 3000 people at once on 2 vCPU: 486 requests a second with none failed (main 503, 0), report opens 8.0 s at p95 (main 8.9 s), triage polls 1.0 s (main 574 ms); two earlier runs had 25 and 45 failed triage polls during host stalls, explained in [performance](docs/performance.md); 645 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.71 — 2026-10-12 17:54 UTC · [#94](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/94)
 

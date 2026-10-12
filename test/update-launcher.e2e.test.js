@@ -13,6 +13,8 @@ import path from 'node:path';
 
 import { freePort } from './free-port.js';
 import { FIRST_PASSWORD, NEXT_PASSWORD } from './test-credentials.js';
+import { buildManifest, manifestText, sha256 } from '../src/integrity/manifest.js';
+import { makeBundle, makeWorld } from './sigstore-helpers.js';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const OWN = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
@@ -20,6 +22,12 @@ const mz = (v) => `MZ-${v.split('.').map((n) => n.padStart(2, '0')).join('.')}`;
 const sha = (buffer) => `sha256:${createHash('sha256').update(buffer).digest('hex')}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const temp = (name) => fs.mkdtempSync(path.join(os.tmpdir(), `mz-${name}-`));
+
+// A test Sigstore: its trust root is given to the server instead of the real one (NODE_ENV is not production).
+const world = makeWorld({ repository: 'acme/mission' });
+const signed = new Map(); // digest of a file list → its attestation
+const trustRootFile = path.join(temp('trust'), 'trusted-root.json');
+fs.writeFileSync(trustRootFile, JSON.stringify(world.trustedRoot));
 
 /** One layer holding this checkout's app as `version` (broken: its server stops at once). */
 function appLayer(version, { broken = false } = {}) {
@@ -31,6 +39,10 @@ function appLayer(version, { broken = false } = {}) {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   fs.writeFileSync(path.join(app, 'package.json'), JSON.stringify({ ...pkg, version }));
   if (broken) fs.writeFileSync(path.join(app, 'src', 'server.js'), "throw new Error('broken on purpose');\n");
+  // Signed as the release workflow does: the file list, and its attestation (served below).
+  const list = manifestText(buildManifest(app, { version }));
+  fs.writeFileSync(path.join(app, 'integrity.json'), list);
+  signed.set(sha256(list), makeBundle(world, sha256(list)));
   return execFileSync('tar', ['-czf', '-', '-C', dir, 'app'], { maxBuffer: 256 * 1024 * 1024 });
 }
 
@@ -46,6 +58,10 @@ function registry(images) {
   }
   const server = http.createServer((req, res) => {
     let m;
+    // GitHub's attestations API, for the test repository.
+    if ((m = req.url.match(/^\/repos\/acme\/mission\/attestations\/sha256:([0-9a-f]{64})$/))) {
+      return signed.has(m[1]) ? res.end(JSON.stringify({ attestations: [{ bundle: signed.get(m[1]) }] })) : res.writeHead(404).end('{}');
+    }
     if (req.url === '/v2/acme/mz/tags/list?n=1000') return res.end(JSON.stringify({ tags: images.map((i) => i.tag) }));
     if ((m = req.url.match(/^\/v2\/acme\/mz\/manifests\/(.+)$/)) && manifests.has(m[1])) return res.end(manifests.get(m[1]));
     if ((m = req.url.match(/^\/v2\/acme\/mz\/blobs\/(.+)$/)) && blobs.has(m[1])) return res.end(blobs.get(m[1]));
@@ -92,6 +108,7 @@ test.before(async () => {
     env: {
       ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: temp('data'), ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
       ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, UPDATE_IMAGE: `127.0.0.1:${reg.address().port}/acme/mz`, UPDATE_START_TIMEOUT_SECONDS: '60',
+      MZ_INTEGRITY_API: `http://127.0.0.1:${reg.address().port}`, MZ_INTEGRITY_TRUST_ROOT: trustRootFile, MZ_SOURCE_REPOSITORY: 'acme/mission',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

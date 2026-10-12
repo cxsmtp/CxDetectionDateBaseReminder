@@ -13,6 +13,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { compareFiles, readManifest } from '../integrity/manifest.js';
 
 const VERSION = /^\d{1,4}\.\d{1,4}\.\d{1,4}$/;
 const MAX_TOTAL = 300 * 1024 * 1024;
@@ -89,6 +90,9 @@ export class VersionStore {
     }
     const installed = this.list().find((v) => v.version === choice.version);
     if (!installed) return { ...image, reason: `MZ-${choice.version} is not installed any more` };
+    // Its files are checked against its signed file list before it runs: changed since it was installed, the image's own runs.
+    const read = readManifest(installed.dir);
+    if (read && (read.error || !compareFiles(installed.dir, read.manifest).ok)) return { ...image, reason: `MZ-${installed.version}'s files changed since it was installed, so the image's own version runs` };
     return { version: installed.version, dir: installed.dir, source: 'update', reason: 'chosen on the Update page' };
   }
 

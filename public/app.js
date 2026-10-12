@@ -1572,6 +1572,8 @@ async function showConnected(me) {
   renderGettingStarted();
   loadReportServer();
   if (me.configNotices?.length) showNotices(me.configNotices, { acknowledge: true });
+  // The code running is not what the release workflow built: said to those who look after updates, at once.
+  if (['tampered', 'not-genuine'].includes(me.integrity?.state)) toast(me.integrity.state === 'tampered' ? 'Software integrity: files changed. Settings → Update & recovery has the details.' : 'Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.', 'bad', 15000);
   if (me.hasScan && !freshStart) restoreLastScan();
   startConnections();
   if (!me.connection) {
@@ -6528,6 +6530,7 @@ let updShown = 3;
 
 async function loadUpdates() {
   if (!can('system.update')) return;
+  loadIntegrity();
   try {
     updState = await api('/api/system/update');
     renderUpdates();
@@ -6542,6 +6545,58 @@ async function loadUpdates() {
     if (!handleAuthLoss(error)) $('upd-status').textContent = error.message;
   }
 }
+
+// ---- Software integrity (Settings → Update & recovery) ----
+const INTEGRITY_STATES = {
+  genuine: ['Genuine', 'ok'],
+  tampered: ['Files changed', 'bad'],
+  'not-genuine': ['Not signed by the release workflow', 'bad'],
+  unconfirmed: ['Not confirmed yet', 'warn'],
+  unsigned: ['Development copy', 'muted'],
+  checking: ['Checking…', 'muted'],
+};
+
+function renderIntegrity(r) {
+  const [label, cls] = INTEGRITY_STATES[r.state] ?? [r.state, 'muted'];
+  const badge = $('integrity-state');
+  badge.textContent = label;
+  badge.className = `badge ${cls}`;
+  $('integrity-summary').textContent = r.summary ?? '';
+  const facts = [];
+  const o = r.origin?.ok ? r.origin : null;
+  if (r.version) facts.push(['Version', mzVersion(r.version)]);
+  if (o) facts.push(['Built from', `${o.repository} · ${o.ref.replace(/^refs\/(heads|tags)\//, '')} · ${o.commit.slice(0, 12)}`, `https://github.com/${o.repository}/commit/${o.commit}`]);
+  if (o?.run) facts.push(['Workflow run', o.run.replace(/^https:\/\/github.com\//, ''), o.run]);
+  if (o) facts.push(['Signed', `${new Date(o.signedAt).toLocaleString()} · Sigstore log entry ${o.logIndex}`, `https://search.sigstore.dev/?logIndex=${o.logIndex}`]);
+  if (r.files) facts.push(['Files', `${r.files.checked} checked`]);
+  if (r.digest) facts.push(['File list SHA-256', r.digest]);
+  if (r.at) facts.push(['Checked', new Date(r.at).toLocaleString()]);
+  $('integrity-facts').hidden = !facts.length;
+  $('integrity-facts').innerHTML = facts
+    .map(([k, v, href]) => `<dt>${escapeHtml(k)}</dt><dd translate="no">${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(v)}</a>` : escapeHtml(v)}</dd>`)
+    .join('');
+  const f = r.files;
+  const differ = f && !f.ok;
+  $('integrity-files').hidden = !differ;
+  if (differ) {
+    const more = (list, n) => (n > list.length ? [...list, `… and ${n - list.length} more`] : list);
+    $('integrity-files-list').textContent = [
+      ...more(f.changed, f.counts.changed).map((x) => `changed  ${x}`),
+      ...more(f.missing, f.counts.missing).map((x) => `missing  ${x}`),
+      ...more(f.extra, f.counts.extra).map((x) => `added    ${x}`),
+    ].join('\n');
+  }
+}
+
+async function loadIntegrity({ fresh = false } = {}) {
+  if (!can('system.update')) return;
+  try {
+    renderIntegrity(await api(fresh ? '/api/integrity/check' : '/api/integrity', fresh ? { method: 'POST', body: '{}' } : { quiet: true }));
+  } catch (error) {
+    if (!handleAuthLoss(error)) $('integrity-summary').textContent = error.message;
+  }
+}
+$('integrity-check').addEventListener('click', () => loadIntegrity({ fresh: true }));
 
 function renderUpdates() {
   const s = updState;

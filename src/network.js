@@ -234,6 +234,7 @@ export function requirements({ checkmarxOne = [], smtp = null, git = [], letsEnc
     add('In', 'Let\'s Encrypt validation', 'this server', '80', 'Direct', 'Proves the server name when the certificate is issued and renewed.');
   }
   if (updates) add('Out', 'Updates', 'ghcr.io, pkg-containers.githubusercontent.com', '443', viaProxy, 'New versions from the Update page.');
+  add('Out', 'Software integrity', 'api.github.com', '443', viaProxy, 'Confirms that the code running here is what the release workflow built (GitHub build attestations).');
   add('Out', 'Certificate authorities (rarely)', 'the address in a server\'s certificate', '80', viaProxy, 'Only when a server leaves out its intermediate certificate.');
   return rows;
 }
