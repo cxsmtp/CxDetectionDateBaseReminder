@@ -151,6 +151,18 @@
    "dashboard"
   ]
  },
+ "{0} backlog + {1} ahead": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0} bundles of {1} credits": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "{0} change": {
   "kind": "report",
   "seen": [
@@ -219,6 +231,12 @@
    "first start › p › Allocated vs used",
    "sign in › p › Allocated vs used",
    "Dashboard › p › Allocated vs used"
+  ]
+ },
+ "{0} credit(s) per triage; {1} per remediation.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "{0} critical/high finding needs a manual fix in Checkmarx One (AI Triage covers SAST and SCA only).": {
@@ -447,12 +465,6 @@
    "Dashboard › remind › td › Projects"
   ]
  },
- "{0} lines of code": {
-  "kind": "report",
-  "seen": [
-   "calculator report"
-  ]
- },
  "{0} lines, each project rounded up": {
   "kind": "text",
   "seen": [
@@ -483,6 +495,18 @@
    "Dashboard › fetching › span › Projects",
    "Dashboard › loaded › span › Projects",
    "Dashboard › remind › span › Projects"
+  ]
+ },
+ "{0} new a month × {1} months": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0} new a month; {1} fixed over the last {2} months.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "{0} no longer found, {1} not exploitable, {2} sent for an AI fix; still open: {3} not checked yet, {4} confirmed but not fixed": {
@@ -535,6 +559,12 @@
    "Dashboard › fetching › small",
    "Dashboard › loaded › small",
    "Dashboard › remind › small"
+  ]
+ },
+ "{0} of {1} projects in the scope": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "{0} of {1} shown": {
@@ -687,6 +717,12 @@
    "credits › overview › span"
   ]
  },
+ "{0} projects counted.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
  "{0} projects hold {1} credits they have not used. Taking them back returns them to the credit pool; used credits stay counted.": {
   "kind": "message",
   "seen": [
@@ -753,12 +789,6 @@
    "credits › projects › span › Credits used over time"
   ]
  },
- "{0} scans, {1} months": {
-  "kind": "report",
-  "seen": [
-   "calculator report"
-  ]
- },
  "{0} shown": {
   "kind": "text",
   "seen": [
@@ -791,20 +821,18 @@
    "calculator › suggested › td › Projects"
   ]
  },
+ "{0} to remediate": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "{0} to verify: AI Triage or a person decides whether each is real": {
   "kind": "attr:title",
   "seen": [
    "Dashboard › fetching › button",
    "Dashboard › loaded › button",
    "Dashboard › remind › button"
-  ]
- },
- "{0} triage + {1} remediation": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › span",
-   "calculator › plan changed › span",
-   "calculator › applied › span"
   ]
  },
  "{0} triage credit used, {1} left": {
@@ -889,20 +917,6 @@
    "first start › option › HTTPS",
    "sign in › option › HTTPS",
    "Dashboard › option › HTTPS"
-  ]
- },
- "{0}-month fix plan by severity": {
-  "kind": "report",
-  "seen": [
-   "calculator report"
-  ]
- },
- "{0}-month plan by severity": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › h2 › 3-month plan by severity",
-   "calculator › plan changed › h2 › 3-month plan by severity",
-   "calculator › applied › h2 › 3-month plan by severity"
   ]
  },
  "{0}–{1} days": {
@@ -1025,10 +1039,22 @@
    "credits › overview › span"
   ]
  },
- "{0}% on top of {1}": {
+ "{0}% extra credits on top.": {
   "kind": "report",
   "seen": [
    "calculator report"
+  ]
+ },
+ "{0}% fewer false positives reported": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0}% more findings": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "{0}d": {
@@ -1902,14 +1928,6 @@
    "Dashboard › h2 › Activity log"
   ]
  },
- "Actual backlog": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › span › Backlog trend and forecast",
-   "calculator › plan changed › span › Backlog trend and forecast",
-   "calculator › applied › span › Backlog trend and forecast"
-  ]
- },
  "Add a model": {
   "kind": "text",
   "seen": [
@@ -2734,6 +2752,12 @@
    "Dashboard › span › Developers"
   ]
  },
+ "All {0} projects": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "All {0} shown projects — tick some to narrow": {
   "kind": "text",
   "seen": [
@@ -3150,6 +3174,24 @@
    "Dashboard › option › Projects"
   ]
  },
+ "Any application": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Any group": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Any name, e.g. payments-*": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Any status": {
   "kind": "text",
   "seen": [
@@ -3172,6 +3214,12 @@
    "first start › option",
    "sign in › option",
    "Dashboard › option"
+  ]
+ },
+ "Anyone": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "calculator"
   ]
  },
  "Anyone who may change initiator addresses can run and apply the matching (no Beta permission needed).": {
@@ -3242,6 +3290,12 @@
    "first start › span › Branding",
    "sign in › span › Branding",
    "Dashboard › span › Branding"
+  ]
+ },
+ "Appendix: every figure": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Applications": {
@@ -3409,12 +3463,24 @@
    "message"
   ]
  },
+ "Assumptions": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "at": {
   "kind": "text",
   "seen": [
    "first start › label › Update & recovery",
    "sign in › label › Update & recovery",
    "Dashboard › label › Update & recovery"
+  ]
+ },
+ "At most 10 addresses at a time.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
   ]
  },
  "At start": {
@@ -3718,40 +3784,34 @@
    "calculator › applied › h3 › The last 3 months, week by week"
   ]
  },
- "Backlog after": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › td › Final matrix",
-   "calculator › plan changed › td › Final matrix",
-   "calculator › applied › td › Final matrix"
-  ]
- },
  "Backlog as of {0}, against {1}.": {
   "kind": "report",
   "seen": [
    "calculator report"
   ]
  },
- "Backlog as of <time>{0}-{1}-{2}</time>, compared with <time>{3}-{4}-{5}</time>.": {
+ "Backlog as of <time>{0}-{1}-{2}</time>; the trend over the {3} months before it.": {
   "kind": "html",
   "seen": [
-   "calculator › sample data › p",
-   "calculator › plan changed › p",
-   "calculator › applied › p"
-  ]
- },
- "Backlog cleared": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › span",
-   "calculator › plan changed › span",
-   "calculator › applied › span"
+   "calculator"
   ]
  },
  "Backlog history: {0} to {1}.": {
   "kind": "report",
   "seen": [
    "calculator report"
+  ]
+ },
+ "Backlog to triage": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Backlog today": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "Backlog trend and forecast": {
@@ -4046,6 +4106,12 @@
   "kind": "text",
   "seen": [
    "calculator › div"
+  ]
+ },
+ "Bundles of {0} credits, rounded up to whole bundles.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Busiest: none yet": {
@@ -4969,20 +5035,18 @@
    "message"
   ]
  },
- "Choose what to fix": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › h2 › Choose what to fix",
-   "calculator › plan changed › h2 › Choose what to fix",
-   "calculator › applied › h2 › Choose what to fix"
-  ]
- },
  "Clear": {
   "kind": "text",
   "seen": [
    "first start › button › Developers",
    "first start › button › Activity log",
    "sign in › button › Developers"
+  ]
+ },
+ "Clear every choice made for this customer and read Checkmarx One again": {
+  "kind": "attr:title",
+  "seen": [
+   "calculator"
   ]
  },
  "Clear my branding": {
@@ -5523,6 +5587,18 @@
    "interactive HTML report"
   ]
  },
+ "Count findings still to come": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Count only some projects, for triage & remediation and for Fusion alike. Leave a field empty to keep every project. Names take wildcards:": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Counted by the last scan (SAST scan metadata)": {
   "kind": "attr:title",
   "seen": [
@@ -6003,6 +6079,12 @@
    "Dashboard › button"
   ]
  },
+ "Customize per severity": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Cx Credits Calculator": {
   "kind": "text",
   "seen": [
@@ -6283,18 +6365,6 @@
    "message"
   ]
  },
- "Debt growth and fix rate over the last {0} months.": {
-  "kind": "report",
-  "seen": [
-   "calculator report"
-  ]
- },
- "Debt growth and fix rate over the latest week.": {
-  "kind": "report",
-  "seen": [
-   "calculator report"
-  ]
- },
  "Debt increase": {
   "kind": "text",
   "seen": [
@@ -6362,6 +6432,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Defaults": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "Defaults to <code>/api/risks/</code>. <strong>Detect</strong> probes the known paths against your tenant and reports what each returned.": {
@@ -6819,7 +6895,7 @@
    "calculator"
   ]
  },
- "Each project's lines of code are rounded up to whole {0}K units on their own; one scan costs its model's credits per {1}K LOC. Projects scanned most often come first.": {
+ "Each project's lines of code are rounded up to whole {0}K units on their own; one scan costs its model's credits per {1}K LOC.": {
   "kind": "report",
   "seen": [
    "calculator report"
@@ -7047,6 +7123,12 @@
    "Dashboard › a › Send reminder"
   ]
  },
+ "Email the report": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Emailing the code authors…": {
   "kind": "busy",
   "seen": [
@@ -7259,14 +7341,6 @@
    "interactive HTML report"
   ]
  },
- "Estimated true positives": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › span",
-   "calculator › plan changed › span",
-   "calculator › applied › span"
-  ]
- },
  "Event": {
   "kind": "text",
   "seen": [
@@ -7343,12 +7417,6 @@
    "calculator › applied › p › Final matrix"
   ]
  },
- "Every figure that matters, by severity. Debt increase and fix rate: the latest week.": {
-  "kind": "text",
-  "seen": [
-   "calculator › p › Final matrix"
-  ]
- },
  "Every finding in a reminder links straight to it in the platform. If a link lands in the wrong place, correct the template here — the example below updates as you type.": {
   "kind": "text",
   "seen": [
@@ -7373,10 +7441,16 @@
    "Dashboard › option › AI Triage & Remediation from reports"
   ]
  },
- "every project counted": {
-  "kind": "report",
+ "every open finding": {
+  "kind": "text",
   "seen": [
-   "calculator report"
+   "calculator"
+  ]
+ },
+ "Every project": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "Every project has used what it was given. Nothing is waiting to be taken back.": {
@@ -7633,6 +7707,18 @@
    "reports › triage | credits › allocated vs used"
   ]
  },
+ "FAE keeps {0}% of the new findings from being reported, among the false positives only.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "FAE: fewer false positives (%)": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Failed": {
   "kind": "text",
   "seen": [
@@ -7655,6 +7741,12 @@
    "calculator › sample data › span › Choose what to fix",
    "calculator › plan changed › span › Choose what to fix",
    "calculator › applied › span › Choose what to fix"
+  ]
+ },
+ "False positives expected: {0}%.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Fetch": {
@@ -7701,6 +7793,12 @@
    "Dashboard › strong › Get started · 1 of 6 done",
    "Dashboard (advanced) › strong › Get started · 1 of 6 done",
    "connection: cxone › strong › Get started · 1 of 6 done"
+  ]
+ },
+ "Fewer false positives with FAE ({0}%)": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Figure": {
@@ -7861,6 +7959,12 @@
    "Dashboard › label › Email the authors of vulnerable code"
   ]
  },
+ "Findings ahead": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "findings AI Triage showed not exploitable": {
   "kind": "text",
   "seen": [
@@ -7923,12 +8027,10 @@
    "logs › activity › span › Available variables"
   ]
  },
- "Findings to triage": {
-  "kind": "text",
+ "Findings still to come are not counted.": {
+  "kind": "report",
   "seen": [
-   "calculator › sample data › span",
-   "calculator › plan changed › span",
-   "calculator › applied › span"
+   "calculator report"
   ]
  },
  "Findings tracked": {
@@ -8037,12 +8139,10 @@
    "calculator report"
   ]
  },
- "Fix rate and debt increase rate (%)": {
+ "Fix rate and debt increase rate, {0}-week average (%)": {
   "kind": "text",
   "seen": [
-   "calculator › sample data › h3 › The last 3 months, week by week",
-   "calculator › plan changed › h3 › The last 3 months, week by week",
-   "calculator › applied › h3 › The last 3 months, week by week"
+   "calculator"
   ]
  },
  "Fix written to {0}: {1}. Review it with git diff, then commit.": {
@@ -8210,22 +8310,6 @@
    "Dashboard › p › Your branding"
   ]
  },
- "Forecast, no action": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › span › Backlog trend and forecast",
-   "calculator › plan changed › span › Backlog trend and forecast",
-   "calculator › applied › span › Backlog trend and forecast"
-  ]
- },
- "Forecast, with this plan": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › span › Backlog trend and forecast",
-   "calculator › plan changed › span › Backlog trend and forecast",
-   "calculator › applied › span › Backlog trend and forecast"
-  ]
- },
  "Format": {
   "kind": "text",
   "seen": [
@@ -8338,6 +8422,18 @@
    "Dashboard › span › Email server (SMTP)"
   ]
  },
+ "From the customer's Checkmarx One exports, up to {0}: {1} open vulnerabilities.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "From the projects entered for this projection.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "From the two exports": {
   "kind": "text",
   "seen": [
@@ -8352,12 +8448,30 @@
    "Dashboard › button › Fusion: what one scan of each project costs"
   ]
  },
+ "Fusion credits": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Fusion follows the scope. Triage & remediation comes from the two exports, which cover every project.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Fusion models": {
   "kind": "text",
   "seen": [
    "first start › h2 › Fusion models",
    "sign in › h2 › Fusion models",
    "Dashboard › h2 › Fusion models"
+  ]
+ },
+ "Fusion reports {0}% more findings than today.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Fusion scans": {
@@ -8382,6 +8496,12 @@
    "first start › h2 › Fusion scans by how often projects are scanned",
    "sign in › h2 › Fusion scans by how often projects are scanned",
    "Dashboard › h2 › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "Fusion scans over {0} months": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Fusion scans over {0} months.": {
@@ -8799,6 +8919,12 @@
    "Dashboard › span"
   ]
  },
+ "Groups": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Hands-off": {
   "kind": "text",
   "seen": [
@@ -9061,6 +9187,12 @@
    "Dashboard › p › SLAs Beta"
   ]
  },
+ "How many of the backlog to triage, the false positives expected, and the credits each step takes. Everything starts from the defaults.": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "How often it is scanned": {
   "kind": "attr:aria-label",
   "seen": [
@@ -9069,20 +9201,18 @@
    "calculator › reports › select › Projects"
   ]
  },
+ "How often they are scanned": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "How people ask for help": {
   "kind": "attr:aria-label",
   "seen": [
    "first start › div › Get help",
    "sign in › div › Get help",
    "Dashboard › div › Get help"
-  ]
- },
- "How the backlog, the fix rate and the rate the debt grows moved each week: where the current backlog comes from.": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › p › The last 3 months, week by week",
-   "calculator › plan changed › p › The last 3 months, week by week",
-   "calculator › applied › p › The last 3 months, week by week"
   ]
  },
  "How the rescan works": {
@@ -9111,6 +9241,12 @@
   "kind": "text",
   "seen": [
    "settings › Quick setup (.env) / Email server › fix-it box"
+  ]
+ },
+ "How we got there": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "How:": {
@@ -9285,6 +9421,12 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "If nothing changes": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "If the account has multi-factor sign-in, use an app password, or send through a relay that does not need a sign-in.": {
@@ -9879,6 +10021,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Kept away by FAE": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "Kept in this browser.": {
@@ -10485,6 +10633,12 @@
    "busy line"
   ]
  },
+ "Making the report…": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Manage tracked reports": {
   "kind": "text",
   "seen": [
@@ -10801,6 +10955,24 @@
    "message"
   ]
  },
+ "More found by Fusion": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "More found by Fusion ({0}%)": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "More found by Fusion (%)": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "More options": {
   "kind": "text",
   "seen": [
@@ -10939,6 +11111,12 @@
    "dashboard"
   ]
  },
+ "Narrow the projects": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Narrow to applications, projects or people": {
   "kind": "text",
   "seen": [
@@ -11003,6 +11181,18 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "New findings a month": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "New findings keep arriving at the pace of the last {0} months.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "New name for this tenant:": {
@@ -11343,6 +11533,12 @@
    "message"
   ]
  },
+ "No project is in the scope: narrow the projects differently at the top.": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "No project matches that name.": {
   "kind": "text",
   "seen": [
@@ -11659,14 +11855,6 @@
    "interactive HTML report"
   ]
  },
- "Not known": {
-  "kind": "attr:placeholder",
-  "seen": [
-   "calculator › model added › input › Fusion models",
-   "calculator › suggested › input › Fusion models",
-   "calculator › project added › input › Fusion models"
-  ]
- },
  "Not on this computer yet? Clone and open:": {
   "kind": "report",
   "seen": [
@@ -11798,6 +11986,12 @@
    "message"
   ]
  },
+ "Nothing to report yet: read Checkmarx One (or use the two exports), or add Fusion projects first.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Nothing to report yet: upload the two exports, or read the Fusion projects first.": {
   "kind": "message",
   "seen": [
@@ -11918,21 +12112,7 @@
    "credits › overview › small"
   ]
  },
- "of {0} credits: {1} ÷ {2} = {3}": {
-  "kind": "report",
-  "seen": [
-   "calculator report"
-  ]
- },
  "of {0} open": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › span",
-   "calculator › plan changed › span",
-   "calculator › applied › span"
-  ]
- },
- "of the current backlog": {
   "kind": "text",
   "seen": [
    "calculator › sample data › span",
@@ -12322,6 +12502,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "open vulnerabilities": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Open vulnerabilities of every severity, in the period chosen above": {
@@ -12714,14 +12900,6 @@
    "Dashboard › p › Allocated vs used"
   ]
  },
- "Per severity: how many open findings to triage, the false positives expected, and the credits triage and remediation take. Changes count once you select <strong>Apply</strong>.": {
-  "kind": "html",
-  "seen": [
-   "calculator › sample data › p › Choose what to fix",
-   "calculator › plan changed › p › Choose what to fix",
-   "calculator › applied › p › Choose what to fix"
-  ]
- },
  "Period": {
   "kind": "text",
   "seen": [
@@ -12736,14 +12914,6 @@
    "first start › form",
    "sign in › form",
    "Dashboard › form"
-  ]
- },
- "Period for debt increase and fix rate": {
-  "kind": "attr:aria-label",
-  "seen": [
-   "calculator › sample data › div › Final matrix",
-   "calculator › plan changed › div › Final matrix",
-   "calculator › applied › div › Final matrix"
   ]
  },
  "Permission": {
@@ -13080,6 +13250,18 @@
    "logs › activity › span › Available variables"
   ]
  },
+ "Project names": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Projection period": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Projection period (months)": {
   "kind": "text",
   "seen": [
@@ -13118,6 +13300,12 @@
    "calculator"
   ]
  },
+ "Projects counted": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Projects for commit lookups — group/project, one per line": {
   "kind": "text",
   "seen": [
@@ -13147,6 +13335,12 @@
   "seen": [
    "calculator › read › span",
    "busy line"
+  ]
+ },
+ "Projects scanned most often come first.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Projects someone fetched in the last couple of minutes are normally reused when nothing was rescanned or triaged from here since. Tick to read every project from Checkmarx One again.": {
@@ -13322,6 +13516,12 @@
    "calculator"
   ]
  },
+ "Read Checkmarx One first: the scope is worked out from the last read.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Read Checkmarx One's answer below: it usually names the problem.": {
   "kind": "message",
   "seen": [
@@ -13334,10 +13534,16 @@
    "calculator"
   ]
  },
- "Read from Checkmarx One (or use the two exports) to see the backlog, its trend and the credits a plan takes.": {
-  "kind": "message",
+ "Read from Checkmarx One (or use the two exports) to see the backlog, its trend and the credits it takes.": {
+  "kind": "text",
   "seen": [
    "calculator"
+  ]
+ },
+ "Read live from Checkmarx One on {0}: {1} projects, {2} scans, {3} open vulnerabilities.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Read the answer below: it usually names the problem.": {
@@ -13382,6 +13588,12 @@
    "reports › detail › th › Weekly",
    "reports › detail › overview › th › Weekly",
    "reports › detail › remind › th › Weekly"
+  ]
+ },
+ "Reading Checkmarx One first, then the report is made…": {
+  "kind": "message",
+  "seen": [
+   "calculator"
   ]
  },
  "Reading Checkmarx One for the new round…": {
@@ -15424,6 +15636,12 @@
    "Dashboard › button › Email server (SMTP)"
   ]
  },
+ "Send the report to": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Send the server's answer to your mail administrator.": {
   "kind": "message",
   "seen": [
@@ -15556,6 +15774,18 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Sent to {0} addresses.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Sent to 1 address.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
   ]
  },
  "Sent to the API as fromDate/toDate, so it is filtered server-side.": {
@@ -16039,6 +16269,12 @@
    "Dashboard › span › Create the first administrator"
   ]
  },
+ "Several at once: separate them with commas.": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Several tenants": {
   "kind": "text",
   "seen": [
@@ -16101,6 +16337,12 @@
    "Dashboard › projects table, more than 100 projects"
   ]
  },
+ "Show {0} more of {1}": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Show advanced options": {
   "kind": "text",
   "seen": [
@@ -16133,6 +16375,12 @@
   "kind": "text",
   "seen": [
    "dashboard"
+  ]
+ },
+ "Show more": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "Show the changes": {
@@ -16351,20 +16599,6 @@
    "connection: cxone › li › Get started · 1 of 6 done"
   ]
  },
- "Solid: the backlog so far. Dashed: the next {0} months with the findings above fixed evenly, against the pace new ones arrive. Log scale, as severities differ by orders of magnitude.": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › p › 3-month plan by severity",
-   "calculator › plan changed › p › 3-month plan by severity",
-   "calculator › applied › p › 3-month plan by severity"
-  ]
- },
- "Solid: the backlog so far. Dashed: the next {0} months with the findings above fixed evenly, against the pace new ones arrive. Log scale.": {
-  "kind": "report",
-  "seen": [
-   "calculator report"
-  ]
- },
  "Some add-ons are unlocked with a code from the maintainer of CxMissionZero. Paste the code you were sent: it is checked here, with nothing sent anywhere, and what it unlocks is switched on at once.": {
   "kind": "text",
   "seen": [
@@ -16473,6 +16707,12 @@
    "first start › p",
    "sign in › p",
    "Dashboard › p"
+  ]
+ },
+ "Start again": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "Start AI Triage or Remediation from the dashboard or a tracked report (spends credits).": {
@@ -16638,6 +16878,24 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Still to come": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Still to come ({0} months)": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Still to come, at the current pace": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Still without lines of code: {0}": {
@@ -17116,6 +17374,12 @@
    "help › filtered › span › Submit a support case"
   ]
  },
+ "That address cannot be sent to from here.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
  "That does not look like a whole Checkmarx One API key.": {
   "kind": "message",
   "seen": [
@@ -17138,6 +17402,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "That is not a projection report file.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
   ]
  },
  "That is not a web address, e.g. {0}": {
@@ -17220,18 +17490,16 @@
    "reports › detail › remind › p › Weekly"
   ]
  },
- "The backlog grew by {0} a month on average recently: fixes are not keeping pace with new findings.": {
-  "kind": "text",
-  "seen": [
-   "calculator › sample data › p › Backlog trend and forecast",
-   "calculator › plan changed › p › Backlog trend and forecast",
-   "calculator › applied › p › Backlog trend and forecast"
-  ]
- },
  "The backlog grew by {0} a month on average recently.": {
   "kind": "report",
   "seen": [
    "calculator report"
+  ]
+ },
+ "The backlog grew by {0} a month on average recently. Shaded: the next {1} months.": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "The backlog shrank by {0} a month on average recently.": {
@@ -17240,6 +17508,18 @@
    "calculator report",
    "calculator › new › p › Backlog trend and forecast",
    "calculator › triage & remediation › p › Backlog trend and forecast"
+  ]
+ },
+ "The backlog shrank by {0} a month on average recently. Shaded: the next {1} months.": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "The backlog so far, then with the plan over the next {0} months (dashed). Each severity on its own scale.": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "The browser (github.dev, GitLab…)": {
@@ -17350,6 +17630,12 @@
    "Dashboard › small › Match usernames to email addresses"
   ]
  },
+ "The email server is not set up and tested yet (Settings → Email server).": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
  "The email with your number could not be sent:": {
   "kind": "text",
   "seen": [
@@ -17396,6 +17682,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "The full projection is attached: open it in any browser.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
   ]
  },
  "The git host accepted the token, but it lacks a permission this needs.": {
@@ -17640,6 +17932,12 @@
    "message"
   ]
  },
+ "The next {0} months": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "The organisation’s uploaded logo": {
   "kind": "message",
   "seen": [
@@ -17796,6 +18094,12 @@
    "reports › detail › p › Weekly",
    "reports › detail › overview › p › Weekly",
    "reports › detail › remind › p › Weekly"
+  ]
+ },
+ "The trend is measured over the last {0} months of that data, week by week, and carried forward.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "The version Checkmarx One recommends": {
@@ -18189,6 +18493,12 @@
    "calculator › applied › span"
   ]
  },
+ "To remediate (true positives)": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "To send as another address (a shared mailbox), the signed-in account needs Send As permission for it: Microsoft 365 admin center → the shared mailbox → Send as.": {
   "kind": "message",
   "seen": [
@@ -18217,6 +18527,12 @@
    "Dashboard › fetching › div › AI check & fix",
    "Dashboard › loaded › div › AI check & fix",
    "Dashboard › remind › div › AI check & fix"
+  ]
+ },
+ "Today": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Token": {
@@ -18315,6 +18631,12 @@
    "calculator › div"
   ]
  },
+ "Total credits required: {0} ({1} bundles of {2}), over {3} months.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Total vulnerabilities": {
   "kind": "text",
   "seen": [
@@ -18387,6 +18709,12 @@
    "credits › overview › span"
   ]
  },
+ "Trend over": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "calculator"
+  ]
+ },
  "triage": {
   "kind": "report",
   "seen": [
@@ -18423,6 +18751,12 @@
    "first start › button",
    "first start › th › Projection reports",
    "sign in › button"
+  ]
+ },
+ "Triage & remediation credits": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Triage a finding again when it already has a verdict (spends credits again)": {
@@ -18701,20 +19035,30 @@
    "dashboard"
   ]
  },
+ "Type at least one email address.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Type the credits": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Type the model's name, as Checkmarx One shows it": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "calculator"
+  ]
+ },
  "Type them": {
   "kind": "attr:placeholder",
   "seen": [
    "projections › read › input › Projects",
    "projections › added › input › Projects",
    "projections › none included › input › Projects"
-  ]
- },
- "Typed here": {
-  "kind": "text",
-  "seen": [
-   "calculator › model added › td › Fusion models",
-   "calculator › suggested › td › Fusion models",
-   "calculator › project added › td › Fusion models"
   ]
  },
  "Uncertain": {
@@ -19843,6 +20187,18 @@
    "settings › handsoff › Hands-off: set it up once, then leave it"
   ]
  },
+ "What the credits are for": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "What the projection counts": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
  "What was tried": {
   "kind": "text",
   "seen": [
@@ -20063,6 +20419,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "With this plan": {
+  "kind": "text",
+  "seen": [
+   "calculator"
   ]
  },
  "Work out the Checkmarx One credits a customer needs": {
