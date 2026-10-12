@@ -2965,3 +2965,13 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .ua-table td.when { white-space: nowrap; }
 .ua-table td.who small { display: block; color: var(--muted); }
 .ua-table td.ua-details { font-size: 12px; max-width: 360px; overflow-wrap: anywhere; }
+
+/* Settings → Update & recovery → Software integrity */
+.integrity-box { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 14px 0; }
+.integrity-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.integrity-head h3 { margin: 0; font-size: 15px; }
+.integrity-head .sm { margin-left: auto; }
+.integrity-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 13px; margin: 8px 0 0; }
+.integrity-facts dt { color: var(--muted); }
+.integrity-facts dd { margin: 0; overflow-wrap: anywhere; }
+#integrity-files pre { max-height: 220px; overflow: auto; font-size: 12px; }

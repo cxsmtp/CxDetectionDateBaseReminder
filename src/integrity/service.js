@@ -21,6 +21,10 @@ import { verifyBundle } from './sigstore.js';
 
 export const SOURCE_REPOSITORY = 'cxsmtp/CxDetectionDateBaseReminder';
 const TRUSTED_ROOT = JSON.parse(fs.readFileSync(new URL('./trusted-root.json', import.meta.url), 'utf8'));
+// Tests only (never in the image, which runs with NODE_ENV=production): another attestations API and trust root.
+const TESTING = process.env.NODE_ENV !== 'production';
+const API = (TESTING && process.env.MZ_INTEGRITY_API) || 'https://api.github.com';
+const testRoot = () => (TESTING && process.env.MZ_INTEGRITY_TRUST_ROOT ? JSON.parse(fs.readFileSync(process.env.MZ_INTEGRITY_TRUST_ROOT, 'utf8')) : null);
 const FIRST = 20;
 
 const trim = (r) => ({ ok: r.ok, checked: r.checked, changed: r.changed.slice(0, FIRST), missing: r.missing.slice(0, FIRST), extra: r.extra.slice(0, FIRST), counts: { changed: r.changed.length, missing: r.missing.length, extra: r.extra.length } });
@@ -54,7 +58,8 @@ export class IntegrityService {
   #last = null;
   #running = null;
 
-  constructor({ appDir, dataDir, repository = process.env.MZ_SOURCE_REPOSITORY || SOURCE_REPOSITORY, fetch = globalThis.fetch, token = '', record = () => {}, trustedRoot = TRUSTED_ROOT, timeoutMs = 15_000 }) {
+  constructor({ appDir, dataDir, repository = process.env.MZ_SOURCE_REPOSITORY || SOURCE_REPOSITORY, fetch = globalThis.fetch, token = '', record = () => {}, trustedRoot = testRoot() ?? TRUSTED_ROOT, api = API, timeoutMs = 15_000 }) {
+    this.api = api;
     this.appDir = appDir;
     this.repository = repository;
     this.fetch = fetch;
@@ -73,7 +78,7 @@ export class IntegrityService {
   async verifyOrigin(digest) {
     const cached = this.#cached(digest);
     if (cached) return { ...cached, cached: true };
-    const url = `https://api.github.com/repos/${this.repository}/attestations/sha256:${digest}`;
+    const url = `${this.api}/repos/${this.repository}/attestations/sha256:${digest}`;
     let response;
     try {
       response = await this.fetch(url, {

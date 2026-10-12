@@ -101,3 +101,63 @@ test('inclusion proofs follow RFC 9162', () => {
   assert.equal(rootFromInclusionProof(2, 2, leaf, []), null);
   assert.equal(rootFromInclusionProof(0, 2, leaf, []), null, 'a proof too short');
 });
+
+import { IntegrityService, compareFileMap } from '../src/integrity/service.js';
+
+test("an update's files are checked against the list among them", () => {
+  const list = { format: 1, version: '1.0.72', files: { 'package.json': sha256('{}'), 'src/server.js': sha256('ok') } };
+  const files = (over = {}) => new Map(Object.entries({ 'package.json': Buffer.from('{}'), 'src/server.js': Buffer.from('ok'), 'integrity.json': Buffer.from(JSON.stringify(list)), '.node-version': Buffer.from('24'), ...over }));
+  assert.equal(compareFileMap(files()).ok, true);
+  assert.equal(compareFileMap(new Map([['package.json', Buffer.from('{}')]])), null, 'no list at all');
+  const bad = compareFileMap(files({ 'src/server.js': Buffer.from('evil'), 'src/extra.js': Buffer.from('x') }));
+  assert.deepEqual([bad.ok, bad.changed, bad.extra], [false, ['src/server.js'], ['src/extra.js']]);
+});
+
+test('the running copy: genuine, tampered, unconfirmed offline, not genuine, unsigned; a confirmed origin is kept', async () => {
+  const world = makeWorld({ repository: 'acme/mission' });
+  const { root, put } = appFolder();
+  const text = manifestText(buildManifest(root, { version: '1.0.72' }));
+  fs.writeFileSync(path.join(root, 'integrity.json'), text);
+  const digest = sha256(text);
+  let answer = 'signed';
+  let calls = 0;
+  const fetch = async (url) => {
+    calls += 1;
+    assert.match(String(url), new RegExp(`/repos/acme/mission/attestations/sha256:${digest}$`));
+    if (answer === 'offline') throw Object.assign(new Error('fetch failed'), { cause: { code: 'ENOTFOUND' } });
+    if (answer === 'none') return new Response('{}', { status: 404 });
+    return Response.json({ attestations: [{ bundle: makeBundle(answer === 'stranger' ? makeWorld({ repository: 'acme/mission' }) : world, digest) }] });
+  };
+  const records = [];
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'integrity-data-'));
+  const make = () => new IntegrityService({ appDir: root, dataDir, repository: 'acme/mission', fetch, trustedRoot: world.trustedRoot, record: (r) => records.push(r) });
+
+  answer = 'offline';
+  assert.equal((await make().check()).state, 'unconfirmed');
+  answer = 'none';
+  assert.equal((await make().check()).state, 'not-genuine');
+  answer = 'stranger';
+  const stranger = await make().check();
+  assert.equal(stranger.state, 'not-genuine');
+  assert.match(stranger.summary, /not issued by Sigstore/);
+  assert.equal(records.at(-1).outcome, 'failure');
+
+  answer = 'signed';
+  const service = make();
+  const good = await service.check();
+  assert.equal(good.state, 'genuine', good.summary);
+  assert.match(good.summary, /acme\/mission's release workflow built from main/);
+  answer = 'offline';
+  calls = 0;
+  assert.equal((await make().check()).state, 'genuine', 'confirmed once, known offline after a restart');
+  assert.equal(calls, 0);
+
+  put('src/server.js', 'changed');
+  const tampered = await service.check();
+  assert.equal(tampered.state, 'tampered');
+  assert.deepEqual(tampered.files.changed, ['src/server.js']);
+  assert.equal(records.at(-1).outcome, 'failure');
+
+  const none = new IntegrityService({ appDir: fs.mkdtempSync(path.join(os.tmpdir(), 'plain-')), dataDir, repository: 'acme/mission', fetch });
+  assert.equal((await none.check()).state, 'unsigned');
+});
