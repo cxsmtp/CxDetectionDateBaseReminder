@@ -2917,3 +2917,21 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .trust-list li { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; display: grid; gap: 2px; justify-items: start; }
 .trust-list li.hint { border: 0; padding: 0; }
 .calc-badge.warn { color: var(--warn); background: var(--warn-soft); }
+
+/* 1.0.69: Settings → Network & proxy */
+.net-steps { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.net-steps ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.net-steps li li { font-size: 13px; }
+.net-steps .net-mark { display: inline-block; width: 1.2em; font-weight: 700; }
+.net-steps li.ok .net-mark { color: var(--ok); }
+.net-steps li.bad .net-mark { color: var(--danger); }
+.net-steps .net-name { font-weight: 600; }
+.net-steps li .hint { margin: 2px 0 0 1.2em; }
+.net-head { margin: 22px 0 4px; font-size: 15px; }
+.net-table { width: 100%; font-size: 13px; }
+.net-table td, .net-table th { padding: 6px 8px; text-align: start; vertical-align: top; }
+/* 1.0.69: the calculator's applications and projects, picked as chips */
+.calc-scope-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 10px 14px; }
+.calc-scope-pick .field { margin: 0; }
+.calc-scope-pick .field > label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+#calc-scope-box .calc-scope-several { margin: 0; }

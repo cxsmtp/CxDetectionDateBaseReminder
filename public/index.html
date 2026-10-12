@@ -621,6 +621,7 @@
                 <p class="set-group">Connections</p>
                   <a href="#/settings/connection" data-set="connection">Checkmarx One</a>
                   <a href="#/settings/smtp" data-set="smtp">Email server</a>
+                  <a href="#/settings/network" data-set="network" data-perm="integration.cxone integration.smtp">Network &amp; proxy</a>
                   <a href="#/settings/endpoint" data-set="endpoint" data-advanced>Risks endpoint</a>
                 <p class="set-group">Reminders</p>
                   <a href="#/settings/initiators" data-set="initiators">Developer addresses</a>
@@ -843,6 +844,41 @@
                   <span class="status" id="trust-status"></span>
                 </div>
               </details>
+            </section>
+
+            <section class="panel" id="set-network" data-perm="integration.cxone integration.smtp" data-edit-perm="integration.cxone">
+              <h2>Network &amp; proxy</h2>
+              <p class="hint wide">
+                How this server reaches Checkmarx One and the other services it uses: directly, or through your company's
+                proxy. Everything it sends is encrypted (HTTPS). Leave the proxy empty to connect directly.
+              </p>
+              <div class="guard-line" id="network-now"></div>
+              <form id="network-form" autocomplete="off">
+                <div class="grid2">
+                  <label class="field"><span>Proxy server</span><input id="network-url" placeholder="proxy.acme.local:8080" spellcheck="false" /></label>
+                  <label class="field"><span>Checkmarx One address to check</span><input id="network-target" placeholder="ind.iam.checkmarx.net" spellcheck="false" /></label>
+                  <label class="field"><span>User name, if the proxy asks for one</span><input id="network-user" autocomplete="off" spellcheck="false" /></label>
+                  <label class="field"><span>Password</span><input id="network-password" type="password" autocomplete="new-password" /></label>
+                </div>
+                <label class="field"><span>Hosts that skip the proxy (comma-separated)</span><input id="network-noproxy" placeholder=".acme.local, smtp.acme.local, 10.0.0.5" spellcheck="false" /></label>
+                <p class="hint">Windows sign-in to the proxy (NTLM/Kerberos) is not supported: ask for this server to be allowed by its IP address, or for a user name and password.</p>
+                <div class="actions compact">
+                  <button type="button" id="network-check" class="ghost">Check the connection</button>
+                  <button type="submit" class="primary">Save and restart</button>
+                  <button type="button" id="network-remove" class="link" hidden>Stop using the proxy</button>
+                  <span class="status" id="network-status"></span>
+                </div>
+              </form>
+              <ol class="net-steps" id="network-steps" hidden></ol>
+
+              <h3 class="net-head">What your network team needs to allow</h3>
+              <p class="hint wide">Worked out from this server's settings. Send it to your network team before you install, or when a connection is blocked.</p>
+              <div class="table-wrap"><table class="net-table"><thead><tr><th>Direction</th><th>What</th><th>Host</th><th>Port</th><th>Route</th></tr></thead><tbody id="network-rows"></tbody></table></div>
+              <div class="actions compact">
+                <button type="button" id="network-copy" class="ghost">Copy for your network team</button>
+                <button type="button" id="network-download" class="link">Download (.txt)</button>
+                <span class="status" id="network-copy-status"></span>
+              </div>
             </section>
 
             <section class="panel" id="set-smtp" data-edit-perm="integration.smtp">
@@ -2124,23 +2160,35 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div class="calc-scope-line">
                   <span class="calc-scope-label">Projects</span>
                   <span id="calc-scope-summary" class="calc-scope-summary">All projects</span>
-                  <button type="button" class="link" id="calc-scope-toggle" aria-expanded="false" aria-controls="calc-scope-form">Narrow the projects</button>
+                  <button type="button" class="link" id="calc-scope-clear">Every project</button>
+                  <span class="status" id="calc-scope-status" aria-live="polite"></span>
                 </div>
+                <div class="calc-scope-pick">
+                  <div class="field">
+                    <label for="calc-app-input">Applications</label>
+                    <div class="chip-input" id="calc-apps"><input id="calc-app-input" list="calc-scope-applications-list" autocomplete="off" spellcheck="false" placeholder="Type an application name…" /></div>
+                    <datalist id="calc-scope-applications-list"></datalist>
+                  </div>
+                  <div class="field">
+                    <label for="calc-project-input">Projects</label>
+                    <div class="chip-input" id="calc-projects"><input id="calc-project-input" list="calc-scope-projects-list" autocomplete="off" spellcheck="false" placeholder="Type a project name…" /></div>
+                    <datalist id="calc-scope-projects-list"></datalist>
+                  </div>
+                </div>
+                <p class="hint calc-scope-several">Empty: every project. These applications' projects, plus the projects picked. Enter adds every name that contains the text.</p>
+                <button type="button" class="link" id="calc-scope-toggle" aria-expanded="false" aria-controls="calc-scope-form">More filters</button>
                 <form class="calc-scope-form" id="calc-scope-form" hidden autocomplete="off">
-                  <p class="hint">Count only some projects, for triage &amp; remediation and for Fusion alike. Leave a field empty to keep every project. Names take wildcards: <code translate="no">payments-*</code>, <code translate="no">*-api</code>.</p>
+                  <p class="hint">Narrow further, for triage &amp; remediation and for Fusion alike. Names take wildcards: <code translate="no">payments-*</code>, <code translate="no">*-api</code>.</p>
                   <div class="calc-scope-grid">
-                    <label class="field"><span>Applications</span><input type="text" id="calc-scope-applications" list="calc-scope-applications-list" placeholder="Any application" /><datalist id="calc-scope-applications-list"></datalist></label>
                     <label class="field"><span>Groups</span><input type="text" id="calc-scope-groups" list="calc-scope-groups-list" placeholder="Any group" /><datalist id="calc-scope-groups-list"></datalist></label>
                     <label class="field"><span>Project names</span><input type="text" id="calc-scope-names" placeholder="Any name, e.g. payments-*" /></label>
                     <label class="field"><span>Last scanned by</span><input type="text" id="calc-scope-initiators" list="calc-scope-initiators-list" placeholder="Anyone" /><datalist id="calc-scope-initiators-list"></datalist></label>
                   </div>
-                  <p class="hint calc-scope-several">Several at once: separate them with commas.</p>
+                  <p class="hint">Several at once: separate them with commas.</p>
                   <fieldset class="calc-scope-checks"><legend>How often they are scanned</legend><div id="calc-scope-frequencies"></div></fieldset>
                   <fieldset class="calc-scope-checks"><legend>Criticality</legend><div id="calc-scope-criticalities"></div></fieldset>
                   <div class="actions compact">
                     <button type="submit" class="primary">Apply</button>
-                    <button type="button" class="ghost" id="calc-scope-clear">Every project</button>
-                    <span class="status" id="calc-scope-status" aria-live="polite"></span>
                   </div>
                 </form>
               </div>

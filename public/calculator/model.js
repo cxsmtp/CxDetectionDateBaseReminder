@@ -22,8 +22,10 @@ export const DEFAULT_TR = Object.freeze({
   fpPercent: { Critical: 30, High: 30, Medium: 30, Low: 30 },
   lookbackMonths: 3,
   includeFuture: true,
-  fusionUpliftPercent: 20,
+  fusionUpliftPercent: 5,
   faePercent: 10,
+  // New findings fall as teams adopt AI (assist, triage, remediation): this much fewer each month.
+  aiDeclinePercent: 2,
 });
 // The trend is always read over months (a single week says too little to project from).
 export const LOOKBACKS = [3, 6, 9, 12];
@@ -158,7 +160,19 @@ export function aheadSettings(value = {}) {
     includeFuture: v.includeFuture !== false,
     fusionUpliftPercent: pct(v.fusionUpliftPercent, DEFAULT_TR.fusionUpliftPercent, 300),
     faePercent: pct(v.faePercent, DEFAULT_TR.faePercent, 100),
+    aiDeclinePercent: pct(v.aiDeclinePercent, DEFAULT_TR.aiDeclinePercent, 20),
   };
+}
+
+/**
+ * How many months' worth of new findings arrive over `months` when each month brings
+ * `declinePercent` fewer than the one before (the first at today's pace): 12 at 0%, about 10.9 at 2%.
+ */
+export function aheadMonths(months, declinePercent = 0) {
+  const keep = 1 - clamp(Number(declinePercent) || 0, 0, 100) / 100;
+  let total = 0;
+  for (let m = 0; m < months; m += 1) total += keep ** m;
+  return total;
 }
 
 /**
@@ -172,6 +186,7 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false 
   const ahead = aheadSettings(plan);
   const selected = resolveSelected(analysis, plan.selected);
   const period = clamp(Number(months) || 12, 1, 60);
+  const paced = aheadMonths(period, ahead.aiDeclinePercent);
   const rows = {};
   const keys = ['backlog', 'selected', 'future', 'fusionExtra', 'faeAvoided', 'toTriage', 'truePositives', 'triageCredits', 'remediationCredits', 'credits', 'backlogCredits', 'aheadCredits', 'backlogAfter'];
   const totals = Object.fromEntries(keys.map((k) => [k, 0]));
@@ -181,7 +196,7 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false 
     const fp = clamp(amount(plan.fpPercent?.[s]) ?? DEFAULT_TR.fpPercent[s], 0, 100);
     const remediationCost = amount(plan.remediationCost?.[s]) ?? DEFAULT_TR.remediationCost[s];
     const chosen = selected[s];
-    const future = ahead.includeFuture ? (analysis?.perSeverity[s].arrivals ?? 0) * period : 0;
+    const future = ahead.includeFuture ? (analysis?.perSeverity[s].arrivals ?? 0) * paced : 0;
     const fusionExtra = fusion ? ((chosen + future) * ahead.fusionUpliftPercent) / 100 : 0;
     const fresh = future + fusionExtra;
     const faeAvoided = Math.min((fresh * ahead.faePercent) / 100, (fresh * fp) / 100);
@@ -195,7 +210,7 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false 
     rows[s] = row;
     for (const k of keys) totals[k] += row[k];
   }
-  return { rows, totals, months: period, ahead, fusion: Boolean(fusion) };
+  return { rows, totals, months: period, paced, ahead, fusion: Boolean(fusion) };
 }
 
 const addMonths = (month, n) => {
@@ -495,6 +510,8 @@ export function cleanScope(value = {}) {
   const ids = new Set(FREQUENCIES.map((f) => f.id));
   return {
     applications: list(v.applications, 200),
+    // Projects picked one by one, by id.
+    projects: list(v.projects, 200, 5000),
     groups: list(v.groups, 200),
     initiators: list(v.initiators, 254),
     names: list(v.names, 100, 20),
@@ -539,7 +556,12 @@ export function inScope(project, scope) {
   const sc = cleanScope(scope);
   const lower = (v) => String(v ?? '').toLowerCase();
   const anyOf = (wanted, have) => !wanted.length || (Array.isArray(have) ? have : [have]).some((h) => wanted.some((w) => lower(w) === lower(h)));
-  if (!anyOf(sc.applications, project?.applications ?? [])) return false;
+  // Applications and projects picked: these applications' projects, plus these projects (as on the Dashboard).
+  if (sc.applications.length || sc.projects.length) {
+    const byApp = sc.applications.length > 0 && anyOf(sc.applications, project?.applications ?? []);
+    const byId = sc.projects.includes(String(project?.id ?? ''));
+    if (!byApp && !byId) return false;
+  }
   if (!anyOf(sc.groups, project?.groups ?? [])) return false;
   if (!anyOf(sc.initiators, project?.initiator ?? '')) return false;
   if (sc.frequencies.length && !sc.frequencies.includes(project?.frequency)) return false;

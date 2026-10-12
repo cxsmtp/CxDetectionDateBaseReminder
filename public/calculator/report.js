@@ -72,6 +72,7 @@ function scopeLine(source, L) {
   const sc = cleanScope(source.scope);
   const parts = [
     sc.applications.length && `${w('Applications')}: ${esc(sc.applications.join(', '))}`,
+    sc.projects.length && `${w('Projects')}: ${esc((source.projectNames ?? sc.projects).slice(0, 20).join(', '))}${sc.projects.length > 20 ? ` ${esc(w('and {0} more', num(sc.projects.length - 20)))}` : ''}`,
     sc.groups.length && `${w('Groups')}: ${esc(sc.groups.join(', '))}`,
     sc.names.length && `${w('Project names')}: ${esc(sc.names.join(', '))}`,
     sc.initiators.length && `${w('Last scanned by')}: ${esc(sc.initiators.join(', '))}`,
@@ -141,7 +142,7 @@ function story(data, L) {
       <h3>${w('The next {0} months', num(months))}</h3>
       <table class="calc">
         <tr><td>${w('Backlog to triage')}</td><td>${num(f.selected)}</td></tr>
-        <tr><td>${w('Still to come, at the current pace')}</td><td>+${num(f.future)}</td></tr>
+        <tr><td>${tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer each month with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace')}</td><td>+${num(f.future)}</td></tr>
         <tr><td>${w('More found by Fusion ({0}%)', num(tr.ahead?.fusionUpliftPercent ?? 0))}</td><td>+${num(f.fusionExtra)}</td></tr>
         <tr><td>${w('Fewer false positives with FAE ({0}%)', num(tr.ahead?.faePercent ?? 0))}</td><td>−${num(f.faeAvoided)}</td></tr>
         <tr class="sum"><td>${w('To triage')}</td><td>${num(f.toTriage)}</td></tr>
@@ -182,7 +183,9 @@ function assumptions(data, sum, L) {
     items.push(w('{0} credit(s) per triage; {1} per remediation.', each('triageCost'), each('remediationCost')));
     items.push(w('False positives expected: {0}%.', each('fp', 0)));
     if (tr.ahead) {
-      items.push(tr.ahead.includeFuture ? w('New findings keep arriving at the pace of the last {0} months.', num(tr.lookbackMonths)) : w('Findings still to come are not counted.'));
+      if (!tr.ahead.includeFuture) items.push(w('Findings still to come are not counted.'));
+      else if (tr.ahead.aiDeclinePercent) items.push(w('New findings arrive at the pace of the last {0} months, then {1}% fewer each month as teams adopt AI.', num(tr.lookbackMonths), num(tr.ahead.aiDeclinePercent)));
+      else items.push(w('New findings keep arriving at the pace of the last {0} months.', num(tr.lookbackMonths)));
       if (tr.fusion) items.push(w('Fusion reports {0}% more findings than today.', num(tr.ahead.fusionUpliftPercent)));
       items.push(w('FAE keeps {0}% of the new findings from being reported, among the false positives only.', num(tr.ahead.faePercent)));
     }

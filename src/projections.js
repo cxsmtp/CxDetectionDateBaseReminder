@@ -114,12 +114,17 @@ export function cleanFusion(value) {
 
 /** A profile from MZ-01.00.61 (its à la carte calculator state): the exports and plan carry over. */
 function migrate(profile) {
+  // MZ-01.00.69: Fusion's default extra findings went from 20% to 5%; a profile still on the old default follows.
+  if (profile.planVersion === 2) {
+    const old = profile.tr && Number(profile.tr.fusionUpliftPercent) === 20;
+    return { ...profile, planVersion: 3, tr: old ? { ...profile.tr, fusionUpliftPercent: DEFAULT_TR.fusionUpliftPercent } : profile.tr };
+  }
   // Before MZ-01.00.67 nothing chosen was 0 everywhere: now it is every open finding (null).
   if (profile.tr && !profile.planVersion) {
     const sel = profile.tr.selected ?? {};
     const none = PLAN.every((s) => !Number(sel[s]));
     const lookback = LOOKBACKS.includes(Number(profile.tr.lookbackMonths)) ? profile.tr.lookbackMonths : DEFAULT_TR.lookbackMonths;
-    return { ...profile, planVersion: 2, tr: { ...profile.tr, lookbackMonths: lookback, ...(none ? { selected: Object.fromEntries(PLAN.map((s) => [s, null])) } : {}) } };
+    return { ...profile, planVersion: 3, tr: { ...profile.tr, lookbackMonths: lookback, ...(none ? { selected: Object.fromEntries(PLAN.map((s) => [s, null])) } : {}) } };
   }
   if (profile.tr || !profile.alaCarte) return profile;
   const a = profile.alaCarte;
@@ -130,7 +135,7 @@ function migrate(profile) {
   const tr = cleanTr({ totals: a.totals, fixed: a.fixed, selected, fpPercent, triageCost: Object.fromEntries(PLAN.map((s) => [s, triage])), remediationCost: Object.fromEntries(PLAN.map((s) => [s, remediation])) });
   const fusion = profile.fusion ? cleanFusion({ ...profile.fusion, defaultScans: 1, models: profile.fusion.creditsPerBundle ? [{ id: 'model-1', name: '', creditsPer10k: profile.fusion.creditsPerBundle, source: 'manual' }] : [] }) : cleanFusion({});
   const { alaCarte, ...rest } = profile;
-  return { ...rest, planVersion: 2, customer: profile.customer || a.customer || '', tr, fusion };
+  return { ...rest, planVersion: 3, customer: profile.customer || a.customer || '', tr, fusion };
 }
 
 const summary = (p) => ({
@@ -179,7 +184,7 @@ export class ProjectionStore {
   create({ name, by }) {
     if (this.#profiles.length >= MAX_PROFILES) throw fail(409, `There are already ${MAX_PROFILES} customers. Delete one first.`);
     const now = new Date().toISOString();
-    const profile = { id: randomUUID(), name: text(name, 120) || 'New customer', planVersion: 2, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({}), totals: totalsSettings({}), scope: cleanScope({}) };
+    const profile = { id: randomUUID(), name: text(name, 120) || 'New customer', planVersion: 3, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({}), totals: totalsSettings({}), scope: cleanScope({}) };
     this.#profiles.push(profile);
     this.#save();
     return structuredClone(profile);

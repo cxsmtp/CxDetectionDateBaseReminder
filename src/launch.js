@@ -23,6 +23,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { BUILT_IN, VersionStore } from './updates/store.js';
+import { proxyEnvironment } from './network.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const builtInDir = path.join(here, '..');
@@ -49,7 +50,8 @@ function start(target, { trial = false } = {}) {
   say(`Starting MZ-${target.version} (${target.source === 'update' ? 'installed from the Update page' : 'the image’s own'}).`);
   child = fork(entry, process.argv.slice(2), {
     cwd: process.cwd(),
-    env: { ...process.env, MZ_SUPERVISOR: '1', MZ_BUILTIN_VERSION: builtInVersion, MZ_BUILTIN_DIR: builtInDir },
+    // The company proxy (Settings → Network & proxy, or HTTPS_PROXY), read at every start.
+    env: { ...process.env, ...proxyEnvironment(dataDir), MZ_SUPERVISOR: '1', MZ_BUILTIN_VERSION: builtInVersion, MZ_BUILTIN_DIR: builtInDir },
     stdio: 'inherit',
   });
   const started = Date.now();

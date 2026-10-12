@@ -1917,6 +1917,7 @@ function renderSettings() {
   if (!s) return;
 
   loadIntegration();
+  loadNetwork();
 
   $('smtp-host').value = s.smtp.host;
   $('smtp-port').value = s.smtp.port;
@@ -7977,6 +7978,131 @@ $('test-report-server').addEventListener('click', async () => {
 // ---------------------------------------------------------------------------
 // Checkmarx One integration (Settings): the server's own connection
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Settings → Network & proxy: the proxy, a check that says where a connection stops,
+// and what the network team needs to allow (src/network.js)
+// ---------------------------------------------------------------------------
+
+const network = { text: '' };
+
+async function loadNetwork() {
+  if (!$('network-form')) return;
+  let info;
+  try {
+    info = await api('/api/network');
+  } catch {
+    return;
+  }
+  network.text = info.text;
+  const p = info.proxy;
+  const now = $('network-now');
+  if (p) {
+    now.textContent = `${p.source === 'environment' ? 'Using the proxy from the container (HTTPS_PROXY)' : 'Using the proxy'} ${p.url}${p.username ? `, signing in as ${p.username}` : ''}.${p.running ? '' : info.supervised ? ' Restarting to use it…' : ' Restart the server to use it.'}`;
+  } else {
+    now.textContent = 'Connecting directly, without a proxy.';
+  }
+  if (info.changedAt && !p?.running && !info.supervised) now.textContent += ' Restart the server to use the change.';
+  if (p?.source === 'settings') {
+    $('network-url').value = p.url;
+    $('network-user').value = p.username ?? '';
+    $('network-password').placeholder = p.hasPassword ? 'Saved: leave blank to keep it' : '';
+    $('network-noproxy').value = p.noProxy ?? '';
+  }
+  $('network-remove').hidden = p?.source !== 'settings';
+  $('network-target').placeholder = info.targets?.[0]?.host ?? 'ind.iam.checkmarx.net';
+  $('network-rows').innerHTML = info.requirements
+    .map((r) => `<tr><td>${escapeHtml(r.direction === 'In' ? 'Incoming' : 'Outgoing')}</td><td>${escapeHtml(r.what)}</td><td translate="no">${escapeHtml(r.host)}</td><td>${escapeHtml(r.port)}</td><td>${escapeHtml(r.route)}</td></tr>`)
+    .join('');
+}
+
+const networkBody = () => ({
+  url: $('network-url').value.trim(),
+  username: $('network-user').value.trim(),
+  password: $('network-password').value,
+  noProxy: $('network-noproxy').value.trim(),
+  target: $('network-target').value.trim(),
+});
+
+/** The steps of a check, each with a tick or a cross: where the connection stopped. */
+function showNetworkSteps(results) {
+  const names = { proxy: 'Proxy', tunnel: 'Connection', certificate: 'Certificate', answer: 'Checkmarx One' };
+  const list = $('network-steps');
+  list.hidden = !results?.length;
+  list.innerHTML = (results ?? [])
+    .map((r) => `<li><strong translate="no">${escapeHtml(r.host)}</strong><ul>${r.steps
+      .map((s) => `<li class="${s.ok ? 'ok' : 'bad'}"><span class="net-mark" aria-hidden="true">${s.ok ? '✓' : '✕'}</span> <span class="net-name">${escapeHtml(names[s.step] ?? s.step)}</span> ${escapeHtml(s.detail)}${!s.ok ? networkAdvice(s) : ''}</li>`)
+      .join('')}</ul></li>`)
+    .join('');
+}
+
+/** What to do when a step failed. */
+function networkAdvice(step) {
+  let text = '';
+  if (step.step === 'proxy') text = 'Check the proxy address and port with your network team.';
+  else if (step.step === 'tunnel' && step.status === 407) text = 'The proxy wants a sign-in: give a user name and password, or ask for this server to be allowed by its IP address.';
+  else if (step.step === 'tunnel' && step.status === 403) text = 'The proxy does not allow this host: ask your network team to allow *.checkmarx.net on port 443 for this server.';
+  else if (step.step === 'tunnel') text = 'Ask your network team to allow this host on port 443 for this server, or set a proxy if one is required.';
+  else if (step.step === 'certificate') text = 'Usually a proxy that inspects HTTPS: connect under Settings → Checkmarx One and click Trust and connect, or ask for an exception from inspection.';
+  return text ? `<div class="hint">${escapeHtml(text)}</div>` : '';
+}
+
+$('network-check')?.addEventListener('click', async () => {
+  setStatus('network-status', $('network-url').value.trim() ? 'Checking through the proxy…' : 'Checking the direct connection…');
+  try {
+    const done = await api('/api/network/check', { method: 'POST', body: JSON.stringify(networkBody()) });
+    showNetworkSteps(done.results);
+    setStatus('network-status', done.ok ? 'Checkmarx One can be reached this way.' : 'Checkmarx One could not be reached this way: see the steps below.', done.ok ? 'ok' : 'error');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('network-status', error);
+  }
+});
+
+$('network-form')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  setStatus('network-status', 'Checking through the proxy before saving…');
+  try {
+    const done = await api('/api/network', { method: 'PUT', body: JSON.stringify(networkBody()) });
+    showNetworkSteps(done.results);
+    $('network-password').value = '';
+    setStatus('network-status', done.restarting ? 'Saved. The server restarts to use the proxy; this page reconnects in a few seconds.' : 'Saved. Restart the server to use the proxy.', 'ok');
+    loadNetwork();
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    showNetworkSteps(error.body?.results);
+    showError('network-status', error);
+  }
+});
+
+$('network-remove')?.addEventListener('click', async () => {
+  if (!confirm('Stop using the proxy? This server then connects directly, which works only if your network allows it.')) return;
+  try {
+    const done = await api('/api/network', { method: 'DELETE' });
+    for (const id of ['network-url', 'network-user', 'network-password', 'network-noproxy']) $(id).value = '';
+    setStatus('network-status', done.restarting ? 'Removed. The server restarts to connect directly.' : 'Removed. Restart the server to connect directly.', 'ok');
+    loadNetwork();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('network-status', error);
+  }
+});
+
+$('network-copy')?.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(network.text);
+    setStatus('network-copy-status', 'Copied.', 'ok');
+  } catch {
+    setStatus('network-copy-status', 'Copying is blocked here: use Download.', 'error');
+  }
+});
+
+$('network-download')?.addEventListener('click', () => {
+  const url = URL.createObjectURL(new Blob([network.text], { type: 'text/plain;charset=utf-8' }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: 'missionzero-network-requirements.txt' });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
 
 /** Settings → Checkmarx One → Trusted certificates: the ones added here, each removable. */
 async function loadTrust() {

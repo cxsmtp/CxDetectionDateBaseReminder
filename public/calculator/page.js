@@ -79,7 +79,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderCustomers() {
     $('calc-empty').hidden = c.customers.length > 0;
     $('calc-customer').innerHTML = c.customers.map((x) => `<option value="${esc(x.id)}"${x.id === c.open?.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
-    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle']) $(id).disabled = !c.open;
+    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input']) $(id).disabled = !c.open;
   }
 
   function renderOrg() {
@@ -380,7 +380,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         <div class="calc-steps">
           ${step('Backlog today', num(P.selected), P.selected === P.backlog ? 'every open finding' : `of ${num(P.backlog)} open`)}
           <span class="calc-op" aria-hidden="true">+</span>
-          ${step('Still to come', num(P.future), A.includeFuture ? `${num(analysis.total.arrivals)} new a month × ${num(months)} months` : 'not counted')}
+          ${step('Still to come', num(P.future), !A.includeFuture ? 'not counted' : A.aiDeclinePercent ? `${num(analysis.total.arrivals)} new a month now, ${num(A.aiDeclinePercent)}% fewer each month with AI, over ${num(months)} months` : `${num(analysis.total.arrivals)} new a month × ${num(months)} months`)}
           <span class="calc-op" aria-hidden="true">+</span>
           ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? `${num(A.fusionUpliftPercent)}% more findings` : 'Fusion not in the projection')}
           <span class="calc-op" aria-hidden="true">−</span>
@@ -392,11 +392,31 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         </div>
         <div class="calc-assume calc-edit">
           <label class="check"><input type="checkbox" data-ahead="includeFuture"${A.includeFuture ? ' checked' : ''} /> Count findings still to come</label>
+          <label class="calc-assume-num"><span>AI adoption: fewer new findings each month (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="aiDeclinePercent" value="${A.aiDeclinePercent}" /></label>
           <label class="calc-assume-num"><span>More found by Fusion (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="fusionUpliftPercent" value="${A.fusionUpliftPercent}" /></label>
           <label class="calc-assume-num"><span>FAE: fewer false positives (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="faePercent" value="${A.faePercent}" /></label>
           <button type="button" class="link" data-ahead-reset>Defaults</button>
         </div>
       </section>
+      <details class="panel calc-edit calc-custom" open>
+        <summary><h2>Customize per severity</h2><span class="hint">How many of the backlog to triage, the false positives expected, and the credits each step takes. Everything starts from the defaults.</span></summary>
+        <div class="calc-sev-grid">${SEVERITIES.map((s) => {
+          const d = c.draft[s];
+          const open = analysis.perSeverity[s].current;
+          const chosen = d.selected === null || d.selected === undefined ? open : Math.min(d.selected, open);
+          return `<div class="calc-sev-box" data-sev="${s}">
+            <div class="calc-sev-top"><span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span><span class="hint">${num(open)} open</span></div>
+            <input type="range" min="0" max="${open}" value="${chosen}" data-f="selected" aria-label="${s}: to triage" style="--p:${fill(chosen, open)}%" />
+            <div class="calc-row"><input type="number" min="0" max="${open}" value="${chosen}" data-f="selected" aria-label="${s}: to triage" />
+              <span><button type="button" class="ghost small-btn" data-set="0">None</button><button type="button" class="ghost small-btn" data-set="all">All</button></span></div>
+            <label class="calc-row"><span>Credits per triage</span><input type="number" min="0" step="0.5" value="${d.triageCost}" data-f="triageCost" /></label>
+            <label class="calc-row"><span>False positives %</span><input type="number" min="0" max="100" step="1" value="${d.fpPercent}" data-f="fpPercent" /></label>
+            <label class="calc-row"><span>Credits per remediation</span><input type="number" min="0" step="0.5" value="${d.remediationCost}" data-f="remediationCost" /></label>
+            <button type="button" class="${c.dirty[s] ? 'primary' : 'secondary'} calc-apply" data-apply${c.dirty[s] ? '' : ' disabled'}>${c.dirty[s] ? 'Apply' : 'Applied'}</button>
+          </div>`;
+        }).join('')}</div>
+        <p class="hint">Credits per triage and per remediation start at Checkmarx One's 1 and 3: set them to the customer's agreement. The false-positive rate is your estimate for this customer.</p>
+      </details>
       <section class="panel">
         <h2>Backlog trend and forecast</h2>
         <p class="hint">${analysis.monthlyChange >= 0 ? `The backlog grew by ${num(analysis.monthlyChange)} a month on average recently.` : `The backlog shrank by ${num(-analysis.monthlyChange)} a month on average recently.`} Shaded: the next ${num(months)} months.</p>
@@ -432,26 +452,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
             ${row('Remediation credits', SEVERITIES.map((s) => num(R[s].remediationCredits, 1)), num(P.remediationCredits, 1))}
             ${row('Credits', SEVERITIES.map((s) => num(R[s].credits, 1)), num(P.credits, 1), 'gold')}
           </tbody></table></div>
-      </section>
-      <details class="panel calc-edit calc-custom"${Object.values(c.dirty).some(Boolean) ? ' open' : ''}>
-        <summary><h2>Customize per severity</h2><span class="hint">How many of the backlog to triage, the false positives expected, and the credits each step takes. Everything starts from the defaults.</span></summary>
-        <div class="calc-sev-grid">${SEVERITIES.map((s) => {
-          const d = c.draft[s];
-          const open = analysis.perSeverity[s].current;
-          const chosen = d.selected === null || d.selected === undefined ? open : Math.min(d.selected, open);
-          return `<div class="calc-sev-box" data-sev="${s}">
-            <div class="calc-sev-top"><span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span><span class="hint">${num(open)} open</span></div>
-            <input type="range" min="0" max="${open}" value="${chosen}" data-f="selected" aria-label="${s}: to triage" style="--p:${fill(chosen, open)}%" />
-            <div class="calc-row"><input type="number" min="0" max="${open}" value="${chosen}" data-f="selected" aria-label="${s}: to triage" />
-              <span><button type="button" class="ghost small-btn" data-set="0">None</button><button type="button" class="ghost small-btn" data-set="all">All</button></span></div>
-            <label class="calc-row"><span>Credits per triage</span><input type="number" min="0" step="0.5" value="${d.triageCost}" data-f="triageCost" /></label>
-            <label class="calc-row"><span>False positives %</span><input type="number" min="0" max="100" step="1" value="${d.fpPercent}" data-f="fpPercent" /></label>
-            <label class="calc-row"><span>Credits per remediation</span><input type="number" min="0" step="0.5" value="${d.remediationCost}" data-f="remediationCost" /></label>
-            <button type="button" class="${c.dirty[s] ? 'primary' : 'secondary'} calc-apply" data-apply${c.dirty[s] ? '' : ' disabled'}>${c.dirty[s] ? 'Apply' : 'Applied'}</button>
-          </div>`;
-        }).join('')}</div>
-        <p class="hint">Credits per triage and per remediation start at Checkmarx One's 1 and 3: set them to the customer's agreement. The false-positive rate is your estimate for this customer.</p>
-      </details>`;
+      </section>`;
   }
 
   /** How far along its track a slider's thumb is, for the filled part (0 is at the very start). */
@@ -506,7 +507,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       renderTr();
     }
     if (event.target.closest('[data-ahead-reset]')) {
-      c.open.tr = { ...tr(), includeFuture: DEFAULT_TR.includeFuture, fusionUpliftPercent: DEFAULT_TR.fusionUpliftPercent, faePercent: DEFAULT_TR.faePercent };
+      c.open.tr = { ...tr(), includeFuture: DEFAULT_TR.includeFuture, fusionUpliftPercent: DEFAULT_TR.fusionUpliftPercent, faePercent: DEFAULT_TR.faePercent, aiDeclinePercent: DEFAULT_TR.aiDeclinePercent };
       save({ tr: c.open.tr });
       renderTr();
     }
@@ -821,9 +822,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       $(id).replaceChildren(...[...new Set(values)].filter(Boolean).sort((a, b) => a.localeCompare(b)).slice(0, 500).map((v) => Object.assign(document.createElement('option'), { value: v })));
     };
     offer('calc-scope-applications-list', projects.flatMap((p) => p.applications ?? []));
+    $('calc-scope-projects-list').replaceChildren(...projects.filter((p) => p.source !== 'manual').slice(0, 5000).map((p) => Object.assign(document.createElement('option'), { value: p.name })));
     offer('calc-scope-groups-list', projects.flatMap((p) => p.groups ?? []));
     offer('calc-scope-initiators-list', projects.map((p) => p.initiator));
-    $('calc-scope-applications').value = sc.applications.join(', ');
+    drawScopeChips();
     $('calc-scope-groups').value = sc.groups.join(', ');
     $('calc-scope-names').value = sc.names.join(', ');
     $('calc-scope-initiators').value = sc.initiators.join(', ');
@@ -836,8 +838,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const sc = scope();
     const all = (fusion()?.projects ?? []).filter((p) => p.source !== 'manual');
     const inIt = all.filter((p) => inScope(p, sc)).length;
+    const nameOf = new Map(all.map((p) => [p.id, p.name]));
     const parts = [
       sc.applications.length && `${sc.applications.length === 1 ? 'Application' : 'Applications'}: ${sc.applications.join(', ')}`,
+      sc.projects.length && (sc.projects.length <= 3 ? `${sc.projects.length === 1 ? 'Project' : 'Projects'}: ${sc.projects.map((id) => nameOf.get(id) ?? id).join(', ')}` : `${num(sc.projects.length)} projects picked`),
       sc.groups.length && `${sc.groups.length === 1 ? 'Group' : 'Groups'}: ${sc.groups.join(', ')}`,
       sc.names.length && `Names: ${sc.names.join(', ')}`,
       sc.initiators.length && `Last scanned by: ${sc.initiators.join(', ')}`,
@@ -853,7 +857,90 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const form = $('calc-scope-form');
     form.hidden = !form.hidden;
     $('calc-scope-toggle').setAttribute('aria-expanded', String(!form.hidden));
-    if (!form.hidden) $('calc-scope-applications').focus();
+    if (!form.hidden) $('calc-scope-groups').focus();
+  });
+
+  // Applications and projects: chips, as on the Dashboard. A change counts at once.
+  const scopeProjects = () => (fusion()?.projects ?? []).filter((p) => p.source !== 'manual');
+  function drawScopeChips() {
+    const sc = scope();
+    const nameOf = new Map(scopeProjects().map((p) => [p.id, p.name]));
+    const draw = (box, entries, kind) => {
+      for (const chip of box.querySelectorAll('.scope-chip')) chip.remove();
+      const input = box.querySelector('input');
+      for (const [key, label] of entries) {
+        const chip = document.createElement('span');
+        chip.className = 'scope-chip';
+        const text = Object.assign(document.createElement('span'), { textContent: label, title: label });
+        text.setAttribute('translate', 'no');
+        const remove = Object.assign(document.createElement('button'), { type: 'button', textContent: '×' });
+        remove.setAttribute('aria-label', `Remove ${label}`);
+        remove.dataset.removeScope = kind;
+        remove.dataset.key = key;
+        chip.append(text, remove);
+        box.insertBefore(chip, input);
+      }
+    };
+    draw($('calc-apps'), sc.applications.map((a) => [a, a]), 'applications');
+    draw($('calc-projects'), sc.projects.map((id) => [id, nameOf.get(id) ?? id]), 'projects');
+  }
+
+  function changeScope(next) {
+    c.open.scope = cleanScope({ ...scope(), ...next });
+    save({ scope: c.open.scope });
+    drawScopeChips();
+    applyScope();
+  }
+
+  /** The application or project with exactly this name, else every one whose name contains it. */
+  function pickScope(kind, text) {
+    const wanted = text.trim().toLowerCase();
+    if (!wanted || !c.open) return;
+    const sc = scope();
+    if (kind === 'applications') {
+      const all = [...new Set(scopeProjects().flatMap((p) => p.applications ?? []))];
+      const exact = all.filter((a) => a.toLowerCase() === wanted);
+      const found = exact.length ? exact : all.filter((a) => a.toLowerCase().includes(wanted));
+      if (!found.length) return setStatus('calc-scope-status', all.length ? `No application name contains "${text.trim()}".` : 'Read Checkmarx One first: the applications come from it.', 'error');
+      changeScope({ applications: [...sc.applications, ...found] });
+    } else {
+      const all = scopeProjects();
+      const exact = all.filter((p) => p.name.toLowerCase() === wanted);
+      const found = exact.length ? exact : all.filter((p) => p.name.toLowerCase().includes(wanted));
+      if (!found.length) return setStatus('calc-scope-status', all.length ? `No project name contains "${text.trim()}".` : 'Read Checkmarx One first: the projects come from it.', 'error');
+      changeScope({ projects: [...sc.projects, ...found.map((p) => p.id)] });
+    }
+  }
+
+  for (const [inputId, kind] of [['calc-app-input', 'applications'], ['calc-project-input', 'projects']]) {
+    const input = $(inputId);
+    const commit = () => {
+      const value = input.value;
+      input.value = '';
+      pickScope(kind, value);
+    };
+    input.addEventListener('keydown', (event) => {
+      if (['Enter', ',', 'Tab'].includes(event.key)) {
+        if (!input.value.trim()) return;
+        event.preventDefault();
+        commit();
+      } else if (event.key === 'Backspace' && !input.value && scope()[kind].length) {
+        changeScope({ [kind]: scope()[kind].slice(0, -1) });
+      }
+    });
+    // A suggestion picked from the list: add it at once.
+    input.addEventListener('input', () => {
+      const value = input.value.trim().toLowerCase();
+      if (!value) return;
+      const exact = kind === 'applications' ? scopeProjects().some((p) => (p.applications ?? []).some((a) => a.toLowerCase() === value)) : scopeProjects().some((p) => p.name.toLowerCase() === value);
+      if (exact) commit();
+    });
+  }
+  $('calc-scope-box').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-remove-scope]');
+    if (!button || !c.open) return;
+    const kind = button.dataset.removeScope;
+    changeScope({ [kind]: scope()[kind].filter((k) => k !== button.dataset.key) });
   });
 
   /** Use the scope: Fusion counts its projects, and triage & remediation reads their backlog (from the last read). */
@@ -886,7 +973,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!c.open) return;
     const checked = (id) => [...$(id).querySelectorAll('input:checked')].map((box) => box.value);
     c.open.scope = cleanScope({
-      applications: splitList($('calc-scope-applications').value),
+      applications: scope().applications,
+      projects: scope().projects,
       groups: splitList($('calc-scope-groups').value),
       names: splitList($('calc-scope-names').value),
       initiators: splitList($('calc-scope-initiators').value),
@@ -1124,6 +1212,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         scans: meta.scans ?? null,
         scoped: scopeActive(sc),
         scope: sc,
+        projectNames: sc.projects.map((id) => fusion().projects.find((p) => p.id === id)?.name ?? id),
       },
       tr: t
         ? {

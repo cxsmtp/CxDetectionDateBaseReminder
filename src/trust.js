@@ -17,6 +17,8 @@ import http from 'node:http';
 import https from 'node:https';
 import { X509Certificate } from 'node:crypto';
 
+import { openTunnel, proxyFor } from './network.js';
+
 const UNTRUSTED = new Set(['UNABLE_TO_GET_ISSUER_CERT_LOCALLY', 'UNABLE_TO_GET_ISSUER_CERT', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'SELF_SIGNED_CERT_IN_CHAIN', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'CERT_UNTRUSTED']);
 /** Whether a TLS error code means "issued by someone not trusted here" (not expired, not the wrong name). */
 export const isUntrustedCode = (code) => UNTRUSTED.has(String(code ?? ''));
@@ -151,12 +153,14 @@ function download(url, { timeoutMs = 8000, redirects = 2 } = {}) {
 
 /**
  * Connect to host:port and read the certificates it presents, without trusting them; whether
- * they are trusted here, and why not. Nothing is sent but the handshake.
+ * they are trusted here, and why not. Nothing is sent but the handshake. Through the company
+ * proxy when this server uses one, as its other connections are.
  */
-export function inspect(host, port = 443, { timeoutMs = 10_000 } = {}) {
+export async function inspect(host, port = 443, { timeoutMs = 10_000, proxy = proxyFor(host) } = {}) {
+  const tunnel = proxy ? await openTunnel(proxy, host, port, { timeoutMs }) : null;
   return new Promise((resolve, reject) => {
     const servername = /^[\d.]+$|:/.test(host) ? undefined : host;
-    const socket = tls.connect({ host, port, servername, rejectUnauthorized: false, timeout: timeoutMs }, () => {
+    const socket = tls.connect({ ...(tunnel ? { socket: tunnel } : { host, port }), servername, rejectUnauthorized: false, timeout: timeoutMs }, () => {
       const chain = [];
       const seen = new Set();
       for (let peer = socket.getPeerCertificate(true); peer?.raw && !seen.has(peer.fingerprint256); peer = peer.issuerCertificate) {
