@@ -57,6 +57,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.71 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+
+- **Every number explains itself.** In the Cx Credits Calculator, a **?** beside each figure (backlog today, still to come, more found by Fusion, kept away by FAE, to triage, credits, Fusion credits, the total) opens the exact calculation with the customer's own numbers in.
+- **The report and the PDF show their working.** The projection report states its assumptions first (trend period and projection period included) and ends with a closed **How each number is calculated** section. The PDF summary adds a slide on the trend with how each number is reached, and an appendix with every calculation.
+- **User activity, in detail.** Logs → **User activity** shows what each person did: who, when, from which IP, each page and tab opened, and each action — sign-ins (refused ones too), changes with the names of the fields touched, fetches, allocations, AI runs, reports, downloads and exports — and how it ended. What was typed is never kept. It can be filtered, exported as CSV and is kept for a year in the tenant's state folder.
+- **Apply in the calculator's scope.** The Applications and Projects section has an **Apply** button, and the per-severity number boxes are wide enough for their figures.
+- **Faster credit allocation.** The slow part of the check before allocating, matching findings to Checkmarx One result ids, now starts as soon as projects are picked (or after a fetch of ten or fewer), runs beside the two reads instead of after them, and is kept for 30 minutes. The troubleshooting log records how long each part took.
+- **In every language.** The 47 new entries are in all fourteen other languages, each reviewed twice.
+- **Status.** STATUS_LINE
+
 ## MZ-01.00.70 — 2026-10-12 14:22 UTC · [#93](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/93)
 
 - **Still to come follows your sliders.** In the Cx Credits Calculator, new findings are now counted in the same share per severity as the backlog chosen under Customize per severity. With half of High chosen, half of High's new findings count; a severity set to none adds none. Before, every severity's new findings counted in full, whatever was chosen.

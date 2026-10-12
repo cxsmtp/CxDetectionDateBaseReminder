@@ -568,6 +568,13 @@ test('the report says the answer first, that it comes from live Checkmarx One da
   };
   const html = buildReport(data);
   const at = (text) => html.indexOf(text);
+  // How each number is calculated: closed at the end, every step with the figures in.
+  assert.ok(at('<details><summary><h2>How each number is calculated</h2>') > at('Appendix: every figure'), 'last, and closed');
+  assert.match(html, /The trend is measured over the last 3 months; the projection covers the next 12 months\./);
+  const T = data.tr.totals;
+  const n = (x) => Math.round(x).toLocaleString();
+  assert.ok(html.includes(`${n(T.selected)} + ${n(T.future)} + ${n(T.fusionExtra)} − ${n(T.faeAvoided)} = ${n(T.toTriage)}`), 'to triage, worked out');
+  assert.ok(html.includes(`÷ 10,000 credits a bundle = ${(data.summary.total / 10000).toLocaleString(undefined, { maximumFractionDigits: 2 })}, rounded up to ${data.summary.bundles} bundles.`));
   assert.ok(at('Total credits required') > 0 && at('Total credits required') < at('Read live from Checkmarx One'), 'the answer first');
   assert.ok(at('Read live from Checkmarx One') < at('How we got there') && at('How we got there') < at('Assumptions') && at('Assumptions') < at('Appendix: every figure'));
   assert.match(html, new RegExp(`<b class="big">${Math.round(summary.total).toLocaleString('en')}</b>`));

@@ -11,12 +11,13 @@ import { DEFAULT_IMAGE } from './updates/registry.js';
 import { UpdateService } from './updates/service.js';
 import { VersionStore } from './updates/store.js';
 import { SendGuard } from './send-guard.js';
+import { ActivityLog, describe as describeAction, fieldNames, recordsGet, targetOf } from './activity-log.js';
 import { Diagnostics } from './diagnostics.js';
 import { filterProjectsByActivity, getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, projectReads, readGate, selectRisks, summariseProject } from './cxone/risks.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject, projectsInScope, scanInitiator, scanInitiatorEmail } from './cxone/initiators.js';
-import { AI_SCANNERS, resolveAiIds, resultRowsFor } from './cxone/ai-assist.js';
+import { AI_SCANNERS, resolveAiIds, resultRowsFor, warmScanResults } from './cxone/ai-assist.js';
 import { mapWithConcurrency } from './cxone/client.js';
 import { matchesVulnerability, topNames, vulnerabilityQuery } from './vuln-search.js';
 import { ReportGrants } from './report-grants.js';
@@ -253,6 +254,8 @@ function buildTenant({ id, dir }) {
     reportFiles: new ReportFiles({ dir: path.join(dir, 'report-files'), ttlDays: 30 }),
     guard: new ConnectionGuard({ file: path.join(dir, 'connection-guard.json') }),
     audit: new AuditLog({ dir: path.join(dir, 'audit'), keyFile: path.join(dir, 'audit.key') }),
+    // What people do here, one line each (src/activity-log.js): Logs → User activity.
+    activity: new ActivityLog({ file: path.join(dir, 'activity.jsonl') }),
     automationState,
     scheduler: new Scheduler({
       // The scheduler is synchronous about session lookup, so a key armed while
@@ -316,6 +319,7 @@ const guard = scoped(tenancy, 'guard');
 const SERVER_WIDE_AUDIT = new Set(['iam', 'access', 'backup', 'system']);
 const serverWide = (entry) => SERVER_WIDE_AUDIT.has(entry?.type) || Boolean(entry?.details?.https || entry?.details?.activation || entry?.details?.tenants);
 const tenantAudit = scoped(tenancy, 'audit');
+const activity = scoped(tenancy, 'activity');
 const audit = new Proxy(tenantAudit, {
   get(target, prop) {
     if (prop === 'record') return (entry, ...rest) => (serverWide(entry) ? tenancy.context(DEFAULT_TENANT).audit : tenancy.current().audit).record(entry, ...rest);
@@ -770,9 +774,45 @@ app.use('/api', (req, res, next) => {
     const route = req.route ? `${req.baseUrl}${req.route.path}` : '(unmatched)';
     if (route === '/api/health' || route === '/api/diagnostics/client-error') return;
     diagnostics.usage(`${req.method} ${route}`, { status: res.statusCode, ms: Date.now() - started });
+    recordActivity(req, res, route, Date.now() - started);
   });
   next();
 });
+/**
+ * User activity: every change a signed-in person makes, every download and export, and every
+ * sign-in (refused ones too), with who, when, from where and how it ended. Reading the page, and
+ * the polls a page makes while open, are not recorded; pages visited are (POST /api/activity).
+ */
+const NOT_RECORDED = new Set(['/api/activity', '/api/credits/prepare', '/api/settings/template/preview', '/api/https/inspect', '/api/https/browser-check', '/api/projections/series', '/api/integration/cxone/draft', '/api/diagnostics/client-error', '/api/hands-off/status', '/api/settings/notices/ack']);
+function recordActivity(req, res, route, ms) {
+  try {
+    if (route === '(unmatched)' || NOT_RECORDED.has(route) || route.startsWith('/api/relay/')) return;
+    if ((req.method === 'GET' || req.method === 'HEAD') && !recordsGet(route)) return;
+    const who = req.user ?? res.locals.activityUser ?? null;
+    const signIn = route === '/api/session' || route === '/api/session/password';
+    if (!who && !signIn) return;
+    activity.record({
+      user: who?.email ?? '',
+      name: who?.name ?? '',
+      role: who?.role ? iam.role(who.role)?.name ?? who.role : '',
+      ip: clientIp(req),
+      kind: signIn && req.method === 'POST' ? 'sign-in' : 'action',
+      action: res.statusCode >= 400 && signIn && req.method === 'POST' ? 'Sign-in refused' : describeAction(req.method, route),
+      target: targetOf(req.params),
+      fields: req.method === 'GET' ? Object.keys(req.query ?? {}) : fieldNames(req.body),
+      method: req.method,
+      route,
+      status: res.statusCode,
+      ms,
+    });
+  } catch (error) {
+    console.error(`[activity] ${error.message}`);
+  }
+}
+process.on('exit', () => {
+  for (const id of tenancy.ids?.() ?? []) tenancy.context(id)?.activity?.flush();
+});
+
 // The page's files; API calls never touch the disk looking for one (a stat per request, under load).
 // A language behind an activation code (Hebrew) is not served until it is activated here.
 app.use('/i18n', (req, res, next) => {
@@ -1180,6 +1220,7 @@ app.post(
       user = await iam.signIn(email, String(req.body?.password ?? ''));
     } catch (error) {
       const known = error.userId ? iam.user(error.userId) : null;
+      res.locals.activityUser = known ?? { email };
       auditAccess(req, 'refused', `Sign-in refused for ${email || '(no email)'}: ${error.message}${error.locked ? ' Account locked.' : ''}`, known);
       throw error;
     }
@@ -1187,6 +1228,7 @@ app.post(
     Object.assign(session, { userId: user.id, via: 'password' });
     saveSignInsSoon();
     setSessionCookie(req, res, session.id);
+    res.locals.activityUser = user;
     auditAccess(req, 'info', `${user.email} signed in with a password.`, user);
     res.status(201).json(describeMe(session, user));
   }),
@@ -1214,6 +1256,7 @@ app.post(
     const identity = await session.client.identity();
     const seen = identity.email || identity.user || identity.clientId || 'unknown';
     const refuse = (message) => {
+      res.locals.activityUser = { email: seen };
       sessions.destroy(session.id);
       auditAccess(req, 'refused', message, null, { identity: { ...identity }, tenant: session.connection.tenant });
       return res.status(403).json({ error: message });
@@ -1224,6 +1267,7 @@ app.post(
     Object.assign(session, { userId: user.id, via: 'cxone', cxUser: seen });
     iam.recordSignIn(user);
     setSessionCookie(req, res, session.id);
+    res.locals.activityUser = user;
     auditAccess(req, 'info', `${user.email} signed in with a Checkmarx One API key (${seen}).`, user);
     res.status(201).json(describeMe(session, user));
   }),
@@ -1288,6 +1332,7 @@ app.delete('/api/session', (req, res) => {
   const id = readSessionCookie(req);
   const session = id ? sessions.get(id) : null;
   if (session?.userId) auditAccess(req, 'info', `${iam.user(session.userId)?.email ?? 'Someone'} signed out.`, iam.user(session.userId));
+  if (session?.userId) res.locals.activityUser = iam.user(session.userId);
   // Never the integration: signing out ends only this person's session.
   if (id && id !== tstate.automationSessionId && id !== tstate.bootstrapSessionId) sessions.destroy(id);
   clearSessionCookie(res);
@@ -1295,6 +1340,26 @@ app.delete('/api/session', (req, res) => {
 });
 
 app.get('/api/me', requireSession, (req, res) => res.json(describeMe(req.session, req.user)));
+
+/** A page or tab someone opened, or an action done in the page alone (the PDF summary): User activity. */
+app.post('/api/activity', requireSession, (req, res) => {
+  const kind = req.body?.kind === 'event' ? 'event' : 'page';
+  const name = String(req.body?.name ?? '').trim();
+  if (!/^[\w .,:/#&()'’›→-]{1,80}$/u.test(name)) return res.status(400).json({ error: 'Not a page or action name.' });
+  activity.record({ user: req.user.email, name: req.user.name ?? '', role: iam.role(req.user.role)?.name ?? req.user.role, ip: clientIp(req), kind, action: kind === 'page' ? `Opened ${name}` : name, route: '/api/activity', method: 'POST', status: 204 });
+  res.status(204).end();
+});
+
+/** What people did here, newest first: for those who may see the audit log. */
+app.get('/api/activity', requirePermission('audit.view'), (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(activity.list({ limit: req.query.limit, offset: req.query.offset, user: String(req.query.user ?? ''), q: String(req.query.q ?? ''), kind: String(req.query.kind ?? ''), from: String(req.query.from ?? ''), to: String(req.query.to ?? '') }));
+});
+
+app.get('/api/activity/export', requirePermission('audit.view'), (req, res) => {
+  res.set('Content-Disposition', `attachment; filename="user-activity-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.type('text/csv').send(activity.csv());
+});
 
 /** The terms of use: readable by anyone (also before signing in), with where this person stands. */
 app.get('/api/terms', (req, res) => {
@@ -4958,12 +5023,15 @@ const VERIFY_SLOTS = 12;
  * billed result ids, not an estimate.
  */
 async function readProjectNeed(session, project, { detectionWindow = null, scanIdOf = () => '', severities = null, keep = null, gate = null } = {}) {
+  const started = Date.now();
   const read = await collectProjectRisks(session.client, activeConfig(), [{ id: project.projectId, name: project.projectName }], { detectionWindow, keep, gate });
   const summary = read.projects[0];
   if (summary.error) throw Object.assign(new Error(`${project.projectName}: ${summary.error}`), { status: 502 });
   const rule = severities?.length ? severities : allocations.severitiesOf(project.projectId);
   const ai = summary.risks.filter((r) => rule.includes(r.severity) && AI_SCANNERS.has(r.scanner));
+  const readAt = Date.now();
   await resolveAiIds(session.client, ai, () => scanIdOf(project.projectId));
+  const timing = { readMs: readAt - started, lookupMs: Date.now() - readAt };
   const triage = triageRows(summary.risks, rule, Date.now(), creditLedger.triagedAt(project.projectId));
   const remediate = remediationCandidates(summary.risks, rule, creditLedger.remediatedIds(project.projectId));
   const units = (rows) => [...new Set(rows.map(billingUnit))].sort();
@@ -4974,7 +5042,20 @@ async function readProjectNeed(session, project, { detectionWindow = null, scanI
     remediation: { rows: remediate.length, results: units(remediate) },
     // Findings the AI cannot act on (no result id in the latest scan): never billed, shown apart.
     unresolved: ai.filter((r) => r.aiUnavailable).length,
+    timing,
   };
+}
+
+/**
+ * The scans whose result ids a credit check of this project will look up: those its fetched
+ * findings name, and its latest scan. Reading them is the slow part of a check on a large scan.
+ */
+function warmProject(session, project) {
+  const ids = new Set();
+  for (const r of project.risks ?? []) if (r.scanId && AI_SCANNERS.has(r.scanner)) ids.add(r.scanId);
+  const latest = session.lastScan?.initiators?.[project.projectId]?.scanId;
+  if (latest) ids.add(latest);
+  for (const id of [...ids].slice(0, 5)) warmScanResults(session.client, id);
 }
 
 /**
@@ -4988,6 +5069,8 @@ async function readProjectNeed(session, project, { detectionWindow = null, scanI
  * `agreed` only when every billed result id matches.
  */
 async function doubleRead(session, project, options) {
+  // The result-id lookup starts now, beside the two reads of the findings, instead of after them.
+  warmProject(session, project);
   const [first, second] = await Promise.all([readProjectNeed(session, project, options), readProjectNeed(session, project, options)]);
   const same = (a, b) => a.length === b.length && a.every((id, i) => id === b[i]);
   const agreed =
@@ -5017,6 +5100,7 @@ async function verifyNeeds(session, projects, { severities = null } = {}) {
         remediation: { rows: second.remediation.rows, results: second.remediation.results.length, credits: CREDIT_COST.remediation * second.remediation.results.length },
         reads: [first.triage.results.length, second.triage.results.length],
         unresolved: second.unresolved,
+        timing: { readMs: Math.max(first.timing.readMs, second.timing.readMs), lookupMs: Math.max(first.timing.lookupMs, second.timing.lookupMs) },
       };
       if (agreed) {
         // The second read is what Checkmarx One holds now: it replaces the fetched rows.
@@ -5063,13 +5147,32 @@ app.post(
     const projects = scanProjects(req, req.body?.projectIds);
     for (const p of projects) stateCache.delete(p.projectId);
     const severities = cleanSeverities(req.body?.severities);
+    const started = Date.now();
     const results = await verifyNeeds(req.session, projects, { severities: severities.length ? SEVERITIES.filter((s) => severities.includes(s)) : null });
+    const ms = Date.now() - started;
+    const slowest = (key) => results.reduce((n, r) => Math.max(n, r.timing?.[key] ?? 0), 0);
+    // How long each part took, so a slow check says where the time went (no names or ids).
+    diagnostics.usage('credit-verify', { projects: projects.length, ms, readMs: slowest('readMs'), lookupMs: slowest('lookupMs') });
     res.json({
+      ms,
+      timing: { readMs: slowest('readMs'), lookupMs: slowest('lookupMs') },
       verified: results,
       projects: Object.fromEntries(projects.map((p) => [p.projectId, { ...projectRow(p), credits: p.credits, verified: p.verified }])),
     });
   }),
 );
+
+/**
+ * Projects someone picked on the Dashboard, before they allocate or run anything: their scans'
+ * result ids are read now, in the background, so the check that follows does not wait for them.
+ * Reads nothing else, changes nothing, answers at once.
+ */
+app.post('/api/credits/prepare', requirePermission('credits.view'), (req, res) => {
+  if (!req.session.lastScan) return res.status(204).end();
+  const ids = Array.isArray(req.body?.projectIds) ? req.body.projectIds.slice(0, 25).map(String) : [];
+  if (ids.length) for (const p of scanProjects(req, ids)) warmProject(req.session, p);
+  res.status(202).end();
+});
 
 /**
  * Allocate credits to projects — only ever because someone asked here:

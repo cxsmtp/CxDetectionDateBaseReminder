@@ -21354,5 +21354,287 @@
   "seen": [
    "the projection report (a file sent to the customer), in the list of assumptions: the same rule as a full sentence"
   ]
+ },
+ "How is this worked out?": {
+  "kind": "attr:title",
+  "seen": [
+   "Cx Credits Calculator page: tooltip and label of the small \"?\" button beside each figure"
+  ]
+ },
+ "How each number is calculated": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): heading"
+  ]
+ },
+ "Every step, with the figures in. Select to open.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): hint under the heading of the closed section in the report"
+  ]
+ },
+ "Appendix: how each number is calculated": {
+  "kind": "report",
+  "seen": [
+   "the PDF summary for the customer: title of the appendix pages"
+  ]
+ },
+ "The trend and how each number is calculated": {
+  "kind": "report",
+  "seen": [
+   "the PDF summary for the customer: title of page 4"
+  ]
+ },
+ "The trend is measured over the last {0} months; the projection covers the next {1} months.": {
+  "kind": "report",
+  "seen": [
+   "the PDF summary for the customer and the report's assumptions"
+  ]
+ },
+ "To remediate": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): section heading (findings to fix)"
+  ]
+ },
+ "Total: {0}.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): the last line of a list of figures"
+  ]
+ },
+ "The open findings chosen under Customize per severity, of {0} open:": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): \"Customize per severity\" is a section name on the page; followed by one line per severity"
+  ]
+ },
+ "{0}: {1} of {2}": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): one line per severity, e.g. \"High: 356 of 356\" ({0} is the severity)"
+  ]
+ },
+ "New findings a month, per severity, over the last {0} months: open now − open then + fixed in between, divided by {1} months.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): how new findings a month are measured"
+  ]
+ },
+ "{0}: ({1} − {2} + {3}) ÷ {4} = {5} a month": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): one line per severity, keep the formula as it is ({0} is the severity)"
+  ]
+ },
+ "{0}: {1} a month": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): one line per severity"
+  ]
+ },
+ "Counted in the share of each severity's backlog chosen:": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): followed by one line per severity"
+  ]
+ },
+ "{0}: {1} × {2}% = {3} a month": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): one line per severity, keep the formula"
+  ]
+ },
+ "Over {0} months, each {1}% below the one before: {2} months' worth.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): new findings fall each month as teams adopt AI; {2} is a number of months, e.g. 10.76"
+  ]
+ },
+ "Over {0} months at today's pace: {1} months' worth.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix)"
+  ]
+ },
+ "{0} a month × {1} = {2}.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): keep the formula"
+  ]
+ },
+ "{0}% more findings on the backlog chosen and the findings still to come: {0}% × ({1} + {2}) = {3}.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): what Checkmarx Fusion finds in addition; keep the formula"
+  ]
+ },
+ "Fusion is not in this projection: no project is counted on the Fusion tab.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix)"
+  ]
+ },
+ "FAE keeps {0}% of the new findings (still to come and found by Fusion) from being reported, never more than their false positives:": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): keep FAE and Fusion; followed by one line per severity"
+  ]
+ },
+ "{0}: {1}% × {2} = {3}": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): one line per severity, keep the formula"
+  ]
+ },
+ "Backlog chosen + still to come + found by Fusion − kept away by FAE:": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): how the findings to triage are counted; followed by the sum"
+  ]
+ },
+ "The true positives among everything reported (FAE removes false positives only):": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): followed by one line per severity"
+  ]
+ },
+ "{0}: {1} × {2}% = {3}": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): one line per severity, keep the formula"
+  ]
+ },
+ "Triage: each finding to triage × its credits per triage:": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): followed by one line per severity"
+  ]
+ },
+ "Remediation: each true positive × its credits per remediation:": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): followed by one line per severity"
+  ]
+ },
+ "{0} + {1} = {2} credits.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): keep the formula"
+  ]
+ },
+ "Today's backlog: {0}; findings ahead: {1}.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): the credits split into the backlog today and the findings ahead"
+  ]
+ },
+ "Each project's lines of code are rounded up to whole 10K units; units × Fusion scans × the model's credits per 10K LOC:": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): keep 10K, LOC and Fusion; followed by one line per Fusion model"
+  ]
+ },
+ "Triage & remediation {0} + Fusion {1} = {2}.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): keep the formula"
+  ]
+ },
+ "Plus {0}% extra: {1}.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): extra credits added on top"
+  ]
+ },
+ "{0} ÷ {1} credits a bundle = {2}, rounded up to {3} bundles.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): keep the formula"
+  ]
+ },
+ "Type an application or project name first.": {
+  "kind": "message",
+  "seen": [
+   "Cx Credits Calculator page, Applications and Projects filter: shown when Apply is clicked with nothing typed"
+  ]
+ },
+ "User activity": {
+  "kind": "text",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): tab name and heading"
+  ]
+ },
+ "What each person did here, newest first: who, when, from which address, the page or action, the item it was about, the names of the fields they changed (never what they typed: no passwords, keys or text) and how it ended. Sign-ins, refused ones too, are included. Kept for a year, in this tenant's state folder.": {
+  "kind": "text",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): hint under the heading; \"address\" is the network (IP) address; a \"tenant\" is one organisation's separate space in the app"
+  ]
+ },
+ "Everyone": {
+  "kind": "text",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): first choice in the Person filter (all people)"
+  ]
+ },
+ "Everything": {
+  "kind": "text",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): first choice in the Kind filter (all kinds)"
+  ]
+ },
+ "Pages visited": {
+  "kind": "text",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): a choice in the Kind filter"
+  ]
+ },
+ "Other events": {
+  "kind": "text",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): a choice in the Kind filter"
+  ]
+ },
+ "Name, email, IP, action, field…": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): placeholder of the Search box"
+  ]
+ },
+ "When": {
+  "kind": "text",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): table column (date and time)"
+  ]
+ },
+ "Result": {
+  "kind": "text",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): table column (Done, Failed or Refused)"
+  ]
+ },
+ "Action": {
+  "kind": "text",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): label of a row's kind (a change someone made), beside Page, Sign-in and Event"
+  ]
+ },
+ "Fields:": {
+  "kind": "text",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): label before the names of the fields a change touched"
+  ]
+ },
+ "Nothing recorded matches these filters.": {
+  "kind": "text",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): shown in the table when no entry matches"
+  ]
+ },
+ "Page or action": {
+  "kind": "text",
+  "seen": [
+   "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): table column naming the page opened or the action taken"
+  ]
  }
 }

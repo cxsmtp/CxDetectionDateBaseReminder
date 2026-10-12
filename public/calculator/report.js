@@ -8,6 +8,7 @@
 // Checkmarx One data, then how the number was reached, the assumptions, and last every figure.
 
 import { FREQUENCIES, SEVERITIES, cleanScope, creditSummary } from './model.js';
+import { allSections, sectionHtml } from './explain.js';
 import { SEVERITY_COLOURS, backlogTrendChart, debtFixChart, forecastChart, monthLabel, ratesChart, severityChart, severityCharts } from './charts.js';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -182,6 +183,7 @@ export function assumptionItems(data, sum, L) {
   const items = [];
   const tr = data.tr;
   if (tr) {
+    items.push(w('The trend is measured over the last {0} months; the projection covers the next {1} months.', num(tr.lookbackMonths), num(tr.months ?? data.months ?? 12)));
     const rows = SEVERITIES.map((s) => tr.rows?.[s]).filter(Boolean);
     const same = (key) => rows.every((r) => r[key] === rows[0]?.[key]);
     const each = (key, digits = 2) => (same(key) ? num(rows[0]?.[key], digits) : SEVERITIES.map((s) => `${w(s)} ${num(tr.rows?.[s]?.[key], digits)}`).join(', '));
@@ -200,6 +202,14 @@ export function assumptionItems(data, sum, L) {
   if (sum.settings.extraPercent) items.push(w('{0}% extra credits on top.', num(sum.settings.extraPercent, 2)));
   items.push(w('Bundles of {0} credits, rounded up to whole bundles.', num(sum.settings.bundleCredits)));
   return items;
+}
+
+/** How every number is calculated, with the figures in: closed until the reader opens it. */
+function calculations(data, L) {
+  const sections = allSections(data, L);
+  return `<section class="how"><details><summary><h2>${L.w('How each number is calculated')}</h2><span class="sub">${L.w('Every step, with the figures in. Select to open.')}</span></summary>
+  ${sections.map((x) => `<h3>${x.title}</h3>${sectionHtml(x)}`).join('')}
+</details></section>`;
 }
 
 /** Appendix: every triage & remediation figure by severity, and the weekly charts. */
@@ -315,6 +325,10 @@ table.calc{width:100%;border-collapse:collapse;font-size:13px;font-variant-numer
 table.calc td{padding:4px 0;border:0;text-align:start} table.calc td:last-child{text-align:end;white-space:nowrap;padding-inline-start:12px}
 table.calc tr.sum td{border-top:1px solid var(--line);padding-top:7px;font-weight:600} table.calc tr.gold td{color:var(--gold)}
 .chart-title{margin-top:22px}
+.how summary{cursor:pointer;list-style:none;display:grid;gap:2px}.how summary::-webkit-details-marker{display:none}
+.how summary h2{display:inline;margin:0}.how summary h2::before{content:"▸ ";color:var(--muted)}.how details[open] summary h2::before{content:"▾ "}
+.how h3{margin:16px 0 4px}ol.calc-how{list-style:none;margin:0;padding:0;display:grid;gap:3px;font-size:13.5px;font-variant-numeric:tabular-nums}
+ol.calc-how li{margin:0}ol.calc-how li.calc-sub{padding-inline-start:16px;color:var(--muted)}ol.calc-how li.calc-total{font-weight:600}
 .assume{margin:0;padding-inline-start:18px;display:grid;gap:4px;font-size:13.5px}
 .appendix-title{font-size:12px;color:var(--muted);letter-spacing:.04em;margin:28px 4px 10px;font-weight:500}
 .scroll{max-width:100%;overflow-x:auto;margin:6px 0 4px;border:1px solid var(--line);border-radius:8px}
@@ -379,6 +393,7 @@ ${assumptions(data, sum, L)}
 ${data.tr || data.fusion ? `<p class="appendix-title">${w('Appendix: every figure')}</p>` : ''}
 ${data.tr ? trAppendix(data.tr, L) : ''}
 ${data.fusion ? fusionAppendix(data.fusion, L) : ''}
+${calculations(data, L)}
 </main>
 <footer>${w("An estimate made with CxMissionZero's Cx Credits Calculator from Checkmarx One data and the assumptions above. Credit rates and the credits actually used are set by Checkmarx and your agreement with them.")}${data.tr?.history?.length ? ` ${w('Backlog history: {0} to {1}.', esc(monthLabel(data.tr.history[0].month)), esc(monthLabel(data.tr.history[data.tr.history.length - 1].month)))}` : ''}</footer>
 </body></html>`;

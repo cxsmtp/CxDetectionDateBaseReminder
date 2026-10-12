@@ -25,8 +25,8 @@ function reportData({ withFusion = true, withTr = true } = {}) {
 test('three pages: triage & remediation with its forecast, then Fusion, then the credits needed overall', () => {
   const data = reportData();
   const s = slideContent(data);
-  assert.deepEqual(s.pages.map((p) => p.kind), ['tr', 'fusion', 'total']);
-  const [tr, fusion, total] = s.pages;
+  assert.deepEqual(s.pages.map((p) => p.kind), ['tr', 'fusion', 'total', 'trend']);
+  const [tr, fusion, total, trend] = s.pages;
   assert.equal(s.heading(tr), 'Globex: Triage & remediation');
   assert.deepEqual(tr.figures.map((f) => f.label), ['Backlog today', 'Still to come, 2% fewer each month with AI', 'To triage', 'Triage & remediation credits']);
   assert.equal(tr.figures[0].value, '152');
@@ -41,6 +41,17 @@ test('three pages: triage & remediation with its forecast, then Fusion, then the
   assert.ok(total.lines.every((l) => !/[<>]|&amp;/.test(l)));
   assert.equal(s.footer, `Made ${new Date('2026-10-09T10:00:00Z').toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })} by ana@acme.io`);
   assert.equal(slidesFileName('Globex & Co', '2026-10-09T10:00:00Z').endsWith('_summary.pdf'), true);
+  // The trend by severity, and every number's calculation in one line, with the figures in.
+  assert.deepEqual(trend.trend.head, ['Severity', 'Open now', 'Added a month', 'Fixed a month', 'Change a month']);
+  assert.equal(trend.trend.rows.length, 5, 'four severities and the total');
+  assert.equal(trend.trend.rows.at(-1)[1], '152');
+  const T = data.tr.totals;
+  const toTriage = trend.calc.find((c) => c.label === 'To triage');
+  assert.equal(toTriage.formula, `${Math.round(T.selected).toLocaleString()} + ${Math.round(T.future).toLocaleString()} + ${Math.round(T.fusionExtra).toLocaleString()} − ${Math.round(T.faeAvoided).toLocaleString()} = ${Math.round(T.toTriage).toLocaleString()}`);
+  assert.ok(trend.calc.some((c) => c.label === 'Total credits required' && c.formula.includes(`→ ${data.summary.bundles}`)));
+  // The appendix: every number, step by step, as plain text.
+  assert.deepEqual(s.appendix.map((x) => x.title), ['Backlog today', 'Still to come', 'More found by Fusion', 'Kept away by FAE', 'To triage', 'To remediate', 'Credits', 'Fusion credits', 'Total credits required']);
+  assert.ok(s.appendix.every((x) => x.lines.length && x.lines.every((l) => !/[<>]|&amp;/.test(l.text))));
 });
 
 test('a part that is not in the projection says so on its page; the wording follows the reader\'s language', () => {

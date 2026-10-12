@@ -57,6 +57,10 @@ cannot spend credits under someone else's name. Reports emailed before auditing
 existed carry no token. They still work, and their entries are marked "report
 without identity".
 
+## User activity
+
+Next to the audit log, each tenant keeps `activity.jsonl` in its state folder: what each person did, one line each — when, who (email, name, role), the IP address, the page or action, the item it was about, the **names** of the fields a change touched (never their values), the status and how long it took. Pages and tabs opened are reported by the browser; everything else is recorded by the server as it answers, including refused sign-ins. Reads that change nothing are not recorded, except downloads and exports. The file moves to `activity.1.jsonl` past 20 MB; entries older than a year are not shown. **Logs → User activity** shows it (with the **audit.view** permission), filtered by person, kind, dates or text, and exports it as CSV. It is not hash-chained: the audit log stays the record of credits and access.
+
 ## Tamper evidence
 
 Each entry has a sequence number and an HMAC-SHA256 over the previous entry's MAC
