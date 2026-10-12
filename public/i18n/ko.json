@@ -3083,6 +3083,23 @@
   "Action": "작업",
   "Fields:": "필드:",
   "Nothing recorded matches these filters.": "이 필터와 일치하는 기록이 없습니다.",
-  "Page or action": "페이지 또는 작업"
+  "Page or action": "페이지 또는 작업",
+  "Software integrity": "소프트웨어 무결성",
+  "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": "이 서버가 실행하는 모든 파일을 릴리스 워크플로가 빌드하고 서명한 목록과 비교하고, 해당 서명을 GitHub 및 Sigstore의 공개 로그로 확인합니다. 확인은 시작 시, 6시간마다, 그리고 업데이트를 설치하거나 업데이트로 전환하기 전에 수행됩니다.",
+  "Files that differ": "차이가 있는 파일",
+  "Genuine": "공식 원본",
+  "Files changed": "파일 변경됨",
+  "Not signed by the release workflow": "릴리스 워크플로 서명 없음",
+  "Not confirmed yet": "아직 확인되지 않음",
+  "Development copy": "개발용 사본",
+  "Checking…": "확인 중…",
+  "Built from": "빌드 출처",
+  "Workflow run": "워크플로 실행",
+  "Signed": "서명",
+  "Files": "파일",
+  "File list SHA-256": "파일 목록 SHA-256",
+  "Checked": "마지막 확인",
+  "Software integrity: files changed. Settings → Update & recovery has the details.": "소프트웨어 무결성: 파일이 변경되었습니다. 자세한 내용은 설정 → 업데이트 및 복구에서 확인하세요.",
+  "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": "소프트웨어 무결성: 릴리스 워크플로의 서명이 없습니다. 자세한 내용은 설정 → 업데이트 및 복구에서 확인하세요."
  }
 }

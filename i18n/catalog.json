@@ -21636,5 +21636,107 @@
   "seen": [
    "Logs page → User activity tab (for administrators: what each person did in the app — who, when, from where, which page or action): table column naming the page opened or the action taken"
   ]
+ },
+ "Software integrity": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): heading"
+  ]
+ },
+ "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): hint under the heading; keep GitHub and Sigstore"
+  ]
+ },
+ "Files that differ": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): a fold that opens the list of changed, missing or added files"
+  ]
+ },
+ "Genuine": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): status badge (green) — the code is exactly the official release"
+  ]
+ },
+ "Files changed": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): status badge (red) — some files differ from what was released"
+  ]
+ },
+ "Not signed by the release workflow": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): status badge (red)"
+  ]
+ },
+ "Not confirmed yet": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): status badge (amber) — files match, but GitHub could not be reached yet to confirm who built it"
+  ]
+ },
+ "Development copy": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): status badge (grey) — not an official release build"
+  ]
+ },
+ "Checking…": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): status badge while the first check runs"
+  ]
+ },
+ "Built from": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): label before the repository, branch and commit the release was built from"
+  ]
+ },
+ "Workflow run": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): label before a link to the GitHub Actions run that built it"
+  ]
+ },
+ "Signed": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): label before the date it was signed and its Sigstore log entry"
+  ]
+ },
+ "Files": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): label before \"1803 checked\" (how many files were compared)"
+  ]
+ },
+ "File list SHA-256": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): label before the SHA-256 hash of the file list; keep SHA-256"
+  ]
+ },
+ "Checked": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery, panel \"Software integrity\" (whether the code running on this server is exactly what the official release workflow built and signed): label before the date and time of the last check"
+  ]
+ },
+ "Software integrity: files changed. Settings → Update & recovery has the details.": {
+  "kind": "message",
+  "seen": [
+   "Alert shown at sign-in to administrators when files differ from the release; \"Settings → Update & recovery\" is a page name"
+  ]
+ },
+ "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": {
+  "kind": "message",
+  "seen": [
+   "Alert shown at sign-in to administrators when the code is not signed by the official release workflow; \"Settings → Update & recovery\" is a page name"
+  ]
  }
 }

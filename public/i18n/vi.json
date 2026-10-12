@@ -3083,6 +3083,23 @@
   "Action": "Thao tác",
   "Fields:": "Trường:",
   "Nothing recorded matches these filters.": "Không có bản ghi nào khớp với các bộ lọc này.",
-  "Page or action": "Trang hoặc thao tác"
+  "Page or action": "Trang hoặc thao tác",
+  "Software integrity": "Tính toàn vẹn phần mềm",
+  "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": "Mọi tệp mà máy chủ này chạy đều được so sánh với danh sách do quy trình phát hành tạo và ký, và chữ ký đó được kiểm tra qua GitHub và nhật ký công khai của Sigstore: khi khởi động, mỗi 6 giờ, và trước khi cài đặt hoặc chuyển sang bất kỳ bản cập nhật nào.",
+  "Files that differ": "Các tệp khác biệt",
+  "Genuine": "Nguyên bản",
+  "Files changed": "Tệp đã thay đổi",
+  "Not signed by the release workflow": "Không do quy trình phát hành ký",
+  "Not confirmed yet": "Chưa xác nhận",
+  "Development copy": "Bản phát triển",
+  "Checking…": "Đang kiểm tra…",
+  "Built from": "Dựng từ",
+  "Workflow run": "Lượt chạy quy trình",
+  "Signed": "Đã ký",
+  "Files": "Tệp",
+  "File list SHA-256": "SHA-256 của danh sách tệp",
+  "Checked": "Kiểm tra lúc",
+  "Software integrity: files changed. Settings → Update & recovery has the details.": "Tính toàn vẹn phần mềm: tệp đã thay đổi. Xem chi tiết tại Cài đặt → Cập nhật và khôi phục.",
+  "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": "Tính toàn vẹn phần mềm: không do quy trình phát hành ký. Xem chi tiết tại Cài đặt → Cập nhật và khôi phục."
  }
 }

@@ -3083,6 +3083,23 @@
   "Action": "การดำเนินการ",
   "Fields:": "ช่อง:",
   "Nothing recorded matches these filters.": "ไม่มีรายการบันทึกที่ตรงกับตัวกรองเหล่านี้",
-  "Page or action": "หน้าหรือการดำเนินการ"
+  "Page or action": "หน้าหรือการดำเนินการ",
+  "Software integrity": "ความสมบูรณ์ของซอฟต์แวร์",
+  "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": "ทุกไฟล์ที่เซิร์ฟเวอร์นี้เรียกใช้จะถูกเปรียบเทียบกับรายการที่เวิร์กโฟลว์การเผยแพร่รุ่นสร้างและลงนามไว้ และลายเซ็นนั้นจะได้รับการตรวจสอบกับ GitHub และบันทึกสาธารณะของ Sigstore: เมื่อเริ่มทำงาน ทุก 6 ชั่วโมง และก่อนติดตั้งหรือเปลี่ยนไปใช้การอัปเดตใดๆ",
+  "Files that differ": "ไฟล์ที่แตกต่าง",
+  "Genuine": "ของแท้",
+  "Files changed": "ไฟล์มีการเปลี่ยนแปลง",
+  "Not signed by the release workflow": "ไม่ได้ลงนามโดยเวิร์กโฟลว์การเผยแพร่รุ่น",
+  "Not confirmed yet": "ยังไม่ได้ยืนยัน",
+  "Development copy": "สำเนาสำหรับการพัฒนา",
+  "Checking…": "กำลังตรวจสอบ…",
+  "Built from": "สร้างจาก",
+  "Workflow run": "การรันเวิร์กโฟลว์",
+  "Signed": "ลงนามเมื่อ",
+  "Files": "ไฟล์",
+  "File list SHA-256": "SHA-256 ของรายการไฟล์",
+  "Checked": "ตรวจสอบเมื่อ",
+  "Software integrity: files changed. Settings → Update & recovery has the details.": "ความสมบูรณ์ของซอฟต์แวร์: ไฟล์มีการเปลี่ยนแปลง ดูรายละเอียดได้ที่ การตั้งค่า → การอัปเดตและการกู้คืน",
+  "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": "ความสมบูรณ์ของซอฟต์แวร์: ไม่ได้ลงนามโดยเวิร์กโฟลว์การเผยแพร่รุ่น ดูรายละเอียดได้ที่ การตั้งค่า → การอัปเดตและการกู้คืน"
  }
 }

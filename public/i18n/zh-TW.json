@@ -3083,6 +3083,23 @@
   "Action": "動作",
   "Fields:": "欄位：",
   "Nothing recorded matches these filters.": "沒有符合這些篩選條件的記錄。",
-  "Page or action": "頁面或動作"
+  "Page or action": "頁面或動作",
+  "Software integrity": "軟體完整性",
+  "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": "此伺服器執行的每個檔案，都會與發布工作流程建置並簽署的清單進行比對，並透過 GitHub 與 Sigstore 的公開記錄檢查該簽章：於啟動時、每 6 小時，以及安裝或切換至任何更新之前。",
+  "Files that differ": "不一致的檔案",
+  "Genuine": "官方原版",
+  "Files changed": "檔案已變更",
+  "Not signed by the release workflow": "未經發布工作流程簽署",
+  "Not confirmed yet": "尚未確認",
+  "Development copy": "開發用副本",
+  "Checking…": "正在檢查…",
+  "Built from": "建置來源",
+  "Workflow run": "工作流程執行",
+  "Signed": "簽署時間",
+  "Files": "檔案",
+  "File list SHA-256": "檔案清單 SHA-256",
+  "Checked": "上次檢查",
+  "Software integrity: files changed. Settings → Update & recovery has the details.": "軟體完整性：檔案已變更。詳細資訊請參閱「設定 → 更新與復原」。",
+  "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": "軟體完整性：未經發布工作流程簽署。詳細資訊請參閱「設定 → 更新與復原」。"
  }
 }

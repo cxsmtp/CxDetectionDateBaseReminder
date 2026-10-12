@@ -3083,6 +3083,23 @@
   "Action": "Tindakan",
   "Fields:": "Kolom:",
   "Nothing recorded matches these filters.": "Tidak ada catatan yang cocok dengan filter ini.",
-  "Page or action": "Halaman atau tindakan"
+  "Page or action": "Halaman atau tindakan",
+  "Software integrity": "Integritas perangkat lunak",
+  "Every file this server runs is compared with the list the release workflow built and signed, and that signature is checked with GitHub and Sigstore's public log: at start, every 6 hours, and before any update is installed or switched to.": "Setiap file yang dijalankan server ini dibandingkan dengan daftar yang dibuat dan ditandatangani oleh alur kerja rilis, dan tanda tangan tersebut diperiksa dengan GitHub dan log publik Sigstore: saat dimulai, setiap 6 jam, dan sebelum memasang atau beralih ke pembaruan apa pun.",
+  "Files that differ": "File yang berbeda",
+  "Genuine": "Asli",
+  "Files changed": "File berubah",
+  "Not signed by the release workflow": "Tidak ditandatangani oleh alur kerja rilis",
+  "Not confirmed yet": "Belum dikonfirmasi",
+  "Development copy": "Salinan pengembangan",
+  "Checking…": "Memeriksa…",
+  "Built from": "Dibuat dari",
+  "Workflow run": "Proses alur kerja",
+  "Signed": "Ditandatangani",
+  "Files": "File",
+  "File list SHA-256": "SHA-256 daftar file",
+  "Checked": "Diperiksa",
+  "Software integrity: files changed. Settings → Update & recovery has the details.": "Integritas perangkat lunak: file berubah. Detailnya ada di Pengaturan → Pembaruan & pemulihan.",
+  "Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.": "Integritas perangkat lunak: tidak ditandatangani oleh alur kerja rilis. Detailnya ada di Pengaturan → Pembaruan & pemulihan."
  }
 }
