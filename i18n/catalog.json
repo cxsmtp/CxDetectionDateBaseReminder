@@ -21150,5 +21150,197 @@
   "seen": [
    "the projection report (a file sent to the customer): after a list of project names"
   ]
+ },
+ "Your Impact figures": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile → Your Impact figures (each person's own figures for their Impact page): heading"
+  ]
+ },
+ "Your Impact page and the summary you download use these, so the figures match how your teams work. Leave a field empty to use the organisation's, shown in grey.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile → Your Impact figures (each person's own figures for their Impact page): hint"
+  ]
+ },
+ "The organisation's currency": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile → Your Impact figures (each person's own figures for their Impact page): first choice in the Currency list (use the organisation's)"
+  ]
+ },
+ "The organisation's currency:": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile → Your Impact figures (each person's own figures for their Impact page): hint, followed by a currency code such as USD"
+  ]
+ },
+ "In a currency of your own, give your own hourly cost and price of one credit. The organisation's are in:": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile → Your Impact figures (each person's own figures for their Impact page): hint, followed by a currency code such as USD"
+  ]
+ },
+ "These are everyone's defaults. Each person can set their own currency, rates and minutes for their own Impact page: <a href=\"#/settings/profile\">Your profile → Your Impact figures</a>.": {
+  "kind": "html",
+  "seen": [
+   "Settings → AI & credits → Impact: time and money (the organisation's figures): hint; keep the link markup"
+  ]
+ },
+ "Currency and rates →": {
+  "kind": "text",
+  "seen": [
+   "Impact page (hours and money AI saved): link to Your profile, next to Download"
+  ]
+ },
+ "Worked out with your own figures from your profile.": {
+  "kind": "text",
+  "seen": [
+   "Impact page (hours and money AI saved): note above the figures"
+  ]
+ },
+ "Change them →": {
+  "kind": "text",
+  "seen": [
+   "Impact page (hours and money AI saved): link after that note"
+  ]
+ },
+ "Debt added against fixes": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, section \"Debt added against fixes\" (new findings added to the backlog each month, against findings fixed): heading"
+  ]
+ },
+ "Each month, new findings add {0}% to the backlog and fixes take away {1}%.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, section \"Debt added against fixes\" (new findings added to the backlog each month, against findings fixed): first sentence; {0} and {1} are percentages"
+  ]
+ },
+ "The backlog grows by {0} a month: fixing would have to be {1} times as fast to keep up.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, section \"Debt added against fixes\" (new findings added to the backlog each month, against findings fixed): second sentence"
+  ]
+ },
+ "The backlog grows by {0} a month.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, section \"Debt added against fixes\" (new findings added to the backlog each month, against findings fixed): second sentence"
+  ]
+ },
+ "The backlog shrinks by {0} a month.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, section \"Debt added against fixes\" (new findings added to the backlog each month, against findings fixed): second sentence"
+  ]
+ },
+ "Debt added": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, section \"Debt added against fixes\" (new findings added to the backlog each month, against findings fixed): chart legend (the red line)"
+  ]
+ },
+ "Fixed": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, section \"Debt added against fixes\" (new findings added to the backlog each month, against findings fixed): chart legend (the green line)"
+  ]
+ },
+ "Debt added against fixes, % of the backlog a month": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator page, section \"Debt added against fixes\" (new findings added to the backlog each month, against findings fixed), and the projection report: chart title"
+  ]
+ },
+ "Added a month": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, section \"Debt added against fixes\" (new findings added to the backlog each month, against findings fixed), and the projection report: table column / row"
+  ]
+ },
+ "Fixed a month": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, section \"Debt added against fixes\" (new findings added to the backlog each month, against findings fixed), and the projection report: table column / row"
+  ]
+ },
+ "Change a month": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, section \"Debt added against fixes\" (new findings added to the backlog each month, against findings fixed), and the projection report: table column / row (how much the backlog changes)"
+  ]
+ },
+ "Over the last {0} months. Percentages: a share of today's backlog. The estimates (Fusion, FAE, false positives, credits) are set above, under What the projection counts and Customize per severity.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, section \"Debt added against fixes\" (new findings added to the backlog each month, against findings fixed): hint under the table; \"What the projection counts\" and \"Customize per severity\" are section names on the page"
+  ]
+ },
+ "Download PDF summary": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page: button next to Generate projection report"
+  ]
+ },
+ "Three pages to present: triage & remediation, Fusion, and the credits needed overall": {
+  "kind": "attr:title",
+  "seen": [
+   "Cx Credits Calculator page: tooltip of Download PDF summary"
+  ]
+ },
+ "PDF": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator page, Projection reports tab: button beside Download"
+  ]
+ },
+ "The backlog today and the findings still to come over the next {0} months": {
+  "kind": "report",
+  "seen": [
+   "the PDF summary: three slides to present to the customer (page 1 triage & remediation, page 2 Fusion, page 3 total credits): subtitle of page 1"
+  ]
+ },
+ "Fusion credits by how often projects are scanned": {
+  "kind": "report",
+  "seen": [
+   "the PDF summary: three slides to present to the customer (page 1 triage & remediation, page 2 Fusion, page 3 total credits): chart title on page 2"
+  ]
+ },
+ "Triage & remediation is not in this projection.": {
+  "kind": "report",
+  "seen": [
+   "the PDF summary: three slides to present to the customer (page 1 triage & remediation, page 2 Fusion, page 3 total credits): page 1 when there is no triage & remediation"
+  ]
+ },
+ "Fusion is not in this projection.": {
+  "kind": "report",
+  "seen": [
+   "the PDF summary: three slides to present to the customer (page 1 triage & remediation, page 2 Fusion, page 3 total credits): page 2 when there is no Fusion"
+  ]
+ },
+ "Credits per 10K LOC": {
+  "kind": "report",
+  "seen": [
+   "the PDF summary: three slides to present to the customer (page 1 triage & remediation, page 2 Fusion, page 3 total credits): after a Fusion model's name; keep 10K LOC"
+  ]
+ },
+ "Using the proxy": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: what the server does now"
+  ]
+ },
+ "Using the proxy from the container (HTTPS_PROXY)": {
+  "kind": "message",
+  "seen": [
+   "Settings → Network & proxy: what the server does now; keep HTTPS_PROXY"
+  ]
+ },
+ "Settings → Network & proxy": {
+  "kind": "text",
+  "seen": [
+   "Jump to (search): the page name"
+  ]
  }
 }
