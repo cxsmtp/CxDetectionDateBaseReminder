@@ -2935,3 +2935,4 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .calc-scope-pick .field { margin: 0; }
 .calc-scope-pick .field > label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 #calc-scope-box .calc-scope-several { margin: 0; }
+#calc-scope-toggle { justify-self: start; text-align: start; }

@@ -55,6 +55,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.69 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+
+- **Through your company's proxy.** Settings → Network & proxy takes the proxy (with a user name and password if it asks for one, and the hosts that skip it). The usual `HTTPS_PROXY` / `NO_PROXY` work too. Saving restarts the server for a few seconds to use it, and every HTTPS connection then goes through it.
+- **A check that says where it stops.** **Check the connection** tries the way to Checkmarx One step by step (proxy, connection, certificate, Checkmarx One) before anything is saved, and says what to ask for: a sign-in, an allowed host, or Trust and connect. A proxy that does not let Checkmarx One through is not saved.
+- **What your network team needs to allow.** The same page lists every connection the server makes or takes, from its own settings, with the one proxy rule Checkmarx One needs. Copy it or download it for a ticket.
+- **New findings fall as teams adopt AI.** In the Cx Credits Calculator, findings still to come now come at the last 3 months' pace in the first month, then 2% fewer each month (changeable, 0 to 20%), so 12 months bring about 10.9 months' worth instead of 12.
+- **Fusion finds 5% more by default**, instead of 20%. Customers saved on the old default move to 5%; values someone typed are kept. On the Fusion tab, each group's model list now names the default model (*Default: Opus 4.7 · 2.5*), so picking that same model is seen to change nothing.
+- **Pick applications and projects.** Applications and Projects are chips at the top of the calculator, as on the Dashboard; More filters holds groups, names with wildcards, people, scan frequency and criticality. Customize per severity now sits right under the projection, open.
+- **In every language.** The new wording, and the certificate wording from MZ-01.00.68, is in all fourteen other languages, each reviewed twice.
+- **Status.** STATUS_BULLET
+
 ## MZ-01.00.68 — 2026-10-12 11:06 UTC · [#91](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/91)
 
 - **Connect behind a company proxy, in one click.** When the certificate Checkmarx One presents is not trusted (`UNABLE_TO_GET_ISSUER_CERT_LOCALLY` and the like), Settings → Checkmarx One now shows the certificate your network presents: its name, product (Zscaler, Netskope…) and fingerprint. **Trust and connect** trusts it and connects at once, with no restart and no environment variable.

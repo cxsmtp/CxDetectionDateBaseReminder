@@ -534,6 +534,11 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   const saveFusion = () => save({ fusion: fusion() });
   const modelOptions = (selected, blank) =>
     `<option value="">${esc(blank)}</option>` + fusion().models.map((m) => `<option value="${esc(m.id)}"${m.id === selected ? ' selected' : ''}>${esc(m.name || 'Unnamed model')}${m.creditsPer10k === null ? '' : ` · ${num(m.creditsPer10k, 2)}`}</option>`).join('');
+  /** "Default model" says which one it is, so picking that same model is seen to change nothing. */
+  const defaultLabel = () => {
+    const m = fusion().models.find((x) => x.id === fusion().defaultModel);
+    return m ? `Default: ${m.name || 'Unnamed model'}${m.creditsPer10k === null ? '' : ` · ${num(m.creditsPer10k, 2)}`}` : 'Default model';
+  };
   const shown = () => {
     const words = $('calc-filter').value.trim().toLowerCase();
     return estimate().rows.filter((p) => !words || String(p.name).toLowerCase().includes(words));
@@ -572,7 +577,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const ruleRow = (key, label, count, rule, attr) => `<tr ${attr}="${key}">
       <td>${label}</td><td class="num">${num(count)}</td>
       <td><input type="text" inputmode="numeric" class="calc-num" value="${rule.scans ?? ''}" data-r="scans" placeholder="${num(f.defaultScans)} (default)" aria-label="Fusion scans per project" /></td>
-      <td><select data-r="model" aria-label="Model">${modelOptions(rule.model, 'Default model')}</select></td></tr>`;
+      <td><select data-r="model" aria-label="Model">${modelOptions(rule.model, defaultLabel())}</select></td></tr>`;
     $('calc-freq').innerHTML = FREQUENCIES.map((q) => ruleRow(q.id, q.label, rows.filter((p) => p.frequency === q.id).length, f.byFrequency[q.id], 'data-freq')).join('');
     $('calc-crit').innerHTML = [...CRITICALITIES.map((k) => ruleRow(k, `${k}${k === 5 ? ' (most critical)' : k === 1 ? ' (least critical)' : ''}`, rows.filter((p) => p.criticality === k).length, f.byCriticality[k], 'data-crit'))].join('');
   }
@@ -711,6 +716,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   $('calc-default-model').addEventListener('change', () => {
     fusion().defaultModel = $('calc-default-model').value || null;
     settingsChanged();
+    renderRules();
     renderProjects();
   });
   $('calc-combine').addEventListener('change', () => {

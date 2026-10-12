@@ -1746,7 +1746,7 @@ function networkView() {
     letsEncrypt ||= Boolean(acme.status()?.issued);
   } catch {}
   const rows = requirements({
-    checkmarxOne: networkTargets().map((t) => (t.port === 443 ? t.host : `${t.host}:${t.port}`)),
+    checkmarxOne: networkTargets(),
     smtp: settings.smtp?.host ? { host: settings.smtp.host, port: settings.smtp.port } : null,
     backupMail: backupMailbox.email && backupMailbox.host ? { host: backupMailbox.host, port: backupMailbox.port } : null,
     git: gitHosts(settings),

@@ -72,6 +72,8 @@ podman exec mission-zero node scripts/reset-admin.mjs
 
 With Docker: `docker exec mission-zero node scripts/reset-admin.mjs`. Add an email to reset that person instead. The server keeps running, and the reset is written to the audit log.
 
+**Outgoing traffic only through a company proxy?** Set it under Settings → Network & proxy: **Check the connection** says where it stops, and the page lists what your network team needs to allow ([network](docs/network.md)).
+
 **Behind a company proxy that inspects HTTPS?** Paste your API key under Settings → Checkmarx One as usual. If the proxy's certificate is not trusted, the page shows it (name, product, fingerprint): click **Trust and connect**, or upload your company's root certificate there. It works at once, with no restart and no environment variable. A server that leaves out its intermediate certificate is completed on its own ([troubleshooting](docs/troubleshooting.md#certificates)).
 
 **HTTPS is the default.** With no certificate given, the server makes a self-signed one, so the browser warns once ("Your connection is not private": **Advanced**, then continue). For a real certificate, see [HTTPS](#https).
@@ -235,6 +237,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `TZ` | Time zone for automation and email dates, e.g. `Asia/Dubai`. Default UTC. |
 | `NODE_OPTIONS` | e.g. `--max-old-space-size=2048` with `--memory 3g`. |
 | `NODE_EXTRA_CA_CERTS` | A company CA, when a proxy inspects TLS. Not needed: Settings → Checkmarx One → Trusted certificates does the same without a restart. |
+| `HTTPS_PROXY`, `NO_PROXY` | Your company's web proxy and the hosts that skip it. Or set them under Settings → Network & proxy, which checks them first ([network](docs/network.md)). |
 | `BACKUP_INTERVAL_HOURS` (24), `BACKUP_KEEP` (14), `BACKUP_PASSPHRASE`, `BACKUP_DIR` | Scheduled, optionally encrypted backups of `/data`. |
 | `SHUTDOWN_DRAIN_SECONDS` (8), `INSTANCE_LOCK_WAIT_SECONDS` (45) | Updates: how long running requests may finish when stopping; how long a new server waits for the old one ([Updating](docs/updating.md)). |
 | `CONNECTION_CHECK_TIMEOUT_MS` (25000), `CONFIG_ROLLBACK_IDLE_MINUTES` (10) | When a changed connection counts as failed, and when an unattended one is rolled back. |
@@ -292,6 +295,7 @@ How it is measured, and what is open and why: [Performance and security status](
 | [Updating](docs/updating.md) | New versions without downtime, sign-outs or data loss; rollback. |
 | [HTTPS and hosting](docs/https-and-hosting.md) | Your certificate, automatic Let's Encrypt, or self-signed; and a checklist for hosting it safely. |
 | [Containers](docs/container.md) | Docker / Podman / Compose options, proxies. |
+| [Network and proxy](docs/network.md) | Directly or through your company's proxy, a step-by-step check, and what your network team needs to allow. |
 | [Performance and sizing](docs/performance.md) | The 3000-user benchmark and the recommended server size. |
 | [Performance and security status](docs/status.md) | Every version's benchmark, tests, dependency audit and Checkmarx One scan result. |
 | [Audit log and backups](docs/audit-and-backup.md) | The tamper-evident audit log, backups, restore, moving servers. |

@@ -222,8 +222,9 @@ export function requirements({ checkmarxOne = [], smtp = null, git = [], letsEnc
   const rows = [];
   const add = (direction, what, host, port, route, why) => rows.push({ direction, what, host, port, route, why });
   add('In', 'People\'s browsers, and links in emailed reports', 'this server', String(inboundPort), 'Direct', 'The web pages, sign-in and the reports people open.');
-  for (const h of checkmarxOne.length ? checkmarxOne : ['<region>.iam.checkmarx.net', '<region>.ast.checkmarx.net']) {
-    add('Out', 'Checkmarx One', h, '443', viaProxy, 'Sign-in with the API key, projects, scans, findings, triage and remediation.');
+  for (const t of checkmarxOne.length ? checkmarxOne : ['<region>.iam.checkmarx.net', '<region>.ast.checkmarx.net']) {
+    const { host, port = 443 } = typeof t === 'string' ? { host: t } : t;
+    add('Out', 'Checkmarx One', host, String(port), viaProxy, 'Sign-in with the API key, projects, scans, findings, triage and remediation.');
   }
   if (smtp?.host) add('Out', 'Email server', smtp.host, String(smtp.port || 587), 'Direct (mail does not go through a web proxy)', 'Reminders, reports and notices.');
   if (backupMail?.host) add('Out', 'Mailbox for backups', backupMail.host, String(backupMail.port || 993), 'Direct', 'Backups sent by email.');
