@@ -37,7 +37,7 @@ CxMissionZero's page is available in fifteen languages. Fourteen are open to eve
 
 **Hebrew is switched on with a code, for the roles you choose.** An Admin pastes a Hebrew activation code in **Settings → Activation codes**. Then **People & roles** lists a **Hebrew** permission (group *Languages*): Admins always have it, and an Admin ticks it for Security Analyst or any other role that should. Only people whose role holds it see Hebrew in the language pickers; nobody else is offered it, or ever sent its translation. It lasts until the code expires (12 months) or a deactivation code is pasted; roles keep their tick across a renewal. Nobody is ever switched to Hebrew automatically from their browser's language; people choose it themselves. Someone who loses Hebrew sees English. Codes come from the maintainer of CxMissionZero; they are checked on the server, with nothing sent anywhere.
 
-**Tone.** While an action runs, every language other than English shows plain, factual status lines, such as "Verifying with Checkmarx One…" instead of a quip.
+**Tone.** While an action runs, every language, English included, shows plain, factual status lines, such as "Verifying with Checkmarx One…".
 
 **Dates and times** are shown in each person's own time zone (their profile; by default their computer's), in their language's format.
 

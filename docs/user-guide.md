@@ -162,18 +162,18 @@ The password is also kept in `/data/first-admin-password.txt` until it is change
 | --- | --- | --- |
 | **Checkmarx One** | The server's integration is connected. | An Admin connects it (Settings, `CX_API_KEY`, or the .env upload). |
 | **Email** | The mail server passed its test with the current settings. | It is set and tested (Settings → Email server → Test connection, or the .env upload, which tests it). |
-| **Git** | Every git connection answers: one small logo per connection (GitHub, GitLab, Azure DevOps, Bitbucket), each ringed green when its token works and red when it does not. Two GitHub connections show two GitHub logos (the second marked 2). Amber when some work and some do not. Checked every 5 minutes, and whenever a token changes. | A token is set: `GITHUB_TOKEN`, `GITLAB_TOKEN`, `AZURE_DEVOPS_TOKEN` or `BITBUCKET_TOKEN` (in the .env file, or on the Beta page). |
+| **Git** | Every git connection answers: one small logo per connection (GitHub, GitLab, Azure DevOps, Bitbucket), each with a quiet outline, red when its token does not work. Two GitHub connections show two GitHub logos (the second marked 2). Amber when some work and some do not. Checked every 5 minutes, and whenever a token changes. | A token is set: `GITHUB_TOKEN`, `GITLAB_TOKEN`, `AZURE_DEVOPS_TOKEN` or `BITBUCKET_TOKEN` (in the .env file, or on the Beta page). |
 
 Click one for its details: tenant and URLs, mail server and sender, and what to do when it is red. **Git** lists every connection with its host, the account its token belongs to and where the token comes from, then the hosts not connected yet and the variable that connects each. They update as soon as settings are saved or a .env file is uploaded.
 
 **More than one connection to the same host.** A second GitHub (an Enterprise server next to github.com, or another organisation's token), GitLab, Azure DevOps organisation or Bitbucket: the same variables numbered `_2` to `_9`, in the .env file or uploaded under Settings, for example `GITHUB_TOKEN_2` with `GITHUB_API_URL_2` and `GITHUB_ORG_2`. Each repository is read with the connection for its host; when two share a host (two github.com tokens), with the one whose organisation, group or workspace owns the repository. Usernames are matched with the first connection of each host.
 
-**Progress flares, bottom right.** Whatever you start shows a flare while it runs:
-- **Amber, with something fast racing along:** in progress. Each action gets one of 21 icons (a rocket, a cheetah, a bullet train, a falcon…), a different one each time. The top line is a light-hearted note about what it is doing, new every few seconds; the line under it is live: the action, how many projects, and the seconds so far (e.g. *Checking with Checkmarx One (two independent reads) · 12 projects · 4s*). The button and the part of the page it came from are paused, so nothing is started twice.
-- **Green:** done. The icon glides to a stop and a tick mark draws itself in. With *reduce motion* turned on in your system settings, the tick shows straight away and nothing moves.
-- **Red:** it did not finish, and says why.
+**Progress, bottom right.** Whatever you start shows a small card while it runs:
+- **In progress:** a spinner and a slim moving line. The top line says what it is doing (*Checking with Checkmarx One (two independent reads)…*); the line under it is live: the step it is on, how many projects, and the time so far (*Matching each finding to its result · 12 projects · 0:04*). The button and the part of the page it came from are paused, so nothing is started twice.
+- **Done:** a green tick, then the card goes after a few seconds.
+- **Did not finish:** a red cross, with the reason.
 
-Several actions can run at once, each with its own flare.
+Several actions can run at once, each with its own card. With *reduce motion* turned on in your system settings, nothing moves.
 
 **Sign out** is under your name, top right. Idle sessions end after 8 hours (`SESSION_IDLE_MINUTES`).
 
@@ -645,7 +645,7 @@ Where findings are read from. The default is `/api/risks/`.
 - **Hover** a stage for the detail. **Triage** and **Remediate** open **AI credits**; **Fix** and **Verify** open Reports.
 
 **How the page is laid out.** One compact block at the top, then the projects.
-- **The top block** holds what to load (both windows, **Narrow to projects or people**, **Find a vulnerability**, **Load findings**), one line of totals and the way to Mission Zero. It takes about a fifth of a 1080p screen and under a third of a laptop's, and **stays in view** while you scroll: the scope and **Load findings** are always at hand.
+- **The top block** holds what to load (both windows, **Narrow to applications, projects or people**, **Find a vulnerability**, **Load findings**), one line of totals and the way to Mission Zero. It takes about a fifth of a 1080p screen and under a third of a laptop's, and **stays in view** while you scroll: the scope and **Load findings** are always at hand.
 - **The projects scroll with the page.** There is one scroll bar: the table has none of its own, and its header row stays under the top block as you scroll. The action panel beside it stays in view too.
 - On a screen narrower than 1100 px, or less than 640 px tall, the top block scrolls away with the page instead.
 
@@ -667,10 +667,10 @@ Everything you do with the projects is in the **action panel**, with four tabs:
 | --- | --- |
 | Projects last scanned in | Skips projects with no scan in this window, so fewer calls are made. **Last week** by default; choose any time, last week, month, 90 days or year, or a custom range. After a load, the page keeps the scope you used. |
 | Findings first detected in | Only findings first detected in this window. Checkmarx One filters them. **Last week** by default. |
-| Only these projects or people | Optional; open it with **Narrow to projects or people**. **Projects, by name**: type to pick, or press Enter to add every project whose name contains the text. **People who ran the latest scan**: a username or an email. Only those projects are fetched, which is the fastest fetch. |
+| Only these applications, projects or people | Optional; open it with **Narrow to applications, projects or people**. **Applications**: the applications defined in Checkmarx One; type to pick one, and every project in it is fetched (the list says how many each holds). **Projects, by name**: type to pick, or press Enter to add every project whose name contains the text. **People who ran the latest scan**: a username or an email. Any mix works: an application and two more projects fetch all of them. Only those projects are fetched, which is the fastest fetch. |
 | Find a vulnerability | Optional: type what to find (**SQL injection**, **SSRF**, **path traversal**, **CWE-89**) and press **Search**. Only the findings of that vulnerability are loaded, and only the projects that have it are shown. |
 
-**Find a vulnerability, and fix it here.** The search box beside **Narrow to projects or people** loads only the findings whose name matches, so you can go after one kind of weakness across every project:
+**Find a vulnerability, and fix it here.** The search box beside **Narrow to applications, projects or people** loads only the findings whose name matches, so you can go after one kind of weakness across every project:
 - It ignores case, underscores and dashes, and a word may be the start of a longer one: *sql inject* finds *SQL_Injection* and *Blind_SQL_Injections*.
 - Usual short forms work: *SSRF* also finds *Server_Side_Request_Forgery*; *XSS* finds cross-site scripting, *SQLi* SQL injection, *XXE*, *CSRF*, *RCE*, *LFI*. *CWE-89* finds findings of that weakness.
 - Several at once: separate them with commas (*SSRF, path traversal*).
@@ -679,10 +679,10 @@ Everything you do with the projects is in the **action panel**, with four tabs:
 
 ### 2. Load findings
 - Rows appear as each project is read.
-- An **amber flare** (bottom-right) says the fetch is in progress, with how many projects are in so far. It turns **green, Data fetch complete**, when the last one arrives.
+- A **progress card** (bottom-right) says the fetch is in progress, with how many projects are in so far. It shows a green tick and **Data fetch complete** when the last one arrives.
 - Until then, triage, remediation and credit allocation are switched off, so nothing is decided on half the data.
-- **Stop** (beside the button, while it loads) ends the load early. Projects already being read finish, the rest are not read, and the projects loaded so far are kept: the totals, the projects list, reminders, AI checks and fixes and reports all work on them, as after a full load. The flare turns green with **Stopped — kept 6 of 20 project(s)**, and the note under the button says how many were left out. **Load findings** again reads them all. Closing or leaving the page while it loads stops it the same way.
-- **How long it takes** depends mostly on how many pages of findings Checkmarx One has to send (200 findings a page) and how fast it answers each: 24 projects are read at once, as many calls as the connection allows. Narrowing to projects or people, a shorter **Findings first found in**, or a vulnerability search reads fewer.
+- **Stop** (beside the button, while it loads) ends the load early. Projects already being read finish, the rest are not read, and the projects loaded so far are kept: the totals, the projects list, reminders, AI checks and fixes and reports all work on them, as after a full load. The card shows **Stopped — kept 6 of 20 project(s)**, and the note under the button says how many were left out. **Load findings** again reads them all. Closing or leaving the page while it loads stops it the same way.
+- **How long it takes** depends mostly on how many pages of findings Checkmarx One has to send (200 findings a page) and how fast it answers each: 24 projects are read at once, as many calls as the connection allows. Narrowing to applications, projects or people, a shorter **Findings first found in**, or a vulnerability search reads fewer.
 - **Faster when someone just fetched.** A project read by anyone in the last couple of minutes is reused, unless it was rescanned or triaged from CxMissionZero since. Under the button it says how many were reused. Tick **Read everything fresh from Checkmarx One** to read every project again, for example right after changing findings directly in Checkmarx One.
 
 Each finding falls into an age bucket by when it was **first detected**:
@@ -728,7 +728,7 @@ Each finding falls into an age bucket by when it was **first detected**:
 | Extra credits → **Add extra credits** | Gives every selected project a fixed extra amount. |
 | Extra credits → **Take back extra credits** | Returns the extras. |
 
-**Every action checks first.** Each button in this panel (allocate, triage, remediate, extra credits, taking credits back) first runs **Refresh & verify**. Allocating, triaging and remediating check only the projects that have something to triage or remediate (not every project shown), each project's two reads side by side, 8 projects at once. Developers may be triaging or remediating in Checkmarx One itself, or from their emailed report, while you look at this page.
+**Every action checks first.** Each button in this panel (allocate, triage, remediate, extra credits, taking credits back) first runs **Refresh & verify**. Allocating, triaging and remediating check only the projects that have something to triage or remediate (not every project shown), each project's two reads side by side, 8 projects at once. Matching each finding to its Checkmarx One result reads the scan's result list once, without code paths and 8 pages at a time, and keeps it for 10 minutes for your sign-in (a scan's results do not change), so the second read and the allocation after it reuse it: a check that took close to two minutes on a large scan takes seconds. Developers may be triaging or remediating in Checkmarx One itself, or from their emailed report, while you look at this page.
 - **Nothing changed:** the action goes ahead with the confirmed numbers.
 - **Something changed** (for example, results to triage 10 → 8, or remediation credits left 6 → 3): the action is **cancelled**. The panel now shows the real numbers, and a message lists exactly what changed. Click again to go ahead with them.
 - **The two reads disagree** (someone is working on those findings right now): the action is cancelled. Wait a moment and click again.
@@ -1129,13 +1129,13 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 **Weekly reminder to every developer, their own projects only**
 1. Dashboard → Scope: *Projects last scanned in* = last month.
-2. **Load findings** and wait for the green flare.
+2. **Load findings** and wait for **Data fetch complete**.
 3. Send reminder: **Each developer**, **One summary**, attachment on. **Preview email**, then **Send reminder**.
 
 To have it happen by itself, use Settings → Automation, or a tracked report's **Automatic follow-up** (Remind tab).
 
 **Triage every critical and high finding for one team**
-1. Scope → Only these projects or people: add the team's projects.
+1. Scope → Only these applications, projects or people: add the team's application, or its projects.
 2. Fetch, then in the credits panel tick Critical and High.
 3. **Give credits** (AI check) (it verifies with Checkmarx One first), then confirm.
 4. **Triage with AI Assist now.** Each developer is emailed that triage ran on their behalf.
@@ -1160,7 +1160,7 @@ Each one counts what is needed twice with Checkmarx One first, asks before givin
 - Reports: open the report → **Triage** tab → **Triage with AI Assist now** or **Remediate with AI Assist now**.
 - Credit Control → **Allocated vs used**: tick the projects → **Allocate and use credits** → **Triage with AI Assist now** or **Remediate with AI Assist now**.
 
-The buttons turn gold once the credits cover the work. Credits given, taken back or used in one place show on the Dashboard straight away; Reports and Credit Control show them whenever you open them.
+The buttons turn a flat gold once the credits cover the work. Credits given, taken back or used in one place show on the Dashboard straight away; Reports and Credit Control show them whenever you open them.
 
 **Take back credits nobody used (clean slate)**
 - Every project: Credit Control → **Allocated vs used** → **Take back all unused credits**.
@@ -1187,7 +1187,7 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | An uploaded .env file "Not applied" | That line has a mistake (listed with its line number and how to fix it); the setting that worked is kept. Fix the line and upload again. |
 | The report says it cannot reach the server | Be on the company network or VPN. Check **Settings → Reminder server address**, and use **Change address** in the report if the server moved. |
 | More rows than credits needed | Several rows can be one Checkmarx One result (marked **Same result R1** …). You are charged per result. |
-| "Fetch still running" when you click Allocate or Triage | Wait for the green **Data fetch complete** flare. |
+| "Fetch still running" when you click Allocate or Triage | Wait for **Data fetch complete** (bottom right). |
 | "Could not be confirmed twice" when allocating | Someone was triaging, or a scan finished, between the two reads. Wait a minute and use **Refresh & verify** again. |
 | "… cancelled: Checkmarx One changed since this page last showed it" | Someone triaged or remediated meanwhile, in Checkmarx One or from a report. The panel now shows the real numbers; click the button again. |
 | "CxMissionZero is restarting for an update — reconnecting…" | A new version is being applied. Wait a few seconds; you stay signed in and nothing is lost. |

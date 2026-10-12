@@ -12,6 +12,7 @@ Self-hosted, one container, nothing to install for developers.
 | --- | --- |
 | **Know what is ageing** | Every project's findings bucketed by first detection (≤ 30, 31–60, > 60 days), streamed in as they are read. **Stop** part-way keeps what has loaded, ready to use. |
 | **SLAs (Beta)** | Days to fix each severity: what is past its SLA and due within 7 days, in total and per project, and one escalation email per finding that goes past it. |
+| **Narrow by application** | Load only the projects of one or more Checkmarx One applications, alone or with chosen projects and people: the fastest fetch for one team. |
 | **Go after one weakness** | **Find a vulnerability** on the Dashboard (*SQL injection*, *SSRF*, *CWE-89*, several at once): only its findings load, from every project that has them, and reminders, AI triage and remediation and credits then act on those alone. |
 | **The right person, only their projects** | Reminders go to whoever ran each project's latest scan, by email, as a summary or one per project. The server refuses any email that would show someone a project they did not scan. |
 | **Fix from the inbox** | An interactive report in every email: **Triage** and **Remediate** with Checkmarx One AI, see the verdict, open the pull request. Developers pick their IDE once (VS Code, Cursor, Kiro, Windsurf, Antigravity, JetBrains). Then every finding is **Open in …** and **Apply AI fix**, one click each: the fix Checkmarx One AI Remediation wrote lands in their own checkout, even when there is no pull request. |
@@ -28,7 +29,7 @@ Self-hosted, one container, nothing to install for developers.
 | **Your brand in demos** | Each Admin and Security Analyst can set their own names, logo and colours under Settings → Your branding. The reports and reminders they make then carry them, while everyone else keeps the organisation's. Permissions decide who sees the Branding and Activation codes pages. People & roles shows each person only their own level and below, so analysts never see who the Admins are ([branding](docs/branding.md)). |
 | **Hands-off follow-up** | Age-threshold automation that never nags twice, and tracked reports that measure progress and send follow-ups. |
 | **Accountable** | A hash-chained audit log of every credit and change, role-based access, one-file backups, and a privacy-safe troubleshooting log. |
-| **Easy to work in** | Pages grouped as Act, Follow up, Prove, Plan and Set up, in tabs instead of long scrolls; every page keeps your work when you switch; Jump to (Ctrl K); a layout that fits phone, tablet, laptop and wide screens. |
+| **Easy to work in** | A calm, consistent look (IBM Plex type shipped inside the image, one accent colour, quiet progress cards). Pages grouped as Act, Follow up, Prove, Plan and Set up, in tabs instead of long scrolls; every page keeps your work when you switch; Jump to (Ctrl K); a layout that fits phone, tablet, laptop and wide screens. |
 | **In your language** | Menus and options in Japanese, Traditional Chinese (Taiwan), Simplified Chinese, Korean, Spanish, Brazilian Portuguese, German, French, Arabic, Vietnamese, Thai, Malay and Indonesian, as well as English; Hebrew with an activation code, for the roles an Admin gives its permission to. Arabic and Hebrew read right to left. The interactive HTML report too: it opens in its reader's language, and they can switch it. Each translation was checked by two separate reviews and by automated checks ([languages](docs/languages.md)). Each person has a profile with their own picture, language, time zone (picked up from their computer) and programming languages. |
 | **Scales** | 3000 people at once on 2 vCPU / 4 GB, 6 failed of 64,320 requests; a report opens in 53 ms (p50) ([benchmark](docs/performance.md)). |
 
@@ -192,6 +193,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `CX_MAX_CONCURRENCY` (24), `CX_FETCH_CONCURRENCY` (24), `CX_VERIFY_CONCURRENCY` (8), `CX_PAGES_AT_ONCE` (4) | Calls to Checkmarx One at once; projects read at once per fetch; projects verified at once by the credit checks; pages of one big project read at once. |
 | `HTTP_COMPRESSION` (on), `HTTP_COMPRESSION_MIN_KB` (32) | Compress big replies (the page, the fetch stream, downloads). `off` when your reverse proxy compresses. |
 | `CX_FETCH_CACHE_SECONDS` (120) | A project someone fetched this recently is reused by the next fetch (same key, same latest scan, not triaged from here since). `0` switches it off. |
+| `CX_RESULT_IDS_CACHE_SECONDS` (600) | A scan's result ids, read once by the credit checks and reused for this long by the same connection. `0` reads them every time. |
 | **Email** | |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` ⬆ | The mail server. 465 needs `SMTP_SECURE=true`; 587 / 25 / 2525 need `false`. |
 | `SMTP_USER`, `SMTP_PASS` ⬆ | The sending account (Gmail: an App Password). |

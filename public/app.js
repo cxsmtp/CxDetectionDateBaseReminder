@@ -200,6 +200,7 @@ const ACTIVITIES = [
   ['PUT', /^\/api\/iam\//, 'Saving people and roles…', 'Saved'],
   ['DELETE', /^\/api\/iam\//, 'Removing…', 'Removed'],
   ['POST', /^\/api\/me\/password$/, 'Changing your password…', 'Password changed'],
+  ['PUT', /^\/api\/me\/profile$/, 'Saving your profile…', 'Profile saved', { lock: false, key: 'profile' }],
   ['POST', /^\/api\/beta\/github\/evaluate$/, 'Matching GitHub usernames…', 'Matching finished'],
   ['POST', /^\/api\/beta\/authors\/find$/, 'Finding who wrote the vulnerable code…', 'Authors found'],
   ['POST', /^\/api\/beta\/authors\/notify$/, 'Emailing the code authors…', 'Code authors emailed'],
@@ -9756,7 +9757,7 @@ let profileSaving = Promise.resolve();
 function saveProfile(patch, { silent = false } = {}) {
   profileSaving = profileSaving.then(async () => {
     try {
-      const me = await api('/api/me/profile', { method: 'PUT', body: JSON.stringify(patch) });
+      const me = await api('/api/me/profile', { method: 'PUT', body: JSON.stringify(patch), quiet: silent });
       state.me = { ...state.me, user: me.user };
       $('me-name').textContent = me.user.name || me.user.email;
       setTimeZone(profileZone(me.user.profile));

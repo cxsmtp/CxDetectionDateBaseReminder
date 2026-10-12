@@ -137,7 +137,7 @@ from the next fetch. Medium-confidence matches (name-based) are left unticked.
 ## SLAs and escalation
 
 Days to fix each severity (critical 7, high 30, medium 90, low 180 unless changed under **Settings → SLAs**), counted from when the finding was first detected:
-- **Dashboard:** **Past SLA** (red) with how many more are due within 7 days (amber); **Past SLA** and **Due ≤ 7d** columns per project, under **Columns**.
+- **Dashboard:** **Past SLA** (red) with how many more are due within 7 days; **Past SLA** and **Due ≤ 7d** columns per project, under **Columns**.
 - **Escalation:** with it switched on and someone to escalate to, each scheduled run emails one list of the findings that went past their SLA since the last run (project, severity, how far past, who ran the latest scan). Each finding is escalated once, kept in the automation's state file, and forgotten when it is fixed, so a regression is escalated again. Test mode counts without sending.
 - **Issues in the repository:** with **Also open an issue in the repository** on, each scheduled run opens one issue per project listing the findings that went past their SLA, each finding once (kept separately from the email escalation, and forgotten when the finding is fixed).
   - **Where:** the repository of the project's latest scan in Checkmarx One (or the project's), through the git connection that fits it: GitHub (`POST /repos/:owner/:repo/issues`) or GitLab (`POST /projects/:id/issues`, confidential). Azure DevOps and Bitbucket are skipped with the reason.
