@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.65 | 511/s, 0 (main 520, 0) | 5.0 s | 276 ms | 595 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.64 | 526/s, 0 (main 521, 0) | 5.9 s | 246 ms | 591 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.63 | 415/s, 203 (main 394, 585; slower host) | 18.6 s | 10.9 s | 585 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.62 | 501/s, 0 (main 509, 0) | 7.3 s | 586 ms | 584 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -50,6 +51,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.65 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+
+- **Findings load faster.** Loading findings reads 24 projects at once instead of 10, so every call the connection to Checkmarx One allows is in use; 151 projects and 94,375 findings took 25.5 s instead of 31 s where Checkmarx One answers in 0.8 s.
+- **Credit actions answer sooner.** Allocating, triaging and remediating check with Checkmarx One only the projects that have something to do, not every project shown, and each project's two reads now run side by side, 8 projects at once: 40 projects verify in 6.3 s instead of 23.4 s.
+- **Find a vulnerability.** A search box on the Dashboard loads only the findings of what you type (SQL injection, SSRF, CWE-89, several at once), from every project that has them, and reminders, AI triage and remediation and credits then act on those alone.
+- **Columns that say what they are.** Total vulnerabilities, Oldest open since, Last scanned by, AI Triage credits and AI Remediation credits, each with a tooltip; Past SLA is now a column you add under Columns.
+- **Short page subtitles.** Every page's line under its title is a few words, so it is no longer cut off.
+- **In every language.** The new wording is in all fourteen other languages, each reviewed twice.
+- **Status.** 595 tests pass; 0 vulnerabilities in `npm audit --omit=dev`; 511 requests a second with 0 failed against main's 520, report opens at p95 5.0 s against 5.4 s, after five pairs that tuned how many calls a fetch and a verify may queue; no new Checkmarx One scan, as the connector needs signing in again ([status](docs/status.md)).
 
 ## MZ-01.00.64 — 2026-10-11 12:28 UTC · [#87](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/87)
 
