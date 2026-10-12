@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.66 | 514/s, 0 (main 501, 0) | 6.1 s | 243 ms | 596 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.65 | 511/s, 0 (main 520, 0) | 5.0 s | 276 ms | 595 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.64 | 526/s, 0 (main 521, 0) | 5.9 s | 246 ms | 591 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.63 | 415/s, 203 (main 394, 585; slower host) | 18.6 s | 10.9 s | 585 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -51,6 +52,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.66 — 2026-10-12 09:02 UTC · [#89](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/89)
+
+- **Credits allocate in seconds.** Checking with Checkmarx One reads each scan's result list once, without code paths and 8 pages at a time, and keeps it 10 minutes for your sign-in only: checking 2 projects on a large scan took 6.6 s instead of 35 s.
+- **Narrow to applications.** The Dashboard's scope takes Checkmarx One applications next to projects and people: pick one and every project in it is loaded, alone or with others you name.
+- **A crisper look.** IBM Plex type shipped inside the image, one neutral scale with a single accent, lighter weights, smaller corners and calmer totals, keeping the racing progress flares, the shimmering gold and the stage colours.
+- **Reports and emails match.** The emailed report, the server's emails and pages and the projection report drop the gradients for a flat header in your accent colour.
+- **Plain progress lines.** While an action runs, its flare names the step it is on, how many projects and the time so far, in every language; saving your profile in the background no longer shows a stray "Done".
+- **In every language.** The new wording is in all fourteen other languages, each reviewed twice.
+- **Status.** 596 tests pass; 0 vulnerabilities in `npm audit --omit=dev`; 514 requests a second with 0 failed against main's 501, report opens at p95 6.1 s against 7.8 s; no new Checkmarx One scan, as the connector needs signing in again ([status](docs/status.md)).
 
 ## MZ-01.00.65 — 2026-10-12 08:03 UTC · [#88](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/88)
 

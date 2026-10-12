@@ -13,7 +13,7 @@ let inFlight = 0, peak = 0;
 const bump = (k) => (counts[k] = (counts[k] || 0) + 1);
 const triaged = new Map(); // alternateId -> time
 const sentCount = new Map(); // alternateId -> times it was sent for AI Triage
-let changing = false; // /__changing?on=1: scan results differ on every read
+let changing = false; // /__changing?on=1: findings change state between reads, and scan results differ on every read
 let reads = 0;
 const remediated = new Map();
 // Verification rescans (POST /api/scans): Queued, then Running, then Completed after RESCAN_MS.
@@ -32,6 +32,7 @@ const mockLoc = (i) => 1500 + ((i * 7919) % 48000);
 // SHARED=1: like a real tenant, some findings are another code path into the same vulnerable code
 // (risk i+4 shares risk i's similarity group, for i in 0–3, 8–11, …), so they are one result.
 const SHARED = process.env.SHARED === '1';
+const RESULT_ROWS = Number(process.env.RESULT_ROWS || 0);
 // VULN_NAMES=1: findings named as Checkmarx One names them (its query names, with their CWE), not "Finding p0-r1".
 const VULN_NAMES = process.env.VULN_NAMES === '1';
 const VULNS = [['SQL_Injection', 89], ['Reflected_XSS_All_Clients', 79], ['SSRF', 918], ['Path_Traversal', 22], ['Hardcoded_password_in_Connection_String', 798], ['Stored_XSS', 79], ['Command_Injection', 78], ['Missing_HSTS_Header', 319], ['Blind_SQL_Injections', 89], ['Server_Side_Request_Forgery', 918], ['XML_External_Entity', 611], ['Log_Forging', 117]];
@@ -79,6 +80,13 @@ http.createServer((req, res) => {
       if (!issued.has(String(req.headers.authorization || '').replace(/^Bearer /, ''))) return send(401, {});
       const offset = Number(u.searchParams.get('offset') || 0);
       if (u.pathname === '/api/projects') { bump('projects'); const all = Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800) })); const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: PROJECTS }); }
+      if (u.pathname === '/api/applications') {
+        bump('applications');
+        // Four applications, each grouping every fourth project.
+        const apps = ['Payments', 'Mobile', 'Platform', 'Web'].map((name, k) => ({ id: `app-${k}`, name, projectIds: Array.from({ length: PROJECTS }, (_, i) => `p${i}`).filter((_, i) => i % 4 === k) }));
+        const lim = Number(u.searchParams.get('limit') || 100);
+        return send(200, { applications: apps.slice(offset, offset + lim), totalCount: apps.length });
+      }
       if (u.pathname === '/api/projects/last-scan') {
         bump('last-scan');
         return send(200, Object.fromEntries(Array.from({ length: PROJECTS }, (_, i) => {
@@ -166,6 +174,11 @@ http.createServer((req, res) => {
         const pid = u.searchParams.get('projectId');
         // Paged like the real API: offset/limit, with the total on every page.
         const all = risksFor(pid);
+        // While "changing" is on, someone is triaging: the project's first open finding changes state on every read.
+        if (changing && offset === 0 && all.length) {
+          const flipped = ++reads % 2 ? 'PROPOSED_NOT_EXPLOITABLE' : 'TO_VERIFY';
+          all[0] = { ...all[0], state: flipped };
+        }
         const lim = Number(u.searchParams.get('limit') || 200);
         return send(200, { risks: all.slice(offset, offset + lim), totalCount: all.length });
       }
@@ -178,8 +191,16 @@ http.createServer((req, res) => {
         const v = changing ? `-${++reads}` : '';
         // One result per similarity group (findings that share it are one result).
         const groups = [...new Set(risksFor(pid).map((r) => r.groupId))];
-        const rows = pid && page === 0 ? groups.map((g) => ({ type: 'sast', similarityId: g, alternateId: `alt-${g.replace(/^sim-/, '')}${v}`, id: `alt-${g.replace(/^sim-/, '')}${v}` })) : [];
-        return send(200, { results: rows, totalCount: rows.length });
+        const own = pid ? groups.map((g) => ({ type: 'sast', similarityId: g, alternateId: `alt-${g.replace(/^sim-/, '')}${v}`, id: `alt-${g.replace(/^sim-/, '')}${v}` })) : [];
+        // RESULT_ROWS=n: the scan lists n results in all (other engines' too), paged as Checkmarx One does
+        // (offset is the page number); without it, every row comes on the first page.
+        if (!RESULT_ROWS) return send(200, { results: page === 0 ? own : [], totalCount: own.length });
+        const nodes = u.searchParams.get('include-nodes') === 'false' ? undefined : Array.from({ length: 8 }, (_, k) => ({ fileName: `src/f${k}.js`, line: k + 1, column: 1, name: 'x' }));
+        const all = Math.max(RESULT_ROWS, own.length);
+        const lim = Number(u.searchParams.get('limit') || 100);
+        const rows = [];
+        for (let k = page * lim; k < Math.min(all, (page + 1) * lim); k += 1) rows.push(k < own.length ? own[k] : { type: k % 3 ? 'kics' : 'sca', similarityId: `other-${k}`, alternateId: `oth-${pid}-${k}`, id: `oth-${pid}-${k}`, data: nodes ? { nodes } : {} });
+        return send(200, { results: rows, totalCount: all });
       }
       let m;
       if (req.method === 'POST' && u.pathname === '/api/ai-triage/triage') {

@@ -307,7 +307,7 @@
                   <p class="hint" id="detection-hint" hidden>Only findings first found in this time are loaded.</p>
                 </fieldset>
 
-                <button type="button" class="link narrow-toggle" id="narrow-toggle" aria-expanded="false" aria-controls="scope-pick">Only some projects or people</button>
+                <button type="button" class="link narrow-toggle" id="narrow-toggle" aria-expanded="false" aria-controls="scope-pick">Narrow to applications, projects or people</button>
                 <span class="hint scope-summary" id="scope-summary" hidden></span>
 
                 <form class="vuln-search" id="vuln-form" role="search">
@@ -332,8 +332,15 @@
               </div>
 
               <fieldset class="scope-pick" id="scope-pick">
-                <legend>Only these projects or people <span class="muted">— optional</span></legend>
+                <legend>Only these applications, projects or people <span class="muted">— optional</span></legend>
                 <div class="scope-pick-grid">
+                  <div class="field">
+                    <label for="scope-application-input">Applications</label>
+                    <div class="chip-input" id="scope-applications">
+                      <input id="scope-application-input" list="scope-application-options" autocomplete="off" spellcheck="false" placeholder="Type an application name…" />
+                    </div>
+                    <datalist id="scope-application-options"></datalist>
+                  </div>
                   <div class="field">
                     <label for="scope-project-input">Projects, by name</label>
                     <div class="chip-input" id="scope-projects">

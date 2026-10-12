@@ -111,3 +111,19 @@ test('a project without the vulnerability is not part of the result', async () =
   assert.equal(none.body.totals.risks, 0);
   assert.equal(none.body.projects.length, 0);
 });
+
+test('narrow to Checkmarx One applications: only their projects are loaded', async () => {
+  const options = await admin('GET', '/api/scope/options?refresh=1');
+  assert.equal(options.status, 200);
+  assert.deepEqual(options.body.applications.map((a) => [a.name, a.projects]), [['Mobile', 1], ['Payments', 1], ['Platform', 1], ['Web', 0]]);
+  const mobile = options.body.applications.find((a) => a.name === 'Mobile');
+  const scan = await admin('GET', `/api/scan?application=${mobile.id}`);
+  assert.equal(scan.status, 200);
+  assert.deepEqual(scan.body.projects.map((p) => p.projectId), ['p1']);
+  assert.deepEqual(scan.body.scope.applications, ['Mobile']);
+  const last = await admin('GET', '/api/scan/last');
+  assert.deepEqual([last.body.request.applications, last.body.request.applicationNames], [[mobile.id], ['Mobile']]);
+  // An application and a project together: both.
+  const both = await admin('GET', `/api/scan?application=${mobile.id}&project=p2`);
+  assert.deepEqual(both.body.projects.map((p) => p.projectId).sort(), ['p1', 'p2']);
+});

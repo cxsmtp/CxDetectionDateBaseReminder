@@ -10,6 +10,7 @@
  */
 
 import { mapWithConcurrency } from './client.js';
+import { TtlCache } from '../ttl-cache.js';
 
 export const AI_SCANNERS = new Set(['SAST', 'SCA']);
 const GROUP_SEPARATOR = '#-#';
@@ -45,14 +46,32 @@ function fetchScanResults(client, scanId, cache = null) {
   return cache.get(scanId);
 }
 
-async function readScanResults(client, scanId) {
+/**
+ * A completed scan's results, without their code-path nodes, for matching findings to result ids:
+ * kept 10 minutes per scan (CX_RESULT_IDS_CACHE_SECONDS) and shared, as a scan's result ids never
+ * change. Credit checks read each project's findings and live states afresh every time; only this
+ * lookup table is reused, so the two reads, allocating and triaging do not each walk the scan again.
+ */
+const RESULT_IDS_TTL_MS = Math.max(0, Number(process.env.CX_RESULT_IDS_CACHE_SECONDS ?? 600) || 0) * 1000;
+// Per connection (a signed-in person's Checkmarx One client): never shared between keys or tenants.
+const resultIds = new WeakMap();
+function scanResultIds(client, scanId) {
+  const read = () => readScanResults(client, scanId, { nodes: false });
+  if (!(RESULT_IDS_TTL_MS > 0)) return read();
+  if (!resultIds.has(client)) resultIds.set(client, new TtlCache({ max: 200 }));
+  return resultIds.get(client).wrap(String(scanId), read, RESULT_IDS_TTL_MS);
+}
+
+async function readScanResults(client, scanId, { nodes = true } = {}) {
   const rows = [];
   for await (const row of client.paginate('/api/results/', {
     itemsKey: 'results',
-    query: { 'scan-id': scanId },
+    query: { 'scan-id': scanId, ...(nodes ? {} : { 'include-nodes': false }) },
     limit: RESULTS_PAGE_SIZE,
     maxItems: 50_000,
     offsetIsPage: true,
+    // Pages are numbered and their count is not known: 8 asked for at a time, in order.
+    parallel: 8,
   })) {
     rows.push(row);
   }
@@ -129,7 +148,7 @@ export async function resolveAiIds(client, findings, latestScanId = () => '', ca
   await mapWithConcurrency([...byScan.entries()], 3, async ([scanId, group]) => {
     let rows;
     try {
-      rows = await fetchScanResults(client, scanId, cache);
+      rows = cache ? await fetchScanResults(client, scanId, cache) : await scanResultIds(client, scanId);
     } catch (error) {
       for (const finding of group) finding.aiUnavailable = `Could not read scan results: ${error.message}`;
       return;

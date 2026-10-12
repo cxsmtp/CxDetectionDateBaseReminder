@@ -228,7 +228,7 @@ export const FIX_LABEL = "Let's start fixing the vulnerabilities";
  * download link, the button opens the project in Checkmarx One instead.
  */
 export function buildReportEmail(reportData, { greeting = 'Hi', topCount = 0, downloadUrl = '' } = {}) {
-  const accent = /^#[0-9a-f]{3,8}$/i.test(reportData.accentColor ?? '') ? reportData.accentColor : '#5b4bdb';
+  const accent = /^#[0-9a-f]{3,8}$/i.test(reportData.accentColor ?? '') ? reportData.accentColor : '#2856c9';
   const projects = reportData.projects ?? [];
   const total = projects.reduce((sum, p) => sum + p.risks.length, 0);
   const summary = reportData.severitySummary ? ` (${reportData.severitySummary})` : '';

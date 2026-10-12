@@ -111,11 +111,12 @@ const flares = new Map();
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let flareSeq = 0;
 /**
- * Show or update the flare `key`: kind busy | done | failed. `spoken` is what a
- * screen reader announces instead of the lines on screen, for a busy flare whose
- * lines change every second.
+ * Show or update the flare `key`: kind busy | done | failed. `details` are the
+ * short facts under the main line (each translated on its own). `spoken` is
+ * what a screen reader announces instead of the lines on screen, for a busy
+ * card whose lines change every second.
  */
-function flare(key, kind, text, hint = '', spoken = '') {
+function flare(key, kind, text, details = '', spoken = '') {
   let el = flares.get(key);
   if (!el) {
     el = document.createElement('div');
@@ -151,8 +152,17 @@ function flare(key, kind, text, hint = '', spoken = '') {
   el.dataset.kind = kind;
   el.className = `flare ${kind}`;
   el.querySelector('.flare-main').textContent = text;
-  el.querySelector('small').textContent = hint;
-  el.querySelector('small').hidden = !hint;
+  const small = el.querySelector('small');
+  const parts = (Array.isArray(details) ? details : [details]).filter(Boolean).map(String);
+  // Only the parts that changed are rewritten (the clock, every second), so the rest keeps its translation.
+  if (small.children.length !== parts.length) small.replaceChildren(...parts.map(() => document.createElement('span')));
+  parts.forEach((part, i) => {
+    if (small.children[i].dataset.src !== part) {
+      small.children[i].dataset.src = part;
+      small.children[i].textContent = part;
+    }
+  });
+  small.hidden = !parts.length;
   for (const line of el.querySelectorAll('.flare-main, small')) line.toggleAttribute('aria-hidden', Boolean(spoken));
   const sr = el.querySelector('.flare-sr');
   if (sr.textContent !== spoken) sr.textContent = spoken;
@@ -212,6 +222,7 @@ const ACTIVITIES = [
   ['PUT', /^\/api\/iam\//, 'Saving people and roles…', 'Saved'],
   ['DELETE', /^\/api\/iam\//, 'Removing…', 'Removed'],
   ['POST', /^\/api\/me\/password$/, 'Changing your password…', 'Password changed'],
+  ['PUT', /^\/api\/me\/profile$/, 'Saving your profile…', 'Profile saved', { lock: false, key: 'profile' }],
   ['POST', /^\/api\/beta\/github\/evaluate$/, 'Matching GitHub usernames…', 'Matching finished'],
   ['POST', /^\/api\/beta\/authors\/find$/, 'Finding who wrote the vulnerable code…', 'Authors found'],
   ['POST', /^\/api\/beta\/authors\/notify$/, 'Emailing the code authors…', 'Code authors emailed'],
@@ -225,35 +236,24 @@ const ACTIVITIES = [
   ['PUT', /^\/api\/organisation-name$/, 'Saving the organisation name…', 'Organisation name saved'],
 ];
 /**
- * While an action runs, its flare says something light-hearted (a new line every
- * few seconds, themed to the action) over a live line: what it is doing, for how
- * many projects, and for how long. Like a spinner, but you can read it.
+ * While an action runs, its card names the step it is on (a new one every few
+ * seconds, in plain words), for how many projects, and for how long.
  */
-const QUIPS = [
-  [/^\/api\/(credits\/verify|tracked-reports\/[^/]+\/refresh)/, ['Reading it twice, trusting it once…', 'Comparing notes with Checkmarx One…', 'Counting results, then counting them again…', 'Making sure nobody moved the goalposts…', 'Spotting what changed since you looked…', 'Matching every finding to its result…']],
-  [/^\/api\/(triage|tracked-reports\/[^/]+\/triage)/, ['Waking up the AI…', 'Weighing true against false positives…', 'Reading the code so you do not have to…', 'Booking one credit per result, not per row…', 'Asking the hard questions…', 'Following the data flow…']],
-  [/^\/api\/remediation/, ['Waking up the AI…', 'Sharpening the fix…', 'Teaching the bug some manners…', 'Drafting the pull request…', 'Booking one credit per result, not per row…', 'Following the data flow…']],
-  [/^\/api\/(credits|tracked-reports\/[^/]+\/allocate)/, ['Balancing the books…', 'Counting credits twice…', 'Nothing spent that is not needed…', 'Checking the pool is big enough…', 'Writing it into the audit log…']],
-  [/^\/api\/(reminders|tracked-reports\/[^/]+\/remind|beta\/authors\/notify|settings\/smtp\/send-test)/, ['Licking the stamps…', 'Addressing the envelopes…', 'Only their own projects, nobody else\'s…', 'Finding the right inboxes…', 'Sending at the speed of SMTP…', 'Folding the reports neatly…']],
-  [/^\/api\/(integration|settings)/, ['Testing the wires…', 'Shaking hands with the server…', 'Turning the dials…', 'Checking every connection…', 'Keeping the last good settings handy…']],
-  [/^\/api\/(backup|audit)/, ['Following the hash chain…', 'Checking every link…', 'Packing everything neatly…', 'Nothing missing, nothing changed…']],
-  [/^\/api\/beta/, ['Digging through the history…', 'Asking git who wrote this…', 'Matching names to faces…']],
-  [/./, ['Revving up…', 'On it…', 'Moving fast, breaking nothing…', 'Putting things in order…', 'Almost there…']],
+const STEPS = [
+  [/^\/api\/(credits\/verify|tracked-reports\/[^/]+\/refresh)/, ['Verifying with Checkmarx One…', 'Comparing the two reads…', 'Matching each finding to its result…']],
+  [/^\/api\/(triage|tracked-reports\/[^/]+\/triage)/, ['Running AI Triage…', 'Analysing the findings…', 'Counting one credit per result…']],
+  [/^\/api\/remediation/, ['Running AI Remediation…', 'Preparing the fix…', 'Counting one credit per result…']],
+  [/^\/api\/(credits|tracked-reports\/[^/]+\/allocate)/, ['Updating the credit allocation…', 'Checking the credit pool…', 'Recording it in the audit log…']],
+  [/^\/api\/(reminders|tracked-reports\/[^/]+\/remind|beta\/authors\/notify|settings\/smtp\/send-test)/, ['Preparing the emails…', 'Sending the emails…', 'Each person receives only their own projects…']],
+  [/^\/api\/(integration|settings)/, ['Testing the connection…', 'Applying the settings…']],
+  [/^\/api\/(backup|audit)/, ['Verifying the audit log…', 'Checking every entry…']],
+  [/^\/api\/beta/, ['Reading the repository history…', 'Matching people to email addresses…']],
+  [/./, ['Working…', 'Processing…']],
 ];
-const SLOW_QUIPS = ['Still on it — a big one…', 'Taking the scenic route…', 'Worth the wait…'];
-// In every other language the busy line is plain and factual: word play does not translate.
-const PLAIN_QUIPS = [
-  [QUIPS[0][0], ['Verifying with Checkmarx One…', 'Comparing the two reads…', 'Matching each finding to its result…']],
-  [QUIPS[1][0], ['Running AI Triage…', 'Analysing the findings…', 'Counting one credit per result…']],
-  [QUIPS[2][0], ['Running AI Remediation…', 'Preparing the fix…', 'Counting one credit per result…']],
-  [QUIPS[3][0], ['Updating the credit allocation…', 'Checking the credit pool…', 'Recording it in the audit log…']],
-  [QUIPS[4][0], ['Preparing the emails…', 'Sending the emails…', 'Each person receives only their own projects…']],
-  [QUIPS[5][0], ['Testing the connection…', 'Applying the settings…']],
-  [QUIPS[6][0], ['Verifying the audit log…', 'Checking every entry…']],
-  [QUIPS[7][0], ['Reading the repository history…', 'Matching people to email addresses…']],
-  [QUIPS[8][0], ['Working…', 'Processing…']],
-];
-const PLAIN_SLOW = ['Still working: this takes longer than usual…'];
+const SLOW_STEP = 'Still working: this takes longer than usual…';
+
+/** 0:07, 1:43, 12:05 */
+const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
 /** "12 projects" when the request names projects. */
 function scopeOf(body) {
@@ -265,25 +265,16 @@ function scopeOf(body) {
   }
 }
 
-/** Keep the busy flare `key` alive: a new quip every 3 s, the clock every second. Returns stop(). */
+/** Keep the busy card `key` alive: the next step every 4 s, the clock every second. Returns stop(). */
 function startBusyFlare(key, path, activity, body) {
   const route = path.split('?')[0];
-  const plain = currentLanguage() !== 'en';
-  const quips = (plain ? PLAIN_QUIPS : QUIPS).find(([pattern]) => pattern.test(route))[1];
-  const slow = plain ? PLAIN_SLOW : SLOW_QUIPS;
-  const label = activity.busy.replace(/…$/, '');
+  const steps = STEPS.find(([pattern]) => pattern.test(route))[1];
   const scope = scopeOf(body);
   const started = Date.now();
-  let turn = Math.floor(Math.random() * quips.length);
-  let shown = '';
   const draw = () => {
     const seconds = Math.floor((Date.now() - started) / 1000);
-    const quip = seconds >= 15 && Math.floor(seconds / 3) % 2 ? slow[Math.floor(seconds / 6) % slow.length] : quips[(turn + Math.floor(seconds / 3)) % quips.length];
-    flare(key, 'busy', quip, [label, scope, `${seconds}s`].filter(Boolean).join(' · '), activity.busy);
-    if (quip !== shown && shown && !reducedMotion.matches) {
-      flares.get(key)?.querySelector('.flare-main').animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'ease-out' });
-    }
-    shown = quip;
+    const step = seconds >= 20 && Math.floor(seconds / 4) % 3 === 2 ? SLOW_STEP : steps[Math.floor(seconds / 4) % steps.length];
+    flare(key, 'busy', activity.busy, [step, scope, clock(seconds)], activity.busy);
   };
   draw();
   const timer = setInterval(draw, 1000);
@@ -2923,6 +2914,7 @@ function toggleRange(prefix) {
 function windowParams() {
   const params = new URLSearchParams();
   // Named projects (by id) and people: only these are fetched.
+  for (const id of scopePick.applications.keys()) params.append('application', id);
   for (const id of scopePick.projects.keys()) params.append('project', id);
   for (const who of scopePick.initiators) params.append('initiator', who);
   if (state.vulnerability) params.set('vulnerability', state.vulnerability);
@@ -2941,10 +2933,11 @@ const presetLabel = (id) => state.health?.windowPresets.find((p) => p.id === id)
 
 function updateScopeSummary() {
   const detection = $('detection-preset').value;
-  const named = scopePick.projects.size + scopePick.initiators.size;
+  const named = scopeNamed();
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   const projectsPart = named
     ? [
+        scopePick.applications.size && plural(scopePick.applications.size, 'application'),
         scopePick.projects.size && plural(scopePick.projects.size, 'named project'),
         scopePick.initiators.size && `${scopePick.initiators.size === 1 ? '1 person' : `${scopePick.initiators.size} people`}'s projects`,
       ].filter(Boolean).join(' + ')
@@ -2952,9 +2945,9 @@ function updateScopeSummary() {
   $('scope-summary').textContent = `Projects: ${projectsPart} · Findings: ${presetLabel(detection)}`;
   // Naming projects or people replaces the "last scanned in" window.
   $('activity-preset').disabled = Boolean(named);
-  $('activity-preset').title = named ? 'Named projects and people are fetched whatever their last scan date.' : '';
+  $('activity-preset').title = named ? 'Named applications, projects and people are fetched whatever their last scan date.' : '';
   $('activity-hint').textContent = named
-    ? 'Not used while projects or people are named below: those are fetched whatever their last scan date.'
+    ? 'Not used while applications, projects or people are named below: those are fetched whatever their last scan date.'
     : 'Skips projects with no scan in this window.';
 
   $('detection-hint').textContent = ['7d', '30d'].includes(detection)
@@ -2969,7 +2962,9 @@ function updateScopeSummary() {
 // Scope: fetch only named projects, or the projects named people last scanned
 // ---------------------------------------------------------------------------
 
-const scopePick = { projects: new Map(), initiators: new Set(), options: null, loading: null };
+const scopePick = { applications: new Map(), projects: new Map(), initiators: new Set(), options: null, loading: null };
+/** Applications, projects and people named. */
+const scopeNamed = () => scopePick.applications.size + scopePick.projects.size + scopePick.initiators.size;
 
 /** Project names and latest-scan initiators, for the suggestions (loaded on first use). */
 function loadScopeOptions() {
@@ -2979,13 +2974,16 @@ function loadScopeOptions() {
   scopePick.loading = api('/api/scope/options')
     .then((data) => {
       scopePick.options = data;
+      $('scope-application-options').replaceChildren(
+        ...(data.applications ?? []).map((a) => Object.assign(document.createElement('option'), { value: a.name, label: `${a.projects} project${a.projects === 1 ? '' : 's'}` })),
+      );
       const projectList = $('scope-project-options');
       const peopleList = $('scope-initiator-options');
       projectList.replaceChildren(...data.projects.map((p) => Object.assign(document.createElement('option'), { value: p.name })));
       peopleList.replaceChildren(
         ...data.initiators.map((i) => Object.assign(document.createElement('option'), { value: i.initiator, label: `${i.email ? `${i.email} · ` : ''}${i.projects} project${i.projects === 1 ? '' : 's'}` })),
       );
-      setScopeHint(data.warning || `${data.projects.length} projects, ${data.initiators.length} people. Pick as you type; Enter adds every project whose name contains the text.`, data.warning ? 'error' : '');
+      setScopeHint(data.warning || `${(data.applications ?? []).length} applications, ${data.projects.length} projects, ${data.initiators.length} people. Pick as you type; Enter adds every name that contains the text.`, data.warning ? 'error' : '');
       return data;
     })
     .catch((error) => {
@@ -3017,6 +3015,21 @@ async function addScopeProjects(text) {
   return matches.length;
 }
 
+/** Add the application with this exact name, else every application whose name contains the text. Returns how many. */
+async function addScopeApplications(text) {
+  const wanted = text.trim().toLowerCase();
+  if (!wanted) return 0;
+  const options = await loadScopeOptions();
+  if (!options) return 0;
+  const all = options.applications ?? [];
+  const exact = all.filter((a) => a.name.toLowerCase() === wanted);
+  const matches = exact.length ? exact : all.filter((a) => a.name.toLowerCase().includes(wanted));
+  for (const a of matches) scopePick.applications.set(a.id, a.name);
+  if (!all.length) setScopeHint('Checkmarx One lists no applications for this key.', 'error');
+  else if (!matches.length) setScopeHint(`No application name contains "${text.trim()}".`, 'error');
+  return matches.length;
+}
+
 function addScopeInitiator(text) {
   const who = text.trim();
   if (who) scopePick.initiators.add(who);
@@ -3043,19 +3056,22 @@ function renderScopeChips() {
       box.insertBefore(chip, input);
     }
   };
+  draw($('scope-applications'), [...scopePick.applications], 'application');
   draw($('scope-projects'), [...scopePick.projects], 'project');
   draw($('scope-initiators'), [...scopePick.initiators].map((who) => [who, who]), 'initiator');
   updateScopeSummary();
   syncNarrow();
 }
 
-for (const [inputId, kind] of [['scope-project-input', 'project'], ['scope-initiator-input', 'initiator']]) {
+const scopeStore = (kind) => (kind === 'application' ? scopePick.applications : kind === 'project' ? scopePick.projects : scopePick.initiators);
+for (const [inputId, kind] of [['scope-application-input', 'application'], ['scope-project-input', 'project'], ['scope-initiator-input', 'initiator']]) {
   const input = $(inputId);
   input.addEventListener('focus', () => loadScopeOptions());
   const commit = async () => {
     const value = input.value;
     input.value = '';
-    if (kind === 'project') await addScopeProjects(value);
+    if (kind === 'application') await addScopeApplications(value);
+    else if (kind === 'project') await addScopeProjects(value);
     else addScopeInitiator(value);
     renderScopeChips();
   };
@@ -3065,7 +3081,7 @@ for (const [inputId, kind] of [['scope-project-input', 'project'], ['scope-initi
       event.preventDefault();
       commit();
     } else if (event.key === 'Backspace' && !input.value) {
-      const store = kind === 'project' ? scopePick.projects : scopePick.initiators;
+      const store = scopeStore(kind);
       const last = [...store.keys()].pop();
       if (last !== undefined) {
         store.delete(last);
@@ -3077,9 +3093,11 @@ for (const [inputId, kind] of [['scope-project-input', 'project'], ['scope-initi
   input.addEventListener('input', () => {
     const value = input.value.trim().toLowerCase();
     if (!value || !scopePick.options) return;
-    const exact = kind === 'project'
-      ? scopePick.options.projects.some((p) => p.name.toLowerCase() === value)
-      : scopePick.options.initiators.some((i) => i.initiator.toLowerCase() === value);
+    const exact = kind === 'application'
+      ? (scopePick.options.applications ?? []).some((a) => a.name.toLowerCase() === value)
+      : kind === 'project'
+        ? scopePick.options.projects.some((p) => p.name.toLowerCase() === value)
+        : scopePick.options.initiators.some((i) => i.initiator.toLowerCase() === value);
     if (exact) commit();
   });
 }
@@ -3087,8 +3105,7 @@ for (const [inputId, kind] of [['scope-project-input', 'project'], ['scope-initi
 $('scope-pick').addEventListener('click', (event) => {
   const button = event.target.closest('[data-remove-scope]');
   if (!button) return;
-  if (button.dataset.removeScope === 'project') scopePick.projects.delete(button.dataset.key);
-  else scopePick.initiators.delete(button.dataset.key);
+  scopeStore(button.dataset.removeScope).delete(button.dataset.key);
   renderScopeChips();
 });
 
@@ -5270,8 +5287,10 @@ function restoreScope(request, projects) {
     toggleRange(prefix);
   }
   const names = new Map(projects.map((p) => [p.projectId, p.projectName]));
+  scopePick.applications.clear();
   scopePick.projects.clear();
   scopePick.initiators.clear();
+  (request.applications ?? []).forEach((id, i) => scopePick.applications.set(id, request.applicationNames?.[i] ?? id));
   for (const id of request.projects ?? []) scopePick.projects.set(id, names.get(id) ?? id);
   for (const who of request.initiators ?? []) scopePick.initiators.add(who);
   renderScopeChips();
@@ -5573,7 +5592,7 @@ function renderPreview(result) {
           `<div style="font:13px system-ui;padding:8px 12px;background:#eef2ff;border-bottom:1px solid #c7d2fe">
              <strong>To:</strong> ${escapeHtml(m.email)} &nbsp;
              <strong>Subject:</strong> ${escapeHtml(m.subject)} &nbsp;
-             <span style="color:#4f46e5">${m.riskCount} finding(s)${
+             <span style="color:var(--accent)">${m.riskCount} finding(s)${
                m.projectName ? ` in ${escapeHtml(m.projectName)}` : ` across ${m.projectCount} project(s)`
              }</span>
            </div>${m.html}`,
@@ -6314,16 +6333,16 @@ document.addEventListener('keydown', (event) => {
 
 // Scope: narrowing to named projects or people folds away until it is wanted.
 function syncNarrow(open) {
-  const chips = scopePick.projects.size + scopePick.initiators.size;
+  const chips = scopeNamed();
   const show = open ?? (chips > 0 || $('narrow-toggle').getAttribute('aria-expanded') === 'true');
   $('scope-pick').classList.toggle('folded', !show);
   $('narrow-toggle').setAttribute('aria-expanded', String(show));
-  $('narrow-toggle').textContent = show ? (chips ? `Narrowed to ${chips} name${chips === 1 ? '' : 's'}` : 'Hide narrowing') : 'Narrow to projects or people';
+  $('narrow-toggle').textContent = show ? (chips ? `Narrowed to ${chips} name${chips === 1 ? '' : 's'}` : 'Hide narrowing') : 'Narrow to applications, projects or people';
 }
 $('narrow-toggle').addEventListener('click', () => {
   const open = $('narrow-toggle').getAttribute('aria-expanded') !== 'true';
   syncNarrow(open);
-  if (open) $('scope-project-input').focus();
+  if (open) $('scope-application-input').focus();
 });
 
 // The email / report preview opens as a sheet over the page.
@@ -9760,7 +9779,7 @@ let profileSaving = Promise.resolve();
 function saveProfile(patch, { silent = false } = {}) {
   profileSaving = profileSaving.then(async () => {
     try {
-      const me = await api('/api/me/profile', { method: 'PUT', body: JSON.stringify(patch) });
+      const me = await api('/api/me/profile', { method: 'PUT', body: JSON.stringify(patch), quiet: silent });
       state.me = { ...state.me, user: me.user };
       $('me-name').textContent = me.user.name || me.user.email;
       setTimeZone(profileZone(me.user.profile));

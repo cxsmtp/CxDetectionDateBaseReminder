@@ -145,6 +145,12 @@
    "interactive HTML report"
   ]
  },
+ "{0} applications, {1} projects, {2} people. Pick as you type; Enter adds every name that contains the text.": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "{0} change": {
   "kind": "report",
   "seen": [
@@ -659,6 +665,12 @@
    "message"
   ]
  },
+ "{0} projects": {
+  "kind": "attr:label",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "{0} projects · updated {1} minute ago": {
   "kind": "text",
   "seen": [
@@ -713,14 +725,6 @@
   "kind": "report",
   "seen": [
    "calculator report"
-  ]
- },
- "{0} projects, {1} people. Pick as you type; Enter adds every project whose name contains the text.": {
-  "kind": "text",
-  "seen": [
-   "Dashboard › narrow › p › Only these projects or people — optional",
-   "Dashboard › fetching › p › Only these projects or people — optional",
-   "Dashboard › loaded › p › Only these projects or people — optional"
   ]
  },
  "{0} projects, {1} scans": {
@@ -3240,6 +3244,12 @@
    "Dashboard › span › Branding"
   ]
  },
+ "Applications": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "Applied": {
   "kind": "text",
   "seen": [
@@ -4763,6 +4773,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Checkmarx One lists no applications for this key.": {
+  "kind": "message",
+  "seen": [
+   "dashboard"
   ]
  },
  "Checkmarx One lists one result once for every code path (data flow) that reaches the same vulnerable code. Each line below is one result: AI Triage judges it once ({0} credit), and one fix in that code closes all of its findings.": {
@@ -10917,18 +10933,16 @@
    "Dashboard › input › Credit audit log"
   ]
  },
- "Named projects and people are fetched whatever their last scan date.": {
+ "Named applications, projects and people are fetched whatever their last scan date.": {
   "kind": "message",
   "seen": [
-   "message"
+   "dashboard"
   ]
  },
- "Narrow to projects or people": {
+ "Narrow to applications, projects or people": {
   "kind": "text",
   "seen": [
-   "first start › button › Fetch",
-   "sign in › button › Fetch",
-   "Dashboard › button › Fetch"
+   "dashboard"
   ]
  },
  "Needed to triage from this report": {
@@ -11336,6 +11350,12 @@
    "message"
   ]
  },
+ "No project matches the applications, projects or people named in the scope.": {
+  "kind": "message",
+  "seen": [
+   "dashboard"
+  ]
+ },
  "No project used credits in this period.": {
   "kind": "text",
   "seen": [
@@ -11705,6 +11725,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Not used while applications, projects or people are named below: those are fetched whatever their last scan date.": {
+  "kind": "text",
+  "seen": [
+   "dashboard"
   ]
  },
  "Notes": {
@@ -12090,12 +12116,10 @@
    "dashboard"
   ]
  },
- "Only these projects or people <span class=\"muted\">— optional</span>": {
+ "Only these applications, projects or people <span class=\"muted\">— optional</span>": {
   "kind": "html",
   "seen": [
-   "first start › legend › Only these projects or people — optional",
-   "sign in › legend › Only these projects or people — optional",
-   "Dashboard › legend › Only these projects or people — optional"
+   "dashboard"
   ]
  },
  "Only these severities — blank means all": {
@@ -13002,6 +13026,12 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Profile saved": {
+  "kind": "busy",
+  "seen": [
+   "dashboard"
   ]
  },
  "Programming languages": {
@@ -14628,6 +14658,12 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Saving your profile…": {
+  "kind": "busy",
+  "seen": [
+   "dashboard"
   ]
  },
  "Saving…": {
@@ -18657,6 +18693,12 @@
    "first start › input › Only these projects or people — optional",
    "sign in › input › Only these projects or people — optional",
    "Dashboard › input › Only these projects or people — optional"
+  ]
+ },
+ "Type an application name…": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "dashboard"
   ]
  },
  "Type them": {
