@@ -46,25 +46,26 @@ Customers are in `projections.json` in the data folder (per tenant), and in ever
 
 ## One click
 
-Open the calculator and select **Generate projection report**. That is all it takes: when nothing is read yet it reads Checkmarx One first, then makes the report with every default in place (every open finding, the findings still to come over 12 months at the last 3 months' pace, 20% more found by Fusion, 10% fewer false positives with FAE, 1 and 3 credits per triage and remediation, 30% false positives). Everything below changes the defaults, when you want to.
+Open the calculator and select **Generate projection report**. That is all it takes: when nothing is read yet it reads Checkmarx One first, then makes the report with every default in place (every open finding, the findings still to come over 12 months at the last 3 months' pace, falling 2% a month as teams adopt AI, 5% more found by Fusion, 10% fewer false positives with FAE, 1 and 3 credits per triage and remediation, 30% false positives). Everything below changes the defaults, when you want to.
 
 - **Email the report** makes the report the same way and sends it, as an attachment in the page's language, to up to 10 addresses you type (through Settings → Email server, which must be set up and tested). It is in the audit log.
 - **Start again** clears every choice made for the customer (the projects narrowed, the plan, the Fusion numbers, the extra credits) and reads Checkmarx One again. The Fusion models and their credits stay; reports already made are kept.
 
 ## Which projects count
 
-**Narrow the projects**, under **Read from Checkmarx One**, counts only some projects, for triage & remediation and Fusion alike, with the same choices as narrowing the Dashboard:
+Under **Read from Checkmarx One**, **Applications** and **Projects** count only some projects, for triage & remediation and Fusion alike, as narrowing the Dashboard does. Type a name and pick it from the list, or press Enter to add every name that contains the text; each one picked becomes a chip, removed with **×**. The figures follow at once. These applications' projects count, plus the projects picked one by one.
 
-| Field | Counts the projects… |
+**More filters** narrows further:
+
+| Field | Keeps the projects… |
 | --- | --- |
-| **Applications** | in these Checkmarx One applications |
 | **Groups** | in these groups, as Checkmarx One lists them |
 | **Project names** | whose name matches: `payments-*`, `*-api`, `svc-?` (`*` any text, `?` one character); a name without wildcards matches any name containing it |
 | **Last scanned by** | whose last scan was run by these people |
 | **How often they are scanned** | scanned this often in the last year |
 | **Criticality** | with these criticalities, 1 to 5 |
 
-Several values in a field: separate them with commas; any of them will do. Every field filled in must hold. Empty fields keep every project, and **Every project** clears them all. The line says how many projects the scope keeps (*10 of 40 projects · Application: Mobile*).
+Several values in a field: separate them with commas; any of them will do. Every field filled in must hold (on top of the applications and projects picked). Empty fields keep every project, and **Every project** clears them all. The line says how many projects the scope keeps (*10 of 40 projects · Application: Mobile*).
 
 The backlog and fixes of the projects in the scope are added up on the server from the last read, project by project, so narrowing never reads Checkmarx One again. Each project's weeks are kept for this in `projection-read.json` in the data folder (per tenant, replaced by every read, not in backups). When the figures came from the two exports instead, they cover every project: the scope then narrows Fusion only, and the page says so. A project added by hand always counts.
 
@@ -103,18 +104,19 @@ Then the page shows:
    | Step | What it is |
    | --- | --- |
    | **Backlog today** | The open findings to triage: every one, unless you choose fewer |
-   | **+ Still to come** | New findings a month × the period. New findings a month are what the backlog grew by over the trend period, plus what was fixed meanwhile (never below 0), per severity |
-   | **+ More found by Fusion** | When Fusion is in the projection (some project counted on the Fusion tab): this % more findings, on the backlog and on what is still to come. 20% by default |
+   | **+ Still to come** | New findings a month over the period, falling each month as teams adopt AI. New findings a month are what the backlog grew by over the trend period, plus what was fixed meanwhile (never below 0), per severity. The first month comes at today's pace and each later one 2% below the one before (by default): over 12 months that is about 10.9 months' worth instead of 12 |
+   | **+ More found by Fusion** | When Fusion is in the projection (some project counted on the Fusion tab): this % more findings, on the backlog and on what is still to come. 5% by default |
    | **− Kept away by FAE** | FAE keeps this % of the new findings (still to come and found by Fusion) from being reported, among the false positives only: it never takes more than the false positives there are, so the true positives do not change. 10% by default |
    | **= To triage** | Each costs its triage credits; the true positives among them are remediated too |
    | **→ Credits** | Split into the backlog today and what is ahead |
 
-   **Count findings still to come**, **More found by Fusion (%)** and **FAE: fewer false positives (%)** change these, at once; **Defaults** puts them back. **3**, **6**, **9** or **12 months** choose the period the trend (new findings a month, debt increase, fix rate) is measured over: 3 by default.
-2. **Backlog trend and forecast:** the backlog by month, then over the projection period (shaded): if nothing changes, and with the plan.
-3. **The last 12 months, week by week:** the backlog, and the fix rate against the rate the debt grows, each over 4 weeks (a single week jumps about too much).
-4. **By severity:** one small chart each, the backlog and then with the plan, each on its own scale.
-5. **The final matrix:** every figure by severity, from the backlog to the credits.
-6. **Customize per severity:** how many of the backlog to triage (**All** is every open finding, and stays every open finding when the next read finds more), the false positives expected (%), and the credits per triage and per remediation (Checkmarx One's 1 and 3 to start with). Changes count once you select **Apply**.
+   **Count findings still to come**, **AI adoption: fewer new findings each month (%)** (0 to 20; 0 keeps today's pace), **More found by Fusion (%)** and **FAE: fewer false positives (%)** change these, at once; **Defaults** puts them back. A customer saved before MZ-01.00.69 with Fusion on the old 20% default moves to 5%; a value someone typed stays. **3**, **6**, **9** or **12 months** choose the period the trend (new findings and fixes a month) is measured over: 3 by default.
+2. **Customize per severity**, right under it, open: how many of the backlog to triage (**All** is every open finding, and stays every open finding when the next read finds more), the false positives expected (%), and the credits per triage and per remediation (Checkmarx One's 1 and 3 to start with). Changes count once you select **Apply**. Each severity's box ends with what it comes to: to triage, to remediate, and the credits. The estimates live here and above, next to their controls.
+3. **Debt added against fixes:** one sentence first: each month new findings add X% to the backlog and fixes take away Y%, so it grows (and how much faster fixing would have to be to keep up) or shrinks. Then the timeline: the two, week by week over the last 12 months, each over 4 weeks (a single week jumps about too much) and as a share of the backlog a month. While the red line is above the green one, the backlog grows. Then a short table by severity: open now, added a month, fixed a month, and the change a month. Added is what the backlog grew by plus what was fixed; both percentages are a share of today's backlog, so they compare directly.
+4. **Backlog trend and forecast:** the backlog by month, then over the projection period (shaded): if nothing changes, and with the plan.
+5. **By severity:** one small chart each, the backlog and then with the plan, each on its own scale.
+
+The page no longer has the final matrix of every figure: the projection report's appendix still has it, with added, fixed and the change a month in place of the debt increase and fix rate.
 
 Customers saved before MZ-01.00.67 open with every open finding counted where nothing was chosen, and a trend period of 3 months where it was *Latest* (the latest week, now gone: a single week says too little to project from).
 
@@ -181,6 +183,8 @@ For example, 24,000 + 700.5 credits with 10% extra is 27,170.55 credits: 2.72 bu
 ## Projection reports
 
 **Generate projection report** makes one report from both tabs and the summary, downloads it, and keeps it on the **Projection reports** tab.
+
+**Download PDF summary** appears once the report is made: three 16:9 pages to present, in the page's language. Page 1 is triage & remediation: the backlog today, the findings still to come, to triage, the credits, and the backlog trend and forecast, with debt added against fixes in one line. Page 2 is Checkmarx Fusion: projects, lines of code, scans and credits, and the credits by how often projects are scanned. Page 3 is the total credits required, in bundles, what they are for, and the assumptions. It is drawn in your browser: nothing is sent anywhere. **PDF** beside each saved report on the **Projection reports** tab makes the same summary for that report.
 
 - The file is named after the customer and the time it was made, on your clock: `Globex_Cx-credits-projection_2026-10-09_2047.html`.
 - It is one HTML file with everything in it: no scripts and nothing loaded from anywhere. Open it in any browser, or print it to PDF (always in the light theme).

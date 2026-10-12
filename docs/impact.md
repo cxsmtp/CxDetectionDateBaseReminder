@@ -38,10 +38,12 @@ The numbers are deliberately conservative, so nobody can call them inflated:
 | Minutes to fix one finding by hand | 120 | Hours saved by AI Remediation |
 | Hourly cost of an engineer | 0 | Money figures (0: hours only) |
 | Price of one credit | 0 | The cost of credits, subtracted from the value (0: not subtracted) |
-| Currency | USD | Shown next to every amount |
+| Currency | USD | Every amount is written in it, the way that currency is written (₹1,23,457, ¥1,235, €1,234). Chosen from every country's currency |
 | Monthly summary to | none | Who gets the summary by email on the first day of each month, for the month before. Nobody: it is not sent |
 
 Changing any of them updates every figure at once, including past periods. People with the **AI Triage & Remediation rules** permission can change them.
+
+**Your own currency.** Anyone can see the money in a currency of their own: **Currency →** on the Impact page opens **Your profile → Currency**. Choose the currency and give the exchange rate from the organisation's, for example 1 USD = 83.2 INR. The hourly cost and the price of a credit are converted at that rate. The Impact page and the summary you download then show your currency, and say which rate was used. Without a rate, amounts stay in the organisation's currency. The monthly email always uses the organisation's currency.
 
 ## Where the readings come from
 

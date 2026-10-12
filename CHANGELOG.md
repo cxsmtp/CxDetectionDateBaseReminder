@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.69 | 497/s, 0 (main 497, 0) | 7.5 s | 784 ms | 628 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.68 | 486/s, 0 (main 487, 0) | 7.9 s | 984 ms | 612 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.67 | 508/s, 0 (main 505, 0) | 6.7 s | 816 ms | 602 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.66 | 514/s, 0 (main 501, 0) | 6.1 s | 243 ms | 596 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -54,6 +55,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.69 — 2026-10-12 12:36 UTC · [#92](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/92)
+
+- **Through your company's proxy.** Settings → Network & proxy takes the proxy (with a user name and password if it asks for one, and the hosts that skip it). The usual `HTTPS_PROXY` / `NO_PROXY` work too. Saving restarts the server for a few seconds to use it, and every HTTPS connection then goes through it.
+- **A check, and a sheet for the network team.** **Check the connection** tries the way to Checkmarx One step by step (proxy, connection, certificate, Checkmarx One) before anything is saved, and says what to ask for; a proxy that does not let Checkmarx One through is not saved. The same page lists every connection the server makes or takes, with the one proxy rule Checkmarx One needs, to copy or download for a ticket.
+- **A PDF summary to present.** Once the projection report is made, **Download PDF summary** gives three slides: triage & remediation with the backlog forecast and what is still to come, Checkmarx Fusion, and the total credits needed. It is drawn in the browser, in the page's language.
+- **Projections that allow for AI.** In the Cx Credits Calculator, findings still to come arrive at the last 3 months' pace in the first month, then 2% fewer each month (changeable, 0 to 20%), so 12 months bring about 10.9 months' worth instead of 12. Fusion finds 5% more by default instead of 20% (customers saved on the old default move to 5%; typed values are kept), and each Fusion group's model list names the default model (*Default: Opus 4.7 · 2.5*).
+- **Every country's currency, and your own.** The Impact currency is picked from every country's currency, and amounts are written the way each one is written (₹1,23,457, ¥1,235). Anyone can choose their own currency under Your profile → Currency, with an exchange rate; their Impact page and downloaded summary then use it and say which rate. **Currency →** on the Impact page goes there.
+- **A calculator that is easier to read.** The matrix of every figure is replaced by **Debt added against fixes**: one sentence on whether the backlog grows or shrinks each month, the two on one timeline as a share of the backlog, and a short table by severity. The estimates sit with their controls: each severity's box shows what it comes to. Applications and Projects are chips at the top, as on the Dashboard; More filters holds the rest. Customize per severity sits right under the projection, open.
+- **In every language.** The new wording (121 entries), and the certificate wording from MZ-01.00.68, is in all fourteen other languages, each reviewed twice.
+- **Status.** 3000 people at once on 2 vCPU: 497 requests a second with none failed (main 497, 0), report opens 7.5 s at p95 (main 11.5 s), triage polls 784 ms; 628 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.68 — 2026-10-12 11:06 UTC · [#91](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/91)
 

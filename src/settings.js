@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { DEFAULT_AUTOMATION, mergeAutomation } from './automation-config.js';
+import { validCurrency } from './money.js';
 import { DEFAULT_HANDS_OFF, mergeHandsOff } from './hands-off.js';
 import { mergeFeatures } from './features.js';
 import { DEFAULT_LINK_TEMPLATES, PREVIOUS_LINK_DEFAULTS } from './links.js';
@@ -196,8 +197,8 @@ export function mergeImpact(current, incoming = null) {
     out[key] = value;
   }
   if ('currency' in incoming) {
-    const currency = String(incoming.currency ?? '').trim().toUpperCase();
-    if (!/^[A-Z]{3}$/.test(currency)) throw Object.assign(new Error('Impact: the currency must be a three-letter code, such as USD or EUR.'), { status: 400 });
+    const currency = validCurrency(incoming.currency);
+    if (!currency) throw Object.assign(new Error('Impact: choose a currency from the list (a three-letter code, such as USD, EUR or INR).'), { status: 400 });
     out.currency = currency;
   }
   if ('monthlyTo' in incoming) out.monthlyTo = parseAddressList(incoming.monthlyTo).slice(0, 50);

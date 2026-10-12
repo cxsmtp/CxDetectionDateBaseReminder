@@ -90,13 +90,14 @@ What is translated, and what is not:
 - While something runs, the status line says plainly what is happening in every language other than English.
 - The interactive report is in your language too (see [The emailed report](#the-emailed-report)); reminder emails stay in English.
 
-**Your profile.** Open your name at the top right, then **Your profile** (also Settings → Your profile). Every person has one, whatever their role:
+<a id="your-profile"></a>**Your profile.** Open your name at the top right, then **Your profile** (also Settings → Your profile). Every person has one, whatever their role:
 - **Picture:** PNG, JPEG or WebP. It is cut to a square and made small in your browser before it is saved.
 - **Email, role and last sign-in:** shown for reference. An administrator manages these under People & roles.
 - **Name:** how you appear in this app.
 - **Language:** the same choice as the globe.
 - **Time zone:** picked up from your computer by default. Untick **Use this computer's time zone** to choose another. Dates and times on every page are shown in it.
 - **Programming languages:** the languages you work in.
+- **Currency:** any country's currency, for money on the Impact page and in the summary you download. Choose it, then give the exchange rate from the organisation's currency, for example **1 USD = 83.2 INR**. Until you give a rate, amounts stay in the organisation's currency. Only you see your choice.
 
 Changes save as you make them and are recorded in the audit log. A time zone or first language picked up from your computer is saved without an audit entry.
 
@@ -510,6 +511,9 @@ The server's own connection to Checkmarx One. It is used for:
 
 Only Admins of the first tenant change trusted certificates, as they apply to the whole server. Each change is in the audit log.
 
+### Network & proxy (Admin)
+How the server reaches Checkmarx One: directly, or through your company's proxy (**Proxy server**, a user name and password if it asks for one, and the hosts that skip it). **Check the connection** tries it step by step before saving (Proxy, Connection, Certificate, Checkmarx One) and says where it stops and what to do; **Save and restart** saves it only when Checkmarx One can be reached through it, then restarts the server for a few seconds to use it. Below, **What your network team needs to allow** lists every connection the server makes or takes, from its own settings, with **Copy for your network team** and **Download (.txt)**. Windows-integrated sign-in to the proxy (NTLM/Kerberos) is not supported. Details: [Network and proxy](network.md).
+
 ### Email server (SMTP) (Admin)
 | Field | Meaning |
 | --- | --- |
@@ -607,7 +611,7 @@ The panel shows:
 | --- | --- |
 | Minutes to triage one finding by hand | 20 by default: the hours AI Triage saved. |
 | Minutes to fix one finding by hand | 120 by default: the hours AI Remediation saved. |
-| Hourly cost of an engineer, price of one credit, currency | Money figures; leave them at 0 to show hours only. |
+| Hourly cost of an engineer, price of one credit, currency | Money figures; leave them at 0 to show hours only. The currency is chosen from every country's currency. Each person can see the amounts in their own currency under [Your profile](#your-profile). |
 | Monthly summary to | Who gets the summary on the first day of each month, for the month before. Nobody: not sent. |
 
 ### Branding
@@ -940,7 +944,8 @@ What AI Triage and AI Remediation did for the backlog. Open it from **Prove → 
 | **Period** | The last 30 or 90 days, the last 12 months, or everything since the first reading. |
 | **Executive** tab | **Hours saved**, their value after the cost of credits, **Noise removed** (findings AI Triage showed not exploitable), **Fixed with AI** (with fixes by hand next to it), the **Security debt** change and when it reaches zero at this pace, and **Credits per finding closed**. Below: the security debt week by week (point at the chart for each week, or **Show as a table**), and **Time to fix, AI-assisted and by hand**, by severity. **How these are worked out** lists every assumption. |
 | **Detail** tab | Every project: checked by AI, not exploitable, fixed with AI and by hand, median days to fix, credits, credits per finding closed, and what is open now. **Export CSV**. **Monthly summary by email**: whether it is on, and **Email last month's summary now**. |
-| **Download the one-page summary** | The Executive figures and chart as one page, to print or save as PDF. |
+| **Download the one-page summary** | The Executive figures and chart as one page, to print or save as PDF, in your currency. |
+| **Currency →** | Opens Your profile → Currency: see the amounts in your own currency, at the exchange rate you give. The page then says which rate it used. |
 
 A fix counts only once Checkmarx One no longer reports the finding, and rows that share one result count once. Readings start when this version is installed; the page says so when the period begins earlier.
 
@@ -1060,19 +1065,19 @@ Send it to whoever maintains CxMissionZero when something goes wrong. **It captu
 
 **Cx Credits Calculator** (menu group **Plan**; on a phone, through Jump to) works out the credits a customer needs, from their own data, and makes a report of it. It is for Admins, and for any role an Admin gives the **Cx Credits Calculator** permission to. Each **customer** is saved on this server as you go: **New customer** starts one, named after your organisation (the name given with the terms) while no customer has it, **Customer** switches between them, **Delete customer** removes one (its reports stay). The first time, the calculator starts that customer by itself.
 
-**One click.** **Generate projection report** reads Checkmarx One first when nothing is read yet, then makes the report with every default in place. **Email the report** sends it, in the page's language, to up to 10 addresses (through Settings → Email server). **Start again** clears every choice made for the customer and reads Checkmarx One again (the Fusion models stay).
+**One click.** **Generate projection report** reads Checkmarx One first when nothing is read yet, then makes the report with every default in place. **Email the report** sends it, in the page's language, to up to 10 addresses (through Settings → Email server). Once it is made, **Download PDF summary** gives three pages to present: triage & remediation with the backlog forecast, Checkmarx Fusion, and the total credits required. **Start again** clears every choice made for the customer and reads Checkmarx One again (the Fusion models stay).
 
 **Read from Checkmarx One** (at the top) fills both tabs from the tenant this server is connected to: every project with its lines of code, criticality, applications, groups, who last scanned it and its completed scans in the last year (counted project by project), and the backlog and fixes week by week over the last 52 weeks, from each scan's results by severity. It runs in the background with a progress bar; a customer with nothing read yet reads by itself when it is opened.
 
-**Narrow the projects** counts only some projects, for both parts: by **Applications**, **Groups**, **Project names** (wildcards: `payments-*`, `*-api`), **Last scanned by**, how often they are scanned, and criticality. The backlog of just those projects is added up from the last read, without reading Checkmarx One again.
+**Applications** and **Projects**, at the top, count only some projects, for both parts: type a name and pick it (Enter adds every name that contains the text); each becomes a chip. These applications' projects count, plus the projects picked. **More filters** narrows further by **Groups**, **Project names** (wildcards: `payments-*`, `*-api`), **Last scanned by**, how often they are scanned, and criticality. The backlog of just those projects is added up from the last read, without reading Checkmarx One again.
 
-**Triage & remediation.** The line at the top says where the figures came from and when. For a prospect whose tenant this server is not connected to, **Use the two Checkmarx One exports instead** takes their **Total Vulnerabilities by Severity** and **Fixed Vulnerabilities by Severity** exports (or **Load sample data**). **What the projection counts** shows, over the **projection period** (12 months unless chosen at the top): every open finding today, **+** the findings still to come at the pace of the last 3 months, **+** 20% more found by Fusion when Fusion is in the projection, **−** 10% fewer false positives reported with FAE, **=** the findings to triage, and the credits (backlog today + ahead). Change the three assumptions under it, and the trend period (3, 6, 9 or 12 months). **Customize per severity** sets how many to triage, the false positives expected, and the credits per triage and per remediation (1 and 3 to start with), then **Apply**. The page also shows the backlog forecast, the last 12 months week by week, a small chart per severity, and the final matrix. **Customer view** hides the editing controls for showing the customer.
+**Triage & remediation.** The line at the top says where the figures came from and when. For a prospect whose tenant this server is not connected to, **Use the two Checkmarx One exports instead** takes their **Total Vulnerabilities by Severity** and **Fixed Vulnerabilities by Severity** exports (or **Load sample data**). **What the projection counts** shows, over the **projection period** (12 months unless chosen at the top): every open finding today, **+** the findings still to come at the pace of the last 3 months, 2% fewer each month as teams adopt AI, **+** 5% more found by Fusion when Fusion is in the projection, **−** 10% fewer false positives reported with FAE, **=** the findings to triage, and the credits (backlog today + ahead). Change the four assumptions under it, and the trend period (3, 6, 9 or 12 months). **Customize per severity**, right under it, sets how many to triage, the false positives expected, and the credits per triage and per remediation (1 and 3 to start with), then **Apply**. Each severity's box ends with what it comes to (to triage, to remediate, credits). **Debt added against fixes** then says in one sentence whether the backlog grows or shrinks each month and by how much, with the two side by side on a timeline over the last 12 months and a short table by severity (open now, added a month, fixed a month, change a month). The page also shows the backlog forecast and a small chart per severity. **Customer view** hides the editing controls for showing the customer.
 
 **Fusion.** The projects in the scope, with their lines of code, criticality and how often each was scanned in the last year, the most often scanned first, 100 at a time. Each project is rounded up to whole 10K LOC units on its own, and a scan costs its model's credits per 10K LOC. Add the **Fusion models** and their rates as Checkmarx One shows them (when the tenant says them, they are filled in, with the credits remaining). Set a **default** number of scans and model, then numbers for each **scan frequency** (they start at the scans each frequency runs today; **Back to the suggested numbers** puts them back) and each **criticality**, and choose which wins when both set one. A number or model typed on a project wins over everything. **Download CSV** downloads the table.
 
 **Credits required.** The strip at the top adds both tabs together. Type an **Extra credits (%)** to add a margin on top; **Total credits required** includes it. **Bundles** is the total ÷ **Credits per bundle** (10,000), rounded up to a whole bundle.
 
-**Projection reports.** **Generate projection report** downloads one HTML report, named after the customer and the time (for example `Globex_Cx-credits-projection_2026-10-09_2047.html`), in your organisation's name, and keeps it on the **Projection reports** tab to download again. The report says the answer first (the total credits and bundles, and what they are for), then that the figures were read live from Checkmarx One and when, how the number was reached, the assumptions, and last every figure. It is in the language the page is in, has **Auto**, **Light** and **Dark** themes at the top, and keeps long names inside its tables.
+**Projection reports.** **Generate projection report** downloads one HTML report, named after the customer and the time (for example `Globex_Cx-credits-projection_2026-10-09_2047.html`), in your organisation's name, and keeps it on the **Projection reports** tab to download again. The report says the answer first (the total credits and bundles, and what they are for), then that the figures were read live from Checkmarx One and when, how the number was reached, the assumptions, and last every figure. It is in the language the page is in, has **Auto**, **Light** and **Dark** themes at the top, and keeps long names inside its tables. **Download PDF summary** appears once the report is made: three 16:9 pages to present, in the page's language. Page 1 is triage & remediation: the backlog today, the findings still to come, to triage, the credits, and the backlog trend and forecast, with debt added against fixes in one line. Page 2 is Checkmarx Fusion: projects, lines of code, scans and credits, and the credits by how often projects are scanned. Page 3 is the total credits required, in bundles, what they are for, and the assumptions. It is drawn in your browser: nothing is sent anywhere. **PDF** beside each saved report on the **Projection reports** tab makes the same summary for that report.
 
 More: [Cx Credits Calculator](credit-projections.md).
 
@@ -1104,7 +1109,7 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.68** | 486/s, 0 failed (main 487, 0) | 7.9 s | 984 ms | 612 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.69** | 497/s, 0 failed (main 497, 0) | 7.5 s | 784 ms | 628 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.60 | 505/s, 0 failed (main 499, 0 failed) | 6.9 s | 501 ms | 566 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.59 | 513/s, 0 failed (main 518, 0 failed) | 6.2 s | 229 ms | 565 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.58 | 502/s, 0 failed (main 514, 31 failed) | 11.8 s | 648 ms | 559 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |

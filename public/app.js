@@ -1917,6 +1917,7 @@ function renderSettings() {
   if (!s) return;
 
   loadIntegration();
+  loadNetwork();
 
   $('smtp-host').value = s.smtp.host;
   $('smtp-port').value = s.smtp.port;
@@ -1989,7 +1990,7 @@ function renderSettings() {
   $('impact-fix-min').value = String(impact.fixMinutes ?? 120);
   $('impact-rate').value = String(impact.hourlyRate ?? 0);
   $('impact-price').value = String(impact.creditPrice ?? 0);
-  $('impact-currency').value = impact.currency ?? 'USD';
+  fillCurrencies($('impact-currency'), impact.currency || 'USD');
   $('impact-monthly-to').value = (impact.monthlyTo ?? []).join(', ');
   $('smtp-password').value = '';
 
@@ -2354,7 +2355,7 @@ function settingsPayload() {
       ]
         .filter(([, value]) => String(value).trim() !== '' && Number.isFinite(Number(value)))
         .map(([key, value]) => [key, Number(value)])
-        .concat(/^[A-Za-z]{3}$/.test($('impact-currency').value.trim()) ? [['currency', $('impact-currency').value.trim()]] : [])
+        .concat($('impact-currency').value ? [['currency', $('impact-currency').value]] : [])
         .concat([['monthlyTo', $('impact-monthly-to').value]]),
     ),
     support: supportSettings(),
@@ -2486,7 +2487,7 @@ const NOT_SAVED = new Set(['test-to', 'env-file', 'brand-logo-file', 'brand-icon
 
 /** Which save an edit belongs to: the settings form, automation, the integration draft, or none. */
 function autosaveKind(el) {
-  if (!el?.id || NOT_SAVED.has(el.id) || el.disabled || el.closest('[hidden]')?.id === 'probe-results' || el.closest('#set-https') || el.closest('#set-mybrand') || el.closest('#set-handsoff')) return '';
+  if (!el?.id || NOT_SAVED.has(el.id) || el.disabled || el.closest('[hidden]')?.id === 'probe-results' || el.closest('#set-https') || el.closest('#set-mybrand') || el.closest('#set-handsoff') || el.closest('#set-profile')) return '';
   if (INTEGRATION_FIELDS.has(el.id)) return 'draft';
   if (el.closest('#set-automation')) return 'automation';
   if (el.matches('input, select, textarea')) return 'settings';
@@ -7978,6 +7979,131 @@ $('test-report-server').addEventListener('click', async () => {
 // Checkmarx One integration (Settings): the server's own connection
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Settings → Network & proxy: the proxy, a check that says where a connection stops,
+// and what the network team needs to allow (src/network.js)
+// ---------------------------------------------------------------------------
+
+const network = { text: '' };
+
+async function loadNetwork() {
+  if (!$('network-form')) return;
+  let info;
+  try {
+    info = await api('/api/network');
+  } catch {
+    return;
+  }
+  network.text = info.text;
+  const p = info.proxy;
+  const now = $('network-now');
+  if (p) {
+    now.textContent = `${p.source === 'environment' ? 'Using the proxy from the container (HTTPS_PROXY)' : 'Using the proxy'} ${p.url}${p.username ? `, signing in as ${p.username}` : ''}.${p.running ? '' : info.supervised ? ' Restarting to use it…' : ' Restart the server to use it.'}`;
+  } else {
+    now.textContent = 'Connecting directly, without a proxy.';
+  }
+  if (info.changedAt && !p?.running && !info.supervised) now.textContent += ' Restart the server to use the change.';
+  if (p?.source === 'settings') {
+    $('network-url').value = p.url;
+    $('network-user').value = p.username ?? '';
+    $('network-password').placeholder = p.hasPassword ? 'Saved: leave blank to keep it' : '';
+    $('network-noproxy').value = p.noProxy ?? '';
+  }
+  $('network-remove').hidden = p?.source !== 'settings';
+  $('network-target').placeholder = info.targets?.[0]?.host ?? 'ind.iam.checkmarx.net';
+  $('network-rows').innerHTML = info.requirements
+    .map((r) => `<tr><td>${escapeHtml(r.direction === 'In' ? 'Incoming' : 'Outgoing')}</td><td>${escapeHtml(r.what)}</td><td translate="no">${escapeHtml(r.host)}</td><td>${escapeHtml(r.port)}</td><td>${escapeHtml(r.route)}</td></tr>`)
+    .join('');
+}
+
+const networkBody = () => ({
+  url: $('network-url').value.trim(),
+  username: $('network-user').value.trim(),
+  password: $('network-password').value,
+  noProxy: $('network-noproxy').value.trim(),
+  target: $('network-target').value.trim(),
+});
+
+/** The steps of a check, each with a tick or a cross: where the connection stopped. */
+function showNetworkSteps(results) {
+  const names = { proxy: 'Proxy', tunnel: 'Connection', certificate: 'Certificate', answer: 'Checkmarx One' };
+  const list = $('network-steps');
+  list.hidden = !results?.length;
+  list.innerHTML = (results ?? [])
+    .map((r) => `<li><strong translate="no">${escapeHtml(r.host)}</strong><ul>${r.steps
+      .map((s) => `<li class="${s.ok ? 'ok' : 'bad'}"><span class="net-mark" aria-hidden="true">${s.ok ? '✓' : '✕'}</span> <span class="net-name">${escapeHtml(names[s.step] ?? s.step)}</span> ${escapeHtml(s.detail)}${!s.ok ? networkAdvice(s) : ''}</li>`)
+      .join('')}</ul></li>`)
+    .join('');
+}
+
+/** What to do when a step failed. */
+function networkAdvice(step) {
+  let text = '';
+  if (step.step === 'proxy') text = 'Check the proxy address and port with your network team.';
+  else if (step.step === 'tunnel' && step.status === 407) text = 'The proxy wants a sign-in: give a user name and password, or ask for this server to be allowed by its IP address.';
+  else if (step.step === 'tunnel' && step.status === 403) text = 'The proxy does not allow this host: ask your network team to allow *.checkmarx.net on port 443 for this server.';
+  else if (step.step === 'tunnel') text = 'Ask your network team to allow this host on port 443 for this server, or set a proxy if one is required.';
+  else if (step.step === 'certificate') text = 'Usually a proxy that inspects HTTPS: connect under Settings → Checkmarx One and click Trust and connect, or ask for an exception from inspection.';
+  return text ? `<div class="hint">${escapeHtml(text)}</div>` : '';
+}
+
+$('network-check')?.addEventListener('click', async () => {
+  setStatus('network-status', $('network-url').value.trim() ? 'Checking through the proxy…' : 'Checking the direct connection…');
+  try {
+    const done = await api('/api/network/check', { method: 'POST', body: JSON.stringify(networkBody()) });
+    showNetworkSteps(done.results);
+    setStatus('network-status', done.ok ? 'Checkmarx One can be reached this way.' : 'Checkmarx One could not be reached this way: see the steps below.', done.ok ? 'ok' : 'error');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('network-status', error);
+  }
+});
+
+$('network-form')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  setStatus('network-status', 'Checking through the proxy before saving…');
+  try {
+    const done = await api('/api/network', { method: 'PUT', body: JSON.stringify(networkBody()) });
+    showNetworkSteps(done.results);
+    $('network-password').value = '';
+    setStatus('network-status', done.restarting ? 'Saved. The server restarts to use the proxy; this page reconnects in a few seconds.' : 'Saved. Restart the server to use the proxy.', 'ok');
+    loadNetwork();
+  } catch (error) {
+    if (handleAuthLoss(error)) return;
+    showNetworkSteps(error.body?.results);
+    showError('network-status', error);
+  }
+});
+
+$('network-remove')?.addEventListener('click', async () => {
+  if (!confirm('Stop using the proxy? This server then connects directly, which works only if your network allows it.')) return;
+  try {
+    const done = await api('/api/network', { method: 'DELETE' });
+    for (const id of ['network-url', 'network-user', 'network-password', 'network-noproxy']) $(id).value = '';
+    setStatus('network-status', done.restarting ? 'Removed. The server restarts to connect directly.' : 'Removed. Restart the server to connect directly.', 'ok');
+    loadNetwork();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('network-status', error);
+  }
+});
+
+$('network-copy')?.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(network.text);
+    setStatus('network-copy-status', 'Copied.', 'ok');
+  } catch {
+    setStatus('network-copy-status', 'Copying is blocked here: use Download.', 'error');
+  }
+});
+
+$('network-download')?.addEventListener('click', () => {
+  const url = URL.createObjectURL(new Blob([network.text], { type: 'text/plain;charset=utf-8' }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: 'missionzero-network-requirements.txt' });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
 /** Settings → Checkmarx One → Trusted certificates: the ones added here, each removable. */
 async function loadTrust() {
   const list = $('trust-list');
@@ -8744,8 +8870,8 @@ $('credit-allocations').addEventListener('click', (event) => {
 const impact = { data: null, asTable: false };
 const SEV_LABEL = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' };
 const num1 = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 1 }));
-const priceOf = (n, currency) => `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}`;
-const cashOf = (n, currency) => (n === null || n === undefined ? '—' : `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${currency}`);
+const priceOf = (n, currency) => moneyOf(n, currency, 2);
+const cashOf = (n, currency) => moneyOf(n, currency, 0);
 
 async function loadImpact() {
   const days = $('impact-days').value;
@@ -8768,12 +8894,18 @@ function renderImpact() {
   note.textContent = !d.since
     ? 'No readings yet. Figures start with the next Dashboard fetch (with no date window) or tracked report refresh.'
     : `Readings start on ${d.since.slice(0, 10)}: the period before that is not included.`;
+  // Figures from this person's own profile: said once, with where to change them.
+  const mine = $('impact-currency-note');
+  mine.hidden = !d.personal;
+  mine.innerHTML = d.personal
+    ? `<span>Worked out with your own figures from your profile.</span> <a href="#/settings/profile">Change them →</a>`
+    : '';
   const tile = (label, value, sub, hero = false, tone = '') => `<div class="impact-tile${hero ? ' hero' : ''}"><span class="label">${label}</span><span class="value${tone ? ` ${tone}` : ''}">${value}</span><span class="sub">${sub}</span></div>`;
   const debt = d.debt;
   $('impact-tiles').innerHTML = [
     tile('Hours saved', `${num1(d.hours.total)} h`, `<span>${num1(d.hours.triage)} h triage</span> · <span>${num1(d.hours.fix)} h fixing</span>`, true),
     m.value === null
-      ? tile('Value of that time', '—', `<a href="#/settings/ai">Set an hourly cost</a>`)
+      ? tile('Value of that time', '—', `<a href="#/settings/profile">Set an hourly cost</a>`)
       // Amounts carry their currency, so they stay as they are; the words around them are translated on their own.
       : tile(m.cost === null ? 'Value of that time' : 'Saved, after credits', `<span translate="no">${escapeHtml(cashOf(m.net ?? m.value, m.currency))}</span>`, m.cost === null ? '<span>before the cost of credits</span>' : `<span><span translate="no">${escapeHtml(cashOf(m.value, m.currency))}</span> <span>saved</span></span> · <span><span translate="no">${escapeHtml(cashOf(m.cost, m.currency))}</span> <span>in credits</span></span>`),
     tile('Noise removed', num1(d.noiseRemoved), '<span>findings AI Triage showed not exploitable</span>'),
@@ -8796,10 +8928,10 @@ function renderImpact() {
     'Time to fix: days from first detection until Checkmarx One no longer reports it. AI-fixed and fixed by hand are compared over the same period.',
   ].map((line) => `<li>${line}</li>`).join('');
   renderImpactProjects();
-  const state = $('impact-monthly-state');
-  if (state) {
+  const monthly = $('impact-monthly-state');
+  if (monthly) {
     // Each sentence its own piece, so each is translated whole.
-    state.innerHTML = d.monthlyOn
+    monthly.innerHTML = d.monthlyOn
       ? `<span>On: emailed on the first day of each month, for the month before.</span> <span>Recipients: ${(d.monthlyTo ?? []).length}.</span>${d.lastSent ? ` <span>Last sent: ${escapeHtml(d.lastSent)}.</span>` : ''}`
       : '<span>Off: add who gets it under Settings → AI & credits.</span>';
     $('impact-send').disabled = !d.monthlyOn;
@@ -9970,6 +10102,68 @@ function saveProfile(patch, { silent = false } = {}) {
 
 const PROGRAMMING = ['Apex', 'C', 'C++', 'C#', 'COBOL', 'Dart', 'Go', 'Groovy', 'Java', 'JavaScript', 'Kotlin', 'Objective-C', 'Perl', 'PHP', 'PL/SQL', 'Python', 'Ruby', 'Rust', 'Scala', 'Swift', 'TypeScript', 'VB.NET', 'Infrastructure as code'];
 
+// Currencies: every one the browser knows (the server checks against the same list), named in
+// the page's language, and amounts written the way that currency is written ("₹1,23,457").
+function currencyCodes() {
+  try {
+    return Intl.supportedValuesOf('currency');
+  } catch {
+    return ['AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'EUR', 'GBP', 'HKD', 'IDR', 'ILS', 'INR', 'JPY', 'KRW', 'MYR', 'SAR', 'SGD', 'THB', 'TWD', 'USD', 'VND', 'AED'];
+  }
+}
+
+function currencyName(code) {
+  try {
+    return new Intl.DisplayNames([currentLanguage(), 'en'], { type: 'currency' }).of(code) || code;
+  } catch {
+    return code;
+  }
+}
+
+/** The select's options: every currency as "INR · Indian Rupee" (`first`: an empty choice on top). */
+function fillCurrencies(select, value, { first = '' } = {}) {
+  const codes = currencyCodes();
+  const list = value && !codes.includes(value) ? [value, ...codes] : codes;
+  select.innerHTML = (first ? `<option value="">${escapeHtml(first)}</option>` : '')
+    + list.map((code) => `<option value="${escapeHtml(code)}" translate="no">${escapeHtml(code)} · ${escapeHtml(currencyName(code))}</option>`).join('');
+  select.value = value;
+}
+
+function moneyOf(n, currency, digits) {
+  if (n === null || n === undefined || !Number.isFinite(Number(n))) return '—';
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: digits }).format(Number(n));
+  } catch {
+    return `${Number(n).toLocaleString(undefined, { maximumFractionDigits: digits })} ${currency}`;
+  }
+}
+
+/** The figures in Your profile → Your Impact figures, as the page holds them (empty: the organisation's). */
+function personalImpact() {
+  const out = { currency: $('pf-currency').value };
+  for (const input of document.querySelectorAll('#pf-impact [data-pi]')) out[input.dataset.pi] = input.value.trim() === '' ? null : Number(input.value);
+  return out;
+}
+
+/** Your profile → Your Impact figures: yours where given, the organisation's in grey where not. */
+function renderPersonalImpact(profile) {
+  const org = state.me?.organisationImpact ?? {};
+  const mine = profile.impact ?? {};
+  const select = $('pf-currency');
+  if (document.activeElement !== select) fillCurrencies(select, mine.currency || '', { first: "The organisation's currency" });
+  const own = Boolean(mine.currency) && mine.currency !== org.currency;
+  for (const input of document.querySelectorAll('#pf-impact [data-pi]')) {
+    const key = input.dataset.pi;
+    // In a currency of their own, the organisation's money figures (in another currency) do not apply.
+    const money = key === 'hourlyRate' || key === 'creditPrice';
+    input.placeholder = money && own ? '0' : String(org[key] ?? '');
+    if (document.activeElement !== input) input.value = mine[key] ?? '';
+  }
+  $('pf-impact-hint').innerHTML = own
+    ? `<span>In a currency of your own, give your own hourly cost and price of one credit. The organisation's are in:</span> <b translate="no">${escapeHtml(org.currency || 'USD')}</b>`
+    : `<span>The organisation's currency:</span> <b translate="no">${escapeHtml(org.currency || 'USD')}</b>`;
+}
+
 /** "Asia/Tokyo (UTC+09:00)". */
 function profileZoneLabel(zone) {
   try {
@@ -10012,6 +10206,7 @@ function renderProfile() {
   zones.value = profileZone(profile) || 'UTC';
   zones.disabled = auto;
   const picked = new Set(profile.programmingLanguages ?? []);
+  renderPersonalImpact(profile);
   $('pf-langs').innerHTML = PROGRAMMING.map((name) => `<label${name === 'Infrastructure as code' ? '' : ' translate="no"'}><input type="checkbox" value="${escapeHtml(name)}"${picked.has(name) ? ' checked' : ''} /> ${escapeHtml(name)}</label>`).join('');
 }
 
@@ -10031,6 +10226,14 @@ function renderProfile() {
     saveProfile(auto ? { timeZoneAuto: true, timeZone: deviceTimeZone() } : { timeZoneAuto: false, timeZone: $('pf-tz').value });
   });
   $('pf-tz').addEventListener('change', () => saveProfile({ timeZoneAuto: false, timeZone: $('pf-tz').value }));
+  $('pf-currency').addEventListener('change', () => saveProfile({ impact: personalImpact() }));
+  let impactTimer = null;
+  $('pf-impact').addEventListener('input', (event) => {
+    if (!event.target.dataset.pi) return;
+    clearTimeout(impactTimer);
+    if (!event.target.checkValidity()) return;
+    impactTimer = setTimeout(() => saveProfile({ impact: personalImpact() }), 700);
+  });
   $('pf-langs').addEventListener('change', () => {
     saveProfile({ programmingLanguages: [...$('pf-langs').querySelectorAll('input:checked')].map((box) => box.value) });
   });

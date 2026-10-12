@@ -255,7 +255,7 @@ with `company-certificates.pem` copied into `C:\mz-certs`.
 
 **MissionZero could not reach Checkmarx One.**
 1. Ask your network team to allow outgoing HTTPS (port 443) from MissionZero's server to your Checkmarx One addresses (the IAM and API hosts, *.checkmarx.net on the cloud).
-2. MissionZero connects directly, not through a web proxy: if outgoing traffic must go through one, ask for these hosts to be allowed directly.
+2. If outgoing traffic must go through a company proxy, set it under Settings → Network & proxy and click Check the connection: it says where the connection stops ([network](network.md)).
 3. If it worked before, check https://status.checkmarx.com and try again in a few minutes.
 
 **The tenant name or IAM address is wrong.**

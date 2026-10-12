@@ -128,6 +128,23 @@ export function ratesChart(weekly, palette = PAGE_PALETTE) {
   );
 }
 
+/**
+ * Debt added against fixes, week by week (4-week average), each as a share of the backlog a month:
+ * while the red line is above the green one the backlog grows; the gap is how fast.
+ */
+export function debtFixChart(weekly, palette = PAGE_PALETTE) {
+  const MONTH = 4.345;
+  const monthly = (v) => (v === null || v === undefined || !Number.isFinite(v) ? null : Math.round(v * MONTH * 10) / 10);
+  return lineChart(
+    weekly.map((w) => ({ label: weekLabel(w.date), added: monthly(w.addedRate4 ?? w.addedRate), fixed: monthly(w.fixedRate4 ?? w.fixedRate) })),
+    [
+      { key: 'added', colour: palette.debtRate, label: words(palette, 'Debt added') },
+      { key: 'fixed', colour: palette.fixRate, label: words(palette, 'Fixed') },
+    ],
+    { palette, height: 240, suffix: '%', compactAxis: false, title: words(palette, 'Debt added against fixes, % of the backlog a month') },
+  );
+}
+
 /** Backlog by month, then over the projection period: as it goes, and with the plan. Old forecasts (forecast/withPlan) still draw. */
 export function forecastChart(points, palette = PAGE_PALETTE) {
   const divider = points.findIndex((p) => p.actual === null || p.actual === undefined);

@@ -8,7 +8,7 @@
 // Checkmarx One data, then how the number was reached, the assumptions, and last every figure.
 
 import { FREQUENCIES, SEVERITIES, cleanScope, creditSummary } from './model.js';
-import { SEVERITY_COLOURS, backlogTrendChart, forecastChart, monthLabel, ratesChart, severityChart, severityCharts } from './charts.js';
+import { SEVERITY_COLOURS, backlogTrendChart, debtFixChart, forecastChart, monthLabel, ratesChart, severityChart, severityCharts } from './charts.js';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const FROM = { default: 'Default', frequency: 'Scan frequency', criticality: 'Criticality', project: 'Set for the project' };
@@ -23,7 +23,7 @@ export function reportFileName(customer, at = new Date()) {
 }
 
 /** Everything the report says, in one language: `w('… {0} …', n)` is the wording, escaped, with the figures in. */
-function wording({ t = (text) => text, lang = 'en' } = {}) {
+export function wording({ t = (text) => text, lang = 'en' } = {}) {
   let locale;
   try {
     locale = new Intl.NumberFormat(lang).resolvedOptions().locale;
@@ -46,7 +46,7 @@ const table = (html, cls = '') => `<div class="scroll"><table${cls ? ` class="${
  * The triage & remediation figures, whichever version made them: a report from before MZ-01.00.67
  * counted the backlog chosen only (nothing ahead).
  */
-function trFigures(tr) {
+export function trFigures(tr) {
   const T = tr.totals ?? {};
   const v = (key, fallback = 0) => (Number.isFinite(T[key]) ? T[key] : fallback);
   return {
@@ -72,6 +72,7 @@ function scopeLine(source, L) {
   const sc = cleanScope(source.scope);
   const parts = [
     sc.applications.length && `${w('Applications')}: ${esc(sc.applications.join(', '))}`,
+    sc.projects.length && `${w('Projects')}: ${esc((source.projectNames ?? sc.projects).slice(0, 20).join(', '))}${sc.projects.length > 20 ? ` ${esc(w('and {0} more', num(sc.projects.length - 20)))}` : ''}`,
     sc.groups.length && `${w('Groups')}: ${esc(sc.groups.join(', '))}`,
     sc.names.length && `${w('Project names')}: ${esc(sc.names.join(', '))}`,
     sc.initiators.length && `${w('Last scanned by')}: ${esc(sc.initiators.join(', '))}`,
@@ -141,7 +142,7 @@ function story(data, L) {
       <h3>${w('The next {0} months', num(months))}</h3>
       <table class="calc">
         <tr><td>${w('Backlog to triage')}</td><td>${num(f.selected)}</td></tr>
-        <tr><td>${w('Still to come, at the current pace')}</td><td>+${num(f.future)}</td></tr>
+        <tr><td>${tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer each month with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace')}</td><td>+${num(f.future)}</td></tr>
         <tr><td>${w('More found by Fusion ({0}%)', num(tr.ahead?.fusionUpliftPercent ?? 0))}</td><td>+${num(f.fusionExtra)}</td></tr>
         <tr><td>${w('Fewer false positives with FAE ({0}%)', num(tr.ahead?.faePercent ?? 0))}</td><td>−${num(f.faeAvoided)}</td></tr>
         <tr class="sum"><td>${w('To triage')}</td><td>${num(f.toTriage)}</td></tr>
@@ -172,6 +173,11 @@ function story(data, L) {
 
 /** The assumptions behind the number, in one short list. */
 function assumptions(data, sum, L) {
+  return `<section><h2>${L.w('Assumptions')}</h2><ul class="assume">${assumptionItems(data, sum, L).map((i) => `<li>${i}</li>`).join('')}</ul></section>`;
+}
+
+/** The assumptions behind the number, each a sentence (escaped HTML). */
+export function assumptionItems(data, sum, L) {
   const { w, num } = L;
   const items = [];
   const tr = data.tr;
@@ -182,7 +188,9 @@ function assumptions(data, sum, L) {
     items.push(w('{0} credit(s) per triage; {1} per remediation.', each('triageCost'), each('remediationCost')));
     items.push(w('False positives expected: {0}%.', each('fp', 0)));
     if (tr.ahead) {
-      items.push(tr.ahead.includeFuture ? w('New findings keep arriving at the pace of the last {0} months.', num(tr.lookbackMonths)) : w('Findings still to come are not counted.'));
+      if (!tr.ahead.includeFuture) items.push(w('Findings still to come are not counted.'));
+      else if (tr.ahead.aiDeclinePercent) items.push(w('New findings arrive at the pace of the last {0} months, then {1}% fewer each month as teams adopt AI.', num(tr.lookbackMonths), num(tr.ahead.aiDeclinePercent)));
+      else items.push(w('New findings keep arriving at the pace of the last {0} months.', num(tr.lookbackMonths)));
       if (tr.fusion) items.push(w('Fusion reports {0}% more findings than today.', num(tr.ahead.fusionUpliftPercent)));
       items.push(w('FAE keeps {0}% of the new findings from being reported, among the false positives only.', num(tr.ahead.faePercent)));
     }
@@ -190,7 +198,7 @@ function assumptions(data, sum, L) {
   if (data.fusion) items.push(w("Each project's lines of code are rounded up to whole 10K units on their own; one scan costs its model's credits per 10K LOC."));
   if (sum.settings.extraPercent) items.push(w('{0}% extra credits on top.', num(sum.settings.extraPercent, 2)));
   items.push(w('Bundles of {0} credits, rounded up to whole bundles.', num(sum.settings.bundleCredits)));
-  return `<section><h2>${w('Assumptions')}</h2><ul class="assume">${items.map((i) => `<li>${i}</li>`).join('')}</ul></section>`;
+  return items;
 }
 
 /** Appendix: every triage & remediation figure by severity, and the weekly charts. */
@@ -203,6 +211,10 @@ function trAppendix(tr, L) {
   const months = Math.round((tr.weekly?.length ?? 0) / 4.345);
   const an = (s) => tr.analysis?.[s] ?? {};
   const hasAhead = Number.isFinite(tr.totals?.toTriage);
+  // Reports from MZ-01.00.69 on: debt added against fixes a month; earlier ones keep their two rates.
+  const hasDebtFix = Number.isFinite(tr.analysis?.total?.fixedMonthly);
+  const signed = (v) => (!Number.isFinite(v) ? '—' : Math.round(v) > 0 ? `+${num(v)}` : Math.round(v) < 0 ? `−${num(-v)}` : '0');
+  const hasWeeklyDebt = tr.weekly?.some((x) => x.addedRate !== undefined);
   return `<section class="appendix">
   <h2>${w('Triage & remediation')}</h2>
   <p class="sub">${w('Backlog as of {0}, against {1}.', esc(date(tr.asOf)), esc(date(tr.previousDate)))}</p>
@@ -210,13 +222,16 @@ function trAppendix(tr, L) {
     <thead><tr><th>${w('By severity')}</th>${SEVERITIES.map((s) => `<th><i class="dot" style="background:${SEVERITY_COLOURS[s]}"></i>${w(s)}</th>`).join('')}<th>${w('Total')}</th></tr></thead>
     <tbody>
       <tr><td>${w('Current backlog')}</td>${cell((r) => num(r.backlog))}<td>${num(f.backlog)}</td></tr>
-      <tr class="muted"><td>${w('Debt increase')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).debtRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.debtRate)}</td></tr>
+      ${hasDebtFix ? `<tr class="muted"><td>${w('Added a month')}</td>${SEVERITIES.map((s) => `<td>${num(an(s).arrivals)}</td>`).join('')}<td>${num(tr.analysis?.total?.arrivals)}</td></tr>
+      <tr class="muted"><td>${w('Fixed a month')}</td>${SEVERITIES.map((s) => `<td>${num(an(s).fixedMonthly)}</td>`).join('')}<td>${num(tr.analysis?.total?.fixedMonthly)}</td></tr>
+      <tr class="muted"><td>${w('Change a month')}</td>${SEVERITIES.map((s) => `<td>${signed(an(s).netMonthly)}</td>`).join('')}<td>${signed(tr.analysis?.total?.netMonthly)}</td></tr>`
+    : `<tr class="muted"><td>${w('Debt increase')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).debtRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.debtRate)}</td></tr>
       <tr class="muted"><td>${w('Fix rate')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).fixRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.fixRate)}</td></tr>
-      ${hasAhead ? `<tr class="muted"><td>${w('New findings a month')}</td>${SEVERITIES.map((s) => `<td>${num(an(s).arrivals)}</td>`).join('')}<td>${num(tr.analysis?.total?.arrivals)}</td></tr>` : ''}
+      ${hasAhead ? `<tr class="muted"><td>${w('New findings a month')}</td>${SEVERITIES.map((s) => `<td>${num(an(s).arrivals)}</td>`).join('')}<td>${num(tr.analysis?.total?.arrivals)}</td></tr>` : ''}`}
       <tr><td>${w('Backlog to triage')}</td>${cell((r) => num(r.selected))}<td>${num(f.selected)}</td></tr>
       ${hasAhead ? `<tr><td>${w('Still to come')}</td>${cell((r) => num(r.future))}<td>${num(f.future)}</td></tr>
       <tr><td>${w('More found by Fusion')}</td>${cell((r) => num(r.fusionExtra))}<td>${num(f.fusionExtra)}</td></tr>
-      <tr class="muted"><td>${w('Kept away by FAE')}</td>${cell((r) => `−${num(r.faeAvoided)}`)}<td>−${num(f.faeAvoided)}</td></tr>
+      <tr class="muted"><td>${w('Kept away by FAE')}</td>${cell((r) => signed(-r.faeAvoided))}<td>${signed(-f.faeAvoided)}</td></tr>
       <tr class="strong"><td>${w('To triage')}</td>${cell((r) => num(r.toTriage))}<td>${num(f.toTriage)}</td></tr>` : ''}
       <tr class="muted"><td>${w('Credits per triage')}</td>${cell((r) => num(r.triageCost, 2))}<td>—</td></tr>
       <tr class="muted"><td>${w('False positives (estimated)')}</td>${cell((r) => `${num(r.fp)}%`)}<td>—</td></tr>
@@ -226,7 +241,7 @@ function trAppendix(tr, L) {
       <tr><td>${w('Remediation credits')}</td>${cell((r) => num(r.remediationCredits, 1))}<td>${num(f.remediationCredits, 1)}</td></tr>
       <tr class="gold"><td>${w('Credits')}</td>${cell((r) => num(r.credits, 1))}<td>${num(f.credits, 1)}</td></tr>
     </tbody>`)}
-  ${tr.weekly?.length ? `<h3>${w('The last {0} months, week by week', num(months))}</h3><div class="pair">${backlogTrendChart(tr.weekly, P)}${ratesChart(tr.weekly, P)}</div>` : ''}
+  ${tr.weekly?.length ? `<h3>${w('The last {0} months, week by week', num(months))}</h3>${hasWeeklyDebt ? debtFixChart(tr.weekly, P) : `<div class="pair">${backlogTrendChart(tr.weekly, P)}${ratesChart(tr.weekly, P)}</div>`}` : ''}
   ${tr.bySeverity ? `<h3>${w('By severity')}</h3>${severityCharts(tr.bySeverity, P)}` : tr.severityForecast?.length ? `<h3>${w('By severity')}</h3>${severityChart(tr.severityForecast, P)}` : ''}
 </section>`;
 }
