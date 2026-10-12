@@ -98,3 +98,33 @@ export function compareFiles(root, manifest) {
   const extra = coveredFiles(root).filter((file) => !(file in listed));
   return { ok: !changed.length && !missing.length && !extra.length, checked: Object.keys(listed).length, changed, missing, extra };
 }
+
+/** compareFiles without holding up the server: files are read and hashed a few at a time. */
+export async function compareFilesAsync(root, manifest, { atOnce = 8 } = {}) {
+  const listed = Object.entries(manifest.files ?? {});
+  const changed = [];
+  const missing = [];
+  let next = 0;
+  const worker = async () => {
+    while (next < listed.length) {
+      const [file, hash] = listed[next++];
+      if (path.isAbsolute(file) || file.split(/[\\/]/).includes('..')) {
+        changed.push(file);
+        continue;
+      }
+      let data;
+      try {
+        data = await fs.promises.readFile(path.join(root, file));
+      } catch {
+        missing.push(file);
+        continue;
+      }
+      if (sha256(data) !== hash) changed.push(file);
+    }
+  };
+  await Promise.all(Array.from({ length: atOnce }, worker));
+  const extra = coveredFiles(root).filter((file) => !(file in manifest.files));
+  changed.sort();
+  missing.sort();
+  return { ok: !changed.length && !missing.length && !extra.length, checked: listed.length, changed, missing, extra };
+}

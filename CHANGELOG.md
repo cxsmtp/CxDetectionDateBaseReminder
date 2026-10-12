@@ -58,6 +58,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.72 — MERGE_TIME UTC · [#95](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/95)
+
+- **Proves it is the real thing.** Every release now carries a list of all its files with their SHA-256, and this repository's release workflow signs that list (a GitHub build attestation, recorded in Sigstore's public log). No signing key exists that could leak.
+- **Checks itself, all the time.** The server compares every file it runs with that list and checks the signature: at start, every 6 hours, and on **Check now**. The check runs on the server itself: Sigstore's root, this repository's workflow on main or a version tag, the signature, the files it covers and the public log entry.
+- **Software integrity panel.** Settings → Update & recovery shows Genuine, Files changed (with the files), Not signed by the release workflow, Not confirmed yet or Development copy, with the commit, the workflow run and the log entry. Administrators get an alert at sign-in if files changed or the signature is missing, and every failure goes to the audit log.
+- **Only genuine updates.** An update is installed only when its files match its signed list and the signature checks out; switching to an installed version checks it again, and the launcher runs the image's own version if an installed one was changed. Versions older than MZ-01.00.72 have no list and say so.
+- **Check it yourself.** `podman exec mission-zero node scripts/integrity.mjs check` compares the files; `gh attestation verify` confirms the signature ([software integrity](docs/integrity.md)). The network requirements sheet now lists api.github.com.
+- **In every language.** The panel's 17 new entries are in all fourteen other languages, each reviewed twice.
+- **Status.** STATUS_LINE
+
 ## MZ-01.00.71 — 2026-10-12 17:54 UTC · [#94](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/94)
 
 - **Every number explains itself.** In the Cx Credits Calculator, a **?** beside each figure (backlog today, still to come, more found by Fusion, kept away by FAE, to triage, credits, Fusion credits, the total) opens the exact calculation with the customer's own numbers in.

@@ -41,6 +41,10 @@ No server sign-in after deployment: everything an update needs is on this page.
 | `UPDATE_REGISTRY_TOKEN` | (none) | Only for a private image: a token that can read it. |
 | `UPDATE_START_TIMEOUT_SECONDS` | 150 | How long a new version may take to come up before it is rolled back. |
 
+## Only what was released is installed
+
+From MZ-01.00.72 every release carries a signed list of its files. Before installing a version, the page checks each file against the list and the list's signature (made by this repository's release workflow and logged by Sigstore). Anything else is refused, with the reason. Before switching to an installed version, its files are checked again. The launcher runs the image's own version if an installed one was changed. Versions older than MZ-01.00.72 have no list: they still install, and the audit log says so. Details, and how to check it yourself: [software integrity](integrity.md).
+
 ## Full image update from the page (Beta)
 
 The **update companion** is a second container, started once, that can replace the CxMissionZero container with the same container on a new image. It is for the rare release that needs a new Node.js or OS base; ordinary updates do not need it.

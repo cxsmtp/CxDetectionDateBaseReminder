@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { MANIFEST_FILE, TOP_FILES, TREES, compareFiles, readManifest, sha256 } from './manifest.js';
+import { MANIFEST_FILE, TOP_FILES, TREES, compareFilesAsync, readManifest, sha256 } from './manifest.js';
 import { verifyBundle } from './sigstore.js';
 
 export const SOURCE_REPOSITORY = 'cxsmtp/CxDetectionDateBaseReminder';
@@ -153,13 +153,13 @@ export class IntegrityService {
     } else if (read.error) {
       result = { at, state: 'tampered', digest: read.digest, summary: read.error };
     } else {
-      const files = trim(compareFiles(this.appDir, read.manifest));
+      const files = trim(await compareFilesAsync(this.appDir, read.manifest));
       const origin = await this.verifyOrigin(read.digest);
       const version = read.manifest.version;
       const base = { at, version, commit: read.manifest.commit, digest: read.digest, files, origin };
       if (!files.ok) {
         const n = files.counts.changed + files.counts.missing + files.counts.extra;
-        result = { ...base, state: 'tampered', summary: `${n} file${n === 1 ? '' : 's'} differ from what the release workflow built (${files.counts.changed} changed, ${files.counts.missing} missing, ${files.counts.extra} added).` };
+        result = { ...base, state: 'tampered', summary: `${n === 1 ? '1 file differs' : `${n} files differ`} from what the release workflow built (${files.counts.changed} changed, ${files.counts.missing} missing, ${files.counts.extra} added).` };
       } else if (origin.ok) {
         result = { ...base, state: 'genuine', summary: `Genuine: all ${files.checked} files are exactly what ${origin.repository}'s release workflow built from ${origin.ref.replace(/^refs\/(heads|tags)\//, '')} (commit ${origin.commit.slice(0, 12)}), signed ${origin.signedAt.slice(0, 16).replace('T', ' ')} UTC and recorded in Sigstore's public log.` };
       } else if (origin.reachable === false) {

@@ -161,3 +161,25 @@ test('the running copy: genuine, tampered, unconfirmed offline, not genuine, uns
   const none = new IntegrityService({ appDir: fs.mkdtempSync(path.join(os.tmpdir(), 'plain-')), dataDir, repository: 'acme/mission', fetch });
   assert.equal((await none.check()).state, 'unsigned');
 });
+
+test('a real GitHub attestation (this repository, a pull request build) checks out against the real Sigstore root', () => {
+  const bundle = JSON.parse(fs.readFileSync(new URL('./fixtures/github-attestation.json', import.meta.url), 'utf8'));
+  const trustedRoot = JSON.parse(fs.readFileSync(new URL('../src/integrity/trusted-root.json', import.meta.url), 'utf8'));
+  const digest = '2fde5591d80d5b4bf75440f30ce1aecdc6daedf1c81c14b1cb3715633bdadf34';
+  const options = { digest, trustedRoot, repository: 'cxsmtp/CxDetectionDateBaseReminder', refs: /^refs\/pull\/\d+\/merge$/ };
+  const r = verifyBundle(bundle, options);
+  assert.equal(r.ok, true, r.reason);
+  assert.equal(r.commit, 'b31c365780681249137b7decd42bf477858748bb');
+  for (const drop of ['inclusionPromise', 'inclusionProof']) {
+    const one = structuredClone(bundle);
+    delete one.verificationMaterial.tlogEntries[0][drop];
+    assert.equal(verifyBundle(one, options).ok, true, `without ${drop}`);
+  }
+  // As shipped, only main and version tags count: a pull request's build is never taken for a release.
+  assert.match(verifyBundle(bundle, { ...options, refs: undefined }).reason, /not main or a version tag/);
+  assert.match(verifyBundle(bundle, { ...options, digest: sha256('x') }).reason, /about other files/);
+  const tampered = structuredClone(bundle);
+  tampered.verificationMaterial.tlogEntries[0].integratedTime = String(Number(tampered.verificationMaterial.tlogEntries[0].integratedTime) + 1);
+  delete tampered.verificationMaterial.tlogEntries[0].inclusionProof;
+  assert.equal(verifyBundle(tampered, options).ok, false, 'a log time changed after the fact');
+});
