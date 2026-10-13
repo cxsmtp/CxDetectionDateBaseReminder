@@ -65,6 +65,8 @@ function reportMain() {
   const NO_RECORD_MS = 6 * 60 * 1000;
   const REMEDIATION_POLL_MS = 12000;
   const REMEDIATION_TIMEOUT_MS = 40 * 60 * 1000;
+  /** Checkmarx One credits one AI Remediation uses. */
+  const REMEDIATION_CREDITS = 3;
   // AI Triage's own record can say TO_VERIFY after it finished, while the
   // finding itself settles a little later, so that is still worth waiting on.
   const WAITING = new Set(['IN_PROGRESS', 'NOT_TRIAGED', 'PENDING', 'QUEUED', 'RUNNING', 'TO_VERIFY']);
@@ -97,6 +99,17 @@ function reportMain() {
     HIGH: { all: 'Triage all high ({0})', shared: 'Triage all high ({0} findings · {1} results)', busy: 'Triaging high…', done: 'All high triaged', none: 'No high findings',
       ask: 'Run AI Triage on all {0} high finding(s)?', askAcross: 'Run AI Triage on all {0} high finding(s) across {1} projects?' },
   };
+  /** The "Remediate all" buttons' words, per scope (each language has its own word order). */
+  const BULK_FIX_WORDS = {
+    CRITICAL: { all: 'Remediate all critical ({0})', some: 'Remediate critical: {0} of {1}', busy: 'Remediating critical…', none: 'No confirmed critical findings to remediate',
+      ask: 'Run Checkmarx One AI Remediation on {0} confirmed critical finding(s)?' },
+    HIGH: { all: 'Remediate all high ({0})', some: 'Remediate high: {0} of {1}', busy: 'Remediating high…', none: 'No confirmed high findings to remediate',
+      ask: 'Run Checkmarx One AI Remediation on {0} confirmed high finding(s)?' },
+    ALL: { all: 'Remediate all ({0})', some: 'Remediate all: {0} of {1}', busy: 'Remediating…', none: 'No confirmed findings to remediate',
+      ask: 'Run Checkmarx One AI Remediation on {0} confirmed finding(s)?' },
+  };
+  /** Severities in a sentence (shown in lower case). */
+  const SEVERITY_WORDS = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low', INFO: 'Info' };
   const STATE_WORDS = {
     TO_VERIFY: 'Not checked yet',
     CONFIRMED: 'Confirmed',
@@ -111,12 +124,20 @@ function reportMain() {
   const credits = {};
   const projectNames = new Map(findings.map((f) => [f.projectId, f.projectName]));
   let bulkRunning = false;
+  let bulkFixRunning = false;
+  /** Credits left in the pool; null means the administrator set no monthly limit. */
+  let lastRemaining;
+  // "Remediate all" goes critical first.
+  const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+  const severityRank = (f) => (SEVERITY_ORDER.includes(f.severity) ? SEVERITY_ORDER.indexOf(f.severity) : SEVERITY_ORDER.length);
+  let bySeverity = null;
   let connecting = null;
 
   const $ = (id) => document.getElementById(id);
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const row = (f) => document.querySelector(`tr[data-key="${CSS.escape(f.key)}"]`);
   const bulkButtons = () => [...document.querySelectorAll('button.bulk[data-severity]')];
+  const bulkFixButtons = () => [...document.querySelectorAll('button.bulk-fix[data-fix-scope]')];
 
   class CxError extends Error {
     constructor(message, status = 0, body = null) {
@@ -135,6 +156,8 @@ function reportMain() {
   /** The administrator decides whether a finding with a verdict may be triaged again. */
   const retriageAllowed = () => (backend ? backend.retriageAllowed : config.allowRetriage) === true;
   const reremediationAllowed = () => (backend ? backend.reremediationAllowed : config.allowReremediation) === true;
+  /** Confirmed in Checkmarx One: the only state AI Remediation runs on. */
+  const isConfirmed = (f) => f.state === 'CONFIRMED';
   /** A finished remediation (with or without details); a failed one may be run again. */
   const isRemediated = (f) => Boolean(f.remediation && !f.remediation.running && !f.remediation.failed);
   const contact = () => backend?.adminContact || config.adminContact || '';
@@ -189,7 +212,10 @@ function reportMain() {
     const mail = $('credit-dialog-mail');
     $('credit-dialog-to').textContent = to ? L('Administrator: {0}', to) : '';
     if (to) {
-      const lines = needs.map((n) => `- ${L('{0}: {1} {2} credit(s) needed, {3} left', n.projectName || n.projectId, n.needed, L(KIND_LABELS[n.kind] || n.kind), n.left)}`);
+      const lines = refusals.map((r) => {
+        const n = r.credits;
+        return `- ${n ? L('{0}: {1} {2} credit(s) needed, {3} left', n.projectName || n.projectId, n.needed, L(KIND_LABELS[n.kind] || n.kind), n.left) : r.error}`;
+      });
       const subject = L('Credits request: {0} for {1}', kind, [...new Set(needs.map((n) => n.projectName || n.projectId))].join(', ') || L('my report'));
       const body = `${L('Hi,')}\n\n${L('Please allocate more Checkmarx One credits so I can act on findings from my report:')}\n\n${lines.join('\n') || text}\n\n${L('Thank you.')}`;
       mail.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -530,6 +556,7 @@ function reportMain() {
       running ? L(running === 1 ? '{0} triage job running…' : '{0} triage jobs running…', running) : '',
       manual ? L(manual === 1 ? '{0} critical/high finding needs a manual fix in Checkmarx One (AI Triage covers SAST and SCA only).' : '{0} critical/high findings need a manual fix in Checkmarx One (AI Triage covers SAST and SCA only).', manual) : '',
     ].filter(Boolean).join(' · ');
+    updateBulkFix();
   }
 
   let connectedTenant;
@@ -541,8 +568,6 @@ function reportMain() {
     if (!backend) $('bulk-credits').textContent = '';
   }
 
-  /** null means the administrator set no monthly limit. */
-  let lastRemaining;
   function showCredits(remaining) {
     lastRemaining = remaining;
     if (!backend) return;
@@ -573,6 +598,7 @@ function reportMain() {
       credits[id] = c;
     }
     renderCredits(flash ? moved : new Set());
+    updateBulkFix();
   }
 
   function renderCredits(flash = new Set()) {
@@ -658,20 +684,19 @@ function reportMain() {
       exploitability: body.exploitabilityStatus || analysis.exploitability?.status || '',
       summary: body.summary || '',
       confidence: analysis.confidence?.score || '',
-      // Why AI Triage judged it so, and what it suggests: the first of the fields Checkmarx One fills.
+      // Why AI Triage judged it so: the first of the fields Checkmarx One fills. (Never a fix: fixes are AI Remediation's.)
       reason: firstText(body.reason, body.justification, body.explanation, body.reasoning, analysis.summary, analysis.exploitability?.reason,
         analysis.exploitability?.justification, analysis.exploitability?.explanation, analysis.exploitability?.description,
         analysis.reachability?.reason, analysis.reachability?.explanation, body.summary),
-      recommendation: firstText(body.recommendation, body.recommendedFix, body.fixRecommendation, typeof body.remediation === 'string' ? body.remediation : '',
-        analysis.recommendation, analysis.mitigation, analysis.remediation?.recommendation, analysis.remediation?.description),
     };
   }
 
   const firstText = (...values) => values.find((v) => typeof v === 'string' && v.trim())?.trim() || '';
 
   // ---------------------------------------------------------------------------
-  // "Why confirmed": under the state, why it was confirmed and how to fix it,
-  // with "why?" for the details (the same note html-report.js renders).
+  // "Why confirmed": under the state, why it was confirmed and where its fix
+  // comes from (Checkmarx One AI Remediation, never this report), with "why?"
+  // for the details (the same note html-report.js renders).
   // ---------------------------------------------------------------------------
 
   const CONFIRMED = new Set(['CONFIRMED', 'URGENT', 'VULNERABLE']);
@@ -693,7 +718,7 @@ function reportMain() {
   /** How Checkmarx One knows, by engine (the same words as howKnown in html-report.js). */
   function howKnown(scanner) {
     const engine = String(scanner || '').toUpperCase();
-    if (engine === 'SCA') return L('This project uses a version of the package with a published vulnerability that its code can reach; a fixed version removes it.');
+    if (engine === 'SCA') return L('This project uses a version of the package with a published vulnerability, and its code can reach it.');
     if (engine === 'SAST') return L('Checkmarx One followed the data from where it enters the application to this code, and nothing on the way makes it safe.');
     return L('Checkmarx One matched this code or configuration against a known vulnerable pattern.');
   }
@@ -707,26 +732,30 @@ function reportMain() {
       box.replaceChildren();
       return;
     }
-    // Said once: Why and Fix; "why?" adds only what those two lines do not say.
-    // The report's own advice is in the reader's language; AI Triage's own words stay as Checkmarx One wrote them.
-    const advice = f.advice ? { what: L(f.advice.what), fix: L(f.advice.fix) } : { what: L('Checkmarx One judged this finding a real vulnerability.'), fix: L('Remediate asks AI Remediation for a fix.') };
+    // Said once: Why, and where the fix comes from; "why?" adds only what those two lines do not say.
+    // The report's own words are in the reader's language; AI Triage's own words stay as Checkmarx One wrote them.
+    const meaning = f.meaning ? L(f.meaning) : L('Checkmarx One judged this finding a real vulnerability.');
     const verdictWords = [t.reachability, t.exploitability].filter(Boolean).map((v) => SUB_LABELS[v] || v.replace(/_/g, ' ').toLowerCase());
     const verdict = verdictWords.length === 2 ? L('{0} and {1}', verdictWords[0].toLowerCase(), verdictWords[1].toLowerCase()) : (verdictWords[0] || '').toLowerCase();
-    const whyFull = t.reason || advice.what;
-    const fixFull = t.recommendation || advice.fix;
+    const whyFull = t.reason || meaning;
     const why = firstSentence(whyFull, 160);
-    const fix = firstSentence(fixFull, 160);
     const more = [
       why !== whyFull ? whyFull : howKnown(f.scanner),
       verdict && (t.confidence ? L('AI Triage judged it {0} (confidence {1}).', verdict, t.confidence) : L('AI Triage judged it {0}.', verdict)),
-      t.reason && advice.what !== t.reason ? L('This kind of finding: {0}', advice.what) : '',
-      fix !== fixFull ? L('Fix in full: {0}', fixFull) : '',
+      t.reason && meaning !== t.reason ? L('This kind of finding: {0}', meaning) : '',
     ].filter(Boolean);
     const details = el('details', { className: 'why-more' }, el('summary', { textContent: L('why?') }), ...more.map((text) => el('p', { textContent: text })));
     const next = el('p', {}, config.remediateHere ? L('Remediate asks Checkmarx One AI Remediation for the code change (a pull request when the project is connected to its repository).') : L('Checkmarx One shows the full data flow.'));
     if (/^https?:\/\//i.test(f.url || '')) next.append(' ', el('a', { href: f.url, target: '_blank', rel: 'noopener', textContent: L('Open in Checkmarx One') }));
     details.append(next);
-    box.replaceChildren(para(L('Why:'), why, 'why-line'), para(L('Fix:'), fix, 'why-line'), details);
+    box.replaceChildren(para(L('Why:'), why, 'why-line'), para(L('Fix:'), fixFrom(f), 'why-line'), details);
+  }
+
+  /** Where this finding's fix comes from: Checkmarx One AI Remediation only — the report never writes one. */
+  function fixFrom(f) {
+    if (isRemediated(f)) return L('Written by Checkmarx One AI Remediation: shown on this row, under Remediate.');
+    if (f.remediation?.running) return L('Checkmarx One AI Remediation is writing it.');
+    return config.remediateHere ? L('From Checkmarx One AI Remediation only: press Remediate.') : L('From Checkmarx One AI Remediation only: remediate it in Checkmarx One.');
   }
 
   async function pollTriage(list) {
@@ -1045,6 +1074,9 @@ function reportMain() {
     const btn = tr.querySelector('[data-action="remediate"]');
     const out = tr.querySelector('.fix-cell');
     const r = f.remediation;
+    renderConfirmedWhy(f, tr);
+    syncApplyFix(f);
+    updateBulkFix();
     out.replaceChildren();
     out.className = 'fix-cell';
     if (btn) {
@@ -1143,27 +1175,37 @@ function reportMain() {
     renderRemediation(f);
   }
 
-  /** Confirmed in Checkmarx One: the only state AI Remediation runs on. */
-  const isConfirmed = (f) => f.state === 'CONFIRMED';
+  /** Is AI Remediation from reports switched on? The administrator may have allowed it since this report connected. */
+  async function remediationSwitchedOn() {
+    if (backend.remediationAllowed !== false) return true;
+    try {
+      backend.remediationAllowed = (await backend.connect()).remediation !== false;
+    } catch {}
+    return backend.remediationAllowed !== false;
+  }
 
   async function remediate(f) {
     if (f.remediation?.running) return;
     if (!isConfirmed(f)) return renderRemediation(f);
     if (isRemediated(f) && !reremediationAllowed()) return renderRemediation(f);
-    if (backend.remediationAllowed === false) {
-      // The administrator may have allowed it since this report connected.
-      try {
-        backend.remediationAllowed = (await backend.connect()).remediation !== false;
-      } catch {}
-      if (backend.remediationAllowed === false) {
-        f.remediation = { failed: L('AI Remediation from reports is switched off. Ask your Checkmarx One reminder administrator to allow it.') };
-        return renderRemediation(f);
-      }
+    if (!(await remediationSwitchedOn())) {
+      f.remediation = { failed: L('AI Remediation from reports is switched off. Ask your Checkmarx One reminder administrator to allow it.') };
+      return renderRemediation(f);
     }
     const ask = isRemediated(f)
       ? L('Run Checkmarx One AI Remediation again for “{0}”? It uses 3 Checkmarx One credits and, for repository-connected projects, opens a pull request.', f.title)
       : L('Run Checkmarx One AI Remediation for “{0}”? It uses 3 Checkmarx One credits and, for repository-connected projects, opens a pull request.', f.title);
-    if (!confirm(`${ask}${afterText([f], 'remediation', 3)}`)) return;
+    if (!confirm(`${ask}${afterText([f], 'remediation', REMEDIATION_CREDITS)}`)) return;
+    const outcome = await startRemediation(f);
+    if (outcome.refusal) return showCreditDialog([outcome.refusal]);
+    await outcome.follow;
+  }
+
+  /**
+   * Ask Checkmarx One AI Remediation for this finding's fix (already confirmed by the reader):
+   * {follow} once it started (or was already running), {refusal} when credits ran out, else {}.
+   */
+  async function startRemediation(f) {
     const previous = f.remediation;
     f.remediation = { running: true };
     renderRemediation(f);
@@ -1177,25 +1219,203 @@ function reportMain() {
         // Remediated meanwhile (in Checkmarx One, or from another report): show that result.
         f.remediation = remediationFromBody(error.body.body) || previous || { doneElsewhere: true };
         log(error.message, 'info');
-        return renderRemediation(f);
+        renderRemediation(f);
+        return {};
       } else if (isCreditRefusal(error.status, error.body)) {
         updateCredits(error.body?.projects);
         f.remediation = previous ?? null;
         renderRemediation(f);
-        return showCreditDialog([{ error: error.message, credits: error.body?.credits }]);
+        return { refusal: { error: error.message, credits: error.body?.credits } };
       } else {
         // Not confirmed in Checkmarx One after all: show its real state; Remediate stays locked.
         if (error.body?.notConfirmed && error.body.state) f.state = error.body.state;
         f.remediation = { failed: error.message };
         log(error.message, 'error');
         renderTriage(f);
-        return renderRemediation(f);
+        renderRemediation(f);
+        return {};
       }
     }
-    await followRemediation(f).catch((error) => {
+    const follow = followRemediation(f).catch((error) => {
       f.remediation = { failed: error.message };
       renderRemediation(f);
     });
+    return { follow };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Remediate all: critical, high, or every severity the credits are allocated for
+  // ---------------------------------------------------------------------------
+
+
+  /**
+   * Confirmed findings "Remediate all" would start, critical first: one per Checkmarx One
+   * result (AI Remediation fixes the result), never one remediated, running, or AI cannot act on.
+   * Running again is a reader's choice on a row, never part of "Remediate all".
+   */
+  function fixCandidates(scope) {
+    const taken = new Set(findings.filter((f) => isRemediated(f) || f.remediation?.running).map(resultKey));
+    const list = [];
+    bySeverity ??= findings.slice().sort((a, b) => severityRank(a) - severityRank(b));
+    for (const f of bySeverity) {
+      if (scope !== 'ALL' && f.severity !== scope) continue;
+      if (f.hidden || f.aiUnavailable || !isConfirmed(f) || taken.has(resultKey(f))) continue;
+      taken.add(resultKey(f));
+      list.push(f);
+    }
+    return list;
+  }
+
+  /**
+   * What the projects' AI Remediation credits cover now: each project's allocation is for
+   * the severities it was allocated for (critical and high unless the administrator chose
+   * others), 3 credits per finding, within the credit pool. Unknown before connecting: all.
+   */
+  function coveredByCredits(list) {
+    const left = new Map();
+    let pool = typeof lastRemaining === 'number' ? lastRemaining : Infinity;
+    const fits = [];
+    const notAllocated = [];
+    const short = [];
+    for (const f of list) {
+      const c = credits[f.projectId];
+      if (!c) {
+        fits.push(f);
+        continue;
+      }
+      if (!(c.severities ?? ['CRITICAL', 'HIGH']).includes(f.severity)) {
+        notAllocated.push(f);
+        continue;
+      }
+      const remaining = left.has(f.projectId) ? left.get(f.projectId) : c.remediation?.remaining ?? 0;
+      if (remaining < REMEDIATION_CREDITS || pool < REMEDIATION_CREDITS) {
+        short.push(f);
+        continue;
+      }
+      left.set(f.projectId, remaining - REMEDIATION_CREDITS);
+      pool -= REMEDIATION_CREDITS;
+      fits.push(f);
+    }
+    return { fits, notAllocated, short };
+  }
+
+  function updateBulkFix() {
+    const buttons = bulkFixButtons();
+    if (!buttons.length) return;
+    const off = backend?.remediationAllowed === false;
+    for (const btn of buttons) {
+      const scope = btn.dataset.fixScope;
+      const words = BULK_FIX_WORDS[scope];
+      if (!words) continue;
+      const all = fixCandidates(scope);
+      const { fits, notAllocated, short } = coveredByCredits(all);
+      const running = findings.some((f) => (scope === 'ALL' || f.severity === scope) && f.remediation?.running);
+      btn.textContent = all.length
+        ? fits.length && fits.length < all.length
+          ? L(words.some, fits.length, all.length)
+          : L(words.all, all.length)
+        : L(running ? words.busy : words.none);
+      // With no credits for any of them, a click asks the administrator for credits.
+      btn.disabled = off || bulkFixRunning || all.length === 0;
+      btn.title = off
+        ? L('AI Remediation from reports is switched off. Ask your Checkmarx One reminder administrator to allow it.')
+        : !all.length
+          ? ''
+          : fits.length === all.length
+            ? L('Runs Checkmarx One AI Remediation on each: 3 credits per finding, and a pull request for repository-connected projects.')
+            : [
+                fits.length
+                  ? L('Your AI Remediation credits cover {0} of these {1} findings.', fits.length, all.length)
+                  : plural(all.length, 'Your AI Remediation credits do not cover this finding.', 'Your AI Remediation credits cover none of these {0} findings.'),
+                notAllocated.length ? plural(notAllocated.length, '{0} is of a severity no AI Remediation credits are allocated for.', '{0} are of a severity no AI Remediation credits are allocated for.') : '',
+                short.length ? plural(short.length, '{0} needs more AI Remediation credits than are left (3 each).', '{0} need more AI Remediation credits than are left (3 each).') : '',
+                fits.length ? L('Ask your administrator to allocate more.') : L('Click to ask your administrator for credits.'),
+              ].filter(Boolean).join(' ');
+    }
+    const running = findings.filter((f) => f.remediation?.running).length;
+    if (!bulkFixRunning) $('bulk-fix-progress').textContent = running ? L(running === 1 ? '{0} AI Remediation job running…' : '{0} AI Remediation jobs running…', running) : '';
+  }
+
+  /**
+   * What the credits dialog asks the administrator for, per project: more AI Remediation
+   * credits, or credits that also cover a severity they are not allocated for.
+   */
+  function creditNeeds(list) {
+    const { notAllocated, short } = coveredByCredits(list);
+    const projects = (rows) => [...new Set(rows.map((f) => f.projectId))];
+    const name = (id) => projectNames.get(id) || id;
+    const left = (id) => credits[id]?.remediation?.remaining ?? 0;
+    const words = (severities) => severities.map((x) => (SEVERITY_WORDS[x] ? L(SEVERITY_WORDS[x]) : x).toLowerCase()).join(', ');
+    return [
+      ...projects(short).map((id) => {
+        const needed = short.filter((f) => f.projectId === id).length * REMEDIATION_CREDITS;
+        return {
+          error: L('{0}: {1} AI Remediation credit(s) needed, {2} left.', name(id), needed, left(id)),
+          credits: { projectId: id, projectName: name(id), kind: 'remediation', needed, left: left(id) },
+        };
+      }),
+      ...projects(notAllocated).map((id) => ({
+        error: L('{0}: its AI Remediation credits cover {1} findings only; {2} confirmed finding(s) here are {3}.', name(id), words(credits[id]?.severities ?? ['CRITICAL', 'HIGH']),
+          notAllocated.filter((f) => f.projectId === id).length, words([...new Set(notAllocated.filter((f) => f.projectId === id).map((f) => f.severity))])),
+      })),
+    ];
+  }
+
+  async function bulkRemediate(scope) {
+    const words = BULK_FIX_WORDS[scope];
+    if (!words || bulkFixRunning) return;
+    bulkFixRunning = true;
+    updateBulkFix();
+    $('bulk-fix-progress').textContent = L('Checking credits and findings with Checkmarx One…');
+    let fits = [];
+    let all = [];
+    try {
+      if (!(await remediationSwitchedOn())) return reportError(fail('AI Remediation from reports is switched off. Ask your Checkmarx One reminder administrator to allow it.'));
+      // Fresh balances, and what Checkmarx One says about any finding whose remediation is not known yet.
+      await backend.credits?.().catch(() => {});
+      const unknown = fixCandidates(scope).filter((f) => !f.remediationKnown);
+      if (unknown.length) await askUntilKnown(unknown, (list) => backend.remediationStatus(list), applyRemediationStatus);
+      all = fixCandidates(scope);
+      ({ fits } = coveredByCredits(all));
+    } finally {
+      bulkFixRunning = false;
+      $('bulk-fix-progress').textContent = '';
+      updateBulkFix();
+    }
+    if (!all.length) return log(L(words.none), 'info');
+    if (!fits.length) return showCreditDialog(creditNeeds(all));
+    const left = all.length - fits.length;
+    const ask = [
+      L(words.ask, fits.length),
+      L('It uses {0} Checkmarx One credits (3 per finding) and, for repository-connected projects, opens a pull request for each.', fits.length * REMEDIATION_CREDITS),
+      left ? L('{0} more confirmed finding(s) are not covered by your AI Remediation credits and are left out.', left) : '',
+    ].filter(Boolean).join(' ');
+    if (!confirm(`${ask}${afterText(fits, 'remediation', REMEDIATION_CREDITS)}`)) return;
+    bulkFixRunning = true;
+    updateBulkFix();
+    const refusals = [];
+    const stopped = new Set();
+    let started = 0;
+    try {
+      // One at a time: the reminder server checks each finding is confirmed and charges it, once.
+      for (const [i, f] of fits.entries()) {
+        if (!backend) break;
+        if (stopped.has(f.projectId) || f.remediation?.running || isRemediated(f)) continue;
+        $('bulk-fix-progress').textContent = L('Starting AI Remediation {0} of {1}…', i + 1, fits.length);
+        const outcome = await startRemediation(f);
+        if (outcome.refusal) {
+          stopped.add(f.projectId);
+          refusals.push(outcome.refusal);
+        }
+        if (outcome.follow) started += 1;
+      }
+    } finally {
+      bulkFixRunning = false;
+      $('bulk-fix-progress').textContent = '';
+      updateBulkFix();
+    }
+    log(L('Remediate all: AI Remediation started for {0} of {1} finding(s); each fix appears on its row when Checkmarx One finishes.', started, fits.length), started ? 'success' : 'info');
+    if (refusals.length) showCreditDialog(refusals);
   }
 
   /** Show remediations already done (or running) for the findings in this report. */
@@ -1204,25 +1424,31 @@ function reportMain() {
     return findings.filter((f) => f.shown && !f.hidden && !f.aiUnavailable && row(f)?.querySelector('[data-action="remediate"]'));
   }
 
+  /** Fold what Checkmarx One says about a finding's remediation into it; returns its status. */
+  function applyRemediationStatus(f, a) {
+    if (!a || a.pending || f.remediation?.running) return '';
+    f.remediationKnown = true;
+    if (a.status === 'done') {
+      f.remediation = remediationFromBody(a.body) || { doneElsewhere: true };
+      if (f.remediation.failed) f.remediation = { doneElsewhere: true };
+      renderRemediation(f);
+    } else if (a.status === 'running') {
+      f.remediation = { running: true };
+      renderRemediation(f);
+      followRemediation(f).catch(reportError);
+    } else if (a.status === 'failed') {
+      f.remediation = remediationFromBody(a.body);
+      renderRemediation(f);
+    }
+    return a.status;
+  }
+
   async function loadExistingRemediation() {
     const eligible = remediationCandidates();
     if (!eligible.length) return;
     let done = 0;
     await askUntilKnown(eligible, (list) => backend.remediationStatus(list), (f, a) => {
-      if (!a || a.pending || f.remediation?.running) return;
-      if (a.status === 'done') {
-        f.remediation = remediationFromBody(a.body) || { doneElsewhere: true };
-        if (f.remediation.failed) f.remediation = { doneElsewhere: true };
-        done += 1;
-        renderRemediation(f);
-      } else if (a.status === 'running') {
-        f.remediation = { running: true };
-        renderRemediation(f);
-        followRemediation(f).catch(reportError);
-      } else if (a.status === 'failed') {
-        f.remediation = remediationFromBody(a.body);
-        renderRemediation(f);
-      }
+      if (applyRemediationStatus(f, a) === 'done') done += 1;
     });
     if (done) log(L('{0} finding(s) in this report are already remediated.', done), 'info');
   }
@@ -1554,6 +1780,9 @@ function reportMain() {
   });
   for (const btn of bulkButtons()) {
     btn.addEventListener('click', () => requireConnection(() => bulkTriage(btn.dataset.severity)));
+  }
+  for (const btn of bulkFixButtons()) {
+    btn.addEventListener('click', () => requireConnection(() => bulkRemediate(btn.dataset.fixScope).catch(handleActionError)));
   }
   $('findings').addEventListener('click', (event) => {
     const btn = event.target.closest('button[data-action="triage"], button[data-action="remediate"]');
@@ -1914,15 +2143,30 @@ function reportMain() {
       box.append(open);
     }
     const fix = smallButton('', (event) => fixFinding(f, defaultFix(), event.currentTarget), false);
+    fix.classList.add('apply-fix');
     box.append(fix, ideMenu(f));
     const out = document.createElement('div');
     out.className = 'tool-out';
     box.append(out);
-    rowButtons.push({ open, fix });
+    rowButtons.push({ f, open, fix });
+    syncApplyFix(f, fix);
     return box;
   }
+
+  /** "Apply AI fix" works once Checkmarx One AI Remediation has written the fix: there is no other. */
+  function syncApplyFix(f, button = row(f)?.querySelector('.apply-fix')) {
+    if (!button) return;
+    const ready = Boolean(f.remediation?.changes?.length);
+    button.disabled = !ready;
+    button.title = ready
+      ? ''
+      : isRemediated(f)
+        ? L('Checkmarx One AI Remediation gave no file changes to apply here: see its pull request, or the finding in Checkmarx One.')
+        : L('No fix yet: remediate this finding with Checkmarx One AI first (Remediate, on this row, once it is confirmed). Its fix can then be applied here in one click.');
+  }
   function labelRowButtons() {
-    for (const { open, fix } of rowButtons) {
+    for (const { f, open, fix } of rowButtons) {
+      syncApplyFix(f, fix);
       if (open) open.textContent = defaultIde() === 'web' ? L('Open in the browser') : L('Open in {0}', nameOf(OPENERS, defaultIde()));
       fix.textContent = defaultFix() === 'git' ? L('Apply AI fix (git apply)') : L('Apply AI fix');
     }

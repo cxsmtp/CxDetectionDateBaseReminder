@@ -12,7 +12,7 @@
 import { readFileSync } from 'node:fs';
 
 import { AI_SCANNERS } from './cxone/ai-assist.js';
-import { fixAdvice } from './fix-advice.js';
+import { findingMeaning } from './finding-meaning.js';
 import { ON_PREMISE_NOTICE, SUPPORTING_NOTICE } from './terms.js';
 
 /** One Checkmarx One result: rows with the same key are triaged together, and charged once. */
@@ -22,6 +22,8 @@ export const resultKey = (f) =>
 export const REPORT_TOP_N = 50;
 /** Severities that get a "triage all" action covering every finding, not just the top ones. */
 export const BULK_SEVERITIES = ['CRITICAL', 'HIGH'];
+/** The "Remediate all" buttons: critical, high, and every severity the credits are allocated for. */
+export const BULK_FIX_SCOPES = ['CRITICAL', 'HIGH', 'ALL'];
 
 // The patcher first (it defines MZPatch), then the report's own script.
 const CLIENT_SCRIPT = ['./report/patch.client.js', './report/report.client.js']
@@ -152,13 +154,16 @@ export function generateHtmlReport(reportData, options = {}) {
       url: safeHttpUrl(f.url),
       ...(codeLocation(f.codeLocation) ? { loc: codeLocation(f.codeLocation) } : {}),
       aiUnavailable: aiUnavailableReason(f),
-      ...(index < findings.length ? { advice: fixAdvice(f) } : {}),
+      ...(index < findings.length ? { meaning: findingMeaning(f) } : {}),
       ...(index < findings.length && (f.aiReachability || f.aiExploitability)
         ? { ai: { reachability: String(f.aiReachability ?? ''), exploitability: String(f.aiExploitability ?? '') } }
         : {}),
     };
     return options.sign && !client.aiUnavailable ? { ...client, ...options.sign(client) } : client;
   });
+
+  // Confirmed findings AI Remediation can act on, one per Checkmarx One result: what "Remediate all" starts from.
+  const fixable = [...new Map(clientFindings.filter((c) => !c.aiUnavailable && c.state === 'CONFIRMED').map((c) => [resultKey(c), c])).values()];
 
   // Rows that are one Checkmarx One result: the risks API can list a result once
   // per code path, but AI Triage acts on (and charges) the result, once. Each
@@ -317,7 +322,15 @@ export function generateHtmlReport(reportData, options = {}) {
       <span id="bulk-progress" class="muted"></span>
       <span class="refresh-box"><span id="last-refresh" class="muted"></span> <button id="refresh-now" class="btn btn-outline btn-small" type="button">Refresh</button></span>
     </div>
-    <div id="credit-balance" class="credit-balance" hidden>
+${remediateHere ? `    <div class="bulk-row bulk-fix-row">
+      ${BULK_FIX_SCOPES.map((scope) => {
+        const count = fixable.filter((c) => scope === 'ALL' || c.severity === scope).length;
+        const words = scope === 'ALL' ? `Remediate all (${count})` : `Remediate all ${scope.toLowerCase()} (${count})`;
+        return `<button class="btn btn-fix bulk-fix" type="button" data-fix-scope="${scope}" disabled title="Runs Checkmarx One AI Remediation on the confirmed findings your AI Remediation credits are allocated for: 3 credits each.">${words}</button>`;
+      }).join('\n      ')}
+      <span id="bulk-fix-progress" class="muted"></span>
+    </div>
+` : ''}    <div id="credit-balance" class="credit-balance" hidden>
       <div class="credit-balance-head"><strong>Your credits</strong> <span id="bulk-credits" class="muted"></span></div>
       <div id="credit-projects" class="credit-projects"></div>
     </div>
@@ -325,8 +338,8 @@ export function generateHtmlReport(reportData, options = {}) {
     <summary>How this report works</summary>
     <p class="muted">Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or
       high finding in this report, across all its projects. ${remediateHere
-        ? 'Remediate runs Checkmarx One AI Remediation and links to the suggested fix (or its pull request).'
-        : 'Remediate opens the finding in Checkmarx One.'}
+        ? 'Remediate runs Checkmarx One AI Remediation and links to the fix it writes (or its pull request); “Remediate all” runs it on every confirmed finding your AI Remediation credits are allocated for, 3 credits each.'
+        : 'Remediate opens the finding in Checkmarx One.'} Fixes come from Checkmarx One AI Remediation only: this report never suggests one of its own.
       ${remediateHere ? 'Triage and Remediate go' : 'Triage goes'} through the reminder server shown above, which must be reachable from this computer (company network or VPN).</p>
     </details>
     ${resultsShown < shownAi.length
@@ -455,10 +468,10 @@ function findingRow(finding, client, remediateHere, shared = null) {
   return `<tr data-key="${client.key}" id="row-${client.key}" data-sev="${escapeHtml(severity)}"${shared ? ` class="shared-row shared-c${shared.color}" data-result="${shared.label}"` : ''}>
   <td class="sev-cell"><span class="sev sev-${escapeHtml(severity.toLowerCase())}">${escapeHtml(severity)}</span></td>
   <td class="finding"><div class="finding-title">${title}</div>
-    <div class="sub"><span translate="no">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</span>${finding.fixVersion ? ` · <span class="fix-version" title="The version Checkmarx One recommends">${tx('upgrade to {0}', finding.fixVersion)}</span>` : ''}</div>${shared ? `\n    ${sharedNoteHtml(shared)}` : ''}</td>
+    <div class="sub"><span translate="no">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</span></div>${shared ? `\n    ${sharedNoteHtml(shared)}` : ''}</td>
   <td class="meta-cell" data-label="Type" title="${escapeHtml(finding.scanner || '')}">${escapeHtml(engineLabel(finding.scanner))}</td>
   <td class="meta-cell" data-label="Age">${age}</td>
-  <td class="state-cell" data-label="State"><span class="state-label" data-i18n-ctx="verdict">${escapeHtml(stateLabel)}</span><div class="state-why">${CONFIRMED_STATES.has(state) && !client.aiUnavailable ? confirmedWhyHtml(client.advice ?? fixAdvice(finding), { ...aiFromRisk(finding), scanner: finding.scanner, url, remediateHere }) : ''}</div></td>
+  <td class="state-cell" data-label="State"><span class="state-label" data-i18n-ctx="verdict">${escapeHtml(stateLabel)}</span><div class="state-why">${CONFIRMED_STATES.has(state) && !client.aiUnavailable ? confirmedWhyHtml(client.meaning ?? findingMeaning(finding), { ...aiFromRisk(finding), scanner: finding.scanner, url, remediateHere }) : ''}</div></td>
   <td class="ai-cell" data-label="Triage result">${client.aiUnavailable ? manualCell(finding, client.aiUnavailable) : '—'}</td>
   <td class="actions-cell">
     ${client.aiUnavailable
@@ -527,38 +540,43 @@ const firstSentence = (text, max = 120) => {
 };
 
 /**
- * Under "Confirmed": why it is a real vulnerability and how to fix it, once,
- * in two short lines. "why?" adds only what those lines do not say: how
+ * Under "Confirmed": why it is a real vulnerability, and where its fix comes
+ * from, in two short lines. "why?" adds only what those lines do not say: how
  * Checkmarx One knows, AI Triage's verdict and full explanation, and the next
  * step. AI Triage's own words come first when there are any; otherwise what
- * this kind of finding means (fix-advice.js). The report's script renders the
- * same thing when it learns more (report.client.js).
+ * this kind of finding means (finding-meaning.js). The report never suggests a
+ * fix of its own: the fix is Checkmarx One AI Remediation's. The report's
+ * script renders the same thing when it learns more (report.client.js).
  */
 export function howKnown(scanner) {
   const engine = String(scanner || '').toUpperCase();
-  if (engine === 'SCA') return 'This project uses a version of the package with a published vulnerability that its code can reach; a fixed version removes it.';
+  if (engine === 'SCA') return 'This project uses a version of the package with a published vulnerability, and its code can reach it.';
   if (engine === 'SAST') return 'Checkmarx One followed the data from where it enters the application to this code, and nothing on the way makes it safe.';
   return 'Checkmarx One matched this code or configuration against a known vulnerable pattern.';
 }
 
-function confirmedWhyHtml(advice, { reason = '', recommendation = '', reachability = '', exploitability = '', confidence = '', scanner = '', url = '', remediateHere = false } = {}) {
+function confirmedWhyHtml(meaning, { reason = '', reachability = '', exploitability = '', confidence = '', scanner = '', url = '', remediateHere = false } = {}) {
   const verdict = [reachability, exploitability].filter(Boolean).map((v) => v.replace(/_/g, ' ').toLowerCase()).join(' and ');
-  const whyFull = reason || advice.what;
-  const fixFull = recommendation || advice.fix;
+  const whyFull = reason || meaning;
   const why = firstSentence(whyFull, 160);
-  const fix = firstSentence(fixFull, 160);
   const more = [
     why !== whyFull ? whyFull : howKnown(scanner),
     verdict && `AI Triage judged it ${verdict}${confidence ? ` (confidence ${confidence})` : ''}.`,
-    reason && advice.what !== reason ? `This kind of finding: ${advice.what}` : '',
-    fix !== fixFull ? `Fix in full: ${fixFull}` : '',
+    reason && meaning !== reason ? `This kind of finding: ${meaning}` : '',
   ].filter(Boolean);
   // The report's script writes this again in the reader's language when it starts (report.client.js).
-  return `<p class="why-line"><b>Why:</b> <span translate="no">${escapeHtml(why)}</span></p><p class="why-line"><b>Fix:</b> <span translate="no">${escapeHtml(fix)}</span></p>
+  return `<p class="why-line"><b>Why:</b> <span translate="no">${escapeHtml(why)}</span></p><p class="why-line"><b>Fix:</b> <span>${escapeHtml(fixFrom(remediateHere))}</span></p>
       <details class="why-more"><summary>why?</summary>
         ${more.map((text) => `<p translate="no">${escapeHtml(text)}</p>`).join('')}
         <p><span>${remediateHere ? 'Remediate asks Checkmarx One AI Remediation for the code change (a pull request when the project is connected to its repository).' : 'Checkmarx One shows the full data flow.'}</span>${url ? ` <a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open in Checkmarx One</a>` : ''}</p>
       </details>`;
+}
+
+/** Where a confirmed finding's fix comes from: Checkmarx One AI Remediation, never the report. */
+function fixFrom(remediateHere) {
+  return remediateHere
+    ? 'From Checkmarx One AI Remediation only: press Remediate.'
+    : 'From Checkmarx One AI Remediation only: remediate it in Checkmarx One.';
 }
 
 /** Why AI cannot act on this finding, in a few words, with the full reason on hover. */
@@ -621,6 +639,8 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px max(24px, env(safe-area-
 .muted { color: var(--muted); font-size: 13px; }
 .actions { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
 .bulk-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.bulk-fix-row { margin-top: 8px; }
+.btn-fix { background: var(--surface); color: var(--link); border-color: var(--link); }
 .actions p { margin: 8px 0 0; }
 .server { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; margin-bottom: 12px; }
 .server-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
@@ -651,8 +671,6 @@ tr:last-child td { border-bottom: 0; }
 .finding { min-width: 240px; }
 .finding-title { font-weight: 600; overflow-wrap: anywhere; }
 .sub { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-.fix-version { color: #047857; font-weight: 600; }
-@media (prefers-color-scheme: dark) { .fix-version { color: #6ee7b7; } }
 .shared-note { margin-top: 4px; font-size: 12px; color: var(--muted); }
 .shared-chip { display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 999px; background: var(--busy-bg); color: var(--busy); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .shared-c0 { --twin: #6941c6; } .shared-c1 { --twin: #0e7090; } .shared-c2 { --twin: #b54708; } .shared-c3 { --twin: #c11574; } .shared-c4 { --twin: #3e7d1e; } .shared-c5 { --twin: #155eef; }
