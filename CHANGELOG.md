@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.74 | 514/s, 0 (main 519, 0) | 5.9 s | 252 ms | 645 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.73 | 507/s, 0 (main 497, 10) | 6.8 s | 615 ms | 645 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.72 | 486/s, 0 (main 503, 0) | 8.0 s | 1.0 s | 645 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.71 | 488/s, 0 (main 487, 0) | 8.9 s | 627 ms | 636 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -59,6 +60,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.74 — 2026-10-13 02:25 UTC · [#97](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/97)
+
+- **Fixes come only from Checkmarx One AI Remediation.** The report no longer writes fix advice of its own: under a confirmed finding, **Fix:** now says to press **Remediate** (or to remediate it in Checkmarx One), AI Triage's recommendation is no longer shown as a fix, and the "upgrade to …" hint on package findings is gone.
+- **Apply AI fix waits for the real fix.** The button stays greyed out until Checkmarx One AI Remediation has written the change, so there is nothing else for it to apply.
+- **Remediate all critical, Remediate all high, Remediate all.** New buttons in the report run AI Remediation on every confirmed finding the project's credits cover, critical first: 3 credits each, only for the severities the credits are allocated for, one request at a time through the same checks as a single **Remediate**.
+- **Says what the credits cover.** When they cover only some findings the button reads, for example, **Remediate critical: 3 of 4**, and its tooltip says why the rest are left out; when they cover none, a click opens **Ask the administrator** with what each project needs, including a severity the credits are not allocated for.
+- **Every language.** The new wording is in all fourteen languages, reviewed twice, and the credits card's result and remediation counts are now translated too.
+- **Status.** 3000 people at once on 2 vCPU: 514 requests a second with none failed (main 519, none failed), report opens 5.9 s at p95 (main 5.4 s), triage polls 252 ms (main 717 ms); two earlier runs during host stalls opened reports in 9.1 s, with the same code path and the same report build time as main ([performance](docs/performance.md)); 645 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.73 — 2026-10-12 18:58 UTC · [#96](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/96)
 
