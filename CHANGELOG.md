@@ -62,7 +62,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.75 — MERGE_TIME UTC · [#98](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/98)
+## MZ-01.00.75 — 2026-10-13 09:29 UTC · [#98](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/98)
 
 - **Choose the engines.** A new **Engines** choice on the Dashboard loads SAST and SCA findings (the two AI Triage and AI Remediation work on) unless IaC, Containers, API Security or Secrets are ticked too; counts, reports (which say their engines at the top), reminders, tracked reports, Credit Control, scheduled runs and the Cx Credits Calculator follow it.
 - **One branch, counted once.** Each project now counts only its primary branch (as set in Checkmarx One, else main, else master), from its latest completed scan there, so a vulnerability scanned on several branches is no longer counted several times; **Every branch** on the Dashboard, in Settings → Automation and in the calculator counts them all again.
