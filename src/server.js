@@ -15,7 +15,9 @@ import { SendGuard } from './send-guard.js';
 import { ActivityLog, describe as describeAction, fieldNames, recordsGet, targetOf } from './activity-log.js';
 import { Diagnostics } from './diagnostics.js';
 import { filterProjectsByActivity, getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
+import { BRANCH_HOW, branchScopeOf, linesOfCode, onBranch, primaryScans } from './cxone/branches.js';
 import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, projectReads, readGate, selectRisks, summariseProject } from './cxone/risks.js';
+import { DEFAULT_ENGINES, cleanEngines, describeEngines, engineScope, inEngines } from './engines.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject, projectsInScope, scanInitiator, scanInitiatorEmail } from './cxone/initiators.js';
 import { AI_SCANNERS, resolveAiIds, resultRowsFor, warmScanResults } from './cxone/ai-assist.js';
@@ -89,7 +91,7 @@ import { featureById, featureList, isFinal, mayUse } from './features.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
-import { WINDOW_PRESETS, describeWindow, resolveWindow } from './window.js';
+import { WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
 import {
   SessionStore,
   clearSessionCookie,
@@ -2712,6 +2714,8 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   const settings = settingsStore.get();
   // A vulnerability search ("SQL injection", "SSRF"): only the findings it names are kept.
   const vulnerability = vulnerabilityQuery(req.query.vulnerability);
+  // The engines chosen (the Dashboard sends SAST and SCA unless more are ticked); none given means every engine.
+  const engines = engineScope(String(req.query.engines ?? '').split(','));
   const names = new Map();
   const allProjects = await listProjects(client);
   // Named projects or people: fetched whatever their last scan date (they were
@@ -2725,22 +2729,51 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     scope.projectIds = [...new Set([...scope.projectIds, ...named.flatMap((a) => a.projectIds)])].slice(0, 5000);
     scope.applicationNames = named.map((a) => a.name);
   }
-  let projects, skipped, warning, lastScans;
+  // One branch per project (its primary branch, else main, else master: src/cxone/branches.js), unless every branch is asked for.
+  const branchScope = branchScopeOf(req.query.branches);
+  // Projects whose scan counted no lines of code are left out unless kept; those with no finding, when asked.
+  const leaveOutNoCode = req.query.zeroLoc !== 'keep';
+  const leaveOutNoFindings = req.query.noFindings === 'leave-out';
+  const identity = readerIdentity(req.session);
+  const gate = readGate(client);
+  const pickScans = (list) => primaryScans(client, list, { all: branchScope === 'all', identity, gate, concurrency: config.concurrency });
+  let projects, skipped, warning, choice;
   if (scope.projectIds.length || scope.initiators.length || scope.applications.length) {
-    lastScans = scope.initiators.length ? await getLastScans(client, allProjects.map((p) => p.id)) : {};
-    projects = projectsInScope(allProjects, scope, lastScans, (username) => initiatorEmailOf(username, settings));
+    if (scope.initiators.length) choice = await pickScans(allProjects);
+    projects = projectsInScope(allProjects, scope, choice?.anyBranch ?? {}, (username) => initiatorEmailOf(username, settings));
     skipped = allProjects.length - projects.length;
     warning = projects.length ? null : 'No project matches the applications, projects or people named in the scope.';
   } else {
-    ({ projects, skipped, warning, lastScans } = await filterProjectsByActivity(client, allProjects, activityWindow));
+    // A project whose latest scan of any branch is outside the window has none inside it on its primary branch either:
+    // only those inside are looked at more closely.
+    let candidates = allProjects;
+    if (activityWindow) {
+      const anyBranch = await getLastScans(client, allProjects.map((p) => p.id)).catch(() => null);
+      if (anyBranch) {
+        candidates = allProjects.filter((p) => withinWindow(activityWindow, lastScanDate(anyBranch[p.id])));
+        choice = await primaryScans(client, candidates, { all: branchScope === 'all', identity, gate, concurrency: config.concurrency, lastScans: anyBranch }).catch(() => null);
+      }
+    }
+    ({ projects, warning } = await filterProjectsByActivity(client, candidates, activityWindow, { lastScans: choice?.scans ?? null }));
+    skipped = allProjects.length - projects.length;
   }
-  // Each project's latest scan: whose it is (for reminders), and whether a
+  // Each project's latest scan on the branch that counts: whose it is (for reminders), and whether a
   // recent read of it by someone else is still current (see projectReads).
-  if (!Object.keys(lastScans ?? {}).length && projects.length) {
-    lastScans = await getLastScans(client, projects.map((p) => p.id)).catch(() => ({}));
-  }
+  if (!choice && projects.length) choice = await pickScans(projects).catch(() => null);
+  choice ??= { scans: {}, branches: {}, counts: {}, all: branchScope === 'all' };
+  const lastScans = choice.scans;
+  // Left out before anything is read: a primary branch never scanned, a scan that counted no lines of code.
+  const leftOut = { noPrimaryScan: 0, noCode: 0, noFindings: 0 };
+  projects = projects.filter((p) => (choice.branches[p.id]?.how === BRANCH_HOW.none ? ((leftOut.noPrimaryScan += 1), false) : true));
+  // No lines of code: asked of each project while its findings are read (collectProjectRisks' admit).
+  const hasCode = leaveOutNoCode ? async (project) => (lastScans[project.id] ? (await linesOfCode(client, lastScans[project.id], { identity, gate })) !== 0 : true) : null;
+  const branchFilter = Object.values(choice.branches).some((b) => b.how !== BRANCH_HOW.any && b.how !== BRANCH_HOW.unknown)
+    ? (project, risks) => onBranch(client, choice, project.id, risks, { identity, gate })
+    : null;
   onStart?.({ total: projects.length, projectsTotal: allProjects.length, projectsSkipped: skipped });
 
+  // The branch each project's findings are from, and how it was chosen (src/cxone/branches.js).
+  const branched = (summary) => Object.assign(summary, { branch: choice.branches[summary.projectId]?.branch ?? '', branchHow: choice.branches[summary.projectId]?.how ?? '' });
   // Rows shown while the rest is still being read: the initiator comes from the
   // latest scan already in hand; addresses and confidence follow with the result.
   const earlyRow = (summary) => {
@@ -2768,23 +2801,26 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
       rules: settings.initiators,
       useDirectory: settings.initiators.useDirectory,
       concurrency: config.concurrency,
-      lastScans: Object.keys(lastScans ?? {}).length ? lastScans : undefined,
+      lastScans: Object.keys(lastScans).length ? lastScans : undefined,
       memory: knownAddresses,
       attributed: creditFor,
     }),
     collectProjectRisks(client, active, projects, {
       detectionWindow,
-      keep: vulnerability ? (risk) => matchesVulnerability(vulnerability, risk) : null,
+      keep: vulnerability || engines ? (risk) => inEngines(risk, engines) && (!vulnerability || matchesVulnerability(vulnerability, risk)) : null,
       names,
       // Its many projects at once never queue more calls than the connection runs at once (readGate).
-      gate: readGate(client),
-      onProject: onProject ? (summary) => onProject(earlyRow(summary)) : null,
-      shared: { identity: readerIdentity(req.session), lastScans, fresh: req.query.fresh === '1' },
+      gate,
+      onProject: onProject ? (summary) => onProject(earlyRow(branched(summary))) : null,
+      shared: { identity, lastScans, fresh: req.query.fresh === '1' },
+      scans: Object.keys(lastScans).length ? lastScans : null,
+      refine: branchFilter,
+      admit: hasCode,
       shouldStop,
     }),
   ]);
-  // Stopped part-way: what was read is the data, and only its projects keep their initiators.
-  if (result.notRead) {
+  // Stopped part-way, or projects left out: what was read is the data, and only its projects keep their initiators.
+  if (result.notRead || result.leftOut) {
     const read = new Set(result.projects.map((p) => p.projectId));
     for (const id of Object.keys(initiators.byProject)) if (!read.has(id)) delete initiators.byProject[id];
   }
@@ -2800,6 +2836,14 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   }
   result.initiators = initiators.byProject;
   result.detectionWindow = detectionWindow;
+  result.engines = engines;
+  leftOut.noCode = result.leftOut ?? 0;
+  for (const summary of result.projects) branched(summary);
+  // Asked to: projects with no finding left (in this scope) are not part of the result.
+  if (leaveOutNoFindings) result.projects = result.projects.filter((p) => (p.totalRisks > 0 || p.error ? true : ((leftOut.noFindings += 1), false)));
+  result.branchScope = branchScope;
+  result.leaveOut = { noCode: leaveOutNoCode, noFindings: leaveOutNoFindings };
+  result.leftOut = leftOut;
   // Searched: the projects with no finding of that vulnerability are not part of the result.
   result.vulnerability = vulnerability?.text ?? '';
   if (vulnerability) result.projects = result.projects.filter((p) => p.totalRisks > 0 || p.error);
@@ -2810,8 +2854,11 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   // Fetching shows what the findings need; it never allocates anything.
   for (const summary of result.projects) summary.credits ??= creditView(summary);
   for (const summary of result.projects) summary.sla ??= slaSummary(summary.risks, settings.sla);
-  // What was open, for the Impact page; a project read with no date window, without error, is complete.
-  for (const summary of result.projects) findingJournal.observe(summary, summary.risks, { complete: !detectionWindow && !summary.error });
+  // What was open, for the Impact page. A project read whole (no date window, no search, no error) is
+  // complete for the engines read: what it no longer lists of theirs was fixed. A narrowed read only adds
+  // what it saw. Only the branch that counts is recorded: a read of every branch would mix in others' findings.
+  const whole = !detectionWindow && !vulnerability;
+  if (branchScope === 'primary') for (const summary of result.projects) findingJournal.observe(summary, summary.risks, { complete: whole && !summary.error, engines });
   req.session.lastScan = result;
 
   const response = {
@@ -2827,6 +2874,10 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     projectsSkipped: skipped,
     // The search, and the names of every finding read (most frequent first), to suggest as people type.
     vulnerability: result.vulnerability,
+    // The engines read (null: every engine).
+    engines,
+    // One branch per project ("primary") or every branch ("all"), and how each project's branch was chosen.
+    branches: { scope: branchScope, counts: choice.counts ?? {} },
     vulnerabilityNames: topNames(names),
     // Stop pressed: how many of the projects in scope were read before it, and how many were not.
     stopped: result.notRead > 0,
@@ -2871,6 +2922,10 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
       applications: scope.applications,
       applicationNames: scope.applicationNames ?? [],
       vulnerability: result.vulnerability,
+      engines: engines ?? [],
+      branches: branchScope,
+      zeroLoc: leaveOutNoCode ? '' : 'keep',
+      noFindings: leaveOutNoFindings ? 'leave-out' : '',
     },
   };
   saveFetchedData(req.session);
@@ -3763,7 +3818,8 @@ app.post(
     // Each project's weeks stay on the server, for any scope picked later; the page gets the rest.
     const reads = tenancy.current().projectionReads;
     Promise.all([
-      readTenant(client, { onProgress: (step, done, total) => Object.assign(job, { step, done, total }) }),
+      // One branch per project (its primary branch) unless every branch is asked for.
+      readTenant(client, { branches: branchScopeOf(req.body?.branches), onProgress: (step, done, total) => Object.assign(job, { step, done, total }) }),
       readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null })),
     ])
       .then(([{ perProject, ...tenant }, offer]) => {
@@ -3781,12 +3837,13 @@ app.get('/api/projections/read', requireCalculator, (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json(readView(calculatorReads.get(tenancy.current().id)));
 });
-/** The backlog and fixes, week by week, of the projects in a customer's scope, from the last read. */
+/** The backlog and fixes, week by week, of the projects in a customer's scope and the engines chosen, from the last read. */
 app.post('/api/projections/series', requireCalculator, (req, res) => {
   const read = projectionReads.get();
   if (!read?.weeks?.length) return res.status(409).json({ error: 'Read Checkmarx One first: the scope is worked out from the last read.' });
   const ids = Array.isArray(req.body?.projectIds) ? req.body.projectIds.slice(0, 5000).map((id) => String(id).slice(0, 100)) : [];
-  res.json(seriesFor(read, ids));
+  // The engines whose findings count (SAST and SCA unless more are ticked).
+  res.json(seriesFor(read, ids, cleanEngines(req.body?.engines).length ? cleanEngines(req.body.engines) : DEFAULT_ENGINES));
 });
 app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
   res.json({ customer: projections.get(String(req.params.id)) });
@@ -3813,7 +3870,7 @@ app.post(
   asyncRoute(async (req, res) => {
     const client = req.session.client ?? integrationSession()?.client;
     if (!client) return res.status(409).json({ error: 'Connect to Checkmarx One first (Settings → Checkmarx One), or add each project by hand.' });
-    const [{ perProject, ...tenant }, offer] = await Promise.all([readTenant(client), readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null }))]);
+    const [{ perProject, ...tenant }, offer] = await Promise.all([readTenant(client, { branches: branchScopeOf(req.body?.branches) }), readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null }))]);
     projectionReads.save(perProject);
     res.json({ ...tenant, ...offer });
   }),
@@ -5025,9 +5082,17 @@ const VERIFY_SLOTS = 12;
  * AI Triage and AI Remediation would be sent (results API). Returns the exact
  * billed result ids, not an estimate.
  */
-async function readProjectNeed(session, project, { detectionWindow = null, scanIdOf = () => '', severities = null, keep = null, gate = null } = {}) {
+async function readProjectNeed(session, project, { detectionWindow = null, scanIdOf = () => '', severities = null, keep = null, gate = null, branchChoice = null } = {}) {
   const started = Date.now();
-  const read = await collectProjectRisks(session.client, activeConfig(), [{ id: project.projectId, name: project.projectName }], { detectionWindow, keep, gate });
+  // Only the branch that counts for the project (branchChoice), as the findings it replaces were read.
+  const scan = branchChoice?.scans?.[project.projectId];
+  const read = await collectProjectRisks(session.client, activeConfig(), [{ id: project.projectId, name: project.projectName }], {
+    detectionWindow,
+    keep,
+    gate,
+    scans: branchChoice ? { [project.projectId]: scan } : null,
+    refine: branchChoice ? (p, risks) => onBranch(session.client, branchChoice, p.id, risks, { identity: readerIdentity(session), gate }) : null,
+  });
   const summary = read.projects[0];
   if (summary.error) throw Object.assign(new Error(`${project.projectName}: ${summary.error}`), { status: 502 });
   const rule = severities?.length ? severities : allocations.severitiesOf(project.projectId);
@@ -5090,11 +5155,13 @@ const DISAGREED = 'Checkmarx One gave different results on the two reads — the
 
 async function verifyNeeds(session, projects, { severities = null } = {}) {
   const scan = session.lastScan;
-  // The same findings the Dashboard shows: its date window, and its vulnerability search.
+  // The same findings the Dashboard shows: its date window, its engines and its vulnerability search
+  // (the verified read replaces the loaded findings, so it must keep to the same ones).
   const vulnerability = vulnerabilityQuery(scan?.vulnerability);
-  const keep = vulnerability ? (risk) => matchesVulnerability(vulnerability, risk) : null;
+  const engines = scan?.engines ?? null;
+  const keep = vulnerability || engines ? (risk) => inEngines(risk, engines) && (!vulnerability || matchesVulnerability(vulnerability, risk)) : null;
   // Its projects and their two reads side by side, never queuing more calls than one verify did before (VERIFY_SLOTS).
-  const options = { detectionWindow: scan?.detectionWindow ?? null, scanIdOf: (id) => scan?.initiators?.[id]?.scanId ?? '', severities, keep, gate: readGate(session.client, VERIFY_SLOTS) };
+  const options = { detectionWindow: scan?.detectionWindow ?? null, scanIdOf: (id) => scan?.initiators?.[id]?.scanId ?? '', severities, keep, gate: readGate(session.client, VERIFY_SLOTS), branchChoice: branchChoiceOfScan(scan) };
   const out = await mapWithConcurrency(projects, VERIFY_AT_ONCE, async (p) => {
     try {
       const { first, second, agreed } = await doubleRead(session, p, options);
@@ -5669,17 +5736,58 @@ const refreshing = scoped(tenancy, 'refreshing');
 
 
 /** Every current finding (no filters) for each of a report's projects. */
-async function currentFindings(session, projects) {
+/** Each project's primary branch as Checkmarx One names it, per key, read again after ten minutes. */
+const mainBranches = new TtlCache({ max: 200 });
+const mainBranchesOf = (session) =>
+  mainBranches.wrap(readerIdentity(session) || `session-${session.id ?? ''}`, async () => new Map((await listProjects(session.client)).map((p) => [p.id, p.mainBranch ?? ''])), 10 * 60_000);
+
+/**
+ * The branch that counts for each of these projects ({projectId, projectName}) and its latest scan
+ * there (src/cxone/branches.js); null for every branch, or when it cannot be told now.
+ */
+async function branchChoiceFor(session, projects, branches = 'primary') {
+  if (branchScopeOf(branches) === 'all' || !projects.length) return null;
+  const mains = await mainBranchesOf(session).catch(() => new Map());
+  const list = projects.map(({ projectId, projectName }) => ({ id: projectId, name: projectName, mainBranch: mains.get(projectId) ?? '' }));
+  return primaryScans(session.client, list, { identity: readerIdentity(session), concurrency: 4 }).catch(() => null);
+}
+
+/** The branch choice a Dashboard fetch made, from its rows (null: it read every branch). */
+function branchChoiceOfScan(scan) {
+  if (!scan || scan.branchScope !== 'primary') return null;
+  const branches = Object.create(null);
+  const scans = Object.create(null);
+  for (const p of scan.projects ?? []) {
+    if (p.branchHow) branches[p.projectId] = { branch: p.branch ?? '', how: p.branchHow };
+    const id = scan.initiators?.[p.projectId]?.scanId;
+    if (id) scans[p.projectId] = { id };
+  }
+  return { branches, scans };
+}
+
+/**
+ * Projects' current findings, read fresh. On the branch that counts for each (its primary branch:
+ * src/cxone/branches.js), unless `branches` is "all" (every branch, as tracked reports made before
+ * branches were told apart keep).
+ */
+async function currentFindings(session, projects, { branches = 'primary' } = {}) {
   const cfg = activeConfig();
   const byProject = new Map();
+  const identity = readerIdentity(session);
+  const all = branchScopeOf(branches) === 'all';
+  const choice = await branchChoiceFor(session, projects, branches);
   await mapWithConcurrency(projects, 3, async ({ projectId, projectName }) => {
     const project = { id: projectId, name: projectName };
+    const how = choice?.branches[projectId]?.how;
     const source = createRiskSource(session.client, cfg);
-    if (source.prime) await source.prime([project]);
+    if (source.prime) await source.prime([project], choice ? { [projectId]: choice.scans[projectId] } : null);
     const raw = await source.fetchForProject(project);
-    byProject.set(projectId, raw.map((r) => normalizeRisk(r, project)));
-    // Every current finding of the project: those no longer among them are gone (the Impact page).
-    findingJournal.observe({ projectId, projectName }, byProject.get(projectId), { complete: true });
+    let risks = raw.map((r) => normalizeRisk(r, project));
+    if (choice) risks = await onBranch(session.client, choice, projectId, risks, { identity });
+    byProject.set(projectId, risks);
+    // Every current finding of the project on its branch: those no longer among them are gone (the Impact page).
+    // Not from a read of every branch (others' findings would be mixed in), nor of a primary branch never scanned.
+    if (!all && how !== BRANCH_HOW.none) findingJournal.observe({ projectId, projectName }, risks, { complete: true });
   });
   return byProject;
 }
@@ -5700,7 +5808,7 @@ function refreshTrackedReport(report, session) {
   if (!refreshing.has(report.id)) {
     refreshing.set(
       report.id,
-      currentFindings(session, report.projects)
+      currentFindings(session, report.projects, { branches: report.filters.branches ?? 'all' })
         .then((byProject) => {
           trackedReports.record(report, progressFor(report, byProject));
           report.lastError = null;
@@ -5758,7 +5866,9 @@ async function startVerification(report, session, { by = '', automatic = false, 
   if (report.verification && !report.verification.finishedAt) {
     throw Object.assign(new Error('A verification is already running for this report.'), { status: 409 });
   }
-  const last = await getLastScans(session.client, report.projects.map((p) => p.projectId));
+  // Scanned again like the latest scan of the branch that counts (a report made before branches were told apart: any branch's).
+  const branchChoice = await branchChoiceFor(session, report.projects, report.filters.branches ?? 'all');
+  const last = branchChoice?.scans ?? (await getLastScans(session.client, report.projects.map((p) => p.projectId)));
   const known = new Map((session.lastScan?.projects ?? []).map((p) => [p.projectId, p]));
   const requestedAt = new Date().toISOString();
   const projects = report.projects.map((p) => ({ projectId: p.projectId, projectName: p.projectName, status: 'Queued', scanId: '', lastScanId: '', error: '' }));
@@ -5766,7 +5876,7 @@ async function startVerification(report, session, { by = '', automatic = false, 
     entry.lastScanId = scanIdOfSummary(last[entry.projectId]);
     if (!entry.lastScanId) {
       entry.status = 'waiting';
-      entry.error = 'No completed scan yet: the first one verifies it.';
+      entry.error = branchChoice ? 'No completed scan of its primary branch yet: the first one verifies it.' : 'No completed scan yet: the first one verifies it.';
       return;
     }
     try {
@@ -5819,7 +5929,9 @@ async function advanceVerification(report, session) {
   let changed = false;
   const waiting = v.projects.filter((e) => e.status === 'waiting');
   if (waiting.length) {
-    const last = await getLastScans(session.client, waiting.map((e) => e.projectId)).catch(() => ({}));
+    const waitingProjects = report.projects.filter((p) => waiting.some((e) => e.projectId === p.projectId));
+    const branchChoice = await branchChoiceFor(session, waitingProjects, report.filters.branches ?? 'all');
+    const last = branchChoice?.scans ?? (await getLastScans(session.client, waiting.map((e) => e.projectId)).catch(() => ({})));
     for (const entry of waiting) {
       const scan = last[entry.projectId];
       if (scan && scanIdOfSummary(scan) !== entry.lastScanId && newerThan(scan, v.requestedAt)) {
@@ -5846,7 +5958,7 @@ async function advanceVerification(report, session) {
   const verified = v.projects.filter((e) => e.status === 'Completed' || e.status === 'Partial');
   const stillWaiting = v.projects.some((e) => e.status === 'waiting');
   if (changed && !scanning && verified.length) {
-    const byProject = await currentFindings(session, report.projects);
+    const byProject = await currentFindings(session, report.projects, { branches: report.filters.branches ?? 'all' });
     trackedReports.record(report, progressFor(report, byProject));
     v.result = verificationResult(report, byProject, {
       verifiedProjects: new Set(verified.map((e) => e.projectId)),
@@ -6044,7 +6156,7 @@ const MAX_REMINDERS_KEPT = 50;
  * Shaped like a dashboard fetch so the reminder senders can use it directly.
  */
 async function openScanFor(session, report) {
-  const byProject = await currentFindings(session, report.projects);
+  const byProject = await currentFindings(session, report.projects, { branches: report.filters.branches ?? 'all' });
   trackedReports.record(report, progressFor(report, byProject));
   let detection = null;
   try {
@@ -6069,7 +6181,7 @@ async function openScanFor(session, report) {
     report.projects.map((p) => ({ id: p.projectId, name: p.projectName })),
     { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency, memory: knownAddresses, attributed: creditFor },
   );
-  return { projects, initiators: initiators.byProject, byProject };
+  return { projects, initiators: initiators.byProject, byProject, detectionWindow: detection, engines: engineScope(report.filters.engines), branchScope: report.filters.branches ?? 'all' };
 }
 
 /** Settings → Who gets reminders: 'initiator', 'list' or 'both'. */
@@ -6139,6 +6251,8 @@ async function trackedReportHtml(session, report, scan, relayUrl, audience = {},
     initiatorsByProject: scan.initiators,
     audience: { purpose: `for tracked report "${report.name}"`, ...audience },
     tracked: report,
+    // Its own engines and branches, not the Dashboard's.
+    scope: { buckets: [], engines: engineScope(report.filters.engines), branches: report.filters.branches ?? 'all' },
   });
 }
 
@@ -6293,7 +6407,7 @@ app.get(
  * extra credits each, out of the credit pool. The severities join each
  * project's rule. Returns the refusal ({ error }) or null once given.
  */
-async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, extraRemediation, where, details }) {
+async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, extraRemediation, where, details, engines = null, branches = 'primary' }) {
   const actor = await adminActor(req);
   const before = new Map(projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
   for (const { projectId, projectName } of projects) {
@@ -6301,12 +6415,14 @@ async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, e
   }
   const verifiedRisks = new Map();
   if (wanted.length) {
-    const lastScans = await getLastScans(req.session.client, projects.map((p) => p.projectId)).catch(() => ({}));
+    // Each project's latest scan on the branch that counts (every branch's latest, when asked for).
+    const branchChoice = await branchChoiceFor(req.session, projects, branches);
+    const lastScans = branchChoice?.scans ?? (await getLastScans(req.session.client, projects.map((p) => p.projectId)).catch(() => ({})));
     const scanIdOf = (id) => String(lastScans?.[id]?.id ?? lastScans?.[id]?.scanId ?? '');
     const refused = [];
     await mapWithConcurrency(projects, 3, async (p) => {
       try {
-        const { second, agreed } = await doubleRead(req.session, p, { scanIdOf });
+        const { second, agreed } = await doubleRead(req.session, p, { scanIdOf, branchChoice });
         if (agreed) verifiedRisks.set(p.projectId, second.summary.risks);
         else refused.push(`${p.projectName}: ${DISAGREED}`);
       } catch (error) {
@@ -6321,7 +6437,9 @@ async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, e
     }
   }
   const plan = projects.map(({ projectId, projectName }) => {
-    const { shortfall } = allocations.need(projectId, verifiedRisks.get(projectId) ?? byProject.get(projectId) ?? []);
+    // Only the findings of the engines chosen count towards the need.
+    const risks = (verifiedRisks.get(projectId) ?? byProject.get(projectId) ?? []).filter((r) => inEngines(r, engines));
+    const { shortfall } = allocations.need(projectId, risks);
     return { projectId, projectName, triage: wanted.length ? shortfall.triage : 0, remediation: wanted.length ? shortfall.remediation : 0 };
   });
   const given = plan.reduce((n, x) => n + x.triage + x.remediation + extraTriage + extraRemediation, 0);
@@ -6362,9 +6480,10 @@ app.post('/api/credits/allocate-needed', requirePermission('credits.allocate'), 
   const chosen = new Set(idList(req.body?.projectIds));
   const projects = allocations.list().filter((p) => !chosen.size || chosen.has(p.projectId)).map((p) => ({ projectId: p.projectId, projectName: p.projectName || p.projectId }));
   if (!projects.length) return res.status(400).json({ error: 'Give credits to a project first.' });
-  const byProject = await currentFindings(req.session, projects);
+  const byProject = await currentFindings(req.session, projects, { branches: req.body?.branches });
+  const engines = engineScope(req.body?.engines);
   const refused = await allocateNeeded(req, projects, byProject, {
-    wanted, extraTriage, extraRemediation, where: 'Credit Control', details: { projectIds: projects.map((p) => p.projectId) },
+    wanted, extraTriage, extraRemediation, engines, branches: req.body?.branches, where: 'Credit Control', details: { projectIds: projects.map((p) => p.projectId), engines: engines ?? 'all' },
   });
   if (refused) return res.status(409).json(refused);
   for (const p of req.session.lastScan?.projects ?? []) if (allocations.get(p.projectId)) p.credits = creditView(p);
@@ -6384,10 +6503,10 @@ app.post(
     if (!wanted.length && !extraTriage && !extraRemediation) {
       return res.status(400).json({ error: 'Pick severities, or enter credits to add.' });
     }
-    const byProject = await currentFindings(req.session, report.projects);
+    const byProject = await currentFindings(req.session, report.projects, { branches: report.filters.branches ?? 'all' });
     trackedReports.record(report, progressFor(report, byProject));
     const refused = await allocateNeeded(req, report.projects, byProject, {
-      wanted, extraTriage, extraRemediation, where: `tracked report "${report.name}"`, details: { report: report.id },
+      wanted, extraTriage, extraRemediation, engines: report.filters.engines, branches: report.filters.branches ?? 'all', where: `tracked report "${report.name}"`, details: { report: report.id },
     });
     if (refused) return res.status(409).json(refused);
     res.json({ report: trackedView(report) });
@@ -6504,6 +6623,10 @@ app.post('/api/tracked-reports', requirePermission('reports.manage'), (req, res)
       detection: clean(windows.detection),
       severities: wantedSeverities,
       buckets: wantedBuckets,
+      // The engines the Dashboard loaded ([] = every engine): refreshes and new rounds keep to them.
+      engines: lastScan.engines ?? [],
+      // One branch per project, or every branch, as the Dashboard read them (a report made before: every branch).
+      branches: lastScan.branchScope ?? 'primary',
     },
     projects: inScope.map((p) => ({ projectId: p.projectId, projectName: p.projectName })),
     findings: risks,
@@ -6662,7 +6785,7 @@ app.post(
     if (!severities.length) return res.status(400).json({ error: 'Choose the severities for the next round.' });
     const session = req.session?.client ? req.session : await resolveAutomationSession();
     if (!session) return res.status(409).json({ error: 'Connect to Checkmarx One first.' });
-    const byProject = await currentFindings(session, report.projects);
+    const byProject = await currentFindings(session, report.projects, { branches: report.filters.branches ?? 'all' });
     const filters = { ...report.filters, severities, buckets };
     let detection = null;
     try {
@@ -6861,7 +6984,10 @@ app.post('/api/credits/run', requirePermission('triage.run'), afterFetch, asyncR
   if (!projects.length) return res.status(400).json({ error: 'Give credits to a project first.' });
 
   const settings = settingsStore.get();
-  const byProject = await currentFindings(req.session, projects);
+  const byProject = await currentFindings(req.session, projects, { branches: req.body?.branches });
+  // Only the engines chosen (SAST and SCA unless more are ticked).
+  const engines = engineScope(req.body?.engines);
+  for (const [id, risks] of byProject) byProject.set(id, risks.filter((r) => inEngines(r, engines)));
   const initiators = await collectInitiators(
     req.session.client,
     req.session.connection,
@@ -6869,7 +6995,7 @@ app.post('/api/credits/run', requirePermission('triage.run'), afterFetch, asyncR
     { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency, memory: knownAddresses, attributed: creditFor },
   );
   const scan = { projects: projects.map((p) => ({ ...p, risks: byProject.get(p.projectId) ?? [] })), initiators: initiators.byProject };
-  const where = `Credit Control: ${kind === 'triage' ? 'triage' : 'remediate confirmed'} ${wanted.map((s) => s.toLowerCase()).join(', ')}`;
+  const where = `Credit Control: ${kind === 'triage' ? 'triage' : 'remediate confirmed'} ${wanted.map((s) => s.toLowerCase()).join(', ')} (${describeEngines(engines)})`;
   let summary;
   if (kind === 'remediation') {
     summary = await remediateConfirmed(req, scan, wanted, where);
@@ -7682,10 +7808,15 @@ function projectReportScope(scope = {}) {
     return Number.isFinite(time) ? new Date(time).toISOString() : '';
   };
   const detection = scope.detection ?? {};
+  const engines = engineScope(scope.engines);
   return {
     buckets: list(scope.buckets, (b) => AGE_BUCKETS.some((a) => a.id === b) || b === 'unknown'),
     severities: list((scope.severities ?? []).map?.((v) => String(v).toUpperCase()) ?? [], (v) => PROJECT_REPORT_SEVERITIES.has(v)),
     detection: { from: iso(detection.from), to: iso(detection.to) },
+    // Only when engines were chosen: reports made before keep their signed scope (every engine).
+    ...(engines ? { engines } : {}),
+    // Only for one branch per project: reports made before keep theirs (every branch).
+    ...(scope.branches === 'primary' ? { branches: 'primary' } : {}),
   };
 }
 
@@ -7717,7 +7848,9 @@ app.post(
 
     const settings = settingsStore.get();
     const project = { id: projectId, name: projectName };
-    const lastScans = await getLastScans(session.client, [projectId]).catch(() => ({}));
+    // The branch that counts for the project (a report made before branches were told apart: every branch).
+    const branchChoice = await branchChoiceFor(session, [{ projectId, projectName }], scope.branches ?? 'all');
+    const lastScans = branchChoice?.scans ?? (await getLastScans(session.client, [projectId]).catch(() => ({})));
     const detectionWindow = scope.detection.from || scope.detection.to
       ? { from: scope.detection.from ? new Date(scope.detection.from) : null, to: scope.detection.to ? new Date(scope.detection.to) : null }
       : null;
@@ -7725,6 +7858,8 @@ app.post(
       collectProjectRisks(session.client, activeConfig(), [project], {
         detectionWindow,
         shared: { identity: readerIdentity(session), lastScans },
+        scans: branchChoice ? lastScans : null,
+        refine: branchChoice ? (p, risks) => onBranch(session.client, branchChoice, p.id, risks, { identity: readerIdentity(session) }) : null,
       }),
       collectInitiators(session.client, session.connection, [project], {
         rules: settings.initiators,
@@ -7738,7 +7873,7 @@ app.post(
     const summary = read.projects[0];
     if (summary?.error) return res.status(502).json({ error: `Could not read ${projectName || 'the project'} from Checkmarx One: ${summary.error}` });
     if (summary) summary.url = projectUrl(summary, session.connection, settings.links);
-    const risks = selectRisks(read.projects, { buckets: scope.buckets, severities: scope.severities.length ? scope.severities : null });
+    const risks = selectRisks(read.projects, { buckets: scope.buckets, severities: scope.severities.length ? scope.severities : null, engines: scope.engines ?? null });
     const actor = reportActor(req);
     const { html, findings } = await buildInteractiveReport(session, risks, {
       buckets: scope.buckets,
@@ -7763,6 +7898,8 @@ app.post(
 async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject, audience = {}, publish = '', scope = null, projects = null, tracked = null } = {}) {
   const { connection, lastScan } = session;
   initiatorsByProject ??= lastScan?.initiators ?? {};
+  // The scope its per-project reports keep: the one given, else the Dashboard's (its engines and branches).
+  const signedScope = scope ?? { buckets, engines: lastScan?.engines ?? null, branches: lastScan?.branchScope };
   // Whatever built the list, findings triaged as not exploitable stay out.
   risks = await withoutNotExploitable(session, risks);
   const reportData = buildReportData(risks, {
@@ -7847,12 +7984,15 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     allowReremediation: Boolean(settings.aiTriage?.allowReremediation),
     adminContact: adminContact(settings),
     repositories,
+    // The engines the report covers, said at its top (undefined: not said, for a report with no scan behind it).
+    engines: signedScope.engines ?? null,
+    branches: scope ? scope.branches ?? 'all' : lastScan?.branchScope,
     // "One project's report" buttons: this server builds it, within the same scope.
-    projectReportScope: projectReportScope(scope ?? { buckets }),
+    projectReportScope: projectReportScope(signedScope),
     signProjectReport: (projectId) => {
       const name = reportData.projects.find((p) => String(p.projectId) === projectId)?.projectName ?? '';
       const exp = Date.now() + PROJECT_REPORT_TTL_MS;
-      return { exp, sig: projectReportSignature(projectId, name, exp, projectReportScope(scope ?? { buckets })) };
+      return { exp, sig: projectReportSignature(projectId, name, exp, projectReportScope(signedScope)) };
     },
   });
   // For email: keep the file, so the email's button can download exactly this report.
@@ -8020,7 +8160,7 @@ app.post(
     const actor = await adminActor(req);
     const { html } = await buildInteractiveReport(req.session, risks, {
       buckets,
-      scope: { buckets, severities, detection: lastScan.detectionWindow },
+      scope: { buckets, severities, detection: lastScan.detectionWindow, engines: lastScan.engines, branches: lastScan.branchScope },
       settings,
       relayUrl: reportServerUrl(req, settings),
       audience: { actor, recipient: `downloaded by ${actor.user || 'administrator'}`, purpose: 'downloaded from the Dashboard' },
@@ -8057,7 +8197,7 @@ async function runHtmlReminder(session, scan, input, relayUrl) {
   const sendReport = async (findings, { to, cc = [], bcc = [], greeting, initiator = null, purpose }) => {
     const { reportData, findings: shown, html, downloadUrl } = await buildInteractiveReport(session, findings, {
       buckets,
-      scope: { buckets, severities, detection: scan.detectionWindow },
+      scope: { buckets, severities, detection: scan.detectionWindow, engines: scan.engines, branches: scan.branchScope ?? 'all' },
       settings,
       relayUrl,
       initiatorsByProject,

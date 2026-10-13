@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { billingUnit } from './credit-allocations.js';
+import { engineOf } from './engines.js';
 
 const DAY = 86_400_000;
 /** Closed findings are kept this long, then forgotten (open ones are always kept). */
@@ -25,7 +26,7 @@ const CONFIRMED = new Set(['CONFIRMED', 'URGENT']);
  * One entry per finding, short keys to keep the file small:
  *   p project id · n project name · r risk id · u Checkmarx One result (billing unit)
  *   s severity · d first detected (Checkmarx One) · o first seen open here
- *   c confirmed at · x judged not exploitable at · g seen gone at
+ *   c confirmed at · x judged not exploitable at · g seen gone at · k engine (SAST, SCA…)
  */
 export class FindingJournal {
   #file;
@@ -64,9 +65,10 @@ export class FindingJournal {
 
   /**
    * What a read of one project showed. `complete`: every current finding of the
-   * project was read, so those not among them are gone.
+   * project was read, so those not among them are gone. With `engines`, every current
+   * finding of those engines: only theirs are gone (one never seen with its engine is kept).
    */
-  observe(project, risks, { complete = false, now = new Date() } = {}) {
+  observe(project, risks, { complete = false, engines = null, now = new Date() } = {}) {
     const projectId = String(project?.projectId ?? project?.id ?? '');
     if (!projectId) return;
     const projectName = String(project?.projectName ?? project?.name ?? '');
@@ -88,6 +90,11 @@ export class FindingJournal {
       if (e.g) {
         // Reported again: it was not fixed after all.
         delete e.g;
+        this.#dirty = true;
+      }
+      const engine = engineOf(risk.scanner);
+      if (engine && e.k !== engine) {
+        e.k = engine;
         this.#dirty = true;
       }
       if (risk.severity && e.s !== risk.severity) {
@@ -116,6 +123,7 @@ export class FindingJournal {
     if (seen && known) {
       for (const [riskId, e] of known) {
         if (seen.has(riskId) || e.g || e.x) continue;
+        if (engines && !(e.k && engines.includes(e.k))) continue;
         e.g = at;
         this.#dirty = true;
       }

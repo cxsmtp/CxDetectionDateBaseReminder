@@ -88,13 +88,13 @@ export function lastScanDate(scan) {
  * Returns the kept projects plus the counts needed to explain the filtering,
  * and degrades to "keep everything" if the last-scan lookup is unavailable.
  */
-export async function filterProjectsByActivity(client, projects, window) {
-  if (!window) return { projects, lastScans: {}, skipped: 0, warning: null };
+export async function filterProjectsByActivity(client, projects, window, { lastScans: known = null } = {}) {
+  if (!window) return { projects, lastScans: known ?? {}, skipped: 0, warning: null };
 
-
-  let lastScans;
+  // `lastScans` given: the scans that count (each project's primary branch's, src/cxone/branches.js).
+  let lastScans = known;
   try {
-    lastScans = await getLastScans(
+    lastScans ??= await getLastScans(
       client,
       projects.map((project) => project.id),
     );

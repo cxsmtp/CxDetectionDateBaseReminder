@@ -1,10 +1,11 @@
 /**
  * Automation configuration schema.
  *
- * Deliberately dependency-free: settings.js needs these defaults, and
+ * Deliberately dependency-free (engines.js is a leaf too): settings.js needs these defaults, and
  * automation.js needs settings.js (through the mailer), so anything shared
  * between them has to live in a leaf module or the two form an import cycle.
  */
+import { DEFAULT_ENGINES, cleanEngines } from './engines.js';
 
 export const DEFAULT_AUTOMATION = {
   enabled: false,
@@ -14,6 +15,13 @@ export const DEFAULT_AUTOMATION = {
   thresholds: [30, 60, 90],
   intervalMinutes: 360,
   severities: [],
+  // The engines whose findings are reminded about: SAST and SCA (what AI Triage and Remediation act on)
+  // unless chosen otherwise; [] means every engine (what a schedule saved before engines existed keeps).
+  engines: [...DEFAULT_ENGINES],
+  // One branch per project, its primary branch ('primary'), or every branch ('all': what a schedule saved
+  // before branches were told apart keeps), and whether projects whose scan counted no lines of code are left out.
+  branches: 'primary',
+  leaveOutNoCode: true,
   groupBy: 'initiator',
   // Kept so a run can be rehearsed in production without mailing anyone.
   dryRun: false,
@@ -58,6 +66,10 @@ export function mergeAutomation(current, incoming = {}) {
       : String(incoming.severities ?? '').split(/[\s,;]+/);
     next.severities = [...new Set(list.map((s) => String(s).trim().toUpperCase()).filter((s) => allowed.includes(s)))];
   }
+
+  if ('engines' in incoming) next.engines = cleanEngines(incoming.engines);
+  if ('branches' in incoming) next.branches = incoming.branches === 'all' ? 'all' : 'primary';
+  if ('leaveOutNoCode' in incoming) next.leaveOutNoCode = incoming.leaveOutNoCode !== false;
 
   return next;
 }

@@ -12,6 +12,7 @@
 import { readFileSync } from 'node:fs';
 
 import { AI_SCANNERS } from './cxone/ai-assist.js';
+import { describeEngines, engineScope } from './engines.js';
 import { findingMeaning } from './finding-meaning.js';
 import { ON_PREMISE_NOTICE, SUPPORTING_NOTICE } from './terms.js';
 
@@ -99,7 +100,9 @@ export function selectTopFindings(reportData, limit = REPORT_TOP_N) {
  * @param {string} [options.adminContact]  who readers ask for more credits
  * @param {(projectId) => {exp, sig}} [options.signProjectReport]  signs "one project's report"
  *   links: the report asks this server for that project's own report (never Checkmarx One)
- * @param {object} [options.projectReportScope]  the scope those reports keep ({buckets, severities, detection})
+ * @param {object} [options.projectReportScope]  the scope those reports keep ({buckets, severities, detection, engines})
+ * @param {string[]|null} [options.engines]  the engines the report covers (null: every engine), said at its top
+ * @param {'primary'|'all'} [options.branches]  one branch per project, or every branch, said at its top
  */
 export function generateHtmlReport(reportData, options = {}) {
   const { connection = {}, branding = {} } = options;
@@ -121,6 +124,15 @@ export function generateHtmlReport(reportData, options = {}) {
   }
 
   const relayUrl = safeHttpUrl(options.relayUrl);
+  // The engines the report covers, when its maker chose (SAST and SCA unless more were picked).
+  const engineScopeChosen = options.engines === undefined ? undefined : engineScope(options.engines);
+  const engineFocus = engineScopeChosen === undefined
+    ? ''
+    : engineScopeChosen
+      ? tx('Engines: {0}', describeEngines(engineScopeChosen))
+      : tx('Engines: all');
+  // The branch its findings are from: each project's primary branch, or every branch (undefined: not said).
+  const branchFocus = options.branches === 'primary' ? tx("Branch: each project's primary branch") : options.branches === 'all' ? tx('Branch: every branch') : '';
   // Each project's own report, made by this server on request (signed, so a
   // report can only ask for the projects and scope it was made with).
   const projectReports = options.signProjectReport && projects.length > 1
@@ -261,7 +273,9 @@ export function generateHtmlReport(reportData, options = {}) {
       ${logo ? `<div class="brand">${logo}</div>` : ''}
       <h1>${titleHtml}</h1>
       <p class="meta"><span>${projects.length > 1 ? `${total} open findings across ${projects.length} projects` : total === 1 ? '1 open finding' : `${total} open findings`}</span>
-        · <span>top ${findings.length} shown (worst severity, then oldest)</span>
+        · <span>top ${findings.length} shown (worst severity, then oldest)</span>${engineFocus ? `
+        · <span class="engine-focus">${engineFocus}</span>` : ''}${branchFocus ? `
+        · <span class="branch-focus">${branchFocus}</span>` : ''}
         · ${tx('generated {0} UTC', reportData.generatedAt ?? '')}${connection.tenant ? ` · ${tx('tenant {0}', connection.tenant)}` : ''}</p>
     </div>
     <div class="top-actions">

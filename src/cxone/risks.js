@@ -1,3 +1,4 @@
+import { inEngines } from '../engines.js';
 import { CxApiError, mapWithConcurrency } from './client.js';
 import { RISK_PATH_CANDIDATES, isProbeMiss } from './discovery.js';
 import { getLastScans } from './projects.js';
@@ -90,6 +91,8 @@ export function normalizeRisk(raw, project, now = new Date()) {
     id,
     riskId: id,
     scanId: String(pick(raw, ['scanId', 'scan_id']) ?? ''),
+    // The branch it was found on, where the record says (else its scan's branch tells: src/cxone/branches.js).
+    branch: String(pick(raw, ['branch', 'branchName']) ?? ''),
     projectId: project.id,
     projectName: project.name,
     title: String(pick(raw, ['riskName', 'title', 'name', 'queryName', 'cveId']) ?? 'Untitled risk'),
@@ -236,11 +239,12 @@ class ScanResultsSource {
     return '/api/results/';
   }
 
-  async prime(projects) {
-    this.#lastScans = await getLastScans(
+  /** `scans`: the scan that counts for each project (its primary branch's, src/cxone/branches.js), when known. */
+  async prime(projects, scans = null) {
+    this.#lastScans = scans ?? (await getLastScans(
       this.#client,
       projects.map((project) => project.id),
-    );
+    ));
   }
 
   async fetchForProject(project) {
@@ -384,12 +388,14 @@ export async function collectProjectRisks(
   client,
   config,
   projects,
-  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null, gate = null } = {},
+  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null, gate = null, scans = null, refine = null, admit = null } = {},
 ) {
   const source = createRiskSource(client, config);
-  await source.prime?.(projects);
+  await source.prime?.(projects, scans);
   let reusedHere = 0;
   let notRead = 0;
+  // `admit`: whether a project counts at all (its scan counted lines of code), asked while its findings are read.
+  let leftOut = 0;
 
   // Each project's summary is handed to onProject as soon as it is read, so a
   // caller can show it straight away instead of waiting for every project.
@@ -400,10 +406,17 @@ export async function collectProjectRisks(
       return null;
     }
     let summary;
+    // Asked side by side with the read, so it adds no wait; a project it leaves out is not part of the result.
+    const [admits, read] = await Promise.all([admit ? admit(project) : true, readProject(source, project, detectionWindow, shared, gate).then((value) => ({ value }), (error) => ({ error }))]);
+    if (!admits) {
+      leftOut += 1;
+      return null;
+    }
     try {
-      const { items: raw, reused: wasReused } = await readProject(source, project, detectionWindow, shared, gate);
+      if (read.error) throw read.error;
+      const { items: raw, reused: wasReused } = read.value;
       if (wasReused) reusedHere += 1;
-      const risks = raw
+      let risks = raw
         .map((item) => normalizeShared(item, project, now))
         // The server already applied the window where it could; this also
         // covers the fallback source and any record with an unusable date.
@@ -413,6 +426,8 @@ export async function collectProjectRisks(
           if (names) names.set(risk.title, (names.get(risk.title) ?? 0) + 1);
           return !keep || keep(risk);
         });
+      // `refine`: what else decides which of them count (the project's branch: src/cxone/branches.js).
+      if (refine) risks = await refine(project, risks);
       summary = summariseProject(project, risks, null);
     } catch (error) {
       summary = summariseProject(project, [], error.message ?? String(error));
@@ -429,6 +444,7 @@ export async function collectProjectRisks(
     generatedAt: now.toISOString(),
     projects: summaries.filter(Boolean),
     notRead,
+    leftOut,
   };
 }
 
@@ -466,8 +482,8 @@ export function summariseProject(project, risks, error = null) {
   };
 }
 
-/** Select the risks in `buckets` across the given projects. */
-export function selectRisks(summaries, { projectIds = null, buckets = [], severities = null } = {}) {
+/** Select the risks in `buckets` across the given projects (of these severities and engines, when given). */
+export function selectRisks(summaries, { projectIds = null, buckets = [], severities = null, engines = null } = {}) {
   const wantedBuckets = new Set(buckets);
   const wantedProjects = projectIds ? new Set(projectIds) : null;
   const wantedSeverities = severities?.length ? new Set(severities.map((s) => s.toUpperCase())) : null;
@@ -478,7 +494,8 @@ export function selectRisks(summaries, { projectIds = null, buckets = [], severi
       summary.risks.filter(
         (risk) =>
           (wantedBuckets.size === 0 || wantedBuckets.has(risk.bucket)) &&
-          (!wantedSeverities || wantedSeverities.has(risk.severity)),
+          (!wantedSeverities || wantedSeverities.has(risk.severity)) &&
+          inEngines(risk, engines),
       ),
     );
 }

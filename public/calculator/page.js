@@ -33,6 +33,7 @@ import { buildReport, reportFileName, wording } from './report.js';
 import { slidesFileName, slidesPdf } from './slides.js';
 import { allSections, sectionHtml } from './explain.js';
 import { RTL, currentLanguage, t } from '../i18n.js';
+import { DEFAULT_ENGINES, ENGINES, cleanEngines } from '../engines.js';
 
 const OPEN_KEY = 'mz-calc-customer';
 const FREQ_LABEL = Object.fromEntries(FREQUENCIES.map((f) => [f.id, f.label]));
@@ -83,7 +84,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderCustomers() {
     $('calc-empty').hidden = c.customers.length > 0;
     $('calc-customer').innerHTML = c.customers.map((x) => `<option value="${esc(x.id)}"${x.id === c.open?.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
-    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-scope-apply']) $(id).disabled = !c.open;
+    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-scope-apply', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches']) $(id).disabled = !c.open;
   }
 
   function renderOrg() {
@@ -128,6 +129,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderFusion();
     loadReports();
     autoRead();
+    // Saved before engines were counted apart, or with other engines: count the ones chosen now.
+    const meta = customer.tr?.totals?.meta;
+    if (meta?.source === 'cxone' && cleanEngines(meta.engines).join() !== trEngines().join()) applyScope({ quiet: true });
   }
 
   async function open(id) {
@@ -356,6 +360,26 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
   }
 
+  /** The engines whose findings are projected (SAST and SCA unless more are ticked). */
+  const trEngines = () => (cleanEngines(tr()?.engines).length ? cleanEngines(tr().engines) : [...DEFAULT_ENGINES]);
+
+  /** Which engines' findings the projection counts: read from Checkmarx One, each engine is counted apart. */
+  function enginesRow() {
+    const meta = tr()?.totals?.meta ?? {};
+    const live = meta.source === 'cxone';
+    const chosen = new Set(trEngines());
+    const note = !live
+      ? '<span class="hint">The two exports count every engine together: read from Checkmarx One to count only some.</span>'
+      : meta.engineSplit === false
+        ? '<span class="hint calc-warn">This read is from before engines were counted apart, so every engine is counted: read from Checkmarx One again to count only these.</span>'
+        : '<span class="hint">AI Triage and AI Remediation credits are spent on SAST and SCA findings.</span>';
+    return `<div class="calc-engines calc-edit" role="group" aria-label="Engines counted">
+          <span class="hint"><b>Engines counted</b></span>
+          ${ENGINES.map((e) => `<label class="pill-check"><input type="checkbox" data-engine="${e.key}"${chosen.has(e.key) ? ' checked' : ''}${live ? '' : ' disabled'} /> <span translate="no">${e.label}</span>${e.ai ? '' : ' <small>No AI</small>'}</label>`).join('')}
+          ${note}
+        </div>`;
+  }
+
   function renderTr() {
     if (!c.open) return;
     renderSlots();
@@ -381,6 +405,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       <section class="panel calc-flow">
         <div class="calc-section-head"><h2>What the projection counts</h2>
           <div class="calc-lookback calc-edit" role="group" aria-label="Trend over">${LOOKBACKS.map((m) => `<button type="button" class="${tr().lookbackMonths === m ? 'on' : ''}" data-lookback="${m}">${m} months</button>`).join('')}</div></div>
+        ${enginesRow()}
         <div class="calc-steps">
           ${step('Backlog today', num(P.selected), P.selected === P.backlog ? 'every open finding' : `of ${num(P.backlog)} open`, '', 'backlog')}
           <span class="calc-op" aria-hidden="true">+</span>
@@ -592,6 +617,18 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   });
   // What is still to come: changes count at once (the figures follow as it is typed).
   $('calc-tr').addEventListener('change', (event) => {
+    const engine = event.target.dataset.engine;
+    if (engine) {
+      const chosen = [...$('calc-tr').querySelectorAll('[data-engine]:checked')].map((box) => box.dataset.engine);
+      // At least one engine: none would count nothing.
+      if (!chosen.length) {
+        event.target.checked = true;
+        return;
+      }
+      c.open.tr = { ...tr(), engines: chosen };
+      save({ tr: c.open.tr });
+      return applyScope();
+    }
     const key = event.target.dataset.ahead;
     if (!key) return;
     const value = key === 'includeFuture' ? event.target.checked : amount(event.target.value);
@@ -605,7 +642,17 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   const fusion = () => c.open?.fusion;
   const scope = () => cleanScope(c.open?.scope);
   /** The projects that count: those in the scope (a project added by hand always is). */
-  const scoped = () => fusion().projects.filter((p) => p.source === 'manual' || inScope(p, scope()));
+  const scoped = () => fusion().projects.filter((p) => p.source === 'manual' || inScope(p, scope(), trEngines()));
+  /** Projects read from Checkmarx One that the scope leaves out: none when it counts them all. */
+  const leftOutBy = (sc = scope()) => (fusion()?.projects ?? []).filter((p) => p.source !== 'manual' && !inScope(p, sc, trEngines()));
+  const narrowed = () => leftOutBy().length > 0;
+  /** How many projects each leave-out option takes out (of those the other choices keep). */
+  function leftOutCounts(sc = scope()) {
+    const projects = (fusion()?.projects ?? []).filter((p) => p.source !== 'manual');
+    const without = (change) => projects.filter((p) => !inScope(p, { ...sc, ...change }, trEngines())).length;
+    const now = without({});
+    return { noCode: sc.leaveOutNoCode ? now - without({ leaveOutNoCode: false }) : 0, noFindings: sc.leaveOutNoFindings ? now - without({ leaveOutNoFindings: false }) : 0 };
+  }
   const estimate = () => fusionEstimate(scoped(), fusion());
   const ROWS_PAGE = 100;
   let rowsShown = ROWS_PAGE;
@@ -703,7 +750,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-rows-more').hidden = rows.length <= rowsShown;
     $('calc-rows-more-btn').textContent = `Show ${num(Math.min(ROWS_PAGE, rows.length - rowsShown))} more of ${num(rows.length - rowsShown)}`;
     const all = fusion().projects.length;
-    $('calc-rows-count').textContent = all ? (scopeActive(scope()) ? `${num(est.rows.length)} of ${num(all)} projects in the scope` : `${num(all)} projects`) : '';
+    $('calc-rows-count').textContent = all ? (narrowed() ? `${num(est.rows.length)} of ${num(all)} projects in the scope` : `${num(all)} projects`) : '';
     $('calc-rows-empty').hidden = est.rows.length > 0 && rows.length > 0;
     if (est.rows.length && !rows.length) $('calc-rows-empty').textContent = 'No project matches that name.';
     else if (all && !est.rows.length) $('calc-rows-empty').textContent = 'No project is in the scope: narrow the projects differently at the top.';
@@ -915,13 +962,18 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-scope-initiators').value = sc.initiators.join(', ');
     for (const box of $('calc-scope-frequencies').querySelectorAll('input')) box.checked = sc.frequencies.includes(box.value);
     for (const box of $('calc-scope-criticalities').querySelectorAll('input')) box.checked = sc.criticalities.includes(Number(box.value));
+    $('calc-leave-no-code').checked = sc.leaveOutNoCode;
+    $('calc-leave-no-findings').checked = sc.leaveOutNoFindings;
+    // The branches the last read counted (ticked: every branch).
+    $('calc-all-branches').checked = tr()?.totals?.meta?.branches === 'all';
     renderScopeSummary();
   }
 
   function renderScopeSummary() {
     const sc = scope();
     const all = (fusion()?.projects ?? []).filter((p) => p.source !== 'manual');
-    const inIt = all.filter((p) => inScope(p, sc)).length;
+    const inIt = all.filter((p) => inScope(p, sc, trEngines())).length;
+    const out = leftOutCounts(sc);
     const nameOf = new Map(all.map((p) => [p.id, p.name]));
     const parts = [
       sc.applications.length && `${sc.applications.length === 1 ? 'Application' : 'Applications'}: ${sc.applications.join(', ')}`,
@@ -931,9 +983,13 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       sc.initiators.length && `Last scanned by: ${sc.initiators.join(', ')}`,
       sc.frequencies.length && `Scanned: ${sc.frequencies.map((id) => FREQ_LABEL[id]).join(', ')}`,
       sc.criticalities.length && `Criticality: ${sc.criticalities.join(', ')}`,
+      out.noCode && `${num(out.noCode)} with no lines of code left out`,
+      out.noFindings && `${num(out.noFindings)} with no open findings left out`,
     ].filter(Boolean);
     const el = $('calc-scope-summary');
-    el.textContent = !parts.length ? (all.length ? `All ${num(all.length)} projects` : 'All projects') : `${num(inIt)} of ${num(all.length)} projects · ${parts.join(' · ')}`;
+    // Each part its own piece, so each is translated on its own.
+    const pieces = !parts.length ? [all.length ? `All ${num(all.length)} projects` : 'All projects'] : [`${num(inIt)} of ${num(all.length)} projects`, ...parts];
+    el.replaceChildren(...pieces.flatMap((text, i) => [...(i ? [' · '] : []), Object.assign(document.createElement('span'), { textContent: text })]));
     el.classList.toggle('on', parts.length > 0);
   }
 
@@ -1052,12 +1108,12 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderProjects();
     const fromTenant = tr()?.totals?.meta?.source === 'cxone';
     if (!fromTenant) {
-      if (!quiet && scopeActive(scope())) setStatus('calc-scope-status', 'Fusion follows the scope. Triage & remediation comes from the two exports, which cover every project.', 'warn');
+      if (!quiet && narrowed()) setStatus('calc-scope-status', 'Fusion follows the scope. Triage & remediation comes from the two exports, which cover every project.', 'warn');
       return renderTr();
     }
-    const ids = fusion().projects.filter((p) => p.source !== 'manual' && inScope(p, scope())).map((p) => p.id);
+    const ids = fusion().projects.filter((p) => p.source !== 'manual' && inScope(p, scope(), trEngines())).map((p) => p.id);
     try {
-      const series = await api('/api/projections/series', { method: 'POST', body: JSON.stringify({ projectIds: ids }), quiet: true });
+      const series = await api('/api/projections/series', { method: 'POST', body: JSON.stringify({ projectIds: ids, engines: trEngines() }), quiet: true });
       c.open.tr = { ...tr(), totals: series.totals, fixed: series.fixed };
       save({ tr: c.open.tr });
       if (!quiet) setStatus('calc-scope-status', `${num(ids.length)} projects counted.`, 'ok');
@@ -1073,6 +1129,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!c.open) return;
     const checked = (id) => [...$(id).querySelectorAll('input:checked')].map((box) => box.value);
     c.open.scope = cleanScope({
+      ...scope(),
       applications: scope().applications,
       projects: scope().projects,
       groups: splitList($('calc-scope-groups').value),
@@ -1084,9 +1141,16 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     save({ scope: c.open.scope });
     applyScope();
   });
+  // Leave out projects with nothing to analyse: a change counts at once.
+  for (const [id, key] of [['calc-leave-no-code', 'leaveOutNoCode'], ['calc-leave-no-findings', 'leaveOutNoFindings']]) {
+    $(id).addEventListener('change', (event) => {
+      if (c.open) changeScope({ [key]: event.target.checked });
+    });
+  }
   $('calc-scope-clear').addEventListener('click', () => {
     if (!c.open) return;
-    c.open.scope = cleanScope({});
+    // Every project: the picks go; the leave-out options stay as they are.
+    c.open.scope = cleanScope({ leaveOutNoCode: scope().leaveOutNoCode, leaveOutNoFindings: scope().leaveOutNoFindings });
     save({ scope: c.open.scope });
     renderScope();
     applyScope();
@@ -1130,7 +1194,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     reading.auto = auto;
     setStatus('calc-read-note', 'Reading the projects…', 'muted');
     try {
-      readProgress(await api('/api/projections/read', { method: 'POST', quiet: true }));
+      // One branch per project (its primary branch) unless "Every branch" is ticked.
+      readProgress(await api('/api/projections/read', { method: 'POST', body: JSON.stringify({ branches: $('calc-all-branches').checked ? 'all' : 'primary' }), quiet: true }));
       poll();
     } catch (error) {
       readProgress(null);
@@ -1200,7 +1265,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderScope();
     renderTr();
     renderFusion();
-    if (scopeActive(scope())) applyScope({ quiet: true });
+    // The read counts SAST and SCA for the whole tenant: a scope, or other engines, are added up from it.
+    if (narrowed() || trEngines().join() !== DEFAULT_ENGINES.join()) applyScope({ quiet: true });
     if (!body.tr) setStatus('calc-read-note', `Read ${num(read.length)} projects from Checkmarx One; none had a scan to read the findings of.`, 'warn');
     else if (read.length === 1) setStatus('calc-read-note', 'Read 1 project and its scans from Checkmarx One.', 'ok');
     else setStatus('calc-read-note', `Read ${num(read.length)} projects and their scans from Checkmarx One.`, 'ok');
@@ -1311,8 +1377,13 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         projects: est.rows.filter((r) => r.source !== 'manual').length,
         allProjects: fusion().projects.filter((p) => p.source !== 'manual').length,
         scans: meta.scans ?? null,
+        // Read from Checkmarx One: the engines whose findings the projection counts ([] = every engine).
+        ...(meta.source === 'cxone' ? { engines: meta.engineSplit === false ? [] : cleanEngines(meta.engines) } : {}),
         scoped: scopeActive(sc),
         scope: sc,
+        // Read from Checkmarx One: one branch per project, or every branch; and the projects left out as having nothing to analyse.
+        ...(meta.source === 'cxone' && meta.branches ? { branches: meta.branches } : {}),
+        leftOut: leftOutCounts(sc),
         projectNames: sc.projects.map((id) => fusion().projects.find((p) => p.id === id)?.name ?? id),
       },
       tr: t

@@ -21780,5 +21780,281 @@
   "seen": [
    "interactive HTML report"
   ]
+ },
+ "Engines": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the label of the new engine choice (also over the engine boxes in Credit Control). \"Engines\" = Checkmarx One scan engines (SAST, SCA, IaC…)"
+  ]
+ },
+ "Only findings from these Checkmarx One engines are loaded, and every count, report, reminder and credit action follows them. SAST and SCA are the engines AI Triage and AI Remediation work on.": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): tooltip of the Engines drop-down"
+  ]
+ },
+ "all engines": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): what the Engines drop-down shows when every engine is ticked (lower case, as in \"SAST, SCA\")"
+  ]
+ },
+ "Open-source packages": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the Engines drop-down, one line per Checkmarx One engine: what SCA scans"
+  ]
+ },
+ "Container images": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the Engines drop-down, one line per Checkmarx One engine: what Containers scans"
+  ]
+ },
+ "APIs": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the Engines drop-down, one line per Checkmarx One engine: what API Security scans"
+  ]
+ },
+ "Secrets in code": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the Engines drop-down, one line per Checkmarx One engine: what Secrets scans (passwords, keys left in code)"
+  ]
+ },
+ "AI Triage & Remediation": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the Engines drop-down, one line per Checkmarx One engine: tag on SAST and SCA — Checkmarx One AI Triage and AI Remediation work on them"
+  ]
+ },
+ "No AI": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the Engines drop-down, one line per Checkmarx One engine, Settings → Automation and the Cx Credits Calculator: tag on an engine AI Triage and Remediation do not work on"
+  ]
+ },
+ "Keep at least one engine.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): shown when someone unticks the last engine (it stays ticked)"
+  ]
+ },
+ "Changed: load findings again to apply it.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): shown under the Engines drop-down after the choice changed, until findings are loaded again"
+  ]
+ },
+ "Pick at least one engine.": {
+  "kind": "message",
+  "seen": [
+   "Credit Control → Allocate and use credits: error when no engine box is ticked"
+  ]
+ },
+ "AI Triage and AI Remediation work on SAST and SCA findings: untick one to spend credits on the other only.": {
+  "kind": "attr:title",
+  "seen": [
+   "Credit Control → Allocate and use credits: tooltip of the SAST / SCA boxes"
+  ]
+ },
+ "Only these engines — SAST and SCA are the ones AI Triage and Remediation work on": {
+  "kind": "text",
+  "seen": [
+   "Settings → Automation: label over the engine boxes of scheduled reminders"
+  ]
+ },
+ "Engines counted": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator → Triage & remediation → \"What the projection counts\": label before the engine boxes"
+  ]
+ },
+ "AI Triage and AI Remediation credits are spent on SAST and SCA findings.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator → Triage & remediation: note after the engine boxes"
+  ]
+ },
+ "The two exports count every engine together: read from Checkmarx One to count only some.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator → Triage & remediation: note when the data came from the two uploaded exports (the boxes are greyed out)"
+  ]
+ },
+ "This read is from before engines were counted apart, so every engine is counted: read from Checkmarx One again to count only these.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator → Triage & remediation: warning when the last read was made by an older version"
+  ]
+ },
+ "Engines counted: {0}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator, the projection report (HTML/PDF) under \"Read live from Checkmarx One…\": {0} is a list of engine names such as \"SAST, SCA\""
+  ]
+ },
+ "Engines counted: all.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator, the projection report: every engine was counted"
+  ]
+ },
+ "Engines: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Engines: all": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Branch": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): label of the new choice. \"Branch\" = a git branch (main, master…) that Checkmarx One scanned"
+  ]
+ },
+ "Each project's primary branch only (as set in Checkmarx One, else main, else master), so a finding scanned on several branches is counted once. Projects whose scan counted no lines of code are left out.": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): tooltip of the Branch drop-down. \"primary branch\" = the branch a Checkmarx One project names as its main one"
+  ]
+ },
+ "Primary branch": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): what the Branch drop-down shows by default (each project's primary branch only)"
+  ]
+ },
+ "Every branch": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): the Branch drop-down, three tick boxes, each with a short grey line under it: first box (also in Settings → Automation and the Cx Credits Calculator). Ticked: findings of every scanned branch are counted"
+  ]
+ },
+ "Unticked: each project's primary branch only": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): the Branch drop-down, three tick boxes, each with a short grey line under it: line under \"Every branch\" (also a tooltip in Settings → Automation)"
+  ]
+ },
+ "Leave out projects with no lines of code": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): the Branch drop-down, three tick boxes, each with a short grey line under it: second box, ticked by default (also in Settings → Automation and the Cx Credits Calculator). A project whose latest scan counted 0 lines of code"
+  ]
+ },
+ "Nothing to analyse": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): the Branch drop-down, three tick boxes, each with a short grey line under it: line under \"Leave out projects with no lines of code\""
+  ]
+ },
+ "Leave out projects with no open findings": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): the Branch drop-down, three tick boxes, each with a short grey line under it: third box, off by default (also in the Cx Credits Calculator)"
+  ]
+ },
+ "Keep them in for a compliance report": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): the Branch drop-down, three tick boxes, each with a short grey line under it: line under \"Leave out projects with no open findings\" — advice: for a compliance report, leave this box unticked so projects with zero findings still appear"
+  ]
+ },
+ "{0} project(s) left out: their primary branch has no completed scan.": {
+  "kind": "message",
+  "seen": [
+   "Dashboard, after findings are loaded: note under the row; {0} is a number"
+  ]
+ },
+ "{0} project(s) left out: their scan counted no lines of code.": {
+  "kind": "message",
+  "seen": [
+   "Dashboard, after findings are loaded: note under the row; {0} is a number"
+  ]
+ },
+ "{0} project(s) left out: no open findings.": {
+  "kind": "message",
+  "seen": [
+   "Dashboard, after findings are loaded: note under the row; {0} is a number"
+  ]
+ },
+ "Branch and projects": {
+  "kind": "text",
+  "seen": [
+   "Settings → Automation: label over the boxes \"Every branch\" and \"Leave out projects with no lines of code\""
+  ]
+ },
+ "Unticked: each project's primary branch only (as set in Checkmarx One, else main, else master), so no finding is counted twice. Ticked: the scans of every branch, which is also what Fusion is charged for when feature branches are scanned with it.": {
+  "kind": "attr:title",
+  "seen": [
+   "Cx Credits Calculator, the top panel: tooltip of the \"Every branch\" box next to \"Read from Checkmarx One\". Fusion = Checkmarx One's AI scanning, billed per scan"
+  ]
+ },
+ "Leave out projects with nothing to analyse": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "Cx Credits Calculator, the top panel: screen-reader name of the two \"Leave out projects…\" boxes"
+  ]
+ },
+ "{0} with no lines of code left out": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator, the top panel: part of the line saying which projects are counted (\"14 of 16 projects · 2 with no lines of code left out\"); {0} is a number of projects"
+  ]
+ },
+ "{0} with no open findings left out": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator, the top panel: part of the same line; {0} is a number of projects"
+  ]
+ },
+ "{0} of {1} projects": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator, the top panel: start of the line saying which projects are counted, e.g. \"14 of 16 projects\""
+  ]
+ },
+ "Branch counted: each project's primary branch (else main, else master), so no finding is counted twice.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator, the projection report (HTML/PDF), under \"Read live from Checkmarx One…\""
+  ]
+ },
+ "Branches counted: every branch scanned.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator, the projection report: every branch was counted"
+  ]
+ },
+ "Left out: {0} projects whose latest scan counted no lines of code.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator, the projection report; {0} is a number"
+  ]
+ },
+ "Left out: {0} projects with no open findings.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator, the projection report; {0} is a number"
+  ]
+ },
+ "Branch: each project's primary branch": {
+  "kind": "report",
+  "seen": [
+   "Interactive HTML report emailed to developers, the line under its title (next to \"Engines: SAST, SCA\"): its findings are from each project's primary branch only"
+  ]
+ },
+ "Branch: every branch": {
+  "kind": "report",
+  "seen": [
+   "Interactive HTML report, the line under its title: its findings are from every branch scanned"
+  ]
  }
 }

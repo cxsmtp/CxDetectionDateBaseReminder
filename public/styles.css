@@ -1276,6 +1276,21 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 .col-menu legend { font-size: 11.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted); margin-bottom: 4px; }
 .col-menu .hint { margin: 0; font-size: 11.5px; }
 @media (max-width: 760px) { .col-menu { inset-inline-start: 0; inset-inline-end: auto; } }
+/* Engines (Dashboard scope, Credit Control, Settings, the calculator): the AI engines first, the rest marked "no AI". */
+.engine-pick .col-menu { inset-inline-start: 0; inset-inline-end: auto; width: max-content; max-width: min(460px, 92vw); grid-template-columns: auto auto 1fr auto; column-gap: 10px; row-gap: 8px; }
+.engine-opt { display: contents; font-size: 13.5px; cursor: pointer; }
+.engine-opt > * { align-self: center; white-space: nowrap; }
+.engine-opt small { justify-self: end; font-size: 11px; color: var(--muted); }
+.engine-opt .engine-ai { color: var(--accent); font-weight: 600; }
+/* Branch and projects: a box, its choice, and a short line under it. */
+.focus-pick .col-menu { grid-template-columns: auto 1fr; max-width: min(380px, 92vw); row-gap: 2px; }
+.focus-menu .engine-opt > * { white-space: normal; }
+.focus-menu .engine-opt > .muted { grid-column: 2; font-size: 12px; margin-bottom: 8px; }
+.focus-menu .engine-opt > small { display: none; }
+/* A phone: the picker's menu spans the screen, never past its edge. */
+@media (max-width: 600px) { .engine-pick .col-menu { position: fixed; top: auto; inset-inline: 16px; width: auto; max-width: none; margin-top: 6px; } .engine-pick .col-menu .engine-opt > * { white-space: normal; } }
+.engine-hint { color: var(--warn, #b45309); }
+.engine-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 10px; min-width: 0; }
 .filters input[type="search"] { width: 180px; }
 .deliveries { margin-top: 8px; font-size: 13px; }
@@ -2398,7 +2413,11 @@ label.button-like.sm { cursor: pointer; }
 .dash-top .scope-field .range { display: flex; gap: 6px; }
 .dash-top .scope-field .range label { display: flex; flex-direction: row; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
 .dash-top .scope-field .range label span { margin: 0; }
-.dash-top .scope-row .hint:not(#fetch-meta) { display: none; }
+.dash-top .scope-row .hint:not(#fetch-meta):not(.engine-hint) { display: none; }
+.dash-top .scope-row .engine-hint { margin: 0; font-size: 12px; color: var(--warn, var(--muted)); }
+/* Projects left out of the load (no primary branch scan, no lines of code, no open findings). */
+.left-out { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--muted); }
+.left-out span + span::before { content: ' · '; }
 .dash-top .narrow-toggle { white-space: nowrap; font-size: 13px; }
 .dash-top .scope-row .fetch-box {
   flex: 1 1 260px; display: flex; align-items: center; justify-content: flex-end; gap: 10px;
@@ -2884,6 +2903,8 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 /* ---- Cx Credits Calculator, MZ-01.00.67: scope, what the projection counts, one-click bar ---- */
 .calc-scope { display: grid; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
 .calc-scope-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-width: 0; }
+.calc-scope-leave { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 8px 0 4px; }
+.calc-branches { white-space: nowrap; }
 .calc-scope-label { font-size: 12px; font-weight: 500; color: var(--muted); }
 .calc-scope-summary { font-weight: 500; overflow-wrap: anywhere; }
 .calc-scope-summary.on { color: var(--accent); }
@@ -2975,3 +2996,8 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .integrity-facts dt { color: var(--muted); }
 .integrity-facts dd { margin: 0; overflow-wrap: anywhere; }
 #integrity-files pre { max-height: 220px; overflow: auto; font-size: 12px; }
+/* The calculator: which engines' findings the triage & remediation projection counts. */
+.calc-engines { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 4px 0 12px; }
+.calc-engines .pill-check small { color: var(--muted); font-size: 11px; }
+.calc-engines .pill-check:has(input:disabled) { opacity: .6; }
+.calc-engines .calc-warn { color: var(--warn); }

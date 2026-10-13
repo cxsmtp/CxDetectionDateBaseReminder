@@ -1,5 +1,6 @@
 import { nextSpeedster } from './speedsters.js';
 import { initCalculator } from './calculator/page.js';
+import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engines.js';
 import { availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
@@ -2110,6 +2111,34 @@ function renderAutomation() {
   renderAudience();
   $('auto-mode').value = a.config.mode;
   $('auto-severities').value = a.config.severities.join(', ');
+  // A schedule saved before branches could be chosen reads every branch and leaves nothing out.
+  $('auto-all-branches').checked = a.config.branches === 'all';
+  $('auto-no-code').checked = a.config.leaveOutNoCode !== false;
+  // Every engine when none is saved (a schedule from before engines could be chosen).
+  const engines = new Set(cleanEngines(a.config.engines).length ? cleanEngines(a.config.engines) : ENGINES.map((e) => e.key));
+  $('auto-engines').replaceChildren(
+    ...ENGINES.map((engine) => {
+      const label = document.createElement('label');
+      label.className = 'check';
+      const input = Object.assign(document.createElement('input'), { type: 'checkbox', id: `auto-engine-${engine.key}`, value: engine.key, checked: engines.has(engine.key) });
+      input.dataset.autoEngine = engine.key;
+      // At least one engine: a schedule with none would remind nobody of anything.
+      input.addEventListener('change', () => {
+        if (!$('auto-engines').querySelector('input:checked')) input.checked = true;
+      });
+      const name = document.createElement('span');
+      name.setAttribute('translate', 'no');
+      name.textContent = engine.label;
+      label.append(input, ' ', name);
+      if (!engine.ai) {
+        const tag = document.createElement('small');
+        tag.className = 'muted';
+        tag.textContent = 'No AI';
+        label.append(' ', tag);
+      }
+      return label;
+    }),
+  );
 
   $('auto-status').textContent = a.config.enabled
     ? `On · next run ${timeAgo(a.nextRunAt)} · ${a.trackedFindings} finding(s) already reported`
@@ -2177,6 +2206,9 @@ function automationPayload() {
     intervalMinutes: $('auto-interval').value,
     mode: $('auto-mode').value,
     severities: $('auto-severities').value,
+    engines: [...document.querySelectorAll('[data-auto-engine]:checked')].map((box) => box.dataset.autoEngine),
+    branches: $('auto-all-branches').checked ? 'all' : 'primary',
+    leaveOutNoCode: $('auto-no-code').checked,
   };
 }
 
@@ -3041,6 +3073,11 @@ function windowParams() {
   for (const id of scopePick.projects.keys()) params.append('project', id);
   for (const who of scopePick.initiators) params.append('initiator', who);
   if (state.vulnerability) params.set('vulnerability', state.vulnerability);
+  params.set('engines', [...enginePick].join(','));
+  // Each project's primary branch unless every branch is ticked; projects with nothing to analyse left out as chosen.
+  if (focusPick.allBranches) params.set('branches', 'all');
+  if (!focusPick.leaveOutNoCode) params.set('zeroLoc', 'keep');
+  if (focusPick.leaveOutNoFindings) params.set('noFindings', 'leave-out');
   for (const prefix of ['activity', 'detection']) {
     const preset = $(`${prefix}-preset`).value;
     params.set(`${prefix}Preset`, preset);
@@ -3079,6 +3116,148 @@ function updateScopeSummary() {
   // The compact scope row shows these as the choices' tooltips.
   if (!named) $('activity-preset').title = $('activity-hint').textContent;
   $('detection-preset').title = $('detection-hint').textContent;
+}
+
+// ---------------------------------------------------------------------------
+// Engines: which Checkmarx One engines' findings are loaded (SAST and SCA, the engines AI Triage
+// and AI Remediation work on, unless more are ticked). Remembered in this browser.
+// ---------------------------------------------------------------------------
+
+const ENGINE_KEY = 'mz-engines';
+function savedEngines() {
+  try {
+    const saved = cleanEngines(JSON.parse(localStorage.getItem(ENGINE_KEY) || 'null'));
+    if (saved.length) return saved;
+  } catch {}
+  return [...DEFAULT_ENGINES];
+}
+const enginePick = new Set(savedEngines());
+
+/** The engines' tick boxes (AI engines first), for any picker: `chosen` is a Set, `onChange` hears the new choice. */
+function engineOptions(box, chosen, onChange) {
+  box.replaceChildren(
+    ...ENGINES.map((engine) => {
+      const label = document.createElement('label');
+      label.className = 'engine-opt';
+      const input = Object.assign(document.createElement('input'), { type: 'checkbox', value: engine.key, checked: chosen.has(engine.key) });
+      const name = document.createElement('b');
+      name.setAttribute('translate', 'no');
+      name.textContent = engine.label;
+      const what = document.createElement('span');
+      what.className = 'muted';
+      what.textContent = engine.name;
+      const tag = document.createElement('small');
+      tag.className = engine.ai ? 'engine-ai' : '';
+      tag.textContent = engine.ai ? 'AI Triage & Remediation' : 'No AI';
+      input.addEventListener('change', () => {
+        if (input.checked) chosen.add(engine.key);
+        else if (chosen.size > 1) chosen.delete(engine.key);
+        else {
+          // At least one engine: nothing would be loaded otherwise.
+          input.checked = true;
+          return onChange(chosen, 'Keep at least one engine.');
+        }
+        onChange(chosen);
+      });
+      label.append(input, name, what, tag);
+      return label;
+    }),
+  );
+}
+
+/** The engines the loaded data covers ([] = every engine), or null before anything is loaded. */
+const loadedEngines = () => (state.lastScan ? (state.lastScan.engines ?? state.lastScan.request?.engines ?? []) : null);
+const sameEngines = (a, b) => cleanEngines(a.length ? a : ENGINES.map((e) => e.key)).join() === cleanEngines(b.length ? b : ENGINES.map((e) => e.key)).join();
+
+function renderEnginePick(note = '') {
+  $('engine-summary').textContent = describeEngines([...enginePick]);
+  if (!$('engine-menu').childElementCount) {
+    engineOptions($('engine-menu'), enginePick, (chosen, warning) => {
+      try {
+        localStorage.setItem(ENGINE_KEY, JSON.stringify([...chosen]));
+      } catch {}
+      renderEnginePick(warning);
+      updateScopeSummary();
+    });
+  } else {
+    for (const box of $('engine-menu').querySelectorAll('input')) box.checked = enginePick.has(box.value);
+  }
+  // Changed since the data was loaded: say that loading again applies it.
+  const loaded = loadedEngines();
+  const changed = loaded !== null && !sameEngines(loaded, [...enginePick]);
+  const hint = $('engine-hint');
+  hint.textContent = note || (changed ? 'Changed: load findings again to apply it.' : '');
+  hint.hidden = !hint.textContent;
+}
+
+/** Tick the engines a load was made with ([] = every engine). */
+function setEnginePick(engines) {
+  const list = cleanEngines(engines);
+  enginePick.clear();
+  for (const key of list.length ? list : ENGINES.map((e) => e.key)) enginePick.add(key);
+  renderEnginePick();
+}
+
+// ---------------------------------------------------------------------------
+// Branch and projects: each project's primary branch (unless every branch is ticked), and whether
+// projects with no lines of code, or no open findings, are left out. Remembered in this browser.
+// ---------------------------------------------------------------------------
+
+const FOCUS_KEY = 'mz-focus';
+const DEFAULT_FOCUS = { allBranches: false, leaveOutNoCode: true, leaveOutNoFindings: false };
+function savedFocus() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
+    if (saved && typeof saved === 'object') return { allBranches: saved.allBranches === true, leaveOutNoCode: saved.leaveOutNoCode !== false, leaveOutNoFindings: saved.leaveOutNoFindings === true };
+  } catch {}
+  return { ...DEFAULT_FOCUS };
+}
+const focusPick = savedFocus();
+const FOCUS_BOXES = { allBranches: 'focus-all-branches', leaveOutNoCode: 'focus-no-code', leaveOutNoFindings: 'focus-no-findings' };
+
+/** What a load was made with (a load made before these choices: every branch, nothing left out). */
+function focusOf(request) {
+  if (!request) return null;
+  return { allBranches: request.branches !== 'primary', leaveOutNoCode: request.branches ? request.zeroLoc !== 'keep' : false, leaveOutNoFindings: request.noFindings === 'leave-out' };
+}
+
+function renderFocusPick() {
+  for (const [key, id] of Object.entries(FOCUS_BOXES)) $(id).checked = focusPick[key];
+  $('focus-summary').textContent = focusPick.allBranches ? 'Every branch' : 'Primary branch';
+  const loaded = focusOf(state.lastScan?.request ?? (state.lastScan ? { branches: state.lastScan.branchScope, zeroLoc: state.lastScan.leaveOut?.noCode === false ? 'keep' : '', noFindings: state.lastScan.leaveOut?.noFindings ? 'leave-out' : '' } : null));
+  const changed = loaded && Object.keys(FOCUS_BOXES).some((key) => loaded[key] !== focusPick[key]);
+  const hint = $('focus-hint');
+  hint.textContent = changed ? 'Changed: load findings again to apply it.' : '';
+  hint.hidden = !hint.textContent;
+}
+
+/** The projects a load left out, one note each: a primary branch never scanned, no lines of code, no open findings. */
+function showLeftOut(result) {
+  const out = result?.leftOut ?? {};
+  const notes = [
+    out.noPrimaryScan && `${out.noPrimaryScan} project(s) left out: their primary branch has no completed scan.`,
+    out.noCode && `${out.noCode} project(s) left out: their scan counted no lines of code.`,
+    out.noFindings && `${out.noFindings} project(s) left out: no open findings.`,
+  ].filter(Boolean);
+  $('left-out').replaceChildren(...notes.map((text) => Object.assign(document.createElement('span'), { textContent: text })));
+  $('left-out').hidden = !notes.length;
+}
+
+/** Tick what a load was made with. */
+function setFocusPick(request) {
+  const loaded = focusOf(request);
+  if (loaded) Object.assign(focusPick, loaded);
+  renderFocusPick();
+}
+
+for (const [key, id] of Object.entries(FOCUS_BOXES)) {
+  $(id).addEventListener('change', (event) => {
+    focusPick[key] = event.target.checked;
+    try {
+      localStorage.setItem(FOCUS_KEY, JSON.stringify(focusPick));
+    } catch {}
+    renderFocusPick();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -3785,6 +3964,7 @@ function trackScope() {
   const parts = [
     $('scope-summary').textContent,
     severity ? `${severity.toLowerCase()} only` : 'all severities',
+    describeEngines(state.lastScan?.engines ?? []),
     bucket ? `age ${$('bucket-filter').selectedOptions[0].textContent.toLowerCase()}` : '',
     `${projects.length} project${projects.length === 1 ? '' : 's'}`,
   ].filter(Boolean);
@@ -5404,6 +5584,7 @@ async function restoreLastScan({ force = false } = {}) {
   }
   if (!result?.projects || (state.projects.length && !force) || state.fetching) return;
   restoreScope(result.request, result.projects);
+  showLeftOut(result);
   showVulnerabilitySearch(result);
   state.lastScan = result;
   state.projects = result.projects;
@@ -5420,6 +5601,10 @@ async function restoreLastScan({ force = false } = {}) {
 /** Put the scope controls back the way they were for that fetch. */
 function restoreScope(request, projects) {
   if (!request) return;
+  // Made before engines could be chosen: every engine was loaded.
+  setEnginePick(Array.isArray(request.engines) ? request.engines : []);
+  // Made before branches could be chosen: every branch, nothing left out.
+  setFocusPick(request);
   for (const prefix of ['activity', 'detection']) {
     const select = $(`${prefix}-preset`);
     const preset = request[`${prefix}Preset`];
@@ -5528,6 +5713,8 @@ async function fetchProjects() {
     state.lastScan = result;
     state.projects = result.projects;
     showVulnerabilitySearch(result);
+    renderEnginePick();
+    renderFocusPick();
     renderTotals(result.totals);
     collectInitiators();
     renderInitiatorList();
@@ -5549,6 +5736,7 @@ async function fetchProjects() {
       (result.stats?.requests ? ` · ${result.stats.requests} API request(s)` : '') +
       (result.reused ? ` · ${result.reused} project(s) reused from a read made moments ago` : '') +
       (result.stopped ? ` · stopped at ${result.totals.projects} of ${result.projectsPlanned} project(s)` : '');
+    showLeftOut(result);
     setStatus(
       'status',
       `Loaded ${result.totals.projects} project(s)${skipped}.` +
@@ -7289,6 +7477,8 @@ document.addEventListener('keydown', (event) => {
     // Last week by default: quick on a large tenant; widen it when you need more.
     fillPresets('activity-preset', '7d');
     fillPresets('detection-preset', '7d');
+    renderEnginePick();
+    renderFocusPick();
     updateScopeSummary();
   } catch {
     /* health is advisory only */
@@ -9253,6 +9443,8 @@ window.addEventListener('resize', () => {
 const spend = { picked: new Set() };
 
 const spendSeverities = () => [...document.querySelectorAll('[data-spend-sev]:checked')].map((box) => box.dataset.spendSev);
+/** The AI engines ticked (SAST and SCA by default; none ticked is never sent). */
+const spendEngines = () => [...document.querySelectorAll('[data-spend-engine]:checked')].map((box) => box.dataset.spendEngine);
 
 /** The bar's buttons turn gold when the chosen projects hold credits to use: 1 to triage, 3 to remediate. */
 function renderSpend(all) {
@@ -9263,7 +9455,7 @@ function renderSpend(all) {
   const chosen = spend.picked.size ? all.filter((p) => spend.picked.has(p.projectId)) : all;
   const triage = chosen.reduce((n, p) => n + (p.triage.remaining ?? 0), 0);
   const remediation = chosen.reduce((n, p) => n + (p.remediation.remaining ?? 0), 0);
-  const severities = spendSeverities().length > 0;
+  const severities = spendSeverities().length > 0 && spendEngines().length > 0;
   $('cc-run-triage').disabled = !severities || triage < 1;
   $('cc-run-remediation').disabled = !severities || remediation < 3;
   $('cc-run-triage').classList.toggle('is-golden', !$('cc-run-triage').disabled);
@@ -9274,9 +9466,11 @@ function renderSpend(all) {
 async function runCredits(kind) {
   const severities = spendSeverities();
   if (!severities.length) return setStatus('cc-spend-status', 'Pick at least one severity.', 'error');
+  const engines = spendEngines();
+  if (!engines.length) return setStatus('cc-spend-status', 'Pick at least one engine.', 'error');
   const all = usage.data?.allocations ?? [];
   const chosen = spend.picked.size ? all.filter((p) => spend.picked.has(p.projectId)) : all;
-  const sev = severities.map((s) => s.toLowerCase()).join(', ');
+  const sev = `${severities.map((s) => s.toLowerCase()).join(', ')} ${describeEngines(engines)}`;
   const who = spend.picked.size ? `the ${chosen.length} ticked project(s)` : `every project holding credits (${chosen.length})`;
   const question = kind === 'triage'
     ? `Run AI Triage on the ${sev} findings still awaiting triage in ${who}? It uses Checkmarx One credits.`
@@ -9286,7 +9480,7 @@ async function runCredits(kind) {
   button.disabled = true;
   setStatus('cc-spend-status', kind === 'triage' ? 'Starting AI Triage…' : 'Starting AI Remediation…');
   try {
-    const result = await api('/api/credits/run', { method: 'POST', body: JSON.stringify({ kind, severities, projectIds: [...spend.picked] }) });
+    const result = await api('/api/credits/run', { method: 'POST', body: JSON.stringify({ kind, severities, engines, branches: focusPick.allBranches ? 'all' : 'primary', projectIds: [...spend.picked] }) });
     setStatus('cc-spend-status', spendText(result, kind), result.failed ? 'error' : 'ok');
     logger.add(spendText(result, kind), result.failed ? 'error' : 'success');
     if (usage.data) {
@@ -9311,12 +9505,14 @@ async function allocateNeededCredits() {
   const triageAdd = count('cc-spend-extra-triage');
   const remediationAdd = count('cc-spend-extra-remediation');
   if (!severities.length && !triageAdd && !remediationAdd) return setStatus('cc-spend-status', 'Pick severities, or enter credits to add.', 'error');
+  const engines = spendEngines();
+  if (severities.length && !engines.length) return setStatus('cc-spend-status', 'Pick at least one engine.', 'error');
   if (!confirm('Allocate credits from the credit pool to the ticked projects (none ticked: every project holding credits): what the ticked severities need (1 per Checkmarx One result to triage, 3 per confirmed result to remediate), plus any extra entered?')) return;
   const button = $('cc-allocate');
   button.disabled = true;
   setStatus('cc-spend-status', 'Allocating…');
   try {
-    const result = await api('/api/credits/allocate-needed', { method: 'POST', body: JSON.stringify({ severities, triageAdd, remediationAdd, projectIds: [...spend.picked] }) });
+    const result = await api('/api/credits/allocate-needed', { method: 'POST', body: JSON.stringify({ severities, engines, branches: focusPick.allBranches ? 'all' : 'primary', triageAdd, remediationAdd, projectIds: [...spend.picked] }) });
     $('cc-spend-extra-triage').value = 0;
     $('cc-spend-extra-remediation').value = 0;
     if (usage.data) {
@@ -9339,7 +9535,7 @@ async function allocateNeededCredits() {
 $('cc-allocate').addEventListener('click', allocateNeededCredits);
 $('cc-run-triage').addEventListener('click', () => runCredits('triage'));
 $('cc-run-remediation').addEventListener('click', () => runCredits('remediation'));
-for (const box of document.querySelectorAll('[data-spend-sev]')) box.addEventListener('change', () => renderSpend(usage.data?.allocations ?? []));
+for (const box of document.querySelectorAll('[data-spend-sev], [data-spend-engine]')) box.addEventListener('change', () => renderSpend(usage.data?.allocations ?? []));
 
 /**
  * Credits were given, taken back or used on one page: the Dashboard's balances

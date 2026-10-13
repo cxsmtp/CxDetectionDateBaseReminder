@@ -16,6 +16,7 @@ import path from 'node:path';
 
 import { AI_SCANNERS } from './cxone/ai-assist.js';
 import { billingUnit, remediable } from './credit-allocations.js';
+import { inEngines } from './engines.js';
 import { withinWindow } from './window.js';
 
 export const OUTCOMES = ['awaiting', 'confirmed', 'notExploitable', 'resolved'];
@@ -29,9 +30,10 @@ export function outcomeOf(finding) {
   return 'awaiting';
 }
 
-/** Does a finding match a report's severity / age / detection filters? */
+/** Does a finding match a report's severity / engine / age / detection filters? (No engines saved: every engine.) */
 export function matchesFilters(risk, filters, detectionWindow) {
   if (filters.severities?.length && !filters.severities.includes(risk.severity)) return false;
+  if (!inEngines(risk, filters.engines)) return false;
   if (filters.buckets?.length && !filters.buckets.includes(risk.bucket)) return false;
   return withinWindow(detectionWindow, risk.firstDetectedAt);
 }
