@@ -798,8 +798,8 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
    - **How this report works** explains Triage, Remediate and the reminder server.
    - Each finding shows:
      - its live Checkmarx One state;
-     - a link into Checkmarx One;
-     - for an open-source package, **upgrade to …**: the version Checkmarx One recommends, when it gives one.
+     - a link into Checkmarx One.
+   - **Fixes come only from Checkmarx One AI Remediation.** The report never writes a fix, a prompt or coding advice of its own: under a confirmed finding, **Fix:** says to press **Remediate** (or, when the report cannot remediate, to remediate it in Checkmarx One).
 4. **Triage** runs Checkmarx One AI Triage on a finding. The verdict appears in the row within a few minutes.
    - **Triage all critical / Triage all high** cover every critical or high finding in the report, across its projects, and skip ones already triaged.
    - A finding judged **not exploitable** disappears from the report, which counts how many it has hidden.
@@ -809,12 +809,18 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
      - **JetBrains** needs no folder: it opens the file in the project of that name you have open or opened before.
      - **The browser** opens github.dev or the GitLab Web IDE at the line (Bitbucket and Azure Repos show the file).
      - **Not on this computer yet?** In **▾**, **Clone and open** hands the repository to the IDE, which asks where to clone it.
-   - **Apply AI fix** applies the fix Checkmarx One AI Remediation wrote for the finding (see below). Fixes come only from AI Remediation: until a finding is remediated, the button says to remediate it first.
+   - **Apply AI fix** applies the fix Checkmarx One AI Remediation wrote for the finding (see below). It stays greyed out until the finding is remediated: there is no other fix to apply.
 5. **Remediate** works once a finding is **Confirmed**. It runs AI Remediation and then offers the fix:
    - a summary;
    - the pull request (for repository-connected projects);
    - a downloadable patch;
    - a link to Risk Hub.
+
+   **Remediate all critical**, **Remediate all high** and **Remediate all** run AI Remediation on many confirmed findings at once, critical first, within the AI Remediation credits your administrator allocated:
+   - Each finding costs 3 credits. Rows that are one Checkmarx One result are remediated once.
+   - A project's credits cover the severities they were allocated for (critical and high unless your administrator chose others). **Remediate all** covers every one of those severities.
+   - When the credits cover only some findings, the button says so, for example **Remediate critical: 3 of 4**. Hover it to see why the rest are left out. When they cover none, clicking it opens **Ask the administrator** with what each project needs.
+   - One confirmation lists the cost per project. The findings are then sent one at a time, and each fix appears on its row when Checkmarx One finishes. Findings already remediated or running are skipped; **Re-remediate** stays a choice you make on a row.
 6. **Apply the fix in your own checkout** (no pull request, a failed one, or you'd rather see it locally first):
    - The fix shows what it changes, **Why and how**, and the test files Checkmarx One wrote for it (they are applied with it).
    - **Apply fix in my workspace** (Chrome or Edge): pick the repository's folder. The report checks the folder's git remote is that project's repository and asks first if it isn't. It then shows each file and the change. **Nothing is written until you click Write changes**; then review with `git diff` and commit as usual. **Open it in VS Code** (or the IDE you last used) then jumps to the change.
@@ -831,7 +837,7 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
 | Mark | Meaning |
 | --- | --- |
 | **Same result R1**, **R2**, … | Rows with the same label and colour are **one** Checkmarx One result, listed once per code path. They are triaged together for 1 credit. **below ↓ / above ↑** jumps to the twin; hovering a row lights up its whole group. **why?** shows the shared result ID. |
-| **Why / Fix** under Confirmed | Why the finding is a real vulnerability and how to fix it, said once, in two lines. **why?** adds only what those lines do not say: <ul><li>how Checkmarx One knows (for example, it followed the data from input to this code);</li><li>AI Triage's verdict (reachable / exploitable, confidence) when there is one;</li><li>what Remediate will do.</li></ul> |
+| **Why / Fix** under Confirmed | Why the finding is a real vulnerability, and where its fix comes from: Checkmarx One AI Remediation only (**press Remediate**, or the fix it already wrote). **why?** adds only what those lines do not say: <ul><li>how Checkmarx One knows (for example, it followed the data from input to this code);</li><li>AI Triage's verdict (reachable / exploitable, confidence) when there is one;</li><li>what Remediate will do.</li></ul> |
 | **Triaging…** | AI Triage is running. |
 | **No verdict** | Checkmarx One produced no AI Triage result within 6 minutes. Check the finding in Checkmarx One; the report keeps checking. |
 | **Manual fix** | AI cannot act on this kind of finding (for example IaC). Use **Fix in Checkmarx One**. |
@@ -1121,7 +1127,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.73** | 507/s, 0 failed (main 497, 10) | 6.8 s | 615 ms | 645 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.74** | 514/s, 0 failed (main 519, 0) | 5.9 s | 252 ms | 645 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| MZ-01.00.73 | 507/s, 0 failed (main 497, 10) | 6.8 s | 615 ms | 645 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.60 | 505/s, 0 failed (main 499, 0 failed) | 6.9 s | 501 ms | 566 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.59 | 513/s, 0 failed (main 518, 0 failed) | 6.2 s | 229 ms | 565 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.58 | 502/s, 0 failed (main 514, 31 failed) | 11.8 s | 648 ms | 559 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |

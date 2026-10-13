@@ -19,7 +19,7 @@ test('every word the report writes is listed for translation, and every listed w
 });
 
 test('wording with names in it is rewritten from data-l, and its key is listed', () => {
-  const html = generateHtmlReport(buildReportData([risk(1, { scanner: 'SCA', fixVersion: '1.2.3' }), risk(2, { scanner: 'KICS' })], { tenant: 't' }), { connection: { tenant: 'acme' } });
+  const html = generateHtmlReport(buildReportData([risk(1, { scanner: 'SCA' }), risk(2, { scanner: 'KICS' })], { tenant: 't' }), { connection: { tenant: 'acme' } });
   const keys = new Set(reportKeys());
   const used = [...html.matchAll(/data-l(?:-title)?="([^"]*)"/g)].map((m) => m[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&'));
   assert.ok(used.length >= 4);

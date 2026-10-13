@@ -1,6 +1,6 @@
 // Collect the interactive report's English wording, for the translations a report carries with it:
 // what its script writes (every L('…') in src/report/report.client.js, and its word tables), the
-// fix advice it shows (src/fix-advice.js), and what the report's page says, read the way
+// what a finding means (src/finding-meaning.js), and what the report's page says, read the way
 // public/i18n.js looks it up from sample reports that between them show every part of the page.
 // Writes src/report/report-keys.json (shipped with the server) and adds what is new to i18n/catalog.json (kind "report"); `npm test`
 // then lists what each language is missing.
@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { adviceTexts } from '../src/fix-advice.js';
+import { meaningTexts } from '../src/finding-meaning.js';
 import { generateHtmlReport } from '../src/html-report.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -21,10 +21,10 @@ const CLIENT = fs.readFileSync(path.join(ROOT, 'src/report/report.client.js'), '
 const unquote = (literal) => JSON.parse(literal[0] === '"' ? literal : `"${literal.slice(1, -1).replace(/\\'/g, "'").replace(/"/g, '\\"')}"`);
 const LITERAL = /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"/g;
 
-/** The first argument of every L(…) and fail(…) call: each string literal in it (a ternary names two). */
+/** The first argument of every L(…) and fail(…) call (each string literal in it: a ternary names two), and both wordings of every plural(n, one, many). */
 export function clientKeys(source = CLIENT) {
   const keys = new Set();
-  for (const name of ['L(', 'fail(']) for (let at = source.indexOf(name); at !== -1; at = source.indexOf(name, at + name.length)) {
+  for (const name of ['L(', 'fail(', 'plural(']) for (let at = source.indexOf(name); at !== -1; at = source.indexOf(name, at + name.length)) {
     if (/[\w$.`]/.test(source[at - 1] ?? '')) continue; // fooL(, x.L( or one in a comment's `code`
     let depth = 0;
     let end = at + name.length;
@@ -41,7 +41,7 @@ export function clientKeys(source = CLIENT) {
       else if (')]}'.includes(c)) {
         if (depth === 0) break;
         depth -= 1;
-      } else if (c === ',' && depth === 0) break;
+      } else if (c === ',' && depth === 0 && name !== 'plural(') break;
     }
     for (const [literal] of source.slice(at + name.length, end).matchAll(LITERAL)) {
       const text = unquote(literal);
@@ -50,7 +50,7 @@ export function clientKeys(source = CLIENT) {
   }
   // The word tables the script looks up by status (VERDICT_WORDS, BULK_WORDS…), and the names of its tools.
   const block = (start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
-  for (const part of ['const VERDICT_WORDS = {', 'const SUB_WORDS = {', 'const BULK_WORDS = {', 'const STATE_WORDS = {', 'const KIND_LABELS = {'].map((start) => block(start, '};'))) {
+  for (const part of ['const VERDICT_WORDS = {', 'const SUB_WORDS = {', 'const BULK_WORDS = {', 'const BULK_FIX_WORDS = {', 'const STATE_WORDS = {', 'const SEVERITY_WORDS = {', 'const KIND_LABELS = {'].map((start) => block(start, '};'))) {
     for (const [literal] of part.matchAll(LITERAL)) {
       const text = unquote(literal);
       if (/\s|^[A-Z][a-z]/.test(text) && !/^(bad|good|warn|muted|busy)$/.test(text)) keys.add(text);
@@ -74,7 +74,7 @@ function sampleReports() {
       risk(2, { alternateId: 'shared', location: 'src/a.js' }), risk(3, { alternateId: 'shared', location: 'src/b.js' }),
       risk(4, { alternateId: '', groupId: 'gs', location: '' }), risk(5, { alternateId: '', groupId: 'gs', location: '' }),
       risk(6, { alternateId: '', groupId: '', riskId: 'rs', location: 'src/c.js' }), risk(7, { alternateId: '', groupId: '', riskId: 'rs', location: 'src/c.js' }),
-      risk(8, { scanner: 'SCA', state: 'URGENT', fixVersion: '2.0.0' }),
+      risk(8, { scanner: 'SCA', state: 'URGENT' }),
       risk(9, { scanner: 'KICS', severity: 'MEDIUM' }), { title: 'Unknown', severity: 'LOW', ageDays: 1 },
       { title: 'No ids', severity: 'LOW', scanner: 'SAST', state: 'NOT_EXPLOITABLE', ageDays: 2 },
       risk(90, { state: 'PROPOSED_NOT_EXPLOITABLE' }),
@@ -135,10 +135,10 @@ async function pageKeys() {
   return keys;
 }
 
-/** Everything the report's scripts write themselves, and the advice: what needs no browser to find. */
+/** Everything the report's scripts write themselves, and what findings mean: what needs no browser to find. */
 export function scriptKeys() {
   const boot = fs.readFileSync(path.join(ROOT, 'src/report/i18n-boot.client.js'), 'utf8');
-  return new Set([...clientKeys(), ...clientKeys(boot), ...adviceTexts()]);
+  return new Set([...clientKeys(), ...clientKeys(boot), ...meaningTexts()]);
 }
 
 const main = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);

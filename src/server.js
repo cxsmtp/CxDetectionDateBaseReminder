@@ -3426,7 +3426,7 @@ function projectCredits(projectIds) {
   const out = {};
   for (const projectId of new Set(projectIds)) {
     const b = allocations.balance(projectId);
-    out[projectId] = { triage: b.triage, remediation: b.remediation };
+    out[projectId] = { triage: b.triage, remediation: b.remediation, severities: b.severities };
   }
   return out;
 }

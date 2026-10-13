@@ -247,23 +247,36 @@ test('two shared results are told apart: each has its own label and colour, and 
   assert.match(html, /5 findings here are 3 Checkmarx One results/);
 });
 
-test('a confirmed finding says why and how to fix it, with "why?" for the details', () => {
+test('a confirmed finding says why, and that its fix comes only from Checkmarx One AI Remediation', () => {
   const confirmed = { ...risk(1, 'HIGH'), title: 'Reflected_XSS', state: 'CONFIRMED', alternateId: 'a1', groupId: 'g1', url: 'https://eu.ast.checkmarx.net/r/1' };
   const open = { ...risk(2, 'HIGH'), title: 'Reflected_XSS', state: 'TO_VERIFY', alternateId: 'a2', groupId: 'g2' };
-  const html = generateHtmlReport(buildReportData([confirmed, open], { tenant: 't' }), { remediationViaRelay: true });
-  const row = (n) => {
-    const key = island(html).findings.findIndex((f) => f.riskId === `r${n}`);
-    return html.slice(html.indexOf(`<tr data-key="${key}"`), html.indexOf('</tr>', html.indexOf(`<tr data-key="${key}"`)));
+  const data = buildReportData([confirmed, open], { tenant: 't' });
+  const html = generateHtmlReport(data, { remediationViaRelay: true });
+  const row = (n, page = html) => {
+    const key = island(page).findings.findIndex((f) => f.riskId === `r${n}`);
+    return page.slice(page.indexOf(`<tr data-key="${key}"`), page.indexOf('</tr>', page.indexOf(`<tr data-key="${key}"`)));
   };
   assert.match(row(1), /<b>Why:<\/b> <span translate="no">Input from the request is written into the page without encoding, so an attacker can run script in a victim&#39;s browser\.<\/span><\/p>/);
-  assert.match(row(1), /<b>Fix:<\/b> <span translate="no">Encode output for its context \(HTML, attribute, JavaScript, URL\) or use the template engine&#39;s auto-escaping; validate input against an allow-list\.<\/span><\/p>/);
+  assert.match(row(1), /<b>Fix:<\/b> <span>From Checkmarx One AI Remediation only: press Remediate\.<\/span><\/p>/);
   assert.match(row(1), /<summary>why\?<\/summary>[\s\S]*Checkmarx One followed the data from where it enters the application to this code[\s\S]*AI Remediation/);
-  // Said once: the why and the fix are not repeated under "why?", and nobody is credited with confirming it.
+  // Said once, and never a fix of the report's own: no coding advice, no "fix in full".
   assert.equal(row(1).split('Input from the request is written').length - 1, 1, 'the why appears once');
-  assert.equal(row(1).split('Encode output for its context').length - 1, 1, 'the fix appears once');
-  assert.doesNotMatch(row(1), /Someone|Possible solution|Confirmed in Checkmarx One/);
+  assert.doesNotMatch(row(1), /Encode output|auto-escaping|allow-list|Fix in full|Someone|Possible solution|Confirmed in Checkmarx One/);
   assert.ok(!row(2).includes('Why:'), 'only confirmed findings get the note');
-  assert.ok(island(html).findings.every((f) => f.advice?.fix), 'the script gets the advice too, to render it after triage');
+  assert.ok(island(html).findings.every((f) => f.meaning && !f.advice), 'the script gets what it means, and no fix, to render it after triage');
+  // Without Remediate in the report, the fix is still Checkmarx One AI Remediation's, in Checkmarx One.
+  const elsewhere = generateHtmlReport(data);
+  assert.match(row(1, elsewhere), /<b>Fix:<\/b> <span>From Checkmarx One AI Remediation only: remediate it in Checkmarx One\.<\/span><\/p>/);
+  assert.match(elsewhere, /Fixes come from Checkmarx One AI Remediation only: this report never suggests one of its own\./);
+});
+
+test('no fix text anywhere in the report comes from anywhere but Checkmarx One AI Remediation', () => {
+  const titles = ['Reflected_XSS', 'SQL_Injection', 'Command_Injection', 'Path_Traversal', 'Hardcoded_password', 'Something_new'];
+  const risks = titles.map((title, i) => ({ ...risk(i + 1, 'HIGH'), title, state: 'CONFIRMED', alternateId: `a${i}`, groupId: `g${i}` }));
+  risks.push({ ...risk(9, 'CRITICAL'), scanner: 'SCA', state: 'CONFIRMED', fixVersion: '4.17.21', alternateId: 'a9', groupId: 'g9' });
+  const html = generateHtmlReport(buildReportData(risks, { tenant: 't' }), { remediationViaRelay: true });
+  assert.doesNotMatch(html, /parameteri[sz]ed|prepared statement|execFile|DOMPurify|upgrade to|4\.17\.21|recommend|Validate or sanitise|secret store/i);
+  assert.equal((html.match(/<b>Fix:<\/b> <span>From Checkmarx One AI Remediation only: press Remediate\.<\/span>/g) ?? []).length, risks.length);
 });
 
 test('each finding carries its file and line, and each project its repository, for Open in IDE and Apply fix', () => {
@@ -284,8 +297,21 @@ test('each finding carries its file and line, and each project its repository, f
   assert.match(html, /const MZPatch = /, 'the patcher is inlined before the report script');
 });
 
-test('a package finding says which version to upgrade to', () => {
-  const html = generateHtmlReport(buildReportData([{ ...risk(1, 'HIGH'), scanner: 'SCA', fixVersion: '4.17.21' }, risk(2, 'LOW')], { tenant: 't' }));
-  assert.match(html, /data-l="upgrade to \{0\}" data-v="\[&quot;4\.17\.21&quot;\]" translate="no">upgrade to 4\.17\.21</);
-  assert.equal((html.match(/>upgrade to /g) ?? []).length, 1);
+test('Remediate all, critical and high: confirmed findings, one per Checkmarx One result, only where the report can remediate', () => {
+  const risks = [
+    { ...risk(1, 'CRITICAL'), state: 'CONFIRMED', alternateId: 'c1', groupId: 'g1' },
+    { ...risk(2, 'CRITICAL'), state: 'CONFIRMED', alternateId: 'c1', groupId: 'g1' }, // the same result, another path
+    { ...risk(3, 'HIGH'), state: 'CONFIRMED', alternateId: 'h1', groupId: 'g3' },
+    { ...risk(4, 'HIGH'), state: 'TO_VERIFY', alternateId: 'h2', groupId: 'g4' },
+    { ...risk(5, 'MEDIUM'), state: 'CONFIRMED', alternateId: 'm1', groupId: 'g5' },
+    { ...risk(6, 'HIGH'), state: 'CONFIRMED', scanner: 'KICS', alternateId: 'k1', groupId: 'g6' },
+  ];
+  const data = buildReportData(risks, { tenant: 't' });
+  const html = generateHtmlReport(data, { remediationViaRelay: true });
+  const button = (scope) => new RegExp(`<button class="btn btn-fix bulk-fix" type="button" data-fix-scope="${scope}" disabled title="[^"]+">([^<]+)</button>`).exec(html)?.[1];
+  assert.equal(button('CRITICAL'), 'Remediate all critical (1)', 'two rows, one result');
+  assert.equal(button('HIGH'), 'Remediate all high (1)', 'not the one still to verify, nor IaC');
+  assert.equal(button('ALL'), 'Remediate all (3)');
+  assert.match(html, /<span id="bulk-fix-progress" class="muted"><\/span>/);
+  assert.doesNotMatch(generateHtmlReport(data), /data-fix-scope="/, 'no Remediate all when the report cannot remediate');
 });
