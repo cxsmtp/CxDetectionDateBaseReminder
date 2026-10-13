@@ -388,12 +388,14 @@ export async function collectProjectRisks(
   client,
   config,
   projects,
-  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null, gate = null, scans = null, refine = null } = {},
+  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null, gate = null, scans = null, refine = null, admit = null } = {},
 ) {
   const source = createRiskSource(client, config);
   await source.prime?.(projects, scans);
   let reusedHere = 0;
   let notRead = 0;
+  // `admit`: whether a project counts at all (its scan counted lines of code), asked while its findings are read.
+  let leftOut = 0;
 
   // Each project's summary is handed to onProject as soon as it is read, so a
   // caller can show it straight away instead of waiting for every project.
@@ -404,8 +406,15 @@ export async function collectProjectRisks(
       return null;
     }
     let summary;
+    // Asked side by side with the read, so it adds no wait; a project it leaves out is not part of the result.
+    const [admits, read] = await Promise.all([admit ? admit(project) : true, readProject(source, project, detectionWindow, shared, gate).then((value) => ({ value }), (error) => ({ error }))]);
+    if (!admits) {
+      leftOut += 1;
+      return null;
+    }
     try {
-      const { items: raw, reused: wasReused } = await readProject(source, project, detectionWindow, shared, gate);
+      if (read.error) throw read.error;
+      const { items: raw, reused: wasReused } = read.value;
       if (wasReused) reusedHere += 1;
       let risks = raw
         .map((item) => normalizeShared(item, project, now))
@@ -435,6 +444,7 @@ export async function collectProjectRisks(
     generatedAt: now.toISOString(),
     projects: summaries.filter(Boolean),
     notRead,
+    leftOut,
   };
 }
 

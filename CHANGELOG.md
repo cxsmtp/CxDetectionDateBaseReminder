@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.75 | 492/s, 3 (main 482, 0) | 10.5 s | 1.1 s | 666 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.74 | 514/s, 0 (main 519, 0) | 5.9 s | 252 ms | 645 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.73 | 507/s, 0 (main 497, 10) | 6.8 s | 615 ms | 645 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.72 | 486/s, 0 (main 503, 0) | 8.0 s | 1.0 s | 645 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -60,6 +61,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.75 — MERGE_TIME UTC · [#98](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/98)
+
+- **Choose the engines.** A new **Engines** choice on the Dashboard loads SAST and SCA findings (the two AI Triage and AI Remediation work on) unless IaC, Containers, API Security or Secrets are ticked too; counts, reports (which say their engines at the top), reminders, tracked reports, Credit Control, scheduled runs and the Cx Credits Calculator follow it.
+- **One branch, counted once.** Each project now counts only its primary branch (as set in Checkmarx One, else main, else master), from its latest completed scan there, so a vulnerability scanned on several branches is no longer counted several times; **Every branch** on the Dashboard, in Settings → Automation and in the calculator counts them all again.
+- **The branch follows through.** Reports say which branch they cover, and tracked reports, credit checks, verification rescans (which now rescan the primary branch), scheduled runs and the calculator's backlog, fix rate and Fusion scan counts all keep to it; reports and schedules saved before keep every branch.
+- **Projects with nothing to analyse left out.** Projects whose scan counted no lines of code are left out by default, and projects with no open findings can be left out too (keep them in for a compliance report), on the Dashboard and in the calculator, which both say how many were left out and why.
+- **The Impact page keeps recording fixes.** A load of SAST and SCA now counts as complete for those two engines, so fixes keep showing; a load of every branch adds nothing there.
+- **Every language.** The new wording is in all fourteen languages, reviewed twice.
+- **Status.** 3000 people at once on 2 vCPU, on a host that stalled all day: 492 requests a second with 3 failed (main 482, none failed in the same hour; main's other runs failed 74–145), report opens 10.5 s at p95 (main 8.5 s), triage polls 1.1 s (main 1.3 s), Dashboard fetches at main's pace once the lines-of-code check ran alongside each read ([performance](docs/performance.md)); 666 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.74 — 2026-10-13 02:25 UTC · [#97](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/97)
 

@@ -15,7 +15,7 @@ import { SendGuard } from './send-guard.js';
 import { ActivityLog, describe as describeAction, fieldNames, recordsGet, targetOf } from './activity-log.js';
 import { Diagnostics } from './diagnostics.js';
 import { filterProjectsByActivity, getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
-import { BRANCH_HOW, branchScopeOf, onBranch, primaryScans, withCode } from './cxone/branches.js';
+import { BRANCH_HOW, branchScopeOf, linesOfCode, onBranch, primaryScans } from './cxone/branches.js';
 import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, projectReads, readGate, selectRisks, summariseProject } from './cxone/risks.js';
 import { DEFAULT_ENGINES, cleanEngines, describeEngines, engineScope, inEngines } from './engines.js';
 import { discover } from './cxone/discovery.js';
@@ -2765,11 +2765,8 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   // Left out before anything is read: a primary branch never scanned, a scan that counted no lines of code.
   const leftOut = { noPrimaryScan: 0, noCode: 0, noFindings: 0 };
   projects = projects.filter((p) => (choice.branches[p.id]?.how === BRANCH_HOW.none ? ((leftOut.noPrimaryScan += 1), false) : true));
-  if (leaveOutNoCode && projects.length) {
-    const { kept, noCode } = await withCode(client, projects, lastScans, { identity, gate, concurrency: config.concurrency });
-    projects = kept;
-    leftOut.noCode = noCode.length;
-  }
+  // No lines of code: asked of each project while its findings are read (collectProjectRisks' admit).
+  const hasCode = leaveOutNoCode ? async (project) => (lastScans[project.id] ? (await linesOfCode(client, lastScans[project.id], { identity, gate })) !== 0 : true) : null;
   const branchFilter = Object.values(choice.branches).some((b) => b.how !== BRANCH_HOW.any && b.how !== BRANCH_HOW.unknown)
     ? (project, risks) => onBranch(client, choice, project.id, risks, { identity, gate })
     : null;
@@ -2818,11 +2815,12 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
       shared: { identity, lastScans, fresh: req.query.fresh === '1' },
       scans: Object.keys(lastScans).length ? lastScans : null,
       refine: branchFilter,
+      admit: hasCode,
       shouldStop,
     }),
   ]);
-  // Stopped part-way: what was read is the data, and only its projects keep their initiators.
-  if (result.notRead) {
+  // Stopped part-way, or projects left out: what was read is the data, and only its projects keep their initiators.
+  if (result.notRead || result.leftOut) {
     const read = new Set(result.projects.map((p) => p.projectId));
     for (const id of Object.keys(initiators.byProject)) if (!read.has(id)) delete initiators.byProject[id];
   }
@@ -2839,6 +2837,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   result.initiators = initiators.byProject;
   result.detectionWindow = detectionWindow;
   result.engines = engines;
+  leftOut.noCode = result.leftOut ?? 0;
   for (const summary of result.projects) branched(summary);
   // Asked to: projects with no finding left (in this scope) are not part of the result.
   if (leaveOutNoFindings) result.projects = result.projects.filter((p) => (p.totalRisks > 0 || p.error ? true : ((leftOut.noFindings += 1), false)));
