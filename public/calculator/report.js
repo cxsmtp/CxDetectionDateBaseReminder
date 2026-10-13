@@ -124,7 +124,18 @@ function provenance(data, L) {
   }
   // Read from Checkmarx One: which engines' findings are counted (a report made before says nothing).
   const engines = Array.isArray(src.engines) ? `<p class="sub">${src.engines.length ? w('Engines counted: {0}.', `<span translate="no">${esc(describeEngines(src.engines))}</span>`) : w('Engines counted: all.')}</p>` : '';
-  return `<section class="live"><span class="live-dot" aria-hidden="true"></span><div><p>${line}</p>${tr?.lookbackMonths ? `<p class="sub">${w('The trend is measured over the last {0} months of that data, week by week, and carried forward.', num(tr.lookbackMonths))}</p>` : ''}${engines}${scopeLine(src, L)}</div></section>`;
+  // Which branches' scans were counted (a report made before says nothing), and the projects left out as having nothing to analyse.
+  const branches = src.branches === 'primary'
+    ? `<p class="sub">${w("Branch counted: each project's primary branch (else main, else master), so no finding is counted twice.")}</p>`
+    : src.branches === 'all'
+      ? `<p class="sub">${w('Branches counted: every branch scanned.')}</p>`
+      : '';
+  const out = src.leftOut ?? {};
+  const leftOut = [
+    out.noCode > 0 && w('Left out: {0} projects whose latest scan counted no lines of code.', num(out.noCode)),
+    out.noFindings > 0 && w('Left out: {0} projects with no open findings.', num(out.noFindings)),
+  ].filter(Boolean).map((t) => `<p class="sub">${t}</p>`).join('');
+  return `<section class="live"><span class="live-dot" aria-hidden="true"></span><div><p>${line}</p>${tr?.lookbackMonths ? `<p class="sub">${w('The trend is measured over the last {0} months of that data, week by week, and carried forward.', num(tr.lookbackMonths))}</p>` : ''}${engines}${branches}${leftOut}${scopeLine(src, L)}</div></section>`;
 }
 
 /** How the number was reached: today, what is ahead, and Fusion. */

@@ -21912,5 +21912,149 @@
   "seen": [
    "interactive HTML report"
   ]
+ },
+ "Branch": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): label of the new choice. \"Branch\" = a git branch (main, master…) that Checkmarx One scanned"
+  ]
+ },
+ "Each project's primary branch only (as set in Checkmarx One, else main, else master), so a finding scanned on several branches is counted once. Projects whose scan counted no lines of code are left out.": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): tooltip of the Branch drop-down. \"primary branch\" = the branch a Checkmarx One project names as its main one"
+  ]
+ },
+ "Primary branch": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): what the Branch drop-down shows by default (each project's primary branch only)"
+  ]
+ },
+ "Every branch": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): the Branch drop-down, three tick boxes, each with a short grey line under it: first box (also in Settings → Automation and the Cx Credits Calculator). Ticked: findings of every scanned branch are counted"
+  ]
+ },
+ "Unticked: each project's primary branch only": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): the Branch drop-down, three tick boxes, each with a short grey line under it: line under \"Every branch\" (also a tooltip in Settings → Automation)"
+  ]
+ },
+ "Leave out projects with no lines of code": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): the Branch drop-down, three tick boxes, each with a short grey line under it: second box, ticked by default (also in Settings → Automation and the Cx Credits Calculator). A project whose latest scan counted 0 lines of code"
+  ]
+ },
+ "Nothing to analyse": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): the Branch drop-down, three tick boxes, each with a short grey line under it: line under \"Leave out projects with no lines of code\""
+  ]
+ },
+ "Leave out projects with no open findings": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): the Branch drop-down, three tick boxes, each with a short grey line under it: third box, off by default (also in the Cx Credits Calculator)"
+  ]
+ },
+ "Keep them in for a compliance report": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (after \"Engines\"): the Branch drop-down, three tick boxes, each with a short grey line under it: line under \"Leave out projects with no open findings\" — advice: for a compliance report, leave this box unticked so projects with zero findings still appear"
+  ]
+ },
+ "{0} project(s) left out: their primary branch has no completed scan.": {
+  "kind": "message",
+  "seen": [
+   "Dashboard, after findings are loaded: note under the row; {0} is a number"
+  ]
+ },
+ "{0} project(s) left out: their scan counted no lines of code.": {
+  "kind": "message",
+  "seen": [
+   "Dashboard, after findings are loaded: note under the row; {0} is a number"
+  ]
+ },
+ "{0} project(s) left out: no open findings.": {
+  "kind": "message",
+  "seen": [
+   "Dashboard, after findings are loaded: note under the row; {0} is a number"
+  ]
+ },
+ "Branch and projects": {
+  "kind": "text",
+  "seen": [
+   "Settings → Automation: label over the boxes \"Every branch\" and \"Leave out projects with no lines of code\""
+  ]
+ },
+ "Unticked: each project's primary branch only (as set in Checkmarx One, else main, else master), so no finding is counted twice. Ticked: the scans of every branch, which is also what Fusion is charged for when feature branches are scanned with it.": {
+  "kind": "attr:title",
+  "seen": [
+   "Cx Credits Calculator, the top panel: tooltip of the \"Every branch\" box next to \"Read from Checkmarx One\". Fusion = Checkmarx One's AI scanning, billed per scan"
+  ]
+ },
+ "Leave out projects with nothing to analyse": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "Cx Credits Calculator, the top panel: screen-reader name of the two \"Leave out projects…\" boxes"
+  ]
+ },
+ "{0} with no lines of code left out": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator, the top panel: part of the line saying which projects are counted (\"14 of 16 projects · 2 with no lines of code left out\"); {0} is a number of projects"
+  ]
+ },
+ "{0} with no open findings left out": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator, the top panel: part of the same line; {0} is a number of projects"
+  ]
+ },
+ "{0} of {1} projects": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator, the top panel: start of the line saying which projects are counted, e.g. \"14 of 16 projects\""
+  ]
+ },
+ "Branch counted: each project's primary branch (else main, else master), so no finding is counted twice.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator, the projection report (HTML/PDF), under \"Read live from Checkmarx One…\""
+  ]
+ },
+ "Branches counted: every branch scanned.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator, the projection report: every branch was counted"
+  ]
+ },
+ "Left out: {0} projects whose latest scan counted no lines of code.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator, the projection report; {0} is a number"
+  ]
+ },
+ "Left out: {0} projects with no open findings.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator, the projection report; {0} is a number"
+  ]
+ },
+ "Branch: each project's primary branch": {
+  "kind": "report",
+  "seen": [
+   "Interactive HTML report emailed to developers, the line under its title (next to \"Engines: SAST, SCA\"): its findings are from each project's primary branch only"
+  ]
+ },
+ "Branch: every branch": {
+  "kind": "report",
+  "seen": [
+   "Interactive HTML report, the line under its title: its findings are from every branch scanned"
+  ]
  }
 }

@@ -319,6 +319,22 @@
                   <p class="hint engine-hint" id="engine-hint" hidden></p>
                 </fieldset>
 
+                <fieldset class="scope-field">
+                  <span class="scope-label" id="focus-label">Branch</span>
+                  <details class="col-picker engine-pick focus-pick" id="focus-pick">
+                    <summary aria-labelledby="focus-label focus-summary" title="Each project's primary branch only (as set in Checkmarx One, else main, else master), so a finding scanned on several branches is counted once. Projects whose scan counted no lines of code are left out.">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="5" r="2" /><circle cx="6" cy="19" r="2" /><circle cx="18" cy="8" r="2" /><path d="M6 7v10" /><path d="M18 10c0 4-6 3-12 7" /></svg>
+                      <span id="focus-summary">Primary branch</span>
+                    </summary>
+                    <div class="col-menu engine-menu focus-menu" id="focus-menu">
+                      <label class="engine-opt"><input type="checkbox" id="focus-all-branches" /><b>Every branch</b><span class="muted">Unticked: each project's primary branch only</span><small></small></label>
+                      <label class="engine-opt"><input type="checkbox" id="focus-no-code" checked /><b>Leave out projects with no lines of code</b><span class="muted">Nothing to analyse</span><small></small></label>
+                      <label class="engine-opt"><input type="checkbox" id="focus-no-findings" /><b>Leave out projects with no open findings</b><span class="muted">Keep them in for a compliance report</span><small></small></label>
+                    </div>
+                  </details>
+                  <p class="hint engine-hint" id="focus-hint" hidden></p>
+                </fieldset>
+
                 <button type="button" class="link narrow-toggle" id="narrow-toggle" aria-expanded="false" aria-controls="scope-pick">Narrow to applications, projects or people</button>
                 <span class="hint scope-summary" id="scope-summary" hidden></span>
 
@@ -341,6 +357,7 @@
                     </button>
                   </div>
                 </fieldset>
+                <p class="left-out" id="left-out" hidden></p>
               </div>
 
               <fieldset class="scope-pick" id="scope-pick">
@@ -1062,6 +1079,13 @@
                 <div class="field">
                   <span>Only these engines — SAST and SCA are the ones AI Triage and Remediation work on</span>
                   <div class="engine-checks" id="auto-engines" role="group" aria-label="Engines"></div>
+                </div>
+                <div class="field">
+                  <span>Branch and projects</span>
+                  <div class="engine-checks" role="group" aria-label="Branch and projects">
+                    <label class="check" title="Unticked: each project's primary branch only"><input type="checkbox" id="auto-all-branches" /> Every branch</label>
+                    <label class="check"><input type="checkbox" id="auto-no-code" /> Leave out projects with no lines of code</label>
+                  </div>
                 </div>
               </div>
 
@@ -2198,6 +2222,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </div>
               <div class="calc-source">
                 <button type="button" class="secondary" id="calc-read">Read from Checkmarx One</button>
+                <label class="pill-check calc-branches" title="Unticked: each project's primary branch only (as set in Checkmarx One, else main, else master), so no finding is counted twice. Ticked: the scans of every branch, which is also what Fusion is charged for when feature branches are scanned with it."><input type="checkbox" id="calc-all-branches" /> Every branch</label>
                 <div class="calc-source-state">
                   <span class="status" id="calc-read-note" aria-live="polite"></span>
                   <progress id="calc-read-progress" max="100" value="0" hidden></progress>
@@ -2224,6 +2249,10 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <button type="button" class="primary calc-scope-apply" id="calc-scope-apply">Apply</button>
                 </div>
                 <p class="hint calc-scope-several">Empty: every project. These applications' projects, plus the projects picked. Enter adds every name that contains the text.</p>
+                <div class="calc-scope-leave" role="group" aria-label="Leave out projects with nothing to analyse">
+                  <label class="pill-check"><input type="checkbox" id="calc-leave-no-code" checked /> Leave out projects with no lines of code</label>
+                  <label class="pill-check"><input type="checkbox" id="calc-leave-no-findings" /> Leave out projects with no open findings</label>
+                </div>
                 <button type="button" class="link" id="calc-scope-toggle" aria-expanded="false" aria-controls="calc-scope-form">More filters</button>
                 <form class="calc-scope-form" id="calc-scope-form" hidden autocomplete="off">
                   <p class="hint">Narrow further, for triage &amp; remediation and for Fusion alike. Names take wildcards: <code translate="no">payments-*</code>, <code translate="no">*-api</code>.</p>

@@ -2111,6 +2111,9 @@ function renderAutomation() {
   renderAudience();
   $('auto-mode').value = a.config.mode;
   $('auto-severities').value = a.config.severities.join(', ');
+  // A schedule saved before branches could be chosen reads every branch and leaves nothing out.
+  $('auto-all-branches').checked = a.config.branches === 'all';
+  $('auto-no-code').checked = a.config.leaveOutNoCode !== false;
   // Every engine when none is saved (a schedule from before engines could be chosen).
   const engines = new Set(cleanEngines(a.config.engines).length ? cleanEngines(a.config.engines) : ENGINES.map((e) => e.key));
   $('auto-engines').replaceChildren(
@@ -2204,6 +2207,8 @@ function automationPayload() {
     mode: $('auto-mode').value,
     severities: $('auto-severities').value,
     engines: [...document.querySelectorAll('[data-auto-engine]:checked')].map((box) => box.dataset.autoEngine),
+    branches: $('auto-all-branches').checked ? 'all' : 'primary',
+    leaveOutNoCode: $('auto-no-code').checked,
   };
 }
 
@@ -3069,6 +3074,10 @@ function windowParams() {
   for (const who of scopePick.initiators) params.append('initiator', who);
   if (state.vulnerability) params.set('vulnerability', state.vulnerability);
   params.set('engines', [...enginePick].join(','));
+  // Each project's primary branch unless every branch is ticked; projects with nothing to analyse left out as chosen.
+  if (focusPick.allBranches) params.set('branches', 'all');
+  if (!focusPick.leaveOutNoCode) params.set('zeroLoc', 'keep');
+  if (focusPick.leaveOutNoFindings) params.set('noFindings', 'leave-out');
   for (const prefix of ['activity', 'detection']) {
     const preset = $(`${prefix}-preset`).value;
     params.set(`${prefix}Preset`, preset);
@@ -3187,6 +3196,68 @@ function setEnginePick(engines) {
   enginePick.clear();
   for (const key of list.length ? list : ENGINES.map((e) => e.key)) enginePick.add(key);
   renderEnginePick();
+}
+
+// ---------------------------------------------------------------------------
+// Branch and projects: each project's primary branch (unless every branch is ticked), and whether
+// projects with no lines of code, or no open findings, are left out. Remembered in this browser.
+// ---------------------------------------------------------------------------
+
+const FOCUS_KEY = 'mz-focus';
+const DEFAULT_FOCUS = { allBranches: false, leaveOutNoCode: true, leaveOutNoFindings: false };
+function savedFocus() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
+    if (saved && typeof saved === 'object') return { allBranches: saved.allBranches === true, leaveOutNoCode: saved.leaveOutNoCode !== false, leaveOutNoFindings: saved.leaveOutNoFindings === true };
+  } catch {}
+  return { ...DEFAULT_FOCUS };
+}
+const focusPick = savedFocus();
+const FOCUS_BOXES = { allBranches: 'focus-all-branches', leaveOutNoCode: 'focus-no-code', leaveOutNoFindings: 'focus-no-findings' };
+
+/** What a load was made with (a load made before these choices: every branch, nothing left out). */
+function focusOf(request) {
+  if (!request) return null;
+  return { allBranches: request.branches !== 'primary', leaveOutNoCode: request.branches ? request.zeroLoc !== 'keep' : false, leaveOutNoFindings: request.noFindings === 'leave-out' };
+}
+
+function renderFocusPick() {
+  for (const [key, id] of Object.entries(FOCUS_BOXES)) $(id).checked = focusPick[key];
+  $('focus-summary').textContent = focusPick.allBranches ? 'Every branch' : 'Primary branch';
+  const loaded = focusOf(state.lastScan?.request ?? (state.lastScan ? { branches: state.lastScan.branchScope, zeroLoc: state.lastScan.leaveOut?.noCode === false ? 'keep' : '', noFindings: state.lastScan.leaveOut?.noFindings ? 'leave-out' : '' } : null));
+  const changed = loaded && Object.keys(FOCUS_BOXES).some((key) => loaded[key] !== focusPick[key]);
+  const hint = $('focus-hint');
+  hint.textContent = changed ? 'Changed: load findings again to apply it.' : '';
+  hint.hidden = !hint.textContent;
+}
+
+/** The projects a load left out, one note each: a primary branch never scanned, no lines of code, no open findings. */
+function showLeftOut(result) {
+  const out = result?.leftOut ?? {};
+  const notes = [
+    out.noPrimaryScan && `${out.noPrimaryScan} project(s) left out: their primary branch has no completed scan.`,
+    out.noCode && `${out.noCode} project(s) left out: their scan counted no lines of code.`,
+    out.noFindings && `${out.noFindings} project(s) left out: no open findings.`,
+  ].filter(Boolean);
+  $('left-out').replaceChildren(...notes.map((text) => Object.assign(document.createElement('span'), { textContent: text })));
+  $('left-out').hidden = !notes.length;
+}
+
+/** Tick what a load was made with. */
+function setFocusPick(request) {
+  const loaded = focusOf(request);
+  if (loaded) Object.assign(focusPick, loaded);
+  renderFocusPick();
+}
+
+for (const [key, id] of Object.entries(FOCUS_BOXES)) {
+  $(id).addEventListener('change', (event) => {
+    focusPick[key] = event.target.checked;
+    try {
+      localStorage.setItem(FOCUS_KEY, JSON.stringify(focusPick));
+    } catch {}
+    renderFocusPick();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -5513,6 +5584,7 @@ async function restoreLastScan({ force = false } = {}) {
   }
   if (!result?.projects || (state.projects.length && !force) || state.fetching) return;
   restoreScope(result.request, result.projects);
+  showLeftOut(result);
   showVulnerabilitySearch(result);
   state.lastScan = result;
   state.projects = result.projects;
@@ -5531,6 +5603,8 @@ function restoreScope(request, projects) {
   if (!request) return;
   // Made before engines could be chosen: every engine was loaded.
   setEnginePick(Array.isArray(request.engines) ? request.engines : []);
+  // Made before branches could be chosen: every branch, nothing left out.
+  setFocusPick(request);
   for (const prefix of ['activity', 'detection']) {
     const select = $(`${prefix}-preset`);
     const preset = request[`${prefix}Preset`];
@@ -5640,6 +5714,7 @@ async function fetchProjects() {
     state.projects = result.projects;
     showVulnerabilitySearch(result);
     renderEnginePick();
+    renderFocusPick();
     renderTotals(result.totals);
     collectInitiators();
     renderInitiatorList();
@@ -5661,6 +5736,7 @@ async function fetchProjects() {
       (result.stats?.requests ? ` · ${result.stats.requests} API request(s)` : '') +
       (result.reused ? ` · ${result.reused} project(s) reused from a read made moments ago` : '') +
       (result.stopped ? ` · stopped at ${result.totals.projects} of ${result.projectsPlanned} project(s)` : '');
+    showLeftOut(result);
     setStatus(
       'status',
       `Loaded ${result.totals.projects} project(s)${skipped}.` +
@@ -7402,6 +7478,7 @@ document.addEventListener('keydown', (event) => {
     fillPresets('activity-preset', '7d');
     fillPresets('detection-preset', '7d');
     renderEnginePick();
+    renderFocusPick();
     updateScopeSummary();
   } catch {
     /* health is advisory only */
@@ -9403,7 +9480,7 @@ async function runCredits(kind) {
   button.disabled = true;
   setStatus('cc-spend-status', kind === 'triage' ? 'Starting AI Triage…' : 'Starting AI Remediation…');
   try {
-    const result = await api('/api/credits/run', { method: 'POST', body: JSON.stringify({ kind, severities, engines, projectIds: [...spend.picked] }) });
+    const result = await api('/api/credits/run', { method: 'POST', body: JSON.stringify({ kind, severities, engines, branches: focusPick.allBranches ? 'all' : 'primary', projectIds: [...spend.picked] }) });
     setStatus('cc-spend-status', spendText(result, kind), result.failed ? 'error' : 'ok');
     logger.add(spendText(result, kind), result.failed ? 'error' : 'success');
     if (usage.data) {
@@ -9435,7 +9512,7 @@ async function allocateNeededCredits() {
   button.disabled = true;
   setStatus('cc-spend-status', 'Allocating…');
   try {
-    const result = await api('/api/credits/allocate-needed', { method: 'POST', body: JSON.stringify({ severities, engines, triageAdd, remediationAdd, projectIds: [...spend.picked] }) });
+    const result = await api('/api/credits/allocate-needed', { method: 'POST', body: JSON.stringify({ severities, engines, branches: focusPick.allBranches ? 'all' : 'primary', triageAdd, remediationAdd, projectIds: [...spend.picked] }) });
     $('cc-spend-extra-triage').value = 0;
     $('cc-spend-extra-remediation').value = 0;
     if (usage.data) {

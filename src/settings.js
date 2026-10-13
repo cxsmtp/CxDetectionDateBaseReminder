@@ -693,7 +693,7 @@ export class SettingsStore {
         links: migrateLinks({ ...DEFAULT_SETTINGS.links, ...(raw.links ?? {}) }),
         branding: migrateBranding({ ...DEFAULT_SETTINGS.branding, ...(raw.branding ?? {}) }),
         // A schedule saved before engines could be chosen keeps every engine, as it always did.
-        automation: { ...DEFAULT_SETTINGS.automation, ...(raw.automation ? { engines: [] } : {}), ...(raw.automation ?? {}) },
+        automation: { ...DEFAULT_SETTINGS.automation, ...(raw.automation ? { engines: [], branches: 'all', leaveOutNoCode: false } : {}), ...(raw.automation ?? {}) },
         endpoints: { ...DEFAULT_SETTINGS.endpoints, ...(raw.endpoints ?? {}) },
         aiTriage: { ...DEFAULT_SETTINGS.aiTriage, ...(raw.aiTriage ?? {}) },
         beta: mergeBeta(raw.beta, null),

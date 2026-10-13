@@ -38,9 +38,27 @@ const VULN_NAMES = process.env.VULN_NAMES === '1';
 // MIXED_ENGINES=1: findings from several engines (SAST, SCA, KICS, containers), not SAST only.
 const MIXED_ENGINES = process.env.MIXED_ENGINES === '1';
 const MOCK_ENGINES = ['SAST', 'SCA', 'SAST', 'KICS', 'SAST', 'Containers'];
+// BRANCHES=1: projects scanned on several branches, as most are. Project i's primary branch is main, master,
+// develop or not set (i % 4); unset ones are scanned on main, except i % 8 = 7 (trunk only). i % 8 = 6 never
+// had its primary branch scanned. Every even project also has a newer feature/login scan, and one finding in
+// five of it comes from that scan. i % 10 = 5 counted 0 lines of code; i % 10 = 9 has no findings.
+const BRANCHES = process.env.BRANCHES === '1';
+const mainBranchOf = (i) => ['main', 'master', 'develop', ''][i % 4];
+const primaryScanBranch = (i) => (i % 8 === 6 ? 'feature/old' : i % 8 === 7 ? 'trunk' : mainBranchOf(i) || 'main');
+const hasFeature = (i) => BRANCHES && i % 2 === 0;
+/** The branch a mock scan ran on. */
+const branchOfScan = (id) => {
+  const re = rescans.get(id);
+  if (re) return re.branch ?? 'main';
+  const m = String(id).match(/^(feat|scan|old)-p(\d+)$|^hist-p(\d+)-(\d+)$/);
+  if (!m) return '';
+  if (m[1] === 'feat') return 'feature/login';
+  const i = Number(m[2] ?? m[3]);
+  return m[4] !== undefined && Number(m[4]) % 3 === 2 ? 'feature/login' : primaryScanBranch(i);
+};
 const VULNS = [['SQL_Injection', 89], ['Reflected_XSS_All_Clients', 79], ['SSRF', 918], ['Path_Traversal', 22], ['Hardcoded_password_in_Connection_String', 798], ['Stored_XSS', 79], ['Command_Injection', 78], ['Missing_HSTS_Header', 319], ['Blind_SQL_Injections', 89], ['Server_Side_Request_Forgery', 918], ['XML_External_Entity', 611], ['Log_Forging', 117]];
 const risksFor = (pid) => allRisksFor(pid).filter((r) => !fixedByRescan(pid, `alt-${r.groupId.replace(/^sim-/, '')}`, r.id));
-const allRisksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
+const allRisksFor = (pid) => Array.from({ length: BRANCHES && Number(String(pid).slice(1)) % 10 === 9 ? 0 : RISKS }, (_, i) => {
   const id = `${pid}-r${i}`;
   const twin = SHARED && Math.floor(i / 4) % 2 === 1 ? `${pid}-r${i - 4}` : id;
   const alt = `alt-${twin}`;
@@ -48,7 +66,7 @@ const allRisksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
   const state = t && Date.now() - t > FLIP_MS ? (i % 3 ? 'PROPOSED_NOT_EXPLOITABLE' : 'CONFIRMED') : 'TO_VERIFY';
   const k = Number(twin.split('-r')[1]);
   const named = VULN_NAMES ? VULNS[k % VULNS.length] : null;
-  return { id, riskName: named ? named[0] : SHARED ? `Finding ${twin}` : `Finding ${id}`, ...(named ? { cweId: named[1] } : {}), severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: MIXED_ENGINES ? MOCK_ENGINES[k % MOCK_ENGINES.length] : 'SAST', state, firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}` };
+  return { id, riskName: named ? named[0] : SHARED ? `Finding ${twin}` : `Finding ${id}`, ...(named ? { cweId: named[1] } : {}), severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: MIXED_ENGINES ? MOCK_ENGINES[k % MOCK_ENGINES.length] : 'SAST', state, firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}`, ...(BRANCHES ? { scanId: hasFeature(Number(pid.slice(1))) && i % 5 === 4 ? `feat-${pid}` : `scan-${pid}` } : {}) };
 });
 // Access tokens are only the ones this mock handed out; request bodies are small.
 const issued = new Set();
@@ -82,7 +100,7 @@ http.createServer((req, res) => {
       }
       if (!issued.has(String(req.headers.authorization || '').replace(/^Bearer /, ''))) return send(401, {});
       const offset = Number(u.searchParams.get('offset') || 0);
-      if (u.pathname === '/api/projects') { bump('projects'); const all = Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800), groups: [`team-${'abc'[i % 3]}`] })); const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: PROJECTS }); }
+      if (u.pathname === '/api/projects') { bump('projects'); const all = Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800), groups: [`team-${'abc'[i % 3]}`], ...(BRANCHES ? { mainBranch: mainBranchOf(i) } : {}) })); const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: PROJECTS }); }
       if (u.pathname === '/api/applications') {
         bump('applications');
         // Four applications, each grouping every fourth project.
@@ -94,7 +112,9 @@ http.createServer((req, res) => {
         bump('last-scan');
         return send(200, Object.fromEntries(Array.from({ length: PROJECTS }, (_, i) => {
           const latest = latestRescan(`p${i}`);
-          return [`p${i}`, latest ? { id: latest[0], updatedAt: new Date(latest[1].at + RESCAN_MS).toISOString(), initiator: 'cxmissionzero' } : { id: `scan-p${i}`, updatedAt: day(1), initiator: `dev${i % INITIATORS}@acme.com` }];
+          if (latest) return [`p${i}`, { id: latest[0], updatedAt: new Date(latest[1].at + RESCAN_MS).toISOString(), initiator: 'cxmissionzero', ...(BRANCHES ? { branch: branchOfScan(latest[0]) } : {}) }];
+          const id = hasFeature(i) ? `feat-p${i}` : `scan-p${i}`;
+          return [`p${i}`, { id, updatedAt: hasFeature(i) ? day(0.5) : day(1), initiator: `dev${i % INITIATORS}@acme.com`, ...(BRANCHES ? { branch: branchOfScan(id) } : {}) }];
         })));
       }
       if (req.method === 'POST' && u.pathname === '/api/scans') {
@@ -103,7 +123,7 @@ http.createServer((req, res) => {
         const pid = body.project?.id;
         if (!pid || body.type !== 'git' || !body.handler?.repoUrl || !body.handler?.branch || !Array.isArray(body.config)) return send(400, { message: 'bad scan request' });
         const id = `rescan-${pid}-${rescans.size + 1}`;
-        rescans.set(id, { projectId: pid, at: Date.now(), tags: body.tags ?? {} });
+        rescans.set(id, { projectId: pid, at: Date.now(), tags: body.tags ?? {}, branch: body.handler.branch });
         return send(201, { id, status: 'Queued' });
       }
       if (u.pathname === '/api/scans') {
@@ -113,14 +133,21 @@ http.createServer((req, res) => {
         const perYear = [400, 100, 20, 4, 0];
         // One project's scans (Cx Credits Calculator): those since from-date, newest first, or
         // with to-date the one before it (every project also has a scan 400 days ago).
+        // Scans by id (which branch each ran on).
+        const ids = u.searchParams.getAll('scan-ids').flatMap((v) => v.split(',')).filter(Boolean);
+        if (ids.length) return send(200, { scans: ids.map((id) => ({ id, projectId: rescans.get(id)?.projectId ?? id.replace(/^(feat|scan|old)-/, '').replace(/^hist-(p\d+)-\d+$/, '$1'), status: 'Completed', ...(BRANCHES ? { branch: branchOfScan(id) } : {}) })), totalCount: ids.length });
         const pid = u.searchParams.get('project-id');
         if (pid) {
           const i = Number(pid.replace(/^p/, ''));
           const n = perYear[i % 5];
-          const all = [...Array.from({ length: n }, (_, k) => ({ id: `hist-p${i}-${k}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() })), { id: `old-p${i}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
+          const own = BRANCHES ? [...(hasFeature(i) ? [{ id: `feat-p${i}`, projectId: pid, status: 'Completed', createdAt: day(0.5) }] : []), { id: `scan-p${i}`, projectId: pid, status: 'Completed', createdAt: day(1) }] : [];
+          const all = [...own, ...Array.from({ length: n }, (_, k) => ({ id: `hist-p${i}-${k}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() })), { id: `old-p${i}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
           const fromDate = Date.parse(u.searchParams.get('from-date') ?? '');
           const toDate = Date.parse(u.searchParams.get('to-date') ?? '');
-          const hits = all.filter((x) => (!Number.isFinite(fromDate) || Date.parse(x.createdAt) >= fromDate) && (!Number.isFinite(toDate) || Date.parse(x.createdAt) <= toDate));
+          if (BRANCHES) for (const x of all) x.branch = branchOfScan(x.id);
+          all.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+          const branch = u.searchParams.get('branch');
+          const hits = all.filter((x) => (!Number.isFinite(fromDate) || Date.parse(x.createdAt) >= fromDate) && (!Number.isFinite(toDate) || Date.parse(x.createdAt) <= toDate) && (!branch || x.branch === branch));
           const lim = Math.min(1000, Number(u.searchParams.get('limit') || 100));
           return send(200, { scans: hits.slice(offset, offset + lim), totalCount: all.length, filteredTotalCount: hits.length });
         }
@@ -131,7 +158,7 @@ http.createServer((req, res) => {
         for (let k = offset, i = 0, before = 0; k < Math.min(total, offset + lim); k += 1) {
           while (before + perYear[i % 5] <= k) before += perYear[i++ % 5];
           const n = k - before;
-          scans.push({ id: `hist-p${i}-${n}`, projectId: `p${i}`, status: 'Completed', createdAt: new Date(Date.now() - ((n + 0.5) * 365 * 86400000) / perYear[i % 5]).toISOString() });
+          scans.push({ id: `hist-p${i}-${n}`, projectId: `p${i}`, status: 'Completed', ...(BRANCHES ? { branch: branchOfScan(`hist-p${i}-${n}`) } : {}), createdAt: new Date(Date.now() - ((n + 0.5) * 365 * 86400000) / perYear[i % 5]).toISOString() });
         }
         return send(200, { scans, totalCount: total, filteredTotalCount: total });
       }
@@ -157,20 +184,21 @@ http.createServer((req, res) => {
       if ((sm = u.pathname.match(/^\/api\/sast-metadata\/([^/]+)$/))) {
         bump('sast-metadata');
         const id = decodeURIComponent(sm[1]);
-        const i = Number((rescans.get(id)?.projectId ?? id.replace(/^scan-/, '').replace(/^hist-(p\d+)-\d+$/, '$1').replace(/^old-/, '')).replace(/^p/, ''));
+        const i = Number((rescans.get(id)?.projectId ?? id.replace(/^(scan|feat)-/, '').replace(/^hist-(p\d+)-\d+$/, '$1').replace(/^old-/, '')).replace(/^p/, ''));
         if (!Number.isInteger(i) || i % 7 === 3) return send(404, { message: 'no SAST metadata for this scan' });
-        return send(200, { scanId: id, loc: mockLoc(i), fileCount: 40 + (i % 300), isIncremental: false, queryPreset: 'ASA Premium' });
+        return send(200, { scanId: id, loc: BRANCHES && i % 10 === 5 ? 0 : mockLoc(i), fileCount: 40 + (i % 300), isIncremental: false, queryPreset: 'ASA Premium' });
       }
       if ((sm = u.pathname.match(/^\/api\/scans\/([^/]+)$/))) {
         bump('scan-get');
         const id = decodeURIComponent(sm[1]);
         const re = rescans.get(id);
-        if (re) return send(200, { id, projectId: re.projectId, status: rescanStatus(re), branch: 'main', engines: ['sast', 'sca', 'kics'], metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${re.projectId}`, branch: 'main' } } } });
-        const pid = id.replace(/^scan-/, '');
+        if (re) return send(200, { id, projectId: re.projectId, status: rescanStatus(re), branch: re.branch ?? 'main', engines: ['sast', 'sca', 'kics'], metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${re.projectId}`, branch: 'main' } } } });
+        const pid = id.replace(/^(scan|feat|old)-/, '').replace(/^hist-(p\d+)-\d+$/, '$1');
         if (UPLOADS.has(pid)) return send(200, { id, projectId: pid, status: 'Completed', sourceType: 'upload', engines: ['sast'] });
         const i = Number(pid.replace(/^p/, ''));
-        const statusDetails = [{ name: 'general', status: 'Completed' }, { name: 'sast', status: 'Completed', ...(i % 14 === 3 ? {} : { loc: mockLoc(i) }) }];
-        return send(200, { id, projectId: pid, status: 'Completed', branch: 'main', engines: ['sast', 'sca', 'kics'], statusDetails, metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch: 'main', commit_id: 'abc123' } } } });
+        const statusDetails = [{ name: 'general', status: 'Completed' }, { name: 'sast', status: 'Completed', ...(i % 14 === 3 ? {} : { loc: BRANCHES && i % 10 === 5 ? 0 : mockLoc(i) }) }];
+        const branch = BRANCHES ? branchOfScan(id) : 'main';
+        return send(200, { id, projectId: pid, status: 'Completed', branch, engines: ['sast', 'sca', 'kics'], statusDetails, metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch, commit_id: 'abc123' } } } });
       }
       if (u.pathname === '/api/risks/' || u.pathname === '/api/risks') {
         bump('risks');
@@ -188,7 +216,7 @@ http.createServer((req, res) => {
       if (u.pathname === '/api/results/' || u.pathname === '/api/results') {
         bump('results');
         // The scan's results: one SAST row per finding, so AI ids resolve (alternateId by similarityId).
-        const pid = String(u.searchParams.get('scan-id') ?? '').replace(/^scan-/, '');
+        const pid = String(u.searchParams.get('scan-id') ?? '').replace(/^(scan|feat)-/, '');
         const page = Number(u.searchParams.get('offset') ?? 0);
         // While "changing" is on, every read returns other result ids (as if someone were working on the scan).
         const v = changing ? `-${++reads}` : '';

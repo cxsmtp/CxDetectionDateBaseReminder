@@ -67,6 +67,15 @@ Under **Read from Checkmarx One**, **Applications** and **Projects** count only 
 
 Several values in a field: separate them with commas; any of them will do. Every field filled in must hold (on top of the applications and projects picked). Empty fields keep every project, and **Every project** clears them all. The line says how many projects the scope keeps (*10 of 40 projects · Application: Mobile*).
 
+Two boxes under **Applications** and **Projects** leave out projects with nothing to analyse, for both parts:
+
+| Box | Leaves out |
+| --- | --- |
+| **Leave out projects with no lines of code** (ticked by default) | projects whose latest scan counted 0 lines of code (lines typed in over the count are used instead); a project whose count is not known is kept |
+| **Leave out projects with no open findings** (off by default) | projects with no open finding, in the engines counted, at their latest scan; keep it off for a compliance projection that must list every project |
+
+The line says how many each took out (*14 of 16 projects · 2 with no lines of code left out*), and so does the projection report. **Every project** clears the picks but keeps these two as they are.
+
 The backlog and fixes of the projects in the scope are added up on the server from the last read, project by project, so narrowing never reads Checkmarx One again. Each project's weeks are kept for this in `projection-read.json` in the data folder (per tenant, replaced by every read, not in backups). When the figures came from the two exports instead, they cover every project: the scope then narrows Fusion only, and the page says so. A project added by hand always counts.
 
 ## Reading Checkmarx One
@@ -74,7 +83,7 @@ The backlog and fixes of the projects in the scope are added up on the server fr
 **Read from Checkmarx One**, at the top of the page, reads the tenant this server is connected to, for both tabs at once:
 
 - every project, with its criticality, its applications and groups, who ran its last scan, and the lines of code its last scan counted;
-- every completed scan of each project in the last 12 months, counted **project by project** (so a project scanned 400 times a year shows 400, however many scans the tenant has in all);
+- every completed scan of each project in the last 12 months, counted **project by project** (so a project scanned 400 times a year shows 400, however many scans the tenant has in all), on its **primary branch** only: the branch set for the project in Checkmarx One, else main, else master, else the branch of its latest scan. A project is often scanned on feature branches too, and counting them would add the same findings to the backlog once per branch. A project whose primary branch was never scanned has no scans counted. Tick **Every branch** beside the button, then read, to count every branch's scans: that is also what Fusion is charged for, when feature branches are scanned with it. The projection report says which was counted;
 - each of those scans' results by severity, from Checkmarx One's scan summaries.
 
 It runs on the server in the background: a bar under the button says how far it is (*Reading the projects and their scans: 120 of 1,882…*, then *Reading the findings of each scan…*), and you can carry on meanwhile. One read runs at a time per tenant; a second person who starts one follows the first. When it finishes, its figures go into the customer that was open when it started (or into the one open now, if that has nothing read yet), and are saved with it.

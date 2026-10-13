@@ -1,9 +1,10 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { listProjects } from './cxone/projects.js';
+import { getLastScans, listProjects } from './cxone/projects.js';
 import { collectProjectRisks } from './cxone/risks.js';
+import { BRANCH_HOW, onBranch, primaryScans, withCode } from './cxone/branches.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
 import { buildReminder } from './reminder.js';
 import { sendReminderMail } from './mailer.js';
@@ -202,14 +203,29 @@ export async function runOnce({
 
   // Automation always looks at the whole tenant: a scope filter here would
   // silently exclude projects from ever being reported.
-  const projects = await listProjects(client);
-  const scan = await collectProjectRisks(client, config, projects, { now });
+  // Each project's primary branch only (unless every branch is chosen): a branch never scanned is not
+  // reminded about, and nor (unless chosen otherwise) is a project whose scan counted no lines of code.
+  let projects = await listProjects(client);
+  // What is known of each scan is kept per Checkmarx One key, the same key the Dashboard's sessions share.
+  const identity = connection?.apiKey ? createHash('sha256').update(`${connection.baseUrl ?? ''}\u0000${connection.tenant ?? ''}\u0000${connection.apiKey}`).digest('base64url').slice(0, 22) : '';
+  const choice = automation.branches === 'all' ? null : await primaryScans(client, projects, { identity, concurrency: config.concurrency }).catch(() => null);
+  if (choice) projects = projects.filter((p) => choice.branches[p.id]?.how !== BRANCH_HOW.none);
+  if (automation.leaveOutNoCode) {
+    const scans = choice?.scans ?? (await getLastScans(client, projects.map((p) => p.id)).catch(() => ({})));
+    projects = (await withCode(client, projects, scans, { identity, concurrency: config.concurrency })).kept;
+  }
+  const scan = await collectProjectRisks(client, config, projects, {
+    now,
+    scans: choice?.scans ?? null,
+    refine: choice ? (project, risks) => onBranch(client, choice, project.id, risks, { identity }) : null,
+  });
 
   const initiators = await collectInitiators(client, connection, projects, {
     rules: settings.initiators,
     useDirectory: settings.initiators.useDirectory,
     concurrency: config.concurrency,
     memory: knownAddresses,
+    ...(choice ? { lastScans: choice.scans } : {}),
   });
 
   const wantedSeverities = automation.severities.length ? new Set(automation.severities) : null;

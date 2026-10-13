@@ -91,6 +91,8 @@ export function normalizeRisk(raw, project, now = new Date()) {
     id,
     riskId: id,
     scanId: String(pick(raw, ['scanId', 'scan_id']) ?? ''),
+    // The branch it was found on, where the record says (else its scan's branch tells: src/cxone/branches.js).
+    branch: String(pick(raw, ['branch', 'branchName']) ?? ''),
     projectId: project.id,
     projectName: project.name,
     title: String(pick(raw, ['riskName', 'title', 'name', 'queryName', 'cveId']) ?? 'Untitled risk'),
@@ -237,11 +239,12 @@ class ScanResultsSource {
     return '/api/results/';
   }
 
-  async prime(projects) {
-    this.#lastScans = await getLastScans(
+  /** `scans`: the scan that counts for each project (its primary branch's, src/cxone/branches.js), when known. */
+  async prime(projects, scans = null) {
+    this.#lastScans = scans ?? (await getLastScans(
       this.#client,
       projects.map((project) => project.id),
-    );
+    ));
   }
 
   async fetchForProject(project) {
@@ -385,10 +388,10 @@ export async function collectProjectRisks(
   client,
   config,
   projects,
-  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null, gate = null } = {},
+  { now = new Date(), detectionWindow = null, onProject = null, shared = null, shouldStop = null, keep = null, names = null, gate = null, scans = null, refine = null } = {},
 ) {
   const source = createRiskSource(client, config);
-  await source.prime?.(projects);
+  await source.prime?.(projects, scans);
   let reusedHere = 0;
   let notRead = 0;
 
@@ -404,7 +407,7 @@ export async function collectProjectRisks(
     try {
       const { items: raw, reused: wasReused } = await readProject(source, project, detectionWindow, shared, gate);
       if (wasReused) reusedHere += 1;
-      const risks = raw
+      let risks = raw
         .map((item) => normalizeShared(item, project, now))
         // The server already applied the window where it could; this also
         // covers the fallback source and any record with an unusable date.
@@ -414,6 +417,8 @@ export async function collectProjectRisks(
           if (names) names.set(risk.title, (names.get(risk.title) ?? 0) + 1);
           return !keep || keep(risk);
         });
+      // `refine`: what else decides which of them count (the project's branch: src/cxone/branches.js).
+      if (refine) risks = await refine(project, risks);
       summary = summariseProject(project, risks, null);
     } catch (error) {
       summary = summariseProject(project, [], error.message ?? String(error));

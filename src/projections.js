@@ -15,6 +15,7 @@ import { randomUUID } from 'node:crypto';
 import { mapWithConcurrency } from './cxone/client.js';
 import { DEFAULT_ENGINES, cleanEngines, engineOf, engineScope } from './engines.js';
 import { getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
+import { BRANCH_HOW, branchOf, primaryScans } from './cxone/branches.js';
 import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, aheadSettings, amount, cleanScope, creditSummary, frequencyOf, fusionSettings, totalsSettings, wholeNumber } from '../public/calculator/model.js';
 
 export const MAX_PROFILES = 200;
@@ -66,6 +67,8 @@ function series(value) {
       // Read from Checkmarx One: the engines counted ([] = every engine), and whether the read could tell them apart.
       engines: cleanEngines(meta.engines),
       engineSplit: meta.engineSplit !== false,
+      // One branch per project ('primary') or every branch ('all'); '' for a read made before branches were told apart.
+      branches: ['primary', 'all'].includes(meta.branches) ? meta.branches : '',
     },
   };
 }
@@ -91,6 +94,18 @@ export function cleanTr(value) {
   };
 }
 
+/** {SAST: n, …}: known engines only, whole numbers; null when none were given. */
+function openCounts(value) {
+  if (!value || typeof value !== 'object') return null;
+  const out = {};
+  for (const [engine, n] of Object.entries(value)) {
+    const key = cleanEngines([engine])[0];
+    const count = wholeNumber(n);
+    if (key && count !== null) out[key] = count;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /** The Fusion projection: its settings, and the projects with what Checkmarx One said of them. */
 export function cleanFusion(value) {
   const v = value && typeof value === 'object' ? value : {};
@@ -114,6 +129,11 @@ export function cleanFusion(value) {
     included: p?.included !== false,
     scansOverride: wholeNumber(p?.scansOverride),
     modelOverride: models.has(p?.modelOverride) ? p.modelOverride : null,
+    // The branch its scans were counted on, and how it was chosen (src/cxone/branches.js).
+    branch: text(p?.branch, 200),
+    branchHow: Object.values(BRANCH_HOW).includes(p?.branchHow) ? p.branchHow : '',
+    // Open findings now, per engine (its latest scan): unknown (null) for a project added by hand or read before.
+    openByEngine: openCounts(p?.openByEngine),
   }));
   return { ...settings, readAt: iso(v.readAt), projects };
 }
@@ -330,24 +350,31 @@ const SUMMARY_CHUNK = 40;
  * and the last one before `from` (the backlog the window starts with). A project without a scan
  * since then: its last scan is that one.
  */
-async function projectScans(client, projectId, { from, lastScan }) {
+async function projectScans(client, projectId, { from, lastScan, branch = '' }) {
   const scans = [];
   let count = null;
+  // On `branch` only, when given: asked of Checkmarx One, and checked here (a scan that says another branch is left out).
+  const onBranch = (x) => !branch || !branchOf(x) || branchOf(x) === branch;
+  let ignored = false;
   for (let offset = 0; scans.length < MAX_SCANS_PER_PROJECT; offset += SCAN_PAGE) {
-    const page = await client.request('/api/scans', { query: { 'project-id': projectId, statuses: 'Completed', 'from-date': from, sort: '-created_at', offset, limit: SCAN_PAGE }, retries: 2, background: true });
-    const items = (Array.isArray(page?.scans) ? page.scans : []).filter((x) => x?.id && (!x.projectId || x.projectId === projectId));
+    const page = await client.request('/api/scans', { query: { 'project-id': projectId, statuses: 'Completed', 'from-date': from, sort: '-created_at', offset, limit: SCAN_PAGE, ...(branch ? { branch } : {}) }, retries: 2, background: true });
+    const listed = (Array.isArray(page?.scans) ? page.scans : []).filter((x) => x?.id && (!x.projectId || x.projectId === projectId));
+    const items = listed.filter(onBranch);
+    if (items.length < listed.length) ignored = true;
     count ??= wholeNumber(page?.filteredTotalCount ?? page?.totalCount);
     scans.push(...items);
-    if (items.length < SCAN_PAGE) break;
+    if (listed.length < SCAN_PAGE) break;
   }
+  // The tenant listed other branches' scans too: its count is not this branch's.
+  if (ignored) count = null;
   const at = (scan) => Date.parse(scan?.createdAt ?? scan?.updatedAt ?? '');
   scans.sort((a, b) => at(b) - at(a));
   let before = null;
   if (!scans.length && lastScan?.id && at(lastScan) < Date.parse(from)) before = lastScan;
   else {
     try {
-      const page = await client.request('/api/scans', { query: { 'project-id': projectId, statuses: 'Completed', 'to-date': from, sort: '-created_at', limit: 1 }, retries: 1, background: true });
-      const found = (Array.isArray(page?.scans) ? page.scans : []).find((x) => x?.id && at(x) < Date.parse(from));
+      const page = await client.request('/api/scans', { query: { 'project-id': projectId, statuses: 'Completed', 'to-date': from, sort: '-created_at', limit: branch ? 20 : 1, ...(branch ? { branch } : {}) }, retries: 1, background: true });
+      const found = (Array.isArray(page?.scans) ? page.scans : []).find((x) => x?.id && at(x) < Date.parse(from) && onBranch(x));
       if (found) before = found;
     } catch {}
   }
@@ -546,32 +573,41 @@ export class TenantReadStore {
  * and fixes week by week over the last `weeks` weeks, from the same scans' summaries.
  * `onProgress(step, done, total)` follows it: "projects" (each project's scans and lines of code), then "summaries".
  */
-export async function readTenant(client, { concurrency = 8, now = Date.now(), weeks = 52, onProgress = () => {} } = {}) {
+export async function readTenant(client, { concurrency = 8, now = Date.now(), weeks = 52, onProgress = () => {}, branches = 'primary' } = {}) {
   const [projects, applications] = await Promise.all([listProjects(client).then((list) => list.slice(0, MAX_PROJECTS)), listApplications(client).catch(() => [])]);
   // Each project's applications, by name (a project may be in several).
   const appsOf = new Map();
   for (const app of applications) for (const id of app.projectIds) appsOf.set(id, [...(appsOf.get(id) ?? []), app.name]);
   onProgress('projects', 0, projects.length);
-  const lastScans = await getLastScans(client, projects.map((p) => p.id)).catch(() => ({}));
+  const anyBranch = await getLastScans(client, projects.map((p) => p.id)).catch(() => ({}));
+  // Each project's primary branch only (else main, else master: src/cxone/branches.js), unless every branch
+  // is asked for: the same findings counted once, not once per branch scanned.
+  const choice = await primaryScans(client, projects, { all: branches === 'all', lastScans: anyBranch, concurrency, background: true }).catch(() => null);
+  const lastScans = choice?.scans ?? anyBranch;
   const yearAgo = now - 365 * DAY;
   const from = new Date(Math.min(yearAgo, now - weeks * 7 * DAY)).toISOString();
   let done = 0;
   const perProject = await mapWithConcurrency(projects, concurrency, async (project) => {
     const lastScan = lastScans[project.id] ?? null;
+    const want = choice?.branches[project.id] ?? { branch: '', how: BRANCH_HOW.any };
+    const branch = [BRANCH_HOW.primary, BRANCH_HOW.guessed, BRANCH_HOW.latest].includes(want.how) ? want.branch : '';
     let history = { scans: [], count: 0, before: null, failed: false };
-    try {
-      history = { ...(await projectScans(client, project.id, { from, lastScan })), failed: false };
-    } catch {
-      history.failed = true;
+    // A primary branch never scanned has no scans to count.
+    if (want.how !== BRANCH_HOW.none) {
+      try {
+        history = { ...(await projectScans(client, project.id, { from, lastScan, branch })), failed: false };
+      } catch {
+        history.failed = true;
+      }
     }
     const latest = history.scans[0] ?? lastScan ?? history.before;
     const lines = latest?.id ? await linesOfScan(client, latest.id) : { loc: null, source: 'none' };
     onProgress('projects', (done += 1), projects.length);
-    return { project, lastScan, latest, lines, ...history };
+    return { project, lastScan, latest, lines, branch: want.branch, branchHow: want.how, ...history };
   });
 
   // Fusion: how often each project was scanned in the last year (a younger project: since it was created).
-  const rows = perProject.map(({ project, latest, lastScan, lines, scans, count, failed }) => {
+  const rows = perProject.map(({ project, latest, lastScan, lines, scans, count, failed, branch, branchHow }) => {
     const born = Date.parse(project.createdAt ?? '');
     const windowDays = Math.max(7, Math.min(365, (now - Math.max(yearAgo, Number.isFinite(born) ? born : 0)) / DAY));
     const inYear = scans.length >= MAX_SCANS_PER_PROJECT || count > scans.length ? count : scans.filter((x) => Date.parse(x.createdAt ?? '') >= yearAgo).length;
@@ -592,6 +628,8 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
       lastScanAt: lastScanDate(latest),
       scanId: latest?.id ?? '',
       ...lines,
+      branch,
+      branchHow,
       included: true,
     };
   });
@@ -604,8 +642,15 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
   // The tenant's own totals count SAST and SCA, the engines AI Triage and Remediation act on; a scope
   // with other engines is added up from each project's engines (seriesFor).
   const weekly = weeklyBacklog(perProject, summaries, { now, weeks, engines: DEFAULT_ENGINES });
+  // Each project's open findings now, engine by engine (its latest scan with a summary): "no open findings" in the scope.
+  perProject.forEach(({ latest, scans, before }, i) => {
+    const counted = [latest, ...scans, before].find((x) => x?.id && summaries.has(x.id));
+    const summary = counted ? summaries.get(counted.id) : null;
+    if (!summary) return;
+    rows[i].openByEngine = Object.fromEntries(Object.entries(perEngine(summary)).map(([engine, { total }]) => [engine, SEVERITIES.reduce((n, s) => n + (total[s] ?? 0), 0)]));
+  });
   const readAt = new Date(now).toISOString();
-  const meta = { source: 'cxone', readAt, projects: projects.length, scans: weekly.scans, engines: weekly.engines, engineSplit: true };
+  const meta = { source: 'cxone', readAt, projects: projects.length, scans: weekly.scans, engines: weekly.engines, engineSplit: true, branches: branches === 'all' ? 'all' : 'primary' };
   return {
     projects: rows,
     applications: [...new Set(applications.map((a) => a.name))].sort((a, b) => a.localeCompare(b)),

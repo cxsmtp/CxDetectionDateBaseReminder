@@ -541,10 +541,22 @@ export function cleanScope(value = {}) {
     names: list(v.names, 100, 20),
     frequencies: list(v.frequencies, 20).filter((f) => ids.has(f)),
     criticalities: [...new Set((Array.isArray(v.criticalities) ? v.criticalities : []).map(Number).filter((c) => CRITICALITIES.includes(c)))],
+    // Projects whose latest scan counted no lines of code are left out unless kept; those with no open finding, when asked.
+    leaveOutNoCode: v.leaveOutNoCode !== false,
+    leaveOutNoFindings: v.leaveOutNoFindings === true,
   };
 }
 
-export const scopeActive = (scope) => Object.values(cleanScope(scope)).some((v) => v.length);
+/** Is anything picked (applications, projects, groups, names, people, frequencies, criticalities)? */
+export const scopeActive = (scope) => Object.values(cleanScope(scope)).some((v) => Array.isArray(v) && v.length);
+
+/** A project's open findings now, of these engines (every engine when none given); null when not known. */
+export function openFindings(project, engines = null) {
+  const by = project?.openByEngine;
+  if (!by || typeof by !== 'object') return null;
+  const keys = Array.isArray(engines) && engines.length ? engines : Object.keys(by);
+  return keys.reduce((n, key) => n + (Number(by[key]) || 0), 0);
+}
 
 /**
  * Does `text` match `pattern`, ignoring case? `*` is any text, `?` one character. A linear walk
@@ -575,9 +587,15 @@ export function globMatch(pattern, text) {
   return i === p.length;
 }
 
-/** Is this project in the scope? Every choice made must hold (any one of its values will do). */
-export function inScope(project, scope) {
+/**
+ * Is this project in the scope? Every choice made must hold (any one of its values will do). `engines`:
+ * the engines counted, for "no open findings".
+ */
+export function inScope(project, scope, engines = null) {
   const sc = cleanScope(scope);
+  // Nothing to analyse: no lines of code in its scan, or (when asked) no open finding of these engines. Unknown is kept.
+  if (sc.leaveOutNoCode && linesOf(project) === 0) return false;
+  if (sc.leaveOutNoFindings && openFindings(project, engines) === 0) return false;
   const lower = (v) => String(v ?? '').toLowerCase();
   const anyOf = (wanted, have) => !wanted.length || (Array.isArray(have) ? have : [have]).some((h) => wanted.some((w) => lower(w) === lower(h)));
   // Applications and projects picked: these applications' projects, plus these projects (as on the Dashboard).
