@@ -35,6 +35,9 @@ const SHARED = process.env.SHARED === '1';
 const RESULT_ROWS = Number(process.env.RESULT_ROWS || 0);
 // VULN_NAMES=1: findings named as Checkmarx One names them (its query names, with their CWE), not "Finding p0-r1".
 const VULN_NAMES = process.env.VULN_NAMES === '1';
+// MIXED_ENGINES=1: findings from several engines (SAST, SCA, KICS, containers), not SAST only.
+const MIXED_ENGINES = process.env.MIXED_ENGINES === '1';
+const MOCK_ENGINES = ['SAST', 'SCA', 'SAST', 'KICS', 'SAST', 'Containers'];
 const VULNS = [['SQL_Injection', 89], ['Reflected_XSS_All_Clients', 79], ['SSRF', 918], ['Path_Traversal', 22], ['Hardcoded_password_in_Connection_String', 798], ['Stored_XSS', 79], ['Command_Injection', 78], ['Missing_HSTS_Header', 319], ['Blind_SQL_Injections', 89], ['Server_Side_Request_Forgery', 918], ['XML_External_Entity', 611], ['Log_Forging', 117]];
 const risksFor = (pid) => allRisksFor(pid).filter((r) => !fixedByRescan(pid, `alt-${r.groupId.replace(/^sim-/, '')}`, r.id));
 const allRisksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
@@ -45,7 +48,7 @@ const allRisksFor = (pid) => Array.from({ length: RISKS }, (_, i) => {
   const state = t && Date.now() - t > FLIP_MS ? (i % 3 ? 'PROPOSED_NOT_EXPLOITABLE' : 'CONFIRMED') : 'TO_VERIFY';
   const k = Number(twin.split('-r')[1]);
   const named = VULN_NAMES ? VULNS[k % VULNS.length] : null;
-  return { id, riskName: named ? named[0] : SHARED ? `Finding ${twin}` : `Finding ${id}`, ...(named ? { cweId: named[1] } : {}), severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: 'SAST', state, firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}` };
+  return { id, riskName: named ? named[0] : SHARED ? `Finding ${twin}` : `Finding ${id}`, ...(named ? { cweId: named[1] } : {}), severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: MIXED_ENGINES ? MOCK_ENGINES[k % MOCK_ENGINES.length] : 'SAST', state, firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}` };
 });
 // Access tokens are only the ones this mock handed out; request bodies are small.
 const issued = new Set();

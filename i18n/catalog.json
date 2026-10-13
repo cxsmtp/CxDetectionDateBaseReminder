@@ -21780,5 +21780,137 @@
   "seen": [
    "interactive HTML report"
   ]
+ },
+ "Engines": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the label of the new engine choice (also over the engine boxes in Credit Control). \"Engines\" = Checkmarx One scan engines (SAST, SCA, IaC…)"
+  ]
+ },
+ "Only findings from these Checkmarx One engines are loaded, and every count, report, reminder and credit action follows them. SAST and SCA are the engines AI Triage and AI Remediation work on.": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): tooltip of the Engines drop-down"
+  ]
+ },
+ "all engines": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): what the Engines drop-down shows when every engine is ticked (lower case, as in \"SAST, SCA\")"
+  ]
+ },
+ "Open-source packages": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the Engines drop-down, one line per Checkmarx One engine: what SCA scans"
+  ]
+ },
+ "Container images": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the Engines drop-down, one line per Checkmarx One engine: what Containers scans"
+  ]
+ },
+ "APIs": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the Engines drop-down, one line per Checkmarx One engine: what API Security scans"
+  ]
+ },
+ "Secrets in code": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the Engines drop-down, one line per Checkmarx One engine: what Secrets scans (passwords, keys left in code)"
+  ]
+ },
+ "AI Triage & Remediation": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the Engines drop-down, one line per Checkmarx One engine: tag on SAST and SCA — Checkmarx One AI Triage and AI Remediation work on them"
+  ]
+ },
+ "No AI": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): the Engines drop-down, one line per Checkmarx One engine, Settings → Automation and the Cx Credits Calculator: tag on an engine AI Triage and Remediation do not work on"
+  ]
+ },
+ "Keep at least one engine.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): shown when someone unticks the last engine (it stays ticked)"
+  ]
+ },
+ "Changed: load findings again to apply it.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard, the row that chooses what findings to load (next to \"Projects last scanned in\" and \"Findings first found in\"): shown under the Engines drop-down after the choice changed, until findings are loaded again"
+  ]
+ },
+ "Pick at least one engine.": {
+  "kind": "message",
+  "seen": [
+   "Credit Control → Allocate and use credits: error when no engine box is ticked"
+  ]
+ },
+ "AI Triage and AI Remediation work on SAST and SCA findings: untick one to spend credits on the other only.": {
+  "kind": "attr:title",
+  "seen": [
+   "Credit Control → Allocate and use credits: tooltip of the SAST / SCA boxes"
+  ]
+ },
+ "Only these engines — SAST and SCA are the ones AI Triage and Remediation work on": {
+  "kind": "text",
+  "seen": [
+   "Settings → Automation: label over the engine boxes of scheduled reminders"
+  ]
+ },
+ "Engines counted": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator → Triage & remediation → \"What the projection counts\": label before the engine boxes"
+  ]
+ },
+ "AI Triage and AI Remediation credits are spent on SAST and SCA findings.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator → Triage & remediation: note after the engine boxes"
+  ]
+ },
+ "The two exports count every engine together: read from Checkmarx One to count only some.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator → Triage & remediation: note when the data came from the two uploaded exports (the boxes are greyed out)"
+  ]
+ },
+ "This read is from before engines were counted apart, so every engine is counted: read from Checkmarx One again to count only these.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator → Triage & remediation: warning when the last read was made by an older version"
+  ]
+ },
+ "Engines counted: {0}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator, the projection report (HTML/PDF) under \"Read live from Checkmarx One…\": {0} is a list of engine names such as \"SAST, SCA\""
+  ]
+ },
+ "Engines counted: all.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator, the projection report: every engine was counted"
+  ]
+ },
+ "Engines: {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Engines: all": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
  }
 }

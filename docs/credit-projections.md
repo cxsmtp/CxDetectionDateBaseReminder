@@ -99,7 +99,7 @@ That is the same weekly series as Checkmarx One's *Total Vulnerabilities by Seve
 
 Then the page shows:
 
-1. **What the projection counts**, as one line over the **projection period** (chosen at the top, 12 months by default, shared with Fusion):
+1. **What the projection counts**, as one line over the **projection period** (chosen at the top, 12 months by default, shared with Fusion). **Engines counted**, under its heading, chooses whose findings it counts: **SAST** and **SCA** unless more are ticked, because AI Triage and AI Remediation credits are spent on those two. Each project's scans are read engine by engine (a scan summary lists each engine's results apart), so any set of engines is added up without reading again; a read made by a version before MZ-01.00.75 counted every engine together, and the page says to read again. The projection report says which engines it counted. The two exports count every engine together, so with them the choice is greyed out:
 
    | Step | What it is |
    | --- | --- |

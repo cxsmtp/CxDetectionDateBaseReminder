@@ -188,6 +188,8 @@
  "Download patch ({0} file)",
  "Download patch ({0} files)",
  "Email the administrator",
+ "Engines: {0}",
+ "Engines: all",
  "Enter address",
  "Enter the full path of the folder: starting with a drive letter (C:\\…) or with /.",
  "Enter the reminder server address to connect.",

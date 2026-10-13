@@ -1,3 +1,4 @@
+import { inEngines } from '../engines.js';
 import { CxApiError, mapWithConcurrency } from './client.js';
 import { RISK_PATH_CANDIDATES, isProbeMiss } from './discovery.js';
 import { getLastScans } from './projects.js';
@@ -466,8 +467,8 @@ export function summariseProject(project, risks, error = null) {
   };
 }
 
-/** Select the risks in `buckets` across the given projects. */
-export function selectRisks(summaries, { projectIds = null, buckets = [], severities = null } = {}) {
+/** Select the risks in `buckets` across the given projects (of these severities and engines, when given). */
+export function selectRisks(summaries, { projectIds = null, buckets = [], severities = null, engines = null } = {}) {
   const wantedBuckets = new Set(buckets);
   const wantedProjects = projectIds ? new Set(projectIds) : null;
   const wantedSeverities = severities?.length ? new Set(severities.map((s) => s.toUpperCase())) : null;
@@ -478,7 +479,8 @@ export function selectRisks(summaries, { projectIds = null, buckets = [], severi
       summary.risks.filter(
         (risk) =>
           (wantedBuckets.size === 0 || wantedBuckets.has(risk.bucket)) &&
-          (!wantedSeverities || wantedSeverities.has(risk.severity)),
+          (!wantedSeverities || wantedSeverities.has(risk.severity)) &&
+          inEngines(risk, engines),
       ),
     );
 }

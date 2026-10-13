@@ -8,6 +8,7 @@ import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from '.
 import { buildReminder } from './reminder.js';
 import { sendReminderMail } from './mailer.js';
 import { DEFAULT_AUTOMATION } from './automation-config.js';
+import { engineScope, inEngines } from './engines.js';
 import { knownAddresses } from './known-addresses.js';
 import { escalationMail, newlyOverdue, pruneEscalated, riskKey as slaKey } from './sla.js';
 
@@ -212,12 +213,15 @@ export async function runOnce({
   });
 
   const wantedSeverities = automation.severities.length ? new Set(automation.severities) : null;
+  // Only the engines chosen (SAST and SCA unless chosen otherwise; none chosen means every engine).
+  const engines = engineScope(automation.engines);
   // Findings triaged as not exploitable (proposed or confirmed) are left out,
   // unless the administrator switched that off.
   const skipNotExploitable = settings.aiTriage?.skipNotExploitable !== false;
   const open = scan.projects
     .flatMap((summary) => summary.risks)
     .filter((risk) => !wantedSeverities || wantedSeverities.has(risk.severity))
+    .filter((risk) => inEngines(risk, engines))
     .filter((risk) => !skipNotExploitable || !['NOT_EXPLOITABLE', 'PROPOSED_NOT_EXPLOITABLE'].includes(risk.state));
 
   // SLAs (Beta): findings that went past their SLA since the last run, escalated once each.

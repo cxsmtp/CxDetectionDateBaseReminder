@@ -307,6 +307,18 @@
                   <p class="hint" id="detection-hint" hidden>Only findings first found in this time are loaded.</p>
                 </fieldset>
 
+                <fieldset class="scope-field">
+                  <span class="scope-label" id="engine-label">Engines</span>
+                  <details class="col-picker engine-pick" id="engine-pick">
+                    <summary aria-labelledby="engine-label engine-summary" title="Only findings from these Checkmarx One engines are loaded, and every count, report, reminder and credit action follows them. SAST and SCA are the engines AI Triage and AI Remediation work on.">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16" /><path d="M7 12h10" /><path d="M10 18h4" /></svg>
+                      <span id="engine-summary">SAST, SCA</span>
+                    </summary>
+                    <div class="col-menu engine-menu" id="engine-menu"></div>
+                  </details>
+                  <p class="hint engine-hint" id="engine-hint" hidden></p>
+                </fieldset>
+
                 <button type="button" class="link narrow-toggle" id="narrow-toggle" aria-expanded="false" aria-controls="scope-pick">Narrow to applications, projects or people</button>
                 <span class="hint scope-summary" id="scope-summary" hidden></span>
 
@@ -1047,6 +1059,10 @@
                   <span>Only these severities — blank means all</span>
                   <input id="auto-severities" spellcheck="false" placeholder="CRITICAL, HIGH" />
                 </label>
+                <div class="field">
+                  <span>Only these engines — SAST and SCA are the ones AI Triage and Remediation work on</span>
+                  <div class="engine-checks" id="auto-engines" role="group" aria-label="Engines"></div>
+                </div>
               </div>
 
               <label class="field" data-advanced>
@@ -1616,6 +1632,11 @@
                   <label class="check"><input type="checkbox" data-spend-sev="HIGH" checked /> High</label>
                   <label class="check"><input type="checkbox" data-spend-sev="MEDIUM" /> Medium</label>
                   <label class="check"><input type="checkbox" data-spend-sev="LOW" /> Low</label>
+                </div>
+                <div class="rp-options" role="group" aria-label="Engines" title="AI Triage and AI Remediation work on SAST and SCA findings: untick one to spend credits on the other only.">
+                  <span class="muted">Engines</span>
+                  <label class="check"><input type="checkbox" data-spend-engine="SAST" checked /> <span translate="no">SAST</span></label>
+                  <label class="check"><input type="checkbox" data-spend-engine="SCA" checked /> <span translate="no">SCA</span></label>
                 </div>
                 <div class="alloc-extra" data-perm="credits.allocate">
                   <span>Extra credits each</span>

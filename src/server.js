@@ -16,6 +16,7 @@ import { ActivityLog, describe as describeAction, fieldNames, recordsGet, target
 import { Diagnostics } from './diagnostics.js';
 import { filterProjectsByActivity, getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
 import { AGE_BUCKETS, collectProjectRisks, createRiskSource, normalizeRisk, projectReads, readGate, selectRisks, summariseProject } from './cxone/risks.js';
+import { DEFAULT_ENGINES, cleanEngines, describeEngines, engineScope, inEngines } from './engines.js';
 import { discover } from './cxone/discovery.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject, projectsInScope, scanInitiator, scanInitiatorEmail } from './cxone/initiators.js';
 import { AI_SCANNERS, resolveAiIds, resultRowsFor, warmScanResults } from './cxone/ai-assist.js';
@@ -2712,6 +2713,8 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   const settings = settingsStore.get();
   // A vulnerability search ("SQL injection", "SSRF"): only the findings it names are kept.
   const vulnerability = vulnerabilityQuery(req.query.vulnerability);
+  // The engines chosen (the Dashboard sends SAST and SCA unless more are ticked); none given means every engine.
+  const engines = engineScope(String(req.query.engines ?? '').split(','));
   const names = new Map();
   const allProjects = await listProjects(client);
   // Named projects or people: fetched whatever their last scan date (they were
@@ -2774,7 +2777,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     }),
     collectProjectRisks(client, active, projects, {
       detectionWindow,
-      keep: vulnerability ? (risk) => matchesVulnerability(vulnerability, risk) : null,
+      keep: vulnerability || engines ? (risk) => inEngines(risk, engines) && (!vulnerability || matchesVulnerability(vulnerability, risk)) : null,
       names,
       // Its many projects at once never queue more calls than the connection runs at once (readGate).
       gate: readGate(client),
@@ -2800,6 +2803,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   }
   result.initiators = initiators.byProject;
   result.detectionWindow = detectionWindow;
+  result.engines = engines;
   // Searched: the projects with no finding of that vulnerability are not part of the result.
   result.vulnerability = vulnerability?.text ?? '';
   if (vulnerability) result.projects = result.projects.filter((p) => p.totalRisks > 0 || p.error);
@@ -2810,8 +2814,10 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   // Fetching shows what the findings need; it never allocates anything.
   for (const summary of result.projects) summary.credits ??= creditView(summary);
   for (const summary of result.projects) summary.sla ??= slaSummary(summary.risks, settings.sla);
-  // What was open, for the Impact page; a project read with no date window, without error, is complete.
-  for (const summary of result.projects) findingJournal.observe(summary, summary.risks, { complete: !detectionWindow && !summary.error });
+  // What was open, for the Impact page. A project read whole (no date window, no search, every engine,
+  // no error) is complete: what it no longer lists was fixed. A narrowed read only adds what it saw.
+  const whole = !detectionWindow && !vulnerability && !engines;
+  for (const summary of result.projects) findingJournal.observe(summary, summary.risks, { complete: whole && !summary.error });
   req.session.lastScan = result;
 
   const response = {
@@ -2827,6 +2833,8 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     projectsSkipped: skipped,
     // The search, and the names of every finding read (most frequent first), to suggest as people type.
     vulnerability: result.vulnerability,
+    // The engines read (null: every engine).
+    engines,
     vulnerabilityNames: topNames(names),
     // Stop pressed: how many of the projects in scope were read before it, and how many were not.
     stopped: result.notRead > 0,
@@ -2871,6 +2879,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
       applications: scope.applications,
       applicationNames: scope.applicationNames ?? [],
       vulnerability: result.vulnerability,
+      engines: engines ?? [],
     },
   };
   saveFetchedData(req.session);
@@ -3781,12 +3790,13 @@ app.get('/api/projections/read', requireCalculator, (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json(readView(calculatorReads.get(tenancy.current().id)));
 });
-/** The backlog and fixes, week by week, of the projects in a customer's scope, from the last read. */
+/** The backlog and fixes, week by week, of the projects in a customer's scope and the engines chosen, from the last read. */
 app.post('/api/projections/series', requireCalculator, (req, res) => {
   const read = projectionReads.get();
   if (!read?.weeks?.length) return res.status(409).json({ error: 'Read Checkmarx One first: the scope is worked out from the last read.' });
   const ids = Array.isArray(req.body?.projectIds) ? req.body.projectIds.slice(0, 5000).map((id) => String(id).slice(0, 100)) : [];
-  res.json(seriesFor(read, ids));
+  // The engines whose findings count (SAST and SCA unless more are ticked).
+  res.json(seriesFor(read, ids, cleanEngines(req.body?.engines).length ? cleanEngines(req.body.engines) : DEFAULT_ENGINES));
 });
 app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
   res.json({ customer: projections.get(String(req.params.id)) });
@@ -5090,9 +5100,11 @@ const DISAGREED = 'Checkmarx One gave different results on the two reads — the
 
 async function verifyNeeds(session, projects, { severities = null } = {}) {
   const scan = session.lastScan;
-  // The same findings the Dashboard shows: its date window, and its vulnerability search.
+  // The same findings the Dashboard shows: its date window, its engines and its vulnerability search
+  // (the verified read replaces the loaded findings, so it must keep to the same ones).
   const vulnerability = vulnerabilityQuery(scan?.vulnerability);
-  const keep = vulnerability ? (risk) => matchesVulnerability(vulnerability, risk) : null;
+  const engines = scan?.engines ?? null;
+  const keep = vulnerability || engines ? (risk) => inEngines(risk, engines) && (!vulnerability || matchesVulnerability(vulnerability, risk)) : null;
   // Its projects and their two reads side by side, never queuing more calls than one verify did before (VERIFY_SLOTS).
   const options = { detectionWindow: scan?.detectionWindow ?? null, scanIdOf: (id) => scan?.initiators?.[id]?.scanId ?? '', severities, keep, gate: readGate(session.client, VERIFY_SLOTS) };
   const out = await mapWithConcurrency(projects, VERIFY_AT_ONCE, async (p) => {
@@ -6069,7 +6081,7 @@ async function openScanFor(session, report) {
     report.projects.map((p) => ({ id: p.projectId, name: p.projectName })),
     { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency, memory: knownAddresses, attributed: creditFor },
   );
-  return { projects, initiators: initiators.byProject, byProject };
+  return { projects, initiators: initiators.byProject, byProject, detectionWindow: detection, engines: engineScope(report.filters.engines) };
 }
 
 /** Settings → Who gets reminders: 'initiator', 'list' or 'both'. */
@@ -6293,7 +6305,7 @@ app.get(
  * extra credits each, out of the credit pool. The severities join each
  * project's rule. Returns the refusal ({ error }) or null once given.
  */
-async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, extraRemediation, where, details }) {
+async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, extraRemediation, where, details, engines = null }) {
   const actor = await adminActor(req);
   const before = new Map(projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
   for (const { projectId, projectName } of projects) {
@@ -6321,7 +6333,9 @@ async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, e
     }
   }
   const plan = projects.map(({ projectId, projectName }) => {
-    const { shortfall } = allocations.need(projectId, verifiedRisks.get(projectId) ?? byProject.get(projectId) ?? []);
+    // Only the findings of the engines chosen count towards the need.
+    const risks = (verifiedRisks.get(projectId) ?? byProject.get(projectId) ?? []).filter((r) => inEngines(r, engines));
+    const { shortfall } = allocations.need(projectId, risks);
     return { projectId, projectName, triage: wanted.length ? shortfall.triage : 0, remediation: wanted.length ? shortfall.remediation : 0 };
   });
   const given = plan.reduce((n, x) => n + x.triage + x.remediation + extraTriage + extraRemediation, 0);
@@ -6363,8 +6377,9 @@ app.post('/api/credits/allocate-needed', requirePermission('credits.allocate'), 
   const projects = allocations.list().filter((p) => !chosen.size || chosen.has(p.projectId)).map((p) => ({ projectId: p.projectId, projectName: p.projectName || p.projectId }));
   if (!projects.length) return res.status(400).json({ error: 'Give credits to a project first.' });
   const byProject = await currentFindings(req.session, projects);
+  const engines = engineScope(req.body?.engines);
   const refused = await allocateNeeded(req, projects, byProject, {
-    wanted, extraTriage, extraRemediation, where: 'Credit Control', details: { projectIds: projects.map((p) => p.projectId) },
+    wanted, extraTriage, extraRemediation, engines, where: 'Credit Control', details: { projectIds: projects.map((p) => p.projectId), engines: engines ?? 'all' },
   });
   if (refused) return res.status(409).json(refused);
   for (const p of req.session.lastScan?.projects ?? []) if (allocations.get(p.projectId)) p.credits = creditView(p);
@@ -6387,7 +6402,7 @@ app.post(
     const byProject = await currentFindings(req.session, report.projects);
     trackedReports.record(report, progressFor(report, byProject));
     const refused = await allocateNeeded(req, report.projects, byProject, {
-      wanted, extraTriage, extraRemediation, where: `tracked report "${report.name}"`, details: { report: report.id },
+      wanted, extraTriage, extraRemediation, engines: report.filters.engines, where: `tracked report "${report.name}"`, details: { report: report.id },
     });
     if (refused) return res.status(409).json(refused);
     res.json({ report: trackedView(report) });
@@ -6504,6 +6519,8 @@ app.post('/api/tracked-reports', requirePermission('reports.manage'), (req, res)
       detection: clean(windows.detection),
       severities: wantedSeverities,
       buckets: wantedBuckets,
+      // The engines the Dashboard loaded ([] = every engine): refreshes and new rounds keep to them.
+      engines: lastScan.engines ?? [],
     },
     projects: inScope.map((p) => ({ projectId: p.projectId, projectName: p.projectName })),
     findings: risks,
@@ -6862,6 +6879,9 @@ app.post('/api/credits/run', requirePermission('triage.run'), afterFetch, asyncR
 
   const settings = settingsStore.get();
   const byProject = await currentFindings(req.session, projects);
+  // Only the engines chosen (SAST and SCA unless more are ticked).
+  const engines = engineScope(req.body?.engines);
+  for (const [id, risks] of byProject) byProject.set(id, risks.filter((r) => inEngines(r, engines)));
   const initiators = await collectInitiators(
     req.session.client,
     req.session.connection,
@@ -6869,7 +6889,7 @@ app.post('/api/credits/run', requirePermission('triage.run'), afterFetch, asyncR
     { rules: settings.initiators, useDirectory: settings.initiators.useDirectory, concurrency: config.concurrency, memory: knownAddresses, attributed: creditFor },
   );
   const scan = { projects: projects.map((p) => ({ ...p, risks: byProject.get(p.projectId) ?? [] })), initiators: initiators.byProject };
-  const where = `Credit Control: ${kind === 'triage' ? 'triage' : 'remediate confirmed'} ${wanted.map((s) => s.toLowerCase()).join(', ')}`;
+  const where = `Credit Control: ${kind === 'triage' ? 'triage' : 'remediate confirmed'} ${wanted.map((s) => s.toLowerCase()).join(', ')} (${describeEngines(engines)})`;
   let summary;
   if (kind === 'remediation') {
     summary = await remediateConfirmed(req, scan, wanted, where);
@@ -7682,10 +7702,13 @@ function projectReportScope(scope = {}) {
     return Number.isFinite(time) ? new Date(time).toISOString() : '';
   };
   const detection = scope.detection ?? {};
+  const engines = engineScope(scope.engines);
   return {
     buckets: list(scope.buckets, (b) => AGE_BUCKETS.some((a) => a.id === b) || b === 'unknown'),
     severities: list((scope.severities ?? []).map?.((v) => String(v).toUpperCase()) ?? [], (v) => PROJECT_REPORT_SEVERITIES.has(v)),
     detection: { from: iso(detection.from), to: iso(detection.to) },
+    // Only when engines were chosen: reports made before keep their signed scope (every engine).
+    ...(engines ? { engines } : {}),
   };
 }
 
@@ -7738,7 +7761,7 @@ app.post(
     const summary = read.projects[0];
     if (summary?.error) return res.status(502).json({ error: `Could not read ${projectName || 'the project'} from Checkmarx One: ${summary.error}` });
     if (summary) summary.url = projectUrl(summary, session.connection, settings.links);
-    const risks = selectRisks(read.projects, { buckets: scope.buckets, severities: scope.severities.length ? scope.severities : null });
+    const risks = selectRisks(read.projects, { buckets: scope.buckets, severities: scope.severities.length ? scope.severities : null, engines: scope.engines ?? null });
     const actor = reportActor(req);
     const { html, findings } = await buildInteractiveReport(session, risks, {
       buckets: scope.buckets,
@@ -7847,6 +7870,8 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
     allowReremediation: Boolean(settings.aiTriage?.allowReremediation),
     adminContact: adminContact(settings),
     repositories,
+    // The engines the report covers, said at its top (undefined: not said, for a report with no scan behind it).
+    engines: scope?.engines ?? lastScan?.engines ?? null,
     // "One project's report" buttons: this server builds it, within the same scope.
     projectReportScope: projectReportScope(scope ?? { buckets }),
     signProjectReport: (projectId) => {
@@ -8020,7 +8045,7 @@ app.post(
     const actor = await adminActor(req);
     const { html } = await buildInteractiveReport(req.session, risks, {
       buckets,
-      scope: { buckets, severities, detection: lastScan.detectionWindow },
+      scope: { buckets, severities, detection: lastScan.detectionWindow, engines: lastScan.engines },
       settings,
       relayUrl: reportServerUrl(req, settings),
       audience: { actor, recipient: `downloaded by ${actor.user || 'administrator'}`, purpose: 'downloaded from the Dashboard' },
@@ -8057,7 +8082,7 @@ async function runHtmlReminder(session, scan, input, relayUrl) {
   const sendReport = async (findings, { to, cc = [], bcc = [], greeting, initiator = null, purpose }) => {
     const { reportData, findings: shown, html, downloadUrl } = await buildInteractiveReport(session, findings, {
       buckets,
-      scope: { buckets, severities, detection: scan.detectionWindow },
+      scope: { buckets, severities, detection: scan.detectionWindow, engines: scan.engines },
       settings,
       relayUrl,
       initiatorsByProject,

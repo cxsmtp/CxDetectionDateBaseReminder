@@ -7,6 +7,7 @@
 // It says the answer first (the credits, the bundles, over how long), then that it comes from live
 // Checkmarx One data, then how the number was reached, the assumptions, and last every figure.
 
+import { describeEngines } from '../engines.js';
 import { FREQUENCIES, SEVERITIES, cleanScope, creditSummary } from './model.js';
 import { allSections, sectionHtml } from './explain.js';
 import { SEVERITY_COLOURS, backlogTrendChart, debtFixChart, forecastChart, monthLabel, ratesChart, severityChart, severityCharts } from './charts.js';
@@ -121,7 +122,9 @@ function provenance(data, L) {
   } else {
     line = w('From the projects entered for this projection.');
   }
-  return `<section class="live"><span class="live-dot" aria-hidden="true"></span><div><p>${line}</p>${tr?.lookbackMonths ? `<p class="sub">${w('The trend is measured over the last {0} months of that data, week by week, and carried forward.', num(tr.lookbackMonths))}</p>` : ''}${scopeLine(src, L)}</div></section>`;
+  // Read from Checkmarx One: which engines' findings are counted (a report made before says nothing).
+  const engines = Array.isArray(src.engines) ? `<p class="sub">${src.engines.length ? w('Engines counted: {0}.', `<span translate="no">${esc(describeEngines(src.engines))}</span>`) : w('Engines counted: all.')}</p>` : '';
+  return `<section class="live"><span class="live-dot" aria-hidden="true"></span><div><p>${line}</p>${tr?.lookbackMonths ? `<p class="sub">${w('The trend is measured over the last {0} months of that data, week by week, and carried forward.', num(tr.lookbackMonths))}</p>` : ''}${engines}${scopeLine(src, L)}</div></section>`;
 }
 
 /** How the number was reached: today, what is ahead, and Fusion. */

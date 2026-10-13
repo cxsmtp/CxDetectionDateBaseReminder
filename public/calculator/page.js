@@ -33,6 +33,7 @@ import { buildReport, reportFileName, wording } from './report.js';
 import { slidesFileName, slidesPdf } from './slides.js';
 import { allSections, sectionHtml } from './explain.js';
 import { RTL, currentLanguage, t } from '../i18n.js';
+import { DEFAULT_ENGINES, ENGINES, cleanEngines } from '../engines.js';
 
 const OPEN_KEY = 'mz-calc-customer';
 const FREQ_LABEL = Object.fromEntries(FREQUENCIES.map((f) => [f.id, f.label]));
@@ -128,6 +129,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderFusion();
     loadReports();
     autoRead();
+    // Saved before engines were counted apart, or with other engines: count the ones chosen now.
+    const meta = customer.tr?.totals?.meta;
+    if (meta?.source === 'cxone' && cleanEngines(meta.engines).join() !== trEngines().join()) applyScope({ quiet: true });
   }
 
   async function open(id) {
@@ -356,6 +360,26 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
   }
 
+  /** The engines whose findings are projected (SAST and SCA unless more are ticked). */
+  const trEngines = () => (cleanEngines(tr()?.engines).length ? cleanEngines(tr().engines) : [...DEFAULT_ENGINES]);
+
+  /** Which engines' findings the projection counts: read from Checkmarx One, each engine is counted apart. */
+  function enginesRow() {
+    const meta = tr()?.totals?.meta ?? {};
+    const live = meta.source === 'cxone';
+    const chosen = new Set(trEngines());
+    const note = !live
+      ? '<span class="hint">The two exports count every engine together: read from Checkmarx One to count only some.</span>'
+      : meta.engineSplit === false
+        ? '<span class="hint calc-warn">This read is from before engines were counted apart, so every engine is counted: read from Checkmarx One again to count only these.</span>'
+        : '<span class="hint">AI Triage and AI Remediation credits are spent on SAST and SCA findings.</span>';
+    return `<div class="calc-engines calc-edit" role="group" aria-label="Engines counted">
+          <span class="hint"><b>Engines counted</b></span>
+          ${ENGINES.map((e) => `<label class="pill-check"><input type="checkbox" data-engine="${e.key}"${chosen.has(e.key) ? ' checked' : ''}${live ? '' : ' disabled'} /> <span translate="no">${e.label}</span>${e.ai ? '' : ' <small>No AI</small>'}</label>`).join('')}
+          ${note}
+        </div>`;
+  }
+
   function renderTr() {
     if (!c.open) return;
     renderSlots();
@@ -381,6 +405,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       <section class="panel calc-flow">
         <div class="calc-section-head"><h2>What the projection counts</h2>
           <div class="calc-lookback calc-edit" role="group" aria-label="Trend over">${LOOKBACKS.map((m) => `<button type="button" class="${tr().lookbackMonths === m ? 'on' : ''}" data-lookback="${m}">${m} months</button>`).join('')}</div></div>
+        ${enginesRow()}
         <div class="calc-steps">
           ${step('Backlog today', num(P.selected), P.selected === P.backlog ? 'every open finding' : `of ${num(P.backlog)} open`, '', 'backlog')}
           <span class="calc-op" aria-hidden="true">+</span>
@@ -592,6 +617,18 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   });
   // What is still to come: changes count at once (the figures follow as it is typed).
   $('calc-tr').addEventListener('change', (event) => {
+    const engine = event.target.dataset.engine;
+    if (engine) {
+      const chosen = [...$('calc-tr').querySelectorAll('[data-engine]:checked')].map((box) => box.dataset.engine);
+      // At least one engine: none would count nothing.
+      if (!chosen.length) {
+        event.target.checked = true;
+        return;
+      }
+      c.open.tr = { ...tr(), engines: chosen };
+      save({ tr: c.open.tr });
+      return applyScope();
+    }
     const key = event.target.dataset.ahead;
     if (!key) return;
     const value = key === 'includeFuture' ? event.target.checked : amount(event.target.value);
@@ -1057,7 +1094,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
     const ids = fusion().projects.filter((p) => p.source !== 'manual' && inScope(p, scope())).map((p) => p.id);
     try {
-      const series = await api('/api/projections/series', { method: 'POST', body: JSON.stringify({ projectIds: ids }), quiet: true });
+      const series = await api('/api/projections/series', { method: 'POST', body: JSON.stringify({ projectIds: ids, engines: trEngines() }), quiet: true });
       c.open.tr = { ...tr(), totals: series.totals, fixed: series.fixed };
       save({ tr: c.open.tr });
       if (!quiet) setStatus('calc-scope-status', `${num(ids.length)} projects counted.`, 'ok');
@@ -1200,7 +1237,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderScope();
     renderTr();
     renderFusion();
-    if (scopeActive(scope())) applyScope({ quiet: true });
+    // The read counts SAST and SCA for the whole tenant: a scope, or other engines, are added up from it.
+    if (scopeActive(scope()) || trEngines().join() !== DEFAULT_ENGINES.join()) applyScope({ quiet: true });
     if (!body.tr) setStatus('calc-read-note', `Read ${num(read.length)} projects from Checkmarx One; none had a scan to read the findings of.`, 'warn');
     else if (read.length === 1) setStatus('calc-read-note', 'Read 1 project and its scans from Checkmarx One.', 'ok');
     else setStatus('calc-read-note', `Read ${num(read.length)} projects and their scans from Checkmarx One.`, 'ok');
@@ -1311,6 +1349,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         projects: est.rows.filter((r) => r.source !== 'manual').length,
         allProjects: fusion().projects.filter((p) => p.source !== 'manual').length,
         scans: meta.scans ?? null,
+        // Read from Checkmarx One: the engines whose findings the projection counts ([] = every engine).
+        ...(meta.source === 'cxone' ? { engines: meta.engineSplit === false ? [] : cleanEngines(meta.engines) } : {}),
         scoped: scopeActive(sc),
         scope: sc,
         projectNames: sc.projects.map((id) => fusion().projects.find((p) => p.id === id)?.name ?? id),

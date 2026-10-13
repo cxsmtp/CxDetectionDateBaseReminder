@@ -94,8 +94,8 @@ function sampleReports() {
   const project = () => ({ exp: 1, sig: 's' });
   return [
     // With languages to pick from: the picker's label.
-    generateHtmlReport(one, { relayUrl: 'https://mz.example', remediationViaRelay: true, sign, connection: { tenant: 'acme' }, i18n: { languages: [['en', 'English'], ['ja', '日本語']], strings: { ja: { x: 'y' } }, fetch: true } }),
-    generateHtmlReport(two, { sign, signProjectReport: project }),
+    generateHtmlReport(one, { relayUrl: 'https://mz.example', remediationViaRelay: true, sign, engines: ['SAST', 'SCA'], connection: { tenant: 'acme' }, i18n: { languages: [['en', 'English'], ['ja', '日本語']], strings: { ja: { x: 'y' } }, fetch: true } }),
+    generateHtmlReport(two, { sign, signProjectReport: project, engines: null }),
     generateHtmlReport(small, { relayUrl: 'https://mz.example', sign, signProjectReport: project, remediationViaRelay: true }),
     generateHtmlReport(single, { relayUrl: 'https://mz.example', sign }),
   ];
