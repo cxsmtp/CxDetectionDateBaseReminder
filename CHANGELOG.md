@@ -63,7 +63,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.76 — MERGE_TIME UTC · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+## MZ-01.00.76 — 2026-10-14 12:58 UTC · [#99](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/99)
 
 - **Sort the Fusion projects table by any column.** In the Cx Credits Calculator, click **Project**, **Criticality**, **Scanned today**, **Lines of code**, **10K units**, **Fusion scans**, **Model** or **Credits** to sort by it, and click again for the other way; names start A to Z and numbers largest first.
 - **Unknown values stay at the bottom.** A value the table shows as — (lines not known, a project left out, no model or rate) comes last whichever way you sort, so the projects with figures stay together.
