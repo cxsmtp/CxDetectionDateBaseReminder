@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.76 | 506/s, 0 (main 470, 198 in a host stall) | 9.3 s | 1.2 s | 667 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.75 | 492/s, 3 (main 482, 0) | 10.5 s | 1.1 s | 666 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.74 | 514/s, 0 (main 519, 0) | 5.9 s | 252 ms | 645 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.73 | 507/s, 0 (main 497, 10) | 6.8 s | 615 ms | 645 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -61,6 +62,13 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.76 — 2026-10-14 12:58 UTC · [#99](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/99)
+
+- **Sort the Fusion projects table by any column.** In the Cx Credits Calculator, click **Project**, **Criticality**, **Scanned today**, **Lines of code**, **10K units**, **Fusion scans**, **Model** or **Credits** to sort by it, and click again for the other way; names start A to Z and numbers largest first.
+- **Unknown values stay at the bottom.** A value the table shows as — (lines not known, a project left out, no model or rate) comes last whichever way you sort, so the projects with figures stay together.
+- **Remembered, and in the download.** The column you sorted by is remembered in this browser, works from the keyboard, and **Download CSV** lists the projects in the same order.
+- **Status.** 3000 people at once on 2 vCPU: 506 requests a second with none failed, report opens 9.3 s at p95, triage polls 1.2 s (main, measured just before on the same code the server runs, met a host stall: 470 a second, 198 failed) ([performance](docs/performance.md)); 667 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.75 — 2026-10-13 09:29 UTC · [#98](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/98)
 

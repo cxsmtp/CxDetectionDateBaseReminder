@@ -18,6 +18,7 @@ import {
   fusionEstimate,
   fusionSettings,
   inScope,
+  sortProjects,
   planForecast,
   scopeActive,
   seriesRows,
@@ -741,10 +742,41 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     </tr>`;
   }
 
+  // ---- Sorting the projects table: click a column's heading; again for the other way. Remembered in this browser.
+  const SORT_STORE = 'mz-calc-sort';
+  let projectSort = (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SORT_STORE) || 'null');
+      if (saved?.key) return { key: String(saved.key), dir: saved.dir === 'desc' ? 'desc' : 'asc' };
+    } catch {}
+    return { key: null, dir: 'asc' };
+  })();
+  /** The estimate's rows in the table's order (the CSV follows it too). */
+  const sortedRows = (est) => sortProjects(est.rows, projectSort, { modelName: (id) => est.settings.models.find((m) => m.id === id)?.name ?? '' });
+  function renderSortHeads() {
+    for (const th of document.querySelectorAll('#calc-projects-head th[data-sort]')) {
+      const on = th.dataset.sort === projectSort.key;
+      th.setAttribute('aria-sort', on ? (projectSort.dir === 'asc' ? 'ascending' : 'descending') : 'none');
+      th.dataset.dir = on ? projectSort.dir : '';
+    }
+  }
+  $('calc-projects-head').addEventListener('click', (event) => {
+    const th = event.target.closest('th[data-sort]');
+    if (!th || !c.open) return;
+    const key = th.dataset.sort;
+    // A new column starts the way people usually want it: names A to Z, numbers largest first.
+    projectSort = projectSort.key === key ? { key, dir: projectSort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'name' || key === 'model' ? 'asc' : 'desc' };
+    try {
+      localStorage.setItem(SORT_STORE, JSON.stringify(projectSort));
+    } catch {}
+    renderProjects();
+  });
+
   function renderProjects() {
     const est = estimate();
     const words = $('calc-filter').value.trim().toLowerCase();
-    const rows = est.rows.filter((p) => !words || String(p.name).toLowerCase().includes(words));
+    const rows = sortedRows(est).filter((p) => !words || String(p.name).toLowerCase().includes(words));
+    renderSortHeads();
     // A long list a page at a time: the totals above always count every project in the scope.
     $('calc-rows').innerHTML = rows.slice(0, rowsShown).map(rowHtml).join('');
     $('calc-rows-more').hidden = rows.length <= rowsShown;
@@ -1308,7 +1340,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     };
     const rows = [
       ['Project', 'Included', 'Criticality', 'Scanned today', 'Scans in the last year', 'Lines of code', '10K units', 'Fusion scans', 'Scans set by', 'Model', 'Credits per 10K LOC', 'Credits'],
-      ...est.rows.map((r) => [r.name, r.included ? 'yes' : 'no', r.criticality ?? '', FREQ_LABEL[r.frequency] ?? '', r.scanCount ?? '', r.lines ?? '', r.units, r.scans, FROM_LABEL[r.scansFrom] ?? '', models.get(r.model)?.name ?? '', r.rate ?? '', r.credits ?? '']),
+      ...sortedRows(est).map((r) => [r.name, r.included ? 'yes' : 'no', r.criticality ?? '', FREQ_LABEL[r.frequency] ?? '', r.scanCount ?? '', r.lines ?? '', r.units, r.scans, FROM_LABEL[r.scansFrom] ?? '', models.get(r.model)?.name ?? '', r.rate ?? '', r.credits ?? '']),
       [],
       ['Total', est.totals.projects, '', '', '', est.totals.lines, est.totals.units, est.totals.scans, '', '', '', est.totals.credits],
       ['Projection period (months)', est.settings.periodMonths],
