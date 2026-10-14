@@ -3153,6 +3153,24 @@
   "Left out: {0} projects whose latest scan counted no lines of code.": "Đã loại trừ: {0} dự án có lần quét gần nhất không đếm được dòng mã nào.",
   "Left out: {0} projects with no open findings.": "Đã loại trừ: {0} dự án không có phát hiện đang mở.",
   "Branch: each project's primary branch": "Nhánh: nhánh chính của từng dự án",
-  "Branch: every branch": "Nhánh: mọi nhánh"
+  "Branch: every branch": "Nhánh: mọi nhánh",
+  "Look": "Diện mạo",
+  "Next-gen": "Thế hệ mới",
+  "Classic": "Cổ điển",
+  "Accent": "Màu nhấn",
+  "Indigo": "Chàm",
+  "Cyan": "Lục lam",
+  "Emerald": "Ngọc lục bảo",
+  "Violet": "Tím",
+  "Amber": "Hổ phách",
+  "Look: next-gen or classic, light or dark, and the accent": "Diện mạo: thế hệ mới hoặc cổ điển, sáng hoặc tối, và màu nhấn",
+  "Change the look": "Đổi diện mạo",
+  "Saved to your profile: the same on every computer, and in the reports you download.": "Đã lưu vào hồ sơ của bạn: giống nhau trên mọi máy tính và trong các báo cáo bạn tải xuống.",
+  "Look of the app": "Diện mạo của ứng dụng",
+  "Offer the next-gen look": "Cho phép dùng diện mạo thế hệ mới",
+  "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": "Bật: mọi người đều dùng diện mạo này, trừ khi họ chọn Cổ điển trong menu diện mạo cạnh hồ sơ của họ. Tắt: mọi người đều dùng diện mạo cổ điển, và menu diện mạo chỉ cho chọn sáng hoặc tối.",
+  "Menu in the next-gen look": "Menu trong diện mạo thế hệ mới",
+  "Down the left side": "Dọc bên trái",
+  "Along the top": "Ngang phía trên"
  }
 }

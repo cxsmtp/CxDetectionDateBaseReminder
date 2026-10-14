@@ -3153,6 +3153,24 @@
   "Left out: {0} projects whose latest scan counted no lines of code.": "Quedan fuera: {0} proyectos cuyo último escaneo no contó ninguna línea de código.",
   "Left out: {0} projects with no open findings.": "Quedan fuera: {0} proyectos sin hallazgos abiertos.",
   "Branch: each project's primary branch": "Rama: la rama principal de cada proyecto",
-  "Branch: every branch": "Rama: todas las ramas"
+  "Branch: every branch": "Rama: todas las ramas",
+  "Look": "Aspecto",
+  "Next-gen": "Nueva generación",
+  "Classic": "Clásico",
+  "Accent": "Color de acento",
+  "Indigo": "Índigo",
+  "Cyan": "Cian",
+  "Emerald": "Esmeralda",
+  "Violet": "Violeta",
+  "Amber": "Ámbar",
+  "Look: next-gen or classic, light or dark, and the accent": "Aspecto: nueva generación o clásico, tema claro u oscuro, y color de acento",
+  "Change the look": "Cambiar el aspecto",
+  "Saved to your profile: the same on every computer, and in the reports you download.": "Se guarda en su perfil: es igual en cualquier equipo y en los informes que descarga.",
+  "Look of the app": "Aspecto de la aplicación",
+  "Offer the next-gen look": "Ofrecer el aspecto de nueva generación",
+  "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": "Activado: todos lo tienen, salvo quienes elijan “Clásico” en el menú de aspecto junto a su perfil. Desactivado: todos tienen el aspecto clásico y el menú de aspecto solo ofrece tema claro u oscuro.",
+  "Menu in the next-gen look": "Menú del aspecto de nueva generación",
+  "Down the left side": "En el lateral izquierdo",
+  "Along the top": "En la parte superior"
  }
 }

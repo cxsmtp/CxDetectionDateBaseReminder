@@ -3153,6 +3153,24 @@
   "Left out: {0} projects whose latest scan counted no lines of code.": "제외됨: 최신 스캔에서 코드 줄 수가 집계되지 않은 프로젝트 {0}개.",
   "Left out: {0} projects with no open findings.": "제외됨: 열린 탐지 결과가 없는 프로젝트 {0}개.",
   "Branch: each project's primary branch": "브랜치: 각 프로젝트의 기본 브랜치",
-  "Branch: every branch": "브랜치: 모든 브랜치"
+  "Branch: every branch": "브랜치: 모든 브랜치",
+  "Look": "디자인",
+  "Next-gen": "차세대",
+  "Classic": "클래식",
+  "Accent": "강조 색상",
+  "Indigo": "남색",
+  "Cyan": "청록색",
+  "Emerald": "에메랄드색",
+  "Violet": "보라색",
+  "Amber": "호박색",
+  "Look: next-gen or classic, light or dark, and the accent": "디자인: 차세대 또는 클래식, 라이트 또는 다크, 강조 색상",
+  "Change the look": "디자인 변경",
+  "Saved to your profile: the same on every computer, and in the reports you download.": "내 프로필에 저장됩니다. 어느 컴퓨터에서나 동일하며, 다운로드하는 보고서에도 적용됩니다.",
+  "Look of the app": "앱 디자인",
+  "Offer the next-gen look": "모든 사용자에게 차세대 디자인 제공",
+  "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": "켜짐: 프로필 옆의 디자인 메뉴에서 \"클래식\"을 선택하지 않는 한 모든 사용자에게 차세대 디자인이 적용됩니다. 꺼짐: 모든 사용자가 클래식 디자인을 사용하며, 디자인 메뉴에서는 라이트 또는 다크만 선택할 수 있습니다.",
+  "Menu in the next-gen look": "차세대 디자인의 메뉴",
+  "Down the left side": "왼쪽에 세로로 표시",
+  "Along the top": "상단에 가로로 표시"
  }
 }

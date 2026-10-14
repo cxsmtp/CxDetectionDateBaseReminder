@@ -3153,6 +3153,24 @@
   "Left out: {0} projects whose latest scan counted no lines of code.": "已排除：{0} 個最近一次掃描未計算出程式碼行數的專案。",
   "Left out: {0} projects with no open findings.": "已排除：{0} 個沒有未解決檢測結果的專案。",
   "Branch: each project's primary branch": "分支：每個專案的主要分支",
-  "Branch: every branch": "分支：所有分支"
+  "Branch: every branch": "分支：所有分支",
+  "Look": "外觀",
+  "Next-gen": "新世代",
+  "Classic": "經典",
+  "Accent": "強調色",
+  "Indigo": "靛藍色",
+  "Cyan": "青色",
+  "Emerald": "翠綠色",
+  "Violet": "紫色",
+  "Amber": "琥珀色",
+  "Look: next-gen or classic, light or dark, and the accent": "外觀：新世代或經典、淺色或深色，以及強調色",
+  "Change the look": "變更外觀",
+  "Saved to your profile: the same on every computer, and in the reports you download.": "已儲存至個人檔案：在每台電腦上都相同，您下載的報告也會套用。",
+  "Look of the app": "應用程式外觀",
+  "Offer the next-gen look": "為所有人提供新世代外觀",
+  "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": "開啟：所有人都會使用新世代外觀，除非在個人檔案旁的外觀選單中選擇「經典」。關閉：所有人都使用經典外觀，外觀選單僅提供淺色或深色。",
+  "Menu in the next-gen look": "新世代外觀的選單",
+  "Down the left side": "位於左側",
+  "Along the top": "位於頂端"
  }
 }

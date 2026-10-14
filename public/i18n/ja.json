@@ -3153,6 +3153,24 @@
   "Left out: {0} projects whose latest scan counted no lines of code.": "除外：最新スキャンでコード行数が集計されなかったプロジェクト{0}件。",
   "Left out: {0} projects with no open findings.": "除外：未解決の検出結果がないプロジェクト{0}件。",
   "Branch: each project's primary branch": "ブランチ：各プロジェクトのプライマリブランチ",
-  "Branch: every branch": "ブランチ：すべてのブランチ"
+  "Branch: every branch": "ブランチ：すべてのブランチ",
+  "Look": "外観",
+  "Next-gen": "次世代",
+  "Classic": "クラシック",
+  "Accent": "アクセントカラー",
+  "Indigo": "インディゴ",
+  "Cyan": "シアン",
+  "Emerald": "エメラルド",
+  "Violet": "バイオレット",
+  "Amber": "アンバー",
+  "Look: next-gen or classic, light or dark, and the accent": "外観：次世代またはクラシック、ライトまたはダーク、アクセントカラー",
+  "Change the look": "外観を変更",
+  "Saved to your profile: the same on every computer, and in the reports you download.": "プロフィールに保存されます。どのコンピューターでも同じで、ダウンロードするレポートにも使用されます。",
+  "Look of the app": "アプリの外観",
+  "Offer the next-gen look": "次世代の外観を全員に提供",
+  "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": "オン：プロフィールの横にある外観メニューで「クラシック」を選ばない限り、全員が次世代の外観を使用します。オフ：全員がクラシックの外観を使用し、外観メニューではライトかダークのみ選択できます。",
+  "Menu in the next-gen look": "次世代の外観のメニュー",
+  "Down the left side": "左側に縦に表示",
+  "Along the top": "上部に横に表示"
  }
 }
