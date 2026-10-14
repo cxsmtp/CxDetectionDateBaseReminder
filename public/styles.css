@@ -537,6 +537,12 @@ td.credits .low { color: var(--danger); }
 #projects th.sorted { color: var(--text); }
 #projects th[data-dir="asc"]::after { content: " ▲"; font-size: 9px; }
 #projects th[data-dir="desc"]::after { content: " ▼"; font-size: 9px; }
+/* Cx Credits Calculator → Fusion: the projects table sorts by any column (a button in each heading). */
+.calc-projects th[data-sort] .th-sort { all: unset; cursor: pointer; font: inherit; color: inherit; white-space: nowrap; border-radius: 4px; }
+.calc-projects th[data-sort] .th-sort:hover, .calc-projects th[data-sort][aria-sort="ascending"], .calc-projects th[data-sort][aria-sort="descending"] { color: var(--text); }
+.calc-projects th[data-sort] .th-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.calc-projects th[data-dir="asc"] .th-sort::after { content: " ▲"; font-size: 9px; }
+.calc-projects th[data-dir="desc"] .th-sort::after { content: " ▼"; font-size: 9px; }
 
 button.credit-edit { font: inherit; font-weight: 600; min-height: 28px; padding: 0 8px; border: 1px dashed transparent; background: none; box-shadow: none; color: inherit; border-radius: 8px; }
 button.credit-edit:hover, button.credit-edit:focus-visible { border-color: var(--accent); background: var(--accent-soft); }

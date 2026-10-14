@@ -590,3 +590,26 @@ test('the report says the answer first, that it comes from live Checkmarx One da
   assert.match(old, /Total credits required/);
   assert.match(old, /<svg/);
 });
+
+test('the Fusion projects table sorts by any column; what shows as "—" comes last either way', async () => {
+  const { sortProjects, PROJECT_SORT_KEYS } = await import('../public/calculator/model.js');
+  assert.deepEqual(PROJECT_SORT_KEYS, ['name', 'criticality', 'frequency', 'lines', 'units', 'scans', 'model', 'credits']);
+  const rows = [
+    { id: 'a', name: 'payments-api', criticality: 3, frequency: 'month', scanCount: 6, lines: 20000, units: 2, scans: 6, model: 'm2', credits: 120, included: true },
+    { id: 'b', name: 'Billing', criticality: null, frequency: 'more-5-week', scanCount: 400, lines: null, units: 0, scans: 52, model: 'm1', credits: 0, included: true },
+    { id: 'c', name: 'web10', criticality: 5, frequency: 'more-5-week', scanCount: 300, lines: 90000, units: 9, scans: 52, model: 'm1', credits: 468, included: true },
+    { id: 'd', name: 'web9', criticality: 1, frequency: 'year', scanCount: 1, lines: 5000, units: 1, scans: 1, model: '', credits: null, included: false },
+  ];
+  const ids = (key, dir) => sortProjects(rows, { key, dir }, { modelName: (id) => ({ m1: 'Fast', m2: 'Deep' })[id] }).map((r) => r.id);
+  assert.deepEqual(ids('name', 'asc'), ['b', 'a', 'd', 'c'], 'A to Z, ignoring case, numbers in names in number order');
+  assert.deepEqual(ids('name', 'desc'), ['c', 'd', 'a', 'b']);
+  assert.deepEqual(ids('criticality', 'desc'), ['c', 'a', 'd', 'b'], 'no criticality: last');
+  assert.deepEqual(ids('criticality', 'asc'), ['d', 'a', 'c', 'b'], 'no criticality: last both ways');
+  assert.deepEqual(ids('frequency', 'desc'), ['b', 'c', 'a', 'd'], 'most often first, then most scans in the year');
+  assert.deepEqual(ids('lines', 'desc'), ['c', 'a', 'd', 'b']);
+  assert.deepEqual(ids('units', 'desc'), ['c', 'a', 'b', 'd'], 'left out or no units: shown as —, last');
+  assert.deepEqual(ids('scans', 'asc'), ['d', 'a', 'b', 'c'], 'ties keep their order');
+  assert.deepEqual(ids('model', 'asc'), ['a', 'b', 'c', 'd'], 'by the model name; none last');
+  assert.deepEqual(ids('credits', 'desc'), ['c', 'a', 'b', 'd']);
+  assert.equal(sortProjects(rows, { key: 'nope' }), rows, 'an unknown column: as it was');
+});

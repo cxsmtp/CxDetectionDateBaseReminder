@@ -547,6 +547,44 @@ export function cleanScope(value = {}) {
   };
 }
 
+// ---------------------------------------------------------------------------------------------
+// The Fusion projects table, sorted by any of its columns
+// ---------------------------------------------------------------------------------------------
+
+/** The columns the Fusion projects table sorts by. */
+export const PROJECT_SORT_KEYS = ['name', 'criticality', 'frequency', 'lines', 'units', 'scans', 'model', 'credits'];
+
+/**
+ * The estimate's rows (fusionEstimate) in the order of one column, as the table shows them:
+ * `dir` 'asc' or 'desc'. A value the table shows as "—" (not known, or a project left out)
+ * always comes last, whichever way; ties keep the order they had. `modelName(id)` names a model.
+ */
+export function sortProjects(rows, { key, dir = 'asc' } = {}, { modelName = (id) => id ?? '' } = {}) {
+  if (!PROJECT_SORT_KEYS.includes(key)) return rows;
+  const rank = new Map(FREQUENCIES.map((f, i) => [f.id, FREQUENCIES.length - i]));
+  const shown = (r) => r.included && r.units;
+  const value = {
+    name: (r) => String(r.name ?? ''),
+    criticality: (r) => (Number.isFinite(Number(r.criticality)) && r.criticality !== null ? Number(r.criticality) : null),
+    // How often it is scanned: its frequency, then how many scans it had in the last year.
+    frequency: (r) => (rank.has(r.frequency) ? rank.get(r.frequency) * 1e6 + Math.min(999_999, Number(r.scanCount) || 0) : null),
+    lines: (r) => (r.lines === null || r.lines === undefined ? null : Number(r.lines)),
+    units: (r) => (shown(r) ? r.units : null),
+    scans: (r) => (Number.isFinite(Number(r.scans)) ? Number(r.scans) : null),
+    model: (r) => (r.model ? String(modelName(r.model) ?? '') || null : null),
+    credits: (r) => (shown(r) && r.credits !== null ? r.credits : null),
+  }[key];
+  const sign = dir === 'desc' ? -1 : 1;
+  return rows
+    .map((row, at) => ({ row, at, v: value(row) }))
+    .sort((a, b) => {
+      if (a.v === null || b.v === null) return a.v === null && b.v === null ? a.at - b.at : a.v === null ? 1 : -1;
+      const order = typeof a.v === 'string' ? a.v.localeCompare(b.v, undefined, { numeric: true, sensitivity: 'base' }) : a.v - b.v;
+      return order * sign || a.at - b.at;
+    })
+    .map((x) => x.row);
+}
+
 /** Is anything picked (applications, projects, groups, names, people, frequencies, criticalities)? */
 export const scopeActive = (scope) => Object.values(cleanScope(scope)).some((v) => Array.isArray(v) && v.length);
 

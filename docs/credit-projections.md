@@ -171,7 +171,7 @@ The table lists the projects in the scope, the most often scanned first, 100 at 
 - **On a project:** a number of scans or a model typed in its row wins over everything else. Leave it empty to go back to the rules. The small line under the number says where it came from: *Default*, *Scan frequency*, *Criticality* or *Set here*.
 - **Include** leaves a project in or out.
 
-**Download CSV** downloads the table.
+Click a column's heading to sort the table by it (project, criticality, how often it is scanned, lines of code, 10K units, Fusion scans, model or credits), and again for the other way: names start A to Z, numbers largest first, and a value shown as — (not known, or a project left out) always comes last. The choice is remembered in this browser. **Download CSV** downloads the table, in the same order.
 
 ## Credits required, extra %, and bundles
 
