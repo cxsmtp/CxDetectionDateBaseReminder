@@ -1039,6 +1039,9 @@ app.get('/api/health', (req, res) => {
       logoUrl: settingsStore.get().branding.logoUrl || '',
       // Changes when the browser icon does, so the page can reload it.
       iconVersion: iconVersion(),
+      // The next-gen look offered (else everyone has the classic one), and where its menu sits.
+      nextGen: settingsStore.get().branding.nextGen !== false,
+      navPosition: settingsStore.get().branding.navPosition === 'top' ? 'top' : 'left',
     },
   });
 });
@@ -1431,14 +1434,16 @@ app.put(
   requireSession,
   asyncRoute(async (req, res) => {
     const patch = {};
-    for (const key of ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages', 'impact']) if (key in (req.body ?? {})) patch[key] = req.body[key];
+    for (const key of ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages', 'impact', 'look', 'theme', 'accent']) if (key in (req.body ?? {})) patch[key] = req.body[key];
     if (patch.language && !languageAccess.isAvailable(String(patch.language), allowedLanguages(req.user.id))) return res.status(400).json({ error: 'That language is not available.' });
     const { before, after } = iam.updateProfile(req.user.id, patch);
     const changed = [
       ...(before.name !== after.name ? ['name'] : []),
       ...Object.keys(after.profile).filter((k) => JSON.stringify(before.profile[k]) !== JSON.stringify(after.profile[k])),
     ];
-    const quiet = req.body?.quiet === true && changed.every((k) => k === 'timeZone' || k === 'language');
+    // How the app looks to them (look, light or dark, accent) is theirs alone: never an audit entry.
+    const appearance = ['look', 'theme', 'accent'];
+    const quiet = changed.every((k) => appearance.includes(k)) || (req.body?.quiet === true && changed.every((k) => k === 'timeZone' || k === 'language'));
     if (changed.length && !quiet) {
       audit.record({ type: 'iam', outcome: 'changed', reason: `${after.email} updated their profile: ${changed.join(', ')}.`, actor: await adminActor(req), details: { before: { name: before.name, ...before.profile }, after: { name: after.name, ...after.profile } } });
     }
@@ -7957,9 +7962,10 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   // language travels only in a report for someone it is on for.
   // A language is never a reason for a report to fail: without one, it is in English.
   let i18n = null;
+  let reader = null;
   try {
     const readerEmail = /^[^\s,@]+@[^\s,@]+$/.test(audience.recipient ?? '') ? audience.recipient : String(audience.actor?.user ?? '');
-    const reader = readerEmail ? iam.findByEmail(readerEmail) : null;
+    reader = readerEmail ? iam.findByEmail(readerEmail) : null;
     i18n = reportI18n({ codes: languageAccess.available(allowedLanguages(reader?.id ?? null)), preferred: reader?.profile?.language ?? '' });
   } catch (error) {
     console.error(`[report languages] This report is in English only: ${error.message}`);
@@ -7980,6 +7986,8 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
       : '',
     connection: { tenant: connection.tenant, iamUrl: connection.iamUrl, baseUrl: connection.baseUrl },
     branding: brandingNow(settings.branding),
+    // In the reader's look, like their language: next-gen unless they chose classic or the organisation turned it off.
+    look: readerLook(reader, settings),
     allowRetriage: Boolean(settings.aiTriage?.allowRetriage),
     allowReremediation: Boolean(settings.aiTriage?.allowReremediation),
     adminContact: adminContact(settings),
@@ -8064,6 +8072,13 @@ function reportRepositories(known, inReport) {
     if (url) repositories[String(projectId)] = { url, branch: String(project.mainBranch ?? '').slice(0, 200) };
   }
   return repositories;
+}
+
+/** How a report looks for its reader: their look, theme and accent; classic for everyone when the organisation has next-gen off. */
+function readerLook(reader, settings) {
+  const profile = reader?.profile ?? {};
+  const nextGen = settings.branding?.nextGen !== false && profile.look !== 'classic';
+  return { ui: nextGen ? 'nextgen' : 'classic', theme: profile.theme ?? 'auto', accent: profile.accent ?? 'indigo' };
 }
 
 /** A link only this server could have made: the report id plus its signature. */

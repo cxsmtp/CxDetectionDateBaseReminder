@@ -67,11 +67,12 @@ test.after(() => {
 test('a person sets their own name, language, time zone and programming languages', async () => {
   const before = (await member('GET', '/api/me')).body.user;
   const noImpact = { currency: '', hourlyRate: null, creditPrice: null, triageMinutes: null, fixMinutes: null };
-  assert.deepEqual(before.profile, { language: '', timeZone: '', timeZoneAuto: true, programmingLanguages: [], impact: noImpact }, 'Impact figures: the organisation\'s until they give their own');
+  const look = { look: '', theme: 'auto', accent: 'indigo' };
+  assert.deepEqual(before.profile, { language: '', timeZone: '', timeZoneAuto: true, programmingLanguages: [], impact: noImpact, ...look }, 'Impact figures: the organisation\'s until they give their own');
   const saved = await member('PUT', '/api/me/profile', { name: 'Dev Tanaka', language: 'ja', timeZoneAuto: false, timeZone: 'Asia/Tokyo', programmingLanguages: ['TypeScript', 'Java'] });
   assert.equal(saved.status, 200, JSON.stringify(saved.body));
   assert.equal(saved.body.user.name, 'Dev Tanaka');
-  assert.deepEqual(saved.body.user.profile, { language: 'ja', timeZone: 'Asia/Tokyo', timeZoneAuto: false, programmingLanguages: ['Java', 'TypeScript'], impact: noImpact });
+  assert.deepEqual(saved.body.user.profile, { language: 'ja', timeZone: 'Asia/Tokyo', timeZoneAuto: false, programmingLanguages: ['Java', 'TypeScript'], impact: noImpact, ...look });
   assert.equal(saved.body.user.email, 'dev@acme.io', 'the email is shown, and cannot be changed here');
   assert.equal((await member('PUT', '/api/me/profile', { email: 'other@acme.io' })).body.user.email, 'dev@acme.io');
 });
@@ -110,6 +111,13 @@ test('changes are audited; the computer’s own time zone and first language are
   assert.equal(count(await reasons()), start, 'quiet: the zone picked up from the computer');
   await admin('PUT', '/api/me/profile', { programmingLanguages: ['Go'], quiet: true });
   assert.equal(count(await reasons()), start + 1, 'quiet covers only the time zone and language, never other changes');
+  const now = count(await reasons());
+  const look = await admin('PUT', '/api/me/profile', { look: 'classic', theme: 'dark', accent: 'emerald' });
+  assert.equal(look.status, 200, JSON.stringify(look.body));
+  assert.deepEqual([look.body.user.profile.look, look.body.user.profile.theme, look.body.user.profile.accent], ['classic', 'dark', 'emerald']);
+  assert.equal(count(await reasons()), now, 'the look, theme and accent are saved quietly');
+  const odd = await admin('PUT', '/api/me/profile', { look: 'neon', theme: 'sepia', accent: '<b>' });
+  assert.deepEqual([odd.body.user.profile.look, odd.body.user.profile.theme, odd.body.user.profile.accent], ['', 'auto', 'indigo'], 'anything else: the defaults');
   const all = await reasons();
   assert.ok(all.some((r) => r === 'dev@acme.io changed their picture.'));
   assert.ok(all.some((r) => r === 'dev@acme.io removed their picture.'));

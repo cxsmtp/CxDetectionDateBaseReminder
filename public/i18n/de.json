@@ -3153,6 +3153,24 @@
   "Left out: {0} projects whose latest scan counted no lines of code.": "Ausgelassen: {0} Projekte, deren letzter Scan keine Codezeilen gezählt hat.",
   "Left out: {0} projects with no open findings.": "Ausgelassen: {0} Projekte ohne offene Funde.",
   "Branch: each project's primary branch": "Branch: primärer Branch jedes Projekts",
-  "Branch: every branch": "Branch: alle Branches"
+  "Branch: every branch": "Branch: alle Branches",
+  "Look": "Erscheinungsbild",
+  "Next-gen": "Neue Generation",
+  "Classic": "Klassisch",
+  "Accent": "Akzentfarbe",
+  "Indigo": "Indigo",
+  "Cyan": "Cyan",
+  "Emerald": "Smaragdgrün",
+  "Violet": "Violett",
+  "Amber": "Bernstein",
+  "Look: next-gen or classic, light or dark, and the accent": "Erscheinungsbild: neue Generation oder klassisch, hell oder dunkel und die Akzentfarbe",
+  "Change the look": "Erscheinungsbild ändern",
+  "Saved to your profile: the same on every computer, and in the reports you download.": "In Ihrem Profil gespeichert: auf jedem Computer gleich und auch in den Berichten, die Sie herunterladen.",
+  "Look of the app": "Erscheinungsbild der App",
+  "Offer the next-gen look": "Erscheinungsbild der neuen Generation anbieten",
+  "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": "An: Alle erhalten das Erscheinungsbild der neuen Generation, außer sie wählen im Menü „Erscheinungsbild“ neben ihrem Profil „Klassisch“. Aus: Alle erhalten das klassische Erscheinungsbild, und das Menü „Erscheinungsbild“ bietet nur Hell oder Dunkel.",
+  "Menu in the next-gen look": "Menü im Erscheinungsbild der neuen Generation",
+  "Down the left side": "Am linken Rand",
+  "Along the top": "Am oberen Rand"
  }
 }

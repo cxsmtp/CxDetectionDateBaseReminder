@@ -3153,6 +3153,24 @@
   "Left out: {0} projects whose latest scan counted no lines of code.": "Laissés de côté : {0} projets dont la dernière analyse n'a compté aucune ligne de code.",
   "Left out: {0} projects with no open findings.": "Laissés de côté : {0} projets sans détections ouvertes.",
   "Branch: each project's primary branch": "Branche : branche principale de chaque projet",
-  "Branch: every branch": "Branche : toutes les branches"
+  "Branch: every branch": "Branche : toutes les branches",
+  "Look": "Apparence",
+  "Next-gen": "Nouvelle génération",
+  "Classic": "Classique",
+  "Accent": "Couleur d'accentuation",
+  "Indigo": "Indigo",
+  "Cyan": "Cyan",
+  "Emerald": "Émeraude",
+  "Violet": "Violet",
+  "Amber": "Ambre",
+  "Look: next-gen or classic, light or dark, and the accent": "Apparence : nouvelle génération ou classique, thème clair ou sombre, et couleur d'accentuation",
+  "Change the look": "Changer l'apparence",
+  "Saved to your profile: the same on every computer, and in the reports you download.": "Enregistré dans votre profil : identique sur tous les ordinateurs et dans les rapports que vous téléchargez.",
+  "Look of the app": "Apparence de l'application",
+  "Offer the next-gen look": "Proposer l'apparence nouvelle génération",
+  "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": "Activé : tout le monde l'utilise, sauf les personnes qui choisissent « Classique » dans le menu d'apparence, à côté de leur profil. Désactivé : tout le monde a l'apparence classique, et le menu d'apparence ne propose que le thème clair ou sombre.",
+  "Menu in the next-gen look": "Menu de l'apparence nouvelle génération",
+  "Down the left side": "Sur le côté gauche",
+  "Along the top": "En haut"
  }
 }

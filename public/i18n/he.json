@@ -3153,6 +3153,24 @@
   "Left out: {0} projects whose latest scan counted no lines of code.": "לא נכללו: {0} פרויקטים שהסריקה האחרונה שלהם לא ספרה שורות קוד.",
   "Left out: {0} projects with no open findings.": "לא נכללו: {0} פרויקטים ללא ממצאים פתוחים.",
   "Branch: each project's primary branch": "ענף: הענף הראשי של כל פרויקט",
-  "Branch: every branch": "ענף: כל הענפים"
+  "Branch: every branch": "ענף: כל הענפים",
+  "Look": "מראה",
+  "Next-gen": "הדור הבא",
+  "Classic": "קלאסי",
+  "Accent": "צבע הדגשה",
+  "Indigo": "אינדיגו",
+  "Cyan": "טורקיז",
+  "Emerald": "אזמרגד",
+  "Violet": "סגול",
+  "Amber": "ענבר",
+  "Look: next-gen or classic, light or dark, and the accent": "מראה: הדור הבא או קלאסי, בהיר או כהה, וצבע ההדגשה",
+  "Change the look": "שינוי המראה",
+  "Saved to your profile: the same on every computer, and in the reports you download.": "נשמר בפרופיל האישי: זהה בכל מחשב, וגם בדוחות שאתם מורידים.",
+  "Look of the app": "מראה האפליקציה",
+  "Offer the next-gen look": "הצעת המראה מהדור הבא",
+  "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": "מופעל: כולם מקבלים אותו, אלא אם בחרו \"קלאסי\" בתפריט המראה שליד הפרופיל. כבוי: כולם מקבלים את המראה הקלאסי, ותפריט המראה מציע רק בהיר או כהה.",
+  "Menu in the next-gen look": "התפריט במראה מהדור הבא",
+  "Down the left side": "לאורך הצד",
+  "Along the top": "לאורך החלק העליון"
  }
 }

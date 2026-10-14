@@ -15,6 +15,13 @@
         if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
         // The menu as it was left (kept open, or a slim bar of icons), also before first paint.
         if (localStorage.getItem('mz-sidebar') === 'auto') document.documentElement.dataset.sidebar = 'auto';
+        // The look: next-gen unless this person chose the classic one or the organisation turned it off
+        // (both remembered from the last visit), its accent, and where its menu sits.
+        const look = localStorage.getItem('mz-look');
+        if (look !== 'classic' && localStorage.getItem('mz-nextgen-off') !== '1') document.documentElement.dataset.ui = 'nextgen';
+        const accent = localStorage.getItem('mz-accent');
+        if (['cyan', 'emerald', 'violet', 'amber'].includes(accent)) document.documentElement.dataset.accent = accent;
+        if (localStorage.getItem('mz-nav') === 'top') document.documentElement.dataset.nav = 'top';
       } catch {}
       // Another language: fetch its words now and keep the page out of sight until they are in
       // (at most 2 s), so it never shows in English first. The same rule as i18n.js.
@@ -45,6 +52,7 @@
       } catch {}
     </script>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="nextgen.css" />
   </head>
   <body>
     <div class="shell">
@@ -179,6 +187,39 @@
               <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
               <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
             </button>
+            <details class="look-menu" id="look-menu" hidden>
+              <summary class="look-btn" title="Look: next-gen or classic, light or dark, and the accent" aria-label="Change the look">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.8-1.9 0-.5-.2-.9-.5-1.3-.3-.3-.5-.8-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4C21 6.4 17 3 12 3z" /><circle cx="7.5" cy="11" r="1.2" /><circle cx="10.5" cy="7" r="1.2" /><circle cx="15" cy="7.5" r="1.2" /></svg>
+              </summary>
+              <div class="look-body">
+                <fieldset id="look-pick">
+                  <legend>Look</legend>
+                  <div class="look-seg">
+                    <label><input type="radio" name="look" value="nextgen" /> Next-gen</label>
+                    <label><input type="radio" name="look" value="classic" /> Classic</label>
+                  </div>
+                </fieldset>
+                <fieldset>
+                  <legend>Theme</legend>
+                  <div class="look-seg">
+                    <label><input type="radio" name="look-theme" value="auto" /> Auto</label>
+                    <label><input type="radio" name="look-theme" value="light" /> Light</label>
+                    <label><input type="radio" name="look-theme" value="dark" /> Dark</label>
+                  </div>
+                </fieldset>
+                <fieldset class="look-accent" id="look-accent">
+                  <legend>Accent</legend>
+                  <div class="look-swatches">
+                    <label class="sw-indigo" title="Indigo"><input type="radio" name="look-accent" value="indigo" aria-label="Indigo" /></label>
+                    <label class="sw-cyan" title="Cyan"><input type="radio" name="look-accent" value="cyan" aria-label="Cyan" /></label>
+                    <label class="sw-emerald" title="Emerald"><input type="radio" name="look-accent" value="emerald" aria-label="Emerald" /></label>
+                    <label class="sw-violet" title="Violet"><input type="radio" name="look-accent" value="violet" aria-label="Violet" /></label>
+                    <label class="sw-amber" title="Amber"><input type="radio" name="look-accent" value="amber" aria-label="Amber" /></label>
+                  </div>
+                </fieldset>
+                <p class="hint" id="look-note">Saved to your profile: the same on every computer, and in the reports you download.</p>
+              </div>
+            </details>
             <details class="user-menu" id="user-menu" hidden>
               <summary><span class="avatar sm" id="me-avatar" aria-hidden="true"></span><span class="me-text"><b id="me-name"></b><small id="me-role"></small></span></summary>
               <div class="user-menu-body">
@@ -1187,6 +1228,12 @@
                 <label class="field" data-advanced><span>Logo height, in pixels</span><input id="brand-height" type="number" min="16" max="200" /></label>
                 <label class="field"><span>Accent colour</span><input id="brand-accent" type="color" /></label>
               </div>
+
+              <fieldset class="brand-look">
+                <legend>Look of the app</legend>
+                <label class="switch"><input type="checkbox" id="brand-nextgen" /> <span><strong>Offer the next-gen look</strong><small>On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.</small></span></label>
+                <label class="field"><span>Menu in the next-gen look</span><select id="brand-nav"><option value="left">Down the left side</option><option value="top">Along the top</option></select></label>
+              </fieldset>
 
               <div class="brand-icon-row">
                 <img id="brand-icon-preview" class="brand-icon-preview" src="/app-icon" alt="Browser icon" width="48" height="48" />

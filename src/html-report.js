@@ -15,6 +15,7 @@ import { AI_SCANNERS } from './cxone/ai-assist.js';
 import { describeEngines, engineScope } from './engines.js';
 import { findingMeaning } from './finding-meaning.js';
 import { ON_PREMISE_NOTICE, SUPPORTING_NOTICE } from './terms.js';
+import { NEXTGEN_ACCENTS, reportLook } from '../public/look.js';
 
 /** One Checkmarx One result: rows with the same key are triaged together, and charged once. */
 export const resultKey = (f) =>
@@ -103,6 +104,8 @@ export function selectTopFindings(reportData, limit = REPORT_TOP_N) {
  * @param {object} [options.projectReportScope]  the scope those reports keep ({buckets, severities, detection, engines})
  * @param {string[]|null} [options.engines]  the engines the report covers (null: every engine), said at its top
  * @param {'primary'|'all'} [options.branches]  one branch per project, or every branch, said at its top
+ * @param {{ui?: 'nextgen'|'classic', theme?: 'auto'|'light'|'dark', accent?: string}} [options.look]
+ *   how the report looks: the next-gen or classic look, light, dark or the reader's device, and the next-gen accent
  */
 export function generateHtmlReport(reportData, options = {}) {
   const { connection = {}, branding = {} } = options;
@@ -115,6 +118,7 @@ export function generateHtmlReport(reportData, options = {}) {
   const projects = reportData.projects ?? [];
   const total = projects.reduce((sum, p) => sum + (p.risks?.length ?? 0), 0);
   const accent = /^#[0-9a-f]{3,8}$/i.test(branding.accentColor ?? '') ? branding.accentColor : '#2856c9';
+  const look = reportLook(options.look);
 
   const ages = findings.map((f) => f.ageDays).filter((d) => Number.isFinite(d));
   const oldest = ages.length ? Math.max(...ages) : null;
@@ -258,13 +262,13 @@ export function generateHtmlReport(reportData, options = {}) {
       : '';
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en"${look.ui === 'nextgen' ? ` data-ui="nextgen" data-accent="${look.accent}"` : ''}${look.theme === 'auto' ? '' : ` data-theme="${look.theme}"`}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title${projects.length === 1 ? ` data-l="{0} — vulnerability report" data-v="${escapeHtml(JSON.stringify([String(projects[0].projectName ?? '')]))}" translate="no"` : ''}>${escapeHtml(title)}</title>
-<style>${styles(accent)}</style>
+<style>${styles(accent)}${look.ui === 'nextgen' ? nextgenStyles(look.accent) : ''}</style>
 </head>
 <body>
 <header class="top">
@@ -606,6 +610,88 @@ function manualCell(finding, reason) {
   return `<span class="chip chip-muted"${tip}>Manual fix</span><div class="sub">${short}</div>`;
 }
 
+/** The classic look's dark colours: chosen by the reader, or their device's when nothing is chosen. */
+const CLASSIC_DARK = `
+    color-scheme: dark;
+    --link: #a4bcfd; --outline-line: #3b4557;
+    --ink: #e6e8ef; --muted: #98a2b3; --line: #2a3140; --bg: #0f131a; --surface: #161b24; --surface-2: #1b212c;
+    --bad-bg: #55160c; --bad: #fda29b; --good-bg: #053321; --good: #75e0a7;
+    --warn-bg: #4e1d09; --warn: #fec84b; --muted-bg: #222936; --muted-ink: #cfd4dc; --busy-bg: #27115f; --busy: #bdb4fe;
+  `;
+
+/**
+ * The next-gen look, laid over the classic styles: Daylight on light, Obsidian on dark, glass cards,
+ * a deep header with the accent's light behind it, and figures in a monospaced face. The app's own
+ * fonts are not in the file (it travels by email): a reader who has Plus Jakarta Sans or JetBrains
+ * Mono gets them, everyone else their system's.
+ */
+function nextgenStyles(accentName) {
+  const [inkLight, inkDark, from, to] = NEXTGEN_ACCENTS[accentName] ?? NEXTGEN_ACCENTS.indigo;
+  const dark = `
+    color-scheme: dark;
+    --ink: #e2e8f0; --muted: #94a3b8; --line: #1d2638; --bg: #06080f; --surface: #0e1422; --surface-2: #121a2b;
+    --link: ${inkDark}; --outline-line: #2a3449; --muted-bg: #1a2335; --muted-ink: #cbd5e1;
+    --bad-bg: rgb(244 63 94 / .14); --bad: #fb7185; --good-bg: rgb(16 185 129 / .14); --good: #34d399;
+    --warn-bg: rgb(245 158 11 / .14); --warn: #fbbf24; --busy-bg: rgb(99 102 241 / .16); --busy: #c7d2fe;
+    --ng-glass: rgb(13 18 30 / .72); --ng-glass-line: rgb(255 255 255 / .07);
+    --ng-ambient-1: rgb(79 70 229 / .12); --ng-ambient-2: rgb(8 145 178 / .10);
+  `;
+  return `
+/* The next-gen look. */
+:root {
+  --accent: ${inkLight}; --ng-from: ${from}; --ng-to: ${to};
+  --ng-solid: linear-gradient(135deg, ${inkLight}, color-mix(in srgb, ${to} 60%, #0b1020));
+  --ink: #0b1020; --muted: #5a6478; --line: #e2e6f0; --bg: #f3f5fb; --surface: #fff; --surface-2: #f6f7fc;
+  --link: ${inkLight}; --focus: color-mix(in srgb, ${from} 55%, transparent); --outline-line: #cbd2e1;
+  --muted-bg: #eceff7; --muted-ink: #3b4458;
+  --ng-glass: rgb(255 255 255 / .8); --ng-glass-line: rgb(15 23 42 / .07);
+  --ng-ambient-1: rgb(99 102 241 / .10); --ng-ambient-2: rgb(6 182 212 / .08);
+  --ng-font: "Plus Jakarta Sans", "MZ Jakarta", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --ng-mono: "JetBrains Mono", "MZ Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {${dark}}
+}
+:root[data-theme="dark"] {${dark}}
+body { font-family: var(--ng-font); background-color: var(--bg);
+  background-image: radial-gradient(600px 340px at 22% 0, var(--ng-ambient-1), transparent 70%), radial-gradient(520px 420px at 105% 40%, var(--ng-ambient-2), transparent 70%);
+  background-attachment: fixed; }
+h1 { font-weight: 700; letter-spacing: -.02em; }
+code, .server-url, .count b, .summary .count b { font-family: var(--ng-mono); }
+.top { color: #fff; background-color: #0b1020;
+  background-image: radial-gradient(520px 260px at 12% -40%, color-mix(in srgb, ${from} 55%, transparent), transparent 70%),
+    radial-gradient(520px 300px at 100% 0, color-mix(in srgb, ${to} 38%, transparent), transparent 70%),
+    linear-gradient(180deg, #0b1020, #0e1630);
+  border-bottom: 1px solid rgb(255 255 255 / .06); }
+.summary .count { background: rgb(255 255 255 / .07); border-color: rgb(255 255 255 / .1); }
+.lifecycle li { background: rgb(255 255 255 / .06); }
+.btn { border-radius: 10px; background: var(--ng-solid); box-shadow: 0 8px 22px -12px color-mix(in srgb, ${from} 70%, transparent); }
+.btn-light { background: #fff; color: #0b1020; box-shadow: none; }
+.btn-light.connected { background: #059669; color: #fff; }
+.btn-outline, .btn-fix { background: var(--surface); color: var(--link); box-shadow: none; }
+.btn-outline { border-color: var(--outline-line); }
+.btn-fix { border-color: color-mix(in srgb, var(--link) 55%, transparent); }
+.server, .actions, .table-wrap, .activity { background: var(--ng-glass); border-color: var(--ng-glass-line); border-radius: 16px;
+  -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); }
+.table-wrap { position: relative; }
+th { font-family: var(--ng-mono); font-size: 10.5px; letter-spacing: .08em; font-weight: 600; background: var(--surface-2); }
+.chip { font-family: var(--ng-mono); font-size: 11.5px; font-weight: 500; border: 1px solid var(--ng-glass-line); }
+.seg { border-radius: 12px; background: var(--muted-bg); border-color: var(--ng-glass-line); }
+.seg-btn { border-radius: 9px; }
+.seg-btn.on { background: var(--surface); box-shadow: inset 0 0 0 1px color-mix(in srgb, ${from} 35%, transparent); }
+#report-search, .server-form input { border-radius: 10px; }
+#report-search:focus, .server-form input:focus { outline: none; border-color: color-mix(in srgb, ${from} 60%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, ${from} 20%, transparent); }
+#findings tbody tr:hover > td { background: color-mix(in srgb, ${from} 6%, transparent); }
+.rescan-card .rc-icon { background: var(--ng-solid); }
+@media print {
+  :root { color-scheme: light; --ink: #0b1020; --muted: #5a6478; --line: #e2e6f0; --bg: #fff; --surface: #fff; --surface-2: #f6f7fc; --link: ${inkLight}; }
+  body { background: #fff; }
+  .top { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .server, .actions, .table-wrap, .activity { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+`;
+}
+
 function styles(accent) {
   return `
 :root {
@@ -616,13 +702,10 @@ function styles(accent) {
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
-    --link: #a4bcfd; --outline-line: #3b4557;
-    --ink: #e6e8ef; --muted: #98a2b3; --line: #2a3140; --bg: #0f131a; --surface: #161b24; --surface-2: #1b212c;
-    --bad-bg: #55160c; --bad: #fda29b; --good-bg: #053321; --good: #75e0a7;
-    --warn-bg: #4e1d09; --warn: #fec84b; --muted-bg: #222936; --muted-ink: #cfd4dc; --busy-bg: #27115f; --busy: #bdb4fe;
-  }
+  :root:not([data-theme="light"]) {${CLASSIC_DARK}}
 }
+:root[data-theme="dark"] {${CLASSIC_DARK}}
+:root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { margin: 0; font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: var(--ink); background: var(--bg); }
@@ -748,10 +831,12 @@ tr.shared-row.twin-hi > td, tr.shared-row:target > td { background: color-mix(in
 .rescan-card .rc-text { flex: 1; min-width: 220px; }
 .rescan-card .rc-text b { display: block; font-size: 15px; }
 .rescan-card .rc-text span { font-size: 13px; color: #4b5563; }
-@media (prefers-color-scheme: dark) { .rescan-card { background: rgba(130,164,244,.10); border-color: rgba(130,164,244,.28); } .rescan-card.ok { background: rgba(5,150,105,.16); border-color: rgba(52,211,153,.35); } .rescan-card.wait { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.12); } .rescan-card .rc-text span { color: #cbd5e1; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rescan-card { background: rgba(130,164,244,.10); border-color: rgba(130,164,244,.28); } :root:not([data-theme="light"]) .rescan-card.ok { background: rgba(5,150,105,.16); border-color: rgba(52,211,153,.35); } :root:not([data-theme="light"]) .rescan-card.wait { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.12); } :root:not([data-theme="light"]) .rescan-card .rc-text span { color: #cbd5e1; } }
+:root[data-theme="dark"] .rescan-card { background: rgba(130,164,244,.10); border-color: rgba(130,164,244,.28); } :root[data-theme="dark"] .rescan-card.ok { background: rgba(5,150,105,.16); border-color: rgba(52,211,153,.35); } :root[data-theme="dark"] .rescan-card.wait { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.12); } :root[data-theme="dark"] .rescan-card .rc-text span { color: #cbd5e1; }
 .onprem-note { margin: 16px 0 6px; padding: 8px 12px; border-radius: 10px; border: 1px solid #a7f3d0; background: #ecfdf5; color: #065f46; font-size: 13px; }
 .onprem-note b { color: #064e3b; }
-@media (prefers-color-scheme: dark) { .onprem-note { background: rgba(6,95,70,.22); border-color: rgba(52,211,153,.35); color: #6ee7b7; } .onprem-note b { color: #a7f3d0; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .onprem-note { background: rgba(6,95,70,.22); border-color: rgba(52,211,153,.35); color: #6ee7b7; } :root:not([data-theme="light"]) .onprem-note b { color: #a7f3d0; } }
+:root[data-theme="dark"] .onprem-note { background: rgba(6,95,70,.22); border-color: rgba(52,211,153,.35); color: #6ee7b7; } :root[data-theme="dark"] .onprem-note b { color: #a7f3d0; }
 .ide-note { margin: 0; font-size: 12px; color: var(--muted); white-space: normal; overflow-wrap: anywhere; }
 .ide-list > a { font-size: 12px; font-weight: 600; }
 .link-button { font: inherit; color: var(--link); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }

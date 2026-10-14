@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.77 | 510/s, 0 (main 487 and 504, 186 and 10 in host stalls) | 10.2 s | 529 ms | 670 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.76 | 506/s, 0 (main 470, 198 in a host stall) | 9.3 s | 1.2 s | 667 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.75 | 492/s, 3 (main 482, 0) | 10.5 s | 1.1 s | 666 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.74 | 514/s, 0 (main 519, 0) | 5.9 s | 252 ms | 645 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -62,6 +63,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.77 — 2026-10-14 18:29 UTC · [#100](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/100)
+
+- **A next-gen look.** Glass panels on a deep "Obsidian" dark or a soft "Daylight" light, a gradient brand mark and primary buttons, Plus Jakarta Sans for text and JetBrains Mono for figures, chips and table headers, on every page, in every language, right to left and on a phone; the fonts ship inside the image, so nothing is loaded from the internet.
+- **The classic look one click away.** The new palette button next to your name opens the look menu: **Next-gen** or **Classic** (the look before, unchanged), **Auto**, **Light** or **Dark**, and an accent (indigo, cyan, emerald, violet or amber); it is saved to your profile, so it follows you to every computer.
+- **Reports in your look.** The interactive report, and the Cx Credits Calculator's projection report and PDF summary, come out in the look, theme and accent of the person who downloads or receives them, with the classic look for everyone when it is chosen; printing always uses a light page.
+- **Admins decide for everyone.** Settings → Branding → **Look of the app**: **Offer the next-gen look** (on by default; off gives everyone, and every report, the classic look) and **Menu in the next-gen look**, down the left side (the default) or along the top on wide screens.
+- **In fourteen languages.** The look menu and the Branding options are translated and reviewed twice in every language.
+- **Status.** 3000 people at once on 2 vCPU: 510 requests a second with none failed, report opens 10.2 s at p95, triage polls 529 ms; two earlier runs of the release failed 49 and 43 requests in host stalls, as main did (186 and 10) ([performance](docs/performance.md)); 670 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.76 — 2026-10-14 12:58 UTC · [#99](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/99)
 

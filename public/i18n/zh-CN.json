@@ -3153,6 +3153,24 @@
   "Left out: {0} projects whose latest scan counted no lines of code.": "已排除：{0} 个最近一次扫描未统计到任何代码行数的项目。",
   "Left out: {0} projects with no open findings.": "已排除：{0} 个没有未关闭检测结果的项目。",
   "Branch: each project's primary branch": "分支：每个项目的主要分支",
-  "Branch: every branch": "分支：所有分支"
+  "Branch: every branch": "分支：所有分支",
+  "Look": "外观",
+  "Next-gen": "新一代",
+  "Classic": "经典",
+  "Accent": "强调色",
+  "Indigo": "靛蓝色",
+  "Cyan": "青色",
+  "Emerald": "翠绿色",
+  "Violet": "紫色",
+  "Amber": "琥珀色",
+  "Look: next-gen or classic, light or dark, and the accent": "外观：新一代或经典、浅色或深色，以及强调色",
+  "Change the look": "更改外观",
+  "Saved to your profile: the same on every computer, and in the reports you download.": "已保存到个人资料：在每台电脑上都相同，您下载的报告也会采用。",
+  "Look of the app": "应用的外观",
+  "Offer the next-gen look": "为所有人提供新一代外观",
+  "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": "开启：所有人都会使用新一代外观，除非在个人资料旁的外观菜单中选择“经典”。关闭：所有人都使用经典外观，外观菜单仅提供浅色或深色。",
+  "Menu in the next-gen look": "新一代外观中的菜单",
+  "Down the left side": "位于左侧",
+  "Along the top": "位于顶部"
  }
 }

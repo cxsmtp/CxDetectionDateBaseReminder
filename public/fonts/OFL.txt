@@ -1,3 +1,7 @@
+Copyright 2020 The Plus Jakarta Sans Project Authors (https://github.com/tokotype/PlusJakartaSans)
+Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+(Plus Jakarta Sans and JetBrains Mono, from @fontsource 5.3.0, are used by the next-gen look; IBM Plex by the classic look.)
+
 Copyright 2019 IBM Corp. All rights reserved. IBMPlexSans-Italic[wdth,wght].ttf: Copyright 2019 IBM Corp. All rights reserved.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.

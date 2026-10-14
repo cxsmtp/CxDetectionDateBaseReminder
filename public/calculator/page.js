@@ -46,6 +46,12 @@ const SOURCE_LABEL = {
   manual: 'Added by hand',
 };
 
+/** The look the app is in, for the report: next-gen or classic, the theme chosen and the accent. */
+function appLook() {
+  const { ui, theme, accent } = document.documentElement.dataset;
+  return { ui: ui === 'nextgen' ? 'nextgen' : 'classic', theme: theme ?? 'auto', accent: accent ?? 'indigo' };
+}
+
 export function initCalculator({ api, $, esc, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me, can }) {
   const c = { customers: [], open: null, pending: null, timer: null, saving: null, draft: {}, dirty: {}, present: false, remainingCredits: null, reports: [] };
   const num = (n, digits = 0) => (n === null || n === undefined || !Number.isFinite(Number(n)) ? '—' : Number(n).toLocaleString(undefined, { maximumFractionDigits: digits }));
@@ -53,7 +59,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   // The report is written in the language the page is in.
   // The report generated last, for its PDF summary (only while its customer is open).
   let lastMade = null;
-  const reportHtml = (data, generatedAt) => buildReport({ ...data, generatedAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr' });
+  const reportHtml = (data, generatedAt) => buildReport({ ...data, generatedAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr', look: appLook() });
   const savedAt = (iso) => `<time datetime="${esc(iso)}" translate="no">${esc(new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time>`;
 
   // ---- Customers ----------------------------------------------------------------------------
@@ -1487,7 +1493,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const button = $('calc-pdf');
     button.disabled = true;
     try {
-      const pdf = await slidesPdf({ ...data, generatedAt: report.createdAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr' });
+      const pdf = await slidesPdf({ ...data, generatedAt: report.createdAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr', look: appLook() });
       download(pdf, slidesFileName(report.customer, report.createdAt));
       window.mzReportActivity?.('event', 'Downloaded the calculator PDF summary');
     } catch (error) {

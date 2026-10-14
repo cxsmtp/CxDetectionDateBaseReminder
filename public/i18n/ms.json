@@ -3153,6 +3153,24 @@
   "Left out: {0} projects whose latest scan counted no lines of code.": "Dikecualikan: {0} projek yang imbasan terkininya tidak mengira sebarang baris kod.",
   "Left out: {0} projects with no open findings.": "Dikecualikan: {0} projek tanpa penemuan terbuka.",
   "Branch: each project's primary branch": "Cabang: cabang utama setiap projek",
-  "Branch: every branch": "Cabang: semua cabang"
+  "Branch: every branch": "Cabang: semua cabang",
+  "Look": "Rupa",
+  "Next-gen": "Generasi baharu",
+  "Classic": "Klasik",
+  "Accent": "Warna aksen",
+  "Indigo": "Nila",
+  "Cyan": "Sian",
+  "Emerald": "Zamrud",
+  "Violet": "Ungu",
+  "Amber": "Ambar",
+  "Look: next-gen or classic, light or dark, and the accent": "Rupa: generasi baharu atau klasik, cerah atau gelap, dan warna aksen",
+  "Change the look": "Tukar rupa",
+  "Saved to your profile: the same on every computer, and in the reports you download.": "Disimpan dalam profil anda: sama pada setiap komputer, dan dalam laporan yang anda muat turun.",
+  "Look of the app": "Rupa aplikasi",
+  "Offer the next-gen look": "Tawarkan rupa generasi baharu",
+  "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": "Hidup: semua orang mendapat rupa ini kecuali mereka memilih Klasik dalam menu rupa di sebelah profil mereka. Mati: semua orang mendapat rupa klasik, dan menu rupa hanya menawarkan cerah atau gelap.",
+  "Menu in the next-gen look": "Menu dalam rupa generasi baharu",
+  "Down the left side": "Di sebelah kiri",
+  "Along the top": "Di bahagian atas"
  }
 }

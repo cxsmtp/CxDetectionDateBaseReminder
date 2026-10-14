@@ -3153,6 +3153,24 @@
   "Left out: {0} projects whose latest scan counted no lines of code.": "ไม่นับรวม: {0} โปรเจกต์ที่การสแกนล่าสุดไม่ได้นับบรรทัดโค้ดเลย",
   "Left out: {0} projects with no open findings.": "ไม่นับรวม: {0} โปรเจกต์ที่ไม่มีผลการตรวจพบที่เปิดอยู่",
   "Branch: each project's primary branch": "แบรนช์: แบรนช์หลักของแต่ละโปรเจกต์",
-  "Branch: every branch": "แบรนช์: ทุกแบรนช์"
+  "Branch: every branch": "แบรนช์: ทุกแบรนช์",
+  "Look": "รูปลักษณ์",
+  "Next-gen": "ยุคใหม่",
+  "Classic": "คลาสสิก",
+  "Accent": "สีเน้น",
+  "Indigo": "สีคราม",
+  "Cyan": "สีฟ้าอมเขียว",
+  "Emerald": "สีมรกต",
+  "Violet": "สีม่วง",
+  "Amber": "สีอำพัน",
+  "Look: next-gen or classic, light or dark, and the accent": "รูปลักษณ์: ยุคใหม่หรือคลาสสิก สว่างหรือมืด และสีเน้น",
+  "Change the look": "เปลี่ยนรูปลักษณ์",
+  "Saved to your profile: the same on every computer, and in the reports you download.": "บันทึกไว้ในโปรไฟล์ของคุณ: เหมือนกันในทุกคอมพิวเตอร์ และในรายงานที่คุณดาวน์โหลด",
+  "Look of the app": "รูปลักษณ์ของแอป",
+  "Offer the next-gen look": "เปิดให้ใช้รูปลักษณ์ยุคใหม่",
+  "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": "เปิด: ทุกคนจะใช้รูปลักษณ์นี้ เว้นแต่จะเลือก “คลาสสิก” ในเมนูรูปลักษณ์ข้างโปรไฟล์ ปิด: ทุกคนจะใช้รูปลักษณ์คลาสสิก และเมนูรูปลักษณ์จะมีให้เลือกเพียงสว่างหรือมืด",
+  "Menu in the next-gen look": "เมนูในรูปลักษณ์ยุคใหม่",
+  "Down the left side": "ด้านซ้าย",
+  "Along the top": "ด้านบน"
  }
 }

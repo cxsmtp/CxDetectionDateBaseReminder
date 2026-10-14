@@ -3153,6 +3153,24 @@
   "Left out: {0} projects whose latest scan counted no lines of code.": "المستبعد: {0} مشروع لم يحتسب آخر فحص له أي أسطر كود.",
   "Left out: {0} projects with no open findings.": "المستبعد: {0} مشروع ليس له اكتشافات مفتوحة.",
   "Branch: each project's primary branch": "الفرع: الفرع الأساسي لكل مشروع",
-  "Branch: every branch": "الفرع: كل الفروع"
+  "Branch: every branch": "الفرع: كل الفروع",
+  "Look": "التصميم",
+  "Next-gen": "الجيل الجديد",
+  "Classic": "الكلاسيكي",
+  "Accent": "لون التمييز",
+  "Indigo": "نيلي",
+  "Cyan": "سماوي",
+  "Emerald": "زمردي",
+  "Violet": "بنفسجي",
+  "Amber": "كهرماني",
+  "Look: next-gen or classic, light or dark, and the accent": "التصميم: الجيل الجديد أو الكلاسيكي، فاتح أو داكن، ولون التمييز",
+  "Change the look": "تغيير التصميم",
+  "Saved to your profile: the same on every computer, and in the reports you download.": "يُحفظ في ملفك الشخصي، فيبقى كما هو على أي كمبيوتر وفي التقارير التي تنزّلها.",
+  "Look of the app": "تصميم التطبيق",
+  "Offer the next-gen look": "إتاحة تصميم الجيل الجديد",
+  "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": "مفعّل: يحصل عليه الجميع ما لم يختاروا «الكلاسيكي» في قائمة التصميم بجانب ملفهم الشخصي. متوقف: يحصل الجميع على التصميم الكلاسيكي، ولا تتيح قائمة التصميم إلا الفاتح أو الداكن.",
+  "Menu in the next-gen look": "القائمة في تصميم الجيل الجديد",
+  "Down the left side": "على الجانب",
+  "Along the top": "في الأعلى"
  }
 }

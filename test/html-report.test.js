@@ -315,3 +315,18 @@ test('Remediate all, critical and high: confirmed findings, one per Checkmarx On
   assert.match(html, /<span id="bulk-fix-progress" class="muted"><\/span>/);
   assert.doesNotMatch(generateHtmlReport(data), /data-fix-scope="/, 'no Remediate all when the report cannot remediate');
 });
+
+test('the report’s look: next-gen with its accent and theme, or the classic look, and nothing unknown gets in', async () => {
+  const data = { projects: [], generatedAt: '2026-10-14T00:00:00Z' };
+  const classic = generateHtmlReport(data);
+  assert.match(classic, /<html lang="en">/);
+  assert.doesNotMatch(classic, /The next-gen look/);
+  const next = generateHtmlReport(data, { look: { ui: 'nextgen', theme: 'light', accent: 'amber' } });
+  assert.match(next, /<html lang="en" data-ui="nextgen" data-accent="amber" data-theme="light">/);
+  assert.match(next, /The next-gen look/);
+  assert.match(next, /#b45309/, 'the amber accent’s ink');
+  const odd = generateHtmlReport(data, { look: { ui: 'nextgen', theme: '"><script>', accent: '"><script>' } });
+  assert.match(odd, /<html lang="en" data-ui="nextgen" data-accent="indigo">/);
+  assert.doesNotMatch(odd, /"><script>/);
+  assert.match(generateHtmlReport(data, { look: { ui: 'classic', theme: 'dark' } }), /<html lang="en" data-theme="dark">/);
+});

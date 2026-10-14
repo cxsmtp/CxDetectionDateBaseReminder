@@ -1,0 +1,449 @@
+/* The next-gen look (Obsidian and Daylight): CxMissionZero, restyled on top of styles.css.
+   Everything here applies only under html[data-ui="nextgen"]; without it the page is the classic look, unchanged.
+   Fonts: Plus Jakarta Sans and JetBrains Mono, shipped in public/fonts (SIL OFL 1.1, see fonts/OFL.txt). */
+
+@font-face { font-family: "MZ Jakarta"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/plus-jakarta-sans-latin-400-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "MZ Jakarta"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/plus-jakarta-sans-latin-ext-400-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "MZ Jakarta"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/plus-jakarta-sans-vietnamese-400-normal.woff2) format("woff2"); unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB; }
+@font-face { font-family: "MZ Jakarta"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/plus-jakarta-sans-latin-500-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "MZ Jakarta"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/plus-jakarta-sans-latin-ext-500-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "MZ Jakarta"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/plus-jakarta-sans-vietnamese-500-normal.woff2) format("woff2"); unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB; }
+@font-face { font-family: "MZ Jakarta"; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/plus-jakarta-sans-latin-600-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "MZ Jakarta"; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/plus-jakarta-sans-latin-ext-600-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "MZ Jakarta"; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/plus-jakarta-sans-vietnamese-600-normal.woff2) format("woff2"); unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB; }
+@font-face { font-family: "MZ Jakarta"; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/plus-jakarta-sans-latin-700-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "MZ Jakarta"; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/plus-jakarta-sans-latin-ext-700-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "MZ Jakarta"; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/plus-jakarta-sans-vietnamese-700-normal.woff2) format("woff2"); unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB; }
+@font-face { font-family: "MZ Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "MZ Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/jetbrains-mono-latin-ext-400-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "MZ Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/jetbrains-mono-latin-500-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "MZ Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/jetbrains-mono-latin-ext-500-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "MZ Mono"; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/jetbrains-mono-latin-600-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "MZ Mono"; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/jetbrains-mono-latin-ext-600-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+
+/* ==========================================================================
+   Tokens. Light ("Daylight"), dark ("Obsidian"), and Auto (the device's), as in the classic look:
+   html[data-theme] chooses, none follows the device. The accent is the person's (html[data-accent]).
+   ========================================================================== */
+
+:root[data-ui="nextgen"] {
+  /* The accent: its colour for text and links on light and dark, and the gradient of primary actions. */
+  --ng-ink-light: #4f46e5;
+  --ng-ink-dark: #a5b4fc;
+  --ng-from: #6366f1;
+  --ng-to: #06b6d4;
+  --ng-glow: rgb(99 102 241 / 0.35);
+  /* Behind white text (buttons, the brand tile, the avatar): the accent's deep end, so the text keeps 4.5:1. */
+  --ng-solid: linear-gradient(135deg, var(--ng-ink-light), color-mix(in srgb, var(--ng-to) 60%, #0b1020));
+
+  color-scheme: light;
+  --bg: #f3f5fb;
+  --surface: #ffffff;
+  --surface-2: #f6f7fc;
+  --surface-3: #eceff7;
+  --border: #e2e6f0;
+  --border-strong: #cbd2e1;
+  --text: #0b1020;
+  --muted: #5a6478;
+  --accent: var(--ng-ink-light);
+  --accent-2: var(--ng-ink-light);
+  --accent-ink: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--ng-from) 9%, transparent);
+  --primary: var(--ng-from);
+  --primary-hover: var(--ng-from);
+  --primary-ink: #ffffff;
+  --danger: #e11d48;
+  --danger-soft: rgb(225 29 72 / 0.08);
+  --ok: #059669;
+  --ok-soft: rgb(5 150 105 / 0.09);
+  --warn: #b45309;
+  --warn-soft: rgb(180 83 9 / 0.09);
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -16px rgb(15 23 42 / 0.18);
+  --shadow-pop: 0 0 0 1px rgb(15 23 42 / 0.06), 0 18px 40px -16px rgb(15 23 42 / 0.28);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --font: "MZ Jakarta", "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --mono: "MZ Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  /* Glass: what panels, the menu and the header are made of. */
+  --ng-glass: rgb(255 255 255 / 0.78);
+  --ng-glass-line: rgb(15 23 42 / 0.07);
+  --ng-ambient-1: rgb(99 102 241 / 0.10);
+  --ng-ambient-2: rgb(6 182 212 / 0.08);
+  --ng-ambient-3: rgb(16 185 129 / 0.06);
+  --ng-head: #64748b;
+}
+
+/* Obsidian: the dark look, chosen, or the device's when nothing is chosen. */
+:root[data-ui="nextgen"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #06080f;
+  --surface: #0e1422;
+  --surface-2: #121a2b;
+  --surface-3: #1a2335;
+  --border: #1d2638;
+  --border-strong: #2a3449;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --accent: var(--ng-ink-dark);
+  --accent-2: var(--ng-ink-dark);
+  --accent-ink: #06080f;
+  --accent-soft: color-mix(in srgb, var(--ng-from) 16%, transparent);
+  --danger: #fb7185;
+  --danger-soft: rgb(244 63 94 / 0.14);
+  --ok: #34d399;
+  --ok-soft: rgb(16 185 129 / 0.14);
+  --warn: #fbbf24;
+  --warn-soft: rgb(245 158 11 / 0.14);
+  --shadow-sm: none;
+  --shadow: 0 8px 30px rgb(0 0 0 / 0.35);
+  --shadow-pop: 0 0 0 1px rgb(255 255 255 / 0.08), 0 20px 48px -12px rgb(0 0 0 / 0.7);
+  --ng-glass: rgb(13 18 30 / 0.72);
+  --ng-glass-line: rgb(255 255 255 / 0.07);
+  --ng-ambient-1: rgb(79 70 229 / 0.12);
+  --ng-ambient-2: rgb(8 145 178 / 0.10);
+  --ng-ambient-3: rgb(5 150 105 / 0.07);
+  --ng-head: #7c8aa5;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-ui="nextgen"]:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #06080f;
+    --surface: #0e1422;
+    --surface-2: #121a2b;
+    --surface-3: #1a2335;
+    --border: #1d2638;
+    --border-strong: #2a3449;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: var(--ng-ink-dark);
+    --accent-2: var(--ng-ink-dark);
+    --accent-ink: #06080f;
+    --accent-soft: color-mix(in srgb, var(--ng-from) 16%, transparent);
+    --danger: #fb7185;
+    --danger-soft: rgb(244 63 94 / 0.14);
+    --ok: #34d399;
+    --ok-soft: rgb(16 185 129 / 0.14);
+    --warn: #fbbf24;
+    --warn-soft: rgb(245 158 11 / 0.14);
+    --shadow-sm: none;
+    --shadow: 0 8px 30px rgb(0 0 0 / 0.35);
+    --shadow-pop: 0 0 0 1px rgb(255 255 255 / 0.08), 0 20px 48px -12px rgb(0 0 0 / 0.7);
+    --ng-glass: rgb(13 18 30 / 0.72);
+    --ng-glass-line: rgb(255 255 255 / 0.07);
+    --ng-ambient-1: rgb(79 70 229 / 0.12);
+    --ng-ambient-2: rgb(8 145 178 / 0.10);
+    --ng-ambient-3: rgb(5 150 105 / 0.07);
+    --ng-head: #7c8aa5;
+  }
+}
+
+/* Accents (Settings → Your profile, or the look menu by the profile). Indigo is the default above. */
+:root[data-ui="nextgen"][data-accent="cyan"] { --ng-ink-light: #0e7490; --ng-ink-dark: #67e8f9; --ng-from: #06b6d4; --ng-to: #6366f1; --ng-glow: rgb(6 182 212 / 0.35); }
+:root[data-ui="nextgen"][data-accent="emerald"] { --ng-ink-light: #047857; --ng-ink-dark: #6ee7b7; --ng-from: #10b981; --ng-to: #06b6d4; --ng-glow: rgb(16 185 129 / 0.35); }
+:root[data-ui="nextgen"][data-accent="violet"] { --ng-ink-light: #6d28d9; --ng-ink-dark: #c4b5fd; --ng-from: #8b5cf6; --ng-to: #6366f1; --ng-glow: rgb(139 92 246 / 0.35); }
+:root[data-ui="nextgen"][data-accent="amber"] { --ng-ink-light: #b45309; --ng-ink-dark: #fcd34d; --ng-from: #f59e0b; --ng-to: #f43f5e; --ng-glow: rgb(245 158 11 / 0.35); }
+
+/* ==========================================================================
+   Page, type, the ambient light behind everything
+   ========================================================================== */
+
+:root[data-ui="nextgen"] body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(600px 340px at 22% -60px, var(--ng-ambient-1), transparent 70%),
+    radial-gradient(520px 420px at 105% 30%, var(--ng-ambient-2), transparent 70%),
+    radial-gradient(700px 360px at 40% 105%, var(--ng-ambient-3), transparent 70%);
+  background-attachment: fixed;
+  font-feature-settings: "kern", "liga", "ss01";
+}
+:root[data-ui="nextgen"] ::selection { background: color-mix(in srgb, var(--ng-from) 30%, transparent); }
+:root[data-ui="nextgen"] h1 { font-weight: 700; letter-spacing: -0.02em; }
+:root[data-ui="nextgen"] h2 { font-weight: 700; letter-spacing: -0.01em; }
+:root[data-ui="nextgen"] h3 { font-weight: 600; }
+:root[data-ui="nextgen"] code, :root[data-ui="nextgen"] kbd, :root[data-ui="nextgen"] .code { font-family: var(--mono); }
+:root[data-ui="nextgen"] * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+:root[data-ui="nextgen"] ::-webkit-scrollbar { width: 8px; height: 8px; }
+:root[data-ui="nextgen"] ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+:root[data-ui="nextgen"] ::-webkit-scrollbar-track { background: transparent; }
+:root[data-ui="nextgen"] :focus-visible { outline: 2px solid color-mix(in srgb, var(--ng-from) 70%, transparent); outline-offset: 2px; }
+
+/* ==========================================================================
+   Glass: panels, the menu, the header, pop-overs
+   ========================================================================== */
+
+:root[data-ui="nextgen"] .panel,
+:root[data-ui="nextgen"] .totals > div,
+:root[data-ui="nextgen"] .stat-tiles > div {
+  background: var(--ng-glass);
+  border-color: var(--ng-glass-line);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--shadow);
+}
+:root[data-ui="nextgen"] .panel { border-radius: 18px; }
+:root[data-ui="nextgen"] .sidebar {
+  background: var(--ng-glass);
+  border-inline-end-color: var(--ng-glass-line);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+:root[data-ui="nextgen"] .topbar {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  border-bottom-color: var(--ng-glass-line);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+:root[data-ui="nextgen"] .col-menu,
+:root[data-ui="nextgen"] .user-menu-body,
+:root[data-ui="nextgen"] .help-pop,
+:root[data-ui="nextgen"] .conn-pop,
+:root[data-ui="nextgen"] .toast,
+:root[data-ui="nextgen"] dialog {
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border-color: var(--ng-glass-line);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-pop);
+  border-radius: 14px;
+}
+
+/* The brand: a gradient tile with a live dot, the name in a soft white-to-grey gradient on dark. */
+:root[data-ui="nextgen"] .brand-mark {
+  position: relative;
+  border-radius: 12px;
+  background: var(--ng-solid);
+  color: #fff;
+  box-shadow: 0 6px 18px -6px var(--ng-glow);
+}
+:root[data-ui="nextgen"] .brand-mark::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: -3px;
+  bottom: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 2px solid var(--bg);
+}
+:root[data-ui="nextgen"] .app-name { font-weight: 700; letter-spacing: -0.02em; }
+@media (prefers-color-scheme: dark) {
+  :root[data-ui="nextgen"]:not([data-theme="light"]) .app-name { background: linear-gradient(90deg, #fff, #cbd5e1 60%, #94a3b8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+}
+:root[data-ui="nextgen"][data-theme="dark"] .app-name { background: linear-gradient(90deg, #fff, #cbd5e1 60%, #94a3b8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* The menu: each page a soft pill; the open one lit with the accent. */
+:root[data-ui="nextgen"] .tab { border-radius: 10px; border: 1px solid transparent; font-weight: 500; }
+:root[data-ui="nextgen"] .tab:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+:root[data-ui="nextgen"] .tab.active {
+  color: var(--text);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ng-from) 20%, transparent), color-mix(in srgb, var(--ng-to) 10%, transparent));
+  border-color: color-mix(in srgb, var(--ng-from) 35%, transparent);
+  box-shadow: 0 0 18px -6px var(--ng-glow);
+}
+:root[data-ui="nextgen"] .tab.active svg { color: var(--accent); }
+:root[data-ui="nextgen"] .nav-group { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; }
+:root[data-ui="nextgen"] .stage-chip { font-family: var(--mono); letter-spacing: 0.08em; border-radius: 999px; }
+
+/* ==========================================================================
+   Controls
+   ========================================================================== */
+
+:root[data-ui="nextgen"] button,
+:root[data-ui="nextgen"] .button,
+:root[data-ui="nextgen"] .button-like {
+  border-radius: 10px;
+  border-color: var(--ng-glass-line);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  font-weight: 600;
+  transition: background 0.18s, border-color 0.18s, box-shadow 0.18s, transform 0.08s;
+}
+:root[data-ui="nextgen"] button:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ng-from) 40%, transparent); background: color-mix(in srgb, var(--ng-from) 8%, var(--surface)); }
+:root[data-ui="nextgen"] button:active:not(:disabled) { transform: translateY(1px); }
+:root[data-ui="nextgen"] button.primary,
+:root[data-ui="nextgen"] a.button.primary {
+  color: #fff;
+  border-color: transparent;
+  background: var(--ng-solid);
+  box-shadow: 0 8px 22px -10px var(--ng-glow), inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+:root[data-ui="nextgen"] button.primary:hover:not(:disabled),
+:root[data-ui="nextgen"] a.button.primary:hover {
+  background: var(--ng-solid);
+  filter: brightness(1.08);
+  border-color: transparent;
+  box-shadow: 0 10px 28px -10px var(--ng-glow), inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+:root[data-ui="nextgen"] button.ghost { background: transparent; border-color: transparent; }
+:root[data-ui="nextgen"] button.ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 6%, transparent); border-color: transparent; }
+:root[data-ui="nextgen"] button.link { background: none; border: none; box-shadow: none; }
+/* The golden buttons (credits ready) keep their gold in either look. */
+:root[data-ui="nextgen"] button.is-golden:not(:disabled) { border-radius: 10px; }
+
+:root[data-ui="nextgen"] input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"]),
+:root[data-ui="nextgen"] select,
+:root[data-ui="nextgen"] textarea {
+  border-radius: 10px;
+  border-color: color-mix(in srgb, var(--text) 12%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 85%, transparent);
+}
+:root[data-ui="nextgen"] input:not([type="range"]):focus,
+:root[data-ui="nextgen"] select:focus,
+:root[data-ui="nextgen"] textarea:focus {
+  border-color: var(--ng-from);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ng-from) 22%, transparent);
+}
+:root[data-ui="nextgen"] .switch input[type="checkbox"]:checked { background: linear-gradient(135deg, var(--ng-from), var(--ng-to)); }
+:root[data-ui="nextgen"] .pill-check { border-radius: 999px; border-color: var(--ng-glass-line); background: color-mix(in srgb, var(--surface) 70%, transparent); }
+:root[data-ui="nextgen"] .pill-check:has(input:checked) { border-color: color-mix(in srgb, var(--ng-from) 45%, transparent); background: color-mix(in srgb, var(--ng-from) 14%, transparent); color: var(--accent); }
+:root[data-ui="nextgen"] .chip { border-radius: 999px; border: 1px solid var(--ng-glass-line); font-family: var(--mono); font-size: 11.5px; }
+:root[data-ui="nextgen"] .user-menu > summary { border-radius: 12px; border-color: var(--ng-glass-line); background: color-mix(in srgb, var(--surface) 70%, transparent); }
+:root[data-ui="nextgen"] .user-menu .avatar.sm { background: var(--ng-solid); color: #fff; }
+:root[data-ui="nextgen"] .conn-chip { border-radius: 10px; font-family: var(--mono); font-size: 11.5px; }
+
+/* Page tabs (Overview, Remind, …): a segmented control of pills. */
+:root[data-ui="nextgen"] .ptabs { border-radius: 14px; border-color: var(--ng-glass-line); background: color-mix(in srgb, var(--surface) 55%, transparent); }
+:root[data-ui="nextgen"] .ptab { border-radius: 10px; }
+:root[data-ui="nextgen"] .ptab[aria-selected="true"],
+:root[data-ui="nextgen"] .ptab.active { background: linear-gradient(135deg, color-mix(in srgb, var(--ng-from) 22%, transparent), color-mix(in srgb, var(--ng-to) 10%, transparent)); color: var(--text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ng-from) 35%, transparent); }
+
+/* ==========================================================================
+   Figures and tables
+   ========================================================================== */
+
+:root[data-ui="nextgen"] .totals .value,
+:root[data-ui="nextgen"] .stat-tiles .value { font-family: var(--mono); font-weight: 600; letter-spacing: -0.03em; }
+:root[data-ui="nextgen"] .totals > div,
+:root[data-ui="nextgen"] .stat-tiles > div { border-radius: 16px; position: relative; overflow: hidden; }
+:root[data-ui="nextgen"] .totals > div::before,
+:root[data-ui="nextgen"] .stat-tiles > div::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--ng-from), var(--ng-to));
+  opacity: 0.55;
+}
+:root[data-ui="nextgen"] .table-wrap { border-radius: 16px; border-color: var(--ng-glass-line); background: color-mix(in srgb, var(--surface) 55%, transparent); }
+:root[data-ui="nextgen"] thead th,
+:root[data-ui="nextgen"] #projects thead th {
+  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+  color: var(--ng-head);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+:root[data-ui="nextgen"] th, :root[data-ui="nextgen"] td { border-bottom-color: var(--ng-glass-line); }
+:root[data-ui="nextgen"] td.num { font-family: var(--mono); font-size: 13px; }
+@media (hover: hover) {
+  :root[data-ui="nextgen"] tbody tr:hover td { background: color-mix(in srgb, var(--ng-from) 6%, transparent); }
+}
+:root[data-ui="nextgen"] .hint, :root[data-ui="nextgen"] .muted { color: var(--muted); }
+/* Values typed into settings read as values: URLs, names, numbers in the mono face. */
+:root[data-ui="nextgen"] .field input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"]):not([type="search"]),
+:root[data-ui="nextgen"] .field textarea.code { font-family: var(--mono); font-size: 13px; }
+:root[data-ui="nextgen"] .field > span { font-weight: 600; }
+:root[data-ui="nextgen"] .app-version { font-family: var(--mono); font-weight: 600; }
+
+/* ==========================================================================
+   The look menu by the profile: look, light or dark, accent
+   ========================================================================== */
+
+.look-menu { position: relative; }
+.look-btn { display: inline-grid; place-items: center; width: var(--control-h); height: var(--control-h); padding: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
+.look-btn:hover { background: var(--surface-2); }
+.look-btn svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.look-menu[open] > .look-btn { border-color: var(--accent); color: var(--accent); }
+.look-menu > summary { list-style: none; cursor: pointer; }
+.look-menu > summary::-webkit-details-marker { display: none; }
+.look-body {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  width: min(300px, 92vw);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+.look-body fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; }
+.look-body legend { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; padding: 0; }
+.look-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 3px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); }
+.look-seg label { display: grid; place-items: center; min-height: 32px; padding: 0 8px; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); text-align: center; }
+.look-seg input { position: absolute; opacity: 0; pointer-events: none; }
+.look-seg label:has(input:checked) { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm), 0 0 0 1px var(--border-strong); }
+.look-seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+.look-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.look-swatches label { position: relative; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; background: linear-gradient(135deg, var(--sw-from), var(--sw-to)); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25); }
+.look-swatches input { position: absolute; opacity: 0; pointer-events: none; }
+.look-swatches label:has(input:checked) { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--sw-from); }
+.look-swatches label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; }
+.look-swatches .sw-indigo { --sw-from: #6366f1; --sw-to: #06b6d4; }
+.look-swatches .sw-cyan { --sw-from: #06b6d4; --sw-to: #6366f1; }
+.look-swatches .sw-emerald { --sw-from: #10b981; --sw-to: #06b6d4; }
+.look-swatches .sw-violet { --sw-from: #8b5cf6; --sw-to: #6366f1; }
+.look-swatches .sw-amber { --sw-from: #f59e0b; --sw-to: #f43f5e; }
+.look-accent[hidden] { display: none; }
+.look-body .hint { margin: 0; }
+/* A phone: the theme is in the look menu, so its own button makes room for the profile. */
+@media (max-width: 760px) {
+  .topbar-actions:has(.look-menu:not([hidden])) #theme-toggle { display: none; }
+}
+/* A narrow phone: tighter gaps and chips, so the look button and the profile both fit beside the title. */
+@media (max-width: 440px) {
+  .topbar-actions:has(.look-menu:not([hidden])) { gap: 3px; }
+  .topbar-actions:has(.look-menu:not([hidden])) .conn-group { gap: 2px; }
+  .topbar-actions:has(.look-menu:not([hidden])) .conn-chip { padding: 0 5px; gap: 3px; }
+  .look-btn { width: 34px; height: 34px; }
+  .topbar-actions:has(.look-menu:not([hidden])) .user-menu > summary { padding-inline-end: 4px; }
+  .topbar-actions:has(.look-menu:not([hidden])) .lang-pick { padding: 0 5px; }
+}
+
+/* ==========================================================================
+   The menu along the top (Settings → Branding, for everyone, next-gen look only).
+   Wide screens only (1261px and up, where every page fits): narrower ones keep the menu down the side, the icon rail or the phone's bottom bar.
+   ========================================================================== */
+
+@media (min-width: 1261px) {
+  :root[data-ui="nextgen"][data-nav="top"] { --ng-nav-h: 60px; scroll-padding-top: calc(var(--ng-nav-h) + var(--topbar-h) + 64px); }
+  :root[data-ui="nextgen"][data-nav="top"] .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  :root[data-ui="nextgen"][data-nav="top"] .sidebar {
+    position: sticky;
+    top: 0;
+    height: var(--ng-nav-h);
+    flex-direction: row;
+    align-items: center;
+    gap: 18px;
+    padding: 0 24px;
+    overflow: visible;
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--ng-glass-line);
+    z-index: 30;
+  }
+  :root[data-ui="nextgen"][data-nav="top"] .brand { flex: 0 0 auto; padding: 0; }
+  :root[data-ui="nextgen"][data-nav="top"] .nav { flex: 1 1 auto; flex-direction: row; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  :root[data-ui="nextgen"][data-nav="top"] .nav::-webkit-scrollbar { display: none; }
+  :root[data-ui="nextgen"][data-nav="top"] .nav-group { display: none; }
+  :root[data-ui="nextgen"][data-nav="top"] .nav-group + .tab { margin-inline-start: 10px; }
+  :root[data-ui="nextgen"][data-nav="top"] .tab { padding: 7px 10px; white-space: nowrap; gap: 7px; font-size: 13.5px; }
+  :root[data-ui="nextgen"][data-nav="top"] .tab.active::before { display: none; }
+  :root[data-ui="nextgen"][data-nav="top"] .sidebar-tools { flex-direction: row; display: flex; margin: 0; padding: 0; border: 0; gap: 4px; }
+  :root[data-ui="nextgen"][data-nav="top"] .sidebar-tools .side-btn span { display: none; }
+  :root[data-ui="nextgen"][data-nav="top"] .sidebar-pin { display: none; }
+  :root[data-ui="nextgen"][data-nav="top"] .sidebar-foot { display: none; }
+  /* The version stays in Settings → About. */
+  :root[data-ui="nextgen"][data-nav="top"] .sidebar .app-version { display: none; }
+  :root[data-ui="nextgen"][data-nav="top"] .topbar { top: var(--ng-nav-h); }
+}
+/* Not quite wide enough for every page with its icon: the names only. */
+@media (min-width: 1261px) and (max-width: 1599px) {
+  :root[data-ui="nextgen"][data-nav="top"] .tab > svg { display: none; }
+  :root[data-ui="nextgen"][data-nav="top"] .nav-group + .tab { margin-inline-start: 6px; }
+}
