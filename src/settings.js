@@ -73,6 +73,11 @@ export const DEFAULT_SETTINGS = {
     logoHeight: 40,
     accentColor: '#1d4ed8',
     callToAction: 'Please review and remediate these findings, oldest first.',
+    // The next-gen look (public/nextgen.css): offered to everyone, and theirs unless they pick the classic one.
+    // Off: everyone has the classic look and nobody is offered the other.
+    nextGen: true,
+    // Where the menu sits in the next-gen look: down the left side (the default) or along the top.
+    navPosition: 'left',
   },
   automation: { ...DEFAULT_AUTOMATION },
   /**
@@ -402,6 +407,8 @@ export function mergeSettings(current, incoming = {}) {
       const url = String(input.logoUrl ?? '').trim();
       branding.logoUrl = url === '' || isSafeImageUrl(url) ? url : branding.logoUrl;
     }
+    if ('nextGen' in input) branding.nextGen = input.nextGen !== false;
+    if ('navPosition' in input) branding.navPosition = input.navPosition === 'top' ? 'top' : 'left';
     if ('iconUrl' in input) {
       const url = String(input.iconUrl ?? '').trim();
       if (url && !isSafeIconUrl(url)) throw Object.assign(new Error('The browser icon must be an image (PNG, SVG, ICO, WebP or JPG) of up to 100 KB, or an https address.'), { status: 400 });

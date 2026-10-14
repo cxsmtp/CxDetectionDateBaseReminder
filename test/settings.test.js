@@ -133,6 +133,21 @@ test('the product is CxMissionZero; an earlier default name saved by auto-save b
   assert.equal(load('Mission Zero').companyName, 'Acme', 'the rest of the branding is kept');
 });
 
+test('the next-gen look is on and the menu down the left side unless an admin changes them; a saved file from before gets them', () => {
+  assert.deepEqual([base().branding.nextGen, base().branding.navPosition], [true, 'left']);
+  const offSettings = mergeSettings(base(), { branding: { nextGen: false, navPosition: 'top' } });
+  const off = offSettings.branding;
+  assert.deepEqual([off.nextGen, off.navPosition], [false, 'top']);
+  const odd = mergeSettings(base(), { branding: { nextGen: 'no', navPosition: 'right' } }).branding;
+  assert.deepEqual([odd.nextGen, odd.navPosition], [true, 'left'], 'only false turns it off; only top moves the menu');
+  assert.equal(mergeSettings(offSettings, { branding: { appName: 'Acme' } }).branding.nextGen, false, 'other Branding changes keep it');
+  const file = tempFile();
+  fs.writeFileSync(file, JSON.stringify({ branding: { appName: 'Acme' } }));
+  const loaded = new SettingsStore({ file }).get().branding;
+  assert.deepEqual([loaded.nextGen, loaded.navPosition], [true, 'left']);
+  assert.equal(overlayBranding(off, { on: true, nextGen: true }).nextGen, false, 'personal branding cannot turn it back on');
+});
+
 test('markVerified pins the fingerprint of the settings in force', () => {
   const store = new SettingsStore({ file: tempFile() });
   store.save({ smtp: { host: 'smtp.example.com', password: 'pw' } });

@@ -63,6 +63,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.77 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+
+- **A next-gen look.** Glass panels on a deep "Obsidian" dark or a soft "Daylight" light, a gradient brand mark and primary buttons, Plus Jakarta Sans for text and JetBrains Mono for figures, chips and table headers, on every page, in every language, right to left and on a phone; the fonts ship inside the image, so nothing is loaded from the internet.
+- **The classic look one click away.** The new palette button next to your name opens the look menu: **Next-gen** or **Classic** (the look before, unchanged), **Auto**, **Light** or **Dark**, and an accent (indigo, cyan, emerald, violet or amber); it is saved to your profile, so it follows you to every computer.
+- **Reports in your look.** The interactive report, and the Cx Credits Calculator's projection report and PDF summary, come out in the look, theme and accent of the person who downloads or receives them, with the classic look for everyone when it is chosen; printing always uses a light page.
+- **Admins decide for everyone.** Settings → Branding → **Look of the app**: **Offer the next-gen look** (on by default; off gives everyone, and every report, the classic look) and **Menu in the next-gen look**, down the left side (the default) or along the top on wide screens.
+- **In fourteen languages.** The look menu and the Branding options are translated and reviewed twice in every language.
+- **Status.** STATUS_LINE
+
 ## MZ-01.00.76 — 2026-10-14 12:58 UTC · [#99](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/99)
 
 - **Sort the Fusion projects table by any column.** In the Cx Credits Calculator, click **Project**, **Criticality**, **Scanned today**, **Lines of code**, **10K units**, **Fusion scans**, **Model** or **Credits** to sort by it, and click again for the other way; names start A to Z and numbers largest first.

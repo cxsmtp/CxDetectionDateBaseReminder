@@ -198,7 +198,8 @@ For example, 24,000 + 700.5 credits with 10% extra is 27,170.55 credits: 2.72 bu
 - The file is named after the customer and the time it was made, on your clock: `Globex_Cx-credits-projection_2026-10-09_2047.html`.
 - It is one HTML file with everything in it: no scripts and nothing loaded from anywhere. Open it in any browser, or print it to PDF (always in the light theme).
 - It is written in the language the page is in when it is made or downloaded again, right to left for Arabic and Hebrew.
-- **Auto**, **Light** and **Dark** at the top switch its theme; Auto follows the reader's system.
+- **Auto**, **Light** and **Dark** at the top switch its theme; Auto follows the reader's system. It opens on the theme you use in the app.
+- It is in the app's look when you make it: the next-gen look with your accent (Plus Jakarta Sans and JetBrains Mono when the reader has them), or the classic look. The PDF summary follows the same look.
 - Long project or model names wrap inside their cells, and a table wider than the screen (on a phone) scrolls inside its own box: nothing runs off the page.
 - It says the answer first: **Total credits required**, the bundles and the period, with one bar of what the credits are for (backlog today, findings ahead, Fusion scans, extra).
 - Then that the figures are live: *Read live from Checkmarx One on 12 October 2026: 40 projects, 4,232 scans, 3,653 open vulnerabilities*, the trend period, and the projects counted when the scope was narrowed.

@@ -10,14 +10,34 @@ import { FREQUENCIES, SEVERITIES, aheadMonths, creditSummary } from './model.js'
 import { allSections } from './explain.js';
 import { forecastChart } from './charts.js';
 import { assumptionItems, reportFileName, trFigures, wording } from './report.js';
+import { NEXTGEN_ACCENTS, reportLook } from '../look.js';
 
 /** The page size in PDF points (16:9, as a presentation) and the drawing size in pixels. */
 export const PAGE = { width: 960, height: 540 };
 const W = 1920;
 const H = 1080;
 
-const C = { head: '#14171c', ink: '#14171c', muted: '#5c636e', line: '#e2e5e9', soft: '#f4f6fb', accent: '#2856c9', fusion: '#0d9488', white: '#ffffff' };
-const FONT = '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif';
+const CLASSIC = { head: '#14171c', ink: '#14171c', muted: '#5c636e', line: '#e2e5e9', soft: '#f4f6fb', key: '#eef2fc', accent: '#2856c9', fusion: '#0d9488', white: '#ffffff' };
+const CLASSIC_FONT = '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif';
+// The colours and face of the PDF being made: the classic look's, or the next-gen look's (see useLook).
+let C = CLASSIC;
+let FONT = CLASSIC_FONT;
+
+/** `a` mixed into white by `share` (0–1), as a hex colour a canvas takes. */
+const tint = (a, share) => `#${[1, 3, 5].map((i) => Math.round(255 - (255 - parseInt(a.slice(i, i + 2), 16)) * share).toString(16).padStart(2, '0')).join('')}`;
+
+/** The PDF in the app's look: next-gen has its deep header, the accent's ink and gradient, and Plus Jakarta Sans. */
+function useLook(look) {
+  const { ui, accent } = reportLook(look);
+  if (ui !== 'nextgen') {
+    C = CLASSIC;
+    FONT = CLASSIC_FONT;
+    return;
+  }
+  const [ink, , from, to] = NEXTGEN_ACCENTS[accent];
+  C = { ...CLASSIC, head: '#0b1020', ink: '#0b1020', muted: '#5a6478', line: '#e2e6f0', soft: '#f3f5fb', key: tint(from, 0.1), accent: ink, from, to };
+  FONT = `"MZ Jakarta", "Plus Jakarta Sans", ${CLASSIC_FONT}`;
+}
 
 /** HTML wording as plain text, for drawing. */
 const plain = (html) => String(html ?? '').replace(/<[^>]*>/g, '').replace(/&(amp|lt|gt|quot|#39);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[e]);
@@ -210,6 +230,14 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
   // The band at the top: who it is for, and what this page is.
   ctx.fillStyle = C.head;
   ctx.fillRect(0, 0, W, 170);
+  if (C.from) {
+    // Next-gen: the accent's gradient under the band.
+    const line = ctx.createLinearGradient(0, 0, W, 0);
+    line.addColorStop(rtl ? 1 : 0, C.from);
+    line.addColorStop(rtl ? 0 : 1, C.to);
+    ctx.fillStyle = line;
+    ctx.fillRect(0, 170, W, 6);
+  }
   text(content.eyebrow, 80, 66, { size: 26, colour: '#c3c8cf' });
   ctx.font = font(48, 600);
   text(wrap(ctx, content.heading(page), W - 360)[0] ?? '', 80, 128, { size: 48, weight: 600, colour: C.white });
@@ -282,7 +310,7 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
   // The figures down the side, the picture beside them, the lines under it.
   let fy = 290;
   for (const fig of page.figures) {
-    ctx.fillStyle = fig.key ? '#eef2fc' : C.soft;
+    ctx.fillStyle = fig.key ? C.key : C.soft;
     ctx.fillRect(X(80, 560), fy, 560, 150);
     const after = lines(fig.label, 108, fy + 44, 504, { size: 24, colour: C.muted, lead: 30 });
     text(fig.value, 108, Math.max(after + 36, fy + 112), { size: 54, weight: 600, colour: fig.key ? C.accent : C.ink });
@@ -374,8 +402,11 @@ function layoutAppendix(ctx, content) {
 }
 
 /** The pages as JPEGs, drawn in the reader's language and direction. */
-export async function drawSlides(data, { t, lang = 'en', dir = 'ltr' } = {}) {
+export async function drawSlides(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
+  useLook(look);
   const content = slideContent(data, { t, lang });
+  // A face is fetched only once something uses it: ask for the weights the pages draw with.
+  await Promise.all([400, 600].map((weight) => document.fonts?.load(`${weight} 28px ${FONT}`))).catch(() => {});
   await document.fonts?.ready;
   const canvas = document.createElement('canvas');
   canvas.width = W;

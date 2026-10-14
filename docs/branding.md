@@ -5,6 +5,25 @@ CxMissionZero has two kinds of branding.
 - **The organisation's branding** is under Settings → Branding. It is the app name, company name, logo, accent colour and call to action that everyone uses, and that head every reminder email and report.
 - **Your branding** is under Settings → Your branding. It is one person's own names, logo and colours, for when they present CxMissionZero to someone else, such as a prospect, a customer or another team.
 
+## The look of the app: next-gen or classic
+
+MZ-01.00.77 adds a **next-gen look**: glass panels on a deep "Obsidian" dark or a soft "Daylight" light, a gradient brand mark and primary buttons, Plus Jakarta Sans for text and JetBrains Mono for figures, chips and table headers. The **classic look** is the look before it, unchanged. Both work light, dark or on the device's setting, in every language (Arabic and Hebrew right to left), and on a phone.
+
+**Each person** chooses with the palette button next to their name: **Look** (Next-gen or Classic), **Theme** (Auto, Light, Dark) and **Accent** (indigo, cyan, emerald, violet or amber). It is saved to their profile (quietly: no audit entry), so it follows them to every computer, and it is applied before the page appears, with no flash.
+
+**The reports they download** are in their look: the interactive HTML report (next-gen header, glass cards, their accent; their theme chosen, or their device's on Auto), and the Cx Credits Calculator's projection report and PDF summary. A report emailed to someone, or run on a schedule, is in that person's look when they have an account, otherwise in the organisation's default. Printing always uses a light page.
+
+**An Admin** (or a role with **Branding**) decides for everyone under Settings → Branding → **Look of the app**:
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| **Offer the next-gen look** | On | Off: everyone has the classic look, every report is classic, and the look menu offers only the theme. Turning it back on gives everyone the next-gen look again, except those who chose Classic. |
+| **Menu in the next-gen look** | Down the left side | **Along the top**: the pages in one row across the top, on screens 1261 pixels wide and more (names only below 1600 pixels). Narrower screens keep the side menu, the icon rail or the phone's bottom bar. |
+
+Both change for everyone as soon as they are saved. A person's own branding cannot change them.
+
+The fonts are inside the image (`public/fonts`, SIL Open Font License 1.1, see `public/fonts/OFL.txt`). Nothing is loaded from the internet, so the next-gen look works on a server with no internet access. The report files do not carry the fonts (they travel by email): a reader who has Plus Jakarta Sans or JetBrains Mono installed sees them, everyone else their system's own.
+
 ## Your branding
 
 Open your name at the top right, then **Settings**, then **Your branding**. It sits under **You**, next to **Your profile**.

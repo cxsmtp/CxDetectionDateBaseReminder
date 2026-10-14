@@ -137,3 +137,28 @@ test('a Security Analyst sees analysts and below, never the Admins', async () =>
   assert.equal(all.users.length, 3);
   assert.ok(all.roles.some((r) => r.id === 'admin'));
 });
+
+test('the next-gen look: on for everyone by default, the reader’s choice in their reports, and the organisation’s switch', async () => {
+  const health = async () => (await admin('GET', '/api/health')).body.app;
+  assert.deepEqual([(await health()).nextGen, (await health()).navPosition], [true, 'left'], 'on, with the menu down the left side');
+  assert.equal((await admin('GET', '/api/settings')).body.branding.nextGen, true);
+
+  // The reports someone downloads are in their look, theme and accent.
+  assert.equal((await ana('GET', '/api/scan')).status, 200);
+  assert.match((await ana('POST', '/api/reports/html', {})).text, /<html lang="en" data-ui="nextgen" data-accent="indigo">/);
+  await ana('PUT', '/api/me/profile', { theme: 'dark', accent: 'violet' });
+  assert.match((await ana('POST', '/api/reports/html', {})).text, /<html lang="en" data-ui="nextgen" data-accent="violet" data-theme="dark">/);
+  await ana('PUT', '/api/me/profile', { look: 'classic' });
+  const classic = (await ana('POST', '/api/reports/html', {})).text;
+  assert.match(classic, /<html lang="en" data-theme="dark">/, 'the classic look keeps their theme');
+  assert.doesNotMatch(classic, /The next-gen look/);
+
+  // Off for the organisation: everyone, and every report, is classic. The menu position is kept for when it is back.
+  assert.equal((await admin('PUT', '/api/settings', { branding: { nextGen: false, navPosition: 'top' } })).status, 200);
+  assert.deepEqual([(await health()).nextGen, (await health()).navPosition], [false, 'top']);
+  assert.equal((await admin('GET', '/api/settings')).body.branding.companyName, 'Acme Corp', 'the rest of Branding is untouched');
+  assert.equal((await admin('GET', '/api/scan')).status, 200);
+  assert.match((await admin('POST', '/api/reports/html', {})).text, /<html lang="en">/);
+  assert.equal((await admin('PUT', '/api/settings', { branding: { nextGen: true, navPosition: 'sideways' } })).status, 200);
+  assert.deepEqual([(await health()).nextGen, (await health()).navPosition], [true, 'left'], 'an unknown position is the left side');
+});

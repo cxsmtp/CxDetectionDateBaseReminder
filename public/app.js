@@ -1440,7 +1440,7 @@ function setPageTitle(page) {
 const THEMES = ['auto', 'light', 'dark'];
 const THEME_LABELS = { auto: 'Theme: follow the device', light: 'Theme: light', dark: 'Theme: dark' };
 
-function applyTheme(theme) {
+function applyTheme(theme, { save = false } = {}) {
   const root = document.documentElement;
   if (theme === 'light' || theme === 'dark') root.dataset.theme = theme;
   else delete root.dataset.theme;
@@ -1449,12 +1449,94 @@ function applyTheme(theme) {
     if (theme === 'auto') localStorage.removeItem('mz-theme');
     else localStorage.setItem('mz-theme', theme);
   } catch {}
+  syncLookMenu();
+  // Chosen here: kept on their profile too, so every computer they use shows it.
+  if (save && state.me?.user) saveProfile({ theme: THEMES.includes(theme) ? theme : 'auto' }, { silent: true });
 }
 
 $('theme-toggle').addEventListener('click', () => {
   const current = document.documentElement.dataset.theme || 'auto';
-  applyTheme(THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]);
+  applyTheme(THEMES[(THEMES.indexOf(current) + 1) % THEMES.length], { save: true });
 });
+
+// ---------------------------------------------------------------------------
+// Look: next-gen (the default) or classic, and the next-gen look's accent. Each person's own, kept on
+// their profile and in this browser (index.html applies it before first paint). An Admin can turn the
+// next-gen look off for everyone (Settings → Branding), and choose where its menu sits.
+// ---------------------------------------------------------------------------
+
+const LOOK_ACCENTS = ['indigo', 'cyan', 'emerald', 'violet', 'amber'];
+const look = { offered: true };
+const currentLook = () => (document.documentElement.dataset.ui === 'nextgen' ? 'nextgen' : 'classic');
+const currentAccent = () => document.documentElement.dataset.accent || 'indigo';
+const remember = (key, value) => {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {}
+};
+
+function syncLookMenu() {
+  const menu = document.getElementById('look-menu');
+  if (!menu) return;
+  for (const box of menu.querySelectorAll('input[name="look"]')) box.checked = box.value === currentLook();
+  for (const box of menu.querySelectorAll('input[name="look-theme"]')) box.checked = box.value === (document.documentElement.dataset.theme || 'auto');
+  for (const box of menu.querySelectorAll('input[name="look-accent"]')) box.checked = box.value === currentAccent();
+  $('look-pick').hidden = !look.offered;
+  $('look-accent').hidden = currentLook() !== 'nextgen';
+}
+
+/** Next-gen or classic (classic whenever the organisation has the next-gen look off). */
+function applyLook(choice, { save = false } = {}) {
+  const value = look.offered && choice !== 'classic' ? 'nextgen' : 'classic';
+  if (value === 'nextgen') document.documentElement.dataset.ui = 'nextgen';
+  else delete document.documentElement.dataset.ui;
+  if (look.offered) remember('mz-look', value === 'classic' ? 'classic' : null);
+  syncLookMenu();
+  if (save && state.me?.user) saveProfile({ look: value }, { silent: true });
+}
+
+function applyAccent(accent, { save = false } = {}) {
+  const value = LOOK_ACCENTS.includes(accent) ? accent : 'indigo';
+  if (value === 'indigo') delete document.documentElement.dataset.accent;
+  else document.documentElement.dataset.accent = value;
+  remember('mz-accent', value === 'indigo' ? null : value);
+  syncLookMenu();
+  if (save && state.me?.user) saveProfile({ accent: value }, { silent: true });
+}
+
+/** The organisation's choices (from /api/health): the next-gen look offered or not, and where its menu sits. */
+function applyOrgLook({ nextGen, navPosition } = {}) {
+  look.offered = nextGen !== false;
+  remember('mz-nextgen-off', look.offered ? null : '1');
+  if (!look.offered) applyLook('classic');
+  else if (currentLook() === 'classic' && (() => { try { return localStorage.getItem('mz-look') !== 'classic'; } catch { return true; } })()) applyLook('nextgen');
+  if (navPosition === 'top') document.documentElement.dataset.nav = 'top';
+  else delete document.documentElement.dataset.nav;
+  remember('mz-nav', navPosition === 'top' ? 'top' : null);
+  syncLookMenu();
+}
+
+/** Signed in: the look, theme and accent on their profile, when they chose one. */
+function applyProfileLook(profile = {}) {
+  if (profile.look) applyLook(profile.look);
+  if (profile.theme && profile.theme !== (document.documentElement.dataset.theme || 'auto')) applyTheme(profile.theme);
+  if (profile.accent) applyAccent(profile.accent);
+}
+
+$('look-menu').addEventListener('change', (event) => {
+  const box = event.target;
+  if (box.name === 'look') applyLook(box.value, { save: true });
+  else if (box.name === 'look-theme') applyTheme(box.value, { save: true });
+  else if (box.name === 'look-accent') applyAccent(box.value, { save: true });
+});
+// Closes when someone clicks elsewhere, like the other menus up there.
+document.addEventListener('click', (event) => {
+  const menu = $('look-menu');
+  if (menu.open && !menu.contains(event.target)) menu.open = false;
+});
+$('look-menu').hidden = false;
+syncLookMenu();
 $('theme-toggle').title = THEME_LABELS[document.documentElement.dataset.theme || 'auto'];
 
 // ---------------------------------------------------------------------------
@@ -1552,6 +1634,7 @@ async function showConnected(me) {
   showAvatar($('me-avatar'), user);
   if (Array.isArray(me.languages)) languagesChanged(me.languages, true);
   applyProfile(me);
+  applyProfileLook(me.user.profile);
   renderTenantPicker(me);
   $('me-detail').textContent = `${user.email} · ${me.role.name} · signed in with ${me.via === 'cxone' ? 'a Checkmarx One key' : 'a password'}`;
   $('user-menu').hidden = false;
@@ -1967,6 +2050,9 @@ function renderSettings() {
     $('brand-height').value = s.branding.logoHeight;
     $('brand-accent').value = /^#[0-9a-f]{6}$/i.test(s.branding.accentColor) ? s.branding.accentColor : '#1d4ed8';
     $('brand-cta').value = s.branding.callToAction;
+    $('brand-nextgen').checked = s.branding.nextGen !== false;
+    $('brand-nav').value = s.branding.navPosition === 'top' ? 'top' : 'left';
+    $('brand-nav').disabled = !$('brand-nextgen').checked;
     renderBrandPreview();
   }
 
@@ -2365,6 +2451,8 @@ function settingsPayload() {
       logoHeight: $('brand-height').value,
       accentColor: $('brand-accent').value,
       callToAction: $('brand-cta').value,
+      nextGen: $('brand-nextgen').checked,
+      navPosition: $('brand-nav').value,
     },
     links: {
       baseUrl: $('link-base').value,
@@ -6134,6 +6222,13 @@ $('save-recipients').addEventListener('click', saveInlineRecipients);
 for (const id of ['brand-name', 'brand-logo', 'brand-height', 'brand-accent']) {
   $(id).addEventListener('input', renderBrandPreview);
 }
+// The look of the app for everyone: shown here at once (it is saved with the rest of Settings).
+for (const id of ['brand-nextgen', 'brand-nav']) {
+  $(id).addEventListener('change', () => {
+    $('brand-nav').disabled = !$('brand-nextgen').checked;
+    applyOrgLook({ nextGen: $('brand-nextgen').checked, navPosition: $('brand-nav').value });
+  });
+}
 $('test-smtp').addEventListener('click', testSmtp);
 $('send-test').addEventListener('click', sendTestEmail);
 $('preview-template').addEventListener('click', previewTemplate);
@@ -6578,8 +6673,9 @@ $('brand-icon-file').addEventListener('change', () => {
   reader.readAsDataURL(file);
 });
 
-function applyAppBranding({ name, logoUrl, iconVersion } = {}) {
+function applyAppBranding({ name, logoUrl, iconVersion, nextGen, navPosition } = {}) {
   if (iconVersion !== undefined) applyAppIcon(iconVersion);
+  if (nextGen !== undefined) applyOrgLook({ nextGen, navPosition });
   const appName = name || 'CxMissionZero';
   $('app-name').textContent = appName;
   document.title = appName;

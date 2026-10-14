@@ -56,6 +56,13 @@ The coloured label next to each page title says which group the page is in.
 
 **Any screen.** The layout adapts to the screen: a full sidebar on a desktop, an icon rail on a tablet, a bottom bar on a phone, and wide screens use their full width. The header is one line: the page's name and what it is for.
 
+**Your look: next-gen or classic, light or dark.** The palette button next to your name opens the look menu:
+- **Look**: **Next-gen** (the default: glass panels, Plus Jakarta Sans and JetBrains Mono, figures in a monospaced face) or **Classic** (the look before MZ-01.00.77, unchanged).
+- **Theme**: **Auto** (your device's setting), **Light** or **Dark**. The sun or moon button beside it switches the same thing.
+- **Accent**: the next-gen look's highlight colour: indigo, cyan, emerald, violet or amber.
+
+Your choice is saved to your profile, so it is the same on every computer, and the reports you download use it (see [The emailed report](#the-emailed-report)). If an Admin has turned the next-gen look off under [Branding](#branding), everyone has the classic look and the menu offers the theme only.
+
 **Hide the menu.** **Hide menu** (bottom of the sidebar) turns the sidebar into a slim bar of icons, so the pages get the width. Point at the bar and the full menu opens **over** the page, without moving anything on it; it closes when the pointer leaves or you choose a page. **Keep menu open** (the same place) brings it back beside the page. Your choice is remembered in this browser.
 
 ---
@@ -629,8 +636,10 @@ Everyone's default branding. Seen by roles with **See the Branding page**, and c
 | Logo height | 16–200 pixels. |
 | Accent colour | Buttons and headings in emails and reports. |
 | Call to action | The sentence above the findings in every email. |
+| Offer the next-gen look | On (the default): everyone has the next-gen look unless they pick **Classic** in the look menu by their profile. Off: everyone, and every report, has the classic look; the look menu offers only the theme. |
+| Menu in the next-gen look | **Down the left side** (the default) or **Along the top**, for everyone. Along the top needs a wide screen (1261 pixels and up); narrower screens keep the side menu, the icon rail or the phone's bottom bar. |
 
-The preview shows the email header exactly as recipients will see it.
+The preview shows the email header exactly as recipients will see it. The look of the app, and where its menu sits, change for everyone as soon as they are saved; see [the look of the app](branding.md#the-look-of-the-app-next-gen-or-classic).
 
 ### Links into Checkmarx One
 Every finding in an email links straight to it in Checkmarx One (Risk Hub).
@@ -791,6 +800,7 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
 
 1. **Open it.** Click the button (it downloads the report; the link works for 30 days) or open the attachment. Any browser works, and nothing needs installing.
    - It opens in your profile's language, else your browser's. **Language** at the top switches it.
+   - It is in your profile's look: next-gen or classic, light, dark or your device's, and your accent (see [Find your way](#find-your-way)). Without an account, it is in the organisation's default.
    - Your profile's language works offline. Any other language comes from the reminder server the first time, and is then kept in your browser.
    - Finding titles, project names, code, and what Checkmarx One's AI wrote stay as they are.
 2. **It connects by itself** to the reminder server shown at the top.

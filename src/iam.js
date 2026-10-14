@@ -25,6 +25,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { validCurrency } from './money.js';
+import { NEXTGEN_ACCENTS } from '../public/look.js';
 
 const scrypt = promisify(scryptCb);
 
@@ -604,8 +605,16 @@ export function cleanPersonalImpact(input = {}) {
   return out;
 }
 
+/** How a person sees the app: the look (empty: the organisation's), light or dark, and the next-gen look's accent. */
+export const LOOKS = ['nextgen', 'classic'];
+export const THEMES = ['auto', 'light', 'dark'];
+export const ACCENTS = Object.keys(NEXTGEN_ACCENTS);
+
 export function cleanProfile(patch = {}) {
   const out = {};
+  if ('look' in patch) out.look = LOOKS.includes(patch.look) ? patch.look : '';
+  if ('theme' in patch) out.theme = THEMES.includes(patch.theme) ? patch.theme : 'auto';
+  if ('accent' in patch) out.accent = ACCENTS.includes(patch.accent) ? patch.accent : 'indigo';
   if ('language' in patch) {
     if (patch.language && !PROFILE_LANGUAGES.includes(patch.language)) throw fail(400, 'That language is not available.');
     out.language = patch.language || '';
@@ -662,6 +671,9 @@ export function publicUser(user) {
       timeZoneAuto: user.profile?.timeZoneAuto !== false,
       programmingLanguages: user.profile?.programmingLanguages ?? [],
       impact: { ...PERSONAL_IMPACT, ...(user.profile?.impact ?? {}) },
+      look: user.profile?.look ?? '',
+      theme: user.profile?.theme ?? 'auto',
+      accent: user.profile?.accent ?? 'indigo',
     },
     // The picture itself is fetched on its own (GET /api/users/:id/avatar?v=avatarAt).
     avatarAt: user.avatar?.at ?? '',

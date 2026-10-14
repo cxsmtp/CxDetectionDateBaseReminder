@@ -22056,5 +22056,113 @@
   "seen": [
    "Interactive HTML report, the line under its title: its findings are from every branch scanned"
   ]
+ },
+ "Look": {
+  "kind": "text",
+  "seen": [
+   "The look menu: a small palette button in the header, next to the profile; it opens a panel with three choices: heading of the first choice — how the app looks: \"Next-gen\" (the new design) or \"Classic\" (the previous design)"
+  ]
+ },
+ "Next-gen": {
+  "kind": "text",
+  "seen": [
+   "The look menu: a small palette button in the header, next to the profile; it opens a panel with three choices: first option under \"Look\" — the new, modern design of the app (short, like a product label)"
+  ]
+ },
+ "Classic": {
+  "kind": "text",
+  "seen": [
+   "The look menu: a small palette button in the header, next to the profile; it opens a panel with three choices: second option under \"Look\" — the previous design of the app, unchanged"
+  ]
+ },
+ "Accent": {
+  "kind": "text",
+  "seen": [
+   "The look menu: a small palette button in the header, next to the profile; it opens a panel with three choices: heading of the third choice — the highlight colour of the next-gen design, picked from five colour dots"
+  ]
+ },
+ "Indigo": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "The look menu: a small palette button in the header, next to the profile; it opens a panel with three choices: screen-reader name of a colour dot under \"Accent\" (a blue-violet colour)"
+  ]
+ },
+ "Cyan": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "The look menu: a small palette button in the header, next to the profile; it opens a panel with three choices: screen-reader name of a colour dot under \"Accent\" (a bright blue-green colour)"
+  ]
+ },
+ "Emerald": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "The look menu: a small palette button in the header, next to the profile; it opens a panel with three choices: screen-reader name of a colour dot under \"Accent\" (a green colour)"
+  ]
+ },
+ "Violet": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "The look menu: a small palette button in the header, next to the profile; it opens a panel with three choices: screen-reader name of a colour dot under \"Accent\" (a purple colour)"
+  ]
+ },
+ "Amber": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "The look menu: a small palette button in the header, next to the profile; it opens a panel with three choices: screen-reader name of a colour dot under \"Accent\" (an orange-yellow colour)"
+  ]
+ },
+ "Look: next-gen or classic, light or dark, and the accent": {
+  "kind": "attr:title",
+  "seen": [
+   "The look menu: a small palette button in the header, next to the profile; it opens a panel with three choices: tooltip of the palette button"
+  ]
+ },
+ "Change the look": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "The look menu: a small palette button in the header, next to the profile; it opens a panel with three choices: screen-reader name of the palette button"
+  ]
+ },
+ "Saved to your profile: the same on every computer, and in the reports you download.": {
+  "kind": "text",
+  "seen": [
+   "The look menu: a small palette button in the header, next to the profile; it opens a panel with three choices: grey line at the bottom of the panel — the choices are remembered for the person, on any computer, and the reports they download use them too"
+  ]
+ },
+ "Look of the app": {
+  "kind": "text",
+  "seen": [
+   "Settings → Branding (for Admins): a box titled \"Look of the app\": the box's title. It decides which design (\"look\") everyone in the organisation gets"
+  ]
+ },
+ "Offer the next-gen look": {
+  "kind": "text",
+  "seen": [
+   "Settings → Branding (for Admins): a box titled \"Look of the app\": an on/off switch. On: people get the new design (\"next-gen look\")"
+  ]
+ },
+ "On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Branding (for Admins): a box titled \"Look of the app\": grey line under \"Offer the next-gen look\". \"Classic\" = the option of that name in the look menu; \"the look menu\" = the palette button next to the profile; \"light or dark\" = the light and dark themes"
+  ]
+ },
+ "Menu in the next-gen look": {
+  "kind": "text",
+  "seen": [
+   "Settings → Branding (for Admins): a box titled \"Look of the app\": label of a drop-down — where the app's page menu (Dashboard, Reports, Settings…) sits in the new design"
+  ]
+ },
+ "Down the left side": {
+  "kind": "text",
+  "seen": [
+   "Settings → Branding (for Admins): a box titled \"Look of the app\": first option of \"Menu in the next-gen look\" — the menu is a column on the left (on the right in Arabic and Hebrew)"
+  ]
+ },
+ "Along the top": {
+  "kind": "text",
+  "seen": [
+   "Settings → Branding (for Admins): a box titled \"Look of the app\": second option of \"Menu in the next-gen look\" — the menu is a row across the top of the screen"
+  ]
  }
 }
