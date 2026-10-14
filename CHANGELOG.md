@@ -63,7 +63,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.77 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.77 — MERGE_TIME UTC · [#100](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/100)
 
 - **A next-gen look.** Glass panels on a deep "Obsidian" dark or a soft "Daylight" light, a gradient brand mark and primary buttons, Plus Jakarta Sans for text and JetBrains Mono for figures, chips and table headers, on every page, in every language, right to left and on a phone; the fonts ship inside the image, so nothing is loaded from the internet.
 - **The classic look one click away.** The new palette button next to your name opens the look menu: **Next-gen** or **Classic** (the look before, unchanged), **Auto**, **Light** or **Dark**, and an accent (indigo, cyan, emerald, violet or amber); it is saved to your profile, so it follows you to every computer.
