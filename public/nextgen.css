@@ -340,6 +340,13 @@
 :root[data-ui="nextgen"] .ptab[aria-selected="true"],
 :root[data-ui="nextgen"] .ptab.active { background: linear-gradient(135deg, color-mix(in srgb, var(--ng-from) 22%, transparent), color-mix(in srgb, var(--ng-to) 10%, transparent)); color: var(--text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ng-from) 35%, transparent); }
 
+/* Small segmented pickers (the Cx Credits Calculator's "Trend over 3 / 6 / 9 / 12 months"): the chosen one
+   lit like a page tab. The plain button rule above would otherwise paint over the classic accent fill and
+   leave its white text on a white button. */
+:root[data-ui="nextgen"] .calc-lookback { border-radius: 12px; border-color: var(--ng-glass-line); background: color-mix(in srgb, var(--surface) 55%, transparent); padding: 2px; gap: 2px; }
+:root[data-ui="nextgen"] .calc-lookback button { border-radius: 9px; color: var(--muted); background: transparent; }
+:root[data-ui="nextgen"] .calc-lookback button.on { background: linear-gradient(135deg, color-mix(in srgb, var(--ng-from) 22%, transparent), color-mix(in srgb, var(--ng-to) 10%, transparent)); color: var(--text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ng-from) 35%, transparent); }
+
 /* ==========================================================================
    Figures and tables
    ========================================================================== */

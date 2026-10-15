@@ -72,7 +72,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **Rename roles, Security Analyst and User included.** **Rename** under a role's name changes its name and description; its people keep it, its permissions stay, Admin keeps its name, and the audit log records *Renamed role "User" to "Developers"*.
 - **Duplicate a role.** **Duplicate** starts a new role with the same permissions, named "… (copy)", ready to adjust.
 - **Show only the differences.** One tick hides the permissions every role holds alike and colours the rest; choose two or more roles to compare just those.
-- **Numbers stay inside their tables and charts.** Chart axes size themselves to their labels and charts no longer blow their text up on wide screens, and long ids, the per-severity boxes of the Cx Credits Calculator and phone labels wrap inside their boxes; a sweep of every page and tab, in both looks, at desktop, laptop and phone widths, finds nothing spilling out.
+- **Numbers stay inside, and nothing goes invisible.** Chart axes size themselves to their labels and charts no longer blow their text up on wide screens; long ids, the Cx Credits Calculator's per-severity boxes and phone labels wrap inside their boxes; and the calculator's chosen trend period (3, 6, 9 or 12 months), white on white in the next-gen look, is lit like a page tab. A sweep of every page and tab, in both looks, at desktop, laptop and phone widths, finds nothing spilling out or too faint to read.
 - **In fourteen languages.** The new controls and messages are translated and reviewed twice in every language, in the app and in reports.
 - **Status.** STATUS_LINE
 
