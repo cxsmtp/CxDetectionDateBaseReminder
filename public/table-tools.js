@@ -271,7 +271,8 @@ function enhance(table) {
     const tools = document.createElement('span');
     tools.className = 'tt-tools';
     tools.innerHTML = `${ownSort ? '' : `<button type="button" class="tt-sort" title="${say('Sort by this column')}" aria-label="${say('Sort by this column')}">${ARROWS}</button>`}<button type="button" class="tt-filter" title="${say('Filter this column')}" aria-label="${say('Filter this column')}" aria-haspopup="dialog">${FUNNEL}</button>`;
-    th.append(tools);
+    // A space before the buttons lets them go under a long heading word in a narrow column.
+    th.append(' ', tools);
     th.classList.add('tt-th');
     if (!ownSort) th.classList.add('tt-sortable');
     tools.querySelector('.tt-filter').addEventListener('click', (event) => {

@@ -22530,5 +22530,95 @@
   "seen": [
    "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): in the matrix when the \"Find a permission\" search finds none"
   ]
+ },
+ "Install and switch": {
+  "kind": "button",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one), the table of published versions (columns Version, Built, Here): button that downloads a version and runs it from the next start"
+  ]
+ },
+ "Switch to": {
+  "kind": "button",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one), the table of published versions (columns Version, Built, Here): button that runs an already installed version instead"
+  ]
+ },
+ "In the image (below)": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one), the table of published versions (columns Version, Built, Here), column Here: this version is the one built into the container image, shown in its own row below"
+  ]
+ },
+ "In the image": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one), the table of published versions (columns Version, Built, Here), column Here: the version built into the container image"
+  ]
+ },
+ "(the image’s own)": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one), the table of published versions (columns Version, Built, Here): after the version number of the version built into the container image"
+  ]
+ },
+ "Installed": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one), the table of published versions (columns Version, Built, Here), column Here: the version is downloaded on this server; also before the exact date and time it was installed"
+  ]
+ },
+ "Switched to it": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one): under \"Installed from this page\", before the exact date and time the Admin switched to the running version"
+  ]
+ },
+ "Up to date.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one): under the newest published version, when the running version is the newest"
+  ]
+ },
+ "Newer than what runs.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one): under the newest published version, when it is newer than the running version"
+  ]
+ },
+ "See the note below.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one): after \"Checked\" and the time of the last check, when a warning is shown further down"
+  ]
+ },
+ "Started": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one), the list of recent events: a bold word after the exact date and time: the app started"
+  ]
+ },
+ "Switch": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one), the list of recent events: a bold word after the exact date and time: an Admin switched to another version (noun, the event)"
+  ]
+ },
+ "Restart": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one), the list of recent events: a bold word after the exact date and time: the app was restarted (noun, the event)"
+  ]
+ },
+ "Rolled back": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one), the list of recent events: a bold word after the exact date and time: a version did not start and the previous one was put back by itself"
+  ]
+ },
+ "Stopped unexpectedly": {
+  "kind": "text",
+  "seen": [
+   "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one), the list of recent events: a bold word after the exact date and time: the app stopped without being asked to (a crash)"
+  ]
  }
 }

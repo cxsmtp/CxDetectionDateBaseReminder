@@ -523,12 +523,17 @@ tbody tr:last-child td { border-bottom: 0; }
 td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
 th.checkbox, td.checkbox { width: 40px; }
 tr.empty td { color: var(--muted); text-align: center; padding: 36px 20px; white-space: normal; }
-td.name { white-space: normal; min-width: 180px; max-width: 340px; font-weight: 500; }
+td.name { white-space: normal; min-width: clamp(120px, 14vw, 180px); max-width: 340px; font-weight: 500; }
 td.name a { color: var(--text); text-decoration: none; }
 td.name a:hover { color: var(--accent); text-decoration: underline; }
 td .err { color: var(--danger); font-size: 12px; display: block; white-space: normal; font-weight: 400; }
 .aged { color: var(--danger); font-weight: 600; }
-td.initiator { white-space: normal; max-width: 240px; }
+td.initiator { white-space: normal; max-width: 240px; min-width: 120px; overflow-wrap: break-word; }
+/* The Projects table fits its panel: the oldest date keeps to one line and its "(6d)" may go under it,
+   and a long heading word may break with a hyphen. */
+.nowrap { white-space: nowrap; }
+#projects td.c-oldest { white-space: normal; }
+#projects thead th { hyphens: auto; }
 td.initiator .zero, td.initiator .err { display: block; font-size: 11.5px; }
 td.credits { white-space: nowrap; }
 td.credits .low { color: var(--danger); }
@@ -789,13 +794,23 @@ table.probe tr.miss .snippet { color: var(--muted); }
   .input-group > * { flex: 1 1 auto; }
   iframe, #template-preview, #preview-frame { height: 380px; }
 
-  /* Projects: one card per project */
+}
+
+/* Touch screens: comfortable targets */
+@media (pointer: coarse) {
+  :root { --control-h: 42px; }
+  button.sm { min-height: 36px; }
+  input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; }
+}
+
+/* Projects: one card per project on phones and tablets, where seven columns side by side would not fit the panel. */
+@media (max-width: 1023px) {
   #projects { display: block; }
   #projects thead { display: none; }
   #projects tbody { display: grid; gap: 0; }
   #projects tbody tr:not(.empty):not(.credit-editor):not(.more-rows) {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: auto repeat(5, minmax(0, 1fr));
     gap: 8px 10px;
     padding: 14px;
     border-bottom: 1px solid var(--border);
@@ -817,16 +832,9 @@ table.probe tr.miss .snippet { color: var(--muted); }
   #projects tbody tr:not(.empty):not(.credit-editor):not(.more-rows) td.c-oldest { grid-column: span 4; }
   #projects tbody tr:not(.empty):not(.credit-editor):not(.more-rows) td.c-wide { grid-column: 1 / -1; }
   #projects tbody tr:not(.empty):not(.credit-editor):not(.more-rows) td.c-half { grid-column: span 3; }
-  #projects td.credits button.credit-edit { padding: 0; margin-inline-start: -1px; }
+  #projects td.credits button.credit-edit { padding: 0; margin-inline-start: -1px; justify-content: flex-start; text-align: start; }
   #projects tr.credit-editor, #projects tr.credit-editor td { display: block; }
   #projects tr.empty td { display: block; }
-}
-
-/* Touch screens: comfortable targets */
-@media (pointer: coarse) {
-  :root { --control-h: 42px; }
-  button.sm { min-height: 36px; }
-  input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1267,6 +1275,10 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 .step-need .short { color: var(--warn); font-weight: 600; }
 .step-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .credits .need-tag { display: block; font-size: 11px; color: var(--warn); font-weight: 600; }
+/* A button lays its parts out in a row: "17 more needed" goes on its own line under "0 / 0", as it does without the button, so the column stays narrow. */
+button.credit-edit { flex-wrap: wrap; justify-content: flex-end; text-align: end; }
+button.credit-edit .need-tag { flex-basis: 100%; }
+.credits .need-tag { font-family: var(--font); white-space: nowrap; }
 .remediate-list { margin: 8px 0 0; padding-inline-start: 18px; font-size: 13px; max-height: 220px; overflow: auto; }
 .cost-line { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 10%, transparent); font-size: 13px; }
 @media (max-width: 760px) { .step-actions button { flex: 1 1 auto; } }
@@ -3058,3 +3070,7 @@ tr.tt-hidden { display: none !important; }
 .iam-compare .hint { margin: 0; }
 .iam-matrix tr.differs td.cell.has { background: var(--ok-soft); }
 .iam-matrix tr.differs td.cell.lacks { background: color-mix(in srgb, var(--danger) 8%, transparent); }
+
+/* Settings → Update & recovery: when a version was installed, under its state. */
+.upd-when { display: block; margin-top: 2px; font-size: 11.5px; }
+#upd-versions time { white-space: nowrap; }
