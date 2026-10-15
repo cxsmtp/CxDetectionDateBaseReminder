@@ -1706,6 +1706,8 @@ function iamView(req) {
     users: iam.users().filter((u) => sharesTenant(req, u) && withinReach(req, u)).map((u) => ({ ...u, canManage: can(req, 'iam.manage') && iam.canGrant(req.permissions, iam.permissionsOf({ ...iam.user(u.id), disabled: false })) && u.id !== req.user.id })),
     roles: iam.roles().filter((r) => r.id === req.user.role || iam.canGrant(req.permissions, r.permissions)).map((r) => ({ ...r, canManage: can(req, 'iam.manage') && mayChangeRoles(req) && !r.locked && iam.canGrant(req.permissions, r.permissions), canAssign: can(req, 'iam.manage') && iam.canGrant(req.permissions, r.permissions) })),
     permissions: PERMISSIONS.filter((p) => !dormantPermissions().includes(p.id)),
+    // Whether this person may add roles (New role, Duplicate): the matrix shows the buttons only then.
+    rolesChangeable: can(req, 'iam.manage') && mayChangeRoles(req),
     me: { id: req.user.id, permissions: [...req.permissions] },
     tenants: tenancy.enabled && isSuperAdmin(req.permissions) ? tenancy.list().map((t) => ({ id: t.id, name: tenantName(t.id) })) : null,
     signIn: can(req, 'iam.manage') ? { ...passwordResetReady(), canChange: !tenancy.enabled || isSuperAdmin(req.permissions) } : null,
@@ -1897,7 +1899,8 @@ app.put(
     const { before, after } = iam.saveRole(req.params.id, body, actorOf(req));
     const added = after.permissions.filter((p) => !before.permissions.includes(p));
     const removed = before.permissions.filter((p) => !after.permissions.includes(p));
-    if (added.length || removed.length || before.description !== after.description || before.name !== after.name) {
+    if (before.name !== after.name) await auditIam(req, `Renamed role "${before.name}" to "${after.name}".`, { before: { id: after.id, name: before.name }, after: { id: after.id, name: after.name } });
+    if (added.length || removed.length || before.description !== after.description) {
       await auditIam(req, `Changed role "${after.name}"${added.length ? `: added ${added.join(', ')}` : ''}${removed.length ? `${added.length ? ';' : ':'} removed ${removed.join(', ')}` : ''}.`, { before, after });
     }
     res.json(iamView(req));

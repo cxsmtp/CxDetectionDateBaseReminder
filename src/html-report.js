@@ -34,6 +34,8 @@ const CLIENT_SCRIPT = ['./report/patch.client.js', './report/report.client.js']
 // The page's own translator (public/i18n.js), run inside the report with the report's words.
 const I18N_SCRIPT = readFileSync(new URL('../public/i18n.js', import.meta.url), 'utf8');
 const I18N_BOOT = readFileSync(new URL('./report/i18n-boot.client.js', import.meta.url), 'utf8');
+// Sort and filter on the findings table's headings: the page's own module (public/table-tools.js).
+const TABLE_TOOLS = `${readFileSync(new URL('../public/table-tools.js', import.meta.url), 'utf8')}\nstartTableTools();`;
 
 /** English with {0}, {1}… filled in: what a reader without the report's script sees. */
 const fill = (text, values) => String(text).replace(/\{(\d+)\}/g, (all, i) => (i < values.length ? String(values[i]) : all));
@@ -408,7 +410,7 @@ ${remediateHere ? `    <div class="bulk-row bulk-fix-row">
   <div class="table-wrap">
     <table id="findings">
       <thead>
-        <tr><th>Severity</th><th>Finding</th><th>Type</th><th>Age</th><th title="Checkmarx One state — updates once connected">State</th><th title="AI Triage verdict, or the finding\'s Checkmarx One state once triaged">Triage result</th><th>Actions</th></tr>
+        <tr><th>Severity</th><th>Finding</th><th>Type</th><th>Age</th><th title="Checkmarx One state — updates once connected">State</th><th title="AI Triage verdict, or the finding\'s Checkmarx One state once triaged">Triage result</th><th data-tt-col="off">Actions</th></tr>
       </thead>
       <tbody>
 ${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere, sharedOf(clientFindings[index]))).join('\n')}
@@ -449,6 +451,7 @@ ${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere,
 ${i18n ? `<script type="application/json" id="report-i18n">${jsonForScript(i18n)}</script>
 <script type="module">${`${I18N_SCRIPT}\n${I18N_BOOT}`.replace(/<\/script/gi, '<\\/script')}</script>` : ''}
 <script>${CLIENT_SCRIPT.replace(/<\/script/gi, '<\\/script')}</script>
+<script type="module" id="table-tools">${TABLE_TOOLS.replace(/<\/script/gi, '<\\/script')}</script>
 </body>
 </html>`;
 }
@@ -500,7 +503,7 @@ function findingRow(finding, client, remediateHere, shared = null) {
   const age = finding.ageDays === null || finding.ageDays === undefined ? '—' : `${finding.ageDays}d`;
 
   return `<tr data-key="${client.key}" id="row-${client.key}" data-sev="${escapeHtml(severity)}"${shared ? ` class="shared-row shared-c${shared.color}" data-result="${shared.label}"` : ''}>
-  <td class="sev-cell"><span class="sev sev-${escapeHtml(severity.toLowerCase())}">${escapeHtml(severity)}</span></td>
+  <td class="sev-cell" data-tt-sort="${SEVERITY_RANK.length - rank(severity)}"><span class="sev sev-${escapeHtml(severity.toLowerCase())}">${escapeHtml(severity)}</span></td>
   <td class="finding"><div class="finding-title">${title}</div>
     <div class="sub"><span translate="no">${escapeHtml(finding.projectName ?? '')}${location ? ` · ${location}` : ''}</span></div>${shared ? `\n    ${sharedNoteHtml(shared)}` : ''}</td>
   <td class="meta-cell" data-label="Type" title="${escapeHtml(finding.scanner || '')}">${escapeHtml(engineLabel(finding.scanner))}</td>
@@ -1015,6 +1018,31 @@ td.state-cell, td.finding { vertical-align: top; }
   #findings tr.filtered-out { display: none; }
 }
 @media print { .toolbar, .lifecycle { display: none !important; } tr.filtered-out { display: table-row; } }
+
+/* Sort and filter on the headings (public/table-tools.js). */
+th.tt-th .tt-tools { display: inline-flex; align-items: center; gap: 1px; margin-inline-start: 4px; vertical-align: middle; }
+th.tt-th .tt-tools[hidden] { display: none; }
+th.tt-th .tt-tools > button { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; margin: 0; border: 0; border-radius: 5px; background: none; color: inherit; opacity: .4; cursor: pointer; }
+th.tt-th:hover .tt-tools > button, th.tt-th .tt-tools > button:focus-visible { opacity: .85; }
+th.tt-th .tt-tools > button:hover { opacity: 1; background: var(--muted-bg); }
+th.tt-th .tt-tools svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+th.tt-sortable { cursor: pointer; user-select: none; }
+th.tt-sorted .tt-sort, th.tt-filtered .tt-filter { opacity: 1; color: var(--link); }
+th.tt-sorted[data-tt-dir="asc"] .tt-down, th.tt-sorted[data-tt-dir="desc"] .tt-up { opacity: .25; }
+th.tt-filtered .tt-filter svg { fill: currentColor; }
+tr.tt-hidden { display: none !important; }
+.tt-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; padding: 6px 12px; border-radius: 10px; background: var(--muted-bg); font-size: 13px; }
+.tt-note .link, .tt-pop .link { font: inherit; color: var(--link); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.tt-pop { position: absolute; z-index: 80; width: min(260px, calc(100vw - 16px)); display: grid; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); box-shadow: 0 12px 32px rgba(0,0,0,.22); font-size: 13px; text-transform: none; letter-spacing: normal; font-weight: 400; }
+.tt-pop-title { margin: 0; color: var(--muted); } .tt-pop-title b { color: var(--ink); }
+.tt-pop-text { width: 100%; font: inherit; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--outline-line); background: var(--surface-2); color: var(--ink); }
+.tt-pop-hint { margin: 0; font-size: 12px; color: var(--muted); }
+.tt-pop-values { display: grid; gap: 2px; max-height: 220px; overflow: auto; }
+.tt-pop-values label { display: flex; align-items: center; gap: 8px; padding: 3px 4px; border-radius: 6px; cursor: pointer; }
+.tt-pop-values span { flex: 1; min-width: 0; overflow-wrap: anywhere; } .tt-pop-values em { font-style: normal; color: var(--muted); }
+.tt-pop-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tt-pop .sm.primary { font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 5px 12px; background: var(--accent); color: #fff; cursor: pointer; }
+@media print { .tt-tools, .tt-note { display: none !important; } tr.tt-hidden { display: table-row !important; } }
 `;
 }
 

@@ -810,7 +810,7 @@ table.probe tr.miss .snippet { color: var(--muted); }
     color: var(--muted);
   }
   /* Labels come from each cell, so they follow the optional columns. */
-  #projects tbody td[data-label]::before { content: attr(data-label); }
+  #projects tbody td[data-label]::before { content: attr(data-label); overflow-wrap: anywhere; hyphens: auto; }
   #projects tbody tr:not(.empty):not(.credit-editor):not(.more-rows) td:nth-child(1) { grid-column: 1; align-self: center; }
   #projects tbody tr:not(.empty):not(.credit-editor):not(.more-rows) td:nth-child(2) { grid-column: 2 / -1; align-self: center; font-size: 16px; }
   #projects tbody tr:not(.empty):not(.credit-editor):not(.more-rows) td.c-count { grid-column: span 2; }
@@ -2798,7 +2798,8 @@ a.button-like.primary:hover { filter: brightness(1.05); }
 .calc-sev { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
 .calc-sev i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .calc-sev-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
-.calc-sev-box { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); min-width: 0; }
+.calc-sev-box { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); min-width: 0; }
+.calc-sev-box .calc-row { flex-wrap: wrap; }
 .calc-sev-top, .calc-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .calc-row span { font-size: 12.5px; color: var(--muted); }
 .calc-row input[type="number"] { width: 9ch; text-align: end; }
@@ -3005,7 +3006,7 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 /* Logs → User activity */
 .ua-table td.when { white-space: nowrap; }
 .ua-table td.who small { display: block; color: var(--muted); }
-.ua-table td.ua-details { font-size: 12px; max-width: 360px; overflow-wrap: anywhere; }
+.ua-table td.ua-details { font-size: 12px; max-width: 360px; white-space: normal; overflow-wrap: anywhere; }
 
 /* Settings → Update & recovery → Software integrity */
 .integrity-box { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 14px 0; }
@@ -3021,3 +3022,39 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .calc-engines .pill-check small { color: var(--muted); font-size: 11px; }
 .calc-engines .pill-check:has(input:disabled) { opacity: .6; }
 .calc-engines .calc-warn { color: var(--warn); }
+
+/* Sort and filter on the column headings of every data table (public/table-tools.js). */
+th.tt-th .tt-tools { display: inline-flex; align-items: center; gap: 1px; margin-inline-start: 4px; vertical-align: middle; }
+th.tt-th .tt-tools[hidden] { display: none; }
+th.tt-th .tt-tools > button { display: inline-grid; place-items: center; width: 20px; height: 20px; min-height: 0; padding: 0; margin: 0; border: 0; border-radius: 5px; background: none; box-shadow: none; color: inherit; opacity: 0.4; cursor: pointer; }
+th.tt-th:hover .tt-tools > button, th.tt-th .tt-tools > button:focus-visible { opacity: 0.85; }
+th.tt-th .tt-tools > button:hover { opacity: 1; background: var(--surface-3); }
+th.tt-th .tt-tools svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+th.tt-sortable { cursor: pointer; user-select: none; }
+th.tt-sorted .tt-sort, th.tt-filtered .tt-filter { opacity: 1; color: var(--accent); }
+th.tt-sorted[data-tt-dir="asc"] .tt-down, th.tt-sorted[data-tt-dir="desc"] .tt-up { opacity: 0.25; }
+th.tt-filtered .tt-filter svg { fill: currentColor; }
+tr.tt-hidden { display: none !important; }
+.tt-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; padding: 6px 12px; border-radius: var(--radius-sm); background: var(--accent-soft, var(--surface-2)); color: var(--text); font-size: 13px; }
+.tt-pop { position: absolute; z-index: 80; width: min(260px, calc(100vw - 16px)); display: grid; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); box-shadow: var(--shadow-pop, 0 12px 32px rgb(0 0 0 / 0.2)); font-size: 13px; text-align: start; text-transform: none; letter-spacing: normal; font-weight: 400; }
+.tt-pop-title { margin: 0; color: var(--muted); }
+.tt-pop-title b { color: var(--text); font-weight: 600; }
+.tt-pop-text { width: 100%; }
+.tt-pop-hint { margin: 0; font-size: 12px; color: var(--muted); }
+.tt-pop-values { display: grid; gap: 2px; max-height: 220px; overflow: auto; padding: 2px 0; }
+.tt-pop-values label { display: flex; align-items: center; gap: 8px; padding: 3px 4px; border-radius: 6px; cursor: pointer; min-width: 0; }
+.tt-pop-values label:hover { background: var(--surface-2); }
+.tt-pop-values span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.tt-pop-values em { font-style: normal; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tt-pop-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+/* People & roles → Roles: rename, duplicate, and "Show only the differences" */
+.iam-role-form-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; font-size: 14px; }
+.iam-matrix .role-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 8px; margin-top: 4px; }
+.iam-matrix .role-actions button { min-height: 0; padding: 0; }
+.iam-diff-toggle { margin-inline-start: 4px; }
+.iam-compare { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: -4px 0 12px; }
+.iam-compare-roles { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.iam-compare .hint { margin: 0; }
+.iam-matrix tr.differs td.cell.has { background: var(--ok-soft); }
+.iam-matrix tr.differs td.cell.lacks { background: color-mix(in srgb, var(--danger) 8%, transparent); }

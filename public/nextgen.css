@@ -276,6 +276,11 @@
   box-shadow: 0 10px 28px -10px var(--ng-glow), inset 0 1px 0 rgb(255 255 255 / 0.22);
 }
 :root[data-ui="nextgen"] button.ghost { background: transparent; border-color: transparent; }
+/* The column headings' sort and filter buttons stay small and plain (public/table-tools.js). */
+:root[data-ui="nextgen"] th.tt-th .tt-tools > button,
+:root[data-ui="nextgen"] th.tt-th .tt-tools > button:hover:not(:disabled) { border: 0; border-radius: 5px; box-shadow: none; transform: none; min-height: 0; }
+:root[data-ui="nextgen"] th.tt-th .tt-tools > button:not(:hover) { background: none; }
+:root[data-ui="nextgen"] .tt-pop { background: var(--surface); border-color: var(--ng-glass-line); border-radius: 14px; }
 /* The golden button ("Triage / Remediate with AI Assist now", Credit Control's "Use the credits" when they can):
    gold in every look, here with the accent's light behind it, so it reads as gold on any theme. */
 :root[data-ui="nextgen"] button.is-golden:not(:disabled),
@@ -334,6 +339,13 @@
 :root[data-ui="nextgen"] .ptab { border-radius: 10px; }
 :root[data-ui="nextgen"] .ptab[aria-selected="true"],
 :root[data-ui="nextgen"] .ptab.active { background: linear-gradient(135deg, color-mix(in srgb, var(--ng-from) 22%, transparent), color-mix(in srgb, var(--ng-to) 10%, transparent)); color: var(--text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ng-from) 35%, transparent); }
+
+/* Small segmented pickers (the Cx Credits Calculator's "Trend over 3 / 6 / 9 / 12 months"): the chosen one
+   lit like a page tab. The plain button rule above would otherwise paint over the classic accent fill and
+   leave its white text on a white button. */
+:root[data-ui="nextgen"] .calc-lookback { border-radius: 12px; border-color: var(--ng-glass-line); background: color-mix(in srgb, var(--surface) 55%, transparent); padding: 2px; gap: 2px; }
+:root[data-ui="nextgen"] .calc-lookback button { border-radius: 9px; color: var(--muted); background: transparent; }
+:root[data-ui="nextgen"] .calc-lookback button.on { background: linear-gradient(135deg, color-mix(in srgb, var(--ng-from) 22%, transparent), color-mix(in srgb, var(--ng-to) 10%, transparent)); color: var(--text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ng-from) 35%, transparent); }
 
 /* ==========================================================================
    Figures and tables

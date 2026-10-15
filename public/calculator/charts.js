@@ -44,7 +44,10 @@ function niceStep(span, count) {
  * value of each line beside it. `divider`: the index from which points are projections (a faint band).
  */
 export function lineChart(points, lines, { palette = PAGE_PALETTE, width = 760, height = 260, suffix = '', zeroBased = true, endLabels = true, title = '', divider = null, compactAxis = true } = {}) {
-  const padR = endLabels ? 44 : 14;
+  // Room for the widest label at each side, in any of the app's fonts (about 7.4 px a character at 10.5 px).
+  const CHAR = 7.4;
+  const lastValues = lines.map((l) => [...points].reverse().find((p) => p[l.key] !== null && p[l.key] !== undefined && Number.isFinite(p[l.key]))?.[l.key]).filter((v) => v !== undefined);
+  const padR = endLabels ? 14 + CHAR * Math.max(3, ...lastValues.map((v) => `${compactAxis ? compact(v) : num(v)}${suffix}`.length)) : 14;
   const padT = 14;
   const padB = 26;
   const plotH = height - padT - padB;
@@ -59,7 +62,7 @@ export function lineChart(points, lines, { palette = PAGE_PALETTE, width = 760, 
   const ticks = [];
   for (let v = min; v <= max + step / 2; v += step) ticks.push(v);
   const label = (v) => `${compactAxis ? compact(v) : num(v)}${suffix}`;
-  const padL = 10 + 6.2 * Math.max(...ticks.map((v) => label(v).length));
+  const padL = 14 + CHAR * Math.max(...ticks.map((v) => label(v).length));
   const plotW = width - padL - padR;
   const n = points.length;
   const x = (i) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
@@ -107,7 +110,7 @@ export function lineChart(points, lines, { palette = PAGE_PALETTE, width = 760, 
   const legend = lines.length > 1
     ? `<figcaption class="cc-legend">${lines.map((l) => `<span class="cc-key"><i class="cc-swatch${l.dash ? ' dashed' : ''}" translate="no" style="--c:${l.colour}"></i>${esc(l.label)}</span>`).join('')}</figcaption>`
     : '';
-  return `<figure class="cc-chart"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}" style="width:100%;height:auto;display:block;direction:ltr">${band}${grid}${xLabels}${series}</svg>${legend}</figure>`;
+  return `<figure class="cc-chart"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}" style="width:100%;max-width:${Math.round(width * 1.25)}px;height:auto;display:block;direction:ltr;overflow:hidden">${band}${grid}${xLabels}${series}</svg>${legend}</figure>`;
 }
 
 /** The backlog over the last weeks. */

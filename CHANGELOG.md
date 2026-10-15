@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.79 | 472/s, 0 (main 483, 0; 62 and 117 in host stalls before) | 9.0 s | 1.6 s | 685 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.78 | 495/s, 4 (main 494, 0; 60 and 73 in host stalls before) | 10.2 s | 1.0 s | 680 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.77 | 510/s, 0 (main 487 and 504, 186 and 10 in host stalls) | 10.2 s | 529 ms | 670 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.76 | 506/s, 0 (main 470, 198 in a host stall) | 9.3 s | 1.2 s | 667 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -64,6 +65,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.79 — 2026-10-15 08:26 UTC · [#102](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/102)
+
+- **Sort and filter every table from its headings.** Each column heading of a data table, in the app and in the downloaded HTML report, has a sort arrow (largest or A first, then reversed, then the table's own order) and a funnel to filter it: text it contains, the values to keep, or a comparison such as `>10` in a column of numbers.
+- **Every row, not just the page you see.** Projects, the People list and the credit audit log sort and filter everything loaded; a line above says how many rows are shown, with **Clear filters**, and the choice is kept when you switch pages.
+- **Rename roles, Security Analyst and User included.** **Rename** under a role's name changes its name and description; its people keep it, its permissions stay, Admin keeps its name, and the audit log records *Renamed role "User" to "Developers"*.
+- **Duplicate a role.** **Duplicate** starts a new role with the same permissions, named "… (copy)", ready to adjust.
+- **Show only the differences.** One tick hides the permissions every role holds alike and colours the rest; choose two or more roles to compare just those.
+- **Numbers stay inside, and nothing goes invisible.** Chart axes size themselves to their labels and charts no longer blow their text up on wide screens; long ids, the Cx Credits Calculator's per-severity boxes and phone labels wrap inside their boxes; and the calculator's chosen trend period (3, 6, 9 or 12 months), white on white in the next-gen look, is lit like a page tab. A sweep of every page and tab, in both looks, at desktop, laptop and phone widths, finds nothing spilling out or too faint to read.
+- **In fourteen languages.** The new controls and messages are translated and reviewed twice in every language, in the app and in reports.
+- **Status.** 3000 people at once on 2 vCPU: 472 requests a second with none failed (main, just before, 483 with none), report opens 9.0 s at p95, triage polls 1.6 s; two earlier runs of the release met host stalls and failed 62 and 117 requests (main failed 240 in one), and report opens were faster at p95 than main in two pairs of three ([performance](docs/performance.md)); 685 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.78 — 2026-10-15 07:12 UTC · [#101](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/101)
 

@@ -184,6 +184,8 @@ export class IamStore {
         ...role,
         // Admin always holds every permission, including ones added later.
         permissions: role.locked ? [...PERMISSION_IDS] : rolePermissions(stored?.permissions ?? role.permissions),
+        // A built-in role may be renamed (Security Analyst → "AppSec team"); Admin keeps its name.
+        name: role.locked ? role.name : String(stored?.name ?? role.name).trim().slice(0, 60) || role.name,
         description: stored?.description ?? role.description,
       };
     }
@@ -555,7 +557,7 @@ export class IamStore {
     const before = existing ? { id: roleId, ...existing } : null;
     this.#state.roles[roleId] = {
       ...(existing ?? { builtin: false }),
-      name: existing?.builtin ? existing.name : label,
+      name: existing?.locked ? existing.name : label,
       description: String(description ?? '').trim().slice(0, 300),
       permissions: perms,
     };

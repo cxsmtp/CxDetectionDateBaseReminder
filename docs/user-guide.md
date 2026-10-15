@@ -50,6 +50,12 @@ The coloured label next to each page title says which group the page is in.
 
 **Get help** (bottom of the sidebar; in the menu under your name on a phone): point at it and choose **Submit a support case** or **Request an enhancement**, or **Track my requests**. See [Get help](#get-help-support-cases-and-enhancements).
 
+**Sort and filter any table from its headings.** Next to each column heading of a data table (projects, people, the audit and activity logs, reports, credits, the downloaded HTML report…) there are two small buttons:
+- **⇅ Sort by this column**: the first click sorts numbers largest first and words A to Z, the second reverses it, the third goes back to the table's own order. Empty cells stay at the bottom either way.
+- **Funnel: Filter this column**: type in **Contains…**, or tick the values to keep (columns with up to 15 different values). In a column of numbers, `>10`, `<=5` or `=0` compare. **Clear** removes the column's filter, **Done** closes it.
+- A line above a filtered table says **Showing 12 of 40 rows**, with **Clear filters**. Tables that show everything at once filter every row; the People list, Projects and the credit audit log sort and filter every row loaded, not only the page in view; a table the server sends a page at a time (Logs → User activity) says **on this page**.
+- Findings that share one Checkmarx One result stay together whatever the sort, and the sort and filters are kept when you switch pages.
+
 **Jump to (Ctrl K, or ⌘K on a Mac)** goes to any page, tab, Settings section or common action: type a few letters (for example *smtp*, *allocated*, *backups*) and press Enter.
 
 **Tabs instead of long pages.** Most pages have tabs at the top (for example Audit: *Credit audit log*, *Integrity & reconcile*, *State & backups*). The tab you last used opens next time. The address bar follows the tab, so `#/audit/backups` or `#/settings/smtp` opens that place directly.
@@ -1035,6 +1041,10 @@ Identity and access management, in three tabs.
 - **Find a permission** narrows the matrix; click a group name to fold it, or **Collapse all**. Each group row shows how many of its permissions each role has.
 - Tick or untick boxes, then **Save role changes** (or **Discard**). Unsaved changes are kept if you go to another page and come back.
 - **New role** builds your own role.
+- **Rename** (under a role's name) changes its name and description: its people keep it and its permissions stay as they are. Security Analyst and User can be renamed too; Admin keeps its name. Names are unique.
+- **Duplicate** makes a new role with the same permissions (less any you do not hold yourself), named "… (copy)" until you rename it. Nobody has it until you give it to someone.
+- **Show only the differences** hides the permissions every role holds alike and colours the rest (green: holds it, red: does not). Tick **Compare** for two or more roles to see just those side by side; "These roles hold the same permissions" when there is no difference.
+- Renames, new roles and permission changes are each in the audit log (*Renamed role "User" to "Developers"*).
 - The Admin role is fixed. Permissions marked **Admin** are Admin-only by default.
 - You can never grant a permission you do not have yourself, or touch an Admin's account unless you are an Admin.
 - You see only the people and roles within your own permissions. A Security Analyst does not see the Admins or the Admin role.
@@ -1155,7 +1165,7 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.78** | 495/s, 4 failed (main 494, 0; 60 and 73 failed in host stalls before) | 10.2 s | 1.0 s | 680 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.79** | 472/s, 0 failed (main 483, 0; 62 and 117 failed in host stalls before) | 9.0 s | 1.6 s | 685 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.73 | 507/s, 0 failed (main 497, 10) | 6.8 s | 615 ms | 645 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.60 | 505/s, 0 failed (main 499, 0 failed) | 6.9 s | 501 ms | 566 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.59 | 513/s, 0 failed (main 518, 0 failed) | 6.2 s | 229 ms | 565 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |

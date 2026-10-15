@@ -411,7 +411,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       <p class="calc-snapshot">Backlog as of <time>${esc(analysis.latestDate)}</time>; the trend over the ${num(tr().lookbackMonths)} months before it.</p>
       <section class="panel calc-flow">
         <div class="calc-section-head"><h2>What the projection counts</h2>
-          <div class="calc-lookback calc-edit" role="group" aria-label="Trend over">${LOOKBACKS.map((m) => `<button type="button" class="${tr().lookbackMonths === m ? 'on' : ''}" data-lookback="${m}">${m} months</button>`).join('')}</div></div>
+          <div class="calc-lookback calc-edit" role="group" aria-label="Trend over">${LOOKBACKS.map((m) => `<button type="button" class="${tr().lookbackMonths === m ? 'on' : ''}" aria-pressed="${tr().lookbackMonths === m}" data-lookback="${m}">${m} months</button>`).join('')}</div></div>
         ${enginesRow()}
         <div class="calc-steps">
           ${step('Backlog today', num(P.selected), P.selected === P.backlog ? 'every open finding' : `of ${num(P.backlog)} open`, '', 'backlog')}

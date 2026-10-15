@@ -138,7 +138,10 @@ async function pageKeys() {
 /** Everything the report's scripts write themselves, and what findings mean: what needs no browser to find. */
 export function scriptKeys() {
   const boot = fs.readFileSync(path.join(ROOT, 'src/report/i18n-boot.client.js'), 'utf8');
-  return new Set([...clientKeys(), ...clientKeys(boot), ...meaningTexts()]);
+  // The sort and filter controls on the report's table headings (public/table-tools.js): every say('…') and the note above a filtered table.
+  const tools = fs.readFileSync(path.join(ROOT, 'public/table-tools.js'), 'utf8');
+  const toolKeys = [...tools.matchAll(/(?:\bsay\(|\bconst NOTE(?:_PAGE)? = )('(?:[^'\\\n]|\\.)*')/g)].map(([, literal]) => unquote(literal));
+  return new Set([...clientKeys(), ...clientKeys(boot), ...meaningTexts(), ...toolKeys]);
 }
 
 const main = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);

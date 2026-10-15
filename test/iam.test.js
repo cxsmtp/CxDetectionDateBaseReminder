@@ -103,6 +103,26 @@ test('custom roles: permissions apply at once, the Admin role is locked, roles i
   assert.equal(iam.permissionsOf(iam.user(user.id)).size, 0, 'a disabled user holds nothing');
 });
 
+test('roles can be renamed, Security Analyst and User included; Admin keeps its name; names stay unique', async () => {
+  const { iam, admin, analyst, as } = await seeded();
+  const { before, after } = iam.saveRole('analyst', { name: '  AppSec team ', description: 'The AppSec people', permissions: iam.role('analyst').permissions }, as(admin));
+  assert.equal(before.name, 'Security Analyst');
+  assert.equal(after.name, 'AppSec team');
+  assert.equal(after.builtin, true, 'still the built-in role, with its people');
+  assert.equal(iam.user(analyst.id).role, 'analyst');
+  const reloaded = new IamStore({ file: iam.file });
+  assert.equal(reloaded.role('analyst').name, 'AppSec team', 'kept after a restart');
+  assert.equal(reloaded.role('analyst').description, 'The AppSec people');
+  assert.throws(() => iam.saveRole('admin', { name: 'Root', permissions: PERMISSION_IDS }, as(admin)), { status: 400 });
+  assert.equal(iam.role('admin').name, 'Admin');
+  assert.throws(() => iam.saveRole('user', { name: 'appsec TEAM', permissions: [] }, as(admin)), { status: 409 });
+  assert.throws(() => iam.saveRole('user', { name: '   ', permissions: [] }, as(admin)), { status: 400 });
+  // Duplicate: a new role holding the same permissions; the original is untouched.
+  const { after: copy } = iam.saveRole(null, { name: 'AppSec team (copy)', permissions: iam.role('analyst').permissions }, as(admin));
+  assert.deepEqual(new Set(copy.permissions), new Set(iam.role('analyst').permissions));
+  assert.equal(copy.builtin, false);
+});
+
 test('weak passwords are refused, and an administrator reset forces a change at next sign-in', async () => {
   const { iam, admin, user, as } = await seeded();
   await assert.rejects(iam.setPassword(user.id, 'short'), { status: 400 });
