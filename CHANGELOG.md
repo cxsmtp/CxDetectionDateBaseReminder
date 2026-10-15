@@ -65,7 +65,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.79 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.79 — MERGE_TIME UTC · [#102](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/102)
 
 - **Sort and filter every table from its headings.** Each column heading of a data table, in the app and in the downloaded HTML report, has a sort arrow (largest or A first, then reversed, then the table's own order) and a funnel to filter it: text it contains, the values to keep, or a comparison such as `>10` in a column of numbers.
 - **Every row, not just the page you see.** Projects, the People list and the credit audit log sort and filter everything loaded; a line above says how many rows are shown, with **Clear filters**, and the choice is kept when you switch pages.
