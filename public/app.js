@@ -8315,7 +8315,7 @@ function renderUserActivity(result) {
           return `<tr>
           <td class="when">${escapeHtml(formatTime(e.at))}</td>
           <td class="who"><span translate="no">${escapeHtml(e.name || e.user || '—')}</span><small><span translate="no">${escapeHtml(e.name ? e.user : '')}</span>${e.role ? `${e.name ? ' · ' : ''}${escapeHtml(e.role)}` : ''}</small></td>
-          <td><span class="badge muted">${escapeHtml(UA_KINDS[e.kind] ?? e.kind)}</span> <span translate="no">${escapeHtml(e.action)}</span></td>
+          <td class="ua-action"><span class="badge muted">${escapeHtml(UA_KINDS[e.kind] ?? e.kind)}</span> <span translate="no">${escapeHtml(e.action)}</span></td>
           <td class="ua-details">${details}</td>
           <td>${userActivityResult(e)}</td>
           <td class="muted" translate="no">${escapeHtml(e.ip || '')}</td>

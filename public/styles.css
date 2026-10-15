@@ -988,6 +988,8 @@ tr.dim-row td { opacity: 0.6; }
 .audit-filter-actions { display: flex; gap: 6px; }
 .audit-table td { vertical-align: top; }
 .audit-table .when { white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* The event and its reason wrap inside their column, so the log fits its panel. */
+.audit-table td.c-event { white-space: normal; min-width: 160px; }
 .audit-table .reason { display: block; color: var(--muted); font-size: 12px; white-space: normal; max-width: 46ch; }
 .audit-table .who small { display: block; color: var(--muted); font-size: 11px; }
 .audit-table tr.detail td { background: var(--surface-2); white-space: normal; }
@@ -2106,7 +2108,9 @@ body.sheet-open { overflow: hidden; }
 
 /* Audit rows stay one line high; Details has the whole entry. */
 .audit-table td { vertical-align: middle; }
-.audit-table .c-event .reason { display: block; max-width: 46ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The reason wraps to at most two lines (Details has it all), so the log fits its panel instead of running off to the right. */
+.audit-table .c-event .reason { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; max-width: 46ch; overflow: hidden; white-space: normal; }
+.audit-table td.c-who { white-space: normal; }
 .audit-table .c-when { white-space: nowrap; }
 .audit-table tr.detail td { white-space: normal; }
 @media (max-width: 760px) { .audit-table .c-event .reason { white-space: normal; } }
@@ -2887,13 +2891,14 @@ ol.calc-how li.calc-total { font-weight: 600; }
 .calc-rules th:nth-child(2), .calc-rules td:nth-child(2) { text-align: center; }
 .calc-projects, .calc-rules, .calc-models { table-layout: auto; }
 .calc-projects td, .calc-rules td, .calc-models td, .calc-matrix td { overflow-wrap: anywhere; }
-.calc-projects td:nth-child(2) { min-width: 14ch; max-width: 40ch; }
+.calc-projects td:nth-child(2) { min-width: 12ch; max-width: 40ch; }
 /* The projects table fits its panel: headings wrap, and the boxes in it are no wider than their numbers. */
 .calc-projects th { white-space: normal; }
 .calc-projects .calc-num { width: 9ch; }
-.calc-projects select { max-width: 16ch; }
+.calc-projects select { max-width: 14ch; }
+.calc-projects th[data-sort] .th-sort { white-space: normal; }
 .calc-projects td:nth-child(2), .calc-projects td:nth-child(4), .calc-projects td small { white-space: normal; }
-.calc-projects td:nth-child(4) { min-width: 14ch; max-width: 24ch; }
+.calc-projects td:nth-child(4) { min-width: 12ch; max-width: 24ch; }
 .calc-projects td:nth-child(7) small { max-width: 12ch; }
 .calc-num { width: 11ch; text-align: end; font-variant-numeric: tabular-nums; }
 .calc-rules td, .calc-models td { vertical-align: middle; }
@@ -3017,6 +3022,7 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 
 /* Logs → User activity */
 .ua-table td.when { white-space: nowrap; }
+.ua-table td.ua-action { white-space: normal; min-width: 140px; }
 .ua-table td.who small { display: block; color: var(--muted); }
 .ua-table td.ua-details { font-size: 12px; max-width: 360px; white-space: normal; overflow-wrap: anywhere; }
 
@@ -3036,7 +3042,9 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .calc-engines .calc-warn { color: var(--warn); }
 
 /* Sort and filter on the column headings of every data table (public/table-tools.js). */
-th.tt-th .tt-tools { display: inline-flex; align-items: center; gap: 1px; margin-inline-start: 4px; vertical-align: middle; }
+/* A heading with sort and filter buttons may wrap: the buttons go under the label rather than widen the column past its panel. */
+th.tt-th { white-space: normal; }
+th.tt-th .tt-tools { display: inline-flex; align-items: center; gap: 1px; margin-inline-start: 4px; vertical-align: middle; white-space: nowrap; }
 th.tt-th .tt-tools[hidden] { display: none; }
 th.tt-th .tt-tools > button { display: inline-grid; place-items: center; width: 20px; height: 20px; min-height: 0; padding: 0; margin: 0; border: 0; border-radius: 5px; background: none; box-shadow: none; color: inherit; opacity: 0.4; cursor: pointer; }
 th.tt-th:hover .tt-tools > button, th.tt-th .tt-tools > button:focus-visible { opacity: 0.85; }
@@ -3074,3 +3082,9 @@ tr.tt-hidden { display: none !important; }
 /* Settings → Update & recovery: when a version was installed, under its state. */
 .upd-when { display: block; margin-top: 2px; font-size: 11.5px; }
 #upd-versions time { white-space: nowrap; }
+
+/* Phones: a data table's cells wrap, so the table narrows to the screen instead of running off to the right. */
+@media (max-width: 760px) {
+  .data-table th, .data-table td, table.probe th, table.probe td { white-space: normal; overflow-wrap: anywhere; }
+  .data-table th, .data-table td { padding-inline: 8px; }
+}
