@@ -64,7 +64,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.78 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.00.78 — MERGE_TIME UTC · [#101](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/101)
 
 - **Forgot your password?** A link under Sign in emails a one-time link to the account's own address; it works once, for 30 minutes, and saving the new password signs the account out everywhere and is confirmed by email.
 - **Built so it cannot be misused.** Asking never says whether an address has an account, the link points only at the server's own https address (never one taken from the request), only a hash of it is kept, in memory, and requests are limited per person and per network address.
