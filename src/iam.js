@@ -26,6 +26,7 @@ import { promisify } from 'node:util';
 
 import { validCurrency } from './money.js';
 import { NEXTGEN_ACCENTS } from '../public/look.js';
+import { RESET_POLICIES } from './password-reset.js';
 
 const scrypt = promisify(scryptCb);
 
@@ -192,7 +193,9 @@ export class IamStore {
     }
     const users = Array.isArray(raw.users) ? raw.users.filter((u) => u?.id && u?.email) : [];
     const migrations = Array.isArray(raw.migrations) ? raw.migrations.filter((m) => typeof m === 'string') : [];
-    const state = { version: 1, roles, users, migrations };
+    // Server-wide sign-in rules (People & roles → Sign-in): who may reset a forgotten password by email.
+    const policy = { passwordReset: RESET_POLICIES.includes(raw.policy?.passwordReset) ? raw.policy.passwordReset : 'everyone' };
+    const state = { version: 1, roles, users, migrations, policy };
     if (Object.keys(raw).length && !migrations.includes(ROLES_1_0_63)) {
       migrateRoles1063(state);
       this.#migrated = true;
@@ -371,6 +374,27 @@ export class IamStore {
   }
 
   /**
+   * An administrator changes someone's sign-in email. Never to an address another person signs in
+   * with, or lists as a Checkmarx One identity (an email always counts as one). Returns {before, after}.
+   */
+  changeEmail(id, email, { actorPerms }) {
+    const user = this.user(id);
+    if (!user) throw fail(404, 'No such user.');
+    if (!this.canGrant(actorPerms, this.permissionsOf({ ...user, disabled: false }))) {
+      throw fail(403, `You cannot change ${user.email}: their role holds permissions you do not have.`);
+    }
+    const address = norm(email);
+    if (!EMAIL.test(address)) throw fail(400, 'Enter a valid email address.');
+    const before = user.email;
+    if (address === norm(before)) return { before, after: before };
+    const taken = this.#state.users.find((u) => u.id !== id && (norm(u.email) === address || (u.cxoneIdentities ?? []).map(norm).includes(address)));
+    if (taken) throw fail(409, `${address} already signs in here.`);
+    user.email = address;
+    this.#save();
+    return { before, after: address };
+  }
+
+  /**
    * The Checkmarx One tenants a person works in (several tenants: src/tenancy.js). Empty means
    * the first tenant only. Super Admins (tenants.manage) work in every tenant whatever this says.
    */
@@ -383,7 +407,7 @@ export class IamStore {
     return { before, after: publicUser(user) };
   }
 
-  /** A person changes their own profile (name, language, time zone, programming languages). Returns {before, after}. */
+  /** A person's profile (name, language, time zone, programming languages, Impact figures, look): theirs, or an Admin's change. Returns {before, after}. */
   updateProfile(id, patch = {}) {
     const user = this.user(id);
     if (!user) throw fail(404, 'No such user.');
@@ -434,6 +458,25 @@ export class IamStore {
     this.#state.users = this.#state.users.filter((u) => u.id !== id);
     this.#save();
     return publicUser(user);
+  }
+
+  /** Who may reset a forgotten password by email: 'everyone', 'not-admins' or 'off'. */
+  passwordResetPolicy() {
+    return this.#state.policy?.passwordReset ?? 'everyone';
+  }
+
+  setPasswordResetPolicy(value) {
+    if (!RESET_POLICIES.includes(value)) throw fail(400, `Choose one of: ${RESET_POLICIES.join(', ')}.`);
+    const before = this.passwordResetPolicy();
+    this.#state.policy = { ...(this.#state.policy ?? {}), passwordReset: value };
+    this.#save();
+    return { before, after: value };
+  }
+
+  /** Whether `password` is this person's current one (a reset may not choose it again). */
+  async isCurrentPassword(id, password) {
+    const user = this.user(id);
+    return Boolean(user?.passwordHash) && checkPassword(password, user.passwordHash);
   }
 
   /** Set a password. An administrator's reset makes the user choose a new one at next sign-in. */

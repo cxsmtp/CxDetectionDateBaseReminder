@@ -1509,6 +1509,12 @@ body.fetching [data-needs-data] { opacity: 0.45; cursor: not-allowed; }
 
 /* ---------------- Terms of use ---------------- */
 .terms-signin { margin: 0 0 12px; }
+/* Forgotten password: the link under Sign in, the account a reset link is for, what is missing for it. */
+.forgot-link { font-size: 13.5px; }
+.reset-email { margin: 0 0 12px; font-weight: 600; font-family: var(--mono); overflow-wrap: anywhere; }
+#iam-reset-policy { max-width: 460px; }
+.reset-missing { margin: 8px 0 0; padding-inline-start: 18px; font-size: 13px; color: var(--warn); }
+.reset-missing li.hint { list-style: none; margin-inline-start: -18px; color: var(--text); font-weight: 600; }
 .terms-overlay { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgb(15 23 42 / 0.55); backdrop-filter: blur(3px); }
 .terms-overlay[hidden] { display: none; }
 .terms-box { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: min(780px, 100%); max-height: min(88vh, 900px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
@@ -2559,6 +2565,14 @@ html[data-i18n="loading"] .shell { visibility: hidden; animation: i18n-reveal 0s
 #pf-impact { width: min(860px, 100%); grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
 #pf-impact .field { width: auto; }
 #pf-impact .field:first-child { grid-column: 1 / -1; width: min(420px, 100%); }
+/* An Admin editing someone's profile: the email to change, and their look in one row. */
+.pf-look-grid { width: min(860px, 100%); grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.pf-look-grid .field { width: auto; }
+.pf-look-grid select { width: 100%; }
+#pf-email-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+#pf-email-form input { flex: 1 1 220px; min-width: 0; }
+.pf-other { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 0 12px; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--warn-soft, var(--surface-2)); }
+.pf-other .hint { margin: 0; flex: 1 1 320px; }
 .pl-picks { display: flex; flex-wrap: wrap; gap: 6px; }
 .pl-picks label { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px 4px 8px; border: 1px solid var(--border-strong); border-radius: 6px; font-size: 12.5px; cursor: pointer; background: var(--surface); }
 .pl-picks label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }

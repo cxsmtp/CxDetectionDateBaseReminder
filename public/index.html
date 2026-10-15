@@ -277,6 +277,7 @@
                 <label class="field"><span>Password</span><input id="signin-password" type="password" autocomplete="current-password" required /></label>
                 <div class="actions">
                   <button type="submit" class="primary big block-sm" id="signin-submit">Sign in</button>
+                  <button type="button" class="link forgot-link" id="forgot-open" hidden>Forgot your password?</button>
                   <span id="signin-status" class="status"></span>
                 </div>
               </form>
@@ -296,6 +297,41 @@
                 <div class="actions">
                   <button type="submit" class="primary big block-sm" id="connect">Sign in with key</button>
                   <span id="connect-status" class="status"></span>
+                </div>
+              </form>
+            </div>
+
+            <!-- Forgot your password: a one-time link to the account's own email address -->
+            <div id="forgot-box" hidden>
+              <h2>Forgot your password?</h2>
+              <p class="hint">Enter the email address you sign in with. If it has an account that may reset its password here, a link to choose a new one is sent to that address. It works once, for 30 minutes.</p>
+              <form id="forgot-form" autocomplete="on">
+                <label class="field"><span>Email</span><input id="forgot-email" type="email" autocomplete="username" required /></label>
+                <div class="actions">
+                  <button type="submit" class="primary big block-sm" id="forgot-submit">Send the link</button>
+                  <button type="button" class="ghost" id="forgot-back">Back to sign in</button>
+                  <span id="forgot-status" class="status" aria-live="polite"></span>
+                </div>
+              </form>
+            </div>
+
+            <!-- Choose a new password from an emailed link (#reset=…) -->
+            <div id="reset-box" hidden>
+              <h2>Choose a new password</h2>
+              <p class="hint" id="reset-for"></p>
+              <p class="reset-email" id="reset-email" translate="no" hidden></p>
+              <p class="actions" id="reset-dead" hidden><button type="button" class="primary" id="reset-again">Ask for a new link</button></p>
+              <form id="reset-form" autocomplete="off" hidden>
+                <input type="email" id="reset-username" autocomplete="username" hidden />
+                <div class="grid2">
+                  <label class="field"><span>New password (12+ characters)</span><input id="reset-next" type="password" autocomplete="new-password" minlength="12" required /></label>
+                  <label class="field"><span>Confirm</span><input id="reset-next2" type="password" autocomplete="new-password" minlength="12" required /></label>
+                </div>
+                <p class="hint">Saving signs this account out everywhere, and an email confirms the change.</p>
+                <div class="actions">
+                  <button type="submit" class="primary big block-sm" id="reset-submit">Save password</button>
+                  <button type="button" class="ghost" id="reset-back">Back to sign in</button>
+                  <span id="reset-status" class="status" aria-live="polite"></span>
                 </div>
               </form>
             </div>
@@ -718,8 +754,12 @@
               <div class="set-content" id="set-content">
 
             <section class="panel profile" id="set-profile">
-              <h2>Your profile</h2>
-              <p class="hint wide">How CxMissionZero appears to you. Only you can change these settings, and they apply in every browser you sign in from.</p>
+              <h2 id="pf-title">Your profile</h2>
+              <p class="hint wide" id="pf-intro">How CxMissionZero appears to you. Only you can change these settings, and they apply in every browser you sign in from.</p>
+              <div class="pf-other" id="pf-other" hidden>
+                <p class="hint wide">You are changing someone else's profile, as an Admin. Each change saves as you type and is recorded in the audit log; a new email address is announced to both the old and the new one.</p>
+                <button type="button" class="ghost sm" id="pf-other-back">Back to People &amp; roles</button>
+              </div>
               <div class="profile-head">
                 <div class="profile-photo">
                   <span class="avatar xl" id="pf-avatar" aria-hidden="true"></span>
@@ -730,9 +770,10 @@
                   </div>
                 </div>
                 <dl class="profile-facts">
-                  <div><dt>Email</dt><dd id="pf-email" translate="no"></dd></div>
+                  <div><dt>Email</dt><dd id="pf-email" translate="no"></dd>
+                    <dd id="pf-email-edit" hidden><form id="pf-email-form" class="input-with-button"><input id="pf-email-input" type="email" required maxlength="254" autocomplete="off" spellcheck="false" aria-label="Email" /><button type="submit" class="sm">Change email</button></form></dd></div>
                   <div><dt>Role</dt><dd id="pf-role"></dd></div>
-                  <div><dt>Signed in with</dt><dd id="pf-via"></dd></div>
+                  <div id="pf-via-row"><dt>Signed in with</dt><dd id="pf-via"></dd></div>
                   <div><dt>Last sign-in</dt><dd id="pf-last"></dd></div>
                 </dl>
               </div>
@@ -743,7 +784,7 @@
               <div class="profile-block">
                 <h3>Time zone</h3>
                 <label class="check"><input type="checkbox" id="pf-tz-auto" /> <span>Use this computer's time zone</span></label>
-                <p class="hint profile-zone"><span>Detected on this computer:</span> <b id="pf-tz-device" translate="no"></b></p>
+                <p class="hint profile-zone" id="pf-tz-device-line"><span>Detected on this computer:</span> <b id="pf-tz-device" translate="no"></b></p>
                 <label class="field"><span>Time zone</span><select id="pf-tz" translate="no"></select></label>
                 <p class="hint">Dates and times on these pages are shown in this time zone.</p>
               </div>
@@ -753,7 +794,7 @@
                 <div class="pl-picks" id="pf-langs"></div>
               </div>
               <div class="profile-block" id="pf-impact-block">
-                <h3>Your Impact figures</h3>
+                <h3 id="pf-impact-title">Your Impact figures</h3>
                 <p class="hint">Your Impact page and the summary you download use these, so the figures match how your teams work. Leave a field empty to use the organisation's, shown in grey.</p>
                 <div class="grid3" id="pf-impact">
                   <label class="field"><span>Currency</span><select id="pf-currency"></select></label>
@@ -763,6 +804,15 @@
                   <label class="field"><span>Minutes to fix one finding by hand</span><input id="pf-fix-min" data-pi="fixMinutes" type="number" min="1" max="10000" step="1" inputmode="numeric" /></label>
                 </div>
                 <p class="hint" id="pf-impact-hint"></p>
+              </div>
+              <div class="profile-block" id="pf-look-block" hidden>
+                <h3>Look</h3>
+                <p class="hint">What they see in the look menu next to their name, and the look of the reports they download.</p>
+                <div class="grid3 pf-look-grid">
+                  <label class="field"><span>Look</span><select id="pf-look"><option value="">The organisation's</option><option value="nextgen">Next-gen</option><option value="classic">Classic</option></select></label>
+                  <label class="field"><span>Theme</span><select id="pf-theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+                  <label class="field"><span>Accent</span><select id="pf-accent"><option value="indigo">Indigo</option><option value="cyan">Cyan</option><option value="emerald">Emerald</option><option value="violet">Violet</option><option value="amber">Amber</option></select></label>
+                </div>
               </div>
               <span class="status" id="pf-status"></span>
             </section>
@@ -2170,6 +2220,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             <div class="ptabs" role="tablist" aria-label="Identity and access" data-ptabs="access">
               <button type="button" role="tab" class="ptab" data-pt="people">People <em class="ptab-count" id="iam-people-count"></em></button>
               <button type="button" role="tab" class="ptab" data-pt="roles">Roles &amp; permissions <em class="ptab-count" id="iam-roles-count"></em></button>
+              <button type="button" role="tab" class="ptab" data-pt="signin" data-perm="iam.manage">Sign-in</button>
             </div>
             <div class="ptpanel" data-ptpanel="access:people" role="tabpanel">
             <section class="panel">
@@ -2251,6 +2302,22 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <button type="button" id="iam-matrix-cancel" class="ghost">Discard</button>
                 <span class="status" id="iam-matrix-status"></span>
               </div>
+            </section>
+            </div>
+            <div class="ptpanel" data-ptpanel="access:signin" role="tabpanel" hidden>
+            <section class="panel" data-perm="iam.manage">
+              <h2>Forgotten passwords</h2>
+              <p class="hint">"Forgot your password?" on the sign-in page sends a one-time link to the account's own email address. It works once, for 30 minutes, signs the account out everywhere when used, and is followed by an email saying the password was changed. Asking never shows whether an address has an account. For the whole server.</p>
+              <label class="field"><span>Who may reset a forgotten password by email</span>
+                <select id="iam-reset-policy">
+                  <option value="everyone">Everyone with a password</option>
+                  <option value="not-admins">Everyone except Admins</option>
+                  <option value="off">Nobody: an Admin sets a temporary password</option>
+                </select>
+                <small class="hint">"Admins" are the people who may manage people or tenants. An Admin who forgets can still be given a temporary password by another Admin, or on the server with <code>node scripts/reset-admin.mjs</code>.</small>
+              </label>
+              <ul class="reset-missing" id="iam-reset-missing" hidden></ul>
+              <p class="status" id="iam-reset-status" aria-live="polite"></p>
             </section>
             </div>
           </div>

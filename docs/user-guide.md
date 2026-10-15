@@ -168,7 +168,15 @@ podman exec mission-zero node scripts/reset-admin.mjs
   With Docker: `docker exec mission-zero node scripts/reset-admin.mjs`. Add an email (`… reset-admin.mjs ana@acme.io`) to reset that person. The server keeps running.
 - To start from scratch, remove the volume (`podman volume rm mission-zero-data`). This deletes every setting and the audit log.
 
-**Locked out?** Five wrong passwords lock an account for 15 minutes. An Admin or Analyst can set a new temporary password for you on the People & roles page (**Set password**).
+**Forgot your password?** The link under **Sign in** (shown once an Admin has set up the email server and the server's https address).
+1. Enter the email address you sign in with and press **Send the link**. The answer is the same whether or not the address has an account.
+2. If it does, and your account may reset its password by email, a link arrives at that address. It works once, for 30 minutes, and only the latest one works.
+3. Open it, choose a new password (12+ characters, not your current one) and press **Save password**. Every place you were signed in is signed out, and an email confirms the change.
+4. Sign in with the new password.
+
+Nothing arrived? Check spam, or ask an Admin: at most 3 links an hour are sent to one person, and an Admin may have kept Admins, or everyone, out of resetting by email (People & roles → **Sign-in**).
+
+**Locked out?** Five wrong passwords lock an account for 15 minutes. Resetting your password by email unlocks it. An Admin or Analyst can also set a new temporary password for you on the People & roles page (**Set password**).
 
 **Connections, top right.** One look shows whether CxMissionZero can reach what it needs:
 
@@ -1004,18 +1012,24 @@ See [audit-and-backup.md](audit-and-backup.md) for encrypted backups and moving 
 
 ## People & roles
 
-Identity and access management, in two tabs.
+Identity and access management, in three tabs.
 
 **People.** Search by name, email or Checkmarx One identity, and filter by role or status (active, locked, disabled, must set password). 20 people a page.
 
 | Action | What it does |
 | --- | --- |
 | **Add person** | Fields: <ul><li>email and name;</li><li>role;</li><li>a temporary password (they choose their own at first sign-in);</li><li>optionally their **Checkmarx One identities** (usernames or client ids allowed to sign in with an API key).</li></ul> |
+| **Edit profile** | Their profile, as on Settings → Your profile: name, language, time zone, programming languages, Impact figures, look (next-gen or classic, theme, accent) and picture, and their **sign-in email** (**Change email**, after a confirmation). A new email ends any password reset link sent to the old one, and both addresses are told by email. Every change is in the audit log. For people whose permissions you hold all of, never your own (that is Your profile). **Back to People & roles** returns. |
 | Role (per person) | Change it. It applies on their next click. |
 | **Set password** | A new temporary password. |
 | **Disable / Enable** | Disabling ends their sessions at once. |
 | **Remove** | Deletes the account. |
 | **Tenants** (Super Admin, several tenants) | Choose the Checkmarx One tenants the person works in. Under each name, the tenants they work in now. |
+
+**Sign-in** (people who may manage people): who may reset a forgotten password by email, for the whole server (a Super Admin's choice when there are several tenants).
+- **Everyone with a password** (the default), **Everyone except Admins** (people who may manage people or tenants then get a temporary password from another Admin, or with `node scripts/reset-admin.mjs`), or **Nobody**.
+- Under it, what is still missing for **Forgot your password?** to show: the email server set up and tested, and the server's https address (Settings → Server address).
+- Accounts that sign in with a Checkmarx One key only, and disabled accounts, are never sent a link.
 
 **Roles & permissions** is a matrix of permissions against roles.
 - **Find a permission** narrows the matrix; click a group name to fold it, or **Collapse all**. Each group row shows how many of its permissions each role has.

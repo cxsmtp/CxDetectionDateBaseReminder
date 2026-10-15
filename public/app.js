@@ -1,7 +1,7 @@
 import { nextSpeedster } from './speedsters.js';
 import { initCalculator } from './calculator/page.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engines.js';
-import { availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
+import { LANGUAGES, availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -1260,6 +1260,7 @@ function route() {
   document.body.classList.toggle('sheet-open', dashboardSheet);
   document.body.dataset.stage = STAGES[target] ?? '';
   $('page-reload').hidden = !reloaderOf(target);
+  if (target !== 'settings' || (view && view !== 'profile')) closeProfileOf();
   if (target === 'settings') showSettingsSection(view);
   if (target === 'help') helpRoute(view);
   else if (view && PAGE_TABS[target]) activateTab(PAGE_TABS[target], view, { remember: true });
@@ -1618,7 +1619,7 @@ async function showConnected(me) {
   }
   state.me = me;
   state.connection = me.connection;
-  for (const box of ['setup-box', 'signin-box', 'change-box']) $(box).hidden = true;
+  for (const box of ['setup-box', 'signin-box', 'change-box', 'forgot-box', 'reset-box']) $(box).hidden = true;
 
   if (me.connection) {
     const { tenant, regionLabel, baseUrl } = me.connection;
@@ -1834,6 +1835,9 @@ function showSignIn({ setup = false, change = false, message = '' } = {}) {
   $('setup-box').hidden = !setup;
   $('signin-box').hidden = setup || change;
   $('change-box').hidden = !change;
+  $('forgot-box').hidden = true;
+  $('reset-box').hidden = true;
+  if (!setup && !change) refreshForgotLink();
   $('change-cancel').hidden = change;
   $('change-current-field').hidden = false;
   $('nav').hidden = true;
@@ -1882,6 +1886,97 @@ async function connect(event) {
     button.disabled = false;
   }
 }
+
+// ---- Forgotten password: a one-time link to the account's own email --------------------------
+
+/** "Forgot your password?" shows only when the server can send the link (policy, email, address). */
+async function refreshForgotLink() {
+  try {
+    const session = await api('/api/session');
+    $('forgot-open').hidden = !session.passwordReset;
+  } catch {
+    $('forgot-open').hidden = true;
+  }
+}
+
+function showForgot() {
+  showSignIn();
+  $('signin-box').hidden = true;
+  $('forgot-box').hidden = false;
+  $('page-title').textContent = 'Forgot your password?';
+  $('forgot-email').value = $('signin-email').value.trim();
+  setStatus('forgot-status', '');
+  $('forgot-submit').disabled = false;
+  $('forgot-email').focus();
+}
+
+async function askForReset(event) {
+  event.preventDefault();
+  const button = $('forgot-submit');
+  button.disabled = true;
+  setStatus('forgot-status', 'Sending…');
+  try {
+    const answer = await api('/api/session/password-reset', { method: 'POST', body: JSON.stringify({ email: $('forgot-email').value.trim() }) });
+    setStatus('forgot-status', answer.message, 'ok');
+    // One link a minute is all the server sends anyway.
+    setTimeout(() => (button.disabled = false), 60_000);
+  } catch (error) {
+    showError('forgot-status', error);
+    button.disabled = false;
+  }
+}
+
+let resetToken = '';
+/** Opened from the emailed link: the secret is taken out of the address bar at once. */
+async function showReset(token) {
+  resetToken = token;
+  history.replaceState(null, '', location.pathname + location.search);
+  showSignIn();
+  $('signin-box').hidden = true;
+  $('reset-box').hidden = false;
+  $('reset-form').hidden = true;
+  $('reset-dead').hidden = true;
+  $('page-title').textContent = 'New password';
+  $('reset-for').textContent = 'Checking the link…';
+  $('reset-email').hidden = true;
+  try {
+    const link = await api('/api/session/password-reset/check', { method: 'POST', body: JSON.stringify({ token }) });
+    $('reset-for').textContent = 'For this account. The link works once, for 30 minutes from when it was sent.';
+    $('reset-email').textContent = link.email;
+    $('reset-email').hidden = false;
+    $('reset-form').hidden = false;
+    $('reset-next').focus();
+  } catch (error) {
+    resetToken = '';
+    $('reset-for').textContent = error.message;
+    $('reset-dead').hidden = false;
+  }
+}
+
+async function confirmReset(event) {
+  event.preventDefault();
+  if ($('reset-next').value !== $('reset-next2').value) return setStatus('reset-status', 'The passwords do not match.', 'error');
+  const button = $('reset-submit');
+  button.disabled = true;
+  setStatus('reset-status', 'Saving…');
+  try {
+    const done = await api('/api/session/password-reset/confirm', { method: 'POST', body: JSON.stringify({ token: resetToken, password: $('reset-next').value }) });
+    resetToken = '';
+    $('reset-next').value = '';
+    $('reset-next2').value = '';
+    showSignIn();
+    $('signin-email').value = done.email ?? '';
+    setStatus('signin-status', 'Your password was changed. Sign in with the new one.', 'ok');
+    $('signin-password').focus();
+  } catch (error) {
+    showError('reset-status', error);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+/** The emailed link: #reset=<token>. */
+const resetLinkToken = () => /^#reset=([A-Za-z0-9_-]{43})$/.exec(location.hash)?.[1] ?? '';
 
 async function signInWithPassword(event) {
   event.preventDefault();
@@ -6104,11 +6199,25 @@ function renderSendResult(result) {
 // Wiring
 // ---------------------------------------------------------------------------
 
-window.addEventListener('hashchange', route);
+window.addEventListener('hashchange', () => {
+  const token = resetLinkToken();
+  if (token) showReset(token);
+  else route();
+});
 
 $('connect-form').addEventListener('submit', connect);
 $('password-form').addEventListener('submit', signInWithPassword);
 $('setup-form').addEventListener('submit', createFirstAdmin);
+$('forgot-open').addEventListener('click', showForgot);
+$('forgot-form').addEventListener('submit', askForReset);
+$('reset-form').addEventListener('submit', confirmReset);
+$('reset-again').addEventListener('click', showForgot);
+for (const id of ['forgot-back', 'reset-back']) {
+  $(id).addEventListener('click', () => {
+    resetToken = '';
+    showSignIn();
+  });
+}
 $('change-form').addEventListener('submit', changePassword);
 $('change-cancel').addEventListener('click', () => {
   if (state.pendingMe) showConnected(state.pendingMe);
@@ -7580,6 +7689,9 @@ document.addEventListener('keydown', (event) => {
     /* health is advisory only */
   }
 
+  // Opened from an emailed reset link: that comes first, signed in or not (using it signs everyone out).
+  const token = resetLinkToken();
+  if (token) return showReset(token);
   try {
     const session = await api('/api/session');
     if (session.signedIn) await afterSignIn(session);
@@ -8725,7 +8837,35 @@ function roleName(id) {
   return access.data?.roles.find((r) => r.id === id)?.name ?? id;
 }
 
+/** People & roles → Sign-in: who may reset a forgotten password by email, and what is missing for it to work. */
+function renderSignInPolicy() {
+  const policy = access.data?.signIn;
+  if (!policy) return;
+  $('iam-reset-policy').value = policy.policy;
+  $('iam-reset-policy').disabled = !policy.canChange;
+  if (!policy.canChange) setStatus('iam-reset-status', 'Sign-in rules are for the whole server: a Super Admin changes them.');
+  const missing = (policy.missing ?? []).filter((m) => m !== 'Turned off.');
+  $('iam-reset-missing').hidden = !missing.length || policy.policy === 'off';
+  $('iam-reset-missing').innerHTML = missing.length
+    ? `<li class="hint">"Forgot your password?" is not shown yet:</li>${missing.map((m) => `<li>${escapeHtml(m)}</li>`).join('')}`
+    : '';
+}
+
+$('iam-reset-policy').addEventListener('change', async () => {
+  setStatus('iam-reset-status', 'Saving…');
+  try {
+    const ready = await api('/api/iam/policy', { method: 'PUT', body: JSON.stringify({ passwordReset: $('iam-reset-policy').value }) });
+    access.data.signIn = { ...access.data.signIn, ...ready };
+    renderSignInPolicy();
+    setStatus('iam-reset-status', 'Saved.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('iam-reset-status', error);
+    if (access.data?.signIn) $('iam-reset-policy').value = access.data.signIn.policy;
+  }
+});
+
 function renderAccess() {
+  renderSignInPolicy();
   const { users, roles } = access.data;
   const assignable = roles.filter((r) => r.canAssign);
   $('iam-add-role').innerHTML = assignable.map((r) => `<option value="${escapeHtml(r.id)}" ${r.id === 'user' ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('');
@@ -8763,7 +8903,8 @@ function renderAccess() {
             .join('')}</select>`
         : `<span class="role-pill role-${escapeHtml(u.role)}">${escapeHtml(roleName(u.role))}</span>`;
       const actions = u.canManage
-        ? `<button type="button" class="link" data-iam-reset="${u.id}">Set password</button>
+        ? `<button type="button" class="link" data-iam-profile="${u.id}">Edit profile</button>
+           <button type="button" class="link" data-iam-reset="${u.id}">Set password</button>
            <button type="button" class="link" data-iam-ids="${u.id}">Identities</button>
            <button type="button" class="link" data-iam-toggle="${u.id}">${u.disabled ? 'Enable' : 'Disable'}</button>
            <button type="button" class="link danger" data-iam-delete="${u.id}">Remove</button>`
@@ -8995,10 +9136,12 @@ $('iam-users').addEventListener('change', (event) => {
 $('iam-users').addEventListener('click', (event) => {
   const button = event.target.closest('button');
   if (!button) return;
-  const id = button.dataset.iamReset || button.dataset.iamIds || button.dataset.iamToggle || button.dataset.iamDelete || button.dataset.iamTenants;
+  const id = button.dataset.iamProfile || button.dataset.iamReset || button.dataset.iamIds || button.dataset.iamToggle || button.dataset.iamDelete || button.dataset.iamTenants;
   const user = access.data.users.find((u) => u.id === id);
   if (!user) return;
-  if (button.dataset.iamTenants) {
+  if (button.dataset.iamProfile) {
+    openProfileOf(id);
+  } else if (button.dataset.iamTenants) {
     const tenants = [...button.closest('.tn-pop').querySelectorAll('input:checked')].map((input) => input.value);
     if (!tenants.length) return setStatus('iam-status', 'Choose at least one tenant.', 'error');
     iamCall(`/api/iam/users/${id}/tenants`, { method: 'PUT', body: JSON.stringify({ tenants }) }, 'Saved.');
@@ -10556,9 +10699,49 @@ function applyProfile(me) {
   if (Object.keys(quiet).length) saveProfile({ ...quiet, quiet: true }, { silent: true });
 }
 
+/**
+ * Someone else's profile, opened by an Admin from People & roles ({user, languages}), or null:
+ * then the panel is the signed-in person's own. Never their own through this.
+ */
+let profileOf = null;
+
+async function openProfileOf(id) {
+  try {
+    profileOf = await api(`/api/iam/users/${encodeURIComponent(id)}/profile`);
+    location.hash = '#/settings/profile';
+    renderProfile();
+    setStatus('pf-status', '');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('iam-status', error);
+  }
+}
+
+function closeProfileOf() {
+  if (!profileOf) return;
+  profileOf = null;
+  renderProfile();
+  setStatus('pf-status', '');
+}
+
 let profileSaving = Promise.resolve();
-/** Save part of the profile (one request at a time, in order). */
+/** Save part of the profile (one request at a time, in order): one's own, or, for an Admin, the person opened. */
 function saveProfile(patch, { silent = false } = {}) {
+  if (profileOf) {
+    const id = profileOf.user.id;
+    profileSaving = profileSaving.then(async () => {
+      try {
+        const saved = await api(`/api/iam/users/${encodeURIComponent(id)}/profile`, { method: 'PUT', body: JSON.stringify(patch) });
+        if (profileOf?.user.id !== id) return;
+        profileOf = { ...profileOf, user: saved.user };
+        renderProfile();
+        setStatus('pf-status', 'Saved.', 'ok');
+      } catch (error) {
+        if (!handleAuthLoss(error)) showError('pf-status', error);
+        if (profileOf?.user.id === id) renderProfile();
+      }
+    });
+    return profileSaving;
+  }
   profileSaving = profileSaving.then(async () => {
     try {
       const me = await api('/api/me/profile', { method: 'PUT', body: JSON.stringify(patch), quiet: silent });
@@ -10653,18 +10836,35 @@ function profileZoneLabel(zone) {
 function renderProfile() {
   const me = state.me;
   if (!me) return;
-  const user = me.user;
+  const other = Boolean(profileOf);
+  const user = other ? profileOf.user : me.user;
   const profile = user.profile ?? {};
+  $('pf-title').textContent = other ? "A person's profile" : 'Your profile';
+  $('pf-intro').hidden = other;
+  $('pf-other').hidden = !other;
+  $('pf-email').hidden = other;
+  $('pf-email-edit').hidden = !other;
+  $('pf-via-row').hidden = other;
+  $('pf-tz-device-line').hidden = other;
+  $('pf-look-block').hidden = !other;
+  $('pf-impact-title').textContent = other ? 'Their Impact figures' : 'Your Impact figures';
   showAvatar($('pf-avatar'), user);
   $('pf-avatar-remove').hidden = !user.avatarAt;
   $('pf-email').textContent = user.email;
-  $('pf-role').textContent = me.role.name;
+  if (other && document.activeElement !== $('pf-email-input')) $('pf-email-input').value = user.email;
+  $('pf-role').textContent = other ? user.roleName : me.role.name;
   $('pf-via').textContent = me.via === 'cxone' ? 'A Checkmarx One key' : 'A password';
   $('pf-last').textContent = user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : '—';
   if (document.activeElement !== $('pf-name')) $('pf-name').value = user.name ?? '';
   const language = $('pf-language');
-  language.innerHTML = availableLanguages().map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
-  language.value = profile.language || currentLanguage();
+  const languages = other ? LANGUAGES.filter(([code]) => profileOf.languages.includes(code)) : availableLanguages();
+  language.innerHTML = languages.map(([code, name]) => `<option value="${code}" lang="${code}">${escapeHtml(name)}</option>`).join('');
+  language.value = profile.language || (other ? 'en' : currentLanguage());
+  if (other) {
+    $('pf-look').value = profile.look ?? '';
+    $('pf-theme').value = profile.theme ?? 'auto';
+    $('pf-accent').value = profile.accent ?? 'indigo';
+  }
   const zones = $('pf-tz');
   if (!zones.options.length) {
     let all = [];
@@ -10693,14 +10893,36 @@ function renderProfile() {
     nameTimer = setTimeout(() => saveProfile({ name: $('pf-name').value }), 700);
   });
   $('pf-language').addEventListener('change', async () => {
-    await setLanguage($('pf-language').value);
+    // Someone else's language is theirs: this page stays in the Admin's own.
+    if (!profileOf) await setLanguage($('pf-language').value);
     saveProfile({ language: $('pf-language').value });
   });
   $('pf-tz-auto').addEventListener('change', () => {
     const auto = $('pf-tz-auto').checked;
     $('pf-tz').disabled = auto;
-    saveProfile(auto ? { timeZoneAuto: true, timeZone: deviceTimeZone() } : { timeZoneAuto: false, timeZone: $('pf-tz').value });
+    // For someone else, their own computer's zone is picked up when they next sign in.
+    saveProfile(auto ? (profileOf ? { timeZoneAuto: true } : { timeZoneAuto: true, timeZone: deviceTimeZone() }) : { timeZoneAuto: false, timeZone: $('pf-tz').value });
   });
+  for (const id of ['pf-look', 'pf-theme', 'pf-accent']) {
+    $(id).addEventListener('change', () => saveProfile({ [id.slice(3)]: $(id).value }));
+  }
+  $('pf-email-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!profileOf) return;
+    const email = $('pf-email-input').value.trim();
+    if (email.toLowerCase() === profileOf.user.email) return;
+    if (!confirm(`${profileOf.user.email} → ${email}\n\n${t('Change their sign-in email? From then on they sign in with the new address, any password reset link sent to the old one stops working, and both addresses are told.')}`)) {
+      $('pf-email-input').value = profileOf.user.email;
+      return;
+    }
+    saveProfile({ email });
+  });
+  $('pf-other-back').addEventListener('click', () => {
+    closeProfileOf();
+    location.hash = '#/access';
+    loadAccess();
+  });
+  document.querySelector('#set-nav [data-set="profile"]')?.addEventListener('click', closeProfileOf);
   $('pf-tz').addEventListener('change', () => saveProfile({ timeZoneAuto: false, timeZone: $('pf-tz').value }));
   $('pf-currency').addEventListener('change', () => saveProfile({ impact: personalImpact() }));
   let impactTimer = null;
@@ -10715,6 +10937,7 @@ function renderProfile() {
   });
   $('me-profile').addEventListener('click', () => {
     $('user-menu').open = false;
+    closeProfileOf();
   });
 
   // A picture: cut to a square, made small here (192 px), then sent.
@@ -10731,9 +10954,13 @@ function renderProfile() {
       canvas.getContext('2d').drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 192, 192);
       let image = canvas.toDataURL('image/webp', 0.86);
       if (!image.startsWith('data:image/webp')) image = canvas.toDataURL('image/jpeg', 0.88);
-      const me = await api('/api/me/avatar', { method: 'PUT', body: JSON.stringify({ image }) });
-      state.me = { ...state.me, user: me.user };
-      showAvatar($('me-avatar'), me.user);
+      if (profileOf) {
+        profileOf = { ...profileOf, ...(await api(`/api/iam/users/${encodeURIComponent(profileOf.user.id)}/avatar`, { method: 'PUT', body: JSON.stringify({ image }) })) };
+      } else {
+        const me = await api('/api/me/avatar', { method: 'PUT', body: JSON.stringify({ image }) });
+        state.me = { ...state.me, user: me.user };
+        showAvatar($('me-avatar'), me.user);
+      }
       renderProfile();
       setStatus('pf-status', 'Picture saved.', 'ok');
     } catch (error) {
@@ -10742,9 +10969,13 @@ function renderProfile() {
   });
   $('pf-avatar-remove').addEventListener('click', async () => {
     try {
-      const me = await api('/api/me/avatar', { method: 'PUT', body: JSON.stringify({ image: '' }) });
-      state.me = { ...state.me, user: me.user };
-      showAvatar($('me-avatar'), me.user);
+      if (profileOf) {
+        profileOf = { ...profileOf, ...(await api(`/api/iam/users/${encodeURIComponent(profileOf.user.id)}/avatar`, { method: 'PUT', body: JSON.stringify({ image: '' }) })) };
+      } else {
+        const me = await api('/api/me/avatar', { method: 'PUT', body: JSON.stringify({ image: '' }) });
+        state.me = { ...state.me, user: me.user };
+        showAvatar($('me-avatar'), me.user);
+      }
       renderProfile();
       setStatus('pf-status', 'Picture removed.', 'ok');
     } catch (error) {
