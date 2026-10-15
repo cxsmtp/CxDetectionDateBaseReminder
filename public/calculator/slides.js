@@ -182,7 +182,7 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
 async function svgImage(html, width, height) {
   const svg = html.match(/<svg[\s\S]*<\/svg>/)?.[0];
   if (!svg) return null;
-  const sized = svg.replace(/^<svg /, `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" `).replace(/style="width:100%;height:auto;display:block;direction:ltr"/, `style="direction:ltr;font-family:${FONT.replace(/"/g, "'")}"`);
+  const sized = svg.replace(/^<svg /, `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" `).replace(/style="width:100%;max-width:\d+px;height:auto;display:block;direction:ltr;overflow:hidden"/, `style="direction:ltr;font-family:${FONT.replace(/"/g, "'")}"`);
   const img = new Image();
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(sized)}`;
   await img.decode();

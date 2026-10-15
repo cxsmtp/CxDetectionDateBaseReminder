@@ -519,7 +519,7 @@
                 </div>
               </div>
               <div class="table-wrap">
-                <table id="projects" class="data-table">
+                <table id="projects" class="data-table" data-tt="projects">
                   <thead>
                     <tr id="projects-head">
                       <th class="checkbox"><input type="checkbox" id="select-all" title="Select all" aria-label="Select all" /></th>
@@ -2143,7 +2143,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </form>
               <p class="status" id="audit-status"></p>
               <div class="table-wrap">
-                <table class="data-table audit-table">
+                <table class="data-table audit-table" data-tt="audit">
                   <thead><tr><th class="num">#</th><th>Time</th><th>Event</th><th>Outcome</th><th>Who</th><th>Project</th><th class="num">Credits</th><th class="num">Remaining</th><th></th></tr></thead>
                   <tbody id="audit-body"><tr><td colspan="9" class="hint">Loading…</td></tr></tbody>
                 </table>
@@ -2259,7 +2259,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </div>
               <p class="status" id="iam-status"></p>
               <div class="table-wrap">
-                <table class="data-table iam-table">
+                <table class="data-table iam-table" data-tt="iam-people">
                   <thead><tr><th>Person</th><th>Role</th><th>Sign-in</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
                   <tbody id="iam-users"><tr><td colspan="6" class="hint">Loading…</td></tr></tbody>
                 </table>
@@ -2284,15 +2284,22 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <button type="button" id="iam-role-new" data-perm="iam.manage">New role</button>
               </div>
               <form id="iam-role-form" class="iam-add" hidden autocomplete="off">
+                <h3 class="iam-role-form-title"><span id="iam-role-form-title">New role</span> <span id="iam-role-form-of" class="role-pill" hidden></span></h3>
                 <div class="grid2">
                   <label class="field"><span>Role name</span><input id="iam-role-name" required maxlength="60" /></label>
                   <label class="field"><span>Description</span><input id="iam-role-desc" maxlength="300" /></label>
                 </div>
-                <div class="actions compact"><button type="submit" class="primary">Create role</button><span class="hint inline-hint">Then tick its permissions in the matrix.</span><span class="status" id="iam-role-status"></span></div>
+                <div class="actions compact"><button type="submit" class="primary" id="iam-role-submit">Create role</button><button type="button" class="ghost" id="iam-role-cancel">Cancel</button><span class="hint inline-hint" id="iam-role-hint">Then tick its permissions in the matrix.</span><span class="status" id="iam-role-status"></span></div>
               </form>
               <div class="iam-toolbar">
                 <input type="search" id="iam-perm-search" placeholder="Find a permission" aria-label="Find a permission" />
                 <button type="button" class="sm ghost" id="iam-groups-toggle">Collapse all</button>
+                <label class="check iam-diff-toggle"><input type="checkbox" id="iam-diff" /> Show only the differences</label>
+              </div>
+              <div class="iam-compare" id="iam-compare" hidden>
+                <span class="hint">Compare:</span>
+                <span id="iam-compare-roles" class="iam-compare-roles"></span>
+                <span class="hint" id="iam-compare-note"></span>
               </div>
               <div class="table-wrap matrix-wrap">
                 <table class="data-table iam-matrix" id="iam-matrix"></table>
@@ -2636,7 +2643,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </form>
               <p class="status" id="ua-status" aria-live="polite"></p>
               <div class="table-wrap">
-                <table class="data-table ua-table">
+                <table class="data-table ua-table" data-tt-page>
                   <thead><tr><th>When</th><th>Who</th><th>Page or action</th><th>Details</th><th>Result</th><th data-i18n-ctx="origin">From</th></tr></thead>
                   <tbody id="ua-body"><tr><td colspan="6" class="hint">Loading…</td></tr></tbody>
                 </table>

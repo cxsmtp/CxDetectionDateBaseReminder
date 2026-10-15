@@ -65,6 +65,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.79 — MERGE_TIME UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+
+- **Sort and filter every table from its headings.** Each column heading of a data table, in the app and in the downloaded HTML report, has a sort arrow (largest or A first, then reversed, then the table's own order) and a funnel to filter it: text it contains, the values to keep, or a comparison such as `>10` in a column of numbers.
+- **Every row, not just the page you see.** Projects, the People list and the credit audit log sort and filter everything loaded; a line above says how many rows are shown, with **Clear filters**, and the choice is kept when you switch pages.
+- **Rename roles, Security Analyst and User included.** **Rename** under a role's name changes its name and description; its people keep it, its permissions stay, Admin keeps its name, and the audit log records *Renamed role "User" to "Developers"*.
+- **Duplicate a role.** **Duplicate** starts a new role with the same permissions, named "… (copy)", ready to adjust.
+- **Show only the differences.** One tick hides the permissions every role holds alike and colours the rest; choose two or more roles to compare just those.
+- **Numbers stay inside their tables and charts.** Chart axes size themselves to their labels and charts no longer blow their text up on wide screens, and long ids, the per-severity boxes of the Cx Credits Calculator and phone labels wrap inside their boxes; a sweep of every page and tab, in both looks, at desktop, laptop and phone widths, finds nothing spilling out.
+- **In fourteen languages.** The new controls and messages are translated and reviewed twice in every language, in the app and in reports.
+- **Status.** STATUS_LINE
+
 ## MZ-01.00.78 — 2026-10-15 07:12 UTC · [#101](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/101)
 
 - **Forgot your password?** A link under Sign in emails a one-time link to the account's own address; it works once, for 30 minutes, and saving the new password signs the account out everywhere and is confirmed by email.

@@ -22392,5 +22392,143 @@
   "seen": [
    "Settings → Your profile, opened by an Admin for someone else (from People & roles → \"Edit profile\"): error when the language chosen is not open to this person"
   ]
+ },
+ "Sort by this column": {
+  "kind": "attr:title",
+  "seen": [
+   "Any data table in the app and in the downloaded HTML report: small controls next to each column heading: tooltip of the up/down arrows button"
+  ]
+ },
+ "Filter this column": {
+  "kind": "attr:title",
+  "seen": [
+   "Any data table in the app and in the downloaded HTML report: small controls next to each column heading: tooltip of the funnel button that opens the column's filter"
+  ]
+ },
+ "Filter": {
+  "kind": "text",
+  "seen": [
+   "Any data table in the app and in the downloaded HTML report: small controls next to each column heading: title of the column's filter pop-up, followed by \": \" and the column's name"
+  ]
+ },
+ "Contains…": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "Any data table in the app and in the downloaded HTML report: small controls next to each column heading: placeholder of the filter pop-up's text box (shows rows whose cell contains the text typed)"
+  ]
+ },
+ "Numbers: >10, <=5 or =0 compare.": {
+  "kind": "text",
+  "seen": [
+   "Any data table in the app and in the downloaded HTML report: small controls next to each column heading: grey hint in the filter pop-up of a column of numbers; >10, <=5 and =0 must stay exactly as written"
+  ]
+ },
+ "Showing {0} of {1} rows": {
+  "kind": "text",
+  "seen": [
+   "Any data table in the app and in the downloaded HTML report: small controls next to each column heading: line above a filtered table ({0} shown, {1} in all)"
+  ]
+ },
+ "Showing {0} of {1} rows on this page": {
+  "kind": "text",
+  "seen": [
+   "Any data table in the app and in the downloaded HTML report: small controls next to each column heading: same line for a table shown a page at a time, where the filter covers only the page in view"
+  ]
+ },
+ "Clear filters": {
+  "kind": "text",
+  "seen": [
+   "Any data table in the app and in the downloaded HTML report: small controls next to each column heading: link next to \"Showing … rows\" that removes every column filter"
+  ]
+ },
+ "{0} of the {1} entries loaded match the column filters": {
+  "kind": "text",
+  "seen": [
+   "Audit → Credit audit log: line under the table when column filters are on ({0} matching, {1} loaded so far)"
+  ]
+ },
+ "Duplicate": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): link under a role's name that makes a new role with the same permissions"
+  ]
+ },
+ "Rename role": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): the small form above the matrix, opened by Rename or Duplicate under a role's name: its title when renaming"
+  ]
+ },
+ "Duplicate role": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): the small form above the matrix, opened by Rename or Duplicate under a role's name: its title when duplicating"
+  ]
+ },
+ "Create copy": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): the small form above the matrix, opened by Rename or Duplicate under a role's name: the button that creates the duplicate"
+  ]
+ },
+ "The copy starts with the same permissions. Nobody has it until you give it to someone.": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): the small form above the matrix, opened by Rename or Duplicate under a role's name: grey line next to Create copy"
+  ]
+ },
+ "The people with this role keep it, and its permissions stay as they are.": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): the small form above the matrix, opened by Rename or Duplicate under a role's name: grey line next to Save when renaming"
+  ]
+ },
+ "Copy created — change its permissions in its column, then save.": {
+  "kind": "message",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): confirmation after Create copy"
+  ]
+ },
+ "Show only the differences": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): tick box above the matrix that hides the permissions every compared role holds alike"
+  ]
+ },
+ "Compare:": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): label before the role tick boxes shown with \"Show only the differences\""
+  ]
+ },
+ "{0} permissions differ.": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): grey line after the compared roles ({0} is 0 or 2 and more)"
+  ]
+ },
+ "{0} permission differs.": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): same line when {0} is 1"
+  ]
+ },
+ "These roles hold the same permissions.": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): in the matrix when \"Show only the differences\" finds none"
+  ]
+ },
+ "Compare at least two roles.": {
+  "kind": "message",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): error when the last but one role is unticked"
+  ]
+ },
+ "No permission matches.": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Roles & permissions (a matrix: permissions down the side, roles across the top): in the matrix when the \"Find a permission\" search finds none"
+  ]
  }
 }

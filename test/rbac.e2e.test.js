@@ -243,6 +243,31 @@ test('sign-ins, refusals and access changes are in the audit log', async () => {
   assert.equal(verify.body.ok, true);
 });
 
+test('roles can be renamed and duplicated; both are in the audit log', async () => {
+  const before = (await as.admin('GET', '/api/iam')).body;
+  assert.equal(before.rolesChangeable, true);
+  const userRole = before.roles.find((r) => r.id === 'user');
+  const renamed = await as.admin('PUT', '/api/iam/roles/user', { name: 'Developers', description: userRole.description, permissions: userRole.permissions });
+  assert.equal(renamed.status, 200, JSON.stringify(renamed.body));
+  const now = renamed.body.roles.find((r) => r.id === 'user');
+  assert.equal(now.name, 'Developers');
+  assert.deepEqual(new Set(now.permissions), new Set(userRole.permissions), 'permissions unchanged');
+  assert.equal(now.users, userRole.users, 'its people keep it');
+  assert.equal((await as.admin('PUT', '/api/iam/roles/admin', { name: 'Root', permissions: [] })).status, 400, 'Admin keeps its name');
+  const copy = await as.admin('POST', '/api/iam/roles', { name: 'Developers (copy)', description: '', permissions: userRole.permissions });
+  assert.equal(copy.status, 201);
+  const added = copy.body.roles.find((r) => r.name === 'Developers (copy)');
+  assert.deepEqual(new Set(added.permissions), new Set(userRole.permissions));
+  assert.equal(added.users, 0);
+  const reasons = (await as.admin('GET', '/api/audit?types=iam&limit=50')).body.entries.map((e) => e.reason).join('\n');
+  assert.match(reasons, /Renamed role "User" to "Developers"\./);
+  assert.doesNotMatch(reasons, /Changed role "Developers"/, 'a rename alone is not a permission change');
+  assert.match(reasons, /Created role "Developers \(copy\)"/);
+  // Back as it was for the tests after this one.
+  await as.admin('DELETE', `/api/iam/roles/${encodeURIComponent(added.id)}`);
+  assert.equal((await as.admin('PUT', '/api/iam/roles/user', { name: 'User', description: userRole.description, permissions: userRole.permissions })).status, 200);
+});
+
 test("the email's button downloads the very report that was attached, through a signed link", async () => {
   assert.equal((await as.admin('GET', '/api/scan')).status, 200);
   const created = await as.admin('POST', '/api/tracked-reports', { name: 'Payments' });
