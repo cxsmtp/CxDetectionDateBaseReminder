@@ -67,10 +67,10 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 ## MZ-01.00.78 — MERGE_TIME UTC · [#101](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/101)
 
 - **Forgot your password?** A link under Sign in emails a one-time link to the account's own address; it works once, for 30 minutes, and saving the new password signs the account out everywhere and is confirmed by email.
-- **Built so it cannot be misused.** Asking never says whether an address has an account, the link points only at the server's own https address (never one taken from the request), only a hash of it is kept, in memory, and requests are limited per person and per network address.
+- **Built so it cannot be misused.** Asking never says whether an address has an account, the link points only at the server's own https address (never one taken from the request), only a hash of it is kept, in memory, requests are limited per person and per network address, and every link sent or refused, each reset and each Admin's profile change is in the audit log, never the link itself.
 - **Admins decide who may use it.** People & roles → Sign-in: everyone with a password, everyone except Admins, or nobody; it shows what is still missing (the email server, the server's address) before the link appears.
 - **Admins edit anyone's profile.** **Edit profile** in People & roles opens a person's name, sign-in email, language, time zone, programming languages, Impact figures, look and picture; a new email is confirmed, ends any reset link sent to the old one, and both addresses are told.
-- **Everything audited.** Each link sent or refused (and why), each reset, and each profile change by an Admin is in the audit log, never the link itself.
+- **Shared results side by side.** In the interactive report, rows that are one Checkmarx One result ("Same result R1") now sit right under each other instead of wherever their age put them, so the twin is never further down the list.
 - **The golden button is gold again.** In the next-gen look, the buttons that turn gold when credits are ready (Triage / Remediate with AI Assist now, Use the credits) had lost their gold to the theme's gradient; they are solid flowing gold once more, with the theme's accent glowing behind them.
 - **In fourteen languages.** The new pages, options and messages are translated and reviewed twice in every language.
 - **Status.** STATUS_LINE
