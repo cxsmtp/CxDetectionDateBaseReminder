@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.80 | 488/s, 0 (main 477, 38; 15 reset in one opening burst) | 9.6 s | 1.8 s | 685 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.79 | 472/s, 0 (main 483, 0; 62 and 117 in host stalls before) | 9.0 s | 1.6 s | 685 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.78 | 495/s, 4 (main 494, 0; 60 and 73 in host stalls before) | 10.2 s | 1.0 s | 680 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.77 | 510/s, 0 (main 487 and 504, 186 and 10 in host stalls) | 10.2 s | 529 ms | 670 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -66,7 +67,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.80 — MERGE_TIME UTC · [#103](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/103)
+## MZ-01.00.80 — 2026-10-15 10:54 UTC · [#103](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/103)
 
 - **The Projects table stays inside its panel.** On a laptop the AI Remediation credits column ran off the right; "17 more needed" now sits under its figures, a long email goes onto two lines after its @, and below 1024 pixels wide the projects are shown as cards.
 - **Every other table fits too.** Headings wrap so the sort and filter buttons go under a long label instead of widening the column, and the audit log, user activity, Credit Control's overview and the Cx Credits Calculator's tables wrap their text; they had run up to 490 pixels past their panels.
@@ -74,7 +75,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **Exact times on the Update page.** Settings → Update & recovery shows every moment to the second with its time zone, in your own time zone and language: when each version was built and installed, when the running version was switched to and by whom, the last check and every event; point at one to see it in UTC.
 - **The Update page in fourteen languages.** Its buttons, states and events, still in English until now, are translated and reviewed twice.
 - **Checked on every page.** A sweep of every page and tab, in three looks, at desktop, laptop and phone widths, now also looks for tables wider than their frame, and finds none.
-- **Status.** STATUS_LINE
+- **Status.** 3000 people at once on 2 vCPU: 488 requests a second with none failed (main, just after, 477 with 38 failed in a host stall), report opens 9.6 s at p95, triage polls 1.8 s; in the release's other run 15 credit reads were reset by the network in the opening burst, on a request this release does not change ([performance](docs/performance.md)); 685 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.79 — 2026-10-15 08:26 UTC · [#102](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/102)
 
