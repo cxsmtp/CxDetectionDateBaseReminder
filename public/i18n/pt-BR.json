@@ -3232,6 +3232,21 @@
   "{0} permission differs.": "{0} permissão difere.",
   "These roles hold the same permissions.": "Estas funções têm as mesmas permissões.",
   "Compare at least two roles.": "Compare pelo menos duas funções.",
-  "No permission matches.": "Nenhuma permissão corresponde."
+  "No permission matches.": "Nenhuma permissão corresponde.",
+  "Install and switch": "Instalar e trocar",
+  "Switch to": "Trocar para esta",
+  "In the image (below)": "Na imagem (abaixo)",
+  "In the image": "Na imagem",
+  "(the image’s own)": "(a da própria imagem)",
+  "Installed": "Instalada",
+  "Switched to it": "Troca realizada em",
+  "Up to date.": "Está em dia.",
+  "Newer than what runs.": "Mais recente que a versão em execução.",
+  "See the note below.": "Veja a nota abaixo.",
+  "Started": "Iniciado",
+  "Switch": "Troca",
+  "Restart": "Reinicialização",
+  "Rolled back": "Revertido",
+  "Stopped unexpectedly": "Parada inesperada"
  }
 }

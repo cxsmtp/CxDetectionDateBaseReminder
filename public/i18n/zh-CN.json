@@ -3232,6 +3232,21 @@
   "{0} permission differs.": "有 {0} 项权限不同。",
   "These roles hold the same permissions.": "这些角色拥有相同的权限。",
   "Compare at least two roles.": "请至少选择两个角色进行比较。",
-  "No permission matches.": "没有匹配的权限。"
+  "No permission matches.": "没有匹配的权限。",
+  "Install and switch": "安装并切换",
+  "Switch to": "切换到此版本",
+  "In the image (below)": "在镜像中（见下方）",
+  "In the image": "在镜像中",
+  "(the image’s own)": "（镜像自带）",
+  "Installed": "已安装",
+  "Switched to it": "切换时间",
+  "Up to date.": "已是最新版本。",
+  "Newer than what runs.": "比当前运行的版本新。",
+  "See the note below.": "请参阅下方说明。",
+  "Started": "已启动",
+  "Switch": "切换",
+  "Restart": "重启",
+  "Rolled back": "已自动回滚",
+  "Stopped unexpectedly": "意外停止"
  }
 }

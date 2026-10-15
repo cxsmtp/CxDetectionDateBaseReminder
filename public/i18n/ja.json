@@ -3232,6 +3232,21 @@
   "{0} permission differs.": "{0}件の権限が異なります。",
   "These roles hold the same permissions.": "これらのロールの権限は同じです。",
   "Compare at least two roles.": "比較するロールを二つ以上選択してください。",
-  "No permission matches.": "一致する権限はありません。"
+  "No permission matches.": "一致する権限はありません。",
+  "Install and switch": "インストールして切り替え",
+  "Switch to": "切り替え",
+  "In the image (below)": "イメージ内（下記）",
+  "In the image": "イメージ内",
+  "(the image’s own)": "（イメージ本来のバージョン）",
+  "Installed": "インストール済み",
+  "Switched to it": "切り替え日時",
+  "Up to date.": "最新です。",
+  "Newer than what runs.": "実行中のバージョンより新しいバージョンです。",
+  "See the note below.": "下記の注記を参照してください。",
+  "Started": "起動",
+  "Switch": "切り替え",
+  "Restart": "再起動",
+  "Rolled back": "自動ロールバック",
+  "Stopped unexpectedly": "予期しない停止"
  }
 }
