@@ -66,6 +66,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.80 — MERGE_TIME UTC · [#103](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/103)
+
+- **The Projects table stays inside its panel.** On a laptop the AI Remediation credits column ran off the right; "17 more needed" now sits under its figures, a long email goes onto two lines after its @, and below 1024 pixels wide the projects are shown as cards.
+- **Every other table fits too.** Headings wrap so the sort and filter buttons go under a long label instead of widening the column, and the audit log, user activity, Credit Control's overview and the Cx Credits Calculator's tables wrap their text; they had run up to 490 pixels past their panels.
+- **Tables on a phone become cards.** Each row shows as a small card with its column headings beside the values, instead of a table running off the screen.
+- **Exact times on the Update page.** Settings → Update & recovery shows every moment to the second with its time zone, in your own time zone and language: when each version was built and installed, when the running version was switched to and by whom, the last check and every event; point at one to see it in UTC.
+- **The Update page in fourteen languages.** Its buttons, states and events, still in English until now, are translated and reviewed twice.
+- **Checked on every page.** A sweep of every page and tab, in three looks, at desktop, laptop and phone widths, now also looks for tables wider than their frame, and finds none.
+- **Status.** STATUS_LINE
+
 ## MZ-01.00.79 — 2026-10-15 08:26 UTC · [#102](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/102)
 
 - **Sort and filter every table from its headings.** Each column heading of a data table, in the app and in the downloaded HTML report, has a sort arrow (largest or A first, then reversed, then the table's own order) and a funnel to filter it: text it contains, the values to keep, or a comparison such as `>10` in a column of numbers.

@@ -55,7 +55,8 @@ The coloured label next to each page title says which group the page is in.
 - **Funnel: Filter this column**: type in **Contains…**, or tick the values to keep (columns with up to 15 different values). In a column of numbers, `>10`, `<=5` or `=0` compare. **Clear** removes the column's filter, **Done** closes it.
 - A line above a filtered table says **Showing 12 of 40 rows**, with **Clear filters**. Tables that show everything at once filter every row; the People list, Projects and the credit audit log sort and filter every row loaded, not only the page in view; a table the server sends a page at a time (Logs → User activity) says **on this page**.
 - Findings that share one Checkmarx One result stay together whatever the sort, and the sort and filters are kept when you switch pages.
-- Below 1024 pixels wide the Dashboard's projects are cards without headings: narrow them with the search, severity and age boxes above them, as on a phone.
+- **Every table fits its panel.** Headings wrap (the sort and filter buttons go under a long label) and long text wraps inside its column, so no column runs off the right; the audit log shows each entry's reason on up to two lines (**Details** has it all).
+- **On a phone** each table row is shown as a small card, its column headings beside the values; below 1024 pixels wide the Dashboard's projects are cards too. Cards have no headings to sort by: narrow them with the search and filter boxes above them.
 
 **Jump to (Ctrl K, or ⌘K on a Mac)** goes to any page, tab, Settings section or common action: type a few letters (for example *smtp*, *allocated*, *backups*) and press Enter.
 

@@ -16,6 +16,8 @@
 
 const SELECTOR = 'table.data-table, table.probe, table.rp-table, table.net-table, table#findings';
 const SKIP = '.iam-matrix, [data-tt-off]';
+// Tables that lay themselves out for phones: their cells are not given heading labels.
+const OWN_PHONE_LAYOUT = '#projects, .audit-table, #findings';
 const EMPTY = /^(?:|—|-|–|n\/a)$/i;
 // The note above a filtered table (its numbers looked up as {0}, {1} by the translator).
 const NOTE = 'Showing {0} of {1} rows';
@@ -386,10 +388,36 @@ function closeFilter() {
  * Give every data table on the page (now, and whenever one is drawn) sorting and filtering on its
  * headings. `translate` words the controls in the reader's language.
  */
+/**
+ * Each body cell carries its column's heading (data-label), so on a phone a row can be shown as a small
+ * card of "heading: value" lines instead of a table running off the screen (the CSS of table.tt-stack).
+ * Tables with a phone layout of their own (cells already labelled, the audit log, a report's findings) keep it.
+ */
+function labelCells(table) {
+  if (table.matches(OWN_PHONE_LAYOUT)) return;
+  const heads = headerCells(table);
+  if (!heads.length) return;
+  const rows = [...(table.tBodies[0]?.rows ?? [])];
+  if (!table.classList.contains('tt-stack')) {
+    if (rows.some((r) => [...r.cells].some((td) => td.hasAttribute('data-label') && !td.__ttLabel))) return;
+    table.classList.add('tt-stack');
+  }
+  const labels = heads.map((th) => textOf(th));
+  for (const row of rows) {
+    if (row.__ttLabels === labels.join('|') || row.cells.length !== heads.length) continue;
+    row.__ttLabels = labels.join('|');
+    [...row.cells].forEach((td, i) => {
+      td.__ttLabel = true;
+      td.setAttribute('data-label', labels[i]);
+    });
+  }
+}
+
 export function startTableTools({ translate } = {}) {
   if (translate) say = (text) => translate(text);
   const scan = () => {
     for (const table of document.querySelectorAll(SELECTOR)) {
+      if (!table.closest(SKIP)) labelCells(table);
       if (!done.has(table)) {
         enhance(table);
         continue;
