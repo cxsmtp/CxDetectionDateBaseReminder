@@ -3232,6 +3232,21 @@
   "{0} permission differs.": "{0} kebenaran berbeza.",
   "These roles hold the same permissions.": "Semua peranan ini mempunyai kebenaran yang sama.",
   "Compare at least two roles.": "Bandingkan sekurang-kurangnya dua peranan.",
-  "No permission matches.": "Tiada kebenaran yang sepadan."
+  "No permission matches.": "Tiada kebenaran yang sepadan.",
+  "Install and switch": "Pasang dan tukar",
+  "Switch to": "Tukar kepada versi ini",
+  "In the image (below)": "Dalam imej (di bawah)",
+  "In the image": "Dalam imej",
+  "(the image’s own)": "(milik imej itu sendiri)",
+  "Installed": "Dipasang",
+  "Switched to it": "Ditukar kepada versi ini pada",
+  "Up to date.": "Terkini.",
+  "Newer than what runs.": "Lebih baharu daripada versi yang sedang berjalan.",
+  "See the note below.": "Lihat nota di bawah.",
+  "Started": "Dimulakan",
+  "Switch": "Pertukaran",
+  "Restart": "Mula semula",
+  "Rolled back": "Dikembalikan",
+  "Stopped unexpectedly": "Terhenti tanpa dijangka"
  }
 }

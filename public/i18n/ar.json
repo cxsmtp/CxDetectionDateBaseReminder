@@ -3232,6 +3232,21 @@
   "{0} permission differs.": "{0} صلاحية مختلفة.",
   "These roles hold the same permissions.": "تمتلك هذه الأدوار الصلاحيات نفسها.",
   "Compare at least two roles.": "قارن بين دورين على الأقل.",
-  "No permission matches.": "لا توجد صلاحية مطابقة."
+  "No permission matches.": "لا توجد صلاحية مطابقة.",
+  "Install and switch": "التثبيت والانتقال",
+  "Switch to": "الانتقال إليه",
+  "In the image (below)": "مضمَّن في الصورة (أدناه)",
+  "In the image": "مضمَّن في الصورة",
+  "(the image’s own)": "(إصدار الصورة نفسها)",
+  "Installed": "مثبت",
+  "Switched to it": "تم الانتقال إليه في",
+  "Up to date.": "محدَّث.",
+  "Newer than what runs.": "أحدث من الإصدار قيد التشغيل.",
+  "See the note below.": "راجع الملاحظة أدناه.",
+  "Started": "بدء التشغيل",
+  "Switch": "انتقال",
+  "Restart": "إعادة التشغيل",
+  "Rolled back": "رجوع تلقائي",
+  "Stopped unexpectedly": "توقف غير متوقع"
  }
 }

@@ -55,12 +55,14 @@ The coloured label next to each page title says which group the page is in.
 - **Funnel: Filter this column**: type in **Contains…**, or tick the values to keep (columns with up to 15 different values). In a column of numbers, `>10`, `<=5` or `=0` compare. **Clear** removes the column's filter, **Done** closes it.
 - A line above a filtered table says **Showing 12 of 40 rows**, with **Clear filters**. Tables that show everything at once filter every row; the People list, Projects and the credit audit log sort and filter every row loaded, not only the page in view; a table the server sends a page at a time (Logs → User activity) says **on this page**.
 - Findings that share one Checkmarx One result stay together whatever the sort, and the sort and filters are kept when you switch pages.
+- **Every table fits its panel.** Headings wrap (the sort and filter buttons go under a long label) and long text wraps inside its column, so no column runs off the right; the audit log shows each entry's reason on up to two lines (**Details** has it all).
+- **On a phone** each table row is shown as a small card, its column headings beside the values; below 1024 pixels wide the Dashboard's projects are cards too. Cards have no headings to sort by: narrow them with the search and filter boxes above them.
 
 **Jump to (Ctrl K, or ⌘K on a Mac)** goes to any page, tab, Settings section or common action: type a few letters (for example *smtp*, *allocated*, *backups*) and press Enter.
 
 **Tabs instead of long pages.** Most pages have tabs at the top (for example Audit: *Credit audit log*, *Integrity & reconcile*, *State & backups*). The tab you last used opens next time. The address bar follows the tab, so `#/audit/backups` or `#/settings/smtp` opens that place directly.
 
-**Any screen.** The layout adapts to the screen: a full sidebar on a desktop, an icon rail on a tablet, a bottom bar on a phone, and wide screens use their full width. The header is one line: the page's name and what it is for.
+**Any screen.** The layout adapts to the screen: a full sidebar on a desktop, an icon rail on a tablet, a bottom bar on a phone, and wide screens use their full width. Tables stay inside their panels: long emails go onto two lines after their @, and below 1024 pixels wide (tablets and phones) the Dashboard's projects are shown as one card each, so no column is cut off at the right. The header is one line: the page's name and what it is for.
 
 **Your look: next-gen or classic, light or dark.** The palette button next to your name opens the look menu:
 - **Look**: **Next-gen** (the default: glass panels, Plus Jakarta Sans and JetBrains Mono, figures in a monospaced face) or **Classic** (the look before MZ-01.00.77, unchanged).
@@ -449,6 +451,7 @@ Install a new version, go back to any version, turn on auto-update, restart the 
   - A backup is taken before every switch.
   - A version that does not start is rolled back by itself.
 - **Recent events:** switches, starts, automatic rollbacks, restarts.
+- **Exact times.** Every moment on the page is shown to the second with its time zone, in your profile's time zone and your language's format (for example *Oct 15, 2026, 8:41:07 AM UTC*): when each version was built, when it was installed here, when the running version was switched to and by whom, the last check, and each event. Point at a time to see it in UTC.
 - **Replace the whole image (Beta).** For the rare release that needs a new Node.js or OS base. The **update companion**, a second small container you start once, replaces the container itself:
   1. It downloads the image while the server keeps running.
   2. It stops the server, which saves first, as for any update.
@@ -1165,7 +1168,7 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.79** | 472/s, 0 failed (main 483, 0; 62 and 117 failed in host stalls before) | 9.0 s | 1.6 s | 685 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.80** | 488/s, 0 failed (main 477, 38; 15 reset in one opening burst) | 9.6 s | 1.8 s | 685 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.73 | 507/s, 0 failed (main 497, 10) | 6.8 s | 615 ms | 645 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.60 | 505/s, 0 failed (main 499, 0 failed) | 6.9 s | 501 ms | 566 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.59 | 513/s, 0 failed (main 518, 0 failed) | 6.2 s | 229 ms | 565 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |

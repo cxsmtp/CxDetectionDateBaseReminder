@@ -3232,6 +3232,21 @@
   "{0} permission differs.": "สิทธิ์ที่แตกต่างกัน {0} รายการ",
   "These roles hold the same permissions.": "บทบาทเหล่านี้มีสิทธิ์เหมือนกัน",
   "Compare at least two roles.": "โปรดเปรียบเทียบอย่างน้อยสองบทบาท",
-  "No permission matches.": "ไม่มีสิทธิ์ที่ตรงกัน"
+  "No permission matches.": "ไม่มีสิทธิ์ที่ตรงกัน",
+  "Install and switch": "ติดตั้งและเปลี่ยนไปใช้",
+  "Switch to": "เปลี่ยนไปใช้",
+  "In the image (below)": "อยู่ในอิมเมจ (ด้านล่าง)",
+  "In the image": "อยู่ในอิมเมจ",
+  "(the image’s own)": "(เวอร์ชันของอิมเมจเอง)",
+  "Installed": "ติดตั้งแล้ว",
+  "Switched to it": "เปลี่ยนไปใช้เมื่อ",
+  "Up to date.": "เป็นเวอร์ชันล่าสุดแล้ว",
+  "Newer than what runs.": "ใหม่กว่าเวอร์ชันที่กำลังทำงาน",
+  "See the note below.": "ดูหมายเหตุด้านล่าง",
+  "Started": "เริ่มทำงาน",
+  "Switch": "เปลี่ยนเวอร์ชัน",
+  "Restart": "รีสตาร์ต",
+  "Rolled back": "ย้อนกลับอัตโนมัติ",
+  "Stopped unexpectedly": "หยุดทำงานโดยไม่คาดคิด"
  }
 }

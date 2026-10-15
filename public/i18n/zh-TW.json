@@ -3232,6 +3232,21 @@
   "{0} permission differs.": "有 {0} 項權限不同。",
   "These roles hold the same permissions.": "這些角色具有相同的權限。",
   "Compare at least two roles.": "請至少選擇兩個角色進行比較。",
-  "No permission matches.": "沒有符合的權限。"
+  "No permission matches.": "沒有符合的權限。",
+  "Install and switch": "安裝並切換",
+  "Switch to": "切換至此版本",
+  "In the image (below)": "在映像中（見下方）",
+  "In the image": "在映像中",
+  "(the image’s own)": "（映像本身的版本）",
+  "Installed": "已安裝",
+  "Switched to it": "切換時間",
+  "Up to date.": "已是最新版本。",
+  "Newer than what runs.": "較執行中的版本新。",
+  "See the note below.": "請參閱下方說明。",
+  "Started": "已啟動",
+  "Switch": "切換",
+  "Restart": "重新啟動",
+  "Rolled back": "已自動還原",
+  "Stopped unexpectedly": "意外停止"
  }
 }

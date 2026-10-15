@@ -3232,6 +3232,21 @@
   "{0} permission differs.": "{0} quyền khác nhau.",
   "These roles hold the same permissions.": "Các vai trò này có quyền giống nhau.",
   "Compare at least two roles.": "Hãy so sánh ít nhất hai vai trò.",
-  "No permission matches.": "Không có quyền nào khớp."
+  "No permission matches.": "Không có quyền nào khớp.",
+  "Install and switch": "Cài đặt và chuyển",
+  "Switch to": "Chuyển sang phiên bản này",
+  "In the image (below)": "Trong image (bên dưới)",
+  "In the image": "Trong image",
+  "(the image’s own)": "(phiên bản của chính image)",
+  "Installed": "Đã cài đặt",
+  "Switched to it": "Đã chuyển sang phiên bản này lúc",
+  "Up to date.": "Đã là phiên bản mới nhất.",
+  "Newer than what runs.": "Mới hơn phiên bản đang chạy.",
+  "See the note below.": "Xem ghi chú bên dưới.",
+  "Started": "Đã khởi động",
+  "Switch": "Chuyển đổi",
+  "Restart": "Khởi động lại",
+  "Rolled back": "Tự động hoàn tác",
+  "Stopped unexpectedly": "Dừng đột ngột"
  }
 }

@@ -3232,6 +3232,21 @@
   "{0} permission differs.": "{0} izin berbeda.",
   "These roles hold the same permissions.": "Peran-peran ini memiliki izin yang sama.",
   "Compare at least two roles.": "Bandingkan setidaknya dua peran.",
-  "No permission matches.": "Tidak ada izin yang cocok."
+  "No permission matches.": "Tidak ada izin yang cocok.",
+  "Install and switch": "Pasang dan beralih",
+  "Switch to": "Beralih ke versi ini",
+  "In the image (below)": "Dalam image (di bawah)",
+  "In the image": "Dalam image",
+  "(the image’s own)": "(bawaan image)",
+  "Installed": "Terpasang",
+  "Switched to it": "Dialihkan ke versi ini pada",
+  "Up to date.": "Sudah versi terbaru.",
+  "Newer than what runs.": "Lebih baru daripada versi yang berjalan.",
+  "See the note below.": "Lihat catatan di bawah.",
+  "Started": "Dimulai",
+  "Switch": "Peralihan",
+  "Restart": "Mulai ulang",
+  "Rolled back": "Dikembalikan",
+  "Stopped unexpectedly": "Berhenti secara tidak terduga"
  }
 }

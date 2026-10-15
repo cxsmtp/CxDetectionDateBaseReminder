@@ -3644,14 +3644,16 @@ function renderInitiator(project) {
   if (!project.initiator && !project.initiatorEmail) {
     return '<span class="zero" translate="yes">no initiator recorded</span>';
   }
-  const name = escapeHtml(project.initiator || project.initiatorEmail);
+  // A long address may go onto two lines after its @, so the column stays inside the table.
+  const breakable = (text) => escapeHtml(text).replace('@', '@<wbr>');
+  const name = breakable(project.initiator || project.initiatorEmail);
   if (!project.initiatorEmail) {
     return `${name}<span class="err" translate="yes">no email resolved</span>`;
   }
   const same = project.initiatorEmail === project.initiator;
   return same
-    ? escapeHtml(project.initiatorEmail)
-    : `${name}<span class="zero">${escapeHtml(project.initiatorEmail)}</span>`;
+    ? breakable(project.initiatorEmail)
+    : `${name}<span class="zero">${breakable(project.initiatorEmail)}</span>`;
 }
 
 /**
@@ -4034,7 +4036,7 @@ function renderProjects() {
             const v = c.value(p);
             return `<td class="num c-count ${v > 0 ? (c.alert ? 'aged' : '') : 'zero'}" data-label="${escapeHtml(c.label)}">${v}</td>`;
           }).join('')}
-          <td class="c-oldest" data-label="Oldest open since">${formatDate(p.oldestFirstDetectedAt)}${
+          <td class="c-oldest" data-label="Oldest open since"><span class="nowrap">${formatDate(p.oldestFirstDetectedAt)}</span>${
             p.maxAgeDays === null ? '' : ` <span class="zero">(${p.maxAgeDays}d)</span>`
           }</td>
           <td class="initiator c-wide" data-label="Last scanned by" translate="no">${renderInitiator(p)}</td>
@@ -7004,17 +7006,29 @@ async function loadIntegrity({ fresh = false } = {}) {
 }
 $('integrity-check').addEventListener('click', () => loadIntegrity({ fresh: true }));
 
+/** A moment on the Update page, to the second and with its time zone ("15 Oct 2026, 08:29:37 GMT+1"); UTC on hover. */
+function updStamp(iso) {
+  const d = iso ? new Date(iso) : null;
+  if (!d || Number.isNaN(d.getTime())) return '';
+  const utc = `${d.toISOString().slice(0, 19).replace('T', ' ')} UTC`;
+  return `<time datetime="${d.toISOString()}" title="${utc}" translate="no">${escapeHtml(d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'long' }))}</time>`;
+}
+
 function renderUpdates() {
   const s = updState;
   if (!s) return;
   $('upd-running').textContent = mzVersion(s.running.version);
-  $('upd-running-sub').textContent = s.running.source === 'update' ? 'Installed from this page' : `The image’s own version${s.builtIn !== s.running.version ? '' : ''}`;
+  // What runs, and since when it was chosen here (the exact moment, to the second).
+  const chosenAt = s.running.source === 'update' && s.choice?.version === s.running.version ? updStamp(s.choice.at) : '';
+  $('upd-running-sub').innerHTML = s.running.source === 'update'
+    ? `<span>Installed from this page</span>${chosenAt ? `<small class="upd-when"><span>Switched to it</span> ${chosenAt}${s.choice.by ? ` <span translate="no">· ${escapeHtml(s.choice.by)}</span>` : ''}</small>` : ''}`
+    : 'The image’s own version';
   const latest = s.latest;
   $('upd-latest').textContent = latest ? mzVersion(latest.version) : '—';
-  $('upd-latest-sub').textContent = s.lastCheck
+  $('upd-latest-sub').innerHTML = s.lastCheck
     ? s.lastCheck.error
-      ? `Check failed: ${s.lastCheck.error}`
-      : `${s.updateAvailable ? 'Newer than what runs. ' : 'Up to date. '}Checked ${new Date(s.lastCheck.at).toLocaleString()}${s.lastCheck.warning ? ' · see the note below' : ''}`
+      ? `Check failed: ${escapeHtml(s.lastCheck.error)}`
+      : `<span>${s.updateAvailable ? 'Newer than what runs.' : 'Up to date.'}</span> <span>Checked</span> ${updStamp(s.lastCheck.at)}${s.lastCheck.warning ? ' <span>See the note below.</span>' : ''}`
     : 'Not checked yet';
   $('upd-latest-card').classList.toggle('upd-new', Boolean(s.updateAvailable));
   const install = $('upd-install-latest');
@@ -7067,11 +7081,13 @@ function renderUpdates() {
     // The image's own version has its own row below: a published row of the same version points there.
     const inImage = v.version === s.builtIn && !installed.has(v.version);
     const running = s.running.source === 'update' && v.version === s.running.version && installed.has(v.version);
-    const here = running ? '<span class="rp-chip tone-good">Running</span>' : installed.has(v.version) ? 'Installed' : inImage ? 'In the image (below)' : '';
+    const installedAt = installed.get(v.version)?.installedAt;
+    const since = installedAt ? `<small class="hint upd-when"><span>Installed</span> ${updStamp(installedAt)}</small>` : '';
+    const here = `${running ? '<span class="rp-chip tone-good">Running</span>' : installed.has(v.version) ? 'Installed' : inImage ? 'In the image (below)' : ''}${since}`;
     const flag = failed.has(v.version) ? ' <span class="rp-chip tone-critical" title="It did not start, and was rolled back by itself">Failed to start</span>' : '';
     const ref = (v.tags ?? []).find((t) => /^\d+\.\d+\.\d+$/.test(t)) ?? v.tags?.[0] ?? v.digest;
     const action = running || inImage ? '' : installed.has(v.version) ? button('Switch to', `data-upd-switch="${escapeHtml(v.version)}"`) : ref ? button('Install and switch', `data-upd-install="${escapeHtml(ref)}"`, v === sorted[0] && s.updateAvailable) : '';
-    return `<tr><td>${escapeHtml(mzVersion(v.version))}${flag}</td><td>${v.created ? escapeHtml(new Date(v.created).toLocaleDateString()) : ''}</td><td>${here}</td><td>${action}</td></tr>`;
+    return `<tr><td>${escapeHtml(mzVersion(v.version))}${flag}</td><td>${updStamp(v.created)}</td><td>${here}</td><td>${action}</td></tr>`;
   });
   const imageRunning = s.running.source === 'image';
   body.push(`<tr><td>${escapeHtml(mzVersion(s.builtIn))} <span class="hint">(the image’s own)</span></td><td></td><td>${imageRunning ? '<span class="rp-chip tone-good">Running</span>' : 'In the image'}</td><td>${imageRunning ? '' : button('Switch to', 'data-upd-switch="built-in"')}</td></tr>`);
@@ -7086,7 +7102,7 @@ function renderUpdates() {
   $('upd-events').innerHTML = s.events.length
     ? s.events
         .slice(0, 12)
-        .map((e) => `<li><span class="hint">${escapeHtml(new Date(e.at).toLocaleString())}</span> <b>${escapeHtml(label[e.type] ?? e.type)}</b> ${escapeHtml(
+        .map((e) => `<li><span class="hint">${updStamp(e.at)}</span> <b>${escapeHtml(label[e.type] ?? e.type)}</b> ${escapeHtml(
           e.type === 'rollback' ? `${mzVersion(e.from)} → ${mzVersion(e.to)}: ${e.reason ?? ''}` : e.type === 'started' ? `${mzVersion(e.version)} came up in ${Math.round((e.ms ?? 0) / 1000)} s` : e.type === 'crash' ? `${mzVersion(e.version)} (code ${e.code ?? e.signal})` : `${e.from ? mzVersion(e.from) : ''}${e.to ? ` → ${mzVersion(e.to)}` : ''}${e.by ? ` by ${e.by}` : ''}`,
         )}</li>`)
         .join('')
@@ -8299,7 +8315,7 @@ function renderUserActivity(result) {
           return `<tr>
           <td class="when">${escapeHtml(formatTime(e.at))}</td>
           <td class="who"><span translate="no">${escapeHtml(e.name || e.user || '—')}</span><small><span translate="no">${escapeHtml(e.name ? e.user : '')}</span>${e.role ? `${e.name ? ' · ' : ''}${escapeHtml(e.role)}` : ''}</small></td>
-          <td><span class="badge muted">${escapeHtml(UA_KINDS[e.kind] ?? e.kind)}</span> <span translate="no">${escapeHtml(e.action)}</span></td>
+          <td class="ua-action"><span class="badge muted">${escapeHtml(UA_KINDS[e.kind] ?? e.kind)}</span> <span translate="no">${escapeHtml(e.action)}</span></td>
           <td class="ua-details">${details}</td>
           <td>${userActivityResult(e)}</td>
           <td class="muted" translate="no">${escapeHtml(e.ip || '')}</td>

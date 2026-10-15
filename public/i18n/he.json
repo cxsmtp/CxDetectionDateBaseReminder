@@ -3232,6 +3232,21 @@
   "{0} permission differs.": "{0} הרשאה שונה.",
   "These roles hold the same permissions.": "לתפקידים אלה אותן הרשאות.",
   "Compare at least two roles.": "בחרו לפחות שני תפקידים להשוואה.",
-  "No permission matches.": "אין הרשאה תואמת."
+  "No permission matches.": "אין הרשאה תואמת.",
+  "Install and switch": "התקנה ומעבר",
+  "Switch to": "מעבר לגרסה זו",
+  "In the image (below)": "באימג׳ (למטה)",
+  "In the image": "באימג׳",
+  "(the image’s own)": "(של האימג׳ עצמו)",
+  "Installed": "הותקנה",
+  "Switched to it": "בוצע מעבר אליה",
+  "Up to date.": "עדכנית.",
+  "Newer than what runs.": "חדשה יותר מהגרסה הפועלת.",
+  "See the note below.": "ראו את ההערה בהמשך.",
+  "Started": "הפעלה",
+  "Switch": "מעבר",
+  "Restart": "הפעלה מחדש",
+  "Rolled back": "חזרה לאחור אוטומטית",
+  "Stopped unexpectedly": "עצירה בלתי צפויה"
  }
 }

@@ -376,6 +376,8 @@
   text-transform: uppercase;
 }
 :root[data-ui="nextgen"] th, :root[data-ui="nextgen"] td { border-bottom-color: var(--ng-glass-line); }
+/* Projects: seven columns side by side, so its headings are spaced a little tighter to fit the panel. */
+:root[data-ui="nextgen"] #projects thead th { letter-spacing: 0.05em; }
 :root[data-ui="nextgen"] td.num { font-family: var(--mono); font-size: 13px; }
 @media (hover: hover) {
   :root[data-ui="nextgen"] tbody tr:hover td { background: color-mix(in srgb, var(--ng-from) 6%, transparent); }

@@ -6,7 +6,7 @@ New versions are applied **without losing data, sign-ins or work in progress**. 
 
 No server sign-in after deployment: everything an update needs is on this page.
 
-- **Check for updates** lists every published version: version, when it was built, and whether it is installed here or running.
+- **Check for updates** lists every published version: version, when it was built, and whether it is installed here or running. Times are exact, to the second with their time zone (in your profile's time zone; UTC when you point at one): when each version was built and installed, when the running version was switched to and by whom, the last check, and every event.
   - The versions come from the registry's tags (ghcr.io), so a newer one is listed even when the image files cannot be downloaded. Build dates and commits come from the image files when they can be read.
   - Every published version is listed, with no cap. Version and commit tags never change, so what one check reads is remembered: the next check reads only new tags and `latest`. Builds from before MZ-01.00.30 have only a commit tag, and their version is named from their image files.
   - The page lists the newest 3 versions, then **Load 10 more** at a time.

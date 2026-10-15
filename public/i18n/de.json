@@ -3232,6 +3232,21 @@
   "{0} permission differs.": "{0} Berechtigung unterscheidet sich.",
   "These roles hold the same permissions.": "Diese Rollen haben dieselben Berechtigungen.",
   "Compare at least two roles.": "Vergleichen Sie mindestens zwei Rollen.",
-  "No permission matches.": "Keine Berechtigung entspricht der Suche."
+  "No permission matches.": "Keine Berechtigung entspricht der Suche.",
+  "Install and switch": "Installieren und wechseln",
+  "Switch to": "Wechseln",
+  "In the image (below)": "Im Image (unten)",
+  "In the image": "Im Image",
+  "(the image’s own)": "(die des Images)",
+  "Installed": "Installiert",
+  "Switched to it": "Gewechselt am",
+  "Up to date.": "Aktuell.",
+  "Newer than what runs.": "Neuer als die ausgeführte Version.",
+  "See the note below.": "Siehe Hinweis unten.",
+  "Started": "Gestartet",
+  "Switch": "Wechsel",
+  "Restart": "Neustart",
+  "Rolled back": "Zurückgerollt",
+  "Stopped unexpectedly": "Unerwartet beendet"
  }
 }
