@@ -31,7 +31,7 @@ import { poolSummary, resolveRange, usageSeries } from './credit-usage.js';
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
-import { IamStore, LANGUAGE_PERMISSIONS, PERMISSIONS, PROFILE_LANGUAGES, PROGRAMMING_LANGUAGES, generatePassword, publicUser } from './iam.js';
+import { IamStore, LANGUAGE_PERMISSIONS, PERMISSIONS, PROFILE_LANGUAGES, PROGRAMMING_LANGUAGES, cleanProfile, generatePassword, passwordProblem, publicUser } from './iam.js';
 import { insideProject, migrateLegacyData, prepareDataDir, resolveDataDir } from './data-dir.js';
 import { PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, isSealed, listBackups, readBackup, writeBackupTo } from './backup.js';
 import fs from 'node:fs';
@@ -91,6 +91,7 @@ import { featureById, featureList, isFinal, mayUse } from './features.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
+import { PasswordResets, RESET_TTL_MS, maskEmail, resetAllowed } from './password-reset.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
 import {
   SessionStore,
@@ -1181,7 +1182,7 @@ app.get('/api/session', (req, res) => {
     // First start: nobody has signed in yet, so point at the log with the generated sign-in.
     const users = iam.users();
     const firstStart = users.length > 0 && users.every((u) => !u.lastLoginAt);
-    return res.json({ connected: false, signedIn: false, setup: !iam.hasUsers() && Boolean(setupCode), firstStart });
+    return res.json({ connected: false, signedIn: false, setup: !iam.hasUsers() && Boolean(setupCode), firstStart, passwordReset: passwordResetReady().ready });
   }
   res.json(describeMe(session, user));
 });
@@ -1241,6 +1242,181 @@ app.post(
     res.status(201).json(describeMe(session, user));
   }),
 );
+
+// ---------------------------------------------------------------------------
+// Forgotten password: a one-time link to the account's own email (src/password-reset.js)
+// ---------------------------------------------------------------------------
+
+const passwordResets = new PasswordResets();
+/** Links being used right now, so one link cannot set two passwords at once. */
+const resetsInFlight = new Set();
+const RESET_ASKED = 'If that address has an account that may reset its password here, a link to choose a new one is on its way. It works once, for 30 minutes. Nothing arrived? Check spam, or ask an administrator.';
+const RESET_DEAD = 'This link no longer works: it was used, a newer one was sent, it is more than 30 minutes old, or the password has changed since. Ask for a new one.';
+
+/**
+ * The address reset links point at: only the one set for this server (Settings → Server address,
+ * or REPORT_SERVER_URL / PUBLIC_URL), never the address a request came in on, which anyone can
+ * forge to steer the link (and its secret) to their own site. https, unless it is this computer.
+ */
+function resetLinkBase(settings) {
+  const url = String(settings.links?.reportServerUrl || config.reportServerUrl || '');
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'https:' || (parsed.protocol === 'http:' && LOOPBACK.test(parsed.hostname))) return url.replace(/\/+$/, '');
+  } catch {}
+  return '';
+}
+
+/** Whether "Forgot your password?" can work, and if not why (the main tenant's email and address). */
+function passwordResetReady() {
+  return tenancy.run(DEFAULT_TENANT, () => {
+    const settings = settingsStore.get();
+    const policy = iam.passwordResetPolicy();
+    const missing = [];
+    if (policy === 'off') missing.push('Turned off.');
+    if (!isVerified(settings)) missing.push('The email server is not set up and tested (Settings → Email server).');
+    if (!resetLinkBase(settings)) missing.push('No https address for this server is set (Settings → Server address).');
+    return { ready: missing.length === 0, policy, missing };
+  });
+}
+
+/** Admins (who may manage people or tenants) can be kept out of resetting by email. */
+const managesPeople = (user) => {
+  const held = iam.permissionsOf({ ...user, disabled: false });
+  return held.has('iam.manage') || held.has('tenants.manage');
+};
+
+const resetActor = (req, email = '') => ({ kind: 'user', user: email, ip: clientIp(req), userAgent: String(req.get('user-agent') ?? '').slice(0, 200) });
+const utc = (ms) => `${new Date(ms).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+
+/** Look the person up and send the link, after the answer was given (so timing says nothing). */
+async function sendResetLink(email, req) {
+  const user = iam.findByEmail(email);
+  const settings = settingsStore.get();
+  const base = resetLinkBase(settings);
+  const why = !user
+    ? 'no account has that address'
+    : user.disabled
+      ? 'the account is disabled'
+      : !user.passwordHash
+        ? 'the account signs in with a Checkmarx One key only'
+        : !resetAllowed(iam.passwordResetPolicy(), { isAdmin: managesPeople(user) })
+          ? 'resetting by email is not allowed for this account'
+          : user.email.toLowerCase() === MAINTAINER_EMAIL.toLowerCase()
+            ? 'this address is never emailed by the server'
+            : !base || !isVerified(settings)
+              ? 'email or the server address is not set up'
+              : !passwordResets.maySend(user.id)
+                ? 'too many links for this account in the last hour'
+                : '';
+  if (why) {
+    // What was typed is kept only when it is an account here: it may be a password typed in the wrong box.
+    auditAccess(req, 'refused', `Password reset asked${user ? ` for ${user.email}` : ' for an address with no account here'}: no link sent (${why}).`, user);
+    return;
+  }
+  const { token, exp } = passwordResets.issue(user);
+  const appName = appNameNow();
+  // The secret travels after #: browsers never send that part to a server, nor in a Referer.
+  const link = `${base}/#reset=${token}`;
+  const message = systemEmail({
+    appName,
+    subject: `Reset your ${appName} password`,
+    lines: [
+      `Someone, hopefully you, asked to reset the password of ${user.email} on ${appName}.`,
+      'To choose a new password, open the link below. It works once, for 30 minutes, and only on this server.',
+    ],
+    facts: [['Asked from', clientIp(req) || 'unknown'], ['Asked at', utc(Date.now())], ['Link works until', utc(exp)]],
+    buttons: [{ label: 'Choose a new password', url: link }],
+    footer: 'Did not ask for this? Ignore this email: your password stays as it is, and the link stops working by itself. If it keeps happening, tell an administrator.',
+    replyHelp: false,
+  });
+  try {
+    await sendReminderMail(settings, message, { exact: true, to: [user.email] });
+    auditAccess(req, 'info', `Password reset link sent to ${user.email} (works until ${utc(exp)}).`, user);
+  } catch (error) {
+    passwordResets.revokeUser(user.id);
+    auditAccess(req, 'failed', `Password reset link for ${user.email} could not be sent: ${error.message}`, user);
+  }
+}
+
+/** "Forgot your password?": always the same answer, whether or not the address has an account. */
+app.post('/api/session/password-reset', (req, res) => {
+  if (passwordResets.ipBlocked(clientIp(req))) return res.status(429).json({ error: 'Too many requests from this address. Wait a quarter of an hour.' });
+  passwordResets.noteIp(clientIp(req));
+  const email = String(req.body?.email ?? '').trim().slice(0, 254);
+  if (!email) return res.status(400).json({ error: 'Enter the email address you sign in with.' });
+  res.status(202).json({ message: RESET_ASKED });
+  setImmediate(() =>
+    tenancy.run(DEFAULT_TENANT, () => sendResetLink(email, req)).catch((error) => console.error(`[password reset] ${error.message}`)),
+  );
+});
+
+/** Does a link still work? Says whose account it is for (partly hidden), so the person knows. */
+app.post('/api/session/password-reset/check', (req, res) => {
+  if (passwordResets.ipBlocked(clientIp(req))) return res.status(429).json({ error: 'Too many requests from this address. Wait a quarter of an hour.' });
+  const user = passwordResets.check(req.body?.token, (id) => iam.user(id));
+  if (!user || !resetAllowed(iam.passwordResetPolicy(), { isAdmin: managesPeople(user) })) {
+    passwordResets.noteIp(clientIp(req));
+    return res.status(400).json({ error: RESET_DEAD });
+  }
+  res.json({ email: maskEmail(user.email), minutes: Math.round(RESET_TTL_MS / 60_000) });
+});
+
+/** Choose the new password: the link is used up, and every session of the account ends. */
+app.post(
+  '/api/session/password-reset/confirm',
+  asyncRoute(async (req, res) => {
+    if (passwordResets.ipBlocked(clientIp(req))) return res.status(429).json({ error: 'Too many requests from this address. Wait a quarter of an hour.' });
+    const token = String(req.body?.token ?? '');
+    const password = String(req.body?.password ?? '');
+    const user = passwordResets.check(token, (id) => iam.user(id));
+    if (!user || !resetAllowed(iam.passwordResetPolicy(), { isAdmin: managesPeople(user) })) {
+      passwordResets.noteIp(clientIp(req));
+      return res.status(400).json({ error: RESET_DEAD });
+    }
+    if (resetsInFlight.has(user.id)) return res.status(409).json({ error: 'This link is already being used. Wait a moment.' });
+    resetsInFlight.add(user.id);
+    try {
+      const problem = passwordProblem(password);
+      if (problem) return res.status(400).json({ error: problem });
+      if (await iam.isCurrentPassword(user.id, password)) return res.status(400).json({ error: 'Choose a password different from the current one.' });
+      passwordResets.consume(token);
+      await iam.setPassword(user.id, password, { mustChange: false });
+      passwordResets.revokeUser(user.id);
+      // Whoever was signed in as them, maybe the person who made the reset necessary, is signed out.
+      endSessionsOf(user.id);
+      audit.record({ type: 'iam', outcome: 'changed', reason: `${user.email} reset their password with an emailed link.`, actor: resetActor(req, user.email) });
+      const appName = appNameNow();
+      const settings = tenancy.run(DEFAULT_TENANT, () => settingsStore.get());
+      sendReminderMail(
+        settings,
+        systemEmail({
+          appName,
+          subject: `Your ${appName} password was changed`,
+          lines: [`The password of ${user.email} on ${appName} was just changed with a reset link sent to this address, and every place it was signed in was signed out.`],
+          facts: [['Changed from', clientIp(req) || 'unknown'], ['Changed at', utc(Date.now())]],
+          footer: 'Was this not you? Tell an administrator at once: they can disable the account and set a new password.',
+          replyHelp: false,
+        }),
+        { exact: true, to: [user.email] },
+      ).catch((error) => console.error(`[password reset] The confirmation to ${user.email} could not be sent: ${error.message}`));
+      res.json({ email: user.email });
+    } finally {
+      resetsInFlight.delete(user.id);
+    }
+  }),
+);
+
+/** Who may reset a forgotten password by email: for the whole server, so a Super Admin's when there are several tenants. */
+app.put('/api/iam/policy', requirePermission('iam.manage'), (req, res) => {
+  if (tenancy.enabled && !isSuperAdmin(req.permissions)) return res.status(403).json({ error: 'Sign-in rules are for the whole server: a Super Admin changes them.' });
+  const { before, after } = iam.setPasswordResetPolicy(String(req.body?.passwordReset ?? ''));
+  if (before !== after) {
+    audit.record({ type: 'iam', outcome: 'changed', reason: `Password reset by email: ${RESET_POLICY_NAMES[before]} → ${RESET_POLICY_NAMES[after]}.`, actor: { kind: 'user', user: req.user.email, ip: clientIp(req) } });
+  }
+  res.json(passwordResetReady());
+});
+const RESET_POLICY_NAMES = { everyone: 'everyone', 'not-admins': 'everyone but Admins', off: 'off' };
 
 /**
  * Sign in with a Checkmarx One API key. The key's identity (email, username or
@@ -1532,6 +1708,7 @@ function iamView(req) {
     permissions: PERMISSIONS.filter((p) => !dormantPermissions().includes(p.id)),
     me: { id: req.user.id, permissions: [...req.permissions] },
     tenants: tenancy.enabled && isSuperAdmin(req.permissions) ? tenancy.list().map((t) => ({ id: t.id, name: tenantName(t.id) })) : null,
+    signIn: can(req, 'iam.manage') ? { ...passwordResetReady(), canChange: !tenancy.enabled || isSuperAdmin(req.permissions) } : null,
   };
 }
 
@@ -1597,6 +1774,90 @@ app.delete(
     res.json(iamView(req));
   }),
 );
+
+/**
+ * An Admin edits someone's profile: their sign-in email, name, language, time zone, programming
+ * languages, Impact figures and look. Only people whose permissions the Admin holds all of (the
+ * same rule as changing their role), never themselves (that is Your profile). A new email ends any
+ * reset link sent to the old one, and both addresses are told.
+ */
+const ADMIN_PROFILE_FIELDS = ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages', 'impact', 'look', 'theme', 'accent'];
+function managedUser(req) {
+  const user = visibleUser(req, req.params.id);
+  if (user.id === req.user.id) throw Object.assign(new Error('Change your own profile under Settings → Your profile.'), { status: 400 });
+  if (!iam.canGrant(req.permissions, iam.permissionsOf({ ...user, disabled: false }))) {
+    throw Object.assign(new Error(`You cannot change ${user.email}: their role holds permissions you do not have.`), { status: 403 });
+  }
+  return user;
+}
+const managedView = (req, id) => {
+  const user = iam.users().find((u) => u.id === id);
+  return { user: { ...user, canManage: true, roleName: iam.role(user.role)?.name ?? user.role } };
+};
+
+app.get('/api/iam/users/:id/profile', requirePermission('iam.manage'), (req, res) => {
+  const user = managedUser(req);
+  res.json({ ...managedView(req, user.id), languages: languageAccess.available(allowedLanguages(user.id)) });
+});
+
+app.put(
+  '/api/iam/users/:id/profile',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    const target = managedUser(req);
+    const body = req.body ?? {};
+    const patch = {};
+    for (const key of ADMIN_PROFILE_FIELDS) if (key in body) patch[key] = body[key];
+    if (patch.language && !languageAccess.isAvailable(String(patch.language), allowedLanguages(target.id))) return res.status(400).json({ error: 'That language is not available to this person.' });
+    // Checked whole before anything is saved, so a bad field never leaves half a change behind.
+    cleanProfile(patch);
+    let email = null;
+    if ('email' in body) email = iam.changeEmail(target.id, String(body.email ?? ''), actorOf(req));
+    const { before, after } = Object.keys(patch).length ? iam.updateProfile(target.id, patch) : { before: publicUser(iam.user(target.id)), after: publicUser(iam.user(target.id)) };
+    const changed = Object.keys(patch).filter((k) => JSON.stringify(k === 'name' ? before.name : before.profile[k]) !== JSON.stringify(k === 'name' ? after.name : after.profile[k]));
+    const emailChanged = email && email.before !== email.after;
+    if (emailChanged || changed.length) {
+      const what = [emailChanged ? `email ${email.before} → ${email.after}` : '', ...changed].filter(Boolean).join(', ');
+      await auditIam(req, `Changed ${emailChanged ? email.before : after.email}'s profile: ${what}.`, { before, after: publicUser(iam.user(target.id)) });
+    }
+    if (emailChanged) {
+      // A reset link sent to the old address must not reset the account now that it is someone else's.
+      passwordResets.revokeUser(target.id);
+      tellEmailChanged(email.before, email.after, req.user.email);
+    }
+    res.json(managedView(req, target.id));
+  }),
+);
+
+app.put(
+  '/api/iam/users/:id/avatar',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    const target = managedUser(req);
+    const after = iam.setAvatar(target.id, String(req.body?.image ?? ''));
+    await auditIam(req, `${after.avatarAt ? 'Changed' : 'Removed'} ${after.email}'s picture.`);
+    res.json(managedView(req, target.id));
+  }),
+);
+
+/** Both addresses hear about a changed sign-in email (best effort: only when email is set up). */
+function tellEmailChanged(before, after, by) {
+  const settings = tenancy.run(DEFAULT_TENANT, () => settingsStore.get());
+  if (!isVerified(settings)) return;
+  const appName = appNameNow();
+  const notes = [
+    [before, `The sign-in email of your ${appName} account was changed from ${before} to ${after} by ${by}. From now on you sign in with ${after}, and links and reminders go there.`],
+    [after, `This address now signs in to ${appName}: ${by} changed the account's email from ${before} to ${after}.`],
+  ];
+  for (const [to, line] of notes) {
+    if (to.toLowerCase() === MAINTAINER_EMAIL.toLowerCase()) continue;
+    sendReminderMail(
+      settings,
+      systemEmail({ appName, subject: `Your ${appName} sign-in email was changed`, lines: [line], facts: [['Changed at', utc(Date.now())]], footer: 'Not expected? Tell an administrator at once.', replyHelp: false }),
+      { exact: true, to: [to] },
+    ).catch((error) => console.error(`[profile] Could not tell ${to} about the new email: ${error.message}`));
+  }
+}
 
 /** Set a temporary password; the user must choose their own at next sign-in. */
 app.post(

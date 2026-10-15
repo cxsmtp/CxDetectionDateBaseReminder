@@ -330,3 +330,24 @@ test('the report’s look: next-gen with its accent and theme, or the classic lo
   assert.doesNotMatch(odd, /"><script>/);
   assert.match(generateHtmlReport(data, { look: { ui: 'classic', theme: 'dark' } }), /<html lang="en" data-theme="dark">/);
 });
+
+test('rows that are one Checkmarx One result sit together, in severity then age order otherwise', async () => {
+  const { groupSharedResults } = await import('../src/html-report.js');
+  const row = (id, severity, ageDays, extra = {}) => ({ riskId: id, projectId: 'p1', severity, ageDays, title: id, ...extra });
+  const ordered = [
+    row('a1', 'CRITICAL', 90, { alternateId: 'R-1' }),
+    row('b', 'CRITICAL', 80),
+    row('c', 'HIGH', 70),
+    row('a2', 'HIGH', 10, { alternateId: 'R-1' }),
+    row('d', 'MEDIUM', 5, { groupId: 'G' }),
+    row('e', 'LOW', 4, { groupId: 'G' }),
+    { projectId: 'p1', severity: 'LOW', ageDays: 3, title: 'no id 1' },
+    { projectId: 'p1', severity: 'LOW', ageDays: 2, title: 'no id 2' },
+  ];
+  assert.deepEqual(groupSharedResults(ordered).map((f) => f.title), ['a1', 'a2', 'b', 'c', 'd', 'e', 'no id 1', 'no id 2']);
+  const other = row('x', 'HIGH', 1, { alternateId: 'R-1', projectId: 'p2' });
+  assert.deepEqual(groupSharedResults([ordered[0], other, ordered[3]]).map((f) => f.title), ['a1', 'a2', 'x'], 'the same result id in another project is another result');
+  const html = generateHtmlReport({ projects: [] }, { findings: ordered.slice(0, 4) });
+  const order = [...html.matchAll(/class="finding-title">(?:<[^>]*>)*([^<]*)/g)].map((m) => m[1]);
+  assert.deepEqual(order.slice(0, 4), ['a1', 'a2', 'b', 'c'], order.join(', '));
+});

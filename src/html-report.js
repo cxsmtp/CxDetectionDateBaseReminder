@@ -86,6 +86,22 @@ export function selectTopFindings(reportData, limit = REPORT_TOP_N) {
 }
 
 /**
+ * Rows that are one Checkmarx One result, side by side: the order stays worst severity then oldest,
+ * but a result's other rows follow straight after its first one, wherever they would have fallen,
+ * so a reader sees "Same result R1" together and never has to hunt for the twin further down.
+ */
+export function groupSharedResults(findings) {
+  const byKey = new Map();
+  for (const f of findings) {
+    // A row naming no result at all is a group of its own, never lumped in with others like it.
+    const key = f.alternateId || f.groupId || f.riskId || f.id ? resultKey({ ...f, riskId: f.riskId ?? f.id }) : Symbol('row');
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(f);
+  }
+  return [...byKey.values()].flat();
+}
+
+/**
  * @param {object} reportData  from buildReportData()
  * @param {object} options
  * @param {Array}  [options.findings]    top findings, already enriched by resolveAiIds()
@@ -109,7 +125,7 @@ export function selectTopFindings(reportData, limit = REPORT_TOP_N) {
  */
 export function generateHtmlReport(reportData, options = {}) {
   const { connection = {}, branding = {} } = options;
-  const findings = options.findings ?? selectTopFindings(reportData);
+  const findings = groupSharedResults(options.findings ?? selectTopFindings(reportData));
   const bulkFindings =
     options.bulkFindings ??
     selectTopFindings(reportData, Infinity)

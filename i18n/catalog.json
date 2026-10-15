@@ -22164,5 +22164,233 @@
   "seen": [
    "Settings → Branding (for Admins): a box titled \"Look of the app\": second option of \"Menu in the next-gen look\" — the menu is a row across the top of the screen"
   ]
+ },
+ "Forgot your password?": {
+  "kind": "text",
+  "seen": [
+   "The sign-in page: a link under the Sign in button, and the title of the page it opens"
+  ]
+ },
+ "Enter the email address you sign in with. If it has an account that may reset its password here, a link to choose a new one is sent to that address. It works once, for 30 minutes.": {
+  "kind": "text",
+  "seen": [
+   "The sign-in page, after \"Forgot your password?\" (a link under the Sign in button): the explanation above the Email box. It must not promise that an account exists"
+  ]
+ },
+ "Send the link": {
+  "kind": "text",
+  "seen": [
+   "The sign-in page, after \"Forgot your password?\" (a link under the Sign in button): the button that asks for the reset link by email"
+  ]
+ },
+ "Back to sign in": {
+  "kind": "text",
+  "seen": [
+   "The sign-in page, after \"Forgot your password?\" (a link under the Sign in button), and on the reset page: a button back to the sign-in form"
+  ]
+ },
+ "If that address has an account that may reset its password here, a link to choose a new one is on its way. It works once, for 30 minutes. Nothing arrived? Check spam, or ask an administrator.": {
+  "kind": "message",
+  "seen": [
+   "The sign-in page, after \"Forgot your password?\" (a link under the Sign in button): the answer after Send the link. Deliberately the same whether or not the address has an account"
+  ]
+ },
+ "Enter the email address you sign in with.": {
+  "kind": "message",
+  "seen": [
+   "The sign-in page, after \"Forgot your password?\" (a link under the Sign in button): error when the box is empty"
+  ]
+ },
+ "Too many requests from this address. Wait a quarter of an hour.": {
+  "kind": "message",
+  "seen": [
+   "The sign-in page, after \"Forgot your password?\" (a link under the Sign in button) or the reset page: error when one network address asked too often"
+  ]
+ },
+ "New password (12+ characters)": {
+  "kind": "text",
+  "seen": [
+   "The page opened from the emailed reset link, where the person chooses a new password, and the Change password form: label of the new password box"
+  ]
+ },
+ "Saving signs this account out everywhere, and an email confirms the change.": {
+  "kind": "text",
+  "seen": [
+   "The page opened from the emailed reset link, where the person chooses a new password: grey line above Save password"
+  ]
+ },
+ "Ask for a new link": {
+  "kind": "text",
+  "seen": [
+   "The page opened from the emailed reset link, where the person chooses a new password: button shown when the link no longer works"
+  ]
+ },
+ "Checking the link…": {
+  "kind": "message",
+  "seen": [
+   "The page opened from the emailed reset link, where the person chooses a new password: shown for a moment while the link is checked"
+  ]
+ },
+ "For this account. The link works once, for 30 minutes from when it was sent.": {
+  "kind": "message",
+  "seen": [
+   "The page opened from the emailed reset link, where the person chooses a new password: line above the account's address (shown partly hidden, like d••@acme.io, on the next line)"
+  ]
+ },
+ "This link no longer works: it was used, a newer one was sent, it is more than 30 minutes old, or the password has changed since. Ask for a new one.": {
+  "kind": "message",
+  "seen": [
+   "The page opened from the emailed reset link, where the person chooses a new password: when the link cannot be used"
+  ]
+ },
+ "This link is already being used. Wait a moment.": {
+  "kind": "message",
+  "seen": [
+   "The page opened from the emailed reset link, where the person chooses a new password: when Save password is pressed twice at once"
+  ]
+ },
+ "Choose a password different from the current one.": {
+  "kind": "message",
+  "seen": [
+   "The page opened from the emailed reset link, where the person chooses a new password, and Change password: error when the new password is the old one"
+  ]
+ },
+ "Your password was changed. Sign in with the new one.": {
+  "kind": "message",
+  "seen": [
+   "The sign-in page: shown after the new password was saved from the reset link"
+  ]
+ },
+ "Forgotten passwords": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Sign-in tab (Admins only): who may reset a forgotten password by email: heading of the panel"
+  ]
+ },
+ "\"Forgot your password?\" on the sign-in page sends a one-time link to the account's own email address. It works once, for 30 minutes, signs the account out everywhere when used, and is followed by an email saying the password was changed. Asking never shows whether an address has an account. For the whole server.": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Sign-in tab (Admins only): who may reset a forgotten password by email: explanation under the heading. \"Forgot your password?\" is the link on the sign-in page: use the same words as for that link"
+  ]
+ },
+ "Who may reset a forgotten password by email": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Sign-in tab (Admins only): who may reset a forgotten password by email: label of the drop-down"
+  ]
+ },
+ "Everyone with a password": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Sign-in tab (Admins only): who may reset a forgotten password by email: option (the default)"
+  ]
+ },
+ "Everyone except Admins": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Sign-in tab (Admins only): who may reset a forgotten password by email: option. Admins are the people who may manage people or tenants"
+  ]
+ },
+ "Nobody: an Admin sets a temporary password": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Sign-in tab (Admins only): who may reset a forgotten password by email: option that turns the reset link off"
+  ]
+ },
+ "\"Admins\" are the people who may manage people or tenants. An Admin who forgets can still be given a temporary password by another Admin, or on the server with <code>node scripts/reset-admin.mjs</code>.": {
+  "kind": "html",
+  "seen": [
+   "People & roles → Sign-in tab (Admins only): who may reset a forgotten password by email: small grey line under the drop-down; the <code> part is a command and stays exactly as it is"
+  ]
+ },
+ "\"Forgot your password?\" is not shown yet:": {
+  "kind": "text",
+  "seen": [
+   "People & roles → Sign-in tab (Admins only): who may reset a forgotten password by email: bold line above a list of what is missing (email server not set up, no server address)"
+  ]
+ },
+ "The email server is not set up and tested (Settings → Email server).": {
+  "kind": "message",
+  "seen": [
+   "People & roles → Sign-in tab (Admins only): who may reset a forgotten password by email: item of the missing list"
+  ]
+ },
+ "No https address for this server is set (Settings → Server address).": {
+  "kind": "message",
+  "seen": [
+   "People & roles → Sign-in tab (Admins only): who may reset a forgotten password by email: item of the missing list"
+  ]
+ },
+ "Sign-in rules are for the whole server: a Super Admin changes them.": {
+  "kind": "message",
+  "seen": [
+   "People & roles → Sign-in tab (Admins only): who may reset a forgotten password by email: when the person may not change it (several tenants)"
+  ]
+ },
+ "Edit profile": {
+  "kind": "text",
+  "seen": [
+   "People & roles → People: a link in a person's row (Admins), next to \"Set password\""
+  ]
+ },
+ "A person's profile": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile, opened by an Admin for someone else (from People & roles → \"Edit profile\"): the panel title instead of \"Your profile\""
+  ]
+ },
+ "You are changing someone else's profile, as an Admin. Each change saves as you type and is recorded in the audit log; a new email address is announced to both the old and the new one.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile, opened by an Admin for someone else (from People & roles → \"Edit profile\"): notice at the top"
+  ]
+ },
+ "Back to People & roles": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile, opened by an Admin for someone else (from People & roles → \"Edit profile\"): button under the notice"
+  ]
+ },
+ "Change email": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile, opened by an Admin for someone else (from People & roles → \"Edit profile\"): button next to the email box (changes the person's sign-in email)"
+  ]
+ },
+ "Change their sign-in email? From then on they sign in with the new address, any password reset link sent to the old one stops working, and both addresses are told.": {
+  "kind": "dialog",
+  "seen": [
+   "Settings → Your profile, opened by an Admin for someone else (from People & roles → \"Edit profile\"): confirmation before the email changes (the old and new addresses are shown above it)"
+  ]
+ },
+ "Their Impact figures": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile, opened by an Admin for someone else (from People & roles → \"Edit profile\"): heading of the Impact figures block, instead of \"Your Impact figures\""
+  ]
+ },
+ "What they see in the look menu next to their name, and the look of the reports they download.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile, opened by an Admin for someone else (from People & roles → \"Edit profile\"): grey line under the \"Look\" heading (the next-gen or classic look, theme and accent)"
+  ]
+ },
+ "The organisation's": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile, opened by an Admin for someone else (from People & roles → \"Edit profile\"): first option of the Look drop-down: the organisation's default look"
+  ]
+ },
+ "Change your own profile under Settings → Your profile.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Your profile, opened by an Admin for someone else (from People & roles → \"Edit profile\"): error when an Admin opens their own profile this way"
+  ]
+ },
+ "That language is not available to this person.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Your profile, opened by an Admin for someone else (from People & roles → \"Edit profile\"): error when the language chosen is not open to this person"
+  ]
  }
 }

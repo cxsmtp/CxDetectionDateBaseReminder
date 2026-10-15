@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.78 | 495/s, 4 (main 494, 0; 60 and 73 in host stalls before) | 10.2 s | 1.0 s | 680 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.77 | 510/s, 0 (main 487 and 504, 186 and 10 in host stalls) | 10.2 s | 529 ms | 670 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.76 | 506/s, 0 (main 470, 198 in a host stall) | 9.3 s | 1.2 s | 667 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.75 | 492/s, 3 (main 482, 0) | 10.5 s | 1.1 s | 666 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -63,6 +64,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.78 — 2026-10-15 07:12 UTC · [#101](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/101)
+
+- **Forgot your password?** A link under Sign in emails a one-time link to the account's own address; it works once, for 30 minutes, and saving the new password signs the account out everywhere and is confirmed by email.
+- **Built so it cannot be misused.** Asking never says whether an address has an account, the link points only at the server's own https address (never one taken from the request), only a hash of it is kept, in memory, requests are limited per person and per network address, and every link sent or refused, each reset and each Admin's profile change is in the audit log, never the link itself.
+- **Admins decide who may use it.** People & roles → Sign-in: everyone with a password, everyone except Admins, or nobody; it shows what is still missing (the email server, the server's address) before the link appears.
+- **Admins edit anyone's profile.** **Edit profile** in People & roles opens a person's name, sign-in email, language, time zone, programming languages, Impact figures, look and picture; a new email is confirmed, ends any reset link sent to the old one, and both addresses are told.
+- **Shared results side by side.** In the interactive report, rows that are one Checkmarx One result ("Same result R1") now sit right under each other instead of wherever their age put them, so the twin is never further down the list.
+- **The golden button is gold again.** In the next-gen look, the buttons that turn gold when credits are ready (Triage / Remediate with AI Assist now, Use the credits) had lost their gold to the theme's gradient; they are solid flowing gold once more, with the theme's accent glowing behind them.
+- **In fourteen languages.** The new pages, options and messages are translated and reviewed twice in every language.
+- **Status.** 3000 people at once on 2 vCPU: 495 requests a second with 4 failed (main, just before, 494 with none), report opens 10.2 s at p95, triage polls 1.0 s; two earlier runs of the release met the longest host stalls and failed 60 and 73 requests, and report opens were slower at p95 than main in every pair on a request this release does not change ([performance](docs/performance.md)); 680 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.77 — 2026-10-14 18:29 UTC · [#100](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/100)
 
