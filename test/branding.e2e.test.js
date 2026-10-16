@@ -138,7 +138,7 @@ test('a Security Analyst sees analysts and below, never the Admins', async () =>
   assert.ok(all.roles.some((r) => r.id === 'admin'));
 });
 
-test('the next-gen look: on for everyone by default, the reader’s choice in their reports, and the organisation’s switch', async () => {
+test('the command-center look (data-ui "nextgen"): on for everyone by default, the reader’s choice in their reports, and the organisation’s switch', async () => {
   const health = async () => (await admin('GET', '/api/health')).body.app;
   assert.deepEqual([(await health()).nextGen, (await health()).navPosition], [true, 'left'], 'on, with the menu down the left side');
   assert.equal((await admin('GET', '/api/settings')).body.branding.nextGen, true);
@@ -151,7 +151,7 @@ test('the next-gen look: on for everyone by default, the reader’s choice in th
   await ana('PUT', '/api/me/profile', { look: 'classic' });
   const classic = (await ana('POST', '/api/reports/html', {})).text;
   assert.match(classic, /<html lang="en" data-theme="dark">/, 'the classic look keeps their theme');
-  assert.doesNotMatch(classic, /The next-gen look/);
+  assert.doesNotMatch(classic, /The command-center look/);
 
   // Off for the organisation: everyone, and every report, is classic. The menu position is kept for when it is back.
   assert.equal((await admin('PUT', '/api/settings', { branding: { nextGen: false, navPosition: 'top' } })).status, 200);

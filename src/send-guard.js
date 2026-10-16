@@ -1,7 +1,7 @@
 /**
  * Fail-safe: one request at a time per vulnerability.
  *
- * Every path that sends AI Triage or AI Remediation (Dashboard, tracked reports,
+ * Every path that sends AI Triage or AI Remediation (Workbench, tracked reports,
  * the emailed report's relay, any number of people at once) claims its findings
  * here first. A finding already claimed by another request, under any of its
  * identities (Checkmarx One result id, vulnerability group, risk id), is not sent

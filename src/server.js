@@ -2877,7 +2877,7 @@ app.post('/api/automation/reset', requirePermission('settings.automation'), (req
 });
 
 // ---------------------------------------------------------------------------
-// Dashboard data
+// Workbench data
 // ---------------------------------------------------------------------------
 
 /** Projects (by id) and people the dashboard named to fetch, from repeated query parameters. */
@@ -2983,7 +2983,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   const settings = settingsStore.get();
   // A vulnerability search ("SQL injection", "SSRF"): only the findings it names are kept.
   const vulnerability = vulnerabilityQuery(req.query.vulnerability);
-  // The engines chosen (the Dashboard sends SAST and SCA unless more are ticked); none given means every engine.
+  // The engines chosen (the Workbench sends SAST and SCA unless more are ticked); none given means every engine.
   const engines = engineScope(String(req.query.engines ?? '').split(','));
   const names = new Map();
   const allProjects = await listProjects(client);
@@ -3203,7 +3203,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
 
 /**
  * The data this person fetched last, as the fetch returned it, with credits as
- * they are now: after a page reload or a server restart the Dashboard shows it
+ * they are now: after a page reload or a server restart the Workbench shows it
  * again without reading Checkmarx One. 204 when nothing was fetched yet.
  */
 app.get('/api/scan/last', requirePermission('findings.fetch'), (req, res) => {
@@ -3572,7 +3572,7 @@ app.post(
   requirePermission('reminders.send'),
   asyncRoute(async (req, res) => {
     if (!req.session.lastScan) {
-      return res.status(409).json({ error: 'Load findings on the Dashboard first, then send a reminder.' });
+      return res.status(409).json({ error: 'Load findings on the Workbench first, then send a reminder.' });
     }
     const { status, body } = await runReminder(req.session, req.session.lastScan, req.body ?? {});
     res.status(status).json(body);
@@ -3913,7 +3913,7 @@ if (allocations.migrated?.length) {
       details: { before: m.before, after: m.after },
     });
   }
-  console.log(`[credits] ${allocations.migrated.length} project allocation(s) made automatically by an earlier release were removed; allocate on the Dashboard.`);
+  console.log(`[credits] ${allocations.migrated.length} project allocation(s) made automatically by an earlier release were removed; allocate on the Workbench.`);
 }
 
 /** A whole request turned away before anything was sent: one entry per project. */
@@ -5274,7 +5274,7 @@ const cleanSeverities = (list) =>
 const KIND_TITLES = { triage: 'AI Triage', remediation: 'AI Remediation' };
 
 /**
- * After the administrator ran AI Triage or Remediation from the Dashboard or a
+ * After the administrator ran AI Triage or Remediation from the Workbench or a
  * tracked report, each scan initiator gets one email about their own projects:
  * what was started on their behalf, and what to do next (fetch the changes in
  * their report, review and approve the pull requests).
@@ -5424,7 +5424,7 @@ const DISAGREED = 'Checkmarx One gave different results on the two reads — the
 
 async function verifyNeeds(session, projects, { severities = null } = {}) {
   const scan = session.lastScan;
-  // The same findings the Dashboard shows: its date window, its engines and its vulnerability search
+  // The same findings the Workbench shows: its date window, its engines and its vulnerability search
   // (the verified read replaces the loaded findings, so it must keep to the same ones).
   const vulnerability = vulnerabilityQuery(scan?.vulnerability);
   const engines = scan?.engines ?? null;
@@ -5485,7 +5485,7 @@ app.post(
   requirePermission('credits.view'),
   afterFetch,
   asyncRoute(async (req, res) => {
-    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Workbench first.' });
     const projects = scanProjects(req, req.body?.projectIds);
     for (const p of projects) stateCache.delete(p.projectId);
     const severities = cleanSeverities(req.body?.severities);
@@ -5505,7 +5505,7 @@ app.post(
 );
 
 /**
- * Projects someone picked on the Dashboard, before they allocate or run anything: their scans'
+ * Projects someone picked on the Workbench, before they allocate or run anything: their scans'
  * result ids are read now, in the background, so the check that follows does not wait for them.
  * Reads nothing else, changes nothing, answers at once.
  */
@@ -5527,7 +5527,7 @@ app.post('/api/credits/prepare', requirePermission('credits.view'), (req, res) =
  * Everything given comes out of the credit pool, and never more than it has free.
  */
 app.post('/api/credits/allocate', requirePermission('credits.allocate'), afterFetch, asyncRoute(async (req, res) => {
-  if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
+  if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Workbench first.' });
   const { projectIds, ruleChanges, triageAdd = 0, remediationAdd = 0, clearExtras = false, setExtra = null } = req.body ?? {};
   // Take back what projects were given and did not use (people did not act on it).
   const reclaim = (Array.isArray(req.body?.reclaimUnused) ? req.body.reclaimUnused : []).filter((k) => k === 'triage' || k === 'remediation');
@@ -5629,7 +5629,7 @@ app.post('/api/credits/allocate', requirePermission('credits.allocate'), afterFe
     ...(exact ? { setExtra: exact } : {}),
   };
   for (const p of projects) {
-    auditAllocation({ actor, projectId: p.projectId, projectName: p.projectName, before: before.get(p.projectId), change, reason: needed.length ? `Allocated what the findings need (${needed.join(' and ')}) on the Dashboard.` : 'Changed on the Dashboard.' });
+    auditAllocation({ actor, projectId: p.projectId, projectName: p.projectName, before: before.get(p.projectId), change, reason: needed.length ? `Allocated what the findings need (${needed.join(' and ')}) on the Workbench.` : 'Changed on the Workbench.' });
     p.credits = creditView(p);
   }
   res.json({ given, projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])), pool: creditPool() });
@@ -5768,7 +5768,7 @@ app.post(
   '/api/credits/refresh',
   requirePermission('credits.view'),
   asyncRoute(async (req, res) => {
-    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Workbench first.' });
     const projects = scanProjects(req, req.body?.projectIds);
     await mapWithConcurrency(projects, 3, async (p) => {
       stateCache.delete(p.projectId);
@@ -5801,7 +5801,7 @@ app.post(
   requirePermission('triage.run'),
   afterFetch,
   asyncRoute(async (req, res) => {
-    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Workbench first.' });
     const wanted = cleanSeverities(req.body?.severities);
     if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to triage.' });
 
@@ -5827,7 +5827,7 @@ app.post(
 
     const outcome = await adminTriage(req.session, findings, req.session.lastScan.initiators ?? {}, {
       actor: await adminActor(req),
-      origin: `Dashboard: triage ${wanted.map((s) => s.toLowerCase()).join(', ')} now`,
+      origin: `Workbench: triage ${wanted.map((s) => s.toLowerCase()).join(', ')} now`,
     });
     for (const f of outcome.startedFindings) originals.get(f).triageRequestedAt = Date.now();
     for (const p of projects) p.credits = creditView(p);
@@ -5932,7 +5932,7 @@ async function adminRemediate(session, findings, initiatorsByProject = {}, { act
 }
 
 /**
- * The Dashboard's "Remediate selected": AI Remediation for the confirmed
+ * The Workbench's "Remediate selected": AI Remediation for the confirmed
  * findings (and only those) of the chosen severities in the chosen projects,
  * read live. Spends 3 credits each, from remediation credits already
  * allocated — "Allocate for remediation" first.
@@ -5942,7 +5942,7 @@ app.post(
   requirePermission('triage.run'),
   afterFetch,
   asyncRoute(async (req, res) => {
-    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Workbench first.' });
     const wanted = cleanSeverities(req.body?.severities);
     if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to remediate.' });
     const { allowReremediation = false } = settingsStore.get().aiTriage ?? {};
@@ -5976,7 +5976,7 @@ app.post(
     }
     const outcome = await adminRemediate(req.session, unique, req.session.lastScan.initiators ?? {}, {
       actor: await adminActor(req),
-      origin: `Dashboard: remediate confirmed ${wanted.map((s) => s.toLowerCase()).join(', ')}`,
+      origin: `Workbench: remediate confirmed ${wanted.map((s) => s.toLowerCase()).join(', ')}`,
     });
     for (const p of projects) p.credits = creditView(p);
     const { startedFindings, ...summary } = outcome;
@@ -6021,7 +6021,7 @@ async function branchChoiceFor(session, projects, branches = 'primary') {
   return primaryScans(session.client, list, { identity: readerIdentity(session), concurrency: 4 }).catch(() => null);
 }
 
-/** The branch choice a Dashboard fetch made, from its rows (null: it read every branch). */
+/** The branch choice a Workbench fetch made, from its rows (null: it read every branch). */
 function branchChoiceOfScan(scan) {
   if (!scan || scan.branchScope !== 'primary') return null;
   const branches = Object.create(null);
@@ -6520,7 +6520,7 @@ async function trackedReportHtml(session, report, scan, relayUrl, audience = {},
     initiatorsByProject: scan.initiators,
     audience: { purpose: `for tracked report "${report.name}"`, ...audience },
     tracked: report,
-    // Its own engines and branches, not the Dashboard's.
+    // Its own engines and branches, not the Workbench's.
     scope: { buckets: [], engines: engineScope(report.filters.engines), branches: report.filters.branches ?? 'all' },
   });
 }
@@ -6869,7 +6869,7 @@ app.get('/api/tracked-reports', requirePermission('reports.view'), async (req, r
 
 app.post('/api/tracked-reports', requirePermission('reports.manage'), (req, res) => {
   const { lastScan } = req.session;
-  if (!lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
+  if (!lastScan) return res.status(409).json({ error: 'Load findings on the Workbench first.' });
   const { name, severities = null, buckets = [], windows = {}, scopeLabel = '' } = req.body ?? {};
   const projectIds = idList(req.body?.projectIds);
   if (!String(name ?? '').trim()) return res.status(400).json({ error: 'Give the report a name.' });
@@ -6892,9 +6892,9 @@ app.post('/api/tracked-reports', requirePermission('reports.manage'), (req, res)
       detection: clean(windows.detection),
       severities: wantedSeverities,
       buckets: wantedBuckets,
-      // The engines the Dashboard loaded ([] = every engine): refreshes and new rounds keep to them.
+      // The engines the Workbench loaded ([] = every engine): refreshes and new rounds keep to them.
       engines: lastScan.engines ?? [],
-      // One branch per project, or every branch, as the Dashboard read them (a report made before: every branch).
+      // One branch per project, or every branch, as the Workbench read them (a report made before: every branch).
       branches: lastScan.branchScope ?? 'primary',
     },
     projects: inScope.map((p) => ({ projectId: p.projectId, projectName: p.projectName })),
@@ -7148,7 +7148,7 @@ app.post('/api/credits/reclaim', requirePermission('credits.allocate'), asyncRou
     auditAllocation({ actor, projectId: p.projectId, projectName: p.projectName, before, change: { reclaimed: back }, reason: `Took back ${n} unused credit${n === 1 ? '' : 's'} (${[back.triage && `${back.triage} triage`, back.remediation && `${back.remediation} remediation`].filter(Boolean).join(', ')}) to the credit pool${wanted ? '' : ' (clean slate: every project)'}.` });
   }
   allocations.save();
-  // Projects loaded on this person's Dashboard show the new balances.
+  // Projects loaded on this person's Workbench show the new balances.
   for (const p of req.session.lastScan?.projects ?? []) if (allocations.get(p.projectId)) p.credits = creditView(p);
   res.json({ reclaimed: total.triage + total.remediation, ...total, pool: creditPool(), allocations: allocations.list() });
 }));
@@ -7190,7 +7190,7 @@ const GIVE_MAX = 100_000;
 /**
  * Give credits from the Credit Control page: extra AI Triage and AI Remediation
  * credits for one project, out of the credit pool, without loading findings
- * first (giving exactly what the findings need stays on the Dashboard, which
+ * first (giving exactly what the findings need stays on the Workbench, which
  * confirms it with Checkmarx One). Recorded in the audit log like any allocation.
  */
 app.post('/api/credits/give', requirePermission('credits.allocate'), asyncRoute(async (req, res) => {
@@ -7240,7 +7240,7 @@ app.post('/api/credits/give', requirePermission('credits.allocate'), asyncRoute(
 /**
  * Spend the credits from the Credit Control page: AI Triage (or AI Remediation
  * of confirmed findings) for the chosen severities of projects that hold
- * credits, read fresh from Checkmarx One. No Dashboard fetch needed.
+ * credits, read fresh from Checkmarx One. No Workbench fetch needed.
  */
 app.post('/api/credits/run', requirePermission('triage.run'), afterFetch, asyncRoute(async (req, res) => {
   const kind = req.body?.kind === 'remediation' ? 'remediation' : req.body?.kind === 'triage' ? 'triage' : '';
@@ -7279,13 +7279,13 @@ app.post('/api/credits/run', requirePermission('triage.run'), afterFetch, asyncR
       summary = { ...outcome, notified };
     }
   }
-  // Projects loaded on this person's Dashboard show the new balances.
+  // Projects loaded on this person's Workbench show the new balances.
   for (const p of req.session.lastScan?.projects ?? []) if (allocations.get(p.projectId)) p.credits = creditView(p);
   res.json({ ...summary, pool: creditPool(), allocations: allocations.list() });
 }));
 
 /**
- * The credits of the projects loaded on this person's Dashboard, worked out
+ * The credits of the projects loaded on this person's Workbench, worked out
  * again: after credits are given or taken back on another page.
  */
 app.get('/api/credits/views', requirePermission('credits.view'), (req, res) => {
@@ -8167,7 +8167,7 @@ app.post(
 async function buildInteractiveReport(session, risks, { buckets = [], settings, initiator = null, relayUrl = '', initiatorsByProject, audience = {}, publish = '', scope = null, projects = null, tracked = null } = {}) {
   const { connection, lastScan } = session;
   initiatorsByProject ??= lastScan?.initiators ?? {};
-  // The scope its per-project reports keep: the one given, else the Dashboard's (its engines and branches).
+  // The scope its per-project reports keep: the one given, else the Workbench's (its engines and branches).
   const signedScope = scope ?? { buckets, engines: lastScan?.engines ?? null, branches: lastScan?.branchScope };
   // Whatever built the list, findings triaged as not exploitable stay out.
   risks = await withoutNotExploitable(session, risks);
@@ -8415,7 +8415,7 @@ app.post(
     const settings = settingsStore.get();
 
     if (!lastScan) {
-      return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
+      return res.status(409).json({ error: 'Load findings on the Workbench first.' });
     }
 
     // For HTML reports, get all risks (no bucket filtering) unless specific buckets requested
@@ -8442,7 +8442,7 @@ app.post(
       scope: { buckets, severities, detection: lastScan.detectionWindow, engines: lastScan.engines, branches: lastScan.branchScope },
       settings,
       relayUrl: reportServerUrl(req, settings),
-      audience: { actor, recipient: `downloaded by ${actor.user || 'administrator'}`, purpose: 'downloaded from the Dashboard' },
+      audience: { actor, recipient: `downloaded by ${actor.user || 'administrator'}`, purpose: 'downloaded from the Workbench' },
     });
     const htmlReport = html + diagnostics;
 
@@ -8559,7 +8559,7 @@ app.post(
   '/api/reminders/send-html-by-initiator',
   requirePermission('reminders.send'),
   asyncRoute(async (req, res) => {
-    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
+    if (!req.session.lastScan) return res.status(409).json({ error: 'Load findings on the Workbench first.' });
     const settings = settingsStore.get();
     const { status, body } = await runHtmlReminder(req.session, req.session.lastScan, req.body ?? {}, reportServerUrl(req, settings));
     res.status(status).json(body);
@@ -9445,7 +9445,7 @@ app.post(
   requireFeature('codeAuthors'),
   asyncRoute(async (req, res) => {
     const { lastScan, client, connection } = req.session;
-    if (!lastScan) return res.status(409).json({ error: 'Load findings on the Dashboard first.' });
+    if (!lastScan) return res.status(409).json({ error: 'Load findings on the Workbench first.' });
     const settings = settingsStore.get();
     const { severities = null } = req.body ?? {};
     const projectIds = idList(req.body?.projectIds);
@@ -9914,7 +9914,7 @@ function httpsOrigin(req, { port } = {}) {
 
 /**
  * Plain http while the server is HTTPS only: pages are redirected (308 keeps the method), and
- * API calls are told the new address (`movedTo`): the Dashboard opens it, and reports switch
+ * API calls are told the new address (`movedTo`): the Workbench opens it, and reports switch
  * to it by themselves (older reports show the message, with the address to enter).
  */
 function httpsOnlyAnswer(req, res, { port } = {}) {

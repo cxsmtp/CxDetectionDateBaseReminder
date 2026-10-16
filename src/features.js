@@ -5,7 +5,7 @@
  * features" (beta.use). An Admin (features.manage) makes it final once it has
  * proved itself; from then on it is for everyone holding the permission named
  * here too, it loses its Beta label, and what it adds elsewhere (scheduled
- * reminders, the Dashboard) turns on. Putting it back in Beta undoes that.
+ * reminders, the Workbench) turns on. Putting it back in Beta undoes that.
  */
 
 export const FEATURES = [
@@ -18,7 +18,7 @@ export const FEATURES = [
     whenFinal: [
       'Anyone who may send reminders can find and email code authors (no Beta permission needed).',
       'Scheduled reminders can also email the developer who last changed each vulnerable line (Settings → Automation).',
-      'The Dashboard\'s Remind panel links straight to it.',
+      'The Workbench\'s Remind panel links straight to it.',
     ],
     // What to have seen before making it final.
     beforeFinal: 'Keep it in Beta until it has been right on your own repositories: run Find code authors on real findings and check that the "Sure" answers name the right developers. Unattended runs only ever email "Sure" answers.',
@@ -26,11 +26,11 @@ export const FEATURES = [
   {
     id: 'sla',
     name: 'SLAs and escalation',
-    summary: 'Days to fix each severity, counted from first detection: what is overdue or due soon on the Dashboard, and one escalation email per finding that goes past its SLA.',
+    summary: 'Days to fix each severity, counted from first detection: what is overdue or due soon on the Workbench, and one escalation email per finding that goes past its SLA.',
     // Once final: everyone who can see findings sees the SLA figures.
     permission: 'findings.fetch',
     whenFinal: [
-      'Everyone who loads findings sees what is overdue and due soon, on the Dashboard and in each project (no Beta permission needed).',
+      'Everyone who loads findings sees what is overdue and due soon, on the Workbench and in each project (no Beta permission needed).',
       'Escalation stays as set under Settings → SLAs: off until an Admin names who to escalate to.',
     ],
     beforeFinal: 'Keep it in Beta until the due days match your policy and the overdue counts look right on your own findings.',

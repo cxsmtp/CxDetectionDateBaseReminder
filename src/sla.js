@@ -145,7 +145,7 @@ export function escalationMail(items, { appName = 'CxMissionZero', companyName =
       (r) => `<tr><td style="padding:6px 8px;border-bottom:1px solid #f0f1f5">${escapeHtml(r.project)}</td><td style="padding:6px 8px;border-bottom:1px solid #f0f1f5"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${SEVERITY_COLOURS[r.severity] ?? '#98a2b3'};margin-right:6px"></span>${escapeHtml(r.severity.toLowerCase())} · ${escapeHtml(r.title)}</td><td style="padding:6px 8px;border-bottom:1px solid #f0f1f5;white-space:nowrap">${escapeHtml(r.found)}</td><td style="padding:6px 8px;border-bottom:1px solid #f0f1f5;text-align:right;white-space:nowrap"><b style="color:#dc2626">${r.over} day${r.over === 1 ? '' : 's'}</b> <span style="color:#98a2b3">(SLA ${r.sla})</span></td><td style="padding:6px 8px;border-bottom:1px solid #f0f1f5">${escapeHtml(r.owner)}</td></tr>`,
     )
     .join('')}</tbody></table>
-${n > shown.length ? `<p style="margin:12px 0 0;color:#475467">And ${n - shown.length} more: see the Dashboard.</p>` : ''}
+${n > shown.length ? `<p style="margin:12px 0 0;color:#475467">And ${n - shown.length} more: see the Workbench.</p>` : ''}
 <p style="margin:16px 0 0;font-size:12px;color:#98a2b3">Sent by ${escapeHtml(appName)} · SLAs are set under Settings → SLAs.</p>
 </div></body></html>`;
   const text = [`${subject}`, '', ...rows.map((r) => `- ${r.project} · ${r.severity.toLowerCase()} · ${r.title} · first found ${r.found} · ${r.over} days past SLA (${r.sla})${r.owner ? ` · latest scan by ${r.owner}` : ''}`), n > shown.length ? `And ${n - shown.length} more.` : ''].join('\n');

@@ -639,74 +639,63 @@ const CLASSIC_DARK = `
   `;
 
 /**
- * The next-gen look, laid over the classic styles: Daylight on light, Obsidian on dark, glass cards,
- * a deep header with the accent's light behind it, and figures in a monospaced face. The app's own
- * fonts are not in the file (it travels by email): a reader who has Plus Jakarta Sans or JetBrains
- * Mono gets them, everyone else their system's.
+ * The command-center look, laid over the classic styles: warm paper on light, night ink on dark, the console's
+ * ink behind the header, hairlines instead of glass, headings and figures in a serif. The app's own fonts are
+ * not in the file (it travels by email): a reader who has Fraunces or IBM Plex gets them, everyone else
+ * Palatino or Georgia, and their system's sans.
  */
 function nextgenStyles(accentName) {
-  const [inkLight, inkDark, from, to] = NEXTGEN_ACCENTS[accentName] ?? NEXTGEN_ACCENTS.indigo;
+  const [inkLight, inkDark, from] = NEXTGEN_ACCENTS[accentName] ?? NEXTGEN_ACCENTS.indigo;
   const dark = `
     color-scheme: dark;
-    --ink: #e2e8f0; --muted: #94a3b8; --line: #1d2638; --bg: #06080f; --surface: #0e1422; --surface-2: #121a2b;
-    --link: ${inkDark}; --outline-line: #2a3449; --muted-bg: #1a2335; --muted-ink: #cbd5e1;
-    --bad-bg: rgb(244 63 94 / .14); --bad: #fb7185; --good-bg: rgb(16 185 129 / .14); --good: #34d399;
-    --warn-bg: rgb(245 158 11 / .14); --warn: #fbbf24; --busy-bg: rgb(99 102 241 / .16); --busy: #c7d2fe;
-    --ng-glass: rgb(13 18 30 / .72); --ng-glass-line: rgb(255 255 255 / .07);
-    --ng-ambient-1: rgb(79 70 229 / .12); --ng-ambient-2: rgb(8 145 178 / .10);
+    --ink: #ebe6dc; --muted: #a39d91; --line: #2a2e33; --bg: #131518; --surface: #1a1d21; --surface-2: #1f2226;
+    --link: ${inkDark}; --outline-line: #3b4047; --muted-bg: #272b30; --muted-ink: #d6d0c4;
+    --bad-bg: rgb(227 139 116 / .14); --bad: #e38b74; --good-bg: rgb(147 194 150 / .14); --good: #93c296;
+    --warn-bg: rgb(226 178 100 / .14); --warn: #e2b264; --busy-bg: color-mix(in srgb, ${inkDark} 16%, transparent); --busy: ${inkDark};
   `;
   return `
-/* The next-gen look. */
+/* The command-center look. */
 :root {
-  --accent: ${inkLight}; --ng-from: ${from}; --ng-to: ${to};
-  --ng-solid: linear-gradient(135deg, ${inkLight}, color-mix(in srgb, ${to} 60%, #0b1020));
-  --ink: #0b1020; --muted: #5a6478; --line: #e2e6f0; --bg: #f3f5fb; --surface: #fff; --surface-2: #f6f7fc;
-  --link: ${inkLight}; --focus: color-mix(in srgb, ${from} 55%, transparent); --outline-line: #cbd2e1;
-  --muted-bg: #eceff7; --muted-ink: #3b4458;
-  --ng-glass: rgb(255 255 255 / .8); --ng-glass-line: rgb(15 23 42 / .07);
-  --ng-ambient-1: rgb(99 102 241 / .10); --ng-ambient-2: rgb(6 182 212 / .08);
-  --ng-font: "Plus Jakarta Sans", "MZ Jakarta", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  --ng-mono: "JetBrains Mono", "MZ Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --accent: ${inkLight};
+  --ink: #1e2226; --muted: #67625a; --line: #e3ddd0; --bg: #f3f0e8; --surface: #fbfaf6; --surface-2: #f5f2ea;
+  --link: ${inkLight}; --focus: color-mix(in srgb, ${inkLight} 45%, transparent); --outline-line: #cdc4b2;
+  --muted-bg: #ebe6da; --muted-ink: #4a453d;
+  --ng-font: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --ng-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --ng-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {${dark}}
 }
 :root[data-theme="dark"] {${dark}}
-body { font-family: var(--ng-font); background-color: var(--bg);
-  background-image: radial-gradient(600px 340px at 22% 0, var(--ng-ambient-1), transparent 70%), radial-gradient(520px 420px at 105% 40%, var(--ng-ambient-2), transparent 70%);
-  background-attachment: fixed; }
-h1 { font-weight: 700; letter-spacing: -.02em; }
-code, .server-url, .count b, .summary .count b { font-family: var(--ng-mono); }
-.top { color: #fff; background-color: #0b1020;
-  background-image: radial-gradient(520px 260px at 12% -40%, color-mix(in srgb, ${from} 55%, transparent), transparent 70%),
-    radial-gradient(520px 300px at 100% 0, color-mix(in srgb, ${to} 38%, transparent), transparent 70%),
-    linear-gradient(180deg, #0b1020, #0e1630);
-  border-bottom: 1px solid rgb(255 255 255 / .06); }
-.summary .count { background: rgb(255 255 255 / .07); border-color: rgb(255 255 255 / .1); }
+body { font-family: var(--ng-font); background-color: var(--bg); }
+h1, h2 { font-family: var(--ng-display); font-weight: 600; letter-spacing: -.01em; }
+code, .server-url { font-family: var(--ng-mono); }
+.count b, .summary .count b { font-family: var(--ng-display); font-variant-numeric: lining-nums tabular-nums; }
+.top { color: #ebe6dc; background: #1b1f23; border-bottom: 1px solid #2e3338; }
+.summary .count { background: rgb(255 255 255 / .06); border-color: rgb(255 255 255 / .1); }
 .lifecycle li { background: rgb(255 255 255 / .06); }
-.btn { border-radius: 10px; background: var(--ng-solid); box-shadow: 0 8px 22px -12px color-mix(in srgb, ${from} 70%, transparent); }
-.btn-light { background: #fff; color: #0b1020; box-shadow: none; }
-.btn-light.connected { background: #059669; color: #fff; }
+.btn { border-radius: 8px; background: ${inkLight}; box-shadow: none; }
+.btn-light { background: #fbfaf6; color: #1e2226; box-shadow: none; }
+.btn-light.connected { background: #3d7349; color: #fff; }
 .btn-outline, .btn-fix { background: var(--surface); color: var(--link); box-shadow: none; }
 .btn-outline { border-color: var(--outline-line); }
 .btn-fix { border-color: color-mix(in srgb, var(--link) 55%, transparent); }
-.server, .actions, .table-wrap, .activity { background: var(--ng-glass); border-color: var(--ng-glass-line); border-radius: 16px;
-  -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); }
+.server, .actions, .table-wrap, .activity { background: var(--surface); border-color: var(--line); border-radius: 12px; }
 .table-wrap { position: relative; }
-th { font-family: var(--ng-mono); font-size: 10.5px; letter-spacing: .08em; font-weight: 600; background: var(--surface-2); }
-.chip { font-family: var(--ng-mono); font-size: 11.5px; font-weight: 500; border: 1px solid var(--ng-glass-line); }
-.seg { border-radius: 12px; background: var(--muted-bg); border-color: var(--ng-glass-line); }
-.seg-btn { border-radius: 9px; }
-.seg-btn.on { background: var(--surface); box-shadow: inset 0 0 0 1px color-mix(in srgb, ${from} 35%, transparent); }
-#report-search, .server-form input { border-radius: 10px; }
-#report-search:focus, .server-form input:focus { outline: none; border-color: color-mix(in srgb, ${from} 60%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, ${from} 20%, transparent); }
-#findings tbody tr:hover > td { background: color-mix(in srgb, ${from} 6%, transparent); }
-.rescan-card .rc-icon { background: var(--ng-solid); }
+th { font-size: 12px; letter-spacing: 0; font-weight: 600; text-transform: none; background: var(--surface-2); }
+.chip { font-size: 12px; font-weight: 500; border: 1px solid var(--line); }
+.seg { border-radius: 10px; background: var(--muted-bg); border-color: var(--line); }
+.seg-btn { border-radius: 8px; }
+.seg-btn.on { background: var(--surface); box-shadow: inset 0 0 0 1px color-mix(in srgb, ${from} 40%, transparent); }
+#report-search, .server-form input { border-radius: 8px; }
+#report-search:focus, .server-form input:focus { outline: none; border-color: ${from}; box-shadow: 0 0 0 3px color-mix(in srgb, ${from} 18%, transparent); }
+#findings tbody tr:hover > td { background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.rescan-card .rc-icon { background: ${inkLight}; }
 @media print {
-  :root { color-scheme: light; --ink: #0b1020; --muted: #5a6478; --line: #e2e6f0; --bg: #fff; --surface: #fff; --surface-2: #f6f7fc; --link: ${inkLight}; }
+  :root { color-scheme: light; --ink: #1e2226; --muted: #67625a; --line: #e3ddd0; --bg: #fff; --surface: #fff; --surface-2: #f5f2ea; --link: ${inkLight}; }
   body { background: #fff; }
   .top { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .server, .actions, .table-wrap, .activity { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 `;
 }

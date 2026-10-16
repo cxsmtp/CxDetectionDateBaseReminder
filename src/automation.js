@@ -206,7 +206,7 @@ export async function runOnce({
   // Each project's primary branch only (unless every branch is chosen): a branch never scanned is not
   // reminded about, and nor (unless chosen otherwise) is a project whose scan counted no lines of code.
   let projects = await listProjects(client);
-  // What is known of each scan is kept per Checkmarx One key, the same key the Dashboard's sessions share.
+  // What is known of each scan is kept per Checkmarx One key, the same key the Workbench's sessions share.
   const identity = connection?.apiKey ? createHash('sha256').update(`${connection.baseUrl ?? ''}\u0000${connection.tenant ?? ''}\u0000${connection.apiKey}`).digest('base64url').slice(0, 22) : '';
   const choice = automation.branches === 'all' ? null : await primaryScans(client, projects, { identity, concurrency: config.concurrency }).catch(() => null);
   if (choice) projects = projects.filter((p) => choice.branches[p.id]?.how !== BRANCH_HOW.none);
@@ -306,7 +306,7 @@ export async function runOnce({
   if (audience !== 'initiator') {
     const list = settings.recipients ?? {};
     if (!list.to?.length && !list.cc?.length && !list.bcc?.length) {
-      failures.push({ to: 'the fixed list', error: 'The fixed list is empty: add addresses on the Dashboard (Remind → The fixed list), or send to each developer only.' });
+      failures.push({ to: 'the fixed list', error: 'The fixed list is empty: add addresses on the Workbench (Remind → The fixed list), or send to each developer only.' });
     } else {
       const reminder = buildReminder(crossed, settings.template, common);
       messages.push({ to: list.to, reminder, riskCount: crossed.length, label: 'configured list' });

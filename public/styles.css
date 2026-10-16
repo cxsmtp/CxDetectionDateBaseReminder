@@ -363,6 +363,8 @@ input[type="date"] { color-scheme: inherit; }
 .field { display: grid; gap: 6px; margin-bottom: 14px; min-width: 0; }
 .field > span { font-size: 12.5px; font-weight: 500; color: var(--muted); }
 .field input, .field select { width: 100%; }
+/* Tick boxes and choices in a field keep their own size (Settings → Automation's engines and branch). */
+.field input:is([type="checkbox"], [type="radio"]) { width: auto; }
 
 .grid2, .grid3 { display: grid; gap: 0 16px; }
 .grid2 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); align-items: start; }
@@ -1793,6 +1795,16 @@ main { max-width: 1760px; padding-bottom: 72px; }
 }
 .nav-group:first-child { margin-top: 2px; }
 .nav-group i { width: 8px; height: 8px; border-radius: 3px; background: var(--stage); flex: 0 0 auto; }
+/* Each group folds with a click on its name (public/app.js, applyNavFolds); the page open stays shown. */
+.nav-group[role="button"] { cursor: pointer; user-select: none; border-radius: 6px; }
+.nav-group[role="button"]:hover { color: var(--text); }
+.nav-group[role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nav-chev { margin-inline-start: auto; width: 7px; height: 7px; border-inline-end: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translate(-2px, -2px); opacity: 0.55; transition: transform 0.15s ease; }
+.nav-group[aria-expanded="false"] .nav-chev { transform: rotate(-45deg); }
+[dir="rtl"] .nav-group[aria-expanded="false"] .nav-chev { transform: rotate(135deg); }
+@media (min-width: 1101px) {
+  :root:not([data-nav="top"]) .nav .tab.nav-folded { display: none; }
+}
 .tab { position: relative; padding: 8px 12px; }
 .tab.active::before { content: ""; position: absolute; inset-inline-start: -14px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--stage, var(--accent)); }
 .tab.active svg { color: var(--stage, var(--accent)); }
@@ -3104,3 +3116,20 @@ tr.tt-hidden { display: none !important; }
   table.tt-stack > tbody > tr > td > * { max-width: 100%; }
   .data-table th, .data-table td, table.probe th, table.probe td { white-space: normal; overflow-wrap: anywhere; }
 }
+
+/* Explanations behind a "?" (public/help-tips.js): folded until the ? beside their heading or field opens them;
+   "Explanations: Shown" in the look menu (html[data-help="shown"]) shows them all as before. */
+:root:not([data-help="shown"]) .help-text:not(.help-open) { display: none !important; }
+:root[data-help="shown"] .help-q, :root[data-help="shown"] .help-row { display: none; }
+.help-row { margin: 4px 0; line-height: 1; }
+.help-row > .help-q { margin: 0; }
+button.help-q.help-q {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; min-height: 0; padding: 0; margin: 0 0 0 4px;
+  border: 1px solid var(--border-strong); border-radius: 50%; background: transparent; box-shadow: none;
+  color: var(--muted); font: 600 11px/1 var(--font); letter-spacing: 0; text-transform: none; vertical-align: 0.15em; cursor: pointer;
+}
+[dir="rtl"] button.help-q.help-q { margin: 0 4px 0 0; }
+button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.help-text.help-open { animation: help-open 0.16s ease-out; }
+@keyframes help-open { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .help-text.help-open { animation: none; } }

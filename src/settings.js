@@ -81,7 +81,7 @@ export const DEFAULT_SETTINGS = {
   },
   automation: { ...DEFAULT_AUTOMATION },
   /**
-   * Who gets reminders, everywhere: the Dashboard, scheduled runs and tracked
+   * Who gets reminders, everywhere: the Workbench, scheduled runs and tracked
    * reports' follow-ups. 'initiator' (each developer, their own projects),
    * 'list' (the fixed list) or 'both'.
    */

@@ -215,7 +215,7 @@ export function recommend({ features, errors, discrepancies }) {
   const busy = count(discrepancies, 'send-busy');
   if (busy) add('low', `${busy} triage/remediation request(s) were refused because the same finding was already being sent.`, 'Two people, tabs or reports acted on the same finding at once. Nothing was sent twice; agree who acts on which project.');
   const refused = count(discrepancies, 'credit-refused');
-  if (refused) add('medium', `${refused} request(s) were refused for lack of allocated credits.`, 'Allocate credits for the projects (Dashboard → Refresh & verify, then Allocate) or raise the credit pool under Settings → AI & credits.');
+  if (refused) add('medium', `${refused} request(s) were refused for lack of allocated credits.`, 'Allocate credits for the projects (Workbench → Refresh & verify, then Allocate) or raise the credit pool under Settings → AI & credits.');
   const fetchFailed = count(errors, 'fetch-failed') + count(discrepancies, 'project-read-failed');
   if (fetchFailed) add('high', `Reading projects from Checkmarx One failed ${fetchFailed} time(s).`, 'Check the Checkmarx One connection and the risks endpoint under Settings; a proxy or an expired key is the usual cause.');
   const mailFailed = count(errors, 'mail-failed');

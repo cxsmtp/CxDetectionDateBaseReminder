@@ -2,6 +2,7 @@ import { nextSpeedster } from './speedsters.js';
 import { initCalculator } from './calculator/page.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engines.js';
 import { LANGUAGES, availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
+import { helpMode, setHelpMode, startHelpTips } from './help-tips.js';
 import { sortAndFilter, startTableTools, tableFiltered } from './table-tools.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1195,7 +1196,7 @@ const reloadSettingsPage = () => {
 };
 
 /**
- * A page's data, loaded the first time it opens (and by ↻). The Dashboard
+ * A page's data, loaded the first time it opens (and by ↻). The Workbench
  * loads nothing by itself: what was fetched is restored from the server, and
  * reading Checkmarx One again only ever starts from a click (Load findings, or ↻).
  */
@@ -1216,9 +1217,9 @@ const PAGE_LOADERS = {
 /**
  * Coming back to a page: only refreshes that cannot lose anything in progress.
  * Settings shows what is saved (every edit there saves as it is typed); the
- * Reports page keeps the open report, its tab and its form; charts redraw.
+ * The Dashboard (tracked reports) keeps the open report, its tab and its form; charts redraw.
  */
-/** ↻ where it does more than the first visit: on the Dashboard, read the findings again with the scope shown. */
+/** ↻ where it does more than the first visit: on the Workbench, read the findings again with the scope shown. */
 const PAGE_RELOAD = {
   dashboard: () => {
     if (state.projects.length && !$('fetch').disabled && can('findings.fetch')) $('fetch').click();
@@ -1252,10 +1253,11 @@ function route() {
     if (tab.dataset.route === target) tab.setAttribute('aria-current', 'page');
     else tab.removeAttribute('aria-current');
   }
+  applyNavFolds();
   setPageTitle(target);
   state.page = target;
   // A panel that stops the page scrolling belongs to its own page: the lock never follows you to another
-  // (e.g. "Give credits on the Dashboard" from an open report). Coming back, its page's panel locks again.
+  // (e.g. "Give credits on the Workbench" from an open report). Coming back, its page's panel locks again.
   document.body.classList.toggle('rp-locked', target === 'reports' && Boolean(rpState.open));
   const dashboardSheet = target === 'dashboard' && (!$('preview-panel').hidden || Boolean(document.querySelector('.wb.rail-open')));
   document.body.classList.toggle('sheet-open', dashboardSheet);
@@ -1408,10 +1410,56 @@ function showSettingsSection(id) {
   if (state.page === 'settings' && id) window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
+// ---------------------------------------------------------------------------
+// The menu's groups (Act, Follow up, Prove, Plan, Set up) fold and unfold with a click on their name;
+// the choice is kept in this browser, and the page open is always shown.
+// ---------------------------------------------------------------------------
+
+const NAV_FOLDS_KEY = 'mz-nav-folded';
+function navFolds() {
+  try {
+    const list = JSON.parse(localStorage.getItem(NAV_FOLDS_KEY) || '[]');
+    return new Set(Array.isArray(list) ? list.filter((x) => typeof x === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+function applyNavFolds() {
+  const folded = navFolds();
+  for (const group of document.querySelectorAll('#nav .nav-group')) {
+    const open = !folded.has(group.dataset.stage);
+    group.setAttribute('aria-expanded', String(open));
+    for (const tab of document.querySelectorAll(`#nav .tab[data-stage="${group.dataset.stage}"]`)) {
+      tab.classList.toggle('nav-folded', !open && !tab.classList.contains('active'));
+    }
+  }
+}
+function toggleNavGroup(group) {
+  const folded = navFolds();
+  if (folded.has(group.dataset.stage)) folded.delete(group.dataset.stage);
+  else folded.add(group.dataset.stage);
+  try {
+    localStorage.setItem(NAV_FOLDS_KEY, JSON.stringify([...folded]));
+  } catch {}
+  applyNavFolds();
+}
+for (const group of document.querySelectorAll('#nav .nav-group')) {
+  group.setAttribute('role', 'button');
+  group.tabIndex = 0;
+  group.insertAdjacentHTML('beforeend', '<span class="nav-chev" aria-hidden="true"></span>');
+  group.addEventListener('click', () => toggleNavGroup(group));
+  group.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    toggleNavGroup(group);
+  });
+}
+applyNavFolds();
+
 const PAGE_TITLES = {
   connect: ['Sign in', 'Act on findings, follow them up, prove every credit'],
-  dashboard: ['Dashboard', 'Find ageing vulnerabilities and fix them'],
-  reports: ['Reports', 'Follow every tracked scope to zero'],
+  dashboard: ['Workbench', 'Find ageing vulnerabilities and fix them'],
+  reports: ['Dashboard', 'Follow every tracked scope to zero'],
   credits: ['Credit Control', 'Credits given, used and left'],
   impact: ['Impact', 'What AI saved and cleared'],
   settings: ['Settings', 'Saved as you type'],
@@ -3236,7 +3284,7 @@ function renderRecipientHint() {
 }
 
 // ---------------------------------------------------------------------------
-// Dashboard: scope
+// Workbench: scope
 // ---------------------------------------------------------------------------
 
 function fillPresets(selectId, defaultId) {
@@ -3596,7 +3644,7 @@ $('scope-pick').addEventListener('click', (event) => {
 });
 
 // ---------------------------------------------------------------------------
-// Dashboard: table
+// Workbench: table
 // ---------------------------------------------------------------------------
 
 function visibleProjects() {
@@ -4379,9 +4427,9 @@ function renderReportList() {
   if (!reports.length) {
     $('reports-list').innerHTML = `<div class="rp-empty">
       <h3>No tracked reports yet</h3>
-      <p>Choose a scope on the Dashboard (projects, people, time windows), fetch, then <strong>Save as tracked report</strong>.
+      <p>Choose a scope on the Workbench (projects, people, time windows), fetch, then <strong>Save as tracked report</strong>.
         Each report keeps the findings it covered and follows what happens to them: triaged, confirmed, not exploitable or no longer detected.</p>
-      <a class="button primary" href="#/dashboard">Go to the Dashboard</a></div>`;
+      <a class="button primary" href="#/dashboard">Go to the Workbench</a></div>`;
     return;
   }
   const term = rpState.search.trim().toLowerCase();
@@ -4838,7 +4886,7 @@ document.addEventListener('click', async (event) => {
     const { links } = await api(`/api/tracked-reports/${encodeURIComponent(id)}/rescan-links`);
     out.innerHTML = links
       .map((l) => `<div class="vf-link"><span><b>${escapeHtml(l.name || l.email)}</b> <span class="hint">${escapeHtml(l.email)} · ${escapeHtml(l.projects.join(', '))}</span></span><button type="button" class="sm" data-copy-link="${escapeHtml(l.link)}">Copy link</button></div>`)
-      .join('') || '<p class="hint">No developer with an address: tag their addresses on the Dashboard (People).</p>';
+      .join('') || '<p class="hint">No developer with an address: tag their addresses on the Workbench (People).</p>';
     out.hidden = false;
   } catch (error) {
     if (!handleAuthLoss(error)) followStatus(id, error.message, 'error');
@@ -6287,7 +6335,7 @@ for (const radio of document.querySelectorAll('input[name="sendTo"], input[name=
   radio.addEventListener('change', renderRecipientHint);
 }
 
-/** Who gets reminders: one choice (Settings: reminders.audience), set here on the Dashboard and used everywhere. */
+/** Who gets reminders: one choice (Settings: reminders.audience), set here on the Workbench and used everywhere. */
 const AUDIENCE_TEXT = { initiator: 'Each developer (their own projects)', list: 'The fixed list', both: 'Each developer, and the fixed list' };
 const audience = () => state.settings?.reminders?.audience ?? 'initiator';
 function renderAudience() {
@@ -7700,6 +7748,13 @@ document.addEventListener('keydown', (event) => {
 (async function init() {
   // Sort and filter from the column headings, on every data table (public/table-tools.js).
   startTableTools({ translate: t });
+  // Explanations behind a "?" (or shown, as chosen in the look menu; kept in this browser).
+  setHelpMode(helpMode());
+  for (const radio of document.querySelectorAll('input[name="look-help"]')) {
+    radio.checked = radio.value === helpMode();
+    radio.addEventListener('change', () => radio.checked && setHelpMode(radio.value));
+  }
+  startHelpTips({ translate: t });
   try {
     state.health = await api('/api/health');
     if (Array.isArray(state.health.languages)) languagesChanged(state.health.languages);
@@ -7787,12 +7842,12 @@ function renderBeta() {
   $('hosts-count').textContent = connected ? String(connected) : '';
 }
 
-/** Which projects "Find code authors" covers: the Dashboard's selection, or all it shows. */
+/** Which projects "Find code authors" covers: the Workbench's selection, or all it shows. */
 function renderBetaScope() {
   const scope = allocationScope();
   $('authors-scope').textContent = state.projects.length
-    ? `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'} on the Dashboard`
-    : 'Load findings on the Dashboard first';
+    ? `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'} on the Workbench`
+    : 'Load findings on the Workbench first';
   $('authors-find').disabled = !state.projects.length;
 }
 
@@ -7882,7 +7937,7 @@ for (const radio of document.querySelectorAll('input[name="idHost"]')) {
 $('gh-load-logins').addEventListener('click', async () => {
   try {
     const { logins } = await api(`/api/beta/scm/logins?provider=${identityHost}`);
-    if (!logins.length) return setStatus('gh-status', 'No usernames among the developers: load findings on the Dashboard, or type them in.', 'error');
+    if (!logins.length) return setStatus('gh-status', 'No usernames among the developers: load findings on the Workbench, or type them in.', 'error');
     // Unresolved ones first: those are the ones worth matching.
     logins.sort((a, b) => Number(b.unresolved) - Number(a.unresolved));
     $('gh-logins').value = logins.map((l) => l.login).join('\n');
@@ -7962,7 +8017,7 @@ $('gh-apply').addEventListener('click', async () => {
   if (!mappings.length) return setStatus('gh-apply-status', 'Tick the matches to use.', 'error');
   try {
     const result = await api('/api/beta/scm/apply', { method: 'POST', body: JSON.stringify({ provider: identityHost, mappings }) });
-    setStatus('gh-apply-status', `${result.applied} saved. Fetch again on the Dashboard to use them.`, 'ok');
+    setStatus('gh-apply-status', `${result.applied} saved. Fetch again on the Workbench to use them.`, 'ok');
   } catch (error) {
     if (!handleAuthLoss(error)) showError('gh-apply-status', error);
   }
@@ -9564,7 +9619,7 @@ function renderAllocations(all) {
   const mayTakeBack = can('credits.allocate');
   const mayPick = canAny('triage.run credits.allocate');
   if (!list.length) {
-    $('credit-allocations').innerHTML = `<p class="hint">${all.length ? 'No project matches.' : mayTakeBack ? 'No project has an allocation yet — give credits above, or on the Dashboard.' : 'No project has an allocation yet.'}</p>`;
+    $('credit-allocations').innerHTML = `<p class="hint">${all.length ? 'No project matches.' : mayTakeBack ? 'No project has an allocation yet — give credits above, or on the Workbench.' : 'No project has an allocation yet.'}</p>`;
     return;
   }
   const bar = (k) => {
@@ -9681,7 +9736,7 @@ function renderImpact() {
   const note = $('impact-note');
   note.hidden = !d.partial && Boolean(d.since);
   note.textContent = !d.since
-    ? 'No readings yet. Figures start with the next Dashboard fetch (with no date window) or tracked report refresh.'
+    ? 'No readings yet. Figures start with the next Workbench fetch (with no date window) or tracked report refresh.'
     : `Readings start on ${d.since.slice(0, 10)}: the period before that is not included.`;
   // Figures from this person's own profile: said once, with where to change them.
   const mine = $('impact-currency-note');
@@ -9953,7 +10008,7 @@ $('cc-run-remediation').addEventListener('click', () => runCredits('remediation'
 for (const box of document.querySelectorAll('[data-spend-sev], [data-spend-engine]')) box.addEventListener('change', () => renderSpend(usage.data?.allocations ?? []));
 
 /**
- * Credits were given, taken back or used on one page: the Dashboard's balances
+ * Credits were given, taken back or used on one page: the Workbench's balances
  * (and its gold buttons) follow at once. Reports and Credit Control read theirs
  * again whenever they are opened.
  */
@@ -9975,7 +10030,7 @@ async function creditsChanged() {
 }
 
 // ---------------------------------------------------------------------------
-// Giving credits on the Credit Control page (the Dashboard gives them too)
+// Giving credits on the Credit Control page (the Workbench gives them too)
 // ---------------------------------------------------------------------------
 
 const give = { projects: null, loading: null, warning: null };
@@ -10744,7 +10799,7 @@ $('bb-kind').addEventListener('change', () => {
 
 // ---------------------------------------------------------------------------
 // Layout: the menu (kept open, or a slim bar of icons that opens when pointed at) and the
-// Dashboard's top block, which stays in view while the projects scroll with the page.
+// Workbench's top block, which stays in view while the projects scroll with the page.
 // ---------------------------------------------------------------------------
 
 const sidebarMode = () => (document.documentElement.dataset.sidebar === 'auto' ? 'auto' : 'pinned');

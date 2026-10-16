@@ -1,5 +1,5 @@
 /**
- * Search findings by what the vulnerability is ("SQL injection", "SSRF", "CWE-89"): the Dashboard
+ * Search findings by what the vulnerability is ("SQL injection", "SSRF", "CWE-89"): the Workbench
  * keeps only the findings whose name matches, so reminders, triage, remediation and credits act on
  * those alone. Checkmarx One names a finding by its query or rule ("SQL_Injection",
  * "Server_Side_Request_Forgery", a CVE for a package); the search ignores case, underscores and
