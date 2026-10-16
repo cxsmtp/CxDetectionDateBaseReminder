@@ -53,7 +53,7 @@ Open the calculator and select **Generate projection report**. That is all it ta
 
 ## Which projects count
 
-Under **Read from Checkmarx One**, **Applications** and **Projects** count only some projects, for triage & remediation and Fusion alike, as narrowing the Dashboard does. Type a name and pick it from the list, or press Enter (or **Apply**, which also applies **More filters** when they are open) to add every name that contains the text; each one picked becomes a chip, removed with **×**. The figures follow at once. These applications' projects count, plus the projects picked one by one.
+Under **Read from Checkmarx One**, **Applications** and **Projects** count only some projects, for triage & remediation and Fusion alike, as narrowing the Workbench does. Type a name and pick it from the list, or press Enter (or **Apply**, which also applies **More filters** when they are open) to add every name that contains the text; each one picked becomes a chip, removed with **×**. The figures follow at once. These applications' projects count, plus the projects picked one by one.
 
 **More filters** narrows further:
 
@@ -199,7 +199,7 @@ For example, 24,000 + 700.5 credits with 10% extra is 27,170.55 credits: 2.72 bu
 - It is one HTML file with everything in it: no scripts and nothing loaded from anywhere. Open it in any browser, or print it to PDF (always in the light theme).
 - It is written in the language the page is in when it is made or downloaded again, right to left for Arabic and Hebrew.
 - **Auto**, **Light** and **Dark** at the top switch its theme; Auto follows the reader's system. It opens on the theme you use in the app.
-- It is in the app's look when you make it: the next-gen look with your accent (Plus Jakarta Sans and JetBrains Mono when the reader has them), or the classic look. The PDF summary follows the same look.
+- It is in the app's look when you make it: the command-center look with your accent (Fraunces and IBM Plex when the reader has them, else Palatino or Georgia and the system's sans), or the classic look. The PDF summary follows the same look.
 - Long project or model names wrap inside their cells, and a table wider than the screen (on a phone) scrolls inside its own box: nothing runs off the page.
 - It says the answer first: **Total credits required**, the bundles and the period, with one bar of what the credits are for (backlog today, findings ahead, Fusion scans, extra).
 - Then that the figures are live: *Read live from Checkmarx One on 12 October 2026: 40 projects, 4,232 scans, 3,653 open vulnerabilities*, the trend period, and the projects counted when the scope was narrowed.

@@ -67,6 +67,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.81 — MERGE_TIME UTC · [#104](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/104)
+
+- **The Workbench and the Dashboard.** The page where you load findings and act on them is now the **Workbench**, and the page of tracked reports, where every scope is followed to zero, is now the **Dashboard**; links and bookmarks to either still open the same page.
+- **A calmer command-center look.** The glassy look gives way to warm paper (light) or night ink (dark), a dark menu console, hairlines instead of glass, a faint contour map behind the work, headings and figures in Fraunces and earth-tone accents (Ink, Lagoon, Sage, Plum, Ochre); downloaded reports follow it.
+- **Less to read.** Explanations fold behind a small **?** next to their heading, field or option, so pages show what you act on; warnings, statuses and figures stay in view, and **Explanations: Shown** in the look menu brings everything back.
+- **A menu that folds.** Click a group's name (Act, Follow up, Prove, Plan, Set up) to fold its pages away; the page you are on always stays in view, and the choice is remembered.
+- **Tidier settings.** The engine and branch tick boxes under Settings → Automation no longer stretch across the page.
+- **In fourteen languages.** The new names and options are translated and reviewed twice in every language.
+- **Status.** STATUS_LINE
+
 ## MZ-01.00.80 — 2026-10-15 10:54 UTC · [#103](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/103)
 
 - **The Projects table stays inside its panel.** On a laptop the AI Remediation credits column ran off the right; "17 more needed" now sits under its figures, a long email goes onto two lines after its @, and below 1024 pixels wide the projects are shown as cards.

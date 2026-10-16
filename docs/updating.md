@@ -110,16 +110,16 @@ podman run --replace -d --name mission-zero -p 3000:3000 -v mission-zero-data:/d
 
 | Step | What the old server does | What people see |
 | --- | --- | --- |
-| 1. Stop is requested | Stops taking new work. Requests already running (a triage, an allocation, an email being sent) finish, for up to 8 s. | New requests get "restarting, retry in 3 s". The Dashboard and reports retry by themselves. |
+| 1. Stop is requested | Stops taking new work. Requests already running (a triage, an allocation, an email being sent) finish, for up to 8 s. | New requests get "restarting, retry in 3 s". The Workbench and reports retry by themselves. |
 | 2. Save | Writes the latest sign-ins and fetched data (already saved as they happen, see below), the credit ledger and the audit log, then releases the data folder. | Nothing. |
-| 3. The new version starts (2–5 s) | Picks up everyone who was signed in, and carries on. | The Dashboard shows "reconnecting…", then continues. Reports show **Reconnecting…**, then **Connected**. |
+| 3. The new version starts (2–5 s) | Picks up everyone who was signed in, and carries on. | The Workbench shows "reconnecting…", then continues. Reports show **Reconnecting…**, then **Connected**. |
 
 **Afterwards**
 - **Still signed in, never cut off in the middle.**
   - **Saved as it happens.** Every password sign-in is saved to `/data/sessions/` the moment it happens, and each person's fetched data and scope right after a fetch (and every minute while they work). So people stay signed in after an update, a restart, and even a crash or `podman kill`.
   - **Signing out is final.** Signing out, idling out (8 hours), being disabled or removed, and a password reset end the saved sign-in too.
   - **Your own API key.** People who signed in with their own Checkmarx One API key sign in again, because that key is never written to disk.
-- **The Dashboard comes back as it was.** Reloading the page, after an update or any time, shows the same fetched data and the same scope (time windows, named projects and people), without reading Checkmarx One again. **Fetch vulnerability data** gets the latest.
+- **The Workbench comes back as it was.** Reloading the page, after an update or any time, shows the same fetched data and the same scope (time windows, named projects and people), without reading Checkmarx One again. **Fetch vulnerability data** gets the latest.
 - **Nothing is lost.** Credits, allocations, the ledger, the audit log, tracked reports, settings, people and roles live in the `mission-zero-data` volume, which the update never touches.
 - **Emailed reports keep working.** Their permissions are signed with a key kept in the volume.
 - **Automation and tracked-report follow-ups** resume on the new server from where they were.
@@ -132,7 +132,7 @@ podman run --replace -d --name mission-zero -p 3000:3000 -v mission-zero-data:/d
 
 - **Go back to the previous version:** run the same `podman run --replace …` line with the previous version's tag instead of `:latest`, e.g. `ghcr.io/cxsmtp/cxdetectiondatebasereminder:sha-<commit>`. Every build is published with its commit tag.
 - **Before a big upgrade,** download a backup: Audit page → **Download backup**.
-- **The container was killed** instead of stopped (power loss, `podman kill`): everything already written is safe, including sign-ins. The new server takes over the data folder after about 30 s. At most the last minute of changes to someone's Dashboard data is lost; a refresh brings it back.
+- **The container was killed** instead of stopped (power loss, `podman kill`): everything already written is safe, including sign-ins. The new server takes over the data folder after about 30 s. At most the last minute of changes to someone's Workbench data is lost; a refresh brings it back.
 
 ## Options
 

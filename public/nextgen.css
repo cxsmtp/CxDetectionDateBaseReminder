@@ -162,6 +162,8 @@
   letter-spacing: -0.01em;
 }
 :root[data-ui="nextgen"] h1 { font-weight: 560; font-size: 26px; }
+/* A phone: the title shares its line with the connection lights and the profile. */
+@media (max-width: 760px) { :root[data-ui="nextgen"] h1 { font-size: 21px; } }
 :root[data-ui="nextgen"] h2 { font-weight: 560; font-size: 19px; }
 :root[data-ui="nextgen"] h3 { font-weight: 600; font-size: 14.5px; }
 :root[data-ui="nextgen"] code, :root[data-ui="nextgen"] kbd, :root[data-ui="nextgen"] .code { font-family: var(--mono); }

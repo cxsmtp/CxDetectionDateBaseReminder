@@ -13,9 +13,9 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 3. [Set up in 10 minutes](#set-up-in-10-minutes) (Admin)
 4. [Turn on HTTPS](#turn-on-https) (Admin)
 5. [Settings, option by option](#settings-option-by-option)
-6. [Dashboard: fetch, credits, remind](#dashboard)
+6. [Workbench: fetch, credits, remind](#workbench)
 7. [The emailed report](#the-emailed-report) (for developers)
-8. [Reports: tracked reports](#reports-tracked-reports)
+8. [Dashboard: tracked reports](#dashboard-tracked-reports)
 9. [Credit Control](#credit-control)
 10. [Impact: hours saved and the security debt](#impact)
 11. [Audit page: credit audit log and backups](#audit-page)
@@ -36,8 +36,8 @@ The sidebar is grouped by what you came to do:
 
 | Group | Pages | What you do there |
 | --- | --- | --- |
-| **Act** | Dashboard, Beta | Fetch ageing findings, see who owns them, remind them, triage and remediate; find who wrote the vulnerable code. |
-| **Follow up** | Reports | Follow tracked scopes down to zero and schedule follow-ups. |
+| **Act** | Workbench, Beta | Fetch ageing findings, see who owns them, remind them, triage and remediate; find who wrote the vulnerable code. |
+| **Follow up** | Dashboard | Follow tracked scopes down to zero and schedule follow-ups. |
 | **Prove** | Credit Control, Impact, Audit | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups. |
 | **Plan** | Cx Credits Calculator | The credits a customer needs for triage and remediation of their backlog and for Fusion scans, and projection reports, from the Checkmarx One tenant. Shown to Admins and the roles an Admin gives its permission to. |
 | **Set up** | People & roles, Settings, Logs | People and roles, configuration, troubleshooting. |
@@ -56,20 +56,23 @@ The coloured label next to each page title says which group the page is in.
 - A line above a filtered table says **Showing 12 of 40 rows**, with **Clear filters**. Tables that show everything at once filter every row; the People list, Projects and the credit audit log sort and filter every row loaded, not only the page in view; a table the server sends a page at a time (Logs → User activity) says **on this page**.
 - Findings that share one Checkmarx One result stay together whatever the sort, and the sort and filters are kept when you switch pages.
 - **Every table fits its panel.** Headings wrap (the sort and filter buttons go under a long label) and long text wraps inside its column, so no column runs off the right; the audit log shows each entry's reason on up to two lines (**Details** has it all).
-- **On a phone** each table row is shown as a small card, its column headings beside the values; below 1024 pixels wide the Dashboard's projects are cards too. Cards have no headings to sort by: narrow them with the search and filter boxes above them.
+- **On a phone** each table row is shown as a small card, its column headings beside the values; below 1024 pixels wide the Workbench's projects are cards too. Cards have no headings to sort by: narrow them with the search and filter boxes above them.
 
 **Jump to (Ctrl K, or ⌘K on a Mac)** goes to any page, tab, Settings section or common action: type a few letters (for example *smtp*, *allocated*, *backups*) and press Enter.
 
 **Tabs instead of long pages.** Most pages have tabs at the top (for example Audit: *Credit audit log*, *Integrity & reconcile*, *State & backups*). The tab you last used opens next time. The address bar follows the tab, so `#/audit/backups` or `#/settings/smtp` opens that place directly.
 
-**Any screen.** The layout adapts to the screen: a full sidebar on a desktop, an icon rail on a tablet, a bottom bar on a phone, and wide screens use their full width. Tables stay inside their panels: long emails go onto two lines after their @, and below 1024 pixels wide (tablets and phones) the Dashboard's projects are shown as one card each, so no column is cut off at the right. The header is one line: the page's name and what it is for.
+**Any screen.** The layout adapts to the screen: a full sidebar on a desktop, an icon rail on a tablet, a bottom bar on a phone, and wide screens use their full width. Tables stay inside their panels: long emails go onto two lines after their @, and below 1024 pixels wide (tablets and phones) the Workbench's projects are shown as one card each, so no column is cut off at the right. The header is one line: the page's name and what it is for.
 
-**Your look: next-gen or classic, light or dark.** The palette button next to your name opens the look menu:
-- **Look**: **Next-gen** (the default: glass panels, Plus Jakarta Sans and JetBrains Mono, figures in a monospaced face) or **Classic** (the look before MZ-01.00.77, unchanged).
+**Your look: command center or classic, light or dark.** The palette button next to your name opens the look menu:
+- **Look**: **Command center** (the default: warm paper or night ink, a dark menu console, headings and figures in Fraunces) or **Classic** (the look before MZ-01.00.77, unchanged).
 - **Theme**: **Auto** (your device's setting), **Light** or **Dark**. The sun or moon button beside it switches the same thing.
-- **Accent**: the next-gen look's highlight colour: indigo, cyan, emerald, violet or amber.
+- **Accent**: the command-center look's colour for what you act on: Ink, Lagoon, Sage, Plum or Ochre.
+- **Explanations**: **Behind ?** (the default: each explanation folds behind a small **?** next to its heading, field or option; click the **?** to read it) or **Shown** (every explanation shown, as before). Warnings, statuses and figures are never folded. Kept in this browser.
 
-Your choice is saved to your profile, so it is the same on every computer, and the reports you download use it (see [The emailed report](#the-emailed-report)). If an Admin has turned the next-gen look off under [Branding](#branding), everyone has the classic look and the menu offers the theme only.
+Your look is saved to your profile, so it is the same on every computer, and the reports you download use it (see [The emailed report](#the-emailed-report)). If an Admin has turned the command-center look off under [Branding](#branding), everyone has the classic look and the menu offers the theme and explanations only.
+
+**Fold the menu.** Click a group's name (**Act**, **Follow up**, **Prove**, **Plan**, **Set up**) to fold its pages away, and again to unfold them. The page you are on always stays in view. Remembered in this browser.
 
 **Hide the menu.** **Hide menu** (bottom of the sidebar) turns the sidebar into a slim bar of icons, so the pages get the width. Point at the bar and the full menu opens **over** the page, without moving anything on it; it closes when the pointer leaves or you choose a page. **Keep menu open** (the same place) brings it back beside the page. Your choice is remembered in this browser.
 
@@ -221,7 +224,7 @@ CxMissionZero is an independent project, not a Checkmarx product. Using it means
 
 **When they are asked for**
 - **The first Admin**, right after choosing a password at the first sign-in. The terms show in full: scroll to the end, give **Your organisation’s name** (it goes on the Cx Credits Calculator's reports; change it later under **Settings → About & terms**), tick **I have read these terms and accept them for myself and on behalf of my organisation**, then **Accept and continue**. Until then nothing can be used, by anyone:
-  - the Dashboard and Settings;
+  - the Workbench and Settings;
   - emailed reports (they say the server is not in use yet);
   - automatic reminders.
 - **Everyone else**, once, at their first sign-in. Before an Admin has accepted, they see **An administrator must accept these terms…**, with **Check again**.
@@ -252,7 +255,7 @@ As an Admin, open **Settings** and work down this list.
 | 7 | Automation (optional) | Turn on age-threshold reminders. Start with **Test mode**. |
 | 8 | Hands-off (optional) | Or answer four questions under **Settings → Hands-off**: MissionZero then reminds, reports weekly and looks after itself, and nobody needs to sign in. |
 
-Then go to the **Dashboard**, click **Load findings**, and send your first reminder.
+Then go to the **Workbench**, click **Load findings**, and send your first reminder.
 
 Settings **save as you type**; there is no Save button.
 - A changed Checkmarx One or mail connection is checked straight away.
@@ -290,7 +293,7 @@ Admins only: **Settings → HTTPS**. It moves the running server from http to HT
    - **New reports.** Keep **Also put the https address into new reports** ticked, so new reports carry the https address.
    - **Afterwards:**
      - plain `http://` redirects to `https://`;
-     - the Dashboard, if open over http, moves itself to HTTPS;
+     - the Workbench, if open over http, moves itself to HTTPS;
      - reports that still use the old http address are told the new one, and switch by themselves (reports emailed before this version show the new address to enter under **Change**).
    - **Undo.** **Back to http and HTTPS side by side** puts http back at any time.
 5. **Harden.**
@@ -470,7 +473,7 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 
 | Feature | Once final |
 | --- | --- |
-| **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Dashboard's Remind panel links to it, and Settings → Automation can email code authors on every run. |
+| **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Workbench's Remind panel links to it, and Settings → Automation can email code authors on every run. |
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
 
 ### Hands-off (set it up once)
@@ -594,7 +597,7 @@ How many days each severity has to be fixed, counted from when the finding was *
 | Escalate to | The addresses that get the escalation, one per line. |
 | Also open an issue in the repository | Each scheduled run opens **one issue in each project's repository** listing its findings that went past their SLA (severity, finding, where, first found, days past, a link to Checkmarx One), each finding once. GitHub, and GitLab as a **confidential** issue, with the token connected under Beta → Source-code hosts (it needs permission to create issues). **Private and internal repositories only:** a public one is skipped, so vulnerabilities are never published. Text from findings cannot mention anyone or add links. At most 20 projects a run, the most severe first; the rest next run. Works with or without the email escalation. **Test mode** counts them without opening any. |
 
-Findings triaged as not exploitable (proposed or confirmed) have no SLA. On the **Dashboard**, **Past SLA** shows how many open findings are past their SLA (red), with how many more are due within 7 days under it (amber). The projects table has a **Past SLA** column, shown by default, and **Due ≤ 7d** under **Columns**; both are in the CSV export. The automation's run history says how many were escalated, how many repository issues were opened, and which projects were skipped and why (no repository, no token, public repository, no permission).
+Findings triaged as not exploitable (proposed or confirmed) have no SLA. On the **Workbench**, **Past SLA** shows how many open findings are past their SLA (red), with how many more are due within 7 days under it (amber). The projects table has a **Past SLA** column, shown by default, and **Due ≤ 7d** under **Columns**; both are in the CSV export. The automation's run history says how many were escalated, how many repository issues were opened, and which projects were skipped and why (no repository, no token, public repository, no permission).
 
 ### Automation
 Watches findings on a timer and emails the moment one crosses an age threshold. Each finding is reported **once per threshold**, so a daily run does not nag.
@@ -605,10 +608,10 @@ Watches findings on a timer and emails the moment one crosses an age threshold. 
 | Test mode | Decides and logs, but sends nothing. Use it for the first run, because an older tenant has a backlog that crosses every threshold at once. |
 | Thresholds (days) | For example `30, 60, 90`. |
 | Check every (minutes) | From 15 minutes to 1 week. |
-| Sends to | Shown, not set here: it follows **Dashboard → Remind → Send to** (each developer, the fixed list, or both). With **Both** and an empty fixed list, the run says so instead of sending to nobody. |
+| Sends to | Shown, not set here: it follows **Workbench → Remind → Send to** (each developer, the fixed list, or both). With **Both** and an empty fixed list, the run says so instead of sending to nobody. |
 | Severities | For example `CRITICAL, HIGH`. Blank means all. |
 | Engines | Which engines' findings are reminded about: **SAST** and **SCA** (what AI Triage and Remediation work on) for a new schedule; tick more to add them. A schedule saved before engines could be chosen keeps every engine ticked, so nobody's reminders stop after an update. |
-| Branch and projects | **Every branch** off (a new schedule): each project's primary branch only, as on the Dashboard; a project whose primary branch was never scanned is not reminded about. **Leave out projects with no lines of code** on (a new schedule). A schedule saved before these choices reads every branch and leaves nothing out, until you change it. |
+| Branch and projects | **Every branch** off (a new schedule): each project's primary branch only, as on the Workbench; a project whose primary branch was never scanned is not reminded about. **Leave out projects with no lines of code** on (a new schedule). A schedule saved before these choices reads every branch and leaves nothing out, until you change it. |
 | Mode | **Report each threshold once** (recommended), or **digest**: re-report everything past a threshold on every run. |
 | Also email the code authors | Shown once an Admin has made **Code authors** final. Each run also emails the developer who last changed the line of each finding that just crossed (SAST and KICS, most severe first, up to 200 a run), with the findings in their code. Developers are still emailed as before. In digest mode the authors are emailed on every run too. |
 | **Run once now** | Runs a pass immediately. |
@@ -653,10 +656,10 @@ Everyone's default branding. Seen by roles with **See the Branding page**, and c
 | Logo height | 16–200 pixels. |
 | Accent colour | Buttons and headings in emails and reports. |
 | Call to action | The sentence above the findings in every email. |
-| Offer the next-gen look | On (the default): everyone has the next-gen look unless they pick **Classic** in the look menu by their profile. Off: everyone, and every report, has the classic look; the look menu offers only the theme. |
-| Menu in the next-gen look | **Down the left side** (the default) or **Along the top**, for everyone. Along the top needs a wide screen (1261 pixels and up); narrower screens keep the side menu, the icon rail or the phone's bottom bar. |
+| Offer the command-center look | On (the default): everyone has the command-center look unless they pick **Classic** in the look menu by their profile. Off: everyone, and every report, has the classic look; the look menu offers only the theme. |
+| Menu in the command-center look | **Down the left side** (the default) or **Along the top**, for everyone. Along the top needs a wide screen (1261 pixels and up); narrower screens keep the side menu, the icon rail or the phone's bottom bar. |
 
-The preview shows the email header exactly as recipients will see it. The look of the app, and where its menu sits, change for everyone as soon as they are saved; see [the look of the app](branding.md#the-look-of-the-app-next-gen-or-classic).
+The preview shows the email header exactly as recipients will see it. The look of the app, and where its menu sits, change for everyone as soon as they are saved; see [the look of the app](branding.md#the-look-of-the-app-command-center-or-classic).
 
 ### Links into Checkmarx One
 Every finding in an email links straight to it in Checkmarx One (Risk Hub).
@@ -677,7 +680,7 @@ Where findings are read from. The default is `/api/risks/`.
 
 ---
 
-## Dashboard
+## Workbench
 
 **Get started.** Until the basics are in place, one row of steps at the top shows what is left: connect Checkmarx One, fetch vulnerabilities, set up email, give reports a reachable address, cap AI credits, invite your team. The first step is labelled **Connect**; each other step carries the name of the sidebar group it belongs to (Act, Prove, Set up). Done steps are ticked green and joined by a green line; each step still to do has its button. **Hide** puts the row away.
 
@@ -755,7 +758,7 @@ Each finding falls into an age bucket by when it was **first detected**:
 | Oldest open since | When the project's oldest open vulnerability was first found, and how many days ago. |
 | Last scanned by | Who ran the project's last scan, and the email it resolved to: reminders go to them. |
 | AI Triage / AI Remediation credits | Left / allocated, and how many more are needed. |
-| Action panel → **Track** → **Save as tracked report** | Follow these projects and filters over time (see [Reports](#reports-tracked-reports)). |
+| Action panel → **Track** → **Save as tracked report** | Follow these projects and filters over time (see [Dashboard](#dashboard-tracked-reports)). |
 
 ### 4. AI Triage & Remediation credits
 *Action panel → **AI credits**.* **Nothing is allocated until you confirm it.** (**How allocation works** opens the rules below.) For the ticked severities (Critical and High by default), the panel shows what the selected projects **need**:
@@ -817,7 +820,7 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
 
 1. **Open it.** Click the button (it downloads the report; the link works for 30 days) or open the attachment. Any browser works, and nothing needs installing.
    - It opens in your profile's language, else your browser's. **Language** at the top switches it.
-   - It is in your profile's look: next-gen or classic, light, dark or your device's, and your accent (see [Find your way](#find-your-way)). Without an account, it is in the organisation's default.
+   - It is in your profile's look: command center or classic, light, dark or your device's, and your accent (see [Find your way](#find-your-way)). Without an account, it is in the organisation's default.
    - Your profile's language works offline. Any other language comes from the reminder server the first time, and is then kept in your browser.
    - Finding titles, project names, code, and what Checkmarx One's AI wrote stay as they are.
 2. **It connects by itself** to the reminder server shown at the top.
@@ -878,9 +881,9 @@ Your report can only act on the findings it lists: each one carries a signature 
 
 ---
 
-## Reports: tracked reports
+## Dashboard: tracked reports
 
-Save a scope from the Dashboard (**Save as tracked report**) and follow it over time. The Reports page is laid out for a security team that tracks many scopes at once: the whole picture first, then one report at a time.
+Save a scope from the Workbench (**Save as tracked report**) and follow it over time. The Dashboard is laid out for a security team that tracks many scopes at once: the whole picture first, then one report at a time.
 
 **At the top: every report together**
 
@@ -916,7 +919,7 @@ Save a scope from the Dashboard (**Save as tracked report**) and follow it over 
 | Tab | What is in it |
 | --- | --- |
 | **Overview** | The % actioned with the outcome bar and counts; open, new, matching now, credits used; the **trend** of open findings (hover for each reading); and a by-project table, most open first. |
-| **Remind** | Who gets it follows **who gets reminders everywhere** (Dashboard → Remind → Send to); **Only for this report…** gives this report its own choice (developers, fixed list, both, or only some addresses). The content (one summary per person, or one email per project), and whether to attach the interactive report. **Preview**, then **Send reminder now**. The sends so far are listed. Below, **Automatic follow-up**: reminders every N days at a set hour (the server's time zone), only while something is still open, with the same options; it shows the next and last send. **Save schedule**. |
+| **Remind** | Who gets it follows **who gets reminders everywhere** (Workbench → Remind → Send to); **Only for this report…** gives this report its own choice (developers, fixed list, both, or only some addresses). The content (one summary per person, or one email per project), and whether to attach the interactive report. **Preview**, then **Send reminder now**. The sends so far are listed. Below, **Automatic follow-up**: reminders every N days at a set hour (the server's time zone), only while something is still open, with the same options; it shows the next and last send. **Save schedule**. |
 | **Triage** | **Triage with AI Assist now** runs AI Triage on the chosen severities' findings still awaiting triage; **Remediate with AI Assist now** runs AI Remediation on those AI Triage confirmed (3 credits each). The line above them says what each needs and what the projects have left. Each button turns gold once the credits cover it. **Allocate credits for triage and remediation** (for **credits.allocate**) gives this report's projects, out of the credit pool, what the ticked severities need (counted twice with Checkmarx One first), plus any **Extra credits** entered for triage or remediation; it asks first, and each change is in the audit log. |
 | **Verify** | Prove the fixes with a Checkmarx One rescan, then start the next round (below). |
 | **History** | Every reading: awaiting, confirmed, not exploitable, no longer detected, new, matching now. |
@@ -946,7 +949,7 @@ A tracked report is worked in **rounds**. Round 1 is the scope it was saved with
 5. **Next round.** Pick the next scope (for example medium and low) and **Start round N**. It starts from what Checkmarx One reports now, after the rescan. The round just finished, with its verification result, stays in **Earlier rounds**.
 
 **Rescans stay with the developer.** Checkmarx One records whoever owns the API key as a scan's initiator, so on its own every verification rescan would look like the administrator's.
-- **In CxMissionZero:** it remembers, for each rescan it starts, whose work it verifies (the initiator of the scan before it) and who asked. Reminders, reports, tracked reports and the Dashboard go on naming that developer.
+- **In CxMissionZero:** it remembers, for each rescan it starts, whose work it verifies (the initiator of the scan before it) and who asked. Reminders, reports, tracked reports and the Workbench go on naming that developer.
 - **In Checkmarx One:** the rescan carries the tags `verifies-work-of` (the developer) and `requested-by` (you, or "automatic verification").
 
 Who: anyone with **Manage tracked reports** (every role by default). Every rescan, result, switch and new round is in the audit log (type **Verification rescans**).
@@ -967,7 +970,7 @@ How the credit pool is being used, in three tabs. Everyone with **credits.view**
 | **By project** | Each project's triage and remediation credits in the period, with its share. |
 | **Allocated vs used** | Per project, all time. |
 | **Give credits** (Allocated vs used, for **credits.allocate**) | Type a project name (every Checkmarx One project is listed, not only those that already hold credits), enter AI Triage and AI Remediation credits, then **Give credits** and confirm. No findings need loading. The credits are extra credits, out of the credit pool, and the bar shows how many are free to give. **Give** on a row fills in that project. Each gift is in the audit log. To give exactly what findings need, use **Allocate credits for triage and remediation** in the bar below. |
-| **Allocate and use credits** (Allocated vs used, for **credits.allocate** or **triage.run**) | Works on the projects ticked in the table (none ticked: every project holding credits), at the ticked severities and engines (**SAST** and **SCA**, the two AI works on; untick one to spend on the other only), on the branch chosen on the Dashboard (each project's primary branch unless **Every branch** is ticked there). **Allocate credits for triage and remediation** gives them what those severities need (counted twice with Checkmarx One first), plus any **Extra credits each** for triage or remediation. **Triage with AI Assist now** and **Remediate with AI Assist now** use the credits. Their findings are read fresh from Checkmarx One, so nothing needs loading. A button turns gold when the projects hold credits to use: at least 1 for triage, 3 for remediation. Each run is in the audit log as started from Credit Control. |
+| **Allocate and use credits** (Allocated vs used, for **credits.allocate** or **triage.run**) | Works on the projects ticked in the table (none ticked: every project holding credits), at the ticked severities and engines (**SAST** and **SCA**, the two AI works on; untick one to spend on the other only), on the branch chosen on the Workbench (each project's primary branch unless **Every branch** is ticked there). **Allocate credits for triage and remediation** gives them what those severities need (counted twice with Checkmarx One first), plus any **Extra credits each** for triage or remediation. **Triage with AI Assist now** and **Remediate with AI Assist now** use the credits. Their findings are read fresh from Checkmarx One, so nothing needs loading. A button turns gold when the projects hold credits to use: at least 1 for triage, 3 for remediation. Each run is in the audit log as started from Credit Control. |
 | **Take credits back** (Allocated vs used, for **credits.allocate**) | **Take back all unused credits** is the clean slate: every project's unused credits go back to the pool at once, with no findings loaded. **Take back** on a row does it for one project. Used credits stay counted, and each take-back is in the audit log. Developers cannot triage or remediate from their reports until credits are given again. |
 | **Export CSV** | Everything above, for the chosen period. |
 | **Pool & AI settings** | Opens Settings → AI & credit pool, to change the pool size and what reports may do (Admin). |
@@ -1028,7 +1031,7 @@ Identity and access management, in three tabs.
 | Action | What it does |
 | --- | --- |
 | **Add person** | Fields: <ul><li>email and name;</li><li>role;</li><li>a temporary password (they choose their own at first sign-in);</li><li>optionally their **Checkmarx One identities** (usernames or client ids allowed to sign in with an API key).</li></ul> |
-| **Edit profile** | Their profile, as on Settings → Your profile: name, language, time zone, programming languages, Impact figures, look (next-gen or classic, theme, accent) and picture, and their **sign-in email** (**Change email**, after a confirmation). A new email ends any password reset link sent to the old one, and both addresses are told by email. Every change is in the audit log. For people whose permissions you hold all of, never your own (that is Your profile). **Back to People & roles** returns. |
+| **Edit profile** | Their profile, as on Settings → Your profile: name, language, time zone, programming languages, Impact figures, look (command center or classic, theme, accent) and picture, and their **sign-in email** (**Change email**, after a confirmation). A new email ends any password reset link sent to the old one, and both addresses are told by email. Every change is in the audit log. For people whose permissions you hold all of, never your own (that is Your profile). **Back to People & roles** returns. |
 | Role (per person) | Change it. It applies on their next click. |
 | **Set password** | A new temporary password. |
 | **Disable / Enable** | Disabling ends their sessions at once. |
@@ -1211,7 +1214,7 @@ How fast and how safe the version you run is. Each release is measured with 3000
 ## Everyday recipes
 
 **Weekly reminder to every developer, their own projects only**
-1. Dashboard → Scope: *Projects last scanned in* = last month.
+1. Workbench → Scope: *Projects last scanned in* = last month.
 2. **Load findings** and wait for the green flare.
 3. Send reminder: **Each developer**, **One summary**, attachment on. **Preview email**, then **Send reminder**.
 
@@ -1232,23 +1235,23 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 2. Type the project's name, enter the AI Triage and AI Remediation credits, then **Give credits** and confirm.
 
 **Allocate exactly what the findings need, from wherever you are** (administrators)
-- Dashboard: load findings, tick the projects, then the AI credits panel's **Give credits**.
+- Workbench: load findings, tick the projects, then the AI credits panel's **Give credits**.
 - Reports: open the report → **Triage** tab → tick the severities (and any **Extra credits**) → **Allocate credits for triage and remediation**.
 - Credit Control → **Allocated vs used**: tick the projects and severities → **Allocate credits for triage and remediation**.
 
 Each one counts what is needed twice with Checkmarx One first, asks before giving anything, and stops if the credit pool is short.
 
 **Use credits already given, from wherever you are**
-- Dashboard: tick the projects and severities, then **Triage with AI Assist now** or **Remediate with AI Assist now**.
+- Workbench: tick the projects and severities, then **Triage with AI Assist now** or **Remediate with AI Assist now**.
 - Reports: open the report → **Triage** tab → **Triage with AI Assist now** or **Remediate with AI Assist now**.
 - Credit Control → **Allocated vs used**: tick the projects → **Allocate and use credits** → **Triage with AI Assist now** or **Remediate with AI Assist now**.
 
-The buttons turn gold once the credits cover the work. Credits given, taken back or used in one place show on the Dashboard straight away; Reports and Credit Control show them whenever you open them.
+The buttons turn gold once the credits cover the work. Credits given, taken back or used in one place show on the Workbench straight away; Reports and Credit Control show them whenever you open them.
 
 **Take back credits nobody used (clean slate)**
 - Every project: Credit Control → **Allocated vs used** → **Take back all unused credits**.
 - One project: **Take back** on its row there.
-- The projects loaded on the Dashboard: Credits panel → **Take back unused credits**.
+- The projects loaded on the Workbench: Credits panel → **Take back unused credits**.
 
 **Move to a new server**
 1. Audit page → **Download backup**.
@@ -1275,7 +1278,7 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | "… cancelled: Checkmarx One changed since this page last showed it" | Someone triaged or remediated meanwhile, in Checkmarx One or from a report. The panel now shows the real numbers; click the button again. |
 | "CxMissionZero is restarting for an update — reconnecting…" | A new version is being applied. Wait a few seconds; you stay signed in and nothing is lost. |
 | A report says "busy, retrying" | Many reports are open at once. It retries by itself; nothing is lost. |
-| Credits refused | The project has no credits left. Allocate on the Dashboard, or raise the credit pool (Admin). |
+| Credits refused | The project has no credits left. Allocate on the Workbench, or raise the credit pool (Admin). |
 | **HTTPS:** the container stops; the log says "HTTPS is not set up correctly: …" | It tells you what is wrong:<ul><li>*The private key does not belong to the certificate*: the two files are from different requests. Ask IT for the matching pair.</li><li>*The .pfx file did not open: wrong TLS_PFX_PASSPHRASE?*: check the password.</li><li>*needs both TLS_CERT_FILE and TLS_KEY_FILE*: give both, or use `TLS_PFX_FILE`.</li><li>*no such file*: the folder is not mounted (`-v C:\mission-zero\certs:/certs:ro`), or the file name differs.</li></ul> |
 | **HTTPS:** the browser warns "Your connection is not private" | <ul><li>Self-signed: expected; trust it, or use your company's certificate.</li><li>Company certificate: the address you typed is not a name in the certificate (*Subject Alternative Name*); open the right name, or ask IT to add it.</li><li>The chain is missing intermediates: ask IT for the full chain in `server.crt`.</li></ul> |
 | **HTTPS:** after updating, `http://localhost:3000` no longer opens ("This page isn't working", "connection was reset") | Since MZ-01.00.21 the image serves HTTPS by default. Open `https://localhost:3000` instead, or add `-e HTTPS=off` to your `podman run` line to keep plain http. |

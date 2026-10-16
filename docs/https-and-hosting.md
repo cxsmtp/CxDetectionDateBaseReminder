@@ -170,7 +170,7 @@ This is what the image does when no certificate is given; `TLS_HOSTNAMES` only a
 ## Hosting it safely: checklist
 
 **Network**
-- [ ] **Keep it internal if you can.** If everyone who uses the Dashboard or the reports is on the company network or VPN, don't expose it to the internet at all. That removes most risks at once.
+- [ ] **Keep it internal if you can.** If everyone who uses the Workbench or the reports is on the company network or VPN, don't expose it to the internet at all. That removes most risks at once.
 - [ ] **If it must face the internet,** allow only your company's address ranges at the firewall where possible. Expose only 443, plus 80 for redirects and Let's Encrypt; never port 3000. With way B, CxMissionZero has no published port at all.
 - [ ] **HTTPS only.** Use one of the three ways above. Set the **Reminder server address** (Settings) or `REPORT_SERVER_URL` to the `https://` name, so emailed reports use it too.
 
