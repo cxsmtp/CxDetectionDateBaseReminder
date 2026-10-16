@@ -98,13 +98,22 @@ export function startHelpTips({ translate } = {}) {
     text.classList.toggle('help-open', open);
     button.setAttribute('aria-expanded', String(open));
   }, true);
+  // Only what was added is looked at (its parent too, for a heading and its line added one after the other),
+  // and nothing inside a table: findings stream in by the thousand, and this must cost them nothing.
+  const pending = new Set();
   let queued = false;
-  new MutationObserver(() => {
-    if (queued) return;
+  new MutationObserver((records) => {
+    for (const record of records) {
+      if (!record.addedNodes.length || record.target.closest?.('table, [data-help-keep]')) continue;
+      pending.add(record.target);
+    }
+    if (queued || !pending.size) return;
     queued = true;
     requestAnimationFrame(() => {
       queued = false;
-      scan();
+      const roots = [...pending].filter((el) => el.isConnected);
+      pending.clear();
+      for (const root of roots) scan(root.parentElement ?? root);
     });
   }).observe(document.body, { childList: true, subtree: true });
   scan();
