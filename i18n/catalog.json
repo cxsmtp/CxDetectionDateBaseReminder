@@ -22620,5 +22620,215 @@
   "seen": [
    "Settings → Update & recovery (an Admin installs a newer published version of the app, or goes back to an earlier one), the list of recent events: a bold word after the exact date and time: the app stopped without being asked to (a crash)"
   ]
+ },
+ "{0} projects shown on the Workbench": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"{0} projects shown on the Dashboard\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "Change who gets reminders: Workbench → Remind →": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"Change who gets reminders: Dashboard → Remind →\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "Choose a scope on the Workbench (projects, people, time windows), fetch, then <strong>Save as tracked report</strong>. Each report keeps the findings it covered and follows what happens to them: triaged, confirmed, not exploitable or no longer detected.": {
+  "kind": "html",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"Choose a scope on the Dashboard (projects, people, time windows), fetch, then <strong>Save as tracked report</strong>. Each report keeps the findings it covered and follows what happens to them: triaged, confirmed, not exploitable or no longer detected.\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "Workbench → AI credits": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"Dashboard → AI credits\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "Workbench → People": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"Dashboard → People\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "Workbench → Remind": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"Dashboard → Remind\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "Workbench → Track": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"Dashboard → Track\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "Workbench <span class=\"muted\">{0}</span>": {
+  "kind": "html",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"Dashboard <span class=\"muted\">{0}</span>\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "Days to fix each severity, counted from first detection: what is overdue or due soon on the Workbench, and one escalation email per finding that goes past its SLA.": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"Days to fix each severity, counted from first detection: what is overdue or due soon on the Dashboard, and one escalation email per finding that goes past its SLA.\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "Everyone who loads findings sees what is overdue and due soon, on the Workbench and in each project (no Beta permission needed).": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"Everyone who loads findings sees what is overdue and due soon, on the Dashboard and in each project (no Beta permission needed).\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "Findings are loading on the Workbench: wait for them, then try again.": {
+  "kind": "message",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"Findings are loading on the Dashboard: wait for them, then try again.\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "Go to the Workbench": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"Go to the Dashboard\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "How many days each severity has to be fixed, counted from when the finding was first detected. The Workbench shows what is past its SLA and what is due within {0} days, in total and for each project. Findings triaged as not exploitable have no SLA. {1} means no SLA for that severity.": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"How many days each severity has to be fixed, counted from when the finding was first detected. The Dashboard shows what is past its SLA and what is due within {0} days, in total and for each project. Findings triaged as not exploitable have no SLA. {1} means no SLA for that severity.\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "No project has an allocation yet — give credits above, or on the Workbench.": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"No project has an allocation yet — give credits above, or on the Dashboard.\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "No readings yet. Figures start with the next Workbench fetch (with no date window) or tracked report refresh.": {
+  "kind": "message",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"No readings yet. Figures start with the next Dashboard fetch (with no date window) or tracked report refresh.\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "No usernames among the developers: load findings on the Workbench, or type them in.": {
+  "kind": "message",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"No usernames among the developers: load findings on the Dashboard, or type them in.\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "The Workbench's Remind panel links straight to it.": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"The Dashboard's Remind panel links straight to it.\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "The fixed list (Workbench → Remind)": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": this wording replaces \"The fixed list (Dashboard → Remind)\" — keep its translation and change only the page's name to the new word for Workbench"
+  ]
+ },
+ "Workbench": {
+  "kind": "text",
+  "seen": [
+   "The page renamed from \"Dashboard\" to \"Workbench\" (where findings are loaded and acted on); the old Reports page is now called \"Dashboard\": the page's name in the menu and its title. A place where work is done with tools at hand (a workbench), not a dashboard to look at"
+  ]
+ },
+ "Follow on the Dashboard": {
+  "kind": "text",
+  "seen": [
+   "Workbench → Track: the button that saves the scope as a tracked report, followed on the Dashboard page (the tracked reports)"
+  ]
+ },
+ "Save them as a report, and watch them go to zero on the <a href=\"#/reports\">Dashboard</a>.": {
+  "kind": "html",
+  "seen": [
+   "Workbench → Track: line above the button; \"Dashboard\" is the page of tracked reports (a link: keep the <a> tag)"
+  ]
+ },
+ "Command center": {
+  "kind": "text",
+  "seen": [
+   "The look menu next to the profile (and Settings → Your profile, Settings → Branding): the name of the app's main look (calm, like an operations room), next to \"Classic\""
+  ]
+ },
+ "Offer the command-center look": {
+  "kind": "text",
+  "seen": [
+   "Settings → Branding: switch that offers the command-center look to everyone"
+  ]
+ },
+ "Menu in the command-center look": {
+  "kind": "text",
+  "seen": [
+   "Settings → Branding: label of the drop-down choosing where the menu sits (left or top) in the command-center look"
+  ]
+ },
+ "Ink": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "The look menu next to the profile (and Settings → Your profile, Settings → Branding): name of an accent colour (a deep ink blue), a colour swatch's tooltip and an option"
+  ]
+ },
+ "Lagoon": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "The look menu next to the profile (and Settings → Your profile, Settings → Branding): name of an accent colour (a deep blue-green, like a lagoon)"
+  ]
+ },
+ "Sage": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "The look menu next to the profile (and Settings → Your profile, Settings → Branding): name of an accent colour (a muted grey-green, the herb sage)"
+  ]
+ },
+ "Plum": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "The look menu next to the profile (and Settings → Your profile, Settings → Branding): name of an accent colour (a muted purple, the fruit plum)"
+  ]
+ },
+ "Ochre": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "The look menu next to the profile (and Settings → Your profile, Settings → Branding): name of an accent colour (an earthy yellow-brown, ochre)"
+  ]
+ },
+ "Explanations": {
+  "kind": "text",
+  "seen": [
+   "The look menu next to the profile (and Settings → Your profile, Settings → Branding): heading of the choice between explanations folded behind a ? and explanations always shown"
+  ]
+ },
+ "Behind ?": {
+  "kind": "text",
+  "seen": [
+   "The look menu next to the profile (and Settings → Your profile, Settings → Branding), under \"Explanations\": the option where each explanation is folded behind a small ? button next to its heading; keep the \"?\" character"
+  ]
+ },
+ "Shown": {
+  "kind": "text",
+  "seen": [
+   "The look menu next to the profile (and Settings → Your profile, Settings → Branding), under \"Explanations\": the option where every explanation is shown, as before"
+  ]
+ },
+ "What is this?": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "Everywhere: tooltip and screen-reader name of the small ? button beside a heading or a field that opens its explanation"
+  ]
+ },
+ "Changes save as you type.": {
+  "kind": "text",
+  "seen": [
+   "Settings: the line at the top of the settings (its first sentence; the rest is behind a ?)"
+  ]
+ },
+ "If a new Checkmarx One or email connection does not work, the previous working one comes back when you leave this page.": {
+  "kind": "text",
+  "seen": [
+   "Settings: the explanation behind the ? next to \"Changes save as you type.\""
+  ]
  }
 }

@@ -371,26 +371,30 @@ footer{color:var(--muted);font-size:12px;max-width:1000px;margin:0 auto;padding:
   .appendix-title{break-before:page} .scroll{overflow:visible;border:0} table.dense{font-size:10px} td:not(.name):not(:first-child){white-space:normal}}
 `;
 
-/** The next-gen look, laid over STYLE: Daylight and Obsidian, a deep header lit by the accent, figures in a monospaced face. */
+/**
+ * The command-center look, laid over STYLE: warm paper or night ink, the console's ink behind the header,
+ * headings and figures in a serif (Fraunces where the reader has it, else Palatino or Georgia), no gradients.
+ */
 function nextgenStyle(accentName) {
-  const [inkLight, inkDark, from, to] = NEXTGEN_ACCENTS[accentName] ?? NEXTGEN_ACCENTS.indigo;
-  const dark = `color-scheme:dark;--bg:#06080f;--card:#0e1422;--ink:#e2e8f0;--muted:#94a3b8;--line:#1d2638;--grid:#1d2638;--row:#1a2335;--soft:color-mix(in srgb,${from} 10%,#0e1422);--soft-line:color-mix(in srgb,${from} 30%,#1d2638);--gold:${inkDark};--accent:${inkDark}`;
+  const [inkLight, inkDark, from] = NEXTGEN_ACCENTS[accentName] ?? NEXTGEN_ACCENTS.indigo;
+  const dark = `color-scheme:dark;--bg:#131518;--card:#1a1d21;--ink:#ebe6dc;--muted:#a39d91;--line:#2a2e33;--grid:#2a2e33;--row:#22262b;--soft:color-mix(in srgb,${inkDark} 9%,#1a1d21);--soft-line:color-mix(in srgb,${inkDark} 28%,#2a2e33);--gold:${inkDark};--accent:${inkDark}`;
   return `
-:root{--bg:#f3f5fb;--card:#fff;--ink:#0b1020;--muted:#5a6478;--line:#e2e6f0;--grid:#e2e6f0;--row:#eceff7;--soft:color-mix(in srgb,${from} 6%,#fff);--soft-line:color-mix(in srgb,${from} 22%,#e2e6f0);--gold:${inkLight};--accent:${inkLight};--head1:#0b1020;
-  --ng-font:"Plus Jakarta Sans","MZ Jakarta",Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;--ng-mono:"JetBrains Mono","MZ Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+:root{--bg:#f3f0e8;--card:#fbfaf6;--ink:#1e2226;--muted:#67625a;--line:#e3ddd0;--grid:#e3ddd0;--row:#ebe6da;--soft:color-mix(in srgb,${inkLight} 6%,#fbfaf6);--soft-line:color-mix(in srgb,${inkLight} 22%,#e3ddd0);--gold:${inkLight};--accent:${inkLight};--head1:#1e2226;
+  --ng-font:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;--ng-display:"Fraunces","Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--ng-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 @media (prefers-color-scheme:dark){:root:not(:has(#theme-light:checked)){${dark}}}
 :root:has(#theme-dark:checked){${dark}}
-body{font-family:var(--ng-font);background-image:radial-gradient(600px 340px at 22% 0,color-mix(in srgb,${from} 9%,transparent),transparent 70%),radial-gradient(520px 420px at 105% 40%,color-mix(in srgb,${to} 7%,transparent),transparent 70%);background-attachment:fixed}
-header{background-color:#0b1020;background-image:radial-gradient(520px 260px at 12% -40%,color-mix(in srgb,${from} 55%,transparent),transparent 70%),radial-gradient(520px 300px at 100% 0,color-mix(in srgb,${to} 38%,transparent),transparent 70%),linear-gradient(180deg,#0b1020,#0e1630);border-bottom:1px solid rgb(255 255 255 / .06)}
-header h1{font-weight:700;letter-spacing:-.02em} h2{font-weight:700;letter-spacing:-.01em}
-.theme{border-radius:10px} .theme label{border-radius:7px}
-section{border-radius:16px;position:relative;overflow:hidden}
-section.answer::before{content:"";position:absolute;inset:0 0 auto;height:2px;background:linear-gradient(90deg,${from},${to})}
-.card,.scroll{border-radius:12px}
-.answer .big,.figure,.keys b,.sevs b,table.calc,ol.calc-how,.scroll table{font-family:var(--ng-mono)}
-.answer .big{font-weight:600;letter-spacing:-.03em}
-th{font-family:var(--ng-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:600} table.dense th{font-size:10px}
-@media print{:root{color-scheme:light;--bg:#fff;--card:#fff;--ink:#0b1020;--muted:#5a6478;--line:#e2e6f0;--grid:#e2e6f0;--row:#eceff7;--gold:${inkLight};--accent:${inkLight}} body{background:#fff}}
+body{font-family:var(--ng-font)}
+header{background:#1b1f23;border-bottom:1px solid #2e3338}
+header h1,h2{font-family:var(--ng-display);font-weight:600;letter-spacing:-.01em}
+.theme{border-radius:8px} .theme label{border-radius:6px}
+section{border-radius:12px;position:relative;overflow:hidden}
+section.answer::before{content:"";position:absolute;inset:0 0 auto;height:3px;background:${from}}
+.card,.scroll{border-radius:10px}
+.answer .big,.figure,.keys b,.sevs b{font-family:var(--ng-display);font-variant-numeric:lining-nums tabular-nums}
+.answer .big{font-weight:600;letter-spacing:-.01em}
+table.calc,ol.calc-how,.scroll table{font-variant-numeric:tabular-nums}
+th{font-size:12px;letter-spacing:0;text-transform:none;font-weight:600} table.dense th{font-size:11px}
+@media print{:root{color-scheme:light;--bg:#fff;--card:#fff;--ink:#1e2226;--muted:#67625a;--line:#e3ddd0;--grid:#e3ddd0;--row:#ebe6da;--gold:${inkLight};--accent:${inkLight}} body{background:#fff}}
 `;
 }
 

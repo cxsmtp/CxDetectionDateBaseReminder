@@ -147,7 +147,7 @@ export class CreditAllocations {
    * Earlier releases allocated on their own, from the findings at every fetch.
    * Those allocations are dropped: a project keeps what it used, plus extra
    * credits someone gave it and it has not used yet. What the projects need
-   * is shown on the Dashboard, to allocate on purpose. `migrated` lists the
+   * is shown on the Workbench, to allocate on purpose. `migrated` lists the
    * projects changed, for the audit log.
    */
   #migrate() {

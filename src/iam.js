@@ -31,9 +31,9 @@ import { RESET_POLICIES } from './password-reset.js';
 const scrypt = promisify(scryptCb);
 
 export const PERMISSIONS = [
-  { id: 'findings.fetch', group: 'Dashboard', label: 'Fetch findings', description: 'Load projects and findings from Checkmarx One.' },
-  { id: 'reminders.send', group: 'Dashboard', label: 'Send reminders', description: 'Preview and send reminders, and download HTML reports.' },
-  { id: 'initiators.tag', group: 'Dashboard', label: 'Tag initiator addresses', description: 'Give a scan initiator without an address an email address, from the dashboard.' },
+  { id: 'findings.fetch', group: 'Workbench', label: 'Fetch findings', description: 'Load projects and findings from Checkmarx One.' },
+  { id: 'reminders.send', group: 'Workbench', label: 'Send reminders', description: 'Preview and send reminders, and download HTML reports.' },
+  { id: 'initiators.tag', group: 'Workbench', label: 'Tag initiator addresses', description: 'Give a scan initiator without an address an email address, from the dashboard.' },
   { id: 'reports.view', group: 'Tracked reports', label: 'View tracked reports', description: 'See tracked reports, their progress, and download them.' },
   { id: 'reports.remind', group: 'Tracked reports', label: 'Send follow-ups', description: 'Send a tracked report’s follow-up reminder.' },
   { id: 'reports.manage', group: 'Tracked reports', label: 'Manage tracked reports', description: 'Save and schedule tracked reports, and verify their fixes with a Checkmarx One rescan (starts scans).' },

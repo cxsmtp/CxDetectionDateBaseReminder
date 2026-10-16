@@ -4,7 +4,7 @@
  * exploitable. The Impact page (src/impact.js) works out time to fix, the
  * debt burn-down and the work AI saved from it.
  *
- * Filled from reads the server makes anyway (a Dashboard fetch, a tracked
+ * Filled from reads the server makes anyway (a Workbench fetch, a tracked
  * report's refresh), never by extra calls to Checkmarx One. A finding is
  * marked gone only by a complete read of its project: every finding, no
  * date window, read without error.

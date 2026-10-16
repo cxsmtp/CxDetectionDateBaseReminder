@@ -51,7 +51,7 @@ The server keeps a small record of each finding: when it was first seen open, an
 
 It is filled from reads the server makes anyway, never by extra calls to Checkmarx One:
 
-- every **Dashboard** fetch with no date window;
+- every **Workbench** fetch with no date window;
 - every tracked report's refresh (hourly, and soon after anyone triages or remediates);
 - **Allocate and use credits** on Credit Control.
 

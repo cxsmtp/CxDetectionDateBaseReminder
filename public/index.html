@@ -69,7 +69,7 @@
           <p class="nav-group" data-stage="act" title="Find ageing findings, see who owns them and remind them"><i aria-hidden="true"></i>Act</p>
           <a href="#/dashboard" data-route="dashboard" class="tab" data-stage="act">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
-            <span>Dashboard</span>
+            <span>Workbench</span>
           </a>
           <a href="#/beta" data-route="beta" class="tab" data-stage="act" data-perm="beta.use feature.codeAuthors feature.identityMatching">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.5L4.6 18.2A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.8L14 9.5V3" /><path d="M7.5 15h9" /></svg>
@@ -78,7 +78,7 @@
           <p class="nav-group" data-stage="followup" data-perm="reports.view" title="Follow every tracked scope down to zero"><i aria-hidden="true"></i>Follow up</p>
           <a href="#/reports" data-route="reports" class="tab" data-stage="followup" data-perm="reports.view">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5" /><path d="M4 19h16" /><path d="M7 15l4-4 3 3 5-6" /></svg>
-            <span>Reports</span>
+            <span>Dashboard</span>
           </a>
           <p class="nav-group" data-stage="prove" data-perm="credits.view audit.view backup.view" title="Every credit accounted for, in a log nobody can quietly change"><i aria-hidden="true"></i>Prove</p>
           <a href="#/credits" data-route="credits" class="tab" data-stage="prove" data-perm="credits.view">
@@ -195,7 +195,7 @@
                 <fieldset id="look-pick">
                   <legend>Look</legend>
                   <div class="look-seg">
-                    <label><input type="radio" name="look" value="nextgen" /> Next-gen</label>
+                    <label><input type="radio" name="look" value="nextgen" /> Command center</label>
                     <label><input type="radio" name="look" value="classic" /> Classic</label>
                   </div>
                 </fieldset>
@@ -210,11 +210,18 @@
                 <fieldset class="look-accent" id="look-accent">
                   <legend>Accent</legend>
                   <div class="look-swatches">
-                    <label class="sw-indigo" title="Indigo"><input type="radio" name="look-accent" value="indigo" aria-label="Indigo" /></label>
-                    <label class="sw-cyan" title="Cyan"><input type="radio" name="look-accent" value="cyan" aria-label="Cyan" /></label>
-                    <label class="sw-emerald" title="Emerald"><input type="radio" name="look-accent" value="emerald" aria-label="Emerald" /></label>
-                    <label class="sw-violet" title="Violet"><input type="radio" name="look-accent" value="violet" aria-label="Violet" /></label>
-                    <label class="sw-amber" title="Amber"><input type="radio" name="look-accent" value="amber" aria-label="Amber" /></label>
+                    <label class="sw-indigo" title="Ink"><input type="radio" name="look-accent" value="indigo" aria-label="Ink" /></label>
+                    <label class="sw-cyan" title="Lagoon"><input type="radio" name="look-accent" value="cyan" aria-label="Lagoon" /></label>
+                    <label class="sw-emerald" title="Sage"><input type="radio" name="look-accent" value="emerald" aria-label="Sage" /></label>
+                    <label class="sw-violet" title="Plum"><input type="radio" name="look-accent" value="violet" aria-label="Plum" /></label>
+                    <label class="sw-amber" title="Ochre"><input type="radio" name="look-accent" value="amber" aria-label="Ochre" /></label>
+                  </div>
+                </fieldset>
+                <fieldset>
+                  <legend>Explanations</legend>
+                  <div class="look-seg">
+                    <label><input type="radio" name="look-help" value="tips" /> Behind ?</label>
+                    <label><input type="radio" name="look-help" value="shown" /> Shown</label>
                   </div>
                 </fieldset>
                 <p class="hint" id="look-note">Saved to your profile: the same on every computer, and in the reports you download.</p>
@@ -355,11 +362,11 @@
             </div>
           </section>
 
-          <!-- ================= Dashboard ================= -->
+          <!-- ================= Workbench ================= -->
           <div id="page-dashboard" class="page dash" hidden>
             <section class="panel gs" id="getting-started" aria-labelledby="gs-title" hidden></section>
 
-            <!-- The top of the Dashboard: what to load, the totals and the way to Mission Zero, in one
+            <!-- The top of the Workbench: what to load, the totals and the way to Mission Zero, in one
                  compact block that stays in view while the projects below scroll with the page. -->
             <div class="dash-top" id="dash-top">
             <section class="panel scope">
@@ -688,10 +695,10 @@
                 <div class="ptpanel" data-ptpanel="dash:track" role="tabpanel" hidden>
                   <div class="rail-section">
                     <h2>Follow these findings</h2>
-                    <p class="hint">Save them as a report, and watch them go to zero on the <a href="#/reports">Reports</a> page.</p>
+                    <p class="hint">Save them as a report, and watch them go to zero on the <a href="#/reports">Dashboard</a>.</p>
               <div class="track-row" id="track-row" hidden>
                 <label class="inline grow-1"><span class="label-sm">Name</span> <input id="track-name" placeholder="e.g. Q4 critical & high — Payments" class="track-name" /></label>
-                <button id="track-save" type="button" data-perm="reports.manage">Follow on Reports</button>
+                <button id="track-save" type="button" data-perm="reports.manage">Follow on the Dashboard</button>
                 <span class="hint" id="track-scope"></span>
                 <span class="status" id="track-status"></span>
               </div>
@@ -809,9 +816,9 @@
                 <h3>Look</h3>
                 <p class="hint">What they see in the look menu next to their name, and the look of the reports they download.</p>
                 <div class="grid3 pf-look-grid">
-                  <label class="field"><span>Look</span><select id="pf-look"><option value="">The organisation's</option><option value="nextgen">Next-gen</option><option value="classic">Classic</option></select></label>
+                  <label class="field"><span>Look</span><select id="pf-look"><option value="">The organisation's</option><option value="nextgen">Command center</option><option value="classic">Classic</option></select></label>
                   <label class="field"><span>Theme</span><select id="pf-theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
-                  <label class="field"><span>Accent</span><select id="pf-accent"><option value="indigo">Indigo</option><option value="cyan">Cyan</option><option value="emerald">Emerald</option><option value="violet">Violet</option><option value="amber">Amber</option></select></label>
+                  <label class="field"><span>Accent</span><select id="pf-accent"><option value="indigo">Ink</option><option value="cyan">Lagoon</option><option value="emerald">Sage</option><option value="violet">Plum</option><option value="amber">Ochre</option></select></label>
                 </div>
               </div>
               <span class="status" id="pf-status"></span>
@@ -840,7 +847,7 @@
 
             <div class="autosave-note" id="autosave-note" data-perm="integration.smtp settings.recipients settings.initiators settings.template settings.branding settings.links settings.ai settings.automation integration.cxone credits.limit">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10" /></svg>
-              <p>Changes save as you type. If a new Checkmarx One or email connection does not work, the previous working one comes back when you leave this page.</p>
+              <p><strong>Changes save as you type.</strong> <small class="hint">If a new Checkmarx One or email connection does not work, the previous working one comes back when you leave this page.</small></p>
             </div>
 
             <section class="panel" id="set-handsoff" data-perm="settings.automation settings.view" data-edit-perm="settings.automation">
@@ -871,7 +878,7 @@
                 <h3><span class="ho-num" translate="no">3</span> <span>Who?</span></h3>
                 <label class="field"><span>Reminders go to</span><select id="ho-audience">
                   <option value="initiator">Each developer, for the projects they scanned</option>
-                  <option value="list">The fixed list (Dashboard → Remind)</option>
+                  <option value="list">The fixed list (Workbench → Remind)</option>
                   <option value="both">Both</option>
                 </select></label>
                 <label class="field"><span>The weekly status goes to</span><textarea id="ho-status-to" rows="2" spellcheck="false" placeholder="appsec-lead@company.com"></textarea></label>
@@ -1055,7 +1062,7 @@
               <div class="guard-line" id="smtp-guard" hidden></div>
             </section>
 
-            <!-- Recipients are managed on the Dashboard; kept for the settings form. -->
+            <!-- Recipients are managed on the Workbench; kept for the settings form. -->
             <section class="panel" hidden>
               <h2>Recipients (Archived)</h2>
               <div class="grid3">
@@ -1122,7 +1129,7 @@
 
             <section class="panel" id="set-sla" data-perm="feature.sla" data-edit-perm="settings.automation">
               <h2>SLAs <span class="badge warn" data-beta-badge="sla">Beta</span></h2>
-              <p class="hint wide">How many days each severity has to be fixed, counted from when the finding was first detected. The Dashboard shows what is past its SLA and what is due within 7 days, in total and for each project. Findings triaged as not exploitable have no SLA. 0 means no SLA for that severity.</p>
+              <p class="hint wide">How many days each severity has to be fixed, counted from when the finding was first detected. The Workbench shows what is past its SLA and what is due within 7 days, in total and for each project. Findings triaged as not exploitable have no SLA. 0 means no SLA for that severity.</p>
               <div class="sla-days">
                 <label class="field"><span><span class="sev-dot sev-critical"></span>Critical</span><span class="with-unit"><input id="sla-CRITICAL" type="number" min="0" max="3650" step="1" /> days</span></label>
                 <label class="field"><span><span class="sev-dot sev-high"></span>High</span><span class="with-unit"><input id="sla-HIGH" type="number" min="0" max="3650" step="1" /> days</span></label>
@@ -1161,7 +1168,7 @@
                 <div class="field">
                   <span>Sends to</span>
                   <p class="readonly-value" id="auto-audience">Each developer (their own projects)</p>
-                  <a href="#/dashboard/remind" class="hint">Change who gets reminders: Dashboard → Remind →</a>
+                  <a href="#/dashboard/remind" class="hint">Change who gets reminders: Workbench → Remind →</a>
                 </div>
                 <label class="field">
                   <span>Only these severities — blank means all</span>
@@ -1281,8 +1288,8 @@
 
               <fieldset class="brand-look">
                 <legend>Look of the app</legend>
-                <label class="switch"><input type="checkbox" id="brand-nextgen" /> <span><strong>Offer the next-gen look</strong><small>On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.</small></span></label>
-                <label class="field"><span>Menu in the next-gen look</span><select id="brand-nav"><option value="left">Down the left side</option><option value="top">Along the top</option></select></label>
+                <label class="switch"><input type="checkbox" id="brand-nextgen" /> <span><strong>Offer the command-center look</strong><small>On: everyone has it unless they pick Classic in the look menu by their profile. Off: everyone has the classic look, and the look menu offers only light or dark.</small></span></label>
+                <label class="field"><span>Menu in the command-center look</span><select id="brand-nav"><option value="left">Down the left side</option><option value="top">Along the top</option></select></label>
               </fieldset>
 
               <div class="brand-icon-row">
@@ -1619,7 +1626,7 @@
                 <div><dt>Organisation</dt><dd><span id="about-org" translate="no">—</span>
                   <span class="about-org-edit" data-perm="settings.branding"><input type="text" id="about-org-input" maxlength="120" aria-label="Organisation name" autocomplete="organization" /> <button type="button" id="about-org-save">Save</button> <span class="status" id="about-org-status"></span></span></dd></div>
               </dl>
-              <p class="onprem-note"><b>On premise, your data stays yours.</b> Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add; and, only when an Admin checks for or installs updates, the registry its own image comes from). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
+              <p class="onprem-note" data-help-fold><b>On premise, your data stays yours.</b> Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add; and, only when an Admin checks for or installs updates, the registry its own image comes from). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
               <div class="terms-card">
                 <h3>Terms of use</h3>
                 <p class="hint">An independent project, not a Checkmarx product, provided as is: no warranty, support or bug fixing. Checkmarx and the author are not responsible for its use or for any credit discrepancy. Audit figures support your own calculation only.</p>
@@ -2095,7 +2102,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div>
                   <h2>Credit audit log</h2>
                   <p class="hint">Every AI request (charged, refused, failed or not), allocation, credit setting, report and backup — who, when, from where, the balance after and Checkmarx One's answer. Append-only and hash-chained; open <b>Details</b> for the full entry.</p>
-                  <p class="hint supporting-notice"><strong>Supporting information only.</strong> This log and its exports help your own calculation. Checkmarx's records are authoritative: do not use or share them with Checkmarx as evidence in any claim, dispute or credit request (see the <a href="#" data-terms-open>terms of use</a>).</p>
+                  <p class="hint supporting-notice" data-help-keep><strong>Supporting information only.</strong> This log and its exports help your own calculation. Checkmarx's records are authoritative: do not use or share them with Checkmarx as evidence in any claim, dispute or credit request (see the <a href="#" data-terms-open>terms of use</a>).</p>
                 </div>
                 <div class="log-actions">
                   <button id="audit-export-csv" type="button" class="sm" data-perm="audit.export">Export CSV</button>
@@ -2448,7 +2455,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             <div data-ptpanel="calculator:fusion" class="calc-panel" hidden>
               <section class="panel">
                 <h2>Fusion scans: what each project needs</h2>
-                <p class="calc-notice">Each project's lines of code are rounded up to whole 10K units on their own, and one Fusion scan costs its model's credits per 10K LOC. The projects come from Checkmarx One with how often each is scanned: the rules below start from that, and you can give more scans to the projects scanned most often or most critical.</p>
+                <p class="calc-notice" data-help-fold>Each project's lines of code are rounded up to whole 10K units on their own, and one Fusion scan costs its model's credits per 10K LOC. The projects come from Checkmarx One with how often each is scanned: the rules below start from that, and you can give more scans to the projects scanned most often or most critical.</p>
                 <div class="calc-terms">
                   <label class="field"><span>Default Fusion scans per project</span><input type="number" id="calc-default-scans" min="0" step="1" /></label>
                   <label class="field"><span>Default model</span><select id="calc-default-model"></select></label>
@@ -2664,7 +2671,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </div>
               <p class="hint">Download this and send it to whoever helps you when something goes wrong. It holds no personal data, keys or findings.</p>
               <button id="download-diagnostics" type="button" class="primary">Download troubleshooting log</button>
-              <p class="privacy-ok">These logs do not capture any sensitive information at all: no names, email addresses,
+              <p class="privacy-ok" data-help-fold>These logs do not capture any sensitive information at all: no names, email addresses,
                 passwords, keys, tokens, hosts, URLs, findings or code. Only feature names, counts, timings, status codes and
                 error types, and project ids replaced by one-way codes.</p>
             </section>

@@ -3,7 +3,7 @@
  *
  * Every password sign-in is written to the state folder as it happens, and
  * each person's fetched data shortly after it changes, so a restart of any kind
- * keeps them signed in with their Dashboard data:
+ * keeps them signed in with their Workbench data:
  * - an update (podman run --replace, podman stop);
  * - a crash, `podman kill`, or a host reboot.
  * The next server picks each session up when its browser next calls.

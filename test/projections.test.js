@@ -261,17 +261,17 @@ test('the report file: in the page\'s language, with a light and a dark theme, a
   assert.match(html, /<td class="name">a-very-long/);
   assert.match(html, /td\.name\{[^}]*overflow-wrap:anywhere/);
   assert.match(buildReport(data, { lang: 'ar', dir: 'rtl' }), /<html lang="ar" dir="rtl">/);
-  // In the app's look: next-gen with its accent, the reader's theme picked; the classic look unchanged.
+  // In the app's look: command center with its accent, the reader's theme picked; the classic look unchanged.
   assert.doesNotMatch(html, /--ng-mono/, 'classic unless asked');
   const next = buildReport(data, { look: { ui: 'nextgen', theme: 'dark', accent: 'violet' } });
   assert.match(next, /--ng-mono/);
-  assert.match(next, /#6d28d9/, 'the violet accent');
+  assert.match(next, /#6c4265/, 'the plum (violet) accent');
   assert.match(next, /id="theme-dark" checked/);
   assert.doesNotMatch(next, /id="theme-auto" checked/);
   assert.doesNotMatch(next, /<script/i, 'still no scripts');
   const odd = buildReport(data, { look: { ui: 'nextgen', theme: '"><b>', accent: 'nope' } });
   assert.match(odd, /id="theme-auto" checked/, 'an unknown theme: Auto');
-  assert.match(odd, /#4f46e5/, 'an unknown accent: indigo');
+  assert.match(odd, /#34507a/, 'an unknown accent: ink (indigo)');
 });
 
 test('reading Fusion data from Checkmarx One: lines, criticality, scans in a year; models and credits when the tenant says them', async () => {

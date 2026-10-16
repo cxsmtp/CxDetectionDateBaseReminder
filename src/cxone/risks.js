@@ -96,7 +96,7 @@ export function normalizeRisk(raw, project, now = new Date()) {
     projectId: project.id,
     projectName: project.name,
     title: String(pick(raw, ['riskName', 'title', 'name', 'queryName', 'cveId']) ?? 'Untitled risk'),
-    // The weakness class, where Checkmarx One gives it (searching "CWE-89" on the Dashboard).
+    // The weakness class, where Checkmarx One gives it (searching "CWE-89" on the Workbench).
     cweId: String(pick(raw, ['cweId', 'cwe', 'cweID']) ?? ''),
     severity: String(pick(raw, ['severity', 'riskSeverity', 'severityLevel']) ?? 'UNKNOWN').toUpperCase(),
     state: String(pick(raw, ['state', 'resultState']) ?? '').toUpperCase(),

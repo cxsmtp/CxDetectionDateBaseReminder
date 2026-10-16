@@ -5,24 +5,24 @@ CxMissionZero has two kinds of branding.
 - **The organisation's branding** is under Settings → Branding. It is the app name, company name, logo, accent colour and call to action that everyone uses, and that head every reminder email and report.
 - **Your branding** is under Settings → Your branding. It is one person's own names, logo and colours, for when they present CxMissionZero to someone else, such as a prospect, a customer or another team.
 
-## The look of the app: next-gen or classic
+## The look of the app: command center or classic
 
-MZ-01.00.77 adds a **next-gen look**: glass panels on a deep "Obsidian" dark or a soft "Daylight" light, a gradient brand mark and primary buttons, Plus Jakarta Sans for text and JetBrains Mono for figures, chips and table headers. The **classic look** is the look before it, unchanged. Both work light, dark or on the device's setting, in every language (Arabic and Hebrew right to left), and on a phone.
+The **command-center look** (MZ-01.00.81; it replaced the glassy next-gen look of MZ-01.00.77) is calm and made by hand rather than glossy: warm paper on light, night ink on dark, a dark menu console in both, hairlines instead of glass, a faint contour map behind the work, headings and figures in Fraunces and text in IBM Plex Sans. The **classic look** is the look before MZ-01.00.77, unchanged. Both work light, dark or on the device's setting, in every language (Arabic and Hebrew right to left), and on a phone.
 
-**Each person** chooses with the palette button next to their name: **Look** (Next-gen or Classic), **Theme** (Auto, Light, Dark) and **Accent** (indigo, cyan, emerald, violet or amber). It is saved to their profile (quietly: no audit entry), so it follows them to every computer, and it is applied before the page appears, with no flash.
+**Each person** chooses with the palette button next to their name: **Look** (Command center or Classic), **Theme** (Auto, Light, Dark), **Accent** (Ink, Lagoon, Sage, Plum or Ochre: earth colours) and **Explanations** (behind a **?**, or shown). Look, theme and accent are saved to their profile (quietly: no audit entry), so they follow them to every computer, and they are applied before the page appears, with no flash; explanations are kept in that browser.
 
-**The reports they download** are in their look: the interactive HTML report (next-gen header, glass cards, their accent; their theme chosen, or their device's on Auto), and the Cx Credits Calculator's projection report and PDF summary. A report emailed to someone, or run on a schedule, is in that person's look when they have an account, otherwise in the organisation's default. Printing always uses a light page.
+**The reports they download** are in their look: the interactive HTML report (the console's ink behind the header, paper or night cards, their accent; their theme chosen, or their device's on Auto), and the Cx Credits Calculator's projection report and PDF summary. A report emailed to someone, or run on a schedule, is in that person's look when they have an account, otherwise in the organisation's default. Printing always uses a light page.
 
 **An Admin** (or a role with **Branding**) decides for everyone under Settings → Branding → **Look of the app**:
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| **Offer the next-gen look** | On | Off: everyone has the classic look, every report is classic, and the look menu offers only the theme. Turning it back on gives everyone the next-gen look again, except those who chose Classic. |
-| **Menu in the next-gen look** | Down the left side | **Along the top**: the pages in one row across the top, on screens 1261 pixels wide and more (names only below 1600 pixels). Narrower screens keep the side menu, the icon rail or the phone's bottom bar. |
+| **Offer the command-center look** | On | Off: everyone has the classic look, every report is classic, and the look menu offers only the theme and explanations. Turning it back on gives everyone the command-center look again, except those who chose Classic. |
+| **Menu in the command-center look** | Down the left side | **Along the top**: the pages in one row across the top, on screens 1261 pixels wide and more (names only below 1600 pixels). Narrower screens keep the side menu, the icon rail or the phone's bottom bar. |
 
 Both change for everyone as soon as they are saved. A person's own branding cannot change them.
 
-The fonts are inside the image (`public/fonts`, SIL Open Font License 1.1, see `public/fonts/OFL.txt`). Nothing is loaded from the internet, so the next-gen look works on a server with no internet access. The report files do not carry the fonts (they travel by email): a reader who has Plus Jakarta Sans or JetBrains Mono installed sees them, everyone else their system's own.
+The fonts are inside the image (`public/fonts`: Fraunces and IBM Plex, SIL Open Font License 1.1, see `public/fonts/OFL.txt`). Nothing is loaded from the internet, so the command-center look works on a server with no internet access. The report files do not carry the fonts (they travel by email): a reader who has Fraunces or IBM Plex installed sees them, everyone else Palatino or Georgia for headings and their system's own sans for text.
 
 ## Your branding
 
