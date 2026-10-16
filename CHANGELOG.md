@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.81 | 345/s, 1,388 at the connection on a slower host (main 333, 1,691 there) | 33.3 s | 14.2 s | 685 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.80 | 488/s, 0 (main 477, 38; 15 reset in one opening burst) | 9.6 s | 1.8 s | 685 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.79 | 472/s, 0 (main 483, 0; 62 and 117 in host stalls before) | 9.0 s | 1.6 s | 685 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.78 | 495/s, 4 (main 494, 0; 60 and 73 in host stalls before) | 10.2 s | 1.0 s | 680 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -67,7 +68,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.81 — MERGE_TIME UTC · [#104](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/104)
+## MZ-01.00.81 — 2026-10-16 09:58 UTC · [#104](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/104)
 
 - **The Workbench and the Dashboard.** The page where you load findings and act on them is now the **Workbench**, and the page of tracked reports, where every scope is followed to zero, is now the **Dashboard**; links and bookmarks to either still open the same page.
 - **A calmer command-center look.** The glassy look gives way to warm paper (light) or night ink (dark), a dark menu console, hairlines instead of glass, a faint contour map behind the work, headings and figures in Fraunces and earth-tone accents (Ink, Lagoon, Sage, Plum, Ochre); downloaded reports follow it.
@@ -75,7 +76,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **A menu that folds.** Click a group's name (Act, Follow up, Prove, Plan, Set up) to fold its pages away; the page you are on always stays in view, and the choice is remembered.
 - **Tidier settings.** The engine and branch tick boxes under Settings → Automation no longer stretch across the page.
 - **In fourteen languages.** The new names and options are translated and reviewed twice in every language.
-- **Status.** STATUS_LINE
+- **Status.** 3000 people at once on 2 vCPU, on a host much slower than the days before: 345 requests a second with 1,388 failed, all at the connection, while main on the same host served 333 with 1,691 failed; the release did better in all three pairs, opened reports faster at p95 (33.3 s), and in the browser fetched 200 projects as fast or faster than main with 119 KB less to load ([performance](docs/performance.md)); 685 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan (the connector needs signing in again), and the 53 findings of rescan 27982f85 stay judged not exploitable.
 
 ## MZ-01.00.80 — 2026-10-15 10:54 UTC · [#103](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/103)
 
