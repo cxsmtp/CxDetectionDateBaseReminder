@@ -1937,6 +1937,8 @@ a.button-like:hover { border-color: color-mix(in srgb, var(--text) 28%, var(--bo
 .wb-rail {
   position: sticky; top: calc(var(--topbar-h) + 16px); max-height: calc(100vh - var(--topbar-h) - 32px);
   overflow-y: auto; overscroll-behavior: contain; padding: 0; display: grid; align-content: start; scrollbar-width: thin;
+  /* Each row as tall as what is in it: the panel scrolls, the tabs never shrink to let the scope line slide under them. */
+  grid-auto-rows: max-content;
 }
 .wb-rail > .ptabs {
   position: sticky; top: 0; z-index: 3; display: flex; justify-self: stretch; margin: 12px 12px 0; border-radius: 12px;
@@ -2504,6 +2506,9 @@ label.button-like.sm { cursor: pointer; }
   .wb-main #projects thead th { top: calc(var(--topbar-h) + var(--dash-top-h, 0px)); z-index: 4; }
   .wb-main #projects thead th:first-child { border-top-left-radius: 11px; }
   .wb-main #projects thead th:last-child { border-top-right-radius: 11px; }
+}
+/* Docked beside the projects (1600px and wider): the rail starts below the top block. Narrower, it slides over the whole height. */
+@media (min-width: 1600px) and (min-height: 640px) {
   .wb-rail {
     top: calc(var(--topbar-h) + var(--dash-top-h, 0px) + 8px);
     max-height: calc(100vh - var(--topbar-h) - var(--dash-top-h, 0px) - 16px);

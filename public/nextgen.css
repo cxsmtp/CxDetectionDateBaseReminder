@@ -340,6 +340,9 @@
 :root[data-ui="nextgen"] .ptabs { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; padding: 0; gap: 4px 18px; }
 :root[data-ui="nextgen"] .ptab { border-radius: 0; padding: 9px 2px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); box-shadow: none; }
 :root[data-ui="nextgen"] .ptab:hover { color: var(--text); background: transparent; }
+/* The action panel's tabs stay put as it scrolls: solid, so what scrolls under them is hidden, not shown through. */
+:root[data-ui="nextgen"] .wb-rail > .ptabs { background: var(--surface); margin: 0; padding: 12px 0 0; padding-inline: 18px 56px; }
+@media (min-width: 1600px) { :root[data-ui="nextgen"] .wb-rail > .ptabs { padding-inline-end: 18px; } }
 :root[data-ui="nextgen"] .ptab[aria-selected="true"],
 :root[data-ui="nextgen"] .ptab.active { background: transparent; color: var(--text); border-bottom-color: var(--accent); box-shadow: none; }
 
