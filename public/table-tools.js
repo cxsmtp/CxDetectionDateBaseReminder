@@ -48,11 +48,18 @@ export function numberOf(text) {
 const textOf = (cell) => (cell ? cell.textContent.replace(/\s+/g, ' ').trim() : '');
 /** What a cell sorts by: its data-tt-sort (a severity's rank, a date's time) when it has one, else its text. */
 const sortTextOf = (cell) => (cell?.dataset.ttSort !== undefined ? cell.dataset.ttSort : textOf(cell));
+/** A heading's own words, without a ? and the explanation it opens. */
+const headText = (th) => {
+  if (!th.querySelector('.help-q')) return th.textContent.trim();
+  const copy = th.cloneNode(true);
+  for (const extra of copy.querySelectorAll('.help-q, .help-text, .tt-tools')) extra.remove();
+  return copy.textContent.replace(/\s+/g, ' ').trim();
+};
 const headerCells = (table) => [...(table.tHead?.rows[table.tHead.rows.length - 1]?.cells ?? [])];
 const usable = (th) => !th.classList.contains('checkbox') && !th.querySelector('input') && th.dataset.ttCol !== 'off' && th.textContent.trim() !== '';
 const keyOf = (table) => {
   const host = table.id || table.tBodies[0]?.id || table.closest('[id]')?.id || '';
-  return `${table.dataset.tt || host}|${headerCells(table).map((th) => th.textContent.trim()).join('|')}`;
+  return `${table.dataset.tt || host}|${headerCells(table).map(headText).join('|')}`;
 };
 
 const isEmpty = (v) => v === null || v === undefined || (typeof v === 'number' && Number.isNaN(v)) || EMPTY.test(String(v).trim());
@@ -269,7 +276,7 @@ function enhance(table) {
   heads.forEach((th, c) => {
     if (!usable(th) || th.__tt) return;
     th.__tt = true;
-    const label = th.textContent.trim();
+    const label = headText(th);
     const tools = document.createElement('span');
     tools.className = 'tt-tools';
     tools.innerHTML = `${ownSort ? '' : `<button type="button" class="tt-sort" title="${say('Sort by this column')}" aria-label="${say('Sort by this column')}">${ARROWS}</button>`}<button type="button" class="tt-filter" title="${say('Filter this column')}" aria-label="${say('Filter this column')}" aria-haspopup="dialog">${FUNNEL}</button>`;

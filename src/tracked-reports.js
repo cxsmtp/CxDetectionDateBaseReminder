@@ -8,6 +8,11 @@
  *   confirmed       Confirmed or Urgent
  *   notExploitable  Proposed not exploitable or Not exploitable
  *   resolved        no longer reported by Checkmarx One (fixed, or removed)
+ *
+ * The four outcomes split the baseline: they always add up to it. New findings
+ * are the ones first found after the baseline was read, so a finding that was
+ * there all along and only now matches the filters (it aged into "> 60 days")
+ * is not new.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -38,6 +43,17 @@ export function matchesFilters(risk, filters, detectionWindow) {
   return withinWindow(detectionWindow, risk.firstDetectedAt);
 }
 
+/** When the report's baseline was read from Checkmarx One (the fetch it was saved from, else when it was saved). */
+export function baselineReadAt(report) {
+  return report.baseline?.readAt ?? report.baseline?.at ?? report.createdAt;
+}
+
+/** Was this finding first found after the baseline was read? An undated finding cannot be shown to be new. */
+export function foundSince(risk, since) {
+  const found = Date.parse(risk.firstDetectedAt ?? '');
+  return Number.isFinite(found) && found > Date.parse(since);
+}
+
 const emptyOutcomes = () => Object.fromEntries(OUTCOMES.map((o) => [o, 0]));
 
 /**
@@ -53,7 +69,7 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
   const byProject = new Map(
     report.projects.map((p) => [
       p.projectId,
-      { projectId: p.projectId, projectName: p.projectName, baseline: 0, ...emptyOutcomes(), newFindings: 0, currentMatching: 0 },
+      { projectId: p.projectId, projectName: p.projectName, baseline: 0, ...emptyOutcomes(), newFindings: 0, newOpen: 0, currentMatching: 0 },
     ]),
   );
   const current = new Map();
@@ -103,17 +119,22 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
   let newFindings = 0;
   let newOpen = 0;
   let currentMatching = 0;
+  const since = baselineReadAt(report);
   for (const [projectId, risks] of currentByProject) {
     const row = byProject.get(projectId);
     for (const risk of risks) {
       if (!matchesFilters(risk, report.filters, detectionWindow)) continue;
       currentMatching += 1;
       if (row) row.currentMatching += 1;
-      if (!baselineKeys.has(`${projectId}|${risk.riskId}`)) {
+      if (!baselineKeys.has(`${projectId}|${risk.riskId}`) && foundSince(risk, since)) {
+        const open = outcomeOf(risk) !== 'notExploitable';
         newFindings += 1;
-        if (outcomeOf(risk) !== 'notExploitable') newOpen += 1;
+        if (open) newOpen += 1;
         countToTriage(risk);
-        if (row) row.newFindings += 1;
+        if (row) {
+          row.newFindings += 1;
+          if (open) row.newOpen += 1;
+        }
       }
     }
   }
@@ -129,6 +150,7 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
     changed,
     open: outcomes.awaiting + outcomes.confirmed + newOpen,
     newFindings,
+    newOpen,
     currentMatching,
     toTriage,
     toTriageResults: Object.fromEntries(Object.entries(resultsBySeverity).map(([severity, keys]) => [severity, keys.size])),
@@ -160,7 +182,7 @@ export class TrackedReports {
     return this.#reports.find((r) => r.id === id) ?? null;
   }
 
-  create({ name, filters, scopeLabel, projects, findings }, now = new Date()) {
+  create({ name, filters, scopeLabel, projects, findings, readAt }, now = new Date()) {
     const report = {
       id: randomUUID(),
       name: String(name).trim().slice(0, 120),
@@ -170,6 +192,8 @@ export class TrackedReports {
       projects,
       baseline: {
         at: now.toISOString(),
+        // When the findings below were read: what is first found after that is new.
+        readAt: readAt && Date.parse(readAt) <= now.getTime() ? new Date(readAt).toISOString() : now.toISOString(),
         findings: findings.map((f) => ({
           projectId: f.projectId,
           riskId: f.riskId,
@@ -194,6 +218,7 @@ export class TrackedReports {
       at: progress.at,
       ...progress.outcomes,
       newFindings: progress.newFindings,
+      newOpen: progress.newOpen,
       currentMatching: progress.currentMatching,
     });
     if (report.history.length > MAX_HISTORY) report.history = report.history.slice(-MAX_HISTORY);

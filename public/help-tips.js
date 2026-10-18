@@ -1,7 +1,7 @@
 // Explanations behind a "?". The grey line that explains a heading (a .hint right after it) or a form
 // field (the .hint inside its label) is folded away, and a small ? beside the heading or the field's
 // name opens it in place. What the app keeps up to date (a line with an id: counts, statuses), warnings,
-// and anything marked data-help-keep stay where they are. "Explanations: Shown" in the look menu
+// and anything marked data-help-keep stay where they are. "Explanations: Shown" in Settings → Your appearance
 // (html[data-help="shown"]) shows them all again.
 
 const HEADING = 'h1, h2, h3, h4';

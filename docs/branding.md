@@ -3,6 +3,7 @@
 CxMissionZero has two kinds of branding.
 
 - **The organisation's branding** is under Settings → Branding. It is the app name, company name, logo, accent colour and call to action that everyone uses, and that head every reminder email and report.
+- **Your appearance** is under Settings → Your appearance: each person's own look (command center or classic), theme, accent and explanations. It changes how the app looks to that person only; whether the command-center look is offered, and where its menu sits, stay with the Admin below.
 - **Your branding** is under Settings → Your branding. It is one person's own names, logo and colours, for when they present CxMissionZero to someone else, such as a prospect, a customer or another team.
 
 ## The look of the app: command center or classic
@@ -17,7 +18,7 @@ The **command-center look** (MZ-01.00.81; it replaced the glassy next-gen look o
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| **Offer the command-center look** | On | Off: everyone has the classic look, every report is classic, and the look menu offers only the theme and explanations. Turning it back on gives everyone the command-center look again, except those who chose Classic. |
+| **Offer the command-center look** | On | Off: everyone has the classic look, every report is classic, and Settings → Your appearance offers only the theme and explanations. Turning it back on gives everyone the command-center look again, except those who chose Classic. |
 | **Menu in the command-center look** | Down the left side | **Along the top**: the pages in one row across the top, on screens 1261 pixels wide and more (names only below 1600 pixels). Narrower screens keep the side menu, the icon rail or the phone's bottom bar. |
 
 Both change for everyone as soon as they are saved. A person's own branding cannot change them.
