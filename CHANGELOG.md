@@ -69,7 +69,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.82 — DATE · [#105](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/105)
+## MZ-01.00.82 — 2026-10-18 21:19 UTC · [#105](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/105)
 
 - **Dashboard figures that add up.** Findings tracked is now split into Awaiting triage, Confirmed and Closed, which add up to it; a finding is **new since saved** only when Checkmarx One first found it after the report was saved, not when an older one ages into the filters; AI credits are counted once when reports share projects; and each tile's **?** says what it counts, including that "no longer detected" is not proof of a fix.
 - **Labs.** The Beta item leaves the main menu for its own **Labs** section at the bottom, where its page is called **Code authors**.
