@@ -69,3 +69,15 @@ test('balances come from running totals, and match a full recount after reload',
   assert.ok(ledger.remediatedIds('p1').has('r1'));
   assert.ok(!ledger.remediatedIds('p1').has('r0'), 'triage entries are not remediations');
 });
+
+test('credits used across reports count each spend once, from each project\'s own start', () => {
+  const ledger = new CreditLedger({ file: tmpFile() });
+  ledger.record({ projectId: 'p1', credits: 3 }, new Date('2026-09-02T10:00:00Z'));
+  ledger.record({ projectId: 'p1', credits: 2, kind: 'remediation' }, new Date('2026-09-20T10:00:00Z'));
+  ledger.record({ projectId: 'p2', credits: 4 }, new Date('2026-09-05T10:00:00Z'));
+  ledger.record({ projectId: 'p2', credits: 1 }, new Date('2026-09-25T10:00:00Z'));
+  // p1 is in two reports (from 1 and 10 September): counted once, from the 1st. p2 from the 10th only.
+  const since = new Map([['p1', '2026-09-01T00:00:00.000Z'], ['p2', '2026-09-10T00:00:00.000Z']]);
+  assert.deepEqual(ledger.usedSinceEach(since), { triage: 4, remediation: 2 });
+  assert.deepEqual(ledger.usedSinceEach(new Map()), { triage: 0, remediation: 0 });
+});

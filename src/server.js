@@ -45,7 +45,7 @@ import { addressesAsThemselves, evaluateMethods, resolveWith, validUsername } fr
 import { addOwnership } from './scm/ownership.js';
 import { acknowledgeStart, companionState, requestFullUpdate } from './updates/companion.js';
 import { githubIssues, gitlabIssues, openSlaIssues } from './sla-issues.js';
-import { TrackedReports, computeProgress, matchesFilters, outcomeOf, reportSummary } from './tracked-reports.js';
+import { TrackedReports, baselineReadAt, computeProgress, foundSince, matchesFilters, outcomeOf, reportSummary } from './tracked-reports.js';
 import { FindingJournal } from './finding-journal.js';
 import { computeImpact } from './impact.js';
 import { impactSummary } from './impact-summary.js';
@@ -6432,12 +6432,14 @@ async function openScanFor(session, report) {
     detection = resolveWindow(report.filters.detection, 'First detection');
   } catch {}
   const baselineKeys = new Set(report.baseline.findings.map((f) => `${f.projectId}|${f.riskId}`));
+  const since = baselineReadAt(report);
   const settings = settingsStore.get();
+  // The same findings the report counts as open: its baseline, and those first found since (not older ones that now match).
   const projects = report.projects.map(({ projectId, projectName }) => {
     const risks = (byProject.get(projectId) ?? []).filter(
       (r) =>
         !NOT_EXPLOITABLE_STATES.has(r.state) &&
-        (baselineKeys.has(`${projectId}|${r.riskId}`) || matchesFilters(r, report.filters, detection)),
+        (baselineKeys.has(`${projectId}|${r.riskId}`) || (matchesFilters(r, report.filters, detection) && foundSince(r, since))),
     );
     const summary = summariseProject({ id: projectId, name: projectName }, risks);
     summary.url = projectUrl(summary, session.connection, settings.links);
@@ -6859,10 +6861,27 @@ function trackedView(report) {
   return { ...reportSummary(report), credits };
 }
 
+/**
+ * AI credits used across the measured reports: a project in two reports is counted once,
+ * from the earlier report's start (summing each report's own figure would count it twice).
+ */
+function portfolioCredits(reports) {
+  const since = new Map();
+  for (const report of reports) {
+    if (!report.latest) continue;
+    for (const { projectId } of report.projects) {
+      if (!since.has(projectId) || report.createdAt < since.get(projectId)) since.set(projectId, report.createdAt);
+    }
+  }
+  return creditLedger.usedSinceEach(since);
+}
+
 app.get('/api/tracked-reports', requirePermission('reports.view'), async (req, res) => {
+  const reports = trackedReports.list();
   res.json({
     timeZone: serverTimeZone(),
-    reports: trackedReports.list().map(trackedView),
+    reports: reports.map(trackedView),
+    portfolio: { aiActions: portfolioCredits(reports) },
     autoRefresh: Boolean(sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) ?? settingsStore.get().automationApiKey),
   });
 });
@@ -6899,6 +6918,7 @@ app.post('/api/tracked-reports', requirePermission('reports.manage'), (req, res)
     },
     projects: inScope.map((p) => ({ projectId: p.projectId, projectName: p.projectName })),
     findings: risks,
+    readAt: lastScan.view?.fetchedAt,
   });
   // The first reading comes straight from the data just fetched.
   trackedReports.record(report, progressFor(report, new Map(inScope.map((p) => [p.projectId, p.risks ?? []]))));
@@ -7086,6 +7106,7 @@ app.post(
     report.filters = filters;
     report.baseline = {
       at: report.roundStartedAt,
+      readAt: report.roundStartedAt,
       findings: findings.map((r) => ({ projectId: r.projectId, riskId: r.riskId, severity: r.severity, state: r.state, title: r.title, scanner: r.scanner })),
     };
     report.verification = null;

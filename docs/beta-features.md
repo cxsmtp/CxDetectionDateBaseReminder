@@ -7,7 +7,7 @@
 
 Every change of stage is in the audit log.
 
-Both features live on the **Beta** tab. They read git history and, optionally,
+Both features live in **Labs**, the section set apart at the bottom of the menu (its page is **Code authors**; until MZ-01.00.82 it was the **Beta** item under Act). They read git history and, optionally,
 the APIs of GitHub, GitLab, Azure DevOps and Bitbucket; check what they find before
 relying on it.
 

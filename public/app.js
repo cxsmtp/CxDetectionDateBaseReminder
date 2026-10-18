@@ -413,6 +413,16 @@ const escapeHtml = (value) =>
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
   );
 
+let helpSerial = 0;
+/** A small ? beside a label, and the definition it opens (put where it should appear): kept out of the way until asked for. */
+function helpTip(text) {
+  const id = `hq-${++helpSerial}`;
+  return {
+    button: `<button type="button" class="help-q" aria-expanded="false" aria-controls="${id}" aria-label="What is this?" title="What is this?">?</button>`,
+    text: `<span class="help-text help-note" id="${id}">${escapeHtml(text)}</span>`,
+  };
+}
+
 const formatDate = (iso) => (iso ? String(iso).slice(0, 10) : '—');
 
 function setStatus(id, message, kind = '') {
@@ -637,7 +647,7 @@ function applyPermissions() {
   for (const el of document.querySelectorAll('[data-perm]')) el.classList.toggle('perm-hidden', !canAny(el.dataset.perm));
   // Settings: Your profile is everyone's; every other section needs settings.view.
   const settingsToo = can('settings.view');
-  for (const el of document.querySelectorAll('#set-nav .set-group:not(.set-you), #set-nav [data-set]:not([data-set="profile"]):not([data-set="mybrand"]), #autosave-note')) el.classList.toggle('no-settings', !settingsToo);
+  for (const el of document.querySelectorAll('#set-nav .set-group:not(.set-you), #set-nav [data-set]:not([data-set="profile"]):not([data-set="appearance"]):not([data-set="mybrand"]), #autosave-note')) el.classList.toggle('no-settings', !settingsToo);
   applyMyAppBranding();
   // Settings → Tenants only once a tenants activation code has been applied.
   for (const el of document.querySelectorAll('[data-set="tenants"], #set-tenants')) el.classList.toggle('addon-hidden', !state.me?.unlocked?.tenants);
@@ -681,8 +691,8 @@ function applyPermissions() {
 
 const ROUTE_ALIASES = { iam: 'access', 'credit-control': 'credits' };
 /** Act → Follow up → Prove, plus Set up: what each page is for. */
-const STAGES = { dashboard: 'act', beta: 'act', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
-const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', plan: 'Plan', setup: 'Set up' };
+const STAGES = { dashboard: 'act', beta: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
+const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', plan: 'Plan', setup: 'Set up', labs: 'Labs' };
 /** The tab group on each page (data-ptabs). */
 const PAGE_TABS = { dashboard: 'dash', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
 const visitedPages = new Set();
@@ -709,7 +719,8 @@ function renderFeatureStages() {
     const names = beta.map((id) => FEATURE_TABS[id]);
     banner.lastChild.textContent = ` ${names.join(' and ')} ${names.length === 1 ? 'is' : 'are'} still in Beta: ${names.length === 1 ? 'it reads' : 'they read'} git history and, if connected, the GitHub, GitLab, Azure DevOps and Bitbucket APIs. Check results before relying on them.`;
   }
-  const name = stages.codeAuthors === 'final' ? 'Code authors' : 'Beta';
+  // Under Labs in the menu, named after what it holds.
+  const name = 'Code authors';
   const label = document.getElementById('nav-beta-label');
   if (label) label.textContent = name;
   PAGE_TITLES.beta[0] = name;
@@ -1446,7 +1457,6 @@ function toggleNavGroup(group) {
 for (const group of document.querySelectorAll('#nav .nav-group')) {
   group.setAttribute('role', 'button');
   group.tabIndex = 0;
-  group.insertAdjacentHTML('beforeend', '<span class="nav-chev" aria-hidden="true"></span>');
   group.addEventListener('click', () => toggleNavGroup(group));
   group.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -1458,7 +1468,7 @@ applyNavFolds();
 
 const PAGE_TITLES = {
   connect: ['Sign in', 'Act on findings, follow them up, prove every credit'],
-  dashboard: ['Workbench', 'Find ageing vulnerabilities and fix them'],
+  dashboard: ['Workbench', 'Find ageing findings and fix them'],
   reports: ['Dashboard', 'Follow every tracked scope to zero'],
   credits: ['Credit Control', 'Credits given, used and left'],
   impact: ['Impact', 'What AI saved and cleared'],
@@ -1466,7 +1476,7 @@ const PAGE_TITLES = {
   logs: ['Logs', 'Activity and troubleshooting'],
   access: ['People & roles', 'Who can sign in, and what they may do'],
   audit: ['Audit', 'Every credit spent, refused or failed'],
-  beta: ['Beta', 'Who wrote the code, and their email'],
+  beta: ['Code authors', 'Labs: who wrote the code, and their email'],
   help: ['Get help', 'Support cases and enhancements'],
   calculator: ['Cx Credits Calculator', 'The credits a customer needs'],
 };
@@ -1574,18 +1584,13 @@ function applyProfileLook(profile = {}) {
   if (profile.accent) applyAccent(profile.accent);
 }
 
+// Settings → Your appearance (the light/dark switch stays in the top bar, for a quick change).
 $('look-menu').addEventListener('change', (event) => {
   const box = event.target;
   if (box.name === 'look') applyLook(box.value, { save: true });
   else if (box.name === 'look-theme') applyTheme(box.value, { save: true });
   else if (box.name === 'look-accent') applyAccent(box.value, { save: true });
 });
-// Closes when someone clicks elsewhere, like the other menus up there.
-document.addEventListener('click', (event) => {
-  const menu = $('look-menu');
-  if (menu.open && !menu.contains(event.target)) menu.open = false;
-});
-$('look-menu').hidden = false;
 syncLookMenu();
 $('theme-toggle').title = THEME_LABELS[document.documentElement.dataset.theme || 'auto'];
 
@@ -4017,7 +4022,7 @@ function exportProjectsCsv() {
   if (!rows.length) return;
   const cellText = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ''));
   const credit = (p, kind, key) => p.credits?.[kind]?.[key] ?? '';
-  const header = ['Project', 'Project id', 'Total vulnerabilities', ...availableColumns().map((c) => `${c.group}: ${c.label}`), 'Oldest open since', 'Oldest (days)', 'Last scanned by', 'Initiator email',
+  const header = ['Project', 'Project id', 'Open findings', ...availableColumns().map((c) => `${c.group}: ${c.label}`), 'Oldest open since', 'Oldest (days)', 'Last scanned by', 'Initiator email',
     'Triage allocated', 'Triage used', 'Triage left', 'Triage needed', 'Remediation allocated', 'Remediation used', 'Remediation left', 'Remediation needed'];
   const lines = rows.map((p) => [
     p.projectName, p.projectId, p.totalRisks, ...availableColumns().map((c) => c.value(p)), formatDate(p.oldestFirstDetectedAt), p.maxAgeDays ?? '', p.initiator ?? '', p.initiatorEmail ?? '',
@@ -4079,7 +4084,7 @@ function renderProjects() {
               ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.projectName)}</a>`
               : escapeHtml(p.projectName)
           }${p.error ? `<span class="err">${escapeHtml(p.error)}</span>` : ''}</td>
-          <td class="num c-count" data-label="Total vulnerabilities">${p.totalRisks}</td>
+          <td class="num c-count" data-label="Open findings">${p.totalRisks}</td>
           ${activeColumns().map((c) => {
             const v = c.value(p);
             return `<td class="num c-count ${v > 0 ? (c.alert ? 'aged' : '') : 'zero'}" data-label="${escapeHtml(c.label)}">${v}</td>`;
@@ -4123,12 +4128,12 @@ function renderProjects() {
  * so those findings are triaged once, charged once, and fixed in one go.
  * groups: credits.sharedResults (with projectName when several projects).
  */
-function sharedResultsHtml(groups, severities, { open = false } = {}) {
+function sharedResultsHtml(groups, severities, { open = false, folded = false } = {}) {
   const shown = (groups ?? []).filter((g) => severities.includes(g.severity));
   if (!shown.length) return '';
   const findings = shown.reduce((n, g) => n + g.findings, 0);
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-  return `<details class="shared-results"${open || shown.length <= 3 ? ' open' : ''}>
+  return `<details class="shared-results"${open || (shown.length <= 3 && !folded) ? ' open' : ''}>
     <summary>Why fewer results than findings: ${plural(findings, 'finding', 'findings')} here ${findings === 1 ? 'is' : 'are'} ${plural(shown.length, 'Checkmarx One result', 'Checkmarx One results')}</summary>
     <p class="hint">Checkmarx One lists one result once for every code path (data flow) that reaches the same vulnerable code. Each line below is one result: AI Triage judges it once (1 credit), and one fix in that code closes all of its findings.</p>
     <ul>${shown
@@ -4140,7 +4145,7 @@ function sharedResultsHtml(groups, severities, { open = false } = {}) {
   </details>`;
 }
 
-/** One project's credits, editable: what its severities need, plus extras the administrator sets. */
+/** One project's credits, editable: what it needs and has at a glance, and the one thing to do here (give it extra credits). */
 function creditEditorRow(p) {
   const c = p.credits ?? {};
   const t = c.triage ?? { allocated: 0, used: 0, remaining: 0 };
@@ -4148,26 +4153,26 @@ function creditEditorRow(p) {
   const sev = c.severities ?? [];
   const toTriage = sev.reduce((n, s) => n + (c.toTriage?.[s] ?? 0), 0);
   const toTriageRows = sev.reduce((n, s) => n + (c.toTriageRows?.[s] ?? c.toTriage?.[s] ?? 0), 0);
+  const toRemediate = c.toRemediate ?? 0;
   const id = escapeHtml(p.projectId);
+  const help = helpTip(
+    'Needs: what its open findings of the chosen severities call for: 1 credit for each Checkmarx One result to triage, 3 for each confirmed finding to remediate. Left: what it holds and has not spent yet. Extra credits come out of the credit pool and stay with this project until you change them.',
+  );
+  const kind = (label, need, needTitle, balance, extraKind, extra, step) => `<div class="credit-kind">
+        <span class="label">${label}</span>
+        <span class="need" title="${escapeHtml(needTitle)}">needs <b>${need}</b></span>
+        <span class="has" title="${escapeHtml(`${balance.remaining} left of ${balance.allocated} allocated, ${balance.used} used`)}">left <b>${balance.remaining}</b></span>
+        <label class="inline extra">+ <input type="number" min="0" step="${step}" class="small-num" data-extra="${extraKind}" value="${extra}" aria-label="${escapeHtml(`Extra ${label} credits`)}" /> extra</label>
+      </div>`;
   return `<tr class="credit-editor" data-editor="${id}"><td colspan="${projectColspan()}">
     <div class="credit-editor-grid">
-      <div class="credit-editor-head"><strong>${escapeHtml(p.projectName)}</strong>
-        <span class="hint">needs are for ${escapeHtml(sev.map((s) => s.toLowerCase()).join(', ') || 'no severities')} · extra credits come out of the credit pool and stay until you change them</span></div>
-      <div class="credit-kind">
-        <span class="label">AI Triage</span>
-        <span class="need" title="${escapeHtml(`For ${resultsText(toTriage, toTriageRows)}.`)}">${toTriage} needed${toTriageRows > toTriage ? ` <span class="hint">(${toTriageRows} findings = ${toTriage} results)</span>` : ''} ·</span>
-        <label class="inline"><input type="number" min="0" step="1" class="small-num" data-extra="triage" value="${c.extraTriage ?? 0}" /> extra</label>
-        <span class="hint">${t.remaining} left of ${t.allocated} · ${t.used} used</span>
-        ${sharedResultsHtml(c.sharedResults, sev, { open: true })}
-      </div>
-      <div class="credit-kind">
-        <span class="label">AI Remediation</span>
-        <span class="need">${(c.toRemediate ?? 0) * 3} needed ·</span>
-        <label class="inline"><input type="number" min="0" step="3" class="small-num" data-extra="remediation" value="${c.extraRemediation ?? 0}" /> extra</label>
-        <span class="hint">${r.remaining} left of ${r.allocated} · ${r.used} used · ${c.toRemediate ?? 0} confirmed × 3</span>
-      </div>
+      <div class="credit-editor-head"><strong>${escapeHtml(p.projectName)}</strong><span class="credit-editor-ask">Give it extra AI credits</span>${help.button}</div>
+      ${help.text}
+      ${kind('AI Triage', toTriage, `For ${resultsText(toTriage, toTriageRows)}.`, t, 'triage', c.extraTriage ?? 0, 1)}
+      ${kind('AI Remediation', toRemediate * 3, `${toRemediate} confirmed finding${toRemediate === 1 ? '' : 's'} × 3 credits`, r, 'remediation', c.extraRemediation ?? 0, 3)}
+      ${sharedResultsHtml(c.sharedResults, sev, { folded: true })}
       <div class="actions compact">
-        <button type="button" class="primary" data-credit-save="${id}">Save</button>
+        <button type="button" class="primary" data-credit-save="${id}">Save extra credits</button>
         <button type="button" data-credit-cancel="${id}">Close</button>
         <span class="status" data-credit-status="${id}"></span>
       </div>
@@ -4288,7 +4293,7 @@ function progressBar(outcomes, total, { legend = true } = {}) {
   const rest = Math.max(0, total - done.reduce((n, k) => n + (outcomes[k] ?? 0), 0));
   return `<div class="rp-bar" role="img" aria-label="${escapeHtml(`${label}, awaiting triage ${outcomes.awaiting ?? 0}, of ${total}`)}">${done
     .map((key) => (outcomes[key] ? `<span class="out-${key}" style="flex:${outcomes[key]} 1 0" title="${escapeHtml(OUTCOME_LABELS[key])}: ${outcomes[key]}"></span>` : ''))
-    .join('')}${rest ? `<span class="out-track" style="flex:${rest} 1 0" title="Still open: ${rest}"></span>` : ''}</div>${legend ? `<div class="rp-legend">${Object.entries(OUTCOME_LABELS)
+    .join('')}${rest ? `<span class="out-track" style="flex:${rest} 1 0" title="Awaiting triage: ${rest}"></span>` : ''}</div>${legend ? `<div class="rp-legend">${Object.entries(OUTCOME_LABELS)
     .map(([key, text]) => `<span><i class="out-${key}"></i>${escapeHtml(text)} <b>${outcomes[key] ?? 0}</b></span>`)
     .join('')}</div>` : ''}`;
 }
@@ -4296,9 +4301,9 @@ function progressBar(outcomes, total, { legend = true } = {}) {
 const trackedById = new Map();
 const rpState = { filter: 'all', search: '', sort: 'open', open: '', tab: 'overview', data: null };
 
-/** Open findings at each reading: awaiting triage, confirmed or new. */
+/** Open findings at each reading: awaiting triage, confirmed or new (and not triaged as not exploitable). */
 const openSeries = (r) => {
-  const points = (r.history ?? []).map((h) => ({ at: h.at, open: (h.awaiting ?? 0) + (h.confirmed ?? 0) + (h.newFindings ?? 0) }));
+  const points = (r.history ?? []).map((h) => ({ at: h.at, open: (h.awaiting ?? 0) + (h.confirmed ?? 0) + (h.newOpen ?? h.newFindings ?? 0) }));
   if (r.latest && (!points.length || points.at(-1).at !== r.latest.at)) points.push({ at: r.latest.at, open: r.latest.open ?? 0 });
   return points;
 };
@@ -4362,7 +4367,7 @@ function renderTrackedReports(data) {
   $('reports-meta').textContent = autoRefresh
     ? 'Updates automatically: hourly, and every few minutes after anyone triages or remediates.'
     : 'Automatic updates need a stored Checkmarx One connection (CX_API_KEY, or arm automation in Settings); use Refresh meanwhile.';
-  renderPortfolio(reports);
+  renderPortfolio(reports, data.portfolio);
   renderUpcoming(reports);
   renderReportList();
   if (rpState.open) {
@@ -4371,7 +4376,20 @@ function renderTrackedReports(data) {
   }
 }
 
-function renderPortfolio(reports) {
+/** What the Dashboard's numbers mean: one definition each, behind a ?. */
+const RP_DEFINE = {
+  tracked: 'The findings each report held when it was saved (or when its round began), added up over the reports; a finding in two reports counts in both. They are awaiting triage, confirmed or closed: the next three tiles add up to this one. Actioned: confirmed or closed.',
+  awaiting: 'Still To verify in Checkmarx One: nobody has triaged them yet.',
+  confirmed: 'Triaged as Confirmed or Urgent: real, and still to be fixed.',
+  closed: 'Triaged as not exploitable, or no longer reported by Checkmarx One. No longer detected is not proof of a fix: the code may have changed or the project may not have been scanned since. Only a verification rescan proves a fix.',
+  fresh: 'First found by Checkmarx One after the report was saved, and matching its filters. Older findings that only now match (for example, ones that aged past 60 days) are not new.',
+  followups: 'Reminders a report sends by itself, every few days at a set hour. Open a report, then Remind → Automatic follow-up.',
+  credits: 'AI Triage / AI Remediation credits spent on these reports\' projects since each report was saved. A project in two reports is counted once.',
+  open: 'Awaiting triage, confirmed, or new since saved: what is still to deal with before the report reaches zero.',
+  hero: 'Actioned: confirmed, not exploitable or no longer detected. No longer detected means Checkmarx One no longer reports it, which is not proof of a fix: the code may have changed, or the project may not have been scanned since. Only a verification rescan proves a fix.',
+};
+
+function renderPortfolio(reports, portfolio = {}) {
   const measured = reports.filter((r) => r.latest);
   const sum = (fn) => measured.reduce((n, r) => n + (fn(r) || 0), 0);
   const baseline = sum((r) => r.latest.baseline);
@@ -4379,16 +4397,25 @@ function renderPortfolio(reports) {
   const pct = baseline ? Math.round((actioned / baseline) * 100) : 0;
   const scheduled = reports.filter((r) => r.automation?.enabled);
   const next = scheduled.map((r) => r.automation.nextRunAt).filter(Boolean).sort()[0];
-  const tile = (label, value, sub, extra = '') => `<div class="rp-tile"><span class="rp-tile-label">${escapeHtml(label)}</span><span class="rp-tile-value">${value}</span>${extra}<span class="rp-tile-sub">${sub}</span></div>`;
+  const tile = (key, label, value, sub, extra = '') => {
+    const help = helpTip(RP_DEFINE[key]);
+    return `<div class="rp-tile rp-${key}"><span class="rp-tile-label">${escapeHtml(label)}${help.button}</span><span class="rp-tile-value">${value}</span>${extra}<span class="rp-tile-sub">${sub}</span>${help.text}</div>`;
+  };
+  const n = (key) => sum((r) => r.latest.outcomes?.[key]);
+  // Credits counted once per project (from the server); an older server: each report's own figure.
+  const credits = portfolio.aiActions ?? { triage: sum((r) => r.latest.aiActions?.triage), remediation: sum((r) => r.latest.aiActions?.remediation) };
+  const pending = reports.length - measured.length;
   $('rp-portfolio').innerHTML = !reports.length
     ? ''
     : [
-        tile('Findings tracked', baseline.toLocaleString(), `across ${reports.length} report${reports.length === 1 ? '' : 's'}`),
-        tile('Actioned', `${pct}%`, `${actioned.toLocaleString()} triaged or no longer detected`, `<span class="rp-meter" role="img" aria-label="${pct}% actioned"><span style="width:${pct}%"></span></span>`),
-        tile('Open now', sum((r) => r.latest.open).toLocaleString(), 'awaiting triage, confirmed or new'),
-        tile('New since saved', sum((r) => r.latest.newFindings).toLocaleString(), 'matching the same filters'),
-        tile('Follow-ups scheduled', `${scheduled.length}<small> of ${reports.length}</small>`, next ? `next ${escapeHtml(serverTime(next))}` : 'none due'),
-        tile('AI credits used', `${sum((r) => r.latest.aiActions?.triage).toLocaleString()}<small> / ${sum((r) => r.latest.aiActions?.remediation).toLocaleString()}</small>`, 'triage / remediation'),
+        // The first four add up: tracked = awaiting triage + confirmed + closed.
+        tile('tracked', 'Findings tracked', baseline.toLocaleString(), `${pct}% actioned · in ${measured.length} report${measured.length === 1 ? '' : 's'}${pending ? ` (${pending} not measured yet)` : ''}`, `<span class="rp-meter" role="img" aria-label="${pct}% actioned"><span style="width:${pct}%"></span></span>`),
+        tile('awaiting', 'Awaiting triage', n('awaiting').toLocaleString(), 'not triaged yet'),
+        tile('confirmed', 'Confirmed', n('confirmed').toLocaleString(), 'real, fix pending'),
+        tile('closed', 'Closed', (n('notExploitable') + n('resolved')).toLocaleString(), `${n('notExploitable').toLocaleString()} not exploitable · ${n('resolved').toLocaleString()} no longer detected`),
+        tile('fresh', 'New since saved', sum((r) => r.latest.newFindings).toLocaleString(), 'first found after saving'),
+        tile('followups', 'Follow-ups scheduled', `${scheduled.length}<small> of ${reports.length}</small>`, next ? `next ${escapeHtml(serverTime(next))}` : 'none due'),
+        tile('credits', 'AI credits used', `${(credits.triage ?? 0).toLocaleString()}<small> / ${(credits.remediation ?? 0).toLocaleString()}</small>`, 'triage / remediation'),
       ].join('');
 }
 
@@ -4410,7 +4437,7 @@ function renderUpcoming(reports) {
           </button></li>`;
         })
         .join('')
-    : `<li class="rp-empty-small">Nothing scheduled. Open a report, then <strong>Schedule</strong>, to send its follow-ups automatically.</li>`;
+    : `<li class="rp-empty-small">Nothing scheduled. Open a report, then <strong>Remind → Automatic follow-up</strong>, to send its follow-ups by themselves.</li>`;
 }
 
 function renderReportList() {
@@ -4443,7 +4470,7 @@ function renderReportList() {
       return (b.latest?.open ?? 0) - (a.latest?.open ?? 0);
     });
   $('reports-list').innerHTML = shown.length
-    ? `<div class="rp-head" aria-hidden="true"><span>Report</span><span>Progress</span><span class="num">Open</span><span class="num">New</span><span>Trend</span><span>Status</span></div>${shown
+    ? `<div class="rp-head" aria-hidden="true"><span>Report</span><span>Progress</span><span class="num" title="${escapeHtml(RP_DEFINE.open)}">Open</span><span class="num" title="${escapeHtml(RP_DEFINE.fresh)}">New</span><span>Trend</span><span>Status</span></div>${shown
         .map((r) => {
           const l = r.latest;
           const status = reportStatus(r);
@@ -4554,27 +4581,32 @@ function renderReportDetail(id) {
   const rid = escapeHtml(r.id);
   const tabs = RP_TABS.map(([key, label]) => `<button type="button" role="tab" id="rp-tab-${key}" aria-controls="rp-panel-${key}" aria-selected="${rpState.tab === key}" tabindex="${rpState.tab === key ? 0 : -1}" data-rp-tab="${key}">${label}${(key === 'remind' && r.automation?.enabled) || (key === 'verify' && r.verify?.auto) ? ' <i class="rp-on" aria-label="on"></i>' : ''}${key === 'verify' && r.verification?.result?.zero ? ' ✓' : ''}</button>`).join('');
   const panel = (key, html) => `<div class="rp-panel" role="tabpanel" id="rp-panel-${key}" aria-labelledby="rp-tab-${key}" ${rpState.tab === key ? '' : 'hidden'}>${html}</div>`;
-  const kpi = (label, value, sub = '') => `<div class="rp-kpi"><span class="rp-tile-label">${escapeHtml(label)}</span><span class="rp-kpi-value">${value}</span>${sub ? `<span class="rp-tile-sub">${sub}</span>` : ''}</div>`;
+  const kpi = (label, value, sub = '', define = '') => {
+    const help = define ? helpTip(define) : { button: '', text: '' };
+    return `<div class="rp-kpi"><span class="rp-tile-label">${escapeHtml(label)}${help.button}</span><span class="rp-kpi-value">${value}</span>${sub ? `<span class="rp-tile-sub">${sub}</span>` : ''}${help.text}</div>`;
+  };
+  const heroHelp = helpTip(RP_DEFINE.hero);
   const overview = l
     ? `<div class="rp-hero">
-        <div class="rp-hero-number"><span class="rp-big">${l.percentActioned}%</span><span class="rp-sub">actioned · ${l.actioned} of ${l.baseline} findings triaged or no longer detected</span></div>
+        <div class="rp-hero-number"><span class="rp-big">${l.percentActioned}%</span><span class="rp-sub">actioned · ${l.actioned} of ${l.baseline} findings confirmed, not exploitable or no longer detected ${heroHelp.button}</span></div>
+        ${heroHelp.text}
         ${progressBar(l.outcomes, l.baseline)}
       </div>
       <div class="rp-kpis">
-        ${kpi('Open now', l.open ?? 0, 'awaiting, confirmed or new')}
-        ${kpi('New since saved', l.newFindings, 'matching the filters')}
-        ${kpi('Matching now', l.currentMatching, `was ${l.baseline} when saved`)}
-        ${kpi('AI credits used', `${l.aiActions.triage} <small>/ ${l.aiActions.remediation}</small>`, 'triage / remediation')}
+        ${kpi('Open now', l.open ?? 0, 'awaiting, confirmed or new', RP_DEFINE.open)}
+        ${kpi('New since saved', l.newFindings, 'first found after saving', RP_DEFINE.fresh)}
+        ${kpi('Matching now', l.currentMatching, `was ${l.baseline} when saved`, 'Every finding the report\'s filters match today, old or new, whatever its state.')}
+        ${kpi('AI credits used', `${l.aiActions.triage} <small>/ ${l.aiActions.remediation}</small>`, 'triage / remediation', 'AI Triage / AI Remediation credits spent on this report\'s projects since it was saved.')}
       </div>
       ${trendChart(openSeries(r))}
       ${l.byProject?.length ? `<h3 class="rp-h3">By project</h3><div class="table-wrap"><table class="data-table rp-table">
         <thead><tr><th>Project</th><th>Progress</th><th class="num">Open</th><th class="num">Confirmed</th><th class="num">New</th><th class="num">Now</th></tr></thead>
         <tbody>${l.byProject
           .slice()
-          .sort((a, b) => b.awaiting + b.confirmed + b.newFindings - (a.awaiting + a.confirmed + a.newFindings))
+          .sort((a, b) => b.awaiting + b.confirmed + (b.newOpen ?? b.newFindings) - (a.awaiting + a.confirmed + (a.newOpen ?? a.newFindings)))
           .map((p) => `<tr><td>${escapeHtml(p.projectName || p.projectId)}</td>
             <td class="rp-mini">${progressBar({ resolved: p.resolved, notExploitable: p.notExploitable, confirmed: p.confirmed, awaiting: p.awaiting }, p.baseline, { legend: false })}</td>
-            <td class="num">${p.awaiting + p.confirmed + p.newFindings}</td><td class="num">${p.confirmed}</td><td class="num">${p.newFindings}</td><td class="num">${p.currentMatching}</td></tr>`)
+            <td class="num">${p.awaiting + p.confirmed + (p.newOpen ?? p.newFindings)}</td><td class="num">${p.confirmed}</td><td class="num">${p.newFindings}</td><td class="num">${p.currentMatching}</td></tr>`)
           .join('')}</tbody></table></div>` : ''}`
     : '<p class="hint">Not measured yet: Refresh reads Checkmarx One now.</p>';
   const history = r.history?.length
@@ -5371,7 +5403,7 @@ function renderAllocation() {
   const rows = scope.reduce((n, p) => n + (isVerified(p, severities) ? p.verified.triage.rows : 0), 0);
   $('alloc-verified').innerHTML = verifiedAll
     ? `<span class="verified-ok">✓ Confirmed twice with Checkmarx One</span> — ${rows} finding row(s) are ${t.toTriage} Checkmarx One result(s): rows that share a result are triaged, and charged, once.`
-    : 'Not confirmed with Checkmarx One yet. <b>Refresh &amp; verify</b> re-reads the findings (someone may be working on them) and confirms the credits needed twice; allocating does it too, and refuses if the two reads disagree.';
+    : 'Not checked against Checkmarx One yet. Every button below checks first, by itself.';
   $('alloc-scope').textContent = `${scope.length} project${scope.length === 1 ? '' : 's'} ${state.selected.size ? 'selected' : 'shown'}`;
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   $('alloc-needed').innerHTML = severities.length
@@ -5464,7 +5496,7 @@ async function checkThenRun(label, run, scope) {
   if (changes.length) {
     const shown = changes.slice(0, 4).join('; ') + (changes.length > 4 ? `; and ${changes.length - 4} more` : '');
     setStatus('alloc-status', `${label} cancelled: Checkmarx One changed since this page last showed it — ${shown}. Someone may have triaged or remediated in Checkmarx One or from a report. The numbers above are now current; click again to go ahead with them.`, 'warn');
-    logger.add(`${label} cancelled: ${changes.length} change(s) found by Refresh & verify`, 'error');
+    logger.add(`${label} cancelled: ${changes.length} change(s) found when checking the numbers again`, 'error');
     $('alloc-verify').scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
     return;
   }
@@ -5587,7 +5619,7 @@ async function runRemediationNow() {
         return `<li>${escapeHtml(p.projectName)} — ${n} confirmed · ${n * 3} credits · ${p.credits?.remediation?.remaining ?? 0} allocated</li>`;
       })
       .join('')}</ul>
-    <p class="cost-line">This consumes <strong>3 credits for each confirmed vulnerability: ${cost} credit${cost === 1 ? '' : 's'}</strong>, from the remediation credits allocated to these projects${t.remediationShort ? ` — <strong>${t.remediationShort} are not allocated yet</strong>: allocate them first, or those projects are skipped` : ''}.</p>
+    <p class="cost-line">This consumes <strong>3 credits for each confirmed finding: ${cost} credit${cost === 1 ? '' : 's'}</strong>, from the remediation credits allocated to these projects${t.remediationShort ? ` — <strong>${t.remediationShort} are not allocated yet</strong>: allocate them first, or those projects are skipped` : ''}.</p>
     <p class="hint">Developers get the results as when they click Remediate in their report: a pull request where the project is connected to a repository, otherwise the remediation details.</p>`;
   $('remediate-go').disabled = t.remediationLeft === 0;
   const dialog = $('remediate-dialog');
@@ -5895,6 +5927,7 @@ $('fetch-stop').addEventListener('click', stopFetch);
 function showVulnerabilitySearch(result) {
   state.vulnerability = result?.vulnerability ?? result?.request?.vulnerability ?? '';
   $('vuln-q').value = state.vulnerability;
+  syncNarrow();
   const names = result?.vulnerabilityNames ?? [];
   if (names.length) {
     $('vuln-names').innerHTML = names.map((n) => `<option value="${escapeHtml(String(n.name).replace(/_/g, ' '))}">${escapeHtml(`${n.count} finding${n.count === 1 ? '' : 's'}`)}</option>`).join('');
@@ -6311,6 +6344,7 @@ $('vuln-form').addEventListener('submit', (event) => {
 $('vuln-active').addEventListener('click', (event) => {
   if (!event.target.closest('#vuln-clear') || state.fetching) return;
   $('vuln-q').value = '';
+  syncNarrow();
   fetchProjects();
 });
 
@@ -6564,7 +6598,7 @@ async function verifyWithCheckmarx({ before = '' } = {}) {
     } else {
       setStatus('alloc-status', summary, 'ok');
     }
-    logger.add(`Refresh & verify: ${ok.length} verified, ${failed.length} not`, failed.length ? 'error' : 'success');
+    logger.add(`Check the numbers again: ${ok.length} confirmed, ${failed.length} not`, failed.length ? 'error' : 'success');
     return { ok: failed.length === 0, summary };
   } catch (error) {
     if (!handleAuthLoss(error)) showError('alloc-status', error);
@@ -6931,12 +6965,14 @@ document.addEventListener('keydown', (event) => {
 });
 
 // Scope: narrowing to named projects or people folds away until it is wanted.
+// It holds the vulnerability search too: the row above stays one calm line.
 function syncNarrow(open) {
-  const chips = scopeNamed();
+  const chips = scopeNamed() + ($('vuln-q').value.trim() ? 1 : 0);
   const show = open ?? (chips > 0 || $('narrow-toggle').getAttribute('aria-expanded') === 'true');
   $('scope-pick').classList.toggle('folded', !show);
   $('narrow-toggle').setAttribute('aria-expanded', String(show));
-  $('narrow-toggle').textContent = show ? (chips ? `Narrowed to ${chips} name${chips === 1 ? '' : 's'}` : 'Hide narrowing') : 'Narrow to applications, projects or people';
+  $('narrow-toggle').textContent = chips ? `Narrowed (${chips})` : show ? 'Hide narrowing' : 'Narrow down';
+  $('narrow-toggle').title = 'Load only some applications, projects or people, or only the findings of one vulnerability';
 }
 $('narrow-toggle').addEventListener('click', () => {
   const open = $('narrow-toggle').getAttribute('aria-expanded') !== 'true';
@@ -7288,7 +7324,10 @@ $('upd-hour').addEventListener('change', saveAutoUpdate);
 
 const GS_KEY = 'mz-gs-hidden';
 
+let gsRun = 0;
 async function renderGettingStarted() {
+  // Drawn again while an earlier drawing waits for the people list: the later one wins.
+  const run = ++gsRun;
   const box = $('getting-started');
   let hidden = false;
   try {
@@ -7299,7 +7338,7 @@ async function renderGettingStarted() {
   const smtp = Boolean(state.settings?.verified);
   const server = state.reportServer ? !state.reportServer.warnings?.length : true;
   if (can('integration.cxone') || !cx) steps.push({ stage: 'setup', label: 'Connect', done: cx, title: 'Connect Checkmarx One', text: 'The server reads projects and findings with its own key.', href: '#/settings/connection', action: can('integration.cxone') ? 'Connect' : 'Ask an Admin' });
-  steps.push({ stage: 'act', done: state.projects.length > 0, title: 'Fetch vulnerabilities', text: 'Choose a scope and fetch: ageing findings and who ran each scan.', href: '#/dashboard', action: 'Fetch', fetch: true });
+  steps.push({ stage: 'act', done: state.projects.length > 0, title: 'Load findings', text: 'Choose a scope and load: ageing findings and who ran each scan.', href: '#/dashboard', action: 'Load', fetch: true });
   if (can('integration.smtp')) steps.push({ stage: 'setup', done: smtp, title: 'Set up email', text: 'Test your mail server so reminders and follow-ups can go out.', href: '#/settings/smtp', action: 'Set up' });
   if (can('settings.links')) steps.push({ stage: 'setup', done: server, title: 'Give reports a reachable address', text: 'So readers can triage and remediate straight from the emailed report.', href: '#/settings/server', action: 'Set address' });
   if (can('credits.limit')) steps.push({ stage: 'prove', done: Boolean(state.settings?.aiTriage?.monthlyCreditLimit), title: 'Cap AI credits', text: 'A credit pool limits what AI Triage and Remediation may spend.', href: '#/settings/ai', action: 'Set pool' });
@@ -7308,6 +7347,7 @@ async function renderGettingStarted() {
     try {
       people = (access.data ?? (await api('/api/iam', { quiet: true }))).users.length;
     } catch {}
+    if (run !== gsRun) return;
     steps.push({ stage: 'setup', done: people > 1, title: 'Invite your team', text: 'Add people and give each the role they need.', href: '#/access/people', action: 'Invite' });
   }
   const left = steps.filter((s) => !s.done).length;
@@ -7748,7 +7788,7 @@ document.addEventListener('keydown', (event) => {
 (async function init() {
   // Sort and filter from the column headings, on every data table (public/table-tools.js).
   startTableTools({ translate: t });
-  // Explanations behind a "?" (or shown, as chosen in the look menu; kept in this browser).
+  // Explanations behind a "?" (or shown, as chosen under Settings → Your appearance; kept in this browser).
   setHelpMode(helpMode());
   for (const radio of document.querySelectorAll('input[name="look-help"]')) {
     radio.checked = radio.value === helpMode();

@@ -22830,5 +22830,371 @@
   "seen": [
    "Settings: the explanation behind the ? next to \"Changes save as you type.\""
   ]
+ },
+ "Awaiting triage": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): name of a tile: findings still To verify, that nobody has triaged yet"
+  ]
+ },
+ "not triaged yet": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): line under the \"Awaiting triage\" tile's number"
+  ]
+ },
+ "real, fix pending": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): line under the \"Confirmed\" tile's number (confirmed as a real vulnerability, still to be fixed)"
+  ]
+ },
+ "Closed": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): name of a tile: findings triaged as not exploitable, or no longer reported by Checkmarx One"
+  ]
+ },
+ "{0} not exploitable · {1} no longer detected": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): line under the \"Closed\" tile's number"
+  ]
+ },
+ "{0}% actioned · in {1} report": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): line under the \"Findings tracked\" tile (one report); \"actioned\" = confirmed, not exploitable or no longer detected"
+  ]
+ },
+ "{0}% actioned · in {1} reports": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): line under the \"Findings tracked\" tile (several reports)"
+  ]
+ },
+ "{0}% actioned · in {1} report ({2} not measured yet)": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): line under the \"Findings tracked\" tile, when some reports have not been read yet"
+  ]
+ },
+ "{0}% actioned · in {1} reports ({2} not measured yet)": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): line under the \"Findings tracked\" tile, when some reports have not been read yet"
+  ]
+ },
+ "first found after saving": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): line under the \"New since saved\" tile's number"
+  ]
+ },
+ "The findings each report held when it was saved (or when its round began), added up over the reports; a finding in two reports counts in both. They are awaiting triage, confirmed or closed: the next three tiles add up to this one. Actioned: confirmed or closed.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): a tile's explanation, shown when its small ? is pressed (Findings tracked)"
+  ]
+ },
+ "Still To verify in Checkmarx One: nobody has triaged them yet.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): a tile's explanation, shown when its small ? is pressed (Awaiting triage). \"To verify\" is the Checkmarx One state name: use the app file's word for it"
+  ]
+ },
+ "Triaged as Confirmed or Urgent: real, and still to be fixed.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): a tile's explanation, shown when its small ? is pressed (Confirmed). Confirmed and Urgent are Checkmarx One state names: use the app file's words"
+  ]
+ },
+ "Triaged as not exploitable, or no longer reported by Checkmarx One. No longer detected is not proof of a fix: the code may have changed or the project may not have been scanned since. Only a verification rescan proves a fix.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): a tile's explanation, shown when its small ? is pressed (Closed)"
+  ]
+ },
+ "First found by Checkmarx One after the report was saved, and matching its filters. Older findings that only now match (for example, ones that aged past {0} days) are not new.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): a tile's explanation, shown when its small ? is pressed (New since saved)"
+  ]
+ },
+ "Reminders a report sends by itself, every few days at a set hour. Open a report, then Remind → Automatic follow-up.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): a tile's explanation, shown when its small ? is pressed (Follow-ups scheduled). \"Remind\" is a tab of the report and \"Automatic follow-up\" a heading in it: use the app file's words"
+  ]
+ },
+ "AI Triage / AI Remediation credits spent on these reports' projects since each report was saved. A project in two reports is counted once.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): a tile's explanation, shown when its small ? is pressed (AI credits used)"
+  ]
+ },
+ "Awaiting triage, confirmed, or new since saved: what is still to deal with before the report reaches zero.": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): what \"Open\" means (the report list's Open column tooltip, and the ? of the \"Open now\" figure)"
+  ]
+ },
+ "Awaiting triage: {0}": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero): tooltip of the grey part of a report's progress bar"
+  ]
+ },
+ "actioned · {0} of {1} findings confirmed, not exploitable or no longer detected": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero) → a report's Overview: the line beside the big percentage (\"57%\")"
+  ]
+ },
+ "Actioned: confirmed, not exploitable or no longer detected. No longer detected means Checkmarx One no longer reports it, which is not proof of a fix: the code may have changed, or the project may not have been scanned since. Only a verification rescan proves a fix.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero) → a report's Overview: explanation behind the ? beside the big percentage"
+  ]
+ },
+ "Every finding the report's filters match today, old or new, whatever its state.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero) → a report's Overview: explanation behind the ? of \"Matching now\""
+  ]
+ },
+ "AI Triage / AI Remediation credits spent on this report's projects since it was saved.": {
+  "kind": "text",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero) → a report's Overview: explanation behind the ? of \"AI credits used\""
+  ]
+ },
+ "Nothing scheduled. Open a report, then <strong>Remind → Automatic follow-up</strong>, to send its follow-ups by themselves.": {
+  "kind": "html",
+  "seen": [
+   "Dashboard page (the tracked reports, each following a saved scope of findings down to zero) → Upcoming follow-ups, when none is scheduled. \"Remind\" is the report's tab and \"Automatic follow-up\" the heading in it (keep the <strong> tag)"
+  ]
+ },
+ "Find ageing findings and fix them": {
+  "kind": "text",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on): the page's subtitle beside its title"
+  ]
+ },
+ "Open findings of every severity, in the period chosen above. A finding is one place where Checkmarx One found a vulnerability in the project.": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table: tooltip of the \"Open findings\" column (it was called \"Total vulnerabilities\")"
+  ]
+ },
+ "When the oldest open finding was first found, and how many days ago": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table: tooltip of the \"Oldest open since\" column"
+  ]
+ },
+ "Left / allocated: AI Triage credits the project still holds, out of those it was given. Below, in orange: how many more its open findings need. Click the numbers to give it extra credits.": {
+  "kind": "text",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table: explanation behind the ? in the \"AI Triage credits\" column heading (cells read \"left / allocated\")"
+  ]
+ },
+ "Left / allocated: AI Remediation credits the project still holds, out of those it was given ({0} for each confirmed finding). Below, in orange: how many more its confirmed findings need. Click the numbers to give it extra credits.": {
+  "kind": "text",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table: explanation behind the ? in the \"AI Remediation credits\" column heading"
+  ]
+ },
+ "Narrow down": {
+  "kind": "text",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on): link-button that opens the optional narrowing (applications, projects, people, or one vulnerability)"
+  ]
+ },
+ "Narrowed ({0})": {
+  "kind": "text",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on): the same button once some names or a vulnerability are chosen; {0} = how many"
+  ]
+ },
+ "Load only some applications, projects or people, or only the findings of one vulnerability": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on): tooltip of \"Narrow down\""
+  ]
+ },
+ "Only these applications, projects, people or vulnerabilities <span class=\"muted\">— optional</span>": {
+  "kind": "html",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on): heading of the narrowing panel (keep the <span> tag)"
+  ]
+ },
+ "A vulnerability": {
+  "kind": "text",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → narrowing panel: label of the vulnerability search box (load only the findings of one vulnerability, such as SQL injection)"
+  ]
+ },
+ "Choose a scope and load: ageing findings and who ran each scan.": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Get started: the \"Load findings\" step's description"
+  ]
+ },
+ "Load": {
+  "kind": "text",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Get started: the button of the \"Load findings\" step (load the findings)"
+  ]
+ },
+ "Not checked against Checkmarx One yet. Every button below checks first, by itself.": {
+  "kind": "text",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → AI credits panel: status line before the numbers were checked; the button for it is \"Check the numbers again\""
+  ]
+ },
+ "Give it extra AI credits": {
+  "kind": "text",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table → the small editor that opens under a project row to give it extra AI credits: line beside the project's name, saying what this editor is for"
+  ]
+ },
+ "Needs: what its open findings of the chosen severities call for: {0} credit for each Checkmarx One result to triage, {1} for each confirmed finding to remediate. Left: what it holds and has not spent yet. Extra credits come out of the credit pool and stay with this project until you change them.": {
+  "kind": "text",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table → the small editor that opens under a project row to give it extra AI credits: explanation behind its ?"
+  ]
+ },
+ "needs <b>{0}</b>": {
+  "kind": "html",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table → the small editor that opens under a project row to give it extra AI credits: how many credits the project needs (keep the <b> tag)"
+  ]
+ },
+ "left <b>{0}</b>": {
+  "kind": "html",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table → the small editor that opens under a project row to give it extra AI credits: how many credits the project still holds (keep the <b> tag)"
+  ]
+ },
+ "extra": {
+  "kind": "text",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table → the small editor that opens under a project row to give it extra AI credits: word after the number box: extra credits to give"
+  ]
+ },
+ "Extra AI Triage credits": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table → the small editor that opens under a project row to give it extra AI credits: screen-reader name of the number box"
+  ]
+ },
+ "Extra AI Remediation credits": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table → the small editor that opens under a project row to give it extra AI credits: screen-reader name of the number box"
+  ]
+ },
+ "{0} left of {1} allocated, {2} used": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table → the small editor that opens under a project row to give it extra AI credits: tooltip of \"left\""
+  ]
+ },
+ "{0} confirmed finding × {1} credits": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table → the small editor that opens under a project row to give it extra AI credits: tooltip of the AI Remediation need (one finding)"
+  ]
+ },
+ "{0} confirmed findings × {1} credits": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table → the small editor that opens under a project row to give it extra AI credits: tooltip of the AI Remediation need (several findings)"
+  ]
+ },
+ "Save extra credits": {
+  "kind": "text",
+  "seen": [
+   "Workbench page (where findings are loaded and acted on) → Projects table → the small editor that opens under a project row to give it extra AI credits: its main button"
+  ]
+ },
+ "Labs": {
+  "kind": "text",
+  "seen": [
+   "Labs: a separate section at the bottom of the menu for early features still being tried out (it was called Beta). Pick a short word for an experimental lab: the section's name, also shown as the page's stage label"
+  ]
+ },
+ "<i aria-hidden=\"true\"></i>Labs": {
+  "kind": "html",
+  "seen": [
+   "Labs: a separate section at the bottom of the menu for early features still being tried out (it was called Beta). Pick a short word for an experimental lab: the section's name in the menu (keep the <i> tag)"
+  ]
+ },
+ "Code authors": {
+  "kind": "text",
+  "seen": [
+   "Labs → the menu item and page title: who wrote the vulnerable code, and their email"
+  ]
+ },
+ "Labs: who wrote the code, and their email": {
+  "kind": "text",
+  "seen": [
+   "Labs → Code authors: the page subtitle"
+  ]
+ },
+ "Early features, still being tried out: who wrote the code, and their email": {
+  "kind": "attr:title",
+  "seen": [
+   "Labs: a separate section at the bottom of the menu for early features still being tried out (it was called Beta). Pick a short word for an experimental lab: tooltip of the section name"
+  ]
+ },
+ "Code authors → Code authors": {
+  "kind": "text",
+  "seen": [
+   "The \"Jump to…\" list (Ctrl K): the Code authors page, its Code authors tab"
+  ]
+ },
+ "Code authors → Match usernames": {
+  "kind": "text",
+  "seen": [
+   "The \"Jump to…\" list (Ctrl K): the Code authors page, its Match usernames tab"
+  ]
+ },
+ "Code authors → Source-code hosts": {
+  "kind": "text",
+  "seen": [
+   "The \"Jump to…\" list (Ctrl K): the Code authors page, its Source-code hosts tab"
+  ]
+ },
+ "Your appearance": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your appearance: a new page under \"You\" where each person picks their own look (Command center or Classic), theme, accent colour and explanations; it replaces the look menu that was in the top bar: the page's name in the Settings menu and its heading"
+  ]
+ },
+ "How the app looks to you: the same on every computer you sign in from, and in the reports you download. The organisation's look and where the menu sits are set by an admin under Branding.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your appearance: a new page under \"You\" where each person picks their own look (Command center or Classic), theme, accent colour and explanations; it replaces the look menu that was in the top bar: its explanation (behind a ?)"
+  ]
+ },
+ "Settings → Your appearance": {
+  "kind": "text",
+  "seen": [
+   "The \"Jump to…\" list (Ctrl K): the Settings page, its Your appearance section"
+  ]
+ },
+ "What they see under Settings → Your appearance, and the look of the reports they download.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Your profile, when an Admin views someone else's profile: the line under Look"
+  ]
+ },
+ "On: everyone has it unless they pick Classic under Settings → Your appearance. Off: everyone has the classic look, and Your appearance offers only light or dark.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Branding → \"Offer the command-center look\": the line under the switch"
+  ]
  }
 }

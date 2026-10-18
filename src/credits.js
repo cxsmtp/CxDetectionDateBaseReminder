@@ -99,6 +99,16 @@ export class CreditLedger {
     return { triage: k.triage, remediation: k.remediation, total: k.triage + k.remediation };
   }
 
+  /** Credits used for each project since its own date (Map projectId → ISO time): each spend counted once. */
+  usedSinceEach(sinceByProject) {
+    const out = { triage: 0, remediation: 0 };
+    for (const e of this.#entries) {
+      const since = sinceByProject.get(e.projectId);
+      if (since !== undefined && e.at >= since) out[e.kind === 'remediation' ? 'remediation' : 'triage'] += e.credits;
+    }
+    return out;
+  }
+
   /** Credits held for requests still in flight, all projects. */
   get reserved() {
     return this.#reserved;

@@ -20,7 +20,7 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 10. [Impact: hours saved and the security debt](#impact)
 11. [Audit page: credit audit log and backups](#audit-page)
 12. [People & roles](#people--roles)
-13. [Beta page](#beta-page)
+13. [Labs: Code authors](#labs-code-authors)
 14. [Logs page](#logs-page)
 15. [Performance and security status](#performance-and-security-status)
 16. [Everyday recipes](#everyday-recipes)
@@ -36,11 +36,12 @@ The sidebar is grouped by what you came to do:
 
 | Group | Pages | What you do there |
 | --- | --- | --- |
-| **Act** | Workbench, Beta | Fetch ageing findings, see who owns them, remind them, triage and remediate; find who wrote the vulnerable code. |
+| **Act** | Workbench | Load ageing findings, see who owns them, remind them, triage and remediate. |
 | **Follow up** | Dashboard | Follow tracked scopes down to zero and schedule follow-ups. |
 | **Prove** | Credit Control, Impact, Audit | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups. |
 | **Plan** | Cx Credits Calculator | The credits a customer needs for triage and remediation of their backlog and for Fusion scans, and projection reports, from the Checkmarx One tenant. Shown to Admins and the roles an Admin gives its permission to. |
 | **Set up** | People & roles, Settings, Logs | People and roles, configuration, troubleshooting. |
+| **Labs** | Code authors | Early features, set apart at the bottom of the menu: who wrote the vulnerable code, and their email. Shown to roles holding **Beta features**. |
 
 The coloured label next to each page title says which group the page is in.
 
@@ -64,15 +65,15 @@ The coloured label next to each page title says which group the page is in.
 
 **Any screen.** The layout adapts to the screen: a full sidebar on a desktop, an icon rail on a tablet, a bottom bar on a phone, and wide screens use their full width. Tables stay inside their panels: long emails go onto two lines after their @, and below 1024 pixels wide (tablets and phones) the Workbench's projects are shown as one card each, so no column is cut off at the right. The header is one line: the page's name and what it is for.
 
-**Your look: command center or classic, light or dark.** The palette button next to your name opens the look menu:
+<a id="your-appearance"></a>**Your appearance: command center or classic, light or dark.** Settings → **Your appearance** (under **You**, next to Your profile and Your branding) holds how the app looks to you. The sun or moon button in the top bar stays for a quick switch of the theme:
 - **Look**: **Command center** (the default: warm paper or night ink, a dark menu console, headings and figures in Fraunces) or **Classic** (the look before MZ-01.00.77, unchanged).
-- **Theme**: **Auto** (your device's setting), **Light** or **Dark**. The sun or moon button beside it switches the same thing.
+- **Theme**: **Auto** (your device's setting), **Light** or **Dark**. The sun or moon button in the top bar switches the same thing.
 - **Accent**: the command-center look's colour for what you act on: Ink, Lagoon, Sage, Plum or Ochre.
 - **Explanations**: **Behind ?** (the default: each explanation folds behind a small **?** next to its heading, field or option; click the **?** to read it) or **Shown** (every explanation shown, as before). Warnings, statuses and figures are never folded. Kept in this browser.
 
-Your look is saved to your profile, so it is the same on every computer, and the reports you download use it (see [The emailed report](#the-emailed-report)). If an Admin has turned the command-center look off under [Branding](#branding), everyone has the classic look and the menu offers the theme and explanations only.
+Your look is saved to your profile, so it is the same on every computer, and the reports you download use it (see [The emailed report](#the-emailed-report)). The organisation's look is the Admin's: whether the command-center look is offered and where its menu sits are under [Branding](#branding). If an Admin has turned the command-center look off, everyone has the classic look and Your appearance offers the theme and explanations only.
 
-**Fold the menu.** Click a group's name (**Act**, **Follow up**, **Prove**, **Plan**, **Set up**) to fold its pages away, and again to unfold them. The page you are on always stays in view. Remembered in this browser.
+**Fold the menu.** Click a group's name (**Act**, **Follow up**, **Prove**, **Plan**, **Set up**, **Labs**) to fold its pages away, and again to unfold them. The page you are on always stays in view. Remembered in this browser.
 
 **Hide the menu.** **Hide menu** (bottom of the sidebar) turns the sidebar into a slim bar of icons, so the pages get the width. Point at the bar and the full menu opens **over** the page, without moving anything on it; it closes when the pointer leaves or you choose a page. **Keep menu open** (the same place) brings it back beside the page. Your choice is remembered in this browser.
 
@@ -135,7 +136,7 @@ Everyone signs in and has one role. Tabs and buttons you are not allowed to use 
 | --- | --- |
 | **Admin** | Everything, including the Checkmarx One integration, the email server, the credit pool and backups. |
 | **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, beta. |
-| **User** | Fetch findings, send reminders, follow tracked reports, see credits. Settings are read-only. No Access, Audit or Beta. |
+| **User** | Fetch findings, send reminders, follow tracked reports, see credits. Settings are read-only. No Access, Audit or Labs. |
 
 **Cx Credits Calculator** is for Admins; give it to any other role by ticking **Cx Credits Calculator** on People & roles.
 
@@ -656,7 +657,7 @@ Everyone's default branding. Seen by roles with **See the Branding page**, and c
 | Logo height | 16–200 pixels. |
 | Accent colour | Buttons and headings in emails and reports. |
 | Call to action | The sentence above the findings in every email. |
-| Offer the command-center look | On (the default): everyone has the command-center look unless they pick **Classic** in the look menu by their profile. Off: everyone, and every report, has the classic look; the look menu offers only the theme. |
+| Offer the command-center look | On (the default): everyone has the command-center look unless they pick **Classic** under Settings → [Your appearance](#your-appearance). Off: everyone, and every report, has the classic look; the look menu offers only the theme. |
 | Menu in the command-center look | **Down the left side** (the default) or **Along the top**, for everyone. Along the top needs a wide screen (1261 pixels and up); narrower screens keep the side menu, the icon rail or the phone's bottom bar. |
 
 The preview shows the email header exactly as recipients will see it. The look of the app, and where its menu sits, change for everyone as soon as they are saved; see [the look of the app](branding.md#the-look-of-the-app-command-center-or-classic).
@@ -696,7 +697,7 @@ Where findings are read from. The default is `/api/risks/`.
 - **Hover** a stage for the detail. **Triage** and **Remediate** open **AI credits**; **Fix** and **Verify** open Reports.
 
 **How the page is laid out.** One compact block at the top, then the projects.
-- **The top block** holds what to load (both windows, **Narrow to applications, projects or people**, **Find a vulnerability**, **Load findings**), one line of totals and the way to Mission Zero. It takes about a fifth of a 1080p screen and under a third of a laptop's, and **stays in view** while you scroll: the scope and **Load findings** are always at hand.
+- **The top block** holds what to load (both windows, engines, branch, **Narrow down** and **Load findings**), one line of totals and the way to Mission Zero. It takes about a fifth of a 1080p screen and under a third of a laptop's, and **stays in view** while you scroll: the scope and **Load findings** are always at hand.
 - **The projects scroll with the page.** There is one scroll bar: the table has none of its own, and its header row stays under the top block as you scroll. The action panel beside it stays in view too.
 - On a screen narrower than 1100 px, or less than 640 px tall, the top block scrolls away with the page instead.
 
@@ -720,10 +721,10 @@ Everything you do with the projects is in the **action panel**, with four tabs:
 | Findings first detected in | Only findings first detected in this window. Checkmarx One filters them. **Last week** by default. |
 | Engines | Which Checkmarx One engines' findings are loaded. **SAST** and **SCA** are ticked by default: they are the engines AI Triage and AI Remediation work on. Tick **IaC**, **Containers**, **API Security** or **Secrets** to add theirs (marked **No AI**), or untick SCA to focus on code only. At least one stays ticked; the choice is remembered in this browser. Changed after a load, it says so: **Load findings** again applies it. Everything that follows works on these engines only: the totals and the projects table, reports and reminders (a report says **Engines: SAST, SCA** at its top), tracked reports saved from here, and AI credits (allocate, triage, remediate, verified twice on these engines' findings). |
 | Branch | Which branch's findings count. A project is usually scanned on several branches (main, release, feature branches), and counting each would count the same vulnerability several times. By default (**Primary branch**) only each project's primary branch counts: the one set for the project in Checkmarx One, else **main**, else **master**; a project with none of those set or scanned counts the branch of its latest scan. Its latest completed scan there is the one used, findings from other branches' scans are left out, and the projects table, reports, reminders, tracked reports, credits and verification rescans follow it. Tick **Every branch** to count every branch's findings, as before. Two more boxes: **Leave out projects with no lines of code** (ticked by default: a project whose scan counted no code has nothing to analyse) and **Leave out projects with no open findings** (off by default: keep them in for a compliance report that must list every project). After a load, a line under the row says how many projects were left out and why: a primary branch with no completed scan, no lines of code, or no open findings. The choice is remembered in this browser. |
-| Only these applications, projects or people | Optional; open it with **Narrow to applications, projects or people**. **Applications**: the applications defined in Checkmarx One; type to pick one, and every project in it is fetched (the list says how many each holds). **Projects, by name**: type to pick, or press Enter to add every project whose name contains the text. **People who ran the latest scan**: a username or an email. Any mix works: an application and two more projects fetch all of them. Only those projects are fetched, which is the fastest fetch. |
-| Find a vulnerability | Optional: type what to find (**SQL injection**, **SSRF**, **path traversal**, **CWE-89**) and press **Search**. Only the findings of that vulnerability are loaded, and only the projects that have it are shown. |
+| Only these applications, projects, people or vulnerabilities | Optional; open it with **Narrow down** (it reads **Narrowed (N)** while something is chosen). **Applications**: the applications defined in Checkmarx One; type to pick one, and every project in it is fetched (the list says how many each holds). **Projects, by name**: type to pick, or press Enter to add every project whose name contains the text. **People who ran the latest scan**: a username or an email. Any mix works: an application and two more projects fetch all of them. Only those projects are fetched, which is the fastest fetch. |
+| A vulnerability (in **Narrow down**) | Optional: type what to find (**SQL injection**, **SSRF**, **path traversal**, **CWE-89**) and press **Search**. Only the findings of that vulnerability are loaded, and only the projects that have it are shown. |
 
-**Find a vulnerability, and fix it here.** The search box beside **Narrow to applications, projects or people** loads only the findings whose name matches, so you can go after one kind of weakness across every project:
+**Find a vulnerability, and fix it here.** The search box in **Narrow down** loads only the findings whose name matches, so you can go after one kind of weakness across every project:
 - It ignores case, underscores and dashes, and a word may be the start of a longer one: *sql inject* finds *SQL_Injection* and *Blind_SQL_Injections*.
 - Usual short forms work: *SSRF* also finds *Server_Side_Request_Forgery*; *XSS* finds cross-site scripting, *SQLi* SQL injection, *XXE*, *CSRF*, *RCE*, *LFI*. *CWE-89* finds findings of that weakness.
 - Several at once: separate them with commas (*SSRF, path traversal*).
@@ -754,10 +755,10 @@ Each finding falls into an age bucket by when it was **first detected**:
 | **Columns** | Add the age-bucket and per-severity columns, and (with SLAs) **Past SLA** and **Due ≤ 7d**. Your choice is remembered in this browser. |
 | **Export CSV** | Every shown project, every column, with credits. |
 | Tick boxes | Select projects. Reminders, credits and tracking apply to the selection, or to every shown project when none is selected. |
-| Total vulnerabilities | Open vulnerabilities of every severity in the project, in the period chosen above. |
-| Oldest open since | When the project's oldest open vulnerability was first found, and how many days ago. |
+| Open findings | Open findings of every severity in the project, in the period chosen above. A finding is one place where Checkmarx One found a vulnerability. (It was called **Total vulnerabilities**.) |
+| Oldest open since | When the project's oldest open finding was first found, and how many days ago. |
 | Last scanned by | Who ran the project's last scan, and the email it resolved to: reminders go to them. |
-| AI Triage / AI Remediation credits | Left / allocated, and how many more are needed. |
+| AI Triage / AI Remediation credits | **Left / allocated** (the **?** in the heading says so), and in orange how many more are needed. Click the numbers to open the project's credit editor: **Give it extra AI credits**, with what the project **needs**, what it has **left**, a box for the **extra** credits of each kind, and **Save extra credits**. Extra credits come out of the credit pool and stay with the project until you change them. |
 | Action panel → **Track** → **Save as tracked report** | Follow these projects and filters over time (see [Dashboard](#dashboard-tracked-reports)). |
 
 ### 4. AI Triage & Remediation credits
@@ -771,7 +772,7 @@ Each finding falls into an age bucket by when it was **first detected**:
 
 | Button | What it does |
 | --- | --- |
-| **Refresh & verify with Checkmarx One** (green border) | Re-reads the findings twice, independently. The numbers are marked verified only when both reads agree. Every button below runs it first by itself. |
+| **Check the numbers again** (green border) | Re-reads the findings twice, independently. The numbers are marked confirmed only when both reads agree. Every button below runs it first by itself, so you rarely need to press it. |
 | **Give credits** (AI check) | Verifies first, then shows what will be given and asks you to confirm. Credits come out of the credit pool. |
 | **Triage with AI Assist now** | Runs AI Triage on the selected projects' findings, within their credits. |
 | **Give credits** (AI fix) | The same, for confirmed findings. |
@@ -781,7 +782,7 @@ Each finding falls into an age bucket by when it was **first detected**:
 | Extra credits → **Add extra credits** | Gives every selected project a fixed extra amount. |
 | Extra credits → **Take back extra credits** | Returns the extras. |
 
-**Every action checks first.** Each button in this panel (allocate, triage, remediate, extra credits, taking credits back) first runs **Refresh & verify**. Allocating, triaging and remediating check only the projects that have something to triage or remediate (not every project shown), each project's two reads side by side, 8 projects at once. Matching each finding to its Checkmarx One result reads the scan's result list once, without code paths and 8 pages at a time, and keeps it for 10 minutes for your sign-in (a scan's results do not change), so the second read and the allocation after it reuse it: a check that took close to two minutes on a large scan takes seconds. Developers may be triaging or remediating in Checkmarx One itself, or from their emailed report, while you look at this page.
+**Every action checks first.** Each button in this panel (allocate, triage, remediate, extra credits, taking credits back) first checks the numbers again (as **Check the numbers again** does). Allocating, triaging and remediating check only the projects that have something to triage or remediate (not every project shown), each project's two reads side by side, 8 projects at once. Matching each finding to its Checkmarx One result reads the scan's result list once, without code paths and 8 pages at a time, and keeps it for 10 minutes for your sign-in (a scan's results do not change), so the second read and the allocation after it reuse it: a check that took close to two minutes on a large scan takes seconds. Developers may be triaging or remediating in Checkmarx One itself, or from their emailed report, while you look at this page.
 - **Nothing changed:** the action goes ahead with the confirmed numbers.
 - **Something changed** (for example, results to triage 10 → 8, or remediation credits left 6 → 3): the action is **cancelled**. The panel now shows the real numbers, and a message lists exactly what changed. Click again to go ahead with them.
 - **The two reads disagree** (someone is working on those findings right now): the action is cancelled. Wait a moment and click again.
@@ -889,12 +890,15 @@ Save a scope from the Workbench (**Save as tracked report**) and follow it over 
 
 | Tile | What it counts |
 | --- | --- |
-| **Findings tracked** | The findings all reports covered when saved. |
-| **Actioned** | The share triaged (confirmed or not exploitable) or no longer detected. |
-| **Open now** | Awaiting triage, confirmed, or new. |
-| **New since saved** | New findings matching the reports' filters. |
-| **Follow-ups scheduled** | How many reports send reminders by themselves, and when the next one goes out. |
-| **AI credits used** | Triage / remediation, on the reports' projects since they were saved. |
+| **Findings tracked** | The findings the reports held when saved (or when their round began), added up; a finding in two reports counts in both. Under it, the % **actioned** (confirmed, not exploitable or no longer detected), and how many reports are not measured yet. |
+| **Awaiting triage** | Still To verify: nobody has triaged them. |
+| **Confirmed** | Triaged as Confirmed or Urgent: real, and still to be fixed. |
+| **Closed** | Triaged as not exploitable, or no longer detected. **No longer detected is not proof of a fix**: Checkmarx One no longer reports the finding, which can also mean the code changed or the project was not scanned since. Only a [verification rescan](#dashboard-tracked-reports) proves a fix. |
+| **New since saved** | Findings **first found after the report was saved** that match its filters. A finding that was there all along and only now matches (for example, one that aged past 60 days into a "> 60 days" report) is not new. |
+| **Follow-ups scheduled** | How many reports send reminders by themselves, and when the next one goes out. Set one up in a report's **Remind** tab → **Automatic follow-up**. |
+| **AI credits used** | Triage / remediation credits spent on the reports' projects since they were saved. A project in two reports is counted once. |
+
+**The first row adds up:** Findings tracked = Awaiting triage + Confirmed + Closed. Each tile's **?** says what it counts. A report's **Open** (in the list, and **Open now** in its overview) is awaiting triage + confirmed + new: what is still to deal with before it reaches zero.
 
 **The list: one row per report**
 - **Progress:** a bar of what happened to its findings (aqua: no longer detected, blue: not exploitable, orange: confirmed; the grey rest is still open) and the % actioned.
@@ -1058,9 +1062,9 @@ Identity and access management, in three tabs.
 
 ---
 
-## Beta page (Code authors)
+## Labs: Code authors
 
-Early features: check what they find before relying on them. A feature an Admin made final ([Settings → Beta features](#beta-features-admin)) loses its Beta label, and the page is called **Code authors** in the sidebar once that one is final. Details are in [beta-features.md](beta-features.md). Three tabs: **Code authors**, **Match usernames**, **Source-code hosts** (the connections: GitHub, GitLab, Azure DevOps, Bitbucket).
+Early features, in their own **Labs** section at the bottom of the menu (it was the **Beta** item under Act): check what they find before relying on them. A feature an Admin made final ([Settings → Beta features](#beta-features-admin)) loses its Beta label. Details are in [beta-features.md](beta-features.md). Three tabs: **Code authors**, **Match usernames**, **Source-code hosts** (the connections: GitHub, GitLab, Azure DevOps, Bitbucket).
 - **Email the authors of vulnerable code.** Finds who last changed the vulnerable line, and emails them.
   - **Where the code is:** GitHub, GitLab, Azure DevOps or Bitbucket.
   - **Through the host's API** where it has one: GitHub, GitLab and Bitbucket Data Center, one request per file.
@@ -1227,7 +1231,7 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 4. **Triage with AI Assist now.** Each developer is emailed that triage ran on their behalf.
 
 **Remediate what triage confirmed**
-1. Fetch again (or use **Refresh & verify**).
+1. Load findings again (or use **Check the numbers again**).
 2. **Give credits** (AI fix), then **Remediate with AI Assist now**: check the list and the cost, then confirm.
 
 **Give a project credits without loading findings**
@@ -1274,7 +1278,7 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | The report says it cannot reach the server | Be on the company network or VPN. Check **Settings → Reminder server address**, and use **Change address** in the report if the server moved. |
 | More rows than credits needed | Several rows can be one Checkmarx One result (marked **Same result R1** …). You are charged per result. |
 | "Fetch still running" when you click Allocate or Triage | Wait for the green **Data fetch complete** flare. |
-| "Could not be confirmed twice" when allocating | Someone was triaging, or a scan finished, between the two reads. Wait a minute and use **Refresh & verify** again. |
+| "Could not be confirmed twice" when allocating | Someone was triaging, or a scan finished, between the two reads. Wait a minute and use **Check the numbers again**. |
 | "… cancelled: Checkmarx One changed since this page last showed it" | Someone triaged or remediated meanwhile, in Checkmarx One or from a report. The panel now shows the real numbers; click the button again. |
 | "CxMissionZero is restarting for an update — reconnecting…" | A new version is being applied. Wait a few seconds; you stay signed in and nothing is lost. |
 | A report says "busy, retrying" | Many reports are open at once. It retries by itself; nothing is lost. |

@@ -103,3 +103,47 @@ test('progress counts the confirmed results AI Remediation can still act on, by 
   assert.deepEqual(progress.toRemediate, { CRITICAL: 1, HIGH: 1 });
   assert.deepEqual(computeProgress(report, current, resolveWindow({ preset: '90d' }, 'x', now), () => ({ triage: 0, remediation: 0 }), now).toRemediate, { CRITICAL: 1, HIGH: 2 }, 'nothing remediated yet');
 });
+
+test('new means first found after the baseline was read, not an old finding that now matches', () => {
+  // Saved on 1 September from data read on 31 August; the ages filter is "> 60 days".
+  const store = new TrackedReports({ file: path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'track-')), 't.json') });
+  const report = store.create(
+    {
+      name: 'Old ones',
+      filters: { severities: ['HIGH'], buckets: ['60+'], detection: { preset: 'any' } },
+      scopeLabel: 'test',
+      projects: [{ projectId: 'p1', projectName: 'Payments' }],
+      findings: [{ projectId: 'p1', ...risk('a', 'HIGH', 'TO_VERIFY', 200) }],
+      readAt: '2026-08-31T09:00:00Z',
+    },
+    new Date('2026-09-01T00:00:00Z'),
+  );
+  assert.equal(report.baseline.readAt, '2026-08-31T09:00:00.000Z');
+  const current = new Map([
+    ['p1', [
+      risk('a', 'HIGH', 'CONFIRMED', 200),
+      // Was 40 days old when saved, 70 now: it aged into "> 60 days". Not new.
+      risk('aged', 'HIGH', 'TO_VERIFY', 70),
+      // First found after the data was read (on 31 August, 13:00), and over 60 days old by some quirk of the filters: new.
+      { ...risk('fresh', 'HIGH', 'TO_VERIFY', 70), firstDetectedAt: '2026-08-31T13:00:00Z' },
+      // No date at all: cannot be shown to be new.
+      { riskId: 'undated', severity: 'HIGH', state: 'TO_VERIFY', bucket: '60+' },
+    ]],
+  ]);
+  const progress = computeProgress(report, current, null, () => ({ triage: 0, remediation: 0 }), now);
+  assert.equal(progress.newFindings, 1, 'only "fresh"');
+  assert.equal(progress.newOpen, 1);
+  assert.equal(progress.currentMatching, 4, 'every finding the filters match today still counts as matching');
+  assert.equal(progress.open, 2, 'the confirmed baseline finding and the new one');
+  const o = progress.outcomes;
+  assert.equal(o.awaiting + o.confirmed + o.notExploitable + o.resolved, progress.baseline, 'the outcomes always add up to the baseline');
+  assert.equal(progress.byProject[0].newOpen, 1);
+});
+
+test('a report saved before the read time was kept counts new from when it was saved', () => {
+  const { report } = setup();
+  delete report.baseline.readAt;
+  const current = new Map([['p1', [{ ...risk('late', 'HIGH'), firstDetectedAt: '2026-08-31T23:00:00Z' }, { ...risk('later', 'HIGH'), firstDetectedAt: '2026-09-01T01:00:00Z' }]]]);
+  const progress = computeProgress(report, current, null, () => ({ triage: 0, remediation: 0 }), now);
+  assert.equal(progress.newFindings, 1, 'only the one found after 1 September, 00:00');
+});
