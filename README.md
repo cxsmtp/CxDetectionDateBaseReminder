@@ -254,7 +254,7 @@ Every release is load-tested and checked before it ships. These are the latest; 
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.81** | 345/s, 1,388 failed at the connection on a slower host (main 333, 1,691 on the same host) | 33.3 s | 14.2 s | 685 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
+| **MZ-01.00.82** | 492/s, 0 failed (main 489, 0; the first pair 48 against 104, in host stalls) | 9.6 s | 1.5 s | 688 pass | 0 vulnerabilities (nodemailer 10.0.13) | Rescan fe2eb036 (2026-10-18, every engine): 4 critical, 39 high, 17 medium, 26 low, 1 info, none triaged yet. Checked: the 3 critical secrets are an example GUID in tests, the critical SAST hit is the load-test mock (not shipped), nodemailer's CVE-2026-110869 is fixed here, zlib's CVE-2026-85091 is in the alpine base (the build's `apk upgrade` takes alpine's fix); 43 new since rescan 27982f85, mostly SAST in code added since, are still to triage |
 | MZ-01.00.73 | 507/s, 0 failed (main 497, 10) | 6.8 s | 615 ms | 645 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.60 | 505/s, 0 failed (main 499, 0 failed) | 6.9 s | 501 ms | 566 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.59 | 513/s, 0 failed (main 518, 0 failed) | 6.2 s | 229 ms | 565 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |

@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.82 | 492/s, 0 (main 489, 0; the first pair 48 against 104, in host stalls) | 9.6 s | 1.5 s | 688 | 0 vulnerabilities (nodemailer 10.0.13) | Rescan fe2eb036: 4 critical, 39 high, 17 medium, 26 low, none triaged yet; 43 new since rescan 27982f85 still to triage (see [status](docs/status.md)) |
 | MZ-01.00.81 | 345/s, 1,388 at the connection on a slower host (main 333, 1,691 there) | 33.3 s | 14.2 s | 685 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.80 | 488/s, 0 (main 477, 38; 15 reset in one opening burst) | 9.6 s | 1.8 s | 685 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
 | MZ-01.00.79 | 472/s, 0 (main 483, 0; 62 and 117 in host stalls before) | 9.0 s | 1.6 s | 685 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -67,6 +68,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.82 — DATE · [#NN](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/NN)
+
+- **Dashboard figures that add up.** Findings tracked is now split into Awaiting triage, Confirmed and Closed, which add up to it; a finding is **new since saved** only when Checkmarx One first found it after the report was saved, not when an older one ages into the filters; AI credits are counted once when reports share projects; and each tile's **?** says what it counts, including that "no longer detected" is not proof of a fix.
+- **Labs.** The Beta item leaves the main menu for its own **Labs** section at the bottom, where its page is called **Code authors**.
+- **Your appearance.** Your look, theme, accent and explanations move from the top bar to Settings → **Your appearance**; the organisation's look and menu position stay with the Admin under Branding, and the light/dark switch stays in the top bar.
+- **A calmer Workbench.** The vulnerability search moves into **Narrow down**, the per-project credit editor says what it is for (**Give it extra AI credits**: needs, left, extra, **Save extra credits**), the credit columns explain "left / allocated" behind a **?**, the action panel's tabs no longer cover the selection line, and the page says "findings" throughout.
+- **Fixes.** The AI credits panel names its own button (**Check the numbers again**), the Dashboard points to **Remind → Automatic follow-up** for scheduling, the menu's group names translate again, and Get started no longer shows a finished step as still to do.
+- **Safer mail.** nodemailer goes to 10.0.13, closing a slowdown a hostile mail server could cause (CVE-2026-110869).
+- **In fourteen languages.** Every new wording is translated and reviewed twice.
+- **Status.** 3000 people at once on 2 vCPU: 492 requests a second with none failed in the last of three pairs with main (main 489, none failed; in the first pair both met host stalls, 48 failed against main's 104), and as fast as main in the browser ([performance](docs/performance.md)); 688 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; Checkmarx One rescan fe2eb036 (every engine) finds 4 critical, 39 high, 17 medium and 26 low, none triaged yet: the critical ones are an example GUID in tests and the load-test mock (neither shipped), the nodemailer CVE is fixed here, and the 43 new since rescan 27982f85 are still to triage ([status](docs/status.md)).
 
 ## MZ-01.00.81 — 2026-10-16 09:58 UTC · [#104](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/104)
 
