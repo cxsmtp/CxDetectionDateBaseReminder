@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.85 | 498/s and 513/s, 0 (main 491 and 520, 0) | 6.3 s | 463 ms | 705 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.84 | 502/s, 0 (main 497, 0) | 6.7 s | 593 ms | 698 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.83 | 521/s, 0 (main 519, 0; the first pair 520 against 525, 0) | 2.1 s | 205 ms | 696 | 0 vulnerabilities | No new scan; the 3 critical secret findings of rescan fe2eb036 marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.82 | 492/s, 0 (main 489, 0; the first pair 48 against 104, in host stalls) | 9.6 s | 1.5 s | 688 | 0 vulnerabilities (nodemailer 10.0.13) | Rescan fe2eb036: 4 critical, 39 high, 17 medium, 26 low, none triaged yet; 43 new since rescan 27982f85 still to triage (see [status](docs/status.md)) |
@@ -70,6 +71,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.85 — 2026-10-19 21:20 UTC · [#108](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/108)
+
+- **Smart credit buttons.** A tracked report's Triage tab has one row for AI Triage and one for AI Remediation, each with one button to allocate and one to run, chosen from the findings' severities and the credits held: **Triage critical & high** in gold when the credits cover it, **Allocate for critical, high & medium** for the next step, and **Triage all** once everything is covered.
+- **Triage and remediation allocated on their own.** Credit Control has **Allocate for triage** and **Allocate for remediation**, lined up with the run buttons, and turns them gold only when projects are ticked and their credits cover what is needed; the Workbench's buttons line up too and say which severities they cover.
+- **A deleted project no longer stops allocating.** A project removed from Checkmarx One after it was given credits used to fail the allocation for every project with "GET /api/risks/… 404"; it is now skipped, named, and marked on Credit Control so its credits can be taken back.
+- **Gold sooner, reports quicker.** Allocating reads each project from Checkmarx One twice instead of three times, and the HTML report reuses the result ids already read: building it again takes 0.2 s instead of 1.25 s for 12,000 findings.
+- **No text drawn over text.** The engines menu opens above the tiles, table headings that stay in view and the bar along the top are solid in every look, the tablet menu fits every page's name, and Credit Control's choices are never cut.
+- **Calculator PDF: Appendix – Calculations.** The fourth slide opens the appendix and lists the pages that follow: seven slides in all.
+- **Status.** 3000 people at once on 2 vCPU: 498 and 513 requests a second with none failed (main 491 and 520, none failed) and 6% fewer calls to Checkmarx One; report opens 6.3 s and triage polls 463 ms at p95, a little above main because analysts' Triage now ran a third faster and sent more for triage ([performance](docs/performance.md)); 705 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan, rescan fe2eb036's open findings as before ([status](docs/status.md)).
 
 ## MZ-01.00.84 — 2026-10-19 19:10 UTC · [#107](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/107)
 
