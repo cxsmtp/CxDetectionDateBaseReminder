@@ -70,7 +70,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.83 — 2026-10-19 16:23 UTC · [#106](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/106)
+## MZ-01.00.83 — 2026-10-19 16:38 UTC · [#106](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/106)
 
 - **Nine looks to choose from.** The command-center look stays everyone's default; alongside it come Cabin (a luxury car's cockpit at night, with a line of ambient light in your accent colour), Circuit (a sports car's gauges, with a needle on the Dashboard), Residence (a grand hotel: ivory, navy and gold), Chronometer (a fine watch: green, gold and a fluted bezel), Signal, Studio and Atelier, and Classic as before.
 - **The Admin sets the look for everyone; each person may pick their own.** Settings → Branding shows every look as a small picture to choose the organisation's from, and a switch to let people choose their own under Settings → Your appearance (on by default); a server that had the command-center look turned off keeps Classic for everyone.
