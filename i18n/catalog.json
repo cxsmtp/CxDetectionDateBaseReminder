@@ -23458,5 +23458,275 @@
    "first start › small › Look of the app",
    "sign in › small › Look"
   ]
+ },
+ "Each row offers one step: allocate the credits for the next severities, then run AI on everything the credits cover, critical first. The button turns gold when the credits are there.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Nothing awaiting triage.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Nothing confirmed to remediate yet: AI Triage confirms findings first.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Triage critical": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Remediate critical": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Allocate for critical": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Triage critical & high": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Remediate critical & high": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Allocate for critical & high": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Triage critical, high & medium": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Remediate critical, high & medium": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Allocate for critical, high & medium": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Triage all": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Remediate all": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Allocate for all": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Triage ticked severities": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Remediate ticked severities": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Results awaiting triage:": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Confirmed to remediate:": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Critical {0}": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "High {0}": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Medium {0}": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Low {0}": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "<b>{0}</b> credits needed to triage": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "<b>{0}</b> credits needed to remediate": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "<b>{0}</b> left": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "About {0} more credits, confirmed with Checkmarx One as they are given": {
+  "kind": "attr:title",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Allocate credits first": {
+  "kind": "attr:title",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Allocate for triage": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "{0} credits left": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "{0} credits left · {1} needed": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "{0} project ticked.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "{0} projects ticked.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "{0} project ticked. Load them on the Workbench to see what they need; the buttons turn gold once their credits cover it.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "{0} projects ticked. Load them on the Workbench to see what they need; the buttons turn gold once their credits cover it.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "Every project. Tick projects to see what they need: the buttons turn gold once their credits cover it.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "No longer in Checkmarx One: take its credits back.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "Enter the credits to add.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Add {0} triage and {1} remediation credit(s) to each of this report's projects, from the credit pool?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Allocate AI Triage credits from the credit pool to this report's projects: what their findings at the severities on the button need (1 per Checkmarx One result), confirmed with Checkmarx One as they are given?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Allocate AI Remediation credits from the credit pool to this report's projects: what their confirmed findings at the severities on the button need (3 per confirmed result), confirmed with Checkmarx One as they are given?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Run AI Remediation on this report's confirmed findings at the severities on the button? It uses 3 Checkmarx One credits each.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Run AI Triage on this report's findings at the severities on the button that are still awaiting triage? It uses Checkmarx One credits.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Allocate AI Triage credits (1 per Checkmarx One result) from the credit pool to the ticked projects (none ticked: every project holding credits): what the ticked severities need, plus any extra entered?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Allocate AI Remediation credits (3 per confirmed result) from the credit pool to the ticked projects (none ticked: every project holding credits): what the ticked severities need, plus any extra entered?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
  }
 }
