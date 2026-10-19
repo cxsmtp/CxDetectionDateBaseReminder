@@ -3319,7 +3319,7 @@ const NOT_EXPLOITABLE_STATES = new Set(['NOT_EXPLOITABLE', 'PROPOSED_NOT_EXPLOIT
 async function withoutNotExploitable(session, risks) {
   if (settingsStore.get().aiTriage?.skipNotExploitable === false) return risks;
   const live = new Map();
-  await mapWithConcurrency([...new Set(risks.map((r) => r.projectId))], 3, async (projectId) => {
+  await mapWithConcurrency([...new Set(risks.map((r) => r.projectId))], 6, async (projectId) => {
     try {
       live.set(projectId, await projectStates(session, projectId));
     } catch (error) {
@@ -6090,7 +6090,12 @@ async function currentFindings(session, projects, { branches = 'primary', skipGo
 
 /** A read that found nothing (404) because the project itself is no longer in Checkmarx One. */
 async function goneFromCheckmarx(client, projectId, error) {
-  if (error?.status !== 404 || !client) return false;
+  return error?.status === 404 && projectMissing(client, projectId);
+}
+
+/** Checkmarx One answers 404 for the project itself: deleted, or out of this key's sight. */
+async function projectMissing(client, projectId) {
+  if (!client) return false;
   try {
     await client.request(`/api/projects/${encodeURIComponent(projectId)}`, { retries: 0 });
     return false;
@@ -6721,15 +6726,15 @@ app.get(
  * Give `projects` what the `wanted` severities of their findings still need
  * (confirmed by two agreeing reads of Checkmarx One, never an estimate), plus
  * extra credits each, out of the credit pool. The severities join each
- * project's rule. Returns the refusal ({ error }) or null once given.
+ * project's rule. Those two reads are the only reads: extra credits alone need
+ * none. A project deleted from Checkmarx One is left out and named.
+ * Returns { error, gone } when refused, else { gone, byProject } (the verified findings).
  */
-async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, extraRemediation, where, details, engines = null, branches = 'primary', kinds = CREDIT_KINDS }) {
+async function allocateNeeded(req, projects, { wanted, extraTriage, extraRemediation, where, details, engines = null, branches = 'primary', kinds = CREDIT_KINDS }) {
   const actor = await adminActor(req);
-  const before = new Map(projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
-  for (const { projectId, projectName } of projects) {
-    if (wanted.length) allocations.setSeverities(projectId, projectName, SEVERITIES.filter((s) => wanted.includes(s) || allocations.severitiesOf(projectId).includes(s)));
-  }
   const verifiedRisks = new Map();
+  const gone = [];
+  const ruleWith = (projectId) => SEVERITIES.filter((s) => wanted.includes(s) || allocations.severitiesOf(projectId).includes(s));
   if (wanted.length) {
     // Each project's latest scan on the branch that counts (every branch's latest, when asked for).
     const branchChoice = await branchChoiceFor(req.session, projects, branches);
@@ -6738,23 +6743,30 @@ async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, e
     const refused = [];
     await mapWithConcurrency(projects, 3, async (p) => {
       try {
-        const { second, agreed } = await doubleRead(req.session, p, { scanIdOf, branchChoice });
+        // Read under the rule it is about to get (its own severities and the wanted ones), as the need is counted.
+        const { second, agreed } = await doubleRead(req.session, p, { scanIdOf, branchChoice, severities: ruleWith(p.projectId) });
         if (agreed) verifiedRisks.set(p.projectId, second.summary.risks);
         else refused.push(`${p.projectName}: ${DISAGREED}`);
       } catch (error) {
-        refused.push(`${p.projectName}: could not read Checkmarx One (${error.message})`);
+        if (await projectMissing(req.session.client, p.projectId)) gone.push({ projectId: p.projectId, projectName: p.projectName });
+        else refused.push(`${p.projectName}: could not read Checkmarx One (${error.message})`);
       }
     });
     if (refused.length) {
-      allocations.save();
       const reason = `Not allocated: what the projects need could not be confirmed twice with Checkmarx One. ${refused[0]}`;
       audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: 0, charged: 0 }, details });
-      return { error: reason };
+      return { error: reason, gone };
     }
+  }
+  projects = projects.filter((p) => !gone.some((g) => g.projectId === p.projectId));
+  if (!projects.length) return { error: goneText(gone), gone };
+  const before = new Map(projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
+  for (const { projectId, projectName } of projects) {
+    if (wanted.length) allocations.setSeverities(projectId, projectName, ruleWith(projectId));
   }
   const plan = projects.map(({ projectId, projectName }) => {
     // Only the findings of the engines chosen count towards the need.
-    const risks = (verifiedRisks.get(projectId) ?? byProject.get(projectId) ?? []).filter((r) => inEngines(r, engines));
+    const risks = (verifiedRisks.get(projectId) ?? []).filter((r) => inEngines(r, engines));
     const { shortfall } = allocations.need(projectId, risks);
     const wants = (kind) => wanted.length > 0 && kinds.includes(kind);
     return { projectId, projectName, triage: wants('triage') ? shortfall.triage : 0, remediation: wants('remediation') ? shortfall.remediation : 0 };
@@ -6765,7 +6777,7 @@ async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, e
     allocations.save();
     const reason = `Only ${pool.unallocated} credit${pool.unallocated === 1 ? '' : 's'} left in the credit pool to give; ${given} needed for ${where}.`;
     audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { ...details, pool } });
-    return { error: `${reason} Raise the pool under Settings → AI & credits.`, pool };
+    return { error: `${reason} Raise the pool under Settings → AI & credits.`, pool, gone };
   }
   for (const { projectId, projectName, triage, remediation } of plan) {
     if (triage) allocations.grant(projectId, projectName, 'triage', triage);
@@ -6781,7 +6793,7 @@ async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, e
       reason: `Changed from ${where}.`,
     });
   }
-  return null;
+  return { gone, byProject: verifiedRisks };
 }
 
 const CREDIT_KINDS = ['triage', 'remediation'];
@@ -6801,15 +6813,12 @@ app.post('/api/credits/allocate-needed', requirePermission('credits.allocate'), 
   const chosen = new Set(idList(req.body?.projectIds));
   const projects = allocations.list().filter((p) => !chosen.size || chosen.has(p.projectId)).map((p) => ({ projectId: p.projectId, projectName: p.projectName || p.projectId }));
   if (!projects.length) return res.status(400).json({ error: 'Give credits to a project first.' });
-  const byProject = await currentFindings(req.session, projects, { branches: req.body?.branches, skipGone: true });
-  const { gone } = byProject;
-  const present = projects.filter((p) => !gone.some((g) => g.projectId === p.projectId));
-  if (!present.length) return res.status(409).json({ error: goneText(gone), gone });
   const engines = engineScope(req.body?.engines);
-  const refused = await allocateNeeded(req, present, byProject, {
-    wanted, extraTriage, extraRemediation, engines, branches: req.body?.branches, kinds: kindsOf(req.body?.kind), where: 'Credit Control', details: { projectIds: present.map((p) => p.projectId), engines: engines ?? 'all', kind: req.body?.kind ?? 'both' },
+  const done = await allocateNeeded(req, projects, {
+    wanted, extraTriage, extraRemediation, engines, branches: req.body?.branches, kinds: kindsOf(req.body?.kind), where: 'Credit Control', details: { projectIds: projects.map((p) => p.projectId), engines: engines ?? 'all', kind: req.body?.kind ?? 'both' },
   });
-  if (refused) return res.status(409).json({ ...refused, gone });
+  if (done.error) return res.status(409).json(done);
+  const { gone } = done;
   for (const p of req.session.lastScan?.projects ?? []) if (allocations.get(p.projectId)) p.credits = creditView(p);
   res.json({ pool: creditPool(), allocations: allocations.list(), gone, goneNote: gone.length ? `Skipped: ${goneText(gone)}` : '' });
 }));
@@ -6827,15 +6836,13 @@ app.post(
     if (!wanted.length && !extraTriage && !extraRemediation) {
       return res.status(400).json({ error: 'Pick severities, or enter credits to add.' });
     }
-    const byProject = await currentFindings(req.session, report.projects, { branches: report.filters.branches ?? 'all', skipGone: true });
-    const { gone } = byProject;
-    const present = report.projects.filter((p) => !gone.some((g) => g.projectId === p.projectId));
-    if (!present.length) return res.status(409).json({ error: goneText(gone), gone });
-    if (!gone.length) trackedReports.record(report, progressFor(report, byProject));
-    const refused = await allocateNeeded(req, present, byProject, {
+    const done = await allocateNeeded(req, report.projects, {
       wanted, extraTriage, extraRemediation, engines: report.filters.engines, branches: report.filters.branches ?? 'all', kinds: kindsOf(req.body?.kind), where: `tracked report "${report.name}"`, details: { report: report.id, kind: req.body?.kind ?? 'both' },
     });
-    if (refused) return res.status(409).json({ ...refused, gone });
+    if (done.error) return res.status(409).json(done);
+    const { gone } = done;
+    // The two reads that confirmed the need are the report's current findings too.
+    if (wanted.length && !gone.length) trackedReports.record(report, progressFor(report, done.byProject));
     res.json({ report: trackedView(report), gone, goneNote: gone.length ? `Skipped: ${goneText(gone)}` : '' });
   }),
 );
@@ -8268,10 +8275,12 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   const findings = ranked.slice(0, REPORT_TOP_N);
   const bulkFindings = ranked.slice(REPORT_TOP_N).filter((f) => BULK_SEVERITIES.includes(f.severity));
   const scanIdOf = (finding) => initiatorsByProject[finding.projectId]?.scanId ?? '';
-  // Each scan's results are read once, for the AI ids and for the code locations.
-  const resultsCache = new Map();
-  await resolveAiIds(session.client, [...findings, ...bulkFindings], scanIdOf, resultsCache);
+  // The AI ids from each scan's result ids, kept and shared for 30 minutes (a scan's ids never change):
+  // a report built again, or after a credit check, reads no scan again.
+  await resolveAiIds(session.client, [...findings, ...bulkFindings], scanIdOf);
   // Where each shown finding is in its repository: the report's "Open in IDE" and "Apply fix in my workspace".
+  // Code paths are read only for the scans of the findings shown, and remembered.
+  const resultsCache = new Map();
   const locatable = findings.filter((f) => LOCATABLE_SCANNERS.has(f.scanner));
   for (const scanId of new Set(locatable.map((f) => f.scanId || scanIdOf(f)))) {
     const known = scanLocations.get(scanId);

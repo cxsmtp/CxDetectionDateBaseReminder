@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { analyse, creditSummary, fusionEstimate, planForecast, seriesRows, trProjection } from '../public/calculator/model.js';
-import { pdfFromJpegs, slideContent, slidesFileName } from '../public/calculator/slides.js';
+import { numberContents, pdfFromJpegs, slideContent, slidesFileName } from '../public/calculator/slides.js';
 
 const totals = { weeks: ['2026-01-03', '2026-02-07', '2026-03-07', '2026-04-04'], bySeverity: { Critical: [10, 12, 14, 16], High: [100, 110, 120, 130], Medium: [5, 5, 5, 5], Low: [1, 1, 1, 1] } };
 const fixed = { weeks: ['2026-03-07', '2026-04-04'], bySeverity: { Critical: [1, 2], High: [3, 4] } };
@@ -25,8 +25,9 @@ function reportData({ withFusion = true, withTr = true } = {}) {
 test('three pages: triage & remediation with its forecast, then Fusion, then the credits needed overall', () => {
   const data = reportData();
   const s = slideContent(data);
-  assert.deepEqual(s.pages.map((p) => p.kind), ['tr', 'fusion', 'total', 'trend']);
-  const [tr, fusion, total, trend] = s.pages;
+  assert.deepEqual(s.pages.map((p) => p.kind), ['tr', 'fusion', 'total', 'section', 'trend']);
+  const [tr, fusion, total, section, trend] = s.pages;
+  assert.equal(section.title, 'Appendix – Calculations', 'the fourth slide opens the appendix');
   assert.equal(s.heading(tr), 'Globex: Triage & remediation');
   assert.deepEqual(tr.figures.map((f) => f.label), ['Backlog today', 'Still to come, 2% fewer each month with AI', 'To triage', 'Triage & remediation credits']);
   assert.equal(tr.figures[0].value, '152');
@@ -77,4 +78,14 @@ test('the PDF: one picture filling each 16:9 page, with a cross-reference table 
   assert.ok(text.slice(xref).startsWith('xref\n0 13\n'));
   const offsets = text.slice(xref).split('\n').slice(3, 15).map((line) => Number(line.slice(0, 10)));
   offsets.forEach((at, i) => assert.ok(text.slice(at).startsWith(`${i + 1} 0 obj\n`), `object ${i + 1} is where the table says`));
+});
+
+test('the fourth slide opens the appendix and says on which pages its parts are', () => {
+  const s = slideContent(reportData());
+  // As the PDF lays them out: the five pages, then the step-by-step appendix over two pages.
+  const all = [...s.pages, { kind: 'appendix' }, { kind: 'appendix' }];
+  numberContents(all);
+  assert.equal(all.length, 7, 'seven slides in all');
+  assert.equal(all[3].kind, 'section');
+  assert.deepEqual(all[3].contents.map((c) => c.pages), ['5', '6–7']);
 });

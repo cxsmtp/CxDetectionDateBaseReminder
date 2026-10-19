@@ -129,7 +129,19 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
     lines: assumptionItems(data, sum, L).map(plain),
   });
 
-  // 4. The trend, and every number's calculation in one line.
+  // 4. The appendix begins: what it holds, and on which pages (filled in once the pages are laid out).
+  pages.push({
+    kind: 'section',
+    title: w('Appendix – Calculations'),
+    subtitle: w('How every number in this summary is worked out, for anyone who wants to check it.'),
+    label: w('Calculations'),
+    contents: [
+      { kind: 'trend', text: w('The trend and how each number is calculated'), pages: '' },
+      { kind: 'appendix', text: w('Every number, step by step'), pages: '' },
+    ],
+  });
+
+  // 5. The trend, and every number's calculation in one line.
   const calc = [];
   if (tr) {
     const T = tr.totals ?? {};
@@ -285,6 +297,19 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
     return;
   }
 
+  if (page.kind === 'section') {
+    // The appendix's opening: a large word, then what follows and on which pages.
+    text(page.label, 80, 410, { size: 96, weight: 600, colour: C.accent });
+    ctx.fillStyle = C.line;
+    ctx.fillRect(X(80, W - 160), 470, W - 160, 2);
+    let y = 560;
+    for (const item of page.contents) {
+      text(item.pages, 80, y, { size: 34, weight: 600, colour: C.accent });
+      y = lines(item.text, 260, y, W - 340, { size: 34, lead: 46 }) + 30;
+    }
+    return;
+  }
+
   if (page.kind === 'total') {
     text(page.total, 80, 400, { size: 140, weight: 600, colour: C.accent });
     const sum = page.parts.reduce((a, p) => a + p.value, 0) || 1;
@@ -408,6 +433,16 @@ function layoutAppendix(ctx, content) {
   return pages;
 }
 
+/** The appendix's opening page says on which pages its parts are: "5", "6–7". */
+export function numberContents(all) {
+  const section = all.find((p) => p.kind === 'section');
+  if (!section) return;
+  for (const item of section.contents) {
+    const at = all.flatMap((p, i) => (p.kind === item.kind ? [i + 1] : []));
+    item.pages = at.length > 1 ? `${at[0]}–${at.at(-1)}` : String(at[0] ?? '');
+  }
+}
+
 /** The pages as JPEGs, drawn in the reader's language and direction. */
 export async function drawSlides(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
   useLook(look);
@@ -421,6 +456,7 @@ export async function drawSlides(data, { t, lang = 'en', dir = 'ltr', look } = {
   const ctx = canvas.getContext('2d');
   const pages = [];
   const all = [...content.pages, ...layoutAppendix(ctx, content)];
+  numberContents(all);
   for (const [i, page] of all.entries()) {
     const images = {};
     if (page.chart?.kind === 'forecast') {
