@@ -147,3 +147,17 @@ test('a report saved before the read time was kept counts new from when it was s
   const progress = computeProgress(report, current, null, () => ({ triage: 0, remediation: 0 }), now);
   assert.equal(progress.newFindings, 1, 'only the one found after 1 September, 00:00');
 });
+
+test('progress splits each outcome by severity, for drawing every finding on the Dashboard', () => {
+  const { report } = setup();
+  const current = new Map([
+    ['p1', [risk('a', 'CRITICAL', 'CONFIRMED'), risk('b', 'HIGH', 'PROPOSED_NOT_EXPLOITABLE'), risk('x', 'HIGH')]],
+    ['p2', [risk('d', 'CRITICAL')]],
+  ]);
+  const progress = computeProgress(report, current, resolveWindow({ preset: '90d' }, 'x', now), () => ({ triage: 0, remediation: 0 }), now);
+  for (const outcome of Object.keys(progress.outcomes)) {
+    const total = Object.values(progress.bySeverity[outcome]).reduce((n, v) => n + v, 0);
+    assert.equal(total, progress.outcomes[outcome], `${outcome}: the severities add up to the outcome`);
+  }
+  assert.equal(progress.bySeverity.confirmed.CRITICAL, 1, 'a is confirmed and critical');
+});

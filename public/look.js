@@ -13,15 +13,15 @@ export const NEXTGEN_ACCENTS = {
 };
 
 /**
- * The looks, every one kept for the organisation to choose: Cabin (a luxury car's cockpit: glass, ambient
- * light in the accent colour, the default), Circuit (a sports car's gauges), Residence (a grand hotel: ivory,
+ * The looks, every one kept for the organisation to choose: Command center (the base look, the default),
+ * Cabin (a luxury car's cockpit: glass, ambient light in the accent colour), Circuit (a sports car's gauges), Residence (a grand hotel: ivory,
  * navy and gold), Chronometer (a fine watch: green and gold) — these four drawn on Signal's pages — Signal
- * (paper, ink and one signal colour), Command center (the first next-gen look), Studio (bright, on Command center's pages), Atelier
+ * (paper, ink and one signal colour), Studio (bright, on Command center's pages), Atelier
  * (warm paper and a watchmaker's taupe) and Classic. Every look but Classic is html[data-ui="nextgen"],
  * and each but Command center adds html[data-look].
  */
 export const LOOKS = ['cabin', 'circuit', 'residence', 'chronometer', 'signal', 'nextgen', 'studio', 'atelier', 'classic'];
-export const DEFAULT_LOOK = 'cabin';
+export const DEFAULT_LOOK = 'nextgen';
 
 /** A report's look from what it was asked for: anything unknown is the classic look on the reader's device. */
 export function reportLook(look = {}) {

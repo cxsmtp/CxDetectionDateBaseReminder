@@ -239,7 +239,7 @@
   background: #93c296;
   border: 2px solid var(--ng-console);
 }
-:root[data-ui="nextgen"] .app-name { font-weight: 600; font-size: 18px; color: var(--ng-console-text); }
+:root[data-ui="nextgen"] .app-name { font-weight: 600; font-size: 17px; letter-spacing: -0.015em; color: var(--ng-console-text); }
 :root[data-ui="nextgen"] .tab { border-radius: 8px; border: 1px solid transparent; font-weight: 500; color: var(--ng-console-muted); }
 :root[data-ui="nextgen"] .tab svg { color: var(--ng-console-muted); }
 :root[data-ui="nextgen"] .tab:hover { background: rgb(255 255 255 / 0.04); color: var(--ng-console-text); }
@@ -1477,7 +1477,7 @@
 
 
 /* ==========================================================================
-   Cabin (html[data-look="signal cabin"], the default look, MZ-01.00.83): the command center as the
+   Cabin (html[data-look="signal cabin"], MZ-01.00.83): the command center as the
    cockpit of a luxury car, after the 2026 generation of in-car screens (one pane of glass from pillar
    to pillar, ambient styles that set the mood of the whole cabin, gauges that glow at night). Drawn on
    Signal's open, soft pages; here the glass, the light and the instruments. The accent picker is the

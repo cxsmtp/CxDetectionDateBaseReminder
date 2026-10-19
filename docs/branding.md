@@ -3,27 +3,62 @@
 CxMissionZero has two kinds of branding.
 
 - **The organisation's branding** is under Settings → Branding. It is the app name, company name, logo, accent colour and call to action that everyone uses, and that head every reminder email and report.
-- **Your appearance** is under Settings → Your appearance: each person's own look (command center or classic), theme, accent and explanations. It changes how the app looks to that person only; whether the command-center look is offered, and where its menu sits, stay with the Admin below.
+- **Your appearance** is under Settings → Your appearance: each person's own look, theme, accent and explanations. It changes how the app looks to that person only; the organisation's look, whether people may choose their own, and where the menu sits stay with the Admin below.
 - **Your branding** is under Settings → Your branding. It is one person's own names, logo and colours, for when they present CxMissionZero to someone else, such as a prospect, a customer or another team.
 
-## The look of the app: command center or classic
+## The look of the app: nine looks to choose from
 
-The **command-center look** (MZ-01.00.81; it replaced the glassy next-gen look of MZ-01.00.77) is calm and made by hand rather than glossy: warm paper on light, night ink on dark, a dark menu console in both, hairlines instead of glass, a faint contour map behind the work, headings and figures in Fraunces and text in IBM Plex Sans. The **classic look** is the look before MZ-01.00.77, unchanged. Both work light, dark or on the device's setting, in every language (Arabic and Hebrew right to left), and on a phone.
+Every look is kept, so an organisation, and each person, can choose (MZ-01.00.83). All of them work light, dark or on the device's setting, in every language (Arabic and Hebrew right to left), and on a phone.
 
-**Each person** chooses with the palette button next to their name: **Look** (Command center or Classic), **Theme** (Auto, Light, Dark), **Accent** (Ink, Lagoon, Sage, Plum or Ochre: earth colours) and **Explanations** (behind a **?**, or shown). Look, theme and accent are saved to their profile (quietly: no audit entry), so they follow them to every computer, and they are applied before the page appears, with no flash; explanations are kept in that browser.
+| Look | What it is like |
+| --- | --- |
+| **Command center** (the base look, and the default) | Calm and made by hand: warm paper on light, night ink on dark, a dark menu console, hairlines, headings and figures in Fraunces. |
+| **Cabin** | A luxury car's cockpit at night: glass panes, a fine line of ambient light along the top and down the menu in the accent colour (it sweeps in as the page opens), and the Dashboard's findings glowing like the points of light on a dial. |
+| **Circuit** | A sports car's instrument cluster: graphite, condensed capitals, and on the Dashboard a tachometer whose needle points at the share actioned, with a red line. |
+| **Residence** | A grand hotel: ivory paper, deep navy, a touch of gold, and a serif for what is read first. |
+| **Chronometer** | A fine watch: deep green and gold, a sunburst dial, a fluted bezel round the Dashboard's findings and the share actioned in a date window. |
+| **Signal** | Paper and ink with one vivid signal colour, soft rounded shapes and space instead of boxes. |
+| **Studio** | Bright and airy, with a confident violet. |
+| **Atelier** | Warm paper and a watchmaker's taupe, hairlines and a serif. |
+| **Classic** | The look before MZ-01.00.77, unchanged. |
 
-**The reports they download** are in their look: the interactive HTML report (the console's ink behind the header, paper or night cards, their accent; their theme chosen, or their device's on Auto), and the Cx Credits Calculator's projection report and PDF summary. A report emailed to someone, or run on a schedule, is in that person's look when they have an account, otherwise in the organisation's default. Printing always uses a light page.
+The looks only borrow a feeling from the things they are named after; they carry no maker's name or mark. In every look but Classic, buttons stand a little off the page (lit from above, rising under the pointer, pressing in when clicked); the **golden buttons** ("Triage / Remediate with AI Assist now", and Credit Control's "Use the credits") keep their own gold in every look.
+
+**Each person** chooses under Settings → **Your appearance**: **Look** (the organisation's, or any of the nine, when the organisation lets people choose), **Theme** (Auto, Light, Dark), **Accent** (Ink, Lagoon, Sage, Plum or Ochre; in Cabin it is the colour of the ambient light, in Circuit and Signal the colour of the signal) and **Explanations** (behind a **?**, or shown). Look, theme and accent are saved to their profile (quietly: no audit entry), so they follow them to every computer, and they are applied before the page appears, with no flash; explanations are kept in that browser. An Admin can also set a person's look under People & roles → their profile.
+
+**The reports they download** are in their look: the interactive HTML report (the console's ink behind the header, paper or night cards, their accent; their theme chosen, or their device's on Auto), and the Cx Credits Calculator's projection report and PDF summary. Every look but Classic gives the report the command-center style. A report emailed to someone, or run on a schedule, is in that person's look when they have an account, otherwise in the organisation's. Printing always uses a light page.
 
 **An Admin** (or a role with **Branding**) decides for everyone under Settings → Branding → **Look of the app**:
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| **Offer the command-center look** | On | Off: everyone has the classic look, every report is classic, and Settings → Your appearance offers only the theme and explanations. Turning it back on gives everyone the command-center look again, except those who chose Classic. |
-| **Menu in the command-center look** | Down the left side | **Along the top**: the pages in one row across the top, on screens 1261 pixels wide and more (names only below 1600 pixels). Narrower screens keep the side menu, the icon rail or the phone's bottom bar. |
+| **The organisation's look** (the picture cards) | Command center | Everyone's look, unless they pick their own. |
+| **Let people choose their own look** | On | Off: everyone has the organisation's look, and Settings → Your appearance offers only the theme, accent and explanations. A person's own choice is kept, and comes back if this is turned on again. |
+| **Menu in the new looks** | Down the left side | **Along the top**: the pages in one row across the top, on screens 1261 pixels wide and more (names only below 1600 pixels). Narrower screens keep the side menu, the icon rail or the phone's bottom bar. |
 
-Both change for everyone as soon as they are saved. A person's own branding cannot change them.
+They change for everyone as soon as they are saved. A person's own branding cannot change them. A server that had the command-center look turned off before MZ-01.00.83 has Classic for everyone, with no choice, as before; the settings API still accepts and returns `nextGen` (false only when everyone has Classic).
 
-The fonts are inside the image (`public/fonts`: Fraunces and IBM Plex, SIL Open Font License 1.1, see `public/fonts/OFL.txt`). Nothing is loaded from the internet, so the command-center look works on a server with no internet access. The report files do not carry the fonts (they travel by email): a reader who has Fraunces or IBM Plex installed sees them, everyone else Palatino or Georgia for headings and their system's own sans for text.
+## The menu: pinned pages, Focus, fold every group
+
+Point at a page in the menu and click its pin to keep it at the top, under **Pinned**. **Focus**, at the top of the menu, shows only the pinned pages (and the page open); click it again for every page. The button beside it folds or unfolds every group at once; a group's own name still folds just that group. Pins, Focus and folds are kept in that browser. On a narrow screen (the icon rail and the phone's bottom bar), and with the menu along the top, the menu shows every page as before.
+
+## Fonts
+
+The fonts are inside the image (`public/fonts`: Fraunces and IBM Plex, SIL Open Font License 1.1, see `public/fonts/OFL.txt`). Nothing is loaded from the internet, so every look works on a server with no internet access. The report files do not carry the fonts (they travel by email): a reader who has Fraunces or IBM Plex installed sees them, everyone else Palatino or Georgia for headings and their system's own sans for text.
+
+### Your own brand font (Founders Grotesk for Checkmarx)
+
+An organisation can use its own licensed brand font in place of IBM Plex Sans. Its files are **never** part of this repository or the image (both are public): the organisation puts its own copies in a folder on the server, and only its installation serves them, to its own users.
+
+- Put the font files in `fonts` inside the data folder (`/data/fonts` in the container), or point `BRAND_FONT_DIR` at another folder. WOFF2, WOFF, OTF and TTF are read; the weight and style come from the file names (`FoundersGrotesk-Light.otf`, `FoundersGrotesk-SemiboldItalic.woff2`); condensed cuts (`…Cond…`, `…XCond…`) become their own families. The folder is read again within a minute of a change; no restart is needed.
+- `BRAND_FONT_FAMILY` is the font's installed name (default `Founders Grotesk`): a computer with the font installed uses it even when the server has no files.
+- Check your licence: serving font files to browsers usually needs the foundry's **web** licence; a desktop licence covers only the computers it is installed on (which then use it through the installed copy, with no files on the server).
+
+Windows cmd, with the fonts in `C:\mz\fonts`:
+
+```
+podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -v C:\mz\fonts:/data/fonts:ro ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest
+```
 
 ## Your branding
 

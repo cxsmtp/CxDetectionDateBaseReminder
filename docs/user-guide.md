@@ -65,15 +65,17 @@ The coloured label next to each page title says which group the page is in.
 
 **Any screen.** The layout adapts to the screen: a full sidebar on a desktop, an icon rail on a tablet, a bottom bar on a phone, and wide screens use their full width. Tables stay inside their panels: long emails go onto two lines after their @, and below 1024 pixels wide (tablets and phones) the Workbench's projects are shown as one card each, so no column is cut off at the right. The header is one line: the page's name and what it is for.
 
-<a id="your-appearance"></a>**Your appearance: command center or classic, light or dark.** Settings → **Your appearance** (under **You**, next to Your profile and Your branding) holds how the app looks to you. The sun or moon button in the top bar stays for a quick switch of the theme:
-- **Look**: **Command center** (the default: warm paper or night ink, a dark menu console, headings and figures in Fraunces) or **Classic** (the look before MZ-01.00.77, unchanged).
+<a id="your-appearance"></a>**Your appearance: your own look, light or dark.** Settings → **Your appearance** (under **You**, next to Your profile and Your branding) holds how the app looks to you. The sun or moon button in the top bar stays for a quick switch of the theme:
+- **Look**: **The organisation's** (whatever the Admin chose; out of the box **Command center**: warm paper or night ink, a dark menu console, headings and figures in Fraunces), or one of your own, each shown as a small picture: **Cabin** (a luxury car's cockpit at night, with a line of ambient light), **Circuit** (a sports car's gauges, with a needle on the Dashboard), **Residence** (a grand hotel: ivory, navy and gold), **Chronometer** (a fine watch: green and gold, a fluted bezel), **Signal**, **Studio**, **Atelier** or **Classic** (the look before MZ-01.00.77, unchanged). In every look but Classic, buttons stand off the page; the golden buttons stay gold.
 - **Theme**: **Auto** (your device's setting), **Light** or **Dark**. The sun or moon button in the top bar switches the same thing.
-- **Accent**: the command-center look's colour for what you act on: Ink, Lagoon, Sage, Plum or Ochre.
+- **Accent**: the colour for what you act on: Ink, Lagoon, Sage, Plum or Ochre (in Cabin, the colour of its ambient light; in Circuit and Signal, the signal colour).
 - **Explanations**: **Behind ?** (the default: each explanation folds behind a small **?** next to its heading, field or option; click the **?** to read it) or **Shown** (every explanation shown, as before). Warnings, statuses and figures are never folded. Kept in this browser.
 
-Your look is saved to your profile, so it is the same on every computer, and the reports you download use it (see [The emailed report](#the-emailed-report)). The organisation's look is the Admin's: whether the command-center look is offered and where its menu sits are under [Branding](#branding). If an Admin has turned the command-center look off, everyone has the classic look and Your appearance offers the theme and explanations only.
+Your look is saved to your profile, so it is the same on every computer, and the reports you download use it (see [The emailed report](#the-emailed-report)). The organisation's look is the Admin's, under [Branding](#branding), with whether people may choose their own and where the menu sits. If an Admin has turned the choice off, everyone has the organisation's look and Your appearance offers the theme, accent and explanations only; your own choice is kept for when it is turned on again.
 
-**Fold the menu.** Click a group's name (**Act**, **Follow up**, **Prove**, **Plan**, **Set up**, **Labs**) to fold its pages away, and again to unfold them. The page you are on always stays in view. Remembered in this browser.
+**Fold the menu.** Click a group's name (**Act**, **Follow up**, **Prove**, **Plan**, **Set up**, **Labs**) to fold its pages away, and again to unfold them; the button at the top of the menu folds or unfolds every group at once. The page you are on always stays in view. Remembered in this browser.
+
+**Pin your pages, and Focus.** Point at a page in the menu and click its pin: it stays at the top under **Pinned**. **Focus** (top of the menu) shows only your pinned pages and the page you are on; click it again for every page. Remembered in this browser; on a tablet's icon rail, a phone, or with the menu along the top, every page is shown as before.
 
 **Hide the menu.** **Hide menu** (bottom of the sidebar) turns the sidebar into a slim bar of icons, so the pages get the width. Point at the bar and the full menu opens **over** the page, without moving anything on it; it closes when the pointer leaves or you choose a page. **Keep menu open** (the same place) brings it back beside the page. Your choice is remembered in this browser.
 
@@ -657,10 +659,11 @@ Everyone's default branding. Seen by roles with **See the Branding page**, and c
 | Logo height | 16–200 pixels. |
 | Accent colour | Buttons and headings in emails and reports. |
 | Call to action | The sentence above the findings in every email. |
-| Offer the command-center look | On (the default): everyone has the command-center look unless they pick **Classic** under Settings → [Your appearance](#your-appearance). Off: everyone, and every report, has the classic look; the look menu offers only the theme. |
-| Menu in the command-center look | **Down the left side** (the default) or **Along the top**, for everyone. Along the top needs a wide screen (1261 pixels and up); narrower screens keep the side menu, the icon rail or the phone's bottom bar. |
+| Look of the app | The organisation's look, picked from picture cards: **Command center** (the default), Cabin, Circuit, Residence, Chronometer, Signal, Studio, Atelier or Classic. Everyone has it unless they pick their own under Settings → [Your appearance](#your-appearance). |
+| Let people choose their own look | On (the default): each person may pick another look. Off: everyone has the organisation's look, and every report follows it. |
+| Menu in the new looks | **Down the left side** (the default) or **Along the top**, for everyone. Along the top needs a wide screen (1261 pixels and up); narrower screens keep the side menu, the icon rail or the phone's bottom bar. |
 
-The preview shows the email header exactly as recipients will see it. The look of the app, and where its menu sits, change for everyone as soon as they are saved; see [the look of the app](branding.md#the-look-of-the-app-command-center-or-classic).
+The preview shows the email header exactly as recipients will see it. The look of the app, and where its menu sits, change for everyone as soon as they are saved; see [the look of the app](branding.md#the-look-of-the-app-nine-looks-to-choose-from).
 
 ### Links into Checkmarx One
 Every finding in an email links straight to it in Checkmarx One (Risk Hub).
@@ -821,7 +824,7 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
 
 1. **Open it.** Click the button (it downloads the report; the link works for 30 days) or open the attachment. Any browser works, and nothing needs installing.
    - It opens in your profile's language, else your browser's. **Language** at the top switches it.
-   - It is in your profile's look: command center or classic, light, dark or your device's, and your accent (see [Find your way](#find-your-way)). Without an account, it is in the organisation's default.
+   - It is in your profile's look (any look but Classic gives it the command-center style; Classic the classic one), light, dark or your device's, and your accent (see [Find your way](#find-your-way)). Without an account, it is in the organisation's default.
    - Your profile's language works offline. Any other language comes from the reminder server the first time, and is then kept in your browser.
    - Finding titles, project names, code, and what Checkmarx One's AI wrote stay as they are.
 2. **It connects by itself** to the reminder server shown at the top.
@@ -897,6 +900,8 @@ Save a scope from the Workbench (**Save as tracked report**) and follow it over 
 | **New since saved** | Findings **first found after the report was saved** that match its filters. A finding that was there all along and only now matches (for example, one that aged past 60 days into a "> 60 days" report) is not new. |
 | **Follow-ups scheduled** | How many reports send reminders by themselves, and when the next one goes out. Set one up in a report's **Remind** tab → **Automatic follow-up**. |
 | **AI credits used** | Triage / remediation credits spent on the reports' projects since they were saved. A project in two reports is counted once. |
+
+**Every finding, drawn** (in every look but Classic). The first four figures are shown as a sunflower of seeds: each seed is one tracked finding, set on the golden angle like the seeds in a sunflower, and the bigger the seed, the more severe the finding. Closed findings sit at the calm heart, confirmed ones around them in solid ink, and those awaiting triage are open rings round the rim; as the work is done, the heart grows outward. Beside it, the three outcomes with their numbers; in the middle, Findings tracked and the % actioned. With more than 1,400 findings, one seed stands for several (the caption says how many). In Classic the four tiles are shown instead.
 
 **The first row adds up:** Findings tracked = Awaiting triage + Confirmed + Closed. Each tile's **?** says what it counts. A report's **Open** (in the list, and **Open now** in its overview) is awaiting triage + confirmed + new: what is still to deal with before it reaches zero.
 
@@ -1035,7 +1040,7 @@ Identity and access management, in three tabs.
 | Action | What it does |
 | --- | --- |
 | **Add person** | Fields: <ul><li>email and name;</li><li>role;</li><li>a temporary password (they choose their own at first sign-in);</li><li>optionally their **Checkmarx One identities** (usernames or client ids allowed to sign in with an API key).</li></ul> |
-| **Edit profile** | Their profile, as on Settings → Your profile: name, language, time zone, programming languages, Impact figures, look (command center or classic, theme, accent) and picture, and their **sign-in email** (**Change email**, after a confirmation). A new email ends any password reset link sent to the old one, and both addresses are told by email. Every change is in the audit log. For people whose permissions you hold all of, never your own (that is Your profile). **Back to People & roles** returns. |
+| **Edit profile** | Their profile, as on Settings → Your profile: name, language, time zone, programming languages, Impact figures, look (the organisation's or one of the nine, theme, accent) and picture, and their **sign-in email** (**Change email**, after a confirmation). A new email ends any password reset link sent to the old one, and both addresses are told by email. Every change is in the audit log. For people whose permissions you hold all of, never your own (that is Your profile). **Back to People & roles** returns. |
 | Role (per person) | Change it. It applies on their next click. |
 | **Set password** | A new temporary password. |
 | **Disable / Enable** | Disabling ends their sessions at once. |

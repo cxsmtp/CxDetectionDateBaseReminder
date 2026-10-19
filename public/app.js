@@ -1634,7 +1634,7 @@ const stored = (key) => {
   }
 };
 const look = {
-  org: LOOKS.includes(stored('mz-org-look')) ? stored('mz-org-look') : stored('mz-nextgen-off') === '1' ? 'classic' : 'cabin',
+  org: LOOKS.includes(stored('mz-org-look')) ? stored('mz-org-look') : stored('mz-nextgen-off') === '1' ? 'classic' : 'nextgen',
   choice: stored('mz-look-choice') !== '0',
   own: LOOKS.includes(stored('mz-look')) ? stored('mz-look') : '',
 };
@@ -1695,7 +1695,7 @@ function applyAccent(accent, { save = false } = {}) {
 /** The organisation's choices (from /api/health or Settings → Branding): its look, people's own or not, and where the menu sits. */
 function applyOrgLook({ look: orgLook, lookChoice, nextGen, navPosition } = {}) {
   // A server from before there were looks to choose sends only nextGen.
-  look.org = LOOKS.includes(orgLook) ? orgLook : nextGen === false ? 'classic' : 'cabin';
+  look.org = LOOKS.includes(orgLook) ? orgLook : nextGen === false ? 'classic' : 'nextgen';
   look.choice = orgLook ? lookChoice !== false : nextGen !== false;
   remember('mz-org-look', look.org);
   remember('mz-look-choice', look.choice ? null : '0');
@@ -2330,7 +2330,7 @@ function renderSettings() {
     $('brand-height').value = s.branding.logoHeight;
     $('brand-accent').value = /^#[0-9a-f]{6}$/i.test(s.branding.accentColor) ? s.branding.accentColor : '#1d4ed8';
     $('brand-cta').value = s.branding.callToAction;
-    const orgLook = LOOKS.includes(s.branding.look) ? s.branding.look : s.branding.nextGen === false ? 'classic' : 'cabin';
+    const orgLook = LOOKS.includes(s.branding.look) ? s.branding.look : s.branding.nextGen === false ? 'classic' : 'nextgen';
     for (const box of document.querySelectorAll('input[name="brand-look"]')) box.checked = box.value === orgLook;
     $('brand-look-choice').checked = s.branding.lookChoice !== false;
     $('brand-nav').value = s.branding.navPosition === 'top' ? 'top' : 'left';
@@ -6668,7 +6668,7 @@ for (const id of ['brand-name', 'brand-logo', 'brand-height', 'brand-accent']) {
   $(id).addEventListener('input', renderBrandPreview);
 }
 // The look of the app for everyone: shown here at once (it is saved with the rest of Settings).
-const brandLook = () => document.querySelector('input[name="brand-look"]:checked')?.value ?? 'cabin';
+const brandLook = () => document.querySelector('input[name="brand-look"]:checked')?.value ?? 'nextgen';
 for (const el of [$('brand-looks'), $('brand-look-choice'), $('brand-nav')]) {
   el.addEventListener('change', () => applyOrgLook({ look: brandLook(), lookChoice: $('brand-look-choice').checked, navPosition: $('brand-nav').value }));
 }
