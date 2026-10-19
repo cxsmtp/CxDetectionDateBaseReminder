@@ -1811,10 +1811,21 @@
                   <label class="inline">Triage <input type="number" id="cc-spend-extra-triage" min="0" max="100000" value="0" class="small-num" aria-label="Extra triage credits" /></label>
                   <label class="inline">Remediation <input type="number" id="cc-spend-extra-remediation" min="0" max="100000" step="3" value="0" class="small-num" aria-label="Extra remediation credits" /></label>
                 </div>
-                <div class="actions compact">
-                  <button type="button" id="cc-allocate" data-perm="credits.allocate">Allocate credits for triage and remediation</button>
-                  <button type="button" class="primary" id="cc-run-triage" data-perm="triage.run">Triage with AI Assist now</button>
-                  <button type="button" class="primary" id="cc-run-remediation" data-perm="triage.run">Remediate with AI Assist now</button>
+                <div class="credit-lanes">
+                  <div class="credit-lane" data-lane="triage">
+                    <div class="lane-head"><strong>AI Triage</strong><span class="lane-figures" id="cc-lane-triage"></span></div>
+                    <div class="lane-actions">
+                      <button type="button" id="cc-allocate-triage" data-perm="credits.allocate">Allocate for triage</button>
+                      <button type="button" class="primary" id="cc-run-triage" data-perm="triage.run">Triage with AI Assist now</button>
+                    </div>
+                  </div>
+                  <div class="credit-lane" data-lane="remediation">
+                    <div class="lane-head"><strong>AI Remediation</strong><span class="lane-figures" id="cc-lane-remediation"></span></div>
+                    <div class="lane-actions">
+                      <button type="button" id="cc-allocate-remediation" data-perm="credits.allocate">Allocate for remediation</button>
+                      <button type="button" class="primary" id="cc-run-remediation" data-perm="triage.run">Remediate with AI Assist now</button>
+                    </div>
+                  </div>
                 </div>
                 <p class="hint" id="cc-spend-left"></p>
                 <p class="status" id="cc-spend-status"></p>

@@ -14,6 +14,7 @@ const bump = (k) => (counts[k] = (counts[k] || 0) + 1);
 const triaged = new Map(); // alternateId -> time
 const sentCount = new Map(); // alternateId -> times it was sent for AI Triage
 let changing = false; // /__changing?on=1: findings change state between reads, and scan results differ on every read
+const gone = new Set(); // /__gone?id=p1&on=1: that project is deleted from Checkmarx One
 let reads = 0;
 const remediated = new Map();
 // Verification rescans (POST /api/scans): Queued, then Running, then Completed after RESCAN_MS.
@@ -84,6 +85,8 @@ http.createServer((req, res) => {
       const u = new URL(req.url, 'http://x');
       const send = (s, o) => { res.writeHead(s, { 'Content-Type': 'application/json', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' }); res.end(JSON.stringify(o ?? {})); };
       if (u.pathname === '/__stats') return send(200, { counts, peak, maxSendsPerResult: Math.max(0, ...sentCount.values()), resultsSent: sentCount.size });
+      // A project deleted from Checkmarx One: its risks and the project itself answer 404.
+      if (u.pathname === '/__gone') { const id = u.searchParams.get('id'); if (u.searchParams.get('on') === '1') gone.add(id); else gone.delete(id); return send(200, { gone: [...gone] }); }
       if (u.pathname === '/__changing') { changing = u.searchParams.get('on') === '1'; return send(200, { changing }); }
       if (u.pathname === '/__rescans') return send(200, Object.fromEntries(rescans));
       if (u.pathname === '/__reset') { for (const k of Object.keys(counts)) delete counts[k]; peak = 0; return send(200, {}); }
@@ -203,6 +206,7 @@ http.createServer((req, res) => {
       if (u.pathname === '/api/risks/' || u.pathname === '/api/risks') {
         bump('risks');
         const pid = u.searchParams.get('projectId');
+        if (gone.has(pid)) return send(404, { message: 'project not found' });
         // Paged like the real API: offset/limit, with the total on every page.
         const all = risksFor(pid);
         // While "changing" is on, someone is triaging: the project's first open finding changes state on every read.

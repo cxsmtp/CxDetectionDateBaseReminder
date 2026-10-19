@@ -6053,13 +6053,27 @@ function branchChoiceOfScan(scan) {
  * src/cxone/branches.js), unless `branches` is "all" (every branch, as tracked reports made before
  * branches were told apart keep).
  */
-async function currentFindings(session, projects, { branches = 'primary' } = {}) {
+async function currentFindings(session, projects, { branches = 'primary', skipGone = false } = {}) {
   const cfg = activeConfig();
   const byProject = new Map();
   const identity = readerIdentity(session);
   const all = branchScopeOf(branches) === 'all';
   const choice = await branchChoiceFor(session, projects, branches);
+  // Projects deleted from Checkmarx One (or out of this key's sight) since they were given credits.
+  const gone = [];
   await mapWithConcurrency(projects, 3, async ({ projectId, projectName }) => {
+    try {
+      await readCurrent({ projectId, projectName });
+    } catch (error) {
+      if (!(await goneFromCheckmarx(session.client, projectId, error))) throw error;
+      gone.push({ projectId, projectName });
+      if (!skipGone) throw Object.assign(new Error(goneText([{ projectName }])), { status: 409 });
+    }
+  });
+  byProject.gone = gone;
+  return byProject;
+
+  async function readCurrent({ projectId, projectName }) {
     const project = { id: projectId, name: projectName };
     const how = choice?.branches[projectId]?.how;
     const source = createRiskSource(session.client, cfg);
@@ -6071,8 +6085,25 @@ async function currentFindings(session, projects, { branches = 'primary' } = {})
     // Every current finding of the project on its branch: those no longer among them are gone (the Impact page).
     // Not from a read of every branch (others' findings would be mixed in), nor of a primary branch never scanned.
     if (!all && how !== BRANCH_HOW.none) findingJournal.observe({ projectId, projectName }, risks, { complete: true });
-  });
-  return byProject;
+  }
+}
+
+/** A read that found nothing (404) because the project itself is no longer in Checkmarx One. */
+async function goneFromCheckmarx(client, projectId, error) {
+  if (error?.status !== 404 || !client) return false;
+  try {
+    await client.request(`/api/projects/${encodeURIComponent(projectId)}`, { retries: 0 });
+    return false;
+  } catch (lookup) {
+    return lookup?.status === 404;
+  }
+}
+
+function goneText(gone) {
+  const names = gone.map((p) => p.projectName || p.projectId).join(', ');
+  return gone.length === 1
+    ? `${names} is no longer in Checkmarx One (deleted, or this key cannot see it). Take its credits back under Credit Control.`
+    : `${gone.length} projects are no longer in Checkmarx One (deleted, or this key cannot see them): ${names}. Take their credits back under Credit Control.`;
 }
 
 function progressFor(report, byProject) {
@@ -6692,7 +6723,7 @@ app.get(
  * extra credits each, out of the credit pool. The severities join each
  * project's rule. Returns the refusal ({ error }) or null once given.
  */
-async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, extraRemediation, where, details, engines = null, branches = 'primary' }) {
+async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, extraRemediation, where, details, engines = null, branches = 'primary', kinds = CREDIT_KINDS }) {
   const actor = await adminActor(req);
   const before = new Map(projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
   for (const { projectId, projectName } of projects) {
@@ -6725,7 +6756,8 @@ async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, e
     // Only the findings of the engines chosen count towards the need.
     const risks = (verifiedRisks.get(projectId) ?? byProject.get(projectId) ?? []).filter((r) => inEngines(r, engines));
     const { shortfall } = allocations.need(projectId, risks);
-    return { projectId, projectName, triage: wanted.length ? shortfall.triage : 0, remediation: wanted.length ? shortfall.remediation : 0 };
+    const wants = (kind) => wanted.length > 0 && kinds.includes(kind);
+    return { projectId, projectName, triage: wants('triage') ? shortfall.triage : 0, remediation: wants('remediation') ? shortfall.remediation : 0 };
   });
   const given = plan.reduce((n, x) => n + x.triage + x.remediation + extraTriage + extraRemediation, 0);
   const pool = creditPool();
@@ -6752,6 +6784,10 @@ async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, e
   return null;
 }
 
+const CREDIT_KINDS = ['triage', 'remediation'];
+/** The credits one allocation gives: triage only, remediation only, or (unnamed) both. */
+const kindsOf = (kind) => (CREDIT_KINDS.includes(kind) ? [kind] : CREDIT_KINDS);
+
 /**
  * Credit Control: give the ticked projects (none ticked: every project holding
  * credits) what the chosen severities need, plus any extra.
@@ -6765,14 +6801,17 @@ app.post('/api/credits/allocate-needed', requirePermission('credits.allocate'), 
   const chosen = new Set(idList(req.body?.projectIds));
   const projects = allocations.list().filter((p) => !chosen.size || chosen.has(p.projectId)).map((p) => ({ projectId: p.projectId, projectName: p.projectName || p.projectId }));
   if (!projects.length) return res.status(400).json({ error: 'Give credits to a project first.' });
-  const byProject = await currentFindings(req.session, projects, { branches: req.body?.branches });
+  const byProject = await currentFindings(req.session, projects, { branches: req.body?.branches, skipGone: true });
+  const { gone } = byProject;
+  const present = projects.filter((p) => !gone.some((g) => g.projectId === p.projectId));
+  if (!present.length) return res.status(409).json({ error: goneText(gone), gone });
   const engines = engineScope(req.body?.engines);
-  const refused = await allocateNeeded(req, projects, byProject, {
-    wanted, extraTriage, extraRemediation, engines, branches: req.body?.branches, where: 'Credit Control', details: { projectIds: projects.map((p) => p.projectId), engines: engines ?? 'all' },
+  const refused = await allocateNeeded(req, present, byProject, {
+    wanted, extraTriage, extraRemediation, engines, branches: req.body?.branches, kinds: kindsOf(req.body?.kind), where: 'Credit Control', details: { projectIds: present.map((p) => p.projectId), engines: engines ?? 'all', kind: req.body?.kind ?? 'both' },
   });
-  if (refused) return res.status(409).json(refused);
+  if (refused) return res.status(409).json({ ...refused, gone });
   for (const p of req.session.lastScan?.projects ?? []) if (allocations.get(p.projectId)) p.credits = creditView(p);
-  res.json({ pool: creditPool(), allocations: allocations.list() });
+  res.json({ pool: creditPool(), allocations: allocations.list(), gone, goneNote: gone.length ? `Skipped: ${goneText(gone)}` : '' });
 }));
 
 app.post(
@@ -6788,13 +6827,16 @@ app.post(
     if (!wanted.length && !extraTriage && !extraRemediation) {
       return res.status(400).json({ error: 'Pick severities, or enter credits to add.' });
     }
-    const byProject = await currentFindings(req.session, report.projects, { branches: report.filters.branches ?? 'all' });
-    trackedReports.record(report, progressFor(report, byProject));
-    const refused = await allocateNeeded(req, report.projects, byProject, {
-      wanted, extraTriage, extraRemediation, engines: report.filters.engines, branches: report.filters.branches ?? 'all', where: `tracked report "${report.name}"`, details: { report: report.id },
+    const byProject = await currentFindings(req.session, report.projects, { branches: report.filters.branches ?? 'all', skipGone: true });
+    const { gone } = byProject;
+    const present = report.projects.filter((p) => !gone.some((g) => g.projectId === p.projectId));
+    if (!present.length) return res.status(409).json({ error: goneText(gone), gone });
+    if (!gone.length) trackedReports.record(report, progressFor(report, byProject));
+    const refused = await allocateNeeded(req, present, byProject, {
+      wanted, extraTriage, extraRemediation, engines: report.filters.engines, branches: report.filters.branches ?? 'all', kinds: kindsOf(req.body?.kind), where: `tracked report "${report.name}"`, details: { report: report.id, kind: req.body?.kind ?? 'both' },
     });
-    if (refused) return res.status(409).json(refused);
-    res.json({ report: trackedView(report) });
+    if (refused) return res.status(409).json({ ...refused, gone });
+    res.json({ report: trackedView(report), gone, goneNote: gone.length ? `Skipped: ${goneText(gone)}` : '' });
   }),
 );
 
@@ -7284,11 +7326,14 @@ app.post('/api/credits/run', requirePermission('triage.run'), afterFetch, asyncR
   if (!wanted.length) return res.status(400).json({ error: `Pick at least one severity to ${kind === 'triage' ? 'triage' : 'remediate'}.` });
   if (!req.session.client) return res.status(409).json({ error: 'Connect to Checkmarx One first.' });
   const chosen = new Set(idList(req.body?.projectIds));
-  const projects = allocations.list().filter((p) => !chosen.size || chosen.has(p.projectId)).map((p) => ({ projectId: p.projectId, projectName: p.projectName || p.projectId }));
-  if (!projects.length) return res.status(400).json({ error: 'Give credits to a project first.' });
+  const listed = allocations.list().filter((p) => !chosen.size || chosen.has(p.projectId)).map((p) => ({ projectId: p.projectId, projectName: p.projectName || p.projectId }));
+  if (!listed.length) return res.status(400).json({ error: 'Give credits to a project first.' });
 
   const settings = settingsStore.get();
-  const byProject = await currentFindings(req.session, projects, { branches: req.body?.branches });
+  const byProject = await currentFindings(req.session, listed, { branches: req.body?.branches, skipGone: true });
+  const { gone } = byProject;
+  const projects = listed.filter((p) => !gone.some((g) => g.projectId === p.projectId));
+  if (!projects.length) return res.status(409).json({ error: goneText(gone), gone });
   // Only the engines chosen (SAST and SCA unless more are ticked).
   const engines = engineScope(req.body?.engines);
   for (const [id, risks] of byProject) byProject.set(id, risks.filter((r) => inEngines(r, engines)));
@@ -7316,7 +7361,7 @@ app.post('/api/credits/run', requirePermission('triage.run'), afterFetch, asyncR
   }
   // Projects loaded on this person's Workbench show the new balances.
   for (const p of req.session.lastScan?.projects ?? []) if (allocations.get(p.projectId)) p.credits = creditView(p);
-  res.json({ ...summary, pool: creditPool(), allocations: allocations.list() });
+  res.json({ ...summary, pool: creditPool(), allocations: allocations.list(), gone, goneNote: gone.length ? `Skipped: ${goneText(gone)}` : '' });
 }));
 
 /**

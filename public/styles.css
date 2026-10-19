@@ -286,6 +286,7 @@ main {
 .hint { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; max-width: 520px; }
 .hint.wide { max-width: 78ch; margin: 0 0 14px; }
 .hint.inline-hint { display: inline; margin: 0; }
+.hint.is-warn { color: var(--warn); font-weight: 600; }
 .panel-head .hint { margin: 0; }
 .muted { color: var(--muted); font-weight: 400; }
 .zero { color: var(--muted); }
@@ -1285,7 +1286,30 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 .step-need { margin: 0; font-size: 13px; }
 .step-need b { font-variant-numeric: tabular-nums; }
 .step-need .short { color: var(--warn); font-weight: 600; }
-.step-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.step-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.step-actions button { width: 100%; white-space: normal; }
+/* Side by side, the two steps' buttons line up along the bottom whatever their text above says. */
+.alloc-step { grid-template-rows: auto 1fr auto; }
+/* Triage and remediation, one row each: what is needed and left, then Allocate and Run in columns that line up across the rows. */
+.credit-lanes { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; margin: 10px 0; flex: 1 1 100%; }
+.credit-lane {
+  grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; gap: 8px 16px;
+  padding: 10px 14px; border-radius: var(--radius-sm, 10px); background: var(--surface-2); border: 1px solid var(--border);
+}
+.lane-head { display: grid; gap: 2px; min-width: 0; }
+.lane-figures { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.lane-figures b { color: var(--text); font-variant-numeric: tabular-nums; }
+.lane-actions { display: contents; }
+.lane-actions button { width: 100%; }
+@media (max-width: 760px) {
+  .credit-lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lane-head { grid-column: 1 / -1; }
+  .lane-actions button { white-space: normal; }
+}
+@media (max-width: 420px) {
+  .credit-lanes { grid-template-columns: minmax(0, 1fr); }
+  .lane-slot { display: none; }
+}
 .credits .need-tag { display: block; font-size: 11px; color: var(--warn); font-weight: 600; }
 /* A button lays its parts out in a row: "17 more needed" goes on its own line under "0 / 0", as it does without the button, so the column stays narrow. */
 button.credit-edit { flex-wrap: wrap; justify-content: flex-end; text-align: end; }
@@ -1293,7 +1317,7 @@ button.credit-edit .need-tag { flex-basis: 100%; }
 .credits .need-tag { font-family: var(--font); white-space: nowrap; }
 .remediate-list { margin: 8px 0 0; padding-inline-start: 18px; font-size: 13px; max-height: 220px; overflow: auto; }
 .cost-line { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 10%, transparent); font-size: 13px; }
-@media (max-width: 760px) { .step-actions button { flex: 1 1 auto; } }
+@media (max-width: 420px) { .step-actions { grid-template-columns: minmax(0, 1fr); } }
 
 /* Projects table: column picker */
 .col-picker { position: relative; }
