@@ -3319,7 +3319,7 @@ const NOT_EXPLOITABLE_STATES = new Set(['NOT_EXPLOITABLE', 'PROPOSED_NOT_EXPLOIT
 async function withoutNotExploitable(session, risks) {
   if (settingsStore.get().aiTriage?.skipNotExploitable === false) return risks;
   const live = new Map();
-  await mapWithConcurrency([...new Set(risks.map((r) => r.projectId))], 6, async (projectId) => {
+  await mapWithConcurrency([...new Set(risks.map((r) => r.projectId))], 3, async (projectId) => {
     try {
       live.set(projectId, await projectStates(session, projectId));
     } catch (error) {

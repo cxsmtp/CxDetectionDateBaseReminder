@@ -5318,7 +5318,6 @@ async function followUpAction(event) {
   const options = followUpOptions(card);
   // The smart buttons carry their own severities: the tier the credits cover, or the next to allocate for.
   const severities = (button.dataset.severities || '').split(',').filter(Boolean);
-  const tierText = severities.length === 4 ? 'findings of every severity' : `${severities.map((s) => s.toLowerCase()).join(', ')} findings`;
   button.disabled = true;
   followButton = button;
   const label = button.textContent;
@@ -5334,7 +5333,9 @@ async function followUpAction(event) {
       if (extra && !options.triageAdd && !options.remediationAdd) return followStatus(id, 'Enter the credits to add.', 'error'), true;
       const question = extra
         ? `Add ${options.triageAdd} triage and ${options.remediationAdd} remediation credit(s) to each of this report's projects, from the credit pool?`
-        : `Allocate ${kind === 'triage' ? 'AI Triage' : 'AI Remediation'} credits from the credit pool to this report's projects: what their ${tierText} need (${kind === 'triage' ? '1 per Checkmarx One result' : '3 per confirmed result'}), confirmed with Checkmarx One as they are given?`;
+        : kind === 'triage'
+          ? "Allocate AI Triage credits from the credit pool to this report's projects: what their findings at the severities on the button need (1 per Checkmarx One result), confirmed with Checkmarx One as they are given?"
+          : "Allocate AI Remediation credits from the credit pool to this report's projects: what their confirmed findings at the severities on the button need (3 per confirmed result), confirmed with Checkmarx One as they are given?";
       if (!confirm(question)) return true;
       followStatus(id, 'Allocating…');
       const result = await api(`/api/tracked-reports/${encodeURIComponent(id)}/allocate`, {
@@ -5373,7 +5374,7 @@ async function followUpAction(event) {
       loadTrackedReports();
     } else if (button.dataset.reportRemediate) {
       if (!severities.length) return true;
-      if (!confirm(`Run AI Remediation on this report's confirmed ${tierText}? It uses 3 Checkmarx One credits each.`)) return true;
+      if (!confirm("Run AI Remediation on this report's confirmed findings at the severities on the button? It uses 3 Checkmarx One credits each.")) return true;
       followStatus(id, 'Starting AI Remediation…');
       const result = await api(`/api/tracked-reports/${encodeURIComponent(id)}/remediate`, {
         method: 'POST',
@@ -5387,7 +5388,7 @@ async function followUpAction(event) {
       creditsChanged();
     } else {
       if (!severities.length) return true;
-      if (!confirm(`Run AI Triage on this report's ${tierText} still awaiting triage? It uses Checkmarx One credits.`)) return true;
+      if (!confirm("Run AI Triage on this report's findings at the severities on the button that are still awaiting triage? It uses Checkmarx One credits.")) return true;
       followStatus(id, 'Starting AI Triage…');
       const result = await api(`/api/tracked-reports/${encodeURIComponent(id)}/triage`, {
         method: 'POST',
@@ -10301,8 +10302,10 @@ async function allocateNeededCredits(kind) {
   if (!severities.length && !extra) return setStatus('cc-spend-status', 'Pick severities, or enter credits to add.', 'error');
   const engines = spendEngines();
   if (severities.length && !engines.length) return setStatus('cc-spend-status', 'Pick at least one engine.', 'error');
-  const what = kind === 'triage' ? 'AI Triage credits (1 per Checkmarx One result)' : 'AI Remediation credits (3 per confirmed result)';
-  if (!confirm(`Allocate ${what} from the credit pool to the ticked projects (none ticked: every project holding credits): what the ticked severities need, plus any extra entered?`)) return;
+  const question = kind === 'triage'
+    ? 'Allocate AI Triage credits (1 per Checkmarx One result) from the credit pool to the ticked projects (none ticked: every project holding credits): what the ticked severities need, plus any extra entered?'
+    : 'Allocate AI Remediation credits (3 per confirmed result) from the credit pool to the ticked projects (none ticked: every project holding credits): what the ticked severities need, plus any extra entered?';
+  if (!confirm(question)) return;
   const button = $(kind === 'triage' ? 'cc-allocate-triage' : 'cc-allocate-remediation');
   button.disabled = true;
   setStatus('cc-spend-status', 'Allocating…');
