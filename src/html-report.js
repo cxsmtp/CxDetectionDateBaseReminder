@@ -15,7 +15,7 @@ import { AI_SCANNERS } from './cxone/ai-assist.js';
 import { describeEngines, engineScope } from './engines.js';
 import { findingMeaning } from './finding-meaning.js';
 import { ON_PREMISE_NOTICE, SUPPORTING_NOTICE } from './terms.js';
-import { NEXTGEN_ACCENTS, reportLook } from '../public/look.js';
+import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../public/look.js';
 
 /** One Checkmarx One result: rows with the same key are triaged together, and charged once. */
 export const resultKey = (f) =>
@@ -122,8 +122,8 @@ export function groupSharedResults(findings) {
  * @param {object} [options.projectReportScope]  the scope those reports keep ({buckets, severities, detection, engines})
  * @param {string[]|null} [options.engines]  the engines the report covers (null: every engine), said at its top
  * @param {'primary'|'all'} [options.branches]  one branch per project, or every branch, said at its top
- * @param {{ui?: 'nextgen'|'classic', theme?: 'auto'|'light'|'dark', accent?: string}} [options.look]
- *   how the report looks: the next-gen or classic look, light, dark or the reader's device, and the next-gen accent
+ * @param {{look?: string, ui?: 'nextgen'|'classic', theme?: 'auto'|'light'|'dark', accent?: string}} [options.look]
+ *   how the report looks: the reader's look (Cabin, Residence… public/look.js), light, dark or the reader's device, and the accent
  */
 export function generateHtmlReport(reportData, options = {}) {
   const { connection = {}, branding = {} } = options;
@@ -280,13 +280,13 @@ export function generateHtmlReport(reportData, options = {}) {
       : '';
 
   return `<!DOCTYPE html>
-<html lang="en"${look.ui === 'nextgen' ? ` data-ui="nextgen" data-accent="${look.accent}"` : ''}${look.theme === 'auto' ? '' : ` data-theme="${look.theme}"`}>
+<html lang="en"${look.ui === 'nextgen' ? ` data-ui="nextgen" data-accent="${look.accent}"` : ''}${lookPalette(look.look) ? ` data-look="${look.look}"` : ''}${look.theme === 'auto' ? '' : ` data-theme="${look.theme}"`}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title${projects.length === 1 ? ` data-l="{0} — vulnerability report" data-v="${escapeHtml(JSON.stringify([String(projects[0].projectName ?? '')]))}" translate="no"` : ''}>${escapeHtml(title)}</title>
-<style>${styles(accent)}${look.ui === 'nextgen' ? nextgenStyles(look.accent) : ''}</style>
+<style>${styles(accent)}${look.ui === 'nextgen' ? nextgenStyles(look.accent) + lookStyles(look.look, look.accent) : ''}</style>
 </head>
 <body>
 <header class="top">
@@ -692,10 +692,56 @@ th { font-size: 12px; letter-spacing: 0; font-weight: 600; text-transform: none;
 #report-search:focus, .server-form input:focus { outline: none; border-color: ${from}; box-shadow: 0 0 0 3px color-mix(in srgb, ${from} 18%, transparent); }
 #findings tbody tr:hover > td { background: color-mix(in srgb, var(--ink) 3%, transparent); }
 .rescan-card .rc-icon { background: ${inkLight}; }
+/* Buttons that stand off the page, as in the app: lit from above, rising under the pointer, pressing in. */
+.btn:not(:disabled) { background-image: linear-gradient(180deg, rgb(255 255 255 / .22), rgb(255 255 255 / .04) 48%, rgb(0 0 0 / .06));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .35), inset 0 -1px 0 rgb(0 0 0 / .14), 0 1px 1px rgb(0 0 0 / .08), 0 3px 8px -2px rgb(0 0 0 / .18);
+  transition: transform .14s ease, box-shadow .14s ease; }
+.btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgb(255 255 255 / .35), inset 0 -1px 0 rgb(0 0 0 / .14), 0 2px 2px rgb(0 0 0 / .08), 0 8px 18px -6px rgb(0 0 0 / .3); }
+.btn:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 2px 5px rgb(0 0 0 / .2); }
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:hover:not(:disabled), .btn:active:not(:disabled) { transform: none; } }
 @media print {
   :root { color-scheme: light; --ink: #1e2226; --muted: #67625a; --line: #e3ddd0; --bg: #fff; --surface: #fff; --surface-2: #f5f2ea; --link: ${inkLight}; }
   body { background: #fff; }
   .top { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+`;
+}
+
+/**
+ * The reader's own look, over the command-center styles: Cabin, Circuit, Residence, Chronometer, Signal,
+ * Studio or Atelier (public/look.js LOOK_PALETTES, the same colours as the app): the page and its panels,
+ * the band at the top with a line of the look's colour under it, its face for headings and figures, and
+ * its buttons. Nothing for Command center, whose styles these are.
+ */
+function lookStyles(name, accentName) {
+  const p = lookPalette(name, accentName);
+  if (!p) return '';
+  const vars = (c) => `--accent: ${c.accent}; --ink: ${c.ink}; --muted: ${c.muted}; --line: ${c.line}; --bg: ${c.bg}; --surface: ${c.surface};
+    --surface-2: ${c.surface2}; --link: ${c.accent}; --focus: color-mix(in srgb, ${c.accent} 45%, transparent);
+    --outline-line: color-mix(in srgb, ${c.ink} 20%, transparent); --muted-bg: ${c.surface2}; --muted-ink: ${c.muted};
+    --btn: ${c.button}; --btn-ink: ${c.buttonInk};`;
+  const dark = `color-scheme: dark; ${vars(p.dark)}`;
+  const caps = p.labels === 'caps' ? 'text-transform: uppercase; letter-spacing: .1em; font-size: 10.5px;' : '';
+  return `
+/* The ${name} look. */
+:root { ${vars(p.light)} --ng-display: ${p.display}; --look-radius: ${p.radius}px; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { ${dark} }
+}
+:root[data-theme="dark"] { ${dark} }
+h1, h2 { font-family: var(--ng-display); font-weight: ${p.displayWeight}; letter-spacing: -.01em; }
+.count b, .summary .count b { font-family: var(--ng-display); font-weight: ${p.displayWeight}; ${p.italicFigures ? 'font-style: italic;' : ''} }
+.top { background: ${p.head}; color: ${p.headInk}; border-bottom: 2px solid var(--accent); }
+.server, .actions, .table-wrap, .activity { border-radius: var(--look-radius); border-color: var(--line); }
+th { ${caps} }
+.btn { background-color: var(--btn); color: var(--btn-ink); border-radius: ${Math.min(p.radius, 12)}px; }
+.btn-light { background-color: ${p.headInk}; color: ${p.head}; }
+.btn-outline, .btn-fix { background-color: var(--surface); color: var(--link); }
+.seg-btn.on { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); }
+#report-search:focus, .server-form input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.rescan-card .rc-icon { background: var(--accent); }
+@media print {
+  :root { color-scheme: light; ${vars(p.light)} --bg: #fff; --surface: #fff; }
 }
 `;
 }
@@ -728,7 +774,11 @@ a { color: var(--link); }
 .brand img { display: block; max-width: 180px; height: auto; max-height: 40px; background: #fff; border-radius: 4px; padding: 2px 6px; }
 .brand-name { font-weight: 600; opacity: .9; }
 h1 { margin: 0; font-size: clamp(18px, 2.4vw, 24px); line-height: 1.25; overflow-wrap: anywhere; }
-.meta { margin: 4px 0 0; opacity: .85; font-size: 13px; }
+.meta { margin: 4px 0 0; opacity: .85; font-size: 13px; overflow-wrap: anywhere; }
+/* Long names (a project, a path, an address) wrap inside their line instead of running past it. */
+main :is(p, li, dd, .chip, .muted, label) { overflow-wrap: anywhere; }
+td { overflow-wrap: break-word; }
+.ide-list { max-width: min(360px, calc(100vw - 32px)); overflow-wrap: anywhere; }
 .counts { display: flex; gap: 8px; flex-wrap: wrap; max-width: 1280px; margin: 12px auto 0; }
 .count { background: rgba(255,255,255,.16); border-radius: 999px; padding: 2px 12px; font-size: 13px; text-transform: capitalize; }
 main { max-width: 1280px; margin: 0 auto; padding: 16px max(24px, env(safe-area-inset-right)) 40px max(24px, env(safe-area-inset-left)); }

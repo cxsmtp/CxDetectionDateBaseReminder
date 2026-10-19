@@ -133,6 +133,17 @@ test('the product is CxMissionZero; an earlier default name saved by auto-save b
   assert.equal(load('Mission Zero').companyName, 'Acme', 'the rest of the branding is kept');
 });
 
+test('an Admin who types an earlier default name (Mission Zero) keeps it, across restarts', () => {
+  const chosen = mergeSettings(base(), { branding: { appName: 'Mission Zero' } });
+  assert.equal(chosen.branding.appName, 'Mission Zero');
+  const again = mergeSettings(chosen, { branding: { appName: 'Mission Zero', companyName: 'Acme' } });
+  assert.equal(again.branding.appNameChosen, true, 'auto-save sending the same name keeps it chosen');
+  const file = tempFile();
+  fs.writeFileSync(file, JSON.stringify({ branding: again.branding }));
+  assert.equal(new SettingsStore({ file }).get().branding.appName, 'Mission Zero');
+  assert.equal(mergeSettings(chosen, { branding: { appName: '' } }).branding.appName, 'CxMissionZero', 'empty is the default again');
+});
+
 test('the next-gen look is on and the menu down the left side unless an admin changes them; a saved file from before gets them', () => {
   assert.deepEqual([base().branding.nextGen, base().branding.navPosition], [true, 'left']);
   const offSettings = mergeSettings(base(), { branding: { nextGen: false, navPosition: 'top' } });

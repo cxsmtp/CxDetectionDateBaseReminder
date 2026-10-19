@@ -10,7 +10,7 @@ import { FREQUENCIES, SEVERITIES, aheadMonths, creditSummary } from './model.js'
 import { allSections } from './explain.js';
 import { forecastChart } from './charts.js';
 import { assumptionItems, reportFileName, trFigures, wording } from './report.js';
-import { NEXTGEN_ACCENTS, reportLook } from '../look.js';
+import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../look.js';
 
 /** The page size in PDF points (16:9, as a presentation) and the drawing size in pixels. */
 export const PAGE = { width: 960, height: 540 };
@@ -26,7 +26,7 @@ let FONT = CLASSIC_FONT;
 /** `a` mixed into white by `share` (0–1), as a hex colour a canvas takes. */
 const tint = (a, share) => `#${[1, 3, 5].map((i) => Math.round(255 - (255 - parseInt(a.slice(i, i + 2), 16)) * share).toString(16).padStart(2, '0')).join('')}`;
 
-/** The PDF in the app's look: next-gen has its deep header, the accent's ink and gradient, and Plus Jakarta Sans. */
+/** The PDF in the app's look: next-gen has its deep header, the accent's ink and gradient, and Plus Jakarta Sans; each new look its own band and colours. */
 function useLook(look) {
   const { ui, accent } = reportLook(look);
   if (ui !== 'nextgen') {
@@ -34,9 +34,16 @@ function useLook(look) {
     FONT = CLASSIC_FONT;
     return;
   }
+  FONT = `"MZ Jakarta", "Plus Jakarta Sans", ${CLASSIC_FONT}`;
+  // The reader's own look (Cabin, Residence…): its band at the top, ink, lines and colour, on a white page.
+  const p = lookPalette(reportLook(look).look, accent);
+  if (p) {
+    const c = p.light;
+    C = { ...CLASSIC, head: p.head, ink: c.ink, muted: c.muted, line: c.line, soft: tint(c.accent, 0.05), key: tint(c.accent, 0.1), accent: c.accent, from: c.accent, to: c.button };
+    return;
+  }
   const [ink, , from, to] = NEXTGEN_ACCENTS[accent];
   C = { ...CLASSIC, head: '#0b1020', ink: '#0b1020', muted: '#5a6478', line: '#e2e6f0', soft: '#f3f5fb', key: tint(from, 0.1), accent: ink, from, to };
-  FONT = `"MZ Jakarta", "Plus Jakarta Sans", ${CLASSIC_FONT}`;
 }
 
 /** HTML wording as plain text, for drawing. */

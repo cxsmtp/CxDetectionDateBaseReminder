@@ -48,8 +48,9 @@ const SOURCE_LABEL = {
 
 /** The look the app is in, for the report: next-gen or classic, the theme chosen and the accent. */
 function appLook() {
-  const { ui, theme, accent } = document.documentElement.dataset;
-  return { ui: ui === 'nextgen' ? 'nextgen' : 'classic', theme: theme ?? 'auto', accent: accent ?? 'indigo' };
+  const { ui, look, theme, accent } = document.documentElement.dataset;
+  // html[data-look] is "studio", or "signal cabin" for the looks drawn on Signal's pages: the look is its last word.
+  return { look: ui === 'nextgen' ? String(look ?? '').split(' ').pop() || 'nextgen' : 'classic', ui: ui === 'nextgen' ? 'nextgen' : 'classic', theme: theme ?? 'auto', accent: accent ?? 'indigo' };
 }
 
 export function initCalculator({ api, $, esc, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me, can }) {

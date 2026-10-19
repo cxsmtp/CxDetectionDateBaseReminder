@@ -8,7 +8,7 @@
 // Checkmarx One data, then how the number was reached, the assumptions, and last every figure.
 
 import { describeEngines } from '../engines.js';
-import { NEXTGEN_ACCENTS, reportLook } from '../look.js';
+import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../look.js';
 import { FREQUENCIES, SEVERITIES, cleanScope, creditSummary } from './model.js';
 import { allSections, sectionHtml } from './explain.js';
 import { SEVERITY_COLOURS, backlogTrendChart, debtFixChart, forecastChart, monthLabel, ratesChart, severityChart, severityCharts } from './charts.js';
@@ -399,12 +399,35 @@ th{font-size:12px;letter-spacing:0;text-transform:none;font-weight:600} table.de
 }
 
 /**
+ * The reader's own look over the command-center style (Cabin, Circuit, Residence…: public/look.js), the
+ * same colours as the app: page and cards, the band at the top with a line of the look's colour, its face.
+ */
+function lookStyle(name, accentName) {
+  const p = lookPalette(name, accentName);
+  if (!p) return '';
+  const vars = (c) => `--bg:${c.bg};--card:${c.surface};--ink:${c.ink};--muted:${c.muted};--line:${c.line};--grid:${c.line};--row:${c.surface2};--soft:color-mix(in srgb,${c.accent} 7%,${c.surface});--soft-line:color-mix(in srgb,${c.accent} 26%,${c.line});--gold:${c.accent};--accent:${c.accent}`;
+  const dark = `color-scheme:dark;${vars(p.dark)}`;
+  return `
+:root{${vars(p.light)};--head1:${p.head};--ng-display:${p.display}}
+@media (prefers-color-scheme:dark){:root:not(:has(#theme-light:checked)){${dark}}}
+:root:has(#theme-dark:checked){${dark}}
+header{background:${p.head};border-bottom:2px solid var(--accent)}
+header h1,h2{font-family:var(--ng-display);font-weight:${p.displayWeight}}
+.answer .big,.figure,.keys b,.sevs b{font-family:var(--ng-display);font-weight:${p.displayWeight}${p.italicFigures ? ';font-style:italic' : ''}}
+section{border-radius:${p.radius}px} .card,.scroll{border-radius:${Math.min(p.radius, 12)}px}
+section.answer::before{background:var(--accent)}
+${p.labels === 'caps' ? 'th{text-transform:uppercase;letter-spacing:.08em;font-size:10.5px}' : ''}
+@media print{:root{color-scheme:light;${vars(p.light)};--bg:#fff;--card:#fff}}
+`;
+}
+
+/**
  * The report's HTML. `data` is what generating it saved: see page.js reportData().
  * `options`: `t` the page's translator, `lang` its language and `dir` its direction ("rtl" for Arabic and Hebrew),
- * `look` how it looks: `{ui: 'nextgen'|'classic', theme: 'auto'|'light'|'dark', accent}`, the app's own when made from it.
+ * `look` how it looks: `{look, ui: 'nextgen'|'classic', theme: 'auto'|'light'|'dark', accent}`, the app's own when made from it.
  */
 export function buildReport(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
-  const { ui, theme, accent } = reportLook(look);
+  const { look: lookName, ui, theme, accent } = reportLook(look);
   const L = wording({ t, lang });
   const { w } = L;
   const customer = esc(data.customer || L.t('Customer'));
@@ -413,7 +436,7 @@ export function buildReport(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
   const made = esc(new Date(data.generatedAt).toLocaleString(L.locale));
   return `<!doctype html>
 <html lang="${esc(lang)}" dir="${dir === 'rtl' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${w('{0}: Checkmarx credits projection', customer)}</title>
-<style>${STYLE}${ui === 'nextgen' ? nextgenStyle(accent) : ''}</style></head>
+<style>${STYLE}${ui === 'nextgen' ? nextgenStyle(accent) + lookStyle(lookName, accent) : ''}</style></head>
 <body>
 <header>
   <div class="top">

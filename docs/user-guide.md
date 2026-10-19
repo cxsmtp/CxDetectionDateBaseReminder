@@ -123,7 +123,7 @@ What is translated, and what is not:
 Changes save as you make them and are recorded in the audit log. A time zone or first language picked up from your computer is saved without an audit entry.
 
 <a id="your-branding"></a>**Your branding** (Settings → Your branding, for roles with **Their own branding**). Your own names, logo and colours, for demonstrations:
-- Turn on **Use my branding**, then fill in the app name, company name, logo, logo height, accent colour and call to action. An empty field keeps the organisation's, shown in grey.
+- Fill in the app name, company name, logo, logo height, accent colour and call to action: typing in any of them turns on **Use my branding**, and the header shows your app name and logo at once. An empty field keeps the organisation's, shown in grey. Turn **Use my branding** off to go back to the organisation's; what you typed is kept.
 - While it is on, this app shows you your app name and logo, and the reports you download and the reminders you send carry your branding.
 - Everyone else, and every scheduled run, keeps the organisation's branding.
 - Turn it off to go back. **Clear my branding** empties it. Details: [branding](branding.md).
@@ -824,7 +824,7 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
 
 1. **Open it.** Click the button (it downloads the report; the link works for 30 days) or open the attachment. Any browser works, and nothing needs installing.
    - It opens in your profile's language, else your browser's. **Language** at the top switches it.
-   - It is in your profile's look (any look but Classic gives it the command-center style; Classic the classic one), light, dark or your device's, and your accent (see [Find your way](#find-your-way)). Without an account, it is in the organisation's default.
+   - It is in your profile's look (its colours, its band across the top and its face; Classic the classic one), light, dark or your device's, and your accent (see [Find your way](#find-your-way)). Without an account, it is in the organisation's default.
    - Your profile's language works offline. Any other language comes from the reminder server the first time, and is then kept in your browser.
    - Finding titles, project names, code, and what Checkmarx One's AI wrote stay as they are.
 2. **It connects by itself** to the reminder server shown at the top.
