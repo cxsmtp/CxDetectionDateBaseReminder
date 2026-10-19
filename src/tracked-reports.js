@@ -100,6 +100,8 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
   };
 
   const outcomes = emptyOutcomes();
+  // The same outcomes by severity, for drawing each finding (the Dashboard's sunflower).
+  const bySeverity = Object.fromEntries(OUTCOMES.map((o) => [o, {}]));
   const baselineKeys = new Set();
   let changed = 0;
   for (const f of report.baseline.findings) {
@@ -108,6 +110,8 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
     if (current.has(key)) countToTriage(current.get(key));
     const outcome = outcomeOf(current.get(key));
     outcomes[outcome] += 1;
+    const severity = String(f.severity || 'UNKNOWN').toUpperCase();
+    bySeverity[outcome][severity] = (bySeverity[outcome][severity] ?? 0) + 1;
     if (outcome !== outcomeOf(f)) changed += 1;
     const row = byProject.get(f.projectId);
     if (row) {
@@ -145,6 +149,7 @@ export function computeProgress(report, currentByProject, detectionWindow, aiAct
     at: now.toISOString(),
     baseline,
     outcomes,
+    bySeverity,
     actioned,
     percentActioned: baseline ? Math.round((actioned / baseline) * 100) : 100,
     changed,

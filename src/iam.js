@@ -25,7 +25,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { validCurrency } from './money.js';
-import { NEXTGEN_ACCENTS } from '../public/look.js';
+import { LOOKS as ALL_LOOKS, NEXTGEN_ACCENTS } from '../public/look.js';
 import { RESET_POLICIES } from './password-reset.js';
 
 const scrypt = promisify(scryptCb);
@@ -651,7 +651,7 @@ export function cleanPersonalImpact(input = {}) {
 }
 
 /** How a person sees the app: the look (empty: the organisation's), light or dark, and the next-gen look's accent. */
-export const LOOKS = ['nextgen', 'classic'];
+export const LOOKS = ALL_LOOKS;
 export const THEMES = ['auto', 'light', 'dark'];
 export const ACCENTS = Object.keys(NEXTGEN_ACCENTS);
 

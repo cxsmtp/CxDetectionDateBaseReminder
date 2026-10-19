@@ -23196,5 +23196,267 @@
   "seen": [
    "Settings → Branding → \"Offer the command-center look\": the line under the switch"
   ]
+ },
+ "A fine watch: deep green, gold and a fluted bezel.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Look",
+   "first start › small › Look of the app",
+   "sign in › small › Look"
+  ]
+ },
+ "A grand hotel: ivory, deep navy and a touch of gold.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Look",
+   "first start › small › Look of the app",
+   "sign in › small › Look"
+  ]
+ },
+ "A luxury car's cockpit at night: glass and ambient light.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Look",
+   "first start › small › Look of the app",
+   "sign in › small › Look"
+  ]
+ },
+ "A sports car's gauges: graphite, a needle and a red line.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Look",
+   "first start › small › Look of the app",
+   "sign in › small › Look"
+  ]
+ },
+ "Atelier": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Your profile",
+   "first start › strong › Look",
+   "first start › strong › Look of the app"
+  ]
+ },
+ "Bright and airy, with a confident violet.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Look",
+   "first start › small › Look of the app",
+   "sign in › small › Look"
+  ]
+ },
+ "Cabin": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Your profile",
+   "first start › strong › Look",
+   "first start › strong › Look of the app"
+  ]
+ },
+ "Chronometer": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Your profile",
+   "first start › strong › Look",
+   "first start › strong › Look of the app"
+  ]
+ },
+ "Circuit": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Your profile",
+   "first start › strong › Look",
+   "first start › strong › Look of the app"
+  ]
+ },
+ "Each seed is one finding; the bigger it is, the more severe.": {
+  "kind": "text",
+  "seen": [
+   "reports › li",
+   "credits › li",
+   "credits › overview › li"
+  ]
+ },
+ "Everyone's look, unless they pick their own under Settings → Your appearance. Every look is kept here to choose from.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Look of the app",
+   "sign in › p › Look of the app",
+   "Dashboard › p › Look of the app"
+  ]
+ },
+ "Focus": {
+  "kind": "text",
+  "seen": [
+   "first start › span",
+   "sign in › span",
+   "Dashboard › span"
+  ]
+ },
+ "Fold every group": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
+ "Let people choose their own look": {
+  "kind": "text",
+  "seen": [
+   "first start › strong › Look of the app",
+   "sign in › strong › Look of the app",
+   "Dashboard › strong › Look of the app"
+  ]
+ },
+ "Menu in the new looks": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Look of the app",
+   "sign in › span › Look of the app",
+   "Dashboard › span › Look of the app"
+  ]
+ },
+ "Nothing pinned yet: point at a page and click its pin.": {
+  "kind": "text",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
+  ]
+ },
+ "On: each person can pick another look under Settings → Your appearance. Off: everyone has the organisation's look, and Your appearance offers only light or dark.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Look of the app",
+   "sign in › small › Look of the app",
+   "Dashboard › small › Look of the app"
+  ]
+ },
+ "Paper and ink, with one signal colour.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Look",
+   "first start › small › Look of the app",
+   "sign in › small › Look"
+  ]
+ },
+ "Pin to the top of the menu": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
+ "Residence": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Your profile",
+   "first start › strong › Look",
+   "first start › strong › Look of the app"
+  ]
+ },
+ "Show every page": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Show only your pinned pages": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
+ "Signal": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Your profile",
+   "first start › strong › Look",
+   "first start › strong › Look of the app"
+  ]
+ },
+ "Studio": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Your profile",
+   "first start › strong › Look",
+   "first start › strong › Look of the app"
+  ]
+ },
+ "The base look: a dark console beside warm paper.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Look",
+   "first start › small › Look of the app",
+   "sign in › small › Look"
+  ]
+ },
+ "The original look.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Look",
+   "first start › small › Look of the app",
+   "sign in › small › Look"
+  ]
+ },
+ "The pages you pinned, always at the top": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
+  ]
+ },
+ "Unfold every group": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Unpin from the top of the menu": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Where the tracked findings stand": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "first start › section",
+   "sign in › section",
+   "Dashboard › section"
+  ]
+ },
+ "<i aria-hidden=\"true\"></i>Pinned": {
+  "kind": "html",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
+  ]
+ },
+ "Pinned": {
+  "kind": "text",
+  "seen": [
+   "menu › Pinned (the slim bar)"
+  ]
+ },
+ "One seed for every {0} findings": {
+  "kind": "text",
+  "seen": [
+   "Follow up › flow › span"
+  ]
+ },
+ "Warm paper and a watchmaker's taupe.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Look",
+   "first start › small › Look of the app",
+   "sign in › small › Look"
+  ]
  }
 }

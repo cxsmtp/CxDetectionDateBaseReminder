@@ -1466,6 +1466,102 @@ for (const group of document.querySelectorAll('#nav .nav-group')) {
 }
 applyNavFolds();
 
+// ---------------------------------------------------------------------------
+// Pinned pages sit at the top of the menu, and Focus shows only them (with the page open). Both are kept
+// in this browser, like the folds. Every group can be folded or unfolded at once.
+// ---------------------------------------------------------------------------
+
+const NAV_PINS_KEY = 'mz-nav-pins';
+const NAV_FOCUS_KEY = 'mz-nav-focus';
+const PIN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6 4 4H6l4-4z" /><path d="M12 13v8" /></svg>';
+const navTabs = () => [...document.querySelectorAll('#nav > a.tab[data-route]')];
+function navPins() {
+  try {
+    const list = JSON.parse(localStorage.getItem(NAV_PINS_KEY) || '[]');
+    const routes = new Set(navTabs().map((t) => t.dataset.route));
+    return Array.isArray(list) ? list.filter((r) => typeof r === 'string' && routes.has(r)) : [];
+  } catch {
+    return [];
+  }
+}
+function navFocus() {
+  try {
+    return localStorage.getItem(NAV_FOCUS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function renderNavPins() {
+  const pins = navPins();
+  const shelf = $('nav-pinned');
+  shelf.replaceChildren(
+    ...pins.map((route) => {
+      const copy = document.querySelector(`#nav > a.tab[data-route="${route}"]`).cloneNode(true);
+      copy.dataset.stage = 'pinned';
+      copy.classList.add('tab-pinned');
+      copy.classList.remove('nav-folded');
+      for (const el of copy.querySelectorAll('[id]')) el.removeAttribute('id');
+      return copy;
+    }),
+  );
+  document.querySelector('#nav .nav-pinned-head').hidden = !pins.length;
+  for (const tab of navTabs()) tab.classList.toggle('is-pinned', pins.includes(tab.dataset.route));
+  for (const button of document.querySelectorAll('#nav .nav-pin')) {
+    const on = pins.includes(button.dataset.route);
+    button.setAttribute('aria-pressed', String(on));
+    button.title = on ? 'Unpin from the top of the menu' : 'Pin to the top of the menu';
+    button.setAttribute('aria-label', button.title);
+  }
+  const focus = navFocus();
+  if (focus) document.documentElement.dataset.navFocus = '';
+  else delete document.documentElement.dataset.navFocus;
+  $('nav-focus').setAttribute('aria-pressed', String(focus));
+  $('nav-focus').title = focus ? 'Show every page' : 'Show only your pinned pages';
+  $('nav-pinned-empty').hidden = !(focus && !pins.length);
+  const folded = navFolds();
+  const allFolded = [...document.querySelectorAll('#nav .nav-group:not([hidden])')].every((g) => folded.has(g.dataset.stage));
+  $('nav-fold-all').title = allFolded ? 'Unfold every group' : 'Fold every group';
+  $('nav-fold-all').setAttribute('aria-label', $('nav-fold-all').title);
+  $('nav-fold-all').classList.toggle('is-folded', allFolded);
+  if (state.page) for (const tab of shelf.querySelectorAll('.tab')) tab.classList.toggle('active', tab.dataset.route === state.page);
+}
+for (const tab of navTabs()) {
+  const pin = document.createElement('button');
+  pin.type = 'button';
+  pin.className = 'nav-pin';
+  pin.dataset.route = tab.dataset.route;
+  if (tab.dataset.perm) pin.dataset.perm = tab.dataset.perm;
+  pin.innerHTML = PIN_ICON;
+  tab.after(pin);
+  pin.addEventListener('click', () => {
+    const pins = navPins();
+    const next = pins.includes(tab.dataset.route) ? pins.filter((r) => r !== tab.dataset.route) : [...pins, tab.dataset.route];
+    try {
+      localStorage.setItem(NAV_PINS_KEY, JSON.stringify(next));
+    } catch {}
+    renderNavPins();
+    applyNavFolds();
+  });
+}
+$('nav-focus').addEventListener('click', () => {
+  try {
+    localStorage.setItem(NAV_FOCUS_KEY, navFocus() ? '0' : '1');
+  } catch {}
+  renderNavPins();
+});
+$('nav-fold-all').addEventListener('click', () => {
+  const groups = [...document.querySelectorAll('#nav .nav-group:not([hidden])')].map((g) => g.dataset.stage);
+  const folded = navFolds();
+  const fold = !groups.every((s) => folded.has(s));
+  try {
+    localStorage.setItem(NAV_FOLDS_KEY, JSON.stringify(fold ? groups : []));
+  } catch {}
+  applyNavFolds();
+  renderNavPins();
+});
+for (const group of document.querySelectorAll('#nav .nav-group')) group.addEventListener('click', () => renderNavPins());
+renderNavPins();
+
 const PAGE_TITLES = {
   connect: ['Sign in', 'Act on findings, follow them up, prove every credit'],
   dashboard: ['Workbench', 'Find ageing findings and fix them'],
@@ -1520,14 +1616,35 @@ $('theme-toggle').addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Look: next-gen (the default) or classic, and the next-gen look's accent. Each person's own, kept on
-// their profile and in this browser (index.html applies it before first paint). An Admin can turn the
-// next-gen look off for everyone (Settings → Branding), and choose where its menu sits.
+// Look: Signal, Command center, Studio, Atelier or Classic (public/look.js), and the accent. The
+// organisation's look is an Admin's (Settings → Branding), as is whether people may pick their own; a
+// person's own is kept on their profile and in this browser (index.html applies it before first paint).
 // ---------------------------------------------------------------------------
 
 const LOOK_ACCENTS = ['indigo', 'cyan', 'emerald', 'violet', 'amber'];
-const look = { offered: true };
-const currentLook = () => (document.documentElement.dataset.ui === 'nextgen' ? 'nextgen' : 'classic');
+const LOOKS = ['cabin', 'circuit', 'residence', 'chronometer', 'signal', 'nextgen', 'studio', 'atelier', 'classic'];
+const LOOK_NAMES = { cabin: 'Cabin', circuit: 'Circuit', residence: 'Residence', chronometer: 'Chronometer', signal: 'Signal', nextgen: 'Command center', studio: 'Studio', atelier: 'Atelier', classic: 'Classic' };
+// The accent tints the looks made for it: Signal's signal colour, Command center's and Atelier's ink.
+const ACCENT_LOOKS = new Set(['cabin', 'circuit', 'signal', 'nextgen', 'atelier']);
+const stored = (key) => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+const look = {
+  org: LOOKS.includes(stored('mz-org-look')) ? stored('mz-org-look') : stored('mz-nextgen-off') === '1' ? 'classic' : 'nextgen',
+  choice: stored('mz-look-choice') !== '0',
+  own: LOOKS.includes(stored('mz-look')) ? stored('mz-look') : '',
+};
+// Cabin, Circuit, Residence and Chronometer are drawn on Signal's open pages: html[data-look="signal cabin"].
+const LOOK_ATTR = { cabin: 'signal cabin', circuit: 'signal circuit', residence: 'signal residence', chronometer: 'signal chronometer' };
+const currentLook = () => {
+  if (document.documentElement.dataset.ui !== 'nextgen') return 'classic';
+  const attr = (document.documentElement.dataset.look ?? '').split(' ');
+  return LOOKS.find((l) => l !== 'nextgen' && attr.at(-1) === l) ?? 'nextgen';
+};
 const currentAccent = () => document.documentElement.dataset.accent || 'indigo';
 const remember = (key, value) => {
   try {
@@ -1539,21 +1656,31 @@ const remember = (key, value) => {
 function syncLookMenu() {
   const menu = document.getElementById('look-menu');
   if (!menu) return;
-  for (const box of menu.querySelectorAll('input[name="look"]')) box.checked = box.value === currentLook();
+  for (const box of menu.querySelectorAll('input[name="look"]')) box.checked = box.value === look.own;
   for (const box of menu.querySelectorAll('input[name="look-theme"]')) box.checked = box.value === (document.documentElement.dataset.theme || 'auto');
   for (const box of menu.querySelectorAll('input[name="look-accent"]')) box.checked = box.value === currentAccent();
-  $('look-pick').hidden = !look.offered;
-  $('look-accent').hidden = currentLook() !== 'nextgen';
+  $('look-org-name').textContent = LOOK_NAMES[look.org];
+  menu.querySelector('.look-card-org .look-mini').dataset.mini = look.org;
+  $('look-pick').hidden = !look.choice;
+  $('look-accent').hidden = !ACCENT_LOOKS.has(currentLook());
 }
 
-/** Next-gen or classic (classic whenever the organisation has the next-gen look off). */
-function applyLook(choice, { save = false } = {}) {
-  const value = look.offered && choice !== 'classic' ? 'nextgen' : 'classic';
-  if (value === 'nextgen') document.documentElement.dataset.ui = 'nextgen';
-  else delete document.documentElement.dataset.ui;
-  if (look.offered) remember('mz-look', value === 'classic' ? 'classic' : null);
+/** Show a look: the person's own when the organisation lets people choose, else the organisation's. */
+function showLook() {
+  const value = look.choice && look.own ? look.own : look.org;
+  if (value === 'classic') delete document.documentElement.dataset.ui;
+  else document.documentElement.dataset.ui = 'nextgen';
+  if (value === 'classic' || value === 'nextgen') delete document.documentElement.dataset.look;
+  else document.documentElement.dataset.look = LOOK_ATTR[value] ?? value;
   syncLookMenu();
-  if (save && state.me?.user) saveProfile({ look: value }, { silent: true });
+}
+
+/** This person's own look ('' is the organisation's). */
+function applyLook(choice, { save = false } = {}) {
+  look.own = LOOKS.includes(choice) ? choice : '';
+  remember('mz-look', look.own || null);
+  showLook();
+  if (save && state.me?.user) saveProfile({ look: look.own }, { silent: true });
 }
 
 function applyAccent(accent, { save = false } = {}) {
@@ -1565,21 +1692,23 @@ function applyAccent(accent, { save = false } = {}) {
   if (save && state.me?.user) saveProfile({ accent: value }, { silent: true });
 }
 
-/** The organisation's choices (from /api/health): the next-gen look offered or not, and where its menu sits. */
-function applyOrgLook({ nextGen, navPosition } = {}) {
-  look.offered = nextGen !== false;
-  remember('mz-nextgen-off', look.offered ? null : '1');
-  if (!look.offered) applyLook('classic');
-  else if (currentLook() === 'classic' && (() => { try { return localStorage.getItem('mz-look') !== 'classic'; } catch { return true; } })()) applyLook('nextgen');
+/** The organisation's choices (from /api/health or Settings → Branding): its look, people's own or not, and where the menu sits. */
+function applyOrgLook({ look: orgLook, lookChoice, nextGen, navPosition } = {}) {
+  // A server from before there were looks to choose sends only nextGen.
+  look.org = LOOKS.includes(orgLook) ? orgLook : nextGen === false ? 'classic' : 'nextgen';
+  look.choice = orgLook ? lookChoice !== false : nextGen !== false;
+  remember('mz-org-look', look.org);
+  remember('mz-look-choice', look.choice ? null : '0');
+  remember('mz-nextgen-off', null);
+  showLook();
   if (navPosition === 'top') document.documentElement.dataset.nav = 'top';
   else delete document.documentElement.dataset.nav;
   remember('mz-nav', navPosition === 'top' ? 'top' : null);
-  syncLookMenu();
 }
 
 /** Signed in: the look, theme and accent on their profile, when they chose one. */
 function applyProfileLook(profile = {}) {
-  if (profile.look) applyLook(profile.look);
+  if ('look' in profile && (profile.look || '') !== look.own) applyLook(profile.look);
   if (profile.theme && profile.theme !== (document.documentElement.dataset.theme || 'auto')) applyTheme(profile.theme);
   if (profile.accent) applyAccent(profile.accent);
 }
@@ -1695,6 +1824,7 @@ async function showConnected(me) {
   $('user-menu').hidden = false;
   $('connect-panel').hidden = true;
   $('nav').hidden = false;
+  $('nav-tools').hidden = false;
   $('sidebar-tools').hidden = false;
   $('palette-open').hidden = false;
   $('api-key').value = '';
@@ -1895,6 +2025,7 @@ function showSignIn({ setup = false, change = false, message = '' } = {}) {
   $('change-cancel').hidden = change;
   $('change-current-field').hidden = false;
   $('nav').hidden = true;
+  $('nav-tools').hidden = true;
   $('sidebar-tools').hidden = true;
   $('palette-open').hidden = true;
   $('page-reload').hidden = true;
@@ -2199,9 +2330,10 @@ function renderSettings() {
     $('brand-height').value = s.branding.logoHeight;
     $('brand-accent').value = /^#[0-9a-f]{6}$/i.test(s.branding.accentColor) ? s.branding.accentColor : '#1d4ed8';
     $('brand-cta').value = s.branding.callToAction;
-    $('brand-nextgen').checked = s.branding.nextGen !== false;
+    const orgLook = LOOKS.includes(s.branding.look) ? s.branding.look : s.branding.nextGen === false ? 'classic' : 'nextgen';
+    for (const box of document.querySelectorAll('input[name="brand-look"]')) box.checked = box.value === orgLook;
+    $('brand-look-choice').checked = s.branding.lookChoice !== false;
     $('brand-nav').value = s.branding.navPosition === 'top' ? 'top' : 'left';
-    $('brand-nav').disabled = !$('brand-nextgen').checked;
     renderBrandPreview();
   }
 
@@ -2600,7 +2732,8 @@ function settingsPayload() {
       logoHeight: $('brand-height').value,
       accentColor: $('brand-accent').value,
       callToAction: $('brand-cta').value,
-      nextGen: $('brand-nextgen').checked,
+      look: brandLook(),
+      lookChoice: $('brand-look-choice').checked,
       navPosition: $('brand-nav').value,
     },
     links: {
@@ -4389,7 +4522,112 @@ const RP_DEFINE = {
   hero: 'Actioned: confirmed, not exploitable or no longer detected. No longer detected means Checkmarx One no longer reports it, which is not proof of a fix: the code may have changed, or the project may not have been scanned since. Only a verification rescan proves a fix.',
 };
 
+/** A watch dial's minute marks: `n` ticks around (cx, cy) at radius r, every fifth one longer. */
+function dialTicks(cx, cy, r, n) {
+  let out = '';
+  for (let i = 0; i < n; i += 1) {
+    const a = (i / n) * 2 * Math.PI;
+    const long = i % 5 === 0;
+    const r1 = r - (long ? 7 : 3.5);
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    out += `<line class="${long ? 'tick-long' : 'tick'}" x1="${(cx + c * r1).toFixed(2)}" y1="${(cy + s * r1).toFixed(2)}" x2="${(cx + c * r).toFixed(2)}" y2="${(cy + s * r).toFixed(2)}" />`;
+  }
+  return out;
+}
+
+/**
+ * The tracked findings as a sunflower (the command-center and Studio looks), after Giorgia Lupi's data
+ * humanism: every finding is one seed, laid out on the golden angle the way a sunflower grows. Closed ones
+ * sit at the calm grey heart, confirmed ones are solid ink, and those awaiting triage are open rings in the
+ * signal colour around the rim; bigger seeds are more severe. As the work is done the heart grows outward.
+ */
+const SEED_SIZE = { CRITICAL: 1.3, HIGH: 1.05, MEDIUM: 0.82, LOW: 0.64 };
+const SEED_ORDER = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'UNKNOWN', 'INFO'];
+const MAX_SEEDS = 1400;
+
+function sunflower(parts) {
+  const total = parts.reduce((n, p) => n + p.value, 0);
+  const per = Math.max(1, Math.ceil(total / MAX_SEEDS));
+  // Seeds from the heart outward: closed, then confirmed, then awaiting triage; within each, mildest first.
+  const seeds = [];
+  for (const p of ['closed', 'confirmed', 'awaiting'].map((k) => parts.find((x) => x.key === k))) {
+    const sev = p.bySeverity ?? {};
+    const known = Object.values(sev).reduce((n, v) => n + v, 0);
+    const counts = known ? SEED_ORDER.map((s) => [s, sev[s] ?? 0]) : [['MEDIUM', p.value]];
+    for (const [severity, count] of counts) for (let i = 0; i < Math.ceil(count / per); i += 1) seeds.push({ key: p.key, severity });
+  }
+  const n = seeds.length;
+  if (!n) return '';
+  const R0 = 68;
+  const R1 = 146;
+  const c = Math.sqrt((R1 * R1 - R0 * R0) / n);
+  const i0 = (R0 / c) ** 2;
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const base = Math.min(5.2, Math.max(0.9, c * 0.36));
+  const out = { closed: [], confirmed: [], awaiting: [] };
+  seeds.forEach((seed, i) => {
+    const r = c * Math.sqrt(i + i0);
+    const a = (i + i0) * golden;
+    const x = 150 + r * Math.cos(a);
+    const y = 150 + r * Math.sin(a);
+    const size = (base * (SEED_SIZE[seed.severity] ?? 0.8)).toFixed(2);
+    out[seed.key].push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${size}" />`);
+  });
+  return `<svg class="seedfield" viewBox="0 0 300 300" role="img" aria-label="${escapeHtml(parts.map((p) => `${p.label}: ${p.value}`).join(', '))}">
+    <g class="seeds seeds-closed">${out.closed.join('')}</g>
+    <g class="seeds seeds-confirmed">${out.confirmed.join('')}</g>
+    <g class="seeds seeds-awaiting">${out.awaiting.join('')}</g>
+  </svg>${per > 1 ? `<span class="seed-note">One seed for every ${per} findings</span>` : ''}`;
+}
+
+function renderFlow(reports) {
+  const box = $('rp-flow');
+  const measured = reports.filter((r) => r.latest);
+  if (!measured.length) {
+    box.hidden = true;
+    return;
+  }
+  const n = (key) => measured.reduce((sum, r) => sum + (r.latest.outcomes?.[key] ?? 0), 0);
+  const sev = (...keys) => {
+    const out = {};
+    for (const r of measured) for (const key of keys) for (const [s, v] of Object.entries(r.latest.bySeverity?.[key] ?? {})) out[s] = (out[s] ?? 0) + v;
+    return out;
+  };
+  const baseline = measured.reduce((sum, r) => sum + (r.latest.baseline ?? 0), 0);
+  const actioned = measured.reduce((sum, r) => sum + (r.latest.actioned ?? 0), 0);
+  const pct = baseline ? Math.round((actioned / baseline) * 100) : 0;
+  const parts = [
+    { key: 'awaiting', label: 'Awaiting triage', value: n('awaiting'), sub: 'not triaged yet', bySeverity: sev('awaiting') },
+    { key: 'confirmed', label: 'Confirmed', value: n('confirmed'), sub: 'real, fix pending', bySeverity: sev('confirmed') },
+    { key: 'closed', label: 'Closed', value: n('notExploitable') + n('resolved'), sub: `${n('notExploitable').toLocaleString()} not exploitable · ${n('resolved').toLocaleString()} no longer detected`, bySeverity: sev('notExploitable', 'resolved') },
+  ];
+  const ringHelp = helpTip(RP_DEFINE.tracked);
+  box.hidden = false;
+  box.innerHTML = `<div class="flow-source" style="--pct: ${pct}">
+      ${sunflower(parts)}
+      <div class="flow-source-text">
+        <span class="flow-big">${baseline.toLocaleString()}</span>
+        <span class="flow-label">Findings tracked${ringHelp.button}</span>
+        <span class="flow-sub">${pct}% actioned</span>
+      </div>
+    </div>
+    <ol class="flow-outcomes">${parts
+      .map((p) => {
+        const help = helpTip(RP_DEFINE[p.key]);
+        return `<li class="flow-outcome flow-${p.key}">
+          <svg class="seed-key" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6" /></svg>
+          <span class="flow-num">${p.value.toLocaleString()}</span>
+          <span class="flow-what"><span class="flow-label">${escapeHtml(p.label)}${help.button}</span><span class="flow-sub">${p.sub}</span>${help.text}</span>
+        </li>`;
+      })
+      .join('')}
+      <li class="seed-legend">Each seed is one finding; the bigger it is, the more severe.</li></ol>
+    ${ringHelp.text}`;
+}
+
 function renderPortfolio(reports, portfolio = {}) {
+  renderFlow(reports);
   const measured = reports.filter((r) => r.latest);
   const sum = (fn) => measured.reduce((n, r) => n + (fn(r) || 0), 0);
   const baseline = sum((r) => r.latest.baseline);
@@ -5750,6 +5988,7 @@ function renderJourney() {
   $('journey-zero').innerHTML = `
     <svg viewBox="0 0 52 52" class="jz-ring" aria-hidden="true">
       <circle cx="26" cy="26" r="21" class="jz-bg" />
+      <g class="jz-ticks">${dialTicks(26, 26, 25.5, 24)}</g>
       <circle cx="26" cy="26" r="21" class="jz-fg" stroke-dasharray="${((pct / 100) * C).toFixed(1)} ${C.toFixed(1)}" />
     </svg>
     <span class="jz-pct">${pct}%</span>
@@ -6429,11 +6668,9 @@ for (const id of ['brand-name', 'brand-logo', 'brand-height', 'brand-accent']) {
   $(id).addEventListener('input', renderBrandPreview);
 }
 // The look of the app for everyone: shown here at once (it is saved with the rest of Settings).
-for (const id of ['brand-nextgen', 'brand-nav']) {
-  $(id).addEventListener('change', () => {
-    $('brand-nav').disabled = !$('brand-nextgen').checked;
-    applyOrgLook({ nextGen: $('brand-nextgen').checked, navPosition: $('brand-nav').value });
-  });
+const brandLook = () => document.querySelector('input[name="brand-look"]:checked')?.value ?? 'nextgen';
+for (const el of [$('brand-looks'), $('brand-look-choice'), $('brand-nav')]) {
+  el.addEventListener('change', () => applyOrgLook({ look: brandLook(), lookChoice: $('brand-look-choice').checked, navPosition: $('brand-nav').value }));
 }
 $('test-smtp').addEventListener('click', testSmtp);
 $('send-test').addEventListener('click', sendTestEmail);
@@ -6879,9 +7116,9 @@ $('brand-icon-file').addEventListener('change', () => {
   reader.readAsDataURL(file);
 });
 
-function applyAppBranding({ name, logoUrl, iconVersion, nextGen, navPosition } = {}) {
+function applyAppBranding({ name, logoUrl, iconVersion, look: orgLook, lookChoice, nextGen, navPosition } = {}) {
   if (iconVersion !== undefined) applyAppIcon(iconVersion);
-  if (nextGen !== undefined) applyOrgLook({ nextGen, navPosition });
+  if (nextGen !== undefined || orgLook !== undefined) applyOrgLook({ look: orgLook, lookChoice, nextGen, navPosition });
   const appName = name || 'CxMissionZero';
   $('app-name').textContent = appName;
   document.title = appName;
