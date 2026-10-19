@@ -83,3 +83,30 @@ test('brand fonts are served only from their folder, and only the font files in 
   assert.equal(fonts.path('../settings.json'), null);
   assert.equal(new BrandFonts({ dir: path.join(dir, 'missing') }).count, 0, 'no folder: no files, no error');
 });
+
+test('a report is in its reader\'s look: the look named, its colours, and Classic or Command center as before', async () => {
+  const { reportLook } = await import('../public/look.js');
+  const { generateHtmlReport } = await import('../src/html-report.js');
+  const { buildReportData } = await import('../src/reminder.js');
+  const { impactSummary } = await import('../src/impact-summary.js');
+  assert.deepEqual(reportLook({ ui: 'nextgen', look: 'residence', theme: 'dark', accent: 'violet' }), { look: 'residence', ui: 'nextgen', theme: 'dark', accent: 'violet' });
+  assert.equal(reportLook({ ui: 'classic', look: 'residence' }).look, 'classic', 'the organisation’s Classic wins');
+  assert.equal(reportLook({ ui: 'nextgen' }).look, 'nextgen', 'a look not named is Command center');
+  assert.equal(reportLook({ ui: 'nextgen', look: 'sparkly' }).look, 'nextgen');
+
+  const data = buildReportData([{ id: 'r1', riskId: 'r1', scanId: 's', projectId: 'p', projectName: 'P', title: 'V', severity: 'HIGH', scanner: 'SAST', location: 'a.js:1', state: 'TO_VERIFY', firstDetectedAt: '2025-01-01T00:00:00.000Z', ageDays: 5 }], { tenant: 't' });
+  const residence = generateHtmlReport(data, { look: { ui: 'nextgen', look: 'residence' } });
+  assert.match(residence, /<html lang="en" data-ui="nextgen" data-accent="indigo" data-look="residence">/);
+  assert.match(residence, /\/\* The residence look\. \*\//);
+  assert.match(residence, /#0d1f3c/, 'the hotel’s navy band');
+  const base = generateHtmlReport(data, { look: { ui: 'nextgen', look: 'nextgen' } });
+  assert.doesNotMatch(base, /data-look=|The \w+ look\. \*\//, 'Command center keeps the report’s own styles');
+  assert.match(base, /\.btn:hover:not\(:disabled\) \{ transform: translateY\(-1px\)/, 'buttons stand off the page in every new look');
+  const classic = generateHtmlReport(data, { look: { ui: 'classic', look: 'cabin' } });
+  assert.doesNotMatch(classic, /data-ui=|translateY/, 'Classic is unchanged');
+
+  const impact = { money: { value: null, cost: null, net: null, currency: '' }, debt: { change: null, start: 0, now: 0, zeroBy: null }, hours: { total: 0, triage: 0, fix: 0 }, noiseRemoved: 0, aiFixed: 0, manualFixed: 0, credits: { triage: 0, remediation: 0 }, timeToFix: [], byProject: [], series: [], settings: { triageMinutes: 10, fixMinutes: 30, hourlyRate: null }, from: '2026-01-01', to: '2026-02-01', partial: false, since: null };
+  const chrono = impactSummary(impact, { look: { ui: 'nextgen', look: 'chronometer' } }).html;
+  assert.match(chrono, /background:#00432c/, 'the watch’s green band');
+  assert.doesNotMatch(impactSummary(impact, {}).html, /#00432c/, 'no look: the classic summary');
+});

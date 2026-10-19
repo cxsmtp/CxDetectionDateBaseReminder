@@ -7384,7 +7384,7 @@ app.get('/api/impact/summary.html', requirePermission('reports.view'), (req, res
   const days = IMPACT_DAYS.includes(String(req.query.days)) ? String(req.query.days) : '90';
   const settings = settingsStore.get();
   const mine = impactSettingsFor(req.user);
-  const { html } = impactSummary(impactFor({ days, settings: mine.settings }), { appName: brandingNow(settings.branding)?.appName || 'CxMissionZero', periodLabel: impactPeriodLabel(days), personal: mine.personal });
+  const { html } = impactSummary(impactFor({ days, settings: mine.settings }), { appName: brandingNow(settings.branding)?.appName || 'CxMissionZero', periodLabel: impactPeriodLabel(days), personal: mine.personal, look: readerLook(req.user, settings) });
   res.set('Content-Disposition', `attachment; filename="impact-${new Date().toISOString().slice(0, 10)}.html"`);
   res.type('html').send(html);
 });
@@ -7407,6 +7407,8 @@ async function sendImpactSummary({ to = null, actor = { kind: 'system' } } = {})
     appName: settings.branding?.appName || 'CxMissionZero',
     periodLabel: period.month,
     email: true,
+    // The organisation's look: the summary goes to a list, not to one reader.
+    look: readerLook(null, settings),
     pageUrl: url ? `${url.replace(/\/$/, '')}/#/impact` : '',
   });
   await sendReminderMail(settings, message, { to: recipients, cc: [], bcc: [], exact: true });
@@ -8373,12 +8375,12 @@ function reportRepositories(known, inReport) {
   return repositories;
 }
 
-/** How a report looks for its reader: their look, theme and accent; classic for everyone when the organisation has next-gen off. */
+/** How a report looks for its reader: their look (the organisation's unless they may and did pick their own), theme and accent. */
 function readerLook(reader, settings) {
   const profile = reader?.profile ?? {};
   const own = settings.branding?.lookChoice !== false && profile.look ? profile.look : settings.branding?.look;
   const nextGen = settings.branding?.nextGen !== false && own !== 'classic';
-  return { ui: nextGen ? 'nextgen' : 'classic', theme: profile.theme ?? 'auto', accent: profile.accent ?? 'indigo' };
+  return { look: nextGen ? own || 'nextgen' : 'classic', ui: nextGen ? 'nextgen' : 'classic', theme: profile.theme ?? 'auto', accent: profile.accent ?? 'indigo' };
 }
 
 /** A link only this server could have made: the report id plus its signature. */

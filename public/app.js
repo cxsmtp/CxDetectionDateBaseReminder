@@ -989,11 +989,13 @@ async function saveMyBranding() {
 }
 
 $('set-mybrand').addEventListener('input', (event) => {
-  if (event.target.id === 'mb-logo-file') return;
+  if (event.target.id === 'mb-logo-file' || event.target.id === 'mb-on') return;
   if (event.target.id === 'mb-accent') {
     $('mb-accent').dataset.org = '';
     $('mb-accent-org').hidden = false;
   }
+  // Typing your own name, logo or colour means using them: the switch turns on with it (off again is one click).
+  if (!$('mb-on').checked && String(event.target.value ?? '').trim()) $('mb-on').checked = true;
   renderMyBrandPreview();
   clearTimeout(myBrand.timer);
   myBrand.timer = setTimeout(saveMyBranding, 700);

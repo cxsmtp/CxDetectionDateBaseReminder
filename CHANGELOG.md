@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.84 | 502/s, 0 (main 497, 0) | 6.7 s | 593 ms | 698 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.83 | 521/s, 0 (main 519, 0; the first pair 520 against 525, 0) | 2.1 s | 205 ms | 696 | 0 vulnerabilities | No new scan; the 3 critical secret findings of rescan fe2eb036 marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.82 | 492/s, 0 (main 489, 0; the first pair 48 against 104, in host stalls) | 9.6 s | 1.5 s | 688 | 0 vulnerabilities (nodemailer 10.0.13) | Rescan fe2eb036: 4 critical, 39 high, 17 medium, 26 low, none triaged yet; 43 new since rescan 27982f85 still to triage (see [status](docs/status.md)) |
 | MZ-01.00.81 | 345/s, 1,388 at the connection on a slower host (main 333, 1,691 there) | 33.3 s | 14.2 s | 685 | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable (see [status](docs/status.md)) |
@@ -69,6 +70,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.84 — 2026-10-19 19:10 UTC · [#107](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/107)
+
+- **Reports in your look.** The findings report (downloaded or emailed), the Cx Credits Calculator's projection report and PDF, and Impact's one-page summary now take the reader's own look, Cabin, Circuit, Residence, Chronometer, Signal, Studio or Atelier: its colours, its band across the top, its face, and buttons that stand off the page.
+- **Nothing runs past its line.** Long project names, paths and addresses wrap inside their lines in the reports, on a phone too.
+- **The calculator's name in your language.** The Cx Credits Calculator is translated in all fourteen languages (Calculadora de créditos Cx, Cx-Credit-Rechner, Cx クレジット計算ツール…), in the menu, the page, Jump to, People & roles and its report.
+- **Your branding takes effect as you type.** Typing your own app name, logo or colour turns on Use my branding, so the header changes at once.
+- **The app name you choose stays.** An Admin who names the app Mission Zero (an earlier default) keeps it across restarts.
+- **Status.** 3000 people at once on 2 vCPU: 502 requests a second with none failed (main 497, none failed), report opens 6.7 s and triage polls 593 ms at p95, within main's own spread ([performance](docs/performance.md)); 698 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan ([status](docs/status.md)).
 
 ## MZ-01.00.83 — 2026-10-19 16:38 UTC · [#106](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/106)
 

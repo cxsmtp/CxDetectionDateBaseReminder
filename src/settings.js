@@ -396,7 +396,12 @@ export function mergeSettings(current, incoming = {}) {
   if (incoming.branding) {
     const input = incoming.branding;
     if ('companyName' in input) branding.companyName = String(input.companyName ?? '').trim().slice(0, 120);
-    if ('appName' in input) branding.appName = String(input.appName ?? '').trim().slice(0, 60) || 'CxMissionZero';
+    if ('appName' in input) {
+      const name = String(input.appName ?? '').trim().slice(0, 60) || 'CxMissionZero';
+      // A name an Admin typed (one that differs from the saved one) is theirs: an old default name is then kept.
+      if (name !== branding.appName) branding.appNameChosen = name !== 'CxMissionZero';
+      branding.appName = name;
+    }
     if ('callToAction' in input) branding.callToAction = String(input.callToAction ?? '').trim().slice(0, 500);
     if ('logoHeight' in input) {
       const height = int(input.logoHeight, branding.logoHeight);
@@ -521,7 +526,8 @@ const listOf = (value, max = 50) =>
 /** The product's earlier default names, saved by auto-save as if chosen: they become today's default. */
 const LEGACY_APP_NAMES = new Set(['Mission Zero', 'Detection Date Reminder', 'Checkmarx detection-date reminder']);
 function migrateBranding(branding, saved = branding) {
-  const out = LEGACY_APP_NAMES.has(String(branding.appName ?? '').trim()) ? { ...branding, appName: DEFAULT_SETTINGS.branding.appName } : { ...branding };
+  const legacy = LEGACY_APP_NAMES.has(String(branding.appName ?? '').trim()) && branding.appNameChosen !== true;
+  const out = legacy ? { ...branding, appName: DEFAULT_SETTINGS.branding.appName } : { ...branding };
   // Saved before there were looks to choose: the command-center look off was the classic look for everyone.
   if (!LOOKS.includes(saved?.look)) Object.assign(out, out.nextGen === false ? { look: 'classic', lookChoice: false } : { look: DEFAULT_LOOK });
   out.lookChoice = out.lookChoice !== false;

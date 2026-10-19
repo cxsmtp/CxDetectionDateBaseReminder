@@ -123,7 +123,7 @@ What is translated, and what is not:
 Changes save as you make them and are recorded in the audit log. A time zone or first language picked up from your computer is saved without an audit entry.
 
 <a id="your-branding"></a>**Your branding** (Settings → Your branding, for roles with **Their own branding**). Your own names, logo and colours, for demonstrations:
-- Turn on **Use my branding**, then fill in the app name, company name, logo, logo height, accent colour and call to action. An empty field keeps the organisation's, shown in grey.
+- Fill in the app name, company name, logo, logo height, accent colour and call to action: typing in any of them turns on **Use my branding**, and the header shows your app name and logo at once. An empty field keeps the organisation's, shown in grey. Turn **Use my branding** off to go back to the organisation's; what you typed is kept.
 - While it is on, this app shows you your app name and logo, and the reports you download and the reminders you send carry your branding.
 - Everyone else, and every scheduled run, keeps the organisation's branding.
 - Turn it off to go back. **Clear my branding** empties it. Details: [branding](branding.md).
@@ -824,7 +824,7 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
 
 1. **Open it.** Click the button (it downloads the report; the link works for 30 days) or open the attachment. Any browser works, and nothing needs installing.
    - It opens in your profile's language, else your browser's. **Language** at the top switches it.
-   - It is in your profile's look (any look but Classic gives it the command-center style; Classic the classic one), light, dark or your device's, and your accent (see [Find your way](#find-your-way)). Without an account, it is in the organisation's default.
+   - It is in your profile's look (its colours, its band across the top and its face; Classic the classic one), light, dark or your device's, and your accent (see [Find your way](#find-your-way)). Without an account, it is in the organisation's default.
    - Your profile's language works offline. Any other language comes from the reminder server the first time, and is then kept in your browser.
    - Finding titles, project names, code, and what Checkmarx One's AI wrote stay as they are.
 2. **It connects by itself** to the reminder server shown at the top.
@@ -1180,7 +1180,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.83** | 521/s, 0 failed (main 519, 0; the first pair 520 against 525, 0 failed) | 2.1 s | 205 ms | 696 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82). Its 3 critical secret findings (an example GUID in tests) are now marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
+| **MZ-01.00.84** | 502/s, 0 failed (main 497, 0) | 6.7 s | 593 ms | 698 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
+| MZ-01.00.83 | 521/s, 0 failed (main 519, 0; the first pair 520 against 525, 0 failed) | 2.1 s | 205 ms | 696 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82). Its 3 critical secret findings (an example GUID in tests) are now marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
 | MZ-01.00.82 | 492/s, 0 failed (main 489, 0; the first pair 48 against 104, in host stalls) | 9.6 s | 1.5 s | 688 pass | 0 vulnerabilities (nodemailer 10.0.13) | Rescan fe2eb036 (2026-10-18, every engine): 4 critical, 39 high, 17 medium, 26 low, 1 info, none triaged yet. Checked: the 3 critical secrets are an example GUID in tests, the critical SAST hit is the load-test mock (not shipped), nodemailer's CVE-2026-110869 is fixed here, zlib's CVE-2026-85091 is in the alpine base (the build's `apk upgrade` takes alpine's fix); 43 new since rescan 27982f85, mostly SAST in code added since, are still to triage |
 | MZ-01.00.73 | 507/s, 0 failed (main 497, 10) | 6.8 s | 615 ms | 645 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
 | MZ-01.00.60 | 505/s, 0 failed (main 499, 0 failed) | 6.9 s | 501 ms | 566 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |

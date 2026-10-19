@@ -26,7 +26,7 @@ The looks only borrow a feeling from the things they are named after; they carry
 
 **Each person** chooses under Settings → **Your appearance**: **Look** (the organisation's, or any of the nine, when the organisation lets people choose), **Theme** (Auto, Light, Dark), **Accent** (Ink, Lagoon, Sage, Plum or Ochre; in Cabin it is the colour of the ambient light, in Circuit and Signal the colour of the signal) and **Explanations** (behind a **?**, or shown). Look, theme and accent are saved to their profile (quietly: no audit entry), so they follow them to every computer, and they are applied before the page appears, with no flash; explanations are kept in that browser. An Admin can also set a person's look under People & roles → their profile.
 
-**The reports they download** are in their look: the interactive HTML report (the console's ink behind the header, paper or night cards, their accent; their theme chosen, or their device's on Auto), and the Cx Credits Calculator's projection report and PDF summary. Every look but Classic gives the report the command-center style. A report emailed to someone, or run on a schedule, is in that person's look when they have an account, otherwise in the organisation's. Printing always uses a light page.
+**The reports they download are in their look** (MZ-01.00.84): the interactive HTML report, the Cx Credits Calculator's projection report and PDF summary, and Impact's one-page summary each take the look's colours, its band across the top with a line of the look's colour under it, its face for headings and figures, and, in every look but Classic, buttons that stand off the page; their theme chosen, or their device's on Auto. A report emailed to someone, or run on a schedule, is in that person's look when they have an account, otherwise in the organisation's; Impact's monthly email, sent to a list, is in the organisation's. Long names (a project, a path, an address) wrap inside their line rather than running past it. Printing always uses a light page.
 
 **An Admin** (or a role with **Branding**) decides for everyone under Settings → Branding → **Look of the app**:
 
@@ -62,7 +62,9 @@ podman run -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -v C:\
 
 ## Your branding
 
-Open your name at the top right, then **Settings**, then **Your branding**. It sits under **You**, next to **Your profile**.
+Open your name at the top right, then **Settings**, then **Your branding**. It sits under **You**, next to **Your profile**. Typing your own name, company, logo or colour turns **Use my branding** on (MZ-01.00.84): the header changes at once to your app name and logo. Turn it off to go back to the organisation's; what you typed is kept.
+
+An Admin who types an earlier default name of the product (Mission Zero, Detection Date Reminder) under Settings → Branding keeps it, across restarts: only an earlier default saved by auto-save and never typed (the upgrade of MZ-01.00.20) still becomes CxMissionZero.
 
 1. Turn on **Use my branding**.
 2. Fill in what should change: the app name, company name, logo (an `https` address, or upload a PNG, JPG, SVG or WebP up to 200 KB), logo height, accent colour and call to action. A field left empty keeps the organisation's value, which is shown in grey in the box.
