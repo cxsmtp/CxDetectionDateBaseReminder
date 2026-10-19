@@ -5010,8 +5010,9 @@ function creditLane(id, kind, t, { allocate, run }) {
 /** Per severity: what awaits triage and what is confirmed to remediate, behind the rows' tiers. */
 function severityBreakdown(r) {
   const line = (label, by) => {
-    const parts = SEVERITIES_ALL.filter((s) => by?.[s]).map((s) => `${SEV_NAMES[s]} ${fmt(by[s])}`);
-    return parts.length ? `<span>${label}: ${parts.join(' · ')}</span>` : '';
+    // Each piece in its own span, so each is translated on its own.
+    const parts = SEVERITIES_ALL.filter((s) => by?.[s]).map((s) => `<span>${SEV_NAMES[s]} ${fmt(by[s])}</span>`);
+    return parts.length ? `<span>${label}:</span> ${parts.join(' · ')}` : '';
   };
   const triage = Object.fromEntries(SEVERITIES_ALL.map((s) => [s, r.latest?.toTriageResults?.[s] ?? r.latest?.toTriage?.[s] ?? 0]));
   return [line('Results awaiting triage', triage), line('Confirmed to remediate', r.latest?.toRemediate)].filter(Boolean).join('<br />');
