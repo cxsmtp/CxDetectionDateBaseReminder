@@ -71,7 +71,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.84 — 2026-10-19 17:08 UTC · [#107](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/107)
+## MZ-01.00.84 — 2026-10-19 19:10 UTC · [#107](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/107)
 
 - **Reports in your look.** The findings report (downloaded or emailed), the Cx Credits Calculator's projection report and PDF, and Impact's one-page summary now take the reader's own look, Cabin, Circuit, Residence, Chronometer, Signal, Studio or Atelier: its colours, its band across the top, its face, and buttons that stand off the page.
 - **Nothing runs past its line.** Long project names, paths and addresses wrap inside their lines in the reports, on a phone too.
