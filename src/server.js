@@ -45,6 +45,7 @@ import { addressesAsThemselves, evaluateMethods, resolveWith, validUsername } fr
 import { addOwnership } from './scm/ownership.js';
 import { acknowledgeStart, companionState, requestFullUpdate } from './updates/companion.js';
 import { githubIssues, gitlabIssues, openSlaIssues } from './sla-issues.js';
+import { BrandFonts } from './brand-fonts.js';
 import { TrackedReports, baselineReadAt, computeProgress, foundSince, matchesFilters, outcomeOf, reportSummary } from './tracked-reports.js';
 import { FindingJournal } from './finding-journal.js';
 import { computeImpact } from './impact.js';
@@ -825,6 +826,16 @@ app.use('/i18n', (req, res, next) => {
   if (code && code in GATED_LANGUAGES && !languageAccess.isAvailable(code, allowedLanguages(sessions.peek(readSessionCookie(req))?.userId))) return res.status(404).json({ error: 'That language is not available.' });
   next();
 });
+// The organisation's brand font, from its own licensed copies (src/brand-fonts.js): never part of the image.
+const brandFonts = new BrandFonts({ dir: path.resolve(process.env.BRAND_FONT_DIR || path.join(dataDir, 'fonts')), family: process.env.BRAND_FONT_FAMILY || 'Founders Grotesk' });
+app.get('/brand-fonts.css', (req, res) => {
+  res.type('text/css').set('Cache-Control', 'no-cache').send(brandFonts.css());
+});
+app.get('/brand-fonts/:file', (req, res) => {
+  const file = brandFonts.path(req.params.file);
+  if (!file) return res.status(404).end();
+  res.set('Cache-Control', 'public, max-age=86400').sendFile(file);
+});
 const staticFiles = express.static(publicDir);
 app.use((req, res, next) => (req.path.startsWith('/api/') ? next() : staticFiles(req, res, next)));
 
@@ -1040,7 +1051,10 @@ app.get('/api/health', (req, res) => {
       logoUrl: settingsStore.get().branding.logoUrl || '',
       // Changes when the browser icon does, so the page can reload it.
       iconVersion: iconVersion(),
-      // The next-gen look offered (else everyone has the classic one), and where its menu sits.
+      // The organisation's look, whether people may pick their own, and where the menu sits.
+      // nextGen: false only when everyone has the classic look (as before there were looks to choose).
+      look: settingsStore.get().branding.look,
+      lookChoice: settingsStore.get().branding.lookChoice !== false,
       nextGen: settingsStore.get().branding.nextGen !== false,
       navPosition: settingsStore.get().branding.navPosition === 'top' ? 'top' : 'left',
     },
@@ -8362,7 +8376,8 @@ function reportRepositories(known, inReport) {
 /** How a report looks for its reader: their look, theme and accent; classic for everyone when the organisation has next-gen off. */
 function readerLook(reader, settings) {
   const profile = reader?.profile ?? {};
-  const nextGen = settings.branding?.nextGen !== false && profile.look !== 'classic';
+  const own = settings.branding?.lookChoice !== false && profile.look ? profile.look : settings.branding?.look;
+  const nextGen = settings.branding?.nextGen !== false && own !== 'classic';
   return { ui: nextGen ? 'nextgen' : 'classic', theme: profile.theme ?? 'auto', accent: profile.accent ?? 'indigo' };
 }
 

@@ -15,11 +15,14 @@
         if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
         // The menu as it was left (kept open, or a slim bar of icons), also before first paint.
         if (localStorage.getItem('mz-sidebar') === 'auto') document.documentElement.dataset.sidebar = 'auto';
-        // The look: next-gen unless this person chose the classic one or the organisation turned it off
-        // (both remembered from the last visit), its accent, and where its menu sits.
-        const look = localStorage.getItem('mz-look');
-        if (look !== 'classic' && localStorage.getItem('mz-nextgen-off') !== '1') document.documentElement.dataset.ui = 'nextgen';
-        if (look === 'studio' && localStorage.getItem('mz-nextgen-off') !== '1') document.documentElement.dataset.look = 'studio';
+        // The look: this person's own when the organisation lets people choose, else the organisation's
+        // (both remembered from the last visit), its accent, and where its menu sits. As in public/look.js.
+        const looks = ['cabin', 'circuit', 'residence', 'chronometer', 'signal', 'nextgen', 'studio', 'atelier', 'classic'];
+        const org = looks.includes(localStorage.getItem('mz-org-look')) ? localStorage.getItem('mz-org-look') : localStorage.getItem('mz-nextgen-off') === '1' ? 'classic' : 'cabin';
+        const own = localStorage.getItem('mz-look-choice') === '0' ? null : localStorage.getItem('mz-look');
+        const look = looks.includes(own) ? own : org;
+        if (look !== 'classic') document.documentElement.dataset.ui = 'nextgen';
+        if (look !== 'classic' && look !== 'nextgen') document.documentElement.dataset.look = ['cabin', 'circuit', 'residence', 'chronometer'].includes(look) ? `signal ${look}` : look;
         const accent = localStorage.getItem('mz-accent');
         if (['cyan', 'emerald', 'violet', 'amber'].includes(accent)) document.documentElement.dataset.accent = accent;
         if (localStorage.getItem('mz-nav') === 'top') document.documentElement.dataset.nav = 'top';
@@ -52,6 +55,7 @@
         }
       } catch {}
     </script>
+    <link rel="stylesheet" href="brand-fonts.css" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="nextgen.css" />
   </head>
@@ -66,7 +70,19 @@
           </span>
           <strong id="app-name" class="app-name">CxMissionZero</strong>
         </div>
+        <div class="nav-tools" id="nav-tools" hidden>
+          <button type="button" id="nav-focus" class="nav-tool nav-focus" aria-pressed="false" title="Show only your pinned pages">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.2" /><path d="M12 1.5v3" /><path d="M12 19.5v3" /><path d="M1.5 12h3" /><path d="M19.5 12h3" /></svg>
+            <span>Focus</span>
+          </button>
+          <button type="button" id="nav-fold-all" class="nav-tool nav-fold-all" title="Fold every group" aria-label="Fold every group">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l5 5 5-5" /><path d="M7 20l5-5 5 5" /></svg>
+          </button>
+        </div>
         <nav class="nav" id="nav" aria-label="Main" hidden>
+          <p class="nav-group nav-pinned-head" data-stage="pinned" title="The pages you pinned, always at the top" hidden><i aria-hidden="true"></i>Pinned</p>
+          <div class="nav-pinned" id="nav-pinned"></div>
+          <p class="nav-pinned-empty" id="nav-pinned-empty" hidden>Nothing pinned yet: point at a page and click its pin.</p>
           <p class="nav-group" data-stage="act" title="Find ageing findings, see who owns them and remind them"><i aria-hidden="true"></i>Act</p>
           <a href="#/dashboard" data-route="dashboard" class="tab" data-stage="act">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
@@ -781,7 +797,7 @@
                 <h3>Look</h3>
                 <p class="hint">What they see under Settings → Your appearance, and the look of the reports they download.</p>
                 <div class="grid3 pf-look-grid">
-                  <label class="field"><span>Look</span><select id="pf-look"><option value="">The organisation's</option><option value="nextgen">Command center</option><option value="studio">Studio</option><option value="classic">Classic</option></select></label>
+                  <label class="field"><span>Look</span><select id="pf-look"><option value="">The organisation's</option><option value="cabin">Cabin</option><option value="circuit">Circuit</option><option value="residence">Residence</option><option value="chronometer">Chronometer</option><option value="signal">Signal</option><option value="nextgen">Command center</option><option value="studio">Studio</option><option value="atelier">Atelier</option><option value="classic">Classic</option></select></label>
                   <label class="field"><span>Theme</span><select id="pf-theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
                   <label class="field"><span>Accent</span><select id="pf-accent"><option value="indigo">Ink</option><option value="cyan">Lagoon</option><option value="emerald">Sage</option><option value="violet">Plum</option><option value="amber">Ochre</option></select></label>
                 </div>
@@ -795,10 +811,17 @@
               <div class="appearance-picks" id="look-menu">
                 <fieldset id="look-pick">
                   <legend>Look</legend>
-                  <div class="look-seg">
-                    <label><input type="radio" name="look" value="nextgen" /> Command center</label>
-                    <label><input type="radio" name="look" value="studio" /> Studio</label>
-                    <label><input type="radio" name="look" value="classic" /> Classic</label>
+                  <div class="look-cards">
+                    <label class="look-card look-card-org"><input type="radio" name="look" value="" /><span class="look-mini" data-mini="org" aria-hidden="true"><i></i><b></b><em></em></span><strong>The organisation's</strong><small id="look-org-name" data-help-keep>Cabin</small></label>
+                    <label class="look-card"><input type="radio" name="look" value="cabin" /><span class="look-mini" data-mini="cabin" aria-hidden="true"><i></i><b></b><em></em></span><strong>Cabin</strong><small data-help-keep>A luxury car's cockpit at night: glass and ambient light.</small></label>
+                    <label class="look-card"><input type="radio" name="look" value="circuit" /><span class="look-mini" data-mini="circuit" aria-hidden="true"><i></i><b></b><em></em></span><strong>Circuit</strong><small data-help-keep>A sports car's gauges: graphite, a needle and a red line.</small></label>
+                    <label class="look-card"><input type="radio" name="look" value="residence" /><span class="look-mini" data-mini="residence" aria-hidden="true"><i></i><b></b><em></em></span><strong>Residence</strong><small data-help-keep>A grand hotel: ivory, deep navy and a touch of gold.</small></label>
+                    <label class="look-card"><input type="radio" name="look" value="chronometer" /><span class="look-mini" data-mini="chronometer" aria-hidden="true"><i></i><b></b><em></em></span><strong>Chronometer</strong><small data-help-keep>A fine watch: deep green, gold and a fluted bezel.</small></label>
+                    <label class="look-card"><input type="radio" name="look" value="signal" /><span class="look-mini" data-mini="signal" aria-hidden="true"><i></i><b></b><em></em></span><strong>Signal</strong><small data-help-keep>Paper and ink, with one signal colour.</small></label>
+                    <label class="look-card"><input type="radio" name="look" value="nextgen" /><span class="look-mini" data-mini="nextgen" aria-hidden="true"><i></i><b></b><em></em></span><strong>Command center</strong><small data-help-keep>A dark console beside warm paper.</small></label>
+                    <label class="look-card"><input type="radio" name="look" value="studio" /><span class="look-mini" data-mini="studio" aria-hidden="true"><i></i><b></b><em></em></span><strong>Studio</strong><small data-help-keep>Bright and airy, with a confident violet.</small></label>
+                    <label class="look-card"><input type="radio" name="look" value="atelier" /><span class="look-mini" data-mini="atelier" aria-hidden="true"><i></i><b></b><em></em></span><strong>Atelier</strong><small data-help-keep>Warm paper and a watchmaker's taupe.</small></label>
+                    <label class="look-card"><input type="radio" name="look" value="classic" /><span class="look-mini" data-mini="classic" aria-hidden="true"><i></i><b></b><em></em></span><strong>Classic</strong><small data-help-keep>The original look.</small></label>
                   </div>
                 </fieldset>
                 <fieldset>
@@ -1293,8 +1316,20 @@
 
               <fieldset class="brand-look">
                 <legend>Look of the app</legend>
-                <label class="switch"><input type="checkbox" id="brand-nextgen" /> <span><strong>Offer the command-center look</strong><small>On: everyone has it unless they pick Classic under Settings → Your appearance. Off: everyone has the classic look, and Your appearance offers only light or dark.</small></span></label>
-                <label class="field"><span>Menu in the command-center look</span><select id="brand-nav"><option value="left">Down the left side</option><option value="top">Along the top</option></select></label>
+                <p class="hint">Everyone's look, unless they pick their own under Settings → Your appearance. Every look is kept here to choose from.</p>
+                <div class="look-cards" id="brand-looks">
+                  <label class="look-card"><input type="radio" name="brand-look" value="cabin" /><span class="look-mini" data-mini="cabin" aria-hidden="true"><i></i><b></b><em></em></span><strong>Cabin</strong><small data-help-keep>A luxury car's cockpit at night: glass and ambient light.</small></label>
+                  <label class="look-card"><input type="radio" name="brand-look" value="circuit" /><span class="look-mini" data-mini="circuit" aria-hidden="true"><i></i><b></b><em></em></span><strong>Circuit</strong><small data-help-keep>A sports car's gauges: graphite, a needle and a red line.</small></label>
+                  <label class="look-card"><input type="radio" name="brand-look" value="residence" /><span class="look-mini" data-mini="residence" aria-hidden="true"><i></i><b></b><em></em></span><strong>Residence</strong><small data-help-keep>A grand hotel: ivory, deep navy and a touch of gold.</small></label>
+                  <label class="look-card"><input type="radio" name="brand-look" value="chronometer" /><span class="look-mini" data-mini="chronometer" aria-hidden="true"><i></i><b></b><em></em></span><strong>Chronometer</strong><small data-help-keep>A fine watch: deep green, gold and a fluted bezel.</small></label>
+                  <label class="look-card"><input type="radio" name="brand-look" value="signal" /><span class="look-mini" data-mini="signal" aria-hidden="true"><i></i><b></b><em></em></span><strong>Signal</strong><small data-help-keep>Paper and ink, with one signal colour.</small></label>
+                  <label class="look-card"><input type="radio" name="brand-look" value="nextgen" /><span class="look-mini" data-mini="nextgen" aria-hidden="true"><i></i><b></b><em></em></span><strong>Command center</strong><small data-help-keep>A dark console beside warm paper.</small></label>
+                  <label class="look-card"><input type="radio" name="brand-look" value="studio" /><span class="look-mini" data-mini="studio" aria-hidden="true"><i></i><b></b><em></em></span><strong>Studio</strong><small data-help-keep>Bright and airy, with a confident violet.</small></label>
+                  <label class="look-card"><input type="radio" name="brand-look" value="atelier" /><span class="look-mini" data-mini="atelier" aria-hidden="true"><i></i><b></b><em></em></span><strong>Atelier</strong><small data-help-keep>Warm paper and a watchmaker's taupe.</small></label>
+                  <label class="look-card"><input type="radio" name="brand-look" value="classic" /><span class="look-mini" data-mini="classic" aria-hidden="true"><i></i><b></b><em></em></span><strong>Classic</strong><small data-help-keep>The original look.</small></label>
+                </div>
+                <label class="switch"><input type="checkbox" id="brand-look-choice" /> <span><strong>Let people choose their own look</strong><small>On: each person can pick another look under Settings → Your appearance. Off: everyone has the organisation's look, and Your appearance offers only light or dark.</small></span></label>
+                <label class="field"><span>Menu in the new looks</span><select id="brand-nav"><option value="left">Down the left side</option><option value="top">Along the top</option></select></label>
               </fieldset>
 
               <div class="brand-icon-row">

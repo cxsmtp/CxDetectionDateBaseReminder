@@ -8,6 +8,7 @@ import { DEFAULT_HANDS_OFF, mergeHandsOff } from './hands-off.js';
 import { mergeFeatures } from './features.js';
 import { DEFAULT_LINK_TEMPLATES, PREVIOUS_LINK_DEFAULTS } from './links.js';
 import { DEFAULT_TEMPLATE } from './template.js';
+import { DEFAULT_LOOK, LOOKS } from '../public/look.js';
 import { TOKEN_NAMES, cleanStoredInstances, mergeStoredInstances } from './scm/instances.js';
 import { DEFAULT_SLA, mergeSla } from './sla.js';
 import { azureOrgKey, normalizeAzureOrgUrl } from './scm/azure-url.js';
@@ -73,8 +74,11 @@ export const DEFAULT_SETTINGS = {
     logoHeight: 40,
     accentColor: '#1d4ed8',
     callToAction: 'Please review and remediate these findings, oldest first.',
-    // The next-gen look (public/nextgen.css): offered to everyone, and theirs unless they pick the classic one.
-    // Off: everyone has the classic look and nobody is offered the other.
+    // The organisation's look (public/look.js LOOKS), and whether each person may pick their own under
+    // Settings → Your appearance. nextGen follows them, for what read it before: false only when everyone
+    // has the classic look.
+    look: DEFAULT_LOOK,
+    lookChoice: true,
     nextGen: true,
     // Where the menu sits in the next-gen look: down the left side (the default) or along the top.
     navPosition: 'left',
@@ -407,7 +411,14 @@ export function mergeSettings(current, incoming = {}) {
       const url = String(input.logoUrl ?? '').trim();
       branding.logoUrl = url === '' || isSafeImageUrl(url) ? url : branding.logoUrl;
     }
-    if ('nextGen' in input) branding.nextGen = input.nextGen !== false;
+    // nextGen alone (as before there were looks to choose): off is the classic look for everyone, on brings the looks back.
+    if ('nextGen' in input && !('look' in input)) {
+      if (input.nextGen === false) Object.assign(branding, { look: 'classic', lookChoice: false });
+      else if (branding.look === 'classic' && !branding.lookChoice) Object.assign(branding, { look: DEFAULT_LOOK, lookChoice: true });
+    }
+    if ('look' in input) branding.look = LOOKS.includes(input.look) ? input.look : branding.look;
+    if ('lookChoice' in input) branding.lookChoice = input.lookChoice !== false;
+    branding.nextGen = !(branding.look === 'classic' && !branding.lookChoice);
     if ('navPosition' in input) branding.navPosition = input.navPosition === 'top' ? 'top' : 'left';
     if ('iconUrl' in input) {
       const url = String(input.iconUrl ?? '').trim();
@@ -509,8 +520,13 @@ const listOf = (value, max = 50) =>
 
 /** The product's earlier default names, saved by auto-save as if chosen: they become today's default. */
 const LEGACY_APP_NAMES = new Set(['Mission Zero', 'Detection Date Reminder', 'Checkmarx detection-date reminder']);
-function migrateBranding(branding) {
-  return LEGACY_APP_NAMES.has(String(branding.appName ?? '').trim()) ? { ...branding, appName: DEFAULT_SETTINGS.branding.appName } : branding;
+function migrateBranding(branding, saved = branding) {
+  const out = LEGACY_APP_NAMES.has(String(branding.appName ?? '').trim()) ? { ...branding, appName: DEFAULT_SETTINGS.branding.appName } : { ...branding };
+  // Saved before there were looks to choose: the command-center look off was the classic look for everyone.
+  if (!LOOKS.includes(saved?.look)) Object.assign(out, out.nextGen === false ? { look: 'classic', lookChoice: false } : { look: DEFAULT_LOOK });
+  out.lookChoice = out.lookChoice !== false;
+  out.nextGen = !(out.look === 'classic' && !out.lookChoice);
+  return out;
 }
 
 function mergeBeta(current = DEFAULT_SETTINGS.beta, incoming) {
@@ -698,7 +714,7 @@ export class SettingsStore {
         initiators: { ...DEFAULT_SETTINGS.initiators, ...(raw.initiators ?? {}) },
         template: { ...DEFAULT_SETTINGS.template, ...(raw.template ?? {}) },
         links: migrateLinks({ ...DEFAULT_SETTINGS.links, ...(raw.links ?? {}) }),
-        branding: migrateBranding({ ...DEFAULT_SETTINGS.branding, ...(raw.branding ?? {}) }),
+        branding: migrateBranding({ ...DEFAULT_SETTINGS.branding, ...(raw.branding ?? {}) }, raw.branding ?? {}),
         // A schedule saved before engines could be chosen keeps every engine, as it always did.
         automation: { ...DEFAULT_SETTINGS.automation, ...(raw.automation ? { engines: [], branches: 'all', leaveOutNoCode: false } : {}), ...(raw.automation ?? {}) },
         endpoints: { ...DEFAULT_SETTINGS.endpoints, ...(raw.endpoints ?? {}) },

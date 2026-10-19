@@ -50,7 +50,7 @@
   --control-h: 34px;
   --sidebar-w: 232px;
   --topbar-h: 60px;
-  --font: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font: "MZ Brand Sans", "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
@@ -3165,3 +3165,65 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .help-text.help-open { animation: help-open 0.16s ease-out; }
 @keyframes help-open { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .help-text.help-open { animation: none; } }
+
+/* ---- The menu's own tools: pin a page to the top, Focus on the pinned ones, fold every group ---- */
+.nav-tools { display: flex; align-items: center; gap: 4px; margin: -6px 4px -6px; }
+.nav-tool { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 10px; border: 0; border-radius: var(--radius-sm); background: transparent; box-shadow: none; color: var(--muted); font-size: 12.5px; font-weight: 500; }
+.nav-tool:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.nav-tool svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.nav-tool[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
+.nav-fold-all { margin-inline-start: auto; padding: 0 8px; }
+.nav-fold-all svg { transition: transform 0.2s ease; }
+.nav-fold-all.is-folded svg { transform: rotate(90deg); }
+.nav-pin {
+  align-self: flex-end; display: grid; place-items: center; width: 28px; height: 28px; min-height: 0; padding: 0;
+  margin: -32px 6px 4px 0; border: 0; border-radius: 6px; background: transparent; box-shadow: none; color: var(--muted);
+  opacity: 0; position: relative; z-index: 1; transition: opacity 0.15s ease;
+}
+[dir="rtl"] .nav-pin { margin: -32px 0 4px 6px; }
+.nav-pin svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transform: rotate(35deg); }
+.nav-pin[aria-pressed="true"] svg { fill: currentColor; transform: none; }
+.nav-pin[aria-pressed="true"] { color: var(--accent); }
+.tab:hover + .nav-pin, .nav-pin:hover, .nav-pin:focus-visible { opacity: 1; }
+.nav-pin:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.tab.nav-folded + .nav-pin { display: none; }
+.nav .tab span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nav > a.tab:not(.tab-pinned) { padding-inline-end: 36px; }
+.nav-pinned { display: flex; flex-direction: column; gap: 1px; }
+.nav-pinned:empty { display: none; }
+.nav-pinned-head i { background: var(--accent) !important; border-radius: 50% !important; }
+.nav-pinned-empty { margin: 4px 12px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+@media (min-width: 1101px) {
+  :root:not([data-nav="top"])[data-nav-focus] #nav > :is(.nav-group:not(.nav-pinned-head), .nav-pin),
+  :root:not([data-nav="top"])[data-nav-focus] #nav > a.tab:not(.active),
+  :root:not([data-nav="top"])[data-nav-focus] #nav > a.tab.is-pinned { display: none; }
+}
+@media (max-width: 1100px) {
+  .nav-tools, .nav-pin, .nav-pinned, .nav-pinned-head, .nav-pinned-empty { display: none !important; }
+}
+:root[data-nav="top"] :is(.nav-tools, .nav-pin, .nav-pinned, .nav-pinned-head, .nav-pinned-empty) { display: none !important; }
+:root[data-sidebar="auto"] .sidebar:not(.open) :is(.nav-tools, .nav-pin, .nav-pinned-empty) { opacity: 0; pointer-events: none; }
+
+/* ---- The looks to choose from (Settings → Branding, and Your appearance): a small picture of each ---- */
+.look-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 6px 0 14px; }
+.look-card { position: relative; display: grid; gap: 3px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; background: var(--surface); }
+.look-card:hover { border-color: var(--border-strong); }
+.look-card input { position: absolute; opacity: 0; pointer-events: none; }
+.look-card:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.look-card:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.look-card strong { font-size: 13.5px; margin-top: 6px; }
+.look-card small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.look-mini { --p: #f3f3ef; --k: #111; --a: #ff4f1a; --m: #f3f3ef; display: block; position: relative; height: 64px; border-radius: 4px; overflow: hidden; background: var(--p); border: 1px solid rgb(0 0 0 / 0.08); }
+.look-mini i { position: absolute; inset: 0 auto 0 0; width: 26%; background: var(--m); border-inline-end: 1px solid rgb(0 0 0 / 0.08); }
+.look-mini b { position: absolute; left: 34%; top: 14px; width: 40%; height: 7px; border-radius: 2px; background: var(--k); }
+.look-mini b::after { content: ""; position: absolute; left: 0; top: 14px; width: 140%; height: 4px; border-radius: 2px; background: var(--k); opacity: 0.25; }
+.look-mini em { position: absolute; right: 12%; bottom: 12px; width: 14px; height: 14px; border-radius: 50%; background: var(--a); }
+.look-mini[data-mini="nextgen"] { --p: #f4f1ea; --k: #22252b; --a: #34507a; --m: #1d2128; }
+.look-mini[data-mini="studio"] { --p: #f7f7fb; --k: #1b1340; --a: #6d4aff; --m: #ffffff; }
+.look-mini[data-mini="studio"] em { border-radius: 4px; }
+.look-mini[data-mini="atelier"] { --p: #fbfaf9; --k: #2b2724; --a: #8c7a66; --m: #fbfaf9; }
+.look-mini[data-mini="atelier"] b { height: 5px; }
+.look-mini[data-mini="classic"] { --p: #f6f7fb; --k: #1f2330; --a: #1d4ed8; --m: #ffffff; }
+.look-mini[data-mini="classic"] em { border-radius: 4px; width: 26px; }
+.look-mini[data-mini="signal"] { background-image: radial-gradient(rgb(0 0 0 / 0.14) 0.8px, transparent 1px); background-size: 8px 8px; }
+.look-mini[data-mini="signal"] em { background: transparent; border: 2px solid var(--a); }
