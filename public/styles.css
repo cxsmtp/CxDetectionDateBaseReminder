@@ -2025,6 +2025,8 @@ body.sheet-open { overflow: hidden; }
 .cc-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .cc-head .filter-row.panel { padding: 0; border: 0; background: transparent; box-shadow: none; flex: 0 1 auto; gap: 8px; align-items: center; }
 .cc-head .filter-row .field { min-width: 0; margin: 0; flex: 0 0 auto; }
+/* Each drop-down as wide as the choice it shows, in any look's face. */
+.cc-head .filter-row select { field-sizing: content; width: auto; }
 .cc-head .filter-row .field.grow { flex: 0 1 220px; }
 .cc-head .filter-row .field > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .filter-actions { display: flex; gap: 6px; align-items: center; margin-inline-start: auto; }

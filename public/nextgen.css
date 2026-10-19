@@ -2048,4 +2048,5 @@
 /* An open menu (engines, columns, branch) sits above everything that follows it on the page. */
 .panel:not(.wb-rail):has(details[open] > .col-menu) { position: relative; z-index: 40; }
 /* On the icon rail a group is only its coloured line: its name is not drawn at all. */
-@media (max-width: 1100px) { :root[data-ui][data-look] .sidebar p.nav-group { color: transparent; font-size: 0; } }
+/* (:is with an id it never matches weighs as much as the looks' own label rules, which list "#projects thead th".) */
+@media (max-width: 1100px) { :root[data-ui][data-look] :is(.sidebar, #no-match) p.nav-group { color: transparent; font-size: 0; } }
