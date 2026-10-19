@@ -19,6 +19,7 @@
         // (both remembered from the last visit), its accent, and where its menu sits.
         const look = localStorage.getItem('mz-look');
         if (look !== 'classic' && localStorage.getItem('mz-nextgen-off') !== '1') document.documentElement.dataset.ui = 'nextgen';
+        if (look === 'studio' && localStorage.getItem('mz-nextgen-off') !== '1') document.documentElement.dataset.look = 'studio';
         const accent = localStorage.getItem('mz-accent');
         if (['cyan', 'emerald', 'violet', 'amber'].includes(accent)) document.documentElement.dataset.accent = accent;
         if (localStorage.getItem('mz-nav') === 'top') document.documentElement.dataset.nav = 'top';
@@ -780,7 +781,7 @@
                 <h3>Look</h3>
                 <p class="hint">What they see under Settings → Your appearance, and the look of the reports they download.</p>
                 <div class="grid3 pf-look-grid">
-                  <label class="field"><span>Look</span><select id="pf-look"><option value="">The organisation's</option><option value="nextgen">Command center</option><option value="classic">Classic</option></select></label>
+                  <label class="field"><span>Look</span><select id="pf-look"><option value="">The organisation's</option><option value="nextgen">Command center</option><option value="studio">Studio</option><option value="classic">Classic</option></select></label>
                   <label class="field"><span>Theme</span><select id="pf-theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
                   <label class="field"><span>Accent</span><select id="pf-accent"><option value="indigo">Ink</option><option value="cyan">Lagoon</option><option value="emerald">Sage</option><option value="violet">Plum</option><option value="amber">Ochre</option></select></label>
                 </div>
@@ -796,6 +797,7 @@
                   <legend>Look</legend>
                   <div class="look-seg">
                     <label><input type="radio" name="look" value="nextgen" /> Command center</label>
+                    <label><input type="radio" name="look" value="studio" /> Studio</label>
                     <label><input type="radio" name="look" value="classic" /> Classic</label>
                   </div>
                 </fieldset>
@@ -1800,6 +1802,7 @@
           </div>
 
           <div id="page-reports" class="page rp" hidden>
+            <section class="rp-flow" id="rp-flow" aria-label="Where the tracked findings stand" hidden></section>
             <section class="rp-portfolio" id="rp-portfolio" aria-label="All tracked reports"></section>
 
             <div class="rp-layout">

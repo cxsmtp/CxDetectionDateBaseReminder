@@ -3154,13 +3154,11 @@ tr.tt-hidden { display: none !important; }
 /* Explanations behind a "?" (public/help-tips.js): folded until the ? beside their heading or field opens them;
    "Explanations: Shown" in the look menu (html[data-help="shown"]) shows them all as before. */
 :root:not([data-help="shown"]) .help-text:not(.help-open) { display: none !important; }
-:root[data-help="shown"] .help-q, :root[data-help="shown"] .help-row { display: none; }
-.help-row { margin: 4px 0; line-height: 1; }
-.help-row > .help-q { margin: 0; }
+:root[data-help="shown"] .help-q { display: none; }
 button.help-q.help-q {
   display: inline-grid; place-items: center; width: 18px; height: 18px; min-height: 0; padding: 0; margin: 0 0 0 4px;
-  border: 1px solid var(--border-strong); border-radius: 50%; background: transparent; box-shadow: none;
-  color: var(--muted); font: 600 11px/1 var(--font); letter-spacing: 0; text-transform: none; vertical-align: 0.15em; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border-strong)); border-radius: 50%; background: color-mix(in srgb, var(--accent) 8%, transparent); box-shadow: none;
+  color: var(--accent); font: 700 11px/1 var(--font); letter-spacing: 0; text-transform: none; vertical-align: 0.15em; cursor: pointer;
 }
 [dir="rtl"] button.help-q.help-q { margin: 0 4px 0 0; }
 button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }

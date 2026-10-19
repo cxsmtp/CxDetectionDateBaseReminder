@@ -35,24 +35,37 @@ function questionButton(text) {
   return button;
 }
 
+/** Fold `text` behind the ? on `anchor`: one ? per anchor, opening every explanation folded onto it. */
 function fold(anchor, text) {
   if (text.classList.contains('help-text')) return;
-  const button = questionButton(text);
+  const existing = anchor.querySelector(':scope > .help-q');
+  if (existing) {
+    text.id ||= `help-${++serial}`;
+    existing.setAttribute('aria-controls', `${existing.getAttribute('aria-controls')} ${text.id}`);
+  } else {
+    anchor.append(' ', questionButton(text));
+  }
   text.classList.add('help-text');
-  anchor.append(' ', button);
 }
 
-/** A ? standing where a long explanation was, when it belongs to no heading or name. */
+/** A field's name: the words of a label.field (its <span>), or the label of a .field block. */
+const fieldName = (el) => el?.matches?.('label.field, .field') ? el.querySelector(':scope > span:not(.hint), :scope > label') : null;
+
+/**
+ * A long explanation that sits on its own: its ? goes on what it explains. That is the heading
+ * just before it (or the heading inside the block before it), else the field just after it (the
+ * line above "API key" explains the key). With nothing to sit beside, it stays in view: a ? never
+ * stands alone, and a line with a link in it (the terms of use) is never hidden.
+ */
 function foldInPlace(text) {
   if (text.classList.contains('help-text')) return;
-  // Right after a panel's head (its heading and a status beside it): the ? goes on that heading.
   const before = text.previousElementSibling;
-  const heading = before && !before.matches(HEADING) ? before.querySelector(':scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > div > h2, :scope > div > h3') : null;
-  if (heading && !heading.querySelector('.help-q')) return fold(heading, text);
-  const row = document.createElement('p');
-  row.className = 'help-row';
-  text.before(row);
-  fold(row, text);
+  const heading = before?.matches(HEADING) ? before : before?.querySelector(':scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > div > h2, :scope > div > h3');
+  if (heading) return fold(heading, text);
+  if (text.querySelector('a[href], button')) return;
+  const after = text.nextElementSibling;
+  const name = fieldName(after) ?? fieldName(after?.querySelector(':scope > label.field, :scope > .field'));
+  if (name) return fold(name, text);
 }
 
 /** Fold the explanations under `root`: a heading's line, each form field's note, an option's description, long notes. */
@@ -92,10 +105,10 @@ export function startHelpTips({ translate } = {}) {
     // Inside a <summary> or a <label>: open the explanation, not the section or the field.
     event.preventDefault();
     event.stopPropagation();
-    const text = document.getElementById(button.getAttribute('aria-controls'));
-    if (!text) return;
-    const open = !text.classList.contains('help-open');
-    text.classList.toggle('help-open', open);
+    const texts = (button.getAttribute('aria-controls') || '').split(/\s+/).map((id) => document.getElementById(id)).filter(Boolean);
+    if (!texts.length) return;
+    const open = button.getAttribute('aria-expanded') !== 'true';
+    for (const text of texts) text.classList.toggle('help-open', open);
     button.setAttribute('aria-expanded', String(open));
   }, true);
   // Only what was added is looked at (its parent too, for a heading and its line added one after the other),

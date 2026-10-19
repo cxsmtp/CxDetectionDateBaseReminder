@@ -1527,7 +1527,7 @@ $('theme-toggle').addEventListener('click', () => {
 
 const LOOK_ACCENTS = ['indigo', 'cyan', 'emerald', 'violet', 'amber'];
 const look = { offered: true };
-const currentLook = () => (document.documentElement.dataset.ui === 'nextgen' ? 'nextgen' : 'classic');
+const currentLook = () => (document.documentElement.dataset.ui !== 'nextgen' ? 'classic' : document.documentElement.dataset.look === 'studio' ? 'studio' : 'nextgen');
 const currentAccent = () => document.documentElement.dataset.accent || 'indigo';
 const remember = (key, value) => {
   try {
@@ -1546,12 +1546,17 @@ function syncLookMenu() {
   $('look-accent').hidden = currentLook() !== 'nextgen';
 }
 
-/** Next-gen or classic (classic whenever the organisation has the next-gen look off). */
+/**
+ * Command center, Studio (the bright one, built on the command center's pages) or classic: classic whenever
+ * the organisation has the new looks off.
+ */
 function applyLook(choice, { save = false } = {}) {
-  const value = look.offered && choice !== 'classic' ? 'nextgen' : 'classic';
-  if (value === 'nextgen') document.documentElement.dataset.ui = 'nextgen';
-  else delete document.documentElement.dataset.ui;
-  if (look.offered) remember('mz-look', value === 'classic' ? 'classic' : null);
+  const value = !look.offered || choice === 'classic' ? 'classic' : choice === 'studio' ? 'studio' : 'nextgen';
+  if (value === 'classic') delete document.documentElement.dataset.ui;
+  else document.documentElement.dataset.ui = 'nextgen';
+  if (value === 'studio') document.documentElement.dataset.look = 'studio';
+  else delete document.documentElement.dataset.look;
+  if (look.offered) remember('mz-look', value === 'nextgen' ? null : value);
   syncLookMenu();
   if (save && state.me?.user) saveProfile({ look: value }, { silent: true });
 }
@@ -1570,7 +1575,13 @@ function applyOrgLook({ nextGen, navPosition } = {}) {
   look.offered = nextGen !== false;
   remember('mz-nextgen-off', look.offered ? null : '1');
   if (!look.offered) applyLook('classic');
-  else if (currentLook() === 'classic' && (() => { try { return localStorage.getItem('mz-look') !== 'classic'; } catch { return true; } })()) applyLook('nextgen');
+  else if (currentLook() === 'classic') {
+    let saved = null;
+    try {
+      saved = localStorage.getItem('mz-look');
+    } catch {}
+    if (saved !== 'classic') applyLook(saved === 'studio' ? 'studio' : 'nextgen');
+  }
   if (navPosition === 'top') document.documentElement.dataset.nav = 'top';
   else delete document.documentElement.dataset.nav;
   remember('mz-nav', navPosition === 'top' ? 'top' : null);
@@ -4389,7 +4400,105 @@ const RP_DEFINE = {
   hero: 'Actioned: confirmed, not exploitable or no longer detected. No longer detected means Checkmarx One no longer reports it, which is not proof of a fix: the code may have changed, or the project may not have been scanned since. Only a verification rescan proves a fix.',
 };
 
+/**
+ * The tracked findings as a flow (the command-center and Studio looks): one ring for all of them, and a
+ * ribbon to each of what became of them, as wide as its share, so the three visibly add up to the ring.
+ */
+function flowRibbons(parts) {
+  const total = parts.reduce((n, p) => n + p.value, 0);
+  const W = 1000;
+  const H = 260;
+  const x0 = 150;
+  const x1 = 700;
+  // Each ribbon at least 4 units thick, so an empty outcome still shows where it would go.
+  const span = 118;
+  const thick = parts.map((p) => Math.max(4, total ? (p.value / total) * span : span / parts.length));
+  const sum = thick.reduce((a, b) => a + b, 0);
+  let y = H / 2 - sum / 2;
+  const rows = parts.map((p, i) => ((i + 0.5) / parts.length) * H);
+  // Each outcome drawn as fine strands, like an engraving: as many as its share allows (2 to 16).
+  const bands = parts.map((p, i) => {
+    const t = thick[i];
+    const a = y;
+    y += t;
+    const r = rows[i] - t / 2;
+    const xm = (x0 + x1) / 2;
+    const strands = Math.max(2, Math.min(16, Math.round(t / 6)));
+    const lines = [];
+    // The strands leave the ring side by side and gather into one point at their outcome, like threads.
+    const end = rows[i];
+    const xg = x1 - 60;
+    for (let k = 0; k < strands; k += 1) {
+      const f = strands === 1 ? 0.5 : k / (strands - 1);
+      const ya = a + f * t;
+      const yr = r + f * t;
+      lines.push(`<path class="flow-strand flow-${p.key}" d="M${x0},${ya.toFixed(1)} C${xm},${ya.toFixed(1)} ${xm},${yr.toFixed(1)} ${xg},${yr.toFixed(1)} C${x1 - 28},${yr.toFixed(1)} ${x1 - 26},${end.toFixed(1)} ${x1},${end.toFixed(1)}" />`);
+    }
+    const veil = `M${x0},${a.toFixed(1)} C${xm},${a.toFixed(1)} ${xm},${r.toFixed(1)} ${xg},${r.toFixed(1)} C${x1 - 28},${r.toFixed(1)} ${x1 - 26},${end.toFixed(1)} ${x1},${end.toFixed(1)} C${x1 - 26},${end.toFixed(1)} ${x1 - 28},${(r + t).toFixed(1)} ${xg},${(r + t).toFixed(1)} C${xm},${(r + t).toFixed(1)} ${xm},${(a + t).toFixed(1)} ${x0},${(a + t).toFixed(1)} Z`;
+    return `<path class="flow-band flow-${p.key}" d="${veil}" fill="url(#flow-g-${p.key})" />${lines.join('')}<circle class="flow-end flow-${p.key}" cx="${x1}" cy="${(r + t / 2).toFixed(1)}" r="3" />`;
+  });
+  const grads = parts.map((p) => `<linearGradient id="flow-g-${p.key}" x1="0" x2="1" y1="0" y2="0"><stop offset="0" class="flow-stop-from" /><stop offset="0.6" class="flow-stop-${p.key}" stop-opacity="0.6" /><stop offset="1" class="flow-stop-${p.key}" stop-opacity="0.85" /></linearGradient>`).join('');
+  return `<svg class="flow-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><defs>${grads}</defs>${bands.join('')}</svg>`;
+}
+
+/** A watch dial's minute marks: `n` ticks around (cx, cy) at radius r, every fifth one longer. */
+function dialTicks(cx, cy, r, n) {
+  let out = '';
+  for (let i = 0; i < n; i += 1) {
+    const a = (i / n) * 2 * Math.PI;
+    const long = i % 5 === 0;
+    const r1 = r - (long ? 7 : 3.5);
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    out += `<line class="${long ? 'tick-long' : 'tick'}" x1="${(cx + c * r1).toFixed(2)}" y1="${(cy + s * r1).toFixed(2)}" x2="${(cx + c * r).toFixed(2)}" y2="${(cy + s * r).toFixed(2)}" />`;
+  }
+  return out;
+}
+
+function renderFlow(reports) {
+  const box = $('rp-flow');
+  const measured = reports.filter((r) => r.latest);
+  if (!measured.length) {
+    box.hidden = true;
+    return;
+  }
+  const n = (key) => measured.reduce((sum, r) => sum + (r.latest.outcomes?.[key] ?? 0), 0);
+  const baseline = measured.reduce((sum, r) => sum + (r.latest.baseline ?? 0), 0);
+  const actioned = measured.reduce((sum, r) => sum + (r.latest.actioned ?? 0), 0);
+  const pct = baseline ? Math.round((actioned / baseline) * 100) : 0;
+  const parts = [
+    { key: 'awaiting', label: 'Awaiting triage', value: n('awaiting'), sub: 'not triaged yet' },
+    { key: 'confirmed', label: 'Confirmed', value: n('confirmed'), sub: 'real, fix pending' },
+    { key: 'closed', label: 'Closed', value: n('notExploitable') + n('resolved'), sub: `${n('notExploitable').toLocaleString()} not exploitable · ${n('resolved').toLocaleString()} no longer detected` },
+  ];
+  const C = 2 * Math.PI * 86;
+  const ringHelp = helpTip(RP_DEFINE.tracked);
+  box.hidden = false;
+  box.innerHTML = `${flowRibbons(parts)}
+    <div class="flow-source">
+      <svg class="flow-ring" viewBox="0 0 200 200" aria-hidden="true">
+        <circle cx="100" cy="100" r="96" class="flow-ring-dots" />
+        <g class="flow-ticks">${dialTicks(100, 100, 92, 60)}</g>
+        <circle cx="100" cy="100" r="86" class="flow-ring-track" />
+        <circle cx="100" cy="100" r="86" class="flow-ring-done" stroke-dasharray="${((pct / 100) * C).toFixed(1)} ${C.toFixed(1)}" />
+      </svg>
+      <div class="flow-source-text">
+        <span class="flow-big">${baseline.toLocaleString()}</span>
+        <span class="flow-label">Findings tracked${ringHelp.button}</span>
+        <span class="flow-sub">${pct}% actioned</span>
+      </div>
+    </div>
+    <ol class="flow-outcomes">${parts
+      .map((p) => {
+        const help = helpTip(RP_DEFINE[p.key]);
+        return `<li class="flow-outcome flow-${p.key}"><span class="flow-num">${p.value.toLocaleString()}</span><span class="flow-what"><span class="flow-label">${escapeHtml(p.label)}${help.button}</span><span class="flow-sub">${p.sub}</span>${help.text}</span></li>`;
+      })
+      .join('')}</ol>
+    ${ringHelp.text}`;
+}
+
 function renderPortfolio(reports, portfolio = {}) {
+  renderFlow(reports);
   const measured = reports.filter((r) => r.latest);
   const sum = (fn) => measured.reduce((n, r) => n + (fn(r) || 0), 0);
   const baseline = sum((r) => r.latest.baseline);
@@ -5750,6 +5859,7 @@ function renderJourney() {
   $('journey-zero').innerHTML = `
     <svg viewBox="0 0 52 52" class="jz-ring" aria-hidden="true">
       <circle cx="26" cy="26" r="21" class="jz-bg" />
+      <g class="jz-ticks">${dialTicks(26, 26, 25.5, 24)}</g>
       <circle cx="26" cy="26" r="21" class="jz-fg" stroke-dasharray="${((pct / 100) * C).toFixed(1)} ${C.toFixed(1)}" />
     </svg>
     <span class="jz-pct">${pct}%</span>

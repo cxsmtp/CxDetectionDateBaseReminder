@@ -651,7 +651,7 @@ export function cleanPersonalImpact(input = {}) {
 }
 
 /** How a person sees the app: the look (empty: the organisation's), light or dark, and the next-gen look's accent. */
-export const LOOKS = ['nextgen', 'classic'];
+export const LOOKS = ['nextgen', 'studio', 'classic'];
 export const THEMES = ['auto', 'light', 'dark'];
 export const ACCENTS = Object.keys(NEXTGEN_ACCENTS);
 
