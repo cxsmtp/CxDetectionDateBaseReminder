@@ -3579,6 +3579,14 @@
   "What Checkmarx One Fusion re-scored in the projects you load: critical, high, medium and low per project, the risk it raised to critical or high, and results per credit.": "불러온 프로젝트에서 Checkmarx One Fusion이 재평가한 항목을 보여 줍니다. 프로젝트별 심각, 높음, 보통, 낮음 건수, 심각 또는 높음으로 상향한 위험, 크레딧당 결과가 표시됩니다.",
   "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Beta permission needed).": "탐지 결과를 불러오는 모든 사용자가 Fusion 페이지를 볼 수 있으며, 작업대에서 가져올 때마다 다시 읽습니다(Beta 권한 불필요).",
   "The Workbench's projects table can show each project's Fusion results (the Fusion column).": "작업대의 프로젝트 표에 각 프로젝트의 Fusion 결과를 표시할 수 있습니다(Fusion 열).",
-  "<span class=\"badge warn\">Before making it final</span> Keep it in Beta until the counts match what Checkmarx One shows for Fusion on your own applications.": "<span class=\"badge warn\">정식 전환 전</span> 실제 애플리케이션에서 집계 건수가 Checkmarx One의 Fusion 표시와 일치할 때까지 Beta로 유지하세요."
+  "<span class=\"badge warn\">Before making it final</span> Keep it in Beta until the counts match what Checkmarx One shows for Fusion on your own applications.": "<span class=\"badge warn\">정식 전환 전</span> 실제 애플리케이션에서 집계 건수가 Checkmarx One의 Fusion 표시와 일치할 때까지 Beta로 유지하세요.",
+  "Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.": "Checkmarx One이 이 API 키에 Fusion 결과를 표시하는 것을 거부했습니다. 키의 역할에 Fusion 결과를 읽을 권한이 필요합니다.",
+  "Read Fusion again": "Fusion 다시 읽기",
+  "{0} of the fetched findings are Fusion results, in {1} project(s). Credits go to those projects, for these findings only: {2} to check a finding with AI, {3} to fix it.": "가져온 탐지 결과 중 {0}건이 Fusion 결과이며, {1}개 프로젝트에 있습니다. 크레딧은 해당 프로젝트에 이 탐지 결과만을 위해 할당됩니다. AI로 탐지 결과 한 건을 검사하는 데 {2}크레딧, 조치하는 데 {3}크레딧이 필요합니다.",
+  "Allocate AI Triage credits from the credit pool for the Fusion results at the severities on the button (1 per Checkmarx One result), confirmed with Checkmarx One as they are given?": "버튼의 심각도에 해당하는 Fusion 결과에 필요한 AI 분류 크레딧(Checkmarx One 결과당 1크레딧)을 크레딧 풀에서 해당 프로젝트에 할당하시겠습니까? 할당 시 Checkmarx One에서 확인합니다.",
+  "Allocate AI Remediation credits from the credit pool for the confirmed Fusion results at the severities on the button (3 per confirmed result), confirmed with Checkmarx One as they are given?": "버튼의 심각도에 해당하는 확인된 Fusion 결과에 필요한 AI 조치 크레딧(확인된 결과당 3크레딧)을 크레딧 풀에서 해당 프로젝트에 할당하시겠습니까? 할당 시 Checkmarx One에서 확인합니다.",
+  "Run AI Triage on the Fusion results at the severities on the button that are still awaiting triage? It uses Checkmarx One credits.": "Fusion 결과 중 버튼의 심각도에 해당하며 아직 분류 대기 중인 결과에 AI 분류를 실행하시겠습니까? Checkmarx One 크레딧을 사용합니다.",
+  "Run AI Remediation on the confirmed Fusion results at the severities on the button? It uses 3 Checkmarx One credits each.": "버튼의 심각도에 해당하는 확인된 Fusion 결과에 AI 조치를 실행하시겠습니까? 건당 Checkmarx One 크레딧 3개를 사용합니다.",
+  "Allocated. These projects now have {0} triage and {1} remediation credit(s) left.": "할당되었습니다. 이제 해당 프로젝트에 분류 크레딧 {0}개와 조치 크레딧 {1}개가 남아 있습니다."
  }
 }

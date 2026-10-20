@@ -1119,6 +1119,8 @@ Its own page under **Labs**, apart from Code authors: what Checkmarx One **Fusio
   - **Results per credit:** enter the **Fusion credits used** (remembered in this browser) to see results, and critical or high results, per credit.
 - **The table:** one row per project with Fusion results, most critical first: its application, Critical, High, Medium, Low, Total, **Raised to C/H**, **Lowered** and the **Last Fusion scan** of its application (its status and when). Search, pick a severity, or keep only what was raised to critical or high; every heading sorts and filters.
 - **Applications:** each application holding a fetched project, its Fusion results, and its last Fusion scan (or **No Fusion scan**).
+- **Acting on them (Admins).** Under the tiles, the same two rows as a tracked report's Triage tab, for only the fetched findings Fusion re-scored: **AI Triage** and **AI Remediation**, each with **Allocate for** the next severities and a run button (**Triage …**, **Remediate …**) that turns gold once the credits cover them. The credits go to those findings' projects, after two agreeing reads of Checkmarx One; remediation only ever takes confirmed findings. The severities are the findings' own in Checkmarx One. Shown to Admins (who set the credit pool).
+- **No Fusion results:** **Read Fusion again** (Admins) reads them once more.
 - **On the Workbench:** the **Fusion** column (under **Columns**) shows each project's Fusion results, filled in when Fusion has been read.
 - **When Fusion cannot be read** the page says why: no Fusion on the tenant, or an API key whose role in Checkmarx One may not read Fusion results; under it, each address asked and what Checkmarx One answered.
 

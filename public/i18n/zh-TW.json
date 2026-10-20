@@ -3579,6 +3579,14 @@
   "What Checkmarx One Fusion re-scored in the projects you load: critical, high, medium and low per project, the risk it raised to critical or high, and results per credit.": "Checkmarx One Fusion 在您載入的專案中重新評分的項目：每個專案的嚴重、高、中、低數量，提升為嚴重或高的風險，以及每點結果數。",
   "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Beta permission needed).": "所有載入檢測結果的人員都能看到 Fusion 頁面，每次工作台取得資料時都會重新讀取（不需要 Beta 權限）。",
   "The Workbench's projects table can show each project's Fusion results (the Fusion column).": "工作台的專案表格可顯示每個專案的 Fusion 結果（Fusion 欄位）。",
-  "<span class=\"badge warn\">Before making it final</span> Keep it in Beta until the counts match what Checkmarx One shows for Fusion on your own applications.": "<span class=\"badge warn\">轉為正式前</span> 請先保留為 Beta，直到計數與 Checkmarx One 在您自己的應用程式上為 Fusion 顯示的結果一致為止。"
+  "<span class=\"badge warn\">Before making it final</span> Keep it in Beta until the counts match what Checkmarx One shows for Fusion on your own applications.": "<span class=\"badge warn\">轉為正式前</span> 請先保留為 Beta，直到計數與 Checkmarx One 在您自己的應用程式上為 Fusion 顯示的結果一致為止。",
+  "Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.": "Checkmarx One 拒絕向此 API 金鑰顯示 Fusion 結果：其角色需要讀取這些結果的權限。",
+  "Read Fusion again": "重新讀取 Fusion",
+  "{0} of the fetched findings are Fusion results, in {1} project(s). Credits go to those projects, for these findings only: {2} to check a finding with AI, {3} to fix it.": "已取得的檢測結果中有 {0} 筆是 Fusion 結果，分布於 {1} 個專案。點數只會分配給這些專案，且僅用於這些檢測結果：以 AI 檢查一筆檢測結果需要 {2} 點，修補則需要 {3} 點。",
+  "Allocate AI Triage credits from the credit pool for the Fusion results at the severities on the button (1 per Checkmarx One result), confirmed with Checkmarx One as they are given?": "要從點數額度為按鈕所示嚴重性的 Fusion 結果分配所需的 AI 研判點數（每筆 Checkmarx One 結果 1 點），並在分配時向 Checkmarx One 確認嗎？",
+  "Allocate AI Remediation credits from the credit pool for the confirmed Fusion results at the severities on the button (3 per confirmed result), confirmed with Checkmarx One as they are given?": "要從點數額度為按鈕所示嚴重性的已確認 Fusion 結果分配所需的 AI 修補點數（每筆已確認結果 3 點），並在分配時向 Checkmarx One 確認嗎？",
+  "Run AI Triage on the Fusion results at the severities on the button that are still awaiting triage? It uses Checkmarx One credits.": "要對按鈕所示嚴重性且仍待研判的 Fusion 結果執行 AI 研判嗎？這會使用 Checkmarx One 點數。",
+  "Run AI Remediation on the confirmed Fusion results at the severities on the button? It uses 3 Checkmarx One credits each.": "要對按鈕所示嚴重性的已確認 Fusion 結果執行 AI 修補嗎？每筆會使用 3 點 Checkmarx One 點數。",
+  "Allocated. These projects now have {0} triage and {1} remediation credit(s) left.": "已分配。這些專案目前剩餘 {0} 點研判點數及 {1} 點修補點數。"
  }
 }
