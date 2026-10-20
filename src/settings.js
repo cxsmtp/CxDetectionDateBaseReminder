@@ -69,7 +69,7 @@ export const DEFAULT_SETTINGS = {
     appName: 'CxMissionZero',
     companyName: '',
     logoUrl: '',
-    // The browser tab's icon: empty is CxMissionZero's own (MZ0, public/favicon.svg).
+    // The browser tab's icon: empty is CxMissionZero's own (public/mz-icon-64.png).
     iconUrl: '',
     logoHeight: 40,
     accentColor: '#1d4ed8',

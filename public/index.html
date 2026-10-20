@@ -65,9 +65,7 @@
       <aside class="sidebar">
         <div class="brand">
           <img id="app-logo" class="app-logo" alt="" hidden />
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6.5v6l3.8 2.3" /></svg>
-          </span>
+          <span class="brand-mark is-icon" aria-hidden="true"><img src="/mz-icon.png" alt="" width="34" height="34" /></span>
           <strong id="app-name" class="app-name">CxMissionZero</strong>
         </div>
         <div class="nav-tools" id="nav-tools" hidden>
@@ -1335,11 +1333,11 @@
               <div class="brand-icon-row">
                 <img id="brand-icon-preview" class="brand-icon-preview" src="/app-icon" alt="Browser icon" width="48" height="48" />
                 <div class="brand-icon-fields">
-                  <label class="field"><span>Browser icon — the tab's icon; empty is CxMissionZero's own MZ0</span><input id="brand-icon" spellcheck="false" placeholder="https://acme.com/icon.png, or upload one" /></label>
+                  <label class="field"><span>Browser icon</span><input id="brand-icon" spellcheck="false" placeholder="https://acme.com/icon.png, or upload one" /></label>
                   <div class="actions compact">
                     <label class="button-like sm" for="brand-icon-file">Upload an icon</label>
                     <input id="brand-icon-file" class="sr-only" type="file" accept="image/png,image/svg+xml,image/x-icon,image/vnd.microsoft.icon,image/webp,image/jpeg" />
-                    <button type="button" id="brand-icon-default" class="sm ghost">Use MZ0 (the default)</button>
+                    <button type="button" id="brand-icon-default" class="sm ghost">Default</button>
                     <span class="hint inline-hint">Square works best: SVG, or PNG 64×64 or larger, up to 100 KB.</span>
                   </div>
                 </div>

@@ -654,7 +654,7 @@ Everyone's default branding. Seen by roles with **See the Branding page**, and c
 | Field | Meaning |
 | --- | --- |
 | App name | Shown in this app's header. |
-| Browser icon | The icon in the browser tab, bookmarks and the developer pages. Empty is CxMissionZero's own **MZ0** (a white MZ inside a green zero). Paste an `https` address, or **Upload an icon** (SVG, PNG, ICO, WebP or JPG, up to 100 KB; square works best); **Use MZ0 (the default)** puts it back. It changes for everyone as soon as it is saved. |
+| Browser icon | The icon in the browser tab, bookmarks and the developer pages. Empty is CxMissionZero's own icon (the wheel in saffron, white and green, also shown in the menu). Paste an `https` address, or **Upload an icon** (SVG, PNG, ICO, WebP or JPG, up to 100 KB; square works best); **Default** puts it back. It changes for everyone as soon as it is saved. |
 | Company name, Company logo | Head every email and report. An `https` logo URL works best, because mail clients block embedded images. You can also upload a PNG, JPG, SVG or WebP up to 200 KB. |
 | Logo height | 16–200 pixels. |
 | Accent colour | Buttons and headings in emails and reports. |

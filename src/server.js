@@ -1066,7 +1066,7 @@ const iconVersion = (url = settingsStore.get().branding?.iconUrl || '') => (url 
 
 /**
  * The browser tab's icon, for every page (signed in or not): the one set under
- * Settings → Branding, else CxMissionZero's own MZ0. An uploaded image is served
+ * Settings → Branding, else CxMissionZero's own (public/mz-icon-64.png). An uploaded image is served
  * from here, locked down (an SVG's scripts never run); an https address is redirected to.
  */
 app.get('/app-icon', (req, res) => {
@@ -1079,7 +1079,7 @@ app.get('/app-icon', (req, res) => {
     return res.type(data[1]).send(Buffer.from(data[2], 'base64'));
   }
   if (/^https:\/\//i.test(url)) return res.redirect(302, url);
-  res.type('image/svg+xml').sendFile(path.join(publicDir, 'favicon.svg'));
+  res.type('image/png').sendFile(path.join(publicDir, 'mz-icon-64.png'));
 });
 
 /** Load and cache figures, for whoever operates this server. */

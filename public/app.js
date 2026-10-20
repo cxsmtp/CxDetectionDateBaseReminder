@@ -7101,7 +7101,7 @@ if ($('log-search')) {
 /** Changes whenever the icon setting does (no need to match the server's fingerprint: it only busts the cache). */
 const iconKey = (url = '') => (url ? `${url.length}${url.slice(-16).replace(/[^\w]/g, '')}` : '');
 
-/** The tab's icon: reloaded when it changes (the server serves the one set in Branding, else MZ0). */
+/** The tab's icon: reloaded when it changes (the server serves the one set in Branding, else CxMissionZero's own). */
 function applyAppIcon(version = '') {
   const link = document.getElementById('app-icon');
   if (link && link.dataset.version !== String(version)) {
@@ -7110,10 +7110,10 @@ function applyAppIcon(version = '') {
   }
 }
 
-/** Settings → Branding: what the icon will look like, as typed or uploaded (empty: MZ0). */
+/** Settings → Branding: what the icon will look like, as typed or uploaded (empty: CxMissionZero's own). */
 function renderIconPreview() {
   const value = $('brand-icon').value.trim();
-  $('brand-icon-preview').src = value && (/^data:image\//i.test(value) || /^https:\/\//i.test(value)) ? value : '/favicon.svg';
+  $('brand-icon-preview').src = value && (/^data:image\//i.test(value) || /^https:\/\//i.test(value)) ? value : '/mz-icon-64.png';
 }
 
 $('brand-icon').addEventListener('input', renderIconPreview);
