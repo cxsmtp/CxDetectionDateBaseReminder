@@ -72,7 +72,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.85 — 2026-10-19 21:20 UTC · [#108](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/108)
+## MZ-01.00.85 — 2026-10-20 16:30 UTC · [#108](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/108)
 
 - **Smart credit buttons, triage and remediation apart.** A tracked report's Triage tab has one row for AI Triage and one for AI Remediation, each with one button to allocate and one to run, chosen from the findings' severities and the credits held: **Triage critical & high** in gold when the credits cover it, **Allocate for critical, high & medium** for the next step, and **Triage all** once everything is covered; Credit Control has **Allocate for triage** and **Allocate for remediation**, gold only when projects are ticked and their credits cover the need, and the Workbench's buttons line up too.
 - **A deleted project no longer stops allocating.** A project removed from Checkmarx One after it was given credits used to fail the allocation for every project with "GET /api/risks/… 404"; it is now skipped, named, and marked on Credit Control so its credits can be taken back.
