@@ -8213,7 +8213,10 @@ async function readFusion({ quiet = false } = {}) {
       const { fusion: data, scope } = await api('/api/beta/fusion/read', { method: 'POST', body: '{}', quiet });
       fusion.data = data;
       fusion.scope = scope;
-      setStatus('fusion-status', data.available ? '' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? '' : 'warn');
+      const refused = (data.tried ?? []).some((t) => t.status === 401 || t.status === 403);
+      setStatus('fusion-status', data.available ? '' : refused ? 'Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? '' : 'warn');
+      // What was asked, and what came back: the path and its answer, as Checkmarx One gave them.
+      $('fusion-tried').innerHTML = data.available ? '' : (data.tried ?? []).map((t) => `<code>${escapeHtml(t.path)} → ${escapeHtml(String(t.status || '?'))}</code>`).join(' ');
     } catch (error) {
       if (!handleAuthLoss(error)) showError('fusion-status', error);
     } finally {

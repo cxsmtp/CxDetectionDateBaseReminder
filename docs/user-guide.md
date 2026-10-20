@@ -1120,7 +1120,7 @@ Its own page under **Labs**, apart from Code authors: what Checkmarx One **Fusio
 - **The table:** one row per project with Fusion results, most critical first: its application, Critical, High, Medium, Low, Total, **Raised to C/H**, **Lowered** and the **Last Fusion scan** of its application (its status and when). Search, pick a severity, or keep only what was raised to critical or high; every heading sorts and filters.
 - **Applications:** each application holding a fetched project, its Fusion results, and its last Fusion scan (or **No Fusion scan**).
 - **On the Workbench:** the **Fusion** column (under **Columns**) shows each project's Fusion results, filled in when Fusion has been read.
-- **A tenant without Fusion** shows no results, and says so.
+- **When Fusion cannot be read** the page says why: no Fusion on the tenant, or an API key whose role in Checkmarx One may not read Fusion results; under it, each address asked and what Checkmarx One answered.
 
 ## Logs page
 

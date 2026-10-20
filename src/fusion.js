@@ -7,16 +7,16 @@
  * (`/applications/{id}/risk-scores`: old and new risk, the two engines, why); its
  * Dispatcher says how the latest Fusion scan of an application went (`/{id}/scan-status`).
  *
- * The services' paths under the tenant are not in their API description, so each is
- * tried at the places it may be (the first that answers is kept per connection), the way
- * src/cxone/discovery.js finds the risks path. Read-only: nothing here starts a scan.
+ * Both live under /api/correlation on the tenant (its own Swagger, /spec/v1: "Fusion Results"
+ * and "Fusion Dispatcher" give servers /api/correlation/results and /api/correlation/dispatcher).
+ * Read-only: nothing here starts a scan.
  */
 import { CxApiError, mapWithConcurrency } from './cxone/client.js';
 import { isProbeMiss } from './cxone/discovery.js';
 import { listApplications } from './cxone/projects.js';
 
-export const FUSION_RESULTS_BASES = ['/api/fusion-results', '/api/fusion/results', '/api/fusion-results-service'];
-export const FUSION_DISPATCHER_BASES = ['/api/fusion-dispatcher', '/api/fusion/dispatcher', '/api/fusion-dispatcher-service'];
+export const FUSION_RESULTS_BASES = ['/api/correlation/results'];
+export const FUSION_DISPATCHER_BASES = ['/api/correlation/dispatcher'];
 
 /** A risk score's severity, as Checkmarx One bands them: 9+ critical, 7+ high, 4+ medium, above 0 low. */
 export const SEVERITY_FLOORS = [['CRITICAL', 9], ['HIGH', 7], ['MEDIUM', 4], ['LOW', 0]];
@@ -42,11 +42,16 @@ const MAX_PAGES = 50;
 // Which path each service answered at, per connection (a WeakMap keyed by the client).
 const bases = new WeakMap();
 
-/** The service's path, and what the probe read there when it was found just now. */
+/**
+ * The service's path, and what the probe read there when it was found just now; when none
+ * answered, what each said ({ tried: [{ path, status }] }), so the page can tell "not here"
+ * (404) from "not allowed" (403).
+ */
 async function findBase(client, candidates, kind, probe) {
   const known = bases.get(client)?.[kind];
   if (known) return { base: known };
   let found = null;
+  const tried = [];
   for (const base of candidates) {
     try {
       const body = await probe(base);
@@ -54,21 +59,25 @@ async function findBase(client, candidates, kind, probe) {
       break;
     } catch (error) {
       if (!isProbeMiss(error)) throw error;
+      tried.push({ path: error.path || base, status: error.status });
     }
   }
   // Only a path that answered is kept: a miss is tried again next time (Fusion may be turned on later,
   // and the dispatcher's probe asks about one application, which may simply have no scan yet).
   if (found) bases.set(client, { ...bases.get(client), [kind]: found.base });
-  return found;
+  return found ?? { tried };
 }
 
-/** Every result Fusion re-scored in one application, all pages. */
+/**
+ * Every result Fusion re-scored in one application. The service takes no paging parameters;
+ * should it ever page (fewer results than totalCount), the next pages are asked for by offset.
+ */
 async function riskScores(client, base, appId) {
   const path = `${base}/applications/${encodeURIComponent(appId)}/risk-scores`;
   const out = [];
   const seen = new Set();
   for (let page = 0; page < MAX_PAGES; page += 1) {
-    const body = await client.request(path, { query: page ? { offset: page * PAGE, limit: PAGE } : { limit: PAGE }, retries: 1, background: true });
+    const body = await client.request(path, { query: page ? { offset: out.length, limit: PAGE } : undefined, retries: 1, background: true });
     const rows = Array.isArray(body?.results) ? body.results : [];
     let fresh = 0;
     for (const r of rows) {
@@ -79,8 +88,8 @@ async function riskScores(client, base, appId) {
       fresh += 1;
     }
     const total = Number(body?.totalCount);
-    // The last page: short, nothing new (paging not honoured), or everything counted.
-    if (rows.length < PAGE || !fresh || (Number.isFinite(total) && out.length >= total)) break;
+    // Done: everything counted, no count given, or nothing new (paging not honoured).
+    if (!Number.isFinite(total) || out.length >= total || !fresh) break;
   }
   return out;
 }
@@ -159,7 +168,7 @@ export async function readFusion(client, projectIds, { concurrency = 4 } = {}) {
   const readAt = new Date().toISOString();
   const listScanned = (base) => client.request(`${base}/applications`, { retries: 1, background: true });
   const found = await findBase(client, FUSION_RESULTS_BASES, 'results', listScanned);
-  if (!found) return { readAt, available: false, applications: [], results: [], listed: 0, ...summarize([]) };
+  if (!found.base) return { readAt, available: false, tried: found.tried, applications: [], results: [], listed: 0, ...summarize([]) };
   const resultsBase = found.base;
   const scanned = new Set(((found.body !== undefined ? found.body : await listScanned(resultsBase))?.applications ?? []).map(String));
   const apps = (await listApplications(client).catch(() => [])).filter((a) => a.projectIds.some((id) => inScope.has(id)));

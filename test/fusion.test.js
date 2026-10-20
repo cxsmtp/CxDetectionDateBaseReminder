@@ -48,10 +48,10 @@ test('reads only the applications Fusion scanned that hold a fetched project, ev
   const page = (offset) => Array.from({ length: offset ? 20 : 100 }, (_, i) => ({ projectId: i % 2 ? 'p1' : 'p9', resultId: `r${offset + i}`, oldRiskValue: 3, newRiskValue: 8, scanId: 's' }));
   const client = fakeClient({
     '/api/applications': { applications: [{ id: 'a1', name: 'Payments', projectIds: ['p1', 'p9'] }, { id: 'a2', name: 'Web', projectIds: ['p2'] }, { id: 'a3', name: 'Other', projectIds: ['p7'] }] },
-    // Answers at the second place tried.
-    '/api/fusion/results/applications': { applications: ['a1', 'a3'] },
-    '/api/fusion/results/applications/a1/risk-scores': (q) => ({ totalCount: 120, results: page(Number(q.offset ?? 0)) }),
-    '/api/fusion-dispatcher/a1/scan-status': { scanStatus: 'Completed', stage: 100, scanTimestamp: 1760000000 },
+    // Where the tenant's own Swagger (/spec/v1) puts them; a page of 100 of 120, then the rest by offset.
+    '/api/correlation/results/applications': { applications: ['a1', 'a3'] },
+    '/api/correlation/results/applications/a1/risk-scores': (q) => ({ totalCount: 120, results: page(Number(q.offset ?? 0)) }),
+    '/api/correlation/dispatcher/a1/scan-status': { scanStatus: 'Completed', stage: 100, scanTimestamp: 1760000000 },
   });
   const f = await readFusion(client, ['p1', 'p2']);
   assert.equal(f.available, true);
@@ -67,13 +67,17 @@ test('reads only the applications Fusion scanned that hold a fetched project, ev
   // The path found is kept for the connection: the next read goes straight there.
   client.calls.length = 0;
   await readFusion(client, ['p1']);
-  assert.ok(!client.calls.includes('/api/fusion-results/applications'));
+  assert.equal(client.calls.filter((c) => c === '/api/correlation/results/applications').length, 1, 'listed once, not probed again');
 });
 
-test('a tenant without Fusion: nothing to show, and no error', async () => {
+test('a tenant without Fusion, or a key not allowed to read it: nothing to show, and what was asked and answered', async () => {
   const f = await readFusion(fakeClient({ '/api/applications': { applications: [] } }), ['p1']);
   assert.equal(f.available, false);
   assert.equal(f.totals.total, 0);
+  assert.deepEqual(f.tried, [{ path: '/api/correlation/results/applications', status: 404 }]);
+  const refused = fakeClient({});
+  refused.request = async (path) => { throw new CxApiError('Forbidden', { status: 403, path }); };
+  assert.deepEqual((await readFusion(refused, ['p1'])).tried, [{ path: '/api/correlation/results/applications', status: 403 }]);
 });
 
 test('the tiles: share of open findings, raised to critical or high, results per credit entered', () => {
