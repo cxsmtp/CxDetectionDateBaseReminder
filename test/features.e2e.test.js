@@ -248,3 +248,37 @@ test('Fusion results: an Admin allocates for and triages only the findings Fusio
   assert.equal((await user('POST', '/api/beta/fusion/triage', { severities: ['CRITICAL'] })).status, 403, 'Admins only');
   await admin('PUT', '/api/features/fusionResults', { stage: 'beta' });
 });
+
+test('Fusion troubleshooting: test paths (only under /api, read-only), debug log with the token hidden, pin the one that answers', async () => {
+  await admin('GET', '/api/scan');
+  await admin('POST', '/api/beta/fusion/read', {});
+  assert.equal((await admin('POST', '/api/beta/fusion/probe', { paths: ['http://169.254.169.254/latest'] })).status, 400, 'never another host');
+  assert.equal((await admin('POST', '/api/beta/fusion/probe', { paths: ['/api/a/../../etc'] })).status, 400);
+  const probe = await admin('POST', '/api/beta/fusion/probe', { paths: ['/api/correlation/results/applications', '/api/fusion-results/applications', '/api/correlation/dispatcher/{appId}/scan-status'] });
+  assert.equal(probe.status, 200, JSON.stringify(probe.body).slice(0, 300));
+  assert.deepEqual(probe.body.results.map((r) => r.status), [200, 404, 200]);
+  assert.match(probe.body.results[0].answer, /app-0/);
+  assert.ok(probe.body.exchanges.length >= 3, 'every call in full');
+  assert.ok(!JSON.stringify(probe.body.exchanges).includes('.tok'), 'the access token is never in it');
+  assert.equal(probe.body.exchanges[0].request.headers.Authorization, 'Bearer [hidden]');
+
+  const on = await admin('PUT', '/api/beta/fusion/debug', { on: true, clear: true });
+  assert.equal(on.body.on, true);
+  await admin('POST', '/api/beta/fusion/read', {});
+  const log = (await admin('GET', '/api/beta/fusion/debug')).body;
+  assert.ok(log.log.some((e) => e.url.endsWith('/api/correlation/results/applications') && e.status === 200 && e.body.includes('app-0')), 'the read logged in full');
+  assert.ok(!JSON.stringify(log.log).includes('.tok'));
+  await admin('PUT', '/api/beta/fusion/debug', { on: false, clear: true });
+
+  const pinned = await admin('PUT', '/api/settings', { endpoints: { fusionResultsPath: '/api/correlation/results' } });
+  assert.equal(pinned.status, 200);
+  assert.equal((await admin('GET', '/api/beta/fusion/debug')).body.pinned.results, '/api/correlation/results');
+  assert.equal((await admin('PUT', '/api/settings', { endpoints: { fusionResultsPath: 'https://evil.example/api' } })).body.endpoints?.fusionResultsPath ?? '', '', 'a bad path is not kept');
+  assert.equal((await admin('POST', '/api/beta/fusion/read', {})).body.fusion.available, true, 'read from the pinned path');
+  await admin('PUT', '/api/settings', { endpoints: { fusionResultsPath: '' } });
+
+  await admin('PUT', '/api/features/fusionResults', { stage: 'final' });
+  assert.equal((await user('POST', '/api/beta/fusion/probe', { paths: ['/api/flags'] })).status, 403, 'only who manages the Checkmarx One integration');
+  assert.equal((await user('GET', '/api/beta/fusion/debug')).status, 403);
+  await admin('PUT', '/api/features/fusionResults', { stage: 'beta' });
+});

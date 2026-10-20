@@ -3280,3 +3280,11 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 @media (max-width: 760px) { .fusion-credits { margin-inline-start: 0; flex: 1 1 100%; } .fusion-credits input { flex: 1 1 auto; } }
 .fusion-tried { margin: -4px 0 12px; overflow-wrap: anywhere; }
 .fusion-tried:empty { display: none; }
+
+/* Labs → Fusion results → Troubleshoot: the paths tested, and the debug log (scrolls inside itself). */
+.fusion-trouble { margin-top: 16px; }
+.fusion-trouble > summary { cursor: pointer; font-weight: 600; }
+.fusion-probe-table td { vertical-align: top; }
+.fusion-probe-table td.answer { font: 12px/1.45 var(--mono); max-width: 52ch; overflow-wrap: anywhere; white-space: pre-wrap; }
+.fusion-probe-table td.path { font: 12.5px var(--mono); overflow-wrap: anywhere; }
+.fusion-log { max-height: 420px; overflow: auto; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); font: 12px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }

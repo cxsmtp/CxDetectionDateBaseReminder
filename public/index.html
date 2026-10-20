@@ -2117,6 +2117,18 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   </table>
                 </div>
               </details>
+              <details class="fusion-trouble" id="fusion-trouble" data-perm="integration.cxone">
+                <summary>Troubleshoot Fusion</summary>
+                <p class="hint wide">Find where this Checkmarx One serves Fusion: each path is called once, read only, through this server's connection, and <code>{appId}</code> becomes one of your applications. Pin the one that answers, and the page reads Fusion from there.</p>
+                <p class="hint" id="fusion-pinned"></p>
+                <label class="field"><span>Paths to test, one per line</span><textarea id="fusion-paths" rows="9" spellcheck="false" class="code"></textarea></label>
+                <div class="actions"><button type="button" id="fusion-probe" class="primary sm">Test these paths</button><button type="button" id="fusion-paths-reset" class="link">Restore the suggested paths</button><span class="status" id="fusion-probe-status"></span></div>
+                <div class="table-wrap"><table class="data-table fusion-probe-table" data-tt-off><thead><tr><th>Path</th><th class="num">Answer</th><th class="num">Time</th><th>What came back</th><th></th></tr></thead><tbody id="fusion-probe-body"></tbody></table></div>
+                <h3>Debug mode</h3>
+                <label class="switch"><input type="checkbox" id="fusion-debug" /> <span><strong>Log every Fusion call in full</strong><small>Each request and answer, with headers and bodies; the access token is never shown. Kept with your session only.</small></span></label>
+                <div class="actions"><button type="button" class="sm" id="fusion-log-copy">Copy the log</button><button type="button" class="sm" id="fusion-log-download">Download the log</button><button type="button" class="link" id="fusion-log-clear">Clear</button><span class="hint" id="fusion-log-count"></span></div>
+                <pre class="fusion-log" id="fusion-log" hidden></pre>
+              </details>
             </section>
           </div>
 

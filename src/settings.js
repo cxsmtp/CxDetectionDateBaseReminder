@@ -2,6 +2,13 @@ import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+/** A Checkmarx One API path to call on the tenant's own address: /api/…, letters, digits, - _ . / and {appId}; no query, no "..". Else null. */
+export function apiPath(value) {
+  const path = String(value ?? '').trim().replace(/\/+$/, '');
+  if (!path) return '';
+  return /^\/api\/[A-Za-z0-9._\-\/{}]{1,200}$/.test(path) && !path.includes('..') && !path.includes('//') && !/\{(?!appId\})[^}]*\}/.test(path) ? path : null;
+}
+
 import { DEFAULT_AUTOMATION, mergeAutomation } from './automation-config.js';
 import { validCurrency } from './money.js';
 import { DEFAULT_HANDS_OFF, mergeHandsOff } from './hands-off.js';
@@ -112,7 +119,7 @@ export const DEFAULT_SETTINGS = {
    * when the administrator explicitly arms it, and never sent to the browser.
    */
   automationApiKey: '',
-  endpoints: { risksPath: '' },
+  endpoints: { risksPath: '', fusionResultsPath: '', fusionDispatcherPath: '' },
   /**
    * AI Triage started from emailed reports runs on this server's Checkmarx
    * One connection and spends credits, so an administrator must allow it.
@@ -454,6 +461,10 @@ export function mergeSettings(current, incoming = {}) {
   if (incoming.endpoints && 'risksPath' in incoming.endpoints) {
     const value = String(incoming.endpoints.risksPath ?? '').trim();
     endpoints.risksPath = value.startsWith('/') ? value : '';
+  }
+  // Where the tenant serves Fusion (Labs → Fusion results → Troubleshoot): a path under /api, nothing else.
+  for (const key of ['fusionResultsPath', 'fusionDispatcherPath']) {
+    if (incoming.endpoints && key in incoming.endpoints) endpoints[key] = apiPath(incoming.endpoints[key]) ?? '';
   }
 
   const aiTriage = { ...current.aiTriage };

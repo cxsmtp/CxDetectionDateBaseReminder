@@ -65,7 +65,7 @@ import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from '
 import { checkCxKey, checkEnvFile, explainCxone, explainGit, explainSmtp, refusedByCheck } from './troubleshoot.js';
 import { TrustStore, isUntrustedCode } from './trust.js';
 import { activeProxy, checkRoute, cleanProxy, proxyWithAuth, readNetwork, requirements, requirementsText, saveNetwork } from './network.js';
-import { SettingsStore, applyEnvironmentSmtp, cleanPersonalBranding, hasEnvironmentSmtp, hostOfUrl, isVerified, overlayBranding, parseAddressList, publicSettings, smtpFingerprint, supportChannel } from './settings.js';
+import { SettingsStore, apiPath, applyEnvironmentSmtp, cleanPersonalBranding, hasEnvironmentSmtp, hostOfUrl, isVerified, overlayBranding, parseAddressList, publicSettings, smtpFingerprint, supportChannel } from './settings.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import v8 from 'node:v8';
 import { Watchdog, rollbackTarget, shouldNotify, shouldRaiseCase } from './watchdog.js';
@@ -89,7 +89,7 @@ import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
 import { SUPPORTING_NOTICE, Terms, cleanName } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
-import { readFusion } from './fusion.js';
+import { PROBE_DEFAULTS, probeFusion, readFusion } from './fusion.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
@@ -9429,6 +9429,50 @@ app.get('/api/beta/fusion', requireFeature('fusionResults'), (req, res) => {
   res.json({ fusion: req.session.lastFusion ?? null, scope: fusionScope(req.session.lastScan), credits: fusionCredits(req) });
 });
 
+// ---- Troubleshooting Fusion (Admins who manage the Checkmarx One integration): test paths, and a
+// debug log of every Fusion call in full (the access token never in it), kept with the session only.
+const FUSION_LOG_MAX = 100;
+const fusionDebugOf = (req) => (req.session.fusionDebug ??= { on: false, log: [] });
+/** Where a Fusion call's full exchange goes while debug mode is on (null when off). */
+function fusionTrace(req, always = null) {
+  const debug = req.session.fusionDebug;
+  if (!debug?.on && !always) return null;
+  return (entry) => {
+    always?.push(entry);
+    if (debug?.on) {
+      debug.log.push(entry);
+      if (debug.log.length > FUSION_LOG_MAX) debug.log.splice(0, debug.log.length - FUSION_LOG_MAX);
+    }
+  };
+}
+
+app.get('/api/beta/fusion/debug', requireFeature('fusionResults'), requirePermission('integration.cxone'), (req, res) => {
+  const { endpoints = {} } = settingsStore.get();
+  const debug = fusionDebugOf(req);
+  res.json({ on: debug.on, log: debug.log, defaults: PROBE_DEFAULTS, pinned: { results: endpoints.fusionResultsPath ?? '', dispatcher: endpoints.fusionDispatcherPath ?? '' } });
+});
+
+app.put('/api/beta/fusion/debug', requireFeature('fusionResults'), requirePermission('integration.cxone'), (req, res) => {
+  const debug = fusionDebugOf(req);
+  if ('on' in (req.body ?? {})) debug.on = req.body.on === true;
+  if (req.body?.clear === true) debug.log = [];
+  res.json({ on: debug.on, log: debug.log });
+});
+
+app.post('/api/beta/fusion/probe', requireFeature('fusionResults'), requirePermission('integration.cxone'), asyncRoute(async (req, res) => {
+  const asked = (Array.isArray(req.body?.paths) ? req.body.paths : []).map((p) => String(p ?? '').trim()).filter(Boolean);
+  if (!asked.length) return res.status(400).json({ error: 'Enter at least one path to test.' });
+  if (asked.length > 20) return res.status(400).json({ error: 'Test at most 20 paths at a time.' });
+  const bad = asked.filter((p) => !apiPath(p));
+  if (bad.length) return res.status(400).json({ error: `Only paths under /api on this Checkmarx One, without a query: ${bad.slice(0, 3).join(', ')}` });
+  // {appId}: an application holding a fetched project, else the tenant's first.
+  const appId = req.session.lastFusion?.applications?.[0]?.id
+    ?? (await listApplications(req.session.client, { maxItems: 1 }).catch(() => []))[0]?.id ?? '';
+  const exchanges = [];
+  const results = await probeFusion(req.session.client, asked, { appId, trace: fusionTrace(req, exchanges) });
+  res.json({ appId, results, exchanges });
+}));
+
 // ---- Acting on Fusion's results: the same allocate / triage / remediate as a tracked report's Triage tab,
 // for Admins, on only the fetched findings Fusion re-scored (matched by result id; severities are the
 // findings' own in Checkmarx One, which credits and AI Triage go by).
@@ -9579,7 +9623,8 @@ app.post(
     if (fetchInProgress(req.session)) return res.status(409).json({ error: 'Findings are still being loaded: Fusion is read when they are in.', fetching: true });
     const scope = fusionScope(req.session.lastScan);
     if (!scope.projects) return res.status(400).json({ error: 'Load findings on the Workbench first: Fusion is read for the projects fetched there.' });
-    const fusion = await readFusion(req.session.client, Object.keys(scope.names));
+    const { fusionResultsPath = '', fusionDispatcherPath = '' } = settingsStore.get().endpoints ?? {};
+    const fusion = await readFusion(req.session.client, Object.keys(scope.names), { resultsPath: fusionResultsPath, dispatcherPath: fusionDispatcherPath, trace: fusionTrace(req) });
     req.session.lastFusion = fusion;
     res.json({ fusion, scope, credits: fusionCredits(req) });
   }),

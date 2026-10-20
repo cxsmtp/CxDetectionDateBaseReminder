@@ -8193,6 +8193,7 @@ function fusionScanText(scan) {
 /** What the server holds for this session; read it now when there is a fetch but no Fusion read yet. */
 async function loadFusion() {
   if (!can('feature.fusionResults') || fusion.loading) return;
+  loadFusionTrouble();
   try {
     const { fusion: data, scope, credits } = await api('/api/beta/fusion');
     fusion.data = data;
@@ -8224,6 +8225,7 @@ async function readFusion({ quiet = false } = {}) {
       if (!handleAuthLoss(error)) showError('fusion-status', error);
     } finally {
       fusion.loading = null;
+      if (fusionTrouble.on) loadFusionTrouble();
       renderFusion();
       if (state.projects.length) renderProjects();
     }
@@ -8332,6 +8334,129 @@ document.addEventListener('click', async (event) => {
   } finally {
     button.disabled = false;
     renderFusionLanes();
+  }
+});
+
+// ---- Labs → Fusion results → Troubleshoot (who manages the Checkmarx One integration) ------------------
+const fusionTrouble = { defaults: [], pinned: { results: '', dispatcher: '' }, log: [], on: false };
+const FUSION_PATHS_KEY = 'mz-fusion-paths';
+
+async function loadFusionTrouble() {
+  if (!can('integration.cxone') || !can('feature.fusionResults')) return;
+  try {
+    const d = await api('/api/beta/fusion/debug');
+    Object.assign(fusionTrouble, { defaults: d.defaults, pinned: d.pinned, log: d.log, on: d.on });
+    let saved = '';
+    try {
+      saved = localStorage.getItem(FUSION_PATHS_KEY) ?? '';
+    } catch {}
+    if (!$('fusion-paths').value) $('fusion-paths').value = saved || d.defaults.join('\n');
+    renderFusionTrouble();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('fusion-probe-status', error);
+  }
+}
+
+function renderFusionTrouble() {
+  const { pinned } = fusionTrouble;
+  $('fusion-pinned').innerHTML = pinned.results || pinned.dispatcher
+    ? `${escapeHtml('Pinned:')} ${pinned.results ? `<code>${escapeHtml(pinned.results)}</code> ${escapeHtml('for Fusion results')}` : ''}${pinned.results && pinned.dispatcher ? ' · ' : ''}${pinned.dispatcher ? `<code>${escapeHtml(pinned.dispatcher)}</code> ${escapeHtml('for Fusion scan status')}` : ''} <button type="button" class="link" data-fusion-unpin>${escapeHtml('Unpin')}</button>`
+    : escapeHtml('Nothing pinned: the page tries /api/correlation/results and /api/correlation/dispatcher.');
+  $('fusion-debug').checked = fusionTrouble.on;
+  const log = fusionTrouble.log;
+  $('fusion-log').hidden = !log.length;
+  $('fusion-log').textContent = fusionLogText(log);
+  $('fusion-log-count').textContent = log.length ? `${log.length} call(s) logged` : '';
+}
+
+/** The log as plain text to share: each call's request and answer, the access token never in it. */
+function fusionLogText(log) {
+  return log.map((e) => [
+    `### ${e.at} ${e.method} ${e.url} (attempt ${e.attempt}) → ${e.status ? `${e.status} ${e.statusText ?? ''}` : `no answer: ${e.error}`} · ${e.ms} ms`,
+    `Request headers: ${JSON.stringify(e.request?.headers ?? {})}`,
+    ...(e.request?.body ? [`Request body: ${e.request.body}`] : []),
+    ...(e.headers ? [`Response headers: ${JSON.stringify(e.headers)}`] : []),
+    ...(e.status ? [`Response body${e.truncated ? ' (first 8 KB)' : ''}:`, e.body || '(empty)'] : []),
+  ].join('\n')).join('\n\n');
+}
+
+/** Where a working path says the service lives: the base to pin, and for which service. */
+function fusionPinOf(path) {
+  const results = path.match(/^(\/api\/.+?)\/applications(?:\/.*)?$/);
+  if (results && !/risk-management|\/api\/applications/.test(path)) return { kind: 'results', base: results[1] };
+  const dispatcher = path.match(/^(\/api\/.+?)\/\{appId\}\/scan-status$/);
+  if (dispatcher) return { kind: 'dispatcher', base: dispatcher[1] };
+  return null;
+}
+
+$('fusion-probe')?.addEventListener('click', async () => {
+  const paths = $('fusion-paths').value.split('\n').map((p) => p.trim()).filter(Boolean);
+  try {
+    localStorage.setItem(FUSION_PATHS_KEY, $('fusion-paths').value);
+  } catch {}
+  setStatus('fusion-probe-status', `Testing ${paths.length} path(s)…`);
+  try {
+    const r = await api('/api/beta/fusion/probe', { method: 'POST', body: JSON.stringify({ paths }) });
+    $('fusion-probe-body').innerHTML = r.results.map((x) => {
+      const pin = x.ok ? fusionPinOf(x.path) : null;
+      return `<tr><td class="path">${escapeHtml(x.path)}</td><td class="num"><span class="badge ${x.ok ? 'ok' : 'warn'}">${escapeHtml(String(x.status || '—'))}</span></td><td class="num">${fmt(x.ms)} ms</td><td class="answer">${escapeHtml(x.answer.length > 300 ? `${x.answer.slice(0, 300)}…` : x.answer)}</td><td>${pin ? `<button type="button" class="sm" data-fusion-pin="${escapeHtml(pin.base)}" data-kind="${pin.kind}">${escapeHtml(pin.kind === 'results' ? 'Use for Fusion results' : 'Use for Fusion scan status')}</button>` : ''}</td></tr>`;
+    }).join('');
+    const working = r.results.filter((x) => x.ok).length;
+    setStatus('fusion-probe-status', `${working} of ${r.results.length} answered.`, working ? 'ok' : 'warn');
+    if (fusionTrouble.on) loadFusionTrouble();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('fusion-probe-status', error);
+  }
+});
+$('fusion-paths-reset')?.addEventListener('click', () => {
+  $('fusion-paths').value = fusionTrouble.defaults.join('\n');
+  try {
+    localStorage.removeItem(FUSION_PATHS_KEY);
+  } catch {}
+});
+$('fusion-debug')?.addEventListener('change', async (event) => {
+  try {
+    const d = await api('/api/beta/fusion/debug', { method: 'PUT', body: JSON.stringify({ on: event.target.checked }) });
+    Object.assign(fusionTrouble, { on: d.on, log: d.log });
+    renderFusionTrouble();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('fusion-probe-status', error);
+  }
+});
+$('fusion-log-clear')?.addEventListener('click', async () => {
+  const d = await api('/api/beta/fusion/debug', { method: 'PUT', body: JSON.stringify({ clear: true }) }).catch(() => null);
+  if (d) Object.assign(fusionTrouble, { on: d.on, log: d.log });
+  renderFusionTrouble();
+});
+$('fusion-log-copy')?.addEventListener('click', async () => {
+  await loadFusionTrouble();
+  try {
+    await navigator.clipboard.writeText(fusionLogText(fusionTrouble.log));
+    setStatus('fusion-probe-status', 'The log is copied.', 'ok');
+  } catch {
+    setStatus('fusion-probe-status', 'Could not copy: select the log and copy it.', 'warn');
+  }
+});
+$('fusion-log-download')?.addEventListener('click', async () => {
+  await loadFusionTrouble();
+  const blob = new Blob([fusionLogText(fusionTrouble.log)], { type: 'text/plain' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `fusion-debug-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.txt` });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+document.addEventListener('click', async (event) => {
+  const pin = event.target.closest('[data-fusion-pin], [data-fusion-unpin]');
+  if (!pin) return;
+  const endpoints = pin.hasAttribute('data-fusion-unpin')
+    ? { fusionResultsPath: '', fusionDispatcherPath: '' }
+    : { [pin.dataset.kind === 'results' ? 'fusionResultsPath' : 'fusionDispatcherPath']: pin.dataset.fusionPin };
+  try {
+    await api('/api/settings', { method: 'PUT', body: JSON.stringify({ endpoints }) });
+    await loadFusionTrouble();
+    setStatus('fusion-probe-status', pin.hasAttribute('data-fusion-unpin') ? 'Unpinned.' : 'Pinned: Fusion is read from there now.', 'ok');
+    if (!pin.hasAttribute('data-fusion-unpin')) readFusion();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('fusion-probe-status', error);
   }
 });
 
