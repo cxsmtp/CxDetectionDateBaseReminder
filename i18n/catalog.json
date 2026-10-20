@@ -24880,5 +24880,1221 @@
   "seen": [
    "fusion › Troubleshoot Fusion (Admins)"
   ]
+ },
+ "· a sample for": {
+  "kind": "text",
+  "seen": [
+   "automation › email › span › The reminder email ?",
+   "automation › preview › span › The reminder email ?",
+   "automation › followups › span › The reminder email ?"
+  ]
+ },
+ "<span class=\"sev-dot sev-critical\" aria-hidden=\"true\"></span> Critical": {
+  "kind": "html",
+  "seen": [
+   "automation › td › Age reminders ?",
+   "automation › reminders › td › Age reminders ?",
+   "automation › focus › td › Age reminders ?"
+  ]
+ },
+ "<span class=\"sev-dot sev-high\" aria-hidden=\"true\"></span> High": {
+  "kind": "html",
+  "seen": [
+   "automation › td › Age reminders ?",
+   "automation › reminders › td › Age reminders ?",
+   "automation › focus › td › Age reminders ?"
+  ]
+ },
+ "<span class=\"sev-dot sev-low\" aria-hidden=\"true\"></span> Low": {
+  "kind": "html",
+  "seen": [
+   "automation › td › Age reminders ?",
+   "automation › reminders › td › Age reminders ?",
+   "automation › focus › td › Age reminders ?"
+  ]
+ },
+ "<span class=\"sev-dot sev-medium\" aria-hidden=\"true\"></span> Medium": {
+  "kind": "html",
+  "seen": [
+   "automation › td › Age reminders ?",
+   "automation › reminders › td › Age reminders ?",
+   "automation › focus › td › Age reminders ?"
+  ]
+ },
+ "✗ Mail server: not set up yet, so automation cannot send. Fill in Settings → Email server.": {
+  "kind": "text",
+  "seen": [
+   "automation › div › Age reminders ?",
+   "automation › reminders › div › Age reminders ?",
+   "automation › focus › div › Age reminders ?"
+  ]
+ },
+ "Age limits": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "first start › div › Age reminders ?",
+   "sign in › div › Age reminders ?",
+   "Dashboard › div › Age reminders ?"
+  ]
+ },
+ "Age limits, by severity": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Age reminders ?",
+   "sign in › span › Age reminders ?",
+   "Dashboard › span › Age reminders ?"
+  ]
+ },
+ "Age reminders": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Age reminders ?",
+   "sign in › h2 › Age reminders ?",
+   "Dashboard › h2 › Age reminders ?"
+  ]
+ },
+ "Also email the code authors (who last changed each vulnerable line)": {
+  "kind": "text",
+  "seen": [
+   "first start › label › Age reminders ?",
+   "sign in › label › Age reminders ?",
+   "Dashboard › label › Age reminders ?"
+  ]
+ },
+ "Another for reminders": {
+  "kind": "text",
+  "seen": [
+   "first start › label › The reminder email ?",
+   "sign in › label › The reminder email ?",
+   "Dashboard › label › The reminder email ?"
+  ]
+ },
+ "Any application": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "first start › input › What reminders cover ?",
+   "sign in › input › What reminders cover ?",
+   "Dashboard › input › What reminders cover ?"
+  ]
+ },
+ "Any tag": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "first start › input › What reminders cover ?",
+   "sign in › input › What reminders cover ?",
+   "Dashboard › input › What reminders cover ?"
+  ]
+ },
+ "At": {
+  "kind": "text",
+  "seen": [
+   "first start › span › When reminders go out ?",
+   "sign in › span › When reminders go out ?",
+   "Dashboard › span › When reminders go out ?"
+  ]
+ },
+ "Attach the HTML report": {
+  "kind": "text",
+  "seen": [
+   "first start › label › The reminder email ?",
+   "sign in › label › The reminder email ?",
+   "Dashboard › label › The reminder email ?"
+  ]
+ },
+ "Automation → Follow-ups & escalation": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Button": {
+  "kind": "text",
+  "seen": [
+   "first start › span › The reminder email ?",
+   "sign in › span › The reminder email ?",
+   "Dashboard › span › The reminder email ?"
+  ]
+ },
+ "change on Workbench → Remind": {
+  "kind": "text",
+  "seen": [
+   "first start › a › Age reminders ?",
+   "sign in › a › Age reminders ?",
+   "Dashboard › a › Age reminders ?"
+  ]
+ },
+ "Colours and look": {
+  "kind": "text",
+  "seen": [
+   "first start › span › The reminder email ?",
+   "sign in › span › The reminder email ?",
+   "Dashboard › span › The reminder email ?"
+  ]
+ },
+ "Days": {
+  "kind": "text",
+  "seen": [
+   "first start › span › When reminders go out ?",
+   "first start › div › When reminders go out ?",
+   "sign in › span › When reminders go out ?"
+  ]
+ },
+ "Each reminder run (Act → Automation) emails the people below one list of the findings that went past their SLA since the last run: project, severity, how far past, and who ran the latest scan. A finding is escalated only once; if it is fixed and comes back, again. Test mode in Automation applies.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › SLAs Beta ?",
+   "sign in › small › SLAs Beta ?",
+   "Dashboard › small › SLAs Beta ?"
+  ]
+ },
+ "Each severity its own": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Age reminders ?",
+   "sign in › span › Age reminders ?",
+   "Dashboard › span › Age reminders ?"
+  ]
+ },
+ "Edit the HTML instead (advanced)": {
+  "kind": "text",
+  "seen": [
+   "first start › summary › Edit the HTML instead (advanced)",
+   "sign in › summary › Edit the HTML instead (advanced)",
+   "Dashboard › summary › Edit the HTML instead (advanced)"
+  ]
+ },
+ "Email as it would be sent": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › iframe › The email",
+   "sign in › iframe › The email",
+   "Dashboard › iframe › The email"
+  ]
+ },
+ "Email me the preview": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Who would get what ?",
+   "sign in › button › Who would get what ?",
+   "Dashboard › button › Who would get what ?"
+  ]
+ },
+ "Engines — SAST and SCA are the ones AI Triage and Remediation work on": {
+  "kind": "text",
+  "seen": [
+   "first start › span › What reminders cover ?",
+   "sign in › span › What reminders cover ?",
+   "Dashboard › span › What reminders cover ?"
+  ]
+ },
+ "Every (minutes)": {
+  "kind": "text",
+  "seen": [
+   "first start › span › When reminders go out ?",
+   "sign in › span › When reminders go out ?",
+   "Dashboard › span › When reminders go out ?"
+  ]
+ },
+ "Every branch (unticked: each project's primary branch)": {
+  "kind": "text",
+  "seen": [
+   "first start › label › What reminders cover ?",
+   "sign in › label › What reminders cover ?",
+   "Dashboard › label › What reminders cover ?"
+  ]
+ },
+ "Every so many minutes": {
+  "kind": "text",
+  "seen": [
+   "first start › span › When reminders go out ?",
+   "sign in › span › When reminders go out ?",
+   "Dashboard › span › When reminders go out ?"
+  ]
+ },
+ "Everything else that runs on its own, wherever it is set: tracked reports' follow-ups and verification rescans (Dashboard), and SLA escalation (Settings → SLAs), which goes out with each reminder run.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Also running by itself ?",
+   "sign in › p › Also running by itself ?",
+   "Dashboard › p › Also running by itself ?"
+  ]
+ },
+ "Findings past a limit now": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Age reminders ?",
+   "sign in › th › Age reminders ?",
+   "Dashboard › th › Age reminders ?"
+  ]
+ },
+ "Follow-ups & escalation": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
+ "Footer": {
+  "kind": "text",
+  "seen": [
+   "first start › label › The reminder email ?",
+   "sign in › label › The reminder email ?",
+   "Dashboard › label › The reminder email ?"
+  ]
+ },
+ "Fri": {
+  "kind": "text",
+  "seen": [
+   "automation › span › When reminders go out ?",
+   "automation › reminders › span › When reminders go out ?",
+   "automation › focus › span › When reminders go out ?"
+  ]
+ },
+ "Greeting": {
+  "kind": "text",
+  "seen": [
+   "first start › span › The reminder email ?",
+   "sign in › span › The reminder email ?",
+   "Dashboard › span › The reminder email ?"
+  ]
+ },
+ "Header text": {
+  "kind": "text",
+  "seen": [
+   "first start › span › The reminder email ?",
+   "sign in › span › The reminder email ?",
+   "Dashboard › span › The reminder email ?"
+  ]
+ },
+ "History reset: the next run reports from scratch.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "https://… (an image)": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "first start › input › The reminder email ?",
+   "sign in › input › The reminder email ?",
+   "Dashboard › input › The reminder email ?"
+  ]
+ },
+ "Insert": {
+  "kind": "text",
+  "seen": [
+   "first start › span › The reminder email ?",
+   "sign in › span › The reminder email ?",
+   "Dashboard › span › The reminder email ?"
+  ]
+ },
+ "Leave everything blank to cover every project the server's Checkmarx One key can see. Name applications, project tags or projects to cover only those (any of them), and leave projects out by name. In project names, * stands for any characters and ? for one.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › What reminders cover ?",
+   "sign in › p › What reminders cover ?",
+   "Dashboard › p › What reminders cover ?"
+  ]
+ },
+ "Leave out projects (names; * and ?)": {
+  "kind": "text",
+  "seen": [
+   "first start › span › What reminders cover ?",
+   "sign in › span › What reminders cover ?",
+   "Dashboard › span › What reminders cover ?"
+  ]
+ },
+ "Left off. Turn it on from Reminders when ready.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Limits crossed": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Who would get what ?",
+   "sign in › th › Who would get what ?",
+   "Dashboard › th › Who would get what ?"
+  ]
+ },
+ "List each project with its counts": {
+  "kind": "text",
+  "seen": [
+   "first start › label › The reminder email ?",
+   "sign in › label › The reminder email ?",
+   "Dashboard › label › The reminder email ?"
+  ]
+ },
+ "Logo": {
+  "kind": "text",
+  "seen": [
+   "first start › span › The reminder email ?",
+   "sign in › span › The reminder email ?",
+   "Dashboard › span › The reminder email ?"
+  ]
+ },
+ "Matches {0} of {1} projects.": {
+  "kind": "text",
+  "seen": [
+   "automation › focus › span › What reminders cover ?",
+   "automation › schedule › span › What reminders cover ?",
+   "automation › email › span › What reminders cover ?"
+  ]
+ },
+ "Message": {
+  "kind": "text",
+  "seen": [
+   "first start › h3 › The reminder email ?",
+   "sign in › h3 › The reminder email ?",
+   "Dashboard › h3 › The reminder email ?"
+  ]
+ },
+ "Mon": {
+  "kind": "text",
+  "seen": [
+   "automation › span › When reminders go out ?",
+   "automation › reminders › span › When reminders go out ?",
+   "automation › focus › span › When reminders go out ?"
+  ]
+ },
+ "none": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "automation › input › Age reminders ?",
+   "automation › reminders › input › Age reminders ?",
+   "automation › focus › input › Age reminders ?"
+  ]
+ },
+ "Nothing else. Tracked reports can follow up by themselves (Dashboard → a report → Remind), and SLAs can escalate (Settings → SLAs).": {
+  "kind": "text",
+  "seen": [
+   "automation › p › Also running by itself ?",
+   "automation › reminders › p › Also running by itself ?",
+   "automation › focus › p › Also running by itself ?"
+  ]
+ },
+ "Off · would go out:": {
+  "kind": "text",
+  "seen": [
+   "automation › span › When reminders go out ?",
+   "automation › reminders › span › When reminders go out ?",
+   "automation › focus › span › When reminders go out ?"
+  ]
+ },
+ "On a schedule": {
+  "kind": "text",
+  "seen": [
+   "first start › span › When reminders go out ?",
+   "sign in › span › When reminders go out ?",
+   "Dashboard › span › When reminders go out ?"
+  ]
+ },
+ "On a schedule, reminders go out on the days ticked, at the time given, in the time zone given (blank: the server's). Every so many minutes, the server looks again that often, from when it was turned on; a finding is still reported only once per limit.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › When reminders go out ?",
+   "sign in › p › When reminders go out ?",
+   "Dashboard › p › When reminders go out ?"
+  ]
+ },
+ "Opening": {
+  "kind": "text",
+  "seen": [
+   "first start › span › The reminder email ?",
+   "sign in › span › The reminder email ?",
+   "Dashboard › span › The reminder email ?"
+  ]
+ },
+ "People are emailed once when a finding in their projects gets older than each age limit below: a finding first detected {0} days ago passes a {1}-day limit. Each finding is reported once per limit, so nobody is reminded of the same thing every day.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Age reminders ?",
+   "sign in › p › Age reminders ?",
+   "Dashboard › p › Age reminders ?"
+  ]
+ },
+ "Preview now": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Who would get what ?",
+   "sign in › button › Who would get what ?",
+   "Dashboard › button › Who would get what ?"
+  ]
+ },
+ "Preview to see how many findings are past a limit now.": {
+  "kind": "text",
+  "seen": [
+   "automation › p › Age reminders ?",
+   "automation › reminders › p › Age reminders ?",
+   "automation › focus › p › Age reminders ?"
+  ]
+ },
+ "Preview to see who a run would email now.": {
+  "kind": "text",
+  "seen": [
+   "first start › td › Who would get what ?",
+   "sign in › td › Who would get what ?",
+   "Dashboard › td › Who would get what ?"
+  ]
+ },
+ "Project tags (key or key:value)": {
+  "kind": "text",
+  "seen": [
+   "first start › span › What reminders cover ?",
+   "sign in › span › What reminders cover ?",
+   "Dashboard › span › What reminders cover ?"
+  ]
+ },
+ "Projects (names; * and ? as wildcards)": {
+  "kind": "text",
+  "seen": [
+   "first start › span › What reminders cover ?",
+   "sign in › span › What reminders cover ?",
+   "Dashboard › span › What reminders cover ?"
+  ]
+ },
+ "Put the reminder email back as it was first: the portal’s branding and the default words?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Reading Checkmarx One as a run would… nothing is sent.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Remind about everything past a limit, every run": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Age reminders ?",
+   "sign in › option › Age reminders ?",
+   "Dashboard › option › Age reminders ?"
+  ]
+ },
+ "Remind after (days)": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Age reminders ?",
+   "sign in › th › Age reminders ?",
+   "Dashboard › th › Age reminders ?"
+  ]
+ },
+ "Remind after (days), for every severity": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Age reminders ?",
+   "sign in › span › Age reminders ?",
+   "Dashboard › span › Age reminders ?"
+  ]
+ },
+ "Reminder email preview": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › iframe › The reminder email ?",
+   "sign in › iframe › The reminder email ?",
+   "Dashboard › iframe › The reminder email ?"
+  ]
+ },
+ "Reminders and everything else that runs by itself": {
+  "kind": "text",
+  "seen": [
+   "automation › p",
+   "automation › reminders › p",
+   "automation › focus › p"
+  ]
+ },
+ "Reply-to": {
+  "kind": "text",
+  "seen": [
+   "first start › label › The reminder email ?",
+   "sign in › label › The reminder email ?",
+   "Dashboard › label › The reminder email ?"
+  ]
+ },
+ "Report each limit once (recommended)": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Age reminders ?",
+   "sign in › option › Age reminders ?",
+   "Dashboard › option › Age reminders ?"
+  ]
+ },
+ "Reset history? The runs listed here stay, but what was already reported is forgotten: the next run reports every finding past a limit again.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Restored and saved.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Runs": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Runs",
+   "sign in › h2 › Runs",
+   "Dashboard › h2 › Runs"
+  ]
+ },
+ "Same as the portal": {
+  "kind": "text",
+  "seen": [
+   "first start › label › The reminder email ?",
+   "first start › span › The reminder email ?",
+   "sign in › label › The reminder email ?"
+  ]
+ },
+ "Sat": {
+  "kind": "text",
+  "seen": [
+   "automation › span › When reminders go out ?",
+   "automation › reminders › span › When reminders go out ?",
+   "automation › focus › span › When reminders go out ?"
+  ]
+ },
+ "Save to see who would get what first: it turns on from the preview.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Saved. Before it runs by itself, see who would get what: Preview.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Send me a test": {
+  "kind": "text",
+  "seen": [
+   "first start › button › The reminder email ?",
+   "sign in › button › The reminder email ?",
+   "Dashboard › button › The reminder email ?"
+  ]
+ },
+ "Send the HTML template instead of this email": {
+  "kind": "text",
+  "seen": [
+   "first start › label › Edit the HTML instead (advanced)",
+   "sign in › label › Edit the HTML instead (advanced)",
+   "Dashboard › label › Edit the HTML instead (advanced)"
+  ]
+ },
+ "Sender name": {
+  "kind": "text",
+  "seen": [
+   "first start › label › The reminder email ?",
+   "sign in › label › The reminder email ?",
+   "Dashboard › label › The reminder email ?"
+  ]
+ },
+ "Sends to the people, and with the content, chosen above. Every automatic reminder and follow-up is also listed under <a href=\"#/automation\">Act → Automation</a>.": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › p › Weekly",
+   "reports › detail › overview › p › Weekly",
+   "reports › detail › remind › p › Weekly"
+  ]
+ },
+ "Sign-off": {
+  "kind": "text",
+  "seen": [
+   "first start › span › The reminder email ?",
+   "sign in › span › The reminder email ?",
+   "Dashboard › span › The reminder email ?"
+  ]
+ },
+ "SLAs": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › SLAs Beta ?",
+   "sign in › h2 › SLAs Beta ?",
+   "Dashboard › h2 › SLAs Beta ?"
+  ]
+ },
+ "Sun": {
+  "kind": "text",
+  "seen": [
+   "automation › span › When reminders go out ?",
+   "automation › reminders › span › When reminders go out ?",
+   "automation › focus › span › When reminders go out ?"
+  ]
+ },
+ "The email": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › The email",
+   "sign in › h2 › The email",
+   "Dashboard › h2 › The email"
+  ]
+ },
+ "The reminder email": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › The reminder email ?",
+   "sign in › h2 › The reminder email ?",
+   "Dashboard › h2 › The reminder email ?"
+  ]
+ },
+ "The same for every severity": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Age reminders ?",
+   "sign in › span › Age reminders ?",
+   "Dashboard › span › Age reminders ?"
+  ]
+ },
+ "The severities are set on Reminders.": {
+  "kind": "text",
+  "seen": [
+   "first start › span › What reminders cover ?",
+   "sign in › span › What reminders cover ?",
+   "Dashboard › span › What reminders cover ?"
+  ]
+ },
+ "Thu": {
+  "kind": "text",
+  "seen": [
+   "automation › span › When reminders go out ?",
+   "automation › reminders › span › When reminders go out ?",
+   "automation › focus › span › When reminders go out ?"
+  ]
+ },
+ "Time zone (blank: the server's)": {
+  "kind": "text",
+  "seen": [
+   "first start › span › When reminders go out ?",
+   "sign in › span › When reminders go out ?",
+   "Dashboard › span › When reminders go out ?"
+  ]
+ },
+ "Tue": {
+  "kind": "text",
+  "seen": [
+   "automation › span › When reminders go out ?",
+   "automation › reminders › span › When reminders go out ?",
+   "automation › focus › span › When reminders go out ?"
+  ]
+ },
+ "Turned on. The next run is shown on Reminders and Schedule.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Wed": {
+  "kind": "text",
+  "seen": [
+   "automation › span › When reminders go out ?",
+   "automation › reminders › span › When reminders go out ?",
+   "automation › focus › span › When reminders go out ?"
+  ]
+ },
+ "What a run would send now, on the saved settings: Checkmarx One is read as a run reads it, but nothing is sent and nothing is remembered as reported. Turning on \"Run automatically\" shows this first.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Who would get what ?",
+   "sign in › p › Who would get what ?",
+   "Dashboard › p › Who would get what ?"
+  ]
+ },
+ "What each person gets. Branding is the portal's (Settings → Branding and the Email server's sender) unless you untick \"Same as the portal\". Words in double braces, such as {{firstName}}, are filled in for each person.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › The reminder email ?",
+   "sign in › p › The reminder email ?",
+   "Dashboard › p › The reminder email ?"
+  ]
+ },
+ "What reminders cover": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › What reminders cover ?",
+   "sign in › h2 › What reminders cover ?",
+   "Dashboard › h2 › What reminders cover ?"
+  ]
+ },
+ "When a finding is already past several limits": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Age reminders ?",
+   "sign in › span › Age reminders ?",
+   "Dashboard › span › Age reminders ?"
+  ]
+ },
+ "When reminders go out": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › When reminders go out ?",
+   "sign in › h2 › When reminders go out ?",
+   "Dashboard › h2 › When reminders go out ?"
+  ]
+ },
+ "Who would get what": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Who would get what ?",
+   "sign in › h2 › Who would get what ?",
+   "Dashboard › h2 › Who would get what ?"
+  ]
+ },
+ "Automation → Email": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Automation → Focus": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Automation → History": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Automation → Preview": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Automation → Reminders": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Automation → Schedule": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Automation <span aria-hidden=\"true\">→</span>": {
+  "kind": "html",
+  "seen": [
+   "first start › a",
+   "sign in › a",
+   "Dashboard › a"
+  ]
+ },
+ "Critical: remind after (days)": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "automation › input › Age reminders ?",
+   "automation › reminders › input › Age reminders ?",
+   "automation › focus › input › Age reminders ?"
+  ]
+ },
+ "High: remind after (days)": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "automation › input › Age reminders ?",
+   "automation › reminders › input › Age reminders ?",
+   "automation › focus › input › Age reminders ?"
+  ]
+ },
+ "Low: remind after (days)": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "automation › input › Age reminders ?",
+   "automation › reminders › input › Age reminders ?",
+   "automation › focus › input › Age reminders ?"
+  ]
+ },
+ "Medium: remind after (days)": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "automation › input › Age reminders ?",
+   "automation › reminders › input › Age reminders ?",
+   "automation › focus › input › Age reminders ?"
+  ]
+ },
+ "Scheduled reminders can also email the developer who last changed each vulnerable line (Act → Automation).": {
+  "kind": "text",
+  "seen": [
+   "settings › li › Beta features ?",
+   "logs › li › Beta features ?",
+   "logs › activity › li › Beta features ?"
+  ]
+ },
+ "The HTML template is edited under <a href=\"#/settings/template\">Settings → Mail template</a>, with every variable listed there. Branding above does not apply to it.": {
+  "kind": "html",
+  "seen": [
+   "first start › p › Edit the HTML instead (advanced)",
+   "sign in › p › Edit the HTML instead (advanced)",
+   "Dashboard › p › Edit the HTML instead (advanced)"
+  ]
+ },
+ "Counts from the last preview:": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "· next run": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "On in test mode": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Next:": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "No day chosen": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "No address yet": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Set addresses": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "See the email": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "{0} people get reminders about {1} findings past a limit.": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "{0} person gets reminders about {1} findings past a limit.": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Nobody would be reminded today.": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "First run:": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Test mode is on: nothing is sent.": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Turn on reminders?": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Turn on": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Not yet": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "· as sent to": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "No application has this name:": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Nobody would be emailed now: nothing in focus has newly passed a limit.": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "people": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "projects": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "findings past a limit": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "critical": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Sent": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Logged only": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Nothing new": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Skipped": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Partly sent": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Scheduled": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Run once now · test mode": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Scheduled · test mode": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Run": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Run · test mode": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Set on": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Last run": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "With each reminder run": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "After the developers’ turn": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Settings → SLAs": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "How": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Findings": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Emails": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "+{0} more": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "· {0} escalated": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "· {0} emails": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "· {0} email": {
+  "kind": "text",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "<strong>Turn on reminders?</strong> {0} people get reminders about {1} findings past a limit.": {
+  "kind": "html",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "<strong>Turn on reminders?</strong> {0} person gets reminders about {1} findings past a limit.": {
+  "kind": "html",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "<strong>Turn on reminders?</strong> Nobody would be reminded today.": {
+  "kind": "html",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "{0} of {1} projects in focus, {2} open findings looked at. Nothing was sent.": {
+  "kind": "message",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Choose at least one day for reminders to go out.": {
+  "kind": "message",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Give the time reminders go out as hours and minutes, such as 09:00.": {
+  "kind": "message",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "That time zone is not known. Use a name such as Europe/Berlin, or leave it blank for the server's.": {
+  "kind": "message",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Reply-to: enter one email address, or tick \"Same as the portal\".": {
+  "kind": "message",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "The reminder logo must be an https address of an image, or a pasted image.": {
+  "kind": "message",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Preview first, then email it to yourself.": {
+  "kind": "message",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Preview again: that email is no longer in the preview.": {
+  "kind": "message",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Test the Email server first (Settings → Email server).": {
+  "kind": "message",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "Connect the server to Checkmarx One first (Settings → Checkmarx One).": {
+  "kind": "message",
+  "seen": [
+   "automation (runtime)"
+  ]
+ },
+ "automation|Focus": {
+  "kind": "text",
+  "seen": [
+   "automation › tab"
+  ]
+ },
+ "automation|Schedule": {
+  "kind": "text",
+  "seen": [
+   "automation › tab"
+  ]
  }
 }
