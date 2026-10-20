@@ -73,7 +73,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.86 — 2026-10-20 18:26 UTC · [#109](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/109)
+## MZ-01.00.86 — 2026-10-20 18:40 UTC · [#109](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/109)
 
 - **Fusion results from where the tenant serves them.** Labs → Fusion results reads Checkmarx One's Fusion Results and Fusion Dispatcher at `/api/correlation/results` and `/api/correlation/dispatcher`, the paths the tenant's own Swagger gives; it looked for them at paths no tenant has, so it always said Fusion did not answer.
 - **Why, when it cannot read them.** The page lists each address it asked with Checkmarx One's answer, and when the answer is "not allowed" it says the API key's role in Checkmarx One may not read Fusion results.
