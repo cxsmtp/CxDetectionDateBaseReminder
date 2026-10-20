@@ -24670,5 +24670,53 @@
   "seen": [
    "settings › Beta features"
   ]
+ },
+ "Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.": {
+  "kind": "message",
+  "seen": [
+   "fusion › Fusion results Beta (a key whose role may not read Fusion)"
+  ]
+ },
+ "Read Fusion again": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta (an Admin)"
+  ]
+ },
+ "{0} of the fetched findings are Fusion results, in {1} project(s). Credits go to those projects, for these findings only: {2} to check a finding with AI, {3} to fix it.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta (an Admin)"
+  ]
+ },
+ "Allocate AI Triage credits from the credit pool for the Fusion results at the severities on the button (1 per Checkmarx One result), confirmed with Checkmarx One as they are given?": {
+  "kind": "message",
+  "seen": [
+   "fusion › Fusion results Beta (an Admin)"
+  ]
+ },
+ "Allocate AI Remediation credits from the credit pool for the confirmed Fusion results at the severities on the button (3 per confirmed result), confirmed with Checkmarx One as they are given?": {
+  "kind": "message",
+  "seen": [
+   "fusion › Fusion results Beta (an Admin)"
+  ]
+ },
+ "Run AI Triage on the Fusion results at the severities on the button that are still awaiting triage? It uses Checkmarx One credits.": {
+  "kind": "message",
+  "seen": [
+   "fusion › Fusion results Beta (an Admin)"
+  ]
+ },
+ "Run AI Remediation on the confirmed Fusion results at the severities on the button? It uses 3 Checkmarx One credits each.": {
+  "kind": "message",
+  "seen": [
+   "fusion › Fusion results Beta (an Admin)"
+  ]
+ },
+ "Allocated. These projects now have {0} triage and {1} remediation credit(s) left.": {
+  "kind": "message",
+  "seen": [
+   "fusion › Fusion results Beta (an Admin)"
+  ]
  }
 }

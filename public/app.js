@@ -4092,7 +4092,7 @@ async function tagInitiator(key) {
  * under "Columns", sorts, and goes into the export.
  */
 // Labs → Fusion's last read (see readFusion), here because the Workbench's Fusion column reads it.
-const fusion = { data: null, scope: null, loading: null };
+const fusion = { data: null, scope: null, credits: null, loading: null };
 const OPTIONAL_COLUMNS = [
   { id: '0-30', group: 'Age', label: '≤ 30d', title: 'Findings first detected 30 days ago or less', value: (p) => p.counts?.['0-30'] ?? 0 },
   { id: '31-60', group: 'Age', label: '31–60d', title: 'Findings first detected 31 to 60 days ago', value: (p) => p.counts?.['31-60'] ?? 0 },
@@ -5014,7 +5014,7 @@ function reportTiers(r) {
  * "<Triage|Remediate> <widest tier the credits cover>", gold. One button each, chosen from
  * the findings' severities and the credits given, so the next step is always plain.
  */
-function creditLane(id, kind, t, { allocate, run }) {
+function creditLane(id, kind, t, { allocate, run }, prefix = 'report') {
   const verb = kind === 'triage' ? 'Triage' : 'Remediate';
   const title = kind === 'triage' ? 'AI Triage' : 'AI Remediation';
   const unit = kind === 'triage' ? 'to triage' : 'to remediate';
@@ -5023,12 +5023,12 @@ function creditLane(id, kind, t, { allocate, run }) {
     : `<span>${kind === 'triage' ? 'Nothing awaiting triage.' : 'Nothing confirmed to remediate yet: AI Triage confirms findings first.'}</span>`;
   const sev = (tier) => escapeHtml(tier.severities.join(','));
   const give = allocate && t.next
-    ? `<button type="button" data-report-allocate="${id}" data-kind="${kind}" data-severities="${sev(t.next)}" data-needs-data title="${escapeHtml(`About ${fmt(t.next.need - t.left)} more credits, confirmed with Checkmarx One as they are given`)}">Allocate for ${t.next.name}</button>`
+    ? `<button type="button" data-${prefix}-allocate="${id}" data-kind="${kind}" data-severities="${sev(t.next)}" data-needs-data title="${escapeHtml(`About ${fmt(t.next.need - t.left)} more credits, confirmed with Checkmarx One as they are given`)}">Allocate for ${t.next.name}</button>`
     : '<span class="lane-slot"></span>';
   const act = !run || !t.total
     ? '<span class="lane-slot"></span>'
     : t.covered
-      ? `<button type="button" data-report-${kind === 'triage' ? 'triage' : 'remediate'}="${id}" data-severities="${sev(t.covered)}" class="primary is-golden" data-needs-data>${verb} ${t.covered.name}</button>`
+      ? `<button type="button" data-${prefix}-${kind === 'triage' ? 'triage' : 'remediate'}="${id}" data-severities="${sev(t.covered)}" class="primary is-golden" data-needs-data>${verb} ${t.covered.name}</button>`
       : `<button type="button" class="primary" disabled title="Allocate credits first">${verb} ${t.next.name}</button>`;
   return `<div class="credit-lane" data-lane="${kind}">
       <div class="lane-head"><strong>${title}</strong><span class="lane-figures">${figures}</span></div>
@@ -8194,9 +8194,10 @@ function fusionScanText(scan) {
 async function loadFusion() {
   if (!can('feature.fusionResults') || fusion.loading) return;
   try {
-    const { fusion: data, scope } = await api('/api/beta/fusion');
+    const { fusion: data, scope, credits } = await api('/api/beta/fusion');
     fusion.data = data;
     fusion.scope = scope;
+    fusion.credits = credits;
     renderFusion();
     if (!data && scope?.projects) await readFusion({ quiet: true });
   } catch (error) {
@@ -8210,10 +8211,14 @@ async function readFusion({ quiet = false } = {}) {
   if (!quiet) setStatus('fusion-status', 'Reading Fusion results…');
   fusion.loading = (async () => {
     try {
-      const { fusion: data, scope } = await api('/api/beta/fusion/read', { method: 'POST', body: '{}', quiet });
+      const { fusion: data, scope, credits } = await api('/api/beta/fusion/read', { method: 'POST', body: '{}', quiet });
       fusion.data = data;
       fusion.scope = scope;
-      setStatus('fusion-status', data.available ? '' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? '' : 'warn');
+      fusion.credits = credits;
+      const refused = (data.tried ?? []).some((t) => t.status === 401 || t.status === 403);
+      setStatus('fusion-status', data.available ? '' : refused ? 'Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? '' : 'warn');
+      // What was asked, and what came back: the path and its answer, as Checkmarx One gave them.
+      $('fusion-tried').innerHTML = data.available ? '' : (data.tried ?? []).map((t) => `<code>${escapeHtml(t.path)} → ${escapeHtml(String(t.status || '?'))}</code>`).join(' ');
     } catch (error) {
       if (!handleAuthLoss(error)) showError('fusion-status', error);
     } finally {
@@ -8239,6 +8244,7 @@ function renderFusion() {
     $('fusion-app-count').textContent = '';
     return;
   }
+  renderFusionLanes();
   const t = fusionTiles(data, scope, credits);
   const tile = (value, label, detail) => `<div><span class="value">${escapeHtml(value)}</span><span class="label">${escapeHtml(label)}</span><span class="detail">${escapeHtml(detail)}</span></div>`;
   tiles.innerHTML = [
@@ -8253,7 +8259,7 @@ function renderFusion() {
   const cell = (n, cls = '') => `<td class="num c-count ${n ? cls : 'zero'}">${fmt(n)}</td>`;
   $('fusion-body').innerHTML = rows.length
     ? rows.map((r) => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.applications.join(', ') || '—')}</td>${cell(r.CRITICAL, 'aged')}${cell(r.HIGH)}${cell(r.MEDIUM)}${cell(r.LOW)}${cell(r.total)}${cell(r.raisedToTop, 'aged')}${cell(r.lowered)}<td class="nowrap">${escapeHtml(fusionScanText(r.scan))}</td></tr>`).join('')
-    : `<tr><td colspan="10" class="hint">${escapeHtml(data.available ? (Object.keys(data.projects ?? {}).length ? 'No project matches.' : 'Fusion re-scored nothing in the projects fetched.') : 'Fusion did not answer on this tenant.')}</td></tr>`;
+    : `<tr><td colspan="10" class="hint">${escapeHtml(data.available ? (Object.keys(data.projects ?? {}).length ? 'No project matches.' : 'Fusion re-scored nothing in the projects fetched.') : 'Fusion did not answer on this tenant.')}${!Object.keys(data.projects ?? {}).length && can('credits.limit') ? ' <button type="button" class="sm" data-fusion-reread>Read Fusion again</button>' : ''}</td></tr>`;
   const apps = data.applications ?? [];
   $('fusion-app-count').textContent = apps.length ? String(apps.length) : '';
   $('fusion-apps').innerHTML = apps.length
@@ -8268,6 +8274,64 @@ $('fusion-credits')?.addEventListener('input', (event) => {
     localStorage.setItem(FUSION_CREDITS_KEY, event.target.value);
   } catch {}
   renderFusion();
+});
+
+/**
+ * Admins act on Fusion's results as on a tracked report's Triage tab: per kind of credit, "Allocate for
+ * <next severities>" and "<Triage|Remediate> <what the credits cover>", gold once the credits are there.
+ * Only the fetched findings Fusion re-scored count (the server matches them by result id).
+ */
+function renderFusionLanes() {
+  const box = $('fusion-lanes');
+  if (!box) return;
+  const c = fusion.credits;
+  const admin = can('credits.limit');
+  if (!admin || !fusion.data || !c?.matched) {
+    box.hidden = true;
+    box.innerHTML = '';
+    return;
+  }
+  box.hidden = false;
+  const ways = { allocate: can('credits.allocate'), run: can('triage.run') };
+  const tiers = { triage: creditTiers(c.triage, c.left.triage), remediation: creditTiers(c.remediation, c.left.remediation) };
+  box.innerHTML = `<div class="credit-lanes">${creditLane('fusion', 'triage', tiers.triage, ways, 'fusion')}${creditLane('fusion', 'remediation', tiers.remediation, ways, 'fusion')}</div>
+    <p class="hint">${escapeHtml(`${fmt(c.matched)} of the fetched findings are Fusion results, in ${fmt(c.projects)} project(s). Credits go to those projects, for these findings only: 1 to check a finding with AI, 3 to fix it.`)}</p>`;
+}
+
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-fusion-allocate], [data-fusion-triage], [data-fusion-remediate], [data-fusion-reread]');
+  if (!button) return;
+  if (button.hasAttribute('data-fusion-reread')) return readFusion();
+  const severities = (button.dataset.severities || '').split(',').filter(Boolean);
+  if (!severities.length) return;
+  const allocate = button.hasAttribute('data-fusion-allocate');
+  const kind = allocate ? button.dataset.kind : button.hasAttribute('data-fusion-triage') ? 'triage' : 'remediation';
+  const question = allocate
+    ? kind === 'triage'
+      ? 'Allocate AI Triage credits from the credit pool for the Fusion results at the severities on the button (1 per Checkmarx One result), confirmed with Checkmarx One as they are given?'
+      : 'Allocate AI Remediation credits from the credit pool for the confirmed Fusion results at the severities on the button (3 per confirmed result), confirmed with Checkmarx One as they are given?'
+    : kind === 'triage'
+      ? 'Run AI Triage on the Fusion results at the severities on the button that are still awaiting triage? It uses Checkmarx One credits.'
+      : 'Run AI Remediation on the confirmed Fusion results at the severities on the button? It uses 3 Checkmarx One credits each.';
+  if (!confirm(question)) return;
+  button.disabled = true;
+  setStatus('fusion-act-status', allocate ? 'Allocating…' : kind === 'triage' ? 'Starting AI Triage…' : 'Starting AI Remediation…');
+  try {
+    const result = await api(`/api/beta/fusion/${allocate ? 'allocate' : kind === 'triage' ? 'triage' : 'remediate'}`, {
+      method: 'POST',
+      body: JSON.stringify(allocate ? { severities, kind } : { severities }),
+    });
+    fusion.credits = result.credits ?? fusion.credits;
+    setStatus('fusion-act-status', allocate
+      ? `Allocated. These projects now have ${fusion.credits.left.triage} triage and ${fusion.credits.left.remediation} remediation credit(s) left.${noteGone(result)}`
+      : spendText(result, kind), result.failed ? 'error' : 'ok');
+    creditsChanged();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('fusion-act-status', error);
+  } finally {
+    button.disabled = false;
+    renderFusionLanes();
+  }
 });
 
 function renderBetaScope() {

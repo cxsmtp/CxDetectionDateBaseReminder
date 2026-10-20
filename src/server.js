@@ -6733,7 +6733,7 @@ app.get(
  * none. A project deleted from Checkmarx One is left out and named.
  * Returns { error, gone } when refused, else { gone, byProject } (the verified findings).
  */
-async function allocateNeeded(req, projects, { wanted, extraTriage, extraRemediation, where, details, engines = null, branches = 'primary', kinds = CREDIT_KINDS }) {
+async function allocateNeeded(req, projects, { wanted, extraTriage, extraRemediation, where, details, engines = null, branches = 'primary', kinds = CREDIT_KINDS, keep = null }) {
   const actor = await adminActor(req);
   const verifiedRisks = new Map();
   const gone = [];
@@ -6768,8 +6768,8 @@ async function allocateNeeded(req, projects, { wanted, extraTriage, extraRemedia
     if (wanted.length) allocations.setSeverities(projectId, projectName, ruleWith(projectId));
   }
   const plan = projects.map(({ projectId, projectName }) => {
-    // Only the findings of the engines chosen count towards the need.
-    const risks = (verifiedRisks.get(projectId) ?? []).filter((r) => inEngines(r, engines));
+    // Only the findings of the engines chosen (and, when given, those `keep` names) count towards the need.
+    const risks = (verifiedRisks.get(projectId) ?? []).filter((r) => inEngines(r, engines) && (!keep || keep(projectId, r)));
     const { shortfall } = allocations.need(projectId, risks);
     const wants = (kind) => wanted.length > 0 && kinds.includes(kind);
     return { projectId, projectName, triage: wants('triage') ? shortfall.triage : 0, remediation: wants('remediation') ? shortfall.remediation : 0 };
@@ -9426,8 +9426,151 @@ const fusionScope = (lastScan) => {
 };
 
 app.get('/api/beta/fusion', requireFeature('fusionResults'), (req, res) => {
-  res.json({ fusion: req.session.lastFusion ?? null, scope: fusionScope(req.session.lastScan) });
+  res.json({ fusion: req.session.lastFusion ?? null, scope: fusionScope(req.session.lastScan), credits: fusionCredits(req) });
 });
+
+// ---- Acting on Fusion's results: the same allocate / triage / remediate as a tracked report's Triage tab,
+// for Admins, on only the fetched findings Fusion re-scored (matched by result id; severities are the
+// findings' own in Checkmarx One, which credits and AI Triage go by).
+
+/** A result id as Fusion and the results API may write it (URL-encoded once or twice), plain. */
+const plainId = (id) => {
+  let s = String(id ?? '');
+  for (let i = 0; i < 2; i += 1) {
+    try {
+      const d = decodeURIComponent(s);
+      if (d === s) break;
+      s = d;
+    } catch {
+      break;
+    }
+  }
+  return s;
+};
+
+/** Which fetched findings Fusion re-scored: (projectId, finding) → true. */
+function fusionKeep(req) {
+  const ids = new Map();
+  for (const r of req.session.lastFusion?.results ?? []) {
+    if (!r.projectId || !r.resultId) continue;
+    if (!ids.has(r.projectId)) ids.set(r.projectId, new Set());
+    ids.get(r.projectId).add(plainId(r.resultId));
+  }
+  const keep = (projectId, r) => {
+    const set = ids.get(projectId);
+    return Boolean(set && [r.riskId, r.alternateId, r.similarityId].some((id) => id && set.has(plainId(id))));
+  };
+  return { keep, projectIds: [...ids.keys()] };
+}
+
+const FUSION_RECENT_MS = 30 * 60 * 1000;
+
+/** The Fusion page's two lanes: credits needed by severity (1 to triage, 3 to remediate) and what its projects hold. */
+function fusionCredits(req) {
+  const { keep, projectIds } = fusionKeep(req);
+  const projects = scanProjects(req, projectIds).filter((p) => projectIds.includes(p.projectId));
+  const triage = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+  const remediation = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+  const left = { triage: 0, remediation: 0 };
+  let matched = 0;
+  const { allowReremediation = false } = settingsStore.get().aiTriage ?? {};
+  for (const p of projects) {
+    const remediated = allowReremediation ? new Set() : creditLedger.remediatedIds(p.projectId);
+    for (const r of p.risks ?? []) {
+      if (!keep(p.projectId, r) || !(r.severity in triage)) continue;
+      matched += 1;
+      const recent = r.triageRequestedAt && Date.now() - r.triageRequestedAt < FUSION_RECENT_MS;
+      if ((!r.state || r.state === 'TO_VERIFY') && !recent) triage[r.severity] += 1;
+      if (remediable(r) && !remediated.has(r.riskId)) remediation[r.severity] += CREDIT_COST.remediation;
+    }
+    const balance = allocations.balance(p.projectId);
+    left.triage += balance.triage.remaining;
+    left.remediation += balance.remediation.remaining;
+  }
+  return { triage, remediation, left, matched, projects: projects.length };
+}
+
+/** Admins only (those who set the credit pool), with the Beta feature. */
+function requireFusionAdmin(req, res, next) {
+  if (can(req, 'credits.limit')) return next();
+  res.status(403).json({ error: 'Only an Admin can allocate credits or run AI on Fusion results.', permission: 'credits.limit' });
+}
+
+app.post('/api/beta/fusion/allocate', requireFeature('fusionResults'), requirePermission('credits.allocate'), requireFusionAdmin, afterFetch, asyncRoute(async (req, res) => {
+  if (!req.session.lastFusion) return res.status(409).json({ error: 'Read Fusion first.' });
+  const wanted = cleanSeverities(req.body?.severities);
+  if (!wanted.length) return res.status(400).json({ error: 'Pick severities to allocate for.' });
+  const { keep, projectIds } = fusionKeep(req);
+  const projects = scanProjects(req, projectIds).filter((p) => projectIds.includes(p.projectId));
+  if (!projects.length) return res.status(409).json({ error: 'None of the fetched projects has Fusion results.' });
+  const done = await allocateNeeded(req, projects, {
+    wanted, extraTriage: 0, extraRemediation: 0, kinds: kindsOf(req.body?.kind), keep, where: 'Labs → Fusion results',
+    details: { projectIds: projects.map((p) => p.projectId), kind: req.body?.kind ?? 'both', fusion: true },
+  });
+  if (done.error) return res.status(409).json(done);
+  for (const p of projects) p.credits = creditView(p);
+  res.json({ credits: fusionCredits(req), gone: done.gone, goneNote: done.gone.length ? `Skipped: ${goneText(done.gone)}` : '' });
+}));
+
+app.post('/api/beta/fusion/triage', requireFeature('fusionResults'), requirePermission('triage.run'), requireFusionAdmin, afterFetch, asyncRoute(async (req, res) => {
+  if (!req.session.lastFusion) return res.status(409).json({ error: 'Read Fusion first.' });
+  const wanted = cleanSeverities(req.body?.severities);
+  if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to triage.' });
+  const { keep, projectIds } = fusionKeep(req);
+  const projects = scanProjects(req, projectIds).filter((p) => projectIds.includes(p.projectId));
+  const candidate = (p, r) => keep(p.projectId, r) && wanted.includes(r.severity) && (!r.state || r.state === 'TO_VERIFY');
+  const lives = await mapWithConcurrency(projects, VERIFY_AT_ONCE, async (p) => ((p.risks ?? []).some((r) => candidate(p, r)) ? projectStates(req.session, p.projectId).catch(() => null) : null));
+  const originals = new Map();
+  const findings = [];
+  for (const [i, p] of projects.entries()) {
+    for (const r of p.risks ?? []) {
+      if (!keep(p.projectId, r) || !wanted.includes(r.severity)) continue;
+      const state = lives[i]?.get(r.riskId) ?? r.state;
+      if (state && state !== 'TO_VERIFY') continue;
+      if (r.triageRequestedAt && Date.now() - r.triageRequestedAt < FUSION_RECENT_MS) continue;
+      const copy = { ...r, projectId: p.projectId, projectName: p.projectName };
+      originals.set(copy, r);
+      findings.push(copy);
+    }
+  }
+  if (!findings.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], credits: fusionCredits(req) });
+  const actor = await adminActor(req);
+  const outcome = await adminTriage(req.session, findings, req.session.lastScan.initiators ?? {}, { actor, origin: `Labs → Fusion results: triage ${wanted.map((s) => s.toLowerCase()).join(', ')}` });
+  for (const f of outcome.startedFindings) originals.get(f).triageRequestedAt = Date.now();
+  for (const p of projects) p.credits = creditView(p);
+  const { startedFindings, ...summary } = outcome;
+  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'triage', startedFindings, req.session.lastScan.initiators ?? {}, actor);
+  res.json({ ...summary, notified, credits: fusionCredits(req) });
+}));
+
+app.post('/api/beta/fusion/remediate', requireFeature('fusionResults'), requirePermission('triage.run'), requireFusionAdmin, afterFetch, asyncRoute(async (req, res) => {
+  if (!req.session.lastFusion) return res.status(409).json({ error: 'Read Fusion first.' });
+  const wanted = cleanSeverities(req.body?.severities);
+  if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to remediate.' });
+  const { keep, projectIds } = fusionKeep(req);
+  const projects = scanProjects(req, projectIds).filter((p) => projectIds.includes(p.projectId));
+  const { allowReremediation = false } = settingsStore.get().aiTriage ?? {};
+  const findings = [];
+  for (const p of projects) {
+    if (!(p.risks ?? []).some((r) => keep(p.projectId, r) && wanted.includes(r.severity))) continue;
+    stateCache.delete(p.projectId);
+    const live = await projectStates(req.session, p.projectId).catch(() => null);
+    const remediated = allowReremediation ? new Set() : creditLedger.remediatedIds(p.projectId);
+    for (const r of p.risks ?? []) {
+      if (!keep(p.projectId, r)) continue;
+      const state = live?.get(r.riskId) ?? r.state;
+      if (state && state !== r.state) r.state = state;
+      if (remediable({ ...r, state }) && !remediated.has(r.riskId)) findings.push({ ...r, projectId: p.projectId, projectName: p.projectName });
+    }
+  }
+  const unique = remediationCandidates(findings, wanted);
+  if (!unique.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], credits: fusionCredits(req) });
+  const actor = await adminActor(req);
+  const { startedFindings, ...summary } = await adminRemediate(req.session, unique, req.session.lastScan.initiators ?? {}, { actor, origin: `Labs → Fusion results: remediate the confirmed ${wanted.map((s) => s.toLowerCase()).join(', ')}` });
+  for (const p of projects) p.credits = creditView(p);
+  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'remediation', startedFindings, req.session.lastScan.initiators ?? {}, actor);
+  res.json({ ...summary, notified, credits: fusionCredits(req) });
+}));
 
 app.post(
   '/api/beta/fusion/read',
@@ -9438,7 +9581,7 @@ app.post(
     if (!scope.projects) return res.status(400).json({ error: 'Load findings on the Workbench first: Fusion is read for the projects fetched there.' });
     const fusion = await readFusion(req.session.client, Object.keys(scope.names));
     req.session.lastFusion = fusion;
-    res.json({ fusion, scope });
+    res.json({ fusion, scope, credits: fusionCredits(req) });
   }),
 );
 

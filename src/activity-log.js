@@ -280,6 +280,9 @@ export const ACTIONS = {
   'POST /api/beta/authors/find': 'Found code authors',
   'POST /api/beta/authors/notify': 'Emailed code authors',
   'POST /api/beta/fusion/read': 'Read Fusion results',
+  'POST /api/beta/fusion/allocate': 'Allocated credits for Fusion results',
+  'POST /api/beta/fusion/triage': 'Ran AI Triage on Fusion results',
+  'POST /api/beta/fusion/remediate': 'Ran AI Remediation on Fusion results',
 };
 
 const VERBS = { POST: 'Did', PUT: 'Changed', PATCH: 'Changed', DELETE: 'Removed', GET: 'Opened' };

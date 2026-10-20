@@ -3278,3 +3278,5 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .fusion-apps { margin-top: 14px; }
 .fusion-apps > summary { cursor: pointer; font-weight: 600; }
 @media (max-width: 760px) { .fusion-credits { margin-inline-start: 0; flex: 1 1 100%; } .fusion-credits input { flex: 1 1 auto; } }
+.fusion-tried { margin: -4px 0 12px; overflow-wrap: anywhere; }
+.fusion-tried:empty { display: none; }

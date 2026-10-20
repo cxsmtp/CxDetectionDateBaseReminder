@@ -224,3 +224,27 @@ test('Fusion results (Beta): read for the projects fetched, by new severity; onc
   assert.equal((await admin('PUT', '/api/features/fusionResults', { stage: 'beta' })).status, 200);
   assert.equal((await user('GET', '/api/beta/fusion')).status, 403);
 });
+
+test('Fusion results: an Admin allocates for and triages only the findings Fusion re-scored; nobody else may', async () => {
+  await admin('GET', '/api/scan');
+  const read = await admin('POST', '/api/beta/fusion/read', {});
+  const { credits } = read.body;
+  // The mock's Fusion results are p0-r0 (critical), p1-r0 (critical) and p1-r1 (high), all awaiting triage.
+  assert.equal(credits.matched, 3, JSON.stringify(credits));
+  assert.deepEqual(credits.triage, { CRITICAL: 2, HIGH: 1, MEDIUM: 0, LOW: 0 });
+  assert.equal(credits.projects, 2);
+
+  const given = await admin('POST', '/api/beta/fusion/allocate', { kind: 'triage', severities: ['CRITICAL', 'HIGH'] });
+  assert.equal(given.status, 200, JSON.stringify(given.body).slice(0, 300));
+  assert.ok(given.body.credits.left.triage >= 3, 'enough for the three, and no more needed');
+  const run = await admin('POST', '/api/beta/fusion/triage', { severities: ['CRITICAL', 'HIGH'], notifyInitiators: false });
+  assert.equal(run.status, 200, JSON.stringify(run.body).slice(0, 300));
+  assert.equal(run.body.requested, 3, 'only the Fusion results, not the projects\' other findings');
+  assert.deepEqual(run.body.credits.triage, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 }, 'sent: no longer waiting');
+
+  await admin('PUT', '/api/features/fusionResults', { stage: 'final' });
+  await user('GET', '/api/scan');
+  await user('POST', '/api/beta/fusion/read', {});
+  assert.equal((await user('POST', '/api/beta/fusion/triage', { severities: ['CRITICAL'] })).status, 403, 'Admins only');
+  await admin('PUT', '/api/features/fusionResults', { stage: 'beta' });
+});
