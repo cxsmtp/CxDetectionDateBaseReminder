@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.86 | 303/s and 285/s, 2,052 and 2,266 on a saturated host (main 375 and 278, 1,201 and 2,336) | 60 s (main too) | 24.1 s | 721 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.85 | 498/s and 513/s, 0 (main 491 and 520, 0) | 6.3 s | 463 ms | 720 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.84 | 502/s, 0 (main 497, 0) | 6.7 s | 593 ms | 698 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.83 | 521/s, 0 (main 519, 0; the first pair 520 against 525, 0) | 2.1 s | 205 ms | 696 | 0 vulnerabilities | No new scan; the 3 critical secret findings of rescan fe2eb036 marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -71,6 +72,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.86 — 2026-10-20 18:26 UTC · [#109](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/109)
+
+- **Fusion results from where the tenant serves them.** Labs → Fusion results reads Checkmarx One's Fusion Results and Fusion Dispatcher at `/api/correlation/results` and `/api/correlation/dispatcher`, the paths the tenant's own Swagger gives; it looked for them at paths no tenant has, so it always said Fusion did not answer.
+- **Why, when it cannot read them.** The page lists each address it asked with Checkmarx One's answer, and when the answer is "not allowed" it says the API key's role in Checkmarx One may not read Fusion results.
+- **Act on Fusion's findings.** Admins get the same two rows as a tracked report's Triage tab, for only the fetched findings Fusion re-scored: **Allocate for** the next severities and a **Triage** or **Remediate** button that turns gold once the credits cover them, with the same two reads of Checkmarx One, credit pool and audit as on the Workbench.
+- **Read Fusion again.** When Fusion shows no results, Admins can read them once more from the empty table.
+- **Status.** 3000 people at once on 2 vCPU, on a host saturated all afternoon (main itself failed 1,201 and 2,336 requests): 303 and 285 requests a second against main's 375 and 278, swinging both ways, with no finding sent twice; nothing on the measured paths changed ([performance](docs/performance.md)); 721 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan, rescan fe2eb036's open findings as before ([status](docs/status.md)).
 
 ## MZ-01.00.85 — 2026-10-20 16:30 UTC · [#108](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/108)
 
