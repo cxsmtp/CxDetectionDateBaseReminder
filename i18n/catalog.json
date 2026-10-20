@@ -24718,5 +24718,167 @@
   "seen": [
    "fusion › Fusion results Beta (an Admin)"
   ]
+ },
+ "Troubleshoot Fusion": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Paths to test, one per line": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Test these paths": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Restore the suggested paths": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Path": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "What came back": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Debug mode": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Log every Fusion call in full": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Each request and answer, with headers and bodies; the access token is never shown. Kept with your session only.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Copy the log": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Download the log": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "{0} call(s) logged": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Use for Fusion results": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Use for Fusion scan status": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Pinned:": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "for Fusion results": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "for Fusion scan status": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Unpin": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Nothing pinned: the page tries /api/correlation/results and /api/correlation/dispatcher.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Find where this Checkmarx One serves Fusion: each path is called once, read only, through this server's connection, and <code>{appId}</code> becomes one of your applications. Pin the one that answers, and the page reads Fusion from there.": {
+  "kind": "html",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Testing {0} path(s)…": {
+  "kind": "message",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "{0} of {1} answered.": {
+  "kind": "message",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "The log is copied.": {
+  "kind": "message",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Could not copy: select the log and copy it.": {
+  "kind": "message",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Unpinned.": {
+  "kind": "message",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "Pinned: Fusion is read from there now.": {
+  "kind": "message",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
+ },
+ "The Fusion service is not running on this tenant: Checkmarx One has the address, but no server behind it.": {
+  "kind": "message",
+  "seen": [
+   "fusion › Troubleshoot Fusion (Admins)"
+  ]
  }
 }
