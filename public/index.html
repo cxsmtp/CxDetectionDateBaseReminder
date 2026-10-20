@@ -2567,13 +2567,28 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <label class="field"><span>Currency</span><select id="calc-imp-currency"><option value="USD" translate="no">USD</option><option value="EUR" translate="no">EUR</option><option value="GBP" translate="no">GBP</option><option value="INR" translate="no">INR</option><option value="JPY" translate="no">JPY</option><option value="CNY" translate="no">CNY</option><option value="KRW" translate="no">KRW</option><option value="AUD" translate="no">AUD</option><option value="CAD" translate="no">CAD</option><option value="CHF" translate="no">CHF</option><option value="SGD" translate="no">SGD</option><option value="HKD" translate="no">HKD</option><option value="TWD" translate="no">TWD</option><option value="MYR" translate="no">MYR</option><option value="IDR" translate="no">IDR</option><option value="THB" translate="no">THB</option><option value="VND" translate="no">VND</option><option value="AED" translate="no">AED</option><option value="SAR" translate="no">SAR</option><option value="ILS" translate="no">ILS</option><option value="BRL" translate="no">BRL</option><option value="MXN" translate="no">MXN</option><option value="ZAR" translate="no">ZAR</option><option value="SEK" translate="no">SEK</option><option value="NOK" translate="no">NOK</option><option value="DKK" translate="no">DKK</option><option value="PLN" translate="no">PLN</option><option value="NZD" translate="no">NZD</option></select></label>
                 </div>
                 <p class="hint">They start from Settings → Impact and are kept with this customer.</p>
+                <h3 class="calc-impact-h3">Fusion</h3>
+                <div class="calc-terms" id="calc-impact-fterms">
+                  <label class="field"><span>Lines an expert reviews in an hour</span><input type="number" id="calc-imp-lph" min="1" step="10" /></label>
+                  <label class="field"><span>Reviewers in a team</span><input type="number" id="calc-imp-reviewers" min="1" step="1" /></label>
+                  <label class="field"><span>A fix after release costs (× a fix while coding)</span><input type="number" id="calc-imp-later" min="1" step="0.5" /></label>
+                  <label class="field"><span>Chance a critical or high finding leads to a breach (%)</span><input type="number" id="calc-imp-chance" min="0" max="100" step="0.1" /></label>
+                  <label class="field"><span>A breach costs</span><input type="number" id="calc-imp-breach" min="0" step="100000" /></label>
+                  <label class="check calc-imp-count"><input type="checkbox" id="calc-imp-count" /> Count the breach cost avoided in the return</label>
+                </div>
+                <p class="hint">A breach's cost starts at IBM's Cost of a Data Breach 2024 average; the breach cost avoided is an expected cost, not money saved, so it counts in the return only when ticked.</p>
               </section>
+              <div class="calc-kpis" id="calc-impact-overall"></div>
+              <h2 class="calc-impact-part">Triage &amp; remediation</h2>
               <div class="calc-kpis" id="calc-impact-kpis"></div>
               <section class="panel">
                 <h2>Where the time comes back, by severity</h2>
                 <div class="table-wrap"><table class="data-table calc-impact"><thead><tr><th>Severity</th><th class="num">Triaged by AI</th><th class="num">False positives cleared</th><th class="num">Fixed by AI</th><th class="num">Hours saved</th><th class="num">Credits</th></tr></thead><tbody id="calc-impact-rows"></tbody></table></div>
                 <p class="hint" id="calc-impact-empty" hidden>No triage &amp; remediation projection yet: read Checkmarx One (or use the two exports) on the Triage &amp; remediation tab.</p>
               </section>
+              <h2 class="calc-impact-part">Fusion</h2>
+              <div class="calc-kpis" id="calc-impact-fusion"></div>
+              <p class="hint" id="calc-impact-fusion-empty" hidden>No Fusion projects yet: add them, with their lines of code, on the Fusion tab.</p>
               <section class="panel" id="calc-impact-how"></section>
             </div>
 

@@ -3253,4 +3253,7 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .look-mini[data-mini="signal"] em { background: transparent; border: 2px solid var(--a); }
 
 /* Cx Credits Calculator → Impact: the six assumptions side by side where they fit. */
-#calc-impact-terms { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); align-items: end; }
+#calc-impact-terms, #calc-impact-fterms { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); align-items: end; }
+.calc-impact-h3 { margin: 18px 0 8px; font-size: 14px; }
+.calc-impact-part { margin: 18px 4px 8px; font-size: 16px; }
+.calc-imp-count { align-self: center; }

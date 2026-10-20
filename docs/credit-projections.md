@@ -4,7 +4,7 @@ The **Cx Credits Calculator** works out the Checkmarx One credits a customer nee
 
 - **Triage & remediation:** the credits it takes to triage and remediate their backlog, from the backlog and fixes week by week in their Checkmarx One, and how fast the backlog clears.
 - **Fusion:** the credits Fusion scans of their projects take, from each project's lines of code, criticality and how often it is scanned.
-- **Impact:** what using the triage & remediation credits gives back: hours developers no longer spend, their value, what the credits cost, and the return (see [Impact](#impact)).
+- **Impact:** what using the credits gives back: hours developers no longer spend triaging and fixing, the expert code review Fusion replaces, flaws found earlier, the breach cost avoided, what the credits cost, and the return (see [Impact](#impact)).
 - **Projection reports:** every report made, to download again.
 
 Both tabs come from the **Checkmarx One tenant this server is connected to**, in one read: see [Reading Checkmarx One](#reading-checkmarx-one). At the top, a summary strip adds the two together, with an extra % on top if you want one, and says how many **bundles** of credits that is.
@@ -214,13 +214,34 @@ What it shows, for the projection period:
 
 Each step is shown with the figures in under **How each number is calculated**, on the tab, in the report and in the PDF's appendix. The figures say what people would no longer do by hand; they are an estimate from the assumptions above, which the customer can check against their own.
 
-**Fusion's impact** is not counted yet: Fusion scans find what other scans do not, which is a different kind of return (risk found earlier, not hours saved).
+### Fusion's impact
+
+Fusion has frontier AI models read every line of each project on every Fusion scan. What that gives back, from the **Fusion** tab (each project's lines of code and Fusion scans) and the **Triage & remediation** tab (the findings Fusion adds), with six more assumptions kept with each customer:
+
+| Assumption | Default | Used for |
+| --- | --- | --- |
+| Lines an expert reviews in an hour | 200 | The expert review Fusion replaces. |
+| Reviewers in a team | 3 | How long a team takes to read the code once. |
+| A fix after release costs (× a fix while coding) | 5 | What finding a flaw earlier saves. |
+| Chance a critical or high finding leads to a breach (%) | 0.5 | The breach cost avoided. |
+| A breach costs | 4,880,000 | IBM's Cost of a Data Breach 2024 average, in the customer's currency once changed. |
+| Count the breach cost avoided in the return | off | It is an expected cost, not money saved. |
+
+- **Expert review replaced:** lines read (each project's lines × its Fusion scans) ÷ lines an expert reviews in an hour, in hours, and their value at a developer's hour.
+- **Every line read:** how many times, on average, over the period.
+- **Cost per 10K lines read:** what the Fusion credits cost ÷ the lines read in 10K units, beside what an expert costs for the same 10K lines.
+- **Reviewers to keep pace:** the expert hours ÷ the working hours in the period: full-time reviewers it would take to read what Fusion reads.
+- **A team reading it once:** the lines ÷ lines an hour ÷ (reviewers × 40 hours), in weeks.
+- **Found earlier, fixed cheaper:** the true positives Fusion adds (more found by Fusion, less their false positives) fixed while the code is being written: × (the multiple − 1) × the minutes to fix one by hand, in hours and money.
+- **Breach cost avoided:** the critical and high ones among them × the chance one leads to a breach × what a breach costs. Shown always; in the return only when ticked.
+
+**All the credits give back**, at the top of the tab, adds triage & remediation and Fusion together, against what every credit costs: the **Return** and when the credits are **paid back**. The PDF's slide 4 shows that, with where the value comes from (AI Triage, AI Remediation, expert review replaced, found earlier, and the breach cost when counted).
 
 ## Projection reports
 
 **Generate projection report** makes one report from both tabs and the summary, downloads it, and keeps it on the **Projection reports** tab.
 
-**Download PDF summary** appears once the report is made: 16:9 pages to present, in the page's language (eight with the usual data: the three below, the impact, then the appendix). Page 1 is triage & remediation: the backlog today, the findings still to come, to triage, the credits, and the backlog trend and forecast, with debt added against fixes in one line. Page 2 is Checkmarx Fusion: projects, lines of code, scans and credits, and the credits by how often projects are scanned. Page 3 is the total credits required, in bundles, what they are for, and the assumptions. Page 4 is what the credits give back: hours given back (and as developer-years), their value, what the credits cost, the return, hours given back by severity, the false positives cleared and the assumptions. It is drawn in your browser: nothing is sent anywhere. **PDF** beside each saved report on the **Projection reports** tab makes the same summary for that report.
+**Download PDF summary** appears once the report is made: 16:9 pages to present, in the page's language (eight or nine with the usual data: the three below, the impact, then the appendix). Page 1 is triage & remediation: the backlog today, the findings still to come, to triage, the credits, and the backlog trend and forecast, with debt added against fixes in one line. Page 2 is Checkmarx Fusion: projects, lines of code, scans and credits, and the credits by how often projects are scanned. Page 3 is the total credits required, in bundles, what they are for, and the assumptions. Page 4 is what all the credits give back: their value (or hours) for triage & remediation and Fusion together, what they cost, the return, the hours given back, where the value comes from, and the false positives cleared, how often Fusion reads every line and when the credits are paid back. It is drawn in your browser: nothing is sent anywhere. **PDF** beside each saved report on the **Projection reports** tab makes the same summary for that report.
 
 - The file is named after the customer and the time it was made, on your clock: `Globex_Cx-credits-projection_2026-10-09_2047.html`.
 - It is one HTML file with everything in it: no scripts and nothing loaded from anywhere. Open it in any browser, or print it to PDF (always in the light theme).
@@ -243,4 +264,4 @@ Every figure says how it was reached, with the customer's own numbers in, in thr
 
 - **On the page:** the **?** beside each figure opens a small window with its calculation. Backlog today (chosen of open, per severity), still to come (open now − open then + fixed in between, ÷ the months measured, × the share chosen, × the months' worth over the projection with AI adoption), more found by Fusion, kept away by FAE (never more than the false positives), to triage, to remediate (the true positives), credits (per severity, then backlog today and findings ahead), Fusion credits (10K LOC units × scans × each model's rate) and the total in bundles.
 - **In the report:** the assumptions come first, starting with the trend period and the projection period; a closed **How each number is calculated** section at the end opens on a click.
-- **In the PDF summary:** eight slides in all with the usual data. After triage & remediation, Fusion, the total and the impact, slide 5, **Appendix – Calculations**, opens the appendix and lists its pages. Slide 6 states the trend (added, fixed and the change a month, per severity) and how each number is worked out, and the slides after it carry every calculation, step by step (as many as it takes; two with the usual data).
+- **In the PDF summary:** eight or nine slides with the usual data. After triage & remediation, Fusion, the total and the impact, slide 5, **Appendix – Calculations**, opens the appendix and lists its pages. Slide 6 states the trend (added, fixed and the change a month, per severity) and how each number is worked out, and the slides after it carry every calculation, step by step (as many as it takes; two with the usual data).

@@ -181,9 +181,56 @@ export function impactSections(m, L) {
   ];
 }
 
+/** Fusion's impact (model.js fusionImpact): expert review replaced, and the rest it leads to. */
+export function fusionImpactSections(f, L) {
+  const { w, num } = L;
+  if (!f) return [];
+  const s = f.settings;
+  const cash = (n) => moneyText(n, s.currency, L.locale);
+  const review = [
+    { text: w('Lines read: each project\'s lines of code × its Fusion scans, {0} lines × {1} times on average = {2}.', num(f.linesOnce), num(f.timesRead, 1), num(f.linesRead)) },
+    { text: w('Expert hours: {0} lines ÷ {1} lines an hour = {2} hours.', num(f.linesRead), num(s.linesPerHour), num(f.expertHours)), total: true },
+  ];
+  if (f.expertValue !== null) review.push({ text: w('Worth: {0} hours × {1} = {2}.', num(f.expertHours), cash(s.hourlyRate), cash(f.expertValue)) });
+  review.push({ text: w('Reviewers to keep pace: {0} hours ÷ ({1} hours a year × {2} months ÷ 12) = {3}.', num(f.expertHours), num(HOURS_A_YEAR), num(f.months), num(f.reviewersNeeded, 1)) });
+  review.push({ text: w('A team reading it once: {0} lines ÷ {1} lines an hour ÷ ({2} reviewers × 40 hours) = {3} weeks.', num(f.linesOnce), num(s.linesPerHour), num(s.reviewers), num(f.teamWeeks, 1)) });
+  if (f.costPer10k !== null) review.push({ text: w('Cost per 10K lines read: {0} ÷ ({1} ÷ {3}) = {2}.', cash(f.cost), num(f.linesRead), cash(f.costPer10k), num(10000)) });
+  if (f.expertPer10k !== null) review.push({ text: w('An expert: {3} ÷ {0} lines an hour × {1} = {2}.', num(s.linesPerHour), cash(s.hourlyRate), cash(f.expertPer10k), num(10000)) });
+  const sections = [{ key: 'fusion-review', title: w('Expert review replaced'), lines: review }];
+  if (f.extraTrue !== null) {
+    const early = [
+      { text: w('More true positives Fusion finds: more found by Fusion × (100% − false positives) = {0}.', num(f.extraTrue)) },
+      { text: w('Fixed while coding, not after release, where a fix costs {0} times as much: {1} × ({0} − 1) × {2} minutes ÷ 60 = {3} hours.', num(s.laterFixMultiplier, 1), num(f.extraTrue), num(s.fixMinutes), num(f.earlyHours)), total: true },
+    ];
+    if (f.earlyValue !== null) early.push({ text: w('Worth: {0} hours × {1} = {2}.', num(f.earlyHours), cash(s.hourlyRate), cash(f.earlyValue)) });
+    early.push({ text: w('Breach cost avoided: {0} critical and high × {1}% × {2} = {3}{4}', num(f.extraCriticalHigh), num(s.breachChancePercent, 2), cash(s.breachCost), cash(f.breachAvoided), s.countBreach ? w('; counted in the return.') : w('; an expected cost, not counted in the return.')) });
+    sections.push({ key: 'fusion-early', title: w('Found earlier, fixed cheaper'), lines: early });
+  }
+  return sections;
+}
+
+/** Everything together: the value of all the credits against what they cost. */
+export function overallImpactSection(o, L) {
+  const { w, num } = L;
+  if (!o || o.value === null) return [];
+  const cash = (n) => moneyText(n, o.currency, L.locale);
+  const lines = [{ text: w('All the credits give back: {0}.', cash(o.value)) }];
+  if (o.cost !== null) lines.push({ text: w('What the credits cost: {0}.', cash(o.cost)) });
+  if (o.roi !== null) lines.push({ text: w('Return: ({0} − {1}) ÷ {1} = {2}%.', cash(o.value), cash(o.cost), num(o.roi * 100)), total: true });
+  if (o.paybackMonths !== null) lines.push({ text: w('Paid back in: {0} ÷ ({1} ÷ {2} months) = {3} months.', cash(o.cost), cash(o.value), num(o.months), num(o.paybackMonths, 1)) });
+  return [{ key: 'impact-overall', title: w('Return on all the credits'), lines }];
+}
+
 /** Every section, in the order the numbers are reached. */
 export function allSections(data, L) {
-  return [...(data.tr ? trSections(data.tr, L) : []), fusionSection(data.fusion, L), totalSection(data, L), ...impactSections(data.impact?.tr, L)];
+  return [
+    ...(data.tr ? trSections(data.tr, L) : []),
+    fusionSection(data.fusion, L),
+    totalSection(data, L),
+    ...impactSections(data.impact?.tr, L),
+    ...fusionImpactSections(data.impact?.fusion, L),
+    ...overallImpactSection(data.impact?.overall, L),
+  ];
 }
 
 /** A section as HTML: the lines, figures already in. */

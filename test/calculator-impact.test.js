@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { HOURS_A_YEAR, IMPACT_DEFAULTS, impactSettings, trImpact } from '../public/calculator/model.js';
+import { HOURS_A_YEAR, IMPACT_DEFAULTS, fusionImpact, impactSettings, overallImpact, trImpact } from '../public/calculator/model.js';
 
 const rows = {
   Critical: { toTriage: 100, truePositives: 40, credits: 220 },
@@ -50,4 +50,50 @@ test('assumptions are cleaned: numbers within bounds, a three-letter currency, d
   assert.equal(s.fixMinutes, 90, 'an unreadable number takes the base');
   assert.equal(s.hourlyRate, 100000);
   assert.equal(s.currency, 'EUR');
+});
+
+const fusionRows = [
+  { included: true, units: 42, lines: 420000, scans: 2 },
+  { included: true, units: 5, lines: 41000, scans: 12 },
+  { included: false, units: 9, lines: 90000, scans: 4 },
+];
+const trRows = { Critical: { fusionExtra: 10, fp: 20 }, High: { fusionExtra: 40, fp: 30 }, Medium: { fusionExtra: 100, fp: 50 } };
+
+test('Fusion: the expert review it replaces, how often each line is read, and what a team would need', () => {
+  const f = fusionImpact(fusionRows, 500, 12, { linesPerHour: 200, reviewers: 3 }, trRows);
+  assert.equal(f.linesOnce, 461000, 'only the projects counted');
+  assert.equal(f.linesRead, 420000 * 2 + 41000 * 12);
+  assert.equal(f.expertHours, f.linesRead / 200);
+  assert.equal(f.timesRead, f.linesRead / f.linesOnce);
+  assert.equal(f.reviewersNeeded, f.expertHours / HOURS_A_YEAR);
+  assert.equal(f.teamWeeks, 461000 / 200 / (3 * 40));
+  assert.equal(f.expertValue, null, 'no money until an hour has a price');
+});
+
+test('Fusion: found earlier and fixed cheaper, and the breach cost avoided, counted only when asked', () => {
+  const f = fusionImpact(fusionRows, 500, 12, { hourlyRate: 85, creditPrice: 1.5, laterFixMultiplier: 5, fixMinutes: 120, breachChancePercent: 0.5, breachCost: 4880000 }, trRows);
+  assert.equal(f.extraTrue, 10 * 0.8 + 40 * 0.7 + 100 * 0.5);
+  assert.equal(f.extraCriticalHigh, 10 * 0.8 + 40 * 0.7);
+  assert.equal(f.earlyHours, (f.extraTrue * 4 * 120) / 60);
+  assert.equal(f.breachAvoided, f.extraCriticalHigh * 0.005 * 4880000);
+  assert.equal(f.cost, 750);
+  assert.equal(f.value, f.expertValue + f.earlyValue, 'the breach cost is not in the value unless counted');
+  assert.equal(f.costPer10k, 750 / (f.linesRead / 10000));
+  assert.equal(f.expertPer10k, (10000 / 200) * 85);
+  const counted = fusionImpact(fusionRows, 500, 12, { hourlyRate: 85, creditPrice: 1.5, countBreach: true }, trRows);
+  assert.equal(counted.value, counted.expertValue + counted.earlyValue + counted.breachAvoided);
+  // Without a triage & remediation projection there is nothing found earlier to count.
+  assert.equal(fusionImpact(fusionRows, 500, 12, { hourlyRate: 85 }).earlyHours, null);
+});
+
+test('overall: every credit\'s value against every credit\'s cost', () => {
+  const assumptions = { hourlyRate: 85, creditPrice: 1.5 };
+  const tr = trImpact(rows, 12, assumptions);
+  const fu = fusionImpact(fusionRows, 500, 12, assumptions, trRows);
+  const o = overallImpact(tr, fu);
+  assert.equal(o.value, tr.value + fu.value);
+  assert.equal(o.cost, tr.cost + fu.cost);
+  assert.equal(o.roi, (o.value - o.cost) / o.cost);
+  assert.deepEqual(o.sources.map((x) => x.key), ['triage', 'fixes', 'expert', 'early']);
+  assert.equal(overallImpact(null, null), null);
 });

@@ -16,9 +16,11 @@ import {
   cleanScope,
   creditSummary,
   fusionEstimate,
+  fusionImpact,
   fusionSettings,
   impactSettings,
   inScope,
+  overallImpact,
   sortProjects,
   planForecast,
   scopeActive,
@@ -34,7 +36,7 @@ import {
 import { SEVERITY_COLOURS, debtFixChart, forecastChart, severityCharts } from './charts.js';
 import { buildReport, reportFileName, wording } from './report.js';
 import { slidesFileName, slidesPdf } from './slides.js';
-import { allSections, impactSections, sectionHtml } from './explain.js';
+import { allSections, fusionImpactSections, impactSections, sectionHtml } from './explain.js';
 import { RTL, currentLanguage, t } from '../i18n.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines } from '../engines.js';
 
@@ -1391,7 +1393,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   /** This customer's assumptions; a customer saved before the Impact tab starts from Settings → Impact. */
   const impact = () => impactSettings(c.open?.impact ?? {}, impactSettings(c.impactDefaults ?? {}));
-  const IMPACT_FIELDS = { 'calc-imp-triage': 'triageMinutes', 'calc-imp-fix': 'fixMinutes', 'calc-imp-review': 'reviewMinutes', 'calc-imp-rate': 'hourlyRate', 'calc-imp-price': 'creditPrice', 'calc-imp-currency': 'currency' };
+  const IMPACT_FIELDS = {
+    'calc-imp-triage': 'triageMinutes', 'calc-imp-fix': 'fixMinutes', 'calc-imp-review': 'reviewMinutes', 'calc-imp-rate': 'hourlyRate', 'calc-imp-price': 'creditPrice', 'calc-imp-currency': 'currency',
+    'calc-imp-lph': 'linesPerHour', 'calc-imp-reviewers': 'reviewers', 'calc-imp-later': 'laterFixMultiplier', 'calc-imp-chance': 'breachChancePercent', 'calc-imp-breach': 'breachCost',
+  };
 
   function fillImpact() {
     const s = impact();
@@ -1400,6 +1405,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       if (key === 'currency' && ![...$(id).options].some((o) => o.value === v)) $(id).add(new Option(v, v));
       $(id).value = key === 'currency' ? v : key === 'hourlyRate' || key === 'creditPrice' ? (v || '') : v;
     }
+    $('calc-imp-count').checked = s.countBreach;
   }
 
   const money = (n, currency) => {
@@ -1417,20 +1423,29 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     return t ? trImpact(t.projection.rows, t.projection.months, impact()) : null;
   }
 
+  /** Fusion's impact: the projects counted on the Fusion tab, and what Fusion adds to triage & remediation. */
+  function currentFusionImpact() {
+    const est = estimate();
+    if (!est.rows.some((r) => r.included && r.units)) return null;
+    return fusionImpact(est.rows, est.totals.credits, est.settings.periodMonths, impact(), trFigures()?.projection.rows ?? null);
+  }
+
   function renderImpact() {
     if (!c.open) return;
     const m = currentImpact();
     $('calc-impact-empty').hidden = Boolean(m);
-    if (!m) {
-      $('calc-impact-kpis').innerHTML = '';
-      $('calc-impact-rows').innerHTML = '';
-      $('calc-impact-how').innerHTML = '';
-      return;
-    }
-    const cur = m.settings.currency;
     // In the reader's language here (the same words as the report), as the figures sit inside the sentences.
     const L = wording({ t, lang: currentLanguage() });
     const { w } = L;
+    renderFusionImpact(L);
+    renderOverallImpact(L, m);
+    if (!m) {
+      $('calc-impact-kpis').innerHTML = '';
+      $('calc-impact-rows').innerHTML = '';
+      $('calc-impact-how').innerHTML = `<h2>${w('How each number is calculated')}</h2>${fusionImpactSections(currentFusionImpact(), L).map((x) => `<h3>${x.title}</h3>${sectionHtml(x)}`).join('')}`;
+      return;
+    }
+    const cur = m.settings.currency;
     const cash = (n) => esc(money(n, cur));
     const kpi = (label, value, sub, cls = '') => `<div class="rp-kpi ${cls}"><span class="rp-tile-label">${label}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${sub}</span></div>`;
     $('calc-impact-kpis').innerHTML = [
@@ -1445,9 +1460,46 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       .filter((r) => r.triaged || r.fixes)
       .map((r) => `<tr><td>${w(SEV[r.severity])}</td><td class="num">${num(r.triaged)}</td><td class="num">${num(r.cleared)}</td><td class="num">${num(r.fixes)}</td><td class="num">${num(r.hours)}</td><td class="num">${num(r.credits, 1)}</td></tr>`)
       .join('') + `<tr class="calc-total"><td>${w('Total')}</td><td class="num">${num(m.triaged)}</td><td class="num">${num(m.cleared)}</td><td class="num">${num(m.fixes)}</td><td class="num">${num(m.hours)}</td><td class="num">${num(m.credits, 1)}</td></tr>`;
-    $('calc-impact-how').innerHTML = `<h2>${w('How each number is calculated')}</h2>${impactSections(m, L).map((x) => `<h3>${x.title}</h3>${sectionHtml(x)}`).join('')}`;
+    $('calc-impact-how').innerHTML = `<h2>${w('How each number is calculated')}</h2>${[...impactSections(m, L), ...fusionImpactSections(currentFusionImpact(), L)].map((x) => `<h3>${x.title}</h3>${sectionHtml(x)}`).join('')}`;
   }
 
+  const kpiTile = (label, value, sub, cls = '') => `<div class="rp-kpi ${cls}"><span class="rp-tile-label">${label}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${sub}</span></div>`;
+
+  function renderFusionImpact(L) {
+    const f = currentFusionImpact();
+    const { w } = L;
+    $('calc-impact-fusion-empty').hidden = Boolean(f);
+    if (!f) return ($('calc-impact-fusion').innerHTML = '');
+    const cash = (n) => esc(money(n, f.settings.currency));
+    $('calc-impact-fusion').innerHTML = [
+      kpiTile(w('Expert review replaced'), `${num(f.expertHours)} ${w('hours')}`, f.expertValue === null ? w('{0} lines read at {1} an hour', num(f.linesRead), num(f.settings.linesPerHour)) : w('Worth {0}', cash(f.expertValue)), 'calc-gold'),
+      kpiTile(w('Every line read'), w('{0} times', num(f.timesRead, 1)), w('{0} lines in {1} projects, over {2} months', num(f.linesOnce), num(f.projects), num(f.months))),
+      kpiTile(w('Cost per 10K lines read'), f.costPer10k === null ? '—' : cash(f.costPer10k), f.expertPer10k === null ? w('Enter what a developer\'s hour costs') : w('An expert: {0}', cash(f.expertPer10k))),
+      kpiTile(w('Reviewers to keep pace'), num(f.reviewersNeeded, 1), w('Full-time, reading what Fusion reads')),
+      kpiTile(w('A team reading it once'), w('{0} weeks', num(f.teamWeeks, 1)), w('{0} reviewers, 40 hours a week', num(f.settings.reviewers))),
+      f.extraTrue !== null ? kpiTile(w('Found earlier, fixed cheaper'), f.earlyValue === null ? `${num(f.earlyHours)} ${w('hours')}` : cash(f.earlyValue), w('{0} more true positives fixed while coding, not after release', num(f.extraTrue))) : '',
+      f.breachAvoided !== null ? kpiTile(w('Breach cost avoided'), cash(f.breachAvoided), f.settings.countBreach ? w('{0} critical and high found earlier; counted in the return', num(f.extraCriticalHigh)) : w('{0} critical and high found earlier; an expected cost, not counted', num(f.extraCriticalHigh))) : '',
+    ].join('');
+  }
+
+  function renderOverallImpact(L, tr) {
+    const o = overallImpact(tr, currentFusionImpact());
+    const { w } = L;
+    if (!o) return ($('calc-impact-overall').innerHTML = '');
+    const cash = (n) => esc(money(n, o.currency));
+    $('calc-impact-overall').innerHTML = [
+      kpiTile(w('All the credits give back'), o.value === null ? `${num(o.hours)} ${w('hours')}` : cash(o.value), w('Triage & remediation and Fusion, over {0} months', num(o.months)), 'calc-gold'),
+      kpiTile(w('What the credits cost'), cash(o.cost), o.cost === null ? w('Enter what a credit costs') : w('Every credit in this projection')),
+      kpiTile(w('Return'), o.roi === null ? '—' : `${num(o.roi * 100)}%`, o.net === null ? w('Once the hour and the credit have a price') : `${w('{0} net', cash(o.net))}${o.paybackMonths !== null ? ` · ${w('paid back in {0} months', num(o.paybackMonths, 1))}` : ''}`),
+    ].join('');
+  }
+
+  $('calc-imp-count').addEventListener('change', (event) => {
+    if (!c.open) return;
+    c.open.impact = impactSettings({ ...impact(), countBreach: event.target.checked }, impact());
+    renderImpact();
+    save({ impact: c.open.impact });
+  });
   for (const [id, key] of Object.entries(IMPACT_FIELDS)) {
     $(id).addEventListener('input', (event) => {
       if (!c.open) return;
@@ -1511,7 +1563,11 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
           }
         : null,
       // What the triage & remediation credits give back, with this customer's assumptions.
-      impact: t ? { tr: trImpact(t.projection.rows, t.projection.months, impact()) } : null,
+      impact: (() => {
+        const trI = t ? trImpact(t.projection.rows, t.projection.months, impact()) : null;
+        const fuI = fusionCounted ? fusionImpact(est.rows, est.totals.credits, est.settings.periodMonths, impact(), t?.projection.rows ?? null) : null;
+        return trI || fuI ? { tr: trI, fusion: fuI, overall: overallImpact(trI, fuI) } : null;
+      })(),
       fusion: fusionCounted
         ? {
             periodMonths: est.settings.periodMonths,

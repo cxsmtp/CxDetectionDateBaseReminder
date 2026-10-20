@@ -659,7 +659,23 @@ export function inScope(project, scope, engines = null) {
  * minutes a person spends triaging one finding by hand, fixing one, and reviewing a fix AI wrote;
  * what an hour of a developer costs; what a credit costs; the currency.
  */
-export const IMPACT_DEFAULTS = { triageMinutes: 20, fixMinutes: 120, reviewMinutes: 15, hourlyRate: 0, creditPrice: 0, currency: 'USD' };
+export const IMPACT_DEFAULTS = {
+  triageMinutes: 20,
+  fixMinutes: 120,
+  reviewMinutes: 15,
+  hourlyRate: 0,
+  creditPrice: 0,
+  currency: 'USD',
+  // Fusion: lines of code an expert reviews in an hour, the reviewers in a team, how many times more a
+  // fix costs once released, the chance a critical or high finding leads to a breach (%), what a breach
+  // costs (IBM's Cost of a Data Breach 2024 average), and whether that expected cost counts in the return.
+  linesPerHour: 200,
+  reviewers: 3,
+  laterFixMultiplier: 5,
+  breachChancePercent: 0.5,
+  breachCost: 4880000,
+  countBreach: false,
+};
 /** Working hours in a developer's year, to say the hours as people. */
 export const HOURS_A_YEAR = 1800;
 
@@ -669,6 +685,7 @@ export function impactSettings(value = {}, base = IMPACT_DEFAULTS) {
     return v === null ? clamp(Number(base?.[key] ?? IMPACT_DEFAULTS[key]) || 0, 0, max) : clamp(v, 0, max);
   };
   const currency = String(value?.currency || base?.currency || IMPACT_DEFAULTS.currency).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) || 'USD';
+  const count = value?.countBreach ?? base?.countBreach ?? IMPACT_DEFAULTS.countBreach;
   return {
     triageMinutes: pick('triageMinutes', 600),
     fixMinutes: pick('fixMinutes', 6000),
@@ -676,6 +693,12 @@ export function impactSettings(value = {}, base = IMPACT_DEFAULTS) {
     hourlyRate: pick('hourlyRate', 100000),
     creditPrice: pick('creditPrice', 100000),
     currency,
+    linesPerHour: Math.max(1, pick('linesPerHour', 100000)),
+    reviewers: Math.max(1, Math.round(pick('reviewers', 1000))),
+    laterFixMultiplier: Math.max(1, pick('laterFixMultiplier', 1000)),
+    breachChancePercent: pick('breachChancePercent', 100),
+    breachCost: pick('breachCost', 1e11),
+    countBreach: count === true || count === 'true',
   };
 }
 
@@ -727,3 +750,95 @@ export function trImpact(rows = {}, months = 12, settings = {}) {
     paybackMonths: value && cost !== null ? cost / (value / period) : null,
   };
 }
+
+/**
+ * The impact of Fusion: frontier models reading every line of each project on every Fusion scan.
+ *   - Expert review replaced: the lines read (lines × scans) at what an expert reviews in an hour.
+ *   - How often every line is read, the cost per 10K lines read against an expert's, the full-time
+ *     reviewers it would take to keep pace, and how long a team takes to read the code once.
+ *   - Found earlier, fixed cheaper: the true positives Fusion adds (the triage & remediation
+ *     projection's "more found by Fusion" less their false positives) fixed while the code is being
+ *     written, where a fix after release costs `laterFixMultiplier` times as much.
+ *   - Breach risk reduced: the critical and high ones of those × the chance one leads to a breach ×
+ *     what a breach costs; an expected cost, in the return only when `countBreach`.
+ * `rows` are the Fusion estimate's rows (included, units, lines, scans); `trRows` the projection's rows.
+ */
+export function fusionImpact(rows = [], credits = 0, months = 12, settings = {}, trRows = null) {
+  const s = impactSettings(settings);
+  const period = clamp(Number(months) || 12, 1, 60);
+  const counted = (rows ?? []).filter((r) => r.included && r.units && r.lines);
+  const linesOnce = counted.reduce((n, r) => n + r.lines, 0);
+  const linesRead = counted.reduce((n, r) => n + r.lines * (r.scans || 0), 0);
+  const expertHours = linesRead / s.linesPerHour;
+  const rate = s.hourlyRate > 0 ? s.hourlyRate : null;
+  const expertValue = rate === null ? null : expertHours * rate;
+  const cost = s.creditPrice > 0 ? (Number(credits) || 0) * s.creditPrice : null;
+  const extra = (severities) => severities.reduce((n, sev) => {
+    const r = trRows?.[sev] ?? {};
+    return n + (Number(r.fusionExtra) || 0) * (1 - (Number(r.fp) || 0) / 100);
+  }, 0);
+  const extraTrue = trRows ? extra(SEVERITIES) : null;
+  const extraCriticalHigh = trRows ? extra(['Critical', 'High']) : null;
+  const earlyHours = extraTrue === null ? null : (extraTrue * (s.laterFixMultiplier - 1) * s.fixMinutes) / 60;
+  const earlyValue = earlyHours === null || rate === null ? null : earlyHours * rate;
+  const breachAvoided = extraCriticalHigh === null ? null : extraCriticalHigh * (s.breachChancePercent / 100) * s.breachCost;
+  const parts = [expertValue, earlyValue, s.countBreach ? breachAvoided : null].filter((v) => v !== null);
+  const value = parts.length ? parts.reduce((a, b) => a + b, 0) : null;
+  const net = value === null ? null : value - (cost ?? 0);
+  return {
+    settings: s,
+    months: period,
+    projects: counted.length,
+    linesOnce,
+    linesRead,
+    timesRead: linesOnce ? linesRead / linesOnce : 0,
+    expertHours,
+    expertValue,
+    reviewersNeeded: expertHours / (HOURS_A_YEAR * (period / 12)),
+    teamWeeks: linesOnce ? linesOnce / s.linesPerHour / (s.reviewers * 40) : 0,
+    credits: Number(credits) || 0,
+    cost,
+    // Only once Fusion has credits to cost: a model without a rate costs nothing yet, which is not free.
+    costPer10k: cost && linesRead ? cost / (linesRead / 10000) : null,
+    expertPer10k: rate === null ? null : (10000 / s.linesPerHour) * rate,
+    extraTrue,
+    extraCriticalHigh,
+    earlyHours,
+    earlyValue,
+    breachAvoided,
+    value,
+    net,
+    roi: value !== null && cost ? net / cost : null,
+    paybackMonths: value && cost !== null ? cost / (value / period) : null,
+  };
+}
+
+/** Triage & remediation and Fusion together: everything the credits give back against what they cost. */
+export function overallImpact(tr, fusion) {
+  const parts = [tr, fusion].filter(Boolean);
+  if (!parts.length) return null;
+  const sum = (key) => (parts.some((p) => p[key] !== null && p[key] !== undefined) ? parts.reduce((n, p) => n + (p[key] ?? 0), 0) : null);
+  const value = sum('value');
+  const cost = sum('cost');
+  const months = Math.max(...parts.map((p) => p.months));
+  const net = value === null ? null : value - (cost ?? 0);
+  return {
+    months,
+    currency: parts[0].settings.currency,
+    hours: (tr?.hours ?? 0) + (fusion?.expertHours ?? 0) + (fusion?.earlyHours ?? 0),
+    value,
+    cost,
+    net,
+    roi: value !== null && cost ? net / cost : null,
+    paybackMonths: value && cost !== null ? cost / (value / months) : null,
+    // Where the value comes from, for the slide's bars.
+    sources: [
+      tr && { key: 'triage', value: tr.value === null ? null : tr.triageHours * tr.settings.hourlyRate, hours: tr.triageHours },
+      tr && { key: 'fixes', value: tr.value === null ? null : tr.fixHours * tr.settings.hourlyRate, hours: tr.fixHours },
+      fusion && { key: 'expert', value: fusion.expertValue, hours: fusion.expertHours },
+      fusion && fusion.earlyHours !== null && { key: 'early', value: fusion.earlyValue, hours: fusion.earlyHours },
+      fusion && fusion.settings.countBreach && fusion.breachAvoided !== null && { key: 'breach', value: fusion.breachAvoided, hours: 0 },
+    ].filter(Boolean),
+  };
+}
+

@@ -6,7 +6,7 @@
 // Each page is drawn on a canvas (so every language's script and direction is drawn by the
 // browser), kept as a JPEG, and the three are written into a PDF here: no library, nothing sent.
 
-import { FREQUENCIES, SEVERITIES, aheadMonths, creditSummary } from './model.js';
+import { FREQUENCIES, HOURS_A_YEAR, SEVERITIES, aheadMonths, creditSummary } from './model.js';
 import { allSections, moneyText } from './explain.js';
 import { forecastChart } from './charts.js';
 import { assumptionItems, reportFileName, trFigures, wording } from './report.js';
@@ -129,25 +129,35 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
     lines: assumptionItems(data, sum, L).map(plain),
   });
 
-  // 4. Impact: what the triage & remediation credits give back, in hours and money.
-  const im = data.impact?.tr;
-  if (im) {
-    const cash = (n) => plain(moneyText(n, im.settings.currency, L.locale));
-    const bars = (im.bySeverity ?? []).filter((r) => r.hours > 0).map((r) => ({ label: w(r.severity), value: r.hours, text: num(r.hours), note: w('{0} triaged, {1} fixed', num(r.triaged), num(r.fixes)), colour: C.accent }));
-    const lines = [w('{0} false positives cleared: none of them reaches a developer.', num(im.cleared))];
-    if (im.net !== null) lines.push(im.paybackMonths !== null ? w('{0} net; the credits are paid back in {1} months.', cash(im.net), num(im.paybackMonths, 1)) : w('{0} net.', cash(im.net)));
-    lines.push(w('Assumed: {0} minutes to triage a finding by hand, {1} to fix one, {2} to review an AI fix.', num(im.settings.triageMinutes), num(im.settings.fixMinutes), num(im.settings.reviewMinutes)));
+  // 4. Impact: what all the credits give back (triage & remediation and Fusion), against what they cost.
+  const im = data.impact;
+  if (im && (im.tr || im.fusion)) {
+    const o = im.overall ?? {};
+    const tri = im.tr;
+    const fu = im.fusion;
+    const cur = (tri ?? fu).settings.currency;
+    const cash = (n) => plain(moneyText(n, cur, L.locale));
+    const SOURCE = { triage: w('AI Triage'), fixes: w('AI Remediation'), expert: w('Expert review replaced'), early: w('Found earlier, fixed cheaper'), breach: w('Breach cost avoided') };
+    const byMoney = o.value !== null && o.value !== undefined;
+    const bars = (o.sources ?? [])
+      .map((x) => ({ label: SOURCE[x.key], value: byMoney ? x.value ?? 0 : x.hours, text: byMoney ? cash(x.value ?? 0) : num(x.hours), note: x.hours ? w('{0} hours', num(x.hours)) : w('An expected cost'), colour: x.key === 'breach' ? C.muted : x.key === 'expert' || x.key === 'early' ? C.fusion : C.accent }))
+      .filter((b) => b.value > 0);
+    const lines = [];
+    if (tri) lines.push(w('{0} false positives cleared: none of them reaches a developer.', num(tri.cleared)));
+    if (fu) lines.push(w('Fusion reads every line {0} times; a team of {1} would take {2} weeks to read it once.', num(fu.timesRead, 1), num(fu.settings.reviewers), num(fu.teamWeeks, 1)));
+    if (fu?.breachAvoided && !fu.settings.countBreach) lines.push(w('Breach cost avoided, an expected cost not counted in the return: {0}.', cash(fu.breachAvoided)));
+    if (o.paybackMonths !== null && o.paybackMonths !== undefined) lines.push(w('The credits are paid back in {0} months.', num(o.paybackMonths, 1)));
     pages.push({
       kind: 'impact',
       title: w('What the credits give back'),
-      subtitle: w('Triage & remediation over {0} months', num(im.months)),
+      subtitle: tri && fu ? w('Triage & remediation and Fusion over {0} months', num(o.months)) : tri ? w('Triage & remediation over {0} months', num(tri.months)) : w('Fusion over {0} months', num(fu.months)),
       figures: [
-        { label: w('Hours given back'), value: num(im.hours), note: w('{0} developer-years', num(im.developerYears, 1)), key: true },
-        { label: w('Value of that time'), value: im.value === null ? '—' : cash(im.value) },
-        { label: w('What the credits cost'), value: im.cost === null ? '—' : cash(im.cost) },
-        { label: w('Return'), value: im.roi === null ? '—' : `${num(im.roi * 100)}%` },
+        { label: w('All the credits give back'), value: byMoney ? cash(o.value) : `${num(o.hours)} ${w('hours')}`, key: true },
+        { label: w('What the credits cost'), value: o.cost === null || o.cost === undefined ? '—' : cash(o.cost) },
+        { label: w('Return'), value: o.roi === null || o.roi === undefined ? '—' : `${num(o.roi * 100)}%` },
+        { label: w('Hours given back'), value: num(o.hours), note: w('{0} developer-years', num(o.hours / HOURS_A_YEAR, 1)) },
       ],
-      bars: bars.length ? { title: w('Hours given back, by severity'), items: bars } : null,
+      bars: bars.length ? { title: byMoney ? w('Where the value comes from') : w('Where the hours come from'), items: bars } : null,
       lines,
     });
   }
