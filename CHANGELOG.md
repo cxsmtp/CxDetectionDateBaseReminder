@@ -74,7 +74,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.87 — 2026-10-20 19:25 UTC · [#110](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/110)
+## MZ-01.00.87 — 2026-10-20 20:22 UTC · [#110](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/110)
 
 - **Troubleshoot Fusion.** At the bottom of Labs → Fusion results, whoever manages the Checkmarx One integration can test addresses where the tenant may serve Fusion (suggested ones to start with, editable, `{appId}` filled in), see each answer, and pin the one that works for Fusion results or its scan status; the page reads Fusion from there at once, with no new release.
 - **Debug mode for Fusion.** While it is on, every Fusion call is logged in full (request and answer, headers and bodies, the access token never in it), kept with the session only, to copy or download and share.
