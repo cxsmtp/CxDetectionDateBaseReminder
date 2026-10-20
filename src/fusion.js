@@ -13,6 +13,10 @@
  */
 import { CxApiError, mapWithConcurrency } from './cxone/client.js';
 import { isProbeMiss } from './cxone/discovery.js';
+
+// The gateway answering for a service with nothing running behind it ("503 no available server"):
+// the route is there, the service is not. Told apart from a miss so the page can say so.
+const NOT_RUNNING = new Set([502, 503, 504]);
 import { listApplications } from './cxone/projects.js';
 
 export const FUSION_RESULTS_BASES = ['/api/correlation/results'];
@@ -58,7 +62,7 @@ async function findBase(client, candidates, kind, probe) {
       found = { base, body };
       break;
     } catch (error) {
-      if (!isProbeMiss(error)) throw error;
+      if (!isProbeMiss(error) && !NOT_RUNNING.has(error.status)) throw error;
       tried.push({ path: error.path || base, status: error.status });
     }
   }

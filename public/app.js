@@ -8216,7 +8216,8 @@ async function readFusion({ quiet = false } = {}) {
       fusion.scope = scope;
       fusion.credits = credits;
       const refused = (data.tried ?? []).some((t) => t.status === 401 || t.status === 403);
-      setStatus('fusion-status', data.available ? '' : refused ? 'Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? '' : 'warn');
+      const notRunning = (data.tried ?? []).some((t) => t.status >= 502 && t.status <= 504);
+      setStatus('fusion-status', data.available ? '' : refused ? 'Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.' : notRunning ? 'The Fusion service is not running on this tenant: Checkmarx One has the address, but no server behind it.' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? '' : 'warn');
       // What was asked, and what came back: the path and its answer, as Checkmarx One gave them.
       $('fusion-tried').innerHTML = data.available ? '' : (data.tried ?? []).map((t) => `<code>${escapeHtml(t.path)} → ${escapeHtml(String(t.status || '?'))}</code>`).join(' ');
     } catch (error) {

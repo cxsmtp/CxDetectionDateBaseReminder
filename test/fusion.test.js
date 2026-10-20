@@ -103,3 +103,11 @@ test('rows: most critical first, named from the fetch; the Workbench column is e
   assert.equal(fusionTotalOf(fusion, 'p1'), 2);
   assert.equal(fusionTotalOf(fusion, 'p3'), 0);
 });
+
+test('a tenant where the Fusion service is not running (the gateway answers 503): nothing to show, and said so, not an error', async () => {
+  const down = fakeClient({});
+  down.request = async (path) => { throw new CxApiError('Service Unavailable — no available server', { status: 503, path }); };
+  const f = await readFusion(down, ['p1']);
+  assert.equal(f.available, false);
+  assert.deepEqual(f.tried, [{ path: '/api/correlation/results/applications', status: 503 }]);
+});
