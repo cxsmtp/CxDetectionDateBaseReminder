@@ -279,6 +279,7 @@ export const ACTIONS = {
   'POST /api/beta/scm/check': 'Checked a source-code host',
   'POST /api/beta/authors/find': 'Found code authors',
   'POST /api/beta/authors/notify': 'Emailed code authors',
+  'POST /api/beta/fusion/read': 'Read Fusion results',
 };
 
 const VERBS = { POST: 'Did', PUT: 'Changed', PATCH: 'Changed', DELETE: 'Removed', GET: 'Opened' };

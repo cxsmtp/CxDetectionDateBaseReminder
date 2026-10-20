@@ -4,10 +4,11 @@
 - **Code authors, once final:** anyone who may send reminders can use it, and scheduled reminders (Settings → Automation → *Also email the code authors*) email the developer who last changed the line of each finding that just crossed a threshold, up to 200 findings a run.
 - **Matching usernames, once final:** anyone who may change initiator addresses can run and apply it.
 - **SLAs and escalation, once final:** everyone who loads findings sees what is past its SLA and due soon. Escalation stays as set under **Settings → SLAs**: off until an Admin names who to escalate to.
+- **Fusion results, once final:** everyone who loads findings sees **Labs → Fusion results** and the Workbench's **Fusion** column.
 
 Every change of stage is in the audit log.
 
-Both features live in **Labs**, the section set apart at the bottom of the menu (its page is **Code authors**; until MZ-01.00.82 it was the **Beta** item under Act). They read git history and, optionally,
+Code authors and username matching live in **Labs**, the section set apart at the bottom of the menu (their page is **Code authors**; until MZ-01.00.82 it was the **Beta** item under Act); **Fusion results** is a page of its own there ([below](#fusion-results)). Code authors and matching read git history and, optionally,
 the APIs of GitHub, GitLab, Azure DevOps and Bitbucket; check what they find before
 relying on it.
 
@@ -236,3 +237,15 @@ back; `repo` read access, `read:org` for verified-domain emails), API URL
 repositories for commit lookups, local repositories / clone URLs (for any host),
 and whether to blame through the hosts' APIs and/or local git. The token is only
 ever sent to its own GitHub host.
+
+## Fusion results
+
+**Labs → Fusion results** shows what Checkmarx One Fusion re-scored in the projects of the Workbench's last fetch. Read-only: it never starts a Fusion scan.
+
+- **What it reads.** After each fetch (and with **Read Fusion now**) the server lists the applications holding the fetched projects, then, for each one Fusion has results for:
+  - Fusion Results service `GET …/applications/{id}/risk-scores`: every result whose risk score Fusion changed, with its project, the two engines (for an exploitable path, SCA correlated with SAST), the old and new score and why;
+  - Fusion Dispatcher `GET …/{id}/scan-status`: how the application's latest Fusion scan went (status, stage, when).
+- **Where the services are.** Their API description gives no path under the tenant, so each is tried at `/api/fusion-results`, `/api/fusion/results` and `/api/fusion-results-service` (and `/api/fusion-dispatcher`, `/api/fusion/dispatcher`, `/api/fusion-dispatcher-service`); the first that answers is kept for the connection. A tenant where none answers shows no results and says so.
+- **Counting.** Each result counts once per project, under the severity of its new score (9 or more critical, 7 high, 4 medium, above 0 low); **raised** or **lowered** by comparing the new score with the old; **raised to critical or high** when it is now critical or high and was not before. Only projects in the fetch are counted; at most 5,000 results are kept to list.
+- **The tiles.** The share of the fetched open findings Fusion re-scored; what it raised to critical or high; results per Fusion credit, from the credits the reader enters (kept in that browser only).
+- **Kept with the session**, like the fetch: a reload shows it again; signing out forgets it.

@@ -10,7 +10,7 @@
 import { describeEngines } from '../engines.js';
 import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../look.js';
 import { FREQUENCIES, SEVERITIES, cleanScope, creditSummary } from './model.js';
-import { allSections, sectionHtml } from './explain.js';
+import { allSections, moneyText, sectionHtml } from './explain.js';
 import { SEVERITY_COLOURS, backlogTrendChart, debtFixChart, forecastChart, monthLabel, ratesChart, severityChart, severityCharts } from './charts.js';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -187,6 +187,61 @@ function story(data, L) {
   return `<section><h2>${w('How we got there')}</h2><div class="cards">${cards.join('')}</div>${chart}</section>`;
 }
 
+/** What the credits give back (model.js trImpact, fusionImpact, overallImpact, worked out when the report was made). */
+function impactSection(data, L) {
+  const m = data.impact?.tr;
+  const f = data.impact?.fusion;
+  const o = data.impact?.overall;
+  if (!m && !f) return '';
+  const { w, num } = L;
+  const cur = (m ?? f).settings.currency;
+  const cash = (n) => esc(moneyText(n, cur, L.locale));
+  const tile = (label, value, sub, cls = '') => `<div class="card impact-tile ${cls}"><h3>${label}</h3><p class="figure">${value}</p><p class="sub">${sub}</p></div>`;
+  const overall = o && o.value !== null ? `<div class="cards">${[
+    tile(w('All the credits give back'), cash(o.value), w('Triage & remediation and Fusion, over {0} months', num(o.months)), 'gold'),
+    tile(w('What the credits cost'), cash(o.cost), o.cost === null ? w('Enter what a credit costs') : w('Every credit in this projection')),
+    tile(w('Return'), o.roi === null ? '—' : `${num(o.roi * 100)}%`, o.net === null ? w('Once the hour and the credit have a price') : `${w('{0} net', cash(o.net))}${o.paybackMonths !== null ? ` · ${w('paid back in {0} months', num(o.paybackMonths, 1))}` : ''}`),
+  ].join('')}</div>` : '';
+  let trHtml = '';
+  if (m) {
+    const tiles = [
+      tile(w('Hours given back'), num(m.hours), w('About {0} developer-years over {1} months', num(m.developerYears, 1), num(m.months)), 'gold'),
+      tile(w('Value of that time'), cash(m.value), m.value === null ? w('Enter what a developer\'s hour costs') : w('{0} hours × {1}', num(m.hours), cash(m.settings.hourlyRate))),
+      tile(w('What the credits cost'), cash(m.cost), m.cost === null ? w('Enter what a credit costs') : w('{0} credits', num(m.credits, 1))),
+      tile(w('Return'), m.roi === null ? '—' : `${num(m.roi * 100)}%`, m.net === null ? w('Once the hour and the credit have a price') : `${w('{0} net', cash(m.net))}${m.paybackMonths !== null ? ` · ${w('paid back in {0} months', num(m.paybackMonths, 1))}` : ''}`),
+      tile(w('False positives cleared'), num(m.cleared), w('Never reach a developer')),
+    ];
+    const rows = (m.bySeverity ?? []).filter((r) => r.triaged || r.fixes)
+      .map((r) => `<tr><td>${w(r.severity)}</td><td>${num(r.triaged)}</td><td>${num(r.cleared)}</td><td>${num(r.fixes)}</td><td>${num(r.hours)}</td></tr>`).join('');
+    trHtml = `<h3 class="impact-part">${w('Triage & remediation')}</h3>
+  <p class="sub">${w('Every finding AI Triage looks at is one a person does not triage by hand; every false positive it clears never reaches a developer; every true positive AI Remediation fixes saves the fix by hand, less the time to review it.')}</p>
+  <div class="cards">${tiles.join('')}</div>
+  ${rows ? table(`<thead><tr><th>${w('Severity')}</th><th>${w('Triaged by AI')}</th><th>${w('False positives cleared')}</th><th>${w('Fixed by AI')}</th><th>${w('Hours saved')}</th></tr></thead><tbody>${rows}<tr class="strong"><td>${w('Total')}</td><td>${num(m.triaged)}</td><td>${num(m.cleared)}</td><td>${num(m.fixes)}</td><td>${num(m.hours)}</td></tr></tbody>`) : ''}
+  <p class="sub">${w('Assumed: {0} minutes to triage a finding by hand, {1} to fix one, {2} to review an AI fix.', num(m.settings.triageMinutes), num(m.settings.fixMinutes), num(m.settings.reviewMinutes))}</p>`;
+  }
+  let fuHtml = '';
+  if (f) {
+    const tiles = [
+      tile(w('Expert review replaced'), `${num(f.expertHours)} ${w('hours')}`, f.expertValue === null ? w('{0} lines read at {1} an hour', num(f.linesRead), num(f.settings.linesPerHour)) : w('Worth {0}', cash(f.expertValue)), 'gold'),
+      tile(w('Every line read'), w('{0} times', num(f.timesRead, 1)), w('{0} lines in {1} projects, over {2} months', num(f.linesOnce), num(f.projects), num(f.months))),
+      tile(w('Cost per 10K lines read'), f.costPer10k === null ? '—' : cash(f.costPer10k), f.expertPer10k === null ? w('Enter what a developer\'s hour costs') : w('An expert: {0}', cash(f.expertPer10k))),
+      tile(w('Reviewers to keep pace'), num(f.reviewersNeeded, 1), w('Full-time, reading what Fusion reads')),
+      tile(w('A team reading it once'), w('{0} weeks', num(f.teamWeeks, 1)), w('{0} reviewers, 40 hours a week', num(f.settings.reviewers))),
+      f.extraTrue !== null ? tile(w('Found earlier, fixed cheaper'), f.earlyValue === null ? `${num(f.earlyHours)} ${w('hours')}` : cash(f.earlyValue), w('{0} more true positives fixed while coding, not after release', num(f.extraTrue))) : '',
+      f.breachAvoided !== null ? tile(w('Breach cost avoided'), cash(f.breachAvoided), f.settings.countBreach ? w('{0} critical and high found earlier; counted in the return', num(f.extraCriticalHigh)) : w('{0} critical and high found earlier; an expected cost, not counted', num(f.extraCriticalHigh))) : '',
+    ];
+    fuHtml = `<h3 class="impact-part">${w('Checkmarx Fusion')}</h3>
+  <p class="sub">${w('Fusion has frontier AI models read every line of each project on every Fusion scan: the review an expert would otherwise do by hand, and the findings it adds are fixed while the code is being written.')}</p>
+  <div class="cards">${tiles.join('')}</div>
+  <p class="sub">${w('Assumed: an expert reviews {0} lines an hour; a team of {1}; a fix after release costs {2} times as much; {3}% of critical and high findings lead to a breach, which costs {4}.', num(f.settings.linesPerHour), num(f.settings.reviewers), num(f.settings.laterFixMultiplier, 1), num(f.settings.breachChancePercent, 2), cash(f.settings.breachCost))}</p>`;
+  }
+  return `<section class="impact"><h2>${w('What the credits give back')}</h2>
+  ${overall}
+  ${trHtml}
+  ${fuHtml}
+</section>`;
+}
+
 /** The assumptions behind the number, in one short list. */
 function assumptions(data, sum, L) {
   return `<section><h2>${L.w('Assumptions')}</h2><ul class="assume">${assumptionItems(data, sum, L).map((i) => `<li>${i}</li>`).join('')}</ul></section>`;
@@ -334,6 +389,7 @@ h2{margin:0 0 12px;font-size:18px;font-weight:600} h3{margin:18px 0 6px;font-siz
 .card{border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
 .card h3{margin:0 0 8px}
 .figure{margin:0 0 6px;font-size:26px;font-weight:600;font-variant-numeric:tabular-nums} .figure span{font-size:13px;color:var(--muted);font-weight:400}
+.impact .cards{grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr))} .impact-tile h3{font-size:13px;color:var(--muted);font-weight:500} .impact-tile.gold .figure{color:var(--gold)} .impact .figure{overflow-wrap:anywhere} .impact-part{margin:22px 0 4px;font-size:16px} .impact>.cards+.cards{margin-top:12px}
 .sevs{list-style:none;margin:0 0 8px;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;font-size:13px}
 .sevs li{display:flex;align-items:center;gap:6px} .sevs i{width:8px;height:8px;border-radius:2px;display:inline-block} .sevs b{margin-inline-start:auto;font-variant-numeric:tabular-nums;font-weight:500}
 table.calc{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
@@ -456,6 +512,7 @@ export function buildReport(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
 ${answer(data, sum, L)}
 ${provenance(data, L)}
 ${story(data, L)}
+${impactSection(data, L)}
 ${assumptions(data, sum, L)}
 ${data.tr || data.fusion ? `<p class="appendix-title">${w('Appendix: every figure')}</p>` : ''}
 ${data.tr ? trAppendix(data.tr, L) : ''}

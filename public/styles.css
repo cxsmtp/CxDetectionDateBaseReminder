@@ -212,9 +212,8 @@ code { font: 12px var(--mono); background: var(--surface-3); padding: 1px 5px; b
   gap: 12px;
   min-height: var(--topbar-h);
   padding: 10px max(24px, env(safe-area-inset-right)) 10px 24px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* Solid: nothing scrolled under the bar shows through it. */
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 .topbar-title { min-width: 0; flex: 1 1 auto; }
@@ -286,6 +285,7 @@ main {
 .hint { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; max-width: 520px; }
 .hint.wide { max-width: 78ch; margin: 0 0 14px; }
 .hint.inline-hint { display: inline; margin: 0; }
+.hint.is-warn { color: var(--warn); font-weight: 600; }
 .panel-head .hint { margin: 0; }
 .muted { color: var(--muted); font-weight: 400; }
 .zero { color: var(--muted); }
@@ -739,13 +739,14 @@ table.probe tr.miss .snippet { color: var(--muted); }
 
 /* Tablets: icon rail */
 @media (max-width: 1100px) {
-  :root { --sidebar-w: 76px; }
-  .sidebar { padding: 14px 8px; align-items: center; }
+  /* Wide enough for the longest single word under an icon ("Workbench", "Calculator") in every look's face. */
+  :root { --sidebar-w: 88px; }
+  .sidebar { padding: 14px 6px; align-items: center; }
   .brand { padding: 0; justify-content: center; }
   .app-name, .sidebar-foot { display: none; }
   .app-logo { max-width: 56px; height: 28px; }
   .nav { width: 100%; }
-  .tab { flex-direction: column; gap: 4px; padding: 10px 4px; font-size: 10.5px; text-align: center; }
+  .tab { flex-direction: column; gap: 4px; padding: 10px 2px; font-size: 10.5px; text-align: center; min-width: 0; overflow-wrap: break-word; hyphens: auto; }
   .tab svg { width: 21px; height: 21px; }
 }
 
@@ -1285,7 +1286,30 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 .step-need { margin: 0; font-size: 13px; }
 .step-need b { font-variant-numeric: tabular-nums; }
 .step-need .short { color: var(--warn); font-weight: 600; }
-.step-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.step-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.step-actions button { width: 100%; white-space: normal; }
+/* Side by side, the two steps' buttons line up along the bottom whatever their text above says. */
+.alloc-step { grid-template-rows: auto 1fr auto; }
+/* Triage and remediation, one row each: what is needed and left, then Allocate and Run in columns that line up across the rows. */
+.credit-lanes { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; margin: 10px 0; flex: 1 1 100%; }
+.credit-lane {
+  grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; gap: 8px 16px;
+  padding: 10px 14px; border-radius: var(--radius-sm, 10px); background: var(--surface-2); border: 1px solid var(--border);
+}
+.lane-head { display: grid; gap: 2px; min-width: 0; }
+.lane-figures { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.lane-figures b { color: var(--text); font-variant-numeric: tabular-nums; }
+.lane-actions { display: contents; }
+.lane-actions button { width: 100%; }
+@media (max-width: 760px) {
+  .credit-lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lane-head { grid-column: 1 / -1; }
+  .lane-actions button { white-space: normal; }
+}
+@media (max-width: 420px) {
+  .credit-lanes { grid-template-columns: minmax(0, 1fr); }
+  .lane-slot { display: none; }
+}
 .credits .need-tag { display: block; font-size: 11px; color: var(--warn); font-weight: 600; }
 /* A button lays its parts out in a row: "17 more needed" goes on its own line under "0 / 0", as it does without the button, so the column stays narrow. */
 button.credit-edit { flex-wrap: wrap; justify-content: flex-end; text-align: end; }
@@ -1293,7 +1317,7 @@ button.credit-edit .need-tag { flex-basis: 100%; }
 .credits .need-tag { font-family: var(--font); white-space: nowrap; }
 .remediate-list { margin: 8px 0 0; padding-inline-start: 18px; font-size: 13px; max-height: 220px; overflow: auto; }
 .cost-line { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 10%, transparent); font-size: 13px; }
-@media (max-width: 760px) { .step-actions button { flex: 1 1 auto; } }
+@media (max-width: 420px) { .step-actions { grid-template-columns: minmax(0, 1fr); } }
 
 /* Projects table: column picker */
 .col-picker { position: relative; }
@@ -1319,6 +1343,8 @@ button.credit-edit .need-tag { flex-basis: 100%; }
 .focus-menu .engine-opt > small { display: none; }
 /* A phone: the picker's menu spans the screen, never past its edge. */
 @media (max-width: 600px) { .engine-pick .col-menu { position: fixed; top: auto; inset-inline: 16px; width: auto; max-width: none; margin-top: 6px; } .engine-pick .col-menu .engine-opt > * { white-space: normal; } }
+.col-picker > .col-menu.to-end { left: auto; right: 0; }
+.col-picker > .col-menu.to-start { left: 0; right: auto; }
 .engine-hint { color: var(--warn, #b45309); }
 .engine-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 10px; min-width: 0; }
@@ -1757,6 +1783,11 @@ body.rp-locked { overflow: hidden; }
   .rp-filters { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
   .rp-filters .mode { white-space: nowrap; }
   .rp-tools { flex-wrap: wrap; }
+}
+/* A phone: the report filters wrap onto a second line rather than squeeze into equal columns and run into each other. */
+@media (max-width: 760px) {
+  .segmented.rp-filters { display: flex; flex-wrap: wrap; overflow: visible; }
+  .segmented.rp-filters .mode { flex: 1 1 auto; }
   .rp-tools select { flex: 1 1 140px; }
   .rp-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rp-row .rp-status { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -2240,10 +2271,10 @@ main { max-width: none; }
 
 /* Credit Control: tabs on the left, the period and project on the right, one row on a desktop. */
 .cc-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px 16px; }
-.cc-head .filter-row.panel { display: flex; flex-wrap: nowrap; justify-content: flex-end; min-width: 0; }
-.cc-head .filter-row .field { flex: 0 1 180px; }
-.cc-head .filter-row .field.grow { flex: 0 1 240px; }
-.cc-head .filter-row select, .cc-head .filter-row input { width: 100%; min-width: 0; }
+.cc-head .filter-row.panel { display: flex; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+/* Each control as wide as the choice it shows, in any look's face and language: the row wraps rather than cut a word. */
+.cc-head .filter-row .field, .cc-head .filter-row .field.grow { flex: 0 0 auto; max-width: 100%; }
+.cc-head .filter-row select, .cc-head .filter-row input { width: auto; field-sizing: content; min-width: 0; max-width: 100%; }
 .cc-head .filter-actions { margin-inline-start: 4px; flex: 0 0 auto; }
 @media (max-width: 1360px) {
   .cc-head { grid-template-columns: minmax(0, 1fr); }
@@ -2646,8 +2677,10 @@ html[data-i18n="loading"] .shell { visibility: hidden; animation: i18n-reveal 0s
   .lang-pick .lang-code { display: none; }
 }
 @media (max-width: 440px) {
+  .topbar { padding-inline: 10px; }
   .topbar-actions { gap: 4px; }
   .lang-pick { padding: 0 6px; }
+  .conn-chip { padding: 0 6px; }
 }
 
 /* Settings → HTTPS: the free Let's Encrypt certificate (the easy path, first). */
@@ -3227,3 +3260,21 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .look-mini[data-mini="classic"] em { border-radius: 4px; width: 26px; }
 .look-mini[data-mini="signal"] { background-image: radial-gradient(rgb(0 0 0 / 0.14) 0.8px, transparent 1px); background-size: 8px 8px; }
 .look-mini[data-mini="signal"] em { background: transparent; border: 2px solid var(--a); }
+
+/* Cx Credits Calculator → Impact: the six assumptions side by side where they fit. */
+#calc-impact-terms, #calc-impact-fterms { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); align-items: end; }
+.calc-impact-h3 { margin: 18px 0 8px; font-size: 14px; }
+.calc-impact-part { margin: 18px 4px 8px; font-size: 16px; }
+.calc-imp-count { align-self: center; }
+
+/* Labs → Fusion results: its tiles, and its tools in one row that wraps. */
+.fusion-tiles { margin: 4px 0 14px; }
+.fusion-tiles .detail { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.fusion-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 12px; }
+.fusion-tools input[type="search"] { flex: 1 1 220px; min-width: 0; }
+.fusion-tools select { flex: 0 1 auto; min-width: 0; }
+.fusion-credits { display: inline-flex; align-items: center; gap: 8px; margin-inline-start: auto; font-size: 12.5px; color: var(--muted); }
+.fusion-credits input { width: 110px; }
+.fusion-apps { margin-top: 14px; }
+.fusion-apps > summary { cursor: pointer; font-weight: 600; }
+@media (max-width: 760px) { .fusion-credits { margin-inline-start: 0; flex: 1 1 100%; } .fusion-credits input { flex: 1 1 auto; } }

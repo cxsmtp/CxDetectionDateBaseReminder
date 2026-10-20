@@ -21,10 +21,11 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 11. [Audit page: credit audit log and backups](#audit-page)
 12. [People & roles](#people--roles)
 13. [Labs: Code authors](#labs-code-authors)
-14. [Logs page](#logs-page)
-15. [Performance and security status](#performance-and-security-status)
-16. [Everyday recipes](#everyday-recipes)
-17. [Troubleshooting](#troubleshooting)
+14. [Labs: Fusion results](#labs-fusion-results)
+15. [Logs page](#logs-page)
+16. [Performance and security status](#performance-and-security-status)
+17. [Everyday recipes](#everyday-recipes)
+18. [Troubleshooting](#troubleshooting)
 
 The running version is shown at the bottom of the sidebar, as `MZ-xx.xx.xx`. Click it for Settings → About.
 
@@ -41,7 +42,7 @@ The sidebar is grouped by what you came to do:
 | **Prove** | Credit Control, Impact, Audit | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups. |
 | **Plan** | Cx Credits Calculator | The credits a customer needs for triage and remediation of their backlog and for Fusion scans, and projection reports, from the Checkmarx One tenant. Shown to Admins and the roles an Admin gives its permission to. |
 | **Set up** | People & roles, Settings, Logs | People and roles, configuration, troubleshooting. |
-| **Labs** | Code authors | Early features, set apart at the bottom of the menu: who wrote the vulnerable code, and their email. Shown to roles holding **Beta features**. |
+| **Labs** | Code authors, Fusion results | Early features, set apart at the bottom of the menu, each its own page: who wrote the vulnerable code, and their email; what Checkmarx One Fusion re-scored in the projects you load. Shown to roles holding **Beta features**. |
 
 The coloured label next to each page title says which group the page is in.
 
@@ -478,6 +479,7 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 | --- | --- |
 | **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Workbench's Remind panel links to it, and Settings → Automation can email code authors on every run. |
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
+| **Fusion results** | Everyone who loads findings sees **Labs → Fusion results**, read again with each Workbench fetch, and the Workbench's **Fusion** column. |
 
 ### Hands-off (set it up once)
 
@@ -654,7 +656,7 @@ Everyone's default branding. Seen by roles with **See the Branding page**, and c
 | Field | Meaning |
 | --- | --- |
 | App name | Shown in this app's header. |
-| Browser icon | The icon in the browser tab, bookmarks and the developer pages. Empty is CxMissionZero's own **MZ0** (a white MZ inside a green zero). Paste an `https` address, or **Upload an icon** (SVG, PNG, ICO, WebP or JPG, up to 100 KB; square works best); **Use MZ0 (the default)** puts it back. It changes for everyone as soon as it is saved. |
+| Browser icon | The icon in the browser tab, bookmarks and the developer pages. Empty is CxMissionZero's own icon (the wheel in saffron, white and green, also shown in the menu). Paste an `https` address, or **Upload an icon** (SVG, PNG, ICO, WebP or JPG, up to 100 KB; square works best); **Default** puts it back. It changes for everyone as soon as it is saved. |
 | Company name, Company logo | Head every email and report. An `https` logo URL works best, because mail clients block embedded images. You can also upload a PNG, JPG, SVG or WebP up to 200 KB. |
 | Logo height | 16–200 pixels. |
 | Accent colour | Buttons and headings in emails and reports. |
@@ -777,9 +779,9 @@ Each finding falls into an age bucket by when it was **first detected**:
 | --- | --- |
 | **Check the numbers again** (green border) | Re-reads the findings twice, independently. The numbers are marked confirmed only when both reads agree. Every button below runs it first by itself, so you rarely need to press it. |
 | **Give credits** (AI check) | Verifies first, then shows what will be given and asks you to confirm. Credits come out of the credit pool. |
-| **Triage with AI Assist now** | Runs AI Triage on the selected projects' findings, within their credits. |
+| **Triage critical & high** (named after the ticked severities) | Runs AI Triage on the selected projects' findings at those severities, within their credits. It turns gold once the credits cover them all. |
 | **Give credits** (AI fix) | The same, for confirmed findings. |
-| **Remediate with AI Assist now** | Lists each project's confirmed findings and the cost, then runs AI Remediation after you confirm. Each finding is re-checked first; anything no longer confirmed is left alone. |
+| **Remediate critical & high** (named after the ticked severities) | Lists each project's confirmed findings and the cost, then runs AI Remediation after you confirm. Each finding is re-checked first; anything no longer confirmed is left alone. |
 | Email each scan initiator… | On by default. When you triage or remediate for someone, each scan initiator gets one email about their own projects: what was started on their behalf, and what to do next (refresh their report, review and approve the pull requests). |
 | **Take back N unused credits** (top of the panel, next to **Check the numbers again**) | Returns everything the selected projects were given and did not use (people did not act on it) to the pool; the button says how many. It never goes below what was used or is in flight. **Every project: Credit Control →** takes back from all projects at once. |
 | Extra credits → **Add extra credits** | Gives every selected project a fixed extra amount. |
@@ -929,7 +931,7 @@ Save a scope from the Workbench (**Save as tracked report**) and follow it over 
 | --- | --- |
 | **Overview** | The % actioned with the outcome bar and counts; open, new, matching now, credits used; the **trend** of open findings (hover for each reading); and a by-project table, most open first. |
 | **Remind** | Who gets it follows **who gets reminders everywhere** (Workbench → Remind → Send to); **Only for this report…** gives this report its own choice (developers, fixed list, both, or only some addresses). The content (one summary per person, or one email per project), and whether to attach the interactive report. **Preview**, then **Send reminder now**. The sends so far are listed. Below, **Automatic follow-up**: reminders every N days at a set hour (the server's time zone), only while something is still open, with the same options; it shows the next and last send. **Save schedule**. |
-| **Triage** | **Triage with AI Assist now** runs AI Triage on the chosen severities' findings still awaiting triage; **Remediate with AI Assist now** runs AI Remediation on those AI Triage confirmed (3 credits each). The line above them says what each needs and what the projects have left. Each button turns gold once the credits cover it. **Allocate credits for triage and remediation** (for **credits.allocate**) gives this report's projects, out of the credit pool, what the ticked severities need (counted twice with Checkmarx One first), plus any **Extra credits** entered for triage or remediation; it asks first, and each change is in the audit log. |
+| **Triage** | Two rows, **AI Triage** and **AI Remediation**, each saying the credits needed and left, with one button to allocate and one to run, lined up. The buttons are chosen for you from the findings' severities and the credits held, critical first: the run button covers the widest set the credits pay for (**Triage critical**, **Triage critical & high**, **Triage critical, high & medium**, or **Triage all**) and is gold; the allocate button (for **credits.allocate**) gives what the next set needs (**Allocate for critical, high & medium**, say), counted twice with Checkmarx One first, out of the credit pool. When the credits cover everything, only **Triage all** is left. Remediation works the same on what AI Triage confirmed (3 credits each). A line under the rows lists what awaits triage and what is confirmed, per severity. **Extra credits** adds a fixed amount to every project of the report. Each allocation asks first and is in the audit log. |
 | **Verify** | Prove the fixes with a Checkmarx One rescan, then start the next round (below). |
 | **History** | Every reading: awaiting, confirmed, not exploitable, no longer detected, new, matching now. |
 
@@ -978,8 +980,8 @@ How the credit pool is being used, in three tabs. Everyone with **credits.view**
 | **Overview** → Credits used over time | Columns per day / week / month: triage at the base, remediation on top. Hover for numbers. **Show as a table** gives exact figures. |
 | **By project** | Each project's triage and remediation credits in the period, with its share. |
 | **Allocated vs used** | Per project, all time. |
-| **Give credits** (Allocated vs used, for **credits.allocate**) | Type a project name (every Checkmarx One project is listed, not only those that already hold credits), enter AI Triage and AI Remediation credits, then **Give credits** and confirm. No findings need loading. The credits are extra credits, out of the credit pool, and the bar shows how many are free to give. **Give** on a row fills in that project. Each gift is in the audit log. To give exactly what findings need, use **Allocate credits for triage and remediation** in the bar below. |
-| **Allocate and use credits** (Allocated vs used, for **credits.allocate** or **triage.run**) | Works on the projects ticked in the table (none ticked: every project holding credits), at the ticked severities and engines (**SAST** and **SCA**, the two AI works on; untick one to spend on the other only), on the branch chosen on the Workbench (each project's primary branch unless **Every branch** is ticked there). **Allocate credits for triage and remediation** gives them what those severities need (counted twice with Checkmarx One first), plus any **Extra credits each** for triage or remediation. **Triage with AI Assist now** and **Remediate with AI Assist now** use the credits. Their findings are read fresh from Checkmarx One, so nothing needs loading. A button turns gold when the projects hold credits to use: at least 1 for triage, 3 for remediation. Each run is in the audit log as started from Credit Control. |
+| **Give credits** (Allocated vs used, for **credits.allocate**) | Type a project name (every Checkmarx One project is listed, not only those that already hold credits), enter AI Triage and AI Remediation credits, then **Give credits** and confirm. No findings need loading. The credits are extra credits, out of the credit pool, and the bar shows how many are free to give. **Give** on a row fills in that project. Each gift is in the audit log. To give exactly what findings need, use **Allocate for triage** or **Allocate for remediation** in the bar below. |
+| **Allocate and use credits** (Allocated vs used, for **credits.allocate** or **triage.run**) | Works on the projects ticked in the table (none ticked: every project holding credits), at the ticked severities and engines (**SAST** and **SCA**, the two AI works on; untick one to spend on the other only), on the branch chosen on the Workbench (each project's primary branch unless **Every branch** is ticked there). Two rows, **AI Triage** and **AI Remediation**, each with its own **Allocate for triage** / **Allocate for remediation** (what those severities need, counted twice with Checkmarx One first, plus that row's **Extra credits each**) and **Triage with AI Assist now** / **Remediate with AI Assist now**, lined up. Their findings are read fresh from Checkmarx One, so nothing needs loading. A run button turns gold only when projects are ticked and their credits cover what the ticked severities need (shown on the row once those projects are loaded on the Workbench); with nothing ticked it still works, on every project holding credits, but is not gold. A project deleted from Checkmarx One since it was given credits is skipped and named, and marked in the table so its credits can be taken back. Each run is in the audit log as started from Credit Control. |
 | **Take credits back** (Allocated vs used, for **credits.allocate**) | **Take back all unused credits** is the clean slate: every project's unused credits go back to the pool at once, with no findings loaded. **Take back** on a row does it for one project. Used credits stay counted, and each take-back is in the audit log. Developers cannot triage or remediate from their reports until credits are given again. |
 | **Export CSV** | Everything above, for the chosen period. |
 | **Pool & AI settings** | Opens Settings → AI & credit pool, to change the pool size and what reports may do (Admin). |
@@ -1106,6 +1108,20 @@ Early features, in their own **Labs** section at the bottom of the menu (it was 
 
 ---
 
+## Labs: Fusion results
+
+Its own page under **Labs**, apart from Code authors: what Checkmarx One **Fusion** re-scored in the projects loaded on the Workbench. Fusion correlates one engine's findings with another's (an open-source package whose vulnerable code SAST shows your code reaches: an exploitable path) and gives the result a new risk score. Beta: shown to roles holding **Beta features**, and to everyone who loads findings once an Admin makes it final ([Settings → Beta features](#beta-features-admin)).
+- **When it is read.** Each time the Workbench loads findings, for the projects it fetched, and again with **Read Fusion now**. Nothing is started: it only reads what Fusion already found.
+- **Severity.** Each result counts under its new risk score: 9 or more critical, 7 high, 4 medium, below that low.
+- **The three tiles:**
+  - **Of the open findings re-scored:** Fusion's results as a share of the open findings fetched, and in how many of the projects.
+  - **Raised to critical or high:** results Fusion brought up to critical or high from a lower severity, in how many projects, and how many it lowered.
+  - **Results per credit:** enter the **Fusion credits used** (remembered in this browser) to see results, and critical or high results, per credit.
+- **The table:** one row per project with Fusion results, most critical first: its application, Critical, High, Medium, Low, Total, **Raised to C/H**, **Lowered** and the **Last Fusion scan** of its application (its status and when). Search, pick a severity, or keep only what was raised to critical or high; every heading sorts and filters.
+- **Applications:** each application holding a fetched project, its Fusion results, and its last Fusion scan (or **No Fusion scan**).
+- **On the Workbench:** the **Fusion** column (under **Columns**) shows each project's Fusion results, filled in when Fusion has been read.
+- **A tenant without Fusion** shows no results, and says so.
+
 ## Logs page
 
 Three tabs: **Activity in this browser**, **User activity** (for anyone who may see the audit log) and **Troubleshooting log**.
@@ -1142,9 +1158,11 @@ Send it to whoever maintains CxMissionZero when something goes wrong. **It captu
 
 **Triage & remediation.** The line at the top says where the figures came from and when. For a prospect whose tenant this server is not connected to, **Use the two Checkmarx One exports instead** takes their **Total Vulnerabilities by Severity** and **Fixed Vulnerabilities by Severity** exports (or **Load sample data**). **What the projection counts** shows, over the **projection period** (12 months unless chosen at the top): every open finding today, **+** the findings still to come at the pace of the last 3 months, 2% fewer each month as teams adopt AI, in the same share per severity as the backlog you chose (none for a severity set to none), **+** 5% more found by Fusion when Fusion is in the projection, **−** 10% fewer false positives reported with FAE, **=** the findings to triage, and the credits (backlog today + ahead). Change the four assumptions under it, and the trend period (3, 6, 9 or 12 months). **Engines counted** (read from Checkmarx One) chooses whose findings count: **SAST** and **SCA** by default, since AI Triage and Remediation credits are spent on those; tick IaC, Containers, API Security or Secrets to add theirs. The projection report says which engines it counted. The two exports count every engine together, so with them the boxes are greyed out. **Customize per severity**, right under it, sets how many to triage, the false positives expected, and the credits per triage and per remediation (1 and 3 to start with), then **Apply**. Each severity's box ends with what it comes to (to triage, to remediate, credits). **Debt added against fixes** then says in one sentence whether the backlog grows or shrinks each month and by how much, with the two side by side on a timeline over the last 12 months and a short table by severity (open now, added a month, fixed a month, change a month). The page also shows the backlog forecast and a small chart per severity. **Customer view** hides the editing controls for showing the customer.
 
-**How each number is worked out.** A **?** beside each figure (backlog today, still to come, more found by Fusion, kept away by FAE, to triage, credits, Fusion credits and the total) opens a small window with the calculation, step by step, with the real figures in. The projection report states its assumptions first (the trend period and projection period among them) and ends with a closed **How each number is calculated** section that opens on a click; the PDF summary has a slide on the trend and the calculations, and an appendix with all of them. All three come from one source, so they always agree.
+**How each number is worked out.** A **?** beside each figure (backlog today, still to come, more found by Fusion, kept away by FAE, to triage, credits, Fusion credits and the total) opens a small window with the calculation, step by step, with the real figures in. The projection report states its assumptions first (the trend period and projection period among them) and ends with a closed **How each number is calculated** section that opens on a click; the PDF summary's fourth slide is the impact (what the credits give back), and its fifth, **Appendix – Calculations**, opens its appendix: a slide on the trend and the calculations, then every calculation, step by step (eight or nine slides with the usual data). All three come from one source, so they always agree.
 
 **Fusion.** The projects in the scope, with their lines of code, criticality and how often each was scanned in the last year, the most often scanned first, 100 at a time. Each project is rounded up to whole 10K LOC units on its own, and a scan costs its model's credits per 10K LOC. Add the **Fusion models** and their rates as Checkmarx One shows them (when the tenant says them, they are filled in, with the credits remaining). Set a **default** number of scans and model, then numbers for each **scan frequency** (they start at the scans each frequency runs today; **Back to the suggested numbers** puts them back) and each **criticality**, and choose which wins when both set one. A number or model typed on a project wins over everything. Click a column's heading (**Project**, **Criticality**, **Scanned today**, **Lines of code**, **10K units**, **Fusion scans**, **Model** or **Credits**) to sort the table by it, and again for the other way: names start A to Z, numbers largest first, and a value shown as — always comes last. The choice is remembered in this browser. **Download CSV** downloads the table, in the same order.
+
+**Impact.** What the triage & remediation credits give back: **Hours given back** (findings triaged × the minutes to triage one by hand, plus true positives fixed × the minutes to fix one by hand less the minutes to review the AI fix), the same as developer-years, **Value of that time** (hours × what a developer's hour costs), **What the credits cost** (credits × a credit's price), the **Return** ((value − cost) ÷ cost) and the months until the credits are paid back, and the **False positives cleared** that never reach a developer, with a table by severity and every step under **How each number is calculated**. Below, **Fusion**: the expert review Fusion's frontier models replace (lines read ÷ lines an expert reviews in an hour), how often every line is read, the cost per 10K lines read against an expert's, the reviewers it would take to keep pace, how long a team takes to read the code once, flaws found earlier and fixed cheaper, and the breach cost avoided (an expected cost, counted in the return only when ticked). At the top, **All the credits give back** puts both together against what every credit costs. Every assumption starts from Settings → Impact (or a stated default) and is kept with each customer. The projection report has the same section, and the PDF summary's fourth slide shows the return on all the credits.
 
 **Credits required.** The strip at the top adds both tabs together. Type an **Extra credits (%)** to add a margin on top; **Total credits required** includes it. **Bundles** is the total ÷ **Credits per bundle** (10,000), rounded up to a whole bundle.
 
@@ -1180,7 +1198,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.84** | 502/s, 0 failed (main 497, 0) | 6.7 s | 593 ms | 698 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
+| **MZ-01.00.85** | 498/s and 513/s, 0 failed (main 491 and 520, 0) | 6.3 s | 463 ms | 720 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
+| MZ-01.00.84 | 502/s, 0 failed (main 497, 0) | 6.7 s | 593 ms | 698 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
 | MZ-01.00.83 | 521/s, 0 failed (main 519, 0; the first pair 520 against 525, 0 failed) | 2.1 s | 205 ms | 696 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82). Its 3 critical secret findings (an example GUID in tests) are now marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
 | MZ-01.00.82 | 492/s, 0 failed (main 489, 0; the first pair 48 against 104, in host stalls) | 9.6 s | 1.5 s | 688 pass | 0 vulnerabilities (nodemailer 10.0.13) | Rescan fe2eb036 (2026-10-18, every engine): 4 critical, 39 high, 17 medium, 26 low, 1 info, none triaged yet. Checked: the 3 critical secrets are an example GUID in tests, the critical SAST hit is the load-test mock (not shipped), nodemailer's CVE-2026-110869 is fixed here, zlib's CVE-2026-85091 is in the alpine base (the build's `apk upgrade` takes alpine's fix); 43 new since rescan 27982f85, mostly SAST in code added since, are still to triage |
 | MZ-01.00.73 | 507/s, 0 failed (main 497, 10) | 6.8 s | 615 ms | 645 pass | 0 vulnerabilities | No new scan. Open: the 53 of rescan 27982f85 (MZ-01.00.52), all judged not exploitable |
@@ -1235,11 +1254,11 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 1. Scope → Only these applications, projects or people: add the team's application, or its projects.
 2. Fetch, then in the credits panel tick Critical and High.
 3. **Give credits** (AI check) (it verifies with Checkmarx One first), then confirm.
-4. **Triage with AI Assist now.** Each developer is emailed that triage ran on their behalf.
+4. **Triage critical & high.** Each developer is emailed that triage ran on their behalf.
 
 **Remediate what triage confirmed**
 1. Load findings again (or use **Check the numbers again**).
-2. **Give credits** (AI fix), then **Remediate with AI Assist now**: check the list and the cost, then confirm.
+2. **Give credits** (AI fix), then **Remediate critical & high**: check the list and the cost, then confirm.
 
 **Give a project credits without loading findings**
 1. Credit Control → **Allocated vs used** → **Give credits**.
@@ -1247,14 +1266,14 @@ To have it happen by itself, use Settings → Automation, or a tracked report's 
 
 **Allocate exactly what the findings need, from wherever you are** (administrators)
 - Workbench: load findings, tick the projects, then the AI credits panel's **Give credits**.
-- Reports: open the report → **Triage** tab → tick the severities (and any **Extra credits**) → **Allocate credits for triage and remediation**.
-- Credit Control → **Allocated vs used**: tick the projects and severities → **Allocate credits for triage and remediation**.
+- Reports: open the report → **Triage** tab → the **Allocate for …** button on the AI Triage or AI Remediation row (it names the severities it covers next).
+- Credit Control → **Allocated vs used**: tick the projects and severities → **Allocate for triage** or **Allocate for remediation**.
 
 Each one counts what is needed twice with Checkmarx One first, asks before giving anything, and stops if the credit pool is short.
 
 **Use credits already given, from wherever you are**
-- Workbench: tick the projects and severities, then **Triage with AI Assist now** or **Remediate with AI Assist now**.
-- Reports: open the report → **Triage** tab → **Triage with AI Assist now** or **Remediate with AI Assist now**.
+- Workbench: tick the projects and severities, then **Triage critical & high** or **Remediate critical & high** (each named after the severities ticked).
+- Reports: open the report → **Triage** tab → the gold button on each row (**Triage all**, **Triage critical & high**, …).
 - Credit Control → **Allocated vs used**: tick the projects → **Allocate and use credits** → **Triage with AI Assist now** or **Remediate with AI Assist now**.
 
 The buttons turn gold once the credits cover the work. Credits given, taken back or used in one place show on the Workbench straight away; Reports and Credit Control show them whenever you open them.

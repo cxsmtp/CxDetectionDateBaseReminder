@@ -89,6 +89,7 @@ import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
 import { SUPPORTING_NOTICE, Terms, cleanName } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
+import { readFusion } from './fusion.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
@@ -1066,7 +1067,7 @@ const iconVersion = (url = settingsStore.get().branding?.iconUrl || '') => (url 
 
 /**
  * The browser tab's icon, for every page (signed in or not): the one set under
- * Settings → Branding, else CxMissionZero's own MZ0. An uploaded image is served
+ * Settings → Branding, else CxMissionZero's own (public/mz-icon-64.png). An uploaded image is served
  * from here, locked down (an SVG's scripts never run); an https address is redirected to.
  */
 app.get('/app-icon', (req, res) => {
@@ -1079,7 +1080,7 @@ app.get('/app-icon', (req, res) => {
     return res.type(data[1]).send(Buffer.from(data[2], 'base64'));
   }
   if (/^https:\/\//i.test(url)) return res.redirect(302, url);
-  res.type('image/svg+xml').sendFile(path.join(publicDir, 'favicon.svg'));
+  res.type('image/png').sendFile(path.join(publicDir, 'mz-icon-64.png'));
 });
 
 /** Load and cache figures, for whoever operates this server. */
@@ -4015,10 +4016,12 @@ const calculatorRoute = (fn) => (req, res) => {
 };
 
 app.get('/api/projections', requireCalculator, (req, res) => {
-  res.json({ customers: projections.list(), organisationName: terms.organisationName() });
+  // A new customer's impact starts from the organisation's own Settings → Impact (minutes, rate, price, currency).
+  const { triageMinutes, fixMinutes, hourlyRate, creditPrice, currency } = settingsStore.get().impact ?? {};
+  res.json({ customers: projections.list(), organisationName: terms.organisationName(), impactDefaults: { triageMinutes, fixMinutes, hourlyRate, creditPrice, currency } });
 });
 app.post('/api/projections', requireCalculator, calculatorRoute((req, res) => {
-  const customer = projections.create({ name: req.body?.name, by: req.user.email });
+  const customer = projections.create({ name: req.body?.name, by: req.user.email, impact: settingsStore.get().impact ?? {} });
   audit.record({ type: 'settings', outcome: 'changed', reason: `Cx Credits Calculator: customer "${customer.name}" added.`, actor: { kind: 'user', user: req.user.email, ip: clientIp(req) } });
   res.status(201).json({ customer });
 }));
@@ -4134,7 +4137,7 @@ app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) =>
 app.put('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
   const body = req.body ?? {};
   const patch = {};
-  for (const key of ['name', 'tr', 'fusion', 'totals', 'scope']) if (body[key] !== undefined) patch[key] = body[key];
+  for (const key of ['name', 'tr', 'fusion', 'totals', 'scope', 'impact']) if (body[key] !== undefined) patch[key] = body[key];
   res.json({ customer: projections.update(String(req.params.id), patch, req.user.email) });
 }));
 app.delete('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
@@ -6053,13 +6056,27 @@ function branchChoiceOfScan(scan) {
  * src/cxone/branches.js), unless `branches` is "all" (every branch, as tracked reports made before
  * branches were told apart keep).
  */
-async function currentFindings(session, projects, { branches = 'primary' } = {}) {
+async function currentFindings(session, projects, { branches = 'primary', skipGone = false } = {}) {
   const cfg = activeConfig();
   const byProject = new Map();
   const identity = readerIdentity(session);
   const all = branchScopeOf(branches) === 'all';
   const choice = await branchChoiceFor(session, projects, branches);
+  // Projects deleted from Checkmarx One (or out of this key's sight) since they were given credits.
+  const gone = [];
   await mapWithConcurrency(projects, 3, async ({ projectId, projectName }) => {
+    try {
+      await readCurrent({ projectId, projectName });
+    } catch (error) {
+      if (!(await goneFromCheckmarx(session.client, projectId, error))) throw error;
+      gone.push({ projectId, projectName });
+      if (!skipGone) throw Object.assign(new Error(goneText([{ projectName }])), { status: 409 });
+    }
+  });
+  byProject.gone = gone;
+  return byProject;
+
+  async function readCurrent({ projectId, projectName }) {
     const project = { id: projectId, name: projectName };
     const how = choice?.branches[projectId]?.how;
     const source = createRiskSource(session.client, cfg);
@@ -6071,8 +6088,30 @@ async function currentFindings(session, projects, { branches = 'primary' } = {})
     // Every current finding of the project on its branch: those no longer among them are gone (the Impact page).
     // Not from a read of every branch (others' findings would be mixed in), nor of a primary branch never scanned.
     if (!all && how !== BRANCH_HOW.none) findingJournal.observe({ projectId, projectName }, risks, { complete: true });
-  });
-  return byProject;
+  }
+}
+
+/** A read that found nothing (404) because the project itself is no longer in Checkmarx One. */
+async function goneFromCheckmarx(client, projectId, error) {
+  return error?.status === 404 && projectMissing(client, projectId);
+}
+
+/** Checkmarx One answers 404 for the project itself: deleted, or out of this key's sight. */
+async function projectMissing(client, projectId) {
+  if (!client) return false;
+  try {
+    await client.request(`/api/projects/${encodeURIComponent(projectId)}`, { retries: 0 });
+    return false;
+  } catch (lookup) {
+    return lookup?.status === 404;
+  }
+}
+
+function goneText(gone) {
+  const names = gone.map((p) => p.projectName || p.projectId).join(', ');
+  return gone.length === 1
+    ? `${names} is no longer in Checkmarx One (deleted, or this key cannot see it). Take its credits back under Credit Control.`
+    : `${gone.length} projects are no longer in Checkmarx One (deleted, or this key cannot see them): ${names}. Take their credits back under Credit Control.`;
 }
 
 function progressFor(report, byProject) {
@@ -6690,15 +6729,15 @@ app.get(
  * Give `projects` what the `wanted` severities of their findings still need
  * (confirmed by two agreeing reads of Checkmarx One, never an estimate), plus
  * extra credits each, out of the credit pool. The severities join each
- * project's rule. Returns the refusal ({ error }) or null once given.
+ * project's rule. Those two reads are the only reads: extra credits alone need
+ * none. A project deleted from Checkmarx One is left out and named.
+ * Returns { error, gone } when refused, else { gone, byProject } (the verified findings).
  */
-async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, extraRemediation, where, details, engines = null, branches = 'primary' }) {
+async function allocateNeeded(req, projects, { wanted, extraTriage, extraRemediation, where, details, engines = null, branches = 'primary', kinds = CREDIT_KINDS }) {
   const actor = await adminActor(req);
-  const before = new Map(projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
-  for (const { projectId, projectName } of projects) {
-    if (wanted.length) allocations.setSeverities(projectId, projectName, SEVERITIES.filter((s) => wanted.includes(s) || allocations.severitiesOf(projectId).includes(s)));
-  }
   const verifiedRisks = new Map();
+  const gone = [];
+  const ruleWith = (projectId) => SEVERITIES.filter((s) => wanted.includes(s) || allocations.severitiesOf(projectId).includes(s));
   if (wanted.length) {
     // Each project's latest scan on the branch that counts (every branch's latest, when asked for).
     const branchChoice = await branchChoiceFor(req.session, projects, branches);
@@ -6707,25 +6746,33 @@ async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, e
     const refused = [];
     await mapWithConcurrency(projects, 3, async (p) => {
       try {
-        const { second, agreed } = await doubleRead(req.session, p, { scanIdOf, branchChoice });
+        // Read under the rule it is about to get (its own severities and the wanted ones), as the need is counted.
+        const { second, agreed } = await doubleRead(req.session, p, { scanIdOf, branchChoice, severities: ruleWith(p.projectId) });
         if (agreed) verifiedRisks.set(p.projectId, second.summary.risks);
         else refused.push(`${p.projectName}: ${DISAGREED}`);
       } catch (error) {
-        refused.push(`${p.projectName}: could not read Checkmarx One (${error.message})`);
+        if (await projectMissing(req.session.client, p.projectId)) gone.push({ projectId: p.projectId, projectName: p.projectName });
+        else refused.push(`${p.projectName}: could not read Checkmarx One (${error.message})`);
       }
     });
     if (refused.length) {
-      allocations.save();
       const reason = `Not allocated: what the projects need could not be confirmed twice with Checkmarx One. ${refused[0]}`;
       audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: 0, charged: 0 }, details });
-      return { error: reason };
+      return { error: reason, gone };
     }
+  }
+  projects = projects.filter((p) => !gone.some((g) => g.projectId === p.projectId));
+  if (!projects.length) return { error: goneText(gone), gone };
+  const before = new Map(projects.map((p) => [p.projectId, allocationSnapshot(p.projectId)]));
+  for (const { projectId, projectName } of projects) {
+    if (wanted.length) allocations.setSeverities(projectId, projectName, ruleWith(projectId));
   }
   const plan = projects.map(({ projectId, projectName }) => {
     // Only the findings of the engines chosen count towards the need.
-    const risks = (verifiedRisks.get(projectId) ?? byProject.get(projectId) ?? []).filter((r) => inEngines(r, engines));
+    const risks = (verifiedRisks.get(projectId) ?? []).filter((r) => inEngines(r, engines));
     const { shortfall } = allocations.need(projectId, risks);
-    return { projectId, projectName, triage: wanted.length ? shortfall.triage : 0, remediation: wanted.length ? shortfall.remediation : 0 };
+    const wants = (kind) => wanted.length > 0 && kinds.includes(kind);
+    return { projectId, projectName, triage: wants('triage') ? shortfall.triage : 0, remediation: wants('remediation') ? shortfall.remediation : 0 };
   });
   const given = plan.reduce((n, x) => n + x.triage + x.remediation + extraTriage + extraRemediation, 0);
   const pool = creditPool();
@@ -6733,7 +6780,7 @@ async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, e
     allocations.save();
     const reason = `Only ${pool.unallocated} credit${pool.unallocated === 1 ? '' : 's'} left in the credit pool to give; ${given} needed for ${where}.`;
     audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { ...details, pool } });
-    return { error: `${reason} Raise the pool under Settings → AI & credits.`, pool };
+    return { error: `${reason} Raise the pool under Settings → AI & credits.`, pool, gone };
   }
   for (const { projectId, projectName, triage, remediation } of plan) {
     if (triage) allocations.grant(projectId, projectName, 'triage', triage);
@@ -6749,8 +6796,12 @@ async function allocateNeeded(req, projects, byProject, { wanted, extraTriage, e
       reason: `Changed from ${where}.`,
     });
   }
-  return null;
+  return { gone, byProject: verifiedRisks };
 }
+
+const CREDIT_KINDS = ['triage', 'remediation'];
+/** The credits one allocation gives: triage only, remediation only, or (unnamed) both. */
+const kindsOf = (kind) => (CREDIT_KINDS.includes(kind) ? [kind] : CREDIT_KINDS);
 
 /**
  * Credit Control: give the ticked projects (none ticked: every project holding
@@ -6765,14 +6816,14 @@ app.post('/api/credits/allocate-needed', requirePermission('credits.allocate'), 
   const chosen = new Set(idList(req.body?.projectIds));
   const projects = allocations.list().filter((p) => !chosen.size || chosen.has(p.projectId)).map((p) => ({ projectId: p.projectId, projectName: p.projectName || p.projectId }));
   if (!projects.length) return res.status(400).json({ error: 'Give credits to a project first.' });
-  const byProject = await currentFindings(req.session, projects, { branches: req.body?.branches });
   const engines = engineScope(req.body?.engines);
-  const refused = await allocateNeeded(req, projects, byProject, {
-    wanted, extraTriage, extraRemediation, engines, branches: req.body?.branches, where: 'Credit Control', details: { projectIds: projects.map((p) => p.projectId), engines: engines ?? 'all' },
+  const done = await allocateNeeded(req, projects, {
+    wanted, extraTriage, extraRemediation, engines, branches: req.body?.branches, kinds: kindsOf(req.body?.kind), where: 'Credit Control', details: { projectIds: projects.map((p) => p.projectId), engines: engines ?? 'all', kind: req.body?.kind ?? 'both' },
   });
-  if (refused) return res.status(409).json(refused);
+  if (done.error) return res.status(409).json(done);
+  const { gone } = done;
   for (const p of req.session.lastScan?.projects ?? []) if (allocations.get(p.projectId)) p.credits = creditView(p);
-  res.json({ pool: creditPool(), allocations: allocations.list() });
+  res.json({ pool: creditPool(), allocations: allocations.list(), gone, goneNote: gone.length ? `Skipped: ${goneText(gone)}` : '' });
 }));
 
 app.post(
@@ -6788,13 +6839,14 @@ app.post(
     if (!wanted.length && !extraTriage && !extraRemediation) {
       return res.status(400).json({ error: 'Pick severities, or enter credits to add.' });
     }
-    const byProject = await currentFindings(req.session, report.projects, { branches: report.filters.branches ?? 'all' });
-    trackedReports.record(report, progressFor(report, byProject));
-    const refused = await allocateNeeded(req, report.projects, byProject, {
-      wanted, extraTriage, extraRemediation, engines: report.filters.engines, branches: report.filters.branches ?? 'all', where: `tracked report "${report.name}"`, details: { report: report.id },
+    const done = await allocateNeeded(req, report.projects, {
+      wanted, extraTriage, extraRemediation, engines: report.filters.engines, branches: report.filters.branches ?? 'all', kinds: kindsOf(req.body?.kind), where: `tracked report "${report.name}"`, details: { report: report.id, kind: req.body?.kind ?? 'both' },
     });
-    if (refused) return res.status(409).json(refused);
-    res.json({ report: trackedView(report) });
+    if (done.error) return res.status(409).json(done);
+    const { gone } = done;
+    // The two reads that confirmed the need are the report's current findings too.
+    if (wanted.length && !gone.length) trackedReports.record(report, progressFor(report, done.byProject));
+    res.json({ report: trackedView(report), gone, goneNote: gone.length ? `Skipped: ${goneText(gone)}` : '' });
   }),
 );
 
@@ -7284,11 +7336,14 @@ app.post('/api/credits/run', requirePermission('triage.run'), afterFetch, asyncR
   if (!wanted.length) return res.status(400).json({ error: `Pick at least one severity to ${kind === 'triage' ? 'triage' : 'remediate'}.` });
   if (!req.session.client) return res.status(409).json({ error: 'Connect to Checkmarx One first.' });
   const chosen = new Set(idList(req.body?.projectIds));
-  const projects = allocations.list().filter((p) => !chosen.size || chosen.has(p.projectId)).map((p) => ({ projectId: p.projectId, projectName: p.projectName || p.projectId }));
-  if (!projects.length) return res.status(400).json({ error: 'Give credits to a project first.' });
+  const listed = allocations.list().filter((p) => !chosen.size || chosen.has(p.projectId)).map((p) => ({ projectId: p.projectId, projectName: p.projectName || p.projectId }));
+  if (!listed.length) return res.status(400).json({ error: 'Give credits to a project first.' });
 
   const settings = settingsStore.get();
-  const byProject = await currentFindings(req.session, projects, { branches: req.body?.branches });
+  const byProject = await currentFindings(req.session, listed, { branches: req.body?.branches, skipGone: true });
+  const { gone } = byProject;
+  const projects = listed.filter((p) => !gone.some((g) => g.projectId === p.projectId));
+  if (!projects.length) return res.status(409).json({ error: goneText(gone), gone });
   // Only the engines chosen (SAST and SCA unless more are ticked).
   const engines = engineScope(req.body?.engines);
   for (const [id, risks] of byProject) byProject.set(id, risks.filter((r) => inEngines(r, engines)));
@@ -7316,7 +7371,7 @@ app.post('/api/credits/run', requirePermission('triage.run'), afterFetch, asyncR
   }
   // Projects loaded on this person's Workbench show the new balances.
   for (const p of req.session.lastScan?.projects ?? []) if (allocations.get(p.projectId)) p.credits = creditView(p);
-  res.json({ ...summary, pool: creditPool(), allocations: allocations.list() });
+  res.json({ ...summary, pool: creditPool(), allocations: allocations.list(), gone, goneNote: gone.length ? `Skipped: ${goneText(gone)}` : '' });
 }));
 
 /**
@@ -8223,10 +8278,12 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   const findings = ranked.slice(0, REPORT_TOP_N);
   const bulkFindings = ranked.slice(REPORT_TOP_N).filter((f) => BULK_SEVERITIES.includes(f.severity));
   const scanIdOf = (finding) => initiatorsByProject[finding.projectId]?.scanId ?? '';
-  // Each scan's results are read once, for the AI ids and for the code locations.
-  const resultsCache = new Map();
-  await resolveAiIds(session.client, [...findings, ...bulkFindings], scanIdOf, resultsCache);
+  // The AI ids from each scan's result ids, kept and shared for 30 minutes (a scan's ids never change):
+  // a report built again, or after a credit check, reads no scan again.
+  await resolveAiIds(session.client, [...findings, ...bulkFindings], scanIdOf);
   // Where each shown finding is in its repository: the report's "Open in IDE" and "Apply fix in my workspace".
+  // Code paths are read only for the scans of the findings shown, and remembered.
+  const resultsCache = new Map();
   const locatable = findings.filter((f) => LOCATABLE_SCANNERS.has(f.scanner));
   for (const scanId of new Set(locatable.map((f) => f.scanId || scanIdOf(f)))) {
     const known = scanLocations.get(scanId);
@@ -9350,6 +9407,40 @@ function initiatorLogins(lastScan) {
   }
   return [...logins];
 }
+
+/**
+ * Fusion results (Labs, src/fusion.js): what Fusion re-scored in the projects of the last
+ * Workbench fetch, read again after each fetch. Kept with the session, like the fetch.
+ */
+const fusionScope = (lastScan) => {
+  const projects = (lastScan?.projects ?? []).filter((p) => !p.error);
+  const bySeverity = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+  for (const p of projects) for (const [s, n] of Object.entries(p.bySeverity ?? {})) if (s in bySeverity) bySeverity[s] += Number(n) || 0;
+  return {
+    projects: projects.length,
+    openFindings: projects.reduce((n, p) => n + (Number(p.totalRisks) || 0), 0),
+    bySeverity,
+    names: Object.fromEntries(projects.map((p) => [p.projectId, p.projectName ?? p.projectId])),
+    fetchedAt: lastScan?.fetchedAt ?? null,
+  };
+};
+
+app.get('/api/beta/fusion', requireFeature('fusionResults'), (req, res) => {
+  res.json({ fusion: req.session.lastFusion ?? null, scope: fusionScope(req.session.lastScan) });
+});
+
+app.post(
+  '/api/beta/fusion/read',
+  requireFeature('fusionResults'),
+  asyncRoute(async (req, res) => {
+    if (fetchInProgress(req.session)) return res.status(409).json({ error: 'Findings are still being loaded: Fusion is read when they are in.', fetching: true });
+    const scope = fusionScope(req.session.lastScan);
+    if (!scope.projects) return res.status(400).json({ error: 'Load findings on the Workbench first: Fusion is read for the projects fetched there.' });
+    const fusion = await readFusion(req.session.client, Object.keys(scope.names));
+    req.session.lastFusion = fusion;
+    res.json({ fusion, scope });
+  }),
+);
 
 app.get('/api/beta/github/logins', requireFeature('identityMatching'), (req, res) => {
   const lastScan = req.session.lastScan;

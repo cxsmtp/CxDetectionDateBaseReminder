@@ -42,6 +42,18 @@ export const FEATURES = [
     permission: 'settings.initiators',
     whenFinal: ['Anyone who may change initiator addresses can run and apply the matching (no Beta permission needed).'],
   },
+  {
+    id: 'fusionResults',
+    name: 'Fusion results',
+    summary: 'What Checkmarx One Fusion re-scored in the projects you load: critical, high, medium and low per project, the risk it raised to critical or high, and results per credit.',
+    // Once final: everyone who can see findings sees the Fusion page and column.
+    permission: 'findings.fetch',
+    whenFinal: [
+      'Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Beta permission needed).',
+      'The Workbench\'s projects table can show each project\'s Fusion results (the Fusion column).',
+    ],
+    beforeFinal: 'Keep it in Beta until the counts match what Checkmarx One shows for Fusion on your own applications.',
+  },
 ];
 
 const BY_ID = new Map(FEATURES.map((f) => [f.id, f]));

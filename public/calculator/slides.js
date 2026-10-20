@@ -6,8 +6,8 @@
 // Each page is drawn on a canvas (so every language's script and direction is drawn by the
 // browser), kept as a JPEG, and the three are written into a PDF here: no library, nothing sent.
 
-import { FREQUENCIES, SEVERITIES, aheadMonths, creditSummary } from './model.js';
-import { allSections } from './explain.js';
+import { FREQUENCIES, HOURS_A_YEAR, SEVERITIES, aheadMonths, creditSummary } from './model.js';
+import { allSections, moneyText } from './explain.js';
 import { forecastChart } from './charts.js';
 import { assumptionItems, reportFileName, trFigures, wording } from './report.js';
 import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../look.js';
@@ -129,7 +129,52 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
     lines: assumptionItems(data, sum, L).map(plain),
   });
 
-  // 4. The trend, and every number's calculation in one line.
+  // 4. Impact: what all the credits give back (triage & remediation and Fusion), against what they cost.
+  const im = data.impact;
+  if (im && (im.tr || im.fusion)) {
+    const o = im.overall ?? {};
+    const tri = im.tr;
+    const fu = im.fusion;
+    const cur = (tri ?? fu).settings.currency;
+    const cash = (n) => plain(moneyText(n, cur, L.locale));
+    const SOURCE = { triage: w('AI Triage'), fixes: w('AI Remediation'), expert: w('Expert review replaced'), early: w('Found earlier, fixed cheaper'), breach: w('Breach cost avoided') };
+    const byMoney = o.value !== null && o.value !== undefined;
+    const bars = (o.sources ?? [])
+      .map((x) => ({ label: SOURCE[x.key], value: byMoney ? x.value ?? 0 : x.hours, text: byMoney ? cash(x.value ?? 0) : num(x.hours), note: x.hours ? w('{0} hours', num(x.hours)) : w('An expected cost'), colour: x.key === 'breach' ? C.muted : x.key === 'expert' || x.key === 'early' ? C.fusion : C.accent }))
+      .filter((b) => b.value > 0);
+    const lines = [];
+    if (tri) lines.push(w('{0} false positives cleared: none of them reaches a developer.', num(tri.cleared)));
+    if (fu) lines.push(w('Fusion reads every line {0} times; a team of {1} would take {2} weeks to read it once.', num(fu.timesRead, 1), num(fu.settings.reviewers), num(fu.teamWeeks, 1)));
+    if (fu?.breachAvoided && !fu.settings.countBreach) lines.push(w('Breach cost avoided, an expected cost not counted in the return: {0}.', cash(fu.breachAvoided)));
+    if (o.paybackMonths !== null && o.paybackMonths !== undefined) lines.push(w('The credits are paid back in {0} months.', num(o.paybackMonths, 1)));
+    pages.push({
+      kind: 'impact',
+      title: w('What the credits give back'),
+      subtitle: tri && fu ? w('Triage & remediation and Fusion over {0} months', num(o.months)) : tri ? w('Triage & remediation over {0} months', num(tri.months)) : w('Fusion over {0} months', num(fu.months)),
+      figures: [
+        { label: w('All the credits give back'), value: byMoney ? cash(o.value) : `${num(o.hours)} ${w('hours')}`, key: true },
+        { label: w('What the credits cost'), value: o.cost === null || o.cost === undefined ? '—' : cash(o.cost) },
+        { label: w('Return'), value: o.roi === null || o.roi === undefined ? '—' : `${num(o.roi * 100)}%` },
+        { label: w('Hours given back'), value: num(o.hours), note: w('{0} developer-years', num(o.hours / HOURS_A_YEAR, 1)) },
+      ],
+      bars: bars.length ? { title: byMoney ? w('Where the value comes from') : w('Where the hours come from'), items: bars } : null,
+      lines,
+    });
+  }
+
+  // 5. The appendix begins: what it holds, and on which pages (filled in once the pages are laid out).
+  pages.push({
+    kind: 'section',
+    title: w('Appendix – Calculations'),
+    subtitle: w('How every number in this summary is worked out, for anyone who wants to check it.'),
+    label: w('Calculations'),
+    contents: [
+      { kind: 'trend', text: w('The trend and how each number is calculated'), pages: '' },
+      { kind: 'appendix', text: w('Every number, step by step'), pages: '' },
+    ],
+  });
+
+  // 6. The trend, and every number's calculation in one line.
   const calc = [];
   if (tr) {
     const T = tr.totals ?? {};
@@ -285,6 +330,19 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
     return;
   }
 
+  if (page.kind === 'section') {
+    // The appendix's opening: a large word, then what follows and on which pages.
+    text(page.label, 80, 410, { size: 96, weight: 600, colour: C.accent });
+    ctx.fillStyle = C.line;
+    ctx.fillRect(X(80, W - 160), 470, W - 160, 2);
+    let y = 560;
+    for (const item of page.contents) {
+      text(item.pages, 80, y, { size: 34, weight: 600, colour: C.accent });
+      y = lines(item.text, 260, y, W - 340, { size: 34, lead: 46 }) + 30;
+    }
+    return;
+  }
+
   if (page.kind === 'total') {
     text(page.total, 80, 400, { size: 140, weight: 600, colour: C.accent });
     const sum = page.parts.reduce((a, p) => a + p.value, 0) || 1;
@@ -356,7 +414,7 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
     for (const b of page.bars.items.slice(0, 7)) {
       lines(b.label, left, y + 30, labelW - 20, { size: 24, colour: C.ink, lead: 28 });
       const bw = Math.max(6, (b.value / max) * barMax);
-      ctx.fillStyle = C.fusion;
+      ctx.fillStyle = b.colour ?? C.fusion;
       ctx.fillRect(X(left + labelW, bw), y + 6, bw, 34);
       text(b.text, left + labelW + bw + 14, y + 33, { size: 26, weight: 600 });
       text(b.note, left + labelW, y + 70, { size: 20, colour: C.muted });
@@ -408,6 +466,16 @@ function layoutAppendix(ctx, content) {
   return pages;
 }
 
+/** The appendix's opening page says on which pages its parts are: "5", "6–7". */
+export function numberContents(all) {
+  const section = all.find((p) => p.kind === 'section');
+  if (!section) return;
+  for (const item of section.contents) {
+    const at = all.flatMap((p, i) => (p.kind === item.kind ? [i + 1] : []));
+    item.pages = at.length > 1 ? `${at[0]}–${at.at(-1)}` : String(at[0] ?? '');
+  }
+}
+
 /** The pages as JPEGs, drawn in the reader's language and direction. */
 export async function drawSlides(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
   useLook(look);
@@ -421,6 +489,7 @@ export async function drawSlides(data, { t, lang = 'en', dir = 'ltr', look } = {
   const ctx = canvas.getContext('2d');
   const pages = [];
   const all = [...content.pages, ...layoutAppendix(ctx, content)];
+  numberContents(all);
   for (const [i, page] of all.entries()) {
     const images = {};
     if (page.chart?.kind === 'forecast') {

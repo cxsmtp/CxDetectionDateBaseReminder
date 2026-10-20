@@ -23458,5 +23458,1217 @@
    "first start › small › Look of the app",
    "sign in › small › Look"
   ]
+ },
+ "Each row offers one step: allocate the credits for the next severities, then run AI on everything the credits cover, critical first. The button turns gold when the credits are there.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Nothing awaiting triage.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Nothing confirmed to remediate yet: AI Triage confirms findings first.": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Triage critical": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Remediate critical": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Allocate for critical": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Triage critical & high": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Remediate critical & high": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Allocate for critical & high": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Triage critical, high & medium": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Remediate critical, high & medium": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Allocate for critical, high & medium": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Triage all": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Remediate all": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Allocate for all": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Triage ticked severities": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Remediate ticked severities": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Results awaiting triage:": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Confirmed to remediate:": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Critical {0}": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "High {0}": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Medium {0}": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Low {0}": {
+  "kind": "text",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "<b>{0}</b> credits needed to triage": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "<b>{0}</b> credits needed to remediate": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "<b>{0}</b> left": {
+  "kind": "html",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "About {0} more credits, confirmed with Checkmarx One as they are given": {
+  "kind": "attr:title",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Allocate credits first": {
+  "kind": "attr:title",
+  "seen": [
+   "reports › detail › triage"
+  ]
+ },
+ "Allocate for triage": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "{0} credits left": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "{0} credits left · {1} needed": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "{0} project ticked.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "{0} projects ticked.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "{0} project ticked. Load them on the Workbench to see what they need; the buttons turn gold once their credits cover it.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "{0} projects ticked. Load them on the Workbench to see what they need; the buttons turn gold once their credits cover it.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "Every project. Tick projects to see what they need: the buttons turn gold once their credits cover it.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "No longer in Checkmarx One: take its credits back.": {
+  "kind": "text",
+  "seen": [
+   "credits › allocations › Allocate and use credits"
+  ]
+ },
+ "Enter the credits to add.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Add {0} triage and {1} remediation credit(s) to each of this report's projects, from the credit pool?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Allocate AI Triage credits from the credit pool to this report's projects: what their findings at the severities on the button need (1 per Checkmarx One result), confirmed with Checkmarx One as they are given?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Allocate AI Remediation credits from the credit pool to this report's projects: what their confirmed findings at the severities on the button need (3 per confirmed result), confirmed with Checkmarx One as they are given?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Run AI Remediation on this report's confirmed findings at the severities on the button? It uses 3 Checkmarx One credits each.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Run AI Triage on this report's findings at the severities on the button that are still awaiting triage? It uses Checkmarx One credits.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Allocate AI Triage credits (1 per Checkmarx One result) from the credit pool to the ticked projects (none ticked: every project holding credits): what the ticked severities need, plus any extra entered?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Allocate AI Remediation credits (3 per confirmed result) from the credit pool to the ticked projects (none ticked: every project holding credits): what the ticked severities need, plus any extra entered?": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "A credit costs": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "A developer's hour costs": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "Minutes to fix a finding by hand": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "Minutes to review an AI fix": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "Minutes to triage a finding by hand": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "They start from Settings → Impact and are kept with this customer.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "Where the time comes back, by severity": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "Triaged by AI": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "Fixed by AI": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "False positives cleared": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "No triage & remediation projection yet: read Checkmarx One (or use the two exports) on the Triage & remediation tab.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "What the credits give back": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "Hours given back": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "Return": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "What the credits cost": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "Never reach a developer": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "Every finding AI Triage looks at is one a person does not triage by hand; every false positive it clears never reaches a developer; every true positive AI Remediation fixes saves the fix by hand, less the time a developer takes to review it. The hours, at what a developer's hour costs, set against what the credits cost, are the return. The figures follow the Triage & remediation tab.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab"
+  ]
+ },
+ "e.g. {0}.{1}": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "Cx Credits Calculator › Impact tab (example amounts)"
+  ]
+ },
+ "e.g. {0}": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "Cx Credits Calculator › Impact tab (example amounts)"
+  ]
+ },
+ "About {0} developer-years over {1} months": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Enter what a developer's hour costs": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "{0} hours × {1}": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Enter what a credit costs": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "{0} credits": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Once the hour and the credit have a price": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "{0} net": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "paid back in {0} months": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Every finding AI Triage looks at is one a person does not triage by hand; every false positive it clears never reaches a developer; every true positive AI Remediation fixes saves the fix by hand, less the time to review it.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Assumed: {0} minutes to triage a finding by hand, {1} to fix one, {2} to review an AI fix.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Triage: every finding AI triages × the minutes to triage it by hand ÷ 60:": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "{0} × {1} ÷ 60 = {2} hours.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Fixing: every true positive AI fixes × (the minutes to fix it by hand − the minutes to review the AI fix) ÷ 60:": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "{0} × ({1} − {2}) ÷ 60 = {3} hours.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "{0} + {1} = {2} hours, about {3} developer-years at {4} hours a year.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "False positives cleared: findings triaged − true positives, {0} − {1} = {2}; none of them reaches a developer.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Enter what a developer's hour costs to put a value on the time.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Value of the time: {0} hours × {1} = {2}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Enter what a credit costs to set the value against it.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "What the credits cost: {0} credits × {1} = {2}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Return: ({0} − {1}) ÷ {1} = {2}%.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Paid back in: {0} ÷ ({1} ÷ {2} months) = {3} months.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Value and return": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "{0} triaged, {1} fixed": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "{0} false positives cleared: none of them reaches a developer.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "{0} net; the credits are paid back in {1} months.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "{0} net.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Triage & remediation over {0} months": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "{0} developer-years": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Hours given back, by severity": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact: the tab, the projection report, the PDF summary and How each number is calculated"
+  ]
+ },
+ "Lines an expert reviews in an hour": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab › Fusion"
+  ]
+ },
+ "Reviewers in a team": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab › Fusion"
+  ]
+ },
+ "A fix after release costs (× a fix while coding)": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab › Fusion"
+  ]
+ },
+ "Chance a critical or high finding leads to a breach (%)": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab › Fusion"
+  ]
+ },
+ "A breach costs": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab › Fusion"
+  ]
+ },
+ "Count the breach cost avoided in the return": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab › Fusion"
+  ]
+ },
+ "A breach's cost starts at IBM's Cost of a Data Breach 2024 average; the breach cost avoided is an expected cost, not money saved, so it counts in the return only when ticked.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab › Fusion"
+  ]
+ },
+ "No Fusion projects yet: add them, with their lines of code, on the Fusion tab.": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › Impact tab › Fusion"
+  ]
+ },
+ "10K LOC units": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "All the credits give back": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Triage & remediation and Fusion, over {0} months": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Every credit in this projection": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Expert review replaced": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "hours": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "{0} lines read at {1} an hour": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Worth {0}": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Every line read": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "{0} times": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "{0} lines in {1} projects, over {2} months": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Cost per 10K lines read": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "An expert: {0}": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Reviewers to keep pace": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Full-time, reading what Fusion reads": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "A team reading it once": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "{0} reviewers, 40 hours a week": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Found earlier, fixed cheaper": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "{0} more true positives fixed while coding, not after release": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Breach cost avoided": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "{0} critical and high found earlier; counted in the return": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "{0} critical and high found earlier; an expected cost, not counted": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Fusion has frontier AI models read every line of each project on every Fusion scan: the review an expert would otherwise do by hand, and the findings it adds are fixed while the code is being written.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Assumed: an expert reviews {0} lines an hour; a team of {1}; a fix after release costs {2} times as much; {3}% of critical and high findings lead to a breach, which costs {4}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Each project's lines of code are rounded up to whole 10K units on their own; one scan costs its model's credits per 10K LOC.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "10K units × scans": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "10K units": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Lines read: each project's lines of code × its Fusion scans, {0} lines × {1} times on average = {2}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Expert hours: {0} lines ÷ {1} lines an hour = {2} hours.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Worth: {0} hours × {1} = {2}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Reviewers to keep pace: {0} hours ÷ ({1} hours a year × {2} months ÷ 12) = {3}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "A team reading it once: {0} lines ÷ {1} lines an hour ÷ ({2} reviewers × 40 hours) = {3} weeks.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Cost per 10K lines read: {0} ÷ ({1} ÷ {3}) = {2}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "An expert: {3} ÷ {0} lines an hour × {1} = {2}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "More true positives Fusion finds: more found by Fusion × (100% − false positives) = {0}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Fixed while coding, not after release, where a fix costs {0} times as much: {1} × ({0} − 1) × {2} minutes ÷ 60 = {3} hours.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Breach cost avoided: {0} critical and high × {1}% × {2} = {3}{4}": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "; counted in the return.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "; an expected cost, not counted in the return.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "All the credits give back: {0}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "What the credits cost: {0}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Return on all the credits": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "{0} hours": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "An expected cost": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Fusion reads every line {0} times; a team of {1} would take {2} weeks to read it once.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Breach cost avoided, an expected cost not counted in the return: {0}.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "The credits are paid back in {0} months.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Triage & remediation and Fusion over {0} months": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Fusion over {0} months": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Where the value comes from": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Where the hours come from": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Appendix – Calculations": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "How every number in this summary is worked out, for anyone who wants to check it.": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Calculations": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Every number, step by step": {
+  "kind": "report",
+  "seen": [
+   "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
+  ]
+ },
+ "Fusion results": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Labs: what Checkmarx One Fusion re-scored": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Read Fusion now": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Fusion credits used": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Application": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Lowered": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Raised to C/H": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Last Fusion scan": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Projects loaded": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "No Fusion scan": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "With critical": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "With high": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "With medium": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "With low": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Raised to critical or high": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Of the open findings re-scored": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Results per credit": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Enter the Fusion credits used, below": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "{0} of {1} findings · {2} of {3} projects": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "in {0} project(s) · {1} lowered": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "{0} critical or high per credit": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "{0} critical or high per credit · {1} credits each": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Load findings on the Workbench: Fusion is read for the projects fetched there.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Fusion has not been read for this fetch yet.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "No project matches.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Fusion re-scored nothing in the projects fetched.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Fusion did not answer on this tenant.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "No application holds the projects fetched.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "What Checkmarx One Fusion re-scored in the projects loaded on the Workbench, read again each time the Workbench loads findings. Each result counts under its new risk score: {0} or more critical, {1} high, {2} medium, below that low.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Fusion results <span class=\"badge warn\">Beta</span>": {
+  "kind": "html",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Search projects or applications": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Search Fusion projects": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Results Fusion raised to critical or high from a lower severity": {
+  "kind": "attr:title",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Results whose risk score Fusion lowered": {
+  "kind": "attr:title",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Results Checkmarx One Fusion re-scored in this project (Labs → Fusion results)": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench › Columns › Fusion"
+  ]
+ },
+ "Early features, still being tried out: who wrote the code, and what Fusion re-scored": {
+  "kind": "attr:title",
+  "seen": [
+   "menu › Labs"
+  ]
+ },
+ "Fusion did not answer on this tenant: no Fusion results to show.": {
+  "kind": "message",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Reading Fusion results…": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "Fusion results read": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "Reading Fusion results from Checkmarx One…": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "Counting them by severity…": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "What Checkmarx One Fusion re-scored in the projects you load: critical, high, medium and low per project, the risk it raised to critical or high, and results per credit.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Beta permission needed).": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "The Workbench's projects table can show each project's Fusion results (the Fusion column).": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "<span class=\"badge warn\">Before making it final</span> Keep it in Beta until the counts match what Checkmarx One shows for Fusion on your own applications.": {
+  "kind": "html",
+  "seen": [
+   "settings › Beta features"
+  ]
  }
 }

@@ -186,7 +186,7 @@
 }
 :root[data-ui="nextgen"] .panel { border-radius: 14px; }
 :root[data-ui="nextgen"] .topbar {
-  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  background: var(--bg);
   border-bottom-color: var(--border);
 }
 :root[data-ui="nextgen"] .col-menu,
@@ -974,7 +974,7 @@
 :root[data-ui="nextgen"][data-look~="signal"] .sidebar .app-version { background: transparent; border-color: var(--border); }
 :root[data-ui="nextgen"][data-look~="signal"] .ptab[aria-selected="true"], :root[data-ui="nextgen"][data-look~="signal"] .ptab.active { border-bottom-color: var(--signal); color: var(--text); }
 :root[data-ui="nextgen"][data-look~="signal"] .wb-rail > .ptabs { background: var(--bg); }
-:root[data-ui="nextgen"][data-look~="signal"] .topbar { background: color-mix(in srgb, var(--bg) 92%, transparent); }
+:root[data-ui="nextgen"][data-look~="signal"] .topbar { background: var(--bg); }
 
 /* Quiet marks instead of coloured pills. */
 :root[data-ui="nextgen"][data-look~="signal"] .stage-chip { background: transparent; border: 0; padding: 0; }
@@ -1313,7 +1313,7 @@
 :root[data-ui="nextgen"][data-look="atelier"] .rp-chip::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-inline-end: 7px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
 :root[data-ui="nextgen"][data-look="atelier"] .user-menu > summary { border-color: transparent; background: transparent; border-radius: 3px; }
 :root[data-ui="nextgen"][data-look="atelier"] .user-menu .avatar.sm { background: transparent; color: var(--text); border: 1px solid var(--border-strong); }
-:root[data-ui="nextgen"][data-look="atelier"] .topbar { background: color-mix(in srgb, var(--bg) 94%, transparent); }
+:root[data-ui="nextgen"][data-look="atelier"] .topbar { background: var(--bg); }
 @media (max-width: 760px) {
   :root[data-ui="nextgen"][data-look="atelier"] h1 { font-size: 19px; letter-spacing: 0.02em; }
 }
@@ -1594,7 +1594,7 @@
 
 /* The ambient light: a fine line of light along the top of the glass, and down the menu's edge, in the
    chosen colour; it sweeps in when the page opens, as a car greets you. */
-:root[data-ui="nextgen"][data-look~="cabin"] .topbar { background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(22px) saturate(1.4); -webkit-backdrop-filter: blur(22px) saturate(1.4); border-bottom: 0; }
+:root[data-ui="nextgen"][data-look~="cabin"] .topbar { background: var(--bg); border-bottom: 0; }
 :root[data-ui="nextgen"][data-look~="cabin"] .topbar::after { content: ""; position: absolute; inset: auto 0 -1px 0; height: 1px; background: linear-gradient(90deg, transparent, var(--ambient) 18%, color-mix(in srgb, var(--ambient) 60%, #fff) 50%, var(--ambient) 82%, transparent); box-shadow: 0 0 14px 1px color-mix(in srgb, var(--ambient) 55%, transparent); opacity: 0.85; transform-origin: 0 50%; animation: cabin-light 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; pointer-events: none; }
 :root[data-ui="nextgen"][data-look~="cabin"] .sidebar { background: color-mix(in srgb, var(--bg) 40%, transparent); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); }
 :root[data-ui="nextgen"][data-look~="cabin"] .sidebar::after { content: ""; position: absolute; inset: 0 0 0 auto; width: 1px; background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--ambient) 70%, transparent) 30%, color-mix(in srgb, var(--ambient) 40%, transparent) 70%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--ambient) 40%, transparent); pointer-events: none; }
@@ -2036,3 +2036,28 @@
 :root[data-ui="nextgen"]:is([data-look~="residence"], [data-look~="chronometer"]) .segmented .mode:has(input:checked) { background: var(--primary); color: var(--primary-ink); }
 :root[data-ui="nextgen"]:is([data-look~="cabin"], [data-look~="circuit"], [data-look~="residence"], [data-look~="chronometer"]) .totals { column-gap: 22px; }
 :root[data-ui="nextgen"]:is([data-look~="cabin"], [data-look~="circuit"], [data-look~="residence"], [data-look~="chronometer"]) .totals .label { letter-spacing: 0.04em; }
+
+/* ==========================================================================
+   Nothing is ever drawn through or over text, in any look.
+   ========================================================================== */
+/* A heading row that stays in view while the rows scroll under it is solid, never see-through
+   (the looks that leave headings bare would otherwise show the rows through them). */
+:root[data-ui="nextgen"][data-look] thead th { background-clip: padding-box; }
+:root[data-ui="nextgen"][data-look]:is([data-look~="cabin"], [data-look~="circuit"], [data-look~="residence"], [data-look~="chronometer"]) :is(thead th, #projects thead th) { background: var(--bg); }
+:root[data-ui="nextgen"][data-look~="cabin"] :is(.panel, .table-wrap) :is(thead th, #projects thead th) { background: color-mix(in srgb, var(--surface) 88%, var(--bg)); }
+/* An open menu (engines, columns, branch) sits above everything that follows it on the page. */
+.panel:not(.wb-rail):has(details[open] > .col-menu) { position: relative; z-index: 40; }
+/* On the icon rail a group is only its coloured line: its name is not drawn at all. */
+/* (:is with an id it never matches weighs as much as the looks' own label rules, which list "#projects thead th".) */
+@media (max-width: 1100px) { :root[data-ui][data-look] :is(.sidebar, #no-match) p.nav-group { color: transparent; font-size: 0; } }
+
+/* CxMissionZero's own icon in the menu: the picture itself, round, in every look (the live light stays). */
+:is(:root, :root[data-ui][data-look]) .brand .brand-mark.is-icon { background: transparent; border: 0; border-radius: 50%; box-shadow: none; padding: 0; overflow: visible; }
+:is(:root, :root[data-ui][data-look]) .brand .brand-mark.is-icon > img { width: 100%; height: 100%; display: block; border-radius: 50%; }
+
+/* Bars that stay in view stay solid, in every look: on a phone the menu bar at the bottom, and on a
+   narrow window Settings' strip of sections at the top; what scrolls under them never shows through. */
+@media (max-width: 760px) { :is(:root, :root[data-ui][data-look]) :is(.sidebar, #no-match) { background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+@media (max-width: 1100px) { :is(:root, :root[data-ui][data-look]) :is(.set-nav, #no-match) { background: var(--bg); padding-block: 4px; } }
+/* Settings' save bar, in every look and at every width: its own surface laid on the page colour, so solid even where the surface is glass. */
+:is(:root, :root[data-ui][data-look]) :is(.save-bar, #no-match) { background-color: var(--bg); background-image: linear-gradient(var(--surface), var(--surface)); backdrop-filter: none; -webkit-backdrop-filter: none; }

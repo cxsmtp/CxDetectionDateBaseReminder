@@ -71,7 +71,7 @@ test('while Beta: only people with Beta access can use it, and the Admin sees th
   const list = await admin('GET', '/api/features');
   assert.equal(list.status, 200);
   assert.equal(list.body.canManage, true);
-  assert.deepEqual(list.body.features.map((f) => [f.id, f.stage]), [['codeAuthors', 'beta'], ['sla', 'beta'], ['identityMatching', 'beta']]);
+  assert.deepEqual(list.body.features.map((f) => [f.id, f.stage]), [['codeAuthors', 'beta'], ['sla', 'beta'], ['identityMatching', 'beta'], ['fusionResults', 'beta']]);
   const me = (await user('GET', '/api/me')).body;
   assert.equal(me.features.codeAuthors, 'beta');
   assert.ok(!me.permissions.includes('feature.codeAuthors'));
@@ -198,4 +198,29 @@ test('full image update (Beta): the server says it started, and asks the compani
   assert.equal((await admin('POST', '/api/system/update/full', { tag: 'latest' })).status, 409, 'one at a time');
   fs.rmSync(path.join(dir, 'request.json'));
   fs.rmSync(path.join(dir, 'companion.json'));
+});
+
+test('Fusion results (Beta): read for the projects fetched, by new severity; once final, for whoever loads findings', async () => {
+  assert.equal((await user('POST', '/api/beta/fusion/read', {})).status, 403, 'Beta: not for a role without Beta access');
+  await admin('GET', '/api/scan');
+  const read = await admin('POST', '/api/beta/fusion/read', {});
+  assert.equal(read.status, 200, JSON.stringify(read.body).slice(0, 300));
+  const { fusion, scope } = read.body;
+  assert.equal(fusion.available, true);
+  assert.equal(scope.projects, 2);
+  // The mock: p0 has one result raised to critical; p1 one raised to high and one lowered to low.
+  assert.deepEqual(
+    { total: fusion.totals.total, CRITICAL: fusion.totals.CRITICAL, HIGH: fusion.totals.HIGH, LOW: fusion.totals.LOW, raisedToTop: fusion.totals.raisedToTop, lowered: fusion.totals.lowered },
+    { total: 3, CRITICAL: 1, HIGH: 1, LOW: 1, raisedToTop: 2, lowered: 1 },
+  );
+  assert.equal(fusion.projects.p1.total, 2);
+  assert.equal(fusion.applications.find((a) => a.id === 'app-0').scan.status, 'Completed');
+  assert.equal((await admin('GET', '/api/beta/fusion')).body.fusion.totals.total, 3, 'kept with the session');
+
+  assert.equal((await admin('PUT', '/api/features/fusionResults', { stage: 'final' })).status, 200);
+  assert.ok((await user('GET', '/api/me')).body.permissions.includes('feature.fusionResults'), 'whoever loads findings');
+  await user('GET', '/api/scan');
+  assert.equal((await user('POST', '/api/beta/fusion/read', {})).body.fusion.totals.total, 3);
+  assert.equal((await admin('PUT', '/api/features/fusionResults', { stage: 'beta' })).status, 200);
+  assert.equal((await user('GET', '/api/beta/fusion')).status, 403);
 });

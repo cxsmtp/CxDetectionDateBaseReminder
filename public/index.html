@@ -65,9 +65,7 @@
       <aside class="sidebar">
         <div class="brand">
           <img id="app-logo" class="app-logo" alt="" hidden />
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6.5v6l3.8 2.3" /></svg>
-          </span>
+          <span class="brand-mark is-icon" aria-hidden="true"><img src="/mz-icon.png" alt="" width="34" height="34" /></span>
           <strong id="app-name" class="app-name">CxMissionZero</strong>
         </div>
         <div class="nav-tools" id="nav-tools" hidden>
@@ -124,10 +122,14 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>
             <span>Logs</span>
           </a>
-          <p class="nav-group nav-labs" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching" title="Early features, still being tried out: who wrote the code, and their email"><i aria-hidden="true"></i>Labs</p>
+          <p class="nav-group nav-labs" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching feature.fusionResults" title="Early features, still being tried out: who wrote the code, and what Fusion re-scored"><i aria-hidden="true"></i>Labs</p>
           <a href="#/beta" data-route="beta" class="tab" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.5L4.6 18.2A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.8L14 9.5V3" /><path d="M7.5 15h9" /></svg>
             <span id="nav-beta-label">Code authors</span>
+          </a>
+          <a href="#/fusion" data-route="fusion" class="tab" data-stage="labs" data-perm="beta.use feature.fusionResults">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="5" /><circle cx="16" cy="12" r="5" /></svg>
+            <span>Fusion results</span>
           </a>
         </nav>
         <div class="sidebar-tools" id="sidebar-tools" hidden>
@@ -1335,11 +1337,11 @@
               <div class="brand-icon-row">
                 <img id="brand-icon-preview" class="brand-icon-preview" src="/app-icon" alt="Browser icon" width="48" height="48" />
                 <div class="brand-icon-fields">
-                  <label class="field"><span>Browser icon — the tab's icon; empty is CxMissionZero's own MZ0</span><input id="brand-icon" spellcheck="false" placeholder="https://acme.com/icon.png, or upload one" /></label>
+                  <label class="field"><span>Browser icon</span><input id="brand-icon" spellcheck="false" placeholder="https://acme.com/icon.png, or upload one" /></label>
                   <div class="actions compact">
                     <label class="button-like sm" for="brand-icon-file">Upload an icon</label>
                     <input id="brand-icon-file" class="sr-only" type="file" accept="image/png,image/svg+xml,image/x-icon,image/vnd.microsoft.icon,image/webp,image/jpeg" />
-                    <button type="button" id="brand-icon-default" class="sm ghost">Use MZ0 (the default)</button>
+                    <button type="button" id="brand-icon-default" class="sm ghost">Default</button>
                     <span class="hint inline-hint">Square works best: SVG, or PNG 64×64 or larger, up to 100 KB.</span>
                   </div>
                 </div>
@@ -1811,10 +1813,21 @@
                   <label class="inline">Triage <input type="number" id="cc-spend-extra-triage" min="0" max="100000" value="0" class="small-num" aria-label="Extra triage credits" /></label>
                   <label class="inline">Remediation <input type="number" id="cc-spend-extra-remediation" min="0" max="100000" step="3" value="0" class="small-num" aria-label="Extra remediation credits" /></label>
                 </div>
-                <div class="actions compact">
-                  <button type="button" id="cc-allocate" data-perm="credits.allocate">Allocate credits for triage and remediation</button>
-                  <button type="button" class="primary" id="cc-run-triage" data-perm="triage.run">Triage with AI Assist now</button>
-                  <button type="button" class="primary" id="cc-run-remediation" data-perm="triage.run">Remediate with AI Assist now</button>
+                <div class="credit-lanes">
+                  <div class="credit-lane" data-lane="triage">
+                    <div class="lane-head"><strong>AI Triage</strong><span class="lane-figures" id="cc-lane-triage"></span></div>
+                    <div class="lane-actions">
+                      <button type="button" id="cc-allocate-triage" data-perm="credits.allocate">Allocate for triage</button>
+                      <button type="button" class="primary" id="cc-run-triage" data-perm="triage.run">Triage with AI Assist now</button>
+                    </div>
+                  </div>
+                  <div class="credit-lane" data-lane="remediation">
+                    <div class="lane-head"><strong>AI Remediation</strong><span class="lane-figures" id="cc-lane-remediation"></span></div>
+                    <div class="lane-actions">
+                      <button type="button" id="cc-allocate-remediation" data-perm="credits.allocate">Allocate for remediation</button>
+                      <button type="button" class="primary" id="cc-run-remediation" data-perm="triage.run">Remediate with AI Assist now</button>
+                    </div>
+                  </div>
                 </div>
                 <p class="hint" id="cc-spend-left"></p>
                 <p class="status" id="cc-spend-status"></p>
@@ -2060,6 +2073,48 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div id="more-hosts-list"><p class="hint">None yet: up to 9 of each host (_2 to _9).</p></div>
             </section>
             </div>
+          </div>
+
+          <!-- ================= Fusion results (Labs) ================= -->
+          <div id="page-fusion" class="page fusion" hidden>
+            <section class="panel" id="beta-fusion">
+              <div class="panel-head">
+                <div>
+                  <h2>Fusion results <span class="badge warn" data-beta-badge="fusionResults">Beta</span></h2>
+                  <p class="hint wide">What Checkmarx One Fusion re-scored in the projects loaded on the Workbench, read again each time the Workbench loads findings. Each result counts under its new risk score: 9 or more critical, 7 high, 4 medium, below that low.</p>
+                </div>
+                <div class="actions"><button type="button" id="fusion-read" class="sm" data-perm="beta.use feature.fusionResults">Read Fusion now</button></div>
+              </div>
+              <p class="status" id="fusion-status"></p>
+              <div class="totals fusion-tiles" id="fusion-tiles"></div>
+              <div class="fusion-tools">
+                <input type="search" id="fusion-q" placeholder="Search projects or applications" aria-label="Search Fusion projects" />
+                <select id="fusion-sev" aria-label="Severity">
+                  <option value="">All severities</option>
+                  <option value="CRITICAL">With critical</option>
+                  <option value="HIGH">With high</option>
+                  <option value="MEDIUM">With medium</option>
+                  <option value="LOW">With low</option>
+                </select>
+                <label class="pill-check"><input type="checkbox" id="fusion-raised" /> Raised to critical or high</label>
+                <label class="fusion-credits"><span>Fusion credits used</span><input type="number" id="fusion-credits" min="0" step="any" inputmode="decimal" placeholder="Credits" /></label>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table fusion-table">
+                  <thead><tr><th>Project</th><th>Application</th><th class="num">Critical</th><th class="num">High</th><th class="num">Medium</th><th class="num">Low</th><th class="num">Total</th><th class="num" title="Results Fusion raised to critical or high from a lower severity">Raised to C/H</th><th class="num" title="Results whose risk score Fusion lowered">Lowered</th><th>Last Fusion scan</th></tr></thead>
+                  <tbody id="fusion-body"><tr><td colspan="10" class="hint">Load findings on the Workbench: Fusion is read for the projects fetched there.</td></tr></tbody>
+                </table>
+              </div>
+              <details class="fusion-apps">
+                <summary>Applications <em class="ptab-count" id="fusion-app-count"></em></summary>
+                <div class="table-wrap">
+                  <table class="data-table">
+                    <thead><tr><th>Application</th><th class="num">Projects loaded</th><th class="num">Fusion results</th><th>Last Fusion scan</th></tr></thead>
+                    <tbody id="fusion-apps"></tbody>
+                  </table>
+                </div>
+              </details>
+            </section>
           </div>
 
           <!-- ================= Audit ================= -->
@@ -2466,6 +2521,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             <div class="ptabs" role="tablist" aria-label="Cx Credits Calculator" data-ptabs="calculator">
               <button type="button" role="tab" class="ptab" data-pt="tr">Triage &amp; remediation</button>
               <button type="button" role="tab" class="ptab" data-pt="fusion">Fusion</button>
+              <button type="button" role="tab" class="ptab" data-pt="impact">Impact</button>
               <button type="button" role="tab" class="ptab" data-pt="reports">Projection reports</button>
             </div>
 
@@ -2540,6 +2596,44 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div class="calc-more" id="calc-rows-more" hidden><button type="button" class="secondary" id="calc-rows-more-btn">Show more</button></div>
                 <p class="hint" id="calc-rows-empty">No projects yet. <strong>Read from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.</p>
               </section>
+            </div>
+
+            <div data-ptpanel="calculator:impact" class="calc-panel" hidden>
+              <section class="panel">
+                <h2>What the credits give back</h2>
+                <p class="calc-notice" data-help-fold>Every finding AI Triage looks at is one a person does not triage by hand; every false positive it clears never reaches a developer; every true positive AI Remediation fixes saves the fix by hand, less the time a developer takes to review it. The hours, at what a developer's hour costs, set against what the credits cost, are the return. The figures follow the Triage &amp; remediation tab.</p>
+                <div class="calc-terms" id="calc-impact-terms">
+                  <label class="field"><span>Minutes to triage a finding by hand</span><input type="number" id="calc-imp-triage" min="0" step="1" /></label>
+                  <label class="field"><span>Minutes to fix a finding by hand</span><input type="number" id="calc-imp-fix" min="0" step="5" /></label>
+                  <label class="field"><span>Minutes to review an AI fix</span><input type="number" id="calc-imp-review" min="0" step="1" /></label>
+                  <label class="field"><span>A developer's hour costs</span><input type="number" id="calc-imp-rate" min="0" step="1" placeholder="e.g. 85" /></label>
+                  <label class="field"><span>A credit costs</span><input type="number" id="calc-imp-price" min="0" step="0.01" placeholder="e.g. 1.50" /></label>
+                  <label class="field"><span>Currency</span><select id="calc-imp-currency"><option value="USD" translate="no">USD</option><option value="EUR" translate="no">EUR</option><option value="GBP" translate="no">GBP</option><option value="INR" translate="no">INR</option><option value="JPY" translate="no">JPY</option><option value="CNY" translate="no">CNY</option><option value="KRW" translate="no">KRW</option><option value="AUD" translate="no">AUD</option><option value="CAD" translate="no">CAD</option><option value="CHF" translate="no">CHF</option><option value="SGD" translate="no">SGD</option><option value="HKD" translate="no">HKD</option><option value="TWD" translate="no">TWD</option><option value="MYR" translate="no">MYR</option><option value="IDR" translate="no">IDR</option><option value="THB" translate="no">THB</option><option value="VND" translate="no">VND</option><option value="AED" translate="no">AED</option><option value="SAR" translate="no">SAR</option><option value="ILS" translate="no">ILS</option><option value="BRL" translate="no">BRL</option><option value="MXN" translate="no">MXN</option><option value="ZAR" translate="no">ZAR</option><option value="SEK" translate="no">SEK</option><option value="NOK" translate="no">NOK</option><option value="DKK" translate="no">DKK</option><option value="PLN" translate="no">PLN</option><option value="NZD" translate="no">NZD</option></select></label>
+                </div>
+                <p class="hint">They start from Settings → Impact and are kept with this customer.</p>
+                <h3 class="calc-impact-h3">Fusion</h3>
+                <div class="calc-terms" id="calc-impact-fterms">
+                  <label class="field"><span>Lines an expert reviews in an hour</span><input type="number" id="calc-imp-lph" min="1" step="10" /></label>
+                  <label class="field"><span>Reviewers in a team</span><input type="number" id="calc-imp-reviewers" min="1" step="1" /></label>
+                  <label class="field"><span>A fix after release costs (× a fix while coding)</span><input type="number" id="calc-imp-later" min="1" step="0.5" /></label>
+                  <label class="field"><span>Chance a critical or high finding leads to a breach (%)</span><input type="number" id="calc-imp-chance" min="0" max="100" step="0.1" /></label>
+                  <label class="field"><span>A breach costs</span><input type="number" id="calc-imp-breach" min="0" step="100000" /></label>
+                  <label class="check calc-imp-count"><input type="checkbox" id="calc-imp-count" /> Count the breach cost avoided in the return</label>
+                </div>
+                <p class="hint">A breach's cost starts at IBM's Cost of a Data Breach 2024 average; the breach cost avoided is an expected cost, not money saved, so it counts in the return only when ticked.</p>
+              </section>
+              <div class="calc-kpis" id="calc-impact-overall"></div>
+              <h2 class="calc-impact-part">Triage &amp; remediation</h2>
+              <div class="calc-kpis" id="calc-impact-kpis"></div>
+              <section class="panel">
+                <h2>Where the time comes back, by severity</h2>
+                <div class="table-wrap"><table class="data-table calc-impact"><thead><tr><th>Severity</th><th class="num">Triaged by AI</th><th class="num">False positives cleared</th><th class="num">Fixed by AI</th><th class="num">Hours saved</th><th class="num">Credits</th></tr></thead><tbody id="calc-impact-rows"></tbody></table></div>
+                <p class="hint" id="calc-impact-empty" hidden>No triage &amp; remediation projection yet: read Checkmarx One (or use the two exports) on the Triage &amp; remediation tab.</p>
+              </section>
+              <h2 class="calc-impact-part">Fusion</h2>
+              <div class="calc-kpis" id="calc-impact-fusion"></div>
+              <p class="hint" id="calc-impact-fusion-empty" hidden>No Fusion projects yet: add them, with their lines of code, on the Fusion tab.</p>
+              <section class="panel" id="calc-impact-how"></section>
             </div>
 
             <div data-ptpanel="calculator:reports" class="calc-panel" hidden>

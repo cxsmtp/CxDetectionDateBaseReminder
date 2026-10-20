@@ -16,7 +16,7 @@ import { mapWithConcurrency } from './cxone/client.js';
 import { DEFAULT_ENGINES, cleanEngines, engineOf, engineScope } from './engines.js';
 import { getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
 import { BRANCH_HOW, branchOf, primaryScans } from './cxone/branches.js';
-import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, aheadSettings, amount, cleanScope, creditSummary, frequencyOf, fusionSettings, totalsSettings, wholeNumber } from '../public/calculator/model.js';
+import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, aheadSettings, amount, cleanScope, creditSummary, frequencyOf, fusionSettings, impactSettings, totalsSettings, wholeNumber } from '../public/calculator/model.js';
 
 export const MAX_PROFILES = 200;
 /** One profile, saved: the two exports' weekly series fit well inside this. */
@@ -207,16 +207,16 @@ export class ProjectionStore {
     return structuredClone(found);
   }
 
-  create({ name, by }) {
+  create({ name, by, impact = {} }) {
     if (this.#profiles.length >= MAX_PROFILES) throw fail(409, `There are already ${MAX_PROFILES} customers. Delete one first.`);
     const now = new Date().toISOString();
-    const profile = { id: randomUUID(), name: text(name, 120) || 'New customer', planVersion: 3, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({}), totals: totalsSettings({}), scope: cleanScope({}) };
+    const profile = { id: randomUUID(), name: text(name, 120) || 'New customer', planVersion: 3, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({}), totals: totalsSettings({}), scope: cleanScope({}), impact: impactSettings(impact) };
     this.#profiles.push(profile);
     this.#save();
     return structuredClone(profile);
   }
 
-  /** Save what changed: the customer's name, the T&R projection, the Fusion projection, the extra % and bundle size, the scope (each optional). */
+  /** Save what changed: the customer's name, the T&R projection, the Fusion projection, the extra % and bundle size, the scope, the impact's assumptions (each optional). */
   update(id, patch = {}, by = '') {
     const index = this.#profiles.findIndex((p) => p.id === id);
     if (index === -1) throw fail(404, 'That customer no longer exists.');
@@ -226,6 +226,8 @@ export class ProjectionStore {
     if (patch.fusion !== undefined) next.fusion = cleanFusion(patch.fusion);
     if (patch.totals !== undefined) next.totals = totalsSettings(patch.totals);
     if (patch.scope !== undefined) next.scope = cleanScope(patch.scope);
+    // The impact's assumptions: minutes by hand, the hourly cost, the credit price, the currency.
+    if (patch.impact !== undefined) next.impact = impactSettings(patch.impact);
     next.updatedAt = new Date().toISOString();
     next.updatedBy = text(by, 254);
     if (Buffer.byteLength(JSON.stringify(next)) > MAX_PROFILE_BYTES) throw fail(413, 'This customer is too large to save (over 3 MB). Use exports covering fewer weeks.');

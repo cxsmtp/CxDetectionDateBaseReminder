@@ -440,3 +440,28 @@ test('stage 11 — Impact: hours saved, noise removed and the debt, from the rea
   }
   await admin('PUT', '/api/settings', { impact: { triageMinutes: 20, hourlyRate: 0, creditPrice: 0, currency: 'USD', monthlyTo: '' } });
 });
+
+test('stage 12 — a project deleted from Checkmarx One is skipped and named, and each kind of credit is allocated on its own', async () => {
+  const listed = async () => (await admin('GET', '/api/credits')).body.allocations;
+  const before = Object.fromEntries((await listed()).map((p) => [p.projectId, p]));
+  assert.ok(before.p0 && before.p1, 'both projects hold credits');
+  await fetch(`${MOCK}/__gone?id=p1&on=1`);
+  try {
+    // Every project holding credits: p1 is skipped and named, p0 gets what its critical findings need, triage only.
+    const r = await admin('POST', '/api/credits/allocate-needed', { severities: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'], kind: 'triage', projectIds: ['p0', 'p1'] });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(r.body.gone.map((p) => p.projectId), ['p1']);
+    assert.match(r.body.goneNote, /no longer in Checkmarx One/);
+    const p0 = r.body.allocations.find((p) => p.projectId === 'p0');
+    assert.equal(p0.remediation.remaining, before.p0.remediation.remaining, 'triage only: remediation untouched');
+    // Only the deleted project: refused with its name, not a raw 404.
+    const only = await admin('POST', '/api/credits/allocate-needed', { severities: ['CRITICAL'], projectIds: ['p1'] });
+    assert.equal(only.status, 409);
+    assert.match(only.body.error, /Project 1 is no longer in Checkmarx One/);
+    const run = await admin('POST', '/api/credits/run', { kind: 'triage', severities: ['CRITICAL'], projectIds: ['p1'], notifyInitiators: false });
+    assert.equal(run.status, 409);
+    assert.match(run.body.error, /no longer in Checkmarx One/);
+  } finally {
+    await fetch(`${MOCK}/__gone?id=p1&on=0`);
+  }
+});

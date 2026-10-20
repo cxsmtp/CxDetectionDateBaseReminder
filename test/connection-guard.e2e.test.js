@@ -281,11 +281,12 @@ test('usage over a period, for the Credits page', async () => {
   assert.equal((await admin('GET', '/api/credits/usage?from=2026-02-01&to=2026-01-01')).status, 400);
 });
 
-test('the browser icon: MZ0 for everyone (signed in or not), the one set in Branding when there is one', async () => {
+test("the browser icon: CxMissionZero's own for everyone (signed in or not), the one set in Branding when there is one", async () => {
   const builtIn = await fetch(`${BASE}/app-icon`);
   assert.equal(builtIn.status, 200);
-  assert.match(builtIn.headers.get('content-type'), /image\/svg\+xml/);
-  assert.match(await builtIn.text(), /<title>MZ0<\/title>/);
+  assert.match(builtIn.headers.get('content-type'), /image\/png/);
+  const own = Buffer.from(await builtIn.arrayBuffer());
+  assert.deepEqual([...own.subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47], 'a PNG: public/mz-icon-64.png');
   assert.equal((await fetch(`${BASE}/api/health`).then((r) => r.json())).app.iconVersion, '');
 
   const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
@@ -307,5 +308,5 @@ test('the browser icon: MZ0 for everyone (signed in or not), the one set in Bran
   assert.equal(redirect.status, 302);
   assert.equal(redirect.headers.get('location'), 'https://acme.example/icon.png');
   await admin('PUT', '/api/settings', { branding: { iconUrl: '' } });
-  assert.match(await fetch(`${BASE}/app-icon`).then((r) => r.text()), /MZ0/, 'back to MZ0');
+  assert.deepEqual(Buffer.from(await fetch(`${BASE}/app-icon`).then((r) => r.arrayBuffer())), own, "back to CxMissionZero's own");
 });
