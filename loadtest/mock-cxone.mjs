@@ -266,7 +266,7 @@ http.createServer((req, res) => {
       }
       // Fusion's Results and Dispatcher services, under /api/correlation as on a tenant. Applications app-0 to app-2 have had a Fusion scan
       // (app-3 never); in them, two projects in three have results: project i has (i % 5) + 1, and
-      // its result j moves from an old risk score to a new one (some raised into critical or high,
+      // its result j (the finding p{i}-r{j}) moves from an old risk score to a new one (some raised into critical or high,
       // some lowered), SCA correlated with SAST.
       if (FUSION && u.pathname === '/api/correlation/results/applications') { bump('fusion-applications'); return send(200, { applications: ['app-0', 'app-1', 'app-2'] }); }
       if (FUSION && (m = u.pathname.match(/^\/api\/correlation\/results\/applications\/([^/]+)\/risk-scores$/))) {
@@ -277,7 +277,7 @@ http.createServer((req, res) => {
         const results = [];
         for (let i = k; i < PROJECTS; i += 4) {
           if (i % 3 === 2) continue;
-          for (let j = 0; j < (i % 5) + 1; j++) results.push({ resultId: `fus-${i}-${j}`, fusionScanId: `fscan-${k}`, tenantId: 'acme', vulnerabilityEngine: 'SCA', correlatedEngine: 'SAST', oldRiskValue: OLD[(i + j) % 5], newRiskValue: NEW[(i + j) % 5], scanId: `scan-p${i}`, resultInfo: NEW[(i + j) % 5] > OLD[(i + j) % 5] ? 'Exploitable path: the vulnerable package is called from reachable code' : 'No exploitable path found', projectId: `p${i}` });
+          for (let j = 0; j < (i % 5) + 1; j++) results.push({ resultId: `p${i}-r${j}`, fusionScanId: `fscan-${k}`, tenantId: 'acme', vulnerabilityEngine: 'SCA', correlatedEngine: 'SAST', oldRiskValue: OLD[(i + j) % 5], newRiskValue: NEW[(i + j) % 5], scanId: `scan-p${i}`, resultInfo: NEW[(i + j) % 5] > OLD[(i + j) % 5] ? 'Exploitable path: the vulnerable package is called from reachable code' : 'No exploitable path found', projectId: `p${i}` });
         }
         // No paging parameters, as the service's description has none: every result at once.
         return send(200, { totalCount: results.length, results });
