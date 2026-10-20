@@ -24400,5 +24400,275 @@
   "seen": [
    "Cx Credits Calculator › Impact (Fusion and the return on all the credits) and the PDF summary: the tab, the projection report, slide 4 and the appendix"
   ]
+ },
+ "Fusion results": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Labs: what Checkmarx One Fusion re-scored": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Read Fusion now": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Fusion credits used": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Application": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Lowered": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Raised to C/H": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Last Fusion scan": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Projects loaded": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "No Fusion scan": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "With critical": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "With high": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "With medium": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "With low": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Raised to critical or high": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Of the open findings re-scored": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Results per credit": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Enter the Fusion credits used, below": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "{0} of {1} findings · {2} of {3} projects": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "in {0} project(s) · {1} lowered": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "{0} critical or high per credit": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "{0} critical or high per credit · {1} credits each": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Load findings on the Workbench: Fusion is read for the projects fetched there.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Fusion has not been read for this fetch yet.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "No project matches.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Fusion re-scored nothing in the projects fetched.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Fusion did not answer on this tenant.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "No application holds the projects fetched.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "What Checkmarx One Fusion re-scored in the projects loaded on the Workbench, read again each time the Workbench loads findings. Each result counts under its new risk score: {0} or more critical, {1} high, {2} medium, below that low.": {
+  "kind": "text",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Fusion results <span class=\"badge warn\">Beta</span>": {
+  "kind": "html",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Search projects or applications": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Search Fusion projects": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Results Fusion raised to critical or high from a lower severity": {
+  "kind": "attr:title",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Results whose risk score Fusion lowered": {
+  "kind": "attr:title",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Results Checkmarx One Fusion re-scored in this project (Labs → Fusion results)": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench › Columns › Fusion"
+  ]
+ },
+ "Early features, still being tried out: who wrote the code, and what Fusion re-scored": {
+  "kind": "attr:title",
+  "seen": [
+   "menu › Labs"
+  ]
+ },
+ "Fusion did not answer on this tenant: no Fusion results to show.": {
+  "kind": "message",
+  "seen": [
+   "fusion › Fusion results Beta"
+  ]
+ },
+ "Reading Fusion results…": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "Fusion results read": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "Reading Fusion results from Checkmarx One…": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "Counting them by severity…": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "What Checkmarx One Fusion re-scored in the projects you load: critical, high, medium and low per project, the risk it raised to critical or high, and results per credit.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Beta permission needed).": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "The Workbench's projects table can show each project's Fusion results (the Fusion column).": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "<span class=\"badge warn\">Before making it final</span> Keep it in Beta until the counts match what Checkmarx One shows for Fusion on your own applications.": {
+  "kind": "html",
+  "seen": [
+   "settings › Beta features"
+  ]
  }
 }
