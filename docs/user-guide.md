@@ -21,10 +21,11 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 11. [Audit page: credit audit log and backups](#audit-page)
 12. [People & roles](#people--roles)
 13. [Labs: Code authors](#labs-code-authors)
-14. [Logs page](#logs-page)
-15. [Performance and security status](#performance-and-security-status)
-16. [Everyday recipes](#everyday-recipes)
-17. [Troubleshooting](#troubleshooting)
+14. [Labs: Fusion results](#labs-fusion-results)
+15. [Logs page](#logs-page)
+16. [Performance and security status](#performance-and-security-status)
+17. [Everyday recipes](#everyday-recipes)
+18. [Troubleshooting](#troubleshooting)
 
 The running version is shown at the bottom of the sidebar, as `MZ-xx.xx.xx`. Click it for Settings → About.
 
@@ -41,7 +42,7 @@ The sidebar is grouped by what you came to do:
 | **Prove** | Credit Control, Impact, Audit | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups. |
 | **Plan** | Cx Credits Calculator | The credits a customer needs for triage and remediation of their backlog and for Fusion scans, and projection reports, from the Checkmarx One tenant. Shown to Admins and the roles an Admin gives its permission to. |
 | **Set up** | People & roles, Settings, Logs | People and roles, configuration, troubleshooting. |
-| **Labs** | Code authors | Early features, set apart at the bottom of the menu: who wrote the vulnerable code, and their email. Shown to roles holding **Beta features**. |
+| **Labs** | Code authors, Fusion results | Early features, set apart at the bottom of the menu, each its own page: who wrote the vulnerable code, and their email; what Checkmarx One Fusion re-scored in the projects you load. Shown to roles holding **Beta features**. |
 
 The coloured label next to each page title says which group the page is in.
 
@@ -478,6 +479,7 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 | --- | --- |
 | **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Workbench's Remind panel links to it, and Settings → Automation can email code authors on every run. |
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
+| **Fusion results** | Everyone who loads findings sees **Labs → Fusion results**, read again with each Workbench fetch, and the Workbench's **Fusion** column. |
 
 ### Hands-off (set it up once)
 
@@ -1105,6 +1107,20 @@ Early features, in their own **Labs** section at the bottom of the menu (it was 
   - **A second (third …) connection to a host:** the same variables numbered `_2` to `_9` (`GITLAB_TOKEN_2`, `GITLAB_URL_2` …). **More connections to the same host**, at the bottom of the tab, lists them with their state.
 
 ---
+
+## Labs: Fusion results
+
+Its own page under **Labs**, apart from Code authors: what Checkmarx One **Fusion** re-scored in the projects loaded on the Workbench. Fusion correlates one engine's findings with another's (an open-source package whose vulnerable code SAST shows your code reaches: an exploitable path) and gives the result a new risk score. Beta: shown to roles holding **Beta features**, and to everyone who loads findings once an Admin makes it final ([Settings → Beta features](#beta-features-admin)).
+- **When it is read.** Each time the Workbench loads findings, for the projects it fetched, and again with **Read Fusion now**. Nothing is started: it only reads what Fusion already found.
+- **Severity.** Each result counts under its new risk score: 9 or more critical, 7 high, 4 medium, below that low.
+- **The three tiles:**
+  - **Of the open findings re-scored:** Fusion's results as a share of the open findings fetched, and in how many of the projects.
+  - **Raised to critical or high:** results Fusion brought up to critical or high from a lower severity, in how many projects, and how many it lowered.
+  - **Results per credit:** enter the **Fusion credits used** (remembered in this browser) to see results, and critical or high results, per credit.
+- **The table:** one row per project with Fusion results, most critical first: its application, Critical, High, Medium, Low, Total, **Raised to C/H**, **Lowered** and the **Last Fusion scan** of its application (its status and when). Search, pick a severity, or keep only what was raised to critical or high; every heading sorts and filters.
+- **Applications:** each application holding a fetched project, its Fusion results, and its last Fusion scan (or **No Fusion scan**).
+- **On the Workbench:** the **Fusion** column (under **Columns**) shows each project's Fusion results, filled in when Fusion has been read.
+- **A tenant without Fusion** shows no results, and says so.
 
 ## Logs page
 

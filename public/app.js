@@ -5,6 +5,7 @@ import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engin
 import { LANGUAGES, availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
 import { helpMode, setHelpMode, startHelpTips } from './help-tips.js';
 import { sortAndFilter, startTableTools, tableFiltered } from './table-tools.js';
+import { fusionRows, fusionTiles, fusionTotalOf } from './fusion-view.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -229,6 +230,7 @@ const ACTIVITIES = [
   ['PUT', /^\/api\/me\/profile$/, 'Saving your profile…', 'Profile saved', { lock: false, key: 'profile' }],
   ['POST', /^\/api\/beta\/github\/evaluate$/, 'Matching GitHub usernames…', 'Matching finished'],
   ['POST', /^\/api\/beta\/authors\/find$/, 'Finding who wrote the vulnerable code…', 'Authors found'],
+  ['POST', /^\/api\/beta\/fusion\/read$/, 'Reading Fusion results…', 'Fusion results read'],
   ['POST', /^\/api\/beta\/authors\/notify$/, 'Emailing the code authors…', 'Code authors emailed'],
   ['GET', /^\/api\/audit\/verify/, 'Verifying the audit log…', 'Audit log verified'],
   ['GET', /^\/api\/audit\/reconcile/, 'Reconciling with the credit ledger…', 'Reconciled'],
@@ -251,6 +253,7 @@ const STEPS = [
   [/^\/api\/(reminders|tracked-reports\/[^/]+\/remind|beta\/authors\/notify|settings\/smtp\/send-test)/, ['Preparing the emails…', 'Sending the emails…', 'Each person receives only their own projects…']],
   [/^\/api\/(integration|settings)/, ['Testing the connection…', 'Applying the settings…']],
   [/^\/api\/(backup|audit)/, ['Verifying the audit log…', 'Checking every entry…']],
+  [/^\/api\/beta\/fusion/, ['Reading Fusion results from Checkmarx One…', 'Counting them by severity…']],
   [/^\/api\/beta/, ['Reading the repository history…', 'Matching people to email addresses…']],
   [/./, ['Working…', 'Processing…']],
 ];
@@ -611,6 +614,7 @@ const PAGE_PERMS = {
   settings: '', // everyone has Your profile; the rest needs settings.view
   access: 'iam.view',
   beta: 'beta.use feature.codeAuthors feature.identityMatching',
+  fusion: 'beta.use feature.fusionResults',
   logs: '',
   help: '', // everyone may ask for help
   calculator: 'projections.use',
@@ -692,7 +696,7 @@ function applyPermissions() {
 
 const ROUTE_ALIASES = { iam: 'access', 'credit-control': 'credits' };
 /** Act → Follow up → Prove, plus Set up: what each page is for. */
-const STAGES = { dashboard: 'act', beta: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
+const STAGES = { dashboard: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
 const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', plan: 'Plan', setup: 'Set up', labs: 'Labs' };
 /** The tab group on each page (data-ptabs). */
 const PAGE_TABS = { dashboard: 'dash', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
@@ -1222,6 +1226,7 @@ const PAGE_LOADERS = {
   logs: () => renderLogsPage(),
   reports: () => loadTrackedReports(),
   beta: () => renderBeta(),
+  fusion: () => loadFusion(),
   audit: () => renderAudit(),
   access: () => loadAccess(),
   help: () => loadHelp(),
@@ -1248,6 +1253,7 @@ const PAGE_RETURN = {
   logs: () => renderLogsPage(),
   reports: () => loadTrackedReports(),
   beta: () => renderBetaScope(),
+  fusion: () => loadFusion(),
   help: () => loadHelp(),
   calculator: () => calculator.load({ reopen: false }),
 };
@@ -1396,6 +1402,18 @@ document.addEventListener('keydown', (event) => {
   usable[next].click();
   usable[next].focus();
 });
+
+// A drop-down menu that would run past the window's edge opens the other way, so it is never cut
+// off and the page never scrolls sideways (the engines menu at a narrow width).
+document.addEventListener('toggle', (event) => {
+  const menu = event.target.matches?.('details.col-picker') && event.target.open && event.target.querySelector(':scope > .col-menu');
+  if (!menu || getComputedStyle(menu).position === 'fixed') return;
+  menu.classList.remove('to-start', 'to-end');
+  const r = menu.getBoundingClientRect();
+  const width = document.documentElement.clientWidth;
+  if (r.right > width - 8) menu.classList.add('to-end'); // right edge to the button's right edge
+  else if (r.left < 8) menu.classList.add('to-start'); // left edge to the button's left edge
+}, true);
 
 // ---- Settings: one section at a time, chosen on the left --------------------
 
@@ -1576,6 +1594,7 @@ const PAGE_TITLES = {
   access: ['People & roles', 'Who can sign in, and what they may do'],
   audit: ['Audit', 'Every credit spent, refused or failed'],
   beta: ['Code authors', 'Labs: who wrote the code, and their email'],
+  fusion: ['Fusion results', 'Labs: what Checkmarx One Fusion re-scored'],
   help: ['Get help', 'Support cases and enhancements'],
   calculator: ['Cx Credits Calculator', 'The credits a customer needs'],
 };
@@ -4072,6 +4091,8 @@ async function tagInitiator(key) {
  * Columns a person can add to the projects table. Add one here and it appears
  * under "Columns", sorts, and goes into the export.
  */
+// Labs → Fusion's last read (see readFusion), here because the Workbench's Fusion column reads it.
+const fusion = { data: null, scope: null, loading: null };
 const OPTIONAL_COLUMNS = [
   { id: '0-30', group: 'Age', label: '≤ 30d', title: 'Findings first detected 30 days ago or less', value: (p) => p.counts?.['0-30'] ?? 0 },
   { id: '31-60', group: 'Age', label: '31–60d', title: 'Findings first detected 31 to 60 days ago', value: (p) => p.counts?.['31-60'] ?? 0 },
@@ -4084,6 +4105,8 @@ const OPTIONAL_COLUMNS = [
   // SLAs (Beta): columns to add under "Columns", for those who may use them.
   { id: 'sla:overdue', group: 'SLA', label: 'Past SLA', title: 'Open findings past the days their severity has to be fixed (Settings → SLAs)', value: (p) => p.sla?.overdue ?? 0, alert: true, perm: 'feature.sla' },
   { id: 'sla:soon', group: 'SLA', label: 'Due ≤ 7d', title: 'Open findings due within 7 days', value: (p) => p.sla?.dueSoon ?? 0, perm: 'feature.sla' },
+  // Fusion (Beta): the project's results Fusion re-scored (Labs → Fusion), shown by default to those who may use it.
+  { id: 'fusion:total', group: 'Fusion', label: 'Fusion', title: 'Results Checkmarx One Fusion re-scored in this project (Labs → Fusion results)', value: (p) => fusionTotalOf(fusion.data, p.projectId) ?? 0, perm: 'feature.fusionResults', byDefault: true },
 ];
 const COLUMNS_KEY = 'mz-project-columns';
 let columnsChosen = false;
@@ -4096,6 +4119,12 @@ const shownColumns = (() => {
       localStorage.setItem(COLUMNS_KEY, JSON.stringify(saved));
     }
     localStorage.setItem(`${COLUMNS_KEY}-65`, '1');
+    // MZ-01.00.85: the Fusion column joins a choice saved before it existed, once (it shows only to those who may use Fusion).
+    if (Array.isArray(saved) && !localStorage.getItem(`${COLUMNS_KEY}-85`)) {
+      if (!saved.includes('fusion:total')) saved.push('fusion:total');
+      localStorage.setItem(COLUMNS_KEY, JSON.stringify(saved));
+    }
+    localStorage.setItem(`${COLUMNS_KEY}-85`, '1');
     if (Array.isArray(saved)) {
       columnsChosen = true;
       return new Set(saved.filter((id) => OPTIONAL_COLUMNS.some((c) => c.id === id)));
@@ -6129,6 +6158,7 @@ async function restoreLastScan({ force = false } = {}) {
   renderInitiatorList();
   renderProjects();
   renderAllocation();
+  loadFusion();
   const at = new Date(result.fetchedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
   $('fetch-meta').textContent = `Showing the data fetched ${at}. Load findings again for the latest.`;
   setStatus('status', `Loaded ${state.projects.length} project(s) as fetched ${at}.`, 'ok');
@@ -6256,6 +6286,8 @@ async function fetchProjects() {
     collectInitiators();
     renderInitiatorList();
     renderProjects();
+    // Labs → Fusion follows the Workbench: read again for the projects just fetched.
+    readFusion({ quiet: true });
 
     for (const note of result.initiatorNotes ?? []) console.warn(note);
 
@@ -8138,6 +8170,106 @@ function renderBeta() {
 }
 
 /** Which projects "Find code authors" covers: the Workbench's selection, or all it shows. */
+// ---- Labs → Fusion: what Checkmarx One Fusion re-scored (Beta; src/fusion.js) ----------------
+// Read on the server for the projects of the Workbench's last fetch, after each fetch (and on
+// "Read Fusion now"); kept with the session, so the tab and the Workbench's Fusion column show it.
+const FUSION_CREDITS_KEY = 'mz-fusion-credits';
+
+function fusionCredits() {
+  try {
+    return localStorage.getItem(FUSION_CREDITS_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function fusionScanText(scan) {
+  if (!scan) return '—';
+  const when = scan.at ? fmtDateTime(scan.at) : '';
+  const stage = scan.status !== 'Completed' && scan.stage !== null ? ` (${scan.stage}%)` : '';
+  return `${scan.status}${stage}${when ? ` · ${when}` : ''}`;
+}
+
+/** What the server holds for this session; read it now when there is a fetch but no Fusion read yet. */
+async function loadFusion() {
+  if (!can('feature.fusionResults') || fusion.loading) return;
+  try {
+    const { fusion: data, scope } = await api('/api/beta/fusion');
+    fusion.data = data;
+    fusion.scope = scope;
+    renderFusion();
+    if (!data && scope?.projects) await readFusion({ quiet: true });
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('fusion-status', error);
+  }
+}
+
+async function readFusion({ quiet = false } = {}) {
+  if (!can('feature.fusionResults')) return;
+  if (fusion.loading) return fusion.loading;
+  if (!quiet) setStatus('fusion-status', 'Reading Fusion results…');
+  fusion.loading = (async () => {
+    try {
+      const { fusion: data, scope } = await api('/api/beta/fusion/read', { method: 'POST', body: '{}', quiet });
+      fusion.data = data;
+      fusion.scope = scope;
+      setStatus('fusion-status', data.available ? '' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? '' : 'warn');
+    } catch (error) {
+      if (!handleAuthLoss(error)) showError('fusion-status', error);
+    } finally {
+      fusion.loading = null;
+      renderFusion();
+      if (state.projects.length) renderProjects();
+    }
+  })();
+  return fusion.loading;
+}
+
+function renderFusion() {
+  const tiles = $('fusion-tiles');
+  if (!tiles) return;
+  const { data, scope } = fusion;
+  const credits = fusionCredits();
+  if ($('fusion-credits') !== document.activeElement) $('fusion-credits').value = credits;
+  $('fusion-read').disabled = !scope?.projects;
+  if (!data) {
+    tiles.innerHTML = '';
+    $('fusion-body').innerHTML = `<tr><td colspan="10" class="hint">${escapeHtml(scope?.projects ? 'Fusion has not been read for this fetch yet.' : 'Load findings on the Workbench: Fusion is read for the projects fetched there.')}</td></tr>`;
+    $('fusion-apps').innerHTML = '';
+    $('fusion-app-count').textContent = '';
+    return;
+  }
+  const t = fusionTiles(data, scope, credits);
+  const tile = (value, label, detail) => `<div><span class="value">${escapeHtml(value)}</span><span class="label">${escapeHtml(label)}</span><span class="detail">${escapeHtml(detail)}</span></div>`;
+  tiles.innerHTML = [
+    tile(t.share.percent === null ? fmt(t.share.results) : `${t.share.percent}%`, 'Of the open findings re-scored', `${fmt(t.share.results)} of ${fmt(t.share.open)} findings · ${fmt(t.share.projects)} of ${fmt(t.share.of)} projects`),
+    tile(fmt(t.top.raised), 'Raised to critical or high', `in ${fmt(t.top.projects)} project(s) · ${fmt(t.top.lowered)} lowered`),
+    tile(t.perCredit.results === null ? '—' : String(t.perCredit.results), 'Results per credit', t.perCredit.credits === null ? 'Enter the Fusion credits used, below' : t.perCredit.creditsPerTop === null ? `${t.perCredit.top} critical or high per credit` : `${t.perCredit.top} critical or high per credit · ${t.perCredit.creditsPerTop} credits each`),
+  ].join('');
+  const q = $('fusion-q').value.trim().toLowerCase();
+  const sev = $('fusion-sev').value;
+  const raised = $('fusion-raised').checked;
+  const rows = fusionRows(data, scope).filter((r) => (!q || `${r.name} ${r.applications.join(' ')}`.toLowerCase().includes(q)) && (!sev || r[sev] > 0) && (!raised || r.raisedToTop > 0));
+  const cell = (n, cls = '') => `<td class="num c-count ${n ? cls : 'zero'}">${fmt(n)}</td>`;
+  $('fusion-body').innerHTML = rows.length
+    ? rows.map((r) => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.applications.join(', ') || '—')}</td>${cell(r.CRITICAL, 'aged')}${cell(r.HIGH)}${cell(r.MEDIUM)}${cell(r.LOW)}${cell(r.total)}${cell(r.raisedToTop, 'aged')}${cell(r.lowered)}<td class="nowrap">${escapeHtml(fusionScanText(r.scan))}</td></tr>`).join('')
+    : `<tr><td colspan="10" class="hint">${escapeHtml(data.available ? (Object.keys(data.projects ?? {}).length ? 'No project matches.' : 'Fusion re-scored nothing in the projects fetched.') : 'Fusion did not answer on this tenant.')}</td></tr>`;
+  const apps = data.applications ?? [];
+  $('fusion-app-count').textContent = apps.length ? String(apps.length) : '';
+  $('fusion-apps').innerHTML = apps.length
+    ? apps.map((a) => `<tr><td>${escapeHtml(a.name)}</td><td class="num">${fmt(a.projects)}</td><td class="num">${fmt(a.results)}</td><td class="nowrap">${escapeHtml(a.notScanned ? 'No Fusion scan' : fusionScanText(a.scan))}</td></tr>`).join('')
+    : `<tr><td colspan="4" class="hint">${escapeHtml('No application holds the projects fetched.')}</td></tr>`;
+}
+
+for (const id of ['fusion-q', 'fusion-sev', 'fusion-raised']) $(id)?.addEventListener('input', renderFusion);
+$('fusion-read')?.addEventListener('click', () => readFusion());
+$('fusion-credits')?.addEventListener('input', (event) => {
+  try {
+    localStorage.setItem(FUSION_CREDITS_KEY, event.target.value);
+  } catch {}
+  renderFusion();
+});
+
 function renderBetaScope() {
   const scope = allocationScope();
   $('authors-scope').textContent = state.projects.length

@@ -89,6 +89,7 @@ import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
 import { SUPPORTING_NOTICE, Terms, cleanName } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
+import { readFusion } from './fusion.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
@@ -9406,6 +9407,40 @@ function initiatorLogins(lastScan) {
   }
   return [...logins];
 }
+
+/**
+ * Fusion results (Labs, src/fusion.js): what Fusion re-scored in the projects of the last
+ * Workbench fetch, read again after each fetch. Kept with the session, like the fetch.
+ */
+const fusionScope = (lastScan) => {
+  const projects = (lastScan?.projects ?? []).filter((p) => !p.error);
+  const bySeverity = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+  for (const p of projects) for (const [s, n] of Object.entries(p.bySeverity ?? {})) if (s in bySeverity) bySeverity[s] += Number(n) || 0;
+  return {
+    projects: projects.length,
+    openFindings: projects.reduce((n, p) => n + (Number(p.totalRisks) || 0), 0),
+    bySeverity,
+    names: Object.fromEntries(projects.map((p) => [p.projectId, p.projectName ?? p.projectId])),
+    fetchedAt: lastScan?.fetchedAt ?? null,
+  };
+};
+
+app.get('/api/beta/fusion', requireFeature('fusionResults'), (req, res) => {
+  res.json({ fusion: req.session.lastFusion ?? null, scope: fusionScope(req.session.lastScan) });
+});
+
+app.post(
+  '/api/beta/fusion/read',
+  requireFeature('fusionResults'),
+  asyncRoute(async (req, res) => {
+    if (fetchInProgress(req.session)) return res.status(409).json({ error: 'Findings are still being loaded: Fusion is read when they are in.', fetching: true });
+    const scope = fusionScope(req.session.lastScan);
+    if (!scope.projects) return res.status(400).json({ error: 'Load findings on the Workbench first: Fusion is read for the projects fetched there.' });
+    const fusion = await readFusion(req.session.client, Object.keys(scope.names));
+    req.session.lastFusion = fusion;
+    res.json({ fusion, scope });
+  }),
+);
 
 app.get('/api/beta/github/logins', requireFeature('identityMatching'), (req, res) => {
   const lastScan = req.session.lastScan;

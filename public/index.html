@@ -122,10 +122,14 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>
             <span>Logs</span>
           </a>
-          <p class="nav-group nav-labs" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching" title="Early features, still being tried out: who wrote the code, and their email"><i aria-hidden="true"></i>Labs</p>
+          <p class="nav-group nav-labs" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching feature.fusionResults" title="Early features, still being tried out: who wrote the code, and what Fusion re-scored"><i aria-hidden="true"></i>Labs</p>
           <a href="#/beta" data-route="beta" class="tab" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.5L4.6 18.2A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.8L14 9.5V3" /><path d="M7.5 15h9" /></svg>
             <span id="nav-beta-label">Code authors</span>
+          </a>
+          <a href="#/fusion" data-route="fusion" class="tab" data-stage="labs" data-perm="beta.use feature.fusionResults">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="5" /><circle cx="16" cy="12" r="5" /></svg>
+            <span>Fusion results</span>
           </a>
         </nav>
         <div class="sidebar-tools" id="sidebar-tools" hidden>
@@ -2069,6 +2073,48 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div id="more-hosts-list"><p class="hint">None yet: up to 9 of each host (_2 to _9).</p></div>
             </section>
             </div>
+          </div>
+
+          <!-- ================= Fusion results (Labs) ================= -->
+          <div id="page-fusion" class="page fusion" hidden>
+            <section class="panel" id="beta-fusion">
+              <div class="panel-head">
+                <div>
+                  <h2>Fusion results <span class="badge warn" data-beta-badge="fusionResults">Beta</span></h2>
+                  <p class="hint wide">What Checkmarx One Fusion re-scored in the projects loaded on the Workbench, read again each time the Workbench loads findings. Each result counts under its new risk score: 9 or more critical, 7 high, 4 medium, below that low.</p>
+                </div>
+                <div class="actions"><button type="button" id="fusion-read" class="sm" data-perm="beta.use feature.fusionResults">Read Fusion now</button></div>
+              </div>
+              <p class="status" id="fusion-status"></p>
+              <div class="totals fusion-tiles" id="fusion-tiles"></div>
+              <div class="fusion-tools">
+                <input type="search" id="fusion-q" placeholder="Search projects or applications" aria-label="Search Fusion projects" />
+                <select id="fusion-sev" aria-label="Severity">
+                  <option value="">All severities</option>
+                  <option value="CRITICAL">With critical</option>
+                  <option value="HIGH">With high</option>
+                  <option value="MEDIUM">With medium</option>
+                  <option value="LOW">With low</option>
+                </select>
+                <label class="pill-check"><input type="checkbox" id="fusion-raised" /> Raised to critical or high</label>
+                <label class="fusion-credits"><span>Fusion credits used</span><input type="number" id="fusion-credits" min="0" step="any" inputmode="decimal" placeholder="Credits" /></label>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table fusion-table">
+                  <thead><tr><th>Project</th><th>Application</th><th class="num">Critical</th><th class="num">High</th><th class="num">Medium</th><th class="num">Low</th><th class="num">Total</th><th class="num" title="Results Fusion raised to critical or high from a lower severity">Raised to C/H</th><th class="num" title="Results whose risk score Fusion lowered">Lowered</th><th>Last Fusion scan</th></tr></thead>
+                  <tbody id="fusion-body"><tr><td colspan="10" class="hint">Load findings on the Workbench: Fusion is read for the projects fetched there.</td></tr></tbody>
+                </table>
+              </div>
+              <details class="fusion-apps">
+                <summary>Applications <em class="ptab-count" id="fusion-app-count"></em></summary>
+                <div class="table-wrap">
+                  <table class="data-table">
+                    <thead><tr><th>Application</th><th class="num">Projects loaded</th><th class="num">Fusion results</th><th>Last Fusion scan</th></tr></thead>
+                    <tbody id="fusion-apps"></tbody>
+                  </table>
+                </div>
+              </details>
+            </section>
           </div>
 
           <!-- ================= Audit ================= -->

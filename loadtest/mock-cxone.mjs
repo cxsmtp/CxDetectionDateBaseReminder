@@ -44,6 +44,8 @@ const MOCK_ENGINES = ['SAST', 'SCA', 'SAST', 'KICS', 'SAST', 'Containers'];
 // had its primary branch scanned. Every even project also has a newer feature/login scan, and one finding in
 // five of it comes from that scan. i % 10 = 5 counted 0 lines of code; i % 10 = 9 has no findings.
 const BRANCHES = process.env.BRANCHES === '1';
+// Fusion (Labs → Fusion): FUSION=0 is a tenant without it (every Fusion path answers 404).
+const FUSION = process.env.FUSION !== '0';
 const mainBranchOf = (i) => ['main', 'master', 'develop', ''][i % 4];
 const primaryScanBranch = (i) => (i % 8 === 6 ? 'feature/old' : i % 8 === 7 ? 'trunk' : mainBranchOf(i) || 'main');
 const hasFeature = (i) => BRANCHES && i % 2 === 0;
@@ -261,6 +263,30 @@ http.createServer((req, res) => {
         const t = remediated.get(decodeURIComponent(m[2]));
         if (!t) return send(404, {});
         return send(200, { results: [Date.now() - t < 30000 ? { jobStatus: 'IN_PROGRESS' } : { finishedAt: 't', data: { summary: 'fix', file_changes: [{ file_path: '/src/app.js', diff: '@@ -1 +1 @@\n-const q = input;\n+const q = sanitize(input);' }] } }] });
+      }
+      // Fusion's Results and Dispatcher services. Applications app-0 to app-2 have had a Fusion scan
+      // (app-3 never); in them, two projects in three have results: project i has (i % 5) + 1, and
+      // its result j moves from an old risk score to a new one (some raised into critical or high,
+      // some lowered), SCA correlated with SAST.
+      if (FUSION && u.pathname === '/api/fusion-results/applications') { bump('fusion-applications'); return send(200, { applications: ['app-0', 'app-1', 'app-2'] }); }
+      if (FUSION && (m = u.pathname.match(/^\/api\/fusion-results\/applications\/([^/]+)\/risk-scores$/))) {
+        bump('fusion-risk-scores');
+        const k = Number(decodeURIComponent(m[1]).replace(/^app-/, ''));
+        if (!(k >= 0 && k <= 2)) return send(404, { message: 'application not found', code: 404 });
+        const OLD = [5.5, 3.2, 6.8, 8.1, 2.0], NEW = [9.4, 7.6, 3.1, 9.8, 4.5];
+        const results = [];
+        for (let i = k; i < PROJECTS; i += 4) {
+          if (i % 3 === 2) continue;
+          for (let j = 0; j < (i % 5) + 1; j++) results.push({ resultId: `fus-${i}-${j}`, fusionScanId: `fscan-${k}`, tenantId: 'acme', vulnerabilityEngine: 'SCA', correlatedEngine: 'SAST', oldRiskValue: OLD[(i + j) % 5], newRiskValue: NEW[(i + j) % 5], scanId: `scan-p${i}`, resultInfo: NEW[(i + j) % 5] > OLD[(i + j) % 5] ? 'Exploitable path: the vulnerable package is called from reachable code' : 'No exploitable path found', projectId: `p${i}` });
+        }
+        const lim = Math.min(100, Number(u.searchParams.get('limit') || 100));
+        return send(200, { totalCount: results.length, results: results.slice(offset, offset + lim) });
+      }
+      if (FUSION && (m = u.pathname.match(/^\/api\/fusion-dispatcher\/([^/]+)\/scan-status$/))) {
+        bump('fusion-scan-status');
+        const k = Number(decodeURIComponent(m[1]).replace(/^app-/, ''));
+        if (!(k >= 0 && k <= 2)) return send(404, { message: 'no Fusion scan', code: 404 });
+        return send(200, { tenantId: 'acme', applicationId: `app-${k}`, scanId: `fscan-${k}`, scanStatus: k === 2 ? 'In Progress' : 'Completed', stage: k === 2 ? 60 : 100, stageDescription: k === 2 ? 'Correlating' : 'Done', scanTimestamp: Math.floor((Date.now() - (k + 1) * 3600e3) / 1000), errorMessage: '' });
       }
       bump(`unhandled ${u.pathname}`);
       send(404, {});

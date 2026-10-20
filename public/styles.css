@@ -1343,6 +1343,8 @@ button.credit-edit .need-tag { flex-basis: 100%; }
 .focus-menu .engine-opt > small { display: none; }
 /* A phone: the picker's menu spans the screen, never past its edge. */
 @media (max-width: 600px) { .engine-pick .col-menu { position: fixed; top: auto; inset-inline: 16px; width: auto; max-width: none; margin-top: 6px; } .engine-pick .col-menu .engine-opt > * { white-space: normal; } }
+.col-picker > .col-menu.to-end { left: auto; right: 0; }
+.col-picker > .col-menu.to-start { left: 0; right: auto; }
 .engine-hint { color: var(--warn, #b45309); }
 .engine-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 10px; min-width: 0; }
@@ -1781,6 +1783,11 @@ body.rp-locked { overflow: hidden; }
   .rp-filters { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
   .rp-filters .mode { white-space: nowrap; }
   .rp-tools { flex-wrap: wrap; }
+}
+/* A phone: the report filters wrap onto a second line rather than squeeze into equal columns and run into each other. */
+@media (max-width: 760px) {
+  .segmented.rp-filters { display: flex; flex-wrap: wrap; overflow: visible; }
+  .segmented.rp-filters .mode { flex: 1 1 auto; }
   .rp-tools select { flex: 1 1 140px; }
   .rp-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rp-row .rp-status { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -2670,8 +2677,10 @@ html[data-i18n="loading"] .shell { visibility: hidden; animation: i18n-reveal 0s
   .lang-pick .lang-code { display: none; }
 }
 @media (max-width: 440px) {
+  .topbar { padding-inline: 10px; }
   .topbar-actions { gap: 4px; }
   .lang-pick { padding: 0 6px; }
+  .conn-chip { padding: 0 6px; }
 }
 
 /* Settings → HTTPS: the free Let's Encrypt certificate (the easy path, first). */
@@ -3257,3 +3266,15 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .calc-impact-h3 { margin: 18px 0 8px; font-size: 14px; }
 .calc-impact-part { margin: 18px 4px 8px; font-size: 16px; }
 .calc-imp-count { align-self: center; }
+
+/* Labs → Fusion results: its tiles, and its tools in one row that wraps. */
+.fusion-tiles { margin: 4px 0 14px; }
+.fusion-tiles .detail { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.fusion-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 12px; }
+.fusion-tools input[type="search"] { flex: 1 1 220px; min-width: 0; }
+.fusion-tools select { flex: 0 1 auto; min-width: 0; }
+.fusion-credits { display: inline-flex; align-items: center; gap: 8px; margin-inline-start: auto; font-size: 12.5px; color: var(--muted); }
+.fusion-credits input { width: 110px; }
+.fusion-apps { margin-top: 14px; }
+.fusion-apps > summary { cursor: pointer; font-weight: 600; }
+@media (max-width: 760px) { .fusion-credits { margin-inline-start: 0; flex: 1 1 100%; } .fusion-credits input { flex: 1 1 auto; } }

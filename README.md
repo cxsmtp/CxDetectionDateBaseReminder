@@ -315,7 +315,7 @@ How it is measured, and what is open and why: [Performance and security status](
 | [When a connection does not work](docs/troubleshooting.md) | Every email server, Checkmarx One, git host and .env file problem MissionZero recognises, and the steps that fix each one. |
 | [Hands-off and self-healing](docs/hands-off.md) | Set it up once, steer it by email (links and one-word replies), and how it checks, repairs and reports on itself. |
 | [Activation codes](docs/activation-codes.md) | Add-ons unlocked with a code (Hebrew; several Checkmarx One tenants): applying one, and how they are issued. |
-| [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code (git blame, down to the exact developer), and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket. An Admin makes each one final when it has proved itself. |
+| [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code (git blame, down to the exact developer), and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket; Fusion results (what Checkmarx One Fusion re-scored, by severity per project, with what it raised to critical or high). An Admin makes each one final when it has proved itself. |
 
 ## Licence, terms of use and contributing
 

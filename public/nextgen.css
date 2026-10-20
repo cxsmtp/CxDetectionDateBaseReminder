@@ -2055,3 +2055,9 @@
 :is(:root, :root[data-ui][data-look]) .brand .brand-mark.is-icon { background: transparent; border: 0; border-radius: 50%; box-shadow: none; padding: 0; overflow: visible; }
 :is(:root, :root[data-ui][data-look]) .brand .brand-mark.is-icon > img { width: 100%; height: 100%; display: block; border-radius: 50%; }
 
+/* Bars that stay in view stay solid, in every look: on a phone the menu bar at the bottom, and on a
+   narrow window Settings' strip of sections at the top; what scrolls under them never shows through. */
+@media (max-width: 760px) { :is(:root, :root[data-ui][data-look]) :is(.sidebar, #no-match) { background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+@media (max-width: 1100px) { :is(:root, :root[data-ui][data-look]) :is(.set-nav, #no-match) { background: var(--bg); padding-block: 4px; } }
+/* Settings' save bar, in every look and at every width: its own surface laid on the page colour, so solid even where the surface is glass. */
+:is(:root, :root[data-ui][data-look]) :is(.save-bar, #no-match) { background-color: var(--bg); background-image: linear-gradient(var(--surface), var(--surface)); backdrop-filter: none; -webkit-backdrop-filter: none; }
