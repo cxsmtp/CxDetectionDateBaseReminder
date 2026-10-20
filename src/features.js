@@ -17,7 +17,7 @@ export const FEATURES = [
     permission: 'reminders.send',
     whenFinal: [
       'Anyone who may send reminders can find and email code authors (no Beta permission needed).',
-      'Scheduled reminders can also email the developer who last changed each vulnerable line (Settings → Automation).',
+      'Scheduled reminders can also email the developer who last changed each vulnerable line (Act → Automation).',
       'The Workbench\'s Remind panel links straight to it.',
     ],
     // What to have seen before making it final.

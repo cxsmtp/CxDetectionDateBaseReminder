@@ -607,6 +607,7 @@ const canAny = (list) => String(list).split(/\s+/).filter(Boolean).some(can);
 /** Which permissions open each page (any one of them). */
 const PAGE_PERMS = {
   dashboard: '',
+  automation: 'settings.view settings.automation',
   reports: 'reports.view',
   credits: 'credits.view',
   impact: 'reports.view',
@@ -696,10 +697,10 @@ function applyPermissions() {
 
 const ROUTE_ALIASES = { iam: 'access', 'credit-control': 'credits' };
 /** Act → Follow up → Prove, plus Set up: what each page is for. */
-const STAGES = { dashboard: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
+const STAGES = { dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
 const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', plan: 'Plan', setup: 'Set up', labs: 'Labs' };
 /** The tab group on each page (data-ptabs). */
-const PAGE_TABS = { dashboard: 'dash', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
+const PAGE_TABS = { dashboard: 'dash', automation: 'automation', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
 const visitedPages = new Set();
 const scrollMemory = new Map();
 
@@ -1220,6 +1221,7 @@ const reloadSettingsPage = () => {
  */
 const PAGE_LOADERS = {
   dashboard: () => {},
+  automation: () => loadAutomation(),
   settings: reloadSettingsPage,
   credits: () => loadUsage(),
   impact: () => loadImpact(),
@@ -1247,6 +1249,7 @@ const PAGE_RELOAD = {
 const reloaderOf = (page) => PAGE_RELOAD[page] ?? PAGE_LOADERS[page];
 
 const PAGE_RETURN = {
+  automation: () => loadAutomation(),
   settings: reloadSettingsPage,
   credits: () => loadUsage(),
   impact: () => loadImpact(),
@@ -1260,6 +1263,8 @@ const PAGE_RETURN = {
 
 function route() {
   if (!state.me) return;
+  // Automation moved from Settings to Act: an old link or bookmark still gets there.
+  if (location.hash === '#/settings/automation') history.replaceState(null, '', '#/automation');
   const { name, view } = parseRoute();
   const allowed = (page) => page in PAGE_PERMS && (!PAGE_PERMS[page] || canAny(PAGE_PERMS[page]));
   const target = allowed(name) ? name : 'dashboard';
@@ -1374,6 +1379,10 @@ function activateTab(group, name, { remember = true, focus = false } = {}) {
 function onTabShown(group, name) {
   if (group === 'dash') renderRailScope();
   if (group === 'logs' && name === 'people' && state.page === 'logs') loadUserActivity({ offset: userActivity.offset });
+  if (group === 'automation' && state.automation) {
+    if (name === 'email' && can('settings.automation')) renderEmailPreview();
+    if (name === 'focus' && can('settings.automation') && !$('auto-focus-match').textContent) checkFocus();
+  }
 }
 
 function initTabs() {
@@ -1586,6 +1595,7 @@ renderNavPins();
 const PAGE_TITLES = {
   connect: ['Sign in', 'Act on findings, follow them up, prove every credit'],
   dashboard: ['Workbench', 'Find ageing findings and fix them'],
+  automation: ['Automation', 'Reminders and everything else that runs by itself'],
   reports: ['Dashboard', 'Follow every tracked scope to zero'],
   credits: ['Credit Control', 'Credits given, used and left'],
   impact: ['Impact', 'What AI saved and cleared'],
@@ -2444,15 +2454,12 @@ async function loadAutomation() {
     state.automation = await api('/api/automation');
     renderAutomation();
     renderAutomationElsewhere();
+    if (state.page === 'automation' && tabMemory.automation === 'email' && can('settings.automation')) renderEmailPreview();
   } catch (error) {
     if (!handleAuthLoss(error)) console.warn(error.message);
   }
 }
 
-/**
- * Settings → Automation lists everything automatic, wherever it is set: each
- * tracked report's follow-up and rescan, and SLA escalation.
- */
 /** A run's SLA issues, in a few words: opened, would be opened, skipped and why. */
 function slaIssuesText(issues) {
   if (!issues) return '';
@@ -2462,49 +2469,134 @@ function slaIssuesText(issues) {
   return ` · ${issues.opened} repository issue${issues.opened === 1 ? '' : 's'} ${issues.dryRun ? 'would be opened' : 'opened'} (${issues.findings} finding${issues.findings === 1 ? '' : 's'})${skipped}`;
 }
 
+/** A moment as people read it: "Mon 20 Oct, 09:00". */
+const whenText = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
+/** The same, kept out of translation: the words around it are translated on their own. */
+const whenHtml = (iso) => `<span translate="no">${escapeHtml(whenText(iso))}</span>`;
+
+/**
+ * Act → Automation → Follow-ups & escalation lists everything automatic, wherever it is set: each
+ * tracked report's follow-up and rescan, and SLA escalation.
+ */
 async function renderAutomationElsewhere() {
   const box = $('auto-elsewhere');
   const rows = [];
+  const row = (what, where, when, last, open) => `<tr><td>${what}</td><td>${where}</td><td>${when}</td><td>${last || '—'}</td><td class="num">${open}</td></tr>`;
   if (can('feature.sla')) {
     const sla = state.settings?.sla;
     const slaWays = [sla?.escalate && sla.escalateTo?.length ? `email to ${escapeHtml(sla.escalateTo.join(', '))}` : '', sla?.openIssues ? 'an issue in each repository' : ''].filter(Boolean);
-    rows.push(`<li><span class="ae-what">SLA escalation <span class="badge warn" data-beta-badge="sla">Beta</span></span><span class="ae-when">${slaWays.length ? `On · with each run above: ${slaWays.join(', ')}` : 'Off'}</span><a href="#/settings/sla">Change →</a></li>`);
+    if (slaWays.length) {
+      const run = state.automation?.runs?.find((r) => r.escalation?.escalated);
+      const last = run ? `${whenHtml(run.at)} <span>· ${run.escalation.escalated} escalated</span>` : '';
+      rows.push(row(`SLA escalation: ${slaWays.join(', ')} <span class="badge warn" data-beta-badge="sla">Beta</span>`, 'Settings → SLAs', 'With each reminder run', last, '<a href="#/settings/sla">Open</a>'));
+    }
   }
   if (can('reports.view')) {
     try {
       const { reports } = await api('/api/tracked-reports', { quiet: true });
       for (const r of reports) {
         const a = r.automation ?? {};
-        const follow = a.enabled ? `Follow-up ${escapeHtml(scheduleText(a).toLowerCase())}${a.nextRunAt ? `, next ${escapeHtml(relativeTime(a.nextRunAt))}` : ''}` : '';
-        const rescan = r.verify?.auto ? 'rescan on the developers’ behalf when their window ends' : '';
-        if (!follow && !rescan) continue;
-        rows.push(`<li><span class="ae-what">${escapeHtml(r.name)} <span class="hint">tracked report</span></span><span class="ae-when">${[follow, rescan].filter(Boolean).join(' · ')}</span><a href="#/reports" data-open-report="${escapeHtml(r.id)}" data-tab="remind">Open →</a></li>`);
+        const open = `<a href="#/reports" data-open-report="${escapeHtml(r.id)}" data-tab="remind">Open</a>`;
+        if (a.enabled) {
+          const sent = (r.reminders ?? []).find((m) => m.automatic);
+          rows.push(row(`Follow-up: “${escapeHtml(r.name)}” tracked report`, 'Dashboard', escapeHtml(scheduleText(a)), sent ? `${whenHtml(sent.at)} <span>· ${sent.sent} email${sent.sent === 1 ? '' : 's'}</span>` : '', open));
+        }
+        if (r.verify?.auto) {
+          const asked = r.verification?.requestedAt;
+          rows.push(row(`Verification rescan: “${escapeHtml(r.name)}”`, 'Dashboard', 'After the developers’ turn', asked ? whenHtml(asked) : '', open));
+        }
       }
     } catch {
-      /* the list below still shows what it can */
+      /* the list still shows what it can */
     }
   }
-  box.innerHTML = rows.length ? `<ul class="ae-list">${rows.join('')}</ul>` : '<p class="hint">Nothing else. Tracked reports can follow up by themselves (Reports → a report → Remind).</p>';
+  $('auto-followup-count').textContent = rows.length ? String(rows.length) : '';
+  box.innerHTML = rows.length
+    ? `<div class="table-wrap"><table class="data-table auto-follow-table" data-tt-off><thead><tr><th>What</th><th>Set on</th><th>When</th><th>Last run</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`
+    : '<p class="hint">Nothing else. Tracked reports can follow up by themselves (Dashboard → a report → Remind), and SLAs can escalate (Settings → SLAs).</p>';
   renderFeatureStages();
+}
+
+const LIMIT_SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+const SEVERITY_LABEL = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' };
+const WEEK = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [0, 'Sun']];
+
+/** The badge on Reminders: on and when next, test mode, or off. */
+function automationState(a) {
+  if (!a.config.enabled) return { html: '<span>Off</span>', tone: '' };
+  const next = a.nextRunAt ? ` <span>· next run</span> ${whenHtml(a.nextRunAt)}` : '';
+  return { html: `<span>${a.config.dryRun ? 'On in test mode' : 'On'}</span>${next}`, tone: 'on' };
 }
 
 function renderAutomation() {
   const a = state.automation;
   if (!a) return;
+  const c = a.config;
 
-  $('auto-enabled').checked = a.config.enabled;
-  $('auto-dry').checked = a.config.dryRun;
-  $('auto-authors').checked = a.config.notifyCodeAuthors === true;
-  $('auto-thresholds').value = a.config.thresholds.join(', ');
-  $('auto-interval').value = a.config.intervalMinutes;
+  // Reminders
+  $('auto-enabled').checked = c.enabled;
+  $('auto-dry').checked = c.dryRun;
+  $('auto-authors').checked = c.notifyCodeAuthors === true;
+  $('auto-turnon').hidden = true;
+  for (const radio of document.querySelectorAll('input[name="autoPer"]')) radio.checked = radio.value === (c.perSeverity ? 'each' : 'same');
+  $('auto-thresholds').value = (c.thresholds ?? []).join(', ');
+  const on = new Set(c.severities?.length ? c.severities : LIMIT_SEVERITIES);
+  const past = a.lastPreview?.bySeverity ?? null;
+  $('auto-limits').innerHTML = LIMIT_SEVERITIES.map((sev) => {
+    const days = (c.severityLimits?.[sev] ?? []).join(', ');
+    const count = past ? (past[sev] ? String(past[sev]) : '—') : '—';
+    return `<tr><td><span class="sev-dot sev-${sev.toLowerCase()}" aria-hidden="true"></span> ${SEVERITY_LABEL[sev]}</td>
+      <td class="auto-days-col"><input data-limit="${sev}" value="${escapeHtml(days)}" placeholder="none" spellcheck="false" aria-label="${SEVERITY_LABEL[sev]}: remind after (days)" /></td>
+      <td><label class="check"><input type="checkbox" data-sev-on="${sev}" ${on.has(sev) ? 'checked' : ''} /> On</label></td>
+      <td class="num">${count}</td></tr>`;
+  }).join('');
+  renderLimitMode();
+  $('auto-limits-note').innerHTML = past ? `<span>Counts from the last preview:</span> ${whenHtml(a.lastPreview.at)}` : 'Preview to see how many findings are past a limit now.';
+  $('auto-mode').value = c.mode;
   renderAudience();
-  $('auto-mode').value = a.config.mode;
-  $('auto-severities').value = a.config.severities.join(', ');
+  const badge = automationState(a);
+  $('auto-status').innerHTML = badge.html;
+  $('auto-status').className = `auto-state ${badge.tone}`;
+
+  // Runs use the server's Checkmarx One integration and its mail server: say,
+  // from their current state, what an unattended run can do.
+  const credential = $('auto-credential');
+  const integration = a.integration ?? {};
+  const tenant = integration.connection?.tenant;
+  const lines = [];
+  let ready = true;
+  if (integration.connected) {
+    const source = integration.source === 'environment' ? 'CX_API_KEY on the server' : 'the key stored under Settings → Checkmarx One';
+    lines.push(`✓ Checkmarx One: connected${tenant ? ` to tenant ${tenant}` : ''}, using ${source}.`);
+  } else {
+    ready = false;
+    lines.push('✗ Checkmarx One: not connected. Connect the server under Settings → Checkmarx One: unattended runs use that connection.');
+  }
+  if (integration.pending) lines.push('… A changed integration key is saved but not in use yet: runs keep using the previous working connection until it works.');
+  if (a.smtpVerified) {
+    lines.push('✓ Mail server: connection test passed. Automation can send.');
+  } else if (a.connections?.lastGood?.smtp) {
+    lines.push('… Mail server: changed settings are not tested yet. They are checked when you leave Settings; the previous working ones come back if they fail.');
+  } else {
+    ready = false;
+    lines.push(a.smtpConfigured
+      ? '✗ Mail server: no successful connection test yet, so automation cannot send. Use "Test connection" under Settings → Email server.'
+      : '✗ Mail server: not set up yet, so automation cannot send. Fill in Settings → Email server.');
+  }
+  credential.className = `detected ${ready ? 'ok' : 'warn'}`;
+  credential.innerHTML = lines.map((line) => `<div>${escapeHtml(line)}</div>`).join('');
+
+  // Focus
+  const focus = c.focus ?? {};
+  $('auto-apps').value = (focus.applications ?? []).join(', ');
+  $('auto-tags').value = (focus.tags ?? []).join(', ');
+  $('auto-projects').value = (focus.projects ?? []).join(', ');
+  $('auto-exclude').value = (focus.exclude ?? []).join(', ');
   // A schedule saved before branches could be chosen reads every branch and leaves nothing out.
-  $('auto-all-branches').checked = a.config.branches === 'all';
-  $('auto-no-code').checked = a.config.leaveOutNoCode !== false;
+  $('auto-all-branches').checked = c.branches === 'all';
+  $('auto-no-code').checked = c.leaveOutNoCode !== false;
   // Every engine when none is saved (a schedule from before engines could be chosen).
-  const engines = new Set(cleanEngines(a.config.engines).length ? cleanEngines(a.config.engines) : ENGINES.map((e) => e.key));
+  const engines = new Set(cleanEngines(c.engines).length ? cleanEngines(c.engines) : ENGINES.map((e) => e.key));
   $('auto-engines').replaceChildren(
     ...ENGINES.map((engine) => {
       const label = document.createElement('label');
@@ -2528,95 +2620,152 @@ function renderAutomation() {
       return label;
     }),
   );
+  const preview = a.lastPreview;
+  $('auto-focus-state').textContent = preview ? `${preview.inFocus} of ${preview.total} projects · ${preview.open} open findings` : '';
+  $('auto-focus-state').className = `auto-state ${preview ? 'on' : ''}`;
 
-  $('auto-status').textContent = a.config.enabled
-    ? `On · next run ${timeAgo(a.nextRunAt)} · ${a.trackedFindings} finding(s) already reported`
-    : 'Off';
-  $('auto-status').className = `hint ${a.config.enabled ? 'ok-hint' : ''}`;
-
-  // Runs use the server's Checkmarx One integration and its mail server: say,
-  // from their current state, what an unattended run can do.
-  const credential = $('auto-credential');
-  const integration = a.integration ?? {};
-  const tenant = integration.connection?.tenant;
-  const lines = [];
-  let ready = true;
-  if (integration.connected) {
-    const source = integration.source === 'environment' ? 'CX_API_KEY on the server' : 'the key stored under Checkmarx One integration';
-    lines.push(`✓ Checkmarx One: connected${tenant ? ` to tenant ${tenant}` : ''}, using ${source}.`);
-  } else {
-    ready = false;
-    lines.push('✗ Checkmarx One: not connected. Connect the server under "Checkmarx One integration" above — unattended runs use that connection.');
+  // Schedule
+  for (const radio of document.querySelectorAll('input[name="autoWhen"]')) radio.checked = radio.value === (c.when ?? 'interval');
+  const days = new Set(c.days ?? []);
+  $('auto-days').innerHTML = WEEK.map(([d, name]) => `<label class="day-chip"><input type="checkbox" data-day="${d}" ${days.has(d) ? 'checked' : ''} /> <span>${name}</span></label>`).join('');
+  $('auto-at').value = c.at ?? '09:00';
+  $('auto-tz').value = c.timeZone ?? '';
+  // Blank is the server's own zone, shown as the hint.
+  $('auto-tz').placeholder = a.serverTimeZone;
+  if (!$('auto-tz-list').childElementCount && typeof Intl.supportedValuesOf === 'function') {
+    $('auto-tz-list').innerHTML = Intl.supportedValuesOf('timeZone').map((z) => `<option value="${escapeHtml(z)}"></option>`).join('');
   }
-  if (integration.pending) lines.push('… A changed integration key is saved but not in use yet: runs keep using the previous working connection until it works.');
-  if (a.smtpVerified) {
-    lines.push('✓ Mail server: connection test passed. Automation can send.');
-  } else if (a.connections?.lastGood?.smtp) {
-    lines.push('… Mail server: changed settings are not tested yet. They are checked when you leave Settings; the previous working ones come back if they fail.');
-  } else {
-    ready = false;
-    lines.push(a.smtpConfigured
-      ? '✗ Mail server: no successful connection test yet — automation cannot send. Use "Test connection" under Email server.'
-      : '✗ Mail server: not set up yet — automation cannot send. Fill in Email server above.');
-  }
-  credential.className = `detected ${ready ? 'ok' : 'warn'}`;
-  credential.innerHTML = lines.map((line) => `<div>${escapeHtml(line)}</div>`).join('');
+  $('auto-interval').value = c.intervalMinutes;
+  renderWhenMode();
+  renderNextRun();
 
-  $('auto-runs').innerHTML = a.runs.length
-    ? `<table class="probe">
-        <thead><tr><th>When</th><th class="num">Scanned</th><th class="num">Crossed</th><th class="num">Sent</th><th>Outcome</th></tr></thead>
-        <tbody>${a.runs
-          .map(
-            (run) => `<tr class="${run.ok ? 'hit' : 'miss'}">
-              <td>${escapeHtml(timeAgo(run.at))}</td>
-              <td class="num">${run.scanned ?? '—'}</td>
-              <td class="num">${run.crossed ?? '—'}</td>
-              <td class="num">${run.sent ?? 0}${run.dryRun ? ' (dry)' : ''}</td>
-              <td class="snippet">${escapeHtml(
-                (run.error || run.reason || (run.failures?.length ? `${run.failures.length} failed` : 'ok')) +
-                  (run.codeAuthors?.emailed ? ` · ${run.codeAuthors.emailed} code author${run.codeAuthors.emailed === 1 ? '' : 's'} ${run.dryRun ? 'would be ' : ''}emailed` : run.codeAuthors?.error ? ` · code authors: ${run.codeAuthors.error}` : '') +
-                  (run.escalation?.escalated ? ` · ${run.escalation.escalated} past SLA ${run.escalation.sent ? 'escalated' : run.escalation.dryRun ? 'would be escalated' : `not escalated: ${run.escalation.error ?? ''}`}` : '') +
-                  slaIssuesText(run.escalation?.issues),
-              )}</td>
-            </tr>`,
-          )
-          .join('')}</tbody>
-      </table>`
+  renderReminderEmail();
+  renderRuns();
+  // The last preview stays in view after a reload (the server keeps it until it restarts).
+  if (preview && !$('ap-body').querySelector('[data-see-mail], .auto-missing')) renderAutoPreview(preview);
+}
+
+/** Same for every severity: one list of days; each its own: a column of days per severity. */
+function renderLimitMode() {
+  const each = document.querySelector('input[name="autoPer"]:checked')?.value === 'each';
+  $('auto-same-row').hidden = each;
+  document.querySelector('.auto-limits').classList.toggle('same', !each);
+}
+
+function renderWhenMode() {
+  const schedule = document.querySelector('input[name="autoWhen"]:checked')?.value === 'schedule';
+  for (const el of document.querySelectorAll('#auto-days input, #auto-at, #auto-tz')) el.disabled = !schedule;
+  $('auto-interval').disabled = schedule;
+  $('auto-schedule').classList.toggle('by-interval', !schedule);
+}
+
+function renderNextRun() {
+  const a = state.automation;
+  const zone = a.config.timeZone || a.serverTimeZone;
+  const at = a.config.enabled ? a.nextRunAt : a.wouldRunAt;
+  // A schedule's time as it is set, in its own zone; an interval's in this browser's.
+  const shown = at && new Date(at).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', ...(a.config.when === 'schedule' ? { timeZone: zone } : {}) });
+  $('auto-next').innerHTML = at
+    ? `<span>${a.config.enabled ? 'Next:' : 'Off · would go out:'}</span> <span translate="no">${escapeHtml(`${shown}${a.config.when === 'schedule' ? ` ${zone}` : ''}`)}</span>`
+    : '<span>No day chosen</span>';
+  $('auto-next').className = `auto-state ${a.config.enabled ? 'on' : ''}`;
+}
+
+/** History: each run, how it started, what it found and sent. */
+function renderRuns() {
+  const runs = state.automation?.runs ?? [];
+  const outcome = (run) => {
+    if (run.error) return ['Failed', 'bad'];
+    if (run.skipped) return ['Skipped', 'warn'];
+    if (!run.crossed) return ['Nothing new', ''];
+    if (run.dryRun) return ['Logged only', ''];
+    return run.ok ? ['Sent', 'ok'] : ['Partly sent', 'warn'];
+  };
+  $('auto-runs').innerHTML = runs.length
+    ? `<div class="table-wrap"><table class="data-table auto-runs-table">
+        <thead><tr><th>When</th><th>How</th><th class="num">Findings</th><th class="num">Emails</th><th>Outcome</th></tr></thead>
+        <tbody>${runs
+          .map((run) => {
+            const [label, tone] = outcome(run);
+            const how = `${run.how === 'now' ? 'Run once now' : run.how === 'scheduled' ? 'Scheduled' : 'Run'}${run.dryRun ? ' · test mode' : ''}`;
+            const detail =
+              (run.error || run.reason || (run.failures?.length ? `${run.failures.length} failed: ${run.failures.slice(0, 2).map((f) => `${f.to} (${f.error})`).join('; ')}` : '')) +
+              (run.codeAuthors?.emailed ? ` · ${run.codeAuthors.emailed} code author${run.codeAuthors.emailed === 1 ? '' : 's'} ${run.dryRun ? 'would be ' : ''}emailed` : run.codeAuthors?.error ? ` · code authors: ${run.codeAuthors.error}` : '') +
+              (run.escalation?.escalated ? ` · ${run.escalation.escalated} past SLA ${run.escalation.sent ? 'escalated' : run.escalation.dryRun ? 'would be escalated' : `not escalated: ${run.escalation.error ?? ''}`}` : '') +
+              slaIssuesText(run.escalation?.issues);
+            return `<tr><td>${whenHtml(run.at)}</td><td>${escapeHtml(how)}</td><td class="num">${run.crossed ?? '—'}</td><td class="num">${run.dryRun ? 0 : run.sent ?? 0}</td>
+              <td><span class="auto-pill ${tone}">${escapeHtml(label)}</span>${detail ? `<small class="auto-detail">${escapeHtml(detail.replace(/^ · /, ''))}</small>` : ''}</td></tr>`;
+          })
+          .join('')}</tbody></table></div>`
     : '<p class="hint">No runs yet.</p>';
 }
 
-function automationPayload() {
+const listOf = (value) => String(value ?? '').split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+
+function remindersPayload() {
+  const on = [...document.querySelectorAll('[data-sev-on]:checked')].map((box) => box.dataset.sevOn);
   return {
-    enabled: $('auto-enabled').checked,
     dryRun: $('auto-dry').checked,
     // Only offered once "Code authors" is final; otherwise left as it is.
     ...(state.me?.features?.codeAuthors === 'final' ? { notifyCodeAuthors: $('auto-authors').checked } : {}),
+    perSeverity: document.querySelector('input[name="autoPer"]:checked')?.value === 'each',
     thresholds: $('auto-thresholds').value,
-    intervalMinutes: $('auto-interval').value,
+    severityLimits: Object.fromEntries([...document.querySelectorAll('[data-limit]')].map((input) => [input.dataset.limit, input.value])),
+    // Every severity ticked: every severity (as before there was a choice).
+    severities: on.length === LIMIT_SEVERITIES.length ? [] : on,
     mode: $('auto-mode').value,
-    severities: $('auto-severities').value,
-    engines: [...document.querySelectorAll('[data-auto-engine]:checked')].map((box) => box.dataset.autoEngine),
-    branches: $('auto-all-branches').checked ? 'all' : 'primary',
-    leaveOutNoCode: $('auto-no-code').checked,
   };
 }
 
-async function saveAutomation({ quiet = false } = {}) {
-  autosave.automation = null;
-  if (!quiet) setStatus('auto-message', 'Saving…');
+const focusPayload = () => ({
+  focus: { applications: listOf($('auto-apps').value), tags: listOf($('auto-tags').value), projects: listOf($('auto-projects').value), exclude: listOf($('auto-exclude').value) },
+  engines: [...document.querySelectorAll('[data-auto-engine]:checked')].map((box) => box.dataset.autoEngine),
+  branches: $('auto-all-branches').checked ? 'all' : 'primary',
+  leaveOutNoCode: $('auto-no-code').checked,
+});
+
+const schedulePayload = () => ({
+  when: document.querySelector('input[name="autoWhen"]:checked')?.value ?? 'schedule',
+  days: [...document.querySelectorAll('#auto-days [data-day]:checked')].map((box) => Number(box.dataset.day)),
+  at: $('auto-at').value || '09:00',
+  timeZone: $('auto-tz').value.trim(),
+  intervalMinutes: $('auto-interval').value,
+});
+
+/** Save part of the automation; the badge and next run follow, the forms stay as typed. */
+async function saveAutomation(payload, statusId) {
+  setStatus(statusId, 'Saving…');
   try {
-    const status = await api('/api/automation', { method: 'PUT', body: JSON.stringify(automationPayload()) });
+    const status = await api('/api/automation', { method: 'PUT', body: JSON.stringify(payload) });
     state.automation = { ...state.automation, ...status };
-    // Only the status line: the form stays as typed.
-    const a = state.automation;
-    $('auto-status').textContent = a.config.enabled
-      ? `On · next run ${timeAgo(a.nextRunAt)} · ${a.trackedFindings ?? 0} finding(s) already reported`
-      : 'Off';
-    $('auto-status').className = `hint ${a.config.enabled ? 'ok-hint' : ''}`;
-    setStatus('auto-message', status.config.enabled ? `Saved. Runs every ${status.config.intervalMinutes} minutes.` : 'Saved. Automation is off.', 'ok');
+    const badge = automationState(state.automation);
+    $('auto-status').innerHTML = badge.html;
+    $('auto-status').className = `auto-state ${badge.tone}`;
+    renderNextRun();
+    setStatus(statusId, 'Saved.', 'ok');
+    return status;
   } catch (error) {
-    if (!handleAuthLoss(error)) showError('auto-message', error);
+    if (!handleAuthLoss(error)) showError(statusId, error);
     throw error;
+  }
+}
+
+/**
+ * Reminders → Save. Turning "Run automatically" on shows the preview first: who would get what now,
+ * and a button to turn it on with that in view.
+ */
+async function saveReminders() {
+  const wantOn = $('auto-enabled').checked;
+  const wasOn = state.automation.config.enabled;
+  try {
+    await saveAutomation({ ...remindersPayload(), ...(wantOn && !wasOn ? {} : { enabled: wantOn }) }, 'auto-message');
+  } catch {
+    return;
+  }
+  if (wantOn && !wasOn) {
+    setStatus('auto-message', 'Saved. Before it runs by itself, see who would get what: Preview.', 'ok');
+    activateTab('automation', 'preview');
+    runAutomationPreview({ turnOn: true });
   }
 }
 
@@ -2630,9 +2779,7 @@ async function runAutomationNow() {
     setStatus(
       'auto-message',
       run.error || run.reason ||
-        `Scanned ${run.scanned} finding(s), ${run.crossed} newly crossed, ${run.sent} message(s) ${
-          run.dryRun ? 'would have been sent' : 'sent'
-        }.`,
+        `${run.scanned} open finding(s) looked at, ${run.crossed} newly past a limit, ${run.sent} email(s) ${run.dryRun ? 'would have been sent (test mode)' : 'sent'}.`,
       run.ok ? 'ok' : 'error',
     );
   } catch (error) {
@@ -2641,6 +2788,265 @@ async function runAutomationNow() {
     button.disabled = false;
   }
 }
+
+/** Focus: how many projects the names typed cover, asked of the server a moment after typing stops. */
+let focusTimer = null;
+function checkFocus() {
+  clearTimeout(focusTimer);
+  focusTimer = setTimeout(async () => {
+    try {
+      const r = await api('/api/automation/focus/match', { method: 'POST', body: JSON.stringify(focusPayload().focus), quiet: true });
+      const names = r.matched && r.matched < r.total ? ` <span translate="no">${escapeHtml(r.names.join(', '))}${r.matched > r.names.length ? ', …' : ''}</span>` : '';
+      const unknown = r.unknownApplications?.length ? ` <span>No application has this name:</span> <span translate="no">${escapeHtml(r.unknownApplications.join(', '))}</span>` : '';
+      $('auto-focus-match').innerHTML = `<span>Matches ${r.matched} of ${r.total} projects.</span>${names}${unknown}`;
+      if (!$('auto-app-list').childElementCount) $('auto-app-list').innerHTML = r.applications.map((n) => `<option value="${escapeHtml(n)}"></option>`).join('');
+    } catch (error) {
+      $('auto-focus-match').textContent = error.message;
+    }
+  }, 500);
+}
+
+// ---- Email -----------------------------------------------------------------
+
+/** The email's fields as typed; a field ticked "Same as the portal" is sent empty. */
+function reminderEmailPayload() {
+  const portal = (box, input) => ($(box).checked ? '' : $(input).value.trim());
+  return {
+    style: $('ae-html').checked ? 'html' : 'simple',
+    senderName: portal('ae-sender-portal', 'ae-sender'),
+    replyTo: portal('ae-replyto-portal', 'ae-replyto'),
+    logo: document.querySelector('input[name="aeLogo"]:checked')?.value ?? 'portal',
+    logoUrl: $('ae-logo-url').value.trim(),
+    color: $('ae-color-portal').checked ? '' : $('ae-color').value,
+    headerText: $('ae-header').value,
+    footer: portal('ae-footer-portal', 'ae-footer'),
+    subject: $('ae-subject').value,
+    greeting: $('ae-greeting').value,
+    opening: $('ae-opening').value,
+    button: $('ae-button').value,
+    signOff: $('ae-signoff').value,
+    listProjects: $('ae-list').checked,
+    attachReport: $('ae-attach').checked,
+  };
+}
+
+function renderReminderEmail() {
+  const a = state.automation;
+  const e = a.reminderEmail ?? {};
+  const p = a.portal ?? {};
+  const pair = (box, input, own, portalValue) => {
+    $(box).checked = !own;
+    $(input).value = own || portalValue || '';
+    $(input).disabled = !own;
+  };
+  pair('ae-sender-portal', 'ae-sender', e.senderName, p.senderName);
+  pair('ae-replyto-portal', 'ae-replyto', e.replyTo, p.fromAddress);
+  pair('ae-footer-portal', 'ae-footer', e.footer, p.footer);
+  for (const radio of document.querySelectorAll('input[name="aeLogo"]')) radio.checked = radio.value === (e.logo ?? 'portal');
+  $('ae-logo-url').value = e.logoUrl ?? '';
+  $('ae-logo-url').hidden = e.logo !== 'custom';
+  $('ae-color-portal').checked = !e.color;
+  $('ae-color-portal-name').textContent = p.colours?.name ? `· ${p.colours.name === 'brand colour' ? p.colours.head : p.colours.name}` : '';
+  $('ae-color').value = e.color || p.colours?.head || '#1d4ed8';
+  $('ae-color').hidden = !e.color;
+  $('ae-header').value = e.headerText ?? '';
+  $('ae-subject').value = e.subject ?? '';
+  $('ae-greeting').value = e.greeting ?? '';
+  $('ae-opening').value = e.opening ?? '';
+  $('ae-button').value = e.button ?? '';
+  $('ae-signoff').value = e.signOff ?? '';
+  $('ae-list').checked = e.listProjects !== false;
+  $('ae-attach').checked = e.attachReport === true;
+  $('ae-html').checked = e.style === 'html';
+  $('ae-advanced').open = e.style === 'html';
+  $('ae-chips').innerHTML = (a.placeholders ?? []).map((name) => `<button type="button" class="ae-chip" data-insert="{{${name}}}" translate="no">{{${name}}}</button>`).join('');
+  renderEmailStyle();
+}
+
+/** With the HTML template chosen, this email's fields do not apply: they are dimmed. */
+function renderEmailStyle() {
+  $('auto-email').classList.toggle('html-style', $('ae-html').checked);
+}
+
+let emailPreviewTimer = null;
+function renderEmailPreview() {
+  clearTimeout(emailPreviewTimer);
+  emailPreviewTimer = setTimeout(async () => {
+    try {
+      const r = await api('/api/automation/email/preview', { method: 'POST', body: JSON.stringify(reminderEmailPayload()), quiet: true });
+      $('ae-frame').srcdoc = r.html;
+      $('ae-preview-as').innerHTML = `<span>${r.sample ? '· a sample for' : '· as sent to'}</span> <span translate="no">${escapeHtml(r.as)}</span>`;
+    } catch (error) {
+      $('ae-preview-as').textContent = `· ${error.message}`;
+    }
+  }, 350);
+}
+
+let emailField = 'ae-subject';
+$('auto-email').addEventListener('focusin', (event) => {
+  if (event.target.matches('[data-ae-text]')) emailField = event.target.id;
+});
+$('auto-email').addEventListener('input', (event) => {
+  if (event.target.id === 'ae-color') return renderEmailPreview();
+  renderEmailPreview();
+});
+$('auto-email').addEventListener('change', (event) => {
+  const box = event.target.closest('[data-ae-portal]');
+  if (box) {
+    const input = $(box.dataset.aePortal);
+    const p = state.automation.portal ?? {};
+    input.disabled = box.checked;
+    if (box.checked) input.value = { 'ae-sender': p.senderName, 'ae-replyto': p.fromAddress, 'ae-footer': p.footer }[input.id] ?? '';
+    else input.focus();
+  }
+  if (event.target.name === 'aeLogo') $('ae-logo-url').hidden = event.target.value !== 'custom';
+  if (event.target.id === 'ae-color-portal') $('ae-color').hidden = event.target.checked;
+  if (event.target.id === 'ae-html') renderEmailStyle();
+  renderEmailPreview();
+});
+$('auto-email').addEventListener('click', (event) => {
+  const chip = event.target.closest('[data-insert]');
+  if (!chip) return;
+  const field = $(emailField);
+  const at = field.selectionStart ?? field.value.length;
+  field.value = `${field.value.slice(0, at)}${chip.dataset.insert}${field.value.slice(field.selectionEnd ?? at)}`;
+  field.focus();
+  field.selectionStart = field.selectionEnd = at + chip.dataset.insert.length;
+  renderEmailPreview();
+});
+$('auto-save-email').addEventListener('click', async () => {
+  setStatus('ae-message', 'Saving…');
+  try {
+    const { reminderEmail } = await api('/api/automation/email', { method: 'PUT', body: JSON.stringify(reminderEmailPayload()) });
+    state.automation.reminderEmail = reminderEmail;
+    setStatus('ae-message', 'Saved.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('ae-message', error);
+  }
+});
+$('ae-restore').addEventListener('click', async () => {
+  if (!confirm('Put the reminder email back as it was first: the portal’s branding and the default words?')) return;
+  try {
+    const { reminderEmail } = await api('/api/automation/email', { method: 'PUT', body: JSON.stringify({ restore: true }) });
+    state.automation.reminderEmail = reminderEmail;
+    renderReminderEmail();
+    renderEmailPreview();
+    setStatus('ae-message', 'Restored and saved.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('ae-message', error);
+  }
+});
+$('ae-test').addEventListener('click', async () => {
+  setStatus('ae-message', 'Sending…');
+  try {
+    const r = await api('/api/automation/email/test', { method: 'POST', body: JSON.stringify(reminderEmailPayload()) });
+    setStatus('ae-message', `Sent to ${r.to}, as typed (not saved yet unless you save).`, 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('ae-message', error);
+  }
+});
+
+// ---- Preview ---------------------------------------------------------------
+
+/** Who a run would email now. `turnOn`: shown on the way to turning "Run automatically" on. */
+async function runAutomationPreview({ turnOn = false } = {}) {
+  const button = $('ap-run');
+  button.disabled = true;
+  $('ap-confirm').hidden = true;
+  setStatus('ap-status', 'Reading Checkmarx One as a run would… nothing is sent.');
+  try {
+    const s = await api('/api/automation/preview', { method: 'POST', body: JSON.stringify({}) });
+    state.automation.lastPreview = s;
+    renderAutoPreview(s);
+    setStatus('ap-status', `${s.inFocus} of ${s.total} projects in focus, ${s.open} open findings looked at. Nothing was sent.`, 'ok');
+    renderAutomation();
+    if (turnOn) {
+      const next = state.automation.wouldRunAt;
+      $('ap-confirm').innerHTML = `<p><strong>Turn on reminders?</strong> ${s.people ? `${s.people} ${s.people === 1 ? 'person gets' : 'people get'} reminders about ${s.findings} findings past a limit.` : 'Nobody would be reminded today.'}</p>
+        ${next ? `<p class="hint"><span>First run:</span> ${whenHtml(next)}</p>` : ''}
+        ${state.automation.config.dryRun ? '<p class="hint">Test mode is on: nothing is sent.</p>' : ''}
+        <div class="actions"><button type="button" id="ap-turn-on" class="primary">Turn on</button><button type="button" class="ghost" id="ap-not-yet">Not yet</button></div>`;
+      $('ap-confirm').hidden = false;
+    }
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('ap-status', error);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+/** A few project names, and how many more (all of them on hover). */
+const someProjects = (names) => `<span title="${escapeHtml(names.join(', '))}">${escapeHtml(names.slice(0, 3).join(', '))}${names.length > 3 ? ` <span class="hint">+${names.length - 3} more</span>` : ''}</span>`;
+
+function renderAutoPreview(s) {
+  $('ap-tiles').innerHTML = [
+    [s.people, 'people'],
+    [s.projects, 'projects'],
+    [s.findings, 'findings past a limit'],
+    [s.critical, 'critical'],
+  ].map(([n, label]) => `<div><span class="value">${n}</span><span class="label">${label}</span></div>`).join('');
+  const rows = s.rows.map((r) => `<tr><td>${escapeHtml(r.to)}</td><td>${someProjects(r.projects)}</td><td class="num">${r.critical}</td><td class="num">${r.high}</td><td class="num">${r.medium}</td><td>${escapeHtml(r.limits)}</td><td><button type="button" class="link" data-see-mail="${r.index}">See the email</button></td></tr>`);
+  if (s.noAddress) {
+    const n = s.noAddress;
+    rows.push(`<tr class="auto-missing"><td><span>No address yet</span> <span translate="no">(${escapeHtml(n.people.slice(0, 3).join(', '))}${n.people.length > 3 ? `, +${n.people.length - 3}` : ''})</span></td><td>${someProjects(n.projects)}</td><td class="num">${n.critical}</td><td class="num">${n.high}</td><td class="num">${n.medium}</td><td>${escapeHtml(n.limits)}</td><td><a href="#/settings/initiators">Set addresses</a></td></tr>`);
+  }
+  for (const p of s.problems ?? []) rows.push(`<tr class="auto-missing"><td>${escapeHtml(p.to)}</td><td colspan="6">${escapeHtml(p.error)}</td></tr>`);
+  $('ap-body').innerHTML = rows.length ? rows.join('') : '<tr><td colspan="7" class="hint">Nobody would be emailed now: nothing in focus has newly passed a limit.</td></tr>';
+}
+
+$('ap-run').addEventListener('click', () => runAutomationPreview());
+$('ap-email-me').addEventListener('click', async () => {
+  try {
+    const r = await api('/api/automation/preview/email-me', { method: 'POST', body: JSON.stringify({}) });
+    setStatus('ap-status', `The preview was emailed to ${r.to}.`, 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('ap-status', error);
+  }
+});
+$('auto-preview').addEventListener('click', async (event) => {
+  if (event.target.id === 'ap-not-yet') {
+    $('ap-confirm').hidden = true;
+    $('auto-enabled').checked = false;
+    setStatus('ap-status', 'Left off. Turn it on from Reminders when ready.', '');
+    return;
+  }
+  if (event.target.id === 'ap-turn-on') {
+    try {
+      await saveAutomation({ enabled: true }, 'ap-status');
+      $('ap-confirm').hidden = true;
+      setStatus('ap-status', 'Turned on. The next run is shown on Reminders and Schedule.', 'ok');
+      $('auto-enabled').checked = true;
+    } catch {
+      /* said in the status line */
+    }
+    return;
+  }
+  const see = event.target.closest('[data-see-mail]');
+  if (!see) return;
+  try {
+    const m = await api(`/api/automation/preview/${see.dataset.seeMail}`);
+    $('ap-dialog-meta').textContent = `To ${m.to} · ${m.subject}`;
+    $('ap-dialog-frame').srcdoc = m.html;
+    $('ap-dialog').showModal();
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('ap-status', error);
+  }
+});
+$('ap-dialog-close').addEventListener('click', () => $('ap-dialog').close());
+
+$('auto-save-reminders').addEventListener('click', saveReminders);
+$('auto-save-focus').addEventListener('click', () => saveAutomation(focusPayload(), 'auto-focus-message').catch(() => {}));
+$('auto-save-schedule').addEventListener('click', () => saveAutomation(schedulePayload(), 'auto-schedule-message').catch(() => {}));
+$('auto-focus').addEventListener('input', (event) => {
+  if (event.target.matches('#auto-apps, #auto-tags, #auto-projects, #auto-exclude')) checkFocus();
+});
+for (const radio of document.querySelectorAll('input[name="autoPer"]')) radio.addEventListener('change', renderLimitMode);
+for (const radio of document.querySelectorAll('input[name="autoWhen"]')) radio.addEventListener('change', renderWhenMode);
+$('auto-enabled').addEventListener('change', () => {
+  const turningOn = $('auto-enabled').checked && !state.automation?.config.enabled;
+  $('auto-turnon').hidden = !turningOn;
+  $('auto-turnon').textContent = turningOn ? 'Save to see who would get what first: it turns on from the preview.' : '';
+});
 
 /** Show the header exactly as recipients will see it. */
 function renderBrandPreview() {
@@ -2911,15 +3317,14 @@ function renderPool(data) {
 const AUTOSAVE_MS = 700;
 const DRAFT_MS = 1200;
 const CHECK_MS = 2500;
-const autosave = { settings: null, automation: null, draft: null, check: null, running: new Set(), lastCheck: null, connectionEdited: false };
+const autosave = { settings: null, draft: null, check: null, running: new Set(), lastCheck: null, connectionEdited: false };
 const INTEGRATION_FIELDS = new Set(['integration-key', 'integration-base', 'integration-iam', 'integration-tenant']);
 const NOT_SAVED = new Set(['test-to', 'env-file', 'brand-logo-file', 'brand-icon-file']);
 
-/** Which save an edit belongs to: the settings form, automation, the integration draft, or none. */
+/** Which save an edit belongs to: the settings form, the integration draft, or none. */
 function autosaveKind(el) {
   if (!el?.id || NOT_SAVED.has(el.id) || el.disabled || el.closest('[hidden]')?.id === 'probe-results' || el.closest('#set-https') || el.closest('#set-mybrand') || el.closest('#set-handsoff') || el.closest('#set-profile')) return '';
   if (INTEGRATION_FIELDS.has(el.id)) return 'draft';
-  if (el.closest('#set-automation')) return 'automation';
   if (el.matches('input, select, textarea')) return 'settings';
   return '';
 }
@@ -2929,10 +3334,6 @@ function onSettingsEdit(event) {
   if (!kind) return;
   setStatus('save-status', 'Saving…');
   if (kind === 'settings') scheduleSave();
-  if (kind === 'automation') {
-    clearTimeout(autosave.automation);
-    autosave.automation = setTimeout(() => track(saveAutomation({ quiet: true })), AUTOSAVE_MS);
-  }
   if (kind === 'draft') {
     clearTimeout(autosave.draft);
     autosave.draft = setTimeout(() => track(saveIntegrationDraft()), DRAFT_MS);
@@ -2949,7 +3350,7 @@ function track(promise) {
   autosave.running.add(promise);
   promise.finally(() => {
     autosave.running.delete(promise);
-    if (!autosave.running.size && !autosave.settings && !autosave.automation && !autosave.draft) {
+    if (!autosave.running.size && !autosave.settings && !autosave.draft) {
       setStatus('save-status', `All changes are saved · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, 'ok');
     }
   });
@@ -2960,10 +3361,9 @@ function track(promise) {
 async function flushSaves() {
   const pending = [];
   if (autosave.settings) pending.push(saveSettings());
-  if (autosave.automation) pending.push(saveAutomation({ quiet: true }));
   if (autosave.draft) pending.push(saveIntegrationDraft());
-  for (const key of ['settings', 'automation', 'draft']) clearTimeout(autosave[key]);
-  autosave.settings = autosave.automation = autosave.draft = null;
+  for (const key of ['settings', 'draft']) clearTimeout(autosave[key]);
+  autosave.settings = autosave.draft = null;
   await Promise.allSettled([...pending, ...autosave.running]);
 }
 
@@ -4994,7 +5394,7 @@ function scheduleSection(r) {
         <span class="hint" title="Time zone of the machine running ${escapeHtml(state.health?.app?.name || 'CxMissionZero')}">${escapeHtml(zoneLabel())}</span>
       </div></div>
     </div>
-    <p class="hint">Sends to the people, and with the content, chosen above. Every automatic reminder and follow-up is also listed under <a href="#/settings/automation">Settings → Automation</a>.</p>
+    <p class="hint">Sends to the people, and with the content, chosen above. Every automatic reminder and follow-up is also listed under <a href="#/automation">Act → Automation</a>.</p>
     ${manage ? `<div class="actions compact"><button type="button" class="primary" data-schedule="${id}">Save schedule</button></div>` : '<p class="hint">Your role cannot change schedules.</p>'}
     ${reminders.length ? `<h3 class="rp-h3">Sent automatically</h3>${remindersTable(reminders)}` : ''}`;
 }
@@ -6707,11 +7107,12 @@ if ($('preview-html')) {
 $('auto-run').addEventListener('click', runAutomationNow);
 $('auto-reset').addEventListener('click', async () => {
   try {
+    if (!confirm('Reset history? The runs listed here stay, but what was already reported is forgotten: the next run reports every finding past a limit again.')) return;
     await api('/api/automation/reset', { method: 'POST', body: JSON.stringify({}) });
     await loadAutomation();
-    setStatus('auto-message', 'History cleared — the next run reports from scratch.', 'ok');
+    toast('History reset: the next run reports from scratch.', 'ok');
   } catch (error) {
-    if (!handleAuthLoss(error)) showError('auto-message', error);
+    if (!handleAuthLoss(error)) toast(error.message, 'bad');
   }
 });
 $('save-recipients').addEventListener('click', saveInlineRecipients);
@@ -6905,7 +7306,7 @@ for (const id of ['reports-list', 'rp-upcoming']) {
     if (row) openReportDetail(row.dataset.openReport, row.dataset.tab || 'overview');
   });
 }
-// Settings → Automation: "Open →" goes to that report, on its Remind tab.
+// Act → Automation: "Open →" goes to that report, on its Remind tab.
 $('auto-elsewhere').addEventListener('click', (event) => {
   const link = event.target.closest('[data-open-report]');
   if (!link) return;

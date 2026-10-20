@@ -15,6 +15,7 @@ import { DEFAULT_HANDS_OFF, mergeHandsOff } from './hands-off.js';
 import { mergeFeatures } from './features.js';
 import { DEFAULT_LINK_TEMPLATES, PREVIOUS_LINK_DEFAULTS } from './links.js';
 import { DEFAULT_TEMPLATE } from './template.js';
+import { DEFAULT_REMINDER_EMAIL, mergeReminderEmail } from './reminder-email.js';
 import { DEFAULT_LOOK, LOOKS } from '../public/look.js';
 import { TOKEN_NAMES, cleanStoredInstances, mergeStoredInstances } from './scm/instances.js';
 import { DEFAULT_SLA, mergeSla } from './sla.js';
@@ -67,6 +68,8 @@ export const DEFAULT_SETTINGS = {
     copyConfiguredRecipients: false,
   },
   template: DEFAULT_TEMPLATE,
+  /** The reminder email as plain fields, branded like the portal (src/reminder-email.js); 'html' uses `template`. */
+  reminderEmail: { ...DEFAULT_REMINDER_EMAIL },
   // Deep links into the Checkmarx One UI, so each finding in the mail is
   // clickable. Editable because the web app's routes are not part of the
   // published API reference.
@@ -456,6 +459,7 @@ export function mergeSettings(current, incoming = {}) {
   }
 
   const automation = mergeAutomation(current.automation, incoming.automation ?? {});
+  const reminderEmail = mergeReminderEmail(current.reminderEmail, incoming.reminderEmail ?? null, { isSafeImageUrl: (url) => isSafeImageUrl(url) && url.length <= 400_000, emailRe: EMAIL_RE });
 
   const endpoints = { ...current.endpoints };
   if (incoming.endpoints && 'risksPath' in incoming.endpoints) {
@@ -501,7 +505,7 @@ export function mergeSettings(current, incoming = {}) {
   const support = mergeSupport(current.support, incoming.support);
   const handsOff = mergeHandsOff(current.handsOff, incoming.handsOff);
 
-  const next = { ...current, smtp, recipients, initiators, template, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders, impact, support, handsOff };
+  const next = { ...current, smtp, recipients, initiators, template, reminderEmail, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders, impact, support, handsOff };
 
   // The automation credential is set through its own route, not this form.
   if (typeof incoming.automationApiKey === 'string') next.automationApiKey = incoming.automationApiKey.trim();
@@ -633,6 +637,7 @@ export function publicSettings(settings) {
     recipients: settings.recipients,
     initiators: settings.initiators,
     template: settings.template,
+    reminderEmail: settings.reminderEmail,
     links: settings.links,
     branding: settings.branding,
     automation: settings.automation,
@@ -733,7 +738,10 @@ export class SettingsStore {
         links: migrateLinks({ ...DEFAULT_SETTINGS.links, ...(raw.links ?? {}) }),
         branding: migrateBranding({ ...DEFAULT_SETTINGS.branding, ...(raw.branding ?? {}) }, raw.branding ?? {}),
         // A schedule saved before engines could be chosen keeps every engine, as it always did.
-        automation: { ...DEFAULT_SETTINGS.automation, ...(raw.automation ? { engines: [], branches: 'all', leaveOutNoCode: false } : {}), ...(raw.automation ?? {}) },
+        // A schedule saved before there was a choice of when keeps going out every so many minutes.
+        automation: { ...DEFAULT_SETTINGS.automation, ...(raw.automation ? { engines: [], branches: 'all', leaveOutNoCode: false, when: 'interval' } : {}), ...(raw.automation ?? {}) },
+        // Whoever wrote their own HTML template keeps it for reminders; everyone else gets the branded email.
+        reminderEmail: mergeReminderEmail(raw.reminderEmail ?? (raw.template?.html && raw.template.html !== DEFAULT_TEMPLATE.html ? { style: 'html' } : {}), null),
         endpoints: { ...DEFAULT_SETTINGS.endpoints, ...(raw.endpoints ?? {}) },
         aiTriage: { ...DEFAULT_SETTINGS.aiTriage, ...(raw.aiTriage ?? {}) },
         beta: mergeBeta(raw.beta, null),

@@ -27,7 +27,48 @@ export const DEFAULT_AUTOMATION = {
   dryRun: false,
   // Also email the developer who last changed each vulnerable line (once "Code authors" is final).
   notifyCodeAuthors: false,
+  // Age limits for each severity of its own (Act → Automation → Reminders), instead of `thresholds` for all.
+  // A severity with no days is not reminded about.
+  perSeverity: false,
+  severityLimits: { CRITICAL: [7, 14, 30], HIGH: [30, 60], MEDIUM: [90], LOW: [] },
+  // What reminders cover (→ Focus): applications by name, project tags (key or key:value), and project
+  // names with * and ? as wildcards to keep or leave out. Empty: every project.
+  focus: { applications: [], tags: [], projects: [], exclude: [] },
+  // When runs go out: 'schedule' (these days, at this time, in this time zone; empty: the server's) or
+  // 'interval' (every intervalMinutes). A schedule saved before there was a choice keeps its interval.
+  when: 'schedule',
+  days: [1, 2, 3, 4, 5],
+  at: '09:00',
+  timeZone: '',
 };
+
+export const LIMIT_SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+
+const FOCUS_MAX = 50;
+
+/** Names, tags or patterns typed as "a, b" or a list: trimmed, de-duplicated, at most 50 of 120 characters. */
+export function parseNames(value) {
+  const list = Array.isArray(value) ? value : String(value ?? '').split(/[,;\n]+/);
+  return [...new Set(list.map((entry) => String(entry ?? '').trim().slice(0, 120)).filter(Boolean))].slice(0, FOCUS_MAX);
+}
+
+/** "7, 14, 30" → [7, 14, 30]; blank or "none" → [] (that severity is not reminded about). */
+export function parseLimits(value) {
+  const list = Array.isArray(value) ? value : String(value ?? '').split(/[\s,;]+/);
+  return [...new Set(list.map((entry) => Number.parseInt(entry, 10)).filter((n) => Number.isFinite(n) && n > 0 && n <= 3650))].sort((a, b) => a - b).slice(0, 10);
+}
+
+/** A valid IANA time zone, else '' (the server's own). */
+export function cleanTimeZone(value) {
+  const zone = String(value ?? '').trim();
+  if (!zone || zone.length > 64) return '';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: zone });
+    return zone;
+  } catch {
+    return '';
+  }
+}
 
 export class AutomationError extends Error {
   constructor(message, status = 400) {
@@ -71,6 +112,34 @@ export function mergeAutomation(current, incoming = {}) {
   if ('branches' in incoming) next.branches = incoming.branches === 'all' ? 'all' : 'primary';
   if ('leaveOutNoCode' in incoming) next.leaveOutNoCode = incoming.leaveOutNoCode !== false;
 
+  if ('perSeverity' in incoming) next.perSeverity = incoming.perSeverity === true;
+  if (incoming.severityLimits && typeof incoming.severityLimits === 'object') {
+    const limits = { ...(current.severityLimits ?? DEFAULT_AUTOMATION.severityLimits) };
+    for (const severity of LIMIT_SEVERITIES) if (severity in incoming.severityLimits) limits[severity] = parseLimits(incoming.severityLimits[severity]);
+    next.severityLimits = limits;
+  }
+  if (incoming.focus && typeof incoming.focus === 'object') {
+    const focus = { ...DEFAULT_AUTOMATION.focus, ...(current.focus ?? {}) };
+    for (const key of ['applications', 'tags', 'projects', 'exclude']) if (key in incoming.focus) focus[key] = parseNames(incoming.focus[key]);
+    next.focus = focus;
+  }
+  if ('when' in incoming) next.when = incoming.when === 'interval' ? 'interval' : 'schedule';
+  if ('days' in incoming) {
+    const days = [...new Set((Array.isArray(incoming.days) ? incoming.days : []).map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort();
+    if (!days.length) throw new AutomationError('Choose at least one day for reminders to go out.');
+    next.days = days;
+  }
+  if ('at' in incoming) {
+    const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(String(incoming.at ?? '').trim());
+    if (!match) throw new AutomationError('Give the time reminders go out as hours and minutes, such as 09:00.');
+    next.at = `${match[1].padStart(2, '0')}:${match[2]}`;
+  }
+  if ('timeZone' in incoming) {
+    const zone = cleanTimeZone(incoming.timeZone);
+    if (String(incoming.timeZone ?? '').trim() && !zone) throw new AutomationError('That time zone is not known. Use a name such as Europe/Berlin, or leave it blank for the server\'s.');
+    next.timeZone = zone;
+  }
+
   return next;
 }
 
@@ -86,4 +155,85 @@ export function parseThresholds(value, fallback = DEFAULT_AUTOMATION.thresholds)
   ].sort((a, b) => a - b);
 
   return days.length > 0 ? days : fallback;
+}
+
+// ---------------------------------------------------------------------------
+
+/** The wall-clock parts of `date` in `timeZone` ('' is this machine's). */
+function zoned(date, timeZone) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', { ...(timeZone ? { timeZone } : {}), hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', weekday: 'short' })
+      .formatToParts(date)
+      .map((p) => [p.type, p.value]),
+  );
+  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.weekday);
+  return { year: +parts.year, month: +parts.month, day: +parts.day, hour: +parts.hour % 24, minute: +parts.minute, second: +parts.second, weekday };
+}
+
+/** The instant a wall-clock time in `timeZone` falls on (the later one when clocks go back; on when they skip it). */
+function instantOf({ year, month, day, hour, minute }, timeZone) {
+  const guess = Date.UTC(year, month - 1, day, hour, minute);
+  let at = guess;
+  for (let i = 0; i < 3; i += 1) {
+    const seen = zoned(new Date(at), timeZone);
+    const shown = Date.UTC(seen.year, seen.month - 1, seen.day, seen.hour, seen.minute);
+    if (shown === guess) return at;
+    at += guess - shown;
+  }
+  return at;
+}
+
+/**
+ * When a schedule next goes out after `from`: the first chosen day, at `at`, in the time zone. An interval
+ * goes out `intervalMinutes` after `from`. Null when nothing would ever go out.
+ */
+export function nextRunAfter(automation, from = new Date()) {
+  if (automation.when !== 'schedule') return new Date(from.getTime() + (automation.intervalMinutes ?? 360) * 60_000);
+  const days = new Set(automation.days ?? []);
+  if (!days.size) return null;
+  const [hour, minute] = String(automation.at ?? '09:00').split(':').map(Number);
+  const zone = cleanTimeZone(automation.timeZone);
+  const today = zoned(from, zone);
+  for (let offset = 0; offset <= 8; offset += 1) {
+    // Calendar arithmetic on the zone's own date, so a day is a day across a clock change.
+    const date = new Date(Date.UTC(today.year, today.month - 1, today.day + offset));
+    if (!days.has(date.getUTCDay())) continue;
+    const at = instantOf({ year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate(), hour, minute }, zone);
+    if (at > from.getTime()) return new Date(at);
+  }
+  return null;
+}
+
+/** The age limits that apply to a finding: its severity's own, or the same for every severity. */
+export function limitsFor(automation, severity) {
+  if (!automation.perSeverity) return automation.thresholds ?? [];
+  return automation.severityLimits?.[severity] ?? [];
+}
+
+const glob = (pattern) => new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`, 'i');
+
+/**
+ * The projects reminders cover (→ Focus): those in a named application, with a named tag (key, or key:value)
+ * or a name matching a pattern — any of them; every project when none is named — less those matching a
+ * "leave out" pattern. `applications` is the tenant's ({id, name, projectIds}).
+ */
+export function focusProjects(projects, focus = {}, applications = []) {
+  const names = (focus.applications ?? []).map((n) => n.toLowerCase());
+  const tags = focus.tags ?? [];
+  const keep = (focus.projects ?? []).map(glob);
+  const drop = (focus.exclude ?? []).map(glob);
+  const inApps = new Set(applications.filter((a) => names.includes(a.name.toLowerCase()) || names.includes(String(a.id).toLowerCase())).flatMap((a) => a.projectIds));
+  const anyNamed = names.length || tags.length || keep.length;
+  const tagged = (project) =>
+    tags.some((tag) => {
+      const at = tag.indexOf(':');
+      const key = (at < 0 ? tag : tag.slice(0, at)).trim();
+      const entries = Object.entries(project.tags ?? {});
+      return entries.some(([k, v]) => k.toLowerCase() === key.toLowerCase() && (at < 0 || String(v ?? '').toLowerCase() === tag.slice(at + 1).trim().toLowerCase()));
+    });
+  return projects.filter(
+    (project) =>
+      (!anyNamed || inApps.has(project.id) || tagged(project) || keep.some((re) => re.test(project.name))) &&
+      !drop.some((re) => re.test(project.name)),
+  );
 }

@@ -211,7 +211,9 @@ export async function sendReminderMail(settings, message, overrides = {}) {
   const transport = buildTransport(settings.smtp);
   try {
     const mailOptions = {
-      from: fromAddress(settings.smtp),
+      // A sender name of its own (Act → Automation → Email), on the same From address.
+      from: fromAddress(overrides.fromName ? { ...settings.smtp, fromName: overrides.fromName } : settings.smtp),
+      ...(overrides.replyTo ? { replyTo: overrides.replyTo } : {}),
       to,
       cc,
       bcc,
