@@ -14,6 +14,8 @@ export class CxApiError extends Error {
   }
 }
 
+// What a trace keeps of a body: enough to see what came back.
+const TRACE_BODY = 8192;
 const RETRYABLE = new Set([429, 502, 503, 504]);
 // Pages of one collection read at once once its size is known (CX_PAGES_AT_ONCE).
 const PAGES_AT_ONCE = Math.max(1, Number(process.env.CX_PAGES_AT_ONCE) || 4);
@@ -103,8 +105,10 @@ export class CxClient {
    * @param {any}    [options.body]      JSON-serialised when present.
    * @param {string} [options.accept]
    * @param {number} [options.retries]
+   * @param {function} [options.trace]   Debugging (Labs → Fusion results): called with each attempt's
+   *   request and answer in full, the access token never included.
    */
-  async request(path, { method = 'GET', query, body, accept = ACCEPT, retries = 3, background = false } = {}) {
+  async request(path, { method = 'GET', query, body, accept = ACCEPT, retries = 3, background = false, trace = null } = {}) {
     if (!this.baseUrl) throw new CxApiError('Checkmarx One API URL is not configured.', { path });
 
     const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
@@ -115,10 +119,22 @@ export class CxClient {
     }
 
     let lastError;
+    const sent = { Authorization: 'Bearer [hidden]', Accept: accept, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) };
+    const traced = (attempt, started, response, text, error) => {
+      if (!trace) return;
+      try {
+        trace({
+          at: new Date(started).toISOString(), attempt: attempt + 1, method, url: url.href, request: { headers: sent, body: body === undefined ? undefined : JSON.stringify(body).slice(0, TRACE_BODY) },
+          ...(response ? { status: response.status, statusText: response.statusText, headers: Object.fromEntries([...response.headers].filter(([k]) => k !== 'set-cookie')), body: text.slice(0, TRACE_BODY), truncated: text.length > TRACE_BODY } : { error: error?.message ?? String(error) }),
+          ms: Date.now() - started,
+        });
+      } catch {}
+    };
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       const token = await this.#tokens.getToken();
       let response;
       let text = '';
+      const started = Date.now();
       try {
         // Only the network round trip holds a slot; back-off waits do not.
         [response, text] = await this.#limit.run(async () => {
@@ -135,6 +151,7 @@ export class CxClient {
           return [r, await r.text().catch(() => '')];
         }, { low: background });
       } catch (error) {
+        traced(attempt, started, null, '', error);
         // A dropped connection or DNS hiccup: as retryable as a 503.
         lastError = Object.assign(new CxApiError(`Could not reach Checkmarx One at ${url.host}: ${networkReason(error)}.`, { status: 502, path: url.pathname }), { cause: error });
         if (attempt === retries) throw lastError;
@@ -142,6 +159,7 @@ export class CxClient {
         continue;
       }
 
+      traced(attempt, started, response, text);
       if (response.ok) {
         if (response.status === 204 || !text) return null;
         try {

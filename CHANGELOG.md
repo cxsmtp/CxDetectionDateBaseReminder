@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.87 | 465/s, 84 (main 470, 89; a busier host than usual) | 13.2 s | 1.8 s | 723 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.86 | 303/s and 285/s, 2,052 and 2,266 on a saturated host (main 375 and 278, 1,201 and 2,336) | 60 s (main too) | 24.1 s | 721 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.85 | 498/s and 513/s, 0 (main 491 and 520, 0) | 6.3 s | 463 ms | 720 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.84 | 502/s, 0 (main 497, 0) | 6.7 s | 593 ms | 698 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -72,6 +73,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.87 — 2026-10-20 20:22 UTC · [#110](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/110)
+
+- **Troubleshoot Fusion.** At the bottom of Labs → Fusion results, whoever manages the Checkmarx One integration can test addresses where the tenant may serve Fusion (suggested ones to start with, editable, `{appId}` filled in), see each answer, and pin the one that works for Fusion results or its scan status; the page reads Fusion from there at once, with no new release.
+- **Debug mode for Fusion.** While it is on, every Fusion call is logged in full (request and answer, headers and bodies, the access token never in it), kept with the session only, to copy or download and share.
+- **"No available server" explained.** When Checkmarx One has the Fusion address but no server running behind it (503), the page says the Fusion service is not running on this tenant instead of showing an error.
+- **The Workbench drawer, clean in every look.** In Studio the AI credits drawer showed its sections as white cards with the heading on the edge and an active tab whose underline bent into an arc; in the cockpit looks the content was squeezed by padding on padding. The drawer is now one card in every look, with straight tab underlines.
+- **Status.** 3000 people at once on 2 vCPU, on a busier host than usual: 465 requests a second with 84 failed against main's 470 and 89, the failures connection timeouts on both sides alike, and no finding sent twice ([performance](docs/performance.md)); 723 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan, rescan fe2eb036's open findings as before ([status](docs/status.md)).
 
 ## MZ-01.00.86 — 2026-10-20 18:40 UTC · [#109](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/109)
 

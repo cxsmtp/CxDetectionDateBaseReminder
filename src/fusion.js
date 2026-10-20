@@ -13,6 +13,10 @@
  */
 import { CxApiError, mapWithConcurrency } from './cxone/client.js';
 import { isProbeMiss } from './cxone/discovery.js';
+
+// The gateway answering for a service with nothing running behind it ("503 no available server"):
+// the route is there, the service is not. Told apart from a miss so the page can say so.
+const NOT_RUNNING = new Set([502, 503, 504]);
 import { listApplications } from './cxone/projects.js';
 
 export const FUSION_RESULTS_BASES = ['/api/correlation/results'];
@@ -49,7 +53,8 @@ const bases = new WeakMap();
  */
 async function findBase(client, candidates, kind, probe) {
   const known = bases.get(client)?.[kind];
-  if (known) return { base: known };
+  // A path someone pinned since is tried first, whatever was found before.
+  if (known && known === candidates[0]) return { base: known };
   let found = null;
   const tried = [];
   for (const base of candidates) {
@@ -58,7 +63,7 @@ async function findBase(client, candidates, kind, probe) {
       found = { base, body };
       break;
     } catch (error) {
-      if (!isProbeMiss(error)) throw error;
+      if (!isProbeMiss(error) && !NOT_RUNNING.has(error.status)) throw error;
       tried.push({ path: error.path || base, status: error.status });
     }
   }
@@ -72,12 +77,12 @@ async function findBase(client, candidates, kind, probe) {
  * Every result Fusion re-scored in one application. The service takes no paging parameters;
  * should it ever page (fewer results than totalCount), the next pages are asked for by offset.
  */
-async function riskScores(client, base, appId) {
+async function riskScores(client, base, appId, trace = null) {
   const path = `${base}/applications/${encodeURIComponent(appId)}/risk-scores`;
   const out = [];
   const seen = new Set();
   for (let page = 0; page < MAX_PAGES; page += 1) {
-    const body = await client.request(path, { query: page ? { offset: out.length, limit: PAGE } : undefined, retries: 1, background: true });
+    const body = await client.request(path, { query: page ? { offset: out.length, limit: PAGE } : undefined, retries: 1, background: true, trace });
     const rows = Array.isArray(body?.results) ? body.results : [];
     let fresh = 0;
     for (const r of rows) {
@@ -94,9 +99,9 @@ async function riskScores(client, base, appId) {
   return out;
 }
 
-async function scanStatus(client, base, appId) {
+async function scanStatus(client, base, appId, trace = null) {
   try {
-    const s = await client.request(`${base}/${encodeURIComponent(appId)}/scan-status`, { retries: 1, background: true });
+    const s = await client.request(`${base}/${encodeURIComponent(appId)}/scan-status`, { retries: 1, background: true, trace });
     if (!s) return null;
     const at = Number(s.scanTimestamp);
     return {
@@ -163,11 +168,14 @@ export function summarize(results) {
  * Read Fusion's results for the projects in `projectIds` (the Workbench's last fetch):
  * the applications holding them, each one's re-scored results and latest Fusion scan.
  */
-export async function readFusion(client, projectIds, { concurrency = 4 } = {}) {
+export async function readFusion(client, projectIds, { concurrency = 4, trace = null, resultsPath = '', dispatcherPath = '' } = {}) {
   const inScope = new Set([...projectIds].map(String));
   const readAt = new Date().toISOString();
-  const listScanned = (base) => client.request(`${base}/applications`, { retries: 1, background: true });
-  const found = await findBase(client, FUSION_RESULTS_BASES, 'results', listScanned);
+  // A path pinned under Troubleshoot first, then where tenants serve it.
+  const resultsBases = [...new Set([resultsPath, ...FUSION_RESULTS_BASES].filter(Boolean))];
+  const dispatcherBases = [...new Set([dispatcherPath, ...FUSION_DISPATCHER_BASES].filter(Boolean))];
+  const listScanned = (base) => client.request(`${base}/applications`, { retries: 1, background: true, trace });
+  const found = await findBase(client, resultsBases, 'results', listScanned);
   if (!found.base) return { readAt, available: false, tried: found.tried, applications: [], results: [], listed: 0, ...summarize([]) };
   const resultsBase = found.base;
   const scanned = new Set(((found.body !== undefined ? found.body : await listScanned(resultsBase))?.applications ?? []).map(String));
@@ -175,12 +183,12 @@ export async function readFusion(client, projectIds, { concurrency = 4 } = {}) {
   // An application Fusion has results for, holding a project in scope.
   const read = apps.filter((a) => scanned.has(a.id));
   const dispatcherBase = read.length
-    ? (await findBase(client, FUSION_DISPATCHER_BASES, 'dispatcher', (base) => client.request(`${base}/${encodeURIComponent(read[0].id)}/scan-status`, { retries: 1, background: true })))?.base ?? null
+    ? (await findBase(client, dispatcherBases, 'dispatcher', (base) => client.request(`${base}/${encodeURIComponent(read[0].id)}/scan-status`, { retries: 1, background: true, trace })))?.base ?? null
     : null;
   const perApp = await mapWithConcurrency(read, concurrency, async (app) => {
     const [rows, status] = await Promise.all([
-      riskScores(client, resultsBase, app.id).catch((error) => (isProbeMiss(error) ? [] : Promise.reject(error))),
-      dispatcherBase ? scanStatus(client, dispatcherBase, app.id).catch(() => null) : null,
+      riskScores(client, resultsBase, app.id, trace).catch((error) => (isProbeMiss(error) ? [] : Promise.reject(error))),
+      dispatcherBase ? scanStatus(client, dispatcherBase, app.id, trace).catch(() => null) : null,
     ]);
     return { app, rows, status };
   });
@@ -206,4 +214,40 @@ export async function readFusion(client, projectIds, { concurrency = 4 } = {}) {
     listed: Math.min(results.length, MAX_LISTED),
     results: results.sort((a, b) => order(a) - order(b)).slice(0, MAX_LISTED),
   };
+}
+
+/** The paths Troubleshoot offers to test first: where tenants serve Fusion, and where its results also appear. */
+export const PROBE_DEFAULTS = [
+  '/api/correlation/results/applications',
+  '/api/correlation/results/applications/{appId}/summary',
+  '/api/correlation/results/applications/{appId}/risk-scores',
+  '/api/correlation/dispatcher/{appId}/scan-status',
+  '/api/fusion-results/applications',
+  '/api/fusion/results/applications',
+  '/api/risk-management/summary',
+  '/api/risk-management/{appId}/results',
+  '/api/flags',
+];
+
+/**
+ * Troubleshoot: call each path once (GET, through this connection), {appId} replaced by an application's
+ * id, and say what came back: status, time, the start of the answer, and the full exchange via `trace`.
+ */
+export async function probeFusion(client, paths, { appId = '', trace = null } = {}) {
+  const out = [];
+  for (const path of paths) {
+    const url = path.replaceAll('{appId}', encodeURIComponent(appId));
+    const started = Date.now();
+    if (path.includes('{appId}') && !appId) {
+      out.push({ path, url, status: 0, ok: false, ms: 0, answer: 'No application to put in {appId}: load findings on the Workbench first.' });
+      continue;
+    }
+    try {
+      const body = await client.request(url, { retries: 0, trace, query: url.includes('risk-management/') && url.endsWith('/results') ? { limit: 5 } : undefined });
+      out.push({ path, url, status: 200, ok: true, ms: Date.now() - started, answer: (typeof body === 'string' ? body : JSON.stringify(body) ?? '').slice(0, 600) });
+    } catch (error) {
+      out.push({ path, url, status: error.status ?? 0, ok: false, ms: Date.now() - started, answer: String(error.body || error.message).slice(0, 600) });
+    }
+  }
+  return out;
 }

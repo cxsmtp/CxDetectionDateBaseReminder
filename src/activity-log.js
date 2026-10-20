@@ -283,6 +283,8 @@ export const ACTIONS = {
   'POST /api/beta/fusion/allocate': 'Allocated credits for Fusion results',
   'POST /api/beta/fusion/triage': 'Ran AI Triage on Fusion results',
   'POST /api/beta/fusion/remediate': 'Ran AI Remediation on Fusion results',
+  'POST /api/beta/fusion/probe': 'Tested Checkmarx One paths for Fusion',
+  'PUT /api/beta/fusion/debug': 'Changed Fusion debug mode',
 };
 
 const VERBS = { POST: 'Did', PUT: 'Changed', PATCH: 'Changed', DELETE: 'Removed', GET: 'Opened' };
