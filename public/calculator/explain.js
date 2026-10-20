@@ -2,7 +2,7 @@
 // page, the report's "How each number is calculated" and the PDF's appendix. One source, so the
 // three always say the same thing. `L` is the report's wording (`w` escapes, `num` formats).
 
-import { SEVERITIES, aheadMonths, creditSummary } from './model.js';
+import { HOURS_A_YEAR, SEVERITIES, aheadMonths, creditSummary } from './model.js';
 
 const pctOf = (n) => (Number.isFinite(n) ? n * 100 : 0);
 
@@ -142,9 +142,48 @@ export function totalSection(data, L) {
   return { key: 'total', title: w('Total credits required'), lines };
 }
 
+/** An amount of money in the impact's currency. */
+export function moneyText(n, currency, locale) {
+  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
+  try {
+    return n.toLocaleString(locale, { style: 'currency', currency, maximumFractionDigits: 0 });
+  } catch {
+    return `${Math.round(n).toLocaleString(locale)} ${currency}`;
+  }
+}
+
+/** Impact (model.js trImpact): the hours given back, their value, what the credits cost, the return. */
+export function impactSections(m, L) {
+  const { w, num } = L;
+  if (!m) return [];
+  const s = m.settings;
+  const cash = (n) => moneyText(n, s.currency, L.locale);
+  const lines = [
+    { text: w('Triage: every finding AI triages × the minutes to triage it by hand ÷ 60:') },
+    { text: w('{0} × {1} ÷ 60 = {2} hours.', num(m.triaged), num(s.triageMinutes), num(m.triageHours)), sub: true },
+    { text: w('Fixing: every true positive AI fixes × (the minutes to fix it by hand − the minutes to review the AI fix) ÷ 60:') },
+    { text: w('{0} × ({1} − {2}) ÷ 60 = {3} hours.', num(m.fixes), num(s.fixMinutes), num(s.reviewMinutes), num(m.fixHours)), sub: true },
+    { text: w('{0} + {1} = {2} hours, about {3} developer-years at {4} hours a year.', num(m.triageHours), num(m.fixHours), num(m.hours), num(m.developerYears, 1), num(HOURS_A_YEAR)), total: true },
+    { text: w('False positives cleared: findings triaged − true positives, {0} − {1} = {2}; none of them reaches a developer.', num(m.triaged), num(m.fixes), num(m.cleared)) },
+  ];
+  const money = [];
+  if (m.value === null) money.push({ text: w('Enter what a developer\'s hour costs to put a value on the time.') });
+  else money.push({ text: w('Value of the time: {0} hours × {1} = {2}.', num(m.hours), cash(s.hourlyRate), cash(m.value)) });
+  if (m.cost === null) money.push({ text: w('Enter what a credit costs to set the value against it.') });
+  else money.push({ text: w('What the credits cost: {0} credits × {1} = {2}.', num(m.credits, 1), s.creditPrice.toLocaleString(L.locale, { maximumFractionDigits: 2 }), cash(m.cost)) });
+  if (m.roi !== null) {
+    money.push({ text: w('Return: ({0} − {1}) ÷ {1} = {2}%.', cash(m.value), cash(m.cost), num(m.roi * 100)), total: true });
+    if (m.paybackMonths !== null) money.push({ text: w('Paid back in: {0} ÷ ({1} ÷ {2} months) = {3} months.', cash(m.cost), cash(m.value), num(m.months), num(m.paybackMonths, 1)) });
+  }
+  return [
+    { key: 'impact-hours', title: w('Hours given back'), lines },
+    { key: 'impact-money', title: w('Value and return'), lines: money },
+  ];
+}
+
 /** Every section, in the order the numbers are reached. */
 export function allSections(data, L) {
-  return [...(data.tr ? trSections(data.tr, L) : []), fusionSection(data.fusion, L), totalSection(data, L)];
+  return [...(data.tr ? trSections(data.tr, L) : []), fusionSection(data.fusion, L), totalSection(data, L), ...impactSections(data.impact?.tr, L)];
 }
 
 /** A section as HTML: the lines, figures already in. */

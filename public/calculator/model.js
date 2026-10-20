@@ -649,3 +649,81 @@ export function inScope(project, scope, engines = null) {
   if (sc.names.length && !sc.names.some((pattern) => globMatch(pattern.includes('*') || pattern.includes('?') ? pattern : `*${pattern}*`, project?.name))) return false;
   return true;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Impact: what using the triage & remediation credits gives back
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * The assumptions behind the impact, each customer's own (started from Settings → Impact): the
+ * minutes a person spends triaging one finding by hand, fixing one, and reviewing a fix AI wrote;
+ * what an hour of a developer costs; what a credit costs; the currency.
+ */
+export const IMPACT_DEFAULTS = { triageMinutes: 20, fixMinutes: 120, reviewMinutes: 15, hourlyRate: 0, creditPrice: 0, currency: 'USD' };
+/** Working hours in a developer's year, to say the hours as people. */
+export const HOURS_A_YEAR = 1800;
+
+export function impactSettings(value = {}, base = IMPACT_DEFAULTS) {
+  const pick = (key, max) => {
+    const v = amount(value?.[key]);
+    return v === null ? clamp(Number(base?.[key] ?? IMPACT_DEFAULTS[key]) || 0, 0, max) : clamp(v, 0, max);
+  };
+  const currency = String(value?.currency || base?.currency || IMPACT_DEFAULTS.currency).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) || 'USD';
+  return {
+    triageMinutes: pick('triageMinutes', 600),
+    fixMinutes: pick('fixMinutes', 6000),
+    reviewMinutes: pick('reviewMinutes', 600),
+    hourlyRate: pick('hourlyRate', 100000),
+    creditPrice: pick('creditPrice', 100000),
+    currency,
+  };
+}
+
+/**
+ * The impact of the triage & remediation projection (its rows by severity, over `months`):
+ * every finding AI triages is one a person does not look at by hand; every false positive it
+ * clears never reaches a developer; every true positive it fixes saves the hand fix, less the
+ * time a developer reviews AI's fix. Hours become money at the hourly cost, set against what the
+ * credits cost. Money figures are null until a rate (and a credit price) is given.
+ */
+export function trImpact(rows = {}, months = 12, settings = {}) {
+  const s = impactSettings(settings);
+  const period = clamp(Number(months) || 12, 1, 60);
+  const fixSaved = Math.max(0, s.fixMinutes - s.reviewMinutes);
+  const bySeverity = SEVERITIES.map((severity) => {
+    const r = rows?.[severity] ?? {};
+    const triaged = Math.max(0, Number(r.toTriage) || 0);
+    const fixes = Math.max(0, Number(r.truePositives) || 0);
+    const cleared = Math.max(0, triaged - fixes);
+    const triageHours = (triaged * s.triageMinutes) / 60;
+    const fixHours = (fixes * fixSaved) / 60;
+    const credits = Math.max(0, Number(r.credits) || 0);
+    return { severity, triaged, cleared, fixes, triageHours, fixHours, hours: triageHours + fixHours, credits };
+  });
+  const sum = (key) => bySeverity.reduce((n, r) => n + r[key], 0);
+  const hours = sum('hours');
+  const credits = sum('credits');
+  const value = s.hourlyRate > 0 ? hours * s.hourlyRate : null;
+  const cost = s.creditPrice > 0 ? credits * s.creditPrice : null;
+  const net = value !== null ? value - (cost ?? 0) : null;
+  return {
+    settings: s,
+    months: period,
+    bySeverity,
+    triaged: sum('triaged'),
+    cleared: sum('cleared'),
+    fixes: sum('fixes'),
+    triageHours: sum('triageHours'),
+    fixHours: sum('fixHours'),
+    hours,
+    hoursPerMonth: hours / period,
+    developerYears: hours / HOURS_A_YEAR,
+    credits,
+    value,
+    cost,
+    net,
+    // Return on what the credits cost: net ÷ cost; and how many months of savings pay for them.
+    roi: value !== null && cost ? net / cost : null,
+    paybackMonths: value && cost !== null ? cost / (value / period) : null,
+  };
+}

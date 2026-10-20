@@ -2477,6 +2477,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             <div class="ptabs" role="tablist" aria-label="Cx Credits Calculator" data-ptabs="calculator">
               <button type="button" role="tab" class="ptab" data-pt="tr">Triage &amp; remediation</button>
               <button type="button" role="tab" class="ptab" data-pt="fusion">Fusion</button>
+              <button type="button" role="tab" class="ptab" data-pt="impact">Impact</button>
               <button type="button" role="tab" class="ptab" data-pt="reports">Projection reports</button>
             </div>
 
@@ -2551,6 +2552,29 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div class="calc-more" id="calc-rows-more" hidden><button type="button" class="secondary" id="calc-rows-more-btn">Show more</button></div>
                 <p class="hint" id="calc-rows-empty">No projects yet. <strong>Read from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.</p>
               </section>
+            </div>
+
+            <div data-ptpanel="calculator:impact" class="calc-panel" hidden>
+              <section class="panel">
+                <h2>What the credits give back</h2>
+                <p class="calc-notice" data-help-fold>Every finding AI Triage looks at is one a person does not triage by hand; every false positive it clears never reaches a developer; every true positive AI Remediation fixes saves the fix by hand, less the time a developer takes to review it. The hours, at what a developer's hour costs, set against what the credits cost, are the return. The figures follow the Triage &amp; remediation tab.</p>
+                <div class="calc-terms" id="calc-impact-terms">
+                  <label class="field"><span>Minutes to triage a finding by hand</span><input type="number" id="calc-imp-triage" min="0" step="1" /></label>
+                  <label class="field"><span>Minutes to fix a finding by hand</span><input type="number" id="calc-imp-fix" min="0" step="5" /></label>
+                  <label class="field"><span>Minutes to review an AI fix</span><input type="number" id="calc-imp-review" min="0" step="1" /></label>
+                  <label class="field"><span>A developer's hour costs</span><input type="number" id="calc-imp-rate" min="0" step="1" placeholder="e.g. 85" /></label>
+                  <label class="field"><span>A credit costs</span><input type="number" id="calc-imp-price" min="0" step="0.01" placeholder="e.g. 1.50" /></label>
+                  <label class="field"><span>Currency</span><select id="calc-imp-currency"><option value="USD" translate="no">USD</option><option value="EUR" translate="no">EUR</option><option value="GBP" translate="no">GBP</option><option value="INR" translate="no">INR</option><option value="JPY" translate="no">JPY</option><option value="CNY" translate="no">CNY</option><option value="KRW" translate="no">KRW</option><option value="AUD" translate="no">AUD</option><option value="CAD" translate="no">CAD</option><option value="CHF" translate="no">CHF</option><option value="SGD" translate="no">SGD</option><option value="HKD" translate="no">HKD</option><option value="TWD" translate="no">TWD</option><option value="MYR" translate="no">MYR</option><option value="IDR" translate="no">IDR</option><option value="THB" translate="no">THB</option><option value="VND" translate="no">VND</option><option value="AED" translate="no">AED</option><option value="SAR" translate="no">SAR</option><option value="ILS" translate="no">ILS</option><option value="BRL" translate="no">BRL</option><option value="MXN" translate="no">MXN</option><option value="ZAR" translate="no">ZAR</option><option value="SEK" translate="no">SEK</option><option value="NOK" translate="no">NOK</option><option value="DKK" translate="no">DKK</option><option value="PLN" translate="no">PLN</option><option value="NZD" translate="no">NZD</option></select></label>
+                </div>
+                <p class="hint">They start from Settings → Impact and are kept with this customer.</p>
+              </section>
+              <div class="calc-kpis" id="calc-impact-kpis"></div>
+              <section class="panel">
+                <h2>Where the time comes back, by severity</h2>
+                <div class="table-wrap"><table class="data-table calc-impact"><thead><tr><th>Severity</th><th class="num">Triaged by AI</th><th class="num">False positives cleared</th><th class="num">Fixed by AI</th><th class="num">Hours saved</th><th class="num">Credits</th></tr></thead><tbody id="calc-impact-rows"></tbody></table></div>
+                <p class="hint" id="calc-impact-empty" hidden>No triage &amp; remediation projection yet: read Checkmarx One (or use the two exports) on the Triage &amp; remediation tab.</p>
+              </section>
+              <section class="panel" id="calc-impact-how"></section>
             </div>
 
             <div data-ptpanel="calculator:reports" class="calc-panel" hidden>

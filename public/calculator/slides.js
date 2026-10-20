@@ -7,7 +7,7 @@
 // browser), kept as a JPEG, and the three are written into a PDF here: no library, nothing sent.
 
 import { FREQUENCIES, SEVERITIES, aheadMonths, creditSummary } from './model.js';
-import { allSections } from './explain.js';
+import { allSections, moneyText } from './explain.js';
 import { forecastChart } from './charts.js';
 import { assumptionItems, reportFileName, trFigures, wording } from './report.js';
 import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../look.js';
@@ -129,7 +129,30 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
     lines: assumptionItems(data, sum, L).map(plain),
   });
 
-  // 4. The appendix begins: what it holds, and on which pages (filled in once the pages are laid out).
+  // 4. Impact: what the triage & remediation credits give back, in hours and money.
+  const im = data.impact?.tr;
+  if (im) {
+    const cash = (n) => plain(moneyText(n, im.settings.currency, L.locale));
+    const bars = (im.bySeverity ?? []).filter((r) => r.hours > 0).map((r) => ({ label: w(r.severity), value: r.hours, text: num(r.hours), note: w('{0} triaged, {1} fixed', num(r.triaged), num(r.fixes)), colour: C.accent }));
+    const lines = [w('{0} false positives cleared: none of them reaches a developer.', num(im.cleared))];
+    if (im.net !== null) lines.push(im.paybackMonths !== null ? w('{0} net; the credits are paid back in {1} months.', cash(im.net), num(im.paybackMonths, 1)) : w('{0} net.', cash(im.net)));
+    lines.push(w('Assumed: {0} minutes to triage a finding by hand, {1} to fix one, {2} to review an AI fix.', num(im.settings.triageMinutes), num(im.settings.fixMinutes), num(im.settings.reviewMinutes)));
+    pages.push({
+      kind: 'impact',
+      title: w('What the credits give back'),
+      subtitle: w('Triage & remediation over {0} months', num(im.months)),
+      figures: [
+        { label: w('Hours given back'), value: num(im.hours), note: w('{0} developer-years', num(im.developerYears, 1)), key: true },
+        { label: w('Value of that time'), value: im.value === null ? '—' : cash(im.value) },
+        { label: w('What the credits cost'), value: im.cost === null ? '—' : cash(im.cost) },
+        { label: w('Return'), value: im.roi === null ? '—' : `${num(im.roi * 100)}%` },
+      ],
+      bars: bars.length ? { title: w('Hours given back, by severity'), items: bars } : null,
+      lines,
+    });
+  }
+
+  // 5. The appendix begins: what it holds, and on which pages (filled in once the pages are laid out).
   pages.push({
     kind: 'section',
     title: w('Appendix – Calculations'),
@@ -141,7 +164,7 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
     ],
   });
 
-  // 5. The trend, and every number's calculation in one line.
+  // 6. The trend, and every number's calculation in one line.
   const calc = [];
   if (tr) {
     const T = tr.totals ?? {};
@@ -381,7 +404,7 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
     for (const b of page.bars.items.slice(0, 7)) {
       lines(b.label, left, y + 30, labelW - 20, { size: 24, colour: C.ink, lead: 28 });
       const bw = Math.max(6, (b.value / max) * barMax);
-      ctx.fillStyle = C.fusion;
+      ctx.fillStyle = b.colour ?? C.fusion;
       ctx.fillRect(X(left + labelW, bw), y + 6, bw, 34);
       text(b.text, left + labelW + bw + 14, y + 33, { size: 26, weight: 600 });
       text(b.note, left + labelW, y + 70, { size: 20, colour: C.muted });

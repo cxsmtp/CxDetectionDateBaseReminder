@@ -3251,3 +3251,6 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .look-mini[data-mini="classic"] em { border-radius: 4px; width: 26px; }
 .look-mini[data-mini="signal"] { background-image: radial-gradient(rgb(0 0 0 / 0.14) 0.8px, transparent 1px); background-size: 8px 8px; }
 .look-mini[data-mini="signal"] em { background: transparent; border: 2px solid var(--a); }
+
+/* Cx Credits Calculator → Impact: the six assumptions side by side where they fit. */
+#calc-impact-terms { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); align-items: end; }

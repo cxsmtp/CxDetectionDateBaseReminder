@@ -17,6 +17,7 @@ import {
   creditSummary,
   fusionEstimate,
   fusionSettings,
+  impactSettings,
   inScope,
   sortProjects,
   planForecast,
@@ -25,6 +26,7 @@ import {
   severityPlan,
   suggestedScans,
   totalsSettings,
+  trImpact,
   trProjection,
   weeklyTrend,
   wholeNumber,
@@ -32,7 +34,7 @@ import {
 import { SEVERITY_COLOURS, debtFixChart, forecastChart, severityCharts } from './charts.js';
 import { buildReport, reportFileName, wording } from './report.js';
 import { slidesFileName, slidesPdf } from './slides.js';
-import { allSections, sectionHtml } from './explain.js';
+import { allSections, impactSections, sectionHtml } from './explain.js';
 import { RTL, currentLanguage, t } from '../i18n.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines } from '../engines.js';
 
@@ -75,6 +77,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       return;
     }
     c.customers = body.customers ?? [];
+    c.impactDefaults = body.impactDefaults ?? {};
     renderCustomers();
     renderOrg();
     if (!reopen && c.open && c.customers.some((x) => x.id === c.open.id)) return loadReports();
@@ -133,6 +136,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-alt').open = customer.tr?.totals?.meta?.source === 'upload';
     if (!reading.timer) setStatus('calc-read-note', '');
     $('calc-read').disabled = Boolean(reading.timer);
+    fillImpact();
     renderTr();
     renderFusion();
     loadReports();
@@ -1380,6 +1384,77 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-sum-extra').textContent = sum.extra ? `Includes ${num(sum.extra, 1)} extra` : '';
     $('calc-sum-bundles').textContent = sum.total ? num(sum.bundles) : '—';
     $('calc-sum-exact').textContent = sum.total && sum.bundles !== sum.exactBundles ? `${num(sum.exactBundles, 2)}, rounded up` : '';
+    renderImpact();
+  }
+
+  // --- Impact: what the triage & remediation credits give back ---------------------------------
+
+  /** This customer's assumptions; a customer saved before the Impact tab starts from Settings → Impact. */
+  const impact = () => impactSettings(c.open?.impact ?? {}, impactSettings(c.impactDefaults ?? {}));
+  const IMPACT_FIELDS = { 'calc-imp-triage': 'triageMinutes', 'calc-imp-fix': 'fixMinutes', 'calc-imp-review': 'reviewMinutes', 'calc-imp-rate': 'hourlyRate', 'calc-imp-price': 'creditPrice', 'calc-imp-currency': 'currency' };
+
+  function fillImpact() {
+    const s = impact();
+    for (const [id, key] of Object.entries(IMPACT_FIELDS)) {
+      const v = s[key];
+      if (key === 'currency' && ![...$(id).options].some((o) => o.value === v)) $(id).add(new Option(v, v));
+      $(id).value = key === 'currency' ? v : key === 'hourlyRate' || key === 'creditPrice' ? (v || '') : v;
+    }
+  }
+
+  const money = (n, currency) => {
+    if (n === null || n === undefined || !Number.isFinite(n)) return '—';
+    try {
+      return n.toLocaleString(undefined, { style: 'currency', currency, maximumFractionDigits: 0 });
+    } catch {
+      return `${num(n)} ${currency}`;
+    }
+  };
+
+  /** The impact of the projection on the Triage & remediation tab, with these assumptions. */
+  function currentImpact() {
+    const t = trFigures();
+    return t ? trImpact(t.projection.rows, t.projection.months, impact()) : null;
+  }
+
+  function renderImpact() {
+    if (!c.open) return;
+    const m = currentImpact();
+    $('calc-impact-empty').hidden = Boolean(m);
+    if (!m) {
+      $('calc-impact-kpis').innerHTML = '';
+      $('calc-impact-rows').innerHTML = '';
+      $('calc-impact-how').innerHTML = '';
+      return;
+    }
+    const cur = m.settings.currency;
+    // In the reader's language here (the same words as the report), as the figures sit inside the sentences.
+    const L = wording({ t, lang: currentLanguage() });
+    const { w } = L;
+    const cash = (n) => esc(money(n, cur));
+    const kpi = (label, value, sub, cls = '') => `<div class="rp-kpi ${cls}"><span class="rp-tile-label">${label}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${sub}</span></div>`;
+    $('calc-impact-kpis').innerHTML = [
+      kpi(w('Hours given back'), num(m.hours), w('About {0} developer-years over {1} months', num(m.developerYears, 1), num(m.months)), 'calc-gold'),
+      kpi(w('Value of that time'), cash(m.value), m.value === null ? w('Enter what a developer\'s hour costs') : w('{0} hours × {1}', num(m.hours), cash(m.settings.hourlyRate))),
+      kpi(w('What the credits cost'), cash(m.cost), m.cost === null ? w('Enter what a credit costs') : w('{0} credits', num(m.credits, 1))),
+      kpi(w('Return'), m.roi === null ? '—' : `${num(m.roi * 100)}%`, m.net === null ? w('Once the hour and the credit have a price') : `${w('{0} net', cash(m.net))}${m.paybackMonths !== null ? ` · ${w('paid back in {0} months', num(m.paybackMonths, 1))}` : ''}`),
+      kpi(w('False positives cleared'), num(m.cleared), w('Never reach a developer')),
+    ].join('');
+    const SEV = { Critical: 'Critical', High: 'High', Medium: 'Medium', Low: 'Low' };
+    $('calc-impact-rows').innerHTML = m.bySeverity
+      .filter((r) => r.triaged || r.fixes)
+      .map((r) => `<tr><td>${w(SEV[r.severity])}</td><td class="num">${num(r.triaged)}</td><td class="num">${num(r.cleared)}</td><td class="num">${num(r.fixes)}</td><td class="num">${num(r.hours)}</td><td class="num">${num(r.credits, 1)}</td></tr>`)
+      .join('') + `<tr class="calc-total"><td>${w('Total')}</td><td class="num">${num(m.triaged)}</td><td class="num">${num(m.cleared)}</td><td class="num">${num(m.fixes)}</td><td class="num">${num(m.hours)}</td><td class="num">${num(m.credits, 1)}</td></tr>`;
+    $('calc-impact-how').innerHTML = `<h2>${w('How each number is calculated')}</h2>${impactSections(m, L).map((x) => `<h3>${x.title}</h3>${sectionHtml(x)}`).join('')}`;
+  }
+
+  for (const [id, key] of Object.entries(IMPACT_FIELDS)) {
+    $(id).addEventListener('input', (event) => {
+      if (!c.open) return;
+      c.open.impact = impactSettings({ ...impact(), [key]: key === 'currency' ? event.target.value : event.target.value === '' && (key === 'hourlyRate' || key === 'creditPrice') ? 0 : event.target.value }, impact());
+      renderImpact();
+      save({ impact: c.open.impact });
+    });
   }
 
   function setTotals(field, input) {
@@ -1435,6 +1510,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
             bySeverity: t.bySeverity,
           }
         : null,
+      // What the triage & remediation credits give back, with this customer's assumptions.
+      impact: t ? { tr: trImpact(t.projection.rows, t.projection.months, impact()) } : null,
       fusion: fusionCounted
         ? {
             periodMonths: est.settings.periodMonths,

@@ -158,6 +158,12 @@ test('customers: saved per field, reopened from disk, and an MZ-01.00.61 profile
   assert.equal(summary.hasTr, true);
   assert.equal(summary.fusionProjects, 1);
   assert.deepEqual(store.get(a.id).totals, { extraPercent: 0, bundleCredits: 10000 });
+  // The impact's assumptions: a new customer starts from the organisation's, and keeps its own once changed.
+  const b = store.create({ name: 'Initech', by: 'sam@acme.io', impact: { triageMinutes: 30, hourlyRate: 95, currency: 'gbp' } });
+  assert.deepEqual(store.get(b.id).impact, { triageMinutes: 30, fixMinutes: 120, reviewMinutes: 15, hourlyRate: 95, creditPrice: 0, currency: 'GBP' });
+  store.update(b.id, { impact: { ...store.get(b.id).impact, creditPrice: 1.5, reviewMinutes: 'x' } }, 'kim@acme.io');
+  assert.equal(store.get(b.id).impact.creditPrice, 1.5);
+  assert.equal(store.get(b.id).impact.reviewMinutes, 15, 'what cannot be read takes the default');
   store.update(a.id, { totals: { extraPercent: '15', bundleCredits: 'lots' } }, 'kim@acme.io');
   assert.deepEqual(new ProjectionStore({ file }).get(a.id).totals, { extraPercent: 15, bundleCredits: 10000 });
   const again = new ProjectionStore({ file });

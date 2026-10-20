@@ -10,7 +10,7 @@
 import { describeEngines } from '../engines.js';
 import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../look.js';
 import { FREQUENCIES, SEVERITIES, cleanScope, creditSummary } from './model.js';
-import { allSections, sectionHtml } from './explain.js';
+import { allSections, moneyText, sectionHtml } from './explain.js';
 import { SEVERITY_COLOURS, backlogTrendChart, debtFixChart, forecastChart, monthLabel, ratesChart, severityChart, severityCharts } from './charts.js';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -187,6 +187,31 @@ function story(data, L) {
   return `<section><h2>${w('How we got there')}</h2><div class="cards">${cards.join('')}</div>${chart}</section>`;
 }
 
+/** What the triage & remediation credits give back (model.js trImpact, worked out when the report was made). */
+function impactSection(data, L) {
+  const m = data.impact?.tr;
+  if (!m) return '';
+  const { w, num } = L;
+  const cur = m.settings.currency;
+  const cash = (n) => esc(moneyText(n, cur, L.locale));
+  const tile = (label, value, sub, cls = '') => `<div class="card impact-tile ${cls}"><h3>${label}</h3><p class="figure">${value}</p><p class="sub">${sub}</p></div>`;
+  const tiles = [
+    tile(w('Hours given back'), num(m.hours), w('About {0} developer-years over {1} months', num(m.developerYears, 1), num(m.months)), 'gold'),
+    tile(w('Value of that time'), cash(m.value), m.value === null ? w('Enter what a developer\'s hour costs') : w('{0} hours × {1}', num(m.hours), cash(m.settings.hourlyRate))),
+    tile(w('What the credits cost'), cash(m.cost), m.cost === null ? w('Enter what a credit costs') : w('{0} credits', num(m.credits, 1))),
+    tile(w('Return'), m.roi === null ? '—' : `${num(m.roi * 100)}%`, m.net === null ? w('Once the hour and the credit have a price') : `${w('{0} net', cash(m.net))}${m.paybackMonths !== null ? ` · ${w('paid back in {0} months', num(m.paybackMonths, 1))}` : ''}`),
+    tile(w('False positives cleared'), num(m.cleared), w('Never reach a developer')),
+  ];
+  const rows = (m.bySeverity ?? []).filter((r) => r.triaged || r.fixes)
+    .map((r) => `<tr><td>${w(r.severity)}</td><td>${num(r.triaged)}</td><td>${num(r.cleared)}</td><td>${num(r.fixes)}</td><td>${num(r.hours)}</td></tr>`).join('');
+  return `<section class="impact"><h2>${w('What the credits give back')}</h2>
+  <p class="sub">${w('Every finding AI Triage looks at is one a person does not triage by hand; every false positive it clears never reaches a developer; every true positive AI Remediation fixes saves the fix by hand, less the time to review it.')}</p>
+  <div class="cards">${tiles.join('')}</div>
+  ${rows ? table(`<thead><tr><th>${w('Severity')}</th><th>${w('Triaged by AI')}</th><th>${w('False positives cleared')}</th><th>${w('Fixed by AI')}</th><th>${w('Hours saved')}</th></tr></thead><tbody>${rows}<tr class="strong"><td>${w('Total')}</td><td>${num(m.triaged)}</td><td>${num(m.cleared)}</td><td>${num(m.fixes)}</td><td>${num(m.hours)}</td></tr></tbody>`) : ''}
+  <p class="sub">${w('Assumed: {0} minutes to triage a finding by hand, {1} to fix one, {2} to review an AI fix.', num(m.settings.triageMinutes), num(m.settings.fixMinutes), num(m.settings.reviewMinutes))}</p>
+</section>`;
+}
+
 /** The assumptions behind the number, in one short list. */
 function assumptions(data, sum, L) {
   return `<section><h2>${L.w('Assumptions')}</h2><ul class="assume">${assumptionItems(data, sum, L).map((i) => `<li>${i}</li>`).join('')}</ul></section>`;
@@ -334,6 +359,7 @@ h2{margin:0 0 12px;font-size:18px;font-weight:600} h3{margin:18px 0 6px;font-siz
 .card{border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
 .card h3{margin:0 0 8px}
 .figure{margin:0 0 6px;font-size:26px;font-weight:600;font-variant-numeric:tabular-nums} .figure span{font-size:13px;color:var(--muted);font-weight:400}
+.impact .cards{grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr))} .impact-tile h3{font-size:13px;color:var(--muted);font-weight:500} .impact-tile.gold .figure{color:var(--gold)} .impact .figure{overflow-wrap:anywhere}
 .sevs{list-style:none;margin:0 0 8px;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;font-size:13px}
 .sevs li{display:flex;align-items:center;gap:6px} .sevs i{width:8px;height:8px;border-radius:2px;display:inline-block} .sevs b{margin-inline-start:auto;font-variant-numeric:tabular-nums;font-weight:500}
 table.calc{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
@@ -456,6 +482,7 @@ export function buildReport(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
 ${answer(data, sum, L)}
 ${provenance(data, L)}
 ${story(data, L)}
+${impactSection(data, L)}
 ${assumptions(data, sum, L)}
 ${data.tr || data.fusion ? `<p class="appendix-title">${w('Appendix: every figure')}</p>` : ''}
 ${data.tr ? trAppendix(data.tr, L) : ''}

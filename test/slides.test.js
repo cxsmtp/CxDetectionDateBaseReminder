@@ -3,13 +3,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { analyse, creditSummary, fusionEstimate, planForecast, seriesRows, trProjection } from '../public/calculator/model.js';
+import { analyse, creditSummary, fusionEstimate, planForecast, seriesRows, trImpact, trProjection } from '../public/calculator/model.js';
 import { numberContents, pdfFromJpegs, slideContent, slidesFileName } from '../public/calculator/slides.js';
 
 const totals = { weeks: ['2026-01-03', '2026-02-07', '2026-03-07', '2026-04-04'], bySeverity: { Critical: [10, 12, 14, 16], High: [100, 110, 120, 130], Medium: [5, 5, 5, 5], Low: [1, 1, 1, 1] } };
 const fixed = { weeks: ['2026-03-07', '2026-04-04'], bySeverity: { Critical: [1, 2], High: [3, 4] } };
 
-function reportData({ withFusion = true, withTr = true } = {}) {
+function reportData({ withFusion = true, withTr = true, withImpact = false } = {}) {
   const { totalRows, fixedRows } = seriesRows(totals, fixed);
   const analysis = analyse(totalRows, fixedRows, 3);
   const projection = trProjection(analysis, {}, { months: 12, fusion: withFusion });
@@ -19,6 +19,7 @@ function reportData({ withFusion = true, withTr = true } = {}) {
     summary: creditSummary(withTr ? projection.totals.credits : null, withFusion ? est.totals.credits : null, { extraPercent: 10 }),
     tr: withTr ? { lookbackMonths: 3, months: 12, fusion: withFusion, ahead: projection.ahead, rows: projection.rows, totals: projection.totals, analysis: { ...analysis.perSeverity, total: analysis.total }, monthlyChange: analysis.monthlyChange, forecast: planForecast(analysis, projection) } : null,
     fusion: withFusion ? { periodMonths: 12, byFrequency: est.byFrequency, byModel: est.byModel, totals: est.totals } : null,
+    impact: withTr && withImpact ? { tr: trImpact(projection.rows, 12, { hourlyRate: 90, creditPrice: 2, currency: 'EUR' }) } : null,
   };
 }
 
@@ -88,4 +89,23 @@ test('the fourth slide opens the appendix and says on which pages its parts are'
   assert.equal(all.length, 7, 'seven slides in all');
   assert.equal(all[3].kind, 'section');
   assert.deepEqual(all[3].contents.map((c) => c.pages), ['5', '6–7']);
+});
+
+test('with the impact worked out, slide 4 is what the credits give back and the appendix follows it', () => {
+  const data = reportData({ withImpact: true });
+  const s = slideContent(data);
+  assert.deepEqual(s.pages.map((p) => p.kind), ['tr', 'fusion', 'total', 'impact', 'section', 'trend']);
+  const impact = s.pages[3];
+  const m = data.impact.tr;
+  assert.equal(impact.title, 'What the credits give back');
+  assert.equal(impact.figures[0].value, Math.round(m.hours).toLocaleString());
+  assert.match(impact.figures[3].value, /^[\d,]+%$/, 'the return, as a percentage');
+  assert.ok(impact.bars.items.every((b) => b.value > 0));
+  const all = [...s.pages, { kind: 'appendix' }, { kind: 'appendix' }];
+  numberContents(all);
+  assert.equal(all.length, 8, 'eight slides with the impact');
+  assert.deepEqual(all[4].contents.map((c) => c.pages), ['6', '7–8']);
+  // The appendix explains the impact too, step by step.
+  assert.ok(s.appendix.some((x) => x.title === 'Hours given back'));
+  assert.ok(s.appendix.some((x) => x.title === 'Value and return'));
 });

@@ -4015,10 +4015,12 @@ const calculatorRoute = (fn) => (req, res) => {
 };
 
 app.get('/api/projections', requireCalculator, (req, res) => {
-  res.json({ customers: projections.list(), organisationName: terms.organisationName() });
+  // A new customer's impact starts from the organisation's own Settings → Impact (minutes, rate, price, currency).
+  const { triageMinutes, fixMinutes, hourlyRate, creditPrice, currency } = settingsStore.get().impact ?? {};
+  res.json({ customers: projections.list(), organisationName: terms.organisationName(), impactDefaults: { triageMinutes, fixMinutes, hourlyRate, creditPrice, currency } });
 });
 app.post('/api/projections', requireCalculator, calculatorRoute((req, res) => {
-  const customer = projections.create({ name: req.body?.name, by: req.user.email });
+  const customer = projections.create({ name: req.body?.name, by: req.user.email, impact: settingsStore.get().impact ?? {} });
   audit.record({ type: 'settings', outcome: 'changed', reason: `Cx Credits Calculator: customer "${customer.name}" added.`, actor: { kind: 'user', user: req.user.email, ip: clientIp(req) } });
   res.status(201).json({ customer });
 }));
@@ -4134,7 +4136,7 @@ app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) =>
 app.put('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
   const body = req.body ?? {};
   const patch = {};
-  for (const key of ['name', 'tr', 'fusion', 'totals', 'scope']) if (body[key] !== undefined) patch[key] = body[key];
+  for (const key of ['name', 'tr', 'fusion', 'totals', 'scope', 'impact']) if (body[key] !== undefined) patch[key] = body[key];
   res.json({ customer: projections.update(String(req.params.id), patch, req.user.email) });
 }));
 app.delete('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
