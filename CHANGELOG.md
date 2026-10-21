@@ -76,7 +76,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.89 — 2026-10-21 07:30 UTC · [#112](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/112)
+## MZ-01.00.89 — 2026-10-21 07:00 UTC · [#112](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/112)
 
 - **The Cx Credits Calculator on its own.** **Download standalone calculator**, at the top right of the calculator, gives the whole calculator as one HTML file, blank, to give to anyone: it opens in any browser with no server, no install and no sign-in, and nothing leaves the browser.
 - **Every feature, the same reports.** Customers, triage & remediation with its plan per severity, Fusion, Impact, the scope, the projection report and its PDF summary are all there, made by the same code as in the app, so the reports are the same.
