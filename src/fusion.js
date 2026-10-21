@@ -153,10 +153,15 @@ const emptyCounts = () => ({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, NONE: 0, t
 export function summarize(results) {
   const projects = {};
   const totals = emptyCounts();
+  // A result that belongs to several projects counts in each of them, and once in the totals.
+  const counted = new Set();
   for (const r of results) {
     const p = (projects[r.projectId] ??= { ...emptyCounts(), applications: [] });
     if (r.applicationId && !p.applications.includes(r.applicationId)) p.applications.push(r.applicationId);
-    for (const c of [p, totals]) {
+    const key = r.resultId ? `${r.applicationId}\u0000${r.resultId}` : null;
+    const once = !key || !counted.has(key);
+    if (key) counted.add(key);
+    for (const c of once ? [p, totals] : [p]) {
       c.total += 1;
       if (r.newSeverity) c[r.newSeverity] += 1;
       if (r.oldRisk !== null && r.newRisk !== null) {
@@ -215,23 +220,43 @@ async function riskResults(client, appId, trace = null) {
       out.push(r);
       fresh += 1;
     }
-    const total = Number(body?.totalCount ?? body?.total);
-    // Done: a short page, everything counted, or nothing new (paging not honoured).
-    if (rows.length < PAGE || !fresh || (Number.isFinite(total) && out.length >= total)) break;
+    const total = Number(body?.totalCount ?? body?.total ?? body?.totalResults ?? body?.count);
+    // Done: nothing new (an empty page, or paging not honoured), or everything counted. A page shorter than
+    // asked is not the end: the service may give fewer per page than asked for.
+    if (!fresh || (Number.isFinite(total) && out.length >= total)) break;
+  }
+  return out;
+}
+
+/** Every application Application Risk Management lists, page by page as for its results. */
+async function riskApplications(client, trace = null) {
+  const out = [];
+  const seen = new Set();
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const body = await client.request(`${RISK_MANAGEMENT_BASE}/summary`, { query: page ? { limit: PAGE, offset: out.length } : undefined, retries: 1, background: true, trace });
+    const rows = (Array.isArray(body?.summary) ? body.summary : Array.isArray(body) ? body : []).filter((a) => a?.id);
+    let fresh = 0;
+    for (const a of rows) {
+      if (seen.has(String(a.id))) continue;
+      seen.add(String(a.id));
+      out.push(a);
+      fresh += 1;
+    }
+    const total = Number(body?.totalCount ?? body?.total ?? body?.count);
+    if (!fresh || !Number.isFinite(total) || out.length >= total) break;
   }
   return out;
 }
 
 /** Fusion through Application Risk Management: its applications holding a project in scope, and their results. */
 async function readRiskManagement(client, inScope, { concurrency, trace, readAt, tried }) {
-  let summary;
+  let listed;
   try {
-    summary = await client.request(`${RISK_MANAGEMENT_BASE}/summary`, { retries: 1, background: true, trace });
+    listed = await riskApplications(client, trace);
   } catch (error) {
     if (!isProbeMiss(error) && !NOT_RUNNING.has(error.status)) throw error;
     return { readAt, available: false, tried: [...tried, { path: error.path || `${RISK_MANAGEMENT_BASE}/summary`, status: error.status }], applications: [], results: [], listed: 0, ...summarize([]) };
   }
-  const listed = (Array.isArray(summary?.summary) ? summary.summary : Array.isArray(summary) ? summary : []).filter((a) => a?.id);
   const known = new Set(listed.map((a) => String(a.id)));
   const apps = (await listApplications(client).catch(() => [])).filter((a) => a.projectIds.some((id) => inScope.has(id)));
   const read = apps.filter((a) => known.has(a.id));
@@ -242,7 +267,7 @@ async function readRiskManagement(client, inScope, { concurrency, trace, readAt,
   }
   const results = [...byKey.values()];
   const { projects, totals } = summarize(results);
-  const appRow = (app, extra = {}) => ({ id: app.id, name: app.name, projects: app.projectIds.filter((id) => inScope.has(id)).length, results: results.filter((r) => r.applicationId === app.id).length, scan: null, ...extra });
+  const appRow = (app, extra = {}) => ({ id: app.id, name: app.name, projects: app.projectIds.filter((id) => inScope.has(id)).length, results: new Set(results.filter((r) => r.applicationId === app.id).map((r, i) => r.resultId || `row-${i}`)).size, scan: null, ...extra });
   return {
     readAt,
     available: true,

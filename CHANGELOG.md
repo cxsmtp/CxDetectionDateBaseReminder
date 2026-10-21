@@ -79,6 +79,11 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.93 — not released yet · [#116](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/116)
+
+- **Fusion counts that match Checkmarx One.** Fusion results read through Application Risk Management are now read to the last page even when Checkmarx One gives fewer per page than asked (before, only the first page was counted), and so is the list of applications.
+- **Each result once in the totals.** A Fusion result that belongs to several projects still shows in each project's row, but counts once in the tiles and in its application's total, as on the platform.
+
 ## MZ-01.00.92 — 2026-10-21 16:12 UTC · [#115](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/115)
 
 - **Fusion results on tenants without the correlation service.** When Checkmarx One does not answer at `/api/correlation`, **Labs → Fusion results** now reads Fusion's scored results through Application Risk Management (`/api/risk-management`), as Troubleshoot found on a customer's tenant, and says so on the page.

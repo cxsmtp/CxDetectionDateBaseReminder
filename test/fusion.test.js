@@ -126,8 +126,8 @@ test('no correlation service: Fusion is read through Application Risk Management
   assert.ok(!client.calls.includes('/api/risk-management/a3/results'), 'an application with no project in scope is not read');
   assert.deepEqual([f.projects.p1.CRITICAL, f.projects.p1.HIGH, f.projects.p2.HIGH, f.projects.p2.MEDIUM], [1, 1, 1, 1]);
   assert.equal(f.projects.p9, undefined, 'a project outside the scope is not counted');
-  assert.equal(f.totals.total, 4);
-  assert.deepEqual(f.applications.map((a) => [a.name, a.results, Boolean(a.notScanned)]), [['PRUOnline', 4, false], ['Demo', 0, true]]);
+  assert.equal(f.totals.total, 3, 'r2 belongs to p1 and p2: counted in each, and once in the totals');
+  assert.deepEqual(f.applications.map((a) => [a.name, a.results, Boolean(a.notScanned)]), [['PRUOnline', 3, false], ['Demo', 0, true]]);
   assert.equal(f.results[0].info, 'Result r1');
   assert.equal(f.totals.raisedToTop, 0, 'no earlier score: nothing claimed as raised by Fusion');
   assert.equal(fusionTiles(f, { openFindings: 100, projects: 3 }, '').top.known, false);
@@ -140,4 +140,17 @@ test('no correlation service: Fusion is read through Application Risk Management
   const none = await readFusion(fakeClient({}), ['p1']);
   assert.equal(none.available, false);
   assert.ok(none.tried.some((t) => t.path === '/api/risk-management/summary' && t.status === 404));
+});
+
+test('Application Risk Management giving fewer results per page than asked: every page is still read', async () => {
+  const all = Array.from({ length: 7 }, (_, i) => ({ id: `r${i}`, risk: { score: 9.1, severity: 'critical' }, projects: [{ id: 'p1' }] }));
+  const client = fakeClient({
+    '/api/applications': { applications: [{ id: 'a1', name: 'App', projectIds: ['p1'] }] },
+    '/api/risk-management/summary': { summary: [{ id: 'a1' }] },
+    // At most 2 per page, whatever is asked; no total given.
+    '/api/risk-management/a1/results': (q) => ({ results: all.slice(Number(q.offset ?? 0), Number(q.offset ?? 0) + 2) }),
+  });
+  const f = await readFusion(client, ['p1']);
+  assert.equal(f.totals.total, 7);
+  assert.equal(f.totals.CRITICAL, 7);
 });
