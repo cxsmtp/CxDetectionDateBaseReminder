@@ -193,13 +193,20 @@ function projectIdsOf(r) {
   return [...new Set(named.map((p) => text(typeof p === 'object' ? p.id ?? p.projectId : p, 80)).filter(Boolean))];
 }
 
-// Where a result may say it came from Fusion: a flag named for it, or a source, engine or tag that names it.
+// Where a result may say it came from Fusion: Checkmarx One's own flag, isAiGenerated (what the UI shows as
+// "LLM-Based: Yes" on /api/risks and /api/sast-results), a flag named for it, or a source, engine or tag that names it.
+const AI_FLAG = 'isAiGenerated';
 const FUSION_WORD = /fusion/i;
 const SOURCE_KEYS = /^(source|sources|origin|engine|engines|scanner|scanners|type|detectedBy|foundBy|detectionMethod|detectionSource|provider|providers|tags|labels|correlation|correlationType)$/i;
 /** Whether Checkmarx One marks this result as one Fusion found (null-safe, a few levels deep). */
 export function fusionMarked(r, depth = 0) {
   if (!r || typeof r !== 'object' || depth > 3) return false;
   for (const [key, value] of Object.entries(r)) {
+    // Only true marks it: false is what every standard SAST result carries.
+    if (key === AI_FLAG) {
+      if (value === true || value === 'true') return true;
+      continue;
+    }
     if (FUSION_WORD.test(key) && value !== false && value !== null && value !== '' && value !== 'false' && !(Array.isArray(value) && !value.length)) return true;
     if (SOURCE_KEYS.test(key)) {
       const values = Array.isArray(value) ? value : value && typeof value === 'object' ? [...Object.keys(value), ...Object.values(value)] : [value];

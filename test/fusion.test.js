@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { CxApiError } from '../src/cxone/client.js';
-import { readFusion, severityOfScore, summarize, cleanResult } from '../src/fusion.js';
+import { readFusion, severityOfScore, summarize, cleanResult, fusionMarked } from '../src/fusion.js';
 import { fusionResultRows, fusionRows, fusionTiles, fusionTotalOf } from '../public/fusion-view.js';
 
 /** A Checkmarx One that answers `routes` (path → body or function of query) and 404 elsewhere. */
@@ -205,4 +205,27 @@ test('Fusion Hub lists every risk and marks Fusion’s own: when Checkmarx One m
   for (const extra of [{ isFusion: true }, { tags: ['fusion'] }, { detection: { engine: 'Fusion' } }]) assert.equal((await readFusion(routes([row('x', extra), row('y', {})]), ['p1'])).totals.total, 1, JSON.stringify(extra));
   const unmarked = await readFusion(routes([row('r1', {}), row('r2', { isFusion: false })]), ['p1']);
   assert.deepEqual([unmarked.fusionMarked, unmarked.totals.total], [false, 2], 'nothing marked: every result, and said so');
+});
+
+test('Checkmarx One marks a Fusion result with isAiGenerated (the UI’s "LLM-Based: Yes"): only true counts', async () => {
+  // As /api/risks and /api/sast-results return them for scan c40779dc… (Juice Shop 20.3.0).
+  const risk = (id, riskName, isAiGenerated) => ({ id, riskName, status: 'NEW', state: 'TO_VERIFY', severity: 'CRITICAL', engine: 'SAST', assetType: 'SOURCE_CODE', stateChangedBy: 'unchanged', isAiGenerated });
+  const fusion = risk('qvurq/MI9Xru4OPKyRSrcqzxjao=', 'Missing Authentication for Critical Function', true);
+  const standard = risk('H+5oLlmIYWsLJxx+Q0esf2AEh1g=', 'Stored_XSS', false);
+  const sastResult = { resultHash: 'qvurq/MI9Xru4OPKyRSrcqzxjao=', queryID: 0, queryName: 'Missing Authentication for Critical Function', group: 'TypeScript_CRITICAL', changeDetails: { engineVersionChanged: false, queryChanged: false, codeChanged: false }, isAiGenerated: true };
+  assert.equal(fusionMarked(fusion), true, 'LLM-Based: Yes');
+  assert.equal(fusionMarked(sastResult), true, 'the same result from /api/sast-results');
+  assert.equal(fusionMarked(standard), false, 'LLM-Based: No');
+  for (const value of [false, 'false', null, undefined, 0, '']) assert.equal(fusionMarked({ ...standard, isAiGenerated: value }), false, String(value));
+  // A near name is not the flag.
+  assert.equal(fusionMarked({ ...standard, aiGenerated: true, isAiGeneratedFix: true }), false);
+
+  // Read through Application Risk Management: only the marked one is a Fusion result.
+  const client = fakeClient({
+    '/api/applications': { applications: [{ id: 'a1', name: 'App', projectIds: ['p1'] }] },
+    '/api/risk-management/summary': { summary: [{ id: 'a1' }] },
+    '/api/risk-management/a1/results': (q) => ({ results: Number(q.offset) ? [] : [fusion, standard].map((r) => ({ ...r, risk: { score: 9.3, severity: 'critical' }, projects: [{ id: 'p1' }] })) }),
+  });
+  const read = await readFusion(client, ['p1']);
+  assert.deepEqual([read.fusionMarked, read.totals.total, read.allResults, read.results[0].resultId], [true, 1, 2, fusion.id]);
 });
