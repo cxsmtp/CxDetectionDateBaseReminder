@@ -4,7 +4,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { CxApiError } from '../src/cxone/client.js';
-import { aiFindings, cleanAiResult, readAiFusion } from '../src/fusion-ai.js';
+import { aiFindings, cleanAiResult, cleanEngines, readAiFusion } from '../src/fusion-ai.js';
+import { sastCoverage } from '../src/sast-languages.js';
 import { fusionReportHtml, fusionResultRows, fusionRows, fusionTiles, fusionTotalOf } from '../public/fusion-view.js';
 
 /** A Checkmarx One that answers `routes` (path → body or function of query) and 404 elsewhere. */
@@ -37,7 +38,7 @@ function tenant(rows, { ignoreFilter = false, fixed = 2, aggregate = true } = {}
     },
     ...(aggregate ? { '/api/sast-scan-summary/aggregate': (q) => ({ summaries: [{ severity: 'CRITICAL', count: rows.filter((r) => r.isAiGenerated && r.severity === 'CRITICAL').length }], totalCount: 1, asked: q }) } : {}),
     '/api/scans': { scans: [{ id: 's1', status: 'Completed', createdAt: '2026-10-20T06:46:28Z' }, { id: 's0', status: 'Completed', createdAt: '2026-10-10T06:46:28Z' }] },
-    '/api/sast-scan-summary/compare/aggregate': (q) => ({ summaries: q.status === 'FIXED' && q['is-ai-generated'] === 1 ? [{ cweID: 89, count: fixed }] : [], totalCount: 1 }),
+    '/api/sast-scan-summary/compare/aggregate': (q) => ({ summaries: q.status === 'FIXED' && q['is-ai-generated'] === 1 && q['group-by-field'] === 'LANGUAGE' ? [{ language: 'TypeScript', count: fixed }] : [], totalCount: 1 }),
   });
 }
 const P1 = [{ id: 'p1', name: 'Juice Shop' }];
@@ -113,4 +114,31 @@ test('the page: tiles, project rows, Checkmarx-style result rows, and the HTML r
 test('a result cleaned keeps what the results page shows, and nothing it does not have', () => {
   const r = cleanAiResult({ resultHash: 'h', queryName: 'Path_Traversal', severity: 'weird', isAiGenerated: 1 }, { id: 'p', name: 'P' }, 's');
   assert.deepEqual([r.name, r.severity, r.cwe, r.sourceFile, r.ai], ['Path Traversal', 'INFO', null, '', true]);
+});
+
+test('Fusion is AI-generated in a language or framework traditional SAST supports; LAST, in any other', () => {
+  const as = (language, extra = {}) => sastCoverage({ language, ...extra })?.language ?? 'LAST';
+  assert.deepEqual(['TypeScript', 'CSharp', 'C#', 'CPP', 'VbNet', 'PLSQL', 'Objc', 'GO Language', 'Kotlin', 'Rust', 'Cobol'].map((l) => as(l)), ['TypeScript', 'C#', 'C#', 'C++', 'VB.NET', 'PL/SQL', 'Objective-C', 'Go', 'Kotlin', 'Rust', 'Cobol']);
+  assert.deepEqual(['Vue', 'ReactJS', 'Node.js', 'Spring Boot', 'Django', 'Flutter', 'ASP.NET Core', 'Ruby on Rails'].map((l) => as(l)), ['JavaScript', 'JavaScript', 'JavaScript', 'Java', 'Python', 'Dart', 'C#', 'Ruby'], 'its frameworks count too');
+  assert.deepEqual(['Solidity', 'Terraform', 'Elixir', 'Svelte', 'Bash'].map((l) => as(l)), ['LAST', 'LAST', 'LAST', 'LAST', 'LAST']);
+  assert.equal(as('', { group: 'Java_Spring' }), 'Java', 'no language: its group');
+  assert.equal(as('', { file: 'contracts/Token.sol' }), 'LAST', 'nor group: its file');
+  assert.equal(as('', { file: 'app/views.py' }), 'Python');
+  assert.deepEqual([cleanEngines(['last', 'x']), cleanEngines(''), cleanEngines('FUSION,LAST')], [['LAST'], ['FUSION', 'LAST'], ['FUSION', 'LAST']]);
+});
+
+test('each project and the totals count Fusion and LAST apart, Fixed split by language', async () => {
+  const sol = { ...AI, resultHash: 'sol1', languageName: 'Solidity', severity: 'HIGH', status: 'RECURRENT', nodes: [{ fileName: '/c/Token.sol', line: 9 }] };
+  const client = tenant([AI, sol]);
+  const compare = client.request;
+  client.request = async (path, opts) => (path === '/api/sast-scan-summary/compare/aggregate' ? { summaries: [{ language: 'TypeScript', count: 2 }, { language: 'Solidity', count: 3 }] } : compare(path, opts));
+  const f = await readAiFusion(client, P1, SCANS);
+  assert.deepEqual(f.results.map((r) => [r.hash, r.engine]), [['AZTOOZ+t2mzaZy9qAn1As5Zzudg=', 'FUSION'], ['sol1', 'LAST']]);
+  const { FUSION, LAST } = f.projects.p1.engines;
+  assert.deepEqual([FUSION.total, FUSION.CRITICAL, FUSION.FIXED, LAST.total, LAST.HIGH, LAST.FIXED], [1, 1, 2, 1, 1, 3]);
+  assert.deepEqual([f.totals.total, f.totals.FIXED, f.totals.engines.LAST.RECURRENT], [2, 5, 1]);
+  const unnamed = tenant([AI]);
+  unnamed.request = ((request) => async (path, opts) => (path === '/api/sast-scan-summary/compare/aggregate' ? { summaries: [{ cweID: 89, count: 4 }] } : request(path, opts)))(unnamed.request);
+  const g = await readAiFusion(unnamed, P1, SCANS);
+  assert.equal(g.projects.p1.engines.FUSION.fixedKnown, false, 'counts that do not say their language: not guessed');
 });

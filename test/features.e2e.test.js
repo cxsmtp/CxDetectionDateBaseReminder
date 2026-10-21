@@ -208,12 +208,16 @@ test('Fusion results (Beta): its own fetch, the AI-generated SAST results of eac
   const { fusion, scope } = read.body;
   assert.equal(fusion.available, true);
   assert.equal(scope.projects, 2);
-  // The mock: in each project, r0 (critical, new) and r3 (low, recurrent) are AI-generated; p0 fixed one since the scan before.
+  // The mock: in each project, r0 (critical, new, TypeScript: Fusion's) and r3 (low, recurrent, Solidity: LAST's) are
+  // AI-generated; p0 fixed one of each since the scan before.
   assert.equal(fusion.source, 'ai-sast');
   assert.deepEqual(
     { total: fusion.totals.total, CRITICAL: fusion.totals.CRITICAL, HIGH: fusion.totals.HIGH, LOW: fusion.totals.LOW, NEW: fusion.totals.NEW, RECURRENT: fusion.totals.RECURRENT, FIXED: fusion.totals.FIXED },
-    { total: 4, CRITICAL: 2, HIGH: 0, LOW: 2, NEW: 2, RECURRENT: 2, FIXED: 1 },
+    { total: 4, CRITICAL: 2, HIGH: 0, LOW: 2, NEW: 2, RECURRENT: 2, FIXED: 2 },
   );
+  const { FUSION, LAST } = fusion.totals.engines;
+  assert.deepEqual([FUSION.total, FUSION.CRITICAL, FUSION.FIXED, LAST.total, LAST.LOW, LAST.FIXED], [2, 2, 1, 2, 2, 1]);
+  assert.deepEqual(fusion.results.filter((r) => r.projectId === 'p1').map((r) => [r.language, r.engine]), [['TypeScript', 'FUSION'], ['Solidity', 'LAST']]);
   assert.equal(fusion.projects.p1.total, 2);
   // Each result opens in Checkmarx One: its project's Risk Hub, with the result open; each project, its page.
   assert.match(fusion.results.find((r) => r.projectId === 'p1').url, /\/riskhub\/p1\?.*resultId=p1-r0/);

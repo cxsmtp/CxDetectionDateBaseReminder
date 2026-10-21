@@ -9,12 +9,23 @@
  * Each result keeps what the Checkmarx One results page shows: severity, the vulnerability (query), status
  * (New, Recurrent), state, language, CWE, source and sink, first and last found, and its hash, which opens it
  * in Risk Hub. Read-only: nothing here starts a scan.
+ *
+ * Each result is Fusion's or LAST's (src/sast-languages.js): Fusion when the traditional SAST engine supports its
+ * language or framework too, LAST (language-agnostic static testing) when the AI engine alone covers it.
  */
 import { mapWithConcurrency } from './cxone/client.js';
 import { isProbeMiss } from './cxone/discovery.js';
+import { sastCoverage } from './sast-languages.js';
 
 export const AI_FILTER = { 'is-ai-generated': 1, 'is-ai-generated-operation': 'EQUAL' };
 export const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+/** Fusion: the traditional SAST engine supports the language too; LAST: the AI engine alone. */
+export const ENGINES = ['FUSION', 'LAST'];
+/** ['fusion', 'LAST', 'x'] → ['FUSION', 'LAST']; none (or nothing known) → both. */
+export const cleanEngines = (v) => {
+  const list = (Array.isArray(v) ? v : String(v ?? '').split(',')).map((e) => String(e).trim().toUpperCase()).filter((e) => ENGINES.includes(e));
+  return list.length ? ENGINES.filter((e) => list.includes(e)) : [...ENGINES];
+};
 const PAGE = 500;
 const MAX_PAGES = 40;
 /** At most this many results are kept to list per read; the counts cover them all. */
@@ -34,6 +45,8 @@ export function cleanAiResult(r, project, scanId) {
   const first = nodes[0] ?? {};
   const last = nodes[nodes.length - 1] ?? {};
   const severity = upper(r?.severity);
+  const language = text(r?.languageName ?? r?.language, 60);
+  const covered = sastCoverage({ language, group: r?.group, file: first.fileName });
   return {
     projectId: text(project.id, 80),
     projectName: text(project.name, 200),
@@ -45,7 +58,10 @@ export function cleanAiResult(r, project, scanId) {
     severity: SEVERITIES.includes(severity) ? severity : 'INFO',
     status: upper(r?.status),
     state: upper(r?.state),
-    language: text(r?.languageName ?? r?.language, 60),
+    language,
+    engine: covered ? 'FUSION' : 'LAST',
+    // What the traditional engine supports it as: its language, or the framework it was named by.
+    coveredAs: covered ? text(covered.framework ?? covered.language, 60) : '',
     cwe: Number.isFinite(Number(r?.cweID ?? r?.cweId)) && Number(r?.cweID ?? r?.cweId) > 0 ? Number(r?.cweID ?? r?.cweId) : null,
     group: text(r?.group, 120),
     sourceFile: text(first.fileName, 400),
@@ -115,24 +131,39 @@ async function previousScan(client, projectId, latestId, trace) {
   }
 }
 
-/** How many AI-generated results the latest scan fixed, against the scan before (null when it cannot say). */
+/**
+ * How many AI-generated results the latest scan fixed against the scan before, Fusion's and LAST's apart
+ * (grouped by language): { FUSION, LAST }, either null when it cannot say; null when there is nothing to compare.
+ */
 async function aiFixed(client, scanId, baseScanId, trace) {
   if (!baseScanId) return null;
   try {
-    const body = await client.request('/api/sast-scan-summary/compare/aggregate', { query: { 'scan-id': scanId, 'base-scan-id': baseScanId, 'group-by-field': 'CWE', 'is-ai-generated': 1, status: 'FIXED', limit: 10000 }, retries: 1, background: true, trace });
-    return (Array.isArray(body?.summaries) ? body.summaries : []).reduce((n, s) => n + (Number(s?.count) || 0), 0);
+    const body = await client.request('/api/sast-scan-summary/compare/aggregate', { query: { 'scan-id': scanId, 'base-scan-id': baseScanId, 'group-by-field': 'LANGUAGE', 'is-ai-generated': 1, status: 'FIXED', limit: 10000 }, retries: 1, background: true, trace });
+    const rows = Array.isArray(body?.summaries) ? body.summaries : [];
+    const fixed = { FUSION: 0, LAST: 0 };
+    let unnamed = 0;
+    for (const s of rows) {
+      const n = Number(s?.count) || 0;
+      const language = s?.language ?? s?.languageName ?? s?.lang;
+      if (!language) unnamed += n;
+      else fixed[sastCoverage({ language }) ? 'FUSION' : 'LAST'] += n;
+    }
+    // Counts that do not say their language cannot be told apart: neither figure is known then.
+    return unnamed ? { FUSION: null, LAST: null } : fixed;
   } catch (error) {
     if (isProbeMiss(error) || error.status === 400) return null;
     throw error;
   }
 }
 
+const COUNTED = [...SEVERITIES, 'total', 'NEW', 'RECURRENT', 'FIXED'];
 const emptyCounts = () => ({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0, total: 0, NEW: 0, RECURRENT: 0, FIXED: 0 });
 
 /**
  * Read Fusion (AI-generated SAST results) for `projects` ([{ id, name }]) from their latest completed scans
  * (`scans`: { projectId: scan }, as getLastScans gives). Returns the counts per project and overall (by
- * severity, and New / Recurrent / Fixed since the scan before), and every result to list.
+ * severity, and New / Recurrent / Fixed since the scan before) for every AI-generated result, and in `engines`
+ * for Fusion's and LAST's apart; and every result to list, each saying whose it is (`engine`).
  */
 export async function readAiFusion(client, projects, scans, { concurrency = 4, trace = null } = {}) {
   const readAt = new Date().toISOString();
@@ -157,25 +188,36 @@ export async function readAiFusion(client, projects, scans, { concurrency = 4, t
       return { project, scanId, results: [], counted: null, fixed: null, error: true };
     }
   });
-  const totals = emptyCounts();
+  const totals = { ...emptyCounts(), engines: { FUSION: emptyCounts(), LAST: emptyCounts() } };
   let unmarkedAll = 0;
   const byProject = {};
   const results = [];
   for (const p of per) {
-    const c = { ...emptyCounts(), projectName: p.project.name, scanId: p.scanId, scanAt: p.scanAt ?? null, baseScanId: p.baseScanId ?? null, error: Boolean(p.error) };
+    const engines = { FUSION: emptyCounts(), LAST: emptyCounts() };
     for (const r of p.results) {
-      c[r.severity] += 1;
-      if (r.status === 'NEW' || r.status === 'RECURRENT') c[r.status] += 1;
+      const e = engines[r.engine];
+      e[r.severity] += 1;
+      if (r.status === 'NEW' || r.status === 'RECURRENT') e[r.status] += 1;
     }
-    c.total = SEVERITIES.reduce((n, s) => n + c[s], 0);
+    for (const engine of ENGINES) {
+      const e = engines[engine];
+      e.total = SEVERITIES.reduce((n, s) => n + e[s], 0);
+      const fixed = p.fixed ? p.fixed[engine] : null;
+      e.FIXED = fixed ?? 0;
+      e.fixedKnown = fixed !== null && fixed !== undefined;
+    }
+    const c = { ...emptyCounts(), projectName: p.project.name, scanId: p.scanId, scanAt: p.scanAt ?? null, baseScanId: p.baseScanId ?? null, error: Boolean(p.error), engines };
+    for (const k of COUNTED) c[k] = engines.FUSION[k] + engines.LAST[k];
+    c.fixedKnown = engines.FUSION.fixedKnown && engines.LAST.fixedKnown;
     // Checkmarx One's own count of the scan's AI-generated results, beside the listed ones.
     c.reported = p.counted ? SEVERITIES.reduce((n, s) => n + p.counted[s], 0) : null;
     unmarkedAll += p.unmarked ?? 0;
-    c.FIXED = p.fixed ?? 0;
-    c.fixedKnown = p.fixed !== null && p.fixed !== undefined;
     if (!c.total && !c.FIXED) continue;
     byProject[p.project.id] = c;
-    for (const k of [...SEVERITIES, 'total', 'NEW', 'RECURRENT', 'FIXED']) totals[k] += c[k];
+    for (const k of COUNTED) {
+      totals[k] += c[k];
+      for (const engine of ENGINES) totals.engines[engine][k] += engines[engine][k];
+    }
     results.push(...p.results);
   }
   const RANK = { CRITICAL: 5, HIGH: 4, MEDIUM: 3, LOW: 2, INFO: 1 };
@@ -220,6 +262,7 @@ export function aiFindings(fusion) {
       title: r.name,
       firstDetectedAt: r.firstFoundAt,
       location: r.sourceFile,
+      engine: r.engine,
     });
     projects.set(r.projectId, p);
   }
