@@ -75,7 +75,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.88 — 2026-10-20 21:30 UTC · [#111](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/111)
+## MZ-01.00.88 — 2026-10-21 02:51 UTC · [#111](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/111)
 
 - **Act → Automation.** Reminders and everything else that runs by itself have their own page under Act, next to the Workbench, in seven tabs: Reminders, Focus, Schedule, Email, Preview, Follow-ups & escalation and History. Settings → Automation, and old links to it, open it; who may see and change it is as before.
 - **Age limits for each severity.** Each severity can have its own limits (such as critical after 7, 14 and 30 days, high after 30 and 60, low never), or one list for all, and the table shows how many findings of each are past a limit now.
