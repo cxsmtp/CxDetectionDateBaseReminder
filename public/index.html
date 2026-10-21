@@ -2278,26 +2278,31 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div class="panel-head">
                 <div>
                   <h2>Fusion results <span class="badge warn" data-beta-badge="fusionResults">Beta</span></h2>
-                  <p class="hint wide">What Checkmarx One's AI engine found in SAST (the results it marks AI-generated), from each project's latest scan: choose applications or projects on the line below and load them, apart from the Workbench. Severities are Checkmarx One's own; New, Recurrent and Fixed compare with the scan before.</p>
+                  <p class="hint wide">What Checkmarx One's AI engine found in SAST, from each project's latest scan. <strong>Fusion</strong>: in a language or framework the traditional SAST engine also supports. <strong>LAST</strong> (language-agnostic static testing): in a language only the AI engine covers. Click a project to see its vulnerabilities.</p>
                 </div>
                 <div class="actions"><button type="button" id="fusion-read" class="sm" data-perm="beta.use feature.fusionResults">Read Fusion now</button></div>
               </div>
-              <!-- The page's own line, as the Workbench's: what to load, and Fusion's results only for it. -->
+              <!-- The page's own line, as the Workbench's: what to load, and which of the AI engine's results to show. -->
               <form class="controls scope-row fusion-scope" id="fusion-scope" autocomplete="off">
                 <label class="scope-field"><span class="scope-label">Applications</span><input type="text" id="fusion-apps-in" placeholder="Every application" title="Application names, separated by commas; * and ? as wildcards" /></label>
                 <label class="scope-field"><span class="scope-label">Projects</span><input type="text" id="fusion-projects-in" placeholder="Every project" title="Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these" /></label>
-                <div class="grow fetch-box"><div class="fetch-actions"><button type="submit" class="primary" id="fusion-fetch" data-perm="beta.use feature.fusionResults">Load Fusion results</button></div></div>
+                <fieldset class="fusion-show">
+                  <legend class="scope-label">Show</legend>
+                  <div class="fusion-engines">
+                    <label class="fusion-engine fusion-engine-fusion" title="AI-generated, in a language or framework the traditional SAST engine also supports"><input type="checkbox" id="fusion-show-fusion" value="FUSION" checked /> <i aria-hidden="true"></i>Fusion <em id="fusion-n-fusion"></em></label>
+                    <label class="fusion-engine fusion-engine-last" title="AI-generated, in a language only the AI engine covers (language-agnostic static testing)"><input type="checkbox" id="fusion-show-last" value="LAST" checked /> <i aria-hidden="true"></i>LAST <em id="fusion-n-last"></em></label>
+                  </div>
+                </fieldset>
+                <div class="grow fetch-box"><div class="fetch-actions"><button type="submit" class="primary" id="fusion-fetch" data-perm="beta.use feature.fusionResults">Load results</button></div></div>
               </form>
               <p class="status" id="fusion-status"></p>
               <p class="hint fusion-tried" id="fusion-tried"></p>
               <div class="totals fusion-tiles" id="fusion-tiles"></div>
-              <div class="fusion-lanes" id="fusion-lanes" hidden></div>
-              <p class="status" id="fusion-act-status"></p>
-              <!-- One row per project: its AI-generated results by severity, and since the scan before. -->
+              <!-- One row per project with results; a click opens its vulnerabilities in the side panel. -->
               <div class="fusion-results-head">
                 <h3>Projects <em class="ptab-count" id="fusion-proj-count"></em></h3>
                 <div class="fusion-tools">
-                  <input type="search" id="fusion-q" placeholder="Search projects" aria-label="Search Fusion projects" />
+                  <input type="search" id="fusion-q" placeholder="Search projects…" aria-label="Search Fusion projects" />
                   <select id="fusion-sev" aria-label="Severity">
                     <option value="">All severities</option>
                     <option value="CRITICAL">With critical</option>
@@ -2305,43 +2310,31 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                     <option value="MEDIUM">With medium</option>
                     <option value="LOW">With low</option>
                   </select>
-                  <label class="pill-check"><input type="checkbox" id="fusion-new-only" /> With new results</label>
-                  <label class="fusion-credits"><span>Fusion credits used</span><input type="number" id="fusion-credits" min="0" step="any" inputmode="decimal" placeholder="Credits" /></label>
-                  <button type="button" class="ghost sm" id="fusion-proj-csv">Download CSV</button>
-                  <button type="button" class="ghost sm" id="fusion-report">Download HTML report</button>
+                  <select id="fusion-new" aria-label="Status">
+                    <option value="">Any status</option>
+                    <option value="new">With new results</option>
+                  </select>
+                  <button type="button" class="sm" id="fusion-proj-csv">Export CSV</button>
+                  <button type="button" class="sm" id="fusion-report">HTML report</button>
                 </div>
               </div>
+              <div class="act-bar fusion-act-bar" id="fusion-act-bar">
+                <span class="act-scope" id="fusion-act-scope">Load results to act on them.</span>
+                <div class="act-buttons" data-perm="credits.limit">
+                  <button type="button" class="sm" data-fusion-lane="both" data-perm="credits.allocate">Allocate credits</button>
+                  <button type="button" class="sm" data-fusion-lane="triage" data-perm="triage.run">AI Triage</button>
+                  <button type="button" class="sm" data-fusion-lane="remediation" data-perm="triage.run">AI Remediation</button>
+                </div>
+              </div>
+              <div class="fusion-lanes" id="fusion-lanes" hidden></div>
+              <p class="status" id="fusion-act-status"></p>
               <div class="table-wrap">
                 <table class="data-table fusion-table">
-                  <thead><tr><th>Project</th><th class="num">Critical</th><th class="num">High</th><th class="num">Medium</th><th class="num">Low</th><th class="num">Total</th><th class="num" title="Found by the latest scan for the first time">New</th><th class="num" title="Found again by the latest scan">Recurrent</th><th class="num" title="Found by the scan before and gone in the latest">Fixed</th><th>Latest scan</th></tr></thead>
-                  <tbody id="fusion-body"><tr><td colspan="10" class="hint">Choose applications or projects above (or none, for every project), then Load Fusion results.</td></tr></tbody>
+                  <thead><tr><th>Project</th><th class="num">Critical</th><th class="num">High</th><th class="num">Medium</th><th class="num">Low</th><th class="num" title="Found by the latest scan for the first time">New</th><th class="num" title="Found by the scan before and gone in the latest">Fixed</th><th>Latest scan</th></tr></thead>
+                  <tbody id="fusion-body"><tr><td colspan="8" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
                 </table>
               </div>
-              <!-- Every result, as the Checkmarx One results page lists them, each opening there. -->
-              <div class="fusion-results-head" id="fusion-results-head">
-                <h3>Results <em class="ptab-count" id="fusion-res-count"></em></h3>
-                <div class="fusion-tools">
-                  <input type="search" id="fusion-res-q" placeholder="Search vulnerabilities, files, ids or projects" aria-label="Search Fusion results" />
-                  <select id="fusion-res-project" aria-label="Project"><option value="">All projects</option></select>
-                  <select id="fusion-res-sev" aria-label="Severity">
-                    <option value="">All severities</option>
-                    <option value="CRITICAL">Critical</option>
-                    <option value="HIGH">High</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="LOW">Low</option>
-                  </select>
-                  <select id="fusion-res-status" aria-label="Status"><option value="">All statuses</option></select>
-                  <select id="fusion-res-state" aria-label="State"><option value="">All states</option></select>
-                  <button type="button" class="ghost sm" id="fusion-res-csv">Download CSV</button>
-                </div>
-              </div>
-              <div class="table-wrap">
-                <table class="data-table fusion-results">
-                  <thead><tr><th>Severity</th><th>Vulnerability</th><th>Status</th><th>State</th><th>Language</th><th>CWE</th><th>Source → sink</th><th>First found</th><th>Last found</th><th>Project</th></tr></thead>
-                  <tbody id="fusion-res-body"><tr><td colspan="10" class="hint">Load Fusion results to list them here.</td></tr></tbody>
-                </table>
-              </div>
-              <p class="table-more" id="fusion-res-more" hidden><button type="button" class="ghost sm" id="fusion-res-more-btn"></button></p>
+              <p class="hint" id="fusion-foot"></p>
               <details class="fusion-trouble" id="fusion-trouble" data-perm="integration.cxone">
                 <summary>Troubleshoot Fusion</summary>
                 <p class="hint wide">Find where this Checkmarx One serves Fusion: each path is called once, read only, through this server's connection, and <code>{appId}</code> becomes one of your applications. Pin the one that answers, and the page reads Fusion from there.</p>
@@ -2355,6 +2348,25 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <pre class="fusion-log" id="fusion-log" hidden></pre>
               </details>
             </section>
+            <!-- A project's vulnerabilities, as the Checkmarx One results page shows them, beside the list. -->
+            <div class="fusion-drawer" id="fusion-drawer" hidden>
+              <div class="fusion-scrim" data-fusion-close></div>
+              <section class="fusion-sheet" role="dialog" aria-modal="true" aria-labelledby="fusion-side-title">
+                <header class="fusion-side-head">
+                  <div class="fusion-side-top">
+                    <div><h2 id="fusion-side-title"></h2><p class="hint" id="fusion-side-meta"></p></div>
+                    <button type="button" class="icon-btn" data-fusion-close aria-label="Close" title="Close (Esc)">✕</button>
+                  </div>
+                  <div class="fusion-chips" id="fusion-side-chips" role="group" aria-label="Show"></div>
+                  <div class="fusion-side-acts">
+                    <a class="button-like sm" id="fusion-side-open" target="_blank" rel="noopener">Open in Checkmarx One ↗</a>
+                    <button type="button" class="sm" id="fusion-side-csv">Export CSV</button>
+                    <button type="button" class="sm" id="fusion-side-report">HTML report</button>
+                  </div>
+                </header>
+                <div class="fusion-side-list" id="fusion-side-list"></div>
+              </section>
+            </div>
           </div>
 
           <!-- ================= Audit ================= -->

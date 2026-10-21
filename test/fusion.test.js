@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { CxApiError } from '../src/cxone/client.js';
 import { aiFindings, cleanAiResult, cleanEngines, readAiFusion } from '../src/fusion-ai.js';
 import { sastCoverage } from '../src/sast-languages.js';
-import { fusionReportHtml, fusionResultRows, fusionRows, fusionTiles, fusionTotalOf } from '../public/fusion-view.js';
+import { engineLabel, fusionReportHtml, fusionResultRows, fusionRows, fusionTiles, fusionTotalOf } from '../public/fusion-view.js';
 
 /** A Checkmarx One that answers `routes` (path → body or function of query) and 404 elsewhere. */
 function fakeClient(routes) {
@@ -87,28 +87,40 @@ test('the results as findings the credit, triage and remediation code acts on, i
   assert.deepEqual(initiators, { p1: { scanId: 's1' } });
 });
 
-test('the page: tiles, project rows, Checkmarx-style result rows, and the HTML report', async () => {
-  const f = await readAiFusion(tenant([AI, { ...AI, resultHash: 'x', severity: 'HIGH', status: 'RECURRENT', state: 'TO_VERIFY' }]), P1, SCANS);
+test('the page: figures, project rows, Checkmarx-style result rows and the HTML report, for the engines ticked', async () => {
+  const sol = { ...AI, resultHash: 'sol', languageName: 'Solidity', severity: 'HIGH', status: 'RECURRENT', state: 'TO_VERIFY', nodes: [{ fileName: 'contracts/Token.sol', line: 9 }] };
+  const f = await readAiFusion(tenant([AI, sol]), P1, SCANS);
   f.results[0].url = 'https://deu.ast.checkmarx.net/riskhub/p1?resultId=AZTOOZ';
   f.projects.p1.url = 'https://deu.ast.checkmarx.net/projects/p1/overview';
   const scope = { projects: 3, names: { p1: 'Juice Shop' } };
-  const t = fusionTiles(f, scope, '');
-  assert.deepEqual([t.found.results, t.found.CRITICAL, t.found.projects, t.found.of, t.change.NEW, t.change.RECURRENT, t.change.FIXED], [2, 1, 1, 3, 1, 1, 2]);
-  assert.equal(fusionTiles(f, scope, '').perCredit.results, null, 'no credits entered: nothing made up');
-  const [row] = fusionRows(f, scope);
-  assert.deepEqual([row.name, row.CRITICAL, row.HIGH, row.total, row.NEW, row.FIXED, row.url], ['Juice Shop', 1, 1, 2, 1, 2, f.projects.p1.url]);
-  const rows = fusionResultRows(f, scope);
-  assert.deepEqual(rows.map((r) => [r.severity, r.name, r.status, r.state]), [['CRITICAL', 'Improper Authentication', 'New', 'Confirmed'], ['HIGH', 'Improper Authentication', 'Recurrent', 'To verify']]);
+  const t = fusionTiles(f, scope);
+  assert.deepEqual([t.found.results, t.found.CRITICAL, t.found.HIGH, t.found.projects, t.found.of, t.change.NEW, t.change.RECURRENT, t.change.FIXED], [2, 1, 1, 1, 3, 1, 1, 2], 'both: every AI-generated result');
+  const fusionOnly = fusionTiles(f, scope, ['FUSION']);
+  assert.deepEqual([fusionOnly.found.results, fusionOnly.found.HIGH, fusionOnly.change.FIXED], [1, 0, 2], 'Fusion only (the fixed are TypeScript’s)');
+  assert.deepEqual([fusionTiles(f, scope, ['LAST']).found.results, fusionTiles(f, scope, ['LAST']).found.HIGH], [1, 1]);
+  const [row] = fusionRows(f, scope, ['FUSION']);
+  assert.deepEqual([row.name, row.CRITICAL, row.HIGH, row.total, row.NEW, row.FIXED, row.url], ['Juice Shop', 1, 0, 1, 1, 2, f.projects.p1.url]);
+  assert.equal(fusionRows(f, scope, ['LAST']).every((r) => r.FIXED === 0 && r.total === 1), true, 'LAST: Solidity only, nothing of it fixed');
+  const rows = fusionResultRows(f, scope, ['FUSION', 'LAST'], 'p1');
+  assert.deepEqual(rows.map((r) => [r.severity, r.engine, r.status, r.state]), [['CRITICAL', 'FUSION', 'New', 'Confirmed'], ['HIGH', 'LAST', 'Recurrent', 'To verify']]);
   assert.equal(rows[0].source, '/juice-shop-20.3.0/routes/nftMint.ts:41');
+  assert.equal(rows[0].coveredAs, 'TypeScript');
   assert.equal(rows[0].projectUrl, f.projects.p1.url);
+  assert.deepEqual(fusionResultRows(f, scope, ['LAST']).map((r) => r.hash), ['sol']);
   assert.equal(fusionTotalOf(null, 'p1'), null);
-  assert.equal(fusionTotalOf(f, 'p1'), 2);
+  assert.deepEqual([fusionTotalOf(f, 'p1'), fusionTotalOf(f, 'p1', ['LAST'])], [2, 1]);
+  assert.equal(engineLabel(['LAST', 'FUSION']), 'Fusion and LAST');
   const html = fusionReportHtml(f, scope, { organisation: 'Acme <Bank>', generatedAt: '2026-10-21T10:00:00Z' });
   assert.match(html, /^<!doctype html>/);
-  assert.ok(html.includes('Acme &lt;Bank&gt;'), 'escaped');
+  assert.ok(html.includes('Fusion and LAST results — Acme &lt;Bank&gt;'), 'titled by the ticks, escaped');
   assert.ok(html.includes('href="https://deu.ast.checkmarx.net/riskhub/p1?resultId=AZTOOZ"'), 'each result links to Checkmarx One');
   assert.ok(html.includes('CWE-287') && html.includes('nftMint.ts:41'));
   assert.ok(!/<script|src="http/i.test(html), 'nothing runs, nothing loaded from elsewhere');
+  const fusionReport = fusionReportHtml(f, scope, { engines: ['FUSION'] });
+  assert.ok(fusionReport.includes('<title>Fusion results</title>') && !fusionReport.includes('Token.sol'), 'Fusion only: no LAST result');
+  const one = fusionReportHtml(f, scope, { engines: ['LAST'], projectId: 'p1' });
+  assert.ok(one.includes('LAST results — Juice Shop') && one.includes('Token.sol') && !one.includes('nftMint.ts'), 'one project, LAST only');
+  assert.equal(fusionReportHtml(f, scope, { projectId: 'nope' }).includes('No Fusion and LAST results.'), true);
 });
 
 test('a result cleaned keeps what the results page shows, and nothing it does not have', () => {

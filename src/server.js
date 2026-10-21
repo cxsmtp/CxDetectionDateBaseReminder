@@ -94,7 +94,7 @@ import { SUPPORTING_NOTICE, Terms, cleanName } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
 import { PROBE_DEFAULTS, probeFusion } from './fusion.js';
-import { aiFindings, readAiFusion } from './fusion-ai.js';
+import { aiFindings, cleanEngines as cleanFusionEngines, readAiFusion } from './fusion-ai.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
@@ -9651,11 +9651,30 @@ async function loadAiFusion(req, names) {
   const fusion = linkFusion(req, await readAiFusion(req.session.client, ids.map((id) => ({ id, name: names[id] })), scans, { trace: fusionTrace(req) }));
   req.session.lastFusion = fusion;
   req.session.fusionScan = aiFindings(fusion);
+  // A new read: the projects shown are the page's again; the Fusion and LAST ticks stay.
+  if (req.session.fusionFocus) req.session.fusionFocus.projectIds = null;
   return fusion;
 }
 
+/**
+ * What the page's credits and actions are for: the results of the engines ticked (Fusion, LAST or both) in the
+ * projects it shows (null: every one loaded). Taken from the request when it says, kept with the session.
+ */
+function fusionFocus(req) {
+  const body = req.body ?? {};
+  const focus = (req.session.fusionFocus ??= { engines: cleanFusionEngines(), projectIds: null });
+  if ('engines' in body) focus.engines = cleanFusionEngines(body.engines);
+  if ('projectIds' in body) focus.projectIds = Array.isArray(body.projectIds) ? [...new Set(body.projectIds.map((id) => String(id ?? '').slice(0, 80)).filter(Boolean))].slice(0, 5000) : null;
+  return focus;
+}
+
 app.get('/api/beta/fusion', requireFeature('fusionResults'), (req, res) => {
-  res.json({ fusion: req.session.lastFusion ?? null, scope: req.session.fusionScope ?? null, credits: fusionCredits(req) });
+  res.json({ fusion: req.session.lastFusion ?? null, scope: req.session.fusionScope ?? null, focus: fusionFocus(req), credits: fusionCredits(req) });
+});
+
+// The credits the page's lanes show, for what it shows now (the ticks, and the projects its filters leave).
+app.post('/api/beta/fusion/credits', requireFeature('fusionResults'), (req, res) => {
+  res.json({ focus: fusionFocus(req), credits: fusionCredits(req) });
 });
 
 // ---- Troubleshooting Fusion (Admins who manage the Checkmarx One integration): test paths, and a
@@ -9721,11 +9740,14 @@ const plainId = (id) => {
   return s;
 };
 
-/** Which fetched findings Fusion re-scored: (projectId, finding) → true. */
+/** Which loaded results the page acts on (the engines ticked, the projects shown): (projectId, finding) → true. */
 function fusionKeep(req) {
+  const { engines, projectIds: shown } = fusionFocus(req);
+  const only = shown ? new Set(shown) : null;
   const ids = new Map();
   for (const r of req.session.lastFusion?.results ?? []) {
     if (!r.projectId || !r.resultId) continue;
+    if ((r.engine && !engines.includes(r.engine)) || (only && !only.has(r.projectId))) continue;
     if (!ids.has(r.projectId)) ids.set(r.projectId, new Set());
     ids.get(r.projectId).add(plainId(r.resultId));
   }

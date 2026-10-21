@@ -247,6 +247,15 @@ test('Fusion results: an Admin allocates for and triages only the AI-generated r
   assert.equal(credits.matched, 4, JSON.stringify(credits));
   assert.deepEqual(credits.triage, { CRITICAL: 2, HIGH: 0, MEDIUM: 0, LOW: 2 });
   assert.equal(credits.projects, 2);
+  // What the page shows decides: r0 is TypeScript (Fusion's), r3 Solidity (LAST's); and the projects its filters leave.
+  const last = await admin('POST', '/api/beta/fusion/credits', { engines: ['LAST'], projectIds: null });
+  assert.deepEqual([last.body.credits.matched, last.body.credits.triage], [2, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 2 }]);
+  const one = await admin('POST', '/api/beta/fusion/credits', { engines: ['FUSION'], projectIds: ['p1'] });
+  assert.deepEqual([one.body.credits.matched, one.body.credits.projects, one.body.credits.triage.CRITICAL], [1, 1, 1]);
+  assert.deepEqual((await admin('GET', '/api/beta/fusion')).body.focus, { engines: ['FUSION'], projectIds: ['p1'] }, 'kept with the session');
+  const none = await admin('POST', '/api/beta/fusion/triage', { severities: ['CRITICAL'], engines: ['LAST'], projectIds: null, notifyInitiators: false });
+  assert.equal(none.body.requested, 0, 'no LAST result is critical');
+  await admin('POST', '/api/beta/fusion/credits', { engines: ['FUSION', 'LAST'], projectIds: null });
 
   const given = await admin('POST', '/api/beta/fusion/allocate', { kind: 'triage', severities: ['CRITICAL'] });
   assert.equal(given.status, 200, JSON.stringify(given.body).slice(0, 300));
