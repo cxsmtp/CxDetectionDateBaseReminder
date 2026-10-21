@@ -3785,6 +3785,8 @@
   "Test the Email server first (Settings → Email server).": "请先测试邮件服务器（设置 → 邮件服务器）。",
   "Connect the server to Checkmarx One first (Settings → Checkmarx One).": "请先将服务器连接到 Checkmarx One（设置 → Checkmarx One）。",
   "automation|Focus": "范围",
-  "automation|Schedule": "计划"
+  "automation|Schedule": "计划",
+  "Download standalone calculator": "下载独立版计算器",
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "单独提供计算器，打包为一个 HTML 文件：无需服务器即可在任意浏览器中运行，使用两份 Checkmarx One 导出文件，并生成相同的预估报告。"
  }
 }

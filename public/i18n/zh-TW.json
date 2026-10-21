@@ -3785,6 +3785,8 @@
   "Test the Email server first (Settings → Email server).": "請先測試電子郵件伺服器（設定 → 電子郵件伺服器）。",
   "Connect the server to Checkmarx One first (Settings → Checkmarx One).": "請先將伺服器連線至 Checkmarx One（設定 → Checkmarx One）。",
   "automation|Focus": "範圍",
-  "automation|Schedule": "排程"
+  "automation|Schedule": "排程",
+  "Download standalone calculator": "下載獨立版計算工具",
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "單獨提供計算工具，封裝為一個 HTML 檔案：不需伺服器即可在任何瀏覽器中執行，使用兩份 Checkmarx One 匯出檔，並產生相同的預估報告。"
  }
 }

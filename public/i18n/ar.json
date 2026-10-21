@@ -3785,6 +3785,8 @@
   "Test the Email server first (Settings → Email server).": "اختبر خادم البريد الإلكتروني أولًا (الإعدادات ← خادم البريد الإلكتروني).",
   "Connect the server to Checkmarx One first (Settings → Checkmarx One).": "اربط الخادم بـ Checkmarx One أولًا (الإعدادات ← Checkmarx One).",
   "automation|Focus": "النطاق",
-  "automation|Schedule": "الجدول الزمني"
+  "automation|Schedule": "الجدول الزمني",
+  "Download standalone calculator": "تنزيل الحاسبة المستقلة",
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "الحاسبة وحدها في ملف HTML واحد: تعمل في أي متصفح دون خادم، وتعتمد على ملفَي التصدير من Checkmarx One، وتُنشئ تقارير التوقعات نفسها."
  }
 }

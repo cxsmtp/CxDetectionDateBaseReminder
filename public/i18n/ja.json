@@ -3785,6 +3785,8 @@
   "Test the Email server first (Settings → Email server).": "先にメールサーバーをテストしてください（設定 → メールサーバー）。",
   "Connect the server to Checkmarx One first (Settings → Checkmarx One).": "先にサーバーをCheckmarx Oneに接続してください（設定 → Checkmarx One）。",
   "automation|Focus": "対象範囲",
-  "automation|Schedule": "スケジュール"
+  "automation|Schedule": "スケジュール",
+  "Download standalone calculator": "単体版計算ツールをダウンロード",
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "計算ツールだけを一つのHTMLファイルにまとめたものです。サーバー不要でどのブラウザーでも動作し、Checkmarx Oneの二つのエクスポートから同じ試算レポートを作成します。"
  }
 }

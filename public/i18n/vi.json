@@ -3785,6 +3785,8 @@
   "Test the Email server first (Settings → Email server).": "Hãy kiểm tra Máy chủ email trước (Cài đặt → Máy chủ email).",
   "Connect the server to Checkmarx One first (Settings → Checkmarx One).": "Hãy kết nối máy chủ với Checkmarx One trước (Cài đặt → Checkmarx One).",
   "automation|Focus": "Phạm vi",
-  "automation|Schedule": "Lịch trình"
+  "automation|Schedule": "Lịch trình",
+  "Download standalone calculator": "Tải xuống công cụ tính độc lập",
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "Chỉ riêng công cụ tính, gói trong một tệp HTML duy nhất: chạy trên mọi trình duyệt mà không cần máy chủ, dùng hai tệp xuất từ Checkmarx One và tạo ra các báo cáo dự báo giống hệt."
  }
 }
