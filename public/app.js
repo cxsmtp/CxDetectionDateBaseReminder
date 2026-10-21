@@ -341,6 +341,19 @@ async function api(path, options = {}) {
   }
 }
 
+/**
+ * The product licence ends within 30 days (src/activation.js): Admins are told, with the date, until a product
+ * activation code moves it (Settings → Activation codes).
+ */
+function renderLicenceBanner(licence) {
+  const banner = $('licence-banner');
+  if (!banner) return;
+  banner.hidden = !licence?.warn;
+  if (!licence?.warn) return;
+  const day = new Date(Date.parse(licence.until) - 1).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  banner.textContent = `CxMissionZero stops working at the end of ${day} (UTC) unless it is activated: ${licence.daysLeft === 1 ? '1 day' : `${licence.daysLeft} days`} left. Please reach out to Bhavani Singh for an activation code, then enter it under Settings → Activation codes.`;
+}
+
 async function apiCall(path, options = {}) {
   const method = options.method || 'GET';
   if (method !== 'GET' && state.fetching && NEEDS_FETCHED_DATA.test(path)) {
@@ -385,6 +398,8 @@ async function apiCall(path, options = {}) {
     if (response.status === 426 && /^https:\/\//.test(payload.movedTo || '')) {
       location.href = `${payload.movedTo}${location.pathname}${location.search}${location.hash}`;
     }
+    // The product licence ended while this page was open: the deactivation page, with its activation field.
+    if (response.status === 503 && payload.deactivated) location.reload();
     if (!response.ok) {
       const error = new Error(payload.error || `${response.status} ${response.statusText}`);
       error.status = response.status;
@@ -1069,13 +1084,17 @@ function renderActivation(a) {
   const he = a.languages?.he ?? { on: false };
   const t = a.tenants;
   // Only what a code has unlocked (or whose code ran out): an add-on appears, switched on, when its code is applied.
+  const p = a.product;
+  // The product licence: always shown, as it says until when CxMissionZero works here.
+  const lastDay = p ? date(new Date(Date.parse(p.until) - 1).toISOString()) : '';
   const rows = [
     // Each English piece is its own element, so the page translator can reach it.
+    ...(p ? [`<div class="act-row"><strong>CxMissionZero</strong><span>${p.active ? '<span class="badge ok">Active</span>' : '<span class="badge warn">Deactivated</span>'} <span>Until the end of</span> <b>${escapeHtml(lastDay)}</b> <span>(UTC)</span>${p.activation ? ` · ${escapeHtml(p.activation.org)}` : ''}${p.warn ? ` <strong class="https-note warn">${p.daysLeft} days left</strong>` : ''}</span></div>`] : []),
     ...(he.on || he.expired ? [`<div class="act-row"><strong>Hebrew</strong><span>${he.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(he.expires))}</b>${he.org ? ` · ${escapeHtml(he.org)}` : ''}` : `<span class="badge warn">Expired</span> <b>${escapeHtml(date(he.expires))}</b>`}</span></div>`] : []),
     ...(a.features?.impact ? [`<div class="act-row"><strong>Cx Credits Calculator: Impact</strong><span>${a.features.impact.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(a.features.impact.expires))}</b>` : a.features.impact.expired ? `<span class="badge warn">Expired</span> <b>${escapeHtml(date(a.features.impact.expires))}</b>` : '<span class="badge muted">Off</span>'}</span></div>`] : []),
     ...(t ? [`<div class="act-row"><strong>Several tenants</strong><span>${t.valid ? '<span class="badge ok">Unlocked</span>' : '<span class="badge warn">Expired</span>'} ${escapeHtml(t.org)} · <span>Up to ${t.maxTenants} tenants</span> · <span>Until</span> <b>${escapeHtml(date(t.expires))}</b>${t.warn ? ` <strong class="https-note warn">${t.daysLeft} days left</strong>` : ''}</span></div>`] : []),
   ];
-  if (!rows.length) rows.push('<p class="hint">No add-ons are unlocked yet.</p>');
+  if (rows.length === (p ? 1 : 0)) rows.push('<p class="hint">No add-ons are unlocked yet.</p>');
   if (!a.keyConfigured) rows.push('<p class="hint">This build has no maintainer key, so no code can be checked.</p>');
   // Who sees Hebrew is a permission on the roles, listed there while Hebrew is on.
   if (he.on) rows.push('<p class="hint">Who sees Hebrew: the roles with the <strong>Hebrew</strong> permission, under <a href="#/access/roles">People &amp; roles</a>. Admins always have it; tick it for Security Analyst or any other role that should.</p>');
@@ -1093,6 +1112,8 @@ $('act-apply').addEventListener('click', async () => {
     renderActivation(result);
     $('act-code').value = '';
     setStatus('act-status', `Applied: ${result.applied}.`, 'ok');
+    // A product code moves the licence's end: the banner follows.
+    renderLicenceBanner(result.product);
     // A language turned on or off is offered (or not) at once.
     refreshMyLanguages();
   } catch (error) {
@@ -1884,6 +1905,7 @@ async function showConnected(me) {
   loadReportServer();
   if (me.configNotices?.length) showNotices(me.configNotices, { acknowledge: true });
   // The code running is not what the release workflow built: said to those who look after updates, at once.
+  renderLicenceBanner(me.licence);
   if (['tampered', 'not-genuine'].includes(me.integrity?.state)) toast(me.integrity.state === 'tampered' ? 'Software integrity: files changed. Settings → Update & recovery has the details.' : 'Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.', 'bad', 15000);
   if (me.hasScan && !freshStart) restoreLastScan();
   startConnections();

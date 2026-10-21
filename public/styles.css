@@ -3426,3 +3426,5 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .fusion .fusion-tiles > div .value { font-size: 20px; line-height: 1.2; color: inherit; }
 .fusion .fusion-tiles .label { font-size: 12px; }
 .fusion .fusion-tiles > div.crit .value { color: var(--danger); } .fusion .fusion-tiles > div.high .value { color: var(--warn); }
+.licence-banner { margin: 0 0 14px; padding: 10px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border)); background: color-mix(in srgb, var(--warn) 10%, var(--surface)); color: var(--text); font-size: 13.5px; }
+.licence-banner[hidden] { display: none; }

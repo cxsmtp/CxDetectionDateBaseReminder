@@ -86,7 +86,7 @@ import { inlineScriptHashes, pruneAttempts, sameOriginGuard, securityHeaders, tr
 import { describeCertificate } from './tls.js';
 import { HSTS_AGES, HttpsManager } from './https-manager.js';
 import { AcmeService, CHALLENGE_PREFIX, RENEW_DAYS, cleanNames, validName } from './acme.js';
-import { ActivationStore, ISSUER_KEYS, checkCode } from './activation.js';
+import { ActivationStore, DEACTIVATED_MESSAGE, ISSUER_KEYS, checkCode } from './activation.js';
 import { GATED_LANGUAGES, LanguageAccess } from './languages.js';
 import { DEFAULT_TENANT, Tenancy, scoped, scopedState } from './tenancy.js';
 import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
@@ -272,7 +272,8 @@ function buildTenant({ id, dir }) {
       // The scheduler is synchronous about session lookup, so a key armed while
       // the process is running is picked up by the refresh below rather than here.
       // Nothing runs on its own until an Admin has accepted the terms of use.
-      resolveSession: () => (terms.organisation() ? sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) : null),
+      // Nor once the product licence has ended (src/activation.js).
+      resolveSession: () => (terms.organisation() && activations.product().active ? sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) : null),
       state: automationState,
       // Runs send through the last known good mail server while a change waits to be checked.
       // Always the organisation's branding, even for a run started by someone presenting their own.
@@ -760,6 +761,22 @@ app.use('/api/diagnostics/client-error', express.json({ limit: '16kb' }));
 app.use(express.json({ limit: '4mb' }));
 
 /**
+ * The product licence (src/activation.js, docs/activation-codes.md): after the end of 31 December 2026 (UTC), or a product
+ * code's date if later, CxMissionZero stops. Every page shows that it has been deactivated, with a field for the
+ * activation code; every other request is refused. Only the health check (the container's), the licence itself
+ * and what its page needs stay open. Nothing is deleted.
+ */
+const productActive = () => activations.product().active;
+const LICENCE_OPEN = new Set(['/api/health', '/api/licence', '/api/licence/activate', '/deactivated.js', '/favicon.svg', '/mz-icon-64.png']);
+app.use((req, res, next) => {
+  if (LICENCE_OPEN.has(req.path)) return next();
+  if (productActive()) return req.path === '/deactivated.html' ? res.redirect('/') : next();
+  res.set('Cache-Control', 'no-store');
+  if (req.path.startsWith('/api/') || !['GET', 'HEAD'].includes(req.method)) return res.status(503).json({ error: DEACTIVATED_MESSAGE, deactivated: true });
+  res.status(503).sendFile(path.join(publicDir, 'deactivated.html'));
+});
+
+/**
  * Which tenant a request is for, and run it there (src/tenancy.js): a signed-in person's chosen
  * tenant, or, for an emailed report and the links in it, the one it names. Grants are bound to
  * their tenant, so naming another makes them fail. Everything else is the first tenant.
@@ -1180,6 +1197,8 @@ function describeMe(session, user) {
     languages: languageAccess.available(allowedLanguages(user.id)),
     // Add-ons a code has unlocked (in date or not): until then the page does not show them.
     unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, impact: Boolean(activations.feature('impact')?.on) },
+    // The product licence's end, for the Admins' banner in the last 30 days (src/activation.js).
+    licence: held.has('activation.manage') ? (({ until, daysLeft, warn, activation }) => ({ until, daysLeft, warn, activation }))(activations.product()) : null,
     // The organisation's name (given with the terms of use), for what CxMissionZero makes for others.
     organisationName: terms.organisationName(),
     // Get help: the support portal here, or email to an address (installations whose mail cannot leave).
@@ -2430,6 +2449,7 @@ async function runConnectionCheck({ rollback = false, trigger = 'check', actor =
 
 /** Changes nobody is checking (the browser closed mid-edit) are checked once they have been left alone a while. */
 const idleCheck = setInterval(() => {
+  if (!productActive()) return;
   tenancy.each(() => {
     const changedAt = guard.changedAt;
     if (!changedAt || Date.now() - Date.parse(changedAt) < ROLLBACK_IDLE_MS) return;
@@ -4604,6 +4624,37 @@ app.delete('/api/https/acme', requirePermission('security.https'), httpsRoute(as
   res.json(acmeView(req));
 }));
 
+// ---- The product licence: whether CxMissionZero works, and a product code entered on the deactivation page ----
+// Open to anyone who reaches the server: only a code the maintainer signed can do anything here.
+app.get('/api/licence', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const { active, until, message } = activations.product();
+  res.json({ active, until, message });
+});
+
+const licenceTries = new Map();
+app.post('/api/licence/activate', (req, res) => {
+  // A few tries a minute from one address: a code cannot be guessed, but there is no reason to let anyone try.
+  const ip = clientIp(req);
+  const now = Date.now();
+  const recent = (licenceTries.get(ip) ?? []).filter((t) => now - t < 60_000);
+  if (recent.length >= 10) return res.status(429).json({ error: 'Too many tries. Wait a minute, then enter the code again.' });
+  licenceTries.set(ip, [...recent, now]);
+  if (licenceTries.size > 1000) licenceTries.clear();
+  const result = checkCode(String(req.body?.code ?? '').trim().slice(0, 4000));
+  // In date by the licence's own clock too (never earlier than the latest time it has seen).
+  const passed = result.valid && Date.parse(result.expires) <= activations.now();
+  if (!result.valid || result.scope !== 'product' || passed) {
+    const reason = !result.valid ? result.reason || 'This activation code is not valid.' : result.scope !== 'product' ? 'This is not a CxMissionZero activation code.' : `This activation code ended on ${result.expires.slice(0, 10)}.`;
+    audit.record({ type: 'settings', outcome: 'refused', reason: `Product activation code refused: ${reason}`, actor: { kind: 'system', user: `deactivation page (${ip})` } });
+    return res.status(400).json({ error: reason });
+  }
+  activations.record(result, `deactivation page (${ip})`);
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Product activation code applied: CxMissionZero works until ${result.expires.slice(0, 10)} (${result.org}).`, actor: { kind: 'system', user: `deactivation page (${ip})` }, details: { activation: { id: result.id, org: result.org, scope: result.scope, action: result.action, expires: result.expires } } });
+  const { active, until } = activations.product();
+  res.json({ active, until });
+});
+
 // ---- Activation codes (Settings → Activation codes): add-ons unlocked by the maintainer ----
 
 function activationView(req) {
@@ -4615,6 +4666,7 @@ function activationView(req) {
     languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)]).filter(([, s]) => s.on || s.expired)),
     tenants: activations.tenants(),
     features: Object.fromEntries(['impact'].map((name) => [name, activations.feature(name)]).filter(([, f]) => f)),
+    product: activations.product(),
     history: activations.history().slice(0, 10),
   };
 }
@@ -4640,6 +4692,8 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
     what = `${applied.code === 'he' ? 'Hebrew' : applied.code} ${applied.on ? `turned on until ${result.expires.slice(0, 10)}, for the roles with its permission (People & roles)` : 'turned off'}`;
   } else if (result.scope === 'feature:impact') {
     what = `the Cx Credits Calculator's Impact tab ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}` : 'turned off'}`;
+  } else if (result.scope === 'product') {
+    what = `CxMissionZero activated for ${result.org} until ${result.expires.slice(0, 10)}`;
   } else {
     what = `several Checkmarx One tenants unlocked for ${result.org}: up to ${result.maxTenants}, until ${result.expires.slice(0, 10)}`;
   }
@@ -6378,6 +6432,8 @@ async function backgroundRefresh() {
   }
 }
 setInterval(() => {
+  // Deactivated (the product licence): nothing reads Checkmarx One or sends anything on its own.
+  if (!productActive()) return;
   tenancy.each(() => {
     backgroundRefresh().catch(() => {});
     monthlyImpact().catch((error) => console.warn(`[impact] ${error.message}`));
@@ -8260,7 +8316,7 @@ const healthView = () => ({ lastCheckAt: watchdog.state.lastCheckAt, everyMinute
 
 {
   const loop = (fn, every, first) => {
-    const run = () => fn().catch((error) => diagnostics.error('background', error));
+    const run = () => (productActive() ? fn() : Promise.resolve()).catch((error) => diagnostics.error('background', error));
     setTimeout(() => {
       run();
       setInterval(run, every).unref();

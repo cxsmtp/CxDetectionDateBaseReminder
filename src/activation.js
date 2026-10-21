@@ -1,5 +1,9 @@
 /**
- * Activation codes for multi-tenant mode's Super Admin tasks (docs/multi-tenant.md).
+ * Activation codes for multi-tenant mode's Super Admin tasks (docs/multi-tenant.md), and the product licence.
+ *
+ * The product licence: CxMissionZero works until the end of 31 December 2026 (UTC). After that every page shows
+ * that it has been deactivated, until a product activation code from the maintainer is entered; the code says
+ * until when it works (docs/activation-codes.md). Data is never deleted, and backups go on.
  *
  * Multi-tenant mode itself works on every installation. Adding tenants, switching between
  * them and approving a tenant's own email server need an activation code issued by the
@@ -11,7 +15,7 @@
  * the public half is ISSUER_KEYS below. Codes are made with scripts/activation.mjs.
  */
 import { createPublicKey, verify } from 'node:crypto';
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 /** The maintainer's public key(s), base64 SPKI DER. Empty: no code is valid yet. */
@@ -21,15 +25,27 @@ export const ISSUER_KEYS = [
 
 const PREFIX = 'MZ1';
 const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
 /** Admins are told this long before a code expires. */
 export const WARN_DAYS = 30;
 
+/** Without a product activation code, CxMissionZero works until this moment: the end of 31 December 2026, UTC. */
+export const PRODUCT_DEADLINE = '2027-01-01T00:00:00.000Z';
+/** What every page says once it has stopped. */
+export const DEACTIVATED_MESSAGE = 'The product has been deactivated. Please reach out to Bhavani Singh.';
+
 const fail = (reason) => ({ valid: false, reason });
 
-/** The issuer keys this process trusts: ISSUER_KEYS, and a test key only under `node --test`. */
+// A release (the image) carries the list of its files (integrity.json, src/integrity/manifest.js); a development copy does not.
+const RELEASE = existsSync(new URL('../integrity.json', import.meta.url));
+
+/**
+ * The issuer keys this process trusts: ISSUER_KEYS, and a test key only under `node --test` in a development copy
+ * (never in a release, where it would let anyone sign their own codes).
+ */
 function trustedKeys() {
   const keys = [...ISSUER_KEYS];
-  if (process.env.NODE_TEST_CONTEXT && process.env.MZ_ACTIVATION_TEST_KEY) keys.push(process.env.MZ_ACTIVATION_TEST_KEY);
+  if (!RELEASE && process.env.NODE_TEST_CONTEXT && process.env.MZ_ACTIVATION_TEST_KEY) keys.push(process.env.MZ_ACTIVATION_TEST_KEY);
   return keys;
 }
 
@@ -49,7 +65,7 @@ export function readCode(code) {
  * language; "feature:<name>" a feature held back until it is ready ("feature:impact": the Cx Credits
  * Calculator's Impact tab). (MZ-01.00.62's "calculator" scope is gone: the calculator is a permission.)
  */
-export const SCOPES = new Set(['tenants', 'lang:he', 'feature:impact']);
+export const SCOPES = new Set(['tenants', 'lang:he', 'feature:impact', 'product']);
 /** For a language scope, whether the code turns it on or off. */
 export const ACTIONS = new Set(['activate', 'deactivate']);
 
@@ -77,7 +93,8 @@ export function checkCode(code, { now = Date.now(), keys = trustedKeys() } = {})
   const base = p.v === 1 && p.id && p.org && SCOPES.has(scope) && Number.isFinite(expires);
   const forTenants = scope === 'tenants' && Number.isInteger(p.maxTenants) && p.maxTenants >= 2;
   const action = String(p.action ?? '');
-  const forLang = (scope.startsWith('lang:') || scope.startsWith('feature:')) && ACTIONS.has(action);
+  // A product code only activates: until its date, CxMissionZero works.
+  const forLang = ((scope.startsWith('lang:') || scope.startsWith('feature:')) && ACTIONS.has(action)) || (scope === 'product' && action === 'activate');
   if (!base || !(forTenants || forLang)) return fail('This activation code is not valid.');
   const daysLeft = Math.ceil((expires - now) / DAY_MS);
   const info = {
@@ -107,9 +124,9 @@ export class ActivationStore {
     this.#file = file;
     try {
       const raw = JSON.parse(readFileSync(file, 'utf8'));
-      this.#state = { tenants: raw.tenants ?? null, features: raw.features && typeof raw.features === 'object' ? raw.features : {}, history: Array.isArray(raw.history) ? raw.history : [] };
+      this.#state = { tenants: raw.tenants ?? null, features: raw.features && typeof raw.features === 'object' ? raw.features : {}, product: raw.product ?? null, seenAt: String(raw.seenAt ?? ''), history: Array.isArray(raw.history) ? raw.history : [] };
     } catch {
-      this.#state = { tenants: null, features: {}, history: [] };
+      this.#state = { tenants: null, features: {}, product: null, seenAt: '', history: [] };
     }
   }
 
@@ -125,6 +142,7 @@ export class ActivationStore {
     const entry = { id: result.id, org: result.org, scope: result.scope, action: result.action || 'activate', expires: result.expires, at: new Date().toISOString(), by: String(by ?? '') };
     if (result.scope === 'tenants') this.#state.tenants = { ...entry, maxTenants: result.maxTenants };
     if (result.scope.startsWith('feature:')) this.#state.features[result.scope.slice(8)] = entry;
+    if (result.scope === 'product') this.#state.product = entry;
     this.#state.history = [entry, ...this.#state.history].slice(0, 50);
     this.#save();
     return entry;
@@ -148,5 +166,41 @@ export class ActivationStore {
 
   history() {
     return this.#state.history.map((h) => ({ ...h }));
+  }
+
+  /**
+   * The time the licence goes by: never earlier than the latest it has seen (kept, at most hourly), so setting the
+   * server's clock back does not undo the end date.
+   */
+  now(now = Date.now()) {
+    const seen = Date.parse(this.#state.seenAt) || 0;
+    if (now > seen + HOUR_MS) {
+      this.#state.seenAt = new Date(now).toISOString();
+      try {
+        this.#save();
+      } catch {}
+    }
+    return Math.max(now, seen);
+  }
+
+  /**
+   * Whether CxMissionZero may work: until the end of 31 December 2026 (UTC), or a product code's date if later.
+   * { active, until, daysLeft, warn, activation: { org, expires, at } | null, message }.
+   */
+  product(now = Date.now()) {
+    const t = this.now(now);
+    const code = this.#state.product;
+    const coded = code?.action === 'activate' ? Date.parse(code.expires) || 0 : 0;
+    const until = Math.max(Date.parse(PRODUCT_DEADLINE), coded);
+    const active = t < until;
+    const daysLeft = Math.ceil((until - t) / DAY_MS);
+    return {
+      active,
+      until: new Date(until).toISOString(),
+      daysLeft,
+      warn: active && daysLeft <= WARN_DAYS,
+      activation: code ? { org: code.org, expires: code.expires, at: code.at } : null,
+      message: active ? '' : DEACTIVATED_MESSAGE,
+    };
   }
 }

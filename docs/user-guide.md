@@ -495,6 +495,8 @@ For teams that would rather not sign in to one more tool. **Settings → Hands-o
 
 ### Activation codes (Admin)
 
+**CxMissionZero itself** works until the end of 31 December 2026 (UTC). From 1 December, Admins see a banner with the date; the first line here shows it too. After that date every page says **The product has been deactivated. Please reach out to Bhavani Singh.** until a product activation code from the maintainer is entered, here before the date or on that page after it. Nothing is deleted and backups go on ([the product licence](activation-codes.md#the-product-licence-cxmissionzero-stops-after-31-december-2026)).
+
 Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
 - **Hebrew:** an activation code switches Hebrew on; a deactivation code removes it. Who sees it is a role permission: **Hebrew** on People & roles (listed while Hebrew is on). Admins always have it; tick it for Security Analyst or any other role.
 - **Several tenants:** for organisations that run more than one Checkmarx One tenant (the Super Admin tasks).

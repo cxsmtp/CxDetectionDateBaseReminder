@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { licenceGateScript } from './licence-gate.js';
+
 /**
  * The Cx Credits Calculator as one HTML file that runs on its own, in any browser, with no server
  * (public/calculator/standalone.js). Built here from the same files the app serves: the calculator's
@@ -142,10 +144,13 @@ ${standaloneMarkup(calculatorMarkup(read('index.html')), { launcher })}
   </div>
 </div>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script>
+${scriptText(licenceGateScript())}
+</script>
 ${launcher ? '<script>window.CX_LAUNCHER = "__CALCULATOR_LAUNCHER__";</script>' : ''}
 ${vendor}
 <script type="module">
-${scriptText(`const __m = [];\n${bundle}\n__m[${index.get('calculator/standalone.js')}].startStandalone({ samples: ${JSON.stringify(samples)} });`)}
+${scriptText(`const __m = [];\n${bundle}\n// The product licence (src/licence-gate.js) may hold it back until an activation code is entered.\nlet __started = false;\nwindow.__mzStart = () => {\n  if (__started) return;\n  __started = true;\n  __m[${index.get('calculator/standalone.js')}].startStandalone({ samples: ${JSON.stringify(samples)} });\n};\nif (!window.__mzBlocked) window.__mzStart();`)}
 </script>
 </body>
 </html>
