@@ -182,13 +182,24 @@ const firstScore = (...values) => values.map(score).find((v) => v !== null) ?? n
  * One Application Risk Management result, one row per project in scope it belongs to. Its risk is
  * { score, severity }; a score it had before, when the answer gives one, makes it raised or lowered.
  */
+/** The projects a result names, however it names them: projects[] (ids or { id | projectId }), project, projectId. */
+function projectIdsOf(r) {
+  const named = [...(Array.isArray(r?.projects) ? r.projects : []), r?.project, r?.projectId].filter(Boolean);
+  return [...new Set(named.map((p) => text(typeof p === 'object' ? p.id ?? p.projectId : p, 80)).filter(Boolean))];
+}
+
+/** Where a result that names no project is counted: its application, as a row of its own. */
+export const applicationRow = (appId) => `app:${appId}`;
+
 export function cleanRiskResult(r, appId, inScope) {
   const newRisk = firstScore(r?.risk?.score, r?.riskScore, r?.score);
   const oldRisk = firstScore(r?.originalRisk?.score, r?.previousRisk?.score, r?.oldRisk?.score, r?.originalRiskScore, r?.oldRiskValue);
   const given = upper(r?.risk?.severity ?? r?.riskSeverity ?? r?.severity);
   const newSeverity = SEVERITIES.includes(given) ? given : severityOfScore(newRisk);
-  const projects = (Array.isArray(r?.projects) ? r.projects : []).map((p) => text(typeof p === 'object' ? p?.id : p, 80)).filter(Boolean);
-  return [...new Set(projects)].filter((id) => !inScope || inScope.has(id)).map((projectId) => ({
+  const named = projectIdsOf(r);
+  // Naming projects, only those in scope; naming none (as some of Fusion's own results do), its application.
+  const rows = named.length ? named.filter((id) => !inScope || inScope.has(id)) : [applicationRow(appId)];
+  return rows.map((projectId) => ({
     projectId,
     resultId: text(r?.id ?? r?.hash, 200),
     applicationId: text(appId, 80),
@@ -267,11 +278,14 @@ async function readRiskManagement(client, inScope, { concurrency, trace, readAt,
   }
   const results = [...byKey.values()];
   const { projects, totals } = summarize(results);
+  // The rows of results that name no project: their application's name.
+  const names = Object.fromEntries(read.map((app) => [applicationRow(app.id), `${app.name} (no project given)`]));
   const appRow = (app, extra = {}) => ({ id: app.id, name: app.name, projects: app.projectIds.filter((id) => inScope.has(id)).length, results: new Set(results.filter((r) => r.applicationId === app.id).map((r, i) => r.resultId || `row-${i}`)).size, scan: null, ...extra });
   return {
     readAt,
     available: true,
     source: 'risk-management',
+    names,
     applications: [...read.map((app) => appRow(app)), ...apps.filter((a) => !known.has(a.id)).map((app) => appRow(app, { notScanned: true }))],
     projects,
     totals,

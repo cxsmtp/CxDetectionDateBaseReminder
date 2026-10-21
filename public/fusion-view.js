@@ -35,7 +35,7 @@ export function fusionRows(fusion, scope) {
       const latest = scans.filter((s) => s.at).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] ?? scans[0] ?? null;
       return {
         projectId,
-        name: scope?.names?.[projectId] ?? projectId,
+        name: scope?.names?.[projectId] ?? fusion?.names?.[projectId] ?? projectId,
         applications: (c.applications ?? []).map((id) => appName.get(id) ?? id),
         CRITICAL: c.CRITICAL ?? 0,
         HIGH: c.HIGH ?? 0,

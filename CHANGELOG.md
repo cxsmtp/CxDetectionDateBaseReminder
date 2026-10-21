@@ -82,6 +82,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 ## MZ-01.00.93 — not released yet · [#116](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/116)
 
 - **Fusion counts that match Checkmarx One.** Fusion results read through Application Risk Management are now read to the last page even when Checkmarx One gives fewer per page than asked (before, only the first page was counted), and so is the list of applications.
+- **No Fusion result left out.** A result that names its project another way (`projectId`, `project`), or names none, as some of Fusion's own SAST results do, is now counted: under its project, or under its application as a row of its own ("… (no project given)"); before, it was dropped.
 - **Each result once in the totals.** A Fusion result that belongs to several projects still shows in each project's row, but counts once in the tiles and in its application's total, as on the platform.
 
 ## MZ-01.00.92 — 2026-10-21 16:12 UTC · [#115](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/115)

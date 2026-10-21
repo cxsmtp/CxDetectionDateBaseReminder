@@ -154,3 +154,20 @@ test('Application Risk Management giving fewer results per page than asked: ever
   assert.equal(f.totals.total, 7);
   assert.equal(f.totals.CRITICAL, 7);
 });
+
+test('a Fusion result naming its project another way, or none at all, is counted, not dropped', async () => {
+  const client = fakeClient({
+    '/api/applications': { applications: [{ id: 'a1', name: 'Fusion Hub', projectIds: ['p1', 'p2'] }] },
+    '/api/risk-management/summary': { summary: [{ id: 'a1', name: 'Fusion Hub' }] },
+    '/api/risk-management/a1/results': (q) => ({ results: Number(q.offset) ? [] : [
+      { id: 'sca', type: 'sca', risk: { score: 7.5, severity: 'high' }, projects: [{ id: 'p1' }] },
+      { id: 'sast', type: 'sast', risk: { score: 7.9, severity: 'high' }, projectId: 'p2' },
+      { id: 'iac', type: 'kics', risk: { score: 7.1, severity: 'high' }, project: { id: 'p2' } },
+      { id: 'fusion', type: 'sast', risk: { score: 8.2, severity: 'high' } },
+    ] }),
+  });
+  const f = await readFusion(client, ['p1', 'p2']);
+  assert.equal(f.totals.HIGH, 4, 'every one of the four');
+  assert.deepEqual([f.projects.p1.total, f.projects.p2.total, f.projects['app:a1'].total], [1, 2, 1]);
+  assert.equal(fusionRows(f, { names: { p1: 'one', p2: 'two' } }).find((r) => r.projectId === 'app:a1').name, 'Fusion Hub (no project given)');
+});
