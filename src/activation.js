@@ -32,7 +32,7 @@ export const WARN_DAYS = 30;
 /** Without a product activation code, CxMissionZero works until this moment: the end of 31 December 2026, UTC. */
 export const PRODUCT_DEADLINE = '2027-01-01T00:00:00.000Z';
 /** What every page says once it has stopped. */
-export const DEACTIVATED_MESSAGE = 'The product has been deactivated. Please reach out to Bhavani Singh.';
+export const DEACTIVATED_MESSAGE = 'The product has been deactivated. Please reach out to Bhawani Singh.';
 
 const fail = (reason) => ({ valid: false, reason });
 

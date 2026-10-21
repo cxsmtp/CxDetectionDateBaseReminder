@@ -22,7 +22,7 @@ const store = () => new ActivationStore({ file: path.join(fs.mkdtempSync(path.jo
 
 test('it works until the end of 31 December 2026 (UTC), with a warning for Admins in the last 30 days', () => {
   assert.equal(PRODUCT_DEADLINE, '2027-01-01T00:00:00.000Z');
-  assert.equal(DEACTIVATED_MESSAGE, 'The product has been deactivated. Please reach out to Bhavani Singh.');
+  assert.equal(DEACTIVATED_MESSAGE, 'The product has been deactivated. Please reach out to Bhawani Singh.');
   const s = store();
   assert.deepEqual((({ active, warn }) => [active, warn])(s.product(at('2026-10-21T12:00:00Z'))), [true, false]);
   const december = s.product(at('2026-12-15T00:00:00Z'));
@@ -41,13 +41,13 @@ test('its clock never goes back: a server clock set back after the end does not 
 });
 
 test('a product code moves the end to its date; the script issues one to the end of a day, UTC', () => {
-  const code = script('product', keyFile, 'Acme Bank', '2027-06-30');
+  const code = script('product', keyFile, '2027-06-30');
   const r = checkCode(code, { keys: [publicKey] });
-  assert.deepEqual([r.valid, r.scope, r.action, r.org, r.expires], [true, 'product', 'activate', 'Acme Bank', '2027-07-01T00:00:00.000Z']);
+  assert.deepEqual([r.valid, r.scope, r.action, r.org, r.expires], [true, 'product', 'activate', 'Everyone', '2027-07-01T00:00:00.000Z']);
   const s = store();
   s.record(r, 'test');
   assert.equal(s.product(at('2027-03-01T00:00:00Z')).active, true);
-  assert.deepEqual(s.product(at('2027-03-01T00:00:00Z')).activation.org, 'Acme Bank');
+  assert.deepEqual(s.product(at('2027-03-01T00:00:00Z')).activation.org, 'Everyone', 'one key for everyone');
   assert.equal(s.product(at('2027-07-01T00:00:00Z')).active, false, 'and stops at its end');
   // A product code that would end before the built-in date does not shorten it.
   const early = store();
@@ -56,11 +56,11 @@ test('a product code moves the end to its date; the script issues one to the end
   // Only "activate": a product code cannot be made to switch it off.
   assert.equal(checkCode(code.replace(/^MZ1\.[^.]+/, (head) => `MZ1.${Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(head.slice(4), 'base64url')), action: 'deactivate' })).toString('base64url')}`), { keys: [publicKey] }).valid, false);
   // A months count works too.
-  assert.equal(checkCode(script('product', keyFile, 'Acme Bank', '3'), { keys: [publicKey] }).valid, true);
+  assert.equal(checkCode(script('product', keyFile, '3'), { keys: [publicKey] }).valid, true);
 });
 
 test('the browser check (standalone calculator) accepts the same product codes, and nothing else', async () => {
-  const code = script('product', keyFile, 'Acme Bank', '2027-06-30');
+  const code = script('product', keyFile, '2027-06-30');
   assert.equal(await productCodeUntil(code, [publicKey], webcrypto.subtle), at('2027-07-01T00:00:00Z'));
   assert.equal(await productCodeUntil(code, ISSUER_KEYS, webcrypto.subtle), 0, 'another key');
   assert.equal(await productCodeUntil(script('lang', keyFile, 'Acme Bank', 'he', 'on'), [publicKey], webcrypto.subtle), 0, 'not a product code');
@@ -72,7 +72,7 @@ test('the browser check (standalone calculator) accepts the same product codes, 
 
 test('the standalone calculator carries the gate before it starts, with the maintainer’s key and the same end', () => {
   const gate = licenceGateScript();
-  assert.ok(gate.includes(JSON.stringify(at(PRODUCT_DEADLINE))) && gate.includes(ISSUER_KEYS[0]) && gate.includes('Bhavani Singh'));
+  assert.ok(gate.includes(JSON.stringify(at(PRODUCT_DEADLINE))) && gate.includes(ISSUER_KEYS[0]) && gate.includes('Bhawani Singh'));
   assert.doesNotThrow(() => new Function(gate), 'valid script');
   const html = buildStandaloneCalculator({ version: '1.0.93' });
   assert.ok(html.indexOf('window.__mzBlocked = true') < html.indexOf('<script type="module">'), 'decided before the calculator runs');

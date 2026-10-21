@@ -57,17 +57,17 @@ test('past its end: every page says it has been deactivated, and nothing else an
     const page = await ask('GET', url);
     assert.equal(page.status, 503, url);
     assert.match(page.text, /The product has been deactivated\./);
-    assert.match(page.text, /Bhavani Singh/);
+    assert.match(page.text, /Bhawani Singh/);
   }
   for (const [method, url] of [['GET', '/api/me'], ['POST', '/api/session/password'], ['GET', '/app.js'], ['POST', '/api/relay/credits']]) {
     const r = await ask(method, url, method === 'POST' ? {} : undefined);
     assert.equal(r.status, 503, `${method} ${url}`);
   }
-  assert.deepEqual((await ask('GET', '/api/me')).body, { error: 'The product has been deactivated. Please reach out to Bhavani Singh.', deactivated: true });
+  assert.deepEqual((await ask('GET', '/api/me')).body, { error: 'The product has been deactivated. Please reach out to Bhawani Singh.', deactivated: true });
   assert.equal((await ask('GET', '/api/health')).status, 200, 'the container’s health check still answers');
   assert.equal((await ask('GET', '/deactivated.js')).status, 200, 'and what the page needs');
   const licence = (await ask('GET', '/api/licence')).body;
-  assert.deepEqual([licence.active, licence.until, licence.message], [false, '2027-01-01T00:00:00.000Z', 'The product has been deactivated. Please reach out to Bhavani Singh.']);
+  assert.deepEqual([licence.active, licence.until, licence.message], [false, '2027-01-01T00:00:00.000Z', 'The product has been deactivated. Please reach out to Bhawani Singh.']);
 });
 
 test('only a product code from the maintainer, in date, brings it back', async () => {
@@ -75,11 +75,11 @@ test('only a product code from the maintainer, in date, brings it back', async (
   const other = script('lang', keyFile, 'Acme Bank', 'he', 'on');
   assert.match((await ask('POST', '/api/licence/activate', { code: other })).body.error, /not a CxMissionZero activation code/);
   // In date by today's clock, but before what this server has already seen: refused.
-  const ended = script('product', keyFile, 'Acme Bank', '2027-01-15');
+  const ended = script('product', keyFile, '2027-01-15');
   assert.match((await ask('POST', '/api/licence/activate', { code: ended })).body.error, /ended on 2027-01-16/);
   assert.equal((await ask('GET', '/')).status, 503, 'still deactivated');
 
-  const code = script('product', keyFile, 'Acme Bank', '2027-06-30');
+  const code = script('product', keyFile, '2027-06-30');
   const applied = await ask('POST', '/api/licence/activate', { code });
   assert.equal(applied.status, 200, applied.text);
   assert.deepEqual(applied.body, { active: true, until: '2027-07-01T00:00:00.000Z' });

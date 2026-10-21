@@ -351,7 +351,7 @@ function renderLicenceBanner(licence) {
   banner.hidden = !licence?.warn;
   if (!licence?.warn) return;
   const day = new Date(Date.parse(licence.until) - 1).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
-  banner.textContent = `CxMissionZero stops working at the end of ${day} (UTC) unless it is activated: ${licence.daysLeft === 1 ? '1 day' : `${licence.daysLeft} days`} left. Please reach out to Bhavani Singh for an activation code, then enter it under Settings → Activation codes.`;
+  banner.textContent = `CxMissionZero stops working at the end of ${day} (UTC) unless it is activated: ${licence.daysLeft === 1 ? '1 day' : `${licence.daysLeft} days`} left. Please reach out to Bhawani Singh for an activation code, then enter it under Settings → Activation codes.`;
 }
 
 async function apiCall(path, options = {}) {
