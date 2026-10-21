@@ -3787,6 +3787,13 @@
   "automation|Focus": "대상 범위",
   "automation|Schedule": "일정",
   "Download standalone calculator": "독립 실행형 계산기 다운로드",
-  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "계산기만 하나의 HTML 파일로 제공합니다. 서버 없이 모든 브라우저에서 실행되며, Checkmarx One 내보내기 파일 두 개를 사용해 동일한 예측 보고서를 만듭니다."
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "계산기만 하나의 HTML 파일로 제공합니다. 서버 없이 모든 브라우저에서 실행되며, Checkmarx One 내보내기 파일 두 개를 사용해 동일한 예측 보고서를 만듭니다.",
+  "The calculator on its own, reading Checkmarx One with an API key: run it with Node.js (node cx-credits-calculator.mjs) and it opens in the browser. Customers and reports stay on that computer.": "계산기만 제공하며, API 키로 Checkmarx One을 읽습니다. Node.js(node cx-credits-calculator.mjs)로 실행하면 브라우저에서 열립니다. 고객과 보고서는 해당 컴퓨터에 그대로 저장됩니다.",
+  "HTML only": "HTML만",
+  "Include Fusion": "Fusion 포함",
+  "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "고객이 Fusion을 사용하지 않으면 선택을 해제하세요. 그러면 크레딧, Fusion 추가 탐지 결과, 보고서에서 Fusion이 제외됩니다. 설정은 유지됩니다.",
+  "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Fusion은 이 예측에서 제외되었습니다. 고객이 사용하지 않기로 했으므로 크레딧, 탐지 결과, 보고서 어디에도 집계되지 않습니다. 아래 설정은 유지됩니다.",
+  "Left out": "제외됨",
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion은 이 예측에서 제외되었습니다. 집계하려면 상단의 \"Fusion 포함\"을 선택하세요."
  }
 }

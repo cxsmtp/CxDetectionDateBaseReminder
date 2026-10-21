@@ -3787,6 +3787,13 @@
   "automation|Focus": "Liputan",
   "automation|Schedule": "Jadual",
   "Download standalone calculator": "Muat turun pengira berdiri sendiri",
-  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "Pengira ini sahaja, dalam satu fail HTML: ia berjalan dalam mana-mana pelayar tanpa pelayan, menggunakan kedua-dua eksport Checkmarx One dan menghasilkan laporan unjuran yang sama."
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "Pengira ini sahaja, dalam satu fail HTML: ia berjalan dalam mana-mana pelayar tanpa pelayan, menggunakan kedua-dua eksport Checkmarx One dan menghasilkan laporan unjuran yang sama.",
+  "The calculator on its own, reading Checkmarx One with an API key: run it with Node.js (node cx-credits-calculator.mjs) and it opens in the browser. Customers and reports stay on that computer.": "Pengira ini sahaja, yang membaca Checkmarx One dengan kunci API: jalankannya dengan Node.js (node cx-credits-calculator.mjs) dan ia akan dibuka dalam pelayar. Pelanggan dan laporan kekal di komputer tersebut.",
+  "HTML only": "HTML sahaja",
+  "Include Fusion": "Sertakan Fusion",
+  "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "Nyahtanda apabila pelanggan tidak mengambil Fusion: Fusion akan dikecualikan daripada kredit, penemuan tambahan oleh Fusion dan laporan. Tetapannya dikekalkan.",
+  "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Fusion dikecualikan daripada unjuran ini: pelanggan memilih untuk tidak mengambilnya, jadi tiada bahagian Fusion yang dikira dalam kredit, penemuan atau laporan. Tetapan di bawah dikekalkan.",
+  "Left out": "Dikecualikan",
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion dikecualikan daripada unjuran ini: tandakan “Sertakan Fusion” di bahagian atas untuk mengiranya."
  }
 }

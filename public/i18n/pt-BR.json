@@ -3787,6 +3787,13 @@
   "automation|Focus": "Escopo",
   "automation|Schedule": "Agendamento",
   "Download standalone calculator": "Baixar calculadora independente",
-  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "A calculadora sozinha, em um único arquivo HTML: funciona em qualquer navegador sem servidor, usa as duas exportações do Checkmarx One e gera os mesmos relatórios de projeção."
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "A calculadora sozinha, em um único arquivo HTML: funciona em qualquer navegador sem servidor, usa as duas exportações do Checkmarx One e gera os mesmos relatórios de projeção.",
+  "The calculator on its own, reading Checkmarx One with an API key: run it with Node.js (node cx-credits-calculator.mjs) and it opens in the browser. Customers and reports stay on that computer.": "A calculadora sozinha, lendo o Checkmarx One com uma chave de API: execute-a com Node.js (node cx-credits-calculator.mjs) e ela abre no navegador. Os clientes e os relatórios ficam nesse computador.",
+  "HTML only": "Somente HTML",
+  "Include Fusion": "Incluir Fusion",
+  "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "Desmarque quando o cliente não contratar o Fusion: ele fica de fora dos créditos, dos achados adicionais do Fusion e do relatório. As configurações dele são mantidas.",
+  "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "O Fusion ficou de fora desta projeção: o cliente optou por não contratá-lo, então nada dele é contabilizado nos créditos, nos achados ou no relatório. As configurações abaixo são mantidas.",
+  "Left out": "Excluído",
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "O Fusion ficou de fora desta projeção: marque “Incluir Fusion” no topo para contabilizá-lo."
  }
 }

@@ -3787,6 +3787,13 @@
   "automation|Focus": "範圍",
   "automation|Schedule": "排程",
   "Download standalone calculator": "下載獨立版計算工具",
-  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "單獨提供計算工具，封裝為一個 HTML 檔案：不需伺服器即可在任何瀏覽器中執行，使用兩份 Checkmarx One 匯出檔，並產生相同的預估報告。"
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "單獨提供計算工具，封裝為一個 HTML 檔案：不需伺服器即可在任何瀏覽器中執行，使用兩份 Checkmarx One 匯出檔，並產生相同的預估報告。",
+  "The calculator on its own, reading Checkmarx One with an API key: run it with Node.js (node cx-credits-calculator.mjs) and it opens in the browser. Customers and reports stay on that computer.": "單獨提供計算工具，並使用 API 金鑰讀取 Checkmarx One：以 Node.js 執行（node cx-credits-calculator.mjs）後，即會在瀏覽器中開啟。客戶與報告都保留在該電腦上。",
+  "HTML only": "僅 HTML",
+  "Include Fusion": "納入 Fusion",
+  "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "客戶不採用 Fusion 時請取消勾選：Fusion 將不計入點數、Fusion 額外發現的檢測結果及報告。其設定會保留。",
+  "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "此預估已排除 Fusion：客戶選擇不採用，因此點數、檢測結果與報告均不計入任何 Fusion 部分。下方設定會保留。",
+  "Left out": "已排除",
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "此預估已排除 Fusion：請勾選頂端的「納入 Fusion」以將其計入。"
  }
 }

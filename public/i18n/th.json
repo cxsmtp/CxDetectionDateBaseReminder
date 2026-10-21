@@ -3787,6 +3787,13 @@
   "automation|Focus": "ขอบเขต",
   "automation|Schedule": "กำหนดเวลา",
   "Download standalone calculator": "ดาวน์โหลดเครื่องมือคำนวณแบบแยกต่างหาก",
-  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "เฉพาะเครื่องมือคำนวณในรูปแบบไฟล์ HTML ไฟล์เดียว ทำงานได้ในเบราว์เซอร์ใดก็ได้โดยไม่ต้องมีเซิร์ฟเวอร์ ใช้ไฟล์ส่งออกจาก Checkmarx One ทั้งสองไฟล์ และสร้างรายงานการประมาณการแบบเดียวกัน"
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "เฉพาะเครื่องมือคำนวณในรูปแบบไฟล์ HTML ไฟล์เดียว ทำงานได้ในเบราว์เซอร์ใดก็ได้โดยไม่ต้องมีเซิร์ฟเวอร์ ใช้ไฟล์ส่งออกจาก Checkmarx One ทั้งสองไฟล์ และสร้างรายงานการประมาณการแบบเดียวกัน",
+  "The calculator on its own, reading Checkmarx One with an API key: run it with Node.js (node cx-credits-calculator.mjs) and it opens in the browser. Customers and reports stay on that computer.": "เฉพาะเครื่องมือคำนวณที่อ่านข้อมูลจาก Checkmarx One ด้วยคีย์ API เรียกใช้ด้วย Node.js (node cx-credits-calculator.mjs) แล้วเครื่องมือจะเปิดในเบราว์เซอร์ ข้อมูลลูกค้าและรายงานจะอยู่บนคอมพิวเตอร์เครื่องนั้น",
+  "HTML only": "เฉพาะ HTML",
+  "Include Fusion": "นับรวม Fusion",
+  "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "ยกเลิกการทำเครื่องหมายเมื่อลูกค้าไม่ใช้ Fusion ซึ่งจะทำให้ Fusion ไม่ถูกนับรวมในเครดิต ผลการตรวจพบที่ Fusion พบเพิ่ม และรายงาน โดยยังคงเก็บการตั้งค่าของ Fusion ไว้",
+  "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "การประมาณการนี้ไม่นับรวม Fusion เนื่องจากลูกค้าเลือกไม่ใช้ จึงไม่มีส่วนใดของ Fusion ถูกนับในเครดิต ผลการตรวจพบ หรือรายงาน โดยยังคงเก็บการตั้งค่าด้านล่างไว้",
+  "Left out": "ไม่นับรวม",
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "การประมาณการนี้ไม่นับรวม Fusion: ทำเครื่องหมาย “นับรวม Fusion” ที่ด้านบนเพื่อนำ Fusion มานับรวม"
  }
 }
