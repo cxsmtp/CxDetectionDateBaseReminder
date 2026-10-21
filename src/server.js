@@ -58,6 +58,7 @@ import { reportI18n, reportWords } from './report-i18n.js';
 import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
 import { buildCalculatorLauncher, buildStandaloneCalculator } from './standalone-calculator.js';
 import { reportFileName as projectionFileName } from '../public/calculator/report.js';
+import { globMatch } from '../public/calculator/model.js';
 import { buildReminder, buildReportData, buildReportEmail, buildTemplateData } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -9623,24 +9624,12 @@ function initiatorLogins(lastScan) {
 }
 
 /**
- * Fusion results (Labs, src/fusion.js): what Fusion re-scored in the projects of the last
- * Workbench fetch, read again after each fetch. Kept with the session, like the fetch.
+ * Fusion results (Labs, src/fusion.js): Fusion's results only, worked on only, with the page's own
+ * line (applications and projects by name) and its own fetch, apart from the Workbench's. Kept with
+ * the session (session.fusionScope and session.lastFusion).
  */
-const fusionScope = (lastScan) => {
-  const projects = (lastScan?.projects ?? []).filter((p) => !p.error);
-  const bySeverity = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
-  for (const p of projects) for (const [s, n] of Object.entries(p.bySeverity ?? {})) if (s in bySeverity) bySeverity[s] += Number(n) || 0;
-  return {
-    projects: projects.length,
-    openFindings: projects.reduce((n, p) => n + (Number(p.totalRisks) || 0), 0),
-    bySeverity,
-    names: Object.fromEntries(projects.map((p) => [p.projectId, p.projectName ?? p.projectId])),
-    fetchedAt: lastScan?.fetchedAt ?? null,
-  };
-};
-
 app.get('/api/beta/fusion', requireFeature('fusionResults'), (req, res) => {
-  res.json({ fusion: req.session.lastFusion ?? null, scope: fusionScope(req.session.lastScan), credits: fusionCredits(req) });
+  res.json({ fusion: req.session.lastFusion ?? null, scope: req.session.fusionScope ?? null, credits: fusionCredits(req) });
 });
 
 // ---- Troubleshooting Fusion (Admins who manage the Checkmarx One integration): test paths, and a
@@ -9834,12 +9823,50 @@ app.post(
   '/api/beta/fusion/read',
   requireFeature('fusionResults'),
   asyncRoute(async (req, res) => {
-    if (fetchInProgress(req.session)) return res.status(409).json({ error: 'Findings are still being loaded: Fusion is read when they are in.', fetching: true });
-    const scope = fusionScope(req.session.lastScan);
-    if (!scope.projects) return res.status(400).json({ error: 'Load findings on the Workbench first: Fusion is read for the projects fetched there.' });
+    // Read again for what the page's line last loaded.
+    const scope = req.session.fusionScope;
+    if (!scope?.projects) return res.status(400).json({ error: 'Choose applications or projects above, then Load Fusion results.' });
     const { fusionResultsPath = '', fusionDispatcherPath = '' } = settingsStore.get().endpoints ?? {};
     const fusion = await readFusion(req.session.client, Object.keys(scope.names), { resultsPath: fusionResultsPath, dispatcherPath: fusionDispatcherPath, trace: fusionTrace(req) });
     req.session.lastFusion = fusion;
+    res.json({ fusion, scope, credits: fusionCredits(req) });
+  }),
+);
+
+/**
+ * The Fusion page's own fetch: the projects of the applications named, plus the projects named (names or ids,
+ * `*` and `?` as wildcards); nothing named is every project. Only Fusion's results are read for them.
+ */
+app.post(
+  '/api/beta/fusion/fetch',
+  requireFeature('fusionResults'),
+  asyncRoute(async (req, res) => {
+    const names = (value) => (Array.isArray(value) ? value : String(value ?? '').split(','))
+      .map((v) => String(v).trim().slice(0, 200))
+      .filter(Boolean)
+      .slice(0, 50);
+    const wantedApps = names(req.body?.applications);
+    const wantedProjects = names(req.body?.projects);
+    const matches = (list, item) => list.some((n) => n === item.id || globMatch(n, item.name));
+    const client = req.session.client;
+    const [projects, apps] = await Promise.all([listProjects(client), listApplications(client).catch(() => [])]);
+    const byId = new Map(projects.map((p) => [p.id, p]));
+    const ids = new Set();
+    if (!wantedApps.length && !wantedProjects.length) for (const p of projects) ids.add(p.id);
+    for (const a of apps) if (matches(wantedApps, a)) for (const id of a.projectIds) ids.add(id);
+    for (const p of projects) if (matches(wantedProjects, p)) ids.add(p.id);
+    if (!ids.size) return res.status(400).json({ error: 'No application or project has those names.' });
+    const scope = {
+      projects: ids.size,
+      openFindings: 0,
+      bySeverity: { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 },
+      names: Object.fromEntries([...ids].map((id) => [id, byId.get(id)?.name ?? id])),
+      fetchedAt: new Date().toISOString(),
+      own: { applications: wantedApps, projects: wantedProjects },
+    };
+    const { fusionResultsPath = '', fusionDispatcherPath = '' } = settingsStore.get().endpoints ?? {};
+    const fusion = await readFusion(client, [...ids], { resultsPath: fusionResultsPath, dispatcherPath: fusionDispatcherPath, trace: fusionTrace(req) });
+    Object.assign(req.session, { fusionScope: scope, lastFusion: fusion });
     res.json({ fusion, scope, credits: fusionCredits(req) });
   }),
 );

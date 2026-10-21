@@ -81,6 +81,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 ## MZ-01.00.92 — not released yet · [#115](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/115)
 
 - **Fusion results on tenants without the correlation service.** When Checkmarx One does not answer at `/api/correlation`, **Labs → Fusion results** now reads Fusion's scored results through Application Risk Management (`/api/risk-management`), as Troubleshoot found on a customer's tenant, and says so on the page.
+- **The Fusion page has its own line.** **Labs → Fusion results** works like a Workbench for Fusion's results only: name applications or projects (wildcards allowed, empty for every one) and **Load Fusion results**; it no longer waits for, or follows, the Workbench's fetch.
 - **Only what is known.** Those results carry no earlier score, so **Raised to critical or high** says it is not known instead of claiming results Fusion did not raise; the critical, high, medium and low counts per project and the other tiles are filled in.
 
 ## MZ-01.00.91 — 2026-10-21 11:16 UTC · [#114](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/114)

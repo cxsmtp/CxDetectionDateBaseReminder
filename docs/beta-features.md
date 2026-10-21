@@ -240,9 +240,11 @@ ever sent to its own GitHub host.
 
 ## Fusion results
 
-**Labs → Fusion results** shows what Checkmarx One Fusion re-scored in the projects of the Workbench's last fetch. Read-only: it never starts a Fusion scan.
+**Labs → Fusion results** shows Checkmarx One Fusion's results only, for what its own line names (from MZ-01.00.92), apart from the Workbench. Read-only: it never starts a Fusion scan.
 
-- **What it reads.** After each fetch (and with **Read Fusion now**) the server lists the applications holding the fetched projects, then, for each one Fusion has results for:
+- **Its own line.** `POST /api/beta/fusion/fetch` with `applications` and `projects` (names or ids, comma-separated or a list, `*` and `?` as wildcards, up to 50 each): the projects of the applications named plus the projects named, every project when nothing is named; 400 when nothing matches. Kept with the session; **Read Fusion now** (`POST /api/beta/fusion/read`) reads that scope again, and the Workbench's fetch no longer changes it.
+
+- **What it reads.** For the line's projects, the server lists the applications holding them, then, for each one Fusion has results for:
   - Fusion Results service `GET /api/correlation/results/applications/{id}/risk-scores`: every result whose risk score Fusion changed, with its project, the two engines (for an exploitable path, SCA correlated with SAST), the old and new score and why;
   - Fusion Dispatcher `GET /api/correlation/dispatcher/{id}/scan-status`: how the application's latest Fusion scan went (status, stage, when).
 - **Where the services are.** Under `/api/correlation` on the tenant, as its own Swagger shows (`<your Checkmarx One address>/spec/v1`, definitions **Fusion Results** and **Fusion Dispatcher**). They are not in the published API reference: Checkmarx One 3.30 retired the Fusion Insights tab, and Fusion's results also appear under Insights → Application Risk Management. Until MZ-01.00.86 the page looked for them under `/api/fusion-results` and similar, where no tenant has them, so it always said Fusion did not answer.

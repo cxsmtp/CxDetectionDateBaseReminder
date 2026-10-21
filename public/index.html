@@ -2278,10 +2278,17 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div class="panel-head">
                 <div>
                   <h2>Fusion results <span class="badge warn" data-beta-badge="fusionResults">Beta</span></h2>
-                  <p class="hint wide">What Checkmarx One Fusion re-scored in the projects loaded on the Workbench, read again each time the Workbench loads findings. Each result counts under its new risk score: 9 or more critical, 7 high, 4 medium, below that low.</p>
+                  <p class="hint wide">Fusion's results only: choose applications or projects on the line below and load them, apart from the Workbench. Each result counts under its risk score: 9 or more critical, 7 high, 4 medium, below that low.</p>
                 </div>
                 <div class="actions"><button type="button" id="fusion-read" class="sm" data-perm="beta.use feature.fusionResults">Read Fusion now</button></div>
               </div>
+              <!-- The page's own line, as the Workbench's: what to load, and Fusion's results only for it. -->
+              <form class="controls scope-row fusion-scope" id="fusion-scope" autocomplete="off">
+                <label class="scope-field"><span class="scope-label">Applications</span><input type="text" id="fusion-apps-in" list="fusion-app-names" placeholder="Every application" title="Application names, separated by commas; * and ? as wildcards" /></label>
+                <label class="scope-field"><span class="scope-label">Projects</span><input type="text" id="fusion-projects-in" placeholder="Every project" title="Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these" /></label>
+                <datalist id="fusion-app-names"></datalist>
+                <div class="grow fetch-box"><div class="fetch-actions"><button type="submit" class="primary" id="fusion-fetch" data-perm="beta.use feature.fusionResults">Load Fusion results</button></div></div>
+              </form>
               <p class="status" id="fusion-status"></p>
               <p class="hint fusion-tried" id="fusion-tried"></p>
               <div class="totals fusion-tiles" id="fusion-tiles"></div>
