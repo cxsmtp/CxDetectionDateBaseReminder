@@ -421,6 +421,8 @@ export function fusionSettings(value = {}) {
     models,
     byFrequency: Object.fromEntries(FREQUENCIES.map((f) => [f.id, rule(byFrequency[f.id])])),
     byCriticality: Object.fromEntries(CRITICALITIES.map((c) => [c, rule(v.byCriticality?.[c])])),
+    // The customer opted out of Fusion: nothing of it is counted.
+    optOut: v.optOut === true,
   };
 }
 

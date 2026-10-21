@@ -3787,6 +3787,14 @@
   "automation|Focus": "対象範囲",
   "automation|Schedule": "スケジュール",
   "Download standalone calculator": "単体版計算ツールをダウンロード",
-  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "計算ツールだけを一つのHTMLファイルにまとめたものです。サーバー不要でどのブラウザーでも動作し、Checkmarx Oneの二つのエクスポートから同じ試算レポートを作成します。"
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "計算ツールだけを一つのHTMLファイルにまとめたものです。サーバー不要でどのブラウザーでも動作し、Checkmarx Oneの二つのエクスポートから同じ試算レポートを作成します。",
+  "The calculator on its own, reading Checkmarx One with an API key: run it with Node.js (node cx-credits-calculator.mjs) and it opens in the browser. Customers and reports stay on that computer.": "計算ツール単体で動作し、APIキーでCheckmarx Oneを読み取ります。Node.js（node cx-credits-calculator.mjs）で実行すると、ブラウザーで開きます。顧客とレポートはそのコンピューター上に保持されます。",
+  "HTML only": "HTMLのみ",
+  "Include Fusion": "Fusionを含める",
+  "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "顧客がFusionを利用しない場合はチェックを外します。その場合、Fusionはクレジット、Fusionによる追加検出、レポートから除外されます。設定は保持されます。",
+  "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Fusionはこの試算から除外されています。顧客が利用しないことを選択したため、クレジット、検出結果、レポートのいずれにも含まれません。以下の設定は保持されます。",
+  "Left out": "除外",
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusionはこの試算から除外されています。含めるには、上部の「Fusionを含める」にチェックを入れてください。",
+  "CxMissionZero version — update & recovery": "CxMissionZeroのバージョン — 更新と復旧"
  }
 }

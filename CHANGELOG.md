@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.90 | 469/s, 0 in its clean run (main 494, 0); other runs of both lost up to 298 to host pauses | 8.2 s | 1.6 s | 746 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.89 | 501/s, 0 (main 502, 0) | 9.6 s | 644 ms | 741 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.88 | 469/s and 445/s, 266 and 210 (main 456 and 473, 394 and 197; a busy host) | 18.8 s | 1.9 s | 736 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.87 | 465/s, 84 (main 470, 89; a busier host than usual) | 13.2 s | 1.8 s | 723 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -75,6 +76,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.90 — 2026-10-21 08:43 UTC · [#113](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/113)
+
+- **The standalone calculator reads Checkmarx One.** **Download standalone calculator** now gives `cx-credits-calculator.mjs`: run it with Node.js (`node cx-credits-calculator.mjs`), paste a Checkmarx One API key at the top of the page that opens, and **Read from Checkmarx One** reads the tenant with the same code as the app, for the same reports.
+- **Independent, and kept to that computer.** Nothing of this server is in it; the page is served on that computer only and answers only itself, and the API key stays in the launcher's memory until it stops, never saved, logged or put in a report.
+- **HTML only.** The one-file calculator that works from the two exports in any browser, with no Node.js, is the **HTML only** link beside the button.
+- **Leave Fusion out.** **Include Fusion**, under the Fusion figure at the top of the calculator, unticked for a customer not taking Fusion, leaves it out of the credits, the findings it adds, Impact and the report; its settings are kept for later.
+- **Fixed: tabs in the standalone calculator.** Its Fusion, Impact and Projection reports tabs open again (in MZ-01.00.89 they stayed on Triage & remediation).
+- **The version number opens Update & recovery.** A click on `MZ-xx.xx.xx` at the bottom left goes straight to Settings → Update & recovery for those who may update the server, and to About & terms of use for everyone else.
+- **Status.** 3000 people at once on 2 vCPU, seven runs on a busy host: 469 requests a second with none failed in the release's clean run against main's 494, and both sides lost requests in other runs to the same pauses of the whole host, main the most; no finding sent twice ([performance](docs/performance.md)); 746 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan, rescan fe2eb036's open findings as before ([status](docs/status.md)).
 
 ## MZ-01.00.89 — 2026-10-21 07:00 UTC · [#112](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/112)
 

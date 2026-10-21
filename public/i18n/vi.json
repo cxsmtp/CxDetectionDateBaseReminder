@@ -3787,6 +3787,14 @@
   "automation|Focus": "Phạm vi",
   "automation|Schedule": "Lịch trình",
   "Download standalone calculator": "Tải xuống công cụ tính độc lập",
-  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "Chỉ riêng công cụ tính, gói trong một tệp HTML duy nhất: chạy trên mọi trình duyệt mà không cần máy chủ, dùng hai tệp xuất từ Checkmarx One và tạo ra các báo cáo dự báo giống hệt."
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "Chỉ riêng công cụ tính, gói trong một tệp HTML duy nhất: chạy trên mọi trình duyệt mà không cần máy chủ, dùng hai tệp xuất từ Checkmarx One và tạo ra các báo cáo dự báo giống hệt.",
+  "The calculator on its own, reading Checkmarx One with an API key: run it with Node.js (node cx-credits-calculator.mjs) and it opens in the browser. Customers and reports stay on that computer.": "Chỉ riêng công cụ tính, đọc dữ liệu từ Checkmarx One bằng khóa API: chạy bằng Node.js (node cx-credits-calculator.mjs) và công cụ sẽ mở trong trình duyệt. Khách hàng và báo cáo được lưu lại trên máy tính đó.",
+  "HTML only": "Chỉ HTML",
+  "Include Fusion": "Bao gồm Fusion",
+  "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "Bỏ đánh dấu khi khách hàng không sử dụng Fusion: khi đó Fusion không được tính vào tín dụng, các phát hiện bổ sung của Fusion và báo cáo. Cài đặt của Fusion vẫn được giữ lại.",
+  "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Bản dự báo này đã loại trừ Fusion: khách hàng đã chọn không sử dụng, nên không phần nào của Fusion được tính vào tín dụng, phát hiện hay báo cáo. Các cài đặt bên dưới vẫn được giữ lại.",
+  "Left out": "Đã loại trừ",
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Bản dự báo này đã loại trừ Fusion: hãy đánh dấu “Bao gồm Fusion” ở phía trên để tính Fusion.",
+  "CxMissionZero version — update & recovery": "Phiên bản CxMissionZero — cập nhật và khôi phục"
  }
 }

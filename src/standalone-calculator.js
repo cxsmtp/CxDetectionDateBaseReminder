@@ -54,11 +54,12 @@ export function calculatorMarkup(indexHtml) {
   throw new Error('The calculator page in index.html does not close');
 }
 
-/** The page's words where they speak of the app's server: here the two exports are the way in, not the other way. */
-export function standaloneMarkup(markup) {
+/** The page's words where they speak of the app's server: on its own, the two exports, or the launcher, are the way in. */
+export function standaloneMarkup(markup, { launcher = false } = {}) {
   const swaps = [
-    ['<summary>Use the two Checkmarx One exports instead</summary>', '<summary>The two Checkmarx One exports</summary>'],
-    ['<p class="hint">For a prospect whose tenant this server is not connected to: drop their two weekly exports from Checkmarx One → Analytics on the boxes below.</p>', '<p class="hint">Drop the customer\'s two weekly exports from Checkmarx One → Analytics on the boxes below, or click a box to choose the file. <b>Load sample data</b> shows how it works.</p>'],
+    ['<summary>Use the two Checkmarx One exports instead</summary>', launcher ? '<summary>Or the two Checkmarx One exports</summary>' : '<summary>The two Checkmarx One exports</summary>'],
+    ['<p class="hint">For a prospect whose tenant this server is not connected to: drop their two weekly exports from Checkmarx One → Analytics on the boxes below.</p>', launcher ? '<p class="hint">Without an API key: drop the customer\'s two weekly exports from Checkmarx One → Analytics on the boxes below. <b>Load sample data</b> shows how it works.</p>' : '<p class="hint">Drop the customer\'s two weekly exports from Checkmarx One → Analytics on the boxes below, or click a box to choose the file. <b>Load sample data</b> shows how it works.</p>'],
+    ['<p class="hint" id="calc-rows-empty">No projects yet. <strong>Read from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.</p>', launcher ? '<p class="hint" id="calc-rows-empty">No projects yet. Connect with an API key at the top, then <strong>Read from Checkmarx One</strong> lists every project in the tenant with its lines of code, criticality and how often it is scanned; or add projects by hand.</p>' : '<p class="hint" id="calc-rows-empty">No projects yet: add them by hand, with their lines of code. To read them from Checkmarx One with an API key, use the launcher, <code>cx-credits-calculator.mjs</code>.</p>'],
   ];
   let out = markup;
   for (const [from, to] of swaps) {
@@ -85,11 +86,15 @@ const escapeText = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', 
 /** Script text that cannot end its own <script> element. */
 const scriptText = (s) => s.replace(/<\/(script)/gi, '<\\/$1').replace(/<!--/g, '<\\!--');
 
-let cache = null;
+const cache = new Map();
 
-/** The standalone calculator's HTML, built once per server start (the files do not change while it runs). */
-export function buildStandaloneCalculator({ version = '', root = PUBLIC } = {}) {
-  if (cache?.version === version && cache.root === root) return cache.html;
+/**
+ * The standalone calculator's HTML, built once per server start (the files do not change while it runs).
+ * `launcher`: the page the launcher serves (cx-credits-calculator.mjs), which may call that launcher only.
+ */
+export function buildStandaloneCalculator({ version = '', root = PUBLIC, launcher = false } = {}) {
+  const key = `${version}\u0000${root}\u0000${launcher}`;
+  if (cache.has(key)) return cache.get(key);
   const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
   const index = new Map(MODULES.map((file, i) => [file, i]));
   const bundle = MODULES.map((file) => wrapModule(file, read(file), index)).join('\n\n');
@@ -103,7 +108,7 @@ export function buildStandaloneCalculator({ version = '', root = PUBLIC } = {}) 
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="color-scheme" content="light dark" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src ${launcher ? "'self'" : "'none'"}; object-src 'none'; base-uri 'none'; form-action 'none'" />
 <meta name="generator" content="CxMissionZero ${escapeText(label)}" />
 <title>Cx Credits Calculator</title>
 <style>
@@ -116,8 +121,9 @@ ${css}
     <header class="topbar sa-top">
       <div class="topbar-title">
         <div class="title-row"><h1>Cx Credits Calculator</h1></div>
-        <p class="sa-sub">The credits a customer needs, from two Checkmarx One exports. Runs on its own in this browser: nothing leaves it.</p>
+        <p class="sa-sub">${launcher ? 'The credits a customer needs, read from Checkmarx One with an API key, or from two exports. Runs on its own on this computer: customers and reports stay in this browser.' : 'The credits a customer needs, from two Checkmarx One exports. Runs on its own in this browser: nothing leaves it.'}</p>
       </div>
+      ${launcher ? CONNECT_BAR : ''}
       <div class="sa-names">
         <label class="field"><span>Your organisation</span><input id="sa-org" maxlength="120" autocomplete="organization" placeholder="On every report" /></label>
         <label class="field"><span>Prepared by</span><input id="sa-by" maxlength="120" autocomplete="name" placeholder="Your name" /></label>
@@ -130,12 +136,13 @@ ${css}
       </div>
     </header>
     <main>
-${standaloneMarkup(calculatorMarkup(read('index.html')))}
+${standaloneMarkup(calculatorMarkup(read('index.html')), { launcher })}
     </main>
     <footer class="sa-foot"><span>Cx Credits Calculator${label ? ` · from CxMissionZero ${escapeText(label)}` : ''}</span><span>Customers and reports are kept in this browser only: use Back up to keep them elsewhere.</span></footer>
   </div>
 </div>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+${launcher ? '<script>window.CX_LAUNCHER = "__CALCULATOR_LAUNCHER__";</script>' : ''}
 ${vendor}
 <script type="module">
 ${scriptText(`const __m = [];\n${bundle}\n__m[${index.get('calculator/standalone.js')}].startStandalone({ samples: ${JSON.stringify(samples)} });`)}
@@ -146,9 +153,24 @@ ${scriptText(`const __m = [];\n${bundle}\n__m[${index.get('calculator/standalone
 ${read('fonts/OFL.txt').replace(/--/g, '- -')}
 -->
 `;
-  cache = { version, root, html };
+  cache.set(key, html);
   return html;
 }
+
+// The launcher's page: the key, and where it connects (worked out from the key unless given).
+const CONNECT_BAR = `<form class="sa-connect" id="sa-connect" autocomplete="off">
+        <label class="field sa-key"><span>Checkmarx One API key</span><input type="password" id="sa-key" spellcheck="false" placeholder="Paste the API key" autocomplete="off" /></label>
+        <button type="submit" class="primary sm" id="sa-connect-go">Connect</button>
+        <button type="button" class="ghost sm" id="sa-disconnect" hidden>Disconnect</button>
+        <span class="status" id="sa-connect-status" aria-live="polite"></span>
+        <details class="sa-advanced"><summary>Advanced</summary>
+          <div class="sa-advanced-grid">
+            <label class="field"><span>API URL</span><input id="sa-base" spellcheck="false" placeholder="From the key" /></label>
+            <label class="field"><span>IAM URL</span><input id="sa-iam" spellcheck="false" placeholder="From the key" /></label>
+            <label class="field"><span>Tenant</span><input id="sa-tenant" spellcheck="false" placeholder="From the key" /></label>
+          </div>
+        </details>
+      </form>`;
 
 // The page on its own: no menu, the head above the calculator, and nothing the app's server would answer.
 const STANDALONE_CSS = `
@@ -163,7 +185,88 @@ const STANDALONE_CSS = `
 .shell.standalone .sa-actions { display: flex; flex: none; gap: 6px; align-items: center; }
 .shell.standalone #sa-theme { min-width: 36px; display: inline-flex; align-items: center; justify-content: center; }
 .shell.standalone #sa-theme svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
-.shell.standalone #calc-read, .shell.standalone .calc-branches, .shell.standalone .calc-source-state, .shell.standalone #calc-email-open, .shell.standalone #calc-email-form, .shell.standalone .calc-toolbar { display: none !important; }
+.shell.standalone:not(.can-read) #calc-read, .shell.standalone:not(.can-read) .calc-branches, .shell.standalone:not(.can-read) .calc-source-state, .shell.standalone #calc-email-open, .shell.standalone #calc-email-form, .shell.standalone .calc-toolbar { display: none !important; }
+.shell.standalone .sa-connect { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); order: 5; }
+.shell.standalone .sa-connect .sa-key { margin: 0; flex: 1 1 320px; max-width: 520px; }
+.shell.standalone .sa-connect .status { align-self: center; }
+.shell.standalone .sa-advanced { flex: 1 1 100%; font-size: 13px; }
+.shell.standalone .sa-advanced-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 12px; margin-top: 8px; }
+.shell.standalone .sa-advanced .field { margin: 0; }
 .shell.standalone .sa-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 24px; color: var(--muted); font-size: 12px; }
 @media (max-width: 640px) { .shell.standalone .sa-names .field { min-width: 0; flex: 1 1 140px; } }
 `;
+
+const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
+
+/** The files a module needs, itself first, following its relative imports and re-exports. */
+export function moduleGraph(entry) {
+  const seen = new Set();
+  const walk = (file) => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    for (const m of fs.readFileSync(file, 'utf8').matchAll(/^(?:import|export)\s[^;]*?from\s*'(\.[^']+)'/gms)) walk(path.resolve(path.dirname(file), m[1]));
+  };
+  walk(entry);
+  return [...seen];
+}
+
+/**
+ * The launcher: one file, cx-credits-calculator.mjs, run with `node cx-credits-calculator.mjs`. It holds the
+ * calculator's page (built for the launcher) and the code that reads Checkmarx One (src/calculator-launcher.js
+ * and what it imports, the same files as CxMissionZero's calculator), puts them in a folder of its own under the
+ * computer's temporary folder, and starts. Nothing of this server's data is in it.
+ */
+export function buildCalculatorLauncher({ version = '', root = PUBLIC } = {}) {
+  const key = `launcher\u0000${version}\u0000${root}`;
+  if (cache.has(key)) return cache.get(key);
+  const repo = path.resolve(SRC, '..');
+  const files = Object.fromEntries(moduleGraph(path.join(SRC, 'calculator-launcher.js')).map((file) => [path.relative(repo, file).split(path.sep).join('/'), fs.readFileSync(file, 'utf8')]));
+  const html = buildStandaloneCalculator({ version, root, launcher: true });
+  const label = version ? `MZ-${version.split('.').map((n) => n.padStart(2, '0')).join('.')}` : '';
+  const text = `#!/usr/bin/env node
+// Cx Credits Calculator — on its own, reading Checkmarx One with an API key.${label ? ` From CxMissionZero ${label}.` : ''}
+//
+//   node cx-credits-calculator.mjs            opens the calculator in this computer's browser
+//   node cx-credits-calculator.mjs --port 8080 --no-open
+//
+// Needs Node.js 20 or later, nothing else. The page is served on this computer only (127.0.0.1), the API key
+// stays in this program's memory until it stops, and customers and reports are kept in the browser. Checkmarx
+// One is read with the same code as CxMissionZero's calculator. Behind a company proxy or TLS inspection, set
+// NODE_EXTRA_CA_CERTS to your company's root certificate.
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
+
+const [major] = process.versions.node.split('.').map(Number);
+if (major < 20) {
+  console.error(\`The Cx Credits Calculator needs Node.js 20 or later; this is \${process.version}. Get it from https://nodejs.org.\`);
+  process.exit(1);
+}
+
+const FILES = ${JSON.stringify(files)};
+const HTML = ${JSON.stringify(html)};
+
+const args = process.argv.slice(2);
+const option = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
+const hash = createHash('sha256').update(JSON.stringify(FILES)).digest('hex').slice(0, 16);
+const dir = path.join(os.tmpdir(), \`cx-credits-calculator-\${hash}\`);
+if (!fs.existsSync(path.join(dir, '.complete'))) {
+  for (const [file, text] of Object.entries({ ...FILES, 'package.json': '{"type":"module"}\\n' })) {
+    fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
+    fs.writeFileSync(path.join(dir, file), text);
+  }
+  fs.writeFileSync(path.join(dir, '.complete'), '');
+}
+const { startLauncher } = await import(pathToFileURL(path.join(dir, 'src', 'calculator-launcher.js')).href);
+try {
+  await startLauncher({ html: HTML, port: Number(option('--port') ?? 0), open: !args.includes('--no-open') });
+} catch (error) {
+  console.error(\`The calculator could not start: \${error.message}\`);
+  process.exit(1);
+}
+`;
+  cache.set(key, text);
+  return text;
+}

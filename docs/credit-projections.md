@@ -115,7 +115,7 @@ Then the page shows:
    | --- | --- |
    | **Backlog today** | The open findings to triage: every one, unless you choose fewer |
    | **+ Still to come** | New findings a month over the period, falling each month as teams adopt AI. New findings a month are what the backlog grew by over the trend period, plus what was fixed meanwhile (never below 0), per severity. The first month comes at today's pace and each later one 2% below the one before (by default): over 12 months that is about 10.9 months' worth instead of 12. They follow what you chose under **Customize per severity**: each severity's new findings are counted in the same share as its backlog chosen, so with half of High chosen half of High's new findings count, and a severity set to none adds none |
-   | **+ More found by Fusion** | When Fusion is in the projection (some project counted on the Fusion tab): this % more findings, on the backlog and on what is still to come. 5% by default |
+   | **+ More found by Fusion** | When Fusion is in the projection (**Include Fusion** ticked, and some project counted on the Fusion tab): this % more findings, on the backlog and on what is still to come. 5% by default |
    | **− Kept away by FAE** | FAE keeps this % of the new findings (still to come and found by Fusion) from being reported, among the false positives only: it never takes more than the false positives there are, so the true positives do not change. 10% by default |
    | **= To triage** | Each costs its triage credits; the true positives among them are remediated too |
    | **→ Credits** | Split into the backlog today and what is ahead |
@@ -133,6 +133,8 @@ Customers saved before MZ-01.00.67 open with every open finding counted where no
 Everything read, uploaded and entered is saved with the customer.
 
 ## Fusion
+
+**Leaving Fusion out.** For a customer not taking Fusion, untick **Include Fusion** under the Fusion figure in the strip at the top. Fusion is then left out of everything: the credits (the tile says **Left out**), the findings Fusion adds to triage & remediation, the Impact tab, the projection report and its PDF summary. The Fusion tab says so at its top, with **Include Fusion** to count it again, and keeps its models, numbers and projects for when it is. The choice is saved with the customer; ticked is the default, and **Start again** ticks it again.
 
 Fusion is paid in credits **per 10K LOC** (10,000 lines of code) **per scan**, at the rate of the AI model the scan uses. Each project's lines of code are rounded up to whole 10K units **on its own**:
 
@@ -182,7 +184,7 @@ The strip at the top of the page adds both parts together for the customer open:
 | --- | --- |
 | **Projection period** | How many months the projection covers, for both parts |
 | **Triage & remediation** | The credits over the period, split into the backlog today and what is ahead |
-| **Fusion** | The credits of the Fusion scans, once there are projects with lines of code |
+| **Fusion** | The credits of the Fusion scans, once there are projects with lines of code. **Include Fusion**, under it, unticked: **Left out**, and nothing of Fusion counts |
 | **Extra credits (%)** | A margin to add on top of the two, 0 to 500% (empty is none) |
 | **Total credits required** | Both, with the extra on top |
 | **Credits per bundle** | How many credits one bundle holds: 10,000 unless you change it |
@@ -260,14 +262,27 @@ Up to 500 reports are kept per tenant (the oldest go first), each up to 4 MB, in
 
 ## On its own: the standalone calculator
 
-**Download standalone calculator**, at the top right of the calculator, downloads `cx-credits-calculator.html` (`GET /api/projections/standalone`, for those with the Cx Credits Calculator permission). It is the calculator on its own, blank: nothing of this server's customers, reports or people is in it.
+The calculator can be given to anyone (a partner, a customer, a colleague without access here) in two forms, both blank: nothing of this server's customers, reports, people or Checkmarx One key is in them. Both are for those with the Cx Credits Calculator permission.
+
+**Download standalone calculator**, at the top right of the calculator, downloads `cx-credits-calculator.mjs` (`GET /api/projections/standalone?kind=launcher`): the calculator with a small launcher that reads Checkmarx One with an API key.
+
+- **Run it with Node.js** (20 or later, nothing else to install): `node cx-credits-calculator.mjs`. It opens the calculator in the browser at the address it prints (`--port 8080` picks the port, `--no-open` only prints the address); Ctrl+C stops it.
+- **Paste a Checkmarx One API key** at the top of the page and **Connect**. The key says the tenant and where it is; **Advanced** overrides the Checkmarx One address, the IAM address or the tenant, for a key that does not say them. **Read from Checkmarx One** then reads the tenant as this page does, with the same code (`src/projections.js`, `src/cxone/`), **Every branch** included; **Disconnect** forgets the key.
+- **Kept to that computer.** The launcher listens on 127.0.0.1 only and answers only the page it served: each run puts a new secret in the page, and a request without it, or under another host name, is refused (403, 421). It sends no CORS headers, so no other site can call it. The key is checked once against Checkmarx One and then held in the launcher's memory only: it is never written to disk, logged or put in a report, and is gone when the launcher stops. What was read is kept in that memory too.
+- **Behind TLS inspection**, set `NODE_EXTRA_CA_CERTS` to the company's root certificate before running it. A proxy that needs to be configured is not supported: run it where Checkmarx One can be reached directly.
+- **The page** is the same as the HTML file below, with the read added: about 1.5 MB, the launcher's own code included (`src/calculator-launcher.js`). When Node.js is not to hand, it can still work from the two exports.
+
+**HTML only**, beside it, downloads `cx-credits-calculator.html` (`GET /api/projections/standalone`): the calculator as one file, for a computer without Node.js.
 
 - **One file, no server.** It opens in any browser, from a disk, an email or a share, with no install and no sign-in. Its content security policy allows it no network calls at all: nothing it holds leaves the browser.
-- **The same calculator.** It is built, when downloaded, from the files this page runs on: the page itself, its modules (`public/calculator/*.js`), the .xlsx reader, the sample exports and the app's styles (`src/standalone-calculator.js`). So the projection, the Impact, the Fusion estimate, the projection report and its PDF summary are this page's, figure for figure. Customers and reports are checked by the same rules as on the server (`public/calculator/profiles.js`, used by both).
-- **From the two exports.** Checkmarx One's API refuses calls from a page outside its own website (its gateway answers the browser's preflight with 401 and no CORS headers), so a file cannot read a tenant with an API key. The two exports stand in, as for a prospect here; Fusion's projects and models are added by hand. The read from Checkmarx One, **Every branch** and **Email the report** are not in it.
-- **Names on the reports.** **Your organisation** and **Prepared by**, at its top, are remembered in that browser.
-- **Kept in the browser.** Customers and reports are kept in the browser's own database (IndexedDB) for that file, at most 200 customers and 500 reports, as here. **Back up** downloads them all as one JSON file; **Restore** adds a backup back (same ids replaced, others kept), in that browser or another. A browser that keeps nothing for files opened from disk (some private windows) says so, and keeps them until the page is closed.
-- **Its look.** English, the Command center look in light or dark (the button at its top right, else as the computer is set), with the open-licence fonts Fraunces and IBM Plex inside and their licence (SIL OFL) at the end of the file. About 1.3 MB.
+- **From the two exports.** Checkmarx One's API refuses calls from a page outside its own website (its gateway answers the browser's preflight with 401 and no CORS headers), so a file opened from disk cannot read a tenant with an API key: that is what the launcher is for. The two exports stand in, as for a prospect here; Fusion's projects and models are added by hand. The read from Checkmarx One and **Every branch** are not in it.
+
+Both:
+
+- **The same calculator.** They are built, when downloaded, from the files this page runs on: the page itself, its modules (`public/calculator/*.js`), the .xlsx reader, the sample exports and the app's styles (`src/standalone-calculator.js`). So the projection, the Impact, the Fusion estimate, **Include Fusion**, the projection report and its PDF summary are this page's, figure for figure. Customers and reports are checked by the same rules as on the server (`public/calculator/profiles.js`, used by both). **Email the report** is not in them.
+- **Names on the reports.** **Your organisation** and **Prepared by**, at the top, are remembered in that browser.
+- **Kept in the browser.** Customers and reports are kept in the browser's own database (IndexedDB), at most 200 customers and 500 reports, as here. **Back up** downloads them all as one JSON file; **Restore** adds a backup back (same ids replaced, others kept), in that browser or another. A browser that keeps nothing for files opened from disk (some private windows) says so, and keeps them until the page is closed.
+- **Their look.** English, the Command center look in light or dark (the button at the top right, else as the computer is set), with the open-licence fonts Fraunces and IBM Plex inside and their licence (SIL OFL) at the end of the file.
 
 ## How each number is calculated
 

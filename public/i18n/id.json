@@ -3787,6 +3787,14 @@
   "automation|Focus": "Cakupan",
   "automation|Schedule": "Jadwal",
   "Download standalone calculator": "Unduh kalkulator mandiri",
-  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "Hanya kalkulatornya, dalam satu file HTML: berjalan di browser apa pun tanpa server, menggunakan kedua ekspor Checkmarx One, dan membuat laporan proyeksi yang sama."
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "Hanya kalkulatornya, dalam satu file HTML: berjalan di browser apa pun tanpa server, menggunakan kedua ekspor Checkmarx One, dan membuat laporan proyeksi yang sama.",
+  "The calculator on its own, reading Checkmarx One with an API key: run it with Node.js (node cx-credits-calculator.mjs) and it opens in the browser. Customers and reports stay on that computer.": "Hanya kalkulatornya, yang membaca Checkmarx One dengan kunci API: jalankan dengan Node.js (node cx-credits-calculator.mjs) dan kalkulator akan terbuka di browser. Pelanggan dan laporan tetap berada di komputer tersebut.",
+  "HTML only": "Hanya HTML",
+  "Include Fusion": "Sertakan Fusion",
+  "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "Hapus centang jika pelanggan tidak mengambil Fusion: Fusion akan dikecualikan dari kredit, temuan tambahan dari Fusion, dan laporan. Pengaturannya tetap disimpan.",
+  "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Fusion dikecualikan dari proyeksi ini: pelanggan memilih untuk tidak mengambilnya, sehingga tidak ada bagian Fusion yang dihitung dalam kredit, temuan, atau laporan. Pengaturan di bawah tetap disimpan.",
+  "Left out": "Dikecualikan",
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion dikecualikan dari proyeksi ini: centang “Sertakan Fusion” di bagian atas untuk menghitungnya.",
+  "CxMissionZero version — update & recovery": "Versi CxMissionZero — pembaruan & pemulihan"
  }
 }

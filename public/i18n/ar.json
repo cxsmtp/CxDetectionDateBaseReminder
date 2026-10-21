@@ -3787,6 +3787,14 @@
   "automation|Focus": "النطاق",
   "automation|Schedule": "الجدول الزمني",
   "Download standalone calculator": "تنزيل الحاسبة المستقلة",
-  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "الحاسبة وحدها في ملف HTML واحد: تعمل في أي متصفح دون خادم، وتعتمد على ملفَي التصدير من Checkmarx One، وتُنشئ تقارير التوقعات نفسها."
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "الحاسبة وحدها في ملف HTML واحد: تعمل في أي متصفح دون خادم، وتعتمد على ملفَي التصدير من Checkmarx One، وتُنشئ تقارير التوقعات نفسها.",
+  "The calculator on its own, reading Checkmarx One with an API key: run it with Node.js (node cx-credits-calculator.mjs) and it opens in the browser. Customers and reports stay on that computer.": "الحاسبة وحدها، وتقرأ من Checkmarx One باستخدام مفتاح API: شغّلها باستخدام Node.js (node cx-credits-calculator.mjs) فتُفتح في المتصفح. ويبقى العملاء والتقارير على ذلك الحاسوب.",
+  "HTML only": "HTML فقط",
+  "Include Fusion": "تضمين Fusion",
+  "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "ألغِ التحديد عندما لا يشترك العميل في Fusion: يُستبعد حينها من الأرصدة ومن الاكتشافات الإضافية من Fusion ومن التقرير. وتُحفظ إعداداته.",
+  "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Fusion مستبعد من هذا التوقع: اختار العميل عدم الاشتراك فيه، لذا لا يُحتسب أي جزء منه في الأرصدة أو الاكتشافات أو التقرير. وتُحفظ الإعدادات أدناه.",
+  "Left out": "مستبعد",
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion مستبعد من هذا التوقع: حدّد «تضمين Fusion» في الأعلى لاحتسابه.",
+  "CxMissionZero version — update & recovery": "إصدار CxMissionZero — التحديث والاستعادة"
  }
 }

@@ -32,6 +32,9 @@ test('the file: the calculator page shown, its own words for the exports, nothin
   const js = html.slice(html.indexOf('<script type="module">') + 22, html.lastIndexOf('</script>'));
   assert.doesNotThrow(() => new vm.Script(js));
   assert.ok(js.includes('startStandalone({ samples:'));
+  // Its own tab switcher (CxMissionZero's is in app.js, not in the file): Fusion, Impact and the reports open.
+  assert.ok(js.includes('[data-ptpanel^="${group}:"]'), 'the tabs switch their panels');
+  assert.match(html, /id="calc-fusion-on" checked/, 'Fusion can be left out');
 });
 
 test('the page is cut out of index.html whole, and a changed wording fails the build rather than the file', () => {
