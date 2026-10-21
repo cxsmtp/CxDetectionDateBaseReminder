@@ -3798,6 +3798,19 @@
   "CxMissionZero version — update & recovery": "Versão do CxMissionZero — atualização e recuperação",
   "Cx Credits Calculator: Impact": "Calculadora de créditos Cx: Impacto",
   "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "Lidos por meio do Application Risk Management: este tenant fornece ali os resultados pontuados do Fusion.",
-  "Not known: this tenant gives no earlier score": "Desconhecido: este tenant não fornece pontuação anterior"
+  "Not known: this tenant gives no earlier score": "Desconhecido: este tenant não fornece pontuação anterior",
+  "Fusion's results only: choose applications or projects on the line below and load them, apart from the Workbench. Each result counts under its risk score: 9 or more critical, 7 high, 4 medium, below that low.": "Somente os resultados do Fusion: escolha aplicações ou projetos na linha abaixo e carregue-os, separadamente da Bancada. Cada resultado conta pela sua pontuação de risco: 9 ou mais, crítica; 7, alta; 4, média; abaixo disso, baixa.",
+  "Every application": "Todas as aplicações",
+  "Application names, separated by commas; * and ? as wildcards": "Nomes de aplicações, separados por vírgulas; * e ? como curingas",
+  "Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these": "Nomes de projetos, separados por vírgulas; * e ? como curingas. Se houver aplicações também: os projetos delas, mais estes",
+  "Load Fusion results": "Carregar resultados do Fusion",
+  "Loading Fusion results…": "Carregando resultados do Fusion…",
+  "Choose applications or projects above (or none, for every project), then Load Fusion results.": "Escolha aplicações ou projetos acima (ou nenhum, para todos os projetos) e depois clique em Carregar resultados do Fusion.",
+  "Fusion has no results for these projects.": "O Fusion não tem resultados para estes projetos.",
+  "No application holds these projects.": "Nenhuma aplicação contém estes projetos.",
+  "in {0} of {1} projects": "em {0} de {1} projetos",
+  "To allocate credits, triage or remediate with AI on these results, load their projects’ findings on the Workbench: only the findings Fusion lists are acted on.": "Para alocar créditos a estes resultados ou fazer a triagem ou a correção deles com AI, carregue na Bancada os achados dos respectivos projetos: só são tratados os achados que o Fusion lista.",
+  "Choose applications or projects above, then Load Fusion results.": "Escolha aplicações ou projetos acima e depois clique em Carregar resultados do Fusion.",
+  "No application or project has those names.": "Nenhuma aplicação ou projeto tem esses nomes."
  }
 }

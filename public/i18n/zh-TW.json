@@ -3798,6 +3798,19 @@
   "CxMissionZero version — update & recovery": "CxMissionZero 版本 — 更新與復原",
   "Cx Credits Calculator: Impact": "Cx 點數計算工具：成效",
   "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "透過 Application Risk Management 讀取：此租戶在該處提供 Fusion 的評分結果。",
-  "Not known: this tenant gives no earlier score": "未知：此租戶未提供先前的分數"
+  "Not known: this tenant gives no earlier score": "未知：此租戶未提供先前的分數",
+  "Fusion's results only: choose applications or projects on the line below and load them, apart from the Workbench. Each result counts under its risk score: 9 or more critical, 7 high, 4 medium, below that low.": "僅顯示 Fusion 結果，與工作台分開：請在下方這一列選擇應用程式或專案並載入。每個結果依其風險分數計入：9 以上為嚴重，7 以上為高，4 以上為中，低於此為低。",
+  "Every application": "所有應用程式",
+  "Application names, separated by commas; * and ? as wildcards": "應用程式名稱，以逗號分隔；可用 * 與 ? 作為萬用字元",
+  "Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these": "專案名稱，以逗號分隔；可用 * 與 ? 作為萬用字元。若也指定了應用程式：為其專案，再加上這些專案",
+  "Load Fusion results": "載入 Fusion 結果",
+  "Loading Fusion results…": "正在載入 Fusion 結果…",
+  "Choose applications or projects above (or none, for every project), then Load Fusion results.": "請在上方選擇應用程式或專案（不選則為所有專案），然後按一下「載入 Fusion 結果」。",
+  "Fusion has no results for these projects.": "Fusion 沒有這些專案的結果。",
+  "No application holds these projects.": "沒有任何應用程式包含這些專案。",
+  "in {0} of {1} projects": "分布於 {0} 個專案（共 {1} 個）",
+  "To allocate credits, triage or remediate with AI on these results, load their projects’ findings on the Workbench: only the findings Fusion lists are acted on.": "若要為這些結果分配點數，或以 AI 研判或修補，請在工作台載入其專案的檢測結果：系統只會處理 Fusion 列出的檢測結果。",
+  "Choose applications or projects above, then Load Fusion results.": "請在上方選擇應用程式或專案，然後按一下「載入 Fusion 結果」。",
+  "No application or project has those names.": "沒有任何應用程式或專案使用這些名稱。"
  }
 }

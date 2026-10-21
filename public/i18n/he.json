@@ -3798,6 +3798,19 @@
   "CxMissionZero version — update & recovery": "גרסת CxMissionZero — עדכון והתאוששות",
   "Cx Credits Calculator: Impact": "מחשבון קרדיטים Cx: השפעה",
   "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "נקראו דרך Application Risk Management: ה-tenant הזה מספק שם את התוצאות המדורגות של Fusion.",
-  "Not known: this tenant gives no earlier score": "לא ידוע: ה-tenant הזה אינו מספק ציון קודם"
+  "Not known: this tenant gives no earlier score": "לא ידוע: ה-tenant הזה אינו מספק ציון קודם",
+  "Fusion's results only: choose applications or projects on the line below and load them, apart from the Workbench. Each result counts under its risk score: 9 or more critical, 7 high, 4 medium, below that low.": "תוצאות Fusion בלבד: בחרו אפליקציות או פרויקטים בשורה שלמטה וטענו אותם, בנפרד משולחן המלאכה. כל תוצאה נספרת לפי ציון הסיכון שלה: 9 ומעלה קריטית, 7 ומעלה גבוהה, 4 ומעלה בינונית, ומתחת לכך נמוכה.",
+  "Every application": "כל האפליקציות",
+  "Application names, separated by commas; * and ? as wildcards": "שמות אפליקציות, מופרדים בפסיקים; * ו-? כתווים כלליים",
+  "Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these": "שמות פרויקטים, מופרדים בפסיקים; * ו-? כתווים כלליים. יחד עם אפליקציות: הפרויקטים שלהן, וגם אלה",
+  "Load Fusion results": "טעינת תוצאות Fusion",
+  "Loading Fusion results…": "טעינת תוצאות Fusion…",
+  "Choose applications or projects above (or none, for every project), then Load Fusion results.": "בחרו אפליקציות או פרויקטים למעלה (או אף אחד, עבור כל הפרויקטים), ואז לחצו על טעינת תוצאות Fusion.",
+  "Fusion has no results for these projects.": "ל-Fusion אין תוצאות עבור הפרויקטים האלה.",
+  "No application holds these projects.": "אין אפליקציה שמכילה את הפרויקטים האלה.",
+  "in {0} of {1} projects": "ב-{0} מתוך {1} פרויקטים",
+  "To allocate credits, triage or remediate with AI on these results, load their projects’ findings on the Workbench: only the findings Fusion lists are acted on.": "כדי להקצות קרדיטים, לבצע תעדוף או תיקון באמצעות AI לתוצאות האלה, טענו את הממצאים של הפרויקטים שלהן בשולחן המלאכה: רק הממצאים ש-Fusion מפרט מטופלים.",
+  "Choose applications or projects above, then Load Fusion results.": "בחרו אפליקציות או פרויקטים למעלה, ואז לחצו על טעינת תוצאות Fusion.",
+  "No application or project has those names.": "אין אפליקציה או פרויקט בשמות אלה."
  }
 }

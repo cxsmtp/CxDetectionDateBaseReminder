@@ -3798,6 +3798,19 @@
   "CxMissionZero version — update & recovery": "CxMissionZero 版本——更新与恢复",
   "Cx Credits Calculator: Impact": "Cx 点数计算器：成效",
   "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "通过 Application Risk Management 读取：此租户在该处提供 Fusion 的评分结果。",
-  "Not known: this tenant gives no earlier score": "未知：此租户未提供之前的评分"
+  "Not known: this tenant gives no earlier score": "未知：此租户未提供之前的评分",
+  "Fusion's results only: choose applications or projects on the line below and load them, apart from the Workbench. Each result counts under its risk score: 9 or more critical, 7 high, 4 medium, below that low.": "仅显示 Fusion 结果，与工作台分开：请在下方这一行选择应用程序或项目并加载。每个结果按其风险评分计入：9 及以上为严重，7 及以上为高，4 及以上为中，低于此值为低。",
+  "Every application": "全部应用程序",
+  "Application names, separated by commas; * and ? as wildcards": "应用程序名称，以逗号分隔；可用 * 和 ? 作为通配符",
+  "Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these": "项目名称，以逗号分隔；可用 * 和 ? 作为通配符。若同时指定了应用程序：为其项目，再加上这些项目",
+  "Load Fusion results": "加载 Fusion 结果",
+  "Loading Fusion results…": "正在加载 Fusion 结果…",
+  "Choose applications or projects above (or none, for every project), then Load Fusion results.": "请在上方选择应用程序或项目（不选则为全部项目），然后单击“加载 Fusion 结果”。",
+  "Fusion has no results for these projects.": "Fusion 没有这些项目的结果。",
+  "No application holds these projects.": "这些项目不属于任何应用程序。",
+  "in {0} of {1} projects": "分布在 {0} 个项目中（共 {1} 个）",
+  "To allocate credits, triage or remediate with AI on these results, load their projects’ findings on the Workbench: only the findings Fusion lists are acted on.": "若要为这些结果分配点数，或使用 AI 进行研判或修复，请在工作台加载其项目的检测结果：系统只会处理 Fusion 列出的检测结果。",
+  "Choose applications or projects above, then Load Fusion results.": "请在上方选择应用程序或项目，然后单击“加载 Fusion 结果”。",
+  "No application or project has those names.": "没有任何应用程序或项目使用这些名称。"
  }
 }

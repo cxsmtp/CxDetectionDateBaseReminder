@@ -3798,6 +3798,19 @@
   "CxMissionZero version — update & recovery": "Phiên bản CxMissionZero — cập nhật và khôi phục",
   "Cx Credits Calculator: Impact": "Công cụ tính tín dụng Cx: Tác động",
   "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "Đã đọc qua Application Risk Management: tenant này cung cấp các kết quả đã chấm điểm của Fusion tại đó.",
-  "Not known: this tenant gives no earlier score": "Không rõ: tenant này không cung cấp điểm trước đó"
+  "Not known: this tenant gives no earlier score": "Không rõ: tenant này không cung cấp điểm trước đó",
+  "Fusion's results only: choose applications or projects on the line below and load them, apart from the Workbench. Each result counts under its risk score: 9 or more critical, 7 high, 4 medium, below that low.": "Chỉ hiển thị kết quả Fusion: chọn ứng dụng hoặc dự án trên dòng bên dưới và tải chúng, tách biệt với Bàn làm việc. Mỗi kết quả được tính theo điểm rủi ro: từ 9 trở lên là nghiêm trọng, từ 7 là cao, từ 4 là trung bình, thấp hơn là thấp.",
+  "Every application": "Tất cả ứng dụng",
+  "Application names, separated by commas; * and ? as wildcards": "Tên ứng dụng, phân tách bằng dấu phẩy; * và ? là ký tự đại diện",
+  "Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these": "Tên dự án, phân tách bằng dấu phẩy; * và ? là ký tự đại diện. Nếu có cả ứng dụng: gồm các dự án của chúng, cộng thêm các dự án này",
+  "Load Fusion results": "Tải kết quả Fusion",
+  "Loading Fusion results…": "Đang tải kết quả Fusion…",
+  "Choose applications or projects above (or none, for every project), then Load Fusion results.": "Chọn ứng dụng hoặc dự án ở trên (hoặc không chọn, để lấy tất cả dự án), rồi nhấn Tải kết quả Fusion.",
+  "Fusion has no results for these projects.": "Fusion không có kết quả nào cho các dự án này.",
+  "No application holds these projects.": "Không có ứng dụng nào chứa các dự án này.",
+  "in {0} of {1} projects": "ở {0} trong số {1} dự án",
+  "To allocate credits, triage or remediate with AI on these results, load their projects’ findings on the Workbench: only the findings Fusion lists are acted on.": "Để phân bổ tín dụng, phân loại hoặc khắc phục bằng AI cho các kết quả này, hãy tải các phát hiện của dự án tương ứng trên Bàn làm việc: chỉ các phát hiện mà Fusion liệt kê mới được xử lý.",
+  "Choose applications or projects above, then Load Fusion results.": "Chọn ứng dụng hoặc dự án ở trên, rồi nhấn Tải kết quả Fusion.",
+  "No application or project has those names.": "Không có ứng dụng hoặc dự án nào có các tên đó."
  }
 }
