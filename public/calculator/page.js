@@ -62,7 +62,9 @@ function appLook() {
  * Checkmarx One (the two exports stand in), keeps everything in the browser, and asks for the names on the
  * reports itself. `sampleFile(name)` gives the sample exports there, as a Response.
  */
-export function initCalculator({ api, $, esc, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me, can, standalone = false, sampleFile = null }) {
+export function initCalculator({ api, $, esc, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me, can, standalone = false, sampleFile = null, canRead = () => !standalone }) {
+  // On its own with no way to Checkmarx One (the HTML file opened from disk): the two exports are the way in.
+  const offline = () => standalone && !canRead();
   const c = { customers: [], open: null, pending: null, timer: null, saving: null, draft: {}, dirty: {}, present: false, remainingCredits: null, reports: [] };
   const num = (n, digits = 0) => (n === null || n === undefined || !Number.isFinite(Number(n)) ? '—' : Number(n).toLocaleString(undefined, { maximumFractionDigits: digits }));
   const pct = (n) => (n === null || n === undefined || !Number.isFinite(n) ? '—' : `${n > 0 ? '+' : ''}${n.toFixed(1)}%`);
@@ -145,7 +147,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     syncDraft();
     setStatus('calc-upload-status', '');
     // On its own, the calculator works from the two exports: they are always in view.
-    $('calc-alt').open = standalone || customer.tr?.totals?.meta?.source === 'upload';
+    $('calc-alt').open = offline() || customer.tr?.totals?.meta?.source === 'upload';
     if (!reading.timer) setStatus('calc-read-note', '');
     $('calc-read').disabled = Boolean(reading.timer);
     fillImpact();
@@ -375,7 +377,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const t = tr()?.totals;
     const range = t?.weeks?.length ? ` · <span translate="no">${esc(t.weeks[0])} → ${esc(t.weeks[t.weeks.length - 1])}</span>` : '';
     $('calc-tr-source').innerHTML = !t
-      ? '<span>Nothing read yet: <strong>Read from Checkmarx One</strong> at the top reads the backlog and fixes, week by week.</span>'
+      ? offline()
+        ? '<span>Nothing yet: drop the two Checkmarx One exports below, or load the sample data.</span>'
+        : '<span>Nothing read yet: <strong>Read from Checkmarx One</strong> at the top reads the backlog and fixes, week by week.</span>'
       : t.meta?.source === 'cxone'
         ? `<b>From Checkmarx One</b> · <span>Last read <time translate="no">${esc(fmtDateTime(t.meta.readAt))}</time></span> · <span>${num(t.meta.projects)} projects, ${num(t.meta.scans)} scans</span>${range}`
         : `<b>From the two exports</b>${range}`;
@@ -395,7 +399,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const live = meta.source === 'cxone';
     const chosen = new Set(trEngines());
     const note = !live
-      ? '<span class="hint">The two exports count every engine together: read from Checkmarx One to count only some.</span>'
+      ? `<span class="hint">${offline() ? 'The two exports count every engine together.' : 'The two exports count every engine together: read from Checkmarx One to count only some.'}</span>`
       : meta.engineSplit === false
         ? '<span class="hint calc-warn">This read is from before engines were counted apart, so every engine is counted: read from Checkmarx One again to count only these.</span>'
         : '<span class="hint">AI Triage and AI Remediation credits are spent on SAST and SCA findings.</span>';
@@ -414,7 +418,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     c.trSplit = f ? f.projection.totals : null;
     renderSummary();
     if (!f) {
-      $('calc-tr').innerHTML = `<p class="hint calc-wait">Read from Checkmarx One (or use the two exports) to see the backlog, its trend and the credits it takes.</p>`;
+      $('calc-tr').innerHTML = offline()
+        ? '<p class="hint calc-wait">Drop the two Checkmarx One exports (or load the sample data) to see the backlog, its trend and the credits it takes.</p>'
+        : '<p class="hint calc-wait">Read from Checkmarx One (or use the two exports) to see the backlog, its trend and the credits it takes.</p>';
       return;
     }
     const { analysis, projection } = f;
@@ -1246,7 +1252,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   /** Start a read (or follow the one running in this tenant), then put what it found in the customer open. */
   async function readCxOne({ auto = false } = {}) {
-    if (!c.open || reading.timer || standalone) return;
+    if (!c.open || reading.timer || offline()) return;
     reading.customer = c.open.id;
     reading.auto = auto;
     setStatus('calc-read-note', 'Reading the projects…', 'muted');
@@ -1336,7 +1342,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   /** A customer with nothing read yet reads Checkmarx One by itself; a read already running is followed. */
   async function autoRead() {
-    if (!c.open || reading.timer || standalone) return;
+    if (!c.open || reading.timer || offline()) return;
     const empty = !c.open.tr?.totals && !c.open.fusion?.projects?.length;
     let job = null;
     try {
@@ -1606,7 +1612,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   async function generate({ download: save = true } = {}) {
     if (!c.open) return null;
     await flush();
-    if (!standalone && (reading.timer || !hasData())) {
+    if (!offline() && (reading.timer || !hasData())) {
       const done = readFinished();
       if (!reading.timer) readCxOne();
       setStatus('calc-read-note', 'Reading Checkmarx One first, then the report is made…', 'muted');
@@ -1615,7 +1621,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
     const data = reportData();
     if (!data.tr && !data.fusion) {
-      toast(standalone ? 'Nothing to report yet: drop the two Checkmarx One exports below (or load the sample data), or add Fusion projects first.' : 'Nothing to report yet: read Checkmarx One (or use the two exports), or add Fusion projects first.', 'warn');
+      toast(offline() ? 'Nothing to report yet: drop the two Checkmarx One exports below (or load the sample data), or add Fusion projects first.' : 'Nothing to report yet: read Checkmarx One (or use the two exports), or add Fusion projects first.', 'warn');
       return null;
     }
     try {
@@ -1682,7 +1688,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   // Start again: every choice made for this customer goes back to the defaults, and Checkmarx One is read again.
   $('calc-restart').addEventListener('click', async () => {
     if (!c.open) return;
-    const again = standalone ? 'and the two exports are cleared' : 'and Checkmarx One is read again';
+    const again = offline() ? 'and the two exports are cleared' : 'and Checkmarx One is read again';
     if (!confirm(`Start again for ${c.open.name}?\n\nEvery choice made here goes back to the defaults (the projects narrowed, the plan, the Fusion numbers, the extra credits), ${again}. The Fusion models and their credits stay. Reports already made are kept.`)) return;
     const models = fusion().models;
     c.open.scope = cleanScope({});
@@ -1748,6 +1754,6 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
   });
 
-  return { load, renderOrg };
+  return { load, renderOrg, refresh: () => c.open && show(c.open), autoRead };
 }
 

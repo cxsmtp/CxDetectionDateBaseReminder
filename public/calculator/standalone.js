@@ -1,7 +1,9 @@
 // The Cx Credits Calculator on its own: one HTML file (built by src/standalone-calculator.js) that runs in
 // any browser with no server. It answers the calculator's requests (public/calculator/page.js) itself, with
 // the same rules as the server (profiles.js), and keeps customers and reports in this browser (IndexedDB).
-// It never reads Checkmarx One: the two exports from Checkmarx One → Analytics stand in.
+// Opened from disk it cannot read Checkmarx One (its API answers no other site): the two exports from
+// Checkmarx One → Analytics stand in. Served by the launcher (cx-credits-calculator.mjs, src/calculator-launcher.js)
+// it can: the API key typed at the top goes to the launcher, which reads Checkmarx One as CxMissionZero does.
 
 import { initCalculator } from './page.js';
 import { impactSettings } from './model.js';
@@ -63,8 +65,21 @@ const readNames = () => {
   }
 };
 
+/** A request to the launcher that served this page: its secret goes with it, its errors come back as errors. */
+async function toLauncher(launcher, path, { method = 'GET', body } = {}) {
+  let response;
+  try {
+    response = await fetch(path, { method, headers: { 'Content-Type': 'application/json', 'X-Calculator-Token': launcher.token }, ...(body ? { body } : {}) });
+  } catch {
+    throw fail(503, 'The launcher has stopped: run node cx-credits-calculator.mjs again, then reload this page.');
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw fail(response.status, data.error || `The launcher answered ${response.status}.`);
+  return data;
+}
+
 /** The calculator's requests, answered here as the server answers them (src/server.js, /api/projections…). */
-function localApi(store, names) {
+function localApi(store, names, launcher = null) {
   const byNewest = (a, b) => String(b.createdAt).localeCompare(String(a.createdAt));
   const customer = async (id) => {
     const found = await store.get('customers', id);
@@ -107,8 +122,10 @@ function localApi(store, names) {
       await store.remove('reports', decodeURIComponent(m[1]));
       return { ok: true };
     }],
-    ['GET', /^\/api\/projections\/read$/, async () => ({ state: 'none' })],
-    ['POST', /^\/api\/projections\/(read|series)$/, async () => {
+    // Reading Checkmarx One: through the launcher when there is one, else the two exports stand in.
+    ['GET', /^\/api\/projections\/read$/, async () => (launcher ? toLauncher(launcher, '/api/projections/read') : { state: 'none' })],
+    ['POST', /^\/api\/projections\/(read|series)$/, async (body, m) => {
+      if (launcher) return toLauncher(launcher, `/api/projections/${m[1]}`, { method: 'POST', body: JSON.stringify(body ?? {}) });
       throw fail(409, 'This calculator works from the two Checkmarx One exports: drop them below, or load the sample data.');
     }],
     ['GET', /^\/api\/projections\/([^/]+)$/, async (_body, m) => ({ customer: await customer(decodeURIComponent(m[1])) })],
@@ -178,8 +195,11 @@ export function startStandalone({ samples = {} } = {}) {
   $('sa-org').value = names.organisation;
   $('sa-by').value = names.preparedBy;
   const store = openStore();
+  // Served by the launcher: it reads Checkmarx One once the API key is given (window.CX_LAUNCHER = {token}).
+  const launcher = window.CX_LAUNCHER && typeof window.CX_LAUNCHER === 'object' ? window.CX_LAUNCHER : null;
+  let connected = false;
   const calculator = initCalculator({
-    api: localApi(store, () => names),
+    api: localApi(store, () => names, launcher),
     $,
     esc,
     toast,
@@ -190,6 +210,7 @@ export function startStandalone({ samples = {} } = {}) {
     me: () => ({ organisationName: names.organisation, user: { name: names.preparedBy } }),
     can: () => true,
     standalone: true,
+    canRead: () => connected,
     sampleFile: async (name) => {
       const b64 = samples[name];
       if (!b64) throw new Error(`${name}: not in this file`);
@@ -233,6 +254,48 @@ export function startStandalone({ samples = {} } = {}) {
       toast(error.message, 'bad', 9000);
     }
   });
+
+  if (launcher) startConnect();
+
+  /** The API key bar: connect, see the tenant, disconnect. The key goes to the launcher and is not kept in the page. */
+  function startConnect() {
+    const shell = document.querySelector('.shell');
+    const showState = (state) => {
+      connected = Boolean(state?.connected);
+      shell.classList.toggle('can-read', connected);
+      $('sa-disconnect').hidden = !connected;
+      $('sa-key').placeholder = connected ? 'Connected: paste another key to switch' : 'Paste the API key';
+      setStatus('sa-connect-status', connected ? `Connected to tenant ${state.tenant}` : 'Not connected: the two exports work meanwhile.', connected ? 'ok' : 'muted');
+      calculator.refresh();
+    };
+    $('sa-connect').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const apiKey = $('sa-key').value.trim();
+      if (!apiKey) return setStatus('sa-connect-status', 'Paste a Checkmarx One API key first.', 'error');
+      setStatus('sa-connect-status', 'Connecting…', 'muted');
+      $('sa-connect-go').disabled = true;
+      try {
+        const state = await toLauncher(launcher, '/launcher/connect', { method: 'POST', body: JSON.stringify({ apiKey, baseUrl: $('sa-base').value, iamUrl: $('sa-iam').value, tenant: $('sa-tenant').value }) });
+        $('sa-key').value = '';
+        showState(state);
+        toast(`Connected to ${state.tenant}: Read from Checkmarx One fills the customer open.`, 'ok');
+        calculator.autoRead();
+      } catch (error) {
+        setStatus('sa-connect-status', error.message, 'error');
+      } finally {
+        $('sa-connect-go').disabled = false;
+      }
+    });
+    $('sa-disconnect').addEventListener('click', async () => {
+      try {
+        showState(await toLauncher(launcher, '/launcher/disconnect', { method: 'POST', body: '{}' }));
+      } catch (error) {
+        setStatus('sa-connect-status', error.message, 'error');
+      }
+    });
+    // A reload while the launcher is still connected stays connected.
+    toLauncher(launcher, '/launcher/status').then(showState, (error) => setStatus('sa-connect-status', error.message, 'error'));
+  }
 
   startHelpTips();
   store.persistent.then((ok) => {

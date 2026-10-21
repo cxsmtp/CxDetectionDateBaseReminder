@@ -365,12 +365,13 @@ export class TenantReadStore {
     // Per engine (own.e); a read saved before engines were told apart has t and f, every engine together.
     for (const [id, own] of byProject ?? []) series[id] = own.e ? { scans: own.scans, e: own.e } : { scans: own.scans, t: own.t, f: own.f };
     const value = { readAt, weeks, series };
-    writeJson(this.#file, value);
+    // No file: kept in memory only (the standalone calculator's launcher).
+    if (this.#file) writeJson(this.#file, value);
     this.#cache = value;
   }
 
   get() {
-    if (this.#cache) return this.#cache;
+    if (this.#cache || !this.#file) return this.#cache;
     try {
       this.#cache = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
     } catch {

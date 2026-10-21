@@ -2647,10 +2647,11 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
           <!-- ================= Cx Credits Calculator ================= -->
           <div id="page-calculator" class="page calc-page" hidden>
             <div class="calc-toolbar">
-              <a class="button-like ghost sm" id="calc-download-standalone" href="/api/projections/standalone" download="cx-credits-calculator.html" title="The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports">
+              <a class="button-like ghost sm" id="calc-download-standalone" href="/api/projections/standalone?kind=launcher" download="cx-credits-calculator.mjs" title="The calculator on its own, reading Checkmarx One with an API key: run it with Node.js (node cx-credits-calculator.mjs) and it opens in the browser. Customers and reports stay on that computer.">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11" /><path d="M7 10l5 5 5-5" /><path d="M5 20h14" /></svg>
                 <span>Download standalone calculator</span>
               </a>
+              <a class="link calc-download-html" id="calc-download-html" href="/api/projections/standalone" download="cx-credits-calculator.html" title="The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports">HTML only</a>
             </div>
             <section class="panel calc-head">
               <div class="calc-customer">

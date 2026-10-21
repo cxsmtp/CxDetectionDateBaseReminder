@@ -72,3 +72,16 @@ test('whoever may use the calculator downloads it on its own, blank, as one HTML
   assert.ok(!r.text.includes('admin@acme.io'), 'nobody of this server in it');
   assert.equal((await user('GET', '/api/projections/standalone')).status, 403);
 });
+
+test('the standalone calculator with its launcher: one blank Node.js script that reads Checkmarx One with its own key', async () => {
+  const r = await admin('GET', '/api/projections/standalone?kind=launcher');
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-type'), /text\/javascript/);
+  assert.match(r.headers.get('content-disposition'), /attachment; filename="cx-credits-calculator.mjs"/);
+  assert.match(r.text, /^#!\/usr\/bin\/env node/);
+  assert.match(r.text, /startLauncher/);
+  assert.ok(!r.text.includes('Secret Customer Ltd'), 'blank: no customer of this server in it');
+  assert.ok(!r.text.includes('admin@acme.io'), 'nobody of this server in it');
+  assert.ok(!r.text.includes(KEY), "this server's API key is not in it");
+  assert.equal((await user('GET', '/api/projections/standalone?kind=launcher')).status, 403);
+});

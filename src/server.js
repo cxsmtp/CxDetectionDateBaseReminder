@@ -56,7 +56,7 @@ import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { reportI18n, reportWords } from './report-i18n.js';
 import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
-import { buildStandaloneCalculator } from './standalone-calculator.js';
+import { buildCalculatorLauncher, buildStandaloneCalculator } from './standalone-calculator.js';
 import { reportFileName as projectionFileName } from '../public/calculator/report.js';
 import { buildReminder, buildReportData, buildReportEmail, buildTemplateData } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
@@ -4228,11 +4228,13 @@ app.post('/api/projections', requireCalculator, calculatorRoute((req, res) => {
  * the two Checkmarx One exports (src/standalone-calculator.js). Its projection and reports are this page's.
  */
 app.get('/api/projections/standalone', requireCalculator, (req, res) => {
-  const html = buildStandaloneCalculator({ version: PACKAGE_VERSION });
-  res.set('Content-Type', 'text/html; charset=utf-8');
-  res.set('Content-Disposition', 'attachment; filename="cx-credits-calculator.html"');
+  // ?kind=launcher: the same calculator with its launcher (cx-credits-calculator.mjs, run with Node.js), which reads
+  // Checkmarx One with an API key typed into it, on its own, as this page does (src/calculator-launcher.js).
+  const launcher = req.query.kind === 'launcher';
+  res.set('Content-Type', launcher ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8');
+  res.set('Content-Disposition', `attachment; filename="cx-credits-calculator.${launcher ? 'mjs' : 'html'}"`);
   res.set('Cache-Control', 'no-store');
-  res.send(html);
+  res.send(launcher ? buildCalculatorLauncher({ version: PACKAGE_VERSION }) : buildStandaloneCalculator({ version: PACKAGE_VERSION }));
 });
 /** Reports made from the calculator, newest first (one customer's with ?customer=). */
 app.get('/api/projections/reports', requireCalculator, (req, res) => {

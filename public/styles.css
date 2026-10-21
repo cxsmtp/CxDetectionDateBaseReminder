@@ -3353,6 +3353,7 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .ae-form .grid2 { row-gap: 14px; }
 
 /* Cx Credits Calculator: the standalone calculator's download, at the top right of the page. */
-.calc-toolbar { display: flex; justify-content: flex-end; margin: 0 0 10px; }
+.calc-toolbar { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin: 0 0 10px; }
+.calc-toolbar .calc-download-html { font-size: 13px; }
 .calc-toolbar a.button-like { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 .calc-toolbar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
