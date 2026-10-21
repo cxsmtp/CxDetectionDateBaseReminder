@@ -3795,6 +3795,7 @@
   "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Fusion אינו נכלל בתחזית זו: הלקוח בחר לוותר עליו, ולכן אף חלק ממנו אינו נספר בקרדיטים, בממצאים או בדוח. ההגדרות שלמטה נשמרות.",
   "Left out": "לא נכלל",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion אינו נכלל בתחזית זו: סמנו את \"הכללת Fusion\" בחלק העליון כדי לספור אותו.",
-  "CxMissionZero version — update & recovery": "גרסת CxMissionZero — עדכון והתאוששות"
+  "CxMissionZero version — update & recovery": "גרסת CxMissionZero — עדכון והתאוששות",
+  "Cx Credits Calculator: Impact": "מחשבון קרדיטים Cx: השפעה"
  }
 }

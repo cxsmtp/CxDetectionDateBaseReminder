@@ -3795,6 +3795,7 @@
   "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Fusion wird in dieser Prognose ausgelassen: Der Kunde hat sich dagegen entschieden, daher fließt nichts davon in die Credits, die Funde oder den Bericht ein. Die Einstellungen unten bleiben erhalten.",
   "Left out": "Ausgelassen",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion wird in dieser Prognose ausgelassen: Setzen Sie oben das Häkchen bei „Fusion einbeziehen“, um Fusion mitzuzählen.",
-  "CxMissionZero version — update & recovery": "CxMissionZero-Version — Update & Wiederherstellung"
+  "CxMissionZero version — update & recovery": "CxMissionZero-Version — Update & Wiederherstellung",
+  "Cx Credits Calculator: Impact": "Cx-Credit-Rechner: Wirkung"
  }
 }

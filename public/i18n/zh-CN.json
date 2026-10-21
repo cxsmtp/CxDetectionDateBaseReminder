@@ -3795,6 +3795,7 @@
   "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "此预估已排除 Fusion：客户选择不采用，因此点数、检测结果和报告均不计入任何 Fusion 部分。下方设置会保留。",
   "Left out": "已排除",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "此预估已排除 Fusion：勾选顶部的“计入 Fusion”即可将其计入。",
-  "CxMissionZero version — update & recovery": "CxMissionZero 版本——更新与恢复"
+  "CxMissionZero version — update & recovery": "CxMissionZero 版本——更新与恢复",
+  "Cx Credits Calculator: Impact": "Cx 点数计算器：成效"
  }
 }

@@ -5,6 +5,7 @@ A few add-ons are unlocked per installation with an activation code:
 | Add-on | Code | What it does |
 | --- | --- | --- |
 | **Hebrew** | an activation code and a deactivation code | Adds Hebrew (עברית) to the language pickers of the roles that hold the **Hebrew** permission (Admins always do), until the code expires, or removes it. |
+| **Cx Credits Calculator: Impact** | an activation code and a deactivation code | Shows the calculator's **Impact** tab and puts its section back in the projection report and the PDF summary, until the code expires, or hides them again. Off until a code turns it on (from MZ-01.00.91), while it matures; the standalone calculator's downloads never have it. |
 | **Several tenants** | an activation code naming the organisation and how many tenants | Unlocks the Super Admin tasks for organisations that run more than one Checkmarx One tenant ([several tenants](multi-tenant.md)). |
 
 Everything else works without a code.
@@ -35,6 +36,8 @@ Codes are signed with an Ed25519 key, using `scripts/activation.mjs`.
 | Allow several tenants | `node scripts/activation.mjs issue issuer-key.pem "Acme Corp" 5` |
 | Turn Hebrew on | `node scripts/activation.mjs lang issuer-key.pem "Acme Corp" he on` |
 | Turn Hebrew off | `node scripts/activation.mjs lang issuer-key.pem "Acme Corp" he off` |
+| Turn the calculator's Impact tab on | `node scripts/activation.mjs feature issuer-key.pem "Acme Corp" impact on` |
+| Turn the calculator's Impact tab off | `node scripts/activation.mjs feature issuer-key.pem "Acme Corp" impact off` |
 | See what a code contains | `node scripts/activation.mjs show MZ1.…` |
 
 - **Validity:** a code lasts 12 months. Add a number of months as the last argument to change that.
