@@ -142,3 +142,10 @@ test('each project and the totals count Fusion and LAST apart, Fixed split by la
   const g = await readAiFusion(unnamed, P1, SCANS);
   assert.equal(g.projects.p1.engines.FUSION.fixedKnown, false, 'counts that do not say their language: not guessed');
 });
+
+test('Checkmarx One marks a Fusion result with isAiGenerated (the UI’s "LLM-Based: Yes"): only true counts', () => {
+  // As /api/sast-results returns them for scan c40779dc… (Juice Shop 20.3.0).
+  const ai = { resultHash: 'qvurq/MI9Xru4OPKyRSrcqzxjao=', queryID: 0, queryName: 'Missing Authentication for Critical Function', group: 'TypeScript_CRITICAL', severity: 'CRITICAL', changeDetails: { engineVersionChanged: false, queryChanged: false, codeChanged: false }, isAiGenerated: true };
+  assert.equal(cleanAiResult(ai, P1[0], 's1').ai, true, 'LLM-Based: Yes');
+  for (const value of [false, 'false', null, undefined, 0, '']) assert.equal(cleanAiResult({ ...ai, isAiGenerated: value }, P1[0], 's1').ai, false, String(value));
+});
