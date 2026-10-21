@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.92 | 479/s, 153 (main 462, 152; a busy host) | 16.0 s | 2.0 s | 748 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.91 | 461/s, 45 (main 437, 430; a busy host) | 14.2 s | 3.1 s | 747 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.90 | 469/s, 0 in its clean run (main 494, 0); other runs of both lost up to 298 to host pauses | 8.2 s | 1.6 s | 746 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.89 | 501/s, 0 (main 502, 0) | 9.6 s | 644 ms | 741 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -78,11 +79,12 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.92 — not released yet · [#115](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/115)
+## MZ-01.00.92 — 2026-10-21 16:12 UTC · [#115](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/115)
 
 - **Fusion results on tenants without the correlation service.** When Checkmarx One does not answer at `/api/correlation`, **Labs → Fusion results** now reads Fusion's scored results through Application Risk Management (`/api/risk-management`), as Troubleshoot found on a customer's tenant, and says so on the page.
 - **The Fusion page has its own line.** **Labs → Fusion results** works like a Workbench for Fusion's results only: name applications or projects (wildcards allowed, empty for every one) and **Load Fusion results**; it no longer waits for, or follows, the Workbench's fetch.
 - **Only what is known.** Those results carry no earlier score, so **Raised to critical or high** says it is not known instead of claiming results Fusion did not raise; the critical, high, medium and low counts per project and the other tiles are filled in.
+- **Status.** 3000 people at once on 2 vCPU, one pair with main on a busy host: 479 requests a second with 153 failed against main's 462 with 152, both from the same pauses of the whole host; no finding sent twice ([performance](docs/performance.md)); 748 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan ([status](docs/status.md)).
 
 ## MZ-01.00.91 — 2026-10-21 11:16 UTC · [#114](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/114)
 
