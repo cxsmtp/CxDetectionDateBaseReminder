@@ -193,6 +193,23 @@ function projectIdsOf(r) {
   return [...new Set(named.map((p) => text(typeof p === 'object' ? p.id ?? p.projectId : p, 80)).filter(Boolean))];
 }
 
+// Where a result may say it came from Fusion: a flag named for it, or a source, engine or tag that names it.
+const FUSION_WORD = /fusion/i;
+const SOURCE_KEYS = /^(source|sources|origin|engine|engines|scanner|scanners|type|detectedBy|foundBy|detectionMethod|detectionSource|provider|providers|tags|labels|correlation|correlationType)$/i;
+/** Whether Checkmarx One marks this result as one Fusion found (null-safe, a few levels deep). */
+export function fusionMarked(r, depth = 0) {
+  if (!r || typeof r !== 'object' || depth > 3) return false;
+  for (const [key, value] of Object.entries(r)) {
+    if (FUSION_WORD.test(key) && value !== false && value !== null && value !== '' && value !== 'false' && !(Array.isArray(value) && !value.length)) return true;
+    if (SOURCE_KEYS.test(key)) {
+      const values = Array.isArray(value) ? value : value && typeof value === 'object' ? [...Object.keys(value), ...Object.values(value)] : [value];
+      if (values.some((v) => typeof v === 'string' && FUSION_WORD.test(v))) return true;
+    }
+    if (value && typeof value === 'object' && fusionMarked(value, depth + 1)) return true;
+  }
+  return false;
+}
+
 /** Where a result that names no project is counted: its application, as a row of its own. */
 export const applicationRow = (appId) => `app:${appId}`;
 
@@ -212,6 +229,7 @@ export function cleanRiskResult(r, appId, inScope) {
     state: text(r?.state?.name ?? r?.state ?? r?.triageState, 60),
     detectedAt: Number.isFinite(when) ? new Date(when).toISOString() : null,
     hash: text(r?.hash, 120),
+    fusion: fusionMarked(r),
   };
   return rows.map((projectId) => ({
     ...detail,
@@ -291,7 +309,10 @@ async function readRiskManagement(client, inScope, { concurrency, trace, readAt,
   for (const { app, rows } of perApp) {
     for (const row of rows) for (const r of cleanRiskResult(row, app.id, inScope)) byKey.set(`${r.projectId}\u0000${r.resultId || byKey.size}`, r);
   }
-  const results = [...byKey.values()];
+  const every = [...byKey.values()];
+  // Fusion Hub lists every risk and marks the ones Fusion found: when Checkmarx One marks them, only those count.
+  const marked = every.some((r) => r.fusion);
+  const results = marked ? every.filter((r) => r.fusion) : every;
   const { projects, totals } = summarize(results);
   // The rows of results that name no project: their application's name.
   const names = Object.fromEntries(read.map((app) => [applicationRow(app.id), `${app.name} (no project given)`]));
@@ -300,6 +321,9 @@ async function readRiskManagement(client, inScope, { concurrency, trace, readAt,
     readAt,
     available: true,
     source: 'risk-management',
+    // Whether Checkmarx One said which results Fusion found (then only those are here), and how many it listed in all.
+    fusionMarked: marked,
+    allResults: new Set(every.map((r) => `${r.applicationId}\u0000${r.resultId}`)).size,
     names,
     applications: [...read.map((app) => appRow(app)), ...apps.filter((a) => !known.has(a.id)).map((app) => appRow(app, { notScanned: true }))],
     projects,

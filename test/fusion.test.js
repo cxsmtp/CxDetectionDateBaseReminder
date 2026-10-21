@@ -191,3 +191,18 @@ test('every Fusion result once, as Fusion Hub lists it: severity, scanner, name,
   assert.deepEqual(rows[1].projects, ['One', 'Two']);
   assert.equal(rows[0].projects[0], 'Fusion Hub (no project given)');
 });
+
+test('Fusion Hub lists every risk and marks Fusion’s own: when Checkmarx One marks them, only those are Fusion results', async () => {
+  const row = (id, extra) => ({ id, type: 'sast', risk: { score: 9.3, severity: 'critical' }, projects: [{ id: 'p1' }], ...extra });
+  const routes = (results) => fakeClient({
+    '/api/applications': { applications: [{ id: 'a1', name: 'App', projectIds: ['p1'] }] },
+    '/api/risk-management/summary': { summary: [{ id: 'a1' }] },
+    '/api/risk-management/a1/results': (q) => ({ results: Number(q.offset) ? [] : results }),
+  });
+  const marked = await readFusion(routes([row('r1', { source: 'FUSION' }), row('r2', { source: 'SAST' }), row('r3', { type: 'sca' })]), ['p1']);
+  assert.equal(marked.fusionMarked, true);
+  assert.deepEqual([marked.totals.total, marked.allResults, marked.results[0].resultId], [1, 3, 'r1']);
+  for (const extra of [{ isFusion: true }, { tags: ['fusion'] }, { detection: { engine: 'Fusion' } }]) assert.equal((await readFusion(routes([row('x', extra), row('y', {})]), ['p1'])).totals.total, 1, JSON.stringify(extra));
+  const unmarked = await readFusion(routes([row('r1', {}), row('r2', { isFusion: false })]), ['p1']);
+  assert.deepEqual([unmarked.fusionMarked, unmarked.totals.total], [false, 2], 'nothing marked: every result, and said so');
+});

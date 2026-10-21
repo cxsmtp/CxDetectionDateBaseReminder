@@ -8742,7 +8742,10 @@ $('fusion-res-csv')?.addEventListener('click', () => {
 function fusionStatus(data) {
   const refused = (data.tried ?? []).some((t) => t.status === 401 || t.status === 403);
   const notRunning = (data.tried ?? []).some((t) => t.status >= 502 && t.status <= 504);
-  setStatus('fusion-status', data.available ? (data.source === 'risk-management' ? 'Read through Application Risk Management: this tenant serves Fusion’s scored results there.' : '') : refused ? 'Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.' : notRunning ? 'The Fusion service is not running on this tenant: Checkmarx One has the address, but no server behind it.' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? 'muted' : 'warn');
+  const throughRisk = data.source !== 'risk-management' ? '' : data.fusionMarked
+    ? `Only the results Fusion found: ${fmt(Object.keys(data.projects ?? {}).length ? data.totals?.total ?? 0 : 0)} of the ${fmt(data.allResults ?? 0)} results Application Risk Management lists.`
+    : 'Read through Application Risk Management. Checkmarx One did not mark which of these Fusion found, so every result it lists is shown.';
+  setStatus('fusion-status', data.available ? throughRisk : refused ? 'Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.' : notRunning ? 'The Fusion service is not running on this tenant: Checkmarx One has the address, but no server behind it.' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? 'muted' : 'warn');
   // What was asked, and what came back: the path and its answer, as Checkmarx One gave them.
   $('fusion-tried').innerHTML = data.available ? '' : (data.tried ?? []).map((t) => `<code>${escapeHtml(t.path)} → ${escapeHtml(String(t.status || '?'))}</code>`).join(' ');
 }
