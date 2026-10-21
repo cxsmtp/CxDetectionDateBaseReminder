@@ -3370,5 +3370,5 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .fusion-results-head .fusion-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .fusion-results-head .fusion-tools input[type=search] { flex: 1 1 260px; }
 .fusion-results-head h3 { margin: 0; }
-.fusion-res-name span { display: block; }
+.fusion-res-name span, .fusion-res-name a { display: block; }
 .fusion-res-name small { display: block; font-size: 11px; word-break: break-all; }

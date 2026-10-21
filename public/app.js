@@ -8714,7 +8714,7 @@ function renderFusionResults() {
     ? rows.slice(0, fusionResShown).map((r) => `<tr>
         <td class="nowrap">${r.severity in SEVERITY_LABEL ? `<span class="sev-dot sev-${r.severity.toLowerCase()}" aria-hidden="true"></span> ${escapeHtml(SEVERITY_LABEL[r.severity])}` : '—'}</td>
         <td>${escapeHtml(r.scanner)}</td>
-        <td class="fusion-res-name"><span>${escapeHtml(r.name)}</span><small class="hint" title="Its id in Checkmarx One, to find it again">${escapeHtml(r.id || r.hash || '')}</small></td>
+        <td class="fusion-res-name">${r.url ? `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" title="Open it in Checkmarx One">${escapeHtml(r.name)}</a>` : `<span>${escapeHtml(r.name)}</span>`}<small class="hint" title="Its id in Checkmarx One, to find it again">${escapeHtml(r.id || r.hash || '')}</small></td>
         <td>${escapeHtml(r.status || '—')}</td>
         <td>${escapeHtml(r.state || '—')}</td>
         <td class="nowrap">${escapeHtml(date(r.detectedAt))}</td>
@@ -8730,7 +8730,7 @@ $('fusion-res-more-btn')?.addEventListener('click', () => { fusionResShown += FU
 $('fusion-res-csv')?.addEventListener('click', () => {
   const { rows } = fusionResultsFiltered();
   const cell = (v) => { const t = String(v ?? ''); return /[",\n\r]/.test(t) || /^[=+\-@]/.test(t) ? `"${(/^[=+\-@]/.test(t) ? `'${t}` : t).replace(/"/g, '""')}"` : t; };
-  const lines = [['Severity', 'Scanner', 'Risk name', 'Status', 'State', 'Detected', 'Risk score', 'Projects', 'Application', 'Id', 'Hash'], ...rows.map((r) => [SEVERITY_LABEL[r.severity] ?? '', r.scanner, r.name, r.status, r.state, r.detectedAt ?? '', r.score ?? '', r.projects.join('; '), r.application, r.id, r.hash])];
+  const lines = [['Severity', 'Scanner', 'Risk name', 'Status', 'State', 'Detected', 'Risk score', 'Projects', 'Application', 'Id', 'Hash', 'Link'], ...rows.map((r) => [SEVERITY_LABEL[r.severity] ?? '', r.scanner, r.name, r.status, r.state, r.detectedAt ?? '', r.score ?? '', r.projects.join('; '), r.application, r.id, r.hash, r.url])];
   const link = document.createElement('a');
   link.href = URL.createObjectURL(new Blob([lines.map((l) => l.map(cell).join(',')).join('\n')], { type: 'text/csv' }));
   link.download = `fusion-results-${new Date().toISOString().slice(0, 10)}.csv`;

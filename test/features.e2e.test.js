@@ -214,6 +214,8 @@ test('Fusion results (Beta): its own fetch, Fusion results only, by new severity
     { total: 3, CRITICAL: 1, HIGH: 1, LOW: 1, raisedToTop: 2, lowered: 1 },
   );
   assert.equal(fusion.projects.p1.total, 2);
+  // Each result opens in Checkmarx One: its project's Risk Hub, with the result open.
+  assert.match(fusion.results.find((r) => r.projectId === 'p1').url, /\/riskhub\/p1\?.*resultId=p1-r/);
   assert.equal(fusion.applications.find((a) => a.id === 'app-0').scan.status, 'Completed');
   assert.equal((await admin('GET', '/api/beta/fusion')).body.fusion.totals.total, 3, 'kept with the session');
   // Narrowed on its line: by a project's name (wildcards), and nothing that matches is said.

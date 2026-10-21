@@ -9628,6 +9628,16 @@ function initiatorLogins(lastScan) {
  * line (applications and projects by name) and its own fetch, apart from the Workbench's. Kept with
  * the session (session.fusionScope and session.lastFusion).
  */
+/** Each Fusion result's link in Checkmarx One: its project's Risk Hub with the result open (resultId = its hash). */
+function linkFusion(req, fusion) {
+  const { links } = settingsStore.get();
+  for (const r of fusion?.results ?? []) {
+    if (!r.projectId || r.projectId.startsWith('app:')) continue;
+    r.url = riskUrl({ projectId: r.projectId, id: r.hash || r.resultId, scanner: r.scanner }, req.session.connection, links, r.scanId);
+  }
+  return fusion;
+}
+
 app.get('/api/beta/fusion', requireFeature('fusionResults'), (req, res) => {
   res.json({ fusion: req.session.lastFusion ?? null, scope: req.session.fusionScope ?? null, credits: fusionCredits(req) });
 });
@@ -9827,7 +9837,7 @@ app.post(
     const scope = req.session.fusionScope;
     if (!scope?.projects) return res.status(400).json({ error: 'Choose applications or projects above, then Load Fusion results.' });
     const { fusionResultsPath = '', fusionDispatcherPath = '' } = settingsStore.get().endpoints ?? {};
-    const fusion = await readFusion(req.session.client, Object.keys(scope.names), { resultsPath: fusionResultsPath, dispatcherPath: fusionDispatcherPath, trace: fusionTrace(req) });
+    const fusion = linkFusion(req, await readFusion(req.session.client, Object.keys(scope.names), { resultsPath: fusionResultsPath, dispatcherPath: fusionDispatcherPath, trace: fusionTrace(req) }));
     req.session.lastFusion = fusion;
     res.json({ fusion, scope, credits: fusionCredits(req) });
   }),
@@ -9865,7 +9875,7 @@ app.post(
       own: { applications: wantedApps, projects: wantedProjects },
     };
     const { fusionResultsPath = '', fusionDispatcherPath = '' } = settingsStore.get().endpoints ?? {};
-    const fusion = await readFusion(client, [...ids], { resultsPath: fusionResultsPath, dispatcherPath: fusionDispatcherPath, trace: fusionTrace(req) });
+    const fusion = linkFusion(req, await readFusion(client, [...ids], { resultsPath: fusionResultsPath, dispatcherPath: fusionDispatcherPath, trace: fusionTrace(req) }));
     Object.assign(req.session, { fusionScope: scope, lastFusion: fusion });
     res.json({ fusion, scope, credits: fusionCredits(req) });
   }),

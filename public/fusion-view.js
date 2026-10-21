@@ -77,6 +77,7 @@ export function fusionResultRows(fusion, scope) {
     const row = byKey.get(key);
     if (row) {
       if (!row.projects.includes(name)) row.projects.push(name);
+      row.url ||= r.url ?? '';
       continue;
     }
     byKey.set(key, {
@@ -91,6 +92,8 @@ export function fusionResultRows(fusion, scope) {
       detectedAt: r.detectedAt ?? null,
       projects: [name],
       application: appName.get(r.applicationId) ?? r.applicationId,
+      // Where it opens in Checkmarx One (Risk Hub, with the result open).
+      url: r.url ?? '',
     });
   }
   return [...byKey.values()].sort((a, b) => (RANK[b.severity] ?? 0) - (RANK[a.severity] ?? 0) || String(b.detectedAt ?? '').localeCompare(String(a.detectedAt ?? '')) || String(a.name).localeCompare(String(b.name)));
