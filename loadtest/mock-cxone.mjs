@@ -207,6 +207,31 @@ http.createServer((req, res) => {
         const branch = BRANCHES ? branchOfScan(id) : 'main';
         return send(200, { id, projectId: pid, status: 'Completed', branch, engines: ['sast', 'sca', 'kics'], statusDetails, metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch, commit_id: 'abc123' } } } });
       }
+      // SAST results of a scan (Labs → Fusion results): every third finding is one the AI engine found (isAiGenerated),
+      // filtered by is-ai-generated as Checkmarx One does; counted by severity, and compared with the scan before.
+      if (u.pathname === '/api/sast-results' || u.pathname === '/api/sast-scan-summary/aggregate' || u.pathname === '/api/sast-scan-summary/compare/aggregate') {
+        bump(u.pathname.includes('compare') ? 'sast-compare' : u.pathname.includes('aggregate') ? 'sast-aggregate' : 'sast-results');
+        const pid = String(u.searchParams.get('scan-id') ?? '').replace(/^(scan|feat)-/, '');
+        const ai = u.searchParams.get('is-ai-generated');
+        const rows = risksFor(pid).map((r) => {
+          const k = Number(r.id.split('-r')[1]);
+          const file = `src/routes/file${k % 4}.ts`;
+          return { resultHash: r.id, similarityID: r.groupId, queryName: r.riskName.replace(/ /g, '_'), queryID: k % 3 === 0 ? 0 : 1000 + k, group: k % 3 === 0 ? `TypeScript_${r.severity}` : 'TypeScript_High_Risk', languageName: 'TypeScript', cweID: [287, 89, 79][k % 3], severity: r.severity, state: r.state, status: k % 2 ? 'RECURRENT' : 'NEW', firstFoundAt: r.firstDetectionDate, foundAt: day(1), confidenceLevel: 0, nodes: [{ fileName: file, line: 40 + k, column: 13, name: 'input', method: 'handler' }, { fileName: file, line: 42 + k, column: 31, name: 'query', method: 'handler' }], isAiGenerated: k % 3 === 0 };
+        }).filter((r) => (ai === '1' ? r.isAiGenerated : ai === '0' ? !r.isAiGenerated : true));
+        if (u.pathname === '/api/sast-results') {
+          const lim = Number(u.searchParams.get('limit') || 20);
+          return send(200, { results: rows.slice(offset, offset + lim), totalCount: rows.length });
+        }
+        if (u.pathname.includes('compare')) {
+          // One AI-generated result fixed since the scan before, in every other project.
+          const fixed = Number(pid.replace(/^p/, '')) % 2 === 0 && u.searchParams.get('status') === 'FIXED' ? 1 : 0;
+          return send(200, { summaries: fixed ? [{ cweID: 287, count: fixed }] : [], totalCount: fixed ? 1 : 0 });
+        }
+        const by = {};
+        for (const r of rows) by[r.severity] = (by[r.severity] ?? 0) + 1;
+        const summaries = Object.entries(by).map(([severity, count]) => ({ severity, count }));
+        return send(200, { summaries, totalCount: summaries.length });
+      }
       if (u.pathname === '/api/risks/' || u.pathname === '/api/risks') {
         bump('risks');
         const pid = u.searchParams.get('projectId');

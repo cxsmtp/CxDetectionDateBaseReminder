@@ -200,7 +200,7 @@ test('full image update (Beta): the server says it started, and asks the compani
   fs.rmSync(path.join(dir, 'companion.json'));
 });
 
-test('Fusion results (Beta): its own fetch, Fusion results only, by new severity; once final, for whoever loads findings', async () => {
+test('Fusion results (Beta): its own fetch, the AI-generated SAST results of each latest scan; once final, for whoever loads findings', async () => {
   assert.equal((await user('POST', '/api/beta/fusion/fetch', {})).status, 403, 'Beta: not for a role without Beta access');
   // Nothing loaded from the Workbench: the page's own line, nothing named, is every project.
   const read = await admin('POST', '/api/beta/fusion/fetch', {});
@@ -208,16 +208,17 @@ test('Fusion results (Beta): its own fetch, Fusion results only, by new severity
   const { fusion, scope } = read.body;
   assert.equal(fusion.available, true);
   assert.equal(scope.projects, 2);
-  // The mock: p0 has one result raised to critical; p1 one raised to high and one lowered to low.
+  // The mock: in each project, r0 (critical, new) and r3 (low, recurrent) are AI-generated; p0 fixed one since the scan before.
+  assert.equal(fusion.source, 'ai-sast');
   assert.deepEqual(
-    { total: fusion.totals.total, CRITICAL: fusion.totals.CRITICAL, HIGH: fusion.totals.HIGH, LOW: fusion.totals.LOW, raisedToTop: fusion.totals.raisedToTop, lowered: fusion.totals.lowered },
-    { total: 3, CRITICAL: 1, HIGH: 1, LOW: 1, raisedToTop: 2, lowered: 1 },
+    { total: fusion.totals.total, CRITICAL: fusion.totals.CRITICAL, HIGH: fusion.totals.HIGH, LOW: fusion.totals.LOW, NEW: fusion.totals.NEW, RECURRENT: fusion.totals.RECURRENT, FIXED: fusion.totals.FIXED },
+    { total: 4, CRITICAL: 2, HIGH: 0, LOW: 2, NEW: 2, RECURRENT: 2, FIXED: 1 },
   );
   assert.equal(fusion.projects.p1.total, 2);
-  // Each result opens in Checkmarx One: its project's Risk Hub, with the result open.
-  assert.match(fusion.results.find((r) => r.projectId === 'p1').url, /\/riskhub\/p1\?.*resultId=p1-r/);
-  assert.equal(fusion.applications.find((a) => a.id === 'app-0').scan.status, 'Completed');
-  assert.equal((await admin('GET', '/api/beta/fusion')).body.fusion.totals.total, 3, 'kept with the session');
+  // Each result opens in Checkmarx One: its project's Risk Hub, with the result open; each project, its page.
+  assert.match(fusion.results.find((r) => r.projectId === 'p1').url, /\/riskhub\/p1\?.*resultId=p1-r0/);
+  assert.match(fusion.projects.p1.url, /p1/);
+  assert.equal((await admin('GET', '/api/beta/fusion')).body.fusion.totals.total, 4, 'kept with the session');
   // Narrowed on its line: by a project's name (wildcards), and nothing that matches is said.
   const one = await admin('POST', '/api/beta/fusion/fetch', { projects: 'Project 1*' });
   assert.equal(one.status, 200, JSON.stringify(one.body).slice(0, 300));
@@ -229,28 +230,27 @@ test('Fusion results (Beta): its own fetch, Fusion results only, by new severity
 
   assert.equal((await admin('PUT', '/api/features/fusionResults', { stage: 'final' })).status, 200);
   assert.ok((await user('GET', '/api/me')).body.permissions.includes('feature.fusionResults'), 'whoever loads findings');
-  assert.equal((await user('POST', '/api/beta/fusion/fetch', {})).body.fusion.totals.total, 3);
+  assert.equal((await user('POST', '/api/beta/fusion/fetch', {})).body.fusion.totals.total, 4);
   assert.equal((await admin('PUT', '/api/features/fusionResults', { stage: 'beta' })).status, 200);
   assert.equal((await user('GET', '/api/beta/fusion')).status, 403);
 });
 
-test('Fusion results: an Admin allocates for and triages only the findings Fusion re-scored; nobody else may', async () => {
-  // Acting needs the findings themselves, which the Workbench loads; only those Fusion lists are acted on.
-  await admin('GET', '/api/scan');
+test('Fusion results: an Admin allocates for and triages only the AI-generated results, without the Workbench; nobody else may', async () => {
+  // No Workbench fetch: the Fusion page's own load is enough to act on its results.
   const read = await admin('POST', '/api/beta/fusion/fetch', {});
   const { credits } = read.body;
-  // The mock's Fusion results are p0-r0 (critical), p1-r0 (critical) and p1-r1 (high), all awaiting triage.
-  assert.equal(credits.matched, 3, JSON.stringify(credits));
-  assert.deepEqual(credits.triage, { CRITICAL: 2, HIGH: 1, MEDIUM: 0, LOW: 0 });
+  // The mock's AI-generated results awaiting triage: p0-r0 and p1-r0 (critical), p0-r3 and p1-r3 (low).
+  assert.equal(credits.matched, 4, JSON.stringify(credits));
+  assert.deepEqual(credits.triage, { CRITICAL: 2, HIGH: 0, MEDIUM: 0, LOW: 2 });
   assert.equal(credits.projects, 2);
 
-  const given = await admin('POST', '/api/beta/fusion/allocate', { kind: 'triage', severities: ['CRITICAL', 'HIGH'] });
+  const given = await admin('POST', '/api/beta/fusion/allocate', { kind: 'triage', severities: ['CRITICAL'] });
   assert.equal(given.status, 200, JSON.stringify(given.body).slice(0, 300));
-  assert.ok(given.body.credits.left.triage >= 3, 'enough for the three, and no more needed');
-  const run = await admin('POST', '/api/beta/fusion/triage', { severities: ['CRITICAL', 'HIGH'], notifyInitiators: false });
+  assert.ok(given.body.credits.left.triage >= 2, 'enough for the two critical ones');
+  const run = await admin('POST', '/api/beta/fusion/triage', { severities: ['CRITICAL'], notifyInitiators: false });
   assert.equal(run.status, 200, JSON.stringify(run.body).slice(0, 300));
-  assert.equal(run.body.requested, 3, 'only the Fusion results, not the projects\' other findings');
-  assert.deepEqual(run.body.credits.triage, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 }, 'sent: no longer waiting');
+  assert.equal(run.body.requested, 2, 'only the AI-generated critical results, not the projects\' other findings');
+  assert.deepEqual(run.body.credits.triage, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 2 }, 'sent: no longer waiting');
 
   await admin('PUT', '/api/features/fusionResults', { stage: 'final' });
   await user('GET', '/api/scan');
@@ -275,7 +275,7 @@ test('Fusion troubleshooting: test paths (only under /api, read-only), debug log
   assert.equal(on.body.on, true);
   await admin('POST', '/api/beta/fusion/read', {});
   const log = (await admin('GET', '/api/beta/fusion/debug')).body;
-  assert.ok(log.log.some((e) => e.url.endsWith('/api/correlation/results/applications') && e.status === 200 && e.body.includes('app-0')), 'the read logged in full');
+  assert.ok(log.log.some((e) => e.url.includes('/api/sast-results?') && e.url.includes('is-ai-generated=1') && e.status === 200 && e.body.includes('isAiGenerated')), 'the read logged in full');
   assert.ok(!JSON.stringify(log.log).includes('.tok'));
   await admin('PUT', '/api/beta/fusion/debug', { on: false, clear: true });
 
@@ -283,7 +283,7 @@ test('Fusion troubleshooting: test paths (only under /api, read-only), debug log
   assert.equal(pinned.status, 200);
   assert.equal((await admin('GET', '/api/beta/fusion/debug')).body.pinned.results, '/api/correlation/results');
   assert.equal((await admin('PUT', '/api/settings', { endpoints: { fusionResultsPath: 'https://evil.example/api' } })).body.endpoints?.fusionResultsPath ?? '', '', 'a bad path is not kept');
-  assert.equal((await admin('POST', '/api/beta/fusion/read', {})).body.fusion.available, true, 'read from the pinned path');
+  assert.equal((await admin('POST', '/api/beta/fusion/read', {})).body.fusion.available, true, 'still read');
   await admin('PUT', '/api/settings', { endpoints: { fusionResultsPath: '' } });
 
   await admin('PUT', '/api/features/fusionResults', { stage: 'final' });

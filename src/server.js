@@ -93,7 +93,8 @@ import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
 import { SUPPORTING_NOTICE, Terms, cleanName } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
-import { PROBE_DEFAULTS, probeFusion, readFusion } from './fusion.js';
+import { PROBE_DEFAULTS, probeFusion } from './fusion.js';
+import { aiFindings, readAiFusion } from './fusion-ai.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
@@ -9633,8 +9634,23 @@ function linkFusion(req, fusion) {
   const { links } = settingsStore.get();
   for (const r of fusion?.results ?? []) {
     if (!r.projectId || r.projectId.startsWith('app:')) continue;
-    r.url = riskUrl({ projectId: r.projectId, id: r.hash || r.resultId, scanner: r.scanner }, req.session.connection, links, r.scanId);
+    r.url = riskUrl({ projectId: r.projectId, id: r.hash || r.resultId, scanner: r.scanner || 'SAST' }, req.session.connection, links, r.scanId);
   }
+  // Each project's own page in Checkmarx One, to go into its detail there.
+  for (const [projectId, p] of Object.entries(fusion?.projects ?? {})) p.url = projectUrl({ projectId }, req.session.connection, links);
+  return fusion;
+}
+
+/**
+ * Fusion (AI-generated SAST results, src/fusion-ai.js) for these projects, from each one's latest completed
+ * scan; kept with the session, with the results as findings the credit, triage and remediation code acts on.
+ */
+async function loadAiFusion(req, names) {
+  const ids = Object.keys(names);
+  const scans = await getLastScans(req.session.client, ids);
+  const fusion = linkFusion(req, await readAiFusion(req.session.client, ids.map((id) => ({ id, name: names[id] })), scans, { trace: fusionTrace(req) }));
+  req.session.lastFusion = fusion;
+  req.session.fusionScan = aiFindings(fusion);
   return fusion;
 }
 
@@ -9722,10 +9738,15 @@ function fusionKeep(req) {
 
 const FUSION_RECENT_MS = 30 * 60 * 1000;
 
+/** The projects whose Fusion results are acted on: those the Fusion page loaded (else the Workbench's fetch). */
+const fusionProjects = (req, projectIds) => (req.session.fusionScan?.projects ?? scanProjects(req, projectIds)).filter((p) => projectIds.includes(p.projectId));
+/** Each project's scan the results come from, for AI Triage and AI Remediation. */
+const fusionInitiators = (req) => ({ ...(req.session.lastScan?.initiators ?? {}), ...(req.session.fusionScan?.initiators ?? {}) });
+
 /** The Fusion page's two lanes: credits needed by severity (1 to triage, 3 to remediate) and what its projects hold. */
 function fusionCredits(req) {
   const { keep, projectIds } = fusionKeep(req);
-  const projects = scanProjects(req, projectIds).filter((p) => projectIds.includes(p.projectId));
+  const projects = fusionProjects(req, projectIds);
   const triage = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
   const remediation = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
   const left = { triage: 0, remediation: 0 };
@@ -9758,8 +9779,8 @@ app.post('/api/beta/fusion/allocate', requireFeature('fusionResults'), requirePe
   const wanted = cleanSeverities(req.body?.severities);
   if (!wanted.length) return res.status(400).json({ error: 'Pick severities to allocate for.' });
   const { keep, projectIds } = fusionKeep(req);
-  const projects = scanProjects(req, projectIds).filter((p) => projectIds.includes(p.projectId));
-  if (!projects.length) return res.status(409).json({ error: 'None of the fetched projects has Fusion results.' });
+  const projects = fusionProjects(req, projectIds);
+  if (!projects.length) return res.status(409).json({ error: 'None of the loaded projects has Fusion results.' });
   const done = await allocateNeeded(req, projects, {
     wanted, extraTriage: 0, extraRemediation: 0, kinds: kindsOf(req.body?.kind), keep, where: 'Labs → Fusion results',
     details: { projectIds: projects.map((p) => p.projectId), kind: req.body?.kind ?? 'both', fusion: true },
@@ -9774,7 +9795,7 @@ app.post('/api/beta/fusion/triage', requireFeature('fusionResults'), requirePerm
   const wanted = cleanSeverities(req.body?.severities);
   if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to triage.' });
   const { keep, projectIds } = fusionKeep(req);
-  const projects = scanProjects(req, projectIds).filter((p) => projectIds.includes(p.projectId));
+  const projects = fusionProjects(req, projectIds);
   const candidate = (p, r) => keep(p.projectId, r) && wanted.includes(r.severity) && (!r.state || r.state === 'TO_VERIFY');
   const lives = await mapWithConcurrency(projects, VERIFY_AT_ONCE, async (p) => ((p.risks ?? []).some((r) => candidate(p, r)) ? projectStates(req.session, p.projectId).catch(() => null) : null));
   const originals = new Map();
@@ -9792,11 +9813,11 @@ app.post('/api/beta/fusion/triage', requireFeature('fusionResults'), requirePerm
   }
   if (!findings.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], credits: fusionCredits(req) });
   const actor = await adminActor(req);
-  const outcome = await adminTriage(req.session, findings, req.session.lastScan.initiators ?? {}, { actor, origin: `Labs → Fusion results: triage ${wanted.map((s) => s.toLowerCase()).join(', ')}` });
+  const outcome = await adminTriage(req.session, findings, fusionInitiators(req), { actor, origin: `Labs → Fusion results: triage ${wanted.map((s) => s.toLowerCase()).join(', ')}` });
   for (const f of outcome.startedFindings) originals.get(f).triageRequestedAt = Date.now();
   for (const p of projects) p.credits = creditView(p);
   const { startedFindings, ...summary } = outcome;
-  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'triage', startedFindings, req.session.lastScan.initiators ?? {}, actor);
+  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'triage', startedFindings, fusionInitiators(req), actor);
   res.json({ ...summary, notified, credits: fusionCredits(req) });
 }));
 
@@ -9805,7 +9826,7 @@ app.post('/api/beta/fusion/remediate', requireFeature('fusionResults'), requireP
   const wanted = cleanSeverities(req.body?.severities);
   if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to remediate.' });
   const { keep, projectIds } = fusionKeep(req);
-  const projects = scanProjects(req, projectIds).filter((p) => projectIds.includes(p.projectId));
+  const projects = fusionProjects(req, projectIds);
   const { allowReremediation = false } = settingsStore.get().aiTriage ?? {};
   const findings = [];
   for (const p of projects) {
@@ -9823,9 +9844,9 @@ app.post('/api/beta/fusion/remediate', requireFeature('fusionResults'), requireP
   const unique = remediationCandidates(findings, wanted);
   if (!unique.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], credits: fusionCredits(req) });
   const actor = await adminActor(req);
-  const { startedFindings, ...summary } = await adminRemediate(req.session, unique, req.session.lastScan.initiators ?? {}, { actor, origin: `Labs → Fusion results: remediate the confirmed ${wanted.map((s) => s.toLowerCase()).join(', ')}` });
+  const { startedFindings, ...summary } = await adminRemediate(req.session, unique, fusionInitiators(req), { actor, origin: `Labs → Fusion results: remediate the confirmed ${wanted.map((s) => s.toLowerCase()).join(', ')}` });
   for (const p of projects) p.credits = creditView(p);
-  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'remediation', startedFindings, req.session.lastScan.initiators ?? {}, actor);
+  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'remediation', startedFindings, fusionInitiators(req), actor);
   res.json({ ...summary, notified, credits: fusionCredits(req) });
 }));
 
@@ -9836,9 +9857,7 @@ app.post(
     // Read again for what the page's line last loaded.
     const scope = req.session.fusionScope;
     if (!scope?.projects) return res.status(400).json({ error: 'Choose applications or projects above, then Load Fusion results.' });
-    const { fusionResultsPath = '', fusionDispatcherPath = '' } = settingsStore.get().endpoints ?? {};
-    const fusion = linkFusion(req, await readFusion(req.session.client, Object.keys(scope.names), { resultsPath: fusionResultsPath, dispatcherPath: fusionDispatcherPath, trace: fusionTrace(req) }));
-    req.session.lastFusion = fusion;
+    const fusion = await loadAiFusion(req, scope.names);
     res.json({ fusion, scope, credits: fusionCredits(req) });
   }),
 );
@@ -9874,9 +9893,8 @@ app.post(
       fetchedAt: new Date().toISOString(),
       own: { applications: wantedApps, projects: wantedProjects },
     };
-    const { fusionResultsPath = '', fusionDispatcherPath = '' } = settingsStore.get().endpoints ?? {};
-    const fusion = linkFusion(req, await readFusion(client, [...ids], { resultsPath: fusionResultsPath, dispatcherPath: fusionDispatcherPath, trace: fusionTrace(req) }));
-    Object.assign(req.session, { fusionScope: scope, lastFusion: fusion });
+    req.session.fusionScope = scope;
+    const fusion = await loadAiFusion(req, scope.names);
     res.json({ fusion, scope, credits: fusionCredits(req) });
   }),
 );

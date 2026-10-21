@@ -3372,3 +3372,7 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .fusion-results-head h3 { margin: 0; }
 .fusion-res-name span, .fusion-res-name a { display: block; }
 .fusion-res-name small { display: block; font-size: 11px; word-break: break-all; }
+.fusion-proj-name { white-space: nowrap; }
+.fusion-proj-name .link { font-weight: 600; text-align: start; }
+.fusion-out { text-decoration: none; margin-inline-start: 4px; }
+.fusion-res-flow span, .fusion-res-flow small { display: block; word-break: break-all; }
