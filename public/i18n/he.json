@@ -3794,6 +3794,7 @@
   "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "בטלו את הסימון כשהלקוח אינו רוכש את Fusion: הוא לא ייכלל אז בקרדיטים, בממצאים הנוספים מ-Fusion ובדוח. ההגדרות שלו נשמרות.",
   "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Fusion אינו נכלל בתחזית זו: הלקוח בחר לוותר עליו, ולכן אף חלק ממנו אינו נספר בקרדיטים, בממצאים או בדוח. ההגדרות שלמטה נשמרות.",
   "Left out": "לא נכלל",
-  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion אינו נכלל בתחזית זו: סמנו את \"הכללת Fusion\" בחלק העליון כדי לספור אותו."
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion אינו נכלל בתחזית זו: סמנו את \"הכללת Fusion\" בחלק העליון כדי לספור אותו.",
+  "CxMissionZero version — update & recovery": "גרסת CxMissionZero — עדכון והתאוששות"
  }
 }

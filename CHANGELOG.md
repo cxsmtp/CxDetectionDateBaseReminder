@@ -84,6 +84,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **HTML only.** The one-file calculator that works from the two exports in any browser, with no Node.js, is the **HTML only** link beside the button.
 - **Leave Fusion out.** **Include Fusion**, under the Fusion figure at the top of the calculator, unticked for a customer not taking Fusion, leaves it out of the credits, the findings it adds, Impact and the report; its settings are kept for later.
 - **Fixed: tabs in the standalone calculator.** Its Fusion, Impact and Projection reports tabs open again (in MZ-01.00.89 they stayed on Triage & remediation).
+- **The version number opens Update & recovery.** A click on `MZ-xx.xx.xx` at the bottom left goes straight to Settings → Update & recovery for those who may update the server, and to About & terms of use for everyone else.
 - **Status.** 3000 people at once on 2 vCPU, seven runs on a busy host: 469 requests a second with none failed in the release's clean run against main's 494, and both sides lost requests in other runs to the same pauses of the whole host, main the most; no finding sent twice ([performance](docs/performance.md)); 746 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan, rescan fe2eb036's open findings as before ([status](docs/status.md)).
 
 ## MZ-01.00.89 — 2026-10-21 07:00 UTC · [#112](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/112)

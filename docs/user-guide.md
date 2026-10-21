@@ -445,7 +445,7 @@ Settings shows one section at a time: pick it from the list on the left (a strip
 
 ### Update & recovery (Admin)
 
-Install a new version, go back to any version, turn on auto-update, restart the server, or download a troubleshooting report, all without signing in to the server. How it works and what it needs: [Updating](updating.md).
+Install a new version, go back to any version, turn on auto-update, restart the server, or download a troubleshooting report, all without signing in to the server. A click on the version number at the bottom left (`MZ-xx.xx.xx`) opens it; for someone who may not update the server, the same click opens About & terms of use. How it works and what it needs: [Updating](updating.md).
 
 - **Software integrity** says whether the code running is exactly what this repository's release workflow built and signed: **Genuine** (with the commit, the workflow run and the Sigstore log entry), **Files changed** (with the files), **Not signed by the release workflow**, **Not confirmed yet** (GitHub not reachable yet) or **Development copy**. It is checked at start, every 6 hours, with **Check now**, and before any update is installed or switched to; only a version whose files match its signed list is installed ([software integrity](integrity.md)).
 

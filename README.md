@@ -119,7 +119,7 @@ Use the same options you started it with. What carries over:
 - **People** stay signed in with the data they fetched.
 - **All data** stays in the volume: credits, the audit log, settings.
 
-The version shows bottom-left as `MZ-xx.xx.xx`. Details and rollback: [Updating](docs/updating.md).
+The version shows bottom-left as `MZ-xx.xx.xx`; a click on it opens Settings → Update & recovery (About & terms of use for those who may not update). Details and rollback: [Updating](docs/updating.md).
 
 **Compose** (from a checkout): `podman compose up -d`. It binds to `127.0.0.1` unless `BIND_ADDRESS=0.0.0.0` is set in `.env`.
 

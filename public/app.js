@@ -649,8 +649,17 @@ document.getElementById('me-advanced')?.addEventListener('change', (event) => {
   toast(event.target.checked ? 'Advanced options shown.' : 'Advanced options hidden: the essentials only.', 'ok', 2500);
 });
 
+/** The version at the bottom left opens Update & recovery for whoever may use it, else About & terms of use. */
+function applyVersionLink() {
+  const link = $('app-version');
+  const update = can('settings.view') && can('system.update');
+  link.href = update ? '#/settings/update' : '#/settings/about';
+  link.title = update ? 'CxMissionZero version — update & recovery' : 'CxMissionZero version — about and terms of use';
+}
+
 function applyPermissions() {
   for (const el of document.querySelectorAll('[data-perm]')) el.classList.toggle('perm-hidden', !canAny(el.dataset.perm));
+  applyVersionLink();
   // Settings: Your profile is everyone's; every other section needs settings.view.
   const settingsToo = can('settings.view');
   for (const el of document.querySelectorAll('#set-nav .set-group:not(.set-you), #set-nav [data-set]:not([data-set="profile"]):not([data-set="appearance"]):not([data-set="mybrand"]), #autosave-note')) el.classList.toggle('no-settings', !settingsToo);

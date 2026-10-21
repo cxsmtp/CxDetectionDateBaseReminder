@@ -4,7 +4,7 @@ New versions are applied **without losing data, sign-ins or work in progress**. 
 
 ## From the app: Settings → Update & recovery (Admins, from MZ-01.00.30)
 
-No server sign-in after deployment: everything an update needs is on this page.
+No server sign-in after deployment: everything an update needs is on this page. A click on the version number at the bottom left of the app opens it (for anyone without the update permission, it opens About & terms of use).
 
 - **Check for updates** lists every published version: version, when it was built, and whether it is installed here or running. Times are exact, to the second with their time zone (in your profile's time zone; UTC when you point at one): when each version was built and installed, when the running version was switched to and by whom, the last check, and every event.
   - The versions come from the registry's tags (ghcr.io), so a newer one is listed even when the image files cannot be downloaded. Build dates and commits come from the image files when they can be read.

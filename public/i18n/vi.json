@@ -3794,6 +3794,7 @@
   "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "Bỏ đánh dấu khi khách hàng không sử dụng Fusion: khi đó Fusion không được tính vào tín dụng, các phát hiện bổ sung của Fusion và báo cáo. Cài đặt của Fusion vẫn được giữ lại.",
   "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Bản dự báo này đã loại trừ Fusion: khách hàng đã chọn không sử dụng, nên không phần nào của Fusion được tính vào tín dụng, phát hiện hay báo cáo. Các cài đặt bên dưới vẫn được giữ lại.",
   "Left out": "Đã loại trừ",
-  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Bản dự báo này đã loại trừ Fusion: hãy đánh dấu “Bao gồm Fusion” ở phía trên để tính Fusion."
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Bản dự báo này đã loại trừ Fusion: hãy đánh dấu “Bao gồm Fusion” ở phía trên để tính Fusion.",
+  "CxMissionZero version — update & recovery": "Phiên bản CxMissionZero — cập nhật và khôi phục"
  }
 }

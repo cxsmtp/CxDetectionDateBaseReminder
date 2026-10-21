@@ -3794,6 +3794,7 @@
   "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "ألغِ التحديد عندما لا يشترك العميل في Fusion: يُستبعد حينها من الأرصدة ومن الاكتشافات الإضافية من Fusion ومن التقرير. وتُحفظ إعداداته.",
   "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Fusion مستبعد من هذا التوقع: اختار العميل عدم الاشتراك فيه، لذا لا يُحتسب أي جزء منه في الأرصدة أو الاكتشافات أو التقرير. وتُحفظ الإعدادات أدناه.",
   "Left out": "مستبعد",
-  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion مستبعد من هذا التوقع: حدّد «تضمين Fusion» في الأعلى لاحتسابه."
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion مستبعد من هذا التوقع: حدّد «تضمين Fusion» في الأعلى لاحتسابه.",
+  "CxMissionZero version — update & recovery": "إصدار CxMissionZero — التحديث والاستعادة"
  }
 }

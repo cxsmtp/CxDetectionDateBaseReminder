@@ -3794,6 +3794,7 @@
   "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "Desmarque esta casilla si el cliente no contrata Fusion: Fusion queda entonces fuera de los créditos, de los hallazgos adicionales de Fusion y del informe. Su configuración se conserva.",
   "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Fusion queda fuera de esta proyección: el cliente optó por no contratarlo, así que no se cuenta nada de Fusion en los créditos, los hallazgos ni el informe. La configuración de abajo se conserva.",
   "Left out": "Excluido",
-  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion queda fuera de esta proyección: marque “Incluir Fusion” en la parte superior para contabilizarlo."
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion queda fuera de esta proyección: marque “Incluir Fusion” en la parte superior para contabilizarlo.",
+  "CxMissionZero version — update & recovery": "Versión de CxMissionZero — actualización y recuperación"
  }
 }

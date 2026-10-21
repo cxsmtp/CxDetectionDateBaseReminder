@@ -1367,7 +1367,7 @@ button.credit-edit .need-tag { flex-basis: 100%; }
 .scope-chip button:hover:not(:disabled) { background: var(--surface-3); color: var(--text); }
 
 /* Version, bottom-left on every screen: bold black on a light chip, legible in both themes. */
-.app-version { position: fixed; inset-inline-start: 12px; bottom: 10px; z-index: 40; padding: 2px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.85); color: #000; font-weight: 600; font-size: 12px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; user-select: all; }
+.app-version { position: fixed; inset-inline-start: 12px; bottom: 10px; z-index: 40; padding: 2px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.85); color: #000; font-weight: 600; font-size: 12px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
 @media (max-width: 760px) {
   .app-version { bottom: calc(72px + env(safe-area-inset-bottom)); }
 }

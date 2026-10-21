@@ -3794,6 +3794,7 @@
   "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "Entfernen Sie das Häkchen, wenn der Kunde Fusion nicht nutzt: Dann wird Fusion weder bei den Credits noch bei den zusätzlichen Funden durch Fusion noch im Bericht berücksichtigt. Die Einstellungen bleiben erhalten.",
   "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Fusion wird in dieser Prognose ausgelassen: Der Kunde hat sich dagegen entschieden, daher fließt nichts davon in die Credits, die Funde oder den Bericht ein. Die Einstellungen unten bleiben erhalten.",
   "Left out": "Ausgelassen",
-  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion wird in dieser Prognose ausgelassen: Setzen Sie oben das Häkchen bei „Fusion einbeziehen“, um Fusion mitzuzählen."
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion wird in dieser Prognose ausgelassen: Setzen Sie oben das Häkchen bei „Fusion einbeziehen“, um Fusion mitzuzählen.",
+  "CxMissionZero version — update & recovery": "CxMissionZero-Version — Update & Wiederherstellung"
  }
 }

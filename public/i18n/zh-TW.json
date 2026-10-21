@@ -3794,6 +3794,7 @@
   "Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept.": "客戶不採用 Fusion 時請取消勾選：Fusion 將不計入點數、Fusion 額外發現的檢測結果及報告。其設定會保留。",
   "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "此預估已排除 Fusion：客戶選擇不採用，因此點數、檢測結果與報告均不計入任何 Fusion 部分。下方設定會保留。",
   "Left out": "已排除",
-  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "此預估已排除 Fusion：請勾選頂端的「納入 Fusion」以將其計入。"
+  "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "此預估已排除 Fusion：請勾選頂端的「納入 Fusion」以將其計入。",
+  "CxMissionZero version — update & recovery": "CxMissionZero 版本 — 更新與復原"
  }
 }
