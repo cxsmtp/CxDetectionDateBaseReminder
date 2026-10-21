@@ -2312,6 +2312,30 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <tbody id="fusion-body"><tr><td colspan="10" class="hint">Load findings on the Workbench: Fusion is read for the projects fetched there.</td></tr></tbody>
                 </table>
               </div>
+              <!-- Every result once, as Fusion Hub lists them: what it is, where, and when it was detected. -->
+              <div class="fusion-results-head">
+                <h3>Every result <em class="ptab-count" id="fusion-res-count"></em></h3>
+                <div class="fusion-tools">
+                  <input type="search" id="fusion-res-q" placeholder="Search risks, ids, projects or applications" aria-label="Search Fusion results" />
+                  <select id="fusion-res-sev" aria-label="Severity">
+                    <option value="">All severities</option>
+                    <option value="CRITICAL">Critical</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                  </select>
+                  <select id="fusion-res-scanner" aria-label="Scanner"><option value="">All scanners</option></select>
+                  <select id="fusion-res-state" aria-label="State"><option value="">All states</option></select>
+                  <button type="button" class="ghost sm" id="fusion-res-csv">Download CSV</button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table fusion-results">
+                  <thead><tr><th>Severity</th><th>Scanner</th><th>Risk name</th><th>Status</th><th>State</th><th>Detected</th><th class="num">Risk score</th><th>Project</th><th>Application</th></tr></thead>
+                  <tbody id="fusion-res-body"><tr><td colspan="9" class="hint">Load Fusion results to list them here.</td></tr></tbody>
+                </table>
+              </div>
+              <p class="table-more" id="fusion-res-more" hidden><button type="button" class="ghost sm" id="fusion-res-more-btn"></button></p>
               <details class="fusion-apps">
                 <summary>Applications <em class="ptab-count" id="fusion-app-count"></em></summary>
                 <div class="table-wrap">

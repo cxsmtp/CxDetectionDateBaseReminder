@@ -305,7 +305,7 @@ http.createServer((req, res) => {
           if (i % 3 === 2) continue;
           for (let j = 0; j < (i % 5) + 1; j++) {
             const sc = SCORE[(i + j) % 5];
-            all.push({ id: `p${i}-r${j}`, name: 'Improper Neutralization of Special Elements used in a Command', hash: `h${i}${j}`, type: j % 2 ? 'sca' : 'code', risk: { score: sc, severity: sc >= 9 ? 'critical' : sc >= 7 ? 'high' : sc >= 4 ? 'medium' : 'low' }, createdAt: '2026-10-20T14:14:47Z', projects: [{ id: `p${i}`, name: `Project ${i}` }] });
+            all.push({ id: `p${i}-r${j}`, name: ['Improper Neutralization of Special Elements used in a Command', 'CVE-2026-112366', 'Docker Socket Mounted In Container'][j % 3], hash: `h${i}${j}`, type: ['code', 'sca', 'kics'][j % 3], status: j % 2 ? 'RECURRENT' : 'NEW', state: 'TO_VERIFY', risk: { score: sc, severity: sc >= 9 ? 'critical' : sc >= 7 ? 'high' : sc >= 4 ? 'medium' : 'low' }, createdAt: `2026-10-${String(10 + ((i + j) % 15)).padStart(2, '0')}T14:14:47Z`, ...(j === 2 ? {} : { projects: [{ id: `p${i}`, name: `Project ${i}` }] }) });
           }
         }
         const offset = Number(u.searchParams.get('offset') || 0), limit = Number(u.searchParams.get('limit') || 100);

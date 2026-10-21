@@ -5,7 +5,7 @@ import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engin
 import { LANGUAGES, availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
 import { helpMode, setHelpMode, startHelpTips } from './help-tips.js';
 import { sortAndFilter, startTableTools, tableFiltered } from './table-tools.js';
-import { fusionRows, fusionTiles, fusionTotalOf } from './fusion-view.js';
+import { fusionResultRows, fusionRows, fusionTiles, fusionTotalOf } from './fusion-view.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -8653,12 +8653,14 @@ function renderFusion() {
   $('fusion-read').disabled = !scope?.projects;
   if (!data) {
     tiles.innerHTML = '';
+    renderFusionResults();
     $('fusion-body').innerHTML = `<tr><td colspan="10" class="hint">${escapeHtml('Choose applications or projects above (or none, for every project), then Load Fusion results.')}</td></tr>`;
     $('fusion-apps').innerHTML = '';
     $('fusion-app-count').textContent = '';
     return;
   }
   renderFusionLanes();
+  renderFusionResults();
   $('fusion-app-names').innerHTML = (data.applications ?? []).map((a) => `<option value="${escapeHtml(a.name)}"></option>`).join('');
   const t = fusionTiles(data, scope, credits);
   const tile = (value, label, detail) => `<div><span class="value">${escapeHtml(value)}</span><span class="label">${escapeHtml(label)}</span><span class="detail">${escapeHtml(detail)}</span></div>`;
@@ -8683,6 +8685,58 @@ function renderFusion() {
 }
 
 for (const id of ['fusion-q', 'fusion-sev', 'fusion-raised']) $(id)?.addEventListener('input', renderFusion);
+
+// ---- Every Fusion result, one by one (as Fusion Hub lists them), 100 at a time; the filters keep their choice.
+const FUSION_RES_PAGE = 100;
+let fusionResShown = FUSION_RES_PAGE;
+function fusionResultsFiltered() {
+  const all = fusionResultRows(fusion.data, fusion.scope);
+  const q = $('fusion-res-q').value.trim().toLowerCase();
+  const sev = $('fusion-res-sev').value;
+  const scanner = $('fusion-res-scanner').value;
+  const st = $('fusion-res-state').value;
+  return { all, rows: all.filter((r) => (!sev || r.severity === sev) && (!scanner || r.scanner === scanner) && (!st || r.state === st) && (!q || `${r.name} ${r.id} ${r.hash} ${r.projects.join(' ')} ${r.application}`.toLowerCase().includes(q))) };
+}
+function renderFusionResults() {
+  const body = $('fusion-res-body');
+  if (!body) return;
+  const { all, rows } = fusionResultsFiltered();
+  // The scanner and state choices are the ones present, so a filter never shows nothing by itself.
+  for (const [id, key, label] of [['fusion-res-scanner', 'scanner', 'All scanners'], ['fusion-res-state', 'state', 'All states']]) {
+    const select = $(id);
+    const was = select.value;
+    const values = [...new Set(all.map((r) => r[key]).filter(Boolean))].sort();
+    select.innerHTML = `<option value="">${escapeHtml(label)}</option>${values.map((v) => `<option${v === was ? ' selected' : ''}>${escapeHtml(v)}</option>`).join('')}`;
+  }
+  $('fusion-res-count').textContent = all.length ? (rows.length === all.length ? fmt(all.length) : `${fmt(rows.length)} / ${fmt(all.length)}`) : '';
+  const date = (iso) => (iso ? fmtDateTime(iso) : '—');
+  body.innerHTML = rows.length
+    ? rows.slice(0, fusionResShown).map((r) => `<tr>
+        <td class="nowrap">${r.severity in SEVERITY_LABEL ? `<span class="sev-dot sev-${r.severity.toLowerCase()}" aria-hidden="true"></span> ${escapeHtml(SEVERITY_LABEL[r.severity])}` : '—'}</td>
+        <td>${escapeHtml(r.scanner)}</td>
+        <td class="fusion-res-name"><span>${escapeHtml(r.name)}</span><small class="hint" title="Its id in Checkmarx One, to find it again">${escapeHtml(r.id || r.hash || '')}</small></td>
+        <td>${escapeHtml(r.status || '—')}</td>
+        <td>${escapeHtml(r.state || '—')}</td>
+        <td class="nowrap">${escapeHtml(date(r.detectedAt))}</td>
+        <td class="num">${r.score === null || r.score === undefined ? '—' : escapeHtml(String(r.score))}</td>
+        <td>${escapeHtml(r.projects.join(', '))}</td>
+        <td>${escapeHtml(r.application || '—')}</td></tr>`).join('')
+    : `<tr><td colspan="9" class="hint">${escapeHtml(fusion.data ? (all.length ? 'No result matches.' : 'Fusion has no results for these projects.') : 'Load Fusion results to list them here.')}</td></tr>`;
+  $('fusion-res-more').hidden = rows.length <= fusionResShown;
+  $('fusion-res-more-btn').textContent = `Show ${fmt(Math.min(FUSION_RES_PAGE, rows.length - fusionResShown))} more of ${fmt(rows.length - fusionResShown)}`;
+}
+for (const id of ['fusion-res-q', 'fusion-res-sev', 'fusion-res-scanner', 'fusion-res-state']) $(id)?.addEventListener('input', () => { fusionResShown = FUSION_RES_PAGE; renderFusionResults(); });
+$('fusion-res-more-btn')?.addEventListener('click', () => { fusionResShown += FUSION_RES_PAGE; renderFusionResults(); });
+$('fusion-res-csv')?.addEventListener('click', () => {
+  const { rows } = fusionResultsFiltered();
+  const cell = (v) => { const t = String(v ?? ''); return /[",\n\r]/.test(t) || /^[=+\-@]/.test(t) ? `"${(/^[=+\-@]/.test(t) ? `'${t}` : t).replace(/"/g, '""')}"` : t; };
+  const lines = [['Severity', 'Scanner', 'Risk name', 'Status', 'State', 'Detected', 'Risk score', 'Projects', 'Application', 'Id', 'Hash'], ...rows.map((r) => [SEVERITY_LABEL[r.severity] ?? '', r.scanner, r.name, r.status, r.state, r.detectedAt ?? '', r.score ?? '', r.projects.join('; '), r.application, r.id, r.hash])];
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([lines.map((l) => l.map(cell).join(',')).join('\n')], { type: 'text/csv' }));
+  link.download = `fusion-results-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+});
 
 /** The page's own fetch: Fusion's results only, for the applications and projects on its line. */
 function fusionStatus(data) {

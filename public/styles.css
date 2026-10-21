@@ -3365,3 +3365,10 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .fusion-scope .scope-field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; min-width: 0; }
 .fusion-scope .scope-field input { width: 100%; }
 .fusion-scope .fetch-box { flex: 0 0 auto; padding: 0; border: 0; background: none; }
+/* Labs → Fusion results: every result, one by one. */
+.fusion-results-head { display: grid; gap: 8px; margin: 18px 0 8px; }
+.fusion-results-head .fusion-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fusion-results-head .fusion-tools input[type=search] { flex: 1 1 260px; }
+.fusion-results-head h3 { margin: 0; }
+.fusion-res-name span { display: block; }
+.fusion-res-name small { display: block; font-size: 11px; word-break: break-all; }

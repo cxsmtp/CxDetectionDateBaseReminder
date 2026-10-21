@@ -52,3 +52,46 @@ export function fusionRows(fusion, scope) {
 
 /** A project's Fusion results for the Workbench's Fusion column: null until Fusion has been read. */
 export const fusionTotalOf = (fusion, projectId) => (fusion ? (fusion.projects?.[projectId]?.total ?? 0) : null);
+
+const SCANNERS = { code: 'SAST', sast: 'SAST', sca: 'SCA', kics: 'IaC', iac: 'IaC', 'iac-security': 'IaC', secrets: 'Secrets', 'secret-detection': 'Secrets', sscs: 'Secrets', containers: 'Containers', container: 'Containers', apisec: 'API Security', 'api-security': 'API Security' };
+/** A scanner as Checkmarx One names it: SAST, SCA, IaC… */
+export const scannerLabel = (v) => (v ? SCANNERS[String(v).toLowerCase()] ?? String(v).toUpperCase() : '—');
+/** NEW → New, TO_VERIFY → To verify, as the platform writes them. */
+export const wordsLabel = (v) => {
+  const t = String(v ?? '').trim().replace(/[_-]+/g, ' ').toLowerCase();
+  return t ? t[0].toUpperCase() + t.slice(1) : '—';
+};
+const RANK = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1, NONE: 0 };
+
+/**
+ * Every Fusion result once, as Fusion Hub lists them: severity, scanner, risk name, status, state, when it
+ * was detected, its risk score, its projects and application, and its id to find it again; most severe
+ * first, then the most recently detected.
+ */
+export function fusionResultRows(fusion, scope) {
+  const appName = new Map((fusion?.applications ?? []).map((a) => [a.id, a.name]));
+  const byKey = new Map();
+  for (const r of fusion?.results ?? []) {
+    const key = `${r.applicationId}\u0000${r.resultId || `${r.projectId}:${byKey.size}`}`;
+    const name = scope?.names?.[r.projectId] ?? fusion?.names?.[r.projectId] ?? r.projectId;
+    const row = byKey.get(key);
+    if (row) {
+      if (!row.projects.includes(name)) row.projects.push(name);
+      continue;
+    }
+    byKey.set(key, {
+      id: r.resultId,
+      hash: r.hash ?? '',
+      severity: r.newSeverity ?? 'NONE',
+      score: r.newRisk,
+      scanner: scannerLabel(r.scanner ?? r.vulnerabilityEngine),
+      name: r.info || r.resultId,
+      status: r.status ? wordsLabel(r.status) : '',
+      state: r.state ? wordsLabel(r.state) : '',
+      detectedAt: r.detectedAt ?? null,
+      projects: [name],
+      application: appName.get(r.applicationId) ?? r.applicationId,
+    });
+  }
+  return [...byKey.values()].sort((a, b) => (RANK[b.severity] ?? 0) - (RANK[a.severity] ?? 0) || String(b.detectedAt ?? '').localeCompare(String(a.detectedAt ?? '')) || String(a.name).localeCompare(String(b.name)));
+}

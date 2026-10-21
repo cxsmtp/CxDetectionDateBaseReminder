@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 
 import { CxApiError } from '../src/cxone/client.js';
 import { readFusion, severityOfScore, summarize, cleanResult } from '../src/fusion.js';
-import { fusionRows, fusionTiles, fusionTotalOf } from '../public/fusion-view.js';
+import { fusionResultRows, fusionRows, fusionTiles, fusionTotalOf } from '../public/fusion-view.js';
 
 /** A Checkmarx One that answers `routes` (path → body or function of query) and 404 elsewhere. */
 function fakeClient(routes) {
@@ -170,4 +170,24 @@ test('a Fusion result naming its project another way, or none at all, is counted
   assert.equal(f.totals.HIGH, 4, 'every one of the four');
   assert.deepEqual([f.projects.p1.total, f.projects.p2.total, f.projects['app:a1'].total], [1, 2, 1]);
   assert.equal(fusionRows(f, { names: { p1: 'one', p2: 'two' } }).find((r) => r.projectId === 'app:a1').name, 'Fusion Hub (no project given)');
+});
+
+test('every Fusion result once, as Fusion Hub lists it: severity, scanner, name, status, state, when it was detected, and its id', async () => {
+  const client = fakeClient({
+    '/api/applications': { applications: [{ id: 'a1', name: 'Fusion Hub', projectIds: ['p1', 'p2'] }] },
+    '/api/risk-management/summary': { summary: [{ id: 'a1' }] },
+    '/api/risk-management/a1/results': (q) => ({ results: Number(q.offset) ? [] : [
+      { id: 'r1', name: 'CVE-2026-93687', type: 'sca', status: 'RECURRENT', state: 'TO_VERIFY', risk: { score: 7.4, severity: 'high' }, createdAt: '2026-10-19T08:00:00Z', projects: [{ id: 'p1' }, { id: 'p2' }] },
+      { id: 'r2', name: 'Improper Neutralization of Input', type: 'code', status: 'NEW', state: 'TO_VERIFY', risk: { score: 9.2, severity: 'critical' }, firstFoundAt: '2026-10-20T14:14:47Z' },
+    ] }),
+  });
+  const f = await readFusion(client, ['p1', 'p2']);
+  const rows = fusionResultRows(f, { names: { p1: 'One', p2: 'Two' } });
+  assert.equal(rows.length, 2, 'r1 belongs to two projects: one row');
+  assert.deepEqual(rows.map((r) => [r.severity, r.scanner, r.name, r.status, r.state, r.detectedAt, r.id]), [
+    ['CRITICAL', 'SAST', 'Improper Neutralization of Input', 'New', 'To verify', '2026-10-20T14:14:47.000Z', 'r2'],
+    ['HIGH', 'SCA', 'CVE-2026-93687', 'Recurrent', 'To verify', '2026-10-19T08:00:00.000Z', 'r1'],
+  ]);
+  assert.deepEqual(rows[1].projects, ['One', 'Two']);
+  assert.equal(rows[0].projects[0], 'Fusion Hub (no project given)');
 });

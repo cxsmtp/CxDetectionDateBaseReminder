@@ -128,6 +128,11 @@ export function cleanResult(r, appId) {
   const oldRisk = score(r?.oldRiskValue);
   const newRisk = score(r?.newRiskValue);
   return {
+    scanner: text(r?.vulnerabilityEngine, 40),
+    status: '',
+    state: '',
+    detectedAt: null,
+    hash: '',
     projectId: text(r?.projectId, 80),
     resultId: text(r?.resultId, 200),
     applicationId: text(appId, 80),
@@ -199,7 +204,17 @@ export function cleanRiskResult(r, appId, inScope) {
   const named = projectIdsOf(r);
   // Naming projects, only those in scope; naming none (as some of Fusion's own results do), its application.
   const rows = named.length ? named.filter((id) => !inScope || inScope.has(id)) : [applicationRow(appId)];
+  // What Fusion Hub shows of it: the scanner, its status (New, Recurrent…), its state (To verify…), when it was found.
+  const when = [r?.firstFoundAt, r?.detectionDate, r?.foundAt, r?.firstSeen, r?.createdAt].map((v) => (v ? Date.parse(v) : NaN)).find(Number.isFinite);
+  const detail = {
+    scanner: text(r?.scanner ?? r?.engine ?? r?.type, 40),
+    status: text(r?.status?.name ?? r?.status ?? r?.riskStatus ?? r?.resultStatus, 40),
+    state: text(r?.state?.name ?? r?.state ?? r?.triageState, 60),
+    detectedAt: Number.isFinite(when) ? new Date(when).toISOString() : null,
+    hash: text(r?.hash, 120),
+  };
   return rows.map((projectId) => ({
+    ...detail,
     projectId,
     resultId: text(r?.id ?? r?.hash, 200),
     applicationId: text(appId, 80),
