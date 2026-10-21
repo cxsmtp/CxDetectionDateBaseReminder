@@ -258,6 +258,17 @@ Fusion has frontier AI models read every line of each project on every Fusion sc
 
 Up to 500 reports are kept per tenant (the oldest go first), each up to 4 MB, in the `projection-reports/` folder of the data folder, and in every backup.
 
+## On its own: the standalone calculator
+
+**Download standalone calculator**, at the top right of the calculator, downloads `cx-credits-calculator.html` (`GET /api/projections/standalone`, for those with the Cx Credits Calculator permission). It is the calculator on its own, blank: nothing of this server's customers, reports or people is in it.
+
+- **One file, no server.** It opens in any browser, from a disk, an email or a share, with no install and no sign-in. Its content security policy allows it no network calls at all: nothing it holds leaves the browser.
+- **The same calculator.** It is built, when downloaded, from the files this page runs on: the page itself, its modules (`public/calculator/*.js`), the .xlsx reader, the sample exports and the app's styles (`src/standalone-calculator.js`). So the projection, the Impact, the Fusion estimate, the projection report and its PDF summary are this page's, figure for figure. Customers and reports are checked by the same rules as on the server (`public/calculator/profiles.js`, used by both).
+- **From the two exports.** Checkmarx One's API refuses calls from a page outside its own website (its gateway answers the browser's preflight with 401 and no CORS headers), so a file cannot read a tenant with an API key. The two exports stand in, as for a prospect here; Fusion's projects and models are added by hand. The read from Checkmarx One, **Every branch** and **Email the report** are not in it.
+- **Names on the reports.** **Your organisation** and **Prepared by**, at its top, are remembered in that browser.
+- **Kept in the browser.** Customers and reports are kept in the browser's own database (IndexedDB) for that file, at most 200 customers and 500 reports, as here. **Back up** downloads them all as one JSON file; **Restore** adds a backup back (same ids replaced, others kept), in that browser or another. A browser that keeps nothing for files opened from disk (some private windows) says so, and keeps them until the page is closed.
+- **Its look.** English, the Command center look in light or dark (the button at its top right, else as the computer is set), with the open-licence fonts Fraunces and IBM Plex inside and their licence (SIL OFL) at the end of the file. About 1.3 MB.
+
 ## How each number is calculated
 
 Every figure says how it was reached, with the customer's own numbers in, in three places that share one source (`public/calculator/explain.js`), so they never disagree:
