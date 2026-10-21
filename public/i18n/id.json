@@ -3796,6 +3796,21 @@
   "Left out": "Dikecualikan",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion dikecualikan dari proyeksi ini: centang “Sertakan Fusion” di bagian atas untuk menghitungnya.",
   "CxMissionZero version — update & recovery": "Versi CxMissionZero — pembaruan & pemulihan",
-  "Cx Credits Calculator: Impact": "Kalkulator kredit Cx: Dampak"
+  "Cx Credits Calculator: Impact": "Kalkulator kredit Cx: Dampak",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "Dibaca melalui Application Risk Management: tenant ini menyajikan hasil Fusion yang telah diberi skor di sana.",
+  "Not known: this tenant gives no earlier score": "Tidak diketahui: tenant ini tidak memberikan skor sebelumnya",
+  "Fusion's results only: choose applications or projects on the line below and load them, apart from the Workbench. Each result counts under its risk score: 9 or more critical, 7 high, 4 medium, below that low.": "Hanya hasil Fusion: pilih aplikasi atau proyek pada baris di bawah lalu muat, terpisah dari Meja kerja. Setiap hasil dihitung menurut skor risikonya: 9 atau lebih kritis, 7 tinggi, 4 sedang, di bawahnya rendah.",
+  "Every application": "Semua aplikasi",
+  "Application names, separated by commas; * and ? as wildcards": "Nama aplikasi, dipisahkan dengan koma; * dan ? sebagai wildcard",
+  "Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these": "Nama proyek, dipisahkan dengan koma; * dan ? sebagai wildcard. Jika aplikasi juga diisi: proyeknya, ditambah proyek ini",
+  "Load Fusion results": "Muat hasil Fusion",
+  "Loading Fusion results…": "Memuat hasil Fusion…",
+  "Choose applications or projects above (or none, for every project), then Load Fusion results.": "Pilih aplikasi atau proyek di atas (atau kosongkan untuk semua proyek), lalu klik Muat hasil Fusion.",
+  "Fusion has no results for these projects.": "Fusion tidak memiliki hasil untuk proyek ini.",
+  "No application holds these projects.": "Tidak ada aplikasi yang memuat proyek ini.",
+  "in {0} of {1} projects": "di {0} dari {1} proyek",
+  "To allocate credits, triage or remediate with AI on these results, load their projects’ findings on the Workbench: only the findings Fusion lists are acted on.": "Untuk mengalokasikan kredit, melakukan triase, atau memperbaiki hasil ini dengan AI, muat temuan proyeknya di Meja kerja: hanya temuan yang dicantumkan Fusion yang ditindaklanjuti.",
+  "Choose applications or projects above, then Load Fusion results.": "Pilih aplikasi atau proyek di atas, lalu klik Muat hasil Fusion.",
+  "No application or project has those names.": "Tidak ada aplikasi atau proyek dengan nama tersebut."
  }
 }

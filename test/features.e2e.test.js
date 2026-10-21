@@ -200,10 +200,10 @@ test('full image update (Beta): the server says it started, and asks the compani
   fs.rmSync(path.join(dir, 'companion.json'));
 });
 
-test('Fusion results (Beta): read for the projects fetched, by new severity; once final, for whoever loads findings', async () => {
-  assert.equal((await user('POST', '/api/beta/fusion/read', {})).status, 403, 'Beta: not for a role without Beta access');
-  await admin('GET', '/api/scan');
-  const read = await admin('POST', '/api/beta/fusion/read', {});
+test('Fusion results (Beta): its own fetch, Fusion results only, by new severity; once final, for whoever loads findings', async () => {
+  assert.equal((await user('POST', '/api/beta/fusion/fetch', {})).status, 403, 'Beta: not for a role without Beta access');
+  // Nothing loaded from the Workbench: the page's own line, nothing named, is every project.
+  const read = await admin('POST', '/api/beta/fusion/fetch', {});
   assert.equal(read.status, 200, JSON.stringify(read.body).slice(0, 300));
   const { fusion, scope } = read.body;
   assert.equal(fusion.available, true);
@@ -216,18 +216,26 @@ test('Fusion results (Beta): read for the projects fetched, by new severity; onc
   assert.equal(fusion.projects.p1.total, 2);
   assert.equal(fusion.applications.find((a) => a.id === 'app-0').scan.status, 'Completed');
   assert.equal((await admin('GET', '/api/beta/fusion')).body.fusion.totals.total, 3, 'kept with the session');
+  // Narrowed on its line: by a project's name (wildcards), and nothing that matches is said.
+  const one = await admin('POST', '/api/beta/fusion/fetch', { projects: 'Project 1*' });
+  assert.equal(one.status, 200, JSON.stringify(one.body).slice(0, 300));
+  assert.deepEqual([one.body.scope.projects, one.body.fusion.totals.total], [1, 2]);
+  assert.deepEqual(one.body.scope.own, { applications: [], projects: ['Project 1*'] });
+  assert.equal((await admin('POST', '/api/beta/fusion/read', {})).body.scope.projects, 1, 'read again: what the line loaded');
+  assert.equal((await admin('POST', '/api/beta/fusion/fetch', { applications: 'No such app' })).status, 400);
+  await admin('POST', '/api/beta/fusion/fetch', {});
 
   assert.equal((await admin('PUT', '/api/features/fusionResults', { stage: 'final' })).status, 200);
   assert.ok((await user('GET', '/api/me')).body.permissions.includes('feature.fusionResults'), 'whoever loads findings');
-  await user('GET', '/api/scan');
-  assert.equal((await user('POST', '/api/beta/fusion/read', {})).body.fusion.totals.total, 3);
+  assert.equal((await user('POST', '/api/beta/fusion/fetch', {})).body.fusion.totals.total, 3);
   assert.equal((await admin('PUT', '/api/features/fusionResults', { stage: 'beta' })).status, 200);
   assert.equal((await user('GET', '/api/beta/fusion')).status, 403);
 });
 
 test('Fusion results: an Admin allocates for and triages only the findings Fusion re-scored; nobody else may', async () => {
+  // Acting needs the findings themselves, which the Workbench loads; only those Fusion lists are acted on.
   await admin('GET', '/api/scan');
-  const read = await admin('POST', '/api/beta/fusion/read', {});
+  const read = await admin('POST', '/api/beta/fusion/fetch', {});
   const { credits } = read.body;
   // The mock's Fusion results are p0-r0 (critical), p1-r0 (critical) and p1-r1 (high), all awaiting triage.
   assert.equal(credits.matched, 3, JSON.stringify(credits));
@@ -244,14 +252,13 @@ test('Fusion results: an Admin allocates for and triages only the findings Fusio
 
   await admin('PUT', '/api/features/fusionResults', { stage: 'final' });
   await user('GET', '/api/scan');
-  await user('POST', '/api/beta/fusion/read', {});
+  await user('POST', '/api/beta/fusion/fetch', {});
   assert.equal((await user('POST', '/api/beta/fusion/triage', { severities: ['CRITICAL'] })).status, 403, 'Admins only');
   await admin('PUT', '/api/features/fusionResults', { stage: 'beta' });
 });
 
 test('Fusion troubleshooting: test paths (only under /api, read-only), debug log with the token hidden, pin the one that answers', async () => {
-  await admin('GET', '/api/scan');
-  await admin('POST', '/api/beta/fusion/read', {});
+  await admin('POST', '/api/beta/fusion/fetch', {});
   assert.equal((await admin('POST', '/api/beta/fusion/probe', { paths: ['http://169.254.169.254/latest'] })).status, 400, 'never another host');
   assert.equal((await admin('POST', '/api/beta/fusion/probe', { paths: ['/api/a/../../etc'] })).status, 400);
   const probe = await admin('POST', '/api/beta/fusion/probe', { paths: ['/api/correlation/results/applications', '/api/fusion-results/applications', '/api/correlation/dispatcher/{appId}/scan-status'] });

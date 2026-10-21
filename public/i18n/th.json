@@ -3796,6 +3796,21 @@
   "Left out": "ไม่นับรวม",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "การประมาณการนี้ไม่นับรวม Fusion: ทำเครื่องหมาย “นับรวม Fusion” ที่ด้านบนเพื่อนำ Fusion มานับรวม",
   "CxMissionZero version — update & recovery": "เวอร์ชันของ CxMissionZero — การอัปเดตและการกู้คืน",
-  "Cx Credits Calculator: Impact": "เครื่องมือคำนวณเครดิต Cx: ผลกระทบ"
+  "Cx Credits Calculator: Impact": "เครื่องมือคำนวณเครดิต Cx: ผลกระทบ",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "อ่านผ่าน Application Risk Management: เทนแนนต์นี้ให้บริการผลลัพธ์ที่ Fusion ให้คะแนนแล้วในส่วนนั้น",
+  "Not known: this tenant gives no earlier score": "ไม่ทราบ: เทนแนนต์นี้ไม่ได้ระบุคะแนนก่อนหน้า",
+  "Fusion's results only: choose applications or projects on the line below and load them, apart from the Workbench. Each result counts under its risk score: 9 or more critical, 7 high, 4 medium, below that low.": "เฉพาะผลลัพธ์ Fusion: เลือกแอปพลิเคชันหรือโปรเจกต์ในแถวด้านล่างแล้วโหลด แยกจากโต๊ะทำงาน แต่ละผลลัพธ์จะนับตามคะแนนความเสี่ยง: ตั้งแต่ 9 ขึ้นไปเป็นวิกฤต ตั้งแต่ 7 เป็นสูง ตั้งแต่ 4 เป็นปานกลาง และต่ำกว่านั้นเป็นต่ำ",
+  "Every application": "ทุกแอปพลิเคชัน",
+  "Application names, separated by commas; * and ? as wildcards": "ชื่อแอปพลิเคชัน คั่นด้วยเครื่องหมายจุลภาค; ใช้ * และ ? เป็นอักขระตัวแทน",
+  "Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these": "ชื่อโปรเจกต์ คั่นด้วยเครื่องหมายจุลภาค; ใช้ * และ ? เป็นอักขระตัวแทน หากระบุแอปพลิเคชันด้วย: จะรวมโปรเจกต์ของแอปพลิเคชันเหล่านั้นและโปรเจกต์เหล่านี้",
+  "Load Fusion results": "โหลดผลลัพธ์ Fusion",
+  "Loading Fusion results…": "กำลังโหลดผลลัพธ์ Fusion…",
+  "Choose applications or projects above (or none, for every project), then Load Fusion results.": "เลือกแอปพลิเคชันหรือโปรเจกต์ด้านบน (หรือไม่เลือกเลย สำหรับทุกโปรเจกต์) แล้วคลิก โหลดผลลัพธ์ Fusion",
+  "Fusion has no results for these projects.": "Fusion ไม่มีผลลัพธ์สำหรับโปรเจกต์เหล่านี้",
+  "No application holds these projects.": "ไม่มีแอปพลิเคชันใดที่มีโปรเจกต์เหล่านี้",
+  "in {0} of {1} projects": "ใน {0} จาก {1} โปรเจกต์",
+  "To allocate credits, triage or remediate with AI on these results, load their projects’ findings on the Workbench: only the findings Fusion lists are acted on.": "หากต้องการจัดสรรเครดิต คัดกรอง หรือแก้ไขผลลัพธ์เหล่านี้ด้วย AI ให้โหลดผลการตรวจพบของโปรเจกต์เหล่านั้นบนโต๊ะทำงาน ระบบจะดำเนินการเฉพาะกับผลการตรวจพบที่ Fusion ระบุไว้เท่านั้น",
+  "Choose applications or projects above, then Load Fusion results.": "เลือกแอปพลิเคชันหรือโปรเจกต์ด้านบน แล้วคลิก โหลดผลลัพธ์ Fusion",
+  "No application or project has those names.": "ไม่มีแอปพลิเคชันหรือโปรเจกต์ใดที่มีชื่อเหล่านั้น"
  }
 }

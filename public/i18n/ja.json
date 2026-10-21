@@ -3796,6 +3796,21 @@
   "Left out": "除外",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusionはこの試算から除外されています。含めるには、上部の「Fusionを含める」にチェックを入れてください。",
   "CxMissionZero version — update & recovery": "CxMissionZeroのバージョン — 更新と復旧",
-  "Cx Credits Calculator: Impact": "Cx クレジット計算ツール：効果"
+  "Cx Credits Calculator: Impact": "Cx クレジット計算ツール：効果",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "このテナントはFusionがスコアを付けた結果をApplication Risk Managementで提供しているため、そこから読み込みました。",
+  "Not known: this tenant gives no earlier score": "不明：このテナントは以前のスコアを提供していません",
+  "Fusion's results only: choose applications or projects on the line below and load them, apart from the Workbench. Each result counts under its risk score: 9 or more critical, 7 high, 4 medium, below that low.": "Fusion結果のみを表示します。下の行でアプリケーションまたはプロジェクトを選択して読み込みます（ワークベンチとは別です）。各結果はリスクスコアで集計されます：9以上は緊急、7以上は高、4以上は中、それ未満は低です。",
+  "Every application": "すべてのアプリケーション",
+  "Application names, separated by commas; * and ? as wildcards": "アプリケーション名（カンマ区切り、* と ? をワイルドカードとして使用可）",
+  "Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these": "プロジェクト名（カンマ区切り、* と ? をワイルドカードとして使用可）。アプリケーションも指定した場合は、そのプロジェクトとここで指定したプロジェクトが対象です",
+  "Load Fusion results": "Fusion結果を読み込み",
+  "Loading Fusion results…": "Fusion結果を読み込んでいます…",
+  "Choose applications or projects above (or none, for every project), then Load Fusion results.": "上でアプリケーションまたはプロジェクトを選択し（選択しない場合はすべてのプロジェクト）、「Fusion結果を読み込み」をクリックしてください。",
+  "Fusion has no results for these projects.": "これらのプロジェクトにはFusion結果がありません。",
+  "No application holds these projects.": "これらのプロジェクトを含むアプリケーションはありません。",
+  "in {0} of {1} projects": "{1}プロジェクト中{0}プロジェクト",
+  "To allocate credits, triage or remediate with AI on these results, load their projects’ findings on the Workbench: only the findings Fusion lists are acted on.": "これらの結果に対してクレジットの割り当て、AIによるトリアージや修正を行うには、ワークベンチでそのプロジェクトの検出結果を読み込んでください。処理の対象は、Fusionが一覧に示した検出結果のみです。",
+  "Choose applications or projects above, then Load Fusion results.": "上でアプリケーションまたはプロジェクトを選択し、「Fusion結果を読み込み」をクリックしてください。",
+  "No application or project has those names.": "これらの名前のアプリケーションまたはプロジェクトはありません。"
  }
 }

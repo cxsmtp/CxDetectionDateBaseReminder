@@ -6696,8 +6696,8 @@ async function fetchProjects() {
     collectInitiators();
     renderInitiatorList();
     renderProjects();
-    // Labs → Fusion follows the Workbench: read again for the projects just fetched.
-    readFusion({ quiet: true });
+    // Labs → Fusion results has its own line and fetch: only the Fusion column here, and what Fusion can act on, change.
+    if (fusion.data) renderFusion();
 
     for (const note of result.initiatorNotes ?? []) console.warn(note);
 
@@ -8610,8 +8610,12 @@ async function loadFusion() {
     fusion.data = data;
     fusion.scope = scope;
     fusion.credits = credits;
+    // The line shows what it last loaded.
+    if (scope?.own && !$('fusion-apps-in').value && !$('fusion-projects-in').value) {
+      $('fusion-apps-in').value = scope.own.applications.join(', ');
+      $('fusion-projects-in').value = scope.own.projects.join(', ');
+    }
     renderFusion();
-    if (!data && scope?.projects) await readFusion({ quiet: true });
   } catch (error) {
     if (!handleAuthLoss(error)) showError('fusion-status', error);
   }
@@ -8627,11 +8631,7 @@ async function readFusion({ quiet = false } = {}) {
       fusion.data = data;
       fusion.scope = scope;
       fusion.credits = credits;
-      const refused = (data.tried ?? []).some((t) => t.status === 401 || t.status === 403);
-      const notRunning = (data.tried ?? []).some((t) => t.status >= 502 && t.status <= 504);
-      setStatus('fusion-status', data.available ? '' : refused ? 'Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.' : notRunning ? 'The Fusion service is not running on this tenant: Checkmarx One has the address, but no server behind it.' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? '' : 'warn');
-      // What was asked, and what came back: the path and its answer, as Checkmarx One gave them.
-      $('fusion-tried').innerHTML = data.available ? '' : (data.tried ?? []).map((t) => `<code>${escapeHtml(t.path)} → ${escapeHtml(String(t.status || '?'))}</code>`).join(' ');
+      fusionStatus(data);
     } catch (error) {
       if (!handleAuthLoss(error)) showError('fusion-status', error);
     } finally {
@@ -8653,17 +8653,18 @@ function renderFusion() {
   $('fusion-read').disabled = !scope?.projects;
   if (!data) {
     tiles.innerHTML = '';
-    $('fusion-body').innerHTML = `<tr><td colspan="10" class="hint">${escapeHtml(scope?.projects ? 'Fusion has not been read for this fetch yet.' : 'Load findings on the Workbench: Fusion is read for the projects fetched there.')}</td></tr>`;
+    $('fusion-body').innerHTML = `<tr><td colspan="10" class="hint">${escapeHtml('Choose applications or projects above (or none, for every project), then Load Fusion results.')}</td></tr>`;
     $('fusion-apps').innerHTML = '';
     $('fusion-app-count').textContent = '';
     return;
   }
   renderFusionLanes();
+  $('fusion-app-names').innerHTML = (data.applications ?? []).map((a) => `<option value="${escapeHtml(a.name)}"></option>`).join('');
   const t = fusionTiles(data, scope, credits);
   const tile = (value, label, detail) => `<div><span class="value">${escapeHtml(value)}</span><span class="label">${escapeHtml(label)}</span><span class="detail">${escapeHtml(detail)}</span></div>`;
   tiles.innerHTML = [
-    tile(t.share.percent === null ? fmt(t.share.results) : `${t.share.percent}%`, 'Of the open findings re-scored', `${fmt(t.share.results)} of ${fmt(t.share.open)} findings · ${fmt(t.share.projects)} of ${fmt(t.share.of)} projects`),
-    tile(fmt(t.top.raised), 'Raised to critical or high', `in ${fmt(t.top.projects)} project(s) · ${fmt(t.top.lowered)} lowered`),
+    t.share.open ? tile(t.share.percent === null ? fmt(t.share.results) : `${t.share.percent}%`, 'Of the open findings re-scored', `${fmt(t.share.results)} of ${fmt(t.share.open)} findings · ${fmt(t.share.projects)} of ${fmt(t.share.of)} projects`) : tile(fmt(t.share.results), 'Fusion results', `in ${fmt(t.share.projects)} of ${fmt(t.share.of)} projects`),
+    t.top.known ? tile(fmt(t.top.raised), 'Raised to critical or high', `in ${fmt(t.top.projects)} project(s) · ${fmt(t.top.lowered)} lowered`) : tile('—', 'Raised to critical or high', 'Not known: this tenant gives no earlier score'),
     tile(t.perCredit.results === null ? '—' : String(t.perCredit.results), 'Results per credit', t.perCredit.credits === null ? 'Enter the Fusion credits used, below' : t.perCredit.creditsPerTop === null ? `${t.perCredit.top} critical or high per credit` : `${t.perCredit.top} critical or high per credit · ${t.perCredit.creditsPerTop} credits each`),
   ].join('');
   const q = $('fusion-q').value.trim().toLowerCase();
@@ -8673,15 +8674,46 @@ function renderFusion() {
   const cell = (n, cls = '') => `<td class="num c-count ${n ? cls : 'zero'}">${fmt(n)}</td>`;
   $('fusion-body').innerHTML = rows.length
     ? rows.map((r) => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.applications.join(', ') || '—')}</td>${cell(r.CRITICAL, 'aged')}${cell(r.HIGH)}${cell(r.MEDIUM)}${cell(r.LOW)}${cell(r.total)}${cell(r.raisedToTop, 'aged')}${cell(r.lowered)}<td class="nowrap">${escapeHtml(fusionScanText(r.scan))}</td></tr>`).join('')
-    : `<tr><td colspan="10" class="hint">${escapeHtml(data.available ? (Object.keys(data.projects ?? {}).length ? 'No project matches.' : 'Fusion re-scored nothing in the projects fetched.') : 'Fusion did not answer on this tenant.')}${!Object.keys(data.projects ?? {}).length && can('credits.limit') ? ' <button type="button" class="sm" data-fusion-reread>Read Fusion again</button>' : ''}</td></tr>`;
+    : `<tr><td colspan="10" class="hint">${escapeHtml(data.available ? (Object.keys(data.projects ?? {}).length ? 'No project matches.' : 'Fusion has no results for these projects.') : 'Fusion did not answer on this tenant.')}${!Object.keys(data.projects ?? {}).length && can('credits.limit') ? ' <button type="button" class="sm" data-fusion-reread>Read Fusion again</button>' : ''}</td></tr>`;
   const apps = data.applications ?? [];
   $('fusion-app-count').textContent = apps.length ? String(apps.length) : '';
   $('fusion-apps').innerHTML = apps.length
     ? apps.map((a) => `<tr><td>${escapeHtml(a.name)}</td><td class="num">${fmt(a.projects)}</td><td class="num">${fmt(a.results)}</td><td class="nowrap">${escapeHtml(a.notScanned ? 'No Fusion scan' : fusionScanText(a.scan))}</td></tr>`).join('')
-    : `<tr><td colspan="4" class="hint">${escapeHtml('No application holds the projects fetched.')}</td></tr>`;
+    : `<tr><td colspan="4" class="hint">${escapeHtml('No application holds these projects.')}</td></tr>`;
 }
 
 for (const id of ['fusion-q', 'fusion-sev', 'fusion-raised']) $(id)?.addEventListener('input', renderFusion);
+
+/** The page's own fetch: Fusion's results only, for the applications and projects on its line. */
+function fusionStatus(data) {
+  const refused = (data.tried ?? []).some((t) => t.status === 401 || t.status === 403);
+  const notRunning = (data.tried ?? []).some((t) => t.status >= 502 && t.status <= 504);
+  setStatus('fusion-status', data.available ? (data.source === 'risk-management' ? 'Read through Application Risk Management: this tenant serves Fusion’s scored results there.' : '') : refused ? 'Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.' : notRunning ? 'The Fusion service is not running on this tenant: Checkmarx One has the address, but no server behind it.' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? 'muted' : 'warn');
+  // What was asked, and what came back: the path and its answer, as Checkmarx One gave them.
+  $('fusion-tried').innerHTML = data.available ? '' : (data.tried ?? []).map((t) => `<code>${escapeHtml(t.path)} → ${escapeHtml(String(t.status || '?'))}</code>`).join(' ');
+}
+$('fusion-scope')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (fusion.loading) return;
+  const button = $('fusion-fetch');
+  button.disabled = true;
+  setStatus('fusion-status', 'Loading Fusion results…');
+  fusion.loading = (async () => {
+    try {
+      const { fusion: data, scope, credits } = await api('/api/beta/fusion/fetch', { method: 'POST', body: JSON.stringify({ applications: $('fusion-apps-in').value, projects: $('fusion-projects-in').value }) });
+      Object.assign(fusion, { data, scope, credits });
+      fusionStatus(data);
+    } catch (error) {
+      if (!handleAuthLoss(error)) showError('fusion-status', error);
+    } finally {
+      fusion.loading = null;
+      button.disabled = false;
+      if (fusionTrouble.on) loadFusionTrouble();
+      renderFusion();
+      if (state.projects.length) renderProjects();
+    }
+  })();
+});
 $('fusion-read')?.addEventListener('click', () => readFusion());
 $('fusion-credits')?.addEventListener('input', (event) => {
   try {
@@ -8700,6 +8732,12 @@ function renderFusionLanes() {
   if (!box) return;
   const c = fusion.credits;
   const admin = can('credits.limit');
+  // Acting needs the findings themselves: say where they come from while none of Fusion's results is loaded.
+  if (admin && fusion.data?.totals?.total && !c?.matched) {
+    box.hidden = false;
+    box.innerHTML = `<p class="hint">${escapeHtml('To allocate credits, triage or remediate with AI on these results, load their projects’ findings on the Workbench: only the findings Fusion lists are acted on.')}</p>`;
+    return;
+  }
   if (!admin || !fusion.data || !c?.matched) {
     box.hidden = true;
     box.innerHTML = '';

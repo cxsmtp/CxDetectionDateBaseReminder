@@ -74,10 +74,10 @@ test('a tenant without Fusion, or a key not allowed to read it: nothing to show,
   const f = await readFusion(fakeClient({ '/api/applications': { applications: [] } }), ['p1']);
   assert.equal(f.available, false);
   assert.equal(f.totals.total, 0);
-  assert.deepEqual(f.tried, [{ path: '/api/correlation/results/applications', status: 404 }]);
+  assert.deepEqual(f.tried, [{ path: '/api/correlation/results/applications', status: 404 }, { path: '/api/risk-management/summary', status: 404 }]);
   const refused = fakeClient({});
   refused.request = async (path) => { throw new CxApiError('Forbidden', { status: 403, path }); };
-  assert.deepEqual((await readFusion(refused, ['p1'])).tried, [{ path: '/api/correlation/results/applications', status: 403 }]);
+  assert.deepEqual((await readFusion(refused, ['p1'])).tried, [{ path: '/api/correlation/results/applications', status: 403 }, { path: '/api/risk-management/summary', status: 403 }]);
 });
 
 test('the tiles: share of open findings, raised to critical or high, results per credit entered', () => {
@@ -85,7 +85,7 @@ test('the tiles: share of open findings, raised to critical or high, results per
   const scope = { openFindings: 1000, projects: 8 };
   const t = fusionTiles(fusion, scope, '100');
   assert.deepEqual(t.share, { results: 50, open: 1000, percent: 5, projects: 2, of: 8 });
-  assert.deepEqual(t.top, { raised: 12, projects: 1, lowered: 4 });
+  assert.deepEqual(t.top, { known: true, raised: 12, projects: 1, lowered: 4 });
   assert.deepEqual(t.perCredit, { credits: 100, results: 0.5, top: 0.25, creditsPerTop: 4 });
   assert.equal(fusionTiles(fusion, scope, '').perCredit.results, null, 'no credits entered: nothing made up');
 });
@@ -109,5 +109,35 @@ test('a tenant where the Fusion service is not running (the gateway answers 503)
   down.request = async (path) => { throw new CxApiError('Service Unavailable — no available server', { status: 503, path }); };
   const f = await readFusion(down, ['p1']);
   assert.equal(f.available, false);
-  assert.deepEqual(f.tried, [{ path: '/api/correlation/results/applications', status: 503 }]);
+  assert.deepEqual(f.tried, [{ path: '/api/correlation/results/applications', status: 503 }, { path: '/api/risk-management/summary', status: 503 }]);
+});
+
+test('no correlation service: Fusion is read through Application Risk Management, as the tenant serves it', async () => {
+  const result = (id, score, severity, projects) => ({ id, name: `Result ${id}`, hash: `h${id}`, type: 'code', risk: { score, severity }, createdAt: '2026-10-20T14:14:47Z', projects: projects.map((p) => ({ id: p })) });
+  const client = fakeClient({
+    '/api/applications': { applications: [{ id: 'a1', name: 'PRUOnline', projectIds: ['p1', 'p2'] }, { id: 'a2', name: 'Demo', projectIds: ['p3'] }, { id: 'a3', name: 'Elsewhere', projectIds: ['p9'] }] },
+    '/api/risk-management/summary': { summary: [{ id: 'a1', name: 'PRUOnline', riskScore: 9.3, riskSeverity: 'critical' }, { id: 'a3', name: 'Elsewhere', riskScore: 2, riskSeverity: 'low' }] },
+    '/api/risk-management/a1/results': (q) => ({ results: Number(q.offset) ? [] : [result('r1', 9.3, 'critical', ['p1']), result('r2', 7.8, 'high', ['p1', 'p2', 'p9']), result('r3', 4.1, 'medium', ['p2'])] }),
+  });
+  const f = await readFusion(client, ['p1', 'p2', 'p3']);
+  assert.equal(f.available, true);
+  assert.equal(f.source, 'risk-management');
+  assert.ok(client.calls.includes('/api/correlation/results/applications'), 'the correlation service is looked for first');
+  assert.ok(!client.calls.includes('/api/risk-management/a3/results'), 'an application with no project in scope is not read');
+  assert.deepEqual([f.projects.p1.CRITICAL, f.projects.p1.HIGH, f.projects.p2.HIGH, f.projects.p2.MEDIUM], [1, 1, 1, 1]);
+  assert.equal(f.projects.p9, undefined, 'a project outside the scope is not counted');
+  assert.equal(f.totals.total, 4);
+  assert.deepEqual(f.applications.map((a) => [a.name, a.results, Boolean(a.notScanned)]), [['PRUOnline', 4, false], ['Demo', 0, true]]);
+  assert.equal(f.results[0].info, 'Result r1');
+  assert.equal(f.totals.raisedToTop, 0, 'no earlier score: nothing claimed as raised by Fusion');
+  assert.equal(fusionTiles(f, { openFindings: 100, projects: 3 }, '').top.known, false);
+  // Pinned under Troubleshoot: straight to it.
+  const pinned = fakeClient({ '/api/applications': { applications: [{ id: 'a1', name: 'PRUOnline', projectIds: ['p1'] }] }, '/api/risk-management/summary': { summary: [{ id: 'a1' }] }, '/api/risk-management/a1/results': { results: [result('r1', 9.5, 'critical', ['p1'])] } });
+  const g = await readFusion(pinned, ['p1'], { resultsPath: '/api/risk-management' });
+  assert.equal(g.totals.CRITICAL, 1);
+  assert.ok(!pinned.calls.some((c) => c.startsWith('/api/correlation')), 'no correlation call when pinned');
+  // Neither there: what each said.
+  const none = await readFusion(fakeClient({}), ['p1']);
+  assert.equal(none.available, false);
+  assert.ok(none.tried.some((t) => t.path === '/api/risk-management/summary' && t.status === 404));
 });

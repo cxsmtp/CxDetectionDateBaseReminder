@@ -479,7 +479,7 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 | --- | --- |
 | **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Workbench's Remind panel links to it, and Act → Automation can email code authors on every run. |
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
-| **Fusion results** | Everyone who loads findings sees **Labs → Fusion results**, read again with each Workbench fetch, and the Workbench's **Fusion** column. |
+| **Fusion results** | Everyone who loads findings sees **Labs → Fusion results**, with its own line to load Fusion's results, and the Workbench's **Fusion** column. |
 
 ### Hands-off (set it up once)
 
@@ -1159,8 +1159,9 @@ Early features, in their own **Labs** section at the bottom of the menu (it was 
 
 ## Labs: Fusion results
 
-Its own page under **Labs**, apart from Code authors: what Checkmarx One **Fusion** re-scored in the projects loaded on the Workbench. Fusion correlates one engine's findings with another's (an open-source package whose vulnerable code SAST shows your code reaches: an exploitable path) and gives the result a new risk score. Beta: shown to roles holding **Beta features**, and to everyone who loads findings once an Admin makes it final ([Settings → Beta features](#beta-features-admin)).
-- **When it is read.** Each time the Workbench loads findings, for the projects it fetched, and again with **Read Fusion now**. Nothing is started: it only reads what Fusion already found.
+Its own page under **Labs**, apart from Code authors: Checkmarx One **Fusion**'s results only, with its own line, apart from the Workbench. Fusion correlates one engine's findings with another's (an open-source package whose vulnerable code SAST shows your code reaches: an exploitable path) and gives the result a new risk score. Beta: shown to roles holding **Beta features**, and to everyone who loads findings once an Admin makes it final ([Settings → Beta features](#beta-features-admin)).
+- **Its own line (from MZ-01.00.92).** As on the Workbench: **Applications** and **Projects** (names separated by commas, `*` and `?` as wildcards; empty is every one), then **Load Fusion results**. Only Fusion's results are read, for the projects of those applications plus the projects named; **Read Fusion now** reads them again. The Workbench's fetch no longer changes this page. Nothing is started: it only reads what Fusion already found.
+- **Acting on them (Admins).** Allocating credits, AI Triage and AI Remediation act only on the findings Fusion lists, and need those findings loaded, which the Workbench does: until then the page says so.
 - **Severity.** Each result counts under its new risk score: 9 or more critical, 7 high, 4 medium, below that low.
 - **The three tiles:**
   - **Of the open findings re-scored:** Fusion's results as a share of the open findings fetched, and in how many of the projects.
@@ -1260,7 +1261,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.91** | 461/s, 45 failed (main 437, 430; a busy host) | 14.2 s | 3.1 s | 747 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82) is the latest known (not checked again for this release). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
+| **MZ-01.00.92** | 479/s, 153 failed (main 462, 152; a busy host) | 16.0 s | 2.0 s | 748 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82) is the latest known (not checked again for this release). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
+| MZ-01.00.91 | 461/s, 45 failed (main 437, 430; a busy host) | 14.2 s | 3.1 s | 747 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82) is the latest known (not checked again for this release). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
 | MZ-01.00.90 | 469/s, 0 failed in its clean run (main 494, 0); other runs of both lost 0–298 to host pauses | 8.2 s | 1.6 s | 746 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82) is the latest known (not checked again for this release). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
 | MZ-01.00.89 | 501/s, 0 failed (main 502, 0) | 9.6 s | 644 ms | 741 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82) is the latest known (not checked again for this release). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
 | MZ-01.00.88 | 469/s and 445/s, 266 and 210 failed (main 456 and 473, 394 and 197; a busy host, both sides alike) | 18.8 s | 1.9 s | 736 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82) is the latest known (not checked again for this release). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |

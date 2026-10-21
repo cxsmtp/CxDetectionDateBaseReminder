@@ -26172,5 +26172,95 @@
   "seen": [
    "settings › activation (runtime)"
   ]
+ },
+ "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": {
+  "kind": "text",
+  "seen": [
+   "beta › fusion results (runtime)"
+  ]
+ },
+ "Not known: this tenant gives no earlier score": {
+  "kind": "text",
+  "seen": [
+   "beta › fusion results (runtime)"
+  ]
+ },
+ "Fusion's results only: choose applications or projects on the line below and load them, apart from the Workbench. Each result counts under its risk score: 9 or more critical, 7 high, 4 medium, below that low.": {
+  "kind": "text",
+  "seen": [
+   "beta › fusion results"
+  ]
+ },
+ "Every application": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "beta › fusion results"
+  ]
+ },
+ "Application names, separated by commas; * and ? as wildcards": {
+  "kind": "attr:title",
+  "seen": [
+   "beta › fusion results"
+  ]
+ },
+ "Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these": {
+  "kind": "attr:title",
+  "seen": [
+   "beta › fusion results"
+  ]
+ },
+ "Load Fusion results": {
+  "kind": "text",
+  "seen": [
+   "beta › fusion results"
+  ]
+ },
+ "Loading Fusion results…": {
+  "kind": "message",
+  "seen": [
+   "beta › fusion results"
+  ]
+ },
+ "Choose applications or projects above (or none, for every project), then Load Fusion results.": {
+  "kind": "text",
+  "seen": [
+   "beta › fusion results"
+  ]
+ },
+ "Fusion has no results for these projects.": {
+  "kind": "text",
+  "seen": [
+   "beta › fusion results"
+  ]
+ },
+ "No application holds these projects.": {
+  "kind": "text",
+  "seen": [
+   "beta › fusion results"
+  ]
+ },
+ "in {0} of {1} projects": {
+  "kind": "text",
+  "seen": [
+   "beta › fusion results"
+  ]
+ },
+ "To allocate credits, triage or remediate with AI on these results, load their projects’ findings on the Workbench: only the findings Fusion lists are acted on.": {
+  "kind": "text",
+  "seen": [
+   "beta › fusion results"
+  ]
+ },
+ "Choose applications or projects above, then Load Fusion results.": {
+  "kind": "message",
+  "seen": [
+   "beta › fusion results"
+  ]
+ },
+ "No application or project has those names.": {
+  "kind": "message",
+  "seen": [
+   "beta › fusion results"
+  ]
  }
 }

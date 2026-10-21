@@ -3796,6 +3796,21 @@
   "Left out": "مستبعد",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion مستبعد من هذا التوقع: حدّد «تضمين Fusion» في الأعلى لاحتسابه.",
   "CxMissionZero version — update & recovery": "إصدار CxMissionZero — التحديث والاستعادة",
-  "Cx Credits Calculator: Impact": "حاسبة أرصدة Cx: الأثر"
+  "Cx Credits Calculator: Impact": "حاسبة أرصدة Cx: الأثر",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "قُرئت عبر Application Risk Management: يقدّم هذا المستأجر نتائج Fusion المقيَّمة هناك.",
+  "Not known: this tenant gives no earlier score": "غير معروف: لا يقدّم هذا المستأجر درجة سابقة",
+  "Fusion's results only: choose applications or projects on the line below and load them, apart from the Workbench. Each result counts under its risk score: 9 or more critical, 7 high, 4 medium, below that low.": "نتائج Fusion فقط: اختر تطبيقات أو مشاريع في السطر أدناه وحمّلها، بمعزل عن منضدة العمل. تُحتسب كل نتيجة وفق درجة المخاطر الخاصة بها: 9 فأكثر حرجة، و7 فأكثر عالية، و4 فأكثر متوسطة، وما دون ذلك منخفضة.",
+  "Every application": "كل التطبيقات",
+  "Application names, separated by commas; * and ? as wildcards": "أسماء التطبيقات، مفصولة بفواصل؛ * و? كأحرف بدل",
+  "Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these": "أسماء المشاريع، مفصولة بفواصل؛ * و? كأحرف بدل. مع التطبيقات أيضًا: مشاريعها، إضافةً إلى هذه",
+  "Load Fusion results": "تحميل نتائج Fusion",
+  "Loading Fusion results…": "جارٍ تحميل نتائج Fusion…",
+  "Choose applications or projects above (or none, for every project), then Load Fusion results.": "اختر تطبيقات أو مشاريع أعلاه (أو لا تختر شيئًا لتشمل كل المشاريع)، ثم انقر على تحميل نتائج Fusion.",
+  "Fusion has no results for these projects.": "لا توجد لدى Fusion نتائج لهذه المشاريع.",
+  "No application holds these projects.": "لا يوجد تطبيق يضم هذه المشاريع.",
+  "in {0} of {1} projects": "المشاريع: {0} من أصل {1}",
+  "To allocate credits, triage or remediate with AI on these results, load their projects’ findings on the Workbench: only the findings Fusion lists are acted on.": "لتخصيص الأرصدة لهذه النتائج أو فرزها أو معالجتها باستخدام AI، حمّل اكتشافات مشاريعها في منضدة العمل: لا يُتخذ إجراء إلا على الاكتشافات التي يسردها Fusion.",
+  "Choose applications or projects above, then Load Fusion results.": "اختر تطبيقات أو مشاريع أعلاه، ثم انقر على تحميل نتائج Fusion.",
+  "No application or project has those names.": "لا يوجد تطبيق أو مشروع بهذه الأسماء."
  }
 }

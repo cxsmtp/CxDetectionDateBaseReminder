@@ -3796,6 +3796,21 @@
   "Left out": "Exclu",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion est exclu de cette projection : cochez « Inclure Fusion » en haut pour le prendre en compte.",
   "CxMissionZero version — update & recovery": "Version de CxMissionZero — mise à jour et récupération",
-  "Cx Credits Calculator: Impact": "Calculateur de crédits Cx : Impact"
+  "Cx Credits Calculator: Impact": "Calculateur de crédits Cx : Impact",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "Lus via Application Risk Management : ce locataire y fournit les résultats notés par Fusion.",
+  "Not known: this tenant gives no earlier score": "Inconnu : ce locataire ne fournit aucun score antérieur",
+  "Fusion's results only: choose applications or projects on the line below and load them, apart from the Workbench. Each result counts under its risk score: 9 or more critical, 7 high, 4 medium, below that low.": "Uniquement les résultats Fusion : choisissez des applications ou des projets sur la ligne ci-dessous et chargez-les, indépendamment de l'établi. Chaque résultat est compté selon son score de risque : 9 ou plus, critique ; 7, élevée ; 4, moyenne ; en dessous, faible.",
+  "Every application": "Toutes les applications",
+  "Application names, separated by commas; * and ? as wildcards": "Noms d'applications, séparés par des virgules ; * et ? comme caractères génériques",
+  "Project names, separated by commas; * and ? as wildcards. With applications too: their projects, plus these": "Noms de projets, séparés par des virgules ; * et ? comme caractères génériques. Si des applications sont aussi indiquées : leurs projets, plus ceux-ci",
+  "Load Fusion results": "Charger les résultats Fusion",
+  "Loading Fusion results…": "Chargement des résultats Fusion…",
+  "Choose applications or projects above (or none, for every project), then Load Fusion results.": "Choisissez des applications ou des projets ci-dessus (ou aucun, pour tous les projets), puis cliquez sur Charger les résultats Fusion.",
+  "Fusion has no results for these projects.": "Fusion n'a aucun résultat pour ces projets.",
+  "No application holds these projects.": "Aucune application ne contient ces projets.",
+  "in {0} of {1} projects": "projets : {0} sur {1}",
+  "To allocate credits, triage or remediate with AI on these results, load their projects’ findings on the Workbench: only the findings Fusion lists are acted on.": "Pour attribuer des crédits à ces résultats, ou en effectuer le triage ou la remédiation avec l'AI, chargez les détections de leurs projets sur l'établi : seules les détections listées par Fusion sont traitées.",
+  "Choose applications or projects above, then Load Fusion results.": "Choisissez des applications ou des projets ci-dessus, puis cliquez sur Charger les résultats Fusion.",
+  "No application or project has those names.": "Aucune application ni aucun projet ne porte ces noms."
  }
 }

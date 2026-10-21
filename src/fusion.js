@@ -9,6 +9,9 @@
  *
  * Both live under /api/correlation on the tenant (its own Swagger, /spec/v1: "Fusion Results"
  * and "Fusion Dispatcher" give servers /api/correlation/results and /api/correlation/dispatcher).
+ * A tenant that does not run them there serves Fusion's scored results through Application Risk
+ * Management instead (/api/risk-management: the applications, then each one's results with their
+ * risk score and projects), as Troubleshoot found on a customer's tenant; that is read then.
  * Read-only: nothing here starts a scan.
  */
 import { CxApiError, mapWithConcurrency } from './cxone/client.js';
@@ -21,6 +24,8 @@ import { listApplications } from './cxone/projects.js';
 
 export const FUSION_RESULTS_BASES = ['/api/correlation/results'];
 export const FUSION_DISPATCHER_BASES = ['/api/correlation/dispatcher'];
+/** Application Risk Management, read when the correlation service is not there. */
+export const RISK_MANAGEMENT_BASE = '/api/risk-management';
 
 /** A risk score's severity, as Checkmarx One bands them: 9+ critical, 7+ high, 4+ medium, above 0 low. */
 export const SEVERITY_FLOORS = [['CRITICAL', 9], ['HIGH', 7], ['MEDIUM', 4], ['LOW', 0]];
@@ -158,10 +163,96 @@ export function summarize(results) {
         if (r.newRisk > r.oldRisk) c.raised += 1;
         else if (r.newRisk < r.oldRisk) c.lowered += 1;
       }
-      if (ON_TOP.has(r.newSeverity) && (RANK[r.oldSeverity] ?? 0) < RANK.HIGH) c.raisedToTop += 1;
+      // Brought up only when its earlier score is known (Application Risk Management gives none).
+      if (ON_TOP.has(r.newSeverity) && r.oldRisk !== null && (RANK[r.oldSeverity] ?? 0) < RANK.HIGH) c.raisedToTop += 1;
     }
   }
   return { projects, totals };
+}
+
+const upper = (v) => (v === null || v === undefined ? '' : String(v).trim().toUpperCase());
+const firstScore = (...values) => values.map(score).find((v) => v !== null) ?? null;
+
+/**
+ * One Application Risk Management result, one row per project in scope it belongs to. Its risk is
+ * { score, severity }; a score it had before, when the answer gives one, makes it raised or lowered.
+ */
+export function cleanRiskResult(r, appId, inScope) {
+  const newRisk = firstScore(r?.risk?.score, r?.riskScore, r?.score);
+  const oldRisk = firstScore(r?.originalRisk?.score, r?.previousRisk?.score, r?.oldRisk?.score, r?.originalRiskScore, r?.oldRiskValue);
+  const given = upper(r?.risk?.severity ?? r?.riskSeverity ?? r?.severity);
+  const newSeverity = SEVERITIES.includes(given) ? given : severityOfScore(newRisk);
+  const projects = (Array.isArray(r?.projects) ? r.projects : []).map((p) => text(typeof p === 'object' ? p?.id : p, 80)).filter(Boolean);
+  return [...new Set(projects)].filter((id) => !inScope || inScope.has(id)).map((projectId) => ({
+    projectId,
+    resultId: text(r?.id ?? r?.hash, 200),
+    applicationId: text(appId, 80),
+    scanId: text(r?.scanId, 80),
+    fusionScanId: '',
+    vulnerabilityEngine: text(r?.type ?? r?.engine, 40),
+    correlatedEngine: text(r?.correlatedEngine, 40),
+    oldRisk,
+    newRisk,
+    oldSeverity: severityOfScore(oldRisk),
+    newSeverity,
+    info: text(r?.name ?? r?.resultInfo, 600),
+  }));
+}
+
+/** Every Application Risk Management result of one application, page by page (limit and offset). */
+async function riskResults(client, appId, trace = null) {
+  const path = `${RISK_MANAGEMENT_BASE}/${encodeURIComponent(appId)}/results`;
+  const out = [];
+  const seen = new Set();
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const body = await client.request(path, { query: { limit: PAGE, offset: out.length }, retries: 1, background: true, trace });
+    const rows = Array.isArray(body?.results) ? body.results : Array.isArray(body) ? body : [];
+    let fresh = 0;
+    for (const r of rows) {
+      const key = String(r?.id ?? r?.hash ?? `${out.length}`);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(r);
+      fresh += 1;
+    }
+    const total = Number(body?.totalCount ?? body?.total);
+    // Done: a short page, everything counted, or nothing new (paging not honoured).
+    if (rows.length < PAGE || !fresh || (Number.isFinite(total) && out.length >= total)) break;
+  }
+  return out;
+}
+
+/** Fusion through Application Risk Management: its applications holding a project in scope, and their results. */
+async function readRiskManagement(client, inScope, { concurrency, trace, readAt, tried }) {
+  let summary;
+  try {
+    summary = await client.request(`${RISK_MANAGEMENT_BASE}/summary`, { retries: 1, background: true, trace });
+  } catch (error) {
+    if (!isProbeMiss(error) && !NOT_RUNNING.has(error.status)) throw error;
+    return { readAt, available: false, tried: [...tried, { path: error.path || `${RISK_MANAGEMENT_BASE}/summary`, status: error.status }], applications: [], results: [], listed: 0, ...summarize([]) };
+  }
+  const listed = (Array.isArray(summary?.summary) ? summary.summary : Array.isArray(summary) ? summary : []).filter((a) => a?.id);
+  const known = new Set(listed.map((a) => String(a.id)));
+  const apps = (await listApplications(client).catch(() => [])).filter((a) => a.projectIds.some((id) => inScope.has(id)));
+  const read = apps.filter((a) => known.has(a.id));
+  const perApp = await mapWithConcurrency(read, concurrency, async (app) => ({ app, rows: await riskResults(client, app.id, trace).catch((error) => (isProbeMiss(error) ? [] : Promise.reject(error))) }));
+  const byKey = new Map();
+  for (const { app, rows } of perApp) {
+    for (const row of rows) for (const r of cleanRiskResult(row, app.id, inScope)) byKey.set(`${r.projectId}\u0000${r.resultId || byKey.size}`, r);
+  }
+  const results = [...byKey.values()];
+  const { projects, totals } = summarize(results);
+  const appRow = (app, extra = {}) => ({ id: app.id, name: app.name, projects: app.projectIds.filter((id) => inScope.has(id)).length, results: results.filter((r) => r.applicationId === app.id).length, scan: null, ...extra });
+  return {
+    readAt,
+    available: true,
+    source: 'risk-management',
+    applications: [...read.map((app) => appRow(app)), ...apps.filter((a) => !known.has(a.id)).map((app) => appRow(app, { notScanned: true }))],
+    projects,
+    totals,
+    listed: Math.min(results.length, MAX_LISTED),
+    results: results.sort((a, b) => (b.newRisk ?? 0) - (a.newRisk ?? 0)).slice(0, MAX_LISTED),
+  };
 }
 
 /**
@@ -175,8 +266,11 @@ export async function readFusion(client, projectIds, { concurrency = 4, trace = 
   const resultsBases = [...new Set([resultsPath, ...FUSION_RESULTS_BASES].filter(Boolean))];
   const dispatcherBases = [...new Set([dispatcherPath, ...FUSION_DISPATCHER_BASES].filter(Boolean))];
   const listScanned = (base) => client.request(`${base}/applications`, { retries: 1, background: true, trace });
+  // A path pinned under Troubleshoot to Application Risk Management reads it straight away.
+  if (resultsPath.startsWith(RISK_MANAGEMENT_BASE)) return readRiskManagement(client, inScope, { concurrency, trace, readAt, tried: [] });
   const found = await findBase(client, resultsBases, 'results', listScanned);
-  if (!found.base) return { readAt, available: false, tried: found.tried, applications: [], results: [], listed: 0, ...summarize([]) };
+  // No correlation service: Fusion's scored results through Application Risk Management.
+  if (!found.base) return readRiskManagement(client, inScope, { concurrency, trace, readAt, tried: found.tried });
   const resultsBase = found.base;
   const scanned = new Set(((found.body !== undefined ? found.body : await listScanned(resultsBase))?.applications ?? []).map(String));
   const apps = (await listApplications(client).catch(() => [])).filter((a) => a.projectIds.some((id) => inScope.has(id)));
@@ -208,6 +302,7 @@ export async function readFusion(client, projectIds, { concurrency = 4, trace = 
   return {
     readAt,
     available: true,
+    source: 'correlation',
     applications: [...perApp.map(appRow), ...apps.filter((a) => !scanned.has(a.id)).map((app) => ({ ...appRow({ app, status: null }), notScanned: true }))],
     projects,
     totals,
