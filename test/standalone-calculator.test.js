@@ -1,0 +1,54 @@
+// The Cx Credits Calculator on its own (src/standalone-calculator.js): one HTML file, built from the app's own
+// calculator, that runs with no server and calls nowhere.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+
+import { buildStandaloneCalculator, calculatorMarkup, standaloneMarkup, wrapModule } from '../src/standalone-calculator.js';
+import { newProfile, newReport, patchProfile } from '../public/calculator/profiles.js';
+
+test('a module becomes a function scope: its named imports read from those before it, its exports returned', () => {
+  const index = new Map([['calculator/model.js', 0], ['calculator/charts.js', 1]]);
+  const out = wrapModule('calculator/charts.js', "import { SEVERITIES, amount as sum } from './model.js';\nexport const A = 1;\nexport function f() { return SEVERITIES; }\nexport async function g() {}\nconst hidden = 2;\n", index);
+  assert.match(out, /const \{ SEVERITIES, amount: sum \} = __m\[0\];/);
+  assert.match(out, /return \{ A, f, g \};/);
+  assert.ok(!/^export /m.test(out));
+  assert.throws(() => wrapModule('calculator/charts.js', "import { x } from './nowhere.js';", index), /not bundled/);
+  assert.throws(() => wrapModule('calculator/charts.js', 'export default 1;', index), /does not handle/);
+});
+
+test('the file: the calculator page shown, its own words for the exports, nothing fetched from anywhere', () => {
+  const html = buildStandaloneCalculator({ version: '1.0.89' });
+  assert.match(html, /^<!doctype html>/);
+  assert.match(html, /<div id="page-calculator" class="page calc-page">/, 'shown, not hidden');
+  assert.match(html, /Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'/);
+  assert.ok(!/(src|href)="(https?:)?\/\//i.test(html), 'no script, style or link from elsewhere');
+  assert.deepEqual(html.match(/url\((?!data:)[^)]*\)/g) ?? [], [], 'every font and drawing inside');
+  assert.ok(!html.includes('Use the two Checkmarx One exports instead'));
+  assert.match(html, /SIL Open Font License/);
+  assert.match(html, /MZ-01\.00\.89/);
+  assert.ok(!/brand-fonts|founders[\w-]*\.(woff2?|otf|ttf)/i.test(html), 'the licensed face is never in it');
+  // Its script compiles as one script: every module bundled, nothing left to import.
+  const js = html.slice(html.indexOf('<script type="module">') + 22, html.lastIndexOf('</script>'));
+  assert.doesNotThrow(() => new vm.Script(js));
+  assert.ok(js.includes('startStandalone({ samples:'));
+});
+
+test('the page is cut out of index.html whole, and a changed wording fails the build rather than the file', () => {
+  const page = calculatorMarkup('<p><div id="page-calculator" class="page calc-page" hidden><div><div></div></div><span>x</span></div><div id="next"></div></p>');
+  assert.equal(page, '<div id="page-calculator" class="page calc-page"><div><div></div></div><span>x</span></div>');
+  assert.throws(() => standaloneMarkup('<div>nothing</div>'), /no longer says/);
+});
+
+test('customers and reports follow the same rules here and on the server', () => {
+  const p = newProfile({ name: '  Acme  ', by: 'ana' });
+  assert.equal(p.name, 'Acme');
+  assert.match(p.id, /^[0-9a-f-]{36}$/);
+  const next = patchProfile(p, { name: '', totals: { extraPercent: 10, bundleCredits: 5000 } });
+  assert.equal(next.name, 'Acme', 'an empty name keeps the old one');
+  assert.equal(next.totals.extraPercent, 10);
+  assert.throws(() => patchProfile(p, { name: 'x'.repeat(10), tr: { totals: { weeks: Array(2000).fill('2026-01-01'), bySeverity: { Critical: Array(2000).fill(1e15) } } }, fusion: { projects: Array(5000).fill({ name: 'p'.repeat(200), applications: Array(50).fill('a'.repeat(200)) }) } }), /too large/);
+  const r = newReport({ customerId: p.id, customer: p.name, data: { tr: { totals: { credits: 100 } }, fusion: { totals: { credits: 50 } }, summary: { settings: { extraPercent: 10, bundleCredits: 100 } }, evil: { __proto__: { x: 1 } } } });
+  assert.equal(r.totalCredits, 165);
+  assert.equal(r.bundles, 2);
+});

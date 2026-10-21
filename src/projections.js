@@ -16,24 +16,14 @@ import { mapWithConcurrency } from './cxone/client.js';
 import { DEFAULT_ENGINES, cleanEngines, engineOf, engineScope } from './engines.js';
 import { getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
 import { BRANCH_HOW, branchOf, primaryScans } from './cxone/branches.js';
-import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, aheadSettings, amount, cleanScope, creditSummary, frequencyOf, fusionSettings, impactSettings, totalsSettings, wholeNumber } from '../public/calculator/model.js';
+import { CRITICALITIES, amount, frequencyOf, wholeNumber } from '../public/calculator/model.js';
+import { MAX_PROFILES, MAX_PROJECTS, MAX_REPORTS, cleanFusion, cleanReportData, cleanTr, fail, finite, iso, migrate, newProfile, newReport, patchProfile, reportMeta, summary, text } from '../public/calculator/profiles.js';
 
-export const MAX_PROFILES = 200;
-/** One profile, saved: the two exports' weekly series fit well inside this. */
-export const MAX_PROFILE_BYTES = 3 * 1024 * 1024;
-export const MAX_REPORTS = 500;
-export const MAX_REPORT_BYTES = 4 * 1024 * 1024;
-const MAX_PROJECTS = 5000;
+// The rules for customers and reports are shared with the standalone calculator (public/calculator/profiles.js).
+export { MAX_PROFILES, MAX_PROFILE_BYTES, MAX_REPORTS, MAX_REPORT_BYTES, cleanFusion, cleanReportData, cleanTr } from '../public/calculator/profiles.js';
+
 const SEVERITIES = ['Critical', 'High', 'Medium', 'Low', 'Info'];
-const PLAN = ['Critical', 'High', 'Medium', 'Low'];
-const FREQ_IDS = new Set(FREQUENCIES.map((f) => f.id));
 const DAY = 86400000;
-
-const fail = (status, message) => Object.assign(new Error(message), { status });
-const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
-const finite = (value, fallback = null) => (value !== null && value !== '' && Number.isFinite(Number(value)) ? Number(value) : fallback);
-const isoDay = (value) => (/^\d{4}-\d{2}-\d{2}/.test(String(value ?? '')) ? String(value).slice(0, 10) : null);
-const iso = (value) => (value && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null);
 
 function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
@@ -41,139 +31,6 @@ function writeJson(file, value) {
   fs.writeFileSync(tmp, JSON.stringify(value), { mode: 0o600 });
   fs.renameSync(tmp, file);
 }
-
-/** One export's weekly series as the parser gives it, keeping only dates and numbers. */
-function series(value) {
-  if (!value || typeof value !== 'object' || !Array.isArray(value.weeks)) return null;
-  const weeks = value.weeks.slice(0, 2000).map((w) => isoDay(w) ?? '');
-  const bySeverity = {};
-  for (const s of SEVERITIES) {
-    const list = Array.isArray(value.bySeverity?.[s]) ? value.bySeverity[s] : [];
-    bySeverity[s] = weeks.map((_, i) => Math.max(0, finite(list[i], 0)));
-  }
-  const meta = value.meta && typeof value.meta === 'object' ? value.meta : {};
-  return {
-    weeks,
-    bySeverity,
-    meta: {
-      source: meta.source === 'cxone' ? 'cxone' : 'upload',
-      fileName: text(meta.fileName, 200),
-      sheet: text(meta.sheet, 200),
-      layout: text(meta.layout, 20),
-      exportedAt: meta.exportedAt ? text(meta.exportedAt, 40) : null,
-      readAt: iso(meta.readAt),
-      projects: wholeNumber(meta.projects),
-      scans: wholeNumber(meta.scans),
-      // Read from Checkmarx One: the engines counted ([] = every engine), and whether the read could tell them apart.
-      engines: cleanEngines(meta.engines),
-      engineSplit: meta.engineSplit !== false,
-      // One branch per project ('primary') or every branch ('all'); '' for a read made before branches were told apart.
-      branches: ['primary', 'all'].includes(meta.branches) ? meta.branches : '',
-    },
-  };
-}
-
-const perSeverity = (value, fallback, lo, hi) => Object.fromEntries(PLAN.map((s) => [s, Math.min(hi, Math.max(lo, finite(value?.[s], fallback[s])))]));
-/** How many of each severity to triage: a number, or null for every open one (the default). */
-const chosen = (value) => Object.fromEntries(PLAN.map((s) => [s, value?.[s] === null || value?.[s] === undefined || value?.[s] === '' ? null : Math.min(1e9, Math.max(0, finite(value[s], 0)))]));
-
-/** The triage & remediation projection: the backlog read, the plan per severity, and what is still to come. */
-export function cleanTr(value) {
-  const v = value && typeof value === 'object' ? value : {};
-  return {
-    totals: series(v.totals),
-    fixed: series(v.fixed),
-    selected: chosen(v.selected),
-    triageCost: perSeverity(v.triageCost, DEFAULT_TR.triageCost, 0, 1000),
-    fpPercent: perSeverity(v.fpPercent, DEFAULT_TR.fpPercent, 0, 100),
-    remediationCost: perSeverity(v.remediationCost, DEFAULT_TR.remediationCost, 0, 1000),
-    lookbackMonths: LOOKBACKS.includes(Number(v.lookbackMonths)) ? Number(v.lookbackMonths) : DEFAULT_TR.lookbackMonths,
-    // The engines whose findings are projected: SAST and SCA (what AI Triage and Remediation act on) unless more are ticked.
-    engines: cleanEngines(v.engines).length ? cleanEngines(v.engines) : [...DEFAULT_ENGINES],
-    ...aheadSettings(v),
-  };
-}
-
-/** {SAST: n, …}: known engines only, whole numbers; null when none were given. */
-function openCounts(value) {
-  if (!value || typeof value !== 'object') return null;
-  const out = {};
-  for (const [engine, n] of Object.entries(value)) {
-    const key = cleanEngines([engine])[0];
-    const count = wholeNumber(n);
-    if (key && count !== null) out[key] = count;
-  }
-  return Object.keys(out).length ? out : null;
-}
-
-/** The Fusion projection: its settings, and the projects with what Checkmarx One said of them. */
-export function cleanFusion(value) {
-  const v = value && typeof value === 'object' ? value : {};
-  const settings = fusionSettings(v);
-  const models = new Set(settings.models.map((m) => m.id));
-  const projects = (Array.isArray(v.projects) ? v.projects : []).slice(0, MAX_PROJECTS).map((p) => ({
-    id: text(p?.id, 100) || `manual-${randomUUID().slice(0, 8)}`,
-    name: text(p?.name, 200) || 'Unnamed project',
-    loc: wholeNumber(p?.loc),
-    locOverride: wholeNumber(p?.locOverride),
-    criticality: CRITICALITIES.includes(Number(p?.criticality)) ? Number(p.criticality) : null,
-    frequency: FREQ_IDS.has(p?.frequency) ? p.frequency : 'rare',
-    scansPerWeek: Math.max(0, finite(p?.scansPerWeek, 0)),
-    scanCount: wholeNumber(p?.scanCount) ?? 0,
-    lastScanAt: iso(p?.lastScanAt),
-    scanId: text(p?.scanId, 100),
-    source: ['sast-metadata', 'scan', 'none', 'manual'].includes(p?.source) ? p.source : 'manual',
-    applications: (Array.isArray(p?.applications) ? p.applications : []).slice(0, 50).map((a) => text(a, 200)).filter(Boolean),
-    groups: (Array.isArray(p?.groups) ? p.groups : []).slice(0, 50).map((g) => text(g, 200)).filter(Boolean),
-    initiator: text(p?.initiator, 254),
-    included: p?.included !== false,
-    scansOverride: wholeNumber(p?.scansOverride),
-    modelOverride: models.has(p?.modelOverride) ? p.modelOverride : null,
-    // The branch its scans were counted on, and how it was chosen (src/cxone/branches.js).
-    branch: text(p?.branch, 200),
-    branchHow: Object.values(BRANCH_HOW).includes(p?.branchHow) ? p.branchHow : '',
-    // Open findings now, per engine (its latest scan): unknown (null) for a project added by hand or read before.
-    openByEngine: openCounts(p?.openByEngine),
-  }));
-  return { ...settings, readAt: iso(v.readAt), projects };
-}
-
-/** A profile from MZ-01.00.61 (its à la carte calculator state): the exports and plan carry over. */
-function migrate(profile) {
-  // MZ-01.00.69: Fusion's default extra findings went from 20% to 5%; a profile still on the old default follows.
-  if (profile.planVersion === 2) {
-    const old = profile.tr && Number(profile.tr.fusionUpliftPercent) === 20;
-    return { ...profile, planVersion: 3, tr: old ? { ...profile.tr, fusionUpliftPercent: DEFAULT_TR.fusionUpliftPercent } : profile.tr };
-  }
-  // Before MZ-01.00.67 nothing chosen was 0 everywhere: now it is every open finding (null).
-  if (profile.tr && !profile.planVersion) {
-    const sel = profile.tr.selected ?? {};
-    const none = PLAN.every((s) => !Number(sel[s]));
-    const lookback = LOOKBACKS.includes(Number(profile.tr.lookbackMonths)) ? profile.tr.lookbackMonths : DEFAULT_TR.lookbackMonths;
-    return { ...profile, planVersion: 3, tr: { ...profile.tr, lookbackMonths: lookback, ...(none ? { selected: Object.fromEntries(PLAN.map((s) => [s, null])) } : {}) } };
-  }
-  if (profile.tr || !profile.alaCarte) return profile;
-  const a = profile.alaCarte;
-  const selected = Object.fromEntries(PLAN.map((s) => [s, finite(a.plan?.[s]?.selected, 0)]));
-  const fpPercent = Object.fromEntries(PLAN.map((s) => [s, finite(a.plan?.[s]?.fp, finite(a.assumptions?.falsePositive?.[s], DEFAULT_TR.fpPercent[s]))]));
-  const triage = finite(a.assumptions?.triageCredits, 1);
-  const remediation = finite(a.assumptions?.remediationCredits, 3);
-  const tr = cleanTr({ totals: a.totals, fixed: a.fixed, selected, fpPercent, triageCost: Object.fromEntries(PLAN.map((s) => [s, triage])), remediationCost: Object.fromEntries(PLAN.map((s) => [s, remediation])) });
-  const fusion = profile.fusion ? cleanFusion({ ...profile.fusion, defaultScans: 1, models: profile.fusion.creditsPerBundle ? [{ id: 'model-1', name: '', creditsPer10k: profile.fusion.creditsPerBundle, source: 'manual' }] : [] }) : cleanFusion({});
-  const { alaCarte, ...rest } = profile;
-  return { ...rest, planVersion: 3, customer: profile.customer || a.customer || '', tr, fusion };
-}
-
-const summary = (p) => ({
-  id: p.id,
-  name: p.name,
-  createdAt: p.createdAt,
-  createdBy: p.createdBy,
-  updatedAt: p.updatedAt,
-  updatedBy: p.updatedBy,
-  hasTr: Boolean(p.tr?.totals && p.tr?.fixed),
-  fusionProjects: p.fusion?.projects?.length ?? 0,
-});
 
 export class ProjectionStore {
   #file;
@@ -209,8 +66,7 @@ export class ProjectionStore {
 
   create({ name, by, impact = {} }) {
     if (this.#profiles.length >= MAX_PROFILES) throw fail(409, `There are already ${MAX_PROFILES} customers. Delete one first.`);
-    const now = new Date().toISOString();
-    const profile = { id: randomUUID(), name: text(name, 120) || 'New customer', planVersion: 3, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({}), totals: totalsSettings({}), scope: cleanScope({}), impact: impactSettings(impact) };
+    const profile = newProfile({ name, by, impact });
     this.#profiles.push(profile);
     this.#save();
     return structuredClone(profile);
@@ -220,17 +76,7 @@ export class ProjectionStore {
   update(id, patch = {}, by = '') {
     const index = this.#profiles.findIndex((p) => p.id === id);
     if (index === -1) throw fail(404, 'That customer no longer exists.');
-    const next = { ...this.#profiles[index] };
-    if (patch.name !== undefined) next.name = text(patch.name, 120) || next.name;
-    if (patch.tr !== undefined) next.tr = cleanTr(patch.tr);
-    if (patch.fusion !== undefined) next.fusion = cleanFusion(patch.fusion);
-    if (patch.totals !== undefined) next.totals = totalsSettings(patch.totals);
-    if (patch.scope !== undefined) next.scope = cleanScope(patch.scope);
-    // The impact's assumptions: minutes by hand, the hourly cost, the credit price, the currency.
-    if (patch.impact !== undefined) next.impact = impactSettings(patch.impact);
-    next.updatedAt = new Date().toISOString();
-    next.updatedBy = text(by, 254);
-    if (Buffer.byteLength(JSON.stringify(next)) > MAX_PROFILE_BYTES) throw fail(413, 'This customer is too large to save (over 3 MB). Use exports covering fewer weeks.');
+    const next = patchProfile(this.#profiles[index], patch, by);
     this.#profiles[index] = next;
     this.#save();
     return summary(next);
@@ -242,24 +88,6 @@ export class ProjectionStore {
     if (this.#profiles.length === before) throw fail(404, 'That customer no longer exists.');
     this.#save();
   }
-}
-
-/** A report's figures, kept as data only: strings, numbers, booleans and nulls, nested a little. */
-export function cleanReportData(value, depth = 0) {
-  if (value === null || typeof value === 'boolean') return value;
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-  if (typeof value === 'string') return value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').slice(0, 2000);
-  if (depth > 8) return null;
-  if (Array.isArray(value)) return value.slice(0, MAX_PROJECTS).map((v) => cleanReportData(v, depth + 1));
-  if (typeof value === 'object') {
-    const out = {};
-    for (const [k, v] of Object.entries(value).slice(0, 200)) {
-      if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
-      out[k.slice(0, 80)] = cleanReportData(v, depth + 1);
-    }
-    return out;
-  }
-  return null;
 }
 
 const REPORT_ID = /^[0-9a-f-]{36}$/;
@@ -306,26 +134,10 @@ export class ReportStore {
   }
 
   add({ customerId, customer, by, data }) {
-    const clean = cleanReportData(data);
-    const report = {
-      id: randomUUID(),
-      customerId: text(customerId, 100),
-      customer: text(customer, 120) || 'Customer',
-      createdAt: new Date().toISOString(),
-      createdBy: text(by, 254),
-      trCredits: finite(clean?.tr?.totals?.credits, null),
-      fusionCredits: finite(clean?.fusion?.totals?.credits, null),
-      data: clean,
-    };
-    // The total with the extra % on top, and the bundles it takes, worked out again here.
-    const sum = creditSummary(report.trCredits, report.fusionCredits, clean?.summary?.settings);
-    Object.assign(report, { extraPercent: sum.settings.extraPercent, bundleCredits: sum.settings.bundleCredits, totalCredits: sum.total, bundles: sum.bundles });
-    const body = JSON.stringify(report);
-    if (Buffer.byteLength(body) > MAX_REPORT_BYTES) throw fail(413, 'This report is too large to keep (over 4 MB).');
+    const report = newReport({ customerId, customer, by, data });
     writeJson(this.#file(report.id), report);
     for (const old of this.#all().slice(MAX_REPORTS)) fs.rmSync(this.#file(old.id), { force: true });
-    const { data: _, ...meta } = report;
-    return meta;
+    return reportMeta(report);
   }
 
   remove(id) {

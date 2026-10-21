@@ -57,7 +57,12 @@ function appLook() {
   return { look: ui === 'nextgen' ? String(look ?? '').split(' ').pop() || 'nextgen' : 'classic', ui: ui === 'nextgen' ? 'nextgen' : 'classic', theme: theme ?? 'auto', accent: accent ?? 'indigo' };
 }
 
-export function initCalculator({ api, $, esc, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me, can }) {
+/**
+ * `standalone`: the calculator on its own, as one HTML file (src/standalone-calculator.js): it never reads
+ * Checkmarx One (the two exports stand in), keeps everything in the browser, and asks for the names on the
+ * reports itself. `sampleFile(name)` gives the sample exports there, as a Response.
+ */
+export function initCalculator({ api, $, esc, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me, can, standalone = false, sampleFile = null }) {
   const c = { customers: [], open: null, pending: null, timer: null, saving: null, draft: {}, dirty: {}, present: false, remainingCredits: null, reports: [] };
   const num = (n, digits = 0) => (n === null || n === undefined || !Number.isFinite(Number(n)) ? '—' : Number(n).toLocaleString(undefined, { maximumFractionDigits: digits }));
   const pct = (n) => (n === null || n === undefined || !Number.isFinite(n) ? '—' : `${n > 0 ? '+' : ''}${n.toFixed(1)}%`);
@@ -102,6 +107,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   function renderOrg() {
     const org = me()?.organisationName;
+    if (standalone) {
+      $('calc-org-line').innerHTML = org ? `<span>Name on the reports:</span> <b translate="no">${esc(org)}</b>` : 'Give your organisation’s name at the top, for the reports.';
+      return;
+    }
     $('calc-org-line').innerHTML = org
       ? `<span>Name on the reports:</span> <b translate="no">${esc(org)}</b>`
       : can('settings.branding')
@@ -135,7 +144,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     saved('Saved', customer.updatedAt, 'muted');
     syncDraft();
     setStatus('calc-upload-status', '');
-    $('calc-alt').open = customer.tr?.totals?.meta?.source === 'upload';
+    // On its own, the calculator works from the two exports: they are always in view.
+    $('calc-alt').open = standalone || customer.tr?.totals?.meta?.source === 'upload';
     if (!reading.timer) setStatus('calc-read-note', '');
     $('calc-read').disabled = Boolean(reading.timer);
     fillImpact();
@@ -285,6 +295,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   let vendor = null;
   /** The .xlsx reader and the export parser, loaded the first time a file is read. */
   function readers() {
+    // In the standalone file they are already in the page.
+    if (window.CxXlsx && window.CxParse) return Promise.resolve({ xlsx: window.CxXlsx, parse: window.CxParse });
     vendor ??= Promise.all(
       ['calculator/vendor/xlsx-lite.js', 'calculator/vendor/parse.js'].map(
         (src) =>
@@ -344,7 +356,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       ['Fixed_Vulnerabilities_by_Severity.xlsx', 'fixed'],
     ]) {
       try {
-        const response = await fetch(`calculator/samples/${name}`);
+        const response = sampleFile ? await sampleFile(name) : await fetch(`calculator/samples/${name}`);
         if (!response.ok) throw new Error(`${name}: ${response.status}`);
         await ingest(new File([await response.blob()], name), slot);
       } catch (error) {
@@ -1234,7 +1246,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   /** Start a read (or follow the one running in this tenant), then put what it found in the customer open. */
   async function readCxOne({ auto = false } = {}) {
-    if (!c.open || reading.timer) return;
+    if (!c.open || reading.timer || standalone) return;
     reading.customer = c.open.id;
     reading.auto = auto;
     setStatus('calc-read-note', 'Reading the projects…', 'muted');
@@ -1324,7 +1336,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   /** A customer with nothing read yet reads Checkmarx One by itself; a read already running is followed. */
   async function autoRead() {
-    if (!c.open || reading.timer) return;
+    if (!c.open || reading.timer || standalone) return;
     const empty = !c.open.tr?.totals && !c.open.fusion?.projects?.length;
     let job = null;
     try {
@@ -1594,7 +1606,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   async function generate({ download: save = true } = {}) {
     if (!c.open) return null;
     await flush();
-    if (reading.timer || !hasData()) {
+    if (!standalone && (reading.timer || !hasData())) {
       const done = readFinished();
       if (!reading.timer) readCxOne();
       setStatus('calc-read-note', 'Reading Checkmarx One first, then the report is made…', 'muted');
@@ -1603,7 +1615,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
     const data = reportData();
     if (!data.tr && !data.fusion) {
-      toast('Nothing to report yet: read Checkmarx One (or use the two exports), or add Fusion projects first.', 'warn');
+      toast(standalone ? 'Nothing to report yet: drop the two Checkmarx One exports below (or load the sample data), or add Fusion projects first.' : 'Nothing to report yet: read Checkmarx One (or use the two exports), or add Fusion projects first.', 'warn');
       return null;
     }
     try {
@@ -1670,7 +1682,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   // Start again: every choice made for this customer goes back to the defaults, and Checkmarx One is read again.
   $('calc-restart').addEventListener('click', async () => {
     if (!c.open) return;
-    if (!confirm(`Start again for ${c.open.name}?\n\nEvery choice made here goes back to the defaults (the projects narrowed, the plan, the Fusion numbers, the extra credits), and Checkmarx One is read again. The Fusion models and their credits stay. Reports already made are kept.`)) return;
+    const again = standalone ? 'and the two exports are cleared' : 'and Checkmarx One is read again';
+    if (!confirm(`Start again for ${c.open.name}?\n\nEvery choice made here goes back to the defaults (the projects narrowed, the plan, the Fusion numbers, the extra credits), ${again}. The Fusion models and their credits stay. Reports already made are kept.`)) return;
     const models = fusion().models;
     c.open.scope = cleanScope({});
     c.open.tr = { totals: null, fixed: null, selected: Object.fromEntries(SEVERITIES.map((s) => [s, null])), triageCost: { ...DEFAULT_TR.triageCost }, fpPercent: { ...DEFAULT_TR.fpPercent }, remediationCost: { ...DEFAULT_TR.remediationCost }, lookbackMonths: DEFAULT_TR.lookbackMonths, ...aheadSettings({}) };
