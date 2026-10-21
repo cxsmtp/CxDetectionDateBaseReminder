@@ -45,7 +45,9 @@ const MOCK_ENGINES = ['SAST', 'SCA', 'SAST', 'KICS', 'SAST', 'Containers'];
 // five of it comes from that scan. i % 10 = 5 counted 0 lines of code; i % 10 = 9 has no findings.
 const BRANCHES = process.env.BRANCHES === '1';
 // Fusion (Labs → Fusion): FUSION=0 is a tenant without it (every Fusion path answers 404).
-const FUSION = process.env.FUSION !== '0';
+const FUSION = process.env.FUSION !== '0' && process.env.FUSION !== 'risk';
+// FUSION=risk: no correlation service; Fusion's scored results through Application Risk Management, as some tenants serve them.
+const RISK_MGMT = process.env.FUSION === 'risk';
 const mainBranchOf = (i) => ['main', 'master', 'develop', ''][i % 4];
 const primaryScanBranch = (i) => (i % 8 === 6 ? 'feature/old' : i % 8 === 7 ? 'trunk' : mainBranchOf(i) || 'main');
 const hasFeature = (i) => BRANCHES && i % 2 === 0;
@@ -287,6 +289,27 @@ http.createServer((req, res) => {
         const k = Number(decodeURIComponent(m[1]).replace(/^app-/, ''));
         if (!(k >= 0 && k <= 2)) return send(404, { message: 'no Fusion scan', code: 404 });
         return send(200, { tenantId: 'acme', applicationId: `app-${k}`, scanId: `fscan-${k}`, scanStatus: k === 2 ? 'In Progress' : 'Completed', stage: k === 2 ? 60 : 100, stageDescription: k === 2 ? 'Correlating' : 'Done', scanTimestamp: Math.floor((Date.now() - (k + 1) * 3600e3) / 1000), errorMessage: '' });
+      }
+      // Application Risk Management (FUSION=risk): applications app-0 to app-2 with results, each naming its project and risk.
+      if (RISK_MGMT && u.pathname === '/api/risk-management/summary') {
+        bump('risk-summary');
+        return send(200, { summary: [0, 1, 2].map((k) => ({ id: `app-${k}`, name: `App ${k}`, riskScore: 9.3 - k, riskSeverity: k ? 'high' : 'critical', remediationStats: { new: 1, processing: 0, analyzed: 0 } })) });
+      }
+      if (RISK_MGMT && (m = u.pathname.match(/^\/api\/risk-management\/([^/]+)\/results$/))) {
+        bump('risk-results');
+        const k = Number(decodeURIComponent(m[1]).replace(/^app-/, ''));
+        if (!(k >= 0 && k <= 2)) return send(404, { message: 'application not found', code: 404 });
+        const SCORE = [9.4, 7.8, 5.2, 9.1, 3.3];
+        const all = [];
+        for (let i = k; i < PROJECTS; i += 4) {
+          if (i % 3 === 2) continue;
+          for (let j = 0; j < (i % 5) + 1; j++) {
+            const sc = SCORE[(i + j) % 5];
+            all.push({ id: `p${i}-r${j}`, name: 'Improper Neutralization of Special Elements used in a Command', hash: `h${i}${j}`, type: j % 2 ? 'sca' : 'code', risk: { score: sc, severity: sc >= 9 ? 'critical' : sc >= 7 ? 'high' : sc >= 4 ? 'medium' : 'low' }, createdAt: '2026-10-20T14:14:47Z', projects: [{ id: `p${i}`, name: `Project ${i}` }] });
+          }
+        }
+        const offset = Number(u.searchParams.get('offset') || 0), limit = Number(u.searchParams.get('limit') || 100);
+        return send(200, { results: all.slice(offset, offset + limit), totalCount: all.length });
       }
       bump(`unhandled ${u.pathname}`);
       send(404, {});

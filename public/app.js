@@ -8629,7 +8629,7 @@ async function readFusion({ quiet = false } = {}) {
       fusion.credits = credits;
       const refused = (data.tried ?? []).some((t) => t.status === 401 || t.status === 403);
       const notRunning = (data.tried ?? []).some((t) => t.status >= 502 && t.status <= 504);
-      setStatus('fusion-status', data.available ? '' : refused ? 'Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.' : notRunning ? 'The Fusion service is not running on this tenant: Checkmarx One has the address, but no server behind it.' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? '' : 'warn');
+      setStatus('fusion-status', data.available ? (data.source === 'risk-management' ? 'Read through Application Risk Management: this tenant serves Fusion’s scored results there.' : '') : refused ? 'Checkmarx One refused to show Fusion results to this API key: its role needs permission to read them.' : notRunning ? 'The Fusion service is not running on this tenant: Checkmarx One has the address, but no server behind it.' : 'Fusion did not answer on this tenant: no Fusion results to show.', data.available ? 'muted' : 'warn');
       // What was asked, and what came back: the path and its answer, as Checkmarx One gave them.
       $('fusion-tried').innerHTML = data.available ? '' : (data.tried ?? []).map((t) => `<code>${escapeHtml(t.path)} → ${escapeHtml(String(t.status || '?'))}</code>`).join(' ');
     } catch (error) {
@@ -8663,7 +8663,7 @@ function renderFusion() {
   const tile = (value, label, detail) => `<div><span class="value">${escapeHtml(value)}</span><span class="label">${escapeHtml(label)}</span><span class="detail">${escapeHtml(detail)}</span></div>`;
   tiles.innerHTML = [
     tile(t.share.percent === null ? fmt(t.share.results) : `${t.share.percent}%`, 'Of the open findings re-scored', `${fmt(t.share.results)} of ${fmt(t.share.open)} findings · ${fmt(t.share.projects)} of ${fmt(t.share.of)} projects`),
-    tile(fmt(t.top.raised), 'Raised to critical or high', `in ${fmt(t.top.projects)} project(s) · ${fmt(t.top.lowered)} lowered`),
+    t.top.known ? tile(fmt(t.top.raised), 'Raised to critical or high', `in ${fmt(t.top.projects)} project(s) · ${fmt(t.top.lowered)} lowered`) : tile('—', 'Raised to critical or high', 'Not known: this tenant gives no earlier score'),
     tile(t.perCredit.results === null ? '—' : String(t.perCredit.results), 'Results per credit', t.perCredit.credits === null ? 'Enter the Fusion credits used, below' : t.perCredit.creditsPerTop === null ? `${t.perCredit.top} critical or high per credit` : `${t.perCredit.top} critical or high per credit · ${t.perCredit.creditsPerTop} credits each`),
   ].join('');
   const q = $('fusion-q').value.trim().toLowerCase();

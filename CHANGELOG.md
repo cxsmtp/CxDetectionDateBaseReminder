@@ -78,6 +78,11 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.92 — not released yet · [#115](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/115)
+
+- **Fusion results on tenants without the correlation service.** When Checkmarx One does not answer at `/api/correlation`, **Labs → Fusion results** now reads Fusion's scored results through Application Risk Management (`/api/risk-management`), as Troubleshoot found on a customer's tenant, and says so on the page.
+- **Only what is known.** Those results carry no earlier score, so **Raised to critical or high** says it is not known instead of claiming results Fusion did not raise; the critical, high, medium and low counts per project and the other tiles are filled in.
+
 ## MZ-01.00.91 — 2026-10-21 11:16 UTC · [#114](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/114)
 
 - **The calculator's Impact tab is held back.** The Cx Credits Calculator's **Impact** tab is hidden until an activation code turns it on, while it matures; until then the projection report and its PDF summary have no impact section either.

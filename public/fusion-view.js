@@ -19,7 +19,8 @@ export function fusionTiles(fusion, scope, credits) {
   const paid = Number.isFinite(used) && used > 0 ? used : null;
   return {
     share: { results, open, percent: open ? Math.round((results / open) * 1000) / 10 : null, projects: projects.filter((p) => p.total > 0).length, of: Number(scope?.projects) || 0 },
-    top: { raised: Number(totals.raisedToTop) || 0, projects: projects.filter((p) => p.raisedToTop > 0).length, lowered: Number(totals.lowered) || 0 },
+    // Raised or lowered needs each result's earlier score, which Application Risk Management does not give.
+    top: { known: fusion?.source !== 'risk-management', raised: Number(totals.raisedToTop) || 0, projects: projects.filter((p) => p.raisedToTop > 0).length, lowered: Number(totals.lowered) || 0 },
     perCredit: { credits: paid, results: paid ? Math.round((results / paid) * 100) / 100 : null, top: paid ? Math.round((top / paid) * 100) / 100 : null, creditsPerTop: paid && top ? Math.round((paid / top) * 10) / 10 : null },
   };
 }
