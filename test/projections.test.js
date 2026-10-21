@@ -630,3 +630,13 @@ test('the Fusion projects table sorts by any column; what shows as "—" comes l
   assert.deepEqual(ids('credits', 'desc'), ['c', 'a', 'b', 'd']);
   assert.equal(sortProjects(rows, { key: 'nope' }), rows, 'an unknown column: as it was');
 });
+
+test('Fusion opted out: kept with the customer, on by default, and only a real true opts out', () => {
+  assert.equal(fusionSettings({}).optOut, false);
+  assert.equal(fusionSettings({ optOut: 'yes' }).optOut, false);
+  assert.equal(fusionSettings({ optOut: true }).optOut, true);
+  const kept = cleanFusion({ optOut: true, projects: [{ id: 'p1', name: 'api', loc: 12000 }] });
+  assert.equal(kept.optOut, true);
+  assert.equal(kept.projects.length, 1, 'the projects and settings stay, to count again later');
+  assert.equal(cleanFusion(JSON.parse(JSON.stringify(kept))).optOut, true);
+});

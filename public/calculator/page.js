@@ -275,8 +275,11 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   /** The projection period (months), shared by both parts. */
   const horizon = () => fusion()?.periodMonths ?? 12;
-  /** Whether Fusion is part of this projection: some project counted. */
-  const fusionOn = () => estimate().rows.some((r) => r.included && r.units);
+  /** Whether this customer opted out of Fusion: then it is left out of the credits, the findings and the report. */
+  const fusionOff = () => fusion()?.optOut === true;
+  /** Whether Fusion is part of this projection: not opted out, and some project counted. */
+  const fusionCounts = (est = estimate()) => !fusionOff() && est.rows.some((r) => r.included && r.units);
+  const fusionOn = () => fusionCounts();
 
   /** The figures behind the tab and the report: null until the backlog is read. */
   function trFigures() {
@@ -704,6 +707,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderFusion() {
     if (!c.open) return;
     const f = fusion();
+    $('calc-fusion-on').checked = !fusionOff();
+    $('calc-fusion-off-note').hidden = !fusionOff();
+    $('page-calculator').classList.toggle('calc-fusion-off', fusionOff());
     $('calc-default-scans').value = f.defaultScans;
     $('calc-combine').value = f.combine;
     $('calc-default-model').innerHTML = modelOptions(f.defaultModel, f.models.length ? 'No model' : 'No model yet');
@@ -741,7 +747,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   function renderKpis(est = estimate()) {
     const t = est.totals;
-    const on = est.rows.some((r) => r.included && r.units);
+    const on = fusionCounts(est);
     c.fusionCredits = on ? t.credits : null;
     // Fusion coming in or going out changes what triage & remediation counts (the findings Fusion adds).
     if (c.trFusionOn !== undefined && c.trFusionOn !== on) renderTr();
@@ -819,6 +825,16 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     else if (all && !est.rows.length) $('calc-rows-empty').textContent = 'No project is in the scope: narrow the projects differently at the top.';
     renderKpis(est);
   }
+  // Opting out of Fusion: the customer is not taking it, so nothing of it is counted (its settings stay for later).
+  const setFusionOn = (on) => {
+    if (!c.open) return;
+    fusion().optOut = !on;
+    saveFusion();
+    renderFusion();
+  };
+  $('calc-fusion-on').addEventListener('change', (event) => setFusionOn(event.target.checked));
+  $('calc-fusion-include').addEventListener('click', () => setFusionOn(true));
+
   $('calc-rows-more-btn').addEventListener('click', () => {
     rowsShown += ROWS_PAGE;
     renderProjects();
@@ -1333,7 +1349,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!body.tr) setStatus('calc-read-note', `Read ${num(read.length)} projects from Checkmarx One; none had a scan to read the findings of.`, 'warn');
     else if (read.length === 1) setStatus('calc-read-note', 'Read 1 project and its scans from Checkmarx One.', 'ok');
     else setStatus('calc-read-note', `Read ${num(read.length)} projects and their scans from Checkmarx One.`, 'ok');
-    if (!body.models?.length && !f.models.length) toast('Checkmarx One did not say which Fusion models it offers: add them under Fusion models, with their credits per 10K LOC.', 'warn', 9000);
+    if (!body.models?.length && !f.models.length && !fusionOff()) toast('Checkmarx One did not say which Fusion models it offers: add them under Fusion models, with their credits per 10K LOC.', 'warn', 9000);
     if (gone === 1) toast('1 project read before is no longer in Checkmarx One: it was taken off.', 'warn');
     else if (gone) toast(`${num(gone)} projects read before are no longer in Checkmarx One: they were taken off.`, 'warn');
   }
@@ -1399,7 +1415,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const sum = creditSummary(c.trCredits, c.fusionCredits, totals());
     $('calc-sum-tr').textContent = num(sum.tr, 1);
     $('calc-sum-tr-split').textContent = c.trSplit ? `${num(c.trSplit.backlogCredits, 1)} backlog + ${num(c.trSplit.aheadCredits, 1)} ahead` : '';
-    $('calc-sum-fusion').textContent = num(sum.fusion, 1);
+    $('calc-sum-fusion').textContent = fusionOff() ? 'Left out' : num(sum.fusion, 1);
     $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.total, 1);
     $('calc-sum-extra').textContent = sum.extra ? `Includes ${num(sum.extra, 1)} extra` : '';
     $('calc-sum-bundles').textContent = sum.total ? num(sum.bundles) : '—';
@@ -1444,7 +1460,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   /** Fusion's impact: the projects counted on the Fusion tab, and what Fusion adds to triage & remediation. */
   function currentFusionImpact() {
     const est = estimate();
-    if (!est.rows.some((r) => r.included && r.units)) return null;
+    if (!fusionCounts(est)) return null;
     return fusionImpact(est.rows, est.totals.credits, est.settings.periodMonths, impact(), trFigures()?.projection.rows ?? null);
   }
 
@@ -1487,6 +1503,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const f = currentFusionImpact();
     const { w } = L;
     $('calc-impact-fusion-empty').hidden = Boolean(f);
+    $('calc-impact-fusion-empty').textContent = fusionOff() ? 'Fusion is left out of this projection: tick Include Fusion at the top to count it.' : 'No Fusion projects yet: add them, with their lines of code, on the Fusion tab.';
     if (!f) return ($('calc-impact-fusion').innerHTML = '');
     const cash = (n) => esc(money(n, f.settings.currency));
     $('calc-impact-fusion').innerHTML = [
@@ -1542,7 +1559,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function reportData() {
     const t = trFigures();
     const est = estimate();
-    const fusionCounted = est.rows.some((r) => r.included && r.units);
+    const fusionCounted = fusionCounts(est);
     const who = me()?.user;
     const summary = creditSummary(t ? t.projection.totals.credits : null, fusionCounted ? est.totals.credits : null, totals());
     const meta = tr()?.totals?.meta ?? {};

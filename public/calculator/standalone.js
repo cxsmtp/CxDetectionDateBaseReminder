@@ -190,6 +190,36 @@ export function startStandalone({ samples = {} } = {}) {
     } catch {}
   });
 
+  // The calculator's tabs (in CxMissionZero, app.js switches them): one panel shown at a time, the arrow keys move along.
+  const showTab = (tab) => {
+    const group = tab.closest('[data-ptabs]').dataset.ptabs;
+    for (const t of document.querySelectorAll(`[data-ptabs="${group}"] [data-pt]`)) {
+      const on = t === tab;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+    }
+    for (const panel of document.querySelectorAll(`[data-ptpanel^="${group}:"]`)) panel.hidden = panel.dataset.ptpanel !== `${group}:${tab.dataset.pt}`;
+  };
+  for (const bar of document.querySelectorAll('[data-ptabs]')) {
+    const first = bar.querySelector('[data-pt]');
+    if (first) showTab(first);
+  }
+  document.addEventListener('click', (event) => {
+    const tab = event.target.closest?.('[data-ptabs] [data-pt]');
+    if (tab) showTab(tab);
+  });
+  document.addEventListener('keydown', (event) => {
+    const tab = event.target.closest?.('[data-ptabs] [data-pt]');
+    if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const tabs = [...tab.closest('[data-ptabs]').querySelectorAll('[data-pt]')].filter((t) => !t.hidden);
+    const i = tabs.indexOf(tab);
+    const next = tabs[event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (i + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
+    event.preventDefault();
+    showTab(next);
+    next.focus();
+  });
+
   // The names on the reports: the organisation making them, and who prepared them.
   let names = readNames();
   $('sa-org').value = names.organisation;
