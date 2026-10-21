@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.89 | 501/s, 0 (main 502, 0) | 9.6 s | 644 ms | 741 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.88 | 469/s and 445/s, 266 and 210 (main 456 and 473, 394 and 197; a busy host) | 18.8 s | 1.9 s | 736 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.87 | 465/s, 84 (main 470, 89; a busier host than usual) | 13.2 s | 1.8 s | 723 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.86 | 303/s and 285/s, 2,052 and 2,266 on a saturated host (main 375 and 278, 1,201 and 2,336) | 60 s (main too) | 24.1 s | 721 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -74,6 +75,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.89 — 2026-10-21 07:00 UTC · [#112](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/112)
+
+- **The Cx Credits Calculator on its own.** **Download standalone calculator**, at the top right of the calculator, gives the whole calculator as one HTML file, blank, to give to anyone: it opens in any browser with no server, no install and no sign-in, and nothing leaves the browser.
+- **Every feature, the same reports.** Customers, triage & remediation with its plan per severity, Fusion, Impact, the scope, the projection report and its PDF summary are all there, made by the same code as in the app, so the reports are the same.
+- **From the two exports.** Checkmarx One refuses calls from a page outside its own website, so the file works from the two Checkmarx One exports (or the sample data) instead of an API key; the names on its reports are typed at its top.
+- **Kept in the browser, with backup.** Its customers and reports stay in the browser it is opened in; **Back up** saves them as one file and **Restore** brings them back, there or in another browser.
+- **Status.** 3000 people at once on 2 vCPU: 501 requests a second against main's 502, none failed on either side, and no finding sent twice ([performance](docs/performance.md)); 741 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan, rescan fe2eb036's open findings as before ([status](docs/status.md)).
 
 ## MZ-01.00.88 — 2026-10-21 02:51 UTC · [#111](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/111)
 

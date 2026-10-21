@@ -219,6 +219,7 @@ export const ACTIONS = {
   'POST /api/automation/email/test': 'Sent themselves a test reminder',
   'PUT /api/automation/email': 'Changed the reminder email',
   'POST /api/automation/focus/match': 'Checked what reminders cover',
+  'GET /api/projections/standalone': 'Downloaded the standalone Cx Credits Calculator',
   // Findings, reminders, credits and AI
   'GET /api/scan': 'Fetched findings from Checkmarx One',
   'POST /api/scan/stop': 'Stopped a fetch',

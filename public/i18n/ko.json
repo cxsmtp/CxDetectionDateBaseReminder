@@ -3785,6 +3785,8 @@
   "Test the Email server first (Settings → Email server).": "먼저 이메일 서버를 테스트하세요(설정 → 이메일 서버).",
   "Connect the server to Checkmarx One first (Settings → Checkmarx One).": "먼저 서버를 Checkmarx One에 연결하세요(설정 → Checkmarx One).",
   "automation|Focus": "대상 범위",
-  "automation|Schedule": "일정"
+  "automation|Schedule": "일정",
+  "Download standalone calculator": "독립 실행형 계산기 다운로드",
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "계산기만 하나의 HTML 파일로 제공합니다. 서버 없이 모든 브라우저에서 실행되며, Checkmarx One 내보내기 파일 두 개를 사용해 동일한 예측 보고서를 만듭니다."
  }
 }

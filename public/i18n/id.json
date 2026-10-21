@@ -3785,6 +3785,8 @@
   "Test the Email server first (Settings → Email server).": "Uji Server email terlebih dahulu (Pengaturan → Server email).",
   "Connect the server to Checkmarx One first (Settings → Checkmarx One).": "Hubungkan server ke Checkmarx One terlebih dahulu (Pengaturan → Checkmarx One).",
   "automation|Focus": "Cakupan",
-  "automation|Schedule": "Jadwal"
+  "automation|Schedule": "Jadwal",
+  "Download standalone calculator": "Unduh kalkulator mandiri",
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "Hanya kalkulatornya, dalam satu file HTML: berjalan di browser apa pun tanpa server, menggunakan kedua ekspor Checkmarx One, dan membuat laporan proyeksi yang sama."
  }
 }

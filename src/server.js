@@ -56,6 +56,7 @@ import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { reportI18n, reportWords } from './report-i18n.js';
 import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
+import { buildStandaloneCalculator } from './standalone-calculator.js';
 import { reportFileName as projectionFileName } from '../public/calculator/report.js';
 import { buildReminder, buildReportData, buildReportEmail, buildTemplateData } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
@@ -4222,6 +4223,17 @@ app.post('/api/projections', requireCalculator, calculatorRoute((req, res) => {
   audit.record({ type: 'settings', outcome: 'changed', reason: `Cx Credits Calculator: customer "${customer.name}" added.`, actor: { kind: 'user', user: req.user.email, ip: clientIp(req) } });
   res.status(201).json({ customer });
 }));
+/**
+ * The calculator on its own: one HTML file, blank, that runs in any browser with no server and works from
+ * the two Checkmarx One exports (src/standalone-calculator.js). Its projection and reports are this page's.
+ */
+app.get('/api/projections/standalone', requireCalculator, (req, res) => {
+  const html = buildStandaloneCalculator({ version: PACKAGE_VERSION });
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.set('Content-Disposition', 'attachment; filename="cx-credits-calculator.html"');
+  res.set('Cache-Control', 'no-store');
+  res.send(html);
+});
 /** Reports made from the calculator, newest first (one customer's with ?customer=). */
 app.get('/api/projections/reports', requireCalculator, (req, res) => {
   res.json({ reports: projectionReports.list(String(req.query.customer ?? '')) });

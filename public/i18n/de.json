@@ -3785,6 +3785,8 @@
   "Test the Email server first (Settings → Email server).": "Testen Sie zuerst den E-Mail-Server (Einstellungen → E-Mail-Server).",
   "Connect the server to Checkmarx One first (Settings → Checkmarx One).": "Verbinden Sie den Server zuerst mit Checkmarx One (Einstellungen → Checkmarx One).",
   "automation|Focus": "Umfang",
-  "automation|Schedule": "Zeitplan"
+  "automation|Schedule": "Zeitplan",
+  "Download standalone calculator": "Eigenständigen Rechner herunterladen",
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "Der Rechner für sich allein als eine einzige HTML-Datei: Er läuft in jedem Browser ohne Server, arbeitet mit den beiden Checkmarx One-Exporten und erzeugt dieselben Prognoseberichte."
  }
 }

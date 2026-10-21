@@ -3785,6 +3785,8 @@
   "Test the Email server first (Settings → Email server).": "โปรดทดสอบเซิร์ฟเวอร์อีเมลก่อน (การตั้งค่า → เซิร์ฟเวอร์อีเมล)",
   "Connect the server to Checkmarx One first (Settings → Checkmarx One).": "โปรดเชื่อมต่อเซิร์ฟเวอร์กับ Checkmarx One ก่อน (การตั้งค่า → Checkmarx One)",
   "automation|Focus": "ขอบเขต",
-  "automation|Schedule": "กำหนดเวลา"
+  "automation|Schedule": "กำหนดเวลา",
+  "Download standalone calculator": "ดาวน์โหลดเครื่องมือคำนวณแบบแยกต่างหาก",
+  "The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports": "เฉพาะเครื่องมือคำนวณในรูปแบบไฟล์ HTML ไฟล์เดียว ทำงานได้ในเบราว์เซอร์ใดก็ได้โดยไม่ต้องมีเซิร์ฟเวอร์ ใช้ไฟล์ส่งออกจาก Checkmarx One ทั้งสองไฟล์ และสร้างรายงานการประมาณการแบบเดียวกัน"
  }
 }
