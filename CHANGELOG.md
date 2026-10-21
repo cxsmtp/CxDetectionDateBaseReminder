@@ -77,7 +77,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.90 — 2026-10-21 08:08 UTC · [#113](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/113)
+## MZ-01.00.90 — 2026-10-21 08:43 UTC · [#113](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/113)
 
 - **The standalone calculator reads Checkmarx One.** **Download standalone calculator** now gives `cx-credits-calculator.mjs`: run it with Node.js (`node cx-credits-calculator.mjs`), paste a Checkmarx One API key at the top of the page that opens, and **Read from Checkmarx One** reads the tenant with the same code as the app, for the same reports.
 - **Independent, and kept to that computer.** Nothing of this server is in it; the page is served on that computer only and answers only itself, and the API key stays in the launcher's memory until it stops, never saved, logged or put in a report.
