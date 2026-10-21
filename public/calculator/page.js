@@ -62,7 +62,7 @@ function appLook() {
  * Checkmarx One (the two exports stand in), keeps everything in the browser, and asks for the names on the
  * reports itself. `sampleFile(name)` gives the sample exports there, as a Response.
  */
-export function initCalculator({ api, $, esc, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me, can, standalone = false, sampleFile = null, canRead = () => !standalone }) {
+export function initCalculator({ api, $, esc, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me, can, standalone = false, sampleFile = null, canRead = () => !standalone, impactOn = () => false }) {
   // On its own with no way to Checkmarx One (the HTML file opened from disk): the two exports are the way in.
   const offline = () => standalone && !canRead();
   const c = { customers: [], open: null, pending: null, timer: null, saving: null, draft: {}, dirty: {}, present: false, remainingCredits: null, reports: [] };
@@ -77,6 +77,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   // ---- Customers ----------------------------------------------------------------------------
 
   async function load({ reopen = true } = {}) {
+    gateImpact();
     let body;
     try {
       body = await api('/api/projections');
@@ -1409,7 +1410,16 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   const totals = () => totalsSettings(c.open?.totals);
 
+  /** The Impact tab is held back until an activation code turns it on (feature:impact): hidden, and left out of the reports. */
+  function gateImpact() {
+    const tab = document.querySelector('[data-ptabs="calculator"] [data-pt="impact"]');
+    if (!tab) return;
+    tab.hidden = !impactOn();
+    if (tab.hidden && tab.classList.contains('active')) document.querySelector('[data-ptabs="calculator"] [data-pt="tr"]')?.click();
+  }
+
   function renderSummary() {
+    gateImpact();
     $('calc-pdf').hidden = !(lastMade && lastMade.customerId === c.open?.id);
     if (!c.open) return;
     const sum = creditSummary(c.trCredits, c.fusionCredits, totals());
@@ -1599,6 +1609,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         : null,
       // What the triage & remediation credits give back, with this customer's assumptions.
       impact: (() => {
+        if (!impactOn()) return null;
         const trI = t ? trImpact(t.projection.rows, t.projection.months, impact()) : null;
         const fuI = fusionCounted ? fusionImpact(est.rows, est.totals.credits, est.settings.periodMonths, impact(), t?.projection.rows ?? null) : null;
         return trI || fuI ? { tr: trI, fusion: fuI, overall: overallImpact(trI, fuI) } : null;
@@ -1771,6 +1782,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
   });
 
+  gateImpact();
   return { load, renderOrg, refresh: () => c.open && show(c.open), autoRead };
 }
 

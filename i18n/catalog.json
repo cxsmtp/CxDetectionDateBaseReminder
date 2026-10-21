@@ -26166,5 +26166,11 @@
   "seen": [
    "Dashboard › a"
   ]
+ },
+ "Cx Credits Calculator: Impact": {
+  "kind": "text",
+  "seen": [
+   "settings › activation (runtime)"
+  ]
  }
 }

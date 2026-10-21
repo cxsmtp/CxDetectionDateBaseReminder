@@ -1177,7 +1177,7 @@ function describeMe(session, user) {
     // The page's languages this person may use (Hebrew only for the people chosen).
     languages: languageAccess.available(allowedLanguages(user.id)),
     // Add-ons a code has unlocked (in date or not): until then the page does not show them.
-    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled },
+    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, impact: Boolean(activations.feature('impact')?.on) },
     // The organisation's name (given with the terms of use), for what CxMissionZero makes for others.
     organisationName: terms.organisationName(),
     // Get help: the support portal here, or email to an address (installations whose mail cannot leave).
@@ -4612,6 +4612,7 @@ function activationView(req) {
     // Only the add-ons a code has unlocked (expired ones too, to renew): nothing else is named.
     languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)]).filter(([, s]) => s.on || s.expired)),
     tenants: activations.tenants(),
+    features: Object.fromEntries(['impact'].map((name) => [name, activations.feature(name)]).filter(([, f]) => f)),
     history: activations.history().slice(0, 10),
   };
 }
@@ -4635,6 +4636,8 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
   if (result.scope.startsWith('lang:')) {
     const applied = languageAccess.apply(result, { by: req.user.id });
     what = `${applied.code === 'he' ? 'Hebrew' : applied.code} ${applied.on ? `turned on until ${result.expires.slice(0, 10)}, for the roles with its permission (People & roles)` : 'turned off'}`;
+  } else if (result.scope === 'feature:impact') {
+    what = `the Cx Credits Calculator's Impact tab ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}` : 'turned off'}`;
   } else {
     what = `several Checkmarx One tenants unlocked for ${result.org}: up to ${result.maxTenants}, until ${result.expires.slice(0, 10)}`;
   }

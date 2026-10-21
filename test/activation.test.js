@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createPublicKey, generateKeyPairSync } from 'node:crypto';
 
-import { ISSUER_KEYS, checkCode, readCode } from '../src/activation.js';
+import { ActivationStore, ISSUER_KEYS, checkCode, readCode } from '../src/activation.js';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'activation-'));
 const keyFile = path.join(dir, 'issuer.pem');
@@ -81,4 +81,24 @@ test('a tenants code is not valid for a language scope, and vice versa', () => {
   // A language code has no tenant count; a tenants code has no action.
   const lang = checkCode(script('lang', keyFile, 'Acme', 'he', 'on'), { keys: [publicKey] });
   assert.equal(lang.maxTenants, 0);
+});
+
+test('the calculator’s Impact tab: off until a feature code turns it on, off again with its off code or when it runs out', () => {
+  const on = script('feature', keyFile, 'Acme', 'impact', 'on');
+  const off = script('feature', keyFile, 'Acme', 'impact', 'off');
+  const r = checkCode(on, { keys: [publicKey] });
+  assert.equal(r.valid, true, r.reason);
+  assert.equal(r.scope, 'feature:impact');
+  assert.equal(r.action, 'activate');
+  assert.equal(checkCode(off, { keys: [publicKey] }).action, 'deactivate');
+  const store = new ActivationStore({ file: path.join(dir, 'activation.json') });
+  assert.equal(store.feature('impact'), null, 'off by default');
+  store.record(r, 'admin');
+  assert.equal(store.feature('impact').on, true);
+  assert.equal(new ActivationStore({ file: path.join(dir, 'activation.json') }).feature('impact').on, true, 'kept');
+  const later = Date.parse(r.expires) + 1000;
+  assert.deepEqual([store.feature('impact', later).on, store.feature('impact', later).expired], [false, true], 'off once it runs out');
+  store.record(checkCode(off, { keys: [publicKey] }), 'admin');
+  assert.equal(store.feature('impact').on, false);
+  assert.equal(store.tenants(), null, 'no tenants unlocked by it');
 });

@@ -194,6 +194,8 @@ For example, 24,000 + 700.5 credits with 10% extra is 27,170.55 credits: 2.72 bu
 
 ## Impact
 
+**Held back while it matures (from MZ-01.00.91).** The **Impact** tab is shown only once an activation code turns it on ([activation codes](activation-codes.md): `feature … impact on`); an `impact off` code, or the code running out, hides it again. While it is off, the projection report and its PDF summary have no impact section, and the standalone calculator (both downloads) never has the tab.
+
 What the triage & remediation credits give back, worked out from the **Triage & remediation** tab with six assumptions kept with each customer. A new customer starts from **Settings → Impact** (the minutes and rates used on the Impact page); change them here for this customer.
 
 | Assumption | Default | Used for |

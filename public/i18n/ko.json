@@ -3795,6 +3795,7 @@
   "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "Fusion은 이 예측에서 제외되었습니다. 고객이 사용하지 않기로 했으므로 크레딧, 탐지 결과, 보고서 어디에도 집계되지 않습니다. 아래 설정은 유지됩니다.",
   "Left out": "제외됨",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion은 이 예측에서 제외되었습니다. 집계하려면 상단의 \"Fusion 포함\"을 선택하세요.",
-  "CxMissionZero version — update & recovery": "CxMissionZero 버전 — 업데이트 및 복구"
+  "CxMissionZero version — update & recovery": "CxMissionZero 버전 — 업데이트 및 복구",
+  "Cx Credits Calculator: Impact": "Cx 크레딧 계산기: 효과"
  }
 }

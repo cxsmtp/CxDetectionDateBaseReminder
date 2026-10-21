@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.91 | 461/s, 45 (main 437, 430; a busy host) | 14.2 s | 3.1 s | 747 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.90 | 469/s, 0 in its clean run (main 494, 0); other runs of both lost up to 298 to host pauses | 8.2 s | 1.6 s | 746 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.89 | 501/s, 0 (main 502, 0) | 9.6 s | 644 ms | 741 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.88 | 469/s and 445/s, 266 and 210 (main 456 and 473, 394 and 197; a busy host) | 18.8 s | 1.9 s | 736 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -76,6 +77,13 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.91 — 2026-10-21 11:16 UTC · [#114](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/114)
+
+- **The calculator's Impact tab is held back.** The Cx Credits Calculator's **Impact** tab is hidden until an activation code turns it on, while it matures; until then the projection report and its PDF summary have no impact section either.
+- **Never in the standalone calculator.** Both downloads (the `.mjs` launcher and **HTML only**) leave Impact out, whoever downloads them.
+- **On and off with a code.** Settings → Activation codes takes an Impact on or off code from the maintainer (`scripts/activation.mjs feature … impact on|off`), listed there as **Cx Credits Calculator: Impact**.
+- **Status.** 3000 people at once on 2 vCPU, one pair with main on a busy host: 461 requests a second with 45 failed against main's 437 with 430, both from the same pause of the whole host; no finding sent twice ([performance](docs/performance.md)); 747 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan ([status](docs/status.md)).
 
 ## MZ-01.00.90 — 2026-10-21 08:43 UTC · [#113](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/113)
 

@@ -3795,6 +3795,7 @@
   "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept.": "การประมาณการนี้ไม่นับรวม Fusion เนื่องจากลูกค้าเลือกไม่ใช้ จึงไม่มีส่วนใดของ Fusion ถูกนับในเครดิต ผลการตรวจพบ หรือรายงาน โดยยังคงเก็บการตั้งค่าด้านล่างไว้",
   "Left out": "ไม่นับรวม",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "การประมาณการนี้ไม่นับรวม Fusion: ทำเครื่องหมาย “นับรวม Fusion” ที่ด้านบนเพื่อนำ Fusion มานับรวม",
-  "CxMissionZero version — update & recovery": "เวอร์ชันของ CxMissionZero — การอัปเดตและการกู้คืน"
+  "CxMissionZero version — update & recovery": "เวอร์ชันของ CxMissionZero — การอัปเดตและการกู้คืน",
+  "Cx Credits Calculator: Impact": "เครื่องมือคำนวณเครดิต Cx: ผลกระทบ"
  }
 }
