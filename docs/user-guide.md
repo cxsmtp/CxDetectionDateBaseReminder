@@ -37,7 +37,7 @@ The sidebar is grouped by what you came to do:
 
 | Group | Pages | What you do there |
 | --- | --- | --- |
-| **Act** | Workbench | Load ageing findings, see who owns them, remind them, triage and remediate. |
+| **Act** | Workbench, Automation | Load ageing findings, see who owns them, remind them, triage and remediate; set reminders to go out by themselves, preview them and brand their email. |
 | **Follow up** | Dashboard | Follow tracked scopes down to zero and schedule follow-ups. |
 | **Prove** | Credit Control, Impact, Audit | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups. |
 | **Plan** | Cx Credits Calculator | The credits a customer needs for triage and remediation of their backlog and for Fusion scans, and projection reports, from the Checkmarx One tenant. Shown to Admins and the roles an Admin gives its permission to. |
@@ -256,7 +256,7 @@ As an Admin, open **Settings** and work down this list.
 | 4 | Reminder server address | The `https://` address people use to reach this server. Then **Test**. Serve it over HTTPS first: [Turn on HTTPS](#turn-on-https). |
 | 5 | AI Triage & Remediation from reports | Decide what developers may run from their reports, and set the credit pool. |
 | 6 | Branding | Company name, logo and colour for emails and reports. |
-| 7 | Automation (optional) | Turn on age-threshold reminders. Start with **Test mode**. |
+| 7 | Automation (optional) | **Act → Automation**: set the age limits, preview who would get what, then turn it on. Start with **Test mode**. |
 | 8 | Hands-off (optional) | Or answer four questions under **Settings → Hands-off**: MissionZero then reminds, reports weekly and looks after itself, and nobody needs to sign in. |
 
 Then go to the **Workbench**, click **Load findings**, and send your first reminder.
@@ -477,7 +477,7 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 
 | Feature | Once final |
 | --- | --- |
-| **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Workbench's Remind panel links to it, and Settings → Automation can email code authors on every run. |
+| **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Workbench's Remind panel links to it, and Act → Automation can email code authors on every run. |
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
 | **Fusion results** | Everyone who loads findings sees **Labs → Fusion results**, read again with each Workbench fetch, and the Workbench's **Fusion** column. |
 
@@ -598,34 +598,14 @@ How many days each severity has to be fixed, counted from when the finding was *
 | Option | Meaning |
 | --- | --- |
 | Critical / High / Medium / Low | Days to fix. Defaults: 7, 30, 90 and 180. **0** means no SLA for that severity. |
-| Escalate findings that go past their SLA, once each | Each scheduled run (Settings → Automation must be on) emails the people below one list of the findings that went past their SLA since the last run: project, severity, how far past, and who ran the latest scan. A finding is escalated once; if it is fixed and comes back, it is escalated again. **Test mode** in Automation counts them without sending. |
+| Escalate findings that go past their SLA, once each | Each reminder run (Act → Automation must be on) emails the people below one list of the findings that went past their SLA since the last run: project, severity, how far past, and who ran the latest scan. A finding is escalated once; if it is fixed and comes back, it is escalated again. **Test mode** in Automation counts them without sending. |
 | Escalate to | The addresses that get the escalation, one per line. |
 | Also open an issue in the repository | Each scheduled run opens **one issue in each project's repository** listing its findings that went past their SLA (severity, finding, where, first found, days past, a link to Checkmarx One), each finding once. GitHub, and GitLab as a **confidential** issue, with the token connected under Beta → Source-code hosts (it needs permission to create issues). **Private and internal repositories only:** a public one is skipped, so vulnerabilities are never published. Text from findings cannot mention anyone or add links. At most 20 projects a run, the most severe first; the rest next run. Works with or without the email escalation. **Test mode** counts them without opening any. |
 
 Findings triaged as not exploitable (proposed or confirmed) have no SLA. On the **Workbench**, **Past SLA** shows how many open findings are past their SLA (red), with how many more are due within 7 days under it (amber). The projects table has a **Past SLA** column, shown by default, and **Due ≤ 7d** under **Columns**; both are in the CSV export. The automation's run history says how many were escalated, how many repository issues were opened, and which projects were skipped and why (no repository, no token, public repository, no permission).
 
 ### Automation
-Watches findings on a timer and emails the moment one crosses an age threshold. Each finding is reported **once per threshold**, so a daily run does not nag.
-
-| Option | Meaning |
-| --- | --- |
-| Run automatically | Turns the schedule on. |
-| Test mode | Decides and logs, but sends nothing. Use it for the first run, because an older tenant has a backlog that crosses every threshold at once. |
-| Thresholds (days) | For example `30, 60, 90`. |
-| Check every (minutes) | From 15 minutes to 1 week. |
-| Sends to | Shown, not set here: it follows **Workbench → Remind → Send to** (each developer, the fixed list, or both). With **Both** and an empty fixed list, the run says so instead of sending to nobody. |
-| Severities | For example `CRITICAL, HIGH`. Blank means all. |
-| Engines | Which engines' findings are reminded about: **SAST** and **SCA** (what AI Triage and Remediation work on) for a new schedule; tick more to add them. A schedule saved before engines could be chosen keeps every engine ticked, so nobody's reminders stop after an update. |
-| Branch and projects | **Every branch** off (a new schedule): each project's primary branch only, as on the Workbench; a project whose primary branch was never scanned is not reminded about. **Leave out projects with no lines of code** on (a new schedule). A schedule saved before these choices reads every branch and leaves nothing out, until you change it. |
-| Mode | **Report each threshold once** (recommended), or **digest**: re-report everything past a threshold on every run. |
-| Also email the code authors | Shown once an Admin has made **Code authors** final. Each run also emails the developer who last changed the line of each finding that just crossed (SAST and KICS, most severe first, up to 200 a run), with the findings in their code. Developers are still emailed as before. In digest mode the authors are emailed on every run too. |
-| **Run once now** | Runs a pass immediately. |
-| **Reset history** | Forgets what was reported, so the next run reports everything again. |
-
-The panel shows:
-- whether the Checkmarx One connection and the mail server are ready;
-- the last runs (scanned, crossed, sent, and how many code authors were emailed);
-- **Also running by itself:** everything else that runs on its own, in one list: SLA escalation (on or off), and each tracked report's automatic follow-up and rescan, with **Open** to go to that report's Remind tab.
+Moved to its own page under **Act → Automation** in MZ-01.00.88: see [Automation](#automation). **Settings → Automation** in the menu, and old links to it, open that page.
 
 ### AI Triage & Remediation from reports
 | Option | Meaning |
@@ -808,7 +788,7 @@ Each finding falls into an age bucket by when it was **first detected**:
 
 | Option | Meaning |
 | --- | --- |
-| Send to | **Each developer**, **A fixed list**, or **Both**. **This is the one place that decides who gets reminders**: here, Settings → Automation's scheduled runs, and tracked reports' follow-ups all use it (changing it needs **settings.recipients**). A scan initiator only ever gets their own projects; the server refuses any email that would show someone a project they did not scan. |
+| Send to | **Each developer**, **A fixed list**, or **Both**. **This is the one place that decides who gets reminders**: here, Act → Automation's runs, and tracked reports' follow-ups all use it (changing it needs **settings.recipients**). A scan initiator only ever gets their own projects; the server refuses any email that would show someone a project they did not scan. |
 | Content | **One summary** (one email per person, all their projects), or **One per project**. |
 | Attach the interactive HTML report | On by default. Developers can triage and remediate straight from it. |
 | Fixed list | To / Cc / Bcc, edited here. **Save list** keeps it. |
@@ -819,6 +799,75 @@ The age filter is the Scope's job: a reminder covers the findings in scope.
 - Findings proposed or confirmed **not exploitable** are left out (unless switched off in Settings).
 
 ---
+
+## Automation
+**Act → Automation**: age reminders and everything else that runs by itself, on seven tabs. Who may see and change it is as before: roles that may **view settings** see it read-only; roles with **Automation** (`settings.automation`) change, preview, run and reset it. Each tab saves with its own **Save** button.
+
+### Reminders
+People are emailed once when a finding in their projects gets older than each age limit. Each finding is reported **once per limit**, so a daily run does not nag.
+
+| Option | Meaning |
+| --- | --- |
+| Run automatically | Ticking it and pressing **Save** opens **Preview** first: who would get what now, and a **Turn on** button. Nothing runs by itself until it is turned on from there. |
+| Test mode | Decides and logs, but sends nothing. Use it for the first run, because an older tenant has a backlog that crosses every limit at once. |
+| Also email the code authors | Shown once an Admin has made **Code authors** final. Each run also emails the developer who last changed the line of each finding that just crossed (SAST and KICS, most severe first, up to 200 a run). |
+| Age limits, by severity | **The same for every severity** (one list, such as `30, 60, 90`), or **Each severity its own** (such as Critical `7, 14, 30`, High `30, 60`, Medium `90`, Low none). A severity with no days is not reminded about. |
+| Reminders On | Which severities are reminded about at all. All ticked means every severity. |
+| Findings past a limit now | From the last **Preview**: how many findings of each severity a run would remind about now. |
+| When a finding is already past several limits | **Report each limit once** (recommended), or **Remind about everything past a limit, every run**. |
+| Sends to | Shown, not set here: it follows **Workbench → Remind → Send to** (each developer, the fixed list, or both). |
+| **Run once now** | Runs a pass immediately (in test mode if that is ticked). |
+
+The tab also says whether the Checkmarx One connection and the mail server are ready for unattended runs.
+
+### Focus
+What reminders cover. Leave everything blank to cover every project the server's Checkmarx One key can see.
+
+| Option | Meaning |
+| --- | --- |
+| Applications | Checkmarx One applications by name, separated by commas. The names offered come from the tenant; a name that matches no application is pointed out. |
+| Project tags | A tag key (`team`) or key and value (`team:payments`). |
+| Projects | Project names; `*` stands for any characters and `?` for one, such as `payments-*`. |
+| Leave out projects | Names or patterns left out, such as `*-sandbox, demo-*`. |
+| Engines | **SAST** and **SCA** (what AI Triage and Remediation work on) for a new installation. A schedule saved before engines could be chosen keeps every engine. |
+| Branch and projects | **Every branch** off: each project's primary branch only. **Leave out projects with no lines of code** on. |
+
+A project is covered when it is in a named application, has a named tag, **or** matches a named project, and does not match a left-out pattern. Under the fields, **Matches N of M projects** says what the names typed cover, as you type.
+
+Checkmarx One reports a project's groups as ids without names, so Focus names applications and tags rather than groups.
+
+### Schedule
+| Option | Meaning |
+| --- | --- |
+| On a schedule | Reminders go out on the **days** ticked, at the time given (**At**), in the **time zone** given. Blank: the server's (`TZ`). The default for a new installation is Monday to Friday at 09:00. Clock changes are followed: 09:00 stays 09:00. |
+| Every so many minutes | From 15 minutes to 1 week, counted from when it was turned on. A schedule saved before MZ-01.00.88 keeps this, with its interval. |
+
+The badge says when the next run goes out, or would if it were on.
+
+### Email
+The reminder each person gets, written as fields rather than HTML, with a live preview beside it.
+
+| Field | Meaning |
+| --- | --- |
+| Sender name, Reply-to, Footer | **Same as the portal** by default: the Email server's sender name and From address, and the company name. Untick it to write the email's own. |
+| Logo | **Same as the portal** (Settings → Branding), **Another for reminders** (an `https` image), or **None**. |
+| Colours and look | **Same as the portal**: the brand colour chosen under Settings → Branding, or else the organisation's look (Command center's navy, Residence's navy and ivory, and so on). Untick it to pick a colour. |
+| Header text | Shown on the right of the band at the top, such as **Security reminder**. |
+| Subject, Greeting, Opening, Button, Sign-off | The words. **Insert** adds a placeholder where the cursor is: `{{name}}`, `{{firstName}}`, `{{count}}`, `{{critical}}`, `{{high}}`, `{{oldestDays}}`, `{{projects}}`, `{{limit}}` (the highest limit crossed) and `{{company}}`. What is typed is text: markup is shown as typed, never run. |
+| List each project with its counts | A table of the person's projects: critical, high and the oldest finding's age. |
+| Attach the HTML report | Each person's interactive report, attached, as with reminders sent by hand. |
+| Edit the HTML instead (advanced) | Sends the HTML template (Settings → Mail template) instead; branding above does not apply to it. An installation whose template was changed before MZ-01.00.88 keeps sending it. |
+
+**Send me a test** sends the email as typed to you only, with its sender name and reply-to. **Restore default** puts back the portal's branding and the default words. The preview shows the first person of the last **Preview**, or a sample.
+
+### Preview
+**Preview now** reads Checkmarx One as a run would and lists who would get what: people, projects, findings past a limit and critical, then one row per email with its projects, counts and the limits crossed. **See the email** opens that person's email as it would be sent. People whose address is not known are on one row, with **Set addresses**. Nothing is sent, and nothing is remembered as reported. **Email me the preview** sends you the list (not anyone's email).
+
+### Follow-ups & escalation
+Everything else that runs by itself, wherever it is set: tracked reports' automatic follow-ups and verification rescans (Dashboard), and SLA escalation (Settings → SLAs), which goes out with each reminder run. Each row says when it runs and when it last ran, with **Open**.
+
+### History
+Each run: when, how (scheduled or **Run once now**, in test mode or not), the findings past a limit, the emails sent, and the outcome (**Sent**, **Logged only**, **Nothing new**, **Skipped** or **Failed**), with what went wrong. **Reset history** forgets what was reported, so the next run reports every finding past a limit again.
 
 ## The emailed report
 
@@ -1201,7 +1250,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.87** | 465/s, 84 failed (main 470, 89; a busier host than usual, both sides alike) | 13.2 s | 1.8 s | 723 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
+| **MZ-01.00.88** | 469/s and 445/s, 266 and 210 failed (main 456 and 473, 394 and 197; a busy host, both sides alike) | 18.8 s | 1.9 s | 736 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82) is the latest known (not checked again for this release). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
+| MZ-01.00.87 | 465/s, 84 failed (main 470, 89; a busier host than usual, both sides alike) | 13.2 s | 1.8 s | 723 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
 | MZ-01.00.86 | 303/s and 285/s, 2,052 and 2,266 failed on a saturated host (main 375 and 278, 1,201 and 2,336) | 60 s (the client timeout, main too) | 24.1 s | 721 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
 | MZ-01.00.85 | 498/s and 513/s, 0 failed (main 491 and 520, 0) | 6.3 s | 463 ms | 720 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
 | MZ-01.00.84 | 502/s, 0 failed (main 497, 0) | 6.7 s | 593 ms | 698 pass | 0 vulnerabilities | No new scan: rescan fe2eb036 (MZ-01.00.82). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
@@ -1253,7 +1303,7 @@ How fast and how safe the version you run is. Each release is measured with 3000
 2. **Load findings** and wait for the green flare.
 3. Send reminder: **Each developer**, **One summary**, attachment on. **Preview email**, then **Send reminder**.
 
-To have it happen by itself, use Settings → Automation, or a tracked report's **Automatic follow-up** (Remind tab).
+To have it happen by itself, use Act → Automation, or a tracked report's **Automatic follow-up** (Remind tab).
 
 **Triage every critical and high finding for one team**
 1. Scope → Only these applications, projects or people: add the team's application, or its projects.

@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.88 | 469/s and 445/s, 266 and 210 (main 456 and 473, 394 and 197; a busy host) | 18.8 s | 1.9 s | 736 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.87 | 465/s, 84 (main 470, 89; a busier host than usual) | 13.2 s | 1.8 s | 723 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.86 | 303/s and 285/s, 2,052 and 2,266 on a saturated host (main 375 and 278, 1,201 and 2,336) | 60 s (main too) | 24.1 s | 721 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.85 | 498/s and 513/s, 0 (main 491 and 520, 0) | 6.3 s | 463 ms | 720 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -73,6 +74,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.88 — 2026-10-21 02:51 UTC · [#111](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/111)
+
+- **Act → Automation.** Reminders and everything else that runs by itself have their own page under Act, next to the Workbench, in seven tabs: Reminders, Focus, Schedule, Email, Preview, Follow-ups & escalation and History. Settings → Automation, and old links to it, open it; who may see and change it is as before.
+- **Age limits for each severity.** Each severity can have its own limits (such as critical after 7, 14 and 30 days, high after 30 and 60, low never), or one list for all, and the table shows how many findings of each are past a limit now.
+- **Focus on what matters.** Reminders can cover only some Checkmarx One applications, project tags or projects (with `*` and `?`), and leave others out; the tab says how many projects the names match as they are typed.
+- **On a schedule.** Reminders go out on the days chosen at a set time in a set time zone (Monday to Friday at 09:00 for a new installation), or every so many minutes as before; a schedule saved earlier keeps its interval.
+- **A reminder email branded like the portal.** The email takes the portal's sender, logo, colours and footer unless told otherwise, and its subject, greeting, opening, button and sign-off are plain fields with placeholders such as `{{firstName}}`, a live preview, a test to yourself and a way back to the default; a hand-written HTML template stays available, and in use where it was.
+- **Preview before turning on.** Preview reads Checkmarx One as a run would and shows who would get what, with each person's email, without sending or remembering anything; turning "Run automatically" on goes through it.
+- **Status.** 3000 people at once on 2 vCPU, on a busy host: 469 and 445 requests a second with 266 and 210 failed against main's 456 and 473 with 394 and 197, one pair each way, and no finding sent twice ([performance](docs/performance.md)); 736 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan, rescan fe2eb036's open findings as before ([status](docs/status.md)).
 
 ## MZ-01.00.87 — 2026-10-20 20:22 UTC · [#110](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/110)
 

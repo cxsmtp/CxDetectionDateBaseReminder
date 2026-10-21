@@ -7,7 +7,7 @@ Some teams don't want one more tool to look after. For them, MissionZero can be 
 Open **Settings → Hands-off** (under **Start**). You need the **Automation** permission; Admins have it. The page first shows whether Checkmarx One is connected, the email server is tested, and the server address is set. The server address is what makes the email buttons work. Then answer four questions:
 
 1. **What should MissionZero do on its own?**
-   - **Remind developers about their ageing findings.** These are the same automatic reminders as Settings → Automation.
+   - **Remind developers about their ageing findings.** These are the same automatic reminders as Act → Automation.
    - **Email a short status every week.**
    - **Email leadership the monthly impact summary.** This needs the **AI Triage & Remediation rules** permission.
 2. **Which findings?** Choose the severities, and how old a finding must be before its first reminder, for example 30, 60, 90 days.

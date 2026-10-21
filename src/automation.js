@@ -2,18 +2,20 @@ import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { getLastScans, listProjects } from './cxone/projects.js';
+import { getLastScans, listApplications, listProjects } from './cxone/projects.js';
 import { collectProjectRisks } from './cxone/risks.js';
 import { BRANCH_HOW, onBranch, primaryScans, withCode } from './cxone/branches.js';
 import { collectInitiators, groupRisksByInitiator, groupRisksByProject } from './cxone/initiators.js';
-import { buildReminder } from './reminder.js';
+import { buildReminder, buildTemplateData } from './reminder.js';
+import { buildBrandedReminder, DEFAULT_REMINDER_EMAIL } from './reminder-email.js';
+import { projectsListUrl } from './links.js';
 import { sendReminderMail } from './mailer.js';
-import { DEFAULT_AUTOMATION } from './automation-config.js';
+import { DEFAULT_AUTOMATION, focusProjects, limitsFor, nextRunAfter } from './automation-config.js';
 import { engineScope, inEngines } from './engines.js';
 import { knownAddresses } from './known-addresses.js';
 import { escalationMail, newlyOverdue, pruneEscalated, riskKey as slaKey } from './sla.js';
 
-export { DEFAULT_AUTOMATION, mergeAutomation, parseThresholds } from './automation-config.js';
+export { DEFAULT_AUTOMATION, focusProjects, limitsFor, mergeAutomation, nextRunAfter, parseThresholds } from './automation-config.js';
 
 /**
  * Unattended reminders.
@@ -51,7 +53,8 @@ const riskKey = (risk) => `${risk.projectId}:${risk.id}`;
  * rather than three times.
  */
 export function findCrossings(risks, thresholds, ledger, { mode = 'crossing' } = {}) {
-  const sorted = [...thresholds].sort((a, b) => a - b);
+  // One list for every finding, or a function giving each finding's own (its severity's limits).
+  const limitsOf = typeof thresholds === 'function' ? thresholds : () => thresholds;
   const crossed = [];
   const seen = new Set();
 
@@ -60,6 +63,7 @@ export function findCrossings(risks, thresholds, ledger, { mode = 'crossing' } =
     seen.add(key);
     if (risk.ageDays === null || risk.ageDays === undefined) continue;
 
+    const sorted = [...(limitsOf(risk) ?? [])].sort((a, b) => a - b);
     const passed = sorted.filter((days) => risk.ageDays >= days);
     if (passed.length === 0) continue;
 
@@ -176,36 +180,24 @@ export class AutomationState {
 // ---------------------------------------------------------------------------
 
 /**
- * One unattended pass: fetch everything, find what has newly crossed, mail it.
- *
- * Returns a run record rather than throwing, so a failure is visible in the
- * status panel instead of taking the timer down with it.
+ * What a pass would do, without doing it: the open findings in focus, those newly past a limit, and the
+ * messages they make (each person's, or the fixed list's). Nothing is sent and the ledger is only read,
+ * so Act → Automation → Preview shows exactly what a run would send.
  */
-export async function runOnce({
-  client,
-  connection,
-  config,
-  settings,
-  state,
-  verified = false,
-  now = new Date(),
-  force = false,
-  notifyAuthors = null,
-  openIssues = null,
-}) {
+export async function decide({ client, connection, config, settings, ledger, now = new Date(), reportFor = null }) {
   const automation = settings.automation;
-  const started = Date.now();
-  const dryRun = automation.dryRun && !force ? true : automation.dryRun;
 
-  if (!verified && !dryRun) {
-    return { ok: false, skipped: true, reason: 'SMTP has not passed a connection test, so nothing can be sent.' };
-  }
-
-  // Automation always looks at the whole tenant: a scope filter here would
-  // silently exclude projects from ever being reported.
   // Each project's primary branch only (unless every branch is chosen): a branch never scanned is not
   // reminded about, and nor (unless chosen otherwise) is a project whose scan counted no lines of code.
   let projects = await listProjects(client);
+  const total = projects.length;
+  // What reminders cover (→ Focus): named applications, tags and projects, less those left out.
+  const focus = automation.focus ?? {};
+  if (focus.applications?.length || focus.tags?.length || focus.projects?.length || focus.exclude?.length) {
+    const applications = focus.applications?.length ? await listApplications(client).catch(() => []) : [];
+    projects = focusProjects(projects, focus, applications);
+  }
+  const inFocus = projects.length;
   // What is known of each scan is kept per Checkmarx One key, the same key the Workbench's sessions share.
   const identity = connection?.apiKey ? createHash('sha256').update(`${connection.baseUrl ?? ''}\u0000${connection.tenant ?? ''}\u0000${connection.apiKey}`).digest('base64url').slice(0, 22) : '';
   const choice = automation.branches === 'all' ? null : await primaryScans(client, projects, { identity, concurrency: config.concurrency }).catch(() => null);
@@ -240,27 +232,16 @@ export async function runOnce({
     .filter((risk) => inEngines(risk, engines))
     .filter((risk) => !skipNotExploitable || !['NOT_EXPLOITABLE', 'PROPOSED_NOT_EXPLOITABLE'].includes(risk.state));
 
-  // SLAs (Beta): findings that went past their SLA since the last run, escalated once each.
-  const escalation = await escalateOverdue({ open, settings, state, initiators, dryRun, now, openIssues, context: { client, connection, projects, initiators: initiators.byProject } });
+  // Each finding's limits: its severity's own (→ Reminders), or the same for every severity.
+  const { crossed, seen } = findCrossings(open, (risk) => limitsFor(automation, risk.severity), ledger, { mode: automation.mode });
+  const composed = crossed.length ? await compose(crossed, { settings, connection, initiators, now, reportFor }) : { messages: [], failures: [] };
+  return { projects: scan.projects, total, inFocus, open, initiators, crossed, seen, ...composed };
+}
 
-  const { crossed, seen } = findCrossings(open, automation.thresholds, state.ledger, { mode: automation.mode });
-
-  if (crossed.length === 0) {
-    const { pruned } = applyLedger(state.ledger, [], seen, now);
-    state.persist();
-    return {
-      ok: true,
-      dryRun,
-      scanned: open.length,
-      crossed: 0,
-      sent: 0,
-      pruned,
-      elapsedMs: Date.now() - started,
-      reason: 'Nothing new crossed a threshold.',
-      ...(escalation ? { escalation } : {}),
-    };
-  }
-
+/** The messages for what crossed: each person's own (or each project's), and the fixed list's. */
+async function compose(crossed, { settings, connection, initiators, now, reportFor }) {
+  const automation = settings.automation;
+  const email = { ...DEFAULT_REMINDER_EMAIL, ...(settings.reminderEmail ?? {}) };
   const common = {
     buckets: [],
     tenant: connection.tenant,
@@ -269,6 +250,32 @@ export async function runOnce({
     connection,
     branding: settings.branding,
     now,
+  };
+  /** One message: the branded email (→ Email), or the HTML template when that is chosen. */
+  const build = (risks, group, why) => {
+    if (email.style === 'html') return buildReminder(risks, settings.template, { ...common, ...(group ? { initiator: group } : {}) });
+    const data = buildTemplateData(risks, { ...common, ...(group ? { initiator: group } : {}) });
+    const per = new Map();
+    for (const risk of risks) {
+      const p = per.get(risk.projectId) ?? { critical: 0, high: 0, oldestDays: 0 };
+      if (risk.severity === 'CRITICAL') p.critical += 1;
+      if (risk.severity === 'HIGH') p.high += 1;
+      p.oldestDays = Math.max(p.oldestDays, risk.ageDays ?? 0);
+      per.set(risk.projectId, p);
+    }
+    data.projects = data.projects.map((p) => ({ ...p, ...per.get(p.projectId) }));
+    data.crossedLimits = risks.map((r) => ({ severity: r.severity, days: r.threshold }));
+    const buttonUrl = data.projects.length === 1 ? data.projects[0].url : projectsListUrl(connection, settings.links);
+    const built = buildBrandedReminder(data, email, settings, { initiator: group?.initiator ?? '', to: group?.email ?? '', buttonUrl, why });
+    return { ...built, data, projects: data.projects };
+  };
+  const attach = async (risks, group, to) => {
+    if (!email.attachReport || !reportFor) return {};
+    try {
+      return { attachments: [await reportFor(risks, { initiator: group, to })] };
+    } catch (error) {
+      return { attachError: error.message };
+    }
   };
 
   const messages = [];
@@ -287,10 +294,10 @@ export async function runOnce({
 
     for (const group of groups) {
       if (!group.email) {
-        failures.push({ to: group.initiator || '(unknown)', error: 'No email address could be resolved.' });
+        failures.push({ to: group.initiator || '(unknown)', error: 'No email address could be resolved.', noAddress: true, risks: group.risks });
         continue;
       }
-      const reminder = buildReminder(group.risks, settings.template, { ...common, initiator: group });
+      const reminder = build(group.risks, group, 'You get this because you last scanned these projects.');
       // Exactly this person (plus the list's Cc/Bcc only when that is switched on): never
       // the configured list by default, which would copy them on someone else's projects.
       const copy = settings.initiators?.copyConfiguredRecipients === true;
@@ -298,8 +305,10 @@ export async function runOnce({
         to: [group.email],
         overrides: { exact: true, to: [group.email], cc: copy ? settings.recipients.cc : [], bcc: copy ? settings.recipients.bcc : [] },
         reminder,
+        risks: group.risks,
         riskCount: group.risks.length,
         label: group.initiator,
+        group,
       });
     }
   }
@@ -308,11 +317,64 @@ export async function runOnce({
     if (!list.to?.length && !list.cc?.length && !list.bcc?.length) {
       failures.push({ to: 'the fixed list', error: 'The fixed list is empty: add addresses on the Workbench (Remind → The fixed list), or send to each developer only.' });
     } else {
-      const reminder = buildReminder(crossed, settings.template, common);
-      messages.push({ to: list.to, reminder, riskCount: crossed.length, label: 'configured list' });
+      const reminder = build(crossed, null, 'You get this as one of the people kept informed of these projects.');
+      messages.push({ to: list.to, reminder, risks: crossed, riskCount: crossed.length, label: 'configured list' });
     }
   }
+  return { messages, failures, attach };
+}
 
+/**
+ * One unattended pass: fetch everything, find what has newly crossed, mail it.
+ *
+ * Returns a run record rather than throwing, so a failure is visible in the
+ * status panel instead of taking the timer down with it.
+ */
+export async function runOnce({
+  client,
+  connection,
+  config,
+  settings,
+  state,
+  verified = false,
+  now = new Date(),
+  force = false,
+  notifyAuthors = null,
+  openIssues = null,
+  reportFor = null,
+}) {
+  const automation = settings.automation;
+  const started = Date.now();
+  const dryRun = automation.dryRun && !force ? true : automation.dryRun;
+
+  if (!verified && !dryRun) {
+    return { ok: false, skipped: true, reason: 'SMTP has not passed a connection test, so nothing can be sent.' };
+  }
+
+  const decided = await decide({ client, connection, config, settings, ledger: state.ledger, now, reportFor });
+  const { open, initiators, crossed, seen, messages, failures } = decided;
+
+  // SLAs (Beta): findings that went past their SLA since the last run, escalated once each.
+  const escalation = await escalateOverdue({ open, settings, state, initiators, dryRun, now, openIssues, context: { client, connection, projects: decided.projects, initiators: initiators.byProject } });
+
+  if (crossed.length === 0) {
+    const { pruned } = applyLedger(state.ledger, [], seen, now);
+    state.persist();
+    return {
+      ok: true,
+      dryRun,
+      scanned: open.length,
+      crossed: 0,
+      sent: 0,
+      pruned,
+      elapsedMs: Date.now() - started,
+      reason: 'Nothing new crossed a threshold.',
+      ...(escalation ? { escalation } : {}),
+    };
+  }
+
+  // A run's record keeps where each failure went, not the findings behind it.
+  const failed = failures.map(({ risks, noAddress, ...f }) => f);
   let sent = 0;
   for (const message of messages) {
     if (dryRun) {
@@ -320,15 +382,22 @@ export async function runOnce({
       continue;
     }
     try {
-      await sendReminderMail(settings, message.reminder, message.overrides ?? { to: message.to });
+      const extra = await decided.attach(message.risks, message.group ?? null, message.to);
+      const from = message.reminder.from ?? {};
+      await sendReminderMail(settings, message.reminder, {
+        ...(message.overrides ?? { to: message.to }),
+        ...(extra.attachments ? { attachments: extra.attachments } : {}),
+        ...(from.name ? { fromName: from.name } : {}),
+        ...(from.replyTo ? { replyTo: from.replyTo } : {}),
+      });
       sent += 1;
     } catch (error) {
-      failures.push({ to: message.to.join(', '), error: error.message });
+      failed.push({ to: message.to.join(', '), error: error.message });
     }
   }
 
   // Only mark what actually went out, so a failed send is retried next run.
-  const reported = dryRun || failures.length === 0 ? crossed : crossed.filter((risk) => wasSent(risk, messages, failures));
+  const reported = dryRun || failed.length === 0 ? crossed : crossed.filter((risk) => wasSent(risk, messages, failed));
   const { pruned } = applyLedger(state.ledger, dryRun ? [] : reported, seen, now);
   state.persist();
 
@@ -337,22 +406,22 @@ export async function runOnce({
   let codeAuthors;
   if (automation.notifyCodeAuthors && notifyAuthors) {
     try {
-      codeAuthors = await notifyAuthors(crossed, { client, connection, projects: scan.projects, initiators: initiators.byProject, dryRun });
+      codeAuthors = await notifyAuthors(crossed, { client, connection, projects: decided.projects, initiators: initiators.byProject, dryRun });
     } catch (error) {
       codeAuthors = { error: error.message };
     }
   }
 
   return {
-    ok: failures.length === 0,
+    ok: failed.length === 0,
     dryRun,
     scanned: open.length,
     crossed: crossed.length,
     sent,
     pruned,
-    failures,
+    failures: failed,
     elapsedMs: Date.now() - started,
-    thresholds: automation.thresholds,
+    thresholds: automation.perSeverity ? automation.severityLimits : automation.thresholds,
     ...(codeAuthors ? { codeAuthors } : {}),
     ...(escalation ? { escalation } : {}),
   };
@@ -430,7 +499,7 @@ function wasSent(risk, messages, failures) {
 
 // ---------------------------------------------------------------------------
 
-/** Drives runOnce on a timer, and reports when the next pass is due. */
+/** Drives runOnce on a timer (every so many minutes, or on chosen days at a time), and reports when the next pass is due. */
 export class Scheduler {
   #timer = null;
   #running = false;
@@ -446,9 +515,12 @@ export class Scheduler {
 
   #openIssues;
 
-  constructor({ resolveSession, state, settingsStore, config, isVerified, notifyAuthors = null, openIssues = null }) {
+  #reportFor;
+
+  constructor({ resolveSession, state, settingsStore, config, isVerified, notifyAuthors = null, openIssues = null, reportFor = null }) {
     this.#notifyAuthors = notifyAuthors;
     this.#openIssues = openIssues;
+    this.#reportFor = reportFor;
     this.#resolve = resolveSession;
     this.#state = state;
     this.#settingsStore = settingsStore;
@@ -463,27 +535,50 @@ export class Scheduler {
       running: this.#running,
       nextRunAt: automation.enabled ? this.#nextRunAt : null,
       intervalMinutes: automation.intervalMinutes,
+      when: automation.when ?? 'interval',
       runs: this.#state.runs.slice(0, 10),
       trackedFindings: Object.keys(this.#state.ledger.notified).length,
     };
   }
 
-  /** Apply the current settings: start, stop or re-space the timer. */
+  /** Apply the current settings: start, stop or re-time the timer. */
   sync() {
-    const { enabled, intervalMinutes } = this.#settingsStore.get().automation;
     this.stop();
-    if (!enabled) return;
+    if (!this.#settingsStore.get().automation.enabled) return;
+    this.#arm();
+  }
 
-    const period = intervalMinutes * 60_000;
-    this.#nextRunAt = new Date(Date.now() + period).toISOString();
-    this.#timer = setInterval(() => this.tick(), period);
+  /** The next pass, from now. A timer is at most a day long (setTimeout's limit is ~24.8 days), then looks again. */
+  #arm() {
+    const next = nextRunAfter(this.#settingsStore.get().automation, new Date());
+    this.#nextRunAt = next ? next.toISOString() : null;
+    if (!next) return;
+    const wait = Math.max(1000, next.getTime() - Date.now());
+    const day = 24 * 60 * 60_000;
+    this.#timer = setTimeout(() => {
+      this.#timer = null;
+      if (wait > day) return this.#arm();
+      this.tick().finally(() => {
+        if (this.#settingsStore.get().automation.enabled && !this.#timer) this.#arm();
+      });
+    }, Math.min(wait, day));
     this.#timer.unref?.();
   }
 
   stop() {
-    if (this.#timer) clearInterval(this.#timer);
+    if (this.#timer) clearTimeout(this.#timer);
     this.#timer = null;
     this.#nextRunAt = null;
+  }
+
+  /**
+   * What a pass would send now, without sending or remembering anything (Act → Automation → Preview), on
+   * the given settings (the saved ones when none are given).
+   */
+  async preview({ settings = this.#settingsStore.get() } = {}) {
+    const session = this.#resolve();
+    if (!session) return null;
+    return decide({ client: session.client, connection: session.connection, config: this.#config(), settings, ledger: structuredClone(this.#state.ledger) });
   }
 
   async tick({ force = false } = {}) {
@@ -503,6 +598,7 @@ export class Scheduler {
         return this.#state.recordRun({
           ok: false,
           skipped: true,
+          how: force ? 'now' : 'scheduled',
           reason:
             'No stored Checkmarx credential. Set CX_API_KEY, or arm automation with the current key on the Settings page.',
         });
@@ -518,14 +614,19 @@ export class Scheduler {
         force,
         notifyAuthors: this.#notifyAuthors,
         openIssues: this.#openIssues,
+        reportFor: this.#reportFor ? (risks, options) => this.#reportFor(session, risks, options) : null,
       });
-      return this.#state.recordRun(result);
+      return this.#state.recordRun({ how: force ? 'now' : 'scheduled', ...result });
     } catch (error) {
-      return this.#state.recordRun({ ok: false, error: error.message });
+      return this.#state.recordRun({ ok: false, how: force ? 'now' : 'scheduled', error: error.message });
     } finally {
       this.#running = false;
-      const { enabled, intervalMinutes } = this.#settingsStore.get().automation;
-      if (enabled) this.#nextRunAt = new Date(Date.now() + intervalMinutes * 60_000).toISOString();
+      // A pass run by hand leaves the schedule as it was; an interval counts again from now.
+      const automation = this.#settingsStore.get().automation;
+      if (automation.enabled && (automation.when ?? 'interval') !== 'schedule') {
+        this.stop();
+        this.#arm();
+      }
     }
   }
 }

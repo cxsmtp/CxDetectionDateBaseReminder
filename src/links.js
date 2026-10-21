@@ -135,3 +135,9 @@ export function exampleLinks(connection, templates = DEFAULT_LINK_TEMPLATES) {
     risk: riskUrl(sample, connection, templates),
   };
 }
+
+/** The Checkmarx One projects list: where a reminder about several projects sends people. */
+export function projectsListUrl(connection, templates = DEFAULT_LINK_TEMPLATES) {
+  const baseUrl = resolveBase(templates, connection);
+  return baseUrl ? safeUrl(`${baseUrl}/projects`) : '';
+}

@@ -86,6 +86,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
             <span>Workbench</span>
           </a>
+          <a href="#/automation" data-route="automation" class="tab" data-stage="act" data-perm="settings.view settings.automation">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v3" /><path d="M12 19v3" /><path d="M2 12h3" /><path d="M19 12h3" /><path d="M4.9 4.9l2.1 2.1" /><path d="M17 17l2.1 2.1" /><path d="M4.9 19.1L7 17" /><path d="M17 7l2.1-2.1" /></svg>
+            <span>Automation</span>
+          </a>
           <p class="nav-group" data-stage="followup" data-perm="reports.view" title="Follow every tracked scope down to zero"><i aria-hidden="true"></i>Follow up</p>
           <a href="#/reports" data-route="reports" class="tab" data-stage="followup" data-perm="reports.view">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5" /><path d="M4 19h16" /><path d="M7 15l4-4 3 3 5-6" /></svg>
@@ -702,6 +706,265 @@
             </section>
           </div>
 
+          <!-- ================= Act → Automation ================= -->
+          <div id="page-automation" class="page automation-page" hidden>
+            <div class="ptabs" role="tablist" aria-label="Automation" data-ptabs="automation">
+              <button type="button" role="tab" class="ptab" data-pt="reminders">Reminders</button>
+              <button type="button" role="tab" class="ptab" data-pt="focus" data-i18n-ctx="automation">Focus</button>
+              <button type="button" role="tab" class="ptab" data-pt="schedule" data-i18n-ctx="automation">Schedule</button>
+              <button type="button" role="tab" class="ptab" data-pt="email">Email</button>
+              <button type="button" role="tab" class="ptab" data-pt="preview">Preview</button>
+              <button type="button" role="tab" class="ptab" data-pt="followups">Follow-ups &amp; escalation <em class="ptab-count" id="auto-followup-count"></em></button>
+              <button type="button" role="tab" class="ptab" data-pt="history">History</button>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="automation:reminders" role="tabpanel">
+            <section class="panel auto-panel" id="set-automation" data-edit-perm="settings.automation">
+              <div class="panel-head">
+                <h2>Age reminders <button type="button" class="help-q" aria-expanded="false" aria-controls="help-auto-rem" aria-label="What is this?" title="What is this?">?</button></h2>
+                <span class="auto-state" id="auto-status"></span>
+              </div>
+              <p class="help-text" id="help-auto-rem">People are emailed once when a finding in their projects gets older than each age limit below: a finding first detected 31 days ago passes a 30-day limit. Each finding is reported once per limit, so nobody is reminded of the same thing every day.</p>
+
+              <div class="checks auto-checks">
+                <label class="check"><input type="checkbox" id="auto-enabled" /> Run automatically</label>
+                <label class="check"><input type="checkbox" id="auto-dry" /> Test mode: decide and log, but send nothing</label>
+                <label class="check" id="auto-authors-row" hidden><input type="checkbox" id="auto-authors" /> Also email the code authors (who last changed each vulnerable line)</label>
+              </div>
+              <p class="auto-turnon" id="auto-turnon" hidden></p>
+
+              <div class="field">
+                <span>Age limits, by severity</span>
+                <div class="segmented auto-per" role="radiogroup" aria-label="Age limits">
+                  <label class="mode"><input type="radio" name="autoPer" value="same" /> <span>The same for every severity</span></label>
+                  <label class="mode"><input type="radio" name="autoPer" value="each" /> <span>Each severity its own</span></label>
+                </div>
+              </div>
+              <label class="field auto-same" id="auto-same-row">
+                <span>Remind after (days), for every severity</span>
+                <input id="auto-thresholds" spellcheck="false" placeholder="30, 60, 90" />
+              </label>
+              <div class="table-wrap auto-limits-wrap">
+                <table class="data-table auto-limits" data-tt-off>
+                  <thead><tr><th>Severity</th><th class="auto-days-col">Remind after (days)</th><th>Reminders</th><th class="num">Findings past a limit now</th></tr></thead>
+                  <tbody id="auto-limits"></tbody>
+                </table>
+              </div>
+              <p class="hint" id="auto-limits-note"></p>
+
+              <label class="field auto-mode-field">
+                <span>When a finding is already past several limits</span>
+                <select id="auto-mode">
+                  <option value="crossing">Report each limit once (recommended)</option>
+                  <option value="digest">Remind about everything past a limit, every run</option>
+                </select>
+              </label>
+
+              <div class="field">
+                <span>Sends to</span>
+                <p class="readonly-value"><strong id="auto-audience">Each developer (their own projects)</strong> · <a href="#/dashboard/remind">change on Workbench → Remind</a></p>
+              </div>
+
+              <div class="detected" id="auto-credential"></div>
+
+              <div class="actions">
+                <button type="button" id="auto-save-reminders" class="auto-save primary">Save</button>
+                <button type="button" id="auto-run" class="ghost">Run once now</button>
+                <span id="auto-message" class="status"></span>
+              </div>
+            </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="automation:focus" role="tabpanel" hidden>
+            <section class="panel auto-panel" id="auto-focus" data-edit-perm="settings.automation">
+              <div class="panel-head">
+                <h2>What reminders cover <button type="button" class="help-q" aria-expanded="false" aria-controls="help-auto-focus" aria-label="What is this?" title="What is this?">?</button></h2>
+                <span class="auto-state" id="auto-focus-state"></span>
+              </div>
+              <p class="help-text" id="help-auto-focus">Leave everything blank to cover every project the server's Checkmarx One key can see. Name applications, project tags or projects to cover only those (any of them), and leave projects out by name. In project names, * stands for any characters and ? for one.</p>
+              <div class="grid4 auto-focus-grid">
+                <label class="field"><span>Applications</span><input id="auto-apps" list="auto-app-list" spellcheck="false" placeholder="Any application" /></label>
+                <label class="field"><span>Project tags (key or key:value)</span><input id="auto-tags" spellcheck="false" placeholder="Any tag" /></label>
+                <label class="field"><span>Projects (names; * and ? as wildcards)</span><input id="auto-projects" spellcheck="false" placeholder="Every project" /></label>
+                <label class="field"><span>Leave out projects (names; * and ?)</span><input id="auto-exclude" spellcheck="false" placeholder="None" /></label>
+              </div>
+              <datalist id="auto-app-list"></datalist>
+              <p class="hint" id="auto-focus-match"></p>
+              <div class="field">
+                <span>Engines — SAST and SCA are the ones AI Triage and Remediation work on</span>
+                <div class="engine-checks" id="auto-engines" role="group" aria-label="Engines"></div>
+              </div>
+              <div class="field">
+                <span>Branch and projects</span>
+                <div class="engine-checks" role="group" aria-label="Branch and projects">
+                  <label class="check"><input type="checkbox" id="auto-all-branches" /> Every branch (unticked: each project's primary branch)</label>
+                  <label class="check"><input type="checkbox" id="auto-no-code" /> Leave out projects with no lines of code</label>
+                </div>
+              </div>
+              <div class="actions">
+                <button type="button" id="auto-save-focus" class="auto-save primary">Save</button>
+                <span class="hint">The severities are set on Reminders.</span>
+                <span id="auto-focus-message" class="status"></span>
+              </div>
+            </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="automation:schedule" role="tabpanel" hidden>
+            <section class="panel auto-panel" id="auto-schedule" data-edit-perm="settings.automation">
+              <div class="panel-head">
+                <h2>When reminders go out <button type="button" class="help-q" aria-expanded="false" aria-controls="help-auto-sched" aria-label="What is this?" title="What is this?">?</button></h2>
+                <span class="auto-state" id="auto-next"></span>
+              </div>
+              <p class="help-text" id="help-auto-sched">On a schedule, reminders go out on the days ticked, at the time given, in the time zone given (blank: the server's). Every so many minutes, the server looks again that often, from when it was turned on; a finding is still reported only once per limit.</p>
+              <div class="segmented auto-when" role="radiogroup" aria-label="When">
+                <label class="mode"><input type="radio" name="autoWhen" value="schedule" /> <span>On a schedule</span></label>
+                <label class="mode"><input type="radio" name="autoWhen" value="interval" /> <span>Every so many minutes</span></label>
+              </div>
+              <div class="auto-sched-grid">
+                <div class="field auto-days-field">
+                  <span>Days</span>
+                  <div class="auto-days" id="auto-days" role="group" aria-label="Days"></div>
+                </div>
+                <label class="field"><span>At</span><input type="time" id="auto-at" step="300" /></label>
+                <label class="field"><span>Time zone (blank: the server's)</span><input id="auto-tz" list="auto-tz-list" spellcheck="false" /></label>
+                <label class="field auto-interval-field"><span>Every (minutes)</span><input id="auto-interval" type="number" min="15" max="10080" /></label>
+              </div>
+              <datalist id="auto-tz-list"></datalist>
+              <div class="actions">
+                <button type="button" id="auto-save-schedule" class="auto-save primary">Save</button>
+                <span id="auto-schedule-message" class="status"></span>
+              </div>
+            </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="automation:email" role="tabpanel" hidden>
+            <section class="panel auto-panel" id="auto-email" data-edit-perm="settings.automation">
+              <div class="panel-head">
+                <h2>The reminder email <button type="button" class="help-q" aria-expanded="false" aria-controls="help-auto-email" aria-label="What is this?" title="What is this?">?</button></h2>
+                <div class="actions">
+                  <button type="button" id="ae-test" class="ghost sm">Send me a test</button>
+                  <button type="button" id="ae-restore" class="link">Restore default</button>
+                </div>
+              </div>
+              <p class="help-text" id="help-auto-email">What each person gets. Branding is the portal's (Settings → Branding and the Email server's sender) unless you untick "Same as the portal". Words in double braces, such as {{firstName}}, are filled in for each person.</p>
+              <div class="ae-layout">
+                <div class="ae-form">
+                  <h3>Branding</h3>
+                  <div class="grid2">
+                    <div class="field">
+                      <label for="ae-sender">Sender name</label>
+                      <input id="ae-sender" maxlength="80" />
+                      <label class="check"><input type="checkbox" id="ae-sender-portal" data-ae-portal="ae-sender" /> Same as the portal</label>
+                    </div>
+                    <div class="field">
+                      <label for="ae-replyto">Reply-to</label>
+                      <input id="ae-replyto" type="email" maxlength="254" />
+                      <label class="check"><input type="checkbox" id="ae-replyto-portal" data-ae-portal="ae-replyto" /> Same as the portal</label>
+                    </div>
+                    <div class="field">
+                      <span>Logo</span>
+                      <label class="check"><input type="radio" name="aeLogo" value="portal" /> Same as the portal</label>
+                      <span class="ae-inline">
+                        <label class="check"><input type="radio" name="aeLogo" value="custom" /> Another for reminders</label>
+                        <label class="check"><input type="radio" name="aeLogo" value="none" /> None</label>
+                      </span>
+                      <input id="ae-logo-url" type="url" placeholder="https://… (an image)" hidden />
+                    </div>
+                    <div class="field">
+                      <span>Colours and look</span>
+                      <label class="check"><input type="checkbox" id="ae-color-portal" /> <span>Same as the portal</span> <small class="hint" id="ae-color-portal-name" translate="no"></small></label>
+                      <input type="color" id="ae-color" hidden />
+                    </div>
+                    <label class="field"><span>Header text</span><input id="ae-header" maxlength="80" /></label>
+                    <div class="field">
+                      <label for="ae-footer">Footer</label>
+                      <input id="ae-footer" maxlength="300" />
+                      <label class="check"><input type="checkbox" id="ae-footer-portal" data-ae-portal="ae-footer" /> Same as the portal</label>
+                    </div>
+                  </div>
+                  <h3>Message</h3>
+                  <label class="field"><span>Subject</span><input id="ae-subject" maxlength="200" data-ae-text /></label>
+                  <div class="field">
+                    <span>Insert</span>
+                    <div class="ae-chips" id="ae-chips"></div>
+                  </div>
+                  <label class="field"><span>Greeting</span><input id="ae-greeting" maxlength="120" data-ae-text /></label>
+                  <label class="field"><span>Opening</span><textarea id="ae-opening" rows="3" maxlength="2000" data-ae-text></textarea></label>
+                  <div class="grid2">
+                    <label class="field"><span>Button</span><input id="ae-button" maxlength="60" data-ae-text /></label>
+                    <label class="field"><span>Sign-off</span><textarea id="ae-signoff" rows="2" maxlength="300" data-ae-text></textarea></label>
+                  </div>
+                  <div class="checks">
+                    <label class="check"><input type="checkbox" id="ae-list" /> List each project with its counts</label>
+                    <label class="check"><input type="checkbox" id="ae-attach" /> Attach the HTML report</label>
+                  </div>
+                  <details class="ae-advanced" id="ae-advanced">
+                    <summary>Edit the HTML instead (advanced)</summary>
+                    <label class="check"><input type="checkbox" id="ae-html" /> Send the HTML template instead of this email</label>
+                    <p class="hint">The HTML template is edited under <a href="#/settings/template">Settings → Mail template</a>, with every variable listed there. Branding above does not apply to it.</p>
+                  </details>
+                  <div class="actions">
+                    <button type="button" id="auto-save-email" class="auto-save primary">Save</button>
+                    <span id="ae-message" class="status"></span>
+                  </div>
+                </div>
+                <div class="ae-preview">
+                  <p class="ae-preview-head"><strong>Preview</strong> <span class="hint" id="ae-preview-as"></span></p>
+                  <iframe id="ae-frame" title="Reminder email preview" sandbox=""></iframe>
+                </div>
+              </div>
+            </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="automation:preview" role="tabpanel" hidden>
+            <section class="panel auto-panel" id="auto-preview" data-edit-perm="settings.automation">
+              <div class="panel-head">
+                <h2>Who would get what <button type="button" class="help-q" aria-expanded="false" aria-controls="help-auto-prev" aria-label="What is this?" title="What is this?">?</button></h2>
+                <div class="actions">
+                  <button type="button" id="ap-run" class="primary">Preview now</button>
+                  <button type="button" id="ap-email-me" class="ghost">Email me the preview</button>
+                </div>
+              </div>
+              <p class="help-text" id="help-auto-prev">What a run would send now, on the saved settings: Checkmarx One is read as a run reads it, but nothing is sent and nothing is remembered as reported. Turning on "Run automatically" shows this first.</p>
+              <p class="status" id="ap-status"></p>
+              <div class="auto-confirm" id="ap-confirm" hidden></div>
+              <div class="totals auto-tiles" id="ap-tiles"></div>
+              <div class="table-wrap">
+                <table class="data-table auto-preview-table">
+                  <thead><tr><th>Person</th><th>Projects</th><th class="num">Critical</th><th class="num">High</th><th class="num">Medium</th><th>Limits crossed</th><th></th></tr></thead>
+                  <tbody id="ap-body"><tr><td colspan="7" class="hint">Preview to see who a run would email now.</td></tr></tbody>
+                </table>
+              </div>
+            </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="automation:followups" role="tabpanel" hidden>
+            <section class="panel auto-panel">
+              <div class="panel-head">
+                <h2>Also running by itself <button type="button" class="help-q" aria-expanded="false" aria-controls="help-auto-follow" aria-label="What is this?" title="What is this?">?</button></h2>
+              </div>
+              <p class="help-text" id="help-auto-follow">Everything else that runs on its own, wherever it is set: tracked reports' follow-ups and verification rescans (Dashboard), and SLA escalation (Settings → SLAs), which goes out with each reminder run.</p>
+              <div id="auto-elsewhere" class="auto-elsewhere"><p class="hint">Loading…</p></div>
+            </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="automation:history" role="tabpanel" hidden>
+            <section class="panel auto-panel">
+              <div class="panel-head">
+                <h2>Runs</h2>
+                <button type="button" id="auto-reset" class="link" data-perm="settings.automation">Reset history</button>
+              </div>
+              <div id="auto-runs"></div>
+            </section>
+            </div>
+
+            <dialog class="auto-mail-dialog" id="ap-dialog" aria-labelledby="ap-dialog-title">
+              <div class="panel-head"><h2 id="ap-dialog-title">The email</h2><button type="button" class="ghost sm" id="ap-dialog-close">Close</button></div>
+              <p class="hint" id="ap-dialog-meta" translate="no"></p>
+              <iframe id="ap-dialog-frame" title="Email as it would be sent" sandbox=""></iframe>
+            </dialog>
+          </div>
+
           <!-- ================= Settings ================= -->
           <div id="page-settings" class="page settings" hidden>
             <div class="set-layout">
@@ -722,7 +985,7 @@
                 <p class="set-group">Reminders</p>
                   <a href="#/settings/initiators" data-set="initiators">Developer addresses</a>
                   <a href="#/settings/template" data-set="template" data-advanced>Mail template</a>
-                  <a href="#/settings/automation" data-set="automation">Automation</a>
+                  <a href="#/automation" class="set-out" data-perm="settings.view settings.automation">Automation <span aria-hidden="true">→</span></a>
                   <a href="#/settings/sla" data-set="sla" data-perm="feature.sla">SLAs <span class="badge warn" data-beta-badge="sla">Beta</span></a>
                 <p class="set-group">AI &amp; credits</p>
                   <a href="#/settings/ai" data-set="ai">AI &amp; credit pool</a>
@@ -1167,76 +1430,10 @@
                 <label class="field"><span><span class="sev-dot sev-low"></span>Low</span><span class="with-unit"><input id="sla-LOW" type="number" min="0" max="3650" step="1" /> days</span></label>
               </div>
               <h3>Escalation</h3>
-              <label class="switch"><input type="checkbox" id="sla-escalate" /> <span><strong>Escalate findings that go past their SLA, once each</strong><small>Each scheduled run (Settings → Automation) emails the people below one list of the findings that went past their SLA since the last run: project, severity, how far past, and who ran the latest scan. A finding is escalated only once; if it is fixed and comes back, again. Test mode in Automation applies.</small></span></label>
+              <label class="switch"><input type="checkbox" id="sla-escalate" /> <span><strong>Escalate findings that go past their SLA, once each</strong><small>Each reminder run (Act → Automation) emails the people below one list of the findings that went past their SLA since the last run: project, severity, how far past, and who ran the latest scan. A finding is escalated only once; if it is fixed and comes back, again. Test mode in Automation applies.</small></span></label>
               <label class="field"><span>Escalate to — addresses, one per line</span><textarea id="sla-escalate-to" rows="2" spellcheck="false" class="code" placeholder="appsec-lead@acme.com"></textarea></label>
               <label class="switch"><input type="checkbox" id="sla-issues" /> <span><strong>Also open an issue in the repository</strong><small>Each scheduled run opens one issue in each project's repository listing its findings that went past their SLA, each finding once. GitHub and GitLab (as a confidential issue), with the token connected under Beta → Source-code hosts, which needs permission to create issues. Private and internal repositories only: a public one is skipped, so nothing is published. Test mode in Automation applies.</small></span></label>
               <p class="status" id="sla-status"></p>
-            </section>
-
-            <section class="panel" id="set-automation" data-edit-perm="settings.automation">
-              <div class="panel-head">
-                <h2>Automation</h2>
-                <span class="hint" id="auto-status"></span>
-              </div>
-              <p class="hint wide">Everything that runs by itself, in one place. First, age reminders: people are emailed once when a finding gets older than each age limit you set. Below them, the follow-ups and rescans set on tracked reports, and SLA escalation.</p>
-
-              <div class="checks">
-                <label class="check"><input type="checkbox" id="auto-enabled" /> Run automatically</label>
-                <label class="check"><input type="checkbox" id="auto-dry" /> Test mode: decide and log, but send nothing</label>
-                <label class="check" id="auto-authors-row" hidden><input type="checkbox" id="auto-authors" /> Also email the code authors: the developer who last changed each vulnerable line gets the findings in their code</label>
-              </div>
-
-              <div class="grid2">
-                <label class="field">
-                  <span>Age thresholds, in days</span>
-                  <input id="auto-thresholds" spellcheck="false" placeholder="30, 60, 90" />
-                </label>
-                <label class="field" data-advanced>
-                  <span>Check every (minutes)</span>
-                  <input id="auto-interval" type="number" min="15" max="10080" />
-                </label>
-                <div class="field">
-                  <span>Sends to</span>
-                  <p class="readonly-value" id="auto-audience">Each developer (their own projects)</p>
-                  <a href="#/dashboard/remind" class="hint">Change who gets reminders: Workbench → Remind →</a>
-                </div>
-                <label class="field">
-                  <span>Only these severities — blank means all</span>
-                  <input id="auto-severities" spellcheck="false" placeholder="CRITICAL, HIGH" />
-                </label>
-                <div class="field">
-                  <span>Only these engines — SAST and SCA are the ones AI Triage and Remediation work on</span>
-                  <div class="engine-checks" id="auto-engines" role="group" aria-label="Engines"></div>
-                </div>
-                <div class="field">
-                  <span>Branch and projects</span>
-                  <div class="engine-checks" role="group" aria-label="Branch and projects">
-                    <label class="check" title="Unticked: each project's primary branch only"><input type="checkbox" id="auto-all-branches" /> Every branch</label>
-                    <label class="check"><input type="checkbox" id="auto-no-code" /> Leave out projects with no lines of code</label>
-                  </div>
-                </div>
-              </div>
-
-              <label class="field" data-advanced>
-                <span>When a finding is already past several thresholds</span>
-                <select id="auto-mode">
-                  <option value="crossing">Report each threshold once (recommended)</option>
-                  <option value="digest">Re-report everything past a threshold on every run</option>
-                </select>
-              </label>
-
-              <div class="detected" id="auto-credential"></div>
-
-              <div class="actions">
-                <button id="auto-run">Run once now</button>
-                <button id="auto-reset" class="link">Reset history</button>
-                <span id="auto-message" class="status"></span>
-              </div>
-
-              <div id="auto-runs"></div>
-
-              <h3>Also running by itself</h3>
-              <div id="auto-elsewhere" class="auto-elsewhere"><p class="hint">Loading…</p></div>
             </section>
 
             <section class="panel" id="set-ai" data-edit-perm="settings.ai">
