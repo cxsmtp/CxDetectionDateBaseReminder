@@ -3796,6 +3796,8 @@
   "Left out": "Đã loại trừ",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Bản dự báo này đã loại trừ Fusion: hãy đánh dấu “Bao gồm Fusion” ở phía trên để tính Fusion.",
   "CxMissionZero version — update & recovery": "Phiên bản CxMissionZero — cập nhật và khôi phục",
-  "Cx Credits Calculator: Impact": "Công cụ tính tín dụng Cx: Tác động"
+  "Cx Credits Calculator: Impact": "Công cụ tính tín dụng Cx: Tác động",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "Đã đọc qua Application Risk Management: tenant này cung cấp các kết quả đã chấm điểm của Fusion tại đó.",
+  "Not known: this tenant gives no earlier score": "Không rõ: tenant này không cung cấp điểm trước đó"
  }
 }

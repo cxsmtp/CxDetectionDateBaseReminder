@@ -3796,6 +3796,8 @@
   "Left out": "除外",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusionはこの試算から除外されています。含めるには、上部の「Fusionを含める」にチェックを入れてください。",
   "CxMissionZero version — update & recovery": "CxMissionZeroのバージョン — 更新と復旧",
-  "Cx Credits Calculator: Impact": "Cx クレジット計算ツール：効果"
+  "Cx Credits Calculator: Impact": "Cx クレジット計算ツール：効果",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "このテナントはFusionがスコアを付けた結果をApplication Risk Managementで提供しているため、そこから読み込みました。",
+  "Not known: this tenant gives no earlier score": "不明：このテナントは以前のスコアを提供していません"
  }
 }

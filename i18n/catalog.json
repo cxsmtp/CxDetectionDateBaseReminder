@@ -26172,5 +26172,17 @@
   "seen": [
    "settings › activation (runtime)"
   ]
+ },
+ "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": {
+  "kind": "text",
+  "seen": [
+   "beta › fusion results (runtime)"
+  ]
+ },
+ "Not known: this tenant gives no earlier score": {
+  "kind": "text",
+  "seen": [
+   "beta › fusion results (runtime)"
+  ]
  }
 }

@@ -3796,6 +3796,8 @@
   "Left out": "Excluido",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion queda fuera de esta proyección: marque “Incluir Fusion” en la parte superior para contabilizarlo.",
   "CxMissionZero version — update & recovery": "Versión de CxMissionZero — actualización y recuperación",
-  "Cx Credits Calculator: Impact": "Calculadora de créditos Cx: Impacto"
+  "Cx Credits Calculator: Impact": "Calculadora de créditos Cx: Impacto",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "Leídos a través de Application Risk Management: este tenant ofrece allí los resultados puntuados de Fusion.",
+  "Not known: this tenant gives no earlier score": "Desconocido: este tenant no ofrece ninguna puntuación anterior"
  }
 }

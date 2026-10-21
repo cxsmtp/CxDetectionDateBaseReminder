@@ -3796,6 +3796,8 @@
   "Left out": "לא נכלל",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion אינו נכלל בתחזית זו: סמנו את \"הכללת Fusion\" בחלק העליון כדי לספור אותו.",
   "CxMissionZero version — update & recovery": "גרסת CxMissionZero — עדכון והתאוששות",
-  "Cx Credits Calculator: Impact": "מחשבון קרדיטים Cx: השפעה"
+  "Cx Credits Calculator: Impact": "מחשבון קרדיטים Cx: השפעה",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "נקראו דרך Application Risk Management: ה-tenant הזה מספק שם את התוצאות המדורגות של Fusion.",
+  "Not known: this tenant gives no earlier score": "לא ידוע: ה-tenant הזה אינו מספק ציון קודם"
  }
 }

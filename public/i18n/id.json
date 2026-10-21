@@ -3796,6 +3796,8 @@
   "Left out": "Dikecualikan",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion dikecualikan dari proyeksi ini: centang “Sertakan Fusion” di bagian atas untuk menghitungnya.",
   "CxMissionZero version — update & recovery": "Versi CxMissionZero — pembaruan & pemulihan",
-  "Cx Credits Calculator: Impact": "Kalkulator kredit Cx: Dampak"
+  "Cx Credits Calculator: Impact": "Kalkulator kredit Cx: Dampak",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "Dibaca melalui Application Risk Management: tenant ini menyajikan hasil Fusion yang telah diberi skor di sana.",
+  "Not known: this tenant gives no earlier score": "Tidak diketahui: tenant ini tidak memberikan skor sebelumnya"
  }
 }

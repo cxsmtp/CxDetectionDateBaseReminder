@@ -3796,6 +3796,8 @@
   "Left out": "مستبعد",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "Fusion مستبعد من هذا التوقع: حدّد «تضمين Fusion» في الأعلى لاحتسابه.",
   "CxMissionZero version — update & recovery": "إصدار CxMissionZero — التحديث والاستعادة",
-  "Cx Credits Calculator: Impact": "حاسبة أرصدة Cx: الأثر"
+  "Cx Credits Calculator: Impact": "حاسبة أرصدة Cx: الأثر",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "قُرئت عبر Application Risk Management: يقدّم هذا المستأجر نتائج Fusion المقيَّمة هناك.",
+  "Not known: this tenant gives no earlier score": "غير معروف: لا يقدّم هذا المستأجر درجة سابقة"
  }
 }

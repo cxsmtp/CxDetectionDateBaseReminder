@@ -3796,6 +3796,8 @@
   "Left out": "已排除",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "此預估已排除 Fusion：請勾選頂端的「納入 Fusion」以將其計入。",
   "CxMissionZero version — update & recovery": "CxMissionZero 版本 — 更新與復原",
-  "Cx Credits Calculator: Impact": "Cx 點數計算工具：成效"
+  "Cx Credits Calculator: Impact": "Cx 點數計算工具：成效",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "透過 Application Risk Management 讀取：此租戶在該處提供 Fusion 的評分結果。",
+  "Not known: this tenant gives no earlier score": "未知：此租戶未提供先前的分數"
  }
 }

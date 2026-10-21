@@ -3796,6 +3796,8 @@
   "Left out": "ไม่นับรวม",
   "Fusion is left out of this projection: tick Include Fusion at the top to count it.": "การประมาณการนี้ไม่นับรวม Fusion: ทำเครื่องหมาย “นับรวม Fusion” ที่ด้านบนเพื่อนำ Fusion มานับรวม",
   "CxMissionZero version — update & recovery": "เวอร์ชันของ CxMissionZero — การอัปเดตและการกู้คืน",
-  "Cx Credits Calculator: Impact": "เครื่องมือคำนวณเครดิต Cx: ผลกระทบ"
+  "Cx Credits Calculator: Impact": "เครื่องมือคำนวณเครดิต Cx: ผลกระทบ",
+  "Read through Application Risk Management: this tenant serves Fusion’s scored results there.": "อ่านผ่าน Application Risk Management: เทนแนนต์นี้ให้บริการผลลัพธ์ที่ Fusion ให้คะแนนแล้วในส่วนนั้น",
+  "Not known: this tenant gives no earlier score": "ไม่ทราบ: เทนแนนต์นี้ไม่ได้ระบุคะแนนก่อนหน้า"
  }
 }
