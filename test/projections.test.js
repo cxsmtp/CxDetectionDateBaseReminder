@@ -326,6 +326,27 @@ test('reading Fusion data from Checkmarx One: lines, criticality, scans in a yea
   assert.equal(said.remainingCredits, 29467);
 });
 
+test('the models Checkmarx One offers: a new customer starts with them, a read names the tenant’s, credits left from /api/credits/info', async () => {
+  const { CHECKMARX_MODELS, modelsNamed } = await import('../public/calculator/model.js');
+  const { newProfile } = await import('../public/calculator/profiles.js');
+  assert.deepEqual(CHECKMARX_MODELS, ['opus-4.7', 'haiku-4.5', 'opus-5.0', 'opus-5.5', 'mythos-5.1']);
+  const fresh = newProfile({ name: 'Acme' });
+  assert.deepEqual(fresh.fusion.models.map((m) => [m.id, m.name, m.creditsPer10k, m.source]), CHECKMARX_MODELS.map((n) => [`cx-${n.replace('.', '-')}`, n, null, 'catalog']), 'named; their credits left to type');
+  assert.equal(fresh.fusion.defaultModel, 'cx-opus-4-7');
+  assert.deepEqual(modelsNamed([' a ', 'a', '']).map((m) => m.name), ['a']);
+  assert.equal(fusionSettings({ models: [{ id: 'x', name: 'x', source: 'evil' }] }).models[0].source, 'manual');
+  const offer = await readFusionOffer({
+    request: async (url) => {
+      if (url === '/api/configuration/tenant') return [{ key: 'scan.config.ai.llmModel', value: '', valuetypeparams: 'opus-4.7,haiku-4.5' }];
+      if (url === '/api/credits/info') return { available: '28854', total: '30000' };
+      if (url === '/api/fusion/models') return { models: [{ name: 'Haiku-4.5', creditsPer10kLoc: 1.5 }] };
+      throw new Error('404');
+    },
+  });
+  assert.deepEqual(offer.models.map((m) => [m.name, m.creditsPer10k, m.source]), [['Haiku-4.5', 1.5, 'tenant'], ['opus-4.7', null, 'tenant']], 'one priced elsewhere is not listed twice');
+  assert.equal(offer.remainingCredits, 28854);
+});
+
 test('a scan summary counts every engine by severity, and what is new', () => {
   const c = countersOf({
     scanId: 's',

@@ -67,7 +67,7 @@ test.after(() => {
 test('a person sets their own name, language, time zone and programming languages', async () => {
   const before = (await member('GET', '/api/me')).body.user;
   const noImpact = { currency: '', hourlyRate: null, creditPrice: null, triageMinutes: null, fixMinutes: null };
-  const look = { look: '', theme: 'auto', accent: 'indigo' };
+  const look = { look: '', theme: 'auto', accent: 'indigo', scanColours: { fusion: '', last: '' } };
   assert.deepEqual(before.profile, { language: '', timeZone: '', timeZoneAuto: true, programmingLanguages: [], impact: noImpact, ...look }, 'Impact figures: the organisation\'s until they give their own');
   const saved = await member('PUT', '/api/me/profile', { name: 'Dev Tanaka', language: 'ja', timeZoneAuto: false, timeZone: 'Asia/Tokyo', programmingLanguages: ['TypeScript', 'Java'] });
   assert.equal(saved.status, 200, JSON.stringify(saved.body));
@@ -82,6 +82,14 @@ test('what is not a language, a time zone or a programming language is refused',
   assert.equal((await member('PUT', '/api/me/profile', { timeZone: 'Mars/Olympus' })).status, 400);
   assert.equal((await member('PUT', '/api/me/profile', { programmingLanguages: ['Java', '<script>'] })).status, 400);
   assert.equal((await member('GET', '/api/me')).body.user.profile.language, 'ja', 'nothing changed');
+});
+
+test('their own Fusion and LAST colours: real colours only, kept, and the look’s again when cleared', async () => {
+  const set = await member('PUT', '/api/me/profile', { scanColours: { fusion: '#0F766E', last: 'red;background:url(x)' } });
+  assert.equal(set.status, 200);
+  assert.deepEqual(set.body.user.profile.scanColours, { fusion: '#0f766e', last: '' }, 'only a #rrggbb colour is kept');
+  assert.deepEqual((await member('GET', '/api/me')).body.user.profile.scanColours, { fusion: '#0f766e', last: '' });
+  assert.deepEqual((await member('PUT', '/api/me/profile', { scanColours: {} })).body.user.profile.scanColours, { fusion: '', last: '' });
 });
 
 test('a picture: checked by its bytes, kept small, and shown only to its owner and to people who see users', async () => {

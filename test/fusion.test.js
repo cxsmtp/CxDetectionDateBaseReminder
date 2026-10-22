@@ -138,6 +138,31 @@ test('the page: figures, project rows, Checkmarx-style result rows and the HTML 
   assert.equal(fusionReportHtml(f, scope, { projectId: 'nope' }).includes('No Fusion and LAST results.'), true);
 });
 
+test('the page narrowed by status, state and AI Triage; projects by scan type, gold and pink', async () => {
+  const risks = [{ ...RISKS[0], stateChangedBy: 'ai' }, RISKS[1], { ...RISKS[2], state: 'PROPOSED_NOT_EXPLOITABLE' }, RISKS[3]];
+  const f = await readRiskFusion(tenant([AI]), [...P1, { id: 'p2', name: 'abap-last' }, { id: 'p3', name: 'Quiet' }], { ...SCANS, p2: { id: 's2' }, p3: { id: 's3' } }, { types: { p1: 'fusion', p2: 'last', p3: 'last' }, riskSource: riskHub({ p1: risks, p2: [{ id: 'abap1', riskName: 'Missing Authorization', severity: 'HIGH', status: 'NEW', state: 'TO_VERIFY', isAiGenerated: true }], p3: [] }) });
+  Object.assign(f.projects.p1, { model: 'haiku-4.5', modelFrom: 'scan', aiReported: 273, aiDuplicates: 47, aiAdded: 226, loc: 91970, files: 929 });
+  Object.assign(f.projects.p2, { model: 'opus-4.7', modelFrom: 'environment', loc: 910, files: 5 });
+  const scope = { projects: 5, names: { p1: 'Juice Shop', p2: 'abap-last', p3: 'Quiet' } };
+  const all = fusionRows(f, scope);
+  assert.deepEqual(all.map((r) => [r.name, r.scanType]), [['Juice Shop', 'fusion'], ['abap-last', 'last'], ['Quiet', 'last']], 'a project with no results still shows, by its scan type');
+  assert.deepEqual(fusionRows(f, scope, ['FUSION']).map((r) => r.name), ['Juice Shop'], 'Fusion ticked alone: Fusion scans (and AI results of theirs)');
+  assert.deepEqual(fusionRows(f, scope, ['LAST']).map((r) => r.name), ['abap-last', 'Quiet']);
+  const t = fusionTiles(f, scope);
+  assert.deepEqual([t.states.TO_VERIFY, t.states.CONFIRMED, t.states.PROPOSED_NOT_EXPLOITABLE, t.found.aiTriaged, t.kinds], [2, 1, 1, 1, { fusion: 1, last: 2 }]);
+  assert.deepEqual([t.added.found, t.added.duplicates, t.added.added, t.models, t.code], [273, 47, 226, [['haiku-4.5', 1], ['opus-4.7', 1]], { loc: 92880, files: 934 }]);
+  const confirmed = { state: 'CONFIRMED' };
+  assert.deepEqual(fusionRows(f, scope, null, confirmed).map((r) => [r.name, r.total, r.CONFIRMED]), [['Juice Shop', 1, 1]], 'only the projects with a match, counted by their matches');
+  assert.deepEqual(fusionResultRows(f, scope, null, null, { aiTriaged: true }).map((r) => [r.id, r.stateKey, r.aiTriaged]), [[AI.resultHash, 'CONFIRMED', true]]);
+  assert.deepEqual(fusionResultRows(f, scope, null, null, { status: 'NEW', state: 'TO_VERIFY' }).map((r) => r.id), ['abap1']);
+  assert.equal(fusionTiles(f, scope, null, { status: 'FIXED' }).change.FIXED, 1);
+  const html = fusionReportHtml(f, scope, { filter: confirmed, colours: { fusion: '#0f766e', last: 'red;}' } });
+  assert.ok(html.includes('--fusion: #0f766e') && html.includes('--last: #d6337a'), 'the reader’s colours, only real ones');
+  assert.ok(html.includes(' · Confirmed · ') && html.includes('Juice Shop') && !html.includes('abap-last'), 'narrowed: said, and only the projects with a match');
+  const both = fusionReportHtml(f, scope, {});
+  assert.ok(both.includes('<tr class="fusion">') && both.includes('<tr class="last">') && both.includes('273 → 226') && both.includes('set by Checkmarx One'));
+});
+
 test('a result cleaned keeps what the results page shows, and nothing it does not have', () => {
   const r = cleanAiResult({ resultHash: 'h', queryName: 'Path_Traversal', severity: 'weird', isAiGenerated: 1 }, { id: 'p', name: 'P' }, 's');
   assert.deepEqual([r.name, r.severity, r.cwe, r.sourceFile, r.ai], ['Path Traversal', 'INFO', null, '', true]);
@@ -161,38 +186,114 @@ test('Checkmarx One marks a Fusion result with isAiGenerated (the UI’s "LLM-Ba
   for (const value of [false, 'false', null, undefined, 0, '']) assert.equal(cleanAiResult({ ...ai, isAiGenerated: value }, P1[0], 's1').ai, false, String(value));
 });
 
-test('each project’s model (its scan, else its settings, else the tenant’s) and lines of code', async () => {
+test('each project’s model (its scan, else what Checkmarx One resolved for the scan, else its settings) and lines of code', async () => {
   const { projectFacts, modelIn } = await import('../src/fusion-usage.js');
   assert.equal(modelIn({ configs: [{ type: 'sast', value: {} }, { type: 'ai', value: { llmModel: 'opus-5.5' } }] }), 'opus-5.5');
   assert.equal(modelIn([{ key: 'scan.config.ai.llmModel', value: 'haiku-4.5' }]), 'haiku-4.5');
   assert.equal(modelIn({ llmModel: '' }), '');
   const client = fakeClient({
-    '/api/scans/s1': { statusDetails: [{ name: 'sast', loc: 177362 }], metadata: { configs: [{ type: 'ai', value: { llmModel: 'mythos-5.1' } }] } },
-    '/api/scans/s2': { statusDetails: [{ name: 'sast' }] },
-    '/api/scans/s3': { statusDetails: [] },
-    '/api/configuration/project': (q) => [{ key: 'scan.config.ai.llmModel', value: q['project-id'] === 'p2' ? 'opus-5.0' : '' }],
-    '/api/configuration/tenant': [{ key: 'scan.config.ai.llmModel', value: 'opus-5.5' }],
+    '/api/scans/s1': { engines: ['sast', 'ai'], statusDetails: [{ name: 'sast', loc: 177362 }], metadata: { configs: [{ type: 'ai', value: { llmModel: 'haiku-4.5', fusionEnabled: 'true' } }] } },
+    '/api/scans/s2': { engines: ['sast', 'ai'], statusDetails: [{ name: 'sast' }], metadata: { configs: [{ type: 'ai', value: { fusionEnabled: 'false' } }] } },
+    '/api/scans/s3': { engines: ['sast', 'sca'], statusDetails: [] },
+    '/api/configuration/scan': (q) => [{ key: 'scan.config.ai.llmModel', value: q['scan-id'] === 's2' ? 'opus-4.7' : 'x', originLevel: 'Environment' }],
+    '/api/scans/s1/workflow': [{ Source: 'checkmarx-fusion-credit-seize-frankfurt', Info: 'checkmarx-fusion-credit-seize-frankfurt Fusion credits are disabled; skipping credit reservation.' }, { Source: 'last-worker-fusion-frankfurt', Info: 'started' }, { Source: 'last-result-handler-frankfurt', Info: 'last-result-handler-frankfurt Deduplicated 47 out of 273 total results' }],
+    '/api/scans/s2/workflow': [{ Source: 'last-worker-frankfurt', Info: 'started' }],
+    '/api/sast-metadata': { scans: [{ scanId: 's1', loc: 91970, fileCount: 929 }, { scanId: 's2', loc: 910, fileCount: 5 }] },
+    '/api/sast-metadata/engine-version': [{ scanId: 's1', engineVersion: '9.7.7-679962' }],
   });
   const facts = await projectFacts(client, ['p1', 'p2', 'p3'], { p1: { id: 's1' }, p2: { id: 's2' }, p3: { id: 's3' } });
-  assert.deepEqual(facts, { p1: { model: 'mythos-5.1', modelFrom: 'scan', loc: 177362, scanEngines: [] }, p2: { model: 'opus-5.0', modelFrom: 'project', loc: null, scanEngines: [] }, p3: { model: 'opus-5.5', modelFrom: 'tenant', loc: null, scanEngines: [] } });
-  assert.equal(client.calls.filter((c) => c.path === '/api/configuration/tenant').length, 1, 'the tenant’s settings read once');
+  assert.deepEqual(facts.p1, { scanType: 'fusion', fusionEnabled: true, model: 'haiku-4.5', modelFrom: 'scan', loc: 177362, files: 929, engineVersion: '9.7.7-679962', scanEngines: ['sast', 'ai'], aiReported: 273, aiDuplicates: 47, aiAdded: 226, fusionCredits: 'off' });
+  assert.deepEqual([facts.p2.scanType, facts.p2.model, facts.p2.modelFrom, facts.p2.loc, facts.p2.files, facts.p2.aiReported], ['last', 'opus-4.7', 'environment', 910, 5, null], 'Fusion off: a LAST scan, the model as Checkmarx One resolved it, and where');
+  assert.deepEqual([facts.p3.scanType, facts.p3.model], ['none', ''], 'no AI engine: nothing more read');
+  assert.equal(client.calls.filter((c) => c.path === '/api/configuration/scan').length, 1, 'only for a scan that does not say');
+  assert.ok(!client.calls.some((c) => c.path === '/api/scans/s3/workflow'));
+  // An older Checkmarx One: no resolved settings, so the project's, then the tenant's.
+  const older = fakeClient({
+    '/api/scans/s2': { engines: ['sast', 'ai'], statusDetails: [] },
+    '/api/configuration/project': [{ key: 'scan.config.ai.llmModel', value: '' }],
+    '/api/configuration/tenant': [{ key: 'scan.config.ai.llmModel', value: 'opus-5.5' }],
+  });
+  const old = await projectFacts(older, ['p2'], { p2: { id: 's2' } });
+  assert.deepEqual([old.p2.scanType, old.p2.model, old.p2.modelFrom], ['fusion', 'opus-5.5', 'tenant'], 'no Fusion setting said: taken as Fusion, as before');
   const silent = await projectFacts(fakeClient({}), ['p1'], { p1: { id: 's1' } });
-  assert.deepEqual(silent, { p1: { model: '', modelFrom: '', loc: null, scanEngines: [] } }, 'nothing answered: nothing made up');
+  assert.deepEqual([silent.p1.scanType, silent.p1.model, silent.p1.modelFrom, silent.p1.loc], ['none', '', '', null], 'nothing answered: nothing made up');
+});
+
+test('a scan’s steps say which AI worker ran, what it added, and whether Fusion credits were reserved', async () => {
+  const { readSteps, scanTypeOf, scanAiConfig } = await import('../src/fusion-usage.js');
+  assert.deepEqual(readSteps([{ Source: 'last-worker-frankfurt', Info: 'last-worker-frankfurt started' }]), { worker: 'last', aiFound: null, aiDuplicates: null, aiAdded: null, fusionCredits: '' });
+  assert.deepEqual(readSteps('nonsense'), { worker: '', aiFound: null, aiDuplicates: null, aiAdded: null, fusionCredits: '' });
+  assert.equal(readSteps([{ Source: 'checkmarx-fusion-credit-seize-frankfurt', Info: 'Reserved 12 credits' }]).fusionCredits, 'reserved');
+  assert.deepEqual([scanTypeOf(['sast', 'ai'], true), scanTypeOf(['sast', 'AI'], false), scanTypeOf(['sast'], true), scanTypeOf(['sast', 'ai'], null)], ['fusion', 'last', 'none', 'fusion']);
+  assert.deepEqual(scanAiConfig({ metadata: { configs: [{ type: 'sast' }, { type: 'ai', value: { fusionEnabled: 'false' } }] } }), { fusionEnabled: 'false' });
+  assert.equal(scanAiConfig({}), null);
+});
+
+test('the Workbench’s scan types: no AI said by the engines is none; the rest asked a hundred at a time', async () => {
+  const { scanTypes } = await import('../src/fusion-usage.js');
+  const client = fakeClient({
+    '/api/scans': (q) => ({ scans: q['scan-ids'].map((id) => ({ id, engines: ['sast', 'ai'], metadata: { configs: [{ type: 'ai', value: { fusionEnabled: id === 's2' ? 'false' : 'true' } }] } })) }),
+  });
+  const types = await scanTypes(client, { p1: { id: 's1' }, p2: { id: 's2', engines: ['sast', 'ai'] }, p3: { id: 's3', engines: ['sast', 'sca'] }, p4: { id: 's4', engines: ['ai'], metadata: { configs: [{ type: 'ai', value: { fusionEnabled: 'false' } }] } }, p5: {} });
+  assert.deepEqual(types, { p1: 'fusion', p2: 'last', p3: 'none', p4: 'last' });
+  assert.equal(client.calls.length, 1, 'one call for the scans that do not say');
+  assert.deepEqual(client.calls[0].query['scan-ids'], ['s1', 's2']);
+  assert.deepEqual(await scanTypes(fakeClient({}), { p1: { id: 's1' } }), {}, 'not answered: not known');
+});
+
+test('the tenant’s credits and AI settings, as Checkmarx One gives them', async () => {
+  const { tenantCredits, tenantAi } = await import('../src/fusion-usage.js');
+  const client = fakeClient({
+    '/api/credits/info': { available: '28854', total: '30000', used: '1146', actionsAvailable: 6557, actionsPerformed: 3475, enforcement: { state: 'active' } },
+    '/api/configuration/tenant': [{ key: 'scan.config.ai.fusionEnabled', value: 'true' }, { key: 'scan.config.sast.extendedAnalysis', value: 'true' }, { key: 'scan.config.ai.llmModel', value: '', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }],
+  });
+  const c = await tenantCredits(client);
+  assert.deepEqual([c.available, c.total, c.used, c.actionsPerformed, c.state], [28854, 30000, 1146, 3475, 'active']);
+  assert.deepEqual(await tenantAi(client), { fusionEnabled: true, llmBased: true, model: '', models: ['opus-4.7', 'haiku-4.5', 'opus-5.0', 'opus-5.5', 'mythos-5.1'] });
+  assert.equal(await tenantCredits(fakeClient({ '/api/credits/info': () => { throw new CxApiError('Forbidden', { status: 403 }); } })), null, 'no permission: unknown');
+  assert.equal(await tenantCredits(fakeClient({ '/api/credits/info': { available: 'n/a' } })), null);
 });
 
 test('each project’s AI scans and credits over a period, from the scans and the credit consumption by project', async () => {
   const { fusionUsage, usageRow } = await import('../src/fusion-usage.js');
   assert.deepEqual(usageRow({ creditsUsed: 20, actionsPerformed: { actions: [{ actionType: 'triage', transactionCount: 4 }, { actionType: 'remediation', transactionCount: 2 }, { actionType: 'fusion', transactionCount: 3 }] } }), { credits: 20, fusion: 10, actions: { triage: 4, remediation: 2, other: 3 } });
   const recent = new Date().toISOString();
+  const fusion = { configs: [{ type: 'ai', value: { fusionEnabled: 'true' } }] };
+  const last = { configs: [{ type: 'ai', value: { fusionEnabled: 'false' } }] };
+  const P1_SCANS = [{ id: 'a', projectId: 'p1', engines: ['sast', 'ai'], metadata: fusion, createdAt: recent }, { id: 'b', projectId: 'p1', engines: ['sast'], createdAt: recent }, { id: 'c', projectId: 'p1', engines: ['SAST', 'AI'], createdAt: recent }];
+  const consumption = (q) => (q.viewBy === 'project' && q.period === 'last_90_days' ? { items: [{ name: 'Juice Shop', creditsUsed: 13, actionsPerformed: { actions: [{ actionType: 'triage', transactionCount: 1 }] } }], totalPages: 1 } : { items: [] });
+  // The tenant's scans, every project at once.
   const client = fakeClient({
-    '/api/scans': (q) => ({ scans: q['project-id'] === 'p1' ? [{ id: 'a', engines: ['sast', 'ai'], createdAt: recent }, { id: 'b', engines: ['sast'], createdAt: recent }, { id: 'c', engines: ['SAST', 'AI'], createdAt: recent }] : [{ id: 'd', createdAt: recent }] }),
-    '/api/credits/consumption': (q) => (q.viewBy === 'project' && q.period === 'last_90_days' ? { items: [{ name: 'Juice Shop', creditsUsed: 13, actionsPerformed: { actions: [{ actionType: 'triage', transactionCount: 1 }] } }], totalPages: 1 } : { items: [] }),
+    '/api/scans': (q) => (q['project-id'] ? { scans: [] } : { scans: [...P1_SCANS, { id: 'd', projectId: 'p2', engines: ['sast', 'ai'], metadata: last, createdAt: recent }, { id: 'e', projectId: 'p9', engines: ['ai'], metadata: fusion, createdAt: recent }], filteredTotalCount: 5 }),
+    '/api/credits/consumption': consumption,
   });
-  const u = await fusionUsage(client, [{ id: 'p1', name: 'Juice Shop' }, { id: 'p2', name: 'Other' }], { period: 'last_90_days' });
+  const u = await fusionUsage(client, [{ id: 'p1', name: 'Juice Shop' }, { id: 'p2', name: 'Other' }], { period: 'last_90_days', scopeIds: ['p1', 'p2', 'p9', 'p10'] });
   assert.deepEqual([u.period, u.days, u.creditsKnown], ['last_90_days', 90, true]);
-  assert.deepEqual(u.projects.p1, { scans: 2, credits: 13, fusion: 12, actions: { triage: 1, remediation: 0, other: 0 }, perScan: 6 }, 'matched by name; 2 of 3 scans ran the AI engine');
-  assert.deepEqual([u.projects.p2.scans, u.projects.p2.credits], [1, 0], 'no engines said: every completed scan; no consumption: 0');
-  assert.deepEqual(u.totals, { scans: 3, credits: 13, fusion: 12 });
+  assert.deepEqual(u.projects.p1, { scans: 2, fusionScans: 2, lastScans: 0, credits: 13, fusion: 12, actions: { triage: 1, remediation: 0, other: 0 }, perScan: 6 }, 'matched by name; 2 of 3 scans ran the AI engine');
+  assert.deepEqual([u.projects.p2.scans, u.projects.p2.fusionScans, u.projects.p2.lastScans, u.projects.p2.credits], [1, 0, 1, 0], 'Fusion off: a LAST scan; no consumption: 0');
+  assert.deepEqual(u.totals, { scans: 3, fusionScans: 2, lastScans: 1, credits: 13, fusion: 12 });
+  assert.deepEqual(u.scope, { projects: 4, withFusion: 2, withLast: 1 }, 'of the line’s projects, those with a Fusion scan and with a LAST scan');
+  assert.ok(!client.calls.some((c) => c.query['project-id']), 'one list for the tenant, not one per project');
+  // A Checkmarx One that does not list the tenant's scans: each project's own.
+  const own = await fusionUsage(fakeClient({ '/api/scans': (q) => (q['project-id'] === 'p1' ? { scans: P1_SCANS } : q['project-id'] ? { scans: [{ id: 'd', createdAt: recent }] } : (() => { throw new CxApiError('Forbidden', { status: 403 }); })()), '/api/credits/consumption': consumption }), [{ id: 'p1', name: 'Juice Shop' }, { id: 'p2', name: 'Other' }], { period: 'last_90_days' });
+  assert.deepEqual([own.projects.p1.scans, own.projects.p2.scans, own.scope], [2, 1, null], 'no engines said: every completed scan');
   const denied = await fusionUsage(fakeClient({ '/api/scans': { scans: [] }, '/api/credits/consumption': () => { throw new CxApiError('Forbidden', { status: 403 }); } }), [{ id: 'p1', name: 'x' }], { period: 'nonsense' });
   assert.deepEqual([denied.period, denied.creditsKnown, denied.projects.p1.credits], ['last_30_days', false, null], 'no permission: unknown, not 0');
+});
+
+test('a LAST scan’s risks are all LAST’s; states, AI-found and AI-triaged are counted', async () => {
+  const { readRiskFusion } = await import('../src/fusion-ai.js');
+  const risks = [
+    { ...RISKS[0], stateChangedBy: 'ai' },
+    { ...RISKS[2], state: 'PROPOSED_NOT_EXPLOITABLE' },
+    { id: 'abap1', riskName: 'Missing Authorization', severity: 'HIGH', status: 'NEW', state: 'TO_VERIFY', engine: 'SAST', fileName: 'zreport.abap', isAiGenerated: true },
+    RISKS[3],
+  ];
+  const f = await readRiskFusion(tenant([]), [...P1, { id: 'p2', name: 'abap-last' }], { ...SCANS, p2: { id: 's2' } }, { types: { p1: 'fusion', p2: 'last' }, riskSource: riskHub({ p1: risks, p2: [risks[2]] }) });
+  assert.deepEqual([f.kinds, f.projects.p1.scanType, f.projects.p2.scanType], [{ fusion: 1, last: 1 }, 'fusion', 'last']);
+  assert.deepEqual(f.results.filter((r) => r.projectId === 'p2').map((r) => r.engine), ['LAST'], 'everything a LAST scan found');
+  const p1 = f.projects.p1;
+  assert.deepEqual([p1.TO_VERIFY, p1.CONFIRMED, p1.PROPOSED_NOT_EXPLOITABLE, p1.NOT_EXPLOITABLE, p1.URGENT, p1.FIXED], [1, 1, 1, 0, 0, 1], 'states of the open risks; the fixed one apart');
+  assert.deepEqual([p1.aiFound, p1.aiTriaged, f.totals.aiFound, f.totals.aiTriaged], [2, 1, 3, 1]);
+  assert.equal(f.results.find((r) => r.resultId === AI.resultHash).aiTriaged, true);
 });

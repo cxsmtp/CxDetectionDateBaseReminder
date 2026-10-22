@@ -1,6 +1,7 @@
 /**
- * Fusion results (Labs): the Risk Hub list of each project whose latest scan was a Fusion scan (it ran the AI
- * engine, "ai" among its engines), as Checkmarx One's Risk Hub shows it.
+ * Fusion results (Labs): the Risk Hub list of each project whose latest scan ran the AI engine ("ai" among its
+ * engines), as Checkmarx One's Risk Hub shows it: a Fusion scan (Fusion on in the scan's settings) or a LAST scan
+ * (Fusion off: LLM-based scanning alone).
  *
  *   - The risks: the same Risk Hub API the Workbench reads (GET /api/risks/?projectId=…, src/cxone/risks.js), every
  *     scanner (SAST, SCA, IaC, API Security…), each with its severity, state, where it is, its ids and its status as
@@ -15,9 +16,12 @@ import { mapWithConcurrency } from './cxone/client.js';
 import { isProbeMiss } from './cxone/discovery.js';
 import { normalizeRisk } from './cxone/risks.js';
 import { sastCoverage } from './sast-languages.js';
+import { scanTypeOf } from './fusion-usage.js';
 
 export const AI_FILTER = { 'is-ai-generated': 1, 'is-ai-generated-operation': 'EQUAL' };
 export const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+/** Risk Hub's states: To verify (each new risk's), Confirmed, Proposed not exploitable, Not exploitable, Urgent. */
+export const STATES = ['TO_VERIFY', 'CONFIRMED', 'PROPOSED_NOT_EXPLOITABLE', 'NOT_EXPLOITABLE', 'URGENT'];
 /** LAST: found by the AI engine in a language only it covers; Fusion: every other risk of a Fusion scan. */
 export const ENGINES = ['FUSION', 'LAST'];
 /** ['fusion', 'LAST', 'x'] → ['FUSION', 'LAST']; none (or nothing known) → both. */
@@ -102,7 +106,7 @@ async function aiResults(client, scanId, trace) {
 }
 
 /** A Risk Hub risk as the page lists it, with what the AI engine's own result (when it found it) adds. */
-export function cleanRisk(raw, project, scanId, ai = null) {
+export function cleanRisk(raw, project, scanId, ai = null, scanType = 'fusion') {
   const r = normalizeRisk(raw, project);
   const marked = raw?.isAiGenerated === true || raw?.isAiGenerated === 'true' || raw?.isAiGenerated === 1;
   const found = Boolean(ai) || marked;
@@ -128,7 +132,11 @@ export function cleanRisk(raw, project, scanId, ai = null) {
     state: upper(r.state),
     language,
     ai: found,
-    engine: found && !covered ? 'LAST' : 'FUSION',
+    // Set by AI Triage (Risk Hub's stateChangedBy "ai").
+    aiTriaged: String(raw?.stateChangedBy ?? '').toLowerCase() === 'ai',
+    // A LAST scan's risks are all LAST's; a Fusion scan's are Fusion's, but for what the AI engine found in a
+    // language only it covers.
+    engine: scanType === 'last' || (found && !covered) ? 'LAST' : 'FUSION',
     coveredAs: covered ? text(covered.framework ?? covered.language, 60) : '',
     cwe: Number(r.cweId) > 0 ? Number(r.cweId) : ai?.cwe ?? null,
     location: text(r.location, 400),
@@ -143,24 +151,26 @@ export function cleanRisk(raw, project, scanId, ai = null) {
   };
 }
 
-const COUNTED = [...SEVERITIES, 'total', 'NEW', 'RECURRENT', 'FIXED'];
-const emptyCounts = () => ({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0, total: 0, NEW: 0, RECURRENT: 0, FIXED: 0 });
-/** Whether a scan ran the AI engine: a Fusion scan. */
+const COUNTED = [...SEVERITIES, 'total', 'NEW', 'RECURRENT', 'FIXED', ...STATES, 'aiFound', 'aiTriaged'];
+const emptyCounts = () => Object.fromEntries(COUNTED.map((k) => [k, 0]));
+/** Whether a scan ran the AI engine (a Fusion or a LAST scan). */
 export const isFusionScan = (engines) => (Array.isArray(engines) ? engines : []).some((e) => String(e).toLowerCase() === 'ai');
 /** Fixed in Risk Hub: counted as fixed, not among the open ones. */
 export const isFixed = (r) => r?.status === 'FIXED';
 
 /**
  * Read Fusion for `projects` ([{ id, name }]) whose latest completed scan (`scans`: { projectId: scan }, as
- * getLastScans gives) was a Fusion scan (`engines`: { projectId: [engine…] }, from each scan's details), with
- * `riskSource` (createRiskSource: the Workbench's Risk Hub reader). Returns the counts per project and overall (the
- * open ones by severity; New, Recurrent and Fixed as Risk Hub says), Fusion's and LAST's apart in `engines`, and
+ * getLastScans gives) ran the AI engine (`types`: { projectId: 'fusion' | 'last' | 'none' }, from each scan's
+ * settings; or `engines`: { projectId: [engine…] }, every AI scan then taken as Fusion), with `riskSource`
+ * (createRiskSource: the Workbench's Risk Hub reader). Returns the counts per project and overall (the open ones by
+ * severity and by state; New, Recurrent and Fixed as Risk Hub says), Fusion's and LAST's apart in `engines`, and
  * every risk to list, each saying whose it is (`engine`).
  */
-export async function readRiskFusion(client, projects, scans, { engines = {}, riskSource, concurrency = 4, trace = null } = {}) {
+export async function readRiskFusion(client, projects, scans, { types = null, engines = {}, riskSource, concurrency = 4, trace = null } = {}) {
   const readAt = new Date().toISOString();
+  const typeOf = (id) => types?.[id] ?? scanTypeOf(Array.isArray(engines[id]) ? engines[id] : [], null);
   const withScan = projects.filter((p) => scanIdOf(scans?.[p.id]));
-  const fusionScanned = withScan.filter((p) => isFusionScan(engines[p.id]));
+  const fusionScanned = withScan.filter((p) => typeOf(p.id) !== 'none');
   const failures = [];
   const per = await mapWithConcurrency(fusionScanned, concurrency, async (project) => {
     const scan = scans[project.id];
@@ -178,7 +188,7 @@ export async function readRiskFusion(client, projects, scans, { engines = {}, ri
         for (const key of [ai.hash, ai.resultId]) if (key) found.set(key, ai);
       }
       const results = raw
-        .map((item) => cleanRisk(item, project, scanId, found.get(String(item?.id ?? item?.riskId ?? '')) ?? found.get(String(item?.alternateId ?? '')) ?? null))
+        .map((item) => cleanRisk(item, project, scanId, found.get(String(item?.id ?? item?.riskId ?? '')) ?? found.get(String(item?.alternateId ?? '')) ?? null, typeOf(project.id)))
         .filter((r) => r.resultId);
       return { project, scanId, scanAt: iso(scan.updatedAt ?? scan.createdAt), results };
     } catch (error) {
@@ -200,13 +210,16 @@ export async function readRiskFusion(client, projects, scans, { engines = {}, ri
       }
       e[r.severity] += 1;
       if (r.status === 'NEW' || r.status === 'RECURRENT') e[r.status] += 1;
+      e[STATES.includes(r.state) ? r.state : 'TO_VERIFY'] += 1;
+      if (r.ai) e.aiFound += 1;
+      if (r.aiTriaged) e.aiTriaged += 1;
       scanners[r.scanner || 'OTHER'] = (scanners[r.scanner || 'OTHER'] ?? 0) + 1;
     }
     for (const engine of ENGINES) {
       counts[engine].total = SEVERITIES.reduce((n, s) => n + counts[engine][s], 0);
       counts[engine].fixedKnown = true;
     }
-    const c = { ...emptyCounts(), projectName: p.project.name, scanId: p.scanId, scanAt: p.scanAt ?? null, error: Boolean(p.error), engines: counts, scanners, fixedKnown: true };
+    const c = { ...emptyCounts(), projectName: p.project.name, scanId: p.scanId, scanAt: p.scanAt ?? null, scanType: typeOf(p.project.id), error: Boolean(p.error), engines: counts, scanners, fixedKnown: true };
     for (const k of COUNTED) c[k] = counts.FUSION[k] + counts.LAST[k];
     byProject[p.project.id] = c;
     for (const k of COUNTED) {
@@ -222,8 +235,10 @@ export async function readRiskFusion(client, projects, scans, { engines = {}, ri
     available: true,
     source: 'risk-hub',
     scanned: fusionScanned.length,
+    // How many of them were Fusion scans, and how many LAST scans.
+    kinds: { fusion: fusionScanned.filter((p) => typeOf(p.id) === 'fusion').length, last: fusionScanned.filter((p) => typeOf(p.id) === 'last').length },
     noScan: projects.length - withScan.length,
-    // Projects whose latest scan was not a Fusion scan: left out, and said.
+    // Projects whose latest scan did not run the AI engine: left out, and said.
     notFusion: withScan.length - fusionScanned.length,
     failures,
     projects: byProject,

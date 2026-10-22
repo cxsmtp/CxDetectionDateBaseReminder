@@ -393,6 +393,15 @@ export function unitsOf(loc) {
 
 export const linesOf = (project) => wholeNumber(project?.locOverride) ?? wholeNumber(project?.loc);
 
+/**
+ * The models Checkmarx One offers a Fusion scan (its "LLM Model" setting, scan.config.ai.llmModel), as a new
+ * customer starts with them: named, their credits per 10K lines of code left to type (no API says them).
+ */
+export const CHECKMARX_MODELS = Object.freeze(['opus-4.7', 'haiku-4.5', 'opus-5.0', 'opus-5.5', 'mythos-5.1']);
+/** Models by name, as the calculator keeps them: `source` 'tenant' when read from Checkmarx One, else 'catalog'. */
+export const modelsNamed = (names = CHECKMARX_MODELS, source = 'catalog') =>
+  [...new Set(names.map((n) => String(n ?? '').trim()).filter(Boolean))].slice(0, 20).map((name) => ({ id: `cx-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`.slice(0, 60), name: name.slice(0, 80), description: '', creditsPer10k: null, source }));
+
 /** The Fusion settings, made safe to compute with. */
 export function fusionSettings(value = {}) {
   const v = value && typeof value === 'object' ? value : {};
@@ -401,7 +410,7 @@ export function fusionSettings(value = {}) {
     name: String(m?.name ?? '').trim().slice(0, 80),
     description: String(m?.description ?? '').trim().slice(0, 200),
     creditsPer10k: amount(m?.creditsPer10k),
-    source: m?.source === 'tenant' ? 'tenant' : 'manual',
+    source: m?.source === 'tenant' || m?.source === 'catalog' ? m.source : 'manual',
   }));
   const ids = new Set(models.map((m) => m.id));
   const model = (id) => (ids.has(String(id ?? '')) ? String(id) : null);

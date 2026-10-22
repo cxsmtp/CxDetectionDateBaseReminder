@@ -3372,9 +3372,7 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .fusion-out { text-decoration: none; margin-inline-start: 4px; }
 
 /* Labs → Fusion results: Fusion / LAST ticks, the projects list, and a project's vulnerabilities in a side panel. */
-.fusion { --fusion-c: #4f46e5; --last-c: #0f766e; }
-:root[data-theme="dark"] .fusion { --fusion-c: #8b85ff; --last-c: #2dd4bf; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fusion { --fusion-c: #8b85ff; --last-c: #2dd4bf; } }
+.fusion { --fusion-c: var(--scan-fusion); --last-c: var(--scan-last); }
 .fusion-show { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .fusion-show legend { padding: 0; margin-bottom: 4px; }
 .fusion-engines { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm, 10px); background: var(--surface); overflow: hidden; }
@@ -3448,3 +3446,104 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .fusion-side-lanes .credit-lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
 .fusion-side-lanes .lane-head { grid-column: 1 / -1; }
 .fusion-side-lanes .lane-actions button { white-space: normal; }
+
+/* Fusion and LAST: a project whose latest scan was a Fusion scan is gold, a LAST scan pink, wherever it is listed
+   (the Workbench, Labs → Fusion results, its reports). Each look sets its own shades, for light and dark; a person
+   may pick their own under Settings → Your appearance (set inline on <html>, so it wins over the look's). */
+:root { --scan-fusion: #d4a017; --scan-last: #e0559a; --scan-tint: 9%; }
+:root[data-theme="dark"] { --scan-fusion: #e8b931; --scan-last: #f472b6; --scan-tint: 14%; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --scan-fusion: #e8b931; --scan-last: #f472b6; --scan-tint: 14%; } }
+:root[data-look~="residence"], :root[data-look~="chronometer"] { --scan-fusion: #b8862b; --scan-last: #c2416f; --scan-tint: 8%; }
+:root[data-look~="residence"][data-theme="dark"], :root[data-look~="chronometer"][data-theme="dark"] { --scan-fusion: #d9b45a; --scan-last: #ec6aa7; --scan-tint: 13%; }
+@media (prefers-color-scheme: dark) { :root[data-look~="residence"]:not([data-theme="light"]), :root[data-look~="chronometer"]:not([data-theme="light"]) { --scan-fusion: #d9b45a; --scan-last: #ec6aa7; --scan-tint: 13%; } }
+:root[data-look~="studio"], :root[data-look~="circuit"] { --scan-fusion: #e0a91f; --scan-last: #db2777; }
+:root[data-look~="studio"][data-theme="dark"], :root[data-look~="circuit"][data-theme="dark"] { --scan-fusion: #f2c94c; --scan-last: #f472b6; }
+@media (prefers-color-scheme: dark) { :root[data-look~="studio"]:not([data-theme="light"]), :root[data-look~="circuit"]:not([data-theme="light"]) { --scan-fusion: #f2c94c; --scan-last: #f472b6; } }
+:root[data-look~="cabin"] { --scan-tint: 13%; }
+.scan-tag { display: inline-block; padding: 0 8px; border-radius: 99px; font-size: 11px; font-weight: 650; line-height: 18px; white-space: nowrap; --c: var(--muted); color: color-mix(in srgb, var(--c) 72%, var(--text)); border: 1px solid var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface)); }
+.scan-tag-fusion { --c: var(--scan-fusion); } .scan-tag-last { --c: var(--scan-last); }
+.scan-tag-none { border-style: dashed; background: none; }
+/* The row: a pale tint and an edge in its colour (never filled in gold, so it is not taken for a golden button). */
+tr.scan-row-fusion > td { background: color-mix(in srgb, var(--scan-fusion) var(--scan-tint), var(--surface)); }
+tr.scan-row-last > td { background: color-mix(in srgb, var(--scan-last) var(--scan-tint), var(--surface)); }
+tr.scan-row-fusion > td:first-child { box-shadow: inset 4px 0 0 var(--scan-fusion); }
+tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); }
+[dir="rtl"] tr.scan-row-fusion > td:first-child { box-shadow: inset -4px 0 0 var(--scan-fusion); }
+[dir="rtl"] tr.scan-row-last > td:first-child { box-shadow: inset -4px 0 0 var(--scan-last); }
+.fusion-table tbody tr.scan-row-fusion:hover td { background: color-mix(in srgb, var(--scan-fusion) calc(var(--scan-tint) + 6%), var(--surface)); }
+.fusion-table tbody tr.scan-row-last:hover td { background: color-mix(in srgb, var(--scan-last) calc(var(--scan-tint) + 6%), var(--surface)); }
+.fusion-model-cell { white-space: nowrap; }
+.fusion-model-from { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); }
+.fusion-word { color: color-mix(in srgb, var(--scan-fusion) 70%, var(--text)); } .last-word { color: color-mix(in srgb, var(--scan-last) 70%, var(--text)); }
+/* Labs → Fusion results: the three blocks above the figures. */
+.fusion-over { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin: 4px 0 12px; }
+.fusion-over[hidden] { display: none; }
+@media (max-width: 1100px) { .fusion-over { grid-template-columns: 1fr; } }
+.fusion-card { min-width: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.fusion-card h4 { margin: 0 0 8px; font-size: 12px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.fusion-card h4 small { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.fusion-big { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-bottom: 8px; }
+.fusion-big b { display: block; font-size: 24px; line-height: 1.15; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fusion-big span { font-size: 12px; color: var(--muted); }
+.fusion-big .is-fusion b { color: color-mix(in srgb, var(--scan-fusion) 78%, var(--text)); }
+.fusion-big .is-last b { color: color-mix(in srgb, var(--scan-last) 78%, var(--text)); }
+.fusion-meter { display: flex; gap: 2px; height: 8px; margin: 6px 0 10px; border-radius: 99px; overflow: hidden; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border); }
+.fusion-meter i { display: block; height: 100%; min-width: 0; }
+.fusion-meter i:first-child { border-start-start-radius: 99px; border-end-start-radius: 99px; }
+.fusion-meter .is-fusion { background: var(--scan-fusion); } .fusion-meter .is-last { background: var(--scan-last); }
+.fusion-meter .is-dup { background: var(--border-strong); } .fusion-meter .is-used { background: var(--accent); } .fusion-meter .is-held { background: color-mix(in srgb, var(--accent) 45%, var(--surface)); }
+.fusion-flow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 13px; color: var(--muted); }
+.fusion-flow b { font-size: 21px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.fusion-kv { display: grid; grid-template-columns: max-content 1fr; gap: 5px 12px; margin: 0; font-size: 13px; }
+.fusion-kv dt { color: var(--muted); } .fusion-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.ok-text { color: var(--ok, #15803d); } .bad-text { color: var(--danger); }
+.fusion .fusion-tiles > div.med .value { color: #b7791f; } .fusion .fusion-tiles > div.low .value { color: #2563eb; }
+/* Status and state chips. */
+.fusion-filters { display: grid; gap: 6px; margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.fusion-filters[hidden] { display: none; }
+.fusion-chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.fusion-chip-row > span:not(.fusion-chip-key) { display: contents; }
+.fusion-chip-key { width: 52px; flex: none; font-size: 12px; font-weight: 600; color: var(--muted); }
+.fusion-chip small { color: inherit; opacity: 0.72; font-variant-numeric: tabular-nums; }
+.fusion-filters .fusion-chip[aria-pressed="true"], .fusion-sheet .fusion-chips button.fusion-chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.fusion-ai-only { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.fusion-ai-only em { font-style: normal; }
+.fusion-vuln-tags { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.fusion-tag.fusion-AI { --c: #7c3aed; }
+:root[data-theme="dark"] .fusion-tag.fusion-AI { --c: #c4b5fd; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fusion-tag.fusion-AI { --c: #c4b5fd; } }
+.fusion-drawer[data-scan-type="fusion"] .fusion-side-head { border-top: 5px solid var(--scan-fusion); }
+.fusion-drawer[data-scan-type="last"] .fusion-side-head { border-top: 5px solid var(--scan-last); }
+.fusion-side-top h2 .scan-tag { vertical-align: middle; margin-inline-start: 6px; }
+.fusion-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 560px) { .fusion-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.scan-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 4px 0 0; font-size: 12.5px; color: var(--muted); }
+.scan-legend[hidden] { display: none; }
+.scan-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.scan-legend b { color: var(--text); font-variant-numeric: tabular-nums; }
+.scan-legend-key { font-size: 11.5px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; }
+.scan-swatch { display: inline-block; width: 20px; height: 12px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); }
+.scan-swatch-fusion { background: color-mix(in srgb, var(--scan-fusion) var(--scan-tint), var(--surface)); box-shadow: inset 4px 0 0 var(--scan-fusion); border-color: color-mix(in srgb, var(--scan-fusion) 40%, var(--border)); }
+.scan-swatch-last { background: color-mix(in srgb, var(--scan-last) var(--scan-tint), var(--surface)); box-shadow: inset 4px 0 0 var(--scan-last); border-color: color-mix(in srgb, var(--scan-last) 40%, var(--border)); }
+/* Settings → Your appearance: Fusion and LAST colours. */
+.scan-colours .hint { max-width: 70ch; }
+.scan-colour-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; margin: 6px 0 10px; }
+@media (max-width: 640px) { .scan-colour-pair { grid-template-columns: 1fr; } }
+.scan-colour-name { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13.5px; }
+.scan-swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.scan-sw { position: relative; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; background: var(--c); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border-strong); }
+.scan-sw input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.scan-sw:has(input:checked) { box-shadow: 0 0 0 2px var(--text); }
+.scan-sw:has(input:checked)::after { content: "✓"; position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 14px; text-shadow: 0 1px 2px rgb(0 0 0 / 0.45); }
+.scan-sw:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scan-colour-pick[data-scan-kind="fusion"] .scan-sw-look { --c: var(--scan-fusion-look, var(--scan-fusion)); }
+.scan-colour-pick[data-scan-kind="last"] .scan-sw-look { --c: var(--scan-last-look, var(--scan-last)); }
+.scan-sw-custom { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 10px 0 3px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); font-size: 12.5px; cursor: pointer; }
+.scan-sw-custom input { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.scan-colour-preview { width: 100%; max-width: 640px; border-collapse: collapse; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13.5px; }
+.scan-colour-preview td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.scan-colour-preview td:first-child { font-weight: 600; } .scan-colour-preview td:last-child { text-align: end; }
+.scan-colour-foot { margin-top: 6px; }
+#scan-colour-note[hidden] { display: none; }
+/* A pressed chip reads as pressed in every look: the looks' own button backgrounds (Signal's well, the 3D sheen) never hide it. */
+.fusion button.fusion-chip[aria-pressed="true"] { background-color: var(--accent) !important; border-color: var(--accent) !important; color: var(--accent-ink) !important; }

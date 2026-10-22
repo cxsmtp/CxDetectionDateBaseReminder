@@ -82,11 +82,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 ## MZ-01.00.94 — not released yet
 
-- **Fusion results as Risk Hub shows them.** **Labs → Fusion results** now lists, for each project whose latest scan was a Fusion scan (it ran the AI engine), the same risks Checkmarx One's Risk Hub shows, every scanner, read with the Workbench's own Risk Hub reader; before, it counted only the few results marked AI-generated, so a project such as one with 216 risks in Risk Hub showed none.
-- **New, Recurrent and Fixed as Risk Hub says.** Each risk's status is Risk Hub's own; fixed risks are counted as fixed, listed last in a project's side panel, and never acted on.
-- **Projects without a Fusion scan are left out, and said.** The line under the title says how many Fusion scans were read and how many projects were left out because their latest scan was not a Fusion scan.
-- **LAST still apart.** A risk the AI engine found in a language only it covers is LAST's; every other risk of the Fusion scan is Fusion's. The AI engine's own result still adds its language, CWE, source and sink.
-- **Scanner and where.** Each risk shows its scanner (SAST, SCA, IaC, API Security…) and where it is, in the side panel, the CSV and the HTML report.
+- **Fusion results as Risk Hub shows them.** **Labs → Fusion results** lists, for each project whose latest scan ran the AI engine, the same risks Checkmarx One's Risk Hub shows, every scanner, with Risk Hub's own New, Recurrent and Fixed; before, a project with 216 risks in Risk Hub could show none.
+- **Fusion and LAST scans told apart.** A scan's own settings say whether Fusion was on: a Fusion scan, or a LAST scan (LLM-based scanning alone, for a language such as ABAP); LAST projects are listed too, and their risks count as LAST's.
+- **The model each scan ran with, and where it was set.** Each project shows its latest scan's model, set on the scan, by the project, by the tenant, or by Checkmarx One itself when nobody chose one.
+- **What the AI added, and the tenant at a glance.** Three blocks show the projects by scan type, what the AI engine found and added beyond the traditional engine, and the tenant's credits, models and whether Fusion scans are charged.
+- **States as chips.** To verify, Confirmed, Proposed not exploitable, Not exploitable and Urgent, beside New, Recurrent and Fixed, with **Only AI-triaged**, narrow the projects, the side panel and both downloads.
+- **Gold for Fusion, pink for LAST, on the Workbench too.** Projects are coloured by their latest scan wherever they are listed, with a **Scan type** filter; each look has its own shades, and anyone can pick their own under Settings → Your appearance.
+- **Credits within what the tenant has left.** The credit pool and every allocation stay within the credits the tenant has left in Checkmarx One, shown beside the pool.
+- **The calculator knows Checkmarx One's models.** Fusion models start with opus-4.7, haiku-4.5, opus-5.0, opus-5.5 and mythos-5.1, and **Include Fusion projection**, now in the main configuration, unticked sets Triage & remediation's Fusion figure to 0%.
 - **Status.** Measured when it is merged.
 
 ## MZ-01.00.93 — 2026-10-22 06:19 UTC · [#116](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/116)

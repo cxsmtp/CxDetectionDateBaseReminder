@@ -492,6 +492,12 @@
                     <option value="31-60">Has 31–60d</option>
                     <option value="60+">Has &gt; 60d</option>
                   </select>
+                  <select id="scan-type-filter" aria-label="Latest scan" title="What each project's latest scan was: a Fusion scan (gold), a LAST scan (pink), or one without the AI engine">
+                    <option value="">Any scan type</option>
+                    <option value="fusion">Fusion</option>
+                    <option value="last">LAST</option>
+                    <option value="none">No AI</option>
+                  </select>
                   <label class="check"><input type="checkbox" id="hide-empty" /> Hide empty</label>
                   <details class="col-picker" id="col-picker">
                     <summary class="button-like" aria-label="Choose columns">
@@ -533,6 +539,7 @@
                 </table>
               </div>
               <p class="hint" id="table-meta"></p>
+              <p class="scan-legend" id="scan-legend" hidden></p>
               </section>
 
               <aside class="panel wb-rail" id="wb-rail" aria-label="Act on the selection">
@@ -1108,6 +1115,35 @@
                     <label class="sw-violet" title="Plum"><input type="radio" name="look-accent" value="violet" aria-label="Plum" /></label>
                     <label class="sw-amber" title="Ochre"><input type="radio" name="look-accent" value="amber" aria-label="Ochre" /></label>
                   </div>
+                </fieldset>
+                <fieldset class="scan-colours" id="scan-colours">
+                  <legend>Fusion and LAST colours</legend>
+                  <p class="hint">Rows and tags of projects whose latest scan was a Fusion or a LAST scan: on the Workbench, Labs → Fusion results and its reports. By default each look picks its own shades of gold and pink, for light and dark.</p>
+                  <div class="scan-colour-pair">
+                    <div class="scan-colour-pick" data-scan-kind="fusion"><span class="scan-colour-name">Fusion</span><div class="scan-swatches">
+                      <label class="scan-sw scan-sw-look" title="The look's own (default)"><input type="radio" name="scan-fusion" value="" aria-label="The look's own" /></label>
+                      <label class="scan-sw" style="--c:#ea580c" title="Amber"><input type="radio" name="scan-fusion" value="#ea580c" aria-label="Amber" /></label>
+                      <label class="scan-sw" style="--c:#16a34a" title="Green"><input type="radio" name="scan-fusion" value="#16a34a" aria-label="Green" /></label>
+                      <label class="scan-sw" style="--c:#0f766e" title="Teal"><input type="radio" name="scan-fusion" value="#0f766e" aria-label="Teal" /></label>
+                      <label class="scan-sw" style="--c:#2563eb" title="Blue"><input type="radio" name="scan-fusion" value="#2563eb" aria-label="Blue" /></label>
+                      <label class="scan-sw-custom" title="Any colour"><input type="color" id="scan-fusion-custom" aria-label="Custom colour for Fusion" /> Custom…</label>
+                    </div></div>
+                    <div class="scan-colour-pick" data-scan-kind="last"><span class="scan-colour-name">LAST</span><div class="scan-swatches">
+                      <label class="scan-sw scan-sw-look" title="The look's own (default)"><input type="radio" name="scan-last" value="" aria-label="The look's own" /></label>
+                      <label class="scan-sw" style="--c:#e11d48" title="Rose"><input type="radio" name="scan-last" value="#e11d48" aria-label="Rose" /></label>
+                      <label class="scan-sw" style="--c:#7c3aed" title="Violet"><input type="radio" name="scan-last" value="#7c3aed" aria-label="Violet" /></label>
+                      <label class="scan-sw" style="--c:#0891b2" title="Cyan"><input type="radio" name="scan-last" value="#0891b2" aria-label="Cyan" /></label>
+                      <label class="scan-sw" style="--c:#64748b" title="Slate"><input type="radio" name="scan-last" value="#64748b" aria-label="Slate" /></label>
+                      <label class="scan-sw-custom" title="Any colour"><input type="color" id="scan-last-custom" aria-label="Custom colour for LAST" /> Custom…</label>
+                    </div></div>
+                  </div>
+                  <table class="scan-colour-preview" aria-label="Preview in your look and theme"><tbody>
+                    <tr class="scan-row-fusion"><td>cx-sudha-tiwari/st_webgoat</td><td><span class="scan-tag scan-tag-fusion">Fusion</span></td></tr>
+                    <tr class="scan-row-last"><td>abap-last</td><td><span class="scan-tag scan-tag-last">LAST</span></td></tr>
+                    <tr><td>Aaron-Juice-Shop</td><td><span class="zero">—</span></td></tr>
+                  </tbody></table>
+                  <p class="hint scan-colour-foot"><span>Preview in your look and theme.</span> <button type="button" class="link" id="scan-colours-reset">Use the look's colours</button></p>
+                  <p class="status warn" id="scan-colour-note" hidden></p>
                 </fieldset>
                 <fieldset>
                   <legend>Explanations</legend>
@@ -2280,7 +2316,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div class="panel-head">
                 <div>
                   <h2>Fusion results <span class="badge warn" data-beta-badge="fusionResults">Beta</span></h2>
-                  <p class="hint wide">The Risk Hub list of each project whose latest scan was a Fusion scan. <strong>Fusion</strong>: what the Fusion scan reported. <strong>LAST</strong> (language-agnostic static testing): what its AI engine found in a language only it covers. Click a project to see its vulnerabilities.</p>
+                  <p class="hint wide">The Risk Hub list of each project whose latest scan ran the AI engine. <strong class="fusion-word">Fusion</strong>: a Fusion scan (Fusion on in its settings) and what it reported. <strong class="last-word">LAST</strong> (language-agnostic static testing): a scan with Fusion off, or what a Fusion scan&#39;s AI engine found in a language only it covers. Click a project to see its vulnerabilities.</p>
                 </div>
                 <div class="actions"><button type="button" id="fusion-read" class="sm" data-perm="beta.use feature.fusionResults">Read Fusion now</button></div>
               </div>
@@ -2291,15 +2327,22 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <fieldset class="fusion-show">
                   <legend class="scope-label">Show</legend>
                   <div class="fusion-engines">
-                    <label class="fusion-engine fusion-engine-fusion" title="What the Fusion scan reported in Risk Hub, other than LAST's"><input type="checkbox" id="fusion-show-fusion" value="FUSION" checked /> <i aria-hidden="true"></i>Fusion <em id="fusion-n-fusion"></em></label>
-                    <label class="fusion-engine fusion-engine-last" title="What the AI engine found in a language only it covers (language-agnostic static testing)"><input type="checkbox" id="fusion-show-last" value="LAST" checked /> <i aria-hidden="true"></i>LAST <em id="fusion-n-last"></em></label>
+                    <label class="fusion-engine fusion-engine-fusion" title="Projects whose latest scan was a Fusion scan, and what it reported in Risk Hub, other than LAST's"><input type="checkbox" id="fusion-show-fusion" value="FUSION" checked /> <i aria-hidden="true"></i>Fusion <em id="fusion-n-fusion"></em></label>
+                    <label class="fusion-engine fusion-engine-last" title="Projects whose latest scan ran the AI engine with Fusion off, and what the AI engine found in a language only it covers (language-agnostic static testing)"><input type="checkbox" id="fusion-show-last" value="LAST" checked /> <i aria-hidden="true"></i>LAST <em id="fusion-n-last"></em></label>
                   </div>
                 </fieldset>
                 <div class="grow fetch-box"><div class="fetch-actions"><button type="submit" class="primary" id="fusion-fetch" data-perm="beta.use feature.fusionResults">Load results</button></div></div>
               </form>
               <p class="status" id="fusion-status"></p>
               <p class="hint fusion-tried" id="fusion-tried"></p>
+              <!-- Three blocks: the projects (Fusion, LAST, no AI), what the AI engine added, and the tenant's credits. -->
+              <div class="fusion-over" id="fusion-over" hidden></div>
               <div class="totals fusion-tiles" id="fusion-tiles"></div>
+              <!-- Risk Hub's statuses and states: a chip narrows the projects, the side panel, the exports and the figures. -->
+              <div class="fusion-filters" id="fusion-filters" hidden>
+                <div class="fusion-chip-row" role="group" aria-label="Status"><span class="fusion-chip-key">Status</span><span id="fusion-status-chips"></span></div>
+                <div class="fusion-chip-row" role="group" aria-label="State"><span class="fusion-chip-key">State</span><span id="fusion-state-chips"></span><label class="fusion-ai-only" title="Only the risks whose state AI Triage set"><input type="checkbox" id="fusion-ai-triaged" /> Only AI-triaged <em id="fusion-n-ai-triaged"></em></label></div>
+              </div>
               <!-- One row per project with results; a click opens its vulnerabilities in the side panel. -->
               <div class="fusion-results-head">
                 <h3>Projects <em class="ptab-count" id="fusion-proj-count"></em></h3>
@@ -2312,11 +2355,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                     <option value="MEDIUM">With medium</option>
                     <option value="LOW">With low</option>
                   </select>
-                  <select id="fusion-new" aria-label="Status">
-                    <option value="">Any status</option>
-                    <option value="NEW">With new results</option>
-                    <option value="RECURRENT">With recurrent results</option>
-                    <option value="FIXED">With fixed results</option>
+                  <select id="fusion-model" aria-label="Model">
+                    <option value="">Any model</option>
                   </select>
                   <select id="fusion-period" aria-label="AI scans and credits over" title="AI scans and credits over">
                     <option value="last_30_days">Last 30 days</option>
@@ -2340,8 +2380,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <p class="status" id="fusion-act-status"></p>
               <div class="table-wrap">
                 <table class="data-table fusion-table">
-                  <thead><tr><th>Project</th><th title="The model its latest Fusion scan ran with">Model</th><th class="num" title="Lines of code its latest scan counted">LOC</th><th class="num" title="Completed scans that ran the AI engine, over the period chosen above">AI scans</th><th class="num" title="Checkmarx One credits the project used over the period chosen above">Credits</th><th>Results</th><th class="num" title="Found by the latest scan for the first time">New</th><th class="num" title="Found again by the latest scan">Recurrent</th><th class="num" title="Found by the scan before and gone in the latest">Fixed</th><th>Latest scan</th></tr></thead>
-                  <tbody id="fusion-body"><tr><td colspan="10" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
+                  <thead><tr><th>Project</th><th title="Fusion: its latest scan ran the AI engine with Fusion on. LAST: with Fusion off (LLM-based scanning alone).">Scan</th><th title="The model its latest scan ran with, and where that was set: the scan, the project, the tenant, or Checkmarx One itself">Model</th><th class="num" title="Lines of code its latest scan counted">LOC</th><th class="num" title="What the AI engine found in the latest scan, and how many of those it added once the ones the traditional engine also found were taken out (as the scan's steps say)">AI found → added</th><th title="Its results in Risk Hub by severity, for the engines shown">Results</th><th class="num" title="Open risks still in Risk Hub's default state, To verify">To verify</th><th class="num" title="Open risks confirmed (by people or by AI Triage)">Confirmed</th><th class="num" title="Completed scans that ran the AI engine, over the period chosen above">AI scans</th><th class="num" title="Checkmarx One credits the project used over the period chosen above">Credits</th><th>Latest scan</th></tr></thead>
+                  <tbody id="fusion-body"><tr><td colspan="11" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
                 </table>
               </div>
               <p class="hint" id="fusion-foot"></p>
@@ -2371,7 +2411,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <!-- AI Triage and AI Remediation for this project's results, once credits are allocated (Admins). -->
                   <div class="fusion-side-lanes" id="fusion-side-lanes" hidden></div>
                   <p class="status" id="fusion-side-status"></p>
-                  <div class="fusion-chips" id="fusion-side-chips" role="group" aria-label="Show"></div>
+                  <div class="fusion-chips" id="fusion-side-chips" role="group" aria-label="Status"></div>
+                  <div class="fusion-chips" id="fusion-side-states" role="group" aria-label="State"></div>
                   <div class="fusion-side-acts">
                     <a class="button-like sm" id="fusion-side-open" target="_blank" rel="noopener">Open in Checkmarx One ↗</a>
                     <button type="button" class="sm" id="fusion-side-csv">Export CSV</button>
@@ -2720,6 +2761,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div class="calc-source">
                 <button type="button" class="secondary" id="calc-read">Read from Checkmarx One</button>
                 <label class="pill-check calc-branches" title="Unticked: each project's primary branch only (as set in Checkmarx One, else main, else master), so no finding is counted twice. Ticked: the scans of every branch, which is also what Fusion is charged for when feature branches are scanned with it."><input type="checkbox" id="calc-all-branches" /> Every branch</label>
+                <label class="pill-check calc-fusion-pill" title="Ticked: Fusion is projected: its credits, and the findings it adds to Triage &amp; remediation. Unticked (the customer is not taking Fusion): none of it is counted, Triage &amp; remediation's &quot;More found by Fusion&quot; is 0%, and the report leaves it out. Its settings are kept."><input type="checkbox" id="calc-fusion-on" checked /> Include Fusion projection</label>
                 <div class="calc-source-state">
                   <span class="status" id="calc-read-note" aria-live="polite"></span>
                   <progress id="calc-read-progress" max="100" value="0" hidden></progress>
@@ -2769,7 +2811,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div class="calc-sum" role="group" aria-label="Credits required">
                 <label class="calc-sum-item"><span>Projection period</span><select id="calc-horizon"><option value="6">6 months</option><option value="12">12 months</option><option value="18">18 months</option><option value="24">24 months</option><option value="36">36 months</option></select></label>
                 <div class="calc-sum-item"><span>Triage &amp; remediation <button type="button" class="calc-why" data-why="credits" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-tr">—</b><small class="hint" id="calc-sum-tr-split"></small></div>
-                <div class="calc-sum-item"><span>Fusion <button type="button" class="calc-why" data-why="fusion-credits" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-fusion">—</b><label class="calc-sum-opt" title="Untick when the customer is not taking Fusion: it is then left out of the credits, the findings Fusion adds and the report. Its settings are kept."><input type="checkbox" id="calc-fusion-on" checked /> Include Fusion</label></div>
+                <div class="calc-sum-item"><span>Fusion <button type="button" class="calc-why" data-why="fusion-credits" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-fusion">—</b></div>
                 <label class="calc-sum-item"><span>Extra credits (%)</span><input type="text" inputmode="decimal" id="calc-extra" class="calc-num" placeholder="0" autocomplete="off" /></label>
                 <div class="calc-sum-item calc-sum-key"><span>Total credits required <button type="button" class="calc-why" data-why="total" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-total">—</b><small class="hint" id="calc-sum-extra"></small></div>
                 <label class="calc-sum-item"><span>Credits per bundle</span><input type="text" inputmode="numeric" id="calc-bundle" class="calc-num" placeholder="10000" autocomplete="off" /></label>
@@ -2825,7 +2867,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             <div data-ptpanel="calculator:fusion" class="calc-panel" hidden>
               <section class="panel">
                 <h2>Fusion scans: what each project needs</h2>
-                <p class="calc-notice calc-off-note" id="calc-fusion-off-note" hidden>Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings or the report. The settings below are kept. <button type="button" class="link" id="calc-fusion-include">Include Fusion</button></p>
+                <p class="calc-notice calc-off-note" id="calc-fusion-off-note" hidden>Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings (Triage &amp; remediation counts 0% more found by Fusion) or the report. The settings below are kept. <button type="button" class="link" id="calc-fusion-include">Include Fusion projection</button></p>
                 <p class="calc-notice" data-help-fold>Each project's lines of code are rounded up to whole 10K units on their own, and one Fusion scan costs its model's credits per 10K LOC. The projects come from Checkmarx One with how often each is scanned: the rules below start from that, and you can give more scans to the projects scanned most often or most critical.</p>
                 <div class="calc-terms">
                   <label class="field"><span>Default Fusion scans per project</span><input type="number" id="calc-default-scans" min="0" step="1" /></label>

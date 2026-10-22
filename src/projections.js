@@ -16,7 +16,8 @@ import { mapWithConcurrency } from './cxone/client.js';
 import { DEFAULT_ENGINES, cleanEngines, engineOf, engineScope } from './engines.js';
 import { getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
 import { BRANCH_HOW, branchOf, primaryScans } from './cxone/branches.js';
-import { CRITICALITIES, amount, frequencyOf, wholeNumber } from '../public/calculator/model.js';
+import { CRITICALITIES, amount, frequencyOf, modelsNamed, wholeNumber } from '../public/calculator/model.js';
+import { modelChoices } from './fusion-usage.js';
 import { MAX_PROFILES, MAX_PROJECTS, MAX_REPORTS, cleanFusion, cleanReportData, cleanTr, fail, finite, iso, migrate, newProfile, newReport, patchProfile, reportMeta, summary, text } from '../public/calculator/profiles.js';
 
 // The rules for customers and reports are shared with the standalone calculator (public/calculator/profiles.js).
@@ -522,9 +523,13 @@ function findModels(value, depth = 0, out = []) {
   return out;
 }
 
-/** Where a tenant may say which Fusion models it offers, and what credits it has left. Not documented by Checkmarx: tried, never relied on. */
+/**
+ * Where a tenant may say which Fusion models it offers (with their credits), and what credits it has left. The
+ * models it offers are its "LLM Model" setting's choices (GET /api/configuration/tenant); the others are tried,
+ * never relied on. Its credits left: GET /api/credits/info ("available").
+ */
 export const FUSION_MODEL_PATHS = ['/api/fusion/models', '/api/fusion/config', '/api/scan-config/fusion/models'];
-export const CREDIT_BALANCE_PATHS = ['/api/fusion/credits', '/api/credits/balance', '/api/credits'];
+export const CREDIT_BALANCE_PATHS = ['/api/credits/info', '/api/fusion/credits', '/api/credits/balance'];
 
 /**
  * The Fusion models the tenant offers ({ name, creditsPer10k }) and the credits it has left, when
@@ -540,8 +545,12 @@ export async function readFusionOffer(client) {
     }
     return null;
   };
-  const [modelsBody, creditsBody] = await Promise.all([tryRead(FUSION_MODEL_PATHS), tryRead(CREDIT_BALANCE_PATHS)]);
-  const models = modelsBody ? findModels(modelsBody) : [];
+  const [modelsBody, creditsBody, tenantBody] = await Promise.all([tryRead(FUSION_MODEL_PATHS), tryRead(CREDIT_BALANCE_PATHS), tryRead(['/api/configuration/tenant'])]);
+  // The models its "LLM Model" setting offers (names only: their credits are typed in), then any with a rate.
+  const entries = Array.isArray(tenantBody) ? tenantBody : Array.isArray(tenantBody?.configEntries) ? tenantBody.configEntries : [];
+  const offered = modelsNamed(modelChoices(entries.find((e) => e?.key === 'scan.config.ai.llmModel')), 'tenant');
+  const priced = modelsBody ? findModels(modelsBody) : [];
+  const models = [...priced, ...offered.filter((m) => !priced.some((p) => p.name.toLowerCase() === m.name.toLowerCase()))];
   const unique = [...new Map(models.map((m) => [m.id, m])).values()];
   const remainingCredits = creditsBody ? findNumber(creditsBody, /remaining|balance|available/i) : null;
   return { models: unique, remainingCredits };

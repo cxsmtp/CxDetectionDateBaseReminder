@@ -227,6 +227,13 @@ test('Fusion results (Beta): its own fetch, the Risk Hub list of each project wh
   // Each project's model (p0: its scan; p1: its settings), lines of code, AI scans and credits (last 30 days).
   assert.deepEqual([fusion.projects.p0.model, fusion.projects.p0.modelFrom, fusion.projects.p1.model, fusion.projects.p1.modelFrom], ['mythos-5.1', 'scan', 'opus-5.0', 'project']);
   assert.ok(fusion.projects.p0.loc > 0, 'lines of code');
+  // Fusion on in both scans' settings; the model as Checkmarx One resolved it for p1's scan (its project's setting).
+  assert.deepEqual([fusion.projects.p0.scanType, fusion.projects.p1.scanType, fusion.kinds], ['fusion', 'fusion', { fusion: 2, last: 0 }]);
+  // The steps: p1's AI engine found 5, 1 already found by SAST, 4 added; Fusion credits not charged on the tenant.
+  assert.deepEqual([fusion.projects.p1.aiReported, fusion.projects.p1.aiDuplicates, fusion.projects.p1.aiAdded, fusion.tenant.fusionCredits], [5, 1, 4, 'off']);
+  assert.ok(fusion.projects.p1.files > 0 && fusion.projects.p1.engineVersion === '9.7.7-679962', 'files and the SAST engine');
+  assert.deepEqual([fusion.tenant.credits.available, fusion.tenant.credits.total], [28854, 30000], 'the tenant’s credits in Checkmarx One');
+  assert.deepEqual(fusion.usage.scope, { projects: 2, withFusion: 2, withLast: 0 }, 'the line’s projects with a Fusion scan over the period');
   assert.equal(fusion.usage.period, 'last_30_days');
   assert.ok(fusion.usage.projects.p0.scans > 0, 'AI scans counted');
   assert.deepEqual([fusion.usage.projects.p1.credits, fusion.usage.projects.p1.fusion, fusion.usage.projects.p1.actions], [10, 6, { triage: 1, remediation: 1, other: 0 }], 'credits: 10, less 1 triage and 3 for a remediation');

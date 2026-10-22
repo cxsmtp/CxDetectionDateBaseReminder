@@ -278,7 +278,20 @@ test('stage 9 — credits are given on the Credit Control page too: any Checkmar
   assert.equal((await admin('POST', '/api/credits/give', { projectId: 'p1', triage: 3 })).status, 200, 'exactly what is free fits');
   await admin('PUT', '/api/settings', { aiTriage: { monthlyCreditLimit: 0 } });
 
-  // Every gift, and the refusal, is in the audit log.
+  // The tenant's credits in Checkmarx One (the mock: 28,854 left of 30,000) bound the pool and what projects hold.
+  const tenant = (await admin('GET', '/api/credits')).body.tenant;
+  assert.deepEqual([tenant.available, tenant.total], [28854, 30000]);
+  const big = await admin('PUT', '/api/settings', { aiTriage: { monthlyCreditLimit: 30000 } });
+  assert.equal(big.status, 400, 'a pool larger than the tenant has left');
+  assert.match(big.body.error, /cannot be more than the 28,854 credits this tenant has left in Checkmarx One/);
+  assert.equal((await admin('PUT', '/api/settings', { aiTriage: { monthlyCreditLimit: 28854 } })).status, 200, 'all of it fits');
+  await admin('PUT', '/api/settings', { aiTriage: { monthlyCreditLimit: 0 } });
+  const held = (await admin('GET', '/api/credits')).body.pool.outstanding.total;
+  const beyond = await admin('POST', '/api/credits/give', { projectId: 'p1', triage: 28854 - held + 1 });
+  assert.equal(beyond.status, 409, 'no pool set: still no more than the tenant has');
+  assert.match(beyond.body.error, /Checkmarx One has 28,854 credits left for this tenant/);
+
+  // Every gift, and the refusals, are in the audit log.
   const audit = (await admin('GET', '/api/audit?types=allocation&limit=50')).body;
   const given = audit.entries.filter((e) => /on the Credit Control page/.test(e.reason));
   assert.equal(given.length, 3);
