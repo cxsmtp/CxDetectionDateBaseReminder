@@ -731,7 +731,7 @@ const ROUTE_ALIASES = { iam: 'access', 'credit-control': 'credits' };
 const STAGES = { flush: 'labs', dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
 const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', plan: 'Plan', setup: 'Set up', labs: 'Labs' };
 /** The tab group on each page (data-ptabs). */
-const PAGE_TABS = { dashboard: 'dash', automation: 'automation', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
+const PAGE_TABS = { flush: 'flush', dashboard: 'dash', automation: 'automation', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
 const visitedPages = new Set();
 const scrollMemory = new Map();
 

@@ -131,60 +131,119 @@ test('preview, then a run that deletes the _FAE copies: marked, revalidated, aud
   assert.equal((await admin('POST', '/api/fae-flush/start', { deleteFae: true })).status, 409, 'nothing to start before a preview');
   assert.equal((await admin('POST', '/api/fae-flush/preview')).status, 202);
   const { preview } = await until((v) => v.preview && !v.previewing);
-  // Project 8: Checkmarx One no longer keeps its code.
+  // Project 8: Checkmarx One no longer keeps its code, but its repository is known: flushed from there.
   assert.equal(preview.projects.length, 10);
-  assert.equal(preview.eligible, 9);
-  assert.match(preview.projects.find((p) => p.id === 'p8').leftOut, /does not keep the code/);
-  assert.equal(preview.toVerify, 9 * 30);
+  assert.equal(preview.eligible, 10);
+  const p8 = preview.projects.find((p) => p.id === 'p8');
+  assert.deepEqual([p8.leftOut, p8.codeKept, p8.repoUrl, p8.commit], ['', false, 'https://github.com/acme/p8', 'abc123']);
+  assert.equal(preview.toVerify, 10 * 30);
 
   // Delete or keep: the initiator must say.
   assert.equal((await admin('POST', '/api/fae-flush/start', { concurrency: 3 })).status, 400);
   const started = await admin('POST', '/api/fae-flush/start', { concurrency: 3, deleteFae: true });
   assert.equal(started.status, 200, JSON.stringify(started.body));
+  assert.deepEqual(started.body.job.options, { source: 'auto', mode: 'mark', sensitivity: 'normal' });
   assert.equal((await admin('POST', '/api/fae-flush/start', { deleteFae: true })).status, 409, 'one run at a time');
 
   const done = await until((v) => v.job?.state === 'done', 60000);
   // Each project: 30 To verify, the FAE scan reports 10 of them (and 2 of its own): 20 marked.
-  assert.equal(done.summary.totals.toVerify, 270);
-  assert.equal(done.summary.totals.reported, 90);
-  assert.equal(done.summary.totals.marked, 180);
-  assert.equal(done.summary.totals.revalidated, 180);
-  assert.equal(done.summary.steps.done, 9);
-  assert.equal(done.summary.steps['left-out'], 1);
+  assert.equal(done.summary.totals.toVerify, 300);
+  assert.equal(done.summary.totals.reported, 100);
+  assert.equal(done.summary.totals.marked, 200);
+  assert.equal(done.summary.totals.revalidated, 200);
+  assert.equal(done.summary.steps.done, 10);
   assert.equal(done.summary.faeKept, 0);
+  // Checkmarx One's own copy, in place, for every project whose code it keeps; the repository for project 8.
+  const scans = Object.values((await mock('/__fae')).scans);
+  assert.deepEqual([scans.filter((x) => x.code === 'link').length, scans.filter((x) => x.code === 'git').map((x) => x.source)], [9, ['p8']]);
+  assert.deepEqual(done.job.projects.find((p) => p.id === 'p8').codeSource, 'git');
+  assert.ok(done.job.projects.find((p) => p.id === 'p0').attempts.some((a) => a.what === 'code: Checkmarx One’s own copy' && a.ok), 'each project says how its code came');
   const marks = await mock('/__predicates');
-  assert.equal(Object.values(marks).filter((s) => s === 'PROPOSED_NOT_EXPLOITABLE').length, 180);
+  assert.equal(Object.values(marks).filter((s) => s === 'PROPOSED_NOT_EXPLOITABLE').length, 200);
   // Only in the original projects, and the copies are gone.
   assert.ok(Object.keys(marks).every((k) => /^p\d+\|/.test(k)));
   assert.deepEqual((await mock('/__fae')).projects, {});
 
   const audit = (await admin('GET', '/api/audit?q=FAE%20Flush&limit=200')).body;
   const reasons = audit.entries.map((e) => e.reason).join('\n');
-  assert.match(reasons, /FAE Flush started for 9 projects, 3 scans at a time; the _FAE projects are deleted/);
+  assert.match(reasons, /FAE Flush started for 10 projects, 3 scans at a time; code: auto; stops to ask: normal; the _FAE projects are deleted/);
   assert.match(reasons, /FAE Flush marked 20 of Project 0's 30 results To verify Proposed not exploitable/);
-  assert.match(reasons, /FAE Flush finished: 180 of 270 results/);
+  assert.match(reasons, /code from Checkmarx One’s own copy/);
+  assert.match(reasons, /FAE Flush finished: 200 of 300 results/);
+
+  // Kept after the run: the value it brought.
+  const value = (await admin('GET', '/api/fae-flush/value')).body;
+  assert.deepEqual([value.total.marked, value.total.kept, value.saved.credits, value.saved.hours, value.saved.minutesPerTriage, value.runs.length, value.projects.length], [200, 200, 200, 66.7, 20, 1, 10]);
+  assert.equal(Object.values(value.total.bySeverity).reduce((a, b) => a + b, 0), 200);
 
   const undo = await admin('POST', '/api/fae-flush/undo');
   assert.equal(undo.status, 200);
-  assert.equal(undo.body.restored, 180);
-  assert.equal(Object.values(await mock('/__predicates')).filter((s) => s === 'TO_VERIFY').length, 180);
-  assert.equal(undo.body.summary.steps.undone, 9);
+  assert.equal(undo.body.restored, 200);
+  assert.equal(Object.values(await mock('/__predicates')).filter((s) => s === 'TO_VERIFY').length, 200);
+  assert.equal(undo.body.summary.steps.undone, 10);
+  const after = (await admin('GET', '/api/fae-flush/value')).body;
+  assert.deepEqual([after.total.marked, after.total.undone, after.total.kept, after.saved.credits, after.runs[0].undone], [200, 200, 0, 0, 200], 'the history keeps the run and what was undone');
+});
+
+test('a report-only run marks nothing until "Mark now"; the copies are kept for it', async () => {
+  const started = await admin('POST', '/api/fae-flush/start', { concurrency: 5, deleteFae: true, mode: 'report', projectIds: ['p0', 'p1'] });
+  assert.equal(started.status, 200, JSON.stringify(started.body));
+  assert.equal(started.body.job.projects.length, 2, 'only the projects chosen');
+  const reported = await until((v) => v.job?.state === 'done', 60000);
+  assert.deepEqual([reported.summary.steps.reported, reported.summary.totals.notReported, reported.summary.totals.marked], [2, 40, 0]);
+  assert.equal(Object.values(await mock('/__predicates')).filter((s) => s === 'PROPOSED_NOT_EXPLOITABLE').length, 0, 'nothing marked');
+  assert.equal(Object.keys((await mock('/__fae')).projects).length, 2, 'kept until marked');
+  assert.equal((await user('POST', '/api/fae-flush/mark-now')).status, 403);
+  assert.equal((await admin('POST', '/api/fae-flush/mark-now')).status, 200);
+  const marked = await until((v) => v.job?.state === 'done' && !v.summary.steps.reported, 60000);
+  assert.deepEqual([marked.summary.totals.marked, marked.summary.steps.done, marked.summary.faeKept], [40, 2, 0]);
+  assert.equal((await admin('POST', '/api/fae-flush/mark-now')).status, 409, 'nothing left to mark');
+});
+
+test('troubleshoot: test one project (nothing made), and a debug log of every call, signatures hidden', async () => {
+  const before = Object.keys((await mock('/__fae')).projects).length;
+  const tested = await admin('POST', '/api/fae-flush/test', { projectId: 'p3' });
+  assert.equal(tested.status, 200, JSON.stringify(tested.body));
+  const check = Object.fromEntries(tested.body.checks.map((c) => [c.check, c]));
+  assert.equal(check['Code kept by Checkmarx One'].ok, true);
+  assert.equal(check['Its own copy, in place (signed address)'].ok, true);
+  assert.match(check['Its own copy, in place (signed address)'].detail, /302 → same host \/storage\/repostore\.mock\/tenant-1\/… · valid 900 s/);
+  assert.equal(check['The signed address answers'].ok, true);
+  assert.match(check['Its repository and commit'].detail, /github\.com\/acme\/p3 · main · abc123/);
+  assert.equal(check['The API key may make and delete projects, start scans and change states'].ok, null);
+  assert.equal(Object.keys((await mock('/__fae')).projects).length, before, 'nothing made');
+  assert.equal((await user('POST', '/api/fae-flush/test', { projectId: 'p3' })).status, 403);
+
+  assert.equal((await admin('PUT', '/api/fae-flush/debug', { on: true })).body.on, true);
+  await admin('POST', '/api/fae-flush/test', { projectId: 'p3' });
+  const { log } = (await admin('GET', '/api/fae-flush/debug')).body;
+  const text = JSON.stringify(log);
+  assert.ok(log.some((e) => /repostore\/code/.test(e.url)), 'the calls are there');
+  assert.ok(!/mocksig/.test(text) && /X-Amz-Signature=\[hidden\]/.test(text), 'signatures hidden');
+  assert.ok(!/Bearer (?!\[hidden\])/.test(text), 'the access token never in it');
+  assert.equal((await admin('DELETE', '/api/fae-flush/debug')).body.entries, 0);
+  assert.equal((await admin('PUT', '/api/fae-flush/debug', { on: false })).body.on, false);
 });
 
 test('a run that keeps the _FAE copies, then "Delete all _FAE projects" with one click', async () => {
+  // The marks of the report-only run go back first, so this run has the same results To verify to mark.
+  assert.equal((await admin('POST', '/api/fae-flush/undo')).status, 200);
   const started = await admin('POST', '/api/fae-flush/start', { concurrency: 5, deleteFae: false });
   assert.equal(started.status, 200, JSON.stringify(started.body));
   const done = await until((v) => v.job?.state === 'done', 60000);
-  assert.equal(done.summary.totals.marked, 180);
-  assert.equal(done.summary.faeKept, 9);
-  assert.equal(Object.keys((await mock('/__fae')).projects).length, 9);
+  assert.equal(done.summary.totals.marked, 200);
+  assert.equal(done.summary.faeKept, 10);
+  assert.equal(Object.keys((await mock('/__fae')).projects).length, 10);
   // The copies are not part of the backlog anywhere else.
   const projects = (await admin('GET', '/api/projects')).body;
   if (Array.isArray(projects?.projects)) assert.ok(projects.projects.every((p) => !/_FAE$/.test(p.name)));
 
   const gone = await admin('POST', '/api/fae-flush/delete-fae');
   assert.equal(gone.status, 200);
-  assert.equal(gone.body.deleted, 9);
+  assert.equal(gone.body.deleted, 10);
   assert.equal(gone.body.summary.faeKept, 0);
   assert.deepEqual((await mock('/__fae')).projects, {});
+  // Every run stays in the value: 200 + 40 + 200 marked, the first 200 and the report run's 40 undone.
+  const value = (await admin('GET', '/api/fae-flush/value')).body;
+  assert.deepEqual([value.runs.length, value.total.marked, value.total.kept], [3, 440, 200]);
 });

@@ -90,3 +90,39 @@ test('the run is kept on disk and carries on from where it was', async () => {
   assert.equal(again.job.projects[0].step, 'done');
   assert.equal(again.job.projects[0].counts.marked, 20);
 });
+
+test('automatic: Checkmarx One refuses its own copy in place, so the code is downloaded and uploaded instead', async () => {
+  const client = fakeClient({ faeKeeps: 10 });
+  const posted = [];
+  client.redirectOf = async () => ({ status: 302, location: 'https://cx.example/storage/repostore.x/t/repos/r/scan-1?X-Amz-Expires=900&X-Amz-Signature=s' });
+  const request = client.request;
+  client.request = async (p, opts = {}) => {
+    if (p === '/api/scans' && opts.method === 'POST') {
+      posted.push(opts.body.handler.uploadUrl);
+      if (opts.body.handler.uploadUrl.includes('/storage/')) throw Object.assign(new Error('invalid upload url'), { status: 400 });
+    }
+    return request(p, opts);
+  };
+  const r = runner(client, 'fallback');
+  await turns(r, 1);
+  const p = r.job.projects[0];
+  assert.equal(p.step, 'scanning');
+  assert.equal(p.codeSource, 'upload');
+  assert.deepEqual(posted.map((u) => (u.includes('/storage/') ? 'link' : 'upload')), ['link', 'upload']);
+  assert.deepEqual(p.attempts.filter((a) => a.what.startsWith('code:')).map((a) => [a.what, a.ok]), [['code: Checkmarx One’s own copy', false], ['code: download and upload', true]]);
+});
+
+test('report only, then "Mark now"; and how readily it stops to ask', async () => {
+  const { SENSITIVITY } = await import('../src/fae-flush.js');
+  const client = fakeClient({ faeKeeps: 10 });
+  const store = new FaeFlushStore({ file: path.join(dir, 'report.json') });
+  const r = new FaeFlushRunner({ store, clientOf: () => client, tmpDir: dir });
+  r.start({ by: 'a@acme.io', deleteFae: false, options: { mode: 'report', sensitivity: 'often' }, preview: { projects: [{ id: 'p1', name: 'Payments', sourceScanId: 'scan-1', loc: 1000, toVerify: 30 }] } });
+  assert.equal(r.limitsNow, SENSITIVITY.often);
+  await turns(r, 4);
+  const p = r.job.projects[0];
+  assert.deepEqual([p.step, p.counts.notReported, client.states.size, r.job.state], ['reported', 20, 0, 'done']);
+  r.markReported('a@acme.io');
+  await turns(r, 3);
+  assert.deepEqual([p.step, p.counts.marked, client.states.size], ['done', 20, 20]);
+});

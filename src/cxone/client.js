@@ -203,12 +203,50 @@ export class CxClient {
     const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
     const token = await this.#tokens.getToken();
     return this.#limit.run(async () => {
-      const r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/zip, application/octet-stream, */*' }, signal: AbortSignal.timeout(timeoutMs) });
+      let r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/zip, application/octet-stream, */*' }, redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) });
+      // A redirect to a signed storage address (the source code): followed without the access token, which signed
+      // storage refuses beside its own signature.
+      if (r.status >= 300 && r.status < 400 && r.headers.get('location')) {
+        await r.body?.cancel().catch(() => {});
+        r = await fetch(new URL(r.headers.get('location'), url), { headers: { Accept: '*/*' }, signal: AbortSignal.timeout(timeoutMs) });
+      }
       if (!r.ok) throw new CxApiError(`GET ${url.pathname} failed: ${r.status} ${r.statusText}`, { status: r.status, path: url.pathname, body: (await r.text().catch(() => '')).slice(0, 500) });
       let bytes = 0;
       const counted = Readable.fromWeb(r.body).on('data', (chunk) => (bytes += chunk.length));
       await pipeline(counted, createWriteStream(file));
       return bytes;
+    });
+  }
+
+  /**
+   * Where `path` redirects to, without following it (Checkmarx One's "download source code" answers 302 with a signed
+   * storage address): { status, location, ms }. The location is made absolute against the API's address.
+   */
+  async redirectOf(path, { timeoutMs = 60_000 } = {}) {
+    const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
+    const token = await this.#tokens.getToken();
+    const started = Date.now();
+    return this.#limit.run(async () => {
+      const r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: '*/*' }, redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) });
+      const location = r.headers.get('location') ?? '';
+      if (r.status >= 400) throw new CxApiError(`GET ${url.pathname} failed: ${r.status} ${r.statusText}`, { status: r.status, path: url.pathname, body: (await r.text().catch(() => '')).slice(0, 500) });
+      await r.body?.cancel().catch(() => {});
+      return { status: r.status, location: location ? new URL(location, url).href : '', ms: Date.now() - started };
+    });
+  }
+
+  /**
+   * Whether a signed address answers, reading its first byte only (no access token: the address carries its own
+   * signature): { status, type, size, ms }.
+   */
+  async probeUrl(address, { timeoutMs = 30_000 } = {}) {
+    const started = Date.now();
+    return this.#limit.run(async () => {
+      const r = await fetch(new URL(address), { headers: { Range: 'bytes=0-0' }, signal: AbortSignal.timeout(timeoutMs) });
+      const range = r.headers.get('content-range') ?? '';
+      const size = Number(range.split('/')[1] ?? r.headers.get('content-length'));
+      await r.body?.cancel().catch(() => {});
+      return { status: r.status, type: r.headers.get('content-type') ?? '', size: Number.isFinite(size) ? size : null, ms: Date.now() - started };
     });
   }
 

@@ -100,7 +100,7 @@ import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
 import { PasswordResets, RESET_TTL_MS, maskEmail, resetAllowed } from './password-reset.js';
-import { FaeFlushRunner, FaeFlushStore, previewTenant, summaryOf } from './fae-flush.js';
+import { FaeFlushRunner, FaeFlushStore, FaeHistory, cleanOptions, previewTenant, summaryOf, testProject, valueOf } from './fae-flush.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
 import {
   SessionStore,
@@ -295,6 +295,8 @@ function buildTenant({ id, dir }) {
     scanAttribution: new ScanAttribution({ dataDir: dir }),
     // FAE Flush (Labs): the last run, project by project (src/fae-flush.js).
     faeFlush: new FaeFlushStore({ file: path.join(dir, 'fae-flush.json') }),
+    // Every result FAE Flush marked, after its run: the value it brought (Labs → FAE Flush → Value).
+    faeHistory: new FaeHistory({ file: path.join(dir, 'fae-flush-history.json') }),
     touchedProjects: new Map(),
     relayCache: new TtlCache({ max: 100_000 }),
     recentActions: new TtlCache({ max: 100_000 }),
@@ -10126,6 +10128,7 @@ function faeRunner() {
   if (!runner) {
     runner = new FaeFlushRunner({
       store: tenant.faeFlush,
+      history: tenant.faeHistory,
       clientOf: () => integrationSession()?.client ?? null,
       record: (event, details = {}) => faeAudit(event, details),
     });
@@ -10134,8 +10137,10 @@ function faeRunner() {
   return runner;
 }
 const FAE_EVENTS = {
-  started: (d) => `FAE Flush started for ${d.projects} project${d.projects === 1 ? '' : 's'}, ${d.concurrency} scan${d.concurrency === 1 ? '' : 's'} at a time; the _FAE projects are ${d.deleteFae ? 'deleted' : 'kept'} once checked.`,
-  'scan-started': (d) => `FAE Flush: ${d.project}'s code scanned again with Findings Analysis on ${d.faeProject} (scan ${d.scanId}).`,
+  started: (d) => `FAE Flush started for ${d.projects} project${d.projects === 1 ? '' : 's'}, ${d.concurrency} scan${d.concurrency === 1 ? '' : 's'} at a time${d.mode === 'report' ? ', reporting only (nothing marked)' : ''}; code: ${d.source}; stops to ask: ${d.sensitivity}; the _FAE projects are ${d.deleteFae ? 'deleted' : 'kept'} once checked.`,
+  'scan-started': (d) => `FAE Flush: ${d.project}'s code scanned again with Findings Analysis on ${d.faeProject} (scan ${d.scanId}; code from ${d.code}).`,
+  'mark-now': (d) => `FAE Flush: ${d.by} marked the report-only run now: ${d.results} results in ${d.projects} project(s).`,
+  'debug': (d) => `FAE Flush debug log turned ${d.on ? 'on' : 'off'} by ${d.by}.`,
   'needs-ok': (d) => `FAE Flush stopped at ${d.project} to ask: ${d.reason}`,
   decided: (d) => `FAE Flush: ${d.by || 'someone'} chose "${d.decision}" for ${d.project}${d.reason ? ` (${d.reason})` : ''}.`,
   marked: (d) => `FAE Flush marked ${d.marked} of ${d.project}'s ${d.toVerify} results To verify Proposed not exploitable: not reported by the FAE scan ${d.faeScanId}.`,
@@ -10161,6 +10166,7 @@ function faeView() {
     previewError: store.previewError ?? '',
     job: job ? { ...job, projects: job.projects.map(({ marked, pending, ...p }) => ({ ...p, markedCount: marked?.length ?? 0 })) } : null,
     summary: job ? summaryOf(job) : null,
+    debug: { on: runner.debug.on, entries: runner.debug.log.length },
   };
 }
 const faeGuard = [requireFeature('faeFlush'), requirePermission('integration.cxone')];
@@ -10188,7 +10194,7 @@ app.post('/api/fae-flush/start', ...faeGuard, asyncRoute(async (req, res) => {
   const ids = Array.isArray(req.body?.projectIds) ? new Set(req.body.projectIds.map(String)) : null;
   const preview = runner.store.preview && { ...runner.store.preview, projects: runner.store.preview.projects.filter((p) => !ids || ids.has(p.id)) };
   try {
-    runner.start({ by: req.user?.email ?? '', concurrency: req.body?.concurrency, deleteFae: req.body?.deleteFae, preview });
+    runner.start({ by: req.user?.email ?? '', concurrency: req.body?.concurrency, deleteFae: req.body?.deleteFae, preview, options: cleanOptions(req.body ?? {}) });
   } catch (error) {
     return res.status(error.status ?? 400).json({ error: error.message });
   }
@@ -10214,6 +10220,48 @@ app.post('/api/fae-flush/decide', ...faeGuard, (req, res) => {
   }
   faeTick();
   res.json(faeView());
+});
+
+// A report-only run: mark what it reported, now.
+app.post('/api/fae-flush/mark-now', ...faeGuard, (req, res) => {
+  try {
+    faeRunner().markReported(req.user?.email ?? '');
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: error.message });
+  }
+  faeTick();
+  res.json(faeView());
+});
+
+// Troubleshoot: one project, every step read-only (nothing made or changed).
+app.post('/api/fae-flush/test', ...faeGuard, asyncRoute(async (req, res) => {
+  const client = integrationSession()?.client;
+  if (!client) return res.status(409).json({ error: 'Connect the server to Checkmarx One first (Settings → Checkmarx One).' });
+  const projectId = String(req.body?.projectId ?? '').slice(0, 80);
+  if (!projectId) return res.status(400).json({ error: 'Choose a project.' });
+  res.json(await testProject(faeRunner().via(client, { name: `test: ${projectId}`, step: 'test' }), projectId, { getLastScans }));
+}));
+
+// Troubleshoot: the debug log (every FAE Flush call to Checkmarx One, signatures and the access token hidden).
+app.get('/api/fae-flush/debug', ...faeGuard, (req, res) => {
+  const { on, log } = faeRunner().debug;
+  res.set('Cache-Control', 'no-store');
+  res.json({ on, log });
+});
+app.put('/api/fae-flush/debug', ...faeGuard, (req, res) => {
+  const on = req.body?.on === true;
+  faeRunner().setDebug(on);
+  faeAudit('debug', { on, by: req.user?.email ?? '' });
+  res.json({ on, entries: faeRunner().debug.log.length });
+});
+app.delete('/api/fae-flush/debug', ...faeGuard, (req, res) => {
+  faeRunner().clearDebug();
+  res.json({ on: faeRunner().debug.on, entries: 0 });
+});
+
+// Value: every false positive FAE Flush marked, kept after its runs, and what that saved (the Impact page's figures).
+app.get('/api/fae-flush/value', requireFeature('faeFlush'), (req, res) => {
+  res.json(valueOf(tenancy.current().faeHistory, settingsStore.get().impact ?? {}));
 });
 
 app.post('/api/fae-flush/undo', ...faeGuard, asyncRoute(async (req, res) => {

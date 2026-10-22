@@ -83,6 +83,7 @@ const allRisksFor = (pid) => Array.from({ length: BRANCHES && Number(String(pid)
 // Access tokens are only the ones this mock handed out; request bodies are small.
 // FAE Flush: "<name>_FAE" projects made here, their upload scans (FAE on), and states set by predicates.
 const FAE_SCAN_MS = Number(process.env.FAE_SCAN_MS || RESCAN_MS);
+const FAE_LINK_REFUSED = process.env.FAE_LINK_REFUSED === '1'; // POST /api/scans refuses Checkmarx One's signed storage address
 const FAE_FAIL = new Set(String(process.env.FAE_FAIL || '').split(',').filter(Boolean)); // these projects' FAE scans fail
 const faeProjects = new Map(); // id -> { name, tags }
 const faeScans = new Map(); // scanId -> { projectId, source: 'p3', at }
@@ -114,6 +115,17 @@ http.createServer((req, res) => {
       // FAE Flush: the states predicates set, and the _FAE projects and scans made.
       if (u.pathname === '/__predicates') return send(200, Object.fromEntries(predicates));
       if (u.pathname === '/__fae') return send(200, { projects: Object.fromEntries(faeProjects), scans: Object.fromEntries(faeScans) });
+      // Checkmarx One's signed storage address of a scan's code (what /api/repostore/code/{scanId} redirects to): no access
+      // token (a request with one is refused, as signed storage does), a Range for its first byte answered.
+      if (u.pathname.startsWith('/storage/repostore.mock/')) {
+        bump('storage-get');
+        if (req.headers.authorization) return send(400, { message: 'Only one auth mechanism allowed' });
+        if (!u.searchParams.get('X-Amz-Signature')) return send(403, { message: 'AccessDenied' });
+        const zip = Buffer.from('PK\x05\x06' + '\0'.repeat(18), 'binary');
+        if (req.headers.range) { res.writeHead(206, { 'Content-Type': 'application/octet-stream', 'Content-Range': `bytes 0-0/${zip.length}` }); return res.end(zip.subarray(0, 1)); }
+        res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': zip.length });
+        return res.end(zip);
+      }
       // The signed upload address (POST /api/uploads): no access token, like Checkmarx One's storage.
       if (req.method === 'PUT' && u.pathname.startsWith('/__upload/')) { bump('upload-put'); return uploads.has(u.pathname) ? (uploads.delete(u.pathname), send(200, {})) : send(404, {}); }
       if (u.pathname.endsWith('/openid-connect/token')) {
@@ -150,8 +162,10 @@ http.createServer((req, res) => {
         bump(`repostore-${sm0[1]}`);
         if (!codeKept(Number(sm0[2]))) return send(404, { message: 'source code not found' });
         if (req.method === 'HEAD' || sm0[1] === 'scans') return send(200, {});
-        res.writeHead(200, { 'Content-Type': 'application/zip' });
-        return res.end(Buffer.from('PK\x05\x06' + '\0'.repeat(18), 'binary'));
+        // As Checkmarx One: a redirect to the code's signed storage address, valid 15 minutes.
+        const where = `/storage/repostore.mock/tenant-1/repos/https:%252F%252Fgithub.com%252Facme%252Fp${sm0[2]}/scan-p${sm0[2]}?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=900&X-Amz-Signature=mocksig${sm0[2]}`;
+        res.writeHead(302, { Location: `http://127.0.0.1:${process.env.PORT || 4101}${where}` });
+        return res.end();
       }
       // Projects FAE Flush made are listed too (tagged), as in Checkmarx One.
       if (u.pathname === '/api/projects') { bump('projects'); const all = [...Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800), groups: [`team-${'abc'[i % 3]}`], ...(BRANCHES ? { mainBranch: mainBranchOf(i) } : {}) })), ...[...faeProjects].map(([id, p]) => ({ id, name: p.name, tags: p.tags, groups: p.groups, createdAt: day(0) }))]; const total = all.length; const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: total }); }
@@ -175,10 +189,11 @@ http.createServer((req, res) => {
         bump('scan-post');
         const body = JSON.parse(b || '{}');
         const pid = body.project?.id;
-        if (body.type === 'upload') {
-          if (!faeProjects.has(pid) || !body.handler?.uploadUrl) return send(400, { message: 'bad upload scan request' });
+        if (body.type === 'upload' || (body.type === 'git' && faeProjects.has(pid))) {
+          if (!faeProjects.has(pid) || !(body.handler?.uploadUrl || body.handler?.repoUrl)) return send(400, { message: 'bad upload scan request' });
+          if (FAE_LINK_REFUSED && String(body.handler.uploadUrl ?? '').includes('/storage/repostore')) return send(400, { message: 'invalid upload url' });
           const id = `fae-scan-${faeScans.size + 1}`;
-          faeScans.set(id, { projectId: pid, source: faeSourceOf(pid), at: Date.now(), findingsAnalysis: body.config?.find?.((c) => c.type === 'sast')?.value?.findingsAnalysis === 'true' });
+          faeScans.set(id, { projectId: pid, source: faeSourceOf(pid), at: Date.now(), code: body.type === 'git' ? 'git' : String(body.handler.uploadUrl).includes('/storage/repostore') ? 'link' : 'upload', findingsAnalysis: body.config?.find?.((c) => c.type === 'sast')?.value?.findingsAnalysis === 'true' });
           return send(201, { id, status: 'Queued' });
         }
         if (!pid || body.type !== 'git' || !body.handler?.repoUrl || !body.handler?.branch || !Array.isArray(body.config)) return send(400, { message: 'bad scan request' });
