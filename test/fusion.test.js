@@ -161,3 +161,39 @@ test('Checkmarx One marks a Fusion result with isAiGenerated (the UI’s "LLM-Ba
   assert.equal(cleanAiResult(ai, P1[0], 's1').ai, true, 'LLM-Based: Yes');
   for (const value of [false, 'false', null, undefined, 0, '']) assert.equal(cleanAiResult({ ...ai, isAiGenerated: value }, P1[0], 's1').ai, false, String(value));
 });
+
+test('each project’s model (its scan, else its settings, else the tenant’s) and lines of code', async () => {
+  const { projectFacts, modelIn } = await import('../src/fusion-usage.js');
+  assert.equal(modelIn({ configs: [{ type: 'sast', value: {} }, { type: 'ai', value: { llmModel: 'opus-5.5' } }] }), 'opus-5.5');
+  assert.equal(modelIn([{ key: 'scan.config.ai.llmModel', value: 'haiku-4.5' }]), 'haiku-4.5');
+  assert.equal(modelIn({ llmModel: '' }), '');
+  const client = fakeClient({
+    '/api/scans/s1': { statusDetails: [{ name: 'sast', loc: 177362 }], metadata: { configs: [{ type: 'ai', value: { llmModel: 'mythos-5.1' } }] } },
+    '/api/scans/s2': { statusDetails: [{ name: 'sast' }] },
+    '/api/scans/s3': { statusDetails: [] },
+    '/api/configuration/project': (q) => [{ key: 'scan.config.ai.llmModel', value: q['project-id'] === 'p2' ? 'opus-5.0' : '' }],
+    '/api/configuration/tenant': [{ key: 'scan.config.ai.llmModel', value: 'opus-5.5' }],
+  });
+  const facts = await projectFacts(client, ['p1', 'p2', 'p3'], { p1: { id: 's1' }, p2: { id: 's2' }, p3: { id: 's3' } });
+  assert.deepEqual(facts, { p1: { model: 'mythos-5.1', modelFrom: 'scan', loc: 177362 }, p2: { model: 'opus-5.0', modelFrom: 'project', loc: null }, p3: { model: 'opus-5.5', modelFrom: 'tenant', loc: null } });
+  assert.equal(client.calls.filter((c) => c.path === '/api/configuration/tenant').length, 1, 'the tenant’s settings read once');
+  const silent = await projectFacts(fakeClient({}), ['p1'], { p1: { id: 's1' } });
+  assert.deepEqual(silent, { p1: { model: '', modelFrom: '', loc: null } }, 'nothing answered: nothing made up');
+});
+
+test('each project’s AI scans and credits over a period, from the scans and the credit consumption by project', async () => {
+  const { fusionUsage, usageRow } = await import('../src/fusion-usage.js');
+  assert.deepEqual(usageRow({ creditsUsed: 20, actionsPerformed: { actions: [{ actionType: 'triage', transactionCount: 4 }, { actionType: 'remediation', transactionCount: 2 }, { actionType: 'fusion', transactionCount: 3 }] } }), { credits: 20, fusion: 10, actions: { triage: 4, remediation: 2, other: 3 } });
+  const recent = new Date().toISOString();
+  const client = fakeClient({
+    '/api/scans': (q) => ({ scans: q['project-id'] === 'p1' ? [{ id: 'a', engines: ['sast', 'ai'], createdAt: recent }, { id: 'b', engines: ['sast'], createdAt: recent }, { id: 'c', engines: ['SAST', 'AI'], createdAt: recent }] : [{ id: 'd', createdAt: recent }] }),
+    '/api/credits/consumption': (q) => (q.viewBy === 'project' && q.period === 'last_90_days' ? { items: [{ name: 'Juice Shop', creditsUsed: 13, actionsPerformed: { actions: [{ actionType: 'triage', transactionCount: 1 }] } }], totalPages: 1 } : { items: [] }),
+  });
+  const u = await fusionUsage(client, [{ id: 'p1', name: 'Juice Shop' }, { id: 'p2', name: 'Other' }], { period: 'last_90_days' });
+  assert.deepEqual([u.period, u.days, u.creditsKnown], ['last_90_days', 90, true]);
+  assert.deepEqual(u.projects.p1, { scans: 2, credits: 13, fusion: 12, actions: { triage: 1, remediation: 0, other: 0 }, perScan: 6 }, 'matched by name; 2 of 3 scans ran the AI engine');
+  assert.deepEqual([u.projects.p2.scans, u.projects.p2.credits], [1, 0], 'no engines said: every completed scan; no consumption: 0');
+  assert.deepEqual(u.totals, { scans: 3, credits: 13, fusion: 12 });
+  const denied = await fusionUsage(fakeClient({ '/api/scans': { scans: [] }, '/api/credits/consumption': () => { throw new CxApiError('Forbidden', { status: 403 }); } }), [{ id: 'p1', name: 'x' }], { period: 'nonsense' });
+  assert.deepEqual([denied.period, denied.creditsKnown, denied.projects.p1.credits], ['last_30_days', false, null], 'no permission: unknown, not 0');
+});

@@ -223,6 +223,15 @@ test('Fusion results (Beta): its own fetch, the AI-generated SAST results of eac
   assert.match(fusion.results.find((r) => r.projectId === 'p1').url, /\/riskhub\/p1\?.*resultId=p1-r0/);
   assert.match(fusion.projects.p1.url, /p1/);
   assert.equal((await admin('GET', '/api/beta/fusion')).body.fusion.totals.total, 4, 'kept with the session');
+  // Each project's model (p0: its scan; p1: its settings), lines of code, AI scans and credits (last 30 days).
+  assert.deepEqual([fusion.projects.p0.model, fusion.projects.p0.modelFrom, fusion.projects.p1.model, fusion.projects.p1.modelFrom], ['mythos-5.1', 'scan', 'opus-5.0', 'project']);
+  assert.ok(fusion.projects.p0.loc > 0, 'lines of code');
+  assert.equal(fusion.usage.period, 'last_30_days');
+  assert.ok(fusion.usage.projects.p0.scans > 0, 'AI scans counted');
+  assert.deepEqual([fusion.usage.projects.p1.credits, fusion.usage.projects.p1.fusion, fusion.usage.projects.p1.actions], [10, 6, { triage: 1, remediation: 1, other: 0 }], 'credits: 10, less 1 triage and 3 for a remediation');
+  const year = await admin('POST', '/api/beta/fusion/usage', { period: 'last_year' });
+  assert.deepEqual([year.status, year.body.usage.period, year.body.usage.projects.p1.credits], [200, 'last_year', 120]);
+  assert.equal((await admin('GET', '/api/beta/fusion')).body.fusion.usage.period, 'last_year', 'kept, for the next load too');
   // Narrowed on its line: by a project's name (wildcards), and nothing that matches is said.
   const one = await admin('POST', '/api/beta/fusion/fetch', { projects: 'Project 1*' });
   assert.equal(one.status, 200, JSON.stringify(one.body).slice(0, 300));
@@ -253,6 +262,10 @@ test('Fusion results: an Admin allocates for and triages only the AI-generated r
   const one = await admin('POST', '/api/beta/fusion/credits', { engines: ['FUSION'], projectIds: ['p1'] });
   assert.deepEqual([one.body.credits.matched, one.body.credits.projects, one.body.credits.triage.CRITICAL], [1, 1, 1]);
   assert.deepEqual((await admin('GET', '/api/beta/fusion')).body.focus, { engines: ['FUSION'], projectIds: ['p1'] }, 'kept with the session');
+  // A project's side panel asks for that project alone, and the page's bar keeps what it acts on.
+  const panel = await admin('POST', '/api/beta/fusion/credits', { once: true, engines: ['FUSION', 'LAST'], projectIds: ['p0'] });
+  assert.deepEqual([panel.body.credits.matched, panel.body.credits.projects], [2, 1]);
+  assert.deepEqual((await admin('GET', '/api/beta/fusion')).body.focus, { engines: ['FUSION'], projectIds: ['p1'] }, 'unchanged by the panel');
   const none = await admin('POST', '/api/beta/fusion/triage', { severities: ['CRITICAL'], engines: ['LAST'], projectIds: null, notifyInitiators: false });
   assert.equal(none.body.requested, 0, 'no LAST result is critical');
   await admin('POST', '/api/beta/fusion/credits', { engines: ['FUSION', 'LAST'], projectIds: null });

@@ -2314,7 +2314,15 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   </select>
                   <select id="fusion-new" aria-label="Status">
                     <option value="">Any status</option>
-                    <option value="new">With new results</option>
+                    <option value="NEW">With new results</option>
+                    <option value="RECURRENT">With recurrent results</option>
+                    <option value="FIXED">With fixed results</option>
+                  </select>
+                  <select id="fusion-period" aria-label="AI scans and credits over" title="AI scans and credits over">
+                    <option value="last_30_days">Last 30 days</option>
+                    <option value="last_90_days">Last 90 days</option>
+                    <option value="last_180_days">Last 180 days</option>
+                    <option value="last_year">Last year</option>
                   </select>
                   <button type="button" class="sm" id="fusion-proj-csv">Export CSV</button>
                   <button type="button" class="sm" id="fusion-report">HTML report</button>
@@ -2332,8 +2340,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <p class="status" id="fusion-act-status"></p>
               <div class="table-wrap">
                 <table class="data-table fusion-table">
-                  <thead><tr><th>Project</th><th class="num">Critical</th><th class="num">High</th><th class="num">Medium</th><th class="num">Low</th><th class="num" title="Found by the latest scan for the first time">New</th><th class="num" title="Found by the scan before and gone in the latest">Fixed</th><th>Latest scan</th></tr></thead>
-                  <tbody id="fusion-body"><tr><td colspan="8" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
+                  <thead><tr><th>Project</th><th title="The model its latest Fusion scan ran with">Model</th><th class="num" title="Lines of code its latest scan counted">LOC</th><th class="num" title="Completed scans that ran the AI engine, over the period chosen above">AI scans</th><th class="num" title="Checkmarx One credits the project used over the period chosen above">Credits</th><th>Results</th><th class="num" title="Found by the latest scan for the first time">New</th><th class="num" title="Found again by the latest scan">Recurrent</th><th class="num" title="Found by the scan before and gone in the latest">Fixed</th><th>Latest scan</th></tr></thead>
+                  <tbody id="fusion-body"><tr><td colspan="10" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
                 </table>
               </div>
               <p class="hint" id="fusion-foot"></p>
@@ -2359,6 +2367,10 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                     <div><h2 id="fusion-side-title"></h2><p class="hint" id="fusion-side-meta"></p></div>
                     <button type="button" class="icon-btn" data-fusion-close aria-label="Close" title="Close (Esc)">✕</button>
                   </div>
+                  <div class="fusion-facts" id="fusion-side-facts"></div>
+                  <!-- AI Triage and AI Remediation for this project's results, once credits are allocated (Admins). -->
+                  <div class="fusion-side-lanes" id="fusion-side-lanes" hidden></div>
+                  <p class="status" id="fusion-side-status"></p>
                   <div class="fusion-chips" id="fusion-side-chips" role="group" aria-label="Show"></div>
                   <div class="fusion-side-acts">
                     <a class="button-like sm" id="fusion-side-open" target="_blank" rel="noopener">Open in Checkmarx One ↗</a>

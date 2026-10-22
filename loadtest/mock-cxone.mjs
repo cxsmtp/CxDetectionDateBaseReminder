@@ -148,7 +148,8 @@ http.createServer((req, res) => {
           const i = Number(pid.replace(/^p/, ''));
           const n = perYear[i % 5];
           const own = BRANCHES ? [...(hasFeature(i) ? [{ id: `feat-p${i}`, projectId: pid, status: 'Completed', createdAt: day(0.5) }] : []), { id: `scan-p${i}`, projectId: pid, status: 'Completed', createdAt: day(1) }] : [];
-          const all = [...own, ...Array.from({ length: n }, (_, k) => ({ id: `hist-p${i}-${k}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() })), { id: `old-p${i}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
+          // Every other scan also ran the AI engine (Labs → Fusion results counts those).
+          const all = [...own, ...Array.from({ length: n }, (_, k) => ({ id: `hist-p${i}-${k}`, projectId: pid, status: 'Completed', engines: k % 2 ? ['sast', 'sca'] : ['sast', 'sca', 'ai'], createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() })), { id: `old-p${i}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
           const fromDate = Date.parse(u.searchParams.get('from-date') ?? '');
           const toDate = Date.parse(u.searchParams.get('to-date') ?? '');
           if (BRANCHES) for (const x of all) x.branch = branchOfScan(x.id);
@@ -205,7 +206,26 @@ http.createServer((req, res) => {
         const i = Number(pid.replace(/^p/, ''));
         const statusDetails = [{ name: 'general', status: 'Completed' }, { name: 'sast', status: 'Completed', ...(i % 14 === 3 ? {} : { loc: BRANCHES && i % 10 === 5 ? 0 : mockLoc(i) }) }];
         const branch = BRANCHES ? branchOfScan(id) : 'main';
-        return send(200, { id, projectId: pid, status: 'Completed', branch, engines: ['sast', 'sca', 'kics'], statusDetails, metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch, commit_id: 'abc123' } } } });
+        // The model a Fusion scan ran with is in its configuration for every third project.
+        const configs = i % 3 === 0 ? [{ type: 'sast', value: { presetName: 'ASA Premium' } }, { type: 'ai', value: { llmModel: 'mythos-5.1' } }] : [{ type: 'sast', value: { presetName: 'ASA Premium' } }];
+        return send(200, { id, projectId: pid, status: 'Completed', branch, engines: ['sast', 'sca', 'kics'], statusDetails, metadata: { configs, Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch, commit_id: 'abc123' } } } });
+      }
+      // Scan settings: the project's "LLM Model" for every third project (the next one), else the tenant's.
+      if (u.pathname === '/api/configuration/project' || u.pathname === '/api/configuration/tenant') {
+        bump('configuration');
+        const i = Number(String(u.searchParams.get('project-id') ?? '').replace(/^p/, ''));
+        const value = u.pathname.endsWith('tenant') ? 'opus-5.5' : i % 3 === 1 ? 'opus-5.0' : '';
+        return send(200, [{ key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: 'true' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', value, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
+      }
+      // Credits used, by project (as CxCreditGuard reads it): project i used 4i + 6, with i % 3 triage and i % 2 remediation actions.
+      if (u.pathname === '/api/credits/consumption') {
+        bump('credits-consumption');
+        if (!/^(last_month|last_30_days|last_90_days|last_180_days|last_year)$/.test(u.searchParams.get('period') ?? '')) return send(400, { error: 'invalid period query parameter' });
+        const scale = { last_30_days: 1, last_month: 1, last_90_days: 3, last_180_days: 6, last_year: 12 }[u.searchParams.get('period')];
+        const all = Array.from({ length: PROJECTS }, (_, i) => ({ name: `Project ${i}`, projectId: `p${i}`, creditsUsed: (4 * i + 6) * scale, actionsPerformed: { actions: [{ actionType: 'triage', transactionCount: (i % 3) * scale }, { actionType: 'remediation', transactionCount: (i % 2) * scale }], total: ((i % 3) + (i % 2)) * scale } }));
+        const size = Number(u.searchParams.get('size') || 100);
+        const page = Number(u.searchParams.get('page') || 1);
+        return send(200, { items: all.slice((page - 1) * size, page * size), totalItems: all.length, totalPages: Math.ceil(all.length / size), currentPage: page });
       }
       // SAST results of a scan (Labs → Fusion results): every third finding is one the AI engine found (isAiGenerated),
       // filtered by is-ai-generated as Checkmarx One does; counted by severity, and compared with the scan before.

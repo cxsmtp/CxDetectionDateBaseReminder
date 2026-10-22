@@ -95,6 +95,7 @@ import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
 import { PROBE_DEFAULTS, probeFusion } from './fusion.js';
 import { aiFindings, cleanEngines as cleanFusionEngines, readAiFusion } from './fusion-ai.js';
+import { DEFAULT_PERIOD as FUSION_PERIOD, USAGE_PERIODS, fusionUsage, projectFacts } from './fusion-usage.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
@@ -9704,7 +9705,16 @@ function linkFusion(req, fusion) {
 async function loadAiFusion(req, names) {
   const ids = Object.keys(names);
   const scans = await getLastScans(req.session.client, ids);
-  const fusion = linkFusion(req, await readAiFusion(req.session.client, ids.map((id) => ({ id, name: names[id] })), scans, { trace: fusionTrace(req) }));
+  const trace = fusionTrace(req);
+  const fusion = linkFusion(req, await readAiFusion(req.session.client, ids.map((id) => ({ id, name: names[id] })), scans, { trace }));
+  // Each project's model and lines of code (its latest scan, else its settings), and its AI scans and credits.
+  const shown = Object.keys(fusion.projects);
+  const [facts, usage] = await Promise.all([
+    projectFacts(req.session.client, shown, scans, { trace }).catch((error) => (console.warn(`[fusion] facts: ${logSafe(error.message)}`), {})),
+    fusionUsage(req.session.client, shown.map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period: req.session.fusionPeriod ?? FUSION_PERIOD, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null)),
+  ]);
+  for (const [id, f] of Object.entries(facts)) Object.assign(fusion.projects[id], f);
+  fusion.usage = usage;
   req.session.lastFusion = fusion;
   req.session.fusionScan = aiFindings(fusion);
   // A new read: the projects shown are the page's again; the Fusion and LAST ticks stay.
@@ -9718,6 +9728,8 @@ async function loadAiFusion(req, names) {
  */
 function fusionFocus(req) {
   const body = req.body ?? {};
+  // A project's side panel asks for that project alone, without changing what the page's bar acts on.
+  if (body.once === true) return { engines: cleanFusionEngines(body.engines), projectIds: Array.isArray(body.projectIds) ? body.projectIds.map((id) => String(id ?? '').slice(0, 80)).filter(Boolean).slice(0, 50) : null };
   const focus = (req.session.fusionFocus ??= { engines: cleanFusionEngines(), projectIds: null });
   if ('engines' in body) focus.engines = cleanFusionEngines(body.engines);
   if ('projectIds' in body) focus.projectIds = Array.isArray(body.projectIds) ? [...new Set(body.projectIds.map((id) => String(id ?? '').slice(0, 80)).filter(Boolean))].slice(0, 5000) : null;
@@ -9727,6 +9739,17 @@ function fusionFocus(req) {
 app.get('/api/beta/fusion', requireFeature('fusionResults'), (req, res) => {
   res.json({ fusion: req.session.lastFusion ?? null, scope: req.session.fusionScope ?? null, focus: fusionFocus(req), credits: fusionCredits(req) });
 });
+
+// The AI scans and credits over another period (the page's period picker), for the projects loaded.
+app.post('/api/beta/fusion/usage', requireFeature('fusionResults'), asyncRoute(async (req, res) => {
+  const fusion = req.session.lastFusion;
+  if (!fusion) return res.status(409).json({ error: 'Load results first.' });
+  const period = USAGE_PERIODS[req.body?.period] ? req.body.period : FUSION_PERIOD;
+  req.session.fusionPeriod = period;
+  const names = req.session.fusionScope?.names ?? {};
+  fusion.usage = await fusionUsage(req.session.client, Object.keys(fusion.projects).map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period, trace: fusionTrace(req) });
+  res.json({ usage: fusion.usage });
+}));
 
 // The credits the page's lanes show, for what it shows now (the ticks, and the projects its filters leave).
 app.post('/api/beta/fusion/credits', requireFeature('fusionResults'), (req, res) => {

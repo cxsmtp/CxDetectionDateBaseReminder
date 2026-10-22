@@ -55,17 +55,27 @@ const inEngines = (r, engines) => !r.engine || shownEngines(engines).includes(r.
 export function fusionTiles(fusion, scope, engines) {
   const t = countsFor(fusion?.totals ?? {}, engines) ?? {};
   const n = (k) => Number(t[k]) || 0;
+  const rows = fusionRows(fusion, scope, engines);
+  // The AI scans and credits of the projects shown, over the period read (null when Checkmarx One did not say).
+  const sum = (k) => (rows.some((r) => r[k] !== null) ? Math.round(rows.reduce((a, r) => a + (r[k] ?? 0), 0) * 100) / 100 : null);
   return {
-    found: { results: n('total'), CRITICAL: n('CRITICAL'), HIGH: n('HIGH'), MEDIUM: n('MEDIUM'), LOW: n('LOW'), projects: fusionRows(fusion, scope, engines).length, of: Number(scope?.projects) || 0 },
+    found: { results: n('total'), CRITICAL: n('CRITICAL'), HIGH: n('HIGH'), MEDIUM: n('MEDIUM'), LOW: n('LOW'), projects: rows.length, of: Number(scope?.projects) || 0 },
     change: { NEW: n('NEW'), RECURRENT: n('RECURRENT'), FIXED: n('FIXED'), fixedKnown: t.fixedKnown !== false },
+    usage: { scans: sum('scans'), credits: sum('credits'), period: fusion?.usage?.period ?? null },
   };
 }
+
+/** "Last 30 days", for the period the AI scans and credits were read over. */
+export const PERIOD_LABEL = { last_30_days: 'Last 30 days', last_90_days: 'Last 90 days', last_180_days: 'Last 180 days', last_year: 'Last year' };
+/** Where a project's model was read: its latest scan, its settings, or the tenant's. */
+export const MODEL_FROM = { scan: 'its latest scan', project: 'the project’s settings', tenant: 'the tenant’s settings' };
 
 /** One row per project with results (or some fixed) for the engines shown, most critical first. */
 export function fusionRows(fusion, scope, engines) {
   return Object.entries(fusion?.projects ?? {})
     .map(([projectId, all]) => {
       const c = countsFor(all, engines);
+      const used = fusion?.usage?.projects?.[projectId] ?? null;
       return {
         projectId,
         name: scope?.names?.[projectId] ?? all.projectName ?? projectId,
@@ -81,6 +91,14 @@ export function fusionRows(fusion, scope, engines) {
         scanAt: all.scanAt ?? null,
         scanId: all.scanId ?? '',
         url: all.url ?? '',
+        model: all.model ?? '',
+        modelFrom: all.modelFrom ?? '',
+        loc: all.loc ?? null,
+        scans: used?.scans ?? null,
+        credits: used?.credits ?? null,
+        fusionCredits: used?.fusion ?? null,
+        actions: used?.actions ?? null,
+        perScan: used?.perScan ?? null,
       };
     })
     .filter((r) => r.total > 0 || r.FIXED > 0)
@@ -143,6 +161,7 @@ export function fusionReportHtml(fusion, scope, opts = {}) {
   const results = fusionResultRows(fusion, scope, engines, opts.projectId ?? null);
   const one = opts.projectId ? projects[0] : null;
   const sum = (k) => projects.reduce((n, p) => n + p[k], 0);
+  const usage = fusion?.usage ? { scans: sum('scans'), credits: fusion.usage.creditsKnown ? sum('credits') : null } : null;
   const t = { results: sum('total'), CRITICAL: sum('CRITICAL'), HIGH: sum('HIGH'), MEDIUM: sum('MEDIUM'), LOW: sum('LOW'), NEW: sum('NEW'), RECURRENT: sum('RECURRENT'), FIXED: sum('FIXED') };
   const sev = (s) => `<span class="sev" style="--c:${COLOUR[s] ?? COLOUR.INFO}">${esc(LABEL[s] ?? s)}</span>`;
   const tag = (e) => (e ? `<span class="tag ${e === 'LAST' ? 'last' : ''}">${esc(ENGINE_LABEL[e] ?? e)}</span>` : '—');
@@ -185,11 +204,11 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
 <p class="sub">What Checkmarx One's AI engine found in SAST (results marked AI-generated), from each project's latest scan · ${esc(scopeLine)} · read ${esc(date(fusion?.readAt))}</p>
 <p class="sub">${meaning}.</p>
 <div class="strip">
-<div><b>${fmt(projects.length)}</b><span>Projects</span></div><div><b>${fmt(t.results)}</b><span>${esc(label)} results</span></div><div><b>${fmt(t.CRITICAL)}</b><span>Critical</span></div><div><b>${fmt(t.HIGH)}</b><span>High</span></div><div><b>${fmt(t.MEDIUM)}</b><span>Medium</span></div><div><b>${fmt(t.LOW)}</b><span>Low</span></div><div><b>${fmt(t.NEW)}</b><span>New</span></div><div><b>${fmt(t.FIXED)}</b><span>Fixed</span></div>
+<div><b>${fmt(projects.length)}</b><span>Projects</span></div>${usage ? `<div><b>${fmt(usage.scans)}</b><span>AI scans · ${esc(PERIOD_LABEL[fusion.usage.period] ?? '')}</span></div><div><b>${usage.credits === null ? '—' : fmt(usage.credits)}</b><span>Credits spent</span></div>` : ''}<div><b>${fmt(t.results)}</b><span>${esc(label)} results</span></div><div><b>${fmt(t.CRITICAL)}</b><span>Critical</span></div><div><b>${fmt(t.HIGH)}</b><span>High</span></div><div><b>${fmt(t.MEDIUM)}</b><span>Medium</span></div><div><b>${fmt(t.LOW)}</b><span>Low</span></div><div><b>${fmt(t.NEW)}</b><span>New</span></div><div><b>${fmt(t.FIXED)}</b><span>Fixed</span></div>
 </div>
 <h2>Projects</h2>
-<table><thead><tr><th>Project</th><th class="num">Critical</th><th class="num">High</th><th class="num">Medium</th><th class="num">Low</th><th class="num">Total</th><th class="num">New</th><th class="num">Recurrent</th><th class="num">Fixed</th><th>Latest scan</th></tr></thead><tbody>
-${projects.map((p) => `<tr><td>${link(p.url, p.name)}</td><td class="num">${fmt(p.CRITICAL)}</td><td class="num">${fmt(p.HIGH)}</td><td class="num">${fmt(p.MEDIUM)}</td><td class="num">${fmt(p.LOW)}</td><td class="num">${fmt(p.total)}</td><td class="num">${fmt(p.NEW)}</td><td class="num">${fmt(p.RECURRENT)}</td><td class="num">${p.fixedKnown ? fmt(p.FIXED) : '—'}</td><td>${esc(date(p.scanAt))}</td></tr>`).join('\n') || `<tr><td colspan="10">No ${esc(label)} results.</td></tr>`}
+<table><thead><tr><th>Project</th><th>Model</th><th class="num">LOC</th><th class="num">AI scans</th><th class="num">Credits</th><th class="num">Critical</th><th class="num">High</th><th class="num">Medium</th><th class="num">Low</th><th class="num">Total</th><th class="num">New</th><th class="num">Recurrent</th><th class="num">Fixed</th><th>Latest scan</th></tr></thead><tbody>
+${projects.map((p) => `<tr><td>${link(p.url, p.name)}</td><td>${esc(p.model || '—')}</td><td class="num">${p.loc === null ? '—' : fmt(p.loc)}</td><td class="num">${p.scans === null ? '—' : fmt(p.scans)}</td><td class="num">${p.credits === null ? '—' : fmt(p.credits)}</td><td class="num">${fmt(p.CRITICAL)}</td><td class="num">${fmt(p.HIGH)}</td><td class="num">${fmt(p.MEDIUM)}</td><td class="num">${fmt(p.LOW)}</td><td class="num">${fmt(p.total)}</td><td class="num">${fmt(p.NEW)}</td><td class="num">${fmt(p.RECURRENT)}</td><td class="num">${p.fixedKnown ? fmt(p.FIXED) : '—'}</td><td>${esc(date(p.scanAt))}</td></tr>`).join('\n') || `<tr><td colspan="14">No ${esc(label)} results.</td></tr>`}
 </tbody></table>
 <h2>Results</h2>
 ${projects.filter((p) => byProject.has(p.projectId)).map((p) => `<h3>${link(p.url, p.name)} <small>${fmt(byProject.get(p.projectId).length)} result(s)</small></h3>

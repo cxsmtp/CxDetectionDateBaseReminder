@@ -3428,3 +3428,23 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .fusion .fusion-tiles > div.crit .value { color: var(--danger); } .fusion .fusion-tiles > div.high .value { color: var(--warn); }
 .licence-banner { margin: 0 0 14px; padding: 10px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border)); background: color-mix(in srgb, var(--warn) 10%, var(--surface)); color: var(--text); font-size: 13.5px; }
 .licence-banner[hidden] { display: none; }
+/* Fusion page v2: the model, the results by severity in one cell, and the side panel's facts and AI lanes. */
+.fusion-model { font: 12px var(--mono); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-2); white-space: nowrap; }
+.fusion-sevs { white-space: nowrap; }
+.fusion-sev { display: inline-block; margin-inline-end: 4px; padding: 0 6px; border-radius: 99px; font-size: 11.5px; font-weight: 600; line-height: 18px; color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); }
+.fusion-sev-critical { --c: #dc2626; } .fusion-sev-high { --c: #ea580c; } .fusion-sev-medium { --c: #b7791f; } .fusion-sev-low { --c: #2563eb; }
+.fusion-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin-top: 12px; }
+.fusion-facts:empty { display: none; }
+.fusion-facts > div { display: flex; flex-direction: column; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.fusion-facts span { font-size: 11.5px; color: var(--muted); }
+.fusion-facts b { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fusion-facts small { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.fusion-side-lanes { margin-top: 10px; }
+.fusion-side-lanes[hidden] { display: none; }
+.fusion-side-lanes .credit-lanes { gap: 8px; }
+.fusion-chip-fixed { display: inline-flex; align-items: center; min-height: 28px; padding: 0 11px; border: 1px dashed var(--border-strong); border-radius: 99px; font-size: 12.5px; color: var(--muted); }
+#fusion-side-status:empty { display: none; }
+/* In a project's side panel the lanes are narrow: the head on its own line, the two steps under it. */
+.fusion-side-lanes .credit-lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.fusion-side-lanes .lane-head { grid-column: 1 / -1; }
+.fusion-side-lanes .lane-actions button { white-space: normal; }
