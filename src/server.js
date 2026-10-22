@@ -100,6 +100,7 @@ import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
 import { PasswordResets, RESET_TTL_MS, maskEmail, resetAllowed } from './password-reset.js';
+import { FaeFlushRunner, FaeFlushStore, previewTenant, summaryOf } from './fae-flush.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
 import {
   SessionStore,
@@ -292,6 +293,8 @@ function buildTenant({ id, dir }) {
     // When each finding was first seen open and when it closed: the Impact page (src/impact.js).
     findingJournal: new FindingJournal({ file: path.join(dir, 'finding-journal.json') }),
     scanAttribution: new ScanAttribution({ dataDir: dir }),
+    // FAE Flush (Labs): the last run, project by project (src/fae-flush.js).
+    faeFlush: new FaeFlushStore({ file: path.join(dir, 'fae-flush.json') }),
     touchedProjects: new Map(),
     relayCache: new TtlCache({ max: 100_000 }),
     recentActions: new TtlCache({ max: 100_000 }),
@@ -10089,6 +10092,136 @@ app.post(
     res.json({ fusion, scope, credits: fusionCredits(req) });
   }),
 );
+
+// ---- FAE Flush (Labs, then Act): Findings Analysis on the backlog, for the whole tenant at once ----------
+// Runs on the server with its own Checkmarx One connection (the integration key), a few scans at a time; the run
+// is kept on disk and carries on after a restart. Who may: Beta access (later everyone with the feature's
+// permission), and the Checkmarx One integration permission, since it creates, scans and deletes projects.
+const faeRunners = new WeakMap();
+/** The running tenant's FAE Flush runner. */
+function faeRunner() {
+  const tenant = tenancy.current();
+  let runner = faeRunners.get(tenant);
+  if (!runner) {
+    runner = new FaeFlushRunner({
+      store: tenant.faeFlush,
+      clientOf: () => integrationSession()?.client ?? null,
+      record: (event, details = {}) => faeAudit(event, details),
+    });
+    faeRunners.set(tenant, runner);
+  }
+  return runner;
+}
+const FAE_EVENTS = {
+  started: (d) => `FAE Flush started for ${d.projects} project${d.projects === 1 ? '' : 's'}, ${d.concurrency} scan${d.concurrency === 1 ? '' : 's'} at a time; the _FAE projects are ${d.deleteFae ? 'deleted' : 'kept'} once checked.`,
+  'scan-started': (d) => `FAE Flush: ${d.project}'s code scanned again with Findings Analysis on ${d.faeProject} (scan ${d.scanId}).`,
+  'needs-ok': (d) => `FAE Flush stopped at ${d.project} to ask: ${d.reason}`,
+  decided: (d) => `FAE Flush: ${d.by || 'someone'} chose "${d.decision}" for ${d.project}${d.reason ? ` (${d.reason})` : ''}.`,
+  marked: (d) => `FAE Flush marked ${d.marked} of ${d.project}'s ${d.toVerify} results To verify Proposed not exploitable: not reported by the FAE scan ${d.faeScanId}.`,
+  'fae-deleted': (d) => `FAE Flush deleted ${d.project}_FAE.`,
+  'fae-deleted-all': (d) => `FAE Flush: ${d.deleted} _FAE project${d.deleted === 1 ? '' : 's'} deleted${d.failed ? `, ${d.failed} could not be` : ''}.`,
+  finished: (d) => `FAE Flush finished: ${d.marked} of ${d.toVerify} results To verify marked Proposed not exploitable across ${d.projects} projects, ${d.revalidated} revalidated.`,
+  undone: (d) => `FAE Flush undone by ${d.by}: ${d.restored} results back to To verify${d.changedSince ? ` (${d.changedSince} changed since and left as they are)` : ''}.`,
+};
+function faeAudit(event, details) {
+  const actor = details.actor ?? { kind: 'system', user: faeRunner().job?.startedBy || SYSTEM_ACTOR.user };
+  const { actor: _drop, ...rest } = details;
+  audit.record({ type: 'system', outcome: ['marked', 'undone', 'fae-deleted', 'fae-deleted-all', 'started'].includes(event) ? 'changed' : 'info', reason: FAE_EVENTS[event]?.(rest) ?? `FAE Flush: ${event}.`, actor, details: { faeFlush: { event, job: faeRunner().job?.id ?? '', ...rest } } });
+}
+/** What the page shows: the run (without each result's id) and its figures, and the last preview. */
+function faeView() {
+  const runner = faeRunner();
+  const store = runner.store;
+  const job = runner.job;
+  return {
+    connected: Boolean(integrationSession()),
+    preview: store.preview,
+    previewing: Boolean(store.previewing),
+    previewError: store.previewError ?? '',
+    job: job ? { ...job, projects: job.projects.map(({ marked, pending, ...p }) => ({ ...p, markedCount: marked?.length ?? 0 })) } : null,
+    summary: job ? summaryOf(job) : null,
+  };
+}
+const faeGuard = [requireFeature('faeFlush'), requirePermission('integration.cxone')];
+
+app.get('/api/fae-flush', requireFeature('faeFlush'), (req, res) => res.json(faeView()));
+
+// Every project as FAE Flush would take it (read only): read in the background, the page asks again.
+app.post('/api/fae-flush/preview', ...faeGuard, (req, res) => {
+  const store = faeRunner().store;
+  const client = integrationSession()?.client;
+  if (!client) return res.status(409).json({ error: 'Connect the server to Checkmarx One first (Settings → Checkmarx One).' });
+  if (!store.previewing) {
+    store.previewError = '';
+    store.previewing = previewTenant(client, { listProjects, getLastScans })
+      .then((preview) => (store.preview = preview))
+      .catch((error) => (store.previewError = cxErrorText(error)))
+      .finally(() => (store.previewing = null));
+  }
+  res.status(202).json(faeView());
+});
+
+app.post('/api/fae-flush/start', ...faeGuard, asyncRoute(async (req, res) => {
+  const runner = faeRunner();
+  if (!integrationSession()) return res.status(409).json({ error: 'Connect the server to Checkmarx One first (Settings → Checkmarx One).' });
+  const ids = Array.isArray(req.body?.projectIds) ? new Set(req.body.projectIds.map(String)) : null;
+  const preview = runner.store.preview && { ...runner.store.preview, projects: runner.store.preview.projects.filter((p) => !ids || ids.has(p.id)) };
+  try {
+    runner.start({ by: req.user?.email ?? '', concurrency: req.body?.concurrency, deleteFae: req.body?.deleteFae, preview });
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: error.message });
+  }
+  faeTick();
+  res.json(faeView());
+}));
+
+app.post('/api/fae-flush/pause', ...faeGuard, (req, res) => {
+  faeRunner().setState('paused');
+  res.json(faeView());
+});
+app.post('/api/fae-flush/resume', ...faeGuard, (req, res) => {
+  faeRunner().setState('running');
+  faeTick();
+  res.json(faeView());
+});
+
+app.post('/api/fae-flush/decide', ...faeGuard, (req, res) => {
+  try {
+    faeRunner().decide(String(req.body?.projectId ?? ''), String(req.body?.decision ?? ''), req.user?.email ?? '');
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: error.message });
+  }
+  faeTick();
+  res.json(faeView());
+});
+
+app.post('/api/fae-flush/undo', ...faeGuard, asyncRoute(async (req, res) => {
+  if (!faeRunner().job) return res.status(409).json({ error: 'There is no FAE Flush to undo.' });
+  const result = await faeRunner().undo(req.user?.email ?? '');
+  res.json({ ...result, ...faeView() });
+}));
+
+// One click, any day after: every _FAE project of the run still in Checkmarx One.
+app.post('/api/fae-flush/delete-fae', ...faeGuard, asyncRoute(async (req, res) => {
+  if (!faeRunner().job) return res.status(409).json({ error: 'There is no FAE Flush with _FAE projects.' });
+  const result = await faeRunner().deleteAll();
+  res.json({ ...result, ...faeView() });
+}));
+
+const FAE_TICK_MS = Number(process.env.FAE_FLUSH_TICK_MS) || 30_000;
+const faeTicking = new WeakSet();
+/** One turn of every tenant's run (or the running tenant's only, from a request). */
+function faeTick(all = false) {
+  const turn = () => {
+    const runner = faeRunner();
+    if (!runner.job || runner.job.state !== 'running' || faeTicking.has(runner)) return;
+    faeTicking.add(runner);
+    runner.tick().catch((error) => console.warn(`! [fae-flush] ${error.message}`)).finally(() => faeTicking.delete(runner));
+  };
+  if (all) tenancy.each(turn);
+  else turn();
+}
+setInterval(() => productActive() && faeTick(true), FAE_TICK_MS).unref?.();
 
 app.get('/api/beta/github/logins', requireFeature('identityMatching'), (req, res) => {
   const lastScan = req.session.lastScan;

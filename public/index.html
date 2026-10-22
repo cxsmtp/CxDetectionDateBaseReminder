@@ -126,7 +126,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>
             <span>Logs</span>
           </a>
-          <p class="nav-group nav-labs" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching feature.fusionResults" title="Early features, still being tried out: who wrote the code, and what Fusion re-scored"><i aria-hidden="true"></i>Labs</p>
+          <p class="nav-group nav-labs" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching feature.fusionResults feature.faeFlush" title="Early features, still being tried out: who wrote the code, what Fusion re-scored, and FAE on the backlog"><i aria-hidden="true"></i>Labs</p>
           <a href="#/beta" data-route="beta" class="tab" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.5L4.6 18.2A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.8L14 9.5V3" /><path d="M7.5 15h9" /></svg>
             <span id="nav-beta-label">Code authors</span>
@@ -134,6 +134,10 @@
           <a href="#/fusion" data-route="fusion" class="tab" data-stage="labs" data-perm="beta.use feature.fusionResults">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="5" /><circle cx="16" cy="12" r="5" /></svg>
             <span>Fusion results</span>
+          </a>
+          <a href="#/flush" data-route="flush" class="tab" id="nav-flush" data-stage="labs" data-perm="beta.use feature.faeFlush">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8z" /><path d="M17 15l3 3" /><path d="M20 15l-3 3" /></svg>
+            <span>FAE Flush</span>
           </a>
         </nav>
         <div class="sidebar-tools" id="sidebar-tools" hidden>
@@ -2310,6 +2314,77 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             </div>
           </div>
 
+          <!-- ================= FAE Flush (Labs; Act once final) ================= -->
+          <div id="page-flush" class="page flush" hidden>
+            <section class="panel" id="flush-intro">
+              <div class="panel-head">
+                <div>
+                  <h2>FAE Flush <span class="badge warn" data-beta-badge="faeFlush">Beta</span></h2>
+                  <p class="hint wide">Findings Analysis (FAE) only cuts the noise in results found after it is turned on. FAE Flush applies it to the backlog, once, for every project of the tenant at once (a few scans at a time), and leaves each project as it is: its history, triage, automations and integrations stay.</p>
+                </div>
+              </div>
+              <ol class="flush-steps">
+                <li><b>Copy the code</b><small>The exact code of its latest scan, as Checkmarx One keeps it</small></li>
+                <li><b>Scan it on <code translate="no">name_FAE</code></b><small>A new project with the same SAST settings, Findings Analysis on</small></li>
+                <li><b>Compare</b><small>Each SAST result still To verify against the FAE scan's results</small></li>
+                <li><b>Mark</b><small>Not reported by FAE → <span class="flush-pne">Proposed not exploitable</span>, in the original project</small></li>
+                <li><b>Revalidate</b><small>Both read again: every one marked is marked, and still not reported</small></li>
+                <li><b>Remove <code translate="no">_FAE</code></b><small>Deleted once checked, or kept: you choose when you start</small></li>
+              </ol>
+              <p class="status" id="flush-status" role="status"></p>
+            </section>
+
+            <div class="flush-tiles" id="flush-tiles"></div>
+
+            <section class="panel" id="flush-run">
+              <div class="panel-head">
+                <div>
+                  <h2>Run</h2>
+                  <p class="hint wide">Only results still <b>To verify</b> are marked: never one a person or AI Triage already set. A project that looks off stops and asks you (the code it scanned differs, it would mark nearly everything, or the FAE scan did not complete); the rest carry on. It runs on the server: closing the page does not stop it, and after a restart it carries on where it was.</p>
+                </div>
+              </div>
+              <div class="controls flush-controls">
+                <label>Scans at once <select id="flush-concurrency"><option>2</option><option selected>4</option><option>8</option><option>12</option></select></label>
+                <span class="flush-grow"></span>
+                <button type="button" id="flush-preview" class="sm">Check the projects (no change)</button>
+                <button type="button" id="flush-start" class="primary" disabled>Start FAE Flush</button>
+              </div>
+              <p class="hint" id="flush-perm-note" hidden>Starting it needs the Checkmarx One integration permission: it creates, scans and deletes projects with the server's own key.</p>
+            </section>
+
+            <section class="panel" id="flush-progress" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2 id="flush-progress-title">Progress</h2>
+                  <p class="hint wide" id="flush-result"></p>
+                </div>
+                <div class="actions">
+                  <button type="button" id="flush-pause" class="sm">Pause</button>
+                  <button type="button" id="flush-csv" class="sm">Export CSV</button>
+                  <button type="button" id="flush-delete-fae" class="sm">Delete all _FAE projects</button>
+                  <button type="button" id="flush-undo" class="sm danger">Undo all marks</button>
+                </div>
+              </div>
+              <div class="flush-asks" id="flush-asks"></div>
+              <div class="table-wrap">
+                <table class="flush-table" id="flush-table">
+                  <thead><tr><th>Project</th><th>Step</th><th class="num">To verify</th><th class="num">Reported by FAE</th><th class="num">Not reported → Proposed not exploitable</th><th>Revalidated</th><th>_FAE project</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel" id="flush-preview-panel" hidden>
+              <div class="panel-head"><div><h2>Projects</h2><p class="hint wide" id="flush-preview-sub"></p></div></div>
+              <div class="table-wrap">
+                <table class="flush-table" id="flush-preview-table">
+                  <thead><tr><th>Project</th><th>Latest scan</th><th class="num">Lines of code</th><th class="num">To verify</th><th>FAE Flush</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
           <!-- ================= Fusion results (Labs) ================= -->
           <div id="page-fusion" class="page fusion" hidden>
             <section class="panel" id="beta-fusion">
@@ -3155,6 +3230,24 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
         <div id="remediate-body"></div>
         <div class="actions">
           <button value="go" class="primary" id="remediate-go">Remediate</button>
+          <button value="cancel" formnovalidate>Cancel</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="flush-dialog" class="notice-dialog" aria-labelledby="flush-dialog-title">
+      <form method="dialog">
+        <div class="notice-head">
+          <span class="notice-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16l-6 7v6l-4 2v-8z" /></svg></span>
+          <h2 id="flush-dialog-title">Start FAE Flush?</h2>
+        </div>
+        <div id="flush-dialog-body"></div>
+        <fieldset class="flush-keep">
+          <legend>Once each project is checked, its <code translate="no">_FAE</code> project:</legend>
+          <label><input type="radio" name="flush-keep" value="delete" required /> <b>Delete it</b> <span class="hint">nothing left behind in Checkmarx One</span></label>
+          <label><input type="radio" name="flush-keep" value="keep" required /> <b>Keep it</b> <span class="hint">to look at; delete them all later with one click</span></label>
+        </fieldset>
+        <div class="actions">
+          <button value="go" class="primary" id="flush-dialog-go">Start</button>
           <button value="cancel" formnovalidate>Cancel</button>
         </div>
       </form>

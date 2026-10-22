@@ -71,7 +71,7 @@ test('while Beta: only people with Beta access can use it, and the Admin sees th
   const list = await admin('GET', '/api/features');
   assert.equal(list.status, 200);
   assert.equal(list.body.canManage, true);
-  assert.deepEqual(list.body.features.map((f) => [f.id, f.stage]), [['codeAuthors', 'beta'], ['sla', 'beta'], ['identityMatching', 'beta'], ['fusionResults', 'beta']]);
+  assert.deepEqual(list.body.features.map((f) => [f.id, f.stage]), [['codeAuthors', 'beta'], ['sla', 'beta'], ['identityMatching', 'beta'], ['fusionResults', 'beta'], ['faeFlush', 'beta']]);
   const me = (await user('GET', '/api/me')).body;
   assert.equal(me.features.codeAuthors, 'beta');
   assert.ok(!me.permissions.includes('feature.codeAuthors'));

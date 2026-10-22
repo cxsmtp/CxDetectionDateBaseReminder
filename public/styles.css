@@ -3547,3 +3547,31 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 #scan-colour-note[hidden] { display: none; }
 /* A pressed chip reads as pressed in every look: the looks' own button backgrounds (Signal's well, the 3D sheen) never hide it. */
 .fusion button.fusion-chip[aria-pressed="true"] { background-color: var(--accent) !important; border-color: var(--accent) !important; color: var(--accent-ink) !important; }
+
+/* ---- FAE Flush (Labs; Act once final) ---- */
+.flush-steps { list-style: none; counter-reset: flush; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 12px 0 4px; padding: 0; }
+.flush-steps li { counter-increment: flush; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 10px 10px 38px; position: relative; background: var(--surface); font-size: 13px; }
+.flush-steps li::before { content: counter(flush); position: absolute; left: 10px; top: 10px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: var(--primary-ink); font-size: 11px; font-weight: 600; }
+.flush-steps b { display: block; }
+.flush-steps small { color: var(--muted); display: block; margin-top: 2px; }
+.flush-pne { color: var(--accent); font-weight: 600; }
+.flush-warn { color: var(--warn); }
+.flush-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 0 0 14px; }
+.flush-tiles:empty { display: none; }
+.flush-tile { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 14px 16px; min-width: 0; }
+.flush-tile b { display: block; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.flush-tile span { color: var(--muted); font-size: 12.5px; }
+.flush-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.flush-grow { flex: 1; }
+.flush-asks:empty { display: none; }
+.flush-asks { display: grid; gap: 8px; margin: 0 0 12px; }
+.flush-ask { border: 1px solid var(--warn); background: var(--warn-soft); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
+.flush-ask p { margin: 0; flex: 1 1 320px; min-width: 0; overflow-wrap: anywhere; }
+.flush-table td.num, .flush-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.flush-table .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--border-strong); white-space: nowrap; }
+.flush-table .pill.ok { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.flush-table .pill.warn { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.flush-table .pill.run { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.flush-table .pill.muted { color: var(--muted); }
+.flush-keep { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px 10px; margin: 10px 0; display: grid; gap: 6px; }
+.flush-keep legend { padding: 0 4px; font-weight: 600; }

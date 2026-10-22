@@ -1,5 +1,6 @@
 import { nextSpeedster } from './speedsters.js';
 import { initCalculator } from './calculator/page.js';
+import { initFaeFlush } from './fae-flush.js';
 import { SEVERITIES_ALL, creditTiers, tierName } from './credit-tiers.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engines.js';
 import { LANGUAGES, availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
@@ -231,6 +232,10 @@ const ACTIVITIES = [
   ['POST', /^\/api\/beta\/github\/evaluate$/, 'Matching GitHub usernames…', 'Matching finished'],
   ['POST', /^\/api\/beta\/authors\/find$/, 'Finding who wrote the vulnerable code…', 'Authors found'],
   ['POST', /^\/api\/beta\/fusion\/read$/, 'Reading Fusion results…', 'Fusion results read'],
+  ['POST', /^\/api\/fae-flush\/preview$/, 'Checking the projects…', 'Checking the projects', { quiet: true }],
+  ['POST', /^\/api\/fae-flush\/start$/, 'Starting FAE Flush…', 'FAE Flush started'],
+  ['POST', /^\/api\/fae-flush\/undo$/, 'Putting the marked results back to To verify…', 'FAE Flush undone'],
+  ['POST', /^\/api\/fae-flush\/delete-fae$/, 'Deleting the _FAE projects…', '_FAE projects deleted'],
   ['POST', /^\/api\/beta\/authors\/notify$/, 'Emailing the code authors…', 'Code authors emailed'],
   ['GET', /^\/api\/audit\/verify/, 'Verifying the audit log…', 'Audit log verified'],
   ['GET', /^\/api\/audit\/reconcile/, 'Reconciling with the credit ledger…', 'Reconciled'],
@@ -631,6 +636,7 @@ const PAGE_PERMS = {
   access: 'iam.view',
   beta: 'beta.use feature.codeAuthors feature.identityMatching',
   fusion: 'beta.use feature.fusionResults',
+  flush: 'beta.use feature.faeFlush',
   logs: '',
   help: '', // everyone may ask for help
   calculator: 'projections.use',
@@ -721,7 +727,7 @@ function applyPermissions() {
 
 const ROUTE_ALIASES = { iam: 'access', 'credit-control': 'credits' };
 /** Act → Follow up → Prove, plus Set up: what each page is for. */
-const STAGES = { dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
+const STAGES = { flush: 'labs', dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
 const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', plan: 'Plan', setup: 'Set up', labs: 'Labs' };
 /** The tab group on each page (data-ptabs). */
 const PAGE_TABS = { dashboard: 'dash', automation: 'automation', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
@@ -757,6 +763,19 @@ function renderFeatureStages() {
   if (state.page === 'beta') setPageTitle('beta');
   const authorsRow = document.getElementById('auto-authors-row');
   if (authorsRow) authorsRow.hidden = stages.codeAuthors !== 'final';
+  // FAE Flush: in Labs while Beta; once final, the first page under Act (FAE Flush, Workbench, Automation).
+  const flush = document.getElementById('nav-flush');
+  const final = stages.faeFlush === 'final';
+  if (flush) {
+    const act = document.querySelector('#nav .nav-group[data-stage="act"]');
+    const fusionTab = document.querySelector('#nav [data-route="fusion"]');
+    if (final && act) act.after(flush);
+    else if (!final && fusionTab) fusionTab.after(flush);
+    flush.dataset.stage = final ? 'act' : 'labs';
+  }
+  STAGES.flush = final ? 'act' : 'labs';
+  PAGE_TITLES.flush[1] = final ? 'Findings Analysis on the backlog, for every project at once' : 'Labs: Findings Analysis on the backlog, for every project at once';
+  if (state.page === 'flush') setPageTitle('flush');
 }
 
 async function loadFeatures() {
@@ -1260,6 +1279,7 @@ const PAGE_LOADERS = {
   reports: () => loadTrackedReports(),
   beta: () => renderBeta(),
   fusion: () => loadFusion(),
+  flush: () => faeFlush.load(),
   audit: () => renderAudit(),
   access: () => loadAccess(),
   help: () => loadHelp(),
@@ -1280,6 +1300,7 @@ const PAGE_RELOAD = {
 const reloaderOf = (page) => PAGE_RELOAD[page] ?? PAGE_LOADERS[page];
 
 const PAGE_RETURN = {
+  flush: () => faeFlush.load({ quiet: true }),
   automation: () => loadAutomation(),
   settings: reloadSettingsPage,
   credits: () => loadUsage(),
@@ -1636,6 +1657,7 @@ const PAGE_TITLES = {
   audit: ['Audit', 'Every credit spent, refused or failed'],
   beta: ['Code authors', 'Labs: who wrote the code, and their email'],
   fusion: ['Fusion results', 'Labs: what Checkmarx One Fusion reported, from Risk Hub'],
+  flush: ['FAE Flush', 'Labs: Findings Analysis on the backlog, for every project at once'],
   help: ['Get help', 'Support cases and enhancements'],
   calculator: ['Cx Credits Calculator', 'The credits a customer needs'],
 };
@@ -8496,6 +8518,7 @@ $('help-view').addEventListener('click', async (event) => {
 });
 
 // ---- Cx Credits Calculator (public/calculator/page.js) ----
+const faeFlush = initFaeFlush({ api, $, esc: escapeHtml, toast, showError, setStatus, can, fmtDateTime });
 const calculator = initCalculator({ api, $, esc: escapeHtml, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me: () => state.me, can, impactOn: () => Boolean(state.me?.unlocked?.impact) });
 
 /** A page outside the four stages: Get help, or a tool. */

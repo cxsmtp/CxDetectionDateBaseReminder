@@ -81,6 +81,15 @@ const allRisksFor = (pid) => Array.from({ length: BRANCHES && Number(String(pid)
   return { id, riskName: named ? named[0] : SHARED ? `Finding ${twin}` : `Finding ${id}`, ...(named ? { cweId: named[1] } : {}), severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: MIXED_ENGINES ? MOCK_ENGINES[k % MOCK_ENGINES.length] : 'SAST', state, stateChangedBy: t && Date.now() - t > FLIP_MS ? 'ai' : 'unchanged', status: i % 2 ? 'RECURRENT' : 'NEW', firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}`, ...(BRANCHES ? { scanId: hasFeature(Number(pid.slice(1))) && i % 5 === 4 ? `feat-${pid}` : `scan-${pid}` } : {}) };
 });
 // Access tokens are only the ones this mock handed out; request bodies are small.
+// FAE Flush: "<name>_FAE" projects made here, their upload scans (FAE on), and states set by predicates.
+const FAE_SCAN_MS = Number(process.env.FAE_SCAN_MS || RESCAN_MS);
+const faeProjects = new Map(); // id -> { name, tags }
+const faeScans = new Map(); // scanId -> { projectId, source: 'p3', at }
+const predicates = new Map(); // `${projectId}|${similarityId}` -> state
+const uploads = new Set();
+let faeMade = 0;
+const codeKept = (i) => i % 9 !== 8; // every ninth project: Checkmarx One no longer keeps its latest scan's code
+const faeSourceOf = (projectId) => faeProjects.get(projectId)?.source ?? '';
 const issued = new Set();
 const MAX_BODY = 1024 * 1024;
 http.createServer((req, res) => {
@@ -101,6 +110,11 @@ http.createServer((req, res) => {
       if (u.pathname === '/__changing') { changing = u.searchParams.get('on') === '1'; return send(200, { changing }); }
       if (u.pathname === '/__rescans') return send(200, Object.fromEntries(rescans));
       if (u.pathname === '/__reset') { for (const k of Object.keys(counts)) delete counts[k]; peak = 0; return send(200, {}); }
+      // FAE Flush: the states predicates set, and the _FAE projects and scans made.
+      if (u.pathname === '/__predicates') return send(200, Object.fromEntries(predicates));
+      if (u.pathname === '/__fae') return send(200, { projects: Object.fromEntries(faeProjects), scans: Object.fromEntries(faeScans) });
+      // The signed upload address (POST /api/uploads): no access token, like Checkmarx One's storage.
+      if (req.method === 'PUT' && u.pathname.startsWith('/__upload/')) { bump('upload-put'); return uploads.has(u.pathname) ? (uploads.delete(u.pathname), send(200, {})) : send(404, {}); }
       if (u.pathname.endsWith('/openid-connect/token')) {
         bump('token');
         // The access token carries the identity claims of the API key (email, preferred_username), like Checkmarx One's.
@@ -113,8 +127,33 @@ http.createServer((req, res) => {
         return send(200, { access_token: token, expires_in: 3600 });
       }
       if (!issued.has(String(req.headers.authorization || '').replace(/^Bearer /, ''))) return send(401, {});
+      let sm0;
       const offset = Number(u.searchParams.get('offset') || 0);
-      if (u.pathname === '/api/projects') { bump('projects'); const all = Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800), groups: [`team-${'abc'[i % 3]}`], ...(BRANCHES ? { mainBranch: mainBranchOf(i) } : {}) })); const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: PROJECTS }); }
+      if (req.method === 'POST' && u.pathname === '/api/projects') {
+        bump('project-create');
+        const body = JSON.parse(b || '{}');
+        if (!body.name) return send(400, { message: 'name is required' });
+        if ([...faeProjects.values()].some((p) => p.name === body.name)) return send(409, { message: 'project name already exists' });
+        const id = `fae-${(faeMade += 1)}`;
+        faeProjects.set(id, { name: body.name, tags: body.tags ?? {}, groups: body.groups ?? [], source: `p${String(body.name).replace(/^Project (\d+)_FAE$/, '$1')}` });
+        return send(201, { id, name: body.name });
+      }
+      if (req.method === 'DELETE' && (sm0 = u.pathname.match(/^\/api\/projects\/([^/]+)$/))) {
+        bump('project-delete');
+        return faeProjects.delete(decodeURIComponent(sm0[1])) ? send(204) : send(404, { message: 'project not found' });
+      }
+      if (req.method === 'PATCH' && u.pathname === '/api/configuration/project') { bump('configuration-patch'); return faeProjects.has(u.searchParams.get('project-id')) ? send(204) : send(404, {}); }
+      if (req.method === 'POST' && u.pathname === '/api/uploads') { bump('uploads'); const path = `/__upload/${uploads.size + 1}-${Date.now()}`; uploads.add(path); return send(200, { url: `http://127.0.0.1:${process.env.PORT || 4101}${path}` }); }
+      // A scan's source code, as Checkmarx One keeps it (a zip).
+      if ((sm0 = u.pathname.match(/^\/api\/repostore\/(code|scans)\/(?:(?:scan|feat)-)?p(\d+)$/))) {
+        bump(`repostore-${sm0[1]}`);
+        if (!codeKept(Number(sm0[2]))) return send(404, { message: 'source code not found' });
+        if (req.method === 'HEAD' || sm0[1] === 'scans') return send(200, {});
+        res.writeHead(200, { 'Content-Type': 'application/zip' });
+        return res.end(Buffer.from('PK\x05\x06' + '\0'.repeat(18), 'binary'));
+      }
+      // Projects FAE Flush made are listed too (tagged), as in Checkmarx One.
+      if (u.pathname === '/api/projects') { bump('projects'); const all = [...Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800), groups: [`team-${'abc'[i % 3]}`], ...(BRANCHES ? { mainBranch: mainBranchOf(i) } : {}) })), ...[...faeProjects].map(([id, p]) => ({ id, name: p.name, tags: p.tags, groups: p.groups, createdAt: day(0) }))]; const total = all.length; const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: total }); }
       if (u.pathname === '/api/applications') {
         bump('applications');
         // Four applications, each grouping every fourth project.
@@ -135,6 +174,12 @@ http.createServer((req, res) => {
         bump('scan-post');
         const body = JSON.parse(b || '{}');
         const pid = body.project?.id;
+        if (body.type === 'upload') {
+          if (!faeProjects.has(pid) || !body.handler?.uploadUrl) return send(400, { message: 'bad upload scan request' });
+          const id = `fae-scan-${faeScans.size + 1}`;
+          faeScans.set(id, { projectId: pid, source: faeSourceOf(pid), at: Date.now(), findingsAnalysis: body.config?.find?.((c) => c.type === 'sast')?.value?.findingsAnalysis === 'true' });
+          return send(201, { id, status: 'Queued' });
+        }
         if (!pid || body.type !== 'git' || !body.handler?.repoUrl || !body.handler?.branch || !Array.isArray(body.config)) return send(400, { message: 'bad scan request' });
         const id = `rescan-${pid}-${rescans.size + 1}`;
         rescans.set(id, { projectId: pid, at: Date.now(), tags: body.tags ?? {}, branch: body.handler.branch });
@@ -178,6 +223,27 @@ http.createServer((req, res) => {
         }
         return send(200, { scans, totalCount: total, filteredTotalCount: total });
       }
+      if (req.method === 'POST' && u.pathname === '/api/sast-results-predicates') {
+        bump('predicates');
+        const body = JSON.parse(b || '[]');
+        if (!Array.isArray(body) || body.some((p) => !p.similarityId || !p.projectId || !p.state)) return send(400, { message: 'bad predicates' });
+        for (const p of body) predicates.set(`${p.projectId}|${p.similarityId}`, p.state);
+        return send(201, {});
+      }
+      if (u.pathname === '/api/scan-summary' && u.searchParams.getAll('scan-ids').some((id) => /^(scan|feat)-p\d+$/.test(id))) {
+        bump('scan-summary');
+        // Latest scans (FAE Flush's preview): results To verify, from their SAST results.
+        const scansSummaries = u.searchParams.getAll('scan-ids').map((scanId) => {
+          const pid = scanId.replace(/^(scan|feat)-/, '');
+          const rows = risksFor(pid);
+          const toVerify = rows.filter((r) => (predicates.get(`${pid}|${r.groupId}`) ?? r.state) === 'TO_VERIFY').length;
+          const by = {};
+          for (const r of rows) by[r.severity] = (by[r.severity] ?? 0) + 1;
+          const severityCounters = Object.entries(by).map(([severity, counter]) => ({ severity, counter }));
+          return { scanId, sastCounters: { severityCounters, stateCounters: [{ state: 'TO_VERIFY', counter: toVerify }, { state: 'PROPOSED_NOT_EXPLOITABLE', counter: rows.length - toVerify }], totalCounter: rows.length } };
+        });
+        return send(200, { scansSummaries, totalCount: scansSummaries.length });
+      }
       if (u.pathname === '/api/scan-summary') {
         bump('scan-summary');
         // Results by severity of each scan: the older the scan, the bigger the backlog; a few new each scan.
@@ -207,6 +273,13 @@ http.createServer((req, res) => {
       if ((sm = u.pathname.match(/^\/api\/scans\/([^/]+)$/))) {
         bump('scan-get');
         const id = decodeURIComponent(sm[1]);
+        const fae = faeScans.get(id);
+        if (fae) {
+          const age = Date.now() - fae.at;
+          const status = age < 200 ? 'Queued' : age < FAE_SCAN_MS ? 'Running' : 'Completed';
+          const i = Number(fae.source.replace(/^p/, ''));
+          return send(200, { id, projectId: fae.projectId, status, branch: 'main', engines: ['sast'], sourceType: 'upload', statusDetails: [{ name: 'general', status }, { name: 'sast', status, ...(status === 'Completed' ? { loc: mockLoc(i), startDate: new Date(fae.at).toISOString(), endDate: new Date(fae.at + FAE_SCAN_MS).toISOString() } : {}) }] });
+        }
         const re = rescans.get(id);
         if (re) return send(200, { id, projectId: re.projectId, status: rescanStatus(re), branch: re.branch ?? 'main', engines: ['sast', 'sca', 'kics'], metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${re.projectId}`, branch: 'main' } } } });
         const pid = id.replace(/^(scan|feat|old)-/, '').replace(/^hist-(p\d+)-\d+$/, '$1');
@@ -280,10 +353,16 @@ http.createServer((req, res) => {
       // Of those, every other one is in Solidity, a language the traditional engine does not cover (LAST's).
       if (u.pathname === '/api/sast-results' || u.pathname === '/api/sast-scan-summary/aggregate' || u.pathname === '/api/sast-scan-summary/compare/aggregate') {
         bump(u.pathname.includes('compare') ? 'sast-compare' : u.pathname.includes('aggregate') ? 'sast-aggregate' : 'sast-results');
-        const pid = String(u.searchParams.get('scan-id') ?? '').replace(/^(scan|feat)-/, '');
+        const scanId = String(u.searchParams.get('scan-id') ?? '');
+        const faeScan = faeScans.get(scanId);
+        const pid = faeScan ? faeScan.source : scanId.replace(/^(scan|feat)-/, '');
         const ai = u.searchParams.get('is-ai-generated');
-        const rows = risksFor(pid).map((r) => {
-          const k = Number(r.id.split('-r')[1]);
+        // An FAE scan of the same code reports one in three of the project's results (Findings Analysis drops the rest),
+        // and two of its own; the project's results carry the states predicates gave them.
+        const kept = (r) => !faeScan || Number(r.id.split('-r')[1]) % 3 === 0;
+        const extra = faeScan ? [0, 1].map((n) => ({ id: `${pid}-x${n}`, riskName: `Finding ${pid}-x${n}`, severity: 'HIGH', state: 'TO_VERIFY', status: 'NEW', firstDetectionDate: day(0), groupId: `sim-${pid}-x${n}` })) : [];
+        const rows = [...risksFor(pid).filter(kept), ...extra].map((r) => ({ ...r, state: faeScan ? r.state : (predicates.get(`${pid}|${r.groupId}`) ?? r.state) })).map((r) => {
+          const k = Number(r.id.split(/-[rx]/)[1]);
           const last = k % 6 === 3;
           const file = last ? `contracts/Token${k % 4}.sol` : `src/routes/file${k % 4}.ts`;
           const language = last ? 'Solidity' : 'TypeScript';

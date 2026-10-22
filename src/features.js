@@ -54,6 +54,18 @@ export const FEATURES = [
     ],
     beforeFinal: 'Keep it in Beta until the counts match what Checkmarx One shows for Fusion on your own applications.',
   },
+  {
+    id: 'faeFlush',
+    name: 'FAE Flush',
+    summary: 'Findings Analysis (FAE) on the backlog, for the whole tenant at once: each project\'s code scanned again on a "<name>_FAE" copy with FAE on, and the results it no longer reports marked Proposed not exploitable in the original project, which keeps its history, triage and automations.',
+    // Once final: whoever manages the Checkmarx One integration (it creates, scans and deletes projects with its key).
+    permission: 'integration.cxone',
+    whenFinal: [
+      'It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation); the Workbench stays the home page.',
+      'Anyone who manages the Checkmarx One integration can run it (no Beta permission needed).',
+    ],
+    beforeFinal: 'Keep it in Beta until a run on a few of your own projects has marked what you expected: check some of the results it marked in Checkmarx One, and that Undo puts them back.',
+  },
 ];
 
 const BY_ID = new Map(FEATURES.map((f) => [f.id, f]));

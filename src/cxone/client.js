@@ -193,6 +193,41 @@ export class CxClient {
   }
 
   /**
+   * Download a file (a scan's source code, as a zip) to `file`, streamed: never held whole in memory.
+   * Returns the bytes written.
+   */
+  async download(path, file, { timeoutMs = 30 * 60_000 } = {}) {
+    const { createWriteStream } = await import('node:fs');
+    const { pipeline } = await import('node:stream/promises');
+    const { Readable } = await import('node:stream');
+    const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
+    const token = await this.#tokens.getToken();
+    return this.#limit.run(async () => {
+      const r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/zip, application/octet-stream, */*' }, signal: AbortSignal.timeout(timeoutMs) });
+      if (!r.ok) throw new CxApiError(`GET ${url.pathname} failed: ${r.status} ${r.statusText}`, { status: r.status, path: url.pathname, body: (await r.text().catch(() => '')).slice(0, 500) });
+      let bytes = 0;
+      const counted = Readable.fromWeb(r.body).on('data', (chunk) => (bytes += chunk.length));
+      await pipeline(counted, createWriteStream(file));
+      return bytes;
+    });
+  }
+
+  /**
+   * Put a file to an upload address Checkmarx One gave (POST /api/uploads): a signed address, so sent without
+   * the access token, streamed from disk.
+   */
+  async uploadFile(url, file, { timeoutMs = 30 * 60_000 } = {}) {
+    const { createReadStream, statSync } = await import('node:fs');
+    const target = new URL(url);
+    const size = statSync(file).size;
+    return this.#limit.run(async () => {
+      const r = await fetch(target, { method: 'PUT', headers: { 'Content-Type': 'application/zip', 'Content-Length': String(size) }, body: createReadStream(file), duplex: 'half', signal: AbortSignal.timeout(timeoutMs) });
+      if (!r.ok) throw new CxApiError(`PUT upload failed: ${r.status} ${r.statusText}`, { status: r.status, path: target.pathname, body: (await r.text().catch(() => '')).slice(0, 500) });
+      return size;
+    });
+  }
+
+  /**
    * Walk an offset/limit paginated collection.  Checkmarx One is not entirely
    * consistent about the envelope key, so the caller says where the rows live.
    *

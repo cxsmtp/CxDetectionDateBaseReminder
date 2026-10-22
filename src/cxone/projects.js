@@ -1,7 +1,10 @@
 import { mapWithConcurrency } from './client.js';
 import { withinWindow } from '../window.js';
 
-/** Projects API: GET /api/projects (offset/limit paginated). */
+/** FAE Flush's temporary copies ("<name>_FAE", tagged so): never part of the backlog anywhere else. */
+export const FAE_FLUSH_TAG = 'mz-fae-flush';
+
+/** Projects API: GET /api/projects (offset/limit paginated), without FAE Flush's copies. */
 export async function listProjects(client, { maxItems = 5000 } = {}) {
   const projects = [];
   for await (const project of client.paginate('/api/projects', {
@@ -9,6 +12,7 @@ export async function listProjects(client, { maxItems = 5000 } = {}) {
     limit: 100,
     maxItems,
   })) {
+    if (project?.tags && Object.hasOwn(project.tags, FAE_FLUSH_TAG)) continue;
     projects.push({
       id: project.id,
       name: project.name ?? project.id,
