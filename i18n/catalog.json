@@ -27526,5 +27526,701 @@
   "seen": [
    "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
   ]
+ },
+ "Early features, still being tried out: who wrote the code, what Fusion re-scored, and FAE on the backlog": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "FAE Flush": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Labs: Findings Analysis on the backlog, for every project at once": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Findings Analysis (FAE) only cuts the noise in results found after it is turned on. FAE Flush applies it to the backlog, once, for every project of the tenant at once (a few scans at a time), and leaves each project as it is: its history, triage, automations and integrations stay.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Copy the code": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "The exact code of its latest scan, as Checkmarx One keeps it": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Scan it on <code>name_FAE</code>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "A new project with the same SAST settings, Findings Analysis on": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Compare": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Each SAST result still To verify against the FAE scan's results": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Mark": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Not reported by FAE → <span class=\"flush-pne\">Proposed not exploitable</span>, in the original project": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Revalidate": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Both read again: every one marked is marked, and still not reported": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Remove <code>_FAE</code>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Deleted once checked, or kept: you choose when you start": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Only results still <b>To verify</b> are marked: never one a person or AI Triage already set. A project that looks off stops and asks you (the code it scanned differs, it would mark nearly everything, or the FAE scan did not complete); the rest carry on. It runs on the server: closing the page does not stop it, and after a restart it carries on where it was.": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Scans at once": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Check the projects (no change)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Start FAE Flush": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Starting it needs the Checkmarx One integration permission: it creates, scans and deletes projects with the server's own key.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Pause": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Delete all _FAE projects": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Undo all marks": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Step": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Reported by FAE": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Not reported → Proposed not exploitable": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Revalidated": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "_FAE project": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Start FAE Flush?": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Once each project is checked, its <code>_FAE</code> project:": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Delete it": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "nothing left behind in Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Keep it": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "to look at; delete them all later with one click": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Projects checked": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "projects with a completed SAST scan and their code kept": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "SAST results To verify in them": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "left out (shown below, with why)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "≈ {0} min": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "at {0} scans at once (their last scans' times)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Start FAE Flush for {0} projects": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "{0} to flush, {1} left out.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Will be flushed": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "{0} projects, {1} scans at a time (≈ {2} min). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Proposed not exploitable in the project itself, with a comment naming the FAE scan.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Projects that look off stop and ask you first. Every mark is in the audit log, and Undo puts them all back to To verify.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "false positives marked Proposed not exploitable": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "of {0} results To verify": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "projects finished": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "ask you": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Progress · {0} of {1} finished · {2} scanning": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "<b class=\"flush-pne\">{0}</b> of {1} results To verify marked Proposed not exploitable: not reported by the FAE scan of the same code.": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "{0} revalidated; {1} still reported, left To verify.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "The _FAE projects are kept.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Delete all _FAE projects ({0})": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Copying the code": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Waiting": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "FAE Flush started: it runs on the server, you can close this page.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "FAE Flush started": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "The FAE scan failed. Nothing was marked.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Retry": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Skip": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "✓ {0} of {1}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Asks you": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Marking": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Finished": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Skipped by": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "FAE Flush <span class=\"badge warn\">Beta</span>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Findings Analysis (FAE) on the backlog, for the whole tenant at once: each project's code scanned again on a \"<name>_FAE\" copy with FAE on, and the results it no longer reports marked Proposed not exploitable in the original project, which keeps its history, triage and automations.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation); the Workbench stays the home page.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Anyone who manages the Checkmarx One integration can run it (no Beta permission needed).": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "<span class=\"badge warn\">Before making it final</span> Keep it in Beta until a run on a few of your own projects has marked what you expected: check some of the results it marked in Checkmarx One, and that Undo puts them back.": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "{0} older build(s) are still to be read: Check for updates again to list them.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Settings → Update & recovery"
+  ]
+ },
+ "Update now to MZ-{0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Settings → Update & recovery"
+  ]
+ },
+ "{0} of {1} published versions": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Settings → Update & recovery"
+  ]
+ },
+ "Scanning": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Revalidating": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Removing _FAE": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Undone": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Resume": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Paused": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Accept": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Mark {0} anyway": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Each _FAE project is deleted once checked.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Start FAE Flush for {0} project": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "≈ {0} h": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "No completed scan.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Its latest scan has no completed SAST scan (FAE is for SAST results).": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Checkmarx One does not keep the code of its latest scan.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "The FAE scan counted {0} lines of code against {1} in the project's latest scan: it may not be the same code.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "It would mark {0} of {1} results To verify (more than {2}%).": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "The FAE scan reported {0} of its {1} results that the project does not have.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "The FAE scan was canceled. Nothing was marked.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "The FAE scan only partly completed. Nothing was marked.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "The FAE scan has been running for more than {0} hours. Nothing was marked.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Revalidation: {0} of {1} results marked are not as expected (changed since, or reported after all).": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "The server is not connected to Checkmarx One: an Admin connects it under Settings → Checkmarx One.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Checking every project: its latest scan, whether its code is kept, and its results To verify…": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Checking the projects…": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Checking the projects": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Starting FAE Flush…": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Putting the marked results back to To verify…": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "FAE Flush undone": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Deleting the _FAE projects…": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "_FAE projects deleted": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "{0} results back to To verify.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "{0} results back to To verify; {1} changed since, left as they are.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "{0} _FAE projects deleted.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "{0} _FAE project deleted.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "{0} _FAE projects deleted; {1} could not be.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Undo FAE Flush?": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "The {0} results it marked Proposed not exploitable go back to To verify, apart from any someone changed since (those stay as they are).": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Delete all {0} _FAE projects from Checkmarx One?": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "The projects FAE Flush made, and their scans. Your own projects and the results marked in them are not touched.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Findings Analysis on the backlog, for every project at once": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush, Settings → Beta features"
+  ]
+ },
+ "Comparing": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
  }
 }
