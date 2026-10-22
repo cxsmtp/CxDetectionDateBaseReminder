@@ -1501,19 +1501,24 @@
                   <h3>Credit pool <span class="badge muted">Admin</span></h3>
                   <a href="#/credits" class="link-arrow">Usage by project and over time →</a>
                 </div>
-                <p class="hint wide">The most AI credits this app may spend. 0 means no limit.</p>
-                <div class="grid2">
-                  <label class="field">
-                    <span>Pool size, in credits</span>
-                    <input id="ai-limit" type="number" min="0" step="1" inputmode="numeric" />
-                  </label>
-                  <label class="field">
-                    <span>Refills</span>
-                    <select id="ai-pool-period">
-                      <option value="month">Every month, on the 1st (UTC)</option>
-                      <option value="all">Never — one pool</option>
-                    </select>
-                  </label>
+                <p class="hint wide">The most AI credits this app may spend: never more than the tenant has left in Checkmarx One. 0: up to what the tenant has left.</p>
+                <div class="pool-tenant">
+                  <section class="fusion-card" id="pool-tenant-card" aria-live="polite"><h4>Checkmarx One tenant</h4><p class="hint">Loading…</p></section>
+                  <section class="fusion-card pool-size-card">
+                    <h4>This app's pool</h4>
+                    <label class="field">
+                      <span>Pool size, in credits <small class="hint" id="ai-limit-max"></small></span>
+                      <input id="ai-limit" type="number" min="0" step="1" inputmode="numeric" />
+                    </label>
+                    <label class="field">
+                      <span>Refills</span>
+                      <select id="ai-pool-period">
+                        <option value="month">Every month, on the 1st (UTC)</option>
+                        <option value="all">Never — one pool</option>
+                      </select>
+                    </label>
+                    <div id="ai-limit-check" class="pool-check" aria-live="polite"></div>
+                  </section>
                 </div>
                 <div id="pool-view" data-view-ok><p class="hint">Loading…</p></div>
               </div>
@@ -2355,6 +2360,15 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   </span>
                   <span class="hint flush-under">Only show: it scans and counts, and changes nothing; you can mark them afterwards.</span>
                 </dd>
+                <dt id="flush-markas-dt" hidden>Mark them as</dt>
+                <dd id="flush-markas-dd" hidden>
+                  <span class="flush-seg" role="radiogroup" aria-label="Mark them as">
+                    <label><input type="radio" name="flush-markas" value="pne" checked /><span>Proposed not exploitable</span></label>
+                    <label><input type="radio" name="flush-markas" value="ne" /><span>Not exploitable</span></label>
+                  </span>
+                  <span class="hint flush-under" id="flush-markas-hint">Proposed: a person confirms each one later (recommended). Not exploitable: final at once; they leave every count, and Undo still puts them back to To verify.</span>
+                  <span class="status error flush-under" id="flush-markas-warn" hidden>Not exploitable is final: these results leave every count and dashboard at once, with no one confirming them. Undo puts them back to To verify.</span>
+                </dd>
                 <dt>Stop and ask me if</dt>
                 <dd>
                   <span class="flush-seg" role="radiogroup" aria-label="Stop and ask me if">
@@ -2438,7 +2452,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                     <option value="upload">Download and upload only</option>
                     <option value="git">The repository only</option>
                   </select>
-                  <p class="hint">Automatic: Checkmarx One's own copy, read where it is (nothing passes through this server); if Checkmarx One refuses it, downloaded and uploaded again; else the repository at the latest scan's commit. Each project's timeline says which it used.</p>
+                  <p class="hint">Automatic: Checkmarx One's copy of the code, downloaded with the access token and uploaded again (a temporary file on this server, deleted straight after); else the repository at the latest scan's commit. Checkmarx One's own copy, in place, only when chosen: its scanner cannot pass the access token some tenants want. Each project's timeline says which it used.</p>
                 </div>
               </div>
             </details>
@@ -2451,11 +2465,12 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <div class="actions"><button type="button" id="flush-value-csv" class="sm">Export CSV</button></div>
                 </div>
                 <div class="flush-tiles" id="flush-value-tiles"></div>
+                <p class="hint flush-value-note" id="flush-value-note"></p>
                 <div class="flush-sev" id="flush-value-sev"></div>
                 <h3 class="flush-h3">Runs</h3>
-                <div class="table-wrap"><table class="flush-table" id="flush-value-runs"><thead><tr><th>Started</th><th>By</th><th class="num">Projects</th><th class="num">To verify</th><th class="num">Marked</th><th class="num">Revalidated</th><th class="num">Undone</th></tr></thead><tbody></tbody></table></div>
+                <div class="table-wrap"><table class="flush-table" id="flush-value-runs"><thead><tr><th>Started</th><th>By</th><th class="num">Projects</th><th class="num">To verify</th><th class="num">Marked</th><th class="num">Revalidated</th><th class="num">Undone</th><th class="num">Money saved</th></tr></thead><tbody></tbody></table></div>
                 <h3 class="flush-h3">Projects</h3>
-                <div class="table-wrap"><table class="flush-table" id="flush-value-projects"><thead><tr><th>Project</th><th class="num">Runs</th><th class="num">To verify</th><th class="num">False positives removed</th><th>Last</th></tr></thead><tbody></tbody></table></div>
+                <div class="table-wrap"><table class="flush-table" id="flush-value-projects"><thead><tr><th>Project</th><th class="num">Runs</th><th class="num">To verify</th><th class="num">False positives removed</th><th class="num">Money saved</th><th>Last</th></tr></thead><tbody></tbody></table></div>
               </section>
             </div>
           </div>

@@ -285,6 +285,24 @@ test('stage 9 — credits are given on the Credit Control page too: any Checkmar
   assert.equal(big.status, 400, 'a pool larger than the tenant has left');
   assert.match(big.body.error, /cannot be more than the 28,854 credits this tenant has left in Checkmarx One/);
   assert.equal((await admin('PUT', '/api/settings', { aiTriage: { monthlyCreditLimit: 28854 } })).status, 200, 'all of it fits');
+  let read = (await admin('GET', '/api/credits?fresh=1')).body.pool;
+  assert.deepEqual([read.tenantLeft, read.overTenant], [28854, false], 'a pool of all the tenant has left is within it');
+
+  // The tenant spends elsewhere and has fewer left than the pool: flagged, and the pool can only go down to it.
+  await fetch(`${MOCK}/__tenant-credits?n=100`);
+  read = (await admin('GET', '/api/credits?fresh=1')).body.pool;
+  assert.deepEqual([read.tenantLeft, read.overTenant], [100, true], 'the pool has more left than the tenant');
+  assert.equal(read.unallocated, Math.max(0, 100 - read.outstanding.total), 'nor can projects be given more than the tenant has left');
+  const other = await admin('PUT', '/api/settings', { aiTriage: { monthlyCreditLimit: 28854, adminContact: 'appsec@acme.io' } });
+  assert.equal(other.status, 200, 'the pool left as it was: the rest still saves');
+  const lower = await admin('PUT', '/api/settings', { aiTriage: { monthlyCreditLimit: 20000 } });
+  assert.equal(lower.status, 400, 'changed, but still above what the tenant has left');
+  assert.match(lower.body.error, /cannot be more than the 100 credits this tenant has left/);
+  assert.equal((await admin('PUT', '/api/settings', { aiTriage: { monthlyCreditLimit: 100 } })).status, 200);
+  read = (await admin('GET', '/api/credits')).body.pool;
+  assert.deepEqual([read.size, read.overTenant], [100, false]);
+  await fetch(`${MOCK}/__tenant-credits?n=28854`);
+  await admin('GET', '/api/credits?fresh=1');
   await admin('PUT', '/api/settings', { aiTriage: { monthlyCreditLimit: 0 } });
   const held = (await admin('GET', '/api/credits')).body.pool.outstanding.total;
   const beyond = await admin('POST', '/api/credits/give', { projectId: 'p1', triage: 28854 - held + 1 });

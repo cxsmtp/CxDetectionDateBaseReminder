@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.96 | 510/s, 0 (main 492, 37 in host pauses) | 6.1 s | 546 ms | 782 | 0 vulnerabilities | No new scan (connector needs signing in again); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.95 | 514/s, 0 (main 507, 0) | 6.5 s | 573 ms | 780 | 0 vulnerabilities | No new scan (connector needs signing in again); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.94 | 513/s, 0 (main 494, 0) | 6.8 s | 303 ms | 765 | 0 vulnerabilities | No new scan (checked); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.93 | 509/s, 0 (main 491, 0) | 5.5 s | 646 ms | 758 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -81,6 +82,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.96 — 2026-10-22 18:31 UTC · [#119](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/119)
+
+- **The tenant's credits beside the credit pool.** Settings → AI & credit pool shows a Checkmarx One tenant card next to the pool size: credits left of the tenant's total, used, given to projects and in this pool, and whether Fusion scans charge credits, with **read again**.
+- **The pool stays within what the tenant has left.** The pool size says **at most** what Checkmarx One has left for the tenant and checks it as you type, with **Use** to set exactly that; a pool set above it is refused, and 0 now means up to what the tenant has left.
+- **When the tenant has fewer left than the pool.** If credits are spent elsewhere, Settings and Credits say so in red, and spending, and what can be given to projects, stop at what the tenant has left.
+- **FAE Flush gets the code on every tenant.** Checkmarx One's stored copy of a project's code is now read with the access token, as a browser does on the same host, after a live tenant answered 401 without it; **Automatic** downloads and uploads it, else scans the repository, and **Test one project** says how the address answered.
+- **FAE Flush counts as Checkmarx One does.** One mark covers every result that shares a similarity id, so a run that marked 225 findings changed 239 results: its counts are now in results, with the distinct findings beside them where they differ.
+- **Money saved, and Not exploitable for Admins.** The Value tab leads with the money FAE Flush saved, in the currency and at the rates under Settings → AI & credit pool → Impact, with a money column per run and project; an Admin may have a run mark Not exploitable rather than Proposed not exploitable.
+- **Status.** 510 requests a second for 3000 people at once on 2 vCPU, none failed (main 492, with 37 lost in host pauses on the same host), report opens 6.1 s and triage polls 546 ms at p95, both shorter than main's; a first pair met host pauses on both sides ([performance](docs/performance.md)); 782 tests pass; `npm audit` finds 0 vulnerabilities (ip-address, under the mail reader, moved to 10.7.4 for a moderate advisory published during the release); no new Checkmarx One scan of this code (the connector needs signing in again; [status](docs/status.md)).
 
 ## MZ-01.00.95 — 2026-10-22 16:48 UTC · [#118](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/118)
 

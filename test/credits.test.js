@@ -38,6 +38,14 @@ test('the monthly limit holds, including against reservations still in flight', 
   assert.equal(ledger.remaining(10, sept), 4, 'releasing twice does not double-count');
   assert.equal(ledger.remaining(0, sept), null, '0 means no limit');
   assert.ok(ledger.reserve(1_000, 0, sept));
+  // What the tenant has left in Checkmarx One caps the pool, and no pool at all.
+  const capped = new CreditLedger({ file: tmpFile() });
+  assert.equal(capped.reserve(6, 0, sept, { cap: 5 }), null, 'no pool: still not past what the tenant has left');
+  const five = capped.reserve(5, 100, sept, { cap: 5 });
+  assert.ok(five, 'exactly what the tenant has left fits');
+  assert.equal(capped.reserve(1, 100, sept, { cap: 5 }), null, 'the 5 in flight count against the tenant too');
+  five.release();
+  assert.ok(capped.reserve(1, 100, sept, { cap: null }), 'nothing known about the tenant: the pool alone');
 });
 
 test('triage and remediation credits are totalled separately and together', () => {

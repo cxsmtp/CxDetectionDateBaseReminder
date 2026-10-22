@@ -64,8 +64,8 @@ const branchOfScan = (id) => {
 const VULNS = [['SQL_Injection', 89], ['Reflected_XSS_All_Clients', 79], ['SSRF', 918], ['Path_Traversal', 22], ['Hardcoded_password_in_Connection_String', 798], ['Stored_XSS', 79], ['Command_Injection', 78], ['Missing_HSTS_Header', 319], ['Blind_SQL_Injections', 89], ['Server_Side_Request_Forgery', 918], ['XML_External_Entity', 611], ['Log_Forging', 117]];
 // LAST scans (the AI engine with Fusion off): project 4, and every sixth project after it.
 const lastScanProject = (i) => i % 6 === 4;
-// The tenant's credits left in Checkmarx One (TENANT_CREDITS=n), of 30,000.
-const TENANT_CREDITS = Number(process.env.TENANT_CREDITS || 28854);
+// The tenant's credits left in Checkmarx One (TENANT_CREDITS=n), of 30,000; /__tenant-credits?n= changes them.
+let TENANT_CREDITS = Number(process.env.TENANT_CREDITS || 28854);
 // One of a project's past scans: every other one ran the AI engine (Fusion, or LAST for a LAST project).
 const histScan = (i, k, n) => ({ id: `hist-p${i}-${k}`, projectId: `p${i}`, status: 'Completed', engines: k % 2 ? ['sast', 'sca'] : ['sast', 'sca', 'ai'], metadata: { configs: k % 2 ? [] : [{ type: 'ai', value: { fusionEnabled: lastScanProject(i) ? 'false' : 'true' } }] }, createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() });
 const risksFor = (pid) => allRisksFor(pid).filter((r) => !fixedByRescan(pid, `alt-${r.groupId.replace(/^sim-/, '')}`, r.id));
@@ -109,17 +109,18 @@ http.createServer((req, res) => {
       if (u.pathname === '/__stats') return send(200, { counts, peak, maxSendsPerResult: Math.max(0, ...sentCount.values()), resultsSent: sentCount.size });
       // A project deleted from Checkmarx One: its risks and the project itself answer 404.
       if (u.pathname === '/__gone') { const id = u.searchParams.get('id'); if (u.searchParams.get('on') === '1') gone.add(id); else gone.delete(id); return send(200, { gone: [...gone] }); }
+      if (u.pathname === '/__tenant-credits') { TENANT_CREDITS = Number(u.searchParams.get('n') ?? TENANT_CREDITS); return send(200, { available: TENANT_CREDITS }); }
       if (u.pathname === '/__changing') { changing = u.searchParams.get('on') === '1'; return send(200, { changing }); }
       if (u.pathname === '/__rescans') return send(200, Object.fromEntries(rescans));
       if (u.pathname === '/__reset') { for (const k of Object.keys(counts)) delete counts[k]; peak = 0; return send(200, {}); }
       // FAE Flush: the states predicates set, and the _FAE projects and scans made.
       if (u.pathname === '/__predicates') return send(200, Object.fromEntries(predicates));
       if (u.pathname === '/__fae') return send(200, { projects: Object.fromEntries(faeProjects), scans: Object.fromEntries(faeScans) });
-      // Checkmarx One's signed storage address of a scan's code (what /api/repostore/code/{scanId} redirects to): no access
-      // token (a request with one is refused, as signed storage does), a Range for its first byte answered.
+      // Checkmarx One's signed storage address of a scan's code (what /api/repostore/code/{scanId} redirects to): behind
+      // its gateway, which wants the access token as well as the signature (as on a real tenant), a Range answered.
       if (u.pathname.startsWith('/storage/repostore.mock/')) {
         bump('storage-get');
-        if (req.headers.authorization) return send(400, { message: 'Only one auth mechanism allowed' });
+        if (!/^Bearer \S/.test(req.headers.authorization ?? '')) { res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Unauthorized\n'); }
         if (!u.searchParams.get('X-Amz-Signature')) return send(403, { message: 'AccessDenied' });
         const zip = Buffer.from('PK\x05\x06' + '\0'.repeat(18), 'binary');
         if (req.headers.range) { res.writeHead(206, { 'Content-Type': 'application/octet-stream', 'Content-Range': `bytes 0-0/${zip.length}` }); return res.end(zip.subarray(0, 1)); }

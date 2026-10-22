@@ -204,11 +204,13 @@ export class CxClient {
     const token = await this.#tokens.getToken();
     return this.#limit.run(async () => {
       let r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/zip, application/octet-stream, */*' }, redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) });
-      // A redirect to a signed storage address (the source code): followed without the access token, which signed
-      // storage refuses beside its own signature.
+      // A redirect to a signed storage address (the source code): followed as a browser does, keeping the access token
+      // on Checkmarx One's own host (its gateway wants it) and dropping it elsewhere; the other way once if refused.
       if (r.status >= 300 && r.status < 400 && r.headers.get('location')) {
         await r.body?.cancel().catch(() => {});
-        r = await fetch(new URL(r.headers.get('location'), url), { headers: { Accept: '*/*' }, signal: AbortSignal.timeout(timeoutMs) });
+        const stored = await this.#storage(new URL(r.headers.get('location'), url), token, { Accept: '*/*' }, timeoutMs);
+        r = stored.response;
+        if (!r.ok) throw new CxApiError(`GET the storage address of ${url.pathname} failed: ${stored.tried}`, { status: r.status, path: url.pathname, body: (await r.text().catch(() => '')).slice(0, 500) });
       }
       if (!r.ok) throw new CxApiError(`GET ${url.pathname} failed: ${r.status} ${r.statusText}`, { status: r.status, path: url.pathname, body: (await r.text().catch(() => '')).slice(0, 500) });
       let bytes = 0;
@@ -236,18 +238,36 @@ export class CxClient {
   }
 
   /**
-   * Whether a signed address answers, reading its first byte only (no access token: the address carries its own
-   * signature): { status, type, size, ms }.
+   * Whether a signed address answers, reading its first byte only, the way download() reads it (with the access token
+   * on Checkmarx One's own host): { status, type, size, auth: 'token' | 'none', tried, ms }.
    */
   async probeUrl(address, { timeoutMs = 30_000 } = {}) {
     const started = Date.now();
+    const token = await this.#tokens.getToken();
     return this.#limit.run(async () => {
-      const r = await fetch(new URL(address), { headers: { Range: 'bytes=0-0' }, signal: AbortSignal.timeout(timeoutMs) });
+      const { response: r, auth, tried } = await this.#storage(new URL(address), token, { Range: 'bytes=0-0' }, timeoutMs);
       const range = r.headers.get('content-range') ?? '';
       const size = Number(range.split('/')[1] ?? r.headers.get('content-length'));
       await r.body?.cancel().catch(() => {});
-      return { status: r.status, type: r.headers.get('content-type') ?? '', size: Number.isFinite(size) ? size : null, ms: Date.now() - started };
+      return { status: r.status, type: r.headers.get('content-type') ?? '', size: Number.isFinite(size) ? size : null, auth, tried, ms: Date.now() - started };
     });
+  }
+
+  /**
+   * GET a storage address as a browser follows a redirect to it: with the access token on Checkmarx One's own host
+   * (some tenants' gateway refuses it without), without it elsewhere (plain signed storage refuses a second
+   * credential). Refused (401, 403 or 400), it is tried once the other way.
+   * { response, auth: 'token' | 'none', tried: '401 with the access token, 403 without' }.
+   */
+  async #storage(target, token, headers, timeoutMs) {
+    const own = target.host === new URL(this.baseUrl).host;
+    const get = (withToken) => fetch(target, { headers: { ...headers, ...(withToken ? { Authorization: `Bearer ${token}` } : {}) }, signal: AbortSignal.timeout(timeoutMs) });
+    const how = (withToken) => (withToken ? 'with the access token' : 'without it');
+    const first = await get(own);
+    if (![400, 401, 403].includes(first.status)) return { response: first, auth: own ? 'token' : 'none', tried: `${first.status} ${how(own)}` };
+    await first.body?.cancel().catch(() => {});
+    const second = await get(!own);
+    return { response: second, auth: own ? 'none' : 'token', tried: `${first.status} ${how(own)}, ${second.status} ${how(!own)}` };
   }
 
   /**

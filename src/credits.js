@@ -163,12 +163,14 @@ export class CreditLedger {
    * Hold `credits` against the credit pool (`limit`, 0 = no limit; `period`
    * 'month' refills monthly, 'all' never) and, when
    * `allowance` is given, against that project's allocation for `kind`.
+   * `cap`, when given, is what the tenant has left in Checkmarx One: the pool never spends past it.
    * Returns a reservation to release once the request is settled, or null
-   * when either would be exceeded.
+   * when any would be exceeded.
    */
-  reserve(credits, limit, now = new Date(), { projectId, kind = 'triage', allowance, period = 'month' } = {}) {
+  reserve(credits, limit, now = new Date(), { projectId, kind = 'triage', allowance, period = 'month', cap = null } = {}) {
     const monthLeft = limit > 0 ? limit - this.usedInPeriod(period, now).total - this.#reserved : Infinity;
     if (credits > monthLeft) return null;
+    if (cap !== null && cap !== undefined && credits > cap - this.#reserved) return null;
     const key = `${projectId}|${kind}`;
     if (allowance !== undefined && credits > allowance - this.usedBy(projectId, kind) - this.reservedFor(projectId, kind)) {
       return null;

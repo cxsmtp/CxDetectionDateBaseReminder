@@ -100,7 +100,7 @@ import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
 import { PasswordResets, RESET_TTL_MS, maskEmail, resetAllowed } from './password-reset.js';
-import { FaeFlushRunner, FaeFlushStore, FaeHistory, cleanOptions, previewTenant, summaryOf, testProject, valueOf } from './fae-flush.js';
+import { FaeFlushRunner, FaeFlushStore, FaeHistory, NE, cleanOptions, markState, previewTenant, summaryOf, testProject, valueOf } from './fae-flush.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
 import {
   SessionStore,
@@ -2667,9 +2667,10 @@ app.put(
       return res.status(403).json({ error: 'Your role cannot change these settings.', ignored });
     }
     const before = creditSettingsOf(settingsStore.get());
-    // A credit pool larger than the tenant has left in Checkmarx One could never be spent: refused when raised.
+    // The credit pool stays within what the tenant has left in Checkmarx One (read afresh): a pool set or changed
+    // above it is refused. One left as it was saves with the rest; spending stops at what the tenant has left anyway.
     const size = Number(allowed.aiTriage?.monthlyCreditLimit);
-    if (Number.isFinite(size) && size > 0 && size > Number(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0)) {
+    if (Number.isFinite(size) && size > 0 && size !== Number(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0)) {
       const tenant = await tenantCreditsOf(req, { fresh: true });
       if (tenant && size > tenant.available) {
         return res.status(400).json({ error: `The credit pool (${size.toLocaleString('en')}) cannot be more than the ${tenant.available.toLocaleString('en')} credits this tenant has left in Checkmarx One (${(tenant.total ?? tenant.available).toLocaleString('en')} in all, ${(tenant.used ?? 0).toLocaleString('en')} used).`, tenant });
@@ -3994,6 +3995,26 @@ const triageAllowed = (res) => actionAllowed(res, 'enabled');
 /** The credit pool's period: 'month' (refills monthly) or 'all' (one pool). */
 const poolPeriod = (settings = settingsStore.get()) => (settings.aiTriage?.poolPeriod === 'all' ? 'all' : 'month');
 const creditsRemaining = () => creditLedger.remaining(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0, new Date(), poolPeriod());
+
+/** The tenant's credits as last read from Checkmarx One, and this app's spending total then. */
+let tenantSeen = null;
+/**
+ * What the tenant has left in Checkmarx One now: as last read, less what this app has spent since. Null when never
+ * read. A read older than a couple of minutes is refreshed behind, through the session that read it.
+ */
+function tenantLeft() {
+  if (!tenantSeen) return null;
+  if (Date.now() - tenantSeen.at > TENANT_CREDITS_MS && tenantSeen.session?.client) tenantCreditsOf({ session: tenantSeen.session }, { wait: false }).catch(() => {});
+  const spent = creditLedger.usedInPeriod('all').total - tenantSeen.spent;
+  return Math.max(0, tenantSeen.available - Math.max(0, spent));
+}
+/** Why `credits` more cannot be spent: the tenant has too few left in Checkmarx One. Empty when they fit, or nothing is known. */
+function tenantShortfall(credits) {
+  const left = tenantLeft();
+  if (left === null) return '';
+  const free = Math.max(0, left - creditLedger.reserved);
+  return credits > free ? `Checkmarx One has ${free.toLocaleString('en')} credit${free === 1 ? '' : 's'} left for this tenant, ${credits} needed. Ask your administrator.` : '';
+}
 /** "this month's credit pool of 500" / "the credit pool of 500", for messages. */
 const poolName = (limit) => `${poolPeriod() === 'all' ? 'the credit pool' : "this month's credit pool"} of ${limit}`;
 
@@ -4221,7 +4242,7 @@ function creditRefusal(projectId, projectName, kind, credits, limit) {
     const name = poolName(limit);
     return `${name[0].toUpperCase()}${name.slice(1)} is used up — the credit limit for actions from reports (${monthLeft} left, ${credits} needed). Ask your administrator to raise it.`;
   }
-  return '';
+  return tenantShortfall(credits);
 }
 
 /** Lets a report (or the Settings page) check an address really is this server. Never needs a connection. */
@@ -5045,6 +5066,7 @@ app.post(
           projectId,
           kind: 'triage',
           allowance: allocations.balance(projectId).triage.allocated,
+          cap: tenantLeft(),
         });
         if (!reservation) {
           results.push({ alternateIds, ok: false, status: 402, error: 'Credits are busy with another request; try again in a moment.' });
@@ -5432,6 +5454,7 @@ app.post(
         projectId: finding.projectId,
         kind: 'remediation',
         allowance: allocations.balance(finding.projectId).remediation.allocated,
+        cap: tenantLeft(),
       });
       if (!reservation) {
         auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
@@ -6013,11 +6036,12 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
         auditCredit({ ...base, outcome: 'refused', reason: `Not sent: ${stopped}` });
         continue;
       }
-      const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), { period: poolPeriod() });
+      const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), { period: poolPeriod(), cap: tenantLeft() });
       if (!reservation) {
+        const why = tenantShortfall(alternateIds.length) || `${poolName(limit)} is used up (credit limit reached).`;
         failed += group.length;
-        errors.push(`${projectName}: ${poolName(limit)} is used up (credit limit reached).`);
-        auditCredit({ ...base, outcome: 'refused', reason: `${poolName(limit)} is used up (credit limit reached).` });
+        errors.push(`${projectName}: ${why}`);
+        auditCredit({ ...base, outcome: 'refused', reason: why });
         continue;
       }
       const started = Date.now();
@@ -6206,7 +6230,7 @@ async function adminRemediate(session, findings, initiatorsByProject = {}, { act
         auditCredit({ ...base, outcome: 'refused', reason: refusal });
         continue;
       }
-      const reservation = creditLedger.reserve(credits, limit, new Date(), { period: poolPeriod(), projectId, kind: 'remediation', allowance: allocations.balance(projectId).remediation.allocated });
+      const reservation = creditLedger.reserve(credits, limit, new Date(), { period: poolPeriod(), projectId, kind: 'remediation', allowance: allocations.balance(projectId).remediation.allocated, cap: tenantLeft() });
       if (!reservation) {
         failed += group.length;
         errors.push(`${projectName}: credits are busy with another request; try again in a moment.`);
@@ -7507,8 +7531,8 @@ app.delete('/api/tracked-reports/:id', requirePermission('reports.delete'), (req
 app.get('/api/credits', requirePermission('credits.view'), asyncRoute(async (req, res) => {
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
   // What the tenant has left in Checkmarx One: the pool and what projects are given stay within it. Shown as last
-  // read, never waited for here.
-  const tenant = await tenantCreditsOf(req, { wait: false });
+  // read, never waited for here, unless asked to read it again (?fresh=1).
+  const tenant = await tenantCreditsOf(req, req.query.fresh ? { fresh: true } : { wait: false });
   const { aiTriage } = settingsStore.get();
   const list = allocations.list();
   res.json({
@@ -7522,6 +7546,8 @@ app.get('/api/credits', requirePermission('credits.view'), asyncRoute(async (req
     allocations: list,
     relayConnected: Boolean(sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) ?? settingsStore.get().automationApiKey),
     tenant,
+    // Whether Fusion scans charge credits on this tenant, when the Fusion page has read it.
+    fusionCharged: req.session.lastFusion?.tenant?.fusionCredits ?? '',
   });
 }));
 
@@ -8466,6 +8492,7 @@ async function tenantCreditsOf(req, { fresh = false, wait = true } = {}) {
       .catch(() => null)
       .then((value) => {
         session.tenantCredits = { at: Date.now(), value };
+        if (value) tenantSeen = { available: value.available, spent: creditLedger.usedInPeriod('all').total, at: Date.now(), session };
         return value;
       })
       .finally(() => tenantCreditReads.delete(session));
@@ -8491,13 +8518,19 @@ async function tenantRefusal(req, given, pool = creditPool()) {
 
 function creditPool(settings = settingsStore.get(), list = allocations.list()) {
   const period = poolPeriod(settings);
-  return poolSummary({
+  const pool = poolSummary({
     size: settings.aiTriage?.monthlyCreditLimit ?? 0,
     period,
     used: creditLedger.usedInPeriod(period),
     reserved: creditLedger.reserved,
     allocations: list,
   });
+  // What the tenant has left in Checkmarx One bounds the pool: a pool with more left than that is flagged.
+  const left = tenantLeft();
+  const overTenant = left !== null && pool.limited && pool.remaining > left;
+  // Nor can projects be given more than the tenant has left.
+  const unallocated = overTenant ? Math.min(pool.unallocated, Math.max(0, left - pool.outstanding.total)) : pool.unallocated;
+  return { ...pool, unallocated, tenantLeft: left, overTenant };
 }
 
 /** Credits used over a period, for the Credits page: by day / week / month, by kind and by project. */
@@ -10137,16 +10170,16 @@ function faeRunner() {
   return runner;
 }
 const FAE_EVENTS = {
-  started: (d) => `FAE Flush started for ${d.projects} project${d.projects === 1 ? '' : 's'}, ${d.concurrency} scan${d.concurrency === 1 ? '' : 's'} at a time${d.mode === 'report' ? ', reporting only (nothing marked)' : ''}; code: ${d.source}; stops to ask: ${d.sensitivity}; the _FAE projects are ${d.deleteFae ? 'deleted' : 'kept'} once checked.`,
+  started: (d) => `FAE Flush started for ${d.projects} project${d.projects === 1 ? '' : 's'}, ${d.concurrency} scan${d.concurrency === 1 ? '' : 's'} at a time${d.mode === 'report' ? ', reporting only (nothing marked)' : ''}; marks them ${d.markAs === 'ne' ? 'Not exploitable' : 'Proposed not exploitable'}; code: ${d.source}; stops to ask: ${d.sensitivity}; the _FAE projects are ${d.deleteFae ? 'deleted' : 'kept'} once checked.`,
   'scan-started': (d) => `FAE Flush: ${d.project}'s code scanned again with Findings Analysis on ${d.faeProject} (scan ${d.scanId}; code from ${d.code}).`,
   'mark-now': (d) => `FAE Flush: ${d.by} marked the report-only run now: ${d.results} results in ${d.projects} project(s).`,
   'debug': (d) => `FAE Flush debug log turned ${d.on ? 'on' : 'off'} by ${d.by}.`,
   'needs-ok': (d) => `FAE Flush stopped at ${d.project} to ask: ${d.reason}`,
   decided: (d) => `FAE Flush: ${d.by || 'someone'} chose "${d.decision}" for ${d.project}${d.reason ? ` (${d.reason})` : ''}.`,
-  marked: (d) => `FAE Flush marked ${d.marked} of ${d.project}'s ${d.toVerify} results To verify Proposed not exploitable: not reported by the FAE scan ${d.faeScanId}.`,
+  marked: (d) => `FAE Flush marked ${d.marked} of ${d.project}'s ${d.toVerify} results To verify ${d.state ?? 'Proposed not exploitable'}${d.findings !== undefined && d.findings !== d.marked ? ` (${d.findings} findings: Checkmarx One marks every result sharing one)` : ''}: not reported by the FAE scan ${d.faeScanId}.`,
   'fae-deleted': (d) => `FAE Flush deleted ${d.project}_FAE.`,
   'fae-deleted-all': (d) => `FAE Flush: ${d.deleted} _FAE project${d.deleted === 1 ? '' : 's'} deleted${d.failed ? `, ${d.failed} could not be` : ''}.`,
-  finished: (d) => `FAE Flush finished: ${d.marked} of ${d.toVerify} results To verify marked Proposed not exploitable across ${d.projects} projects, ${d.revalidated} revalidated.`,
+  finished: (d) => `FAE Flush finished: ${d.marked} of ${d.toVerify} results To verify marked ${d.state ?? 'Proposed not exploitable'} across ${d.projects} projects, ${d.revalidated} revalidated.`,
   undone: (d) => `FAE Flush undone by ${d.by}: ${d.restored} results back to To verify${d.changedSince ? ` (${d.changedSince} changed since and left as they are)` : ''}.`,
 };
 function faeAudit(event, details) {
@@ -10164,7 +10197,7 @@ function faeView() {
     preview: store.preview,
     previewing: Boolean(store.previewing),
     previewError: store.previewError ?? '',
-    job: job ? { ...job, projects: job.projects.map(({ marked, pending, ...p }) => ({ ...p, markedCount: marked?.length ?? 0 })) } : null,
+    job: job ? { ...job, projects: job.projects.map(({ marked, pending, ...p }) => ({ ...p, markedCount: p.counts?.marked ?? marked?.length ?? 0 })) } : null,
     summary: job ? summaryOf(job) : null,
     debug: { on: runner.debug.on, entries: runner.debug.log.length },
   };
@@ -10193,8 +10226,10 @@ app.post('/api/fae-flush/start', ...faeGuard, asyncRoute(async (req, res) => {
   if (!integrationSession()) return res.status(409).json({ error: 'Connect the server to Checkmarx One first (Settings → Checkmarx One).' });
   const ids = Array.isArray(req.body?.projectIds) ? new Set(req.body.projectIds.map(String)) : null;
   const preview = runner.store.preview && { ...runner.store.preview, projects: runner.store.preview.projects.filter((p) => !ids || ids.has(p.id)) };
+  const options = cleanOptions(req.body ?? {});
+  if (options.markAs === 'ne' && !req.permissions.has('faeFlush.notExploitable')) return res.status(403).json({ error: 'Only an Admin can mark them Not exploitable: choose Proposed not exploitable.', permission: 'faeFlush.notExploitable' });
   try {
-    runner.start({ by: req.user?.email ?? '', concurrency: req.body?.concurrency, deleteFae: req.body?.deleteFae, preview, options: cleanOptions(req.body ?? {}) });
+    runner.start({ by: req.user?.email ?? '', concurrency: req.body?.concurrency, deleteFae: req.body?.deleteFae, preview, options });
   } catch (error) {
     return res.status(error.status ?? 400).json({ error: error.message });
   }
@@ -10212,7 +10247,10 @@ app.post('/api/fae-flush/resume', ...faeGuard, (req, res) => {
   res.json(faeView());
 });
 
+/** A run that marks Not exploitable is marked on (Mark anyway, Mark now) by Admins alone. */
+const faeMarkRefused = (req) => (markState(faeRunner().job) === NE && !req.permissions.has('faeFlush.notExploitable') ? 'This run marks them Not exploitable: only an Admin can mark them.' : '');
 app.post('/api/fae-flush/decide', ...faeGuard, (req, res) => {
+  if (String(req.body?.decision) === 'mark' && faeMarkRefused(req)) return res.status(403).json({ error: faeMarkRefused(req), permission: 'faeFlush.notExploitable' });
   try {
     faeRunner().decide(String(req.body?.projectId ?? ''), String(req.body?.decision ?? ''), req.user?.email ?? '');
   } catch (error) {
@@ -10224,6 +10262,7 @@ app.post('/api/fae-flush/decide', ...faeGuard, (req, res) => {
 
 // A report-only run: mark what it reported, now.
 app.post('/api/fae-flush/mark-now', ...faeGuard, (req, res) => {
+  if (faeMarkRefused(req)) return res.status(403).json({ error: faeMarkRefused(req), permission: 'faeFlush.notExploitable' });
   try {
     faeRunner().markReported(req.user?.email ?? '');
   } catch (error) {
