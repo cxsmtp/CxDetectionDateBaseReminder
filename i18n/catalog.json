@@ -29320,5 +29320,23 @@
   "seen": [
    "MZ-01.00.96 › Labs → FAE Flush"
   ]
+ },
+ "Its stored copy (signed download address)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.97 › Labs → FAE Flush"
+  ]
+ },
+ "The upload address takes the code": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.97 › Labs → FAE Flush"
+  ]
+ },
+ "Automatic: Checkmarx One's copy of the code, downloaded and uploaded again with the access token (a temporary file on this server, deleted straight after); else the repository at the latest scan's commit. Each project's timeline says which it used.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.97 › Labs → FAE Flush"
+  ]
  }
 }

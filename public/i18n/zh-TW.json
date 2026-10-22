@@ -4311,6 +4311,9 @@
   "{0} projects, {1} scans at a time (≈ {2} min). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Not exploitable in the project itself, with a comment naming the FAE scan.": "{0} 個專案，每次 {1} 個掃描（≈ {2} 分鐘）。每個專案的程式碼會在以其名稱加上 _FAE 結尾命名、並開啟 Findings Analysis 的新專案上重新掃描；其待驗證結果中 FAE 掃描不再回報者，會在該專案本身中變為「無法利用」，並附上註明該 FAE 掃描的註解。",
   "Only an Admin can mark them Not exploitable: choose Proposed not exploitable.": "只有管理員可以將其標記為「無法利用」：請選擇「建議為無法利用」。",
   "This run marks them Not exploitable: only an Admin can mark them.": "此次執行會將其標記為「無法利用」：只有管理員可以進行此標記。",
-  "<b class=\"flush-pne\">{0}</b> of {1} results To verify marked Not exploitable: not reported by the FAE scan of the same code.": "{1} 筆待驗證結果中，有 <b class=\"flush-pne\">{0}</b> 筆標記為「無法利用」：同一程式碼的 FAE 掃描未回報這些結果。"
+  "<b class=\"flush-pne\">{0}</b> of {1} results To verify marked Not exploitable: not reported by the FAE scan of the same code.": "{1} 筆待驗證結果中，有 <b class=\"flush-pne\">{0}</b> 筆標記為「無法利用」：同一程式碼的 FAE 掃描未回報這些結果。",
+  "Its stored copy (signed download address)": "儲存的副本（簽章下載位址）",
+  "The upload address takes the code": "上傳位址接受程式碼",
+  "Automatic: Checkmarx One's copy of the code, downloaded and uploaded again with the access token (a temporary file on this server, deleted straight after); else the repository at the latest scan's commit. Each project's timeline says which it used.": "自動：使用存取權杖下載 Checkmarx One 保留的程式碼副本，再重新上傳（在此伺服器上產生暫存檔，用完立即刪除）；否則使用儲存庫中最近一次掃描所用的提交。每個專案的時間軸會說明使用了哪一種方式。"
  }
 }

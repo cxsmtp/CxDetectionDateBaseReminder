@@ -4311,6 +4311,9 @@
   "{0} projects, {1} scans at a time (≈ {2} min). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Not exploitable in the project itself, with a comment naming the FAE scan.": "{0} פרויקטים, {1} סריקות בכל פעם (≈ {2} דק׳). הקוד של כל פרויקט נסרק שוב בפרויקט חדש הנקרא על שמו עם _FAE בסופו, ו-Findings Analysis מופעל בו; התוצאות שלו במצב \"לאימות\" שסריקת FAE כבר אינה מדווחת מסומנות במצב \"לא ניתנים לניצול\" בפרויקט עצמו, עם הערה שמציינת את סריקת FAE.",
   "Only an Admin can mark them Not exploitable: choose Proposed not exploitable.": "רק מנהל יכול לסמן אותן במצב \"לא ניתנים לניצול\": בחרו \"הוצעו כלא ניתנים לניצול\".",
   "This run marks them Not exploitable: only an Admin can mark them.": "הרצה זו מסמנת אותן במצב \"לא ניתנים לניצול\": רק מנהל יכול לסמן אותן כך.",
-  "<b class=\"flush-pne\">{0}</b> of {1} results To verify marked Not exploitable: not reported by the FAE scan of the same code.": "<b class=\"flush-pne\">{0}</b> מתוך {1} תוצאות לאימות סומנו במצב \"לא ניתנים לניצול\": סריקת FAE של אותו קוד לא דיווחה עליהן."
+  "<b class=\"flush-pne\">{0}</b> of {1} results To verify marked Not exploitable: not reported by the FAE scan of the same code.": "<b class=\"flush-pne\">{0}</b> מתוך {1} תוצאות לאימות סומנו במצב \"לא ניתנים לניצול\": סריקת FAE של אותו קוד לא דיווחה עליהן.",
+  "Its stored copy (signed download address)": "העותק השמור (כתובת הורדה חתומה)",
+  "The upload address takes the code": "כתובת ההעלאה מקבלת את הקוד",
+  "Automatic: Checkmarx One's copy of the code, downloaded and uploaded again with the access token (a temporary file on this server, deleted straight after); else the repository at the latest scan's commit. Each project's timeline says which it used.": "אוטומטי: העותק של הקוד ב-Checkmarx One, מורד ומועלה מחדש עם אסימון הגישה (קובץ זמני בשרת הזה, שנמחק מיד לאחר מכן); אחרת, המאגר ב-commit של הסריקה האחרונה. ציר הזמן של כל פרויקט מציין במה נעשה שימוש."
  }
 }

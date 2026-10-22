@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { FaeFlushRunner, FaeFlushStore, FaeHistory, valueOf } from '../src/fae-flush.js';
+import { FaeFlushRunner, FaeFlushStore, FaeHistory, cleanOptions, valueOf, whyRefused } from '../src/fae-flush.js';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-unit-'));
 const original = Array.from({ length: 30 }, (_, k) => ({ similarityID: `s${k}`, state: 'TO_VERIFY', severity: 'HIGH' }));
@@ -91,7 +91,7 @@ test('the run is kept on disk and carries on from where it was', async () => {
   assert.equal(again.job.projects[0].counts.marked, 20);
 });
 
-test('automatic: downloaded and uploaded, else the repository; Checkmarx One\'s own copy in place only when chosen', async () => {
+test('automatic: downloaded and uploaded, else the repository; Checkmarx One\'s own copy in place no longer offered', async () => {
   const client = fakeClient({ faeKeeps: 10 });
   const posted = [];
   client.redirectOf = async () => ({ status: 302, location: 'https://cx.example/storage/repostore.x/t/repos/r/scan-1?X-Amz-Expires=900&X-Amz-Signature=s' });
@@ -114,12 +114,8 @@ test('automatic: downloaded and uploaded, else the repository; Checkmarx One\'s 
   assert.deepEqual(p.attempts.filter((a) => a.what.startsWith('code:')).map((a) => [a.what, a.ok]), [['code: download and upload', false], ['code: the repository', true]]);
   assert.match(p.attempts[p.attempts.length - 2].detail, /401 with the access token, 401 without it/, 'the timeline says how the storage address was tried');
 
-  // Chosen under Troubleshoot: Checkmarx One's own copy, in place.
-  posted.length = 0;
-  const chosen = new FaeFlushRunner({ store: new FaeFlushStore({ file: path.join(dir, 'chosen-link.json') }), clientOf: () => client, tmpDir: dir });
-  chosen.start({ by: 'a@acme.io', deleteFae: true, options: { source: 'link' }, preview: { projects: [{ id: 'p1', name: 'Payments', sourceScanId: 'scan-1', loc: 1000, toVerify: 30, codeKept: true }] } });
-  await turns(chosen, 1);
-  assert.deepEqual([posted, chosen.job.projects[0].codeSource], [['link'], 'link']);
+  // Checkmarx One's own copy in place is no longer offered (a live tenant's scanner refuses it): such a run is Automatic.
+  assert.equal(cleanOptions({ source: 'link' }).source, 'auto');
 });
 
 test('report only, then "Mark now"; and how readily it stops to ask', async () => {
@@ -169,4 +165,12 @@ test('one mark covers every result sharing a similarity id: counted as Checkmarx
   const undone = await r.undo('a@acme.io');
   assert.deepEqual(undone, { restored: 25, changedSince: 0 });
   assert.deepEqual([valueOf(history, {}).total.kept, valueOf(history, {}).total.keptFindings], [0, 0]);
+});
+
+test('a refused call says why, in Checkmarx One\'s own words when its answer gives them', () => {
+  const error = (message, body) => Object.assign(new Error(message), { body });
+  assert.equal(whyRefused(error('POST /api/scans failed: 404 Not Found', '{"code":104,"message":"repository not found or no access"}')), 'POST /api/scans failed: 404 Not Found: 104 repository not found or no access');
+  assert.equal(whyRefused(error('PUT upload failed: 401 with the access token', 'Unauthorized\n')), 'PUT upload failed: 401 with the access token: Unauthorized');
+  assert.equal(whyRefused(error('GET x failed: 500', '')), 'GET x failed: 500');
+  assert.equal(whyRefused(error('failed: Unauthorized', 'Unauthorized')), 'failed: Unauthorized', 'not said twice');
 });

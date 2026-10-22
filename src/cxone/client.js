@@ -278,9 +278,22 @@ export class CxClient {
     const { createReadStream, statSync } = await import('node:fs');
     const target = new URL(url);
     const size = statSync(file).size;
+    const token = await this.#tokens.getToken();
+    // As the stored copy is read: with the access token on Checkmarx One's own host (its gateway refuses the upload
+    // without it), without it elsewhere (plain signed storage); refused, once the other way.
+    const own = target.host === new URL(this.baseUrl).host;
+    const how = (withToken) => (withToken ? 'with the access token' : 'without it');
+    const put = (withToken) =>
+      fetch(target, { method: 'PUT', headers: { 'Content-Type': 'application/zip', 'Content-Length': String(size), ...(withToken ? { Authorization: `Bearer ${token}` } : {}) }, body: createReadStream(file), duplex: 'half', signal: AbortSignal.timeout(timeoutMs) });
     return this.#limit.run(async () => {
-      const r = await fetch(target, { method: 'PUT', headers: { 'Content-Type': 'application/zip', 'Content-Length': String(size) }, body: createReadStream(file), duplex: 'half', signal: AbortSignal.timeout(timeoutMs) });
-      if (!r.ok) throw new CxApiError(`PUT upload failed: ${r.status} ${r.statusText}`, { status: r.status, path: target.pathname, body: (await r.text().catch(() => '')).slice(0, 500) });
+      let r = await put(own);
+      let tried = `${r.status} ${how(own)}`;
+      if ([400, 401, 403].includes(r.status)) {
+        await r.body?.cancel().catch(() => {});
+        r = await put(!own);
+        tried += `, ${r.status} ${how(!own)}`;
+      }
+      if (!r.ok) throw new CxApiError(`PUT upload failed: ${tried}`, { status: r.status, path: target.pathname, body: (await r.text().catch(() => '')).slice(0, 500) });
       return size;
     });
   }

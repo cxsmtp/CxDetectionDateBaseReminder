@@ -4311,6 +4311,9 @@
   "{0} projects, {1} scans at a time (≈ {2} min). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Not exploitable in the project itself, with a comment naming the FAE scan.": "プロジェクト{0}件、一度に{1}スキャン（≈ {2}分）。各プロジェクトのコードを、名前の末尾に_FAEを付けた新規プロジェクトでFindings Analysisを有効にして再スキャンします。要検証の結果のうちFAEスキャンで報告されなくなったものは、そのプロジェクト自体で悪用不可となり、そのFAEスキャンを示すコメントが付きます。",
   "Only an Admin can mark them Not exploitable: choose Proposed not exploitable.": "悪用不可とマークできるのは管理者のみです：悪用不可（提案）を選択してください。",
   "This run marks them Not exploitable: only an Admin can mark them.": "この実行では悪用不可としてマークします：マークできるのは管理者のみです。",
-  "<b class=\"flush-pne\">{0}</b> of {1} results To verify marked Not exploitable: not reported by the FAE scan of the same code.": "要検証の結果{1}件中<b class=\"flush-pne\">{0}</b>件を悪用不可とマークしました：同じコードのFAEスキャンで報告されなかった結果です。"
+  "<b class=\"flush-pne\">{0}</b> of {1} results To verify marked Not exploitable: not reported by the FAE scan of the same code.": "要検証の結果{1}件中<b class=\"flush-pne\">{0}</b>件を悪用不可とマークしました：同じコードのFAEスキャンで報告されなかった結果です。",
+  "Its stored copy (signed download address)": "保存済みのコピー（署名付きダウンロードアドレス）",
+  "The upload address takes the code": "アップロードアドレスがコードを受け付ける",
+  "Automatic: Checkmarx One's copy of the code, downloaded and uploaded again with the access token (a temporary file on this server, deleted straight after); else the repository at the latest scan's commit. Each project's timeline says which it used.": "自動：Checkmarx Oneが保持するコードのコピーを、アクセストークンでダウンロードして再アップロードします（このサーバー上に一時ファイルを作成し、直後に削除します）。それができない場合は、最新スキャンのコミット時点のリポジトリを使用します。どれを使用したかは各プロジェクトのタイムラインに表示されます。"
  }
 }
