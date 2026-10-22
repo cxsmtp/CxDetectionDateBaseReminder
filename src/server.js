@@ -2667,9 +2667,10 @@ app.put(
       return res.status(403).json({ error: 'Your role cannot change these settings.', ignored });
     }
     const before = creditSettingsOf(settingsStore.get());
-    // A credit pool larger than the tenant has left in Checkmarx One could never be spent: refused when raised.
+    // The credit pool stays within what the tenant has left in Checkmarx One (read afresh): a pool set or changed
+    // above it is refused. One left as it was saves with the rest; spending stops at what the tenant has left anyway.
     const size = Number(allowed.aiTriage?.monthlyCreditLimit);
-    if (Number.isFinite(size) && size > 0 && size > Number(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0)) {
+    if (Number.isFinite(size) && size > 0 && size !== Number(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0)) {
       const tenant = await tenantCreditsOf(req, { fresh: true });
       if (tenant && size > tenant.available) {
         return res.status(400).json({ error: `The credit pool (${size.toLocaleString('en')}) cannot be more than the ${tenant.available.toLocaleString('en')} credits this tenant has left in Checkmarx One (${(tenant.total ?? tenant.available).toLocaleString('en')} in all, ${(tenant.used ?? 0).toLocaleString('en')} used).`, tenant });
@@ -3994,6 +3995,26 @@ const triageAllowed = (res) => actionAllowed(res, 'enabled');
 /** The credit pool's period: 'month' (refills monthly) or 'all' (one pool). */
 const poolPeriod = (settings = settingsStore.get()) => (settings.aiTriage?.poolPeriod === 'all' ? 'all' : 'month');
 const creditsRemaining = () => creditLedger.remaining(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0, new Date(), poolPeriod());
+
+/** The tenant's credits as last read from Checkmarx One, and this app's spending total then. */
+let tenantSeen = null;
+/**
+ * What the tenant has left in Checkmarx One now: as last read, less what this app has spent since. Null when never
+ * read. A read older than a couple of minutes is refreshed behind, through the session that read it.
+ */
+function tenantLeft() {
+  if (!tenantSeen) return null;
+  if (Date.now() - tenantSeen.at > TENANT_CREDITS_MS && tenantSeen.session?.client) tenantCreditsOf({ session: tenantSeen.session }, { wait: false }).catch(() => {});
+  const spent = creditLedger.usedInPeriod('all').total - tenantSeen.spent;
+  return Math.max(0, tenantSeen.available - Math.max(0, spent));
+}
+/** Why `credits` more cannot be spent: the tenant has too few left in Checkmarx One. Empty when they fit, or nothing is known. */
+function tenantShortfall(credits) {
+  const left = tenantLeft();
+  if (left === null) return '';
+  const free = Math.max(0, left - creditLedger.reserved);
+  return credits > free ? `Checkmarx One has ${free.toLocaleString('en')} credit${free === 1 ? '' : 's'} left for this tenant, ${credits} needed. Ask your administrator.` : '';
+}
 /** "this month's credit pool of 500" / "the credit pool of 500", for messages. */
 const poolName = (limit) => `${poolPeriod() === 'all' ? 'the credit pool' : "this month's credit pool"} of ${limit}`;
 
@@ -4221,7 +4242,7 @@ function creditRefusal(projectId, projectName, kind, credits, limit) {
     const name = poolName(limit);
     return `${name[0].toUpperCase()}${name.slice(1)} is used up — the credit limit for actions from reports (${monthLeft} left, ${credits} needed). Ask your administrator to raise it.`;
   }
-  return '';
+  return tenantShortfall(credits);
 }
 
 /** Lets a report (or the Settings page) check an address really is this server. Never needs a connection. */
@@ -5045,6 +5066,7 @@ app.post(
           projectId,
           kind: 'triage',
           allowance: allocations.balance(projectId).triage.allocated,
+          cap: tenantLeft(),
         });
         if (!reservation) {
           results.push({ alternateIds, ok: false, status: 402, error: 'Credits are busy with another request; try again in a moment.' });
@@ -5432,6 +5454,7 @@ app.post(
         projectId: finding.projectId,
         kind: 'remediation',
         allowance: allocations.balance(finding.projectId).remediation.allocated,
+        cap: tenantLeft(),
       });
       if (!reservation) {
         auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
@@ -6013,11 +6036,12 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
         auditCredit({ ...base, outcome: 'refused', reason: `Not sent: ${stopped}` });
         continue;
       }
-      const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), { period: poolPeriod() });
+      const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), { period: poolPeriod(), cap: tenantLeft() });
       if (!reservation) {
+        const why = tenantShortfall(alternateIds.length) || `${poolName(limit)} is used up (credit limit reached).`;
         failed += group.length;
-        errors.push(`${projectName}: ${poolName(limit)} is used up (credit limit reached).`);
-        auditCredit({ ...base, outcome: 'refused', reason: `${poolName(limit)} is used up (credit limit reached).` });
+        errors.push(`${projectName}: ${why}`);
+        auditCredit({ ...base, outcome: 'refused', reason: why });
         continue;
       }
       const started = Date.now();
@@ -6206,7 +6230,7 @@ async function adminRemediate(session, findings, initiatorsByProject = {}, { act
         auditCredit({ ...base, outcome: 'refused', reason: refusal });
         continue;
       }
-      const reservation = creditLedger.reserve(credits, limit, new Date(), { period: poolPeriod(), projectId, kind: 'remediation', allowance: allocations.balance(projectId).remediation.allocated });
+      const reservation = creditLedger.reserve(credits, limit, new Date(), { period: poolPeriod(), projectId, kind: 'remediation', allowance: allocations.balance(projectId).remediation.allocated, cap: tenantLeft() });
       if (!reservation) {
         failed += group.length;
         errors.push(`${projectName}: credits are busy with another request; try again in a moment.`);
@@ -7507,8 +7531,8 @@ app.delete('/api/tracked-reports/:id', requirePermission('reports.delete'), (req
 app.get('/api/credits', requirePermission('credits.view'), asyncRoute(async (req, res) => {
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
   // What the tenant has left in Checkmarx One: the pool and what projects are given stay within it. Shown as last
-  // read, never waited for here.
-  const tenant = await tenantCreditsOf(req, { wait: false });
+  // read, never waited for here, unless asked to read it again (?fresh=1).
+  const tenant = await tenantCreditsOf(req, req.query.fresh ? { fresh: true } : { wait: false });
   const { aiTriage } = settingsStore.get();
   const list = allocations.list();
   res.json({
@@ -7522,6 +7546,8 @@ app.get('/api/credits', requirePermission('credits.view'), asyncRoute(async (req
     allocations: list,
     relayConnected: Boolean(sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) ?? settingsStore.get().automationApiKey),
     tenant,
+    // Whether Fusion scans charge credits on this tenant, when the Fusion page has read it.
+    fusionCharged: req.session.lastFusion?.tenant?.fusionCredits ?? '',
   });
 }));
 
@@ -8466,6 +8492,7 @@ async function tenantCreditsOf(req, { fresh = false, wait = true } = {}) {
       .catch(() => null)
       .then((value) => {
         session.tenantCredits = { at: Date.now(), value };
+        if (value) tenantSeen = { available: value.available, spent: creditLedger.usedInPeriod('all').total, at: Date.now(), session };
         return value;
       })
       .finally(() => tenantCreditReads.delete(session));
@@ -8491,13 +8518,19 @@ async function tenantRefusal(req, given, pool = creditPool()) {
 
 function creditPool(settings = settingsStore.get(), list = allocations.list()) {
   const period = poolPeriod(settings);
-  return poolSummary({
+  const pool = poolSummary({
     size: settings.aiTriage?.monthlyCreditLimit ?? 0,
     period,
     used: creditLedger.usedInPeriod(period),
     reserved: creditLedger.reserved,
     allocations: list,
   });
+  // What the tenant has left in Checkmarx One bounds the pool: a pool with more left than that is flagged.
+  const left = tenantLeft();
+  const overTenant = left !== null && pool.limited && pool.remaining > left;
+  // Nor can projects be given more than the tenant has left.
+  const unallocated = overTenant ? Math.min(pool.unallocated, Math.max(0, left - pool.outstanding.total)) : pool.unallocated;
+  return { ...pool, unallocated, tenantLeft: left, overTenant };
 }
 
 /** Credits used over a period, for the Credits page: by day / week / month, by kind and by project. */

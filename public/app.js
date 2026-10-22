@@ -2521,6 +2521,7 @@ function renderSettings() {
   $('ai-admin-contact').value = s.aiTriage?.adminContact ?? '';
   $('ai-limit').value = String(s.aiTriage?.monthlyCreditLimit ?? 0);
   $('ai-pool-period').value = s.aiTriage?.poolPeriod === 'all' ? 'all' : 'month';
+  checkPoolLimit();
   const support = s.support ?? {};
   const channel = state.me?.support ?? { mode: 'portal', email: '' };
   for (const box of document.querySelectorAll('input[name="support-mode"]')) box.checked = box.value === (support.mode || channel.mode);
@@ -3341,6 +3342,8 @@ function settingsPayload() {
     delete payload.aiTriage.monthlyCreditLimit;
     delete payload.aiTriage.poolPeriod;
   }
+  // A pool above what the tenant has left is not sent: the rest saves, and the field says why it cannot.
+  if (poolTenant && payload.aiTriage.monthlyCreditLimit > poolTenant.available) delete payload.aiTriage.monthlyCreditLimit;
   if (!can('settings.ai')) {
     const { monthlyCreditLimit, poolPeriod } = payload.aiTriage;
     payload.aiTriage = monthlyCreditLimit === undefined ? undefined : { monthlyCreditLimit, poolPeriod };
@@ -3389,11 +3392,11 @@ let creditTimer = null;
 const fmt = (n) => Number(n ?? 0).toLocaleString();
 const periodText = (pool) => (pool.period === 'all' ? 'one pool, does not refill' : 'refills on the 1st of each month (UTC)');
 
-async function loadPool() {
+async function loadPool({ fresh = false } = {}) {
   clearTimeout(creditTimer);
   if ($('page-settings').hidden) return;
   try {
-    const data = await api('/api/credits');
+    const data = await api(fresh ? '/api/credits?fresh=1' : '/api/credits');
     renderPool(data);
   } catch (error) {
     if (handleAuthLoss(error)) return;
@@ -3412,7 +3415,12 @@ function poolHtml(pool, { compact = false } = {}) {
     { label: 'Given to projects, not used', value: fmt(pool.outstanding.total), detail: `Triage ${fmt(pool.outstanding.triage)} · Remediation ${fmt(pool.outstanding.remediation)}` },
     { label: 'Free to give', value: pool.limited ? fmt(pool.unallocated) : '—', detail: pool.overAllocated ? `Projects hold ${fmt(pool.overAllocated)} more than the pool has left` : 'Can still be allocated to projects', bad: pool.overAllocated > 0 },
   ];
-  const tileHtml = `<div class="stat-tiles">${tiles
+  // Checkmarx One has fewer credits left for the tenant than the pool: spending stops at what the tenant has left.
+  if (pool.overTenant) Object.assign(tiles[2], { detail: `Checkmarx One: ${fmt(pool.tenantLeft)} left for the tenant`, bad: true });
+  const over = pool.overTenant
+    ? `<p class="status error">${escapeHtml(`The pool has ${fmt(pool.remaining)} credits left, but Checkmarx One has only ${fmt(pool.tenantLeft)} left for this tenant: spending stops at ${fmt(pool.tenantLeft)}.`)} <a href="#/settings/ai">${escapeHtml('Lower the pool')}</a></p>`
+    : '';
+  const tileHtml = `${over}<div class="stat-tiles">${tiles
     .map((t) => `<div class="${t.hero ? 'hero' : ''} ${t.bad ? 'bad' : ''}"><span class="label">${escapeHtml(t.label)}</span><span class="value">${escapeHtml(t.value)}</span><span class="detail">${escapeHtml(t.detail)}</span></div>`)
     .join('')}</div>`;
   if (!pool.limited) return compact ? tileHtml : tileHtml;
@@ -3443,10 +3451,70 @@ function renderPool(data) {
     ? '<p class="status error">This server is not connected to Checkmarx One, so reports cannot triage or remediate. Connect it under "Checkmarx One integration" above.</p>'
     : '';
   // What the tenant has left in Checkmarx One: the pool, and what projects are given, stay within it.
-  const t = data.tenant;
-  const tenant = t ? `<p class="hint wide">${escapeHtml(`Checkmarx One: ${fmt(t.available)} credits left for this tenant${t.total !== null ? ` of ${fmt(t.total)}` : ''}${t.used !== null ? ` (${fmt(t.used)} used)` : ''}. The pool cannot be set higher, and projects cannot be given more, than it has left.`)}</p>` : '';
-  $('pool-view').innerHTML = `${warning}${poolHtml(pool)}${tenant}<p class="hint wide">${escapeHtml(pool.limited ? `The pool ${periodText(pool)}.` : 'No pool size set: spending is limited only by what each project is allocated, and what the tenant has left.')} Per project and over time: <a href="#/credits">Credits</a>.</p>`;
+  poolTenant = data.tenant ?? null;
+  renderPoolTenant(data);
+  checkPoolLimit();
+  $('pool-view').innerHTML = `${warning}${poolHtml(pool)}<p class="hint wide">${escapeHtml(pool.limited ? `The pool ${periodText(pool)}.` : 'No pool size set: spending is limited by what each project is allocated, and by what the tenant has left.')} Per project and over time: <a href="#/credits">Credits</a>.</p>`;
 }
+
+/** The tenant's credits as Checkmarx One last said (Settings → AI & credit pool), or null when it did not answer. */
+let poolTenant = null;
+
+/** The Checkmarx One tenant card beside the pool size: what is left, used, given to projects. */
+function renderPoolTenant(data) {
+  const t = data.tenant;
+  const held = data.pool?.outstanding?.total ?? 0;
+  const read = `<small>${t?.readAt ? `<span>${escapeHtml('read')}</span> <time translate="no">${escapeHtml(fmtDateTime(t.readAt))}</time> · ` : ''}<a href="#" id="pool-tenant-read">${escapeHtml('read again')}</a></small>`;
+  if (!t) {
+    $('pool-tenant-card').innerHTML = `<h4>${escapeHtml('Checkmarx One tenant')} ${read}</h4><p class="hint">${escapeHtml('Checkmarx One did not say what this tenant has left. The pool is checked against it when it answers.')}</p>`;
+    return;
+  }
+  const pct = (n) => (t.total ? `${Math.min(100, (n / t.total) * 100).toFixed(2)}%` : '0%');
+  const within = (n) => `<span class="${n <= t.available ? 'ok-text' : 'bad-text'}">${escapeHtml(n <= t.available ? 'within what is left' : 'more than is left')}</span>`;
+  const size = data.pool?.limited ? data.pool.size : 0;
+  const charged = { off: 'not charged on this tenant', reserved: 'credits reserved for each scan' }[data.fusionCharged];
+  const rows = [
+    t.used !== null && ['Used', escapeHtml(`${fmt(t.used)}${t.actionsPerformed !== null ? ` · ${fmt(t.actionsPerformed)} actions` : ''}`)],
+    ['Given to projects', `${escapeHtml(`${fmt(held)} of ${fmt(t.available)}`)} · ${within(held)}`],
+    ["This app's pool", size ? `${escapeHtml(fmt(size))} · ${within(size)}` : escapeHtml('no size: up to what is left')],
+    charged && ['Fusion scans', escapeHtml(charged)],
+  ];
+  $('pool-tenant-card').innerHTML = `<h4>${escapeHtml('Checkmarx One tenant')} ${read}</h4>
+    <div class="fusion-big"><div><b>${escapeHtml(fmt(t.available))}</b><span>${escapeHtml(t.total !== null ? `credits left of ${fmt(t.total)}` : 'credits left')}</span></div></div>
+    ${t.total ? `<div class="fusion-meter" role="img" aria-label="${escapeHtml(`${fmt(t.used ?? 0)} of ${fmt(t.total)} used`)}"><i class="is-used" style="width:${pct(t.used ?? 0)}"></i><i class="is-held" style="width:${pct(held)}"></i></div>` : ''}
+    <dl class="fusion-kv">${rows.filter(Boolean).map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${v}</dd>`).join('')}</dl>`;
+}
+
+/** The pool size against what the tenant has left, as it is typed: within it, or why it cannot be saved. */
+function checkPoolLimit() {
+  const t = poolTenant;
+  const box = $('ai-limit-check');
+  $('ai-limit-max').textContent = t ? `at most ${fmt(t.available)}` : '';
+  const size = Math.floor(Number($('ai-limit').value) || 0);
+  $('ai-limit').classList.toggle('is-invalid', Boolean(t && size > t.available));
+  if (!t) {
+    box.innerHTML = '';
+    return;
+  }
+  if (size <= 0) {
+    box.innerHTML = `<p class="hint">${escapeHtml(`No size: up to the ${fmt(t.available)} credits the tenant has left.`)}</p>`;
+  } else if (size <= t.available) {
+    box.innerHTML = `<p class="hint"><span class="ok-text">✓ <span>${escapeHtml('Within what the tenant has left')}</span></span> · <span>${escapeHtml(`${fmt(t.available - size)} credits stay outside the pool.`)}</span></p>`;
+  } else {
+    box.innerHTML = `<p class="status error"><span>${escapeHtml(`${fmt(size)} is more than the ${fmt(t.available)} credits this tenant has left in Checkmarx One. Set ${fmt(t.available)} or less to save.`)}</span> <button type="button" class="sm" id="ai-limit-fit">${escapeHtml(`Use ${fmt(t.available)}`)}</button></p>`;
+  }
+}
+$('ai-limit').addEventListener('input', checkPoolLimit);
+$('ai-limit-check').addEventListener('click', (event) => {
+  if (!event.target.closest('#ai-limit-fit') || !poolTenant) return;
+  $('ai-limit').value = String(poolTenant.available);
+  $('ai-limit').dispatchEvent(new Event('input', { bubbles: true }));
+});
+$('pool-tenant-card').addEventListener('click', (event) => {
+  if (!event.target.closest('#pool-tenant-read')) return;
+  event.preventDefault();
+  loadPool({ fresh: true });
+});
 
 // ---------------------------------------------------------------------------
 // Settings save as they are typed

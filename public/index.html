@@ -1501,19 +1501,24 @@
                   <h3>Credit pool <span class="badge muted">Admin</span></h3>
                   <a href="#/credits" class="link-arrow">Usage by project and over time →</a>
                 </div>
-                <p class="hint wide">The most AI credits this app may spend. 0 means no limit.</p>
-                <div class="grid2">
-                  <label class="field">
-                    <span>Pool size, in credits</span>
-                    <input id="ai-limit" type="number" min="0" step="1" inputmode="numeric" />
-                  </label>
-                  <label class="field">
-                    <span>Refills</span>
-                    <select id="ai-pool-period">
-                      <option value="month">Every month, on the 1st (UTC)</option>
-                      <option value="all">Never — one pool</option>
-                    </select>
-                  </label>
+                <p class="hint wide">The most AI credits this app may spend: never more than the tenant has left in Checkmarx One. 0: up to what the tenant has left.</p>
+                <div class="pool-tenant">
+                  <section class="fusion-card" id="pool-tenant-card" aria-live="polite"><h4>Checkmarx One tenant</h4><p class="hint">Loading…</p></section>
+                  <section class="fusion-card pool-size-card">
+                    <h4>This app's pool</h4>
+                    <label class="field">
+                      <span>Pool size, in credits <small class="hint" id="ai-limit-max"></small></span>
+                      <input id="ai-limit" type="number" min="0" step="1" inputmode="numeric" />
+                    </label>
+                    <label class="field">
+                      <span>Refills</span>
+                      <select id="ai-pool-period">
+                        <option value="month">Every month, on the 1st (UTC)</option>
+                        <option value="all">Never — one pool</option>
+                      </select>
+                    </label>
+                    <div id="ai-limit-check" class="pool-check" aria-live="polite"></div>
+                  </section>
                 </div>
                 <div id="pool-view" data-view-ok><p class="hint">Loading…</p></div>
               </div>

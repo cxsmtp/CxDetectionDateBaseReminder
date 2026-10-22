@@ -158,7 +158,9 @@ test('a server update keeps people signed in with their fetched data, and keeps 
   assert.equal(me.body.hasScan, true, 'the fetched data came across');
   const verify = await call('POST', '/api/credits/verify', { projectIds: ['p0'], severities: ['CRITICAL', 'HIGH'] });
   assert.equal(verify.status, 200, 'actions on the fetched data work without fetching again');
-  assert.deepEqual((await call('GET', '/api/credits')).body.pool, before, 'every credit is where it was');
+  // What the tenant has left is read again from Checkmarx One after a start, not carried across.
+  const credits = ({ tenantLeft, overTenant, ...pool }) => pool;
+  assert.deepEqual(credits((await call('GET', '/api/credits')).body.pool), credits(before), 'every credit is where it was');
 
   // A crash (no clean stop at all): still signed in afterwards, with the data.
   await sleep(300);

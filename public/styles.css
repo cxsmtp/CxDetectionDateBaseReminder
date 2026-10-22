@@ -3479,6 +3479,15 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 .fusion-over { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin: 4px 0 12px; }
 .fusion-over[hidden] { display: none; }
 @media (max-width: 1100px) { .fusion-over { grid-template-columns: 1fr; } }
+/* Settings → AI & credit pool: the tenant's credits beside the pool size. */
+.pool-tenant { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; margin: 10px 0 14px; }
+.pool-tenant .field { margin-bottom: 10px; }
+.pool-tenant .field small { font-weight: 400; }
+.pool-check { font-size: 13px; line-height: 1.5; }
+.pool-tenant input.is-invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
+.pool-check .status { margin: 0; }
+.pool-check button { margin-inline-start: 6px; }
+@media (max-width: 760px) { .pool-tenant { grid-template-columns: 1fr; } }
 .fusion-card { min-width: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
 .fusion-card h4 { margin: 0 0 8px; font-size: 12px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
 .fusion-card h4 small { text-transform: none; letter-spacing: 0; font-weight: 500; }
