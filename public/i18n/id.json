@@ -4254,6 +4254,7 @@
   "scan partial (Checkmarx One’s own copy)": "pemindaian parsial (salinan milik Checkmarx One)",
   "scan partial (download and upload)": "pemindaian parsial (unduh dan unggah)",
   "scan partial (the repository)": "pemindaian parsial (repositori)",
-  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "Centang proyek di daftar di bawah: coba beberapa dulu. ≈ {0} jam dengan {1} pemindaian sekaligus."
+  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "Centang proyek di daftar di bawah: coba beberapa dulu. ≈ {0} jam dengan {1} pemindaian sekaligus.",
+  "For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.": "Misalnya, kode salinan terlihat berbeda, atau hampir semua hasil dalam suatu proyek akan ditandai. Proyek lain tetap berjalan."
  }
 }

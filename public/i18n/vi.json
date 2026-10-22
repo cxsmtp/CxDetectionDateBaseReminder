@@ -4254,6 +4254,7 @@
   "scan partial (Checkmarx One’s own copy)": "quét một phần (bản sao riêng của Checkmarx One)",
   "scan partial (download and upload)": "quét một phần (tải xuống rồi tải lên)",
   "scan partial (the repository)": "quét một phần (kho mã)",
-  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "Chọn các dự án trong danh sách bên dưới: hãy thử vài dự án trước. ≈ {0} giờ với {1} lần quét cùng lúc."
+  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "Chọn các dự án trong danh sách bên dưới: hãy thử vài dự án trước. ≈ {0} giờ với {1} lần quét cùng lúc.",
+  "For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.": "Ví dụ: mã của bản sao trông khác, hoặc gần như mọi kết quả trong một dự án sẽ được đánh dấu. Các dự án còn lại vẫn tiếp tục."
  }
 }

@@ -4254,6 +4254,7 @@
   "scan partial (Checkmarx One’s own copy)": "imbasan separa (salinan Checkmarx One sendiri)",
   "scan partial (download and upload)": "imbasan separa (muat turun dan muat naik)",
   "scan partial (the repository)": "imbasan separa (repositori)",
-  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "Pilih projek dalam senarai di bawah: cuba beberapa dahulu. ≈ {0} jam dengan {1} imbasan serentak."
+  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "Pilih projek dalam senarai di bawah: cuba beberapa dahulu. ≈ {0} jam dengan {1} imbasan serentak.",
+  "For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.": "Contohnya, kod salinan kelihatan berbeza, atau hampir setiap hasil dalam sesuatu projek akan ditanda. Projek lain terus berjalan."
  }
 }

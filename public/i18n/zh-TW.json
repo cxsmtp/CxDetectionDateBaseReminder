@@ -4254,6 +4254,7 @@
   "scan partial (Checkmarx One’s own copy)": "掃描部分完成（Checkmarx One 保留的副本）",
   "scan partial (download and upload)": "掃描部分完成（下載後上傳）",
   "scan partial (the repository)": "掃描部分完成（儲存庫）",
-  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "請在下方清單中勾選：建議先試幾個。每次 {1} 個掃描，≈ {0} 小時。"
+  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "請在下方清單中勾選：建議先試幾個。每次 {1} 個掃描，≈ {0} 小時。",
+  "For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.": "例如副本的程式碼看起來不同，或某個專案中幾乎所有結果都會被標記。其他專案會繼續進行。"
  }
 }

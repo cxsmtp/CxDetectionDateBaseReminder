@@ -4254,6 +4254,7 @@
   "scan partial (Checkmarx One’s own copy)": "فحص جزئي (نسخة Checkmarx One الخاصة)",
   "scan partial (download and upload)": "فحص جزئي (التنزيل والرفع)",
   "scan partial (the repository)": "فحص جزئي (المستودع)",
-  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "حدّدها في القائمة أدناه: جرّب بضعة مشاريع أولًا. ≈ {0} ساعة بمعدل {1} فحوص في كل مرة."
+  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "حدّدها في القائمة أدناه: جرّب بضعة مشاريع أولًا. ≈ {0} ساعة بمعدل {1} فحوص في كل مرة.",
+  "For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.": "على سبيل المثال، إذا بدا كود النسخة مختلفًا، أو إذا كانت ستوضع علامة على كل النتائج تقريبًا في مشروع ما. تواصل بقية المشاريع العمل."
  }
 }

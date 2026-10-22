@@ -4254,6 +4254,7 @@
   "scan partial (Checkmarx One’s own copy)": "analyse partielle (copie de Checkmarx One)",
   "scan partial (download and upload)": "analyse partielle (téléchargement et téléversement)",
   "scan partial (the repository)": "analyse partielle (le dépôt)",
-  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "Cochez-les dans la liste ci-dessous : essayez-en d'abord quelques-uns. ≈ {0} h à raison de {1} analyses à la fois."
+  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "Cochez-les dans la liste ci-dessous : essayez-en d'abord quelques-uns. ≈ {0} h à raison de {1} analyses à la fois.",
+  "For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.": "Par exemple, si le code de la copie semble différent, ou si presque tous les résultats d'un projet vont être marqués. Les autres projets continuent."
  }
 }

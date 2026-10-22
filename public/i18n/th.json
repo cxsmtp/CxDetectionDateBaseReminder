@@ -4254,6 +4254,7 @@
   "scan partial (Checkmarx One’s own copy)": "สแกนเสร็จบางส่วน (สำเนาของ Checkmarx One เอง)",
   "scan partial (download and upload)": "สแกนเสร็จบางส่วน (ดาวน์โหลดและอัปโหลด)",
   "scan partial (the repository)": "สแกนเสร็จบางส่วน (รีโพซิทอรี)",
-  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "เลือกโปรเจกต์ในรายการด้านล่าง: ลองเพียงไม่กี่โปรเจกต์ก่อน ≈ {0} ชั่วโมง เมื่อสแกนครั้งละ {1} รายการ"
+  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "เลือกโปรเจกต์ในรายการด้านล่าง: ลองเพียงไม่กี่โปรเจกต์ก่อน ≈ {0} ชั่วโมง เมื่อสแกนครั้งละ {1} รายการ",
+  "For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.": "เช่น โค้ดของสำเนาดูแตกต่างไป หรือจะทำเครื่องหมายผลลัพธ์เกือบทั้งหมดในโปรเจกต์หนึ่ง โปรเจกต์อื่นจะทำงานต่อไป"
  }
 }

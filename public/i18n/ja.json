@@ -4254,6 +4254,7 @@
   "scan partial (Checkmarx One’s own copy)": "スキャン一部完了（Checkmarx Oneが保持するコピー）",
   "scan partial (download and upload)": "スキャン一部完了（ダウンロードとアップロード）",
   "scan partial (the repository)": "スキャン一部完了（リポジトリ）",
-  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "下の一覧でチェックを入れてください。まずは少数で試すことをお勧めします。同時に{1}スキャンで ≈ {0}時間です。"
+  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "下の一覧でチェックを入れてください。まずは少数で試すことをお勧めします。同時に{1}スキャンで ≈ {0}時間です。",
+  "For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.": "例：コピーのコードが異なるように見える場合や、プロジェクトのほぼすべての結果をマークすることになる場合。他のプロジェクトは処理を続けます。"
  }
 }

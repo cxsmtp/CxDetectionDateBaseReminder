@@ -4254,6 +4254,7 @@
   "scan partial (Checkmarx One’s own copy)": "Scan unvollständig (eigene Kopie von Checkmarx One)",
   "scan partial (download and upload)": "Scan unvollständig (Herunter- und Hochladen)",
   "scan partial (the repository)": "Scan unvollständig (das Repository)",
-  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "Kreuzen Sie sie in der Liste unten an: Probieren Sie es zuerst mit einigen wenigen. ≈ {0} h bei {1} gleichzeitigen Scans."
+  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "Kreuzen Sie sie in der Liste unten an: Probieren Sie es zuerst mit einigen wenigen. ≈ {0} h bei {1} gleichzeitigen Scans.",
+  "For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.": "Zum Beispiel, wenn der Code der Kopie anders aussieht oder fast jedes Ergebnis eines Projekts markiert würde. Die anderen Projekte laufen weiter."
  }
 }

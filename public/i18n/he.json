@@ -4254,6 +4254,7 @@
   "scan partial (Checkmarx One’s own copy)": "סריקה חלקית (העותק של Checkmarx One עצמו)",
   "scan partial (download and upload)": "סריקה חלקית (הורדה והעלאה)",
   "scan partial (the repository)": "סריקה חלקית (המאגר)",
-  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "בחרו אותם ברשימה למטה: נסו קודם כמה. ≈ {0} שע׳ עם {1} סריקות במקביל."
+  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "בחרו אותם ברשימה למטה: נסו קודם כמה. ≈ {0} שע׳ עם {1} סריקות במקביל.",
+  "For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.": "למשל, אם הקוד של העותק נראה שונה, או אם כמעט כל התוצאות בפרויקט עומדות להיות מסומנות. שאר הפרויקטים ממשיכים."
  }
 }

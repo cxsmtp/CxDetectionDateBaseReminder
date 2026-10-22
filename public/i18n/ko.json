@@ -4254,6 +4254,7 @@
   "scan partial (Checkmarx One’s own copy)": "스캔 일부 완료(Checkmarx One 자체 사본)",
   "scan partial (download and upload)": "스캔 일부 완료(다운로드 후 업로드)",
   "scan partial (the repository)": "스캔 일부 완료(저장소)",
-  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "아래 목록에서 선택하세요. 먼저 몇 개만 시도해 보세요. 한 번에 스캔 {1}개 기준 ≈ {0}시간."
+  "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": "아래 목록에서 선택하세요. 먼저 몇 개만 시도해 보세요. 한 번에 스캔 {1}개 기준 ≈ {0}시간.",
+  "For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.": "예: 사본의 코드가 달라 보이거나, 한 프로젝트의 거의 모든 결과를 지정하게 되는 경우. 다른 프로젝트는 계속 진행됩니다."
  }
 }
