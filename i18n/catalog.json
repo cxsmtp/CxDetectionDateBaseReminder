@@ -28360,5 +28360,623 @@
   "seen": [
    "MZ-01.00.95 › Labs → Fusion results"
   ]
+ },
+ "Value": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "projects with a completed SAST scan whose code can be scanned again": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "{0} of {1}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Tick them in the list below: try a few first. ≈ {0} min at {1} scans at once.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "What to do": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Mark false positives": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Only show what it would mark": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Only show: it scans and counts, and changes nothing; you can mark them afterwards.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Stop and ask me if": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Rarely": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Something looks off": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Often": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Check the projects": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Start FAE Flush ({0} projects)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Mark now": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Click a project to see what it went through: each step, where its code came from, and any error.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Tick all": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Tick none": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Chosen": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Project {0}": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "from its repository (Checkmarx One does not keep its code)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Troubleshoot": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "For when something does not work. Nothing here changes your projects.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Test one project": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Runs every step without creating or changing anything, and says what worked.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Project to test": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Debug log": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Records every call to Checkmarx One: address, request, answer and time (never the access token; signed addresses' signatures hidden). The last {0} calls, until cleared or the server restarts.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Where the code comes from": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Checkmarx One's own copy only": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Download and upload only": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "The repository only": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Automatic: Checkmarx One's own copy, read where it is (nothing passes through this server); if Checkmarx One refuses it, downloaded and uploaded again; else the repository at the latest scan's commit. Each project's timeline says which it used.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Every false positive FAE Flush took off people's hands, kept after each run: still marked Proposed not exploitable (undone ones taken out). Time and money use the figures under Settings → Impact.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Marked": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "False positives removed": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Last": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "{0} results To verify would be marked Proposed not exploitable: not reported by the FAE scan of the same code. Nothing is marked until you select Mark now.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Mark now ({0})": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Ready to mark": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Only show what it would mark: nothing is marked until you select Mark now.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "project made": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "code: Checkmarx One’s own copy": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "scan completed": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "compared": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "marked": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "revalidated": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "copy removed": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Marking: it runs on the server, you can close this page.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Latest completed scan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "SAST in it": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Code kept by Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Its own copy, in place (signed address)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "The signed address answers": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Its repository and commit": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Its own SAST settings, to copy": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "The Findings Analysis setting": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Results To verify": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "The API key may make and delete projects, start scans and change states": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Debug log on: every FAE Flush call to Checkmarx One is recorded.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "false positives removed (still marked)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "of {0} results To verify they were in": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "manual triage saved at {0} min each": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "AI Triage credits not needed": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "code: download and upload": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "code: the repository": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "undone": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "answered: mark": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "answered: skip": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "answered: retry": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "copying": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "scanning": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "comparing": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "marking": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "revalidating": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "cleaning": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "of {0} results To verify marked Proposed not exploitable: not reported by the FAE scan of the same code.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Checking the projects did not finish: {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Check the projects first, then tick them in the list below: try a few first.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Start FAE Flush ({0} project)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Mark {0} results Proposed not exploitable now?": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "The results the report found that the FAE scan no longer reports, in their projects; then revalidated. Undo puts them back.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Check the projects first: then choose one to test.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Debug log off.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "No way to get its code: Checkmarx One does not keep it, and its repository is not known.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "A FAE Flush is already under way: pause or finish it first.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Say whether to delete or keep the _FAE projects once each is checked.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Check the projects first.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Nothing waits to be marked.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "That project is not waiting for an answer.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Nothing to mark: retry or skip it.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Mark, skip or retry.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "No Checkmarx One connection on the server.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "scan failed (Checkmarx One’s own copy)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "scan failed (download and upload)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "scan failed (the repository)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "scan canceled (Checkmarx One’s own copy)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "scan canceled (download and upload)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "scan canceled (the repository)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "scan partial (Checkmarx One’s own copy)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "scan partial (download and upload)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "scan partial (the repository)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Tick them in the list below: try a few first. ≈ {0} h at {1} scans at once.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
  }
 }
