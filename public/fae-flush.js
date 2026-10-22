@@ -173,11 +173,12 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
           return `<tr><td class="flush-tick">${tick}</td><td><b translate="no">${esc(p.name)}</b></td><td>${p.sourceScanId ? `<span translate="no">${esc(p.branch || '')}</span>` : '—'}</td><td class="num">${num(p.loc)}</td><td class="num">${num(p.toVerify)}</td><td>${how}</td></tr>`;
         })
         .join('');
-      // Troubleshoot: the projects to test.
-      const select = $('flush-test-project');
-      const was = select.value;
-      select.innerHTML = preview.projects.map((p) => `<option value="${esc(p.id)}"${p.id === was ? ' selected' : ''} translate="no">${esc(p.name)}</option>`).join('');
     }
+    // Troubleshoot: the projects to test; those of the run when the projects were not checked since a restart.
+    const testable = preview?.projects?.length ? preview.projects : job?.projects ?? [];
+    const select = $('flush-test-project');
+    const was = select.value;
+    select.innerHTML = testable.map((p) => `<option value="${esc(p.id)}"${p.id === was ? ' selected' : ''} translate="no">${esc(p.name)}</option>`).join('');
 
     // The run.
     $('flush-progress').hidden = !job;

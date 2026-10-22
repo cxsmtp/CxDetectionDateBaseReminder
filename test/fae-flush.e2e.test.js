@@ -209,8 +209,11 @@ test('troubleshoot: test one project (nothing made), and a debug log of every ca
   assert.equal(tested.status, 200, JSON.stringify(tested.body));
   const check = Object.fromEntries(tested.body.checks.map((c) => [c.check, c]));
   assert.equal(check['Code kept by Checkmarx One'].ok, true);
-  assert.equal(check['Its own copy, in place (signed address)'].ok, true);
-  assert.match(check['Its own copy, in place (signed address)'].detail, /302 → same host \/storage\/repostore\.mock\/tenant-1\/… · valid 900 s/);
+  assert.equal(check['Its stored copy (signed download address)'].ok, true);
+  assert.match(check['Its stored copy (signed download address)'].detail, /302 → same host \/storage\/repostore\.mock\/tenant-1\/… · valid 900 s/);
+  // The upload address wants the access token too (as on a live tenant): an empty zip, sent with it, accepted.
+  assert.equal(check['The upload address takes the code'].ok, true, check['The upload address takes the code']?.detail);
+  assert.match(check['The upload address takes the code'].detail, /same host \/__upload\/[^ ]+ · an empty zip accepted/);
   assert.equal(check['The signed address answers'].ok, true);
   assert.match(check['The signed address answers'].detail, /^206 with the access token/, 'read as a browser does, with the access token on the same host');
   assert.match(check['Its repository and commit'].detail, /github\.com\/acme\/p3 · main · abc123/);

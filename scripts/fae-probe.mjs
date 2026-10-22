@@ -280,19 +280,29 @@ async function main() {
 
   // Follow the scans for a while.
   const until = Date.now() + WAIT_MIN * 60_000;
+  const waitFrom = Date.now();
   const open = new Set(scans.map((s) => s.id));
+  if (open.size && WAIT_MIN) console.log(`… following ${open.size} scan(s) for up to ${WAIT_MIN} min: a status line every minute`);
+  let lastLine = 0;
   while (open.size && Date.now() < until) {
     await new Promise((r) => setTimeout(r, 20_000));
+    const now = [];
     for (const s of scans.filter((x) => open.has(x.id))) {
       const { response } = await call('GET', `/api/scans/${encodeURIComponent(s.id)}`);
       const d = (await json(response)).data ?? {};
       const status = String(d.status ?? '').toLowerCase();
+      const sastNow = (d.statusDetails ?? []).find((x) => String(x?.name).toLowerCase() === 'sast');
+      now.push(`${s.label}: ${d.status ?? '?'}${sastNow ? ` (SAST ${sastNow.status}${sastNow.details ? `, ${sastNow.details}` : ''})` : ''}`);
       if (['completed', 'failed', 'canceled', 'partial'].includes(status)) {
         open.delete(s.id);
         const detail = (d.statusDetails ?? []).map((x) => `${x.name}: ${x.status}${x.details ? ` (${x.details})` : ''}${x.loc ? ` ${x.loc} LOC` : ''}`).join('; ');
         step(`${s.label} scan ended`, status === 'completed', `${d.status} · ${detail || '—'}`);
         conclusions.push(`${s.label} scan: ${d.status}.`);
       }
+    }
+    if (open.size && Date.now() - lastLine >= 60_000) {
+      lastLine = Date.now();
+      console.log(`  … ${Math.round((Date.now() - waitFrom) / 60_000)} min: ${short(now.join(' · '), 300)}`);
     }
   }
   for (const s of scans.filter((x) => open.has(x.id))) step(`${s.label} scan`, null, WAIT_MIN ? `still running after ${WAIT_MIN} min` : 'started (add --wait <minutes> to follow it)');

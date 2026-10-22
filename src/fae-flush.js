@@ -45,7 +45,9 @@ const WORKING = new Set(['copying', 'scanning', 'comparing', 'marking', 'revalid
 // "reported": compared in a report-only run, waiting for "Mark now".
 const FINISHED = new Set(['done', 'skipped', 'left-out', 'undone', 'reported']);
 /** Where the code comes from: Checkmarx One's own copy in place, downloaded and uploaded, the repository; or each in turn. */
-export const SOURCES = ['auto', 'link', 'upload', 'git'];
+// Checkmarx One's own copy in place ('link') is no longer offered: a live tenant's scanner refuses it (ErrCode=30020
+// invalid upload object name); runs started with it run Automatic.
+export const SOURCES = ['auto', 'upload', 'git'];
 export const SOURCE_LABEL = { link: 'Checkmarx One’s own copy', upload: 'download and upload', git: 'the repository' };
 /** Mark what the FAE scan no longer reports, or only report it (marked later, with "Mark now"). */
 export const MODES = ['mark', 'report'];
@@ -228,6 +230,21 @@ export async function scanResults(client, scanId) {
 }
 
 const keyOf = (r) => text(r?.similarityID ?? r?.similarityId, 80);
+/** A refused call, with Checkmarx One's own reason when its answer gives one ("404 Not Found: repository not found"). */
+export function whyRefused(error) {
+  const body = String(error?.body ?? '').trim();
+  let reason = '';
+  if (body) {
+    try {
+      const parsed = JSON.parse(body);
+      reason = [parsed?.code, parsed?.message ?? parsed?.error ?? parsed?.details].filter((x) => x !== undefined && x !== null && x !== '').map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ');
+    } catch {
+      reason = body;
+    }
+  }
+  reason = text(reason.replace(/\s+/g, ' '), 200);
+  return reason && !String(error?.message ?? '').includes(reason) ? `${error?.message ?? ''}: ${reason}` : String(error?.message ?? error);
+}
 /** A result the FAE scan reported: there, and not judged not exploitable by Findings Analysis itself. */
 const reportedByFae = (r) => ![PNE, 'NOT_EXPLOITABLE'].includes(upper(r?.state));
 
@@ -549,9 +566,8 @@ export class FaeFlushRunner {
   /** The ways to get the project's code to try, in turn: as chosen, else Checkmarx One's own copy, download, the repository. */
   sourcesFor(p) {
     const chosen = this.job.options?.source ?? 'auto';
-    if (chosen !== 'auto') return [chosen];
-    // Automatic: downloaded and uploaded again, else the repository. Checkmarx One's own copy in place only when chosen:
-    // its scanner fetches the signed address without an access token, which some tenants' gateway refuses.
+    if (chosen !== 'auto' && SOURCES.includes(chosen)) return [chosen];
+    // Automatic: downloaded and uploaded again, else the repository.
     return ['upload', 'git'].filter((s) => !(p.failedSources ?? []).includes(s) && (s === 'git' ? Boolean(p.repoUrl) : p.codeKept !== false));
   }
 
@@ -571,8 +587,8 @@ export class FaeFlushRunner {
         this.record('scan-started', { project: p.name, faeProject: `${p.name}${FAE_SUFFIX}`, scanId: p.faeScanId, code: SOURCE_LABEL[source] });
         return;
       } catch (error) {
-        tried.push(`${SOURCE_LABEL[source]}: ${text(error.message, 200)}`);
-        this.attempt(p, `code: ${SOURCE_LABEL[source]}`, false, error.message);
+        tried.push(`${SOURCE_LABEL[source]}: ${text(whyRefused(error), 300)}`);
+        this.attempt(p, `code: ${SOURCE_LABEL[source]}`, false, whyRefused(error));
         (p.failedSources ??= []).push(source);
       }
     }
@@ -799,14 +815,31 @@ export async function testProject(client, projectId, { getLastScans }) {
   add('SAST in it', String(sast?.status ?? '').toLowerCase() === 'completed', sast ? `${text(sast.status, 30)} · ${sastLoc(scan) ?? '?'} lines of code` : 'No SAST scan');
   const kept = await client.request(`/api/repostore/scans/${encodeURIComponent(scanId)}`, { method: 'HEAD', retries: 0 }).then(() => true, (error) => (add('Code kept by Checkmarx One', false, `${error.status ?? ''} ${error.message}`), false));
   if (kept) add('Code kept by Checkmarx One', true, 'HEAD /api/repostore/scans/… answered');
-  const link = await client.redirectOf(`/api/repostore/code/${encodeURIComponent(scanId)}`).catch((error) => (add('Its own copy, in place (signed address)', false, `${error.status ?? ''} ${error.message}`), null));
+  const link = await client.redirectOf(`/api/repostore/code/${encodeURIComponent(scanId)}`).catch((error) => (add('Its stored copy (signed download address)', false, `${error.status ?? ''} ${error.message}`), null));
   if (link) {
     const where = link.location ? new URL(link.location) : null;
     const expires = where ? Number(where.searchParams.get('X-Amz-Expires')) : NaN;
-    add('Its own copy, in place (signed address)', Boolean(where), where ? `${link.status} → ${where.host === new URL(client.baseUrl ?? where.href).host ? 'same host' : where.host} ${where.pathname.split('/').slice(0, 4).join('/')}/…${Number.isFinite(expires) ? ` · valid ${expires} s` : ''}` : `${link.status}, no address`);
+    add('Its stored copy (signed download address)', Boolean(where), where ? `${link.status} → ${where.host === new URL(client.baseUrl ?? where.href).host ? 'same host' : where.host} ${where.pathname.split('/').slice(0, 4).join('/')}/…${Number.isFinite(expires) ? ` · valid ${expires} s` : ''}` : `${link.status}, no address`);
     if (where) {
       const probe = await client.probeUrl(link.location).catch((error) => (add('The signed address answers', false, error.message), null));
       if (probe) add('The signed address answers', probe.status < 400, `${probe.tried} · ${probe.type || '?'}${probe.size !== null ? ` · ${probe.size} bytes` : ''} (first byte only)`);
+    }
+  }
+  // An upload address, and whether it takes code: an empty zip, which no project or scan uses.
+  const upload = await client.request('/api/uploads', { method: 'POST', retries: 0 }).catch((error) => (add('The upload address takes the code', false, whyRefused(error)), null));
+  if (upload) {
+    const url = text(upload?.url, 4000);
+    if (!url) add('The upload address takes the code', false, 'POST /api/uploads gave no address');
+    else {
+      const file = path.join(os.tmpdir(), `fae-test-${randomUUID()}.zip`);
+      fs.writeFileSync(file, Buffer.from('PK\x05\x06' + '\0'.repeat(18), 'binary'));
+      const where = new URL(url);
+      const at = `${where.host === new URL(client.baseUrl ?? url).host ? 'same host' : where.host} ${where.pathname.split('/').slice(0, 3).join('/')}/…`;
+      await client
+        .uploadFile(url, file)
+        .then(() => add('The upload address takes the code', true, `${at} · an empty zip accepted`))
+        .catch((error) => add('The upload address takes the code', false, `${at} · ${whyRefused(error)}`))
+        .finally(() => fs.rm(file, { force: true }, () => {}));
     }
   }
   const git = gitOf(scan);

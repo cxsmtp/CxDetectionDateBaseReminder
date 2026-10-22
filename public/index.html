@@ -2448,11 +2448,10 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div>
                   <select id="flush-source" aria-label="Where the code comes from">
                     <option value="auto" selected>Automatic</option>
-                    <option value="link">Checkmarx One's own copy only</option>
                     <option value="upload">Download and upload only</option>
                     <option value="git">The repository only</option>
                   </select>
-                  <p class="hint">Automatic: Checkmarx One's copy of the code, downloaded with the access token and uploaded again (a temporary file on this server, deleted straight after); else the repository at the latest scan's commit. Checkmarx One's own copy, in place, only when chosen: its scanner cannot pass the access token some tenants want. Each project's timeline says which it used.</p>
+                  <p class="hint">Automatic: Checkmarx One's copy of the code, downloaded and uploaded again with the access token (a temporary file on this server, deleted straight after); else the repository at the latest scan's commit. Each project's timeline says which it used.</p>
                 </div>
               </div>
             </details>
