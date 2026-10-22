@@ -3,7 +3,7 @@
 // project, revalidated, and the copies deleted (or kept, then deleted with one click). Undo puts every mark back.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -18,6 +18,10 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
 const KEY = mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' });
 const children = [];
+// A key of the test's own to sign the FAE Flush activation code (never the maintainer's).
+const keyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-key-'));
+const script = (...args) => execFileSync(process.execPath, ['scripts/activation.mjs', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const publicKey = script('keygen', path.join(keyDir, 'issuer.pem')).split('\n').pop();
 let log = '';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -50,7 +54,7 @@ test.before(async () => {
   const server = spawn(process.execPath, ['src/server.js'], {
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
-      CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', FAE_FLUSH_TICK_MS: '150',
+      CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', FAE_FLUSH_TICK_MS: '150', MZ_ACTIVATION_TEST_KEY: publicKey,
       ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD,
       GITHUB_TOKEN: '', GITLAB_TOKEN: '', AZURE_DEVOPS_TOKEN: '', BITBUCKET_TOKEN: '',
     },
@@ -100,6 +104,20 @@ test('exceptions: other code, nearly everything marked, or many results the proj
   assert.equal(exceptionOf({ counts: { toVerify: 5, notReported: 5, faeReported: 0, extra: 0 } }), null);
   assert.equal(exceptionOf({ counts: { toVerify: 10, notReported: 2, faeReported: 10, extra: 4 } }).code, 'extra');
   assert.equal(summaryOf(null).projects, 0);
+});
+
+test('held back until its activation code is applied, even for Admins', async () => {
+  const locked = await admin('GET', '/api/fae-flush');
+  assert.equal(locked.status, 403);
+  assert.equal(locked.body.locked, true);
+  assert.ok(!(await admin('GET', '/api/me')).body.permissions.includes('feature.faeFlush'));
+  assert.ok(!(await admin('GET', '/api/features')).body.features.some((f) => f.id === 'faeFlush'), 'not even listed under Beta features');
+  const applied = await admin('POST', '/api/activation', { code: script('feature', path.join(keyDir, 'issuer.pem'), 'Acme', 'faeFlush', 'on') });
+  assert.equal(applied.status, 200, JSON.stringify(applied.body));
+  assert.match(applied.body.applied, /FAE Flush \(Labs\) turned on/);
+  assert.equal((await admin('GET', '/api/me')).body.unlocked.faeFlush, true);
+  assert.ok((await admin('GET', '/api/me')).body.permissions.includes('feature.faeFlush'));
+  assert.equal((await admin('GET', '/api/fae-flush')).status, 200);
 });
 
 test('a Beta feature for the Checkmarx One integration: others are refused', async () => {

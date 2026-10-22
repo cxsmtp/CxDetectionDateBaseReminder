@@ -1043,10 +1043,16 @@ function requirePermission(...permissions) {
  * A Beta feature: for people with Beta access, and, once an Admin made it final,
  * for everyone holding the feature's own permission too (src/features.js).
  */
+/** A feature held back for those an activation code has unlocked it for (features.js `unlockedBy`), while it has not. */
+function featureLocked(feature) {
+  return Boolean(feature?.unlockedBy) && !activations.feature(feature.unlockedBy)?.on;
+}
+
 function requireFeature(id) {
   return (req, res, next) =>
     requireSession(req, res, (error) => {
       if (error) return next(error);
+      if (featureLocked(featureById(id))) return res.status(403).json({ error: `“${featureById(id).name}” needs its activation code (Settings → Activation codes).`, locked: true });
       if (mayUse(settingsStore.get(), id, req.permissions)) return next();
       const feature = featureById(id);
       res.status(403).json({ error: `“${feature?.name ?? id}” is a Beta feature: your role needs “Beta features”${isFinal(settingsStore.get(), id) ? '' : ' until an Admin makes it final'}.`, permission: 'beta.use' });
@@ -1170,7 +1176,7 @@ function describeMe(session, user) {
   const held = permissionsFor(user);
   const settings = settingsStore.get();
   // "feature.<id>": what the page shows for each Beta feature this person may use (never checked by the server).
-  const permissions = [...held, ...featureList(settings).filter((f) => mayUse(settings, f.id, held)).map((f) => `feature.${f.id}`)];
+  const permissions = [...held, ...featureList(settings).filter((f) => !featureLocked(f) && mayUse(settings, f.id, held)).map((f) => `feature.${f.id}`)];
   const integration = integrationSession();
   let tenant = '';
   try {
@@ -1200,7 +1206,7 @@ function describeMe(session, user) {
     // The page's languages this person may use (Hebrew only for the people chosen).
     languages: languageAccess.available(allowedLanguages(user.id)),
     // Add-ons a code has unlocked (in date or not): until then the page does not show them.
-    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, impact: Boolean(activations.feature('impact')?.on) },
+    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, impact: Boolean(activations.feature('impact')?.on), faeFlush: Boolean(activations.feature('faeFlush')?.on) },
     // The product licence's end, for the Admins' banner in the last 30 days (src/activation.js).
     licence: held.has('activation.manage') ? (({ until, daysLeft, warn, activation }) => ({ until, daysLeft, warn, activation }))(activations.product()) : null,
     // The organisation's name (given with the terms of use), for what CxMissionZero makes for others.
@@ -4681,7 +4687,7 @@ function activationView(req) {
     // Only the add-ons a code has unlocked (expired ones too, to renew): nothing else is named.
     languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)]).filter(([, s]) => s.on || s.expired)),
     tenants: activations.tenants(),
-    features: Object.fromEntries(['impact'].map((name) => [name, activations.feature(name)]).filter(([, f]) => f)),
+    features: Object.fromEntries(['impact', 'faeFlush'].map((name) => [name, activations.feature(name)]).filter(([, f]) => f)),
     product: activations.product(),
     history: activations.history().slice(0, 10),
   };
@@ -4708,6 +4714,8 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
     what = `${applied.code === 'he' ? 'Hebrew' : applied.code} ${applied.on ? `turned on until ${result.expires.slice(0, 10)}, for the roles with its permission (People & roles)` : 'turned off'}`;
   } else if (result.scope === 'feature:impact') {
     what = `the Cx Credits Calculator's Impact tab ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}` : 'turned off'}`;
+  } else if (result.scope === 'feature:faeFlush') {
+    what = `FAE Flush (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with Beta access` : 'turned off: a run under way pauses'}`;
   } else if (result.scope === 'product') {
     what = `CxMissionZero activated for ${result.org} until ${result.expires.slice(0, 10)}`;
   } else {
@@ -9398,7 +9406,7 @@ app.put('/api/system/update/settings', requirePermission('system.update'), (req,
 app.get('/api/features', requireSession, (req, res) => {
   const settings = settingsStore.get();
   res.json({
-    features: featureList(settings).map((f) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })),
+    features: featureList(settings).filter((f) => !featureLocked(f)).map(({ unlockedBy, ...f }) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })),
     canManage: can(req, 'features.manage'),
   });
 });
@@ -9422,7 +9430,7 @@ app.put('/api/features/:id', requirePermission('features.manage'), (req, res) =>
     scheduler.sync();
   }
   const settings = settingsStore.get();
-  res.json({ features: featureList(settings).map((f) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })), canManage: true });
+  res.json({ features: featureList(settings).filter((f) => !featureLocked(f)).map(({ unlockedBy, ...f }) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })), canManage: true });
 });
 
 /** Everything worth knowing when something is wrong, without secrets: for the Admin, or to send to whoever helps. */
@@ -10213,6 +10221,8 @@ const faeTicking = new WeakSet();
 /** One turn of every tenant's run (or the running tenant's only, from a request). */
 function faeTick(all = false) {
   const turn = () => {
+    // Without its activation code (expired or turned off) nothing more is started; it carries on once unlocked again.
+    if (featureLocked(featureById('faeFlush'))) return;
     const runner = faeRunner();
     if (!runner.job || runner.job.state !== 'running' || faeTicking.has(runner)) return;
     faeTicking.add(runner);

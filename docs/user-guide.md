@@ -1180,7 +1180,7 @@ Its own page under **Labs**: the Risk Hub list of each project whose latest scan
 
 ## Labs: FAE Flush
 
-Findings Analysis (FAE) only cuts the noise in results found after it is turned on: the backlog stays. **FAE Flush** applies it to the backlog once, for every project of the tenant at once (a few scans at a time), and leaves every project as it is: its history, triage, automations and integrations stay. Beta: shown to roles holding **Beta features**; starting it also needs the **Checkmarx One integration** permission, since it creates, scans and deletes projects with the server's own key. Once an Admin makes it final ([Settings → Beta features](#beta-features-admin)) it is the first page under **Act** (FAE Flush, Workbench, Automation); the Workbench stays the home page.
+Findings Analysis (FAE) only cuts the noise in results found after it is turned on: the backlog stays. **FAE Flush** applies it to the backlog once, for every project of the tenant at once (a few scans at a time), and leaves every project as it is: its history, triage, automations and integrations stay. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)): before that it is not in the menu, nor under Settings → Beta features. Then Beta: shown to roles holding **Beta features**; starting it also needs the **Checkmarx One integration** permission, since it creates, scans and deletes projects with the server's own key. Once an Admin makes it final ([Settings → Beta features](#beta-features-admin)) it is the first page under **Act** (FAE Flush, Workbench, Automation); the Workbench stays the home page.
 
 For each project:
 1. **Copy the code**: the exact code of its latest scan, as Checkmarx One keeps it.

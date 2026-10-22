@@ -29,7 +29,7 @@ const [command, ...args] = process.argv.slice(2);
 const b64url = (data) => Buffer.from(data).toString('base64url');
 
 function usage() {
-  console.error('Usage:\n  keygen <private-key-file>\n  issue <private-key-file> "<organisation>" <max-tenants> [months]\n  lang <private-key-file> "<organisation>" he on|off [months]\n  feature <private-key-file> "<organisation>" impact on|off [months]\n  product <private-key-file> <YYYY-MM-DD | months> ["<label>"]\n  show <code>');
+  console.error('Usage:\n  keygen <private-key-file>\n  issue <private-key-file> "<organisation>" <max-tenants> [months]\n  lang <private-key-file> "<organisation>" he on|off [months]\n  feature <private-key-file> "<organisation>" impact|faeFlush on|off [months]\n  product <private-key-file> <YYYY-MM-DD | months> ["<label>"]\n  show <code>');
   process.exit(2);
 }
 
@@ -73,12 +73,12 @@ if (command === 'keygen') {
   console.error(`For ${full.org}: Hebrew ${action === 'activate' ? 'ON' : 'OFF'}, until ${full.expires.slice(0, 10)}.`);
 } else if (command === 'feature') {
   const [file, org, name, onOff, months = '12'] = args;
-  if (!file || !org || name !== 'impact' || !['on', 'off'].includes(onOff)) usage();
+  if (!file || !org || !['impact', 'faeFlush'].includes(name) || !['on', 'off'].includes(onOff)) usage();
   const key = createPrivateKey(fs.readFileSync(file));
   const action = onOff === 'on' ? 'activate' : 'deactivate';
   const { code, full } = makeCode(key, { org: org.trim(), scope: `feature:${name}`, action }, months);
   console.log(code);
-  console.error(`For ${full.org}: the calculator's Impact tab ${action === 'activate' ? 'ON' : 'OFF'}, until ${full.expires.slice(0, 10)}.`);
+  console.error(`For ${full.org}: ${name === 'impact' ? "the calculator's Impact tab" : 'FAE Flush'} ${action === 'activate' ? 'ON' : 'OFF'}, until ${full.expires.slice(0, 10)}.`);
 } else if (command === 'product') {
   const [file, when, org = 'Everyone'] = args;
   if (!file || !when || !org.trim()) usage();

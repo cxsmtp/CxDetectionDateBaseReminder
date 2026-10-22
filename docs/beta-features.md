@@ -258,7 +258,7 @@ ever sent to its own GitHub host.
 
 ## FAE Flush
 
-**Labs → FAE Flush** (from MZ-01.00.95) applies Findings Analysis (FAE) to the backlog of every project of the tenant at once, a few scans at a time, without replacing any project: each keeps its history, triage, automations and integrations. Who may: roles holding **Beta features** see it; starting, pausing, answering, undoing and deleting also need **Checkmarx One integration** (it works with the server's own key). Details for people using it are in the [user guide](user-guide.md#labs-fae-flush).
+**Labs → FAE Flush** (from MZ-01.00.95; only once its activation code is applied, [activation codes](activation-codes.md)) applies Findings Analysis (FAE) to the backlog of every project of the tenant at once, a few scans at a time, without replacing any project: each keeps its history, triage, automations and integrations. Who may: roles holding **Beta features** see it; starting, pausing, answering, undoing and deleting also need **Checkmarx One integration** (it works with the server's own key). Details for people using it are in the [user guide](user-guide.md#labs-fae-flush).
 
 How it works, project by project (`src/fae-flush.js`), with the server's Checkmarx One connection:
 

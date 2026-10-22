@@ -88,6 +88,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **Checked twice, and it asks when something looks off.** Every mark is revalidated by reading both projects again; a project whose FAE scan failed, whose code looks different, or that would mark nearly everything stops and asks (mark anyway, retry or skip) while the rest carry on.
 - **Delete or keep the copies.** Starting asks whether each `_FAE` project is deleted once checked or kept to look at; kept ones go with one click, **Delete all _FAE projects**, any day after, and never show on the Workbench or in reports.
 - **The result, and a way back.** The page says how many false positives were marked Proposed not exploitable, per project and in total, with Export CSV; **Pause**, and **Undo all marks** puts them back to To verify; every step is in the audit log.
+- **Behind an activation code.** FAE Flush appears only once its activation code is applied under Settings → Activation codes; without it, it is not in the menu nor among the Beta features, and a run pauses.
 - **Act's first page once final.** When an Admin makes it final it leaves Labs for the top of Act (FAE Flush, Workbench, Automation); the Workbench stays the home page.
 - **Status.** Measured when it is merged.
 

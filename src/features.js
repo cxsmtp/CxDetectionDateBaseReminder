@@ -57,6 +57,8 @@ export const FEATURES = [
   {
     id: 'faeFlush',
     name: 'FAE Flush',
+    // Not for everyone: only once an activation code from the maintainer has unlocked it (feature:faeFlush).
+    unlockedBy: 'faeFlush',
     summary: 'Findings Analysis (FAE) on the backlog, for the whole tenant at once: each project\'s code scanned again on a "<name>_FAE" copy with FAE on, and the results it no longer reports marked Proposed not exploitable in the original project, which keeps its history, triage and automations.',
     // Once final: whoever manages the Checkmarx One integration (it creates, scans and deletes projects with its key).
     permission: 'integration.cxone',

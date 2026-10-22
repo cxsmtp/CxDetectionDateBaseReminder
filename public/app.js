@@ -636,7 +636,8 @@ const PAGE_PERMS = {
   access: 'iam.view',
   beta: 'beta.use feature.codeAuthors feature.identityMatching',
   fusion: 'beta.use feature.fusionResults',
-  flush: 'beta.use feature.faeFlush',
+  // Only once its activation code has unlocked it: the server then gives feature.faeFlush to whoever may use it.
+  flush: 'feature.faeFlush',
   logs: '',
   help: '', // everyone may ask for help
   calculator: 'projections.use',
@@ -1111,6 +1112,7 @@ function renderActivation(a) {
     ...(p ? [`<div class="act-row"><strong>CxMissionZero</strong><span>${p.active ? '<span class="badge ok">Active</span>' : '<span class="badge warn">Deactivated</span>'} <span>Until the end of</span> <b>${escapeHtml(lastDay)}</b> <span>(UTC)</span>${p.activation ? ` · ${escapeHtml(p.activation.org)}` : ''}${p.warn ? ` <strong class="https-note warn">${p.daysLeft} days left</strong>` : ''}</span></div>`] : []),
     ...(he.on || he.expired ? [`<div class="act-row"><strong>Hebrew</strong><span>${he.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(he.expires))}</b>${he.org ? ` · ${escapeHtml(he.org)}` : ''}` : `<span class="badge warn">Expired</span> <b>${escapeHtml(date(he.expires))}</b>`}</span></div>`] : []),
     ...(a.features?.impact ? [`<div class="act-row"><strong>Cx Credits Calculator: Impact</strong><span>${a.features.impact.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(a.features.impact.expires))}</b>` : a.features.impact.expired ? `<span class="badge warn">Expired</span> <b>${escapeHtml(date(a.features.impact.expires))}</b>` : '<span class="badge muted">Off</span>'}</span></div>`] : []),
+    ...(a.features?.faeFlush ? [`<div class="act-row"><strong>FAE Flush</strong><span>${a.features.faeFlush.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(a.features.faeFlush.expires))}</b>` : a.features.faeFlush.expired ? `<span class="badge warn">Expired</span> <b>${escapeHtml(date(a.features.faeFlush.expires))}</b>` : '<span class="badge muted">Off</span>'}</span></div>`] : []),
     ...(t ? [`<div class="act-row"><strong>Several tenants</strong><span>${t.valid ? '<span class="badge ok">Unlocked</span>' : '<span class="badge warn">Expired</span>'} ${escapeHtml(t.org)} · <span>Up to ${t.maxTenants} tenants</span> · <span>Until</span> <b>${escapeHtml(date(t.expires))}</b>${t.warn ? ` <strong class="https-note warn">${t.daysLeft} days left</strong>` : ''}</span></div>`] : []),
   ];
   if (rows.length === (p ? 1 : 0)) rows.push('<p class="hint">No add-ons are unlocked yet.</p>');
