@@ -447,7 +447,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
           <span class="calc-op" aria-hidden="true">+</span>
           ${step('Still to come', num(P.future), !A.includeFuture ? 'not counted' : `<span>${A.aiDeclinePercent ? `${num(P.arrivals)} new a month now, ${num(A.aiDeclinePercent)}% fewer each month with AI, over ${num(months)} months` : `${num(P.arrivals)} new a month × ${num(months)} months`}</span>${P.selected < P.backlog ? ' <span class="calc-step-note">In the same share per severity as the backlog chosen.</span>' : ''}`, '', 'future')}
           <span class="calc-op" aria-hidden="true">+</span>
-          ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? `${num(A.fusionUpliftPercent)}% more findings` : 'Fusion not in the projection', '', 'fusion')}
+          ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? `${num(A.fusionUpliftPercent)}% more findings` : fusionOff() ? '0% · Fusion left out' : 'Fusion not in the projection', '', 'fusion')}
           <span class="calc-op" aria-hidden="true">−</span>
           ${step('Kept away by FAE', num(P.faeAvoided), `${num(A.faePercent)}% fewer false positives reported`, '', 'fae')}
           <span class="calc-op" aria-hidden="true">=</span>
@@ -458,7 +458,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         <div class="calc-assume calc-edit">
           <label class="check"><input type="checkbox" data-ahead="includeFuture"${A.includeFuture ? ' checked' : ''} /> Count findings still to come</label>
           <label class="calc-assume-num"><span>AI adoption: fewer new findings each month (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="aiDeclinePercent" value="${A.aiDeclinePercent}" /></label>
-          <label class="calc-assume-num"><span>More found by Fusion (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="fusionUpliftPercent" value="${A.fusionUpliftPercent}" /></label>
+          <label class="calc-assume-num"${fusionOff() ? ' title="Fusion is left out of this projection: tick Include Fusion projection at the top to count it."' : ''}><span>More found by Fusion (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="fusionUpliftPercent" value="${fusionOff() ? 0 : A.fusionUpliftPercent}"${fusionOff() ? ' disabled' : ''} /></label>
           <label class="calc-assume-num"><span>FAE: fewer false positives (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="faePercent" value="${A.faePercent}" /></label>
           <button type="button" class="link" data-ahead-reset>Defaults</button>
         </div>
@@ -726,8 +726,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-models').innerHTML = f.models
       .map(
         (m) => `<tr data-model="${esc(m.id)}">
-        <td>${m.source === 'tenant'
-          ? `<span class="calc-model-name" translate="no">${esc(m.name)}</span> <span class="calc-badge">From Checkmarx One</span>${m.description ? `<small class="hint" translate="no">${esc(m.description)}</small>` : ''}`
+        <td>${m.source === 'tenant' || m.source === 'catalog'
+          ? `<span class="calc-model-name" translate="no">${esc(m.name)}</span> <span class="calc-badge">${m.source === 'tenant' ? 'From Checkmarx One' : 'Checkmarx One model'}</span>${m.description ? `<small class="hint" translate="no">${esc(m.description)}</small>` : ''}`
           : `<input type="text" value="${esc(m.name)}" maxlength="80" data-m="name" aria-label="Model name" translate="no" placeholder="Type the model's name, as Checkmarx One shows it" />`}</td>
         <td><input type="text" inputmode="decimal" class="calc-num" value="${m.creditsPer10k ?? ''}" data-m="creditsPer10k" aria-label="Credits per 10K LOC" placeholder="Type the credits" /></td>
         <td><button type="button" class="ghost calc-remove" data-remove-model>Remove</button></td></tr>`,
@@ -832,6 +832,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     fusion().optOut = !on;
     saveFusion();
     renderFusion();
+    // Triage & remediation's "More found by Fusion" follows: 0% while it is left out, its own % again once back.
+    renderTr();
   };
   $('calc-fusion-on').addEventListener('change', (event) => setFusionOn(event.target.checked));
   $('calc-fusion-include').addEventListener('click', () => setFusionOn(true));
@@ -1327,9 +1329,16 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const gone = f.projects.filter((p) => p.source !== 'manual' && !ids.has(p.id)).length;
     f.projects = [...read, ...f.projects.filter((p) => p.source === 'manual')];
     f.readAt = body.readAt;
-    // The tenant's models replace those read before; models typed here stay.
+    // The tenant's models replace those read before; models typed here stay. A model already here by that name
+    // keeps its place (and so the projects set to it) and the credits typed for it.
     if (body.models?.length) {
-      f.models = [...body.models, ...f.models.filter((m) => m.source !== 'tenant' && !body.models.some((t) => t.id === m.id))].slice(0, 20);
+      const named = (n) => String(n ?? '').trim().toLowerCase();
+      const fresh = body.models.map((t) => {
+        const old = f.models.find((m) => m.id === t.id || named(m.name) === named(t.name));
+        return old ? { ...t, id: old.id, creditsPer10k: t.creditsPer10k ?? old.creditsPer10k, description: t.description || old.description } : t;
+      });
+      const taken = new Set(fresh.map((m) => m.id));
+      f.models = [...fresh, ...f.models.filter((m) => m.source !== 'tenant' && !taken.has(m.id))].slice(0, 20);
       if (!f.models.some((m) => m.id === f.defaultModel)) f.defaultModel = f.models[0]?.id ?? null;
     }
     // No number set for any frequency yet: start from the scans each group runs today.
@@ -1513,7 +1522,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const f = currentFusionImpact();
     const { w } = L;
     $('calc-impact-fusion-empty').hidden = Boolean(f);
-    $('calc-impact-fusion-empty').textContent = fusionOff() ? 'Fusion is left out of this projection: tick Include Fusion at the top to count it.' : 'No Fusion projects yet: add them, with their lines of code, on the Fusion tab.';
+    $('calc-impact-fusion-empty').textContent = fusionOff() ? 'Fusion is left out of this projection: tick Include Fusion projection at the top to count it.' : 'No Fusion projects yet: add them, with their lines of code, on the Fusion tab.';
     if (!f) return ($('calc-impact-fusion').innerHTML = '');
     const cash = (n) => esc(money(n, f.settings.currency));
     $('calc-impact-fusion').innerHTML = [

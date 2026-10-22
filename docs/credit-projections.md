@@ -115,7 +115,7 @@ Then the page shows:
    | --- | --- |
    | **Backlog today** | The open findings to triage: every one, unless you choose fewer |
    | **+ Still to come** | New findings a month over the period, falling each month as teams adopt AI. New findings a month are what the backlog grew by over the trend period, plus what was fixed meanwhile (never below 0), per severity. The first month comes at today's pace and each later one 2% below the one before (by default): over 12 months that is about 10.9 months' worth instead of 12. They follow what you chose under **Customize per severity**: each severity's new findings are counted in the same share as its backlog chosen, so with half of High chosen half of High's new findings count, and a severity set to none adds none |
-   | **+ More found by Fusion** | When Fusion is in the projection (**Include Fusion** ticked, and some project counted on the Fusion tab): this % more findings, on the backlog and on what is still to come. 5% by default |
+   | **+ More found by Fusion** | When Fusion is in the projection (**Include Fusion projection** ticked, and some project counted on the Fusion tab): this % more findings, on the backlog and on what is still to come. 5% by default; 0%, and not editable, while Fusion is left out |
    | **− Kept away by FAE** | FAE keeps this % of the new findings (still to come and found by Fusion) from being reported, among the false positives only: it never takes more than the false positives there are, so the true positives do not change. 10% by default |
    | **= To triage** | Each costs its triage credits; the true positives among them are remediated too |
    | **→ Credits** | Split into the backlog today and what is ahead |
@@ -134,7 +134,7 @@ Everything read, uploaded and entered is saved with the customer.
 
 ## Fusion
 
-**Leaving Fusion out.** For a customer not taking Fusion, untick **Include Fusion** under the Fusion figure in the strip at the top. Fusion is then left out of everything: the credits (the tile says **Left out**), the findings Fusion adds to triage & remediation, the Impact tab, the projection report and its PDF summary. The Fusion tab says so at its top, with **Include Fusion** to count it again, and keeps its models, numbers and projects for when it is. The choice is saved with the customer; ticked is the default, and **Start again** ticks it again.
+**Leaving Fusion out.** For a customer not taking Fusion, untick **Include Fusion projection** in the main configuration at the top, beside **Read from Checkmarx One** (ticked by default). Fusion is then left out of everything: the credits (the tile says **Left out**), the findings Fusion adds to triage & remediation (**More found by Fusion** shows 0% and cannot be changed), the Impact tab, the projection report and its PDF summary. The Fusion tab says so at its top, with **Include Fusion projection** to count it again, and keeps its models, numbers and projects for when it is; ticking it again brings back the % it had. The choice is saved with the customer; **Start again** ticks it again.
 
 Fusion is paid in credits **per 10K LOC** (10,000 lines of code) **per scan**, at the rate of the AI model the scan uses. Each project's lines of code are rounded up to whole 10K units **on its own**:
 
@@ -160,8 +160,9 @@ The table lists the projects in the scope, the most often scanned first, 100 at 
 
 **Fusion models** lists each model with its credits per 10K LOC.
 
-- When reading the projects, the calculator also asks Checkmarx One for the Fusion models the tenant offers, their rates and the credits remaining in the tenant. **Checkmarx One does not document an API for these yet**, so the calculator tries the likely places and uses what it finds; if the tenant does not say, nothing is made up.
-- Otherwise, **Add a model** and type the name and rate as Checkmarx One shows them when a Fusion scan is started (for example *Opus-4.7*, 2.5; *Haiku-4.5*, 1.5). A model read from the tenant is marked **From Checkmarx One**. A rate left empty means projects on that model are counted in scans and 10K units, without credits, and the totals say how many.
+- A new customer starts with the models Checkmarx One offers a Fusion scan: **opus-4.7**, **haiku-4.5**, **opus-5.0**, **opus-5.5** and **mythos-5.1** (marked **Checkmarx One model**), their credits per 10K LOC left empty to type in: no Checkmarx One API says them. The standalone calculator starts with the same five.
+- When reading the projects, the calculator asks the tenant which models its **LLM Model** setting offers (`scan.config.ai.llmModel`, `GET /api/configuration/tenant`) and lists those, marked **From Checkmarx One**; a model already listed by that name keeps its place and the credits typed for it. It also reads the credits the tenant has left (`GET /api/credits/info`).
+- Otherwise, **Add a model** and type the name and rate as Checkmarx One shows them when a Fusion scan is started (for example *opus-4.7*, 2.5; *haiku-4.5*, 1.5). A rate left empty means projects on that model are counted in scans and 10K units, without credits, and the totals say how many.
 - When the tenant says how many credits remain, a tile shows it, and whether it is enough for the projection.
 
 ### How many Fusion scans each project needs
@@ -184,7 +185,7 @@ The strip at the top of the page adds both parts together for the customer open:
 | --- | --- |
 | **Projection period** | How many months the projection covers, for both parts |
 | **Triage & remediation** | The credits over the period, split into the backlog today and what is ahead |
-| **Fusion** | The credits of the Fusion scans, once there are projects with lines of code. **Include Fusion**, under it, unticked: **Left out**, and nothing of Fusion counts |
+| **Fusion** | The credits of the Fusion scans, once there are projects with lines of code. **Include Fusion projection** (at the top) unticked: **Left out**, and nothing of Fusion counts |
 | **Extra credits (%)** | A margin to add on top of the two, 0 to 500% (empty is none) |
 | **Total credits required** | Both, with the extra on top |
 | **Credits per bundle** | How many credits one bundle holds: 10,000 unless you change it |
@@ -281,7 +282,7 @@ The calculator can be given to anyone (a partner, a customer, a colleague withou
 
 Both:
 
-- **The same calculator.** They are built, when downloaded, from the files this page runs on: the page itself, its modules (`public/calculator/*.js`), the .xlsx reader, the sample exports and the app's styles (`src/standalone-calculator.js`). So the projection, the Impact, the Fusion estimate, **Include Fusion**, the projection report and its PDF summary are this page's, figure for figure. Customers and reports are checked by the same rules as on the server (`public/calculator/profiles.js`, used by both). **Email the report** is not in them.
+- **The same calculator.** They are built, when downloaded, from the files this page runs on: the page itself, its modules (`public/calculator/*.js`), the .xlsx reader, the sample exports and the app's styles (`src/standalone-calculator.js`). So the projection, the Impact, the Fusion estimate, **Include Fusion projection**, the projection report and its PDF summary are this page's, figure for figure. Customers and reports are checked by the same rules as on the server (`public/calculator/profiles.js`, used by both). **Email the report** is not in them.
 - **Names on the reports.** **Your organisation** and **Prepared by**, at the top, are remembered in that browser.
 - **Kept in the browser.** Customers and reports are kept in the browser's own database (IndexedDB), at most 200 customers and 500 reports, as here. **Back up** downloads them all as one JSON file; **Restore** adds a backup back (same ids replaced, others kept), in that browser or another. A browser that keeps nothing for files opened from disk (some private windows) says so, and keeps them until the page is closed.
 - **Their look.** English, the Command center look in light or dark (the button at the top right, else as the computer is set), with the open-licence fonts Fraunces and IBM Plex inside and their licence (SIL OFL) at the end of the file.

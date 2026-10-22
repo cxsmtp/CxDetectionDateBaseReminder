@@ -2,7 +2,7 @@
 // server (src/projections.js, in the data folder) and in the standalone calculator (in the browser). No
 // Node or browser APIs beyond crypto and TextEncoder, so both can use it.
 
-import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, aheadSettings, cleanScope, creditSummary, fusionSettings, impactSettings, totalsSettings, wholeNumber } from './model.js';
+import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, aheadSettings, cleanScope, creditSummary, fusionSettings, impactSettings, modelsNamed, totalsSettings, wholeNumber } from './model.js';
 import { DEFAULT_ENGINES, cleanEngines } from '../engines.js';
 
 export const MAX_PROFILES = 200;
@@ -189,7 +189,7 @@ export function cleanReportData(value, depth = 0) {
 /** A new customer, its projections empty and its impact from the organisation's defaults. */
 export function newProfile({ name, by = '', impact = {} } = {}) {
   const now = new Date().toISOString();
-  return { id: newId(), name: text(name, 120) || 'New customer', planVersion: 3, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({}), totals: totalsSettings({}), scope: cleanScope({}), impact: impactSettings(impact) };
+  return { id: newId(), name: text(name, 120) || 'New customer', planVersion: 3, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({ models: modelsNamed() }), totals: totalsSettings({}), scope: cleanScope({}), impact: impactSettings(impact) };
 }
 
 /** A customer with what changed applied: the name, the T&R projection, the Fusion projection, the extra % and bundle size, the scope, the impact's assumptions (each optional). */

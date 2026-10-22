@@ -94,8 +94,8 @@ import { SUPPORTING_NOTICE, Terms, cleanName } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
 import { PROBE_DEFAULTS, probeFusion } from './fusion.js';
-import { aiFindings, cleanEngines as cleanFusionEngines, readAiFusion } from './fusion-ai.js';
-import { DEFAULT_PERIOD as FUSION_PERIOD, USAGE_PERIODS, fusionUsage, projectFacts } from './fusion-usage.js';
+import { aiFindings, cleanEngines as cleanFusionEngines, readRiskFusion } from './fusion-ai.js';
+import { DEFAULT_PERIOD as FUSION_PERIOD, USAGE_PERIODS, fusionUsage, projectFacts, scanTypeOf, scanTypes, tenantAi, tenantCredits } from './fusion-usage.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
@@ -1652,15 +1652,15 @@ app.put(
   requireSession,
   asyncRoute(async (req, res) => {
     const patch = {};
-    for (const key of ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages', 'impact', 'look', 'theme', 'accent']) if (key in (req.body ?? {})) patch[key] = req.body[key];
+    for (const key of ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages', 'impact', 'look', 'theme', 'accent', 'scanColours']) if (key in (req.body ?? {})) patch[key] = req.body[key];
     if (patch.language && !languageAccess.isAvailable(String(patch.language), allowedLanguages(req.user.id))) return res.status(400).json({ error: 'That language is not available.' });
     const { before, after } = iam.updateProfile(req.user.id, patch);
     const changed = [
       ...(before.name !== after.name ? ['name'] : []),
       ...Object.keys(after.profile).filter((k) => JSON.stringify(before.profile[k]) !== JSON.stringify(after.profile[k])),
     ];
-    // How the app looks to them (look, light or dark, accent) is theirs alone: never an audit entry.
-    const appearance = ['look', 'theme', 'accent'];
+    // How the app looks to them (look, light or dark, accent, Fusion and LAST colours) is theirs alone: never an audit entry.
+    const appearance = ['look', 'theme', 'accent', 'scanColours'];
     const quiet = changed.every((k) => appearance.includes(k)) || (req.body?.quiet === true && changed.every((k) => k === 'timeZone' || k === 'language'));
     if (changed.length && !quiet) {
       audit.record({ type: 'iam', outcome: 'changed', reason: `${after.email} updated their profile: ${changed.join(', ')}.`, actor: await adminActor(req), details: { before: { name: before.name, ...before.profile }, after: { name: after.name, ...after.profile } } });
@@ -1825,7 +1825,7 @@ app.delete(
  * same rule as changing their role), never themselves (that is Your profile). A new email ends any
  * reset link sent to the old one, and both addresses are told.
  */
-const ADMIN_PROFILE_FIELDS = ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages', 'impact', 'look', 'theme', 'accent'];
+const ADMIN_PROFILE_FIELDS = ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages', 'impact', 'look', 'theme', 'accent', 'scanColours'];
 function managedUser(req) {
   const user = visibleUser(req, req.params.id);
   if (user.id === req.user.id) throw Object.assign(new Error('Change your own profile under Settings → Your profile.'), { status: 400 });
@@ -2656,6 +2656,14 @@ app.put(
       return res.status(403).json({ error: 'Your role cannot change these settings.', ignored });
     }
     const before = creditSettingsOf(settingsStore.get());
+    // A credit pool larger than the tenant has left in Checkmarx One could never be spent: refused when raised.
+    const size = Number(allowed.aiTriage?.monthlyCreditLimit);
+    if (Number.isFinite(size) && size > 0 && size > Number(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0)) {
+      const tenant = await tenantCreditsOf(req, { fresh: true });
+      if (tenant && size > tenant.available) {
+        return res.status(400).json({ error: `The credit pool (${size.toLocaleString('en')}) cannot be more than the ${tenant.available.toLocaleString('en')} credits this tenant has left in Checkmarx One (${(tenant.total ?? tenant.available).toLocaleString('en')} in all, ${(tenant.used ?? 0).toLocaleString('en')} used).`, tenant });
+      }
+    }
     const smtpBefore = smtpFingerprint(settingsStore.get().smtp);
     const saved = settingsStore.save(allowed);
     // A changed mail server is checked (and rolled back if it fails) when the editor leaves Settings, or after a while.
@@ -3301,7 +3309,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
 
   // Who ran each project's *latest* scan (so a rescan moves the reminder to
   // whoever ran it most recently), and the findings: independent, so both at once.
-  const [initiators, result] = await Promise.all([
+  const [initiators, result, types] = await Promise.all([
     collectInitiators(client, req.session.connection, projects, {
       rules: settings.initiators,
       useDirectory: settings.initiators.useDirectory,
@@ -3323,6 +3331,9 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
       admit: hasCode,
       shouldStop,
     }),
+    // Whether each project's latest scan was a Fusion scan, a LAST scan or neither: the Workbench colours its row.
+    // Part of the fetch being waited for (a call per 100 projects), so not queued behind background work.
+    scanTypes(client, Object.fromEntries(projects.map((p) => [p.id, lastScans?.[p.id]]).filter(([, scan]) => scan)), { concurrency: 2, background: false }).catch(() => ({})),
   ]);
   // Stopped part-way, or projects left out: what was read is the data, and only its projects keep their initiators.
   if (result.notRead || result.leftOut) {
@@ -3337,6 +3348,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     summary.initiatorSuggestion = info.suggestedEmail ?? '';
     summary.initiatorConfidence = info.confidence ?? 'none';
     summary.lastScanDate = info.scanDate ?? null;
+    summary.scanType = types[summary.projectId] ?? '';
     summary.url = projectUrl(summary, req.session.connection, settings.links);
   }
   result.initiators = initiators.byProject;
@@ -5896,6 +5908,12 @@ app.post('/api/credits/allocate', requirePermission('credits.allocate'), afterFe
     audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { projectIds: projects.map((p) => p.projectId), pool } });
     return res.status(409).json({ error: `${reason} Raise the pool under Settings → AI & credits.`, pool });
   }
+  const beyond = await tenantRefusal(req, given, pool);
+  if (beyond) {
+    if (changes.length) allocations.save();
+    audit.record({ type: 'allocation', outcome: 'refused', reason: beyond, actor, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { projectIds: projects.map((p) => p.projectId), pool } });
+    return res.status(409).json({ error: beyond, pool });
+  }
 
   for (const { p, triage, remediation, exact: delta } of plan) {
     if (clearExtras === true) allocations.clearExtras(p.projectId);
@@ -7055,6 +7073,12 @@ async function allocateNeeded(req, projects, { wanted, extraTriage, extraRemedia
     audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { ...details, pool } });
     return { error: `${reason} Raise the pool under Settings → AI & credits.`, pool, gone };
   }
+  const beyond = await tenantRefusal(req, given, pool);
+  if (beyond) {
+    allocations.save();
+    audit.record({ type: 'allocation', outcome: 'refused', reason: beyond, actor, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { ...details, pool } });
+    return { error: beyond, pool, gone };
+  }
   for (const { projectId, projectName, triage, remediation } of plan) {
     if (triage) allocations.grant(projectId, projectName, 'triage', triage);
     if (remediation) allocations.grant(projectId, projectName, 'remediation', remediation);
@@ -7467,8 +7491,11 @@ app.delete('/api/tracked-reports/:id', requirePermission('reports.delete'), (req
 });
 
 // Administrator view of AI Triage credits used from reports.
-app.get('/api/credits', requirePermission('credits.view'), (req, res) => {
+app.get('/api/credits', requirePermission('credits.view'), asyncRoute(async (req, res) => {
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
+  // What the tenant has left in Checkmarx One: the pool and what projects are given stay within it. Shown as last
+  // read, never waited for here.
+  const tenant = await tenantCreditsOf(req, { wait: false });
   const { aiTriage } = settingsStore.get();
   const list = allocations.list();
   res.json({
@@ -7481,8 +7508,9 @@ app.get('/api/credits', requirePermission('credits.view'), (req, res) => {
     pool: creditPool(undefined, list),
     allocations: list,
     relayConnected: Boolean(sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) ?? settingsStore.get().automationApiKey),
+    tenant,
   });
-});
+}));
 
 /**
  * Take credits back, from the Credit Control page: what the projects were given
@@ -7581,6 +7609,11 @@ app.post('/api/credits/give', requirePermission('credits.allocate'), asyncRoute(
     const reason = `Only ${pool.unallocated} credit${pool.unallocated === 1 ? '' : 's'} left in the credit pool to give (pool ${pool.size}${pool.period === 'month' ? ' this month' : ''}, ${pool.used.total} used, ${pool.outstanding.total} given to projects and not used yet); ${given} asked for.`;
     audit.record({ type: 'allocation', outcome: 'refused', reason, actor, project: { id: projectId, name: projectName }, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { pool, from: 'credit-control' } });
     return res.status(409).json({ error: `${reason} Raise the pool under Settings → AI & credits.`, pool });
+  }
+  const beyond = await tenantRefusal(req, given, pool);
+  if (beyond) {
+    audit.record({ type: 'allocation', outcome: 'refused', reason: beyond, actor, project: { id: projectId, name: projectName }, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { pool, from: 'credit-control' } });
+    return res.status(409).json({ error: beyond, pool });
   }
 
   const before = allocationSnapshot(projectId);
@@ -8398,6 +8431,51 @@ async function monthlyImpact(now = new Date()) {
 }
 
 /** The credit pool now: size, used (triage / remediation), left, given to projects, free to give. */
+/** How long the tenant's Checkmarx One credits, once read, are taken as they are. */
+const TENANT_CREDITS_MS = 2 * 60 * 1000;
+/** A session's read of the tenant's credits still under way (one at a time). */
+const tenantCreditReads = new WeakMap();
+/**
+ * The tenant's credits in Checkmarx One (GET /api/credits/info), read with this session's connection and kept for a
+ * short while; null when there is no connection or Checkmarx One does not say. Once known, an older figure is
+ * answered at once while it is read again behind; `fresh` waits for a new read (setting the pool), `wait: false`
+ * never waits (a page that only shows it).
+ */
+async function tenantCreditsOf(req, { fresh = false, wait = true } = {}) {
+  const session = req.session;
+  const client = session?.client;
+  if (!client) return null;
+  const kept = session.tenantCredits;
+  if (!fresh && kept && Date.now() - kept.at < TENANT_CREDITS_MS) return kept.value;
+  let read = tenantCreditReads.get(session);
+  if (!read) {
+    read = tenantCredits(client, { background: !fresh })
+      .catch(() => null)
+      .then((value) => {
+        session.tenantCredits = { at: Date.now(), value };
+        return value;
+      })
+      .finally(() => tenantCreditReads.delete(session));
+    tenantCreditReads.set(session, read);
+  }
+  if (fresh) return read;
+  if (kept) return kept.value;
+  return wait ? read : null;
+}
+
+/**
+ * Why giving `given` more credits to projects is refused: projects would then hold more than the tenant has left in
+ * Checkmarx One (what they were given and have not used yet, plus these). Null when it fits, or nothing is known.
+ */
+async function tenantRefusal(req, given, pool = creditPool()) {
+  if (!given) return null;
+  const tenant = await tenantCreditsOf(req);
+  if (!tenant) return null;
+  const held = (pool.outstanding?.total ?? 0) + given;
+  if (held <= tenant.available) return null;
+  return `Checkmarx One has ${tenant.available.toLocaleString('en')} credit${tenant.available === 1 ? '' : 's'} left for this tenant; projects would then hold ${held.toLocaleString('en')} (${(pool.outstanding?.total ?? 0).toLocaleString('en')} given and not used yet, ${given.toLocaleString('en')} more).`;
+}
+
 function creditPool(settings = settingsStore.get(), list = allocations.list()) {
   const period = poolPeriod(settings);
   return poolSummary({
@@ -9686,12 +9764,12 @@ function initiatorLogins(lastScan) {
  * line (applications and projects by name) and its own fetch, apart from the Workbench's. Kept with
  * the session (session.fusionScope and session.lastFusion).
  */
-/** Each Fusion result's link in Checkmarx One: its project's Risk Hub with the result open (resultId = its hash). */
+/** Each Fusion result's link in Checkmarx One: its project's Risk Hub with the risk open, as the Workbench links it. */
 function linkFusion(req, fusion) {
   const { links } = settingsStore.get();
   for (const r of fusion?.results ?? []) {
     if (!r.projectId || r.projectId.startsWith('app:')) continue;
-    r.url = riskUrl({ projectId: r.projectId, id: r.hash || r.resultId, scanner: r.scanner || 'SAST' }, req.session.connection, links, r.scanId);
+    r.url = riskUrl({ projectId: r.projectId, id: r.riskId || r.resultId, scanner: r.scanner || 'SAST' }, req.session.connection, links, r.scanId);
   }
   // Each project's own page in Checkmarx One, to go into its detail there.
   for (const [projectId, p] of Object.entries(fusion?.projects ?? {})) p.url = projectUrl({ projectId }, req.session.connection, links);
@@ -9704,17 +9782,27 @@ function linkFusion(req, fusion) {
  */
 async function loadAiFusion(req, names) {
   const ids = Object.keys(names);
-  const scans = await getLastScans(req.session.client, ids);
+  const client = req.session.client;
+  const scans = await getLastScans(client, ids);
   const trace = fusionTrace(req);
-  const fusion = linkFusion(req, await readAiFusion(req.session.client, ids.map((id) => ({ id, name: names[id] })), scans, { trace }));
-  // Each project's model and lines of code (its latest scan, else its settings), and its AI scans and credits.
-  const shown = Object.keys(fusion.projects);
-  const [facts, usage] = await Promise.all([
-    projectFacts(req.session.client, shown, scans, { trace }).catch((error) => (console.warn(`[fusion] facts: ${logSafe(error.message)}`), {})),
-    fusionUsage(req.session.client, shown.map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period: req.session.fusionPeriod ?? FUSION_PERIOD, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null)),
+  // Each project's latest scan: Fusion, LAST or no AI (its settings say), its model and where that was set, its
+  // lines of code, and what its steps say the AI engine added. The tenant's AI settings and credits beside them.
+  const [facts, ai, credits] = await Promise.all([
+    projectFacts(client, ids.filter((id) => scans[id]), scans, { trace }).catch((error) => (console.warn(`[fusion] facts: ${logSafe(error.message)}`), {})),
+    tenantAi(client, { trace }).catch(() => null),
+    tenantCreditsOf(req, { fresh: true }),
   ]);
-  for (const [id, f] of Object.entries(facts)) Object.assign(fusion.projects[id], f);
-  fusion.usage = usage;
+  const types = Object.fromEntries(ids.map((id) => [id, facts[id]?.scanType ?? scanTypeOf(scans[id]?.engines, null)]));
+  // The AI-scanned projects' Risk Hub lists, as the Workbench reads them.
+  const riskSource = createRiskSource(client, activeConfig());
+  const fusion = linkFusion(req, await readRiskFusion(client, ids.map((id) => ({ id, name: names[id] })), scans, { types, riskSource, trace }));
+  for (const [id, f] of Object.entries(facts)) if (fusion.projects[id]) Object.assign(fusion.projects[id], f, { scanType: fusion.projects[id].scanType });
+  // Fusion credits: whether the tenant charges them, as the latest Fusion scans' steps say.
+  const charged = Object.values(facts).map((f) => f.fusionCredits).filter(Boolean);
+  fusion.tenant = { ai, credits, fusionCredits: charged.includes('reserved') ? 'reserved' : charged.length ? 'off' : '' };
+  // Their AI scans and credits over the period chosen; how many of the line's projects had Fusion or LAST scans.
+  const shown = Object.keys(fusion.projects);
+  fusion.usage = await fusionUsage(client, shown.map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period: req.session.fusionPeriod ?? FUSION_PERIOD, scopeIds: ids, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null));
   req.session.lastFusion = fusion;
   req.session.fusionScan = aiFindings(fusion);
   // A new read: the projects shown are the page's again; the Fusion and LAST ticks stay.
@@ -9747,7 +9835,7 @@ app.post('/api/beta/fusion/usage', requireFeature('fusionResults'), asyncRoute(a
   const period = USAGE_PERIODS[req.body?.period] ? req.body.period : FUSION_PERIOD;
   req.session.fusionPeriod = period;
   const names = req.session.fusionScope?.names ?? {};
-  fusion.usage = await fusionUsage(req.session.client, Object.keys(fusion.projects).map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period, trace: fusionTrace(req) });
+  fusion.usage = await fusionUsage(req.session.client, Object.keys(fusion.projects).map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period, scopeIds: Object.keys(names), trace: fusionTrace(req) });
   res.json({ usage: fusion.usage });
 }));
 
@@ -9866,7 +9954,9 @@ function fusionCredits(req) {
     left.triage += balance.triage.remaining;
     left.remediation += balance.remediation.remaining;
   }
-  return { triage, remediation, left, matched, projects: projects.length };
+  // What projects already hold and have not used, beside what the tenant has left in Checkmarx One (as last read).
+  const pool = creditPool();
+  return { triage, remediation, left, matched, projects: projects.length, held: pool.outstanding.total, pool: { limited: pool.limited, size: pool.size, unallocated: pool.unallocated }, tenant: req.session.tenantCredits?.value ?? null };
 }
 
 /** Admins only (those who set the credit pool), with the Beta feature. */

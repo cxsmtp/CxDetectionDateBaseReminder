@@ -62,6 +62,12 @@ const branchOfScan = (id) => {
   return m[4] !== undefined && Number(m[4]) % 3 === 2 ? 'feature/login' : primaryScanBranch(i);
 };
 const VULNS = [['SQL_Injection', 89], ['Reflected_XSS_All_Clients', 79], ['SSRF', 918], ['Path_Traversal', 22], ['Hardcoded_password_in_Connection_String', 798], ['Stored_XSS', 79], ['Command_Injection', 78], ['Missing_HSTS_Header', 319], ['Blind_SQL_Injections', 89], ['Server_Side_Request_Forgery', 918], ['XML_External_Entity', 611], ['Log_Forging', 117]];
+// LAST scans (the AI engine with Fusion off): project 4, and every sixth project after it.
+const lastScanProject = (i) => i % 6 === 4;
+// The tenant's credits left in Checkmarx One (TENANT_CREDITS=n), of 30,000.
+const TENANT_CREDITS = Number(process.env.TENANT_CREDITS || 28854);
+// One of a project's past scans: every other one ran the AI engine (Fusion, or LAST for a LAST project).
+const histScan = (i, k, n) => ({ id: `hist-p${i}-${k}`, projectId: `p${i}`, status: 'Completed', engines: k % 2 ? ['sast', 'sca'] : ['sast', 'sca', 'ai'], metadata: { configs: k % 2 ? [] : [{ type: 'ai', value: { fusionEnabled: lastScanProject(i) ? 'false' : 'true' } }] }, createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() });
 const risksFor = (pid) => allRisksFor(pid).filter((r) => !fixedByRescan(pid, `alt-${r.groupId.replace(/^sim-/, '')}`, r.id));
 const allRisksFor = (pid) => Array.from({ length: BRANCHES && Number(String(pid).slice(1)) % 10 === 9 ? 0 : RISKS }, (_, i) => {
   const id = `${pid}-r${i}`;
@@ -71,7 +77,8 @@ const allRisksFor = (pid) => Array.from({ length: BRANCHES && Number(String(pid)
   const state = t && Date.now() - t > FLIP_MS ? (i % 3 ? 'PROPOSED_NOT_EXPLOITABLE' : 'CONFIRMED') : 'TO_VERIFY';
   const k = Number(twin.split('-r')[1]);
   const named = VULN_NAMES ? VULNS[k % VULNS.length] : null;
-  return { id, riskName: named ? named[0] : SHARED ? `Finding ${twin}` : `Finding ${id}`, ...(named ? { cweId: named[1] } : {}), severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: MIXED_ENGINES ? MOCK_ENGINES[k % MOCK_ENGINES.length] : 'SAST', state, firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}`, ...(BRANCHES ? { scanId: hasFeature(Number(pid.slice(1))) && i % 5 === 4 ? `feat-${pid}` : `scan-${pid}` } : {}) };
+  // Risk Hub's status: new and recurrent by turns.
+  return { id, riskName: named ? named[0] : SHARED ? `Finding ${twin}` : `Finding ${id}`, ...(named ? { cweId: named[1] } : {}), severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: MIXED_ENGINES ? MOCK_ENGINES[k % MOCK_ENGINES.length] : 'SAST', state, stateChangedBy: t && Date.now() - t > FLIP_MS ? 'ai' : 'unchanged', status: i % 2 ? 'RECURRENT' : 'NEW', firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}`, ...(BRANCHES ? { scanId: hasFeature(Number(pid.slice(1))) && i % 5 === 4 ? `feat-${pid}` : `scan-${pid}` } : {}) };
 });
 // Access tokens are only the ones this mock handed out; request bodies are small.
 const issued = new Set();
@@ -142,14 +149,15 @@ http.createServer((req, res) => {
         // with to-date the one before it (every project also has a scan 400 days ago).
         // Scans by id (which branch each ran on).
         const ids = u.searchParams.getAll('scan-ids').flatMap((v) => v.split(',')).filter(Boolean);
-        if (ids.length) return send(200, { scans: ids.map((id) => ({ id, projectId: rescans.get(id)?.projectId ?? id.replace(/^(feat|scan|old)-/, '').replace(/^hist-(p\d+)-\d+$/, '$1'), status: 'Completed', ...(BRANCHES ? { branch: branchOfScan(id) } : {}) })), totalCount: ids.length });
+        // With their engines and their own AI settings, as a scan's details give them.
+        if (ids.length) return send(200, { scans: ids.map((id) => { const projectId = rescans.get(id)?.projectId ?? id.replace(/^(feat|scan|old)-/, '').replace(/^hist-(p\d+)-\d+$/, '$1'); const i = Number(projectId.replace(/^p/, '')); const ai = !rescans.has(id) && i % 3 !== 2; return { id, projectId, status: 'Completed', engines: ai ? ['sast', 'sca', 'kics', 'ai'] : ['sast', 'sca', 'kics'], metadata: { configs: ai ? [{ type: 'ai', value: { fusionEnabled: lastScanProject(i) ? 'false' : 'true' } }] : [] }, ...(BRANCHES ? { branch: branchOfScan(id) } : {}) }; }), totalCount: ids.length });
         const pid = u.searchParams.get('project-id');
         if (pid) {
           const i = Number(pid.replace(/^p/, ''));
           const n = perYear[i % 5];
           const own = BRANCHES ? [...(hasFeature(i) ? [{ id: `feat-p${i}`, projectId: pid, status: 'Completed', createdAt: day(0.5) }] : []), { id: `scan-p${i}`, projectId: pid, status: 'Completed', createdAt: day(1) }] : [];
           // Every other scan also ran the AI engine (Labs → Fusion results counts those).
-          const all = [...own, ...Array.from({ length: n }, (_, k) => ({ id: `hist-p${i}-${k}`, projectId: pid, status: 'Completed', engines: k % 2 ? ['sast', 'sca'] : ['sast', 'sca', 'ai'], createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() })), { id: `old-p${i}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
+          const all = [...own, ...Array.from({ length: n }, (_, k) => histScan(i, k, n)), { id: `old-p${i}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
           const fromDate = Date.parse(u.searchParams.get('from-date') ?? '');
           const toDate = Date.parse(u.searchParams.get('to-date') ?? '');
           if (BRANCHES) for (const x of all) x.branch = branchOfScan(x.id);
@@ -166,7 +174,7 @@ http.createServer((req, res) => {
         for (let k = offset, i = 0, before = 0; k < Math.min(total, offset + lim); k += 1) {
           while (before + perYear[i % 5] <= k) before += perYear[i++ % 5];
           const n = k - before;
-          scans.push({ id: `hist-p${i}-${n}`, projectId: `p${i}`, status: 'Completed', ...(BRANCHES ? { branch: branchOfScan(`hist-p${i}-${n}`) } : {}), createdAt: new Date(Date.now() - ((n + 0.5) * 365 * 86400000) / perYear[i % 5]).toISOString() });
+          scans.push({ ...histScan(i, n, perYear[i % 5]), ...(BRANCHES ? { branch: branchOfScan(`hist-p${i}-${n}`) } : {}) });
         }
         return send(200, { scans, totalCount: total, filteredTotalCount: total });
       }
@@ -189,7 +197,7 @@ http.createServer((req, res) => {
       let sm;
       // Lines of code a scan counted (Credit projections → Fusion): one project in seven has no SAST
       // scan metadata; half of those still have it in the scan's own SAST details, half have none.
-      if ((sm = u.pathname.match(/^\/api\/sast-metadata\/([^/]+)$/))) {
+      if ((sm = u.pathname.match(/^\/api\/sast-metadata\/([^/]+)$/)) && sm[1] !== 'engine-version') {
         bump('sast-metadata');
         const id = decodeURIComponent(sm[1]);
         const i = Number((rescans.get(id)?.projectId ?? id.replace(/^(scan|feat)-/, '').replace(/^hist-(p\d+)-\d+$/, '$1').replace(/^old-/, '')).replace(/^p/, ''));
@@ -206,16 +214,56 @@ http.createServer((req, res) => {
         const i = Number(pid.replace(/^p/, ''));
         const statusDetails = [{ name: 'general', status: 'Completed' }, { name: 'sast', status: 'Completed', ...(i % 14 === 3 ? {} : { loc: BRANCHES && i % 10 === 5 ? 0 : mockLoc(i) }) }];
         const branch = BRANCHES ? branchOfScan(id) : 'main';
-        // The model a Fusion scan ran with is in its configuration for every third project.
-        const configs = i % 3 === 0 ? [{ type: 'sast', value: { presetName: 'ASA Premium' } }, { type: 'ai', value: { llmModel: 'mythos-5.1' } }] : [{ type: 'sast', value: { presetName: 'ASA Premium' } }];
-        return send(200, { id, projectId: pid, status: 'Completed', branch, engines: ['sast', 'sca', 'kics'], statusDetails, metadata: { configs, Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch, commit_id: 'abc123' } } } });
+        // The model a Fusion scan ran with is in its configuration for every third project. Fusion is on in each AI
+        // scan's settings, but for project 4 and every sixth after it: LAST scans (LLM-based scanning, Fusion off).
+        const fusionEnabled = lastScanProject(i) ? 'false' : 'true';
+        const configs = i % 3 === 0 ? [{ type: 'sast', value: { presetName: 'ASA Premium' } }, { type: 'ai', value: { llmModel: 'mythos-5.1', fusionEnabled } }] : [{ type: 'sast', value: { presetName: 'ASA Premium' } }, { type: 'ai', value: { fusionEnabled } }];
+        // Every third project's latest scan (i % 3 === 2) was not a Fusion scan: no AI engine.
+        const engines = i % 3 === 2 ? ['sast', 'sca', 'kics'] : ['sast', 'sca', 'kics', 'ai'];
+        return send(200, { id, projectId: pid, status: 'Completed', branch, engines, statusDetails, metadata: { configs, Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch, commit_id: 'abc123' } } } });
+      }
+      // A scan's steps: the AI worker that ran (Fusion's or LAST's), what it added, and Fusion credits not charged.
+      if ((sm = u.pathname.match(/^\/api\/scans\/([^/]+)\/workflow$/))) {
+        bump('scan-workflow');
+        const i = Number(decodeURIComponent(sm[1]).replace(/^(scan|feat|old)-p/, '').replace(/^hist-p(\d+)-\d+$/, '$1'));
+        const at = (s) => new Date(Date.now() - 86400000 + s * 1000).toISOString();
+        const step = (Source, Info, s) => ({ Source: `${Source}-frankfurt`, Info, Timestamp: at(s) });
+        const last = lastScanProject(i);
+        return send(200, [
+          { Source: 'scans', Info: 'Scan created', Timestamp: at(0) },
+          ...(last ? [] : [step('checkmarx-fusion-credit-seize', 'checkmarx-fusion-credit-seize-frankfurt Fusion credits are disabled; skipping credit reservation.', 1)]),
+          step(last ? 'last-worker' : 'last-worker-fusion', `${last ? 'last-worker' : 'last-worker-fusion'}-frankfurt started`, 2),
+          step('last-result-handler', `last-result-handler-frankfurt Deduplicated ${i % 4} out of ${RISKS + (i % 4)} total results`, 9),
+          { Source: 'scans', Info: 'Scan Completed', Timestamp: at(10) },
+        ]);
+      }
+      // What a scan ran with, as Checkmarx One resolves it: the project's "LLM Model" for every third project (the
+      // next one), else Checkmarx One's own (Environment); Fusion as the scan's settings say.
+      if (u.pathname === '/api/configuration/scan') {
+        bump('configuration');
+        const i = Number(String(u.searchParams.get('project-id') ?? '').replace(/^p/, ''));
+        const model = i % 3 === 1 ? { value: 'opus-5.0', originLevel: 'Project' } : { value: 'opus-4.7', originLevel: 'Environment' };
+        return send(200, [{ key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: lastScanProject(i) ? 'false' : 'true', originLevel: 'Scan' }, { key: 'scan.config.sast.extendedAnalysis', name: 'LLM-based scanning', value: 'true', originLevel: 'Tenant' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', ...model, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
+      }
+      // Lines of code and files of several scans at once, and the SAST engine's version.
+      if (u.pathname === '/api/sast-metadata' || u.pathname === '/api/sast-metadata/engine-version') {
+        bump('sast-metadata');
+        const ids = u.searchParams.getAll('scan-ids').flatMap((v) => v.split(',')).filter(Boolean);
+        const of = (id) => Number(id.replace(/^(scan|feat|old)-p/, '').replace(/^hist-p(\d+)-\d+$/, '$1'));
+        if (u.pathname.endsWith('engine-version')) return send(200, ids.map((scanId) => ({ scanId, engineVersion: '9.7.7-679962' })));
+        return send(200, { totalCount: ids.length, scans: ids.map((scanId) => ({ scanId, loc: mockLoc(of(scanId)), fileCount: 40 + (of(scanId) % 300), isIncremental: false, queryPreset: 'All' })) });
+      }
+      // The tenant's credits in Checkmarx One.
+      if (u.pathname === '/api/credits/info') {
+        bump('credits-info');
+        return send(200, { available: String(TENANT_CREDITS), total: '30000', used: String(30000 - TENANT_CREDITS), actionsAvailable: 6557, actionsPerformed: 3475, enforcement: { state: 'active', consumptionPct: 4, warningThresholdPct: 100, cutoffThresholdPct: 100 } });
       }
       // Scan settings: the project's "LLM Model" for every third project (the next one), else the tenant's.
       if (u.pathname === '/api/configuration/project' || u.pathname === '/api/configuration/tenant') {
         bump('configuration');
         const i = Number(String(u.searchParams.get('project-id') ?? '').replace(/^p/, ''));
         const value = u.pathname.endsWith('tenant') ? 'opus-5.5' : i % 3 === 1 ? 'opus-5.0' : '';
-        return send(200, [{ key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: 'true' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', value, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
+        return send(200, [{ key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: 'true' }, { key: 'scan.config.sast.extendedAnalysis', name: 'LLM-based scanning', value: 'true' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', value, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
       }
       // Credits used, by project (as CxCreditGuard reads it): project i used 4i + 6, with i % 3 triage and i % 2 remediation actions.
       if (u.pathname === '/api/credits/consumption') {

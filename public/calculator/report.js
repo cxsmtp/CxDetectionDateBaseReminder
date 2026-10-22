@@ -159,7 +159,7 @@ function story(data, L) {
       <table class="calc">
         <tr><td>${w('Backlog to triage')}</td><td>${num(f.selected)}</td></tr>
         <tr><td>${tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer each month with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace')}</td><td>+${num(f.future)}</td></tr>
-        <tr><td>${w('More found by Fusion ({0}%)', num(tr.ahead?.fusionUpliftPercent ?? 0))}</td><td>+${num(f.fusionExtra)}</td></tr>
+        <tr><td>${w('More found by Fusion ({0}%)', num(tr.fusion ? tr.ahead?.fusionUpliftPercent ?? 0 : 0))}</td><td>+${num(f.fusionExtra)}</td></tr>
         <tr><td>${w('Fewer false positives with FAE ({0}%)', num(tr.ahead?.faePercent ?? 0))}</td><td>−${num(f.faeAvoided)}</td></tr>
         <tr class="sum"><td>${w('To triage')}</td><td>${num(f.toTriage)}</td></tr>
         <tr><td>${w('To remediate (true positives)')}</td><td>${num(f.truePositives)}</td></tr>

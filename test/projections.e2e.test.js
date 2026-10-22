@@ -128,8 +128,9 @@ test('Fusion reads every project: lines of code, criticality and how often it is
   const { projects, models, remainingCredits, readAt } = read.body;
   assert.ok(Date.parse(readAt));
   assert.equal(projects.length, PROJECTS);
-  assert.deepEqual(models, [], 'the mock does not say its Fusion models: none made up');
-  assert.equal(remainingCredits, null);
+  // The models the tenant's "LLM Model" setting offers, by name: their credits are not said, so none are made up.
+  assert.deepEqual(models.map((m) => [m.id, m.name, m.creditsPer10k, m.source]), ['opus-4.7', 'haiku-4.5', 'opus-5.0', 'opus-5.5', 'mythos-5.1'].map((n) => [`cx-${n.replace('.', '-')}`, n, null, 'tenant']));
+  assert.equal(remainingCredits, 28854, 'the tenant’s credits left (GET /api/credits/info)');
   const byId = Object.fromEntries(projects.map((p) => [p.id, p]));
   // The mock scans project i 400, 100, 20, 4 or 0 times a year (i % 5), and gives it criticality (i % 5) + 1.
   assert.deepEqual([byId.p0.frequency, byId.p0.criticality, byId.p0.scanCount], ['more-5-week', 1, 400]);

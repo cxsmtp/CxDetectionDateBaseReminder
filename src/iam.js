@@ -655,11 +655,19 @@ export const LOOKS = ALL_LOOKS;
 export const THEMES = ['auto', 'light', 'dark'];
 export const ACCENTS = Object.keys(NEXTGEN_ACCENTS);
 
+/** { fusion, last }: each a #rrggbb colour, or '' for the look's own. */
+export function cleanScanColours(value) {
+  const one = (v) => (/^#[0-9a-f]{6}$/i.test(String(v ?? '')) ? String(v).toLowerCase() : '');
+  return { fusion: one(value?.fusion), last: one(value?.last) };
+}
+
 export function cleanProfile(patch = {}) {
   const out = {};
   if ('look' in patch) out.look = LOOKS.includes(patch.look) ? patch.look : '';
   if ('theme' in patch) out.theme = THEMES.includes(patch.theme) ? patch.theme : 'auto';
   if ('accent' in patch) out.accent = ACCENTS.includes(patch.accent) ? patch.accent : 'indigo';
+  // Their own colours for Fusion and LAST scans ('' each: the look's gold and pink).
+  if ('scanColours' in patch) out.scanColours = cleanScanColours(patch.scanColours);
   if ('language' in patch) {
     if (patch.language && !PROFILE_LANGUAGES.includes(patch.language)) throw fail(400, 'That language is not available.');
     out.language = patch.language || '';
@@ -719,6 +727,7 @@ export function publicUser(user) {
       look: user.profile?.look ?? '',
       theme: user.profile?.theme ?? 'auto',
       accent: user.profile?.accent ?? 'indigo',
+      scanColours: cleanScanColours(user.profile?.scanColours),
     },
     // The picture itself is fetched on its own (GET /api/users/:id/avatar?v=avatarAt).
     avatarAt: user.avatar?.at ?? '',
