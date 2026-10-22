@@ -5,10 +5,11 @@
 - **Matching usernames, once final:** anyone who may change initiator addresses can run and apply it.
 - **SLAs and escalation, once final:** everyone who loads findings sees what is past its SLA and due soon. Escalation stays as set under **Settings → SLAs**: off until an Admin names who to escalate to.
 - **Fusion results, once final:** everyone who loads findings sees **Labs → Fusion results** and the Workbench's **Fusion** column.
+- **FAE Flush, once final:** it moves out of Labs to the top of **Act** (FAE Flush, Workbench, Automation), for anyone who manages the Checkmarx One integration; the Workbench stays the home page.
 
 Every change of stage is in the audit log.
 
-Code authors and username matching live in **Labs**, the section set apart at the bottom of the menu (their page is **Code authors**; until MZ-01.00.82 it was the **Beta** item under Act); **Fusion results** is a page of its own there ([below](#fusion-results)). Code authors and matching read git history and, optionally,
+Code authors and username matching live in **Labs**, the section set apart at the bottom of the menu (their page is **Code authors**; until MZ-01.00.82 it was the **Beta** item under Act); **Fusion results** and **FAE Flush** are pages of their own there ([below](#fusion-results), [FAE Flush](#fae-flush)). Code authors and matching read git history and, optionally,
 the APIs of GitHub, GitLab, Azure DevOps and Bitbucket; check what they find before
 relying on it.
 
@@ -254,3 +255,24 @@ ever sent to its own GitHub host.
 - **Troubleshoot Fusion** (bottom of the page; for whoever may manage the Checkmarx One integration): a list of paths to test, one per line, suggested to start with (the `/api/correlation` paths, the old guesses, Application Risk Management, the feature flags) and editable; `{appId}` becomes an application's id. **Test these paths** calls each once with GET through the server's own connection (only paths under `/api` on that Checkmarx One, no query, at most 20) and shows its status, time and the start of the answer. A path that answers can be pinned (**Use for Fusion results**, **Use for Fusion scan status**); it is kept in the settings (`endpoints.fusionResultsPath`, `endpoints.fusionDispatcherPath`) and tried first, before `/api/correlation/…`; **Unpin** goes back.
 - **Debug mode** logs every Fusion call in full while it is on: the request (method, address, headers with the access token replaced by `[hidden]`) and the answer (status, headers, the first 256 KB of the body, time). The last 100 calls are kept with the session, never on disk; **Copy the log** and **Download the log** give them as text to share.
 - **Kept with the session**, like the fetch: a reload shows it again; signing out forgets it.
+
+## FAE Flush
+
+**Labs → FAE Flush** (from MZ-01.00.95) applies Findings Analysis (FAE) to the backlog of every project of the tenant at once, a few scans at a time, without replacing any project: each keeps its history, triage, automations and integrations. Who may: roles holding **Beta features** see it; starting, pausing, answering, undoing and deleting also need **Checkmarx One integration** (it works with the server's own key). Details for people using it are in the [user guide](user-guide.md#labs-fae-flush).
+
+How it works, project by project (`src/fae-flush.js`), with the server's Checkmarx One connection:
+
+| Step | Checkmarx One API |
+| --- | --- |
+| Check the projects | `GET /api/projects`, `GET /api/projects/last-scan`, `GET /api/scans/{id}` (SAST completed, lines of code), `HEAD /api/repostore/scans/{id}` (code kept), `GET /api/scan-summary?scan-ids=…` (results To verify) |
+| 1. Copy the code | `GET /api/repostore/code/{scanId}` (a zip, streamed to a temporary file), `POST /api/uploads`, then `PUT` to the address it gives |
+| 2. Scan on `<name>_FAE` | `POST /api/projects` (same groups and criticality, tag `mz-fae-flush`), `GET`/`PATCH /api/configuration/project` (the project's own `scan.config.sast.*` settings, and `scan.config.sast.findingsAnalysis` true), `POST /api/scans` (type upload, SAST only), then `GET /api/scans/{id}` until it ends |
+| 3. Compare | `GET /api/sast-results?scan-id=…` of both scans; matched by similarity id. A result the FAE scan itself judged (Proposed) not exploitable counts as not reported |
+| 4. Mark | `POST /api/sast-results-predicates`, 100 at a time: state `PROPOSED_NOT_EXPLOITABLE` with a comment naming the `_FAE` project and scan |
+| 5. Revalidate | Both read again |
+| 6. Remove | `DELETE /api/projects/{id}` (when chosen at the start, or later with **Delete all _FAE projects**) |
+
+- **Exceptions** stop a project before it marks anything: the FAE scan failed, was canceled or ran over 12 hours; lines of code differ by more than 2%; it would mark more than 90% of 20 or more results To verify; more than 25% of the FAE scan's results are not in the project; revalidation does not match; or a call failed. The person decides: mark anyway (accept), retry or skip.
+- **Kept on disk** (`fae-flush.json` in the tenant's state folder): the run carries on after a restart. Each result marked is kept, so **Undo** can put it back to To verify, only where it is still Proposed not exploitable.
+- **Not yet checked on a live tenant:** the source download (`/api/repostore/code/{scanId}`) and the predicates call are the ones Checkmarx One's own pages use; the API key's role needs to create and delete projects, start scans, download source code and change result states. Whether the FAE scans use Checkmarx One credits depends on the tenant's licence.
+- **Before making it final:** run it on a few of your own projects, check some of the results it marked in Checkmarx One, and that Undo puts them back.

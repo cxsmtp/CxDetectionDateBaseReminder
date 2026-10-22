@@ -22,10 +22,11 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 12. [People & roles](#people--roles)
 13. [Labs: Code authors](#labs-code-authors)
 14. [Labs: Fusion results](#labs-fusion-results)
-15. [Logs page](#logs-page)
-16. [Performance and security status](#performance-and-security-status)
-17. [Everyday recipes](#everyday-recipes)
-18. [Troubleshooting](#troubleshooting)
+15. [Labs: FAE Flush](#labs-fae-flush)
+16. [Logs page](#logs-page)
+17. [Performance and security status](#performance-and-security-status)
+18. [Everyday recipes](#everyday-recipes)
+19. [Troubleshooting](#troubleshooting)
 
 The running version is shown at the bottom of the sidebar, as `MZ-xx.xx.xx`. Click it for Settings → About.
 
@@ -42,7 +43,7 @@ The sidebar is grouped by what you came to do:
 | **Prove** | Credit Control, Impact, Audit | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups. |
 | **Plan** | Cx Credits Calculator | The credits a customer needs for triage and remediation of their backlog and for Fusion scans, and projection reports, from the Checkmarx One tenant. Shown to Admins and the roles an Admin gives its permission to. |
 | **Set up** | People & roles, Settings, Logs | People and roles, configuration, troubleshooting. |
-| **Labs** | Code authors, Fusion results | Early features, set apart at the bottom of the menu, each its own page: who wrote the vulnerable code, and their email; what Checkmarx One's AI engine found in SAST (Fusion and LAST) in the projects you load. Shown to roles holding **Beta features**. |
+| **Labs** | Code authors, Fusion results, FAE Flush | Early features, set apart at the bottom of the menu, each its own page: who wrote the vulnerable code, and their email; what Checkmarx One's AI engine found in SAST (Fusion and LAST) in the projects you load; Findings Analysis (FAE) on the whole tenant's backlog at once. Shown to roles holding **Beta features**. |
 
 The coloured label next to each page title says which group the page is in.
 
@@ -481,6 +482,7 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 | **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Workbench's Remind panel links to it, and Act → Automation can email code authors on every run. |
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
 | **Fusion results** | Everyone who loads findings sees **Labs → Fusion results**, with its own line to load Fusion's results, and the Workbench's **Fusion** column. |
+| **FAE Flush** | It moves out of Labs to the top of **Act** (FAE Flush, Workbench, Automation); the Workbench stays the home page. Anyone who manages the Checkmarx One integration can run it. |
 
 ### Hands-off (set it up once)
 
@@ -1175,6 +1177,26 @@ Its own page under **Labs**: the Risk Hub list of each project whose latest scan
 - **Troubleshoot Fusion** (bottom of the page; Admins who manage the Checkmarx One integration): test which addresses your Checkmarx One serves Fusion at (one per line, `{appId}` filled in), see each answer, and pin the one that works with **Use for Fusion results** or **Use for Fusion scan status**: the page reads Fusion from there from then on. **Debug mode** logs every Fusion call in full (the access token never in it) to copy or download and share with support.
 - **On the Workbench:** each project whose latest scan was a Fusion scan is gold and a LAST scan pink, with a legend under the table and a **Scan type** filter beside the others. The **Fusion** column (under **Columns**) shows each project's results (Fusion, LAST or both, as ticked), filled in when Fusion has been read.
 - **When Fusion cannot be read** the page says why: no Fusion on the tenant, or an API key whose role in Checkmarx One may not read Fusion results; under it, each address asked and what Checkmarx One answered.
+
+## Labs: FAE Flush
+
+Findings Analysis (FAE) only cuts the noise in results found after it is turned on: the backlog stays. **FAE Flush** applies it to the backlog once, for every project of the tenant at once (a few scans at a time), and leaves every project as it is: its history, triage, automations and integrations stay. Beta: shown to roles holding **Beta features**; starting it also needs the **Checkmarx One integration** permission, since it creates, scans and deletes projects with the server's own key. Once an Admin makes it final ([Settings → Beta features](#beta-features-admin)) it is the first page under **Act** (FAE Flush, Workbench, Automation); the Workbench stays the home page.
+
+For each project:
+1. **Copy the code**: the exact code of its latest scan, as Checkmarx One keeps it.
+2. **Scan it on `<name>_FAE`**: a new project with the project's own SAST settings and Findings Analysis on, SAST only.
+3. **Compare**: each SAST result of the project still **To verify** against the FAE scan's results (by similarity id). Results a person or AI Triage already set are never touched.
+4. **Mark**: those the FAE scan no longer reports become **Proposed not exploitable** in the original project, with a comment naming the FAE scan.
+5. **Revalidate**: both are read again: every result marked is marked, and still not reported.
+6. **Remove `_FAE`**: the copy is deleted once checked, or kept, as you chose when you started.
+
+- **Check the projects (no change)** reads every project: its latest scan, whether SAST ran, whether Checkmarx One still keeps its code, its lines of code and results To verify. The tiles show how many can be flushed, how many results To verify they hold, how many are left out (the table says why), and roughly how long it takes at the **Scans at once** chosen.
+- **Start FAE Flush** asks first what to do with each `_FAE` project once its project is checked: **Delete it**, or **Keep it** to look at. It runs on the server: closing the page does not stop it, and after a restart it carries on where it was.
+- **It asks you about exceptions.** A project stops before marking anything, and the rest carry on, when the FAE scan did not complete, counted more than 2% more or fewer lines of code than the project's latest scan (it may not be the same code), would mark more than 90% of 20 or more results To verify, or reported more than a quarter of results the project does not have; also when revalidation does not match. Each one shows why, with **Mark … anyway** (or **Accept** after revalidation), **Retry** and **Skip**.
+- **The result.** The tiles and the line under **Finished** say how many false positives were marked **Proposed not exploitable**, of how many results To verify, how many were revalidated and how many are still reported (left To verify); the table gives each project's figures. **Export CSV** downloads them.
+- **Pause** stops it starting anything new (scans under way finish in Checkmarx One and are picked up on **Resume**). **Undo all marks** puts every result it marked back to To verify, apart from any someone changed since. **Delete all _FAE projects (n)** removes, in one click, every `_FAE` project it kept, any day after, from this run or earlier ones.
+- **Audited.** The start (and who started it), each scan, each project's marks, every answer to an exception, Undo and every deletion are in the audit log.
+- `_FAE` projects are tagged `mz-fae-flush` and never appear on the Workbench, in reminders or in reports.
 
 ## Logs page
 
