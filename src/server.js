@@ -9791,6 +9791,17 @@ function linkFusion(req, fusion) {
  * Fusion (AI-generated SAST results, src/fusion-ai.js) for these projects, from each one's latest completed
  * scan; kept with the session, with the results as findings the credit, triage and remediation code acts on.
  */
+/**
+ * The credits a project's latest AI scan used: none for a LAST scan, nor for a Fusion scan whose steps say Fusion
+ * credits are disabled; otherwise the Fusion credits it used over the last year per AI scan (Checkmarx One does not
+ * say a scan's own), marked an estimate; null when not known.
+ */
+function scanCreditsOf(project, used) {
+  if (project.scanType === 'last' || project.fusionCredits === 'off') return { credits: 0, estimate: false };
+  if (used?.perScan !== null && used?.perScan !== undefined) return { credits: used.perScan, estimate: true };
+  return null;
+}
+
 async function loadAiFusion(req, names) {
   const ids = Object.keys(names);
   const client = req.session.client;
@@ -9813,7 +9824,9 @@ async function loadAiFusion(req, names) {
   fusion.tenant = { ai, credits, fusionCredits: charged.includes('reserved') ? 'reserved' : charged.length ? 'off' : '' };
   // Their AI scans and credits over the period chosen; how many of the line's projects had Fusion or LAST scans.
   const shown = Object.keys(fusion.projects);
-  fusion.usage = await fusionUsage(client, shown.map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period: req.session.fusionPeriod ?? FUSION_PERIOD, scopeIds: ids, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null));
+  // Over the last year: the Fusion credits each project used per AI scan, for what its latest scan cost.
+  fusion.usage = await fusionUsage(client, shown.map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period: 'last_year', scopeIds: ids, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null));
+  for (const [id, p] of Object.entries(fusion.projects)) p.scanCredits = scanCreditsOf(p, fusion.usage?.projects?.[id]);
   req.session.lastFusion = fusion;
   req.session.fusionScan = aiFindings(fusion);
   // A new read: the projects shown are the page's again; the Fusion and LAST ticks stay.

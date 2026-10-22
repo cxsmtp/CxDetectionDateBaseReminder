@@ -83,13 +83,13 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 ## MZ-01.00.95 — not released yet
 
-- **FAE Flush, in Labs.** Findings Analysis (FAE) now clears the existing backlog too: for every project of the tenant at once, a few scans at a time, the code of its latest scan is scanned again on a `<name>_FAE` copy with FAE on.
-- **Your projects stay as they are.** Results still To verify that the FAE scan no longer reports are marked Proposed not exploitable in the original project, with a comment naming the FAE scan, so its history, triage, automations and integrations are kept.
-- **Checked twice, and it asks when something looks off.** Every mark is revalidated by reading both projects again; a project whose FAE scan failed, whose code looks different, or that would mark nearly everything stops and asks (mark anyway, retry or skip) while the rest carry on.
-- **Delete or keep the copies.** Starting asks whether each `_FAE` project is deleted once checked or kept to look at; kept ones go with one click, **Delete all _FAE projects**, any day after, and never show on the Workbench or in reports.
-- **The result, and a way back.** The page says how many false positives were marked Proposed not exploitable, per project and in total, with Export CSV; **Pause**, and **Undo all marks** puts them back to To verify; every step is in the audit log.
-- **Behind an activation code.** FAE Flush appears only once its activation code is applied under Settings → Activation codes; without it, it is not in the menu nor among the Beta features, and a run pauses.
-- **Act's first page once final.** When an Admin makes it final it leaves Labs for the top of Act (FAE Flush, Workbench, Automation); the Workbench stays the home page.
+- **FAE Flush, in Labs, behind an activation code.** Findings Analysis (FAE) now clears the existing backlog too: for every project at once, the code of its latest scan is scanned again on a `<name>_FAE` copy with FAE on; it appears only once its activation code is applied.
+- **Your projects stay as they are.** Results still To verify that the FAE scan no longer reports are marked Proposed not exploitable in the original project, revalidated, and counted on the page; history, triage and automations are kept.
+- **It asks when something looks off, and can be undone.** A project whose FAE scan failed, whose code looks different, or that would mark nearly everything stops and asks while the rest carry on; Pause, Undo all marks, Export CSV, and every step in the audit log.
+- **Delete or keep the copies.** Starting asks whether each `_FAE` project is deleted once checked or kept; kept ones go with one click, any day after, and never show on the Workbench or in reports. Once final it becomes Act's first page; the Workbench stays the home page.
+- **Fusion results: only what the AI engine reported.** Labs → Fusion results, its side panel and both downloads now hold only the AI engine's results (Fusion and LAST), never the traditional engines', each with its description; a project whose AI engine reported nothing (LAST on by default) is left out.
+- **Credits for the latest scan.** Each project shows the credits its latest scan used (none with Fusion credits disabled or for a LAST scan, else an estimate marked ≈); the AI scans column and the period picker are gone.
+- **Activation codes from Windows.** `scripts/activation-codes.cmd` makes every activation code (product, tenants, Hebrew, Impact, FAE Flush) with Podman alone, the key staying on your PC.
 - **Status.** Measured when it is merged.
 
 ## MZ-01.00.94 — 2026-10-22 10:06 UTC · [#117](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/117)

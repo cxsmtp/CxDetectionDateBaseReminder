@@ -1658,7 +1658,7 @@ const PAGE_TITLES = {
   access: ['People & roles', 'Who can sign in, and what they may do'],
   audit: ['Audit', 'Every credit spent, refused or failed'],
   beta: ['Code authors', 'Labs: who wrote the code, and their email'],
-  fusion: ['Fusion results', 'Labs: what Checkmarx One Fusion reported, from Risk Hub'],
+  fusion: ['Fusion results', 'Labs: only what the AI engine reported, Fusion and LAST'],
   flush: ['FAE Flush', 'Labs: Findings Analysis on the backlog, for every project at once'],
   help: ['Get help', 'Support cases and enhancements'],
   calculator: ['Cx Credits Calculator', 'The credits a customer needs'],
@@ -8824,18 +8824,15 @@ function renderFusion() {
   const t = fusionTiles(data, scope, engines, filter);
   const tile = (value, name, cls = '') => `<div class="${cls}"><span class="value">${escapeHtml(value)}</span><span class="label">${escapeHtml(name)}</span></div>`;
   const known = (n) => (n === null || n === undefined ? '—' : fmt(n));
-  if (data.usage?.period && $('fusion-period').value !== data.usage.period) $('fusion-period').value = data.usage.period;
   renderFusionOverview(t);
   tiles.innerHTML = [
     tile(fmt(t.found.projects), 'Projects'),
-    tile(fmt(t.found.results), 'Results'),
-    tile(fmt(t.found.aiFound), 'Found by AI'),
+    tile(fmt(t.found.results), 'AI results'),
     tile(fmt(t.found.CRITICAL), 'Critical', t.found.CRITICAL ? 'crit' : ''),
     tile(fmt(t.found.HIGH), 'High', t.found.HIGH ? 'high' : ''),
     tile(fmt(t.found.MEDIUM), 'Medium', t.found.MEDIUM ? 'med' : ''),
     tile(fmt(t.found.LOW), 'Low', t.found.LOW ? 'low' : ''),
-    tile(known(t.usage.scans), 'AI scans'),
-    tile(known(data.usage?.creditsKnown === false ? null : t.usage.credits), 'Credits spent'),
+    tile(scanCreditsText(fusionRows(data, scope, engines, filter)), 'Credits, latest scans'),
   ].join('');
   renderFusionChips();
   // The model picker: the models the projects' latest scans ran with.
@@ -8846,13 +8843,12 @@ function renderFusion() {
   const all = fusionRows(data, scope, engines, filter).length;
   $('fusion-proj-count').textContent = all ? (rows.length === all ? fmt(all) : `${fmt(rows.length)} / ${fmt(all)}`) : '';
   $('fusion-act-scope').textContent = rows.length ? `All ${fmt(rows.length)} shown project(s) · ${label} results` : `No project shown · ${label} results`;
-  $('fusion-foot').textContent = rows.length ? `${fmt(rows.length)} project(s) whose latest scan ran the AI engine · gold: Fusion, pink: LAST · click a project to see its vulnerabilities` : '';
+  $('fusion-foot').textContent = rows.length ? `${fmt(rows.length)} project(s) with results from the AI engine · gold: Fusion, pink: LAST · click a project to see its vulnerabilities` : '';
   const cell = (n, cls = '') => `<td class="num c-count ${n ? cls : 'zero'}">${fmt(n)}</td>`;
   const maybe = (n, title = '') => `<td class="num${n === null || n === undefined ? ' zero' : ''}"${title ? ` title="${escapeHtml(title)}"` : ''}>${n === null || n === undefined ? '—' : fmt(n)}</td>`;
   // The results by severity in one cell: a chip per severity that has some.
   const sevs = (r) => FUSION_SEVERITY_ORDER.filter((k) => r[k]).map((k) => `<span class="fusion-sev fusion-sev-${k.toLowerCase()}" title="${escapeHtml(`${fmt(r[k])} ${SEVERITY_LABEL[k].toLowerCase()}`)}">${fmt(r[k])} ${escapeHtml(SEVERITY_LABEL[k][0])}</span>`).join('') || '<span class="zero">none</span>';
-  const creditsTitle = (r) => (r.actions ? `${fmt(r.actions.triage)} AI Triage and ${fmt(r.actions.remediation)} AI Remediation actions; about ${fmt(r.fusionCredits)} for Fusion scans${r.perScan !== null ? ` (${r.perScan} per AI scan)` : ''}` : 'Checkmarx One did not say');
-  const scansTitle = (r) => (r.fusionScans !== null ? `${fmt(r.fusionScans)} Fusion, ${fmt(r.lastScans)} LAST` : '');
+  const creditsCell = (r) => `<td class="num${r.scanCredits ? '' : ' zero'}" title="${escapeHtml(scanCreditsWhy(r))}">${escapeHtml(scanCreditsText([r]))}</td>`;
   const added = (r) => (r.aiFound !== null
     ? `<td class="num" title="${escapeHtml(`${fmt(r.aiFound)} found by the AI engine, ${fmt(r.aiDuplicates)} already found by SAST, ${fmt(r.aiAdded)} added`)}">${fmt(r.aiFound)} → <b>${fmt(r.aiAdded)}</b></td>`
     : `<td class="num" title="${escapeHtml('Found by the AI engine, as Risk Hub marks them (the scan’s steps did not say more)')}">${fmt(r.aiResults)}</td>`);
@@ -8860,10 +8856,24 @@ function renderFusion() {
   const model = (r) => (r.model ? `<span class="fusion-model" translate="no">${escapeHtml(r.model)}</span><small class="fusion-model-from">${escapeHtml(MODEL_FROM[r.modelFrom] ?? 'as Checkmarx One says')}</small>` : '<span class="zero" title="Checkmarx One did not say">—</span>');
   // A click on a row (or its name, from the keyboard) opens the project's vulnerabilities in the side panel.
   $('fusion-body').innerHTML = rows.length
-    ? rows.map((r) => `<tr data-fusion-row="${escapeHtml(r.projectId)}" class="scan-row-${escapeHtml(r.scanType)}${r.projectId === fusion.open ? ' is-open' : ''}"><td class="fusion-proj-name"><button type="button" class="link" data-fusion-project="${escapeHtml(r.projectId)}" title="Show its vulnerabilities">${escapeHtml(r.name)}</button></td><td>${scanTag(r)}</td><td class="fusion-model-cell">${model(r)}</td>${maybe(r.loc)}${added(r)}<td class="fusion-sevs">${sevs(r)}</td>${cell(r.TO_VERIFY)}${cell(r.CONFIRMED)}${maybe(r.scans, scansTitle(r))}${maybe(r.credits, creditsTitle(r))}<td class="nowrap">${escapeHtml(r.scanAt ? fmtDateTime(r.scanAt) : '—')}</td></tr>`).join('')
-    : `<tr><td colspan="11" class="hint">${escapeHtml(all ? 'No project matches.' : filter ? 'No project has risks that match.' : `No project's latest scan ran the AI engine (${label}).`)}${!all && !filter && can('credits.limit') ? ' <button type="button" class="sm" data-fusion-reread>Read Fusion again</button>' : ''}</td></tr>`;
+    ? rows.map((r) => `<tr data-fusion-row="${escapeHtml(r.projectId)}" class="scan-row-${escapeHtml(r.scanType)}${r.projectId === fusion.open ? ' is-open' : ''}"><td class="fusion-proj-name"><button type="button" class="link" data-fusion-project="${escapeHtml(r.projectId)}" title="Show its vulnerabilities">${escapeHtml(r.name)}</button></td><td>${scanTag(r)}</td><td class="fusion-model-cell">${model(r)}</td>${maybe(r.loc)}${added(r)}<td class="fusion-sevs">${sevs(r)}</td>${cell(r.TO_VERIFY)}${cell(r.CONFIRMED)}${creditsCell(r)}<td class="nowrap">${escapeHtml(r.scanAt ? fmtDateTime(r.scanAt) : '—')}</td></tr>`).join('')
+    : `<tr><td colspan="10" class="hint">${escapeHtml(all ? 'No project matches.' : filter ? 'No project has risks that match.' : `No project's latest scan has results from the AI engine (${label}).`)}${!all && !filter && can('credits.limit') ? ' <button type="button" class="sm" data-fusion-reread>Read Fusion again</button>' : ''}</td></tr>`;
   if (fusion.open) renderFusionSide();
   fusionFocusChanged();
+}
+
+/** The credits the latest scans of `rows` used: "0", "≈ 12" (estimated) or "—" (not known). */
+function scanCreditsText(rows) {
+  const known = rows.filter((r) => r.scanCredits);
+  if (!known.length) return '—';
+  const total = Math.round(known.reduce((n, r) => n + r.scanCredits.credits, 0) * 10) / 10;
+  return `${known.some((r) => r.scanCredits.estimate) ? '≈ ' : ''}${fmt(total)}`;
+}
+/** Why a project's latest scan shows the credits it does. */
+function scanCreditsWhy(r) {
+  if (!r.scanCredits) return 'Checkmarx One did not say what its latest scan used';
+  if (!r.scanCredits.estimate) return r.scanType === 'last' ? 'A LAST scan: no Fusion credits' : 'Its latest scan said: Fusion credits are disabled';
+  return 'Estimated: the Fusion credits it used over the last year, per Fusion scan (Checkmarx One does not say one scan’s own)';
 }
 
 /** The three blocks above the figures: the projects by scan type, what the AI engine added, the tenant's credits. */
@@ -8873,7 +8883,8 @@ function renderFusionOverview(t) {
   box.hidden = false;
   const known = (n) => (n === null || n === undefined ? '—' : fmt(n));
   const kinds = data.kinds ?? { fusion: data.scanned ?? 0, last: 0 };
-  const none = Number(data.notFusion) || 0;
+  // Without AI results: no AI engine in the latest scan, or it reported nothing (left out).
+  const none = (Number(data.notFusion) || 0) + (Number(data.noAi) || 0);
   const of = Math.max(1, kinds.fusion + kinds.last + none);
   const pct = (n) => `${((n / of) * 100).toFixed(2)}%`;
   const scope = data.usage?.scope;
@@ -8882,7 +8893,7 @@ function renderFusionOverview(t) {
   const onOff = (v) => (v === true ? 'on' : v === false ? 'off' : 'not said');
   const kv = (rows) => `<dl class="fusion-kv">${rows.filter(Boolean).map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${v}</dd>`).join('')}</dl>`;
   const projects = `<section class="fusion-card"><h4>Projects</h4>
-    <div class="fusion-big"><div class="is-fusion"><b>${fmt(kinds.fusion)}</b><span>latest scan Fusion</span></div><div class="is-last"><b>${fmt(kinds.last)}</b><span>latest scan LAST</span></div><div><b>${fmt(none)}</b><span>no AI in latest scan</span></div></div>
+    <div class="fusion-big"><div class="is-fusion"><b>${fmt(kinds.fusion)}</b><span>latest scan Fusion</span></div><div class="is-last"><b>${fmt(kinds.last)}</b><span>latest scan LAST</span></div><div><b>${fmt(none)}</b><span>no AI results in latest scan</span></div></div>
     <div class="fusion-meter" role="img" aria-label="${escapeHtml(`${kinds.fusion} Fusion, ${kinds.last} LAST, ${none} without AI`)}"><i class="is-fusion" style="width:${pct(kinds.fusion)}"></i><i class="is-last" style="width:${pct(kinds.last)}"></i></div>
     ${kv([
       scope && ['Fusion scans', `<b>${fmt(scope.withFusion)}</b> of ${fmt(scope.projects)} projects had one ${escapeHtml(period ? `in the ${period}` : '')}`],
@@ -8945,20 +8956,6 @@ $('fusion-ai-triaged')?.addEventListener('change', (event) => {
 });
 
 
-// Another period for the AI scans and credits: read again for the projects loaded (the results stay).
-$('fusion-period')?.addEventListener('change', async (event) => {
-  if (!fusion.data) return;
-  setStatus('fusion-status', `Reading AI scans and credits: ${PERIOD_LABEL[event.target.value] ?? event.target.value}…`);
-  try {
-    const { usage } = await api('/api/beta/fusion/usage', { method: 'POST', body: JSON.stringify({ period: event.target.value }) });
-    fusion.data.usage = usage;
-    fusionStatus(fusion.data);
-  } catch (error) {
-    if (!handleAuthLoss(error)) showError('fusion-status', error);
-  }
-  renderFusion();
-});
-
 for (const id of ['fusion-q', 'fusion-sev', 'fusion-model']) $(id)?.addEventListener('input', renderFusion);
 for (const id of ['fusion-show-fusion', 'fusion-show-last']) {
   $(id)?.addEventListener('change', (event) => {
@@ -9014,9 +9011,8 @@ const fusionFileName = (engines) => engineLabel(engines).toLowerCase().replace(/
 $('fusion-proj-csv')?.addEventListener('click', () => {
   if (!fusion.data) return setStatus('fusion-status', 'Load results first.', 'warn');
   const engines = fusionEngines();
-  const period = PERIOD_LABEL[fusion.data.usage?.period] ?? '';
-  downloadCsv(`${fusionFileName(engines)}-projects`, [['Project', 'Scan', 'Model', 'Model set', 'LOC', 'Files', 'AI found', 'Already found by SAST', 'AI added', `AI scans (${period})`, `Fusion scans (${period})`, `LAST scans (${period})`, `Credits (${period})`, 'Fusion credits (estimated)', 'AI Triage actions', 'AI Remediation actions', 'Critical', 'High', 'Medium', 'Low', 'Total', 'New', 'Recurrent', 'Fixed', ...FUSION_STATES.map((k) => STATE_LABEL[k]), 'AI-triaged', 'Latest scan', 'Scan id', 'Link'],
-    ...fusionProjectsFiltered().map((r) => [r.name, SCAN_TYPE_LABEL[r.scanType] ?? r.scanType, r.model, MODEL_FROM[r.modelFrom] ?? r.modelFrom, r.loc ?? '', r.files ?? '', r.aiFound ?? r.aiResults, r.aiDuplicates ?? '', r.aiAdded ?? '', r.scans ?? '', r.fusionScans ?? '', r.lastScans ?? '', r.credits ?? '', r.fusionCredits ?? '', r.actions?.triage ?? '', r.actions?.remediation ?? '', r.CRITICAL, r.HIGH, r.MEDIUM, r.LOW, r.total, r.NEW, r.RECURRENT, r.fixedKnown ? r.FIXED : '', ...FUSION_STATES.map((k) => r[k]), r.aiTriaged, r.scanAt ?? '', r.scanId, r.url])]);
+  downloadCsv(`${fusionFileName(engines)}-projects`, [['Project', 'Scan', 'Model', 'Model set', 'LOC', 'Files', 'AI found', 'Already found by SAST', 'AI added', 'Credits, latest scan', 'Credits estimated', 'Critical', 'High', 'Medium', 'Low', 'Total', 'New', 'Recurrent', 'Fixed', ...FUSION_STATES.map((k) => STATE_LABEL[k]), 'AI-triaged', 'Latest scan', 'Scan id', 'Link'],
+    ...fusionProjectsFiltered().map((r) => [r.name, SCAN_TYPE_LABEL[r.scanType] ?? r.scanType, r.model, MODEL_FROM[r.modelFrom] ?? r.modelFrom, r.loc ?? '', r.files ?? '', r.aiFound ?? r.aiResults, r.aiDuplicates ?? '', r.aiAdded ?? '', r.scanCredits ? r.scanCredits.credits : '', r.scanCredits ? (r.scanCredits.estimate ? 'yes' : 'no') : '', r.CRITICAL, r.HIGH, r.MEDIUM, r.LOW, r.total, r.NEW, r.RECURRENT, r.fixedKnown ? r.FIXED : '', ...FUSION_STATES.map((k) => r[k]), r.aiTriaged, r.scanAt ?? '', r.scanId, r.url])]);
 });
 
 /** The HTML report of what is shown (one project's, with `projectId`), downloaded. */
@@ -9113,10 +9109,8 @@ function renderFusionSide() {
   $('fusion-side-title').innerHTML = `${escapeHtml(name)} <span class="scan-tag scan-tag-${escapeHtml(type)}">${escapeHtml(SCAN_TYPE_LABEL[type] ?? type)}</span>`;
   $('fusion-drawer').dataset.scanType = type;
   $('fusion-side-meta').textContent = `Latest scan ${p.scanAt ? fmtDateTime(p.scanAt) : '—'}${p.scanId ? ` · scan ${p.scanId.slice(0, 8)}` : ''} · ${fmt(all.length)} ${engineLabel(engines)} result(s)`;
-  // What its latest scan ran with and added, its size, its AI scans and credits over the period chosen.
+  // What its latest scan ran with and added, its size, and the credits it used.
   const row = fusionRows(fusion.data, fusion.scope, engines).find((r) => r.projectId === projectId) ?? {};
-  const period = PERIOD_LABEL[fusion.data.usage?.period] ?? '';
-  const n = (v) => (v === null || v === undefined ? '—' : fmt(v));
   const fact = (label, value, note = '', cls = '') => `<div${cls ? ` class="${cls}"` : ''}><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b>${note ? `<small>${escapeHtml(note)}</small>` : ''}</div>`;
   const charged = { off: 'Not charged', reserved: 'Reserved' }[p.fusionCredits ?? ''] ?? '—';
   $('fusion-side-facts').innerHTML = [
@@ -9125,8 +9119,7 @@ function renderFusionSide() {
       ? fact('AI found', fmt(row.aiFound), `${fmt(row.aiDuplicates)} already found by SAST · ${fmt(row.aiAdded)} added`)
       : fact('AI found', fmt(row.aiResults ?? 0), 'as Risk Hub marks them'),
     fact('Code', row.loc === null || row.loc === undefined ? '—' : `${fmt(row.loc)} LOC`, [row.files !== null && row.files !== undefined ? `${fmt(row.files)} files` : '', row.engineVersion ? `SAST ${row.engineVersion.split('-')[0]}` : ''].filter(Boolean).join(' · ')),
-    fact('AI scans', n(row.scans), [period, row.fusionScans !== null && row.fusionScans !== undefined ? `${fmt(row.fusionScans)} Fusion · ${fmt(row.lastScans)} LAST` : ''].filter(Boolean).join(' · ')),
-    fact('Credits', n(row.credits), row.actions ? `${period} · ${fmt(row.actions.triage)} triage · ${fmt(row.actions.remediation)} remediation` : period),
+    fact('Credits, latest scan', scanCreditsText([row]), scanCreditsWhy(row)),
     fact('Fusion credits', charged, p.fusionCredits === 'off' ? 'its scan said: Fusion credits are disabled' : p.fusionCredits === 'reserved' ? 'reserved for its scan' : type === 'last' ? 'a LAST scan' : 'its scan did not say'),
   ].join('');
   const open = $('fusion-side-open');
@@ -9141,8 +9134,9 @@ function renderFusionSide() {
     .map(([value, text, n]) => `<button type="button" class="sm fusion-chip" data-fusion-side-state="${escapeHtml(value)}" aria-pressed="${value === fusionSideState}">${escapeHtml(text)}${value ? ` ${fmt(n)}` : ''}</button>`).join('');
   const date = (iso) => (iso ? fmtDateTime(iso) : '—');
   const item = (r, i) => `<details class="fusion-vuln"${i === 0 ? ' open' : ''}>
-      <summary><span class="sev-dot sev-${escapeHtml(r.severity.toLowerCase())}" aria-hidden="true"></span><span class="fusion-vuln-name">${escapeHtml(r.name)}</span><span class="fusion-vuln-tags">${r.ai ? '<span class="fusion-tag fusion-AI" title="Found by the AI engine">AI-found</span>' : ''}${r.aiTriaged ? '<span class="fusion-tag fusion-AI" title="Its state was set by AI Triage">AI-triaged</span>' : ''}${r.engine ? `<span class="fusion-tag fusion-${escapeHtml(r.engine)}">${escapeHtml(ENGINE_LABEL[r.engine] ?? r.engine)}</span>` : ''}</span>
+      <summary><span class="sev-dot sev-${escapeHtml(r.severity.toLowerCase())}" aria-hidden="true"></span><span class="fusion-vuln-name">${escapeHtml(r.name)}</span><span class="fusion-vuln-tags">${r.aiTriaged ? '<span class="fusion-tag fusion-AI" title="Its state was set by AI Triage">AI-triaged</span>' : ''}${r.engine ? `<span class="fusion-tag fusion-${escapeHtml(r.engine)}">${escapeHtml(ENGINE_LABEL[r.engine] ?? r.engine)}</span>` : ''}</span>
         <span class="fusion-vuln-sub">${escapeHtml([SEVERITY_LABEL[r.severity] ?? r.severity, scannerLabel(r.scanner), r.status, r.state, r.language, r.source ? fileOf(r.source) : fileOf(r.location.split(' :: ')[0])].filter(Boolean).join(' · '))}</span></summary>
+      ${r.description ? `<p class="fusion-vuln-desc" translate="no">${escapeHtml(r.description)}</p>` : ''}
       <dl>
         <dt>Severity</dt><dd>${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity)}</dd>
         <dt>Status · state</dt><dd>${escapeHtml([r.status || '—', r.state || '—'].join(' · '))}${r.aiTriaged ? ` <span class="hint">${escapeHtml('(set by AI Triage)')}</span>` : ''}</dd>
@@ -9189,18 +9183,23 @@ document.addEventListener('keydown', (event) => {
 $('fusion-side-csv')?.addEventListener('click', () => {
   const { rows } = fusionSideRows();
   const name = fusion.scope?.names?.[fusion.open] ?? fusion.open ?? 'project';
-  downloadCsv(`${fusionFileName(fusionEngines())}-${String(name).replace(/[^\w.-]+/g, '-').slice(0, 60)}`, [['Severity', 'Scanner', 'Engine', 'Vulnerability', 'Status', 'State', 'Found by AI', 'State set by AI Triage', 'Language', 'Supported by SAST as', 'CWE', 'Where', 'Source', 'Sink', 'First found', 'Last found', 'Project', 'Result id', 'Link', 'Project link'],
-    ...rows.map((r) => [SEVERITY_LABEL[r.severity] ?? r.severity, scannerLabel(r.scanner), ENGINE_LABEL[r.engine] ?? r.engine, r.name, r.status, r.state, r.ai ? 'Yes' : 'No', r.aiTriaged ? 'Yes' : 'No', r.language, r.coveredAs, r.cwe ? `CWE-${r.cwe}` : '', r.location, r.source, r.sink, r.firstFoundAt ?? '', r.foundAt ?? '', r.project, r.id, r.url, r.projectUrl])]);
+  downloadCsv(`${fusionFileName(fusionEngines())}-${String(name).replace(/[^\w.-]+/g, '-').slice(0, 60)}`, [['Severity', 'Scanner', 'Engine', 'Vulnerability', 'Status', 'State', 'Found by AI', 'State set by AI Triage', 'Language', 'Supported by SAST as', 'CWE', 'Where', 'Source', 'Sink', 'Description', 'First found', 'Last found', 'Project', 'Result id', 'Link', 'Project link'],
+    ...rows.map((r) => [SEVERITY_LABEL[r.severity] ?? r.severity, scannerLabel(r.scanner), ENGINE_LABEL[r.engine] ?? r.engine, r.name, r.status, r.state, r.ai ? 'Yes' : 'No', r.aiTriaged ? 'Yes' : 'No', r.language, r.coveredAs, r.cwe ? `CWE-${r.cwe}` : '', r.location, r.source, r.sink, r.description, r.firstFoundAt ?? '', r.foundAt ?? '', r.project, r.id, r.url, r.projectUrl])]);
 });
 $('fusion-side-report')?.addEventListener('click', () => downloadFusionReport(fusion.open));
 
 /** What the read found, said once above the figures. */
 function fusionStatus(data) {
-  const failed = data.failures?.length ? ` ${fmt(data.failures.length)} project(s) could not be read.` : '';
-  const noScan = data.noScan ? ` ${fmt(data.noScan)} project(s) have no completed scan.` : '';
-  const notFusion = data.notFusion ? ` ${fmt(data.notFusion)} project(s) left out: their latest scan did not run the AI engine.` : '';
-  const kinds = data.kinds ? `${fmt(data.kinds.fusion)} Fusion and ${fmt(data.kinds.last)} LAST scan(s)` : `${fmt(data.scanned ?? 0)} Fusion scan(s)`;
-  setStatus('fusion-status', `${kinds} read from Risk Hub.${notFusion}${noScan}${failed}`, failed ? 'warn' : 'muted');
+  // One sentence each, so each is translated whole.
+  const sentences = [
+    data.kinds ? `${fmt(data.kinds.fusion)} Fusion and ${fmt(data.kinds.last)} LAST scan(s) with AI results: only what the AI engine reported.` : `${fmt(data.scanned ?? 0)} Fusion scan(s).`,
+    data.noAi ? `${fmt(data.noAi)} project(s) left out: their latest scan's AI engine reported nothing.` : '',
+    data.notFusion ? `${fmt(data.notFusion)} project(s) left out: their latest scan did not run the AI engine.` : '',
+    data.noScan ? `${fmt(data.noScan)} project(s) have no completed scan.` : '',
+    data.failures?.length ? `${fmt(data.failures.length)} project(s) could not be read.` : '',
+  ].filter(Boolean);
+  setStatus('fusion-status', '', data.failures?.length ? 'warn' : 'muted');
+  $('fusion-status').innerHTML = sentences.map((line) => `<span>${escapeHtml(line)}</span>`).join(' ');
   $('fusion-tried').innerHTML = '';
 }
 $('fusion-scope')?.addEventListener('submit', async (event) => {

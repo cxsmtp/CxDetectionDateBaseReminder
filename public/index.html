@@ -2391,7 +2391,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div class="panel-head">
                 <div>
                   <h2>Fusion results <span class="badge warn" data-beta-badge="fusionResults">Beta</span></h2>
-                  <p class="hint wide">The Risk Hub list of each project whose latest scan ran the AI engine. <strong class="fusion-word">Fusion</strong>: a Fusion scan (Fusion on in its settings) and what it reported. <strong class="last-word">LAST</strong> (language-agnostic static testing): a scan with Fusion off, or what a Fusion scan&#39;s AI engine found in a language only it covers. Click a project to see its vulnerabilities.</p>
+                  <p class="hint wide">Only what the AI engine reported, for each project whose latest scan ran it: no traditional SAST, SCA or other results. <strong class="fusion-word">Fusion</strong>: a Fusion scan (Fusion on in its settings) and what its AI engine reported. <strong class="last-word">LAST</strong> (language-agnostic static testing): a scan with Fusion off, or what a Fusion scan&#39;s AI engine found in a language only it covers. Click a project to see its vulnerabilities.</p>
                 </div>
                 <div class="actions"><button type="button" id="fusion-read" class="sm" data-perm="beta.use feature.fusionResults">Read Fusion now</button></div>
               </div>
@@ -2433,12 +2433,6 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <select id="fusion-model" aria-label="Model">
                     <option value="">Any model</option>
                   </select>
-                  <select id="fusion-period" aria-label="AI scans and credits over" title="AI scans and credits over">
-                    <option value="last_30_days">Last 30 days</option>
-                    <option value="last_90_days">Last 90 days</option>
-                    <option value="last_180_days">Last 180 days</option>
-                    <option value="last_year">Last year</option>
-                  </select>
                   <button type="button" class="sm" id="fusion-proj-csv">Export CSV</button>
                   <button type="button" class="sm" id="fusion-report">HTML report</button>
                 </div>
@@ -2455,7 +2449,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <p class="status" id="fusion-act-status"></p>
               <div class="table-wrap">
                 <table class="data-table fusion-table">
-                  <thead><tr><th>Project</th><th title="Fusion: its latest scan ran the AI engine with Fusion on. LAST: with Fusion off (LLM-based scanning alone).">Scan</th><th title="The model its latest scan ran with, and where that was set: the scan, the project, the tenant, or Checkmarx One itself">Model</th><th class="num" title="Lines of code its latest scan counted">LOC</th><th class="num" title="What the AI engine found in the latest scan, and how many of those it added once the ones the traditional engine also found were taken out (as the scan's steps say)">AI found → added</th><th title="Its results in Risk Hub by severity, for the engines shown">Results</th><th class="num" title="Open risks still in Risk Hub's default state, To verify">To verify</th><th class="num" title="Open risks confirmed (by people or by AI Triage)">Confirmed</th><th class="num" title="Completed scans that ran the AI engine, over the period chosen above">AI scans</th><th class="num" title="Checkmarx One credits the project used over the period chosen above">Credits</th><th>Latest scan</th></tr></thead>
+                  <thead><tr><th>Project</th><th title="Fusion: its latest scan ran the AI engine with Fusion on. LAST: with Fusion off (LLM-based scanning alone).">Scan</th><th title="The model its latest scan ran with, and where that was set: the scan, the project, the tenant, or Checkmarx One itself">Model</th><th class="num" title="Lines of code its latest scan counted">LOC</th><th class="num" title="What the AI engine found in the latest scan, and how many of those it added once the ones the traditional engine also found were taken out (as the scan's steps say)">AI found → added</th><th title="What the AI engine reported, by severity (no traditional SAST results)">AI results</th><th class="num" title="Open risks still in Risk Hub's default state, To verify">To verify</th><th class="num" title="Open risks confirmed (by people or by AI Triage)">Confirmed</th><th class="num" title="Credits its latest scan used: none for a LAST scan or with Fusion credits disabled; ≈ an estimate from the Fusion credits it used over the last year, per Fusion scan">Credits, latest scan</th><th>Latest scan</th></tr></thead>
                   <tbody id="fusion-body"><tr><td colspan="11" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
                 </table>
               </div>

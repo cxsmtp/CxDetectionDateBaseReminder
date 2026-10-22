@@ -3575,3 +3575,4 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 .flush-table .pill.muted { color: var(--muted); }
 .flush-keep { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px 10px; margin: 10px 0; display: grid; gap: 6px; }
 .flush-keep legend { padding: 0 4px; font-weight: 600; }
+.fusion-vuln-desc { margin: 6px 14px 10px; color: var(--text); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
