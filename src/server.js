@@ -3332,7 +3332,8 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
       shouldStop,
     }),
     // Whether each project's latest scan was a Fusion scan, a LAST scan or neither: the Workbench colours its row.
-    scanTypes(client, Object.fromEntries(projects.map((p) => [p.id, lastScans?.[p.id]]).filter(([, scan]) => scan)), { concurrency: 2 }).catch(() => ({})),
+    // Part of the fetch being waited for (a call per 100 projects), so not queued behind background work.
+    scanTypes(client, Object.fromEntries(projects.map((p) => [p.id, lastScans?.[p.id]]).filter(([, scan]) => scan)), { concurrency: 2, background: false }).catch(() => ({})),
   ]);
   // Stopped part-way, or projects left out: what was read is the data, and only its projects keep their initiators.
   if (result.notRead || result.leftOut) {
@@ -7492,8 +7493,9 @@ app.delete('/api/tracked-reports/:id', requirePermission('reports.delete'), (req
 // Administrator view of AI Triage credits used from reports.
 app.get('/api/credits', requirePermission('credits.view'), asyncRoute(async (req, res) => {
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
-  // What the tenant has left in Checkmarx One: the pool and what projects are given stay within it.
-  const tenant = await tenantCreditsOf(req);
+  // What the tenant has left in Checkmarx One: the pool and what projects are given stay within it. Shown as last
+  // read, never waited for here.
+  const tenant = await tenantCreditsOf(req, { wait: false });
   const { aiTriage } = settingsStore.get();
   const list = allocations.list();
   res.json({
@@ -8431,18 +8433,34 @@ async function monthlyImpact(now = new Date()) {
 /** The credit pool now: size, used (triage / remediation), left, given to projects, free to give. */
 /** How long the tenant's Checkmarx One credits, once read, are taken as they are. */
 const TENANT_CREDITS_MS = 2 * 60 * 1000;
+/** A session's read of the tenant's credits still under way (one at a time). */
+const tenantCreditReads = new WeakMap();
 /**
  * The tenant's credits in Checkmarx One (GET /api/credits/info), read with this session's connection and kept for a
- * short while; null when there is no connection or Checkmarx One does not say.
+ * short while; null when there is no connection or Checkmarx One does not say. Once known, an older figure is
+ * answered at once while it is read again behind; `fresh` waits for a new read (setting the pool), `wait: false`
+ * never waits (a page that only shows it).
  */
-async function tenantCreditsOf(req, { fresh = false } = {}) {
-  const client = req.session?.client;
+async function tenantCreditsOf(req, { fresh = false, wait = true } = {}) {
+  const session = req.session;
+  const client = session?.client;
   if (!client) return null;
-  const kept = req.session.tenantCredits;
+  const kept = session.tenantCredits;
   if (!fresh && kept && Date.now() - kept.at < TENANT_CREDITS_MS) return kept.value;
-  const value = await tenantCredits(client).catch(() => null);
-  req.session.tenantCredits = { at: Date.now(), value };
-  return value;
+  let read = tenantCreditReads.get(session);
+  if (!read) {
+    read = tenantCredits(client, { background: !fresh })
+      .catch(() => null)
+      .then((value) => {
+        session.tenantCredits = { at: Date.now(), value };
+        return value;
+      })
+      .finally(() => tenantCreditReads.delete(session));
+    tenantCreditReads.set(session, read);
+  }
+  if (fresh) return read;
+  if (kept) return kept.value;
+  return wait ? read : null;
 }
 
 /**

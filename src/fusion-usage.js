@@ -209,7 +209,7 @@ export async function projectFacts(client, projectIds, scans, { concurrency = 4,
  * 'none' }. A scan whose engines say no AI is 'none' without asking; the others are read a hundred at a time
  * (GET /api/scans?scan-ids=…) for their own AI settings. Projects Checkmarx One does not answer for are left out.
  */
-export async function scanTypes(client, scans, { concurrency = 4, trace = null } = {}) {
+export async function scanTypes(client, scans, { concurrency = 4, background = true, trace = null } = {}) {
   const out = {};
   const ask = [];
   for (const [projectId, scan] of Object.entries(scans ?? {})) {
@@ -223,7 +223,7 @@ export async function scanTypes(client, scans, { concurrency = 4, trace = null }
   for (let i = 0; i < ask.length; i += 100) batches.push(ask.slice(i, i + 100));
   await mapWithConcurrency(batches, concurrency, async (batch) => {
     const byScan = new Map(batch);
-    const body = await quiet(() => client.request('/api/scans', { query: { 'scan-ids': [...byScan.keys()], limit: batch.length, offset: 0 }, retries: 1, background: true, trace }));
+    const body = await quiet(() => client.request('/api/scans', { query: { 'scan-ids': [...byScan.keys()], limit: batch.length, offset: 0 }, retries: 1, background, trace }));
     for (const scan of Array.isArray(body?.scans) ? body.scans : []) {
       const projectId = byScan.get(text(scan?.id, 80));
       if (!projectId || !Array.isArray(scan.engines)) continue;
@@ -237,8 +237,8 @@ export async function scanTypes(client, scans, { concurrency = 4, trace = null }
  * The tenant's Checkmarx One credits (GET /api/credits/info): { available, total, used, actionsAvailable,
  * actionsPerformed, state, readAt }, or null when it does not answer.
  */
-export async function tenantCredits(client, { trace = null } = {}) {
-  const body = await quiet(() => client.request('/api/credits/info', { retries: 1, background: true, trace }));
+export async function tenantCredits(client, { background = true, trace = null } = {}) {
+  const body = await quiet(() => client.request('/api/credits/info', { retries: 1, background, trace }));
   const n = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) || Number(v) < 0 ? null : Number(v));
   const available = n(body?.available);
   if (available === null) return null;
