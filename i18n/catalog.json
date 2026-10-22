@@ -28222,5 +28222,143 @@
   "seen": [
    "MZ-01.00.95 › Labs → FAE Flush"
   ]
+ },
+ "Labs: only what the AI engine reported, Fusion and LAST": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "{0} Fusion and {1} LAST scan(s) with AI results: only what the AI engine reported.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "{0} project(s) left out: their latest scan's AI engine reported nothing.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "{0} project(s) left out: their latest scan did not run the AI engine.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "{0} project(s) have no completed scan.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "{0} project(s) could not be read.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "{0} Fusion scan(s).": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "no AI results in latest scan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "AI results": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "Credits, latest scans": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "Credits, latest scan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "What the AI engine reported, by severity (no traditional SAST results)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "Credits its latest scan used: none for a LAST scan or with Fusion credits disabled; ≈ an estimate from the Fusion credits it used over the last year, per Fusion scan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "Its latest scan said: Fusion credits are disabled": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "A LAST scan: no Fusion credits": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "Estimated: the Fusion credits it used over the last year, per Fusion scan (Checkmarx One does not say one scan’s own)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "Checkmarx One did not say what its latest scan used": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "{0} project(s) with results from the AI engine · gold: Fusion, pink: LAST · click a project to see its vulnerabilities": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "No project's latest scan has results from the AI engine (Fusion and LAST).": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "No project's latest scan has results from the AI engine (Fusion).": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "No project's latest scan has results from the AI engine (LAST).": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "Scanner": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
+ },
+ "Only what the AI engine reported, for each project whose latest scan ran it: no traditional SAST, SCA or other results. <strong class=\"fusion-word\">Fusion</strong>: a Fusion scan (Fusion on in its settings) and what its AI engine reported. <strong class=\"last-word\">LAST</strong> (language-agnostic static testing): a scan with Fusion off, or what a Fusion scan's AI engine found in a language only it covers. Click a project to see its vulnerabilities.": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.95 › Labs → Fusion results"
+  ]
  }
 }
