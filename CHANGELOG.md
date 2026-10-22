@@ -81,6 +81,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.95 — not released yet
+
+- **FAE Flush, in Labs.** Findings Analysis (FAE) now clears the existing backlog too: for every project of the tenant at once, a few scans at a time, the code of its latest scan is scanned again on a `<name>_FAE` copy with FAE on.
+- **Your projects stay as they are.** Results still To verify that the FAE scan no longer reports are marked Proposed not exploitable in the original project, with a comment naming the FAE scan, so its history, triage, automations and integrations are kept.
+- **Checked twice, and it asks when something looks off.** Every mark is revalidated by reading both projects again; a project whose FAE scan failed, whose code looks different, or that would mark nearly everything stops and asks (mark anyway, retry or skip) while the rest carry on.
+- **Delete or keep the copies.** Starting asks whether each `_FAE` project is deleted once checked or kept to look at; kept ones go with one click, **Delete all _FAE projects**, any day after, and never show on the Workbench or in reports.
+- **The result, and a way back.** The page says how many false positives were marked Proposed not exploitable, per project and in total, with Export CSV; **Pause**, and **Undo all marks** puts them back to To verify; every step is in the audit log.
+- **Act's first page once final.** When an Admin makes it final it leaves Labs for the top of Act (FAE Flush, Workbench, Automation); the Workbench stays the home page.
+- **Status.** Measured when it is merged.
+
 ## MZ-01.00.94 — 2026-10-22 10:06 UTC · [#117](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/117)
 
 - **Fusion results as Risk Hub shows them.** **Labs → Fusion results** lists, for each project whose latest scan ran the AI engine, the same risks Checkmarx One's Risk Hub shows, every scanner, with Risk Hub's own New, Recurrent and Fixed; before, a project with 216 risks in Risk Hub could show none.

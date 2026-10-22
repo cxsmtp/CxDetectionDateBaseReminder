@@ -83,6 +83,7 @@ const allRisksFor = (pid) => Array.from({ length: BRANCHES && Number(String(pid)
 // Access tokens are only the ones this mock handed out; request bodies are small.
 // FAE Flush: "<name>_FAE" projects made here, their upload scans (FAE on), and states set by predicates.
 const FAE_SCAN_MS = Number(process.env.FAE_SCAN_MS || RESCAN_MS);
+const FAE_FAIL = new Set(String(process.env.FAE_FAIL || '').split(',').filter(Boolean)); // these projects' FAE scans fail
 const faeProjects = new Map(); // id -> { name, tags }
 const faeScans = new Map(); // scanId -> { projectId, source: 'p3', at }
 const predicates = new Map(); // `${projectId}|${similarityId}` -> state
@@ -276,7 +277,7 @@ http.createServer((req, res) => {
         const fae = faeScans.get(id);
         if (fae) {
           const age = Date.now() - fae.at;
-          const status = age < 200 ? 'Queued' : age < FAE_SCAN_MS ? 'Running' : 'Completed';
+          const status = age < 200 ? 'Queued' : age < FAE_SCAN_MS ? 'Running' : FAE_FAIL.has(fae.source) ? 'Failed' : 'Completed';
           const i = Number(fae.source.replace(/^p/, ''));
           return send(200, { id, projectId: fae.projectId, status, branch: 'main', engines: ['sast'], sourceType: 'upload', statusDetails: [{ name: 'general', status }, { name: 'sast', status, ...(status === 'Completed' ? { loc: mockLoc(i), startDate: new Date(fae.at).toISOString(), endDate: new Date(fae.at + FAE_SCAN_MS).toISOString() } : {}) }] });
         }
