@@ -5,7 +5,7 @@ import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engin
 import { LANGUAGES, availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
 import { helpMode, setHelpMode, startHelpTips } from './help-tips.js';
 import { sortAndFilter, startTableTools, tableFiltered } from './table-tools.js';
-import { ENGINE_LABEL, MODEL_FROM, PERIOD_LABEL, countsFor, engineLabel, fileOf, fusionReportHtml, fusionResultRows, fusionRows, fusionTiles, fusionTotalOf, shownEngines } from './fusion-view.js';
+import { ENGINE_LABEL, MODEL_FROM, PERIOD_LABEL, countsFor, engineLabel, fileOf, fusionReportHtml, fusionResultRows, fusionRows, fusionTiles, fusionTotalOf, scannerLabel, shownEngines } from './fusion-view.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -1635,7 +1635,7 @@ const PAGE_TITLES = {
   access: ['People & roles', 'Who can sign in, and what they may do'],
   audit: ['Audit', 'Every credit spent, refused or failed'],
   beta: ['Code authors', 'Labs: who wrote the code, and their email'],
-  fusion: ['Fusion results', 'Labs: what Checkmarx One’s AI engine found in SAST'],
+  fusion: ['Fusion results', 'Labs: what Checkmarx One Fusion reported, from Risk Hub'],
   help: ['Get help', 'Support cases and enhancements'],
   calculator: ['Cx Credits Calculator', 'The credits a customer needs'],
 };
@@ -4538,7 +4538,7 @@ const OPTIONAL_COLUMNS = [
   { id: 'sla:overdue', group: 'SLA', label: 'Past SLA', title: 'Open findings past the days their severity has to be fixed (Settings → SLAs)', value: (p) => p.sla?.overdue ?? 0, alert: true, perm: 'feature.sla' },
   { id: 'sla:soon', group: 'SLA', label: 'Due ≤ 7d', title: 'Open findings due within 7 days', value: (p) => p.sla?.dueSoon ?? 0, perm: 'feature.sla' },
   // Fusion (Beta): the project's results Fusion re-scored (Labs → Fusion), shown by default to those who may use it.
-  { id: 'fusion:total', group: 'Fusion', label: 'Fusion', title: 'Results Checkmarx One’s AI engine found in this project’s latest scan: Fusion, LAST or both, as ticked on Labs → Fusion results', value: (p) => fusionTotalOf(fusion.data, p.projectId, fusionEngines()) ?? 0, perm: 'feature.fusionResults', byDefault: true },
+  { id: 'fusion:total', group: 'Fusion', label: 'Fusion', title: 'What this project’s latest Fusion scan reported in Risk Hub: Fusion, LAST or both, as ticked on Labs → Fusion results', value: (p) => fusionTotalOf(fusion.data, p.projectId, fusionEngines()) ?? 0, perm: 'feature.fusionResults', byDefault: true },
 ];
 const COLUMNS_KEY = 'mz-project-columns';
 let columnsChosen = false;
@@ -8821,7 +8821,7 @@ const FUSION_SIDE_PAGE = 100;
 let fusionSideShown = FUSION_SIDE_PAGE;
 let fusionSideChip = '';
 let fusionSideFrom = null;
-const FUSION_CHIPS = [['', 'All'], ['CRITICAL', 'Critical'], ['HIGH', 'High'], ['MEDIUM', 'Medium'], ['LOW', 'Low'], ['New', 'New'], ['Recurrent', 'Recurrent']];
+const FUSION_CHIPS = [['', 'All'], ['CRITICAL', 'Critical'], ['HIGH', 'High'], ['MEDIUM', 'Medium'], ['LOW', 'Low'], ['New', 'New'], ['Recurrent', 'Recurrent'], ['Fixed', 'Fixed']];
 const fusionChipMatch = (chip, r) => !chip || r.severity === chip || r.status === chip;
 
 function openFusionSide(projectId) {
@@ -8908,20 +8908,19 @@ function renderFusionSide() {
   // Only the chips that have something, so a chip never shows nothing by itself.
   $('fusion-side-chips').innerHTML = FUSION_CHIPS.map(([value, text]) => [value, text, all.filter((r) => fusionChipMatch(value, r)).length])
     .filter(([value, , n]) => !value || n)
-    .map(([value, text, n]) => `<button type="button" class="sm fusion-chip" data-fusion-chip="${escapeHtml(value)}" aria-pressed="${value === fusionSideChip}">${escapeHtml(text)} ${fmt(n)}</button>`).join('')
-    // Fixed ones are gone from the latest scan: counted, not listed.
-    + (row.FIXED ? `<span class="fusion-chip-fixed" title="Gone from the latest scan: counted, not listed">${escapeHtml(`Fixed ${fmt(row.FIXED)}`)}</span>` : '');
+    .map(([value, text, n]) => `<button type="button" class="sm fusion-chip" data-fusion-chip="${escapeHtml(value)}" aria-pressed="${value === fusionSideChip}">${escapeHtml(text)} ${fmt(n)}</button>`).join('');
   const date = (iso) => (iso ? fmtDateTime(iso) : '—');
   const item = (r, i) => `<details class="fusion-vuln"${i === 0 ? ' open' : ''}>
       <summary><span class="sev-dot sev-${escapeHtml(r.severity.toLowerCase())}" aria-hidden="true"></span><span class="fusion-vuln-name">${escapeHtml(r.name)}</span>${r.engine ? `<span class="fusion-tag fusion-${escapeHtml(r.engine)}">${escapeHtml(ENGINE_LABEL[r.engine] ?? r.engine)}</span>` : '<span></span>'}
-        <span class="fusion-vuln-sub">${escapeHtml([SEVERITY_LABEL[r.severity] ?? r.severity, r.status, r.state, r.language, r.source ? fileOf(r.source) : ''].filter(Boolean).join(' · '))}</span></summary>
+        <span class="fusion-vuln-sub">${escapeHtml([SEVERITY_LABEL[r.severity] ?? r.severity, scannerLabel(r.scanner), r.status, r.state, r.language, r.source ? fileOf(r.source) : fileOf(r.location.split(' :: ')[0])].filter(Boolean).join(' · '))}</span></summary>
       <dl>
         <dt>Severity</dt><dd>${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity)}</dd>
         <dt>Status · state</dt><dd>${escapeHtml([r.status || '—', r.state || '—'].join(' · '))}</dd>
         <dt>Language</dt><dd>${escapeHtml(r.language || '—')} <span class="hint">${escapeHtml(r.engine === 'LAST' ? '(only the AI engine covers it)' : r.coveredAs ? `(traditional SAST supports it as ${r.coveredAs})` : '')}</span></dd>
         <dt>CWE</dt><dd>${r.cwe ? `CWE-${escapeHtml(String(r.cwe))}` : '—'}</dd>
-        <dt>Source</dt><dd>${r.source ? `<code>${escapeHtml(r.source)}</code>` : '—'}${r.sourceNode ? ` · ${escapeHtml(r.sourceNode)}` : ''}</dd>
-        <dt>Sink</dt><dd>${r.sink ? `<code>${escapeHtml(r.sink)}</code>` : '—'}${r.sinkNode ? ` · ${escapeHtml(r.sinkNode)}` : ''}</dd>
+        <dt>Scanner</dt><dd>${escapeHtml(scannerLabel(r.scanner))}</dd>
+        ${r.source ? `<dt>Source</dt><dd><code>${escapeHtml(r.source)}</code>${r.sourceNode ? ` · ${escapeHtml(r.sourceNode)}` : ''}</dd>
+        <dt>Sink</dt><dd>${r.sink ? `<code>${escapeHtml(r.sink)}</code>` : '—'}${r.sinkNode ? ` · ${escapeHtml(r.sinkNode)}` : ''}</dd>` : `<dt>Where</dt><dd>${r.location ? `<code>${escapeHtml(r.location)}</code>` : '—'}</dd>`}
         <dt>First found</dt><dd>${escapeHtml(date(r.firstFoundAt))}</dd>
         <dt>Last found</dt><dd>${escapeHtml(date(r.foundAt))}</dd>
         <dt>Result id</dt><dd><code>${escapeHtml(r.id || '—')}</code></dd>
@@ -8954,17 +8953,17 @@ document.addEventListener('keydown', (event) => {
 $('fusion-side-csv')?.addEventListener('click', () => {
   const { rows } = fusionSideRows();
   const name = fusion.scope?.names?.[fusion.open] ?? fusion.open ?? 'project';
-  downloadCsv(`${fusionFileName(fusionEngines())}-${String(name).replace(/[^\w.-]+/g, '-').slice(0, 60)}`, [['Severity', 'Engine', 'Vulnerability', 'Status', 'State', 'Language', 'Supported by SAST as', 'CWE', 'Source', 'Sink', 'First found', 'Last found', 'Project', 'Result id', 'Link', 'Project link'],
-    ...rows.map((r) => [SEVERITY_LABEL[r.severity] ?? r.severity, ENGINE_LABEL[r.engine] ?? r.engine, r.name, r.status, r.state, r.language, r.coveredAs, r.cwe ? `CWE-${r.cwe}` : '', r.source, r.sink, r.firstFoundAt ?? '', r.foundAt ?? '', r.project, r.id, r.url, r.projectUrl])]);
+  downloadCsv(`${fusionFileName(fusionEngines())}-${String(name).replace(/[^\w.-]+/g, '-').slice(0, 60)}`, [['Severity', 'Scanner', 'Engine', 'Vulnerability', 'Status', 'State', 'Language', 'Supported by SAST as', 'CWE', 'Where', 'Source', 'Sink', 'First found', 'Last found', 'Project', 'Result id', 'Link', 'Project link'],
+    ...rows.map((r) => [SEVERITY_LABEL[r.severity] ?? r.severity, scannerLabel(r.scanner), ENGINE_LABEL[r.engine] ?? r.engine, r.name, r.status, r.state, r.language, r.coveredAs, r.cwe ? `CWE-${r.cwe}` : '', r.location, r.source, r.sink, r.firstFoundAt ?? '', r.foundAt ?? '', r.project, r.id, r.url, r.projectUrl])]);
 });
 $('fusion-side-report')?.addEventListener('click', () => downloadFusionReport(fusion.open));
 
 /** What the read found, said once above the figures. */
 function fusionStatus(data) {
   const failed = data.failures?.length ? ` ${fmt(data.failures.length)} project(s) could not be read.` : '';
-  const unmarked = data.unmarked && !data.totals?.total ? ' This Checkmarx One does not say which SAST results its AI engine found (isAiGenerated), so none is shown.' : '';
   const noScan = data.noScan ? ` ${fmt(data.noScan)} project(s) have no completed scan.` : '';
-  setStatus('fusion-status', `${fmt(data.scanned ?? 0)} latest scan(s) read.${noScan}${failed}${unmarked}`, failed || unmarked ? 'warn' : 'muted');
+  const notFusion = data.notFusion ? ` ${fmt(data.notFusion)} project(s) left out: their latest scan was not a Fusion scan.` : '';
+  setStatus('fusion-status', `${fmt(data.scanned ?? 0)} Fusion scan(s) read from Risk Hub.${notFusion}${noScan}${failed}`, failed ? 'warn' : 'muted');
   $('fusion-tried').innerHTML = '';
 }
 $('fusion-scope')?.addEventListener('submit', async (event) => {

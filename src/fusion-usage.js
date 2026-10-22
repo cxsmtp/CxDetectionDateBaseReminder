@@ -56,8 +56,9 @@ const quiet = async (fn) => {
 };
 
 /**
- * Each project's model (and where it came from) and lines of code, from its latest scan (`scans`: { projectId:
- * scan }, as getLastScans gives): { projectId: { model, modelFrom: 'scan' | 'project' | 'tenant' | '', loc } }.
+ * Each project's model (and where it came from), lines of code and engines, from its latest scan (`scans`:
+ * { projectId: scan }, as getLastScans gives): { projectId: { model, modelFrom: 'scan' | 'project' | 'tenant' | '',
+ * loc, scanEngines } }. The settings are read only for a Fusion scan that does not name its model.
  */
 export async function projectFacts(client, projectIds, scans, { concurrency = 4, trace = null } = {}) {
   let tenantModel;
@@ -72,15 +73,17 @@ export async function projectFacts(client, projectIds, scans, { concurrency = 4,
     const sast = (Array.isArray(scan?.statusDetails) ? scan.statusDetails : []).find((d) => String(d?.name).toLowerCase() === 'sast');
     let model = modelIn(scan?.metadata ?? scan?.config ?? null);
     let modelFrom = model ? 'scan' : '';
-    if (!model) {
+    const fusion = !Array.isArray(scan?.engines) || scan.engines.some((e) => String(e).toLowerCase() === 'ai');
+    if (!model && fusion) {
       model = configModel(await quiet(() => client.request('/api/configuration/project', { query: { 'project-id': projectId }, retries: 1, background: true, trace })));
       modelFrom = model ? 'project' : '';
     }
-    if (!model) {
+    if (!model && fusion) {
       model = await tenant();
       modelFrom = model ? 'tenant' : '';
     }
-    out[projectId] = { model, modelFrom, loc: whole(sast?.loc) };
+    // Its engines say whether it was a Fusion scan ("ai" among them).
+    out[projectId] = { model, modelFrom, loc: whole(sast?.loc), scanEngines: Array.isArray(scan?.engines) ? scan.engines.map((e) => text(e, 40)) : [] };
   });
   return out;
 }

@@ -1,25 +1,24 @@
 /**
- * Fusion results (Labs): what Checkmarx One's AI engine found in SAST, read per project from its latest scan.
+ * Fusion results (Labs): the Risk Hub list of each project whose latest scan was a Fusion scan (it ran the AI
+ * engine, "ai" among its engines), as Checkmarx One's Risk Hub shows it.
  *
- * Checkmarx One marks these SAST results `isAiGenerated` (the "LAST" engine), and its SAST endpoints take the
- * filter `is-ai-generated=1` (`is-ai-generated-operation=EQUAL` where operations apply):
- *   - GET /api/sast-results?scan-id=…            every result of the scan, here only the AI-generated ones;
- *   - GET /api/sast-scan-summary/aggregate        the scan's AI-generated results counted by severity;
- *   - GET /api/sast-scan-summary/compare/aggregate  against the scan before: how many were fixed since.
- * Each result keeps what the Checkmarx One results page shows: severity, the vulnerability (query), status
- * (New, Recurrent), state, language, CWE, source and sink, first and last found, and its hash, which opens it
- * in Risk Hub. Read-only: nothing here starts a scan.
- *
- * Each result is Fusion's or LAST's (src/sast-languages.js): Fusion when the traditional SAST engine supports its
- * language or framework too, LAST (language-agnostic static testing) when the AI engine alone covers it.
+ *   - The risks: the same Risk Hub API the Workbench reads (GET /api/risks/?projectId=…, src/cxone/risks.js), every
+ *     scanner (SAST, SCA, IaC, API Security…), each with its severity, state, where it is, its ids and its status as
+ *     Risk Hub gives it: New, Recurrent or Fixed.
+ *   - What the AI engine found among them: GET /api/sast-results?scan-id=…&is-ai-generated=1 (the results Checkmarx
+ *     One marks `isAiGenerated`, "LLM-Based: Yes"), matched to the risks by id; they bring their language, CWE,
+ *     source and sink. A risk that says `isAiGenerated` itself counts too.
+ * Every risk is Fusion's, except those the AI engine found in a language the traditional SAST engine does not
+ * support (src/sast-languages.js): LAST's (language-agnostic static testing). Read-only: nothing starts a scan.
  */
 import { mapWithConcurrency } from './cxone/client.js';
 import { isProbeMiss } from './cxone/discovery.js';
+import { normalizeRisk } from './cxone/risks.js';
 import { sastCoverage } from './sast-languages.js';
 
 export const AI_FILTER = { 'is-ai-generated': 1, 'is-ai-generated-operation': 'EQUAL' };
 export const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
-/** Fusion: the traditional SAST engine supports the language too; LAST: the AI engine alone. */
+/** LAST: found by the AI engine in a language only it covers; Fusion: every other risk of a Fusion scan. */
 export const ENGINES = ['FUSION', 'LAST'];
 /** ['fusion', 'LAST', 'x'] → ['FUSION', 'LAST']; none (or nothing known) → both. */
 export const cleanEngines = (v) => {
@@ -102,135 +101,131 @@ async function aiResults(client, scanId, trace) {
   return out;
 }
 
-/** The scan's AI-generated results by severity, as Checkmarx One counts them (null when it cannot say). */
-async function aiSeverityCounts(client, scanId, trace) {
-  try {
-    const body = await client.request('/api/sast-scan-summary/aggregate', { query: { 'scan-id': scanId, 'group-by-field': 'SEVERITY', ...AI_FILTER, limit: 100 }, retries: 1, background: true, trace });
-    const counts = Object.fromEntries(SEVERITIES.map((s) => [s, 0]));
-    for (const s of Array.isArray(body?.summaries) ? body.summaries : []) {
-      const sev = upper(s?.severity);
-      if (sev in counts) counts[sev] += Number(s?.count) || 0;
-    }
-    return counts;
-  } catch (error) {
-    if (isProbeMiss(error) || error.status === 400) return null;
-    throw error;
-  }
-}
-
-/** The completed scan before `latestId` (newest first), to compare with; null when there is none. */
-async function previousScan(client, projectId, latestId, trace) {
-  try {
-    const body = await client.request('/api/scans', { query: { 'project-id': projectId, statuses: 'Completed', sort: '-created_at', limit: 5 }, retries: 1, background: true, trace });
-    const scans = (Array.isArray(body?.scans) ? body.scans : []).filter((s) => (!s.status || s.status === 'Completed') && scanIdOf(s) && scanIdOf(s) !== latestId);
-    scans.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')));
-    return scans[0] ?? null;
-  } catch (error) {
-    if (isProbeMiss(error)) return null;
-    throw error;
-  }
-}
-
-/**
- * How many AI-generated results the latest scan fixed against the scan before, Fusion's and LAST's apart
- * (grouped by language): { FUSION, LAST }, either null when it cannot say; null when there is nothing to compare.
- */
-async function aiFixed(client, scanId, baseScanId, trace) {
-  if (!baseScanId) return null;
-  try {
-    const body = await client.request('/api/sast-scan-summary/compare/aggregate', { query: { 'scan-id': scanId, 'base-scan-id': baseScanId, 'group-by-field': 'LANGUAGE', 'is-ai-generated': 1, status: 'FIXED', limit: 10000 }, retries: 1, background: true, trace });
-    const rows = Array.isArray(body?.summaries) ? body.summaries : [];
-    const fixed = { FUSION: 0, LAST: 0 };
-    let unnamed = 0;
-    for (const s of rows) {
-      const n = Number(s?.count) || 0;
-      const language = s?.language ?? s?.languageName ?? s?.lang;
-      if (!language) unnamed += n;
-      else fixed[sastCoverage({ language }) ? 'FUSION' : 'LAST'] += n;
-    }
-    // Counts that do not say their language cannot be told apart: neither figure is known then.
-    return unnamed ? { FUSION: null, LAST: null } : fixed;
-  } catch (error) {
-    if (isProbeMiss(error) || error.status === 400) return null;
-    throw error;
-  }
+/** A Risk Hub risk as the page lists it, with what the AI engine's own result (when it found it) adds. */
+export function cleanRisk(raw, project, scanId, ai = null) {
+  const r = normalizeRisk(raw, project);
+  const marked = raw?.isAiGenerated === true || raw?.isAiGenerated === 'true' || raw?.isAiGenerated === 1;
+  const found = Boolean(ai) || marked;
+  const language = text(ai?.language || raw?.languageName || raw?.language, 60);
+  const covered = found ? sastCoverage({ language, group: raw?.group, file: ai?.sourceFile || raw?.fileName || raw?.assetName }) : null;
+  const severity = upper(r.severity);
+  return {
+    projectId: r.projectId,
+    projectName: r.projectName,
+    scanId: text(r.scanId || scanId, 80),
+    resultId: text(r.riskId, 200),
+    riskId: text(r.riskId, 200),
+    hash: text(r.alternateId || ai?.hash || r.riskId, 200),
+    alternateId: text(r.alternateId, 200),
+    similarityId: text(r.similarityId || ai?.similarityId, 80),
+    groupId: text(r.groupId, 400),
+    packageIdentifier: text(r.packageIdentifier, 300),
+    scanner: text(r.scanner, 40),
+    name: text(r.title, 300).replace(/_/g, ' '),
+    severity: SEVERITIES.includes(severity) ? severity : 'INFO',
+    // New, Recurrent or Fixed: Risk Hub's own word for it.
+    status: upper(r.status),
+    state: upper(r.state),
+    language,
+    ai: found,
+    engine: found && !covered ? 'LAST' : 'FUSION',
+    coveredAs: covered ? text(covered.framework ?? covered.language, 60) : '',
+    cwe: Number(r.cweId) > 0 ? Number(r.cweId) : ai?.cwe ?? null,
+    location: text(r.location, 400),
+    sourceFile: ai?.sourceFile ?? '',
+    sourceLine: ai?.sourceLine ?? null,
+    sourceNode: ai?.sourceNode ?? '',
+    sinkFile: ai?.sinkFile ?? '',
+    sinkLine: ai?.sinkLine ?? null,
+    sinkNode: ai?.sinkNode ?? '',
+    firstFoundAt: r.firstDetectedAt ?? ai?.firstFoundAt ?? null,
+    foundAt: ai?.foundAt ?? null,
+  };
 }
 
 const COUNTED = [...SEVERITIES, 'total', 'NEW', 'RECURRENT', 'FIXED'];
 const emptyCounts = () => ({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0, total: 0, NEW: 0, RECURRENT: 0, FIXED: 0 });
+/** Whether a scan ran the AI engine: a Fusion scan. */
+export const isFusionScan = (engines) => (Array.isArray(engines) ? engines : []).some((e) => String(e).toLowerCase() === 'ai');
+/** Fixed in Risk Hub: counted as fixed, not among the open ones. */
+export const isFixed = (r) => r?.status === 'FIXED';
 
 /**
- * Read Fusion (AI-generated SAST results) for `projects` ([{ id, name }]) from their latest completed scans
- * (`scans`: { projectId: scan }, as getLastScans gives). Returns the counts per project and overall (by
- * severity, and New / Recurrent / Fixed since the scan before) for every AI-generated result, and in `engines`
- * for Fusion's and LAST's apart; and every result to list, each saying whose it is (`engine`).
+ * Read Fusion for `projects` ([{ id, name }]) whose latest completed scan (`scans`: { projectId: scan }, as
+ * getLastScans gives) was a Fusion scan (`engines`: { projectId: [engine…] }, from each scan's details), with
+ * `riskSource` (createRiskSource: the Workbench's Risk Hub reader). Returns the counts per project and overall (the
+ * open ones by severity; New, Recurrent and Fixed as Risk Hub says), Fusion's and LAST's apart in `engines`, and
+ * every risk to list, each saying whose it is (`engine`).
  */
-export async function readAiFusion(client, projects, scans, { concurrency = 4, trace = null } = {}) {
+export async function readRiskFusion(client, projects, scans, { engines = {}, riskSource, concurrency = 4, trace = null } = {}) {
   const readAt = new Date().toISOString();
   const withScan = projects.filter((p) => scanIdOf(scans?.[p.id]));
+  const fusionScanned = withScan.filter((p) => isFusionScan(engines[p.id]));
   const failures = [];
-  const per = await mapWithConcurrency(withScan, concurrency, async (project) => {
+  const per = await mapWithConcurrency(fusionScanned, concurrency, async (project) => {
     const scan = scans[project.id];
     const scanId = scanIdOf(scan);
     try {
-      const [rows, counted, before] = await Promise.all([
-        aiResults(client, scanId, trace),
-        aiSeverityCounts(client, scanId, trace),
-        previousScan(client, project.id, scanId, trace),
+      const [raw, aiRows] = await Promise.all([
+        riskSource.fetchForProject(project),
+        aiResults(client, scanId, trace).catch((error) => (isProbeMiss(error) || error.status === 400 ? [] : Promise.reject(error))),
       ]);
-      const all = rows.map((r) => cleanAiResult(r, project, scanId));
-      const results = all.filter((r) => r.ai && r.resultId);
-      const unmarked = all.filter((r) => !r.marked).length;
-      const fixed = await aiFixed(client, scanId, scanIdOf(before), trace);
-      return { project, scanId, scanAt: iso(scan.updatedAt ?? scan.createdAt), baseScanId: scanIdOf(before) || null, results, counted, fixed, unmarked };
+      // The AI engine's own results, by every id a risk may carry for them.
+      const found = new Map();
+      for (const row of aiRows) {
+        const ai = cleanAiResult(row, project, scanId);
+        if (!ai.ai) continue;
+        for (const key of [ai.hash, ai.resultId]) if (key) found.set(key, ai);
+      }
+      const results = raw
+        .map((item) => cleanRisk(item, project, scanId, found.get(String(item?.id ?? item?.riskId ?? '')) ?? found.get(String(item?.alternateId ?? '')) ?? null))
+        .filter((r) => r.resultId);
+      return { project, scanId, scanAt: iso(scan.updatedAt ?? scan.createdAt), results };
     } catch (error) {
       failures.push({ projectId: project.id, status: error.status ?? 0, message: text(error.message, 200) });
-      return { project, scanId, results: [], counted: null, fixed: null, error: true };
+      return { project, scanId, results: [], error: true };
     }
   });
   const totals = { ...emptyCounts(), engines: { FUSION: emptyCounts(), LAST: emptyCounts() } };
-  let unmarkedAll = 0;
   const byProject = {};
   const results = [];
   for (const p of per) {
-    const engines = { FUSION: emptyCounts(), LAST: emptyCounts() };
+    const counts = { FUSION: emptyCounts(), LAST: emptyCounts() };
+    const scanners = {};
     for (const r of p.results) {
-      const e = engines[r.engine];
+      const e = counts[r.engine];
+      if (isFixed(r)) {
+        e.FIXED += 1;
+        continue;
+      }
       e[r.severity] += 1;
       if (r.status === 'NEW' || r.status === 'RECURRENT') e[r.status] += 1;
+      scanners[r.scanner || 'OTHER'] = (scanners[r.scanner || 'OTHER'] ?? 0) + 1;
     }
     for (const engine of ENGINES) {
-      const e = engines[engine];
-      e.total = SEVERITIES.reduce((n, s) => n + e[s], 0);
-      const fixed = p.fixed ? p.fixed[engine] : null;
-      e.FIXED = fixed ?? 0;
-      e.fixedKnown = fixed !== null && fixed !== undefined;
+      counts[engine].total = SEVERITIES.reduce((n, s) => n + counts[engine][s], 0);
+      counts[engine].fixedKnown = true;
     }
-    const c = { ...emptyCounts(), projectName: p.project.name, scanId: p.scanId, scanAt: p.scanAt ?? null, baseScanId: p.baseScanId ?? null, error: Boolean(p.error), engines };
-    for (const k of COUNTED) c[k] = engines.FUSION[k] + engines.LAST[k];
-    c.fixedKnown = engines.FUSION.fixedKnown && engines.LAST.fixedKnown;
-    // Checkmarx One's own count of the scan's AI-generated results, beside the listed ones.
-    c.reported = p.counted ? SEVERITIES.reduce((n, s) => n + p.counted[s], 0) : null;
-    unmarkedAll += p.unmarked ?? 0;
-    if (!c.total && !c.FIXED) continue;
+    const c = { ...emptyCounts(), projectName: p.project.name, scanId: p.scanId, scanAt: p.scanAt ?? null, error: Boolean(p.error), engines: counts, scanners, fixedKnown: true };
+    for (const k of COUNTED) c[k] = counts.FUSION[k] + counts.LAST[k];
     byProject[p.project.id] = c;
     for (const k of COUNTED) {
       totals[k] += c[k];
-      for (const engine of ENGINES) totals.engines[engine][k] += engines[engine][k];
+      for (const engine of ENGINES) totals.engines[engine][k] += counts[engine][k];
     }
     results.push(...p.results);
   }
   const RANK = { CRITICAL: 5, HIGH: 4, MEDIUM: 3, LOW: 2, INFO: 1 };
-  results.sort((a, b) => RANK[b.severity] - RANK[a.severity] || String(b.firstFoundAt ?? '').localeCompare(String(a.firstFoundAt ?? '')));
+  results.sort((a, b) => isFixed(a) - isFixed(b) || RANK[b.severity] - RANK[a.severity] || String(b.firstFoundAt ?? '').localeCompare(String(a.firstFoundAt ?? '')));
   return {
     readAt,
     available: true,
-    source: 'ai-sast',
-    scanned: withScan.length,
+    source: 'risk-hub',
+    scanned: fusionScanned.length,
     noScan: projects.length - withScan.length,
+    // Projects whose latest scan was not a Fusion scan: left out, and said.
+    notFusion: withScan.length - fusionScanned.length,
     failures,
-    // SAST results that did not say whether the AI engine found them (a Checkmarx One without the flag).
-    unmarked: unmarkedAll,
     projects: byProject,
     totals,
     listed: Math.min(results.length, MAX_LISTED),
@@ -239,29 +234,31 @@ export async function readAiFusion(client, projects, scans, { concurrency = 4, t
 }
 
 /**
- * The read results as findings the Workbench's credit, triage and remediation code works on: one project
- * entry per project with results, each result a SAST finding whose ids are its hash (as Risk Hub's).
+ * The open risks as findings the Workbench's credit, triage and remediation code works on: one project entry per
+ * project, each risk with Risk Hub's ids, so allocation, AI Triage and AI Remediation treat them as they do there.
  */
 export function aiFindings(fusion) {
   const projects = new Map();
   for (const r of fusion?.results ?? []) {
+    if (isFixed(r)) continue;
     const p = projects.get(r.projectId) ?? { projectId: r.projectId, projectName: r.projectName, risks: [], scanId: r.scanId };
     p.risks.push({
       id: r.resultId,
-      riskId: r.resultId,
-      alternateId: r.hash || r.resultId,
+      riskId: r.riskId || r.resultId,
+      alternateId: r.alternateId || r.hash || r.resultId,
       similarityId: r.similarityId,
-      groupId: '',
+      groupId: r.groupId ?? '',
+      packageIdentifier: r.packageIdentifier ?? '',
       scanId: r.scanId,
       projectId: r.projectId,
       projectName: r.projectName,
-      scanner: 'SAST',
+      scanner: r.scanner || 'SAST',
       severity: r.severity,
       state: r.state,
       status: r.status,
       title: r.name,
       firstDetectedAt: r.firstFoundAt,
-      location: r.sourceFile,
+      location: r.location || r.sourceFile,
       engine: r.engine,
     });
     projects.set(r.projectId, p);

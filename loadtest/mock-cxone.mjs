@@ -71,7 +71,8 @@ const allRisksFor = (pid) => Array.from({ length: BRANCHES && Number(String(pid)
   const state = t && Date.now() - t > FLIP_MS ? (i % 3 ? 'PROPOSED_NOT_EXPLOITABLE' : 'CONFIRMED') : 'TO_VERIFY';
   const k = Number(twin.split('-r')[1]);
   const named = VULN_NAMES ? VULNS[k % VULNS.length] : null;
-  return { id, riskName: named ? named[0] : SHARED ? `Finding ${twin}` : `Finding ${id}`, ...(named ? { cweId: named[1] } : {}), severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: MIXED_ENGINES ? MOCK_ENGINES[k % MOCK_ENGINES.length] : 'SAST', state, firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}`, ...(BRANCHES ? { scanId: hasFeature(Number(pid.slice(1))) && i % 5 === 4 ? `feat-${pid}` : `scan-${pid}` } : {}) };
+  // Risk Hub's status: new and recurrent by turns.
+  return { id, riskName: named ? named[0] : SHARED ? `Finding ${twin}` : `Finding ${id}`, ...(named ? { cweId: named[1] } : {}), severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: MIXED_ENGINES ? MOCK_ENGINES[k % MOCK_ENGINES.length] : 'SAST', state, status: i % 2 ? 'RECURRENT' : 'NEW', firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}`, ...(BRANCHES ? { scanId: hasFeature(Number(pid.slice(1))) && i % 5 === 4 ? `feat-${pid}` : `scan-${pid}` } : {}) };
 });
 // Access tokens are only the ones this mock handed out; request bodies are small.
 const issued = new Set();
@@ -208,7 +209,9 @@ http.createServer((req, res) => {
         const branch = BRANCHES ? branchOfScan(id) : 'main';
         // The model a Fusion scan ran with is in its configuration for every third project.
         const configs = i % 3 === 0 ? [{ type: 'sast', value: { presetName: 'ASA Premium' } }, { type: 'ai', value: { llmModel: 'mythos-5.1' } }] : [{ type: 'sast', value: { presetName: 'ASA Premium' } }];
-        return send(200, { id, projectId: pid, status: 'Completed', branch, engines: ['sast', 'sca', 'kics'], statusDetails, metadata: { configs, Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch, commit_id: 'abc123' } } } });
+        // Every third project's latest scan (i % 3 === 2) was not a Fusion scan: no AI engine.
+        const engines = i % 3 === 2 ? ['sast', 'sca', 'kics'] : ['sast', 'sca', 'kics', 'ai'];
+        return send(200, { id, projectId: pid, status: 'Completed', branch, engines, statusDetails, metadata: { configs, Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch, commit_id: 'abc123' } } } });
       }
       // Scan settings: the project's "LLM Model" for every third project (the next one), else the tenant's.
       if (u.pathname === '/api/configuration/project' || u.pathname === '/api/configuration/tenant') {

@@ -2280,7 +2280,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div class="panel-head">
                 <div>
                   <h2>Fusion results <span class="badge warn" data-beta-badge="fusionResults">Beta</span></h2>
-                  <p class="hint wide">What Checkmarx One's AI engine found in SAST, from each project's latest scan. <strong>Fusion</strong>: in a language or framework the traditional SAST engine also supports. <strong>LAST</strong> (language-agnostic static testing): in a language only the AI engine covers. Click a project to see its vulnerabilities.</p>
+                  <p class="hint wide">The Risk Hub list of each project whose latest scan was a Fusion scan. <strong>Fusion</strong>: what the Fusion scan reported. <strong>LAST</strong> (language-agnostic static testing): what its AI engine found in a language only it covers. Click a project to see its vulnerabilities.</p>
                 </div>
                 <div class="actions"><button type="button" id="fusion-read" class="sm" data-perm="beta.use feature.fusionResults">Read Fusion now</button></div>
               </div>
@@ -2291,8 +2291,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <fieldset class="fusion-show">
                   <legend class="scope-label">Show</legend>
                   <div class="fusion-engines">
-                    <label class="fusion-engine fusion-engine-fusion" title="AI-generated, in a language or framework the traditional SAST engine also supports"><input type="checkbox" id="fusion-show-fusion" value="FUSION" checked /> <i aria-hidden="true"></i>Fusion <em id="fusion-n-fusion"></em></label>
-                    <label class="fusion-engine fusion-engine-last" title="AI-generated, in a language only the AI engine covers (language-agnostic static testing)"><input type="checkbox" id="fusion-show-last" value="LAST" checked /> <i aria-hidden="true"></i>LAST <em id="fusion-n-last"></em></label>
+                    <label class="fusion-engine fusion-engine-fusion" title="What the Fusion scan reported in Risk Hub, other than LAST's"><input type="checkbox" id="fusion-show-fusion" value="FUSION" checked /> <i aria-hidden="true"></i>Fusion <em id="fusion-n-fusion"></em></label>
+                    <label class="fusion-engine fusion-engine-last" title="What the AI engine found in a language only it covers (language-agnostic static testing)"><input type="checkbox" id="fusion-show-last" value="LAST" checked /> <i aria-hidden="true"></i>LAST <em id="fusion-n-last"></em></label>
                   </div>
                 </fieldset>
                 <div class="grow fetch-box"><div class="fetch-actions"><button type="submit" class="primary" id="fusion-fetch" data-perm="beta.use feature.fusionResults">Load results</button></div></div>

@@ -80,6 +80,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.94 — not released yet
+
+- **Fusion results as Risk Hub shows them.** **Labs → Fusion results** now lists, for each project whose latest scan was a Fusion scan (it ran the AI engine), the same risks Checkmarx One's Risk Hub shows, every scanner, read with the Workbench's own Risk Hub reader; before, it counted only the few results marked AI-generated, so a project such as one with 216 risks in Risk Hub showed none.
+- **New, Recurrent and Fixed as Risk Hub says.** Each risk's status is Risk Hub's own; fixed risks are counted as fixed, listed last in a project's side panel, and never acted on.
+- **Projects without a Fusion scan are left out, and said.** The line under the title says how many Fusion scans were read and how many projects were left out because their latest scan was not a Fusion scan.
+- **LAST still apart.** A risk the AI engine found in a language only it covers is LAST's; every other risk of the Fusion scan is Fusion's. The AI engine's own result still adds its language, CWE, source and sink.
+- **Scanner and where.** Each risk shows its scanner (SAST, SCA, IaC, API Security…) and where it is, in the side panel, the CSV and the HTML report.
+- **Status.** Measured when it is merged.
+
 ## MZ-01.00.93 — 2026-10-22 06:19 UTC · [#116](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/116)
 
 - **Fusion counts that match Checkmarx One.** **Labs → Fusion results** now reads, from each project's latest scan, the SAST results Checkmarx One marks AI-generated ("LLM-Based: Yes"), so the counts match the platform instead of every risk of an application.

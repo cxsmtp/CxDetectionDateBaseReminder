@@ -94,7 +94,7 @@ import { SUPPORTING_NOTICE, Terms, cleanName } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
 import { PROBE_DEFAULTS, probeFusion } from './fusion.js';
-import { aiFindings, cleanEngines as cleanFusionEngines, readAiFusion } from './fusion-ai.js';
+import { aiFindings, cleanEngines as cleanFusionEngines, readRiskFusion } from './fusion-ai.js';
 import { DEFAULT_PERIOD as FUSION_PERIOD, USAGE_PERIODS, fusionUsage, projectFacts } from './fusion-usage.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
@@ -9686,12 +9686,12 @@ function initiatorLogins(lastScan) {
  * line (applications and projects by name) and its own fetch, apart from the Workbench's. Kept with
  * the session (session.fusionScope and session.lastFusion).
  */
-/** Each Fusion result's link in Checkmarx One: its project's Risk Hub with the result open (resultId = its hash). */
+/** Each Fusion result's link in Checkmarx One: its project's Risk Hub with the risk open, as the Workbench links it. */
 function linkFusion(req, fusion) {
   const { links } = settingsStore.get();
   for (const r of fusion?.results ?? []) {
     if (!r.projectId || r.projectId.startsWith('app:')) continue;
-    r.url = riskUrl({ projectId: r.projectId, id: r.hash || r.resultId, scanner: r.scanner || 'SAST' }, req.session.connection, links, r.scanId);
+    r.url = riskUrl({ projectId: r.projectId, id: r.riskId || r.resultId, scanner: r.scanner || 'SAST' }, req.session.connection, links, r.scanId);
   }
   // Each project's own page in Checkmarx One, to go into its detail there.
   for (const [projectId, p] of Object.entries(fusion?.projects ?? {})) p.url = projectUrl({ projectId }, req.session.connection, links);
@@ -9704,17 +9704,19 @@ function linkFusion(req, fusion) {
  */
 async function loadAiFusion(req, names) {
   const ids = Object.keys(names);
-  const scans = await getLastScans(req.session.client, ids);
+  const client = req.session.client;
+  const scans = await getLastScans(client, ids);
   const trace = fusionTrace(req);
-  const fusion = linkFusion(req, await readAiFusion(req.session.client, ids.map((id) => ({ id, name: names[id] })), scans, { trace }));
-  // Each project's model and lines of code (its latest scan, else its settings), and its AI scans and credits.
+  // Each project's latest scan: its engines (a Fusion scan ran the AI engine), model and lines of code.
+  const facts = await projectFacts(client, ids.filter((id) => scans[id]), scans, { trace }).catch((error) => (console.warn(`[fusion] facts: ${logSafe(error.message)}`), {}));
+  const engines = Object.fromEntries(ids.map((id) => [id, facts[id]?.scanEngines?.length ? facts[id].scanEngines : scans[id]?.engines ?? []]));
+  // The Fusion-scanned projects' Risk Hub lists, as the Workbench reads them.
+  const riskSource = createRiskSource(client, activeConfig());
+  const fusion = linkFusion(req, await readRiskFusion(client, ids.map((id) => ({ id, name: names[id] })), scans, { engines, riskSource, trace }));
+  for (const [id, f] of Object.entries(facts)) if (fusion.projects[id]) Object.assign(fusion.projects[id], f);
+  // Their AI scans and credits over the period chosen.
   const shown = Object.keys(fusion.projects);
-  const [facts, usage] = await Promise.all([
-    projectFacts(req.session.client, shown, scans, { trace }).catch((error) => (console.warn(`[fusion] facts: ${logSafe(error.message)}`), {})),
-    fusionUsage(req.session.client, shown.map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period: req.session.fusionPeriod ?? FUSION_PERIOD, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null)),
-  ]);
-  for (const [id, f] of Object.entries(facts)) Object.assign(fusion.projects[id], f);
-  fusion.usage = usage;
+  fusion.usage = await fusionUsage(client, shown.map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period: req.session.fusionPeriod ?? FUSION_PERIOD, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null));
   req.session.lastFusion = fusion;
   req.session.fusionScan = aiFindings(fusion);
   // A new read: the projects shown are the page's again; the Fusion and LAST ticks stay.

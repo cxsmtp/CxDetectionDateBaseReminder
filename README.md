@@ -325,7 +325,7 @@ How it is measured, and what is open and why: [Performance and security status](
 | [When a connection does not work](docs/troubleshooting.md) | Every email server, Checkmarx One, git host and .env file problem MissionZero recognises, and the steps that fix each one. |
 | [Hands-off and self-healing](docs/hands-off.md) | Set it up once, steer it by email (links and one-word replies), and how it checks, repairs and reports on itself. |
 | [Activation codes](docs/activation-codes.md) | Add-ons unlocked with a code (Hebrew; several Checkmarx One tenants), and the product licence: CxMissionZero stops after 31 December 2026 (UTC) until a product activation code is entered. Applying one, and how they are issued. |
-| [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code (git blame, down to the exact developer), and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket; Fusion results (what Checkmarx One's AI engine found in SAST, Fusion and LAST apart, with each project's model, lines of code, AI scans and credits, its vulnerabilities in a side panel, and AI Triage and Remediation for them). An Admin makes each one final when it has proved itself. |
+| [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code (git blame, down to the exact developer), and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket; Fusion results (the Risk Hub list of each project whose latest scan was a Fusion scan, LAST apart, with each project's model, lines of code, AI scans and credits, its vulnerabilities in a side panel, and AI Triage and Remediation for them). An Admin makes each one final when it has proved itself. |
 
 ## Licence, terms of use and contributing
 

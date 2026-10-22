@@ -200,7 +200,7 @@ test('full image update (Beta): the server says it started, and asks the compani
   fs.rmSync(path.join(dir, 'companion.json'));
 });
 
-test('Fusion results (Beta): its own fetch, the AI-generated SAST results of each latest scan; once final, for whoever loads findings', async () => {
+test('Fusion results (Beta): its own fetch, the Risk Hub list of each project whose latest scan was a Fusion scan; once final, for whoever loads findings', async () => {
   assert.equal((await user('POST', '/api/beta/fusion/fetch', {})).status, 403, 'Beta: not for a role without Beta access');
   // Nothing loaded from the Workbench: the page's own line, nothing named, is every project.
   const read = await admin('POST', '/api/beta/fusion/fetch', {});
@@ -208,21 +208,22 @@ test('Fusion results (Beta): its own fetch, the AI-generated SAST results of eac
   const { fusion, scope } = read.body;
   assert.equal(fusion.available, true);
   assert.equal(scope.projects, 2);
-  // The mock: in each project, r0 (critical, new, TypeScript: Fusion's) and r3 (low, recurrent, Solidity: LAST's) are
-  // AI-generated; p0 fixed one of each since the scan before.
-  assert.equal(fusion.source, 'ai-sast');
+  // The mock: both projects' latest scans were Fusion scans; each has four risks in Risk Hub (critical, high, medium,
+  // low; new and recurrent by turns), and the AI engine found r0 (TypeScript: Fusion's) and r3 (Solidity: LAST's).
+  assert.equal(fusion.source, 'risk-hub');
   assert.deepEqual(
     { total: fusion.totals.total, CRITICAL: fusion.totals.CRITICAL, HIGH: fusion.totals.HIGH, LOW: fusion.totals.LOW, NEW: fusion.totals.NEW, RECURRENT: fusion.totals.RECURRENT, FIXED: fusion.totals.FIXED },
-    { total: 4, CRITICAL: 2, HIGH: 0, LOW: 2, NEW: 2, RECURRENT: 2, FIXED: 2 },
+    { total: 8, CRITICAL: 2, HIGH: 2, LOW: 2, NEW: 4, RECURRENT: 4, FIXED: 0 },
   );
   const { FUSION, LAST } = fusion.totals.engines;
-  assert.deepEqual([FUSION.total, FUSION.CRITICAL, FUSION.FIXED, LAST.total, LAST.LOW, LAST.FIXED], [2, 2, 1, 2, 2, 1]);
-  assert.deepEqual(fusion.results.filter((r) => r.projectId === 'p1').map((r) => [r.language, r.engine]), [['TypeScript', 'FUSION'], ['Solidity', 'LAST']]);
-  assert.equal(fusion.projects.p1.total, 2);
+  assert.deepEqual([FUSION.total, FUSION.CRITICAL, LAST.total, LAST.LOW], [6, 2, 2, 2]);
+  assert.deepEqual(fusion.results.filter((r) => r.projectId === 'p1').map((r) => [r.resultId, r.status, r.engine]), [['p1-r0', 'NEW', 'FUSION'], ['p1-r1', 'RECURRENT', 'FUSION'], ['p1-r2', 'NEW', 'FUSION'], ['p1-r3', 'RECURRENT', 'LAST']]);
+  assert.equal(fusion.projects.p1.total, 4);
+  assert.deepEqual([fusion.projects.p1.engines.FUSION.total, fusion.projects.p1.engines.LAST.total], [3, 1], 'each project keeps its Fusion and LAST counts beside its scan facts');
   // Each result opens in Checkmarx One: its project's Risk Hub, with the result open; each project, its page.
   assert.match(fusion.results.find((r) => r.projectId === 'p1').url, /\/riskhub\/p1\?.*resultId=p1-r0/);
   assert.match(fusion.projects.p1.url, /p1/);
-  assert.equal((await admin('GET', '/api/beta/fusion')).body.fusion.totals.total, 4, 'kept with the session');
+  assert.equal((await admin('GET', '/api/beta/fusion')).body.fusion.totals.total, 8, 'kept with the session');
   // Each project's model (p0: its scan; p1: its settings), lines of code, AI scans and credits (last 30 days).
   assert.deepEqual([fusion.projects.p0.model, fusion.projects.p0.modelFrom, fusion.projects.p1.model, fusion.projects.p1.modelFrom], ['mythos-5.1', 'scan', 'opus-5.0', 'project']);
   assert.ok(fusion.projects.p0.loc > 0, 'lines of code');
@@ -235,7 +236,7 @@ test('Fusion results (Beta): its own fetch, the AI-generated SAST results of eac
   // Narrowed on its line: by a project's name (wildcards), and nothing that matches is said.
   const one = await admin('POST', '/api/beta/fusion/fetch', { projects: 'Project 1*' });
   assert.equal(one.status, 200, JSON.stringify(one.body).slice(0, 300));
-  assert.deepEqual([one.body.scope.projects, one.body.fusion.totals.total], [1, 2]);
+  assert.deepEqual([one.body.scope.projects, one.body.fusion.totals.total], [1, 4]);
   assert.deepEqual(one.body.scope.own, { applications: [], projects: ['Project 1*'] });
   assert.equal((await admin('POST', '/api/beta/fusion/read', {})).body.scope.projects, 1, 'read again: what the line loaded');
   assert.equal((await admin('POST', '/api/beta/fusion/fetch', { applications: 'No such app' })).status, 400);
@@ -243,28 +244,28 @@ test('Fusion results (Beta): its own fetch, the AI-generated SAST results of eac
 
   assert.equal((await admin('PUT', '/api/features/fusionResults', { stage: 'final' })).status, 200);
   assert.ok((await user('GET', '/api/me')).body.permissions.includes('feature.fusionResults'), 'whoever loads findings');
-  assert.equal((await user('POST', '/api/beta/fusion/fetch', {})).body.fusion.totals.total, 4);
+  assert.equal((await user('POST', '/api/beta/fusion/fetch', {})).body.fusion.totals.total, 8);
   assert.equal((await admin('PUT', '/api/features/fusionResults', { stage: 'beta' })).status, 200);
   assert.equal((await user('GET', '/api/beta/fusion')).status, 403);
 });
 
-test('Fusion results: an Admin allocates for and triages only the AI-generated results, without the Workbench; nobody else may', async () => {
+test('Fusion results: an Admin allocates for and triages the Fusion scans\' risks, without the Workbench; nobody else may', async () => {
   // No Workbench fetch: the Fusion page's own load is enough to act on its results.
   const read = await admin('POST', '/api/beta/fusion/fetch', {});
   const { credits } = read.body;
-  // The mock's AI-generated results awaiting triage: p0-r0 and p1-r0 (critical), p0-r3 and p1-r3 (low).
-  assert.equal(credits.matched, 4, JSON.stringify(credits));
-  assert.deepEqual(credits.triage, { CRITICAL: 2, HIGH: 0, MEDIUM: 0, LOW: 2 });
+  // The Fusion scans' risks awaiting triage: each project's four (critical, high, medium, low).
+  assert.equal(credits.matched, 8, JSON.stringify(credits));
+  assert.deepEqual(credits.triage, { CRITICAL: 2, HIGH: 2, MEDIUM: 2, LOW: 2 });
   assert.equal(credits.projects, 2);
   // What the page shows decides: r0 is TypeScript (Fusion's), r3 Solidity (LAST's); and the projects its filters leave.
   const last = await admin('POST', '/api/beta/fusion/credits', { engines: ['LAST'], projectIds: null });
   assert.deepEqual([last.body.credits.matched, last.body.credits.triage], [2, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 2 }]);
   const one = await admin('POST', '/api/beta/fusion/credits', { engines: ['FUSION'], projectIds: ['p1'] });
-  assert.deepEqual([one.body.credits.matched, one.body.credits.projects, one.body.credits.triage.CRITICAL], [1, 1, 1]);
+  assert.deepEqual([one.body.credits.matched, one.body.credits.projects, one.body.credits.triage.CRITICAL], [3, 1, 1]);
   assert.deepEqual((await admin('GET', '/api/beta/fusion')).body.focus, { engines: ['FUSION'], projectIds: ['p1'] }, 'kept with the session');
   // A project's side panel asks for that project alone, and the page's bar keeps what it acts on.
   const panel = await admin('POST', '/api/beta/fusion/credits', { once: true, engines: ['FUSION', 'LAST'], projectIds: ['p0'] });
-  assert.deepEqual([panel.body.credits.matched, panel.body.credits.projects], [2, 1]);
+  assert.deepEqual([panel.body.credits.matched, panel.body.credits.projects], [4, 1]);
   assert.deepEqual((await admin('GET', '/api/beta/fusion')).body.focus, { engines: ['FUSION'], projectIds: ['p1'] }, 'unchanged by the panel');
   const none = await admin('POST', '/api/beta/fusion/triage', { severities: ['CRITICAL'], engines: ['LAST'], projectIds: null, notifyInitiators: false });
   assert.equal(none.body.requested, 0, 'no LAST result is critical');
@@ -275,8 +276,8 @@ test('Fusion results: an Admin allocates for and triages only the AI-generated r
   assert.ok(given.body.credits.left.triage >= 2, 'enough for the two critical ones');
   const run = await admin('POST', '/api/beta/fusion/triage', { severities: ['CRITICAL'], notifyInitiators: false });
   assert.equal(run.status, 200, JSON.stringify(run.body).slice(0, 300));
-  assert.equal(run.body.requested, 2, 'only the AI-generated critical results, not the projects\' other findings');
-  assert.deepEqual(run.body.credits.triage, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 2 }, 'sent: no longer waiting');
+  assert.equal(run.body.requested, 2, 'the two critical risks only');
+  assert.deepEqual(run.body.credits.triage, { CRITICAL: 0, HIGH: 2, MEDIUM: 2, LOW: 2 }, 'sent: no longer waiting');
 
   await admin('PUT', '/api/features/fusionResults', { stage: 'final' });
   await user('GET', '/api/scan');

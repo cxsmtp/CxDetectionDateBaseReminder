@@ -1,10 +1,10 @@
-// Labs → Fusion: the figures the page shows from what the server read (src/fusion-ai.js: the AI-generated
-// SAST results of each project's latest scan), and the HTML report it downloads. Pure, so the tests check
+// Labs → Fusion: the figures the page shows from what the server read (src/fusion-ai.js: the Risk Hub list of
+// each project whose latest scan was a Fusion scan), and the HTML report it downloads. Pure, so the tests check
 // them without a browser.
 //
-// Each result is Fusion's (the traditional SAST engine supports its language or framework too) or LAST's
-// (language-agnostic static testing: the AI engine alone covers it). Everything here takes the ones the page
-// shows, `engines` (['FUSION', 'LAST'] by default): both, every AI-generated result; one, only that one's.
+// Each risk is LAST's (language-agnostic static testing: the AI engine found it in a language only it covers) or
+// else Fusion's. Everything here takes the ones the page shows, `engines` (['FUSION', 'LAST'] by default): both,
+// every risk; one, only that one's. New, Recurrent and Fixed are Risk Hub's own; fixed ones are not counted as open.
 
 export const FUSION_SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 export const FUSION_ENGINES = ['FUSION', 'LAST'];
@@ -116,6 +116,8 @@ export function fusionResultRows(fusion, scope, engines, projectId = null) {
       id: r.resultId,
       hash: r.hash ?? '',
       severity: r.severity ?? 'INFO',
+      scanner: r.scanner ?? '',
+      fixed: r.status === 'FIXED',
       engine: r.engine ?? '',
       coveredAs: r.coveredAs ?? '',
       name: r.name || r.resultId,
@@ -124,6 +126,8 @@ export function fusionResultRows(fusion, scope, engines, projectId = null) {
       language: r.language ?? '',
       cwe: r.cwe ?? null,
       source: r.sourceFile ? `${r.sourceFile}${r.sourceLine ? `:${r.sourceLine}` : ''}` : '',
+      // Where Risk Hub says it is (a file and function, a package, an API…).
+      location: r.location ?? '',
       sink: r.sinkFile ? `${r.sinkFile}${r.sinkLine ? `:${r.sinkLine}` : ''}` : '',
       sourceNode: r.sourceNode ?? '',
       sinkNode: r.sinkNode ?? '',
@@ -134,8 +138,13 @@ export function fusionResultRows(fusion, scope, engines, projectId = null) {
       projectUrl: fusion?.projects?.[r.projectId]?.url ?? '',
       url: r.url ?? '',
     }))
-    .sort((a, b) => (RANK[b.severity] ?? 0) - (RANK[a.severity] ?? 0) || String(b.firstFoundAt ?? '').localeCompare(String(a.firstFoundAt ?? '')) || a.name.localeCompare(b.name));
+    // Open ones first, most severe first, then the most recently found; the fixed ones last.
+    .sort((a, b) => a.fixed - b.fixed || (RANK[b.severity] ?? 0) - (RANK[a.severity] ?? 0) || String(b.firstFoundAt ?? '').localeCompare(String(a.firstFoundAt ?? '')) || a.name.localeCompare(b.name));
 }
+
+/** "SAST", "SCA", "IaC", "API Security"…: a scanner as Checkmarx One names it. */
+export const SCANNER_LABEL = { SAST: 'SAST', SCA: 'SCA', KICS: 'IaC', IAC: 'IaC', CONTAINERS: 'Containers', APISEC: 'API Security', API_SECURITY: 'API Security', SECRETS: 'Secrets', SSCS: 'Secrets', MICROENGINES: 'Scorecard', '': '—' };
+export const scannerLabel = (v) => SCANNER_LABEL[String(v ?? '').toUpperCase()] ?? String(v ?? '');
 
 /** A project's results for the Workbench's Fusion column, for the engines shown: null until Fusion has been read. */
 export const fusionTotalOf = (fusion, projectId, engines) => (fusion ? (countsFor(fusion.projects?.[projectId], engines)?.total ?? 0) : null);
@@ -176,7 +185,7 @@ export function fusionReportHtml(fusion, scope, opts = {}) {
     ? `Project: ${one.name}`
     : [scope?.own?.applications?.length ? `Applications: ${scope.own.applications.join(', ')}` : '', scope?.own?.projects?.length ? `Projects: ${scope.own.projects.join(', ')}` : ''].filter(Boolean).join(' · ') || 'Every project';
   const title = `${label} results${one ? ` — ${one.name}` : ''}${opts.organisation ? ` — ${opts.organisation}` : ''}`;
-  const meaning = [engines.includes('FUSION') ? '<b>Fusion</b>: in a language or framework the traditional SAST engine also supports' : '', engines.includes('LAST') ? '<b>LAST</b> (language-agnostic static testing): in a language only the AI engine covers' : ''].filter(Boolean).join('; ');
+  const meaning = [engines.includes('FUSION') ? '<b>Fusion</b>: what the Fusion scan reported in Risk Hub' : '', engines.includes('LAST') ? '<b>LAST</b> (language-agnostic static testing): what its AI engine found in a language only it covers' : ''].filter(Boolean).join('; ');
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
@@ -201,7 +210,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
 </style></head>
 <body><main>
 <h1>${esc(title)}</h1>
-<p class="sub">What Checkmarx One's AI engine found in SAST (results marked AI-generated), from each project's latest scan · ${esc(scopeLine)} · read ${esc(date(fusion?.readAt))}</p>
+<p class="sub">The Risk Hub list of each project whose latest scan was a Fusion scan · ${esc(scopeLine)} · read ${esc(date(fusion?.readAt))}</p>
 <p class="sub">${meaning}.</p>
 <div class="strip">
 <div><b>${fmt(projects.length)}</b><span>Projects</span></div>${usage ? `<div><b>${fmt(usage.scans)}</b><span>AI scans · ${esc(PERIOD_LABEL[fusion.usage.period] ?? '')}</span></div><div><b>${usage.credits === null ? '—' : fmt(usage.credits)}</b><span>Credits spent</span></div>` : ''}<div><b>${fmt(t.results)}</b><span>${esc(label)} results</span></div><div><b>${fmt(t.CRITICAL)}</b><span>Critical</span></div><div><b>${fmt(t.HIGH)}</b><span>High</span></div><div><b>${fmt(t.MEDIUM)}</b><span>Medium</span></div><div><b>${fmt(t.LOW)}</b><span>Low</span></div><div><b>${fmt(t.NEW)}</b><span>New</span></div><div><b>${fmt(t.FIXED)}</b><span>Fixed</span></div>
@@ -212,8 +221,8 @@ ${projects.map((p) => `<tr><td>${link(p.url, p.name)}</td><td>${esc(p.model || '
 </tbody></table>
 <h2>Results</h2>
 ${projects.filter((p) => byProject.has(p.projectId)).map((p) => `<h3>${link(p.url, p.name)} <small>${fmt(byProject.get(p.projectId).length)} result(s)</small></h3>
-<table><thead><tr><th>Severity</th><th>Engine</th><th>Vulnerability</th><th>Status</th><th>State</th><th>Language</th><th>CWE</th><th>Source → sink</th><th>First found</th><th>Last found</th></tr></thead><tbody>
-${byProject.get(p.projectId).map((r) => `<tr><td>${sev(r.severity)}</td><td>${tag(r.engine)}</td><td>${link(r.url, r.name)}<small>${esc(r.id)}</small></td><td>${esc(r.status || '—')}</td><td>${esc(r.state || '—')}</td><td>${esc(r.language || '—')}${r.coveredAs && r.coveredAs !== r.language ? `<small>SAST: ${esc(r.coveredAs)}</small>` : ''}</td><td>${r.cwe ? `CWE-${esc(r.cwe)}` : '—'}</td><td>${esc(r.source || '—')}${r.sourceNode ? ` <small>${esc(r.sourceNode)}</small>` : ''}${r.sink && r.sink !== r.source ? `→ ${esc(r.sink)}` : ''}${r.sinkNode ? ` <small>${esc(r.sinkNode)}</small>` : ''}</td><td>${esc(date(r.firstFoundAt))}</td><td>${esc(date(r.foundAt))}</td></tr>`).join('\n')}
+<table><thead><tr><th>Severity</th><th>Scanner</th><th>Engine</th><th>Vulnerability</th><th>Status</th><th>State</th><th>Language</th><th>CWE</th><th>Where</th><th>First found</th><th>Last found</th></tr></thead><tbody>
+${byProject.get(p.projectId).map((r) => `<tr><td>${sev(r.severity)}</td><td>${esc(scannerLabel(r.scanner))}</td><td>${tag(r.engine)}</td><td>${link(r.url, r.name)}<small>${esc(r.id)}</small></td><td>${esc(r.status || '—')}</td><td>${esc(r.state || '—')}</td><td>${esc(r.language || '—')}${r.coveredAs && r.coveredAs !== r.language ? `<small>SAST: ${esc(r.coveredAs)}</small>` : ''}</td><td>${r.cwe ? `CWE-${esc(r.cwe)}` : '—'}</td><td>${r.source ? `${esc(r.source)}${r.sourceNode ? ` <small>${esc(r.sourceNode)}</small>` : ''}${r.sink && r.sink !== r.source ? `→ ${esc(r.sink)}` : ''}${r.sinkNode ? ` <small>${esc(r.sinkNode)}</small>` : ''}` : esc(r.location || '—')}</td><td>${esc(date(r.firstFoundAt))}</td><td>${esc(date(r.foundAt))}</td></tr>`).join('\n')}
 </tbody></table>`).join('\n') || `<p>No ${esc(label)} results.</p>`}
 <footer>${esc(opts.appName || 'CxMissionZero')} · Labs → Fusion results · generated ${esc(date(opts.generatedAt ?? new Date().toISOString()))}. Each vulnerability opens the result in Checkmarx One; each project, its page there.</footer>
 </main></body></html>
