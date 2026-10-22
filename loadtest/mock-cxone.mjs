@@ -127,8 +127,13 @@ http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': zip.length });
         return res.end(zip);
       }
-      // The signed upload address (POST /api/uploads): no access token, like Checkmarx One's storage.
-      if (req.method === 'PUT' && u.pathname.startsWith('/__upload/')) { bump('upload-put'); return uploads.has(u.pathname) ? (uploads.delete(u.pathname), send(200, {})) : send(404, {}); }
+      // The upload address (POST /api/uploads): on Checkmarx One's own host, behind its gateway, which wants the access
+      // token (as on a real tenant).
+      if (req.method === 'PUT' && u.pathname.startsWith('/__upload/')) {
+        bump('upload-put');
+        if (!/^Bearer \S/.test(req.headers.authorization ?? '')) { res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Unauthorized\n'); }
+        return uploads.has(u.pathname) ? (uploads.delete(u.pathname), send(200, {})) : send(404, {});
+      }
       if (u.pathname.endsWith('/openid-connect/token')) {
         bump('token');
         // The access token carries the identity claims of the API key (email, preferred_username), like Checkmarx One's.
