@@ -8518,7 +8518,7 @@ $('help-view').addEventListener('click', async (event) => {
 });
 
 // ---- Cx Credits Calculator (public/calculator/page.js) ----
-const faeFlush = initFaeFlush({ api, $, esc: escapeHtml, toast, showError, setStatus, can, fmtDateTime });
+const faeFlush = initFaeFlush({ api, $, esc: escapeHtml, toast, showError, setStatus, can, fmtDateTime, t });
 const calculator = initCalculator({ api, $, esc: escapeHtml, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me: () => state.me, can, impactOn: () => Boolean(state.me?.unlocked?.impact) });
 
 /** A page outside the four stages: Get help, or a tool. */

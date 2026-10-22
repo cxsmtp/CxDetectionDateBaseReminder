@@ -2324,12 +2324,12 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 </div>
               </div>
               <ol class="flush-steps">
-                <li><b>Copy the code</b><small>The exact code of its latest scan, as Checkmarx One keeps it</small></li>
-                <li><b>Scan it on <code translate="no">name_FAE</code></b><small>A new project with the same SAST settings, Findings Analysis on</small></li>
-                <li><b>Compare</b><small>Each SAST result still To verify against the FAE scan's results</small></li>
-                <li><b>Mark</b><small>Not reported by FAE → <span class="flush-pne">Proposed not exploitable</span>, in the original project</small></li>
-                <li><b>Revalidate</b><small>Both read again: every one marked is marked, and still not reported</small></li>
-                <li><b>Remove <code translate="no">_FAE</code></b><small>Deleted once checked, or kept: you choose when you start</small></li>
+                <li><span class="flush-step-title">Copy the code</span><span class="flush-step-sub">The exact code of its latest scan, as Checkmarx One keeps it</span></li>
+                <li><span class="flush-step-title">Scan it on <code>name_FAE</code></span><span class="flush-step-sub">A new project with the same SAST settings, Findings Analysis on</span></li>
+                <li><span class="flush-step-title">Compare</span><span class="flush-step-sub">Each SAST result still To verify against the FAE scan's results</span></li>
+                <li><span class="flush-step-title">Mark</span><span class="flush-step-sub">Not reported by FAE → <span class="flush-pne">Proposed not exploitable</span>, in the original project</span></li>
+                <li><span class="flush-step-title">Revalidate</span><span class="flush-step-sub">Both read again: every one marked is marked, and still not reported</span></li>
+                <li><span class="flush-step-title">Remove <code>_FAE</code></span><span class="flush-step-sub">Deleted once checked, or kept: you choose when you start</span></li>
               </ol>
               <p class="status" id="flush-status" role="status"></p>
             </section>
@@ -3242,7 +3242,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
         </div>
         <div id="flush-dialog-body"></div>
         <fieldset class="flush-keep">
-          <legend>Once each project is checked, its <code translate="no">_FAE</code> project:</legend>
+          <legend>Once each project is checked, its <code>_FAE</code> project:</legend>
           <label><input type="radio" name="flush-keep" value="delete" required /> <b>Delete it</b> <span class="hint">nothing left behind in Checkmarx One</span></label>
           <label><input type="radio" name="flush-keep" value="keep" required /> <b>Keep it</b> <span class="hint">to look at; delete them all later with one click</span></label>
         </fieldset>

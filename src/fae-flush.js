@@ -355,7 +355,9 @@ export class FaeFlushRunner {
       p.faeLoc = sastLoc(scan);
       this.move(p, 'comparing');
     } else if (['failed', 'canceled', 'partial'].includes(status)) {
-      p.exception = { code: 'scan', text: `The FAE scan ended ${status}${scan?.statusDetails?.find?.((d) => d?.details)?.details ? `: ${text(scan.statusDetails.find((d) => d?.details).details, 200)}` : ''}. Nothing was marked.`, at: new Date(this.now()).toISOString() };
+      const detail = text((Array.isArray(scan?.statusDetails) ? scan.statusDetails : []).find((d) => d?.details)?.details, 200);
+      const how = { failed: 'failed', canceled: 'was canceled', partial: 'only partly completed' }[status];
+      p.exception = { code: 'scan', text: `The FAE scan ${how}. Nothing was marked.`, detail, at: new Date(this.now()).toISOString() };
       this.move(p, 'needs-ok');
     } else if (this.now() - Date.parse(p.scanStartedAt ?? 0) > this.limits.scanHours * 3600_000) {
       p.exception = { code: 'scan', text: `The FAE scan has been running for more than ${this.limits.scanHours} hours. Nothing was marked.`, at: new Date(this.now()).toISOString() };

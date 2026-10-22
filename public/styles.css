@@ -3552,8 +3552,8 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 .flush-steps { list-style: none; counter-reset: flush; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 12px 0 4px; padding: 0; }
 .flush-steps li { counter-increment: flush; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 10px 10px 38px; position: relative; background: var(--surface); font-size: 13px; }
 .flush-steps li::before { content: counter(flush); position: absolute; left: 10px; top: 10px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: var(--primary-ink); font-size: 11px; font-weight: 600; }
-.flush-steps b { display: block; }
-.flush-steps small { color: var(--muted); display: block; margin-top: 2px; }
+.flush-steps .flush-step-title { display: block; font-weight: 600; }
+.flush-steps .flush-step-sub { color: var(--muted); display: block; margin-top: 2px; font-size: 12px; }
 .flush-pne { color: var(--accent); font-weight: 600; }
 .flush-warn { color: var(--warn); }
 .flush-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 0 0 14px; }

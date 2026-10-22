@@ -40,7 +40,7 @@ export function csvOf(job) {
   return rows.map((r) => r.map((v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v))).join(',')).join('\n');
 }
 
-export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fmtDateTime }) {
+export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fmtDateTime, t = (s) => s }) {
   let view = null;
   let timer = 0;
   const allowed = () => can('integration.cxone');
@@ -66,7 +66,11 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     if (!view?.connected) setStatus('flush-status', 'The server is not connected to Checkmarx One: an Admin connects it under Settings → Checkmarx One.', 'error');
     else if (view.previewError) setStatus('flush-status', `Checking the projects did not finish: ${view.previewError}`, 'error');
     else if (view.previewing) setStatus('flush-status', 'Checking every project: its latest scan, whether its code is kept, and its results To verify…');
-    else setStatus('flush-status', preview ? `Projects checked ${fmtDateTime(preview.readAt)}.` : '');
+    else {
+      setStatus('flush-status', '');
+      // The date apart from the words, so the words are translated.
+      if (preview) $('flush-status').innerHTML = `<span>Projects checked</span> <time translate="no">${esc(fmtDateTime(preview.readAt))}</time>`;
+    }
     const concurrency = Number($('flush-concurrency').value) || 4;
     const running = job && !['done', 'stopped'].includes(job.state);
     $('flush-preview').disabled = Boolean(view?.previewing) || Boolean(running);
@@ -74,11 +78,11 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     $('flush-start').textContent = preview?.eligible ? `Start FAE Flush for ${num(preview.eligible)} project${preview.eligible === 1 ? '' : 's'}` : 'Start FAE Flush';
 
     // Tiles: what the run would take (or took).
-    const t = summary?.totals;
+    const totals = summary?.totals;
     $('flush-tiles').innerHTML = job
       ? [
-          [num(t.marked), 'false positives marked Proposed not exploitable', 'flush-pne'],
-          [pct(t.marked, t.toVerify), `of ${num(t.toVerify)} results To verify`],
+          [num(totals.marked), 'false positives marked Proposed not exploitable', 'flush-pne'],
+          [pct(totals.marked, totals.toVerify), `of ${num(totals.toVerify)} results To verify`],
           [`${num(summary.finished)} / ${num(summary.projects)}`, 'projects finished'],
           [num(summary.steps['needs-ok']), 'ask you', summary.steps['needs-ok'] ? 'flush-warn' : ''],
         ].map(([b, s, cls]) => `<div class="flush-tile"><b class="${cls ?? ''}">${esc(b)}</b><span>${esc(s)}</span></div>`).join('')
@@ -97,7 +101,7 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     if (preview) {
       $('flush-preview-sub').textContent = `${num(preview.eligible)} to flush, ${num(preview.leftOut)} left out.`;
       $('flush-preview-table').tBodies[0].innerHTML = preview.projects
-        .map((p) => `<tr><td><b>${esc(p.name)}</b></td><td>${p.sourceScanId ? `<span translate="no">${esc(p.branch || '')}</span>` : '—'}</td><td class="num">${num(p.loc)}</td><td class="num">${num(p.toVerify)}</td><td>${p.leftOut ? `<span class="pill muted">Left out</span> <span class="hint">${esc(p.leftOut)}</span>` : '<span class="pill ok">Will be flushed</span>'}</td></tr>`)
+        .map((p) => `<tr><td><b translate="no">${esc(p.name)}</b></td><td>${p.sourceScanId ? `<span translate="no">${esc(p.branch || '')}</span>` : '—'}</td><td class="num">${num(p.loc)}</td><td class="num">${num(p.toVerify)}</td><td>${p.leftOut ? `<span class="pill muted">Left out</span> <span class="hint">${esc(p.leftOut)}</span>` : '<span class="pill ok">Will be flushed</span>'}</td></tr>`)
         .join('');
     }
 
@@ -106,12 +110,13 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     if (!job) return;
     const scanning = (summary.steps.copying ?? 0) + (summary.steps.scanning ?? 0);
     $('flush-progress-title').textContent = job.state === 'done' ? 'Finished' : job.state === 'paused' ? 'Paused' : `Progress · ${num(summary.finished)} of ${num(summary.projects)} finished · ${num(scanning)} scanning`;
-    $('flush-result').innerHTML = `${esc(`Started ${fmtDateTime(job.startedAt)} by ${job.startedBy || 'the server'}`)}${job.finishedAt ? esc(`, finished ${fmtDateTime(job.finishedAt)}`) : ''}. <b class="flush-pne">${esc(num(t.marked))}</b> ${esc(`of ${num(t.toVerify)} results To verify marked Proposed not exploitable (not reported by the FAE scan of the same code); ${num(t.revalidated)} revalidated; ${num(t.reported)} still reported, left To verify.`)} ${esc(job.deleteFae ? 'Each _FAE project is deleted once checked.' : 'The _FAE projects are kept.')}`;
+    // Dates and who apart from the sentences, so each sentence is translated whole.
+    $('flush-result').innerHTML = `<span class="flush-meta"><span>Started</span> <time translate="no">${esc(fmtDateTime(job.startedAt))}</time> · <span translate="no">${esc(job.startedBy || '—')}</span>${job.finishedAt ? ` · <span>Finished</span> <time translate="no">${esc(fmtDateTime(job.finishedAt))}</time>` : ''}</span><br /><span><b class="flush-pne">${esc(num(totals.marked))}</b> of ${esc(num(totals.toVerify))} results To verify marked Proposed not exploitable: not reported by the FAE scan of the same code.</span> <span>${esc(num(totals.revalidated))} revalidated; ${esc(num(totals.reported))} still reported, left To verify.</span> <span>${esc(job.deleteFae ? 'Each _FAE project is deleted once checked.' : 'The _FAE projects are kept.')}</span>`;
     $('flush-pause').textContent = job.state === 'paused' ? 'Resume' : 'Pause';
     $('flush-pause').hidden = !allowed() || job.state === 'done';
     $('flush-delete-fae').hidden = !allowed() || !summary.faeKept;
     $('flush-delete-fae').textContent = `Delete all _FAE projects (${num(summary.faeKept)})`;
-    $('flush-undo').hidden = !allowed() || !t.marked;
+    $('flush-undo').hidden = !allowed() || !totals.marked;
 
     // Those that stopped to ask.
     const asks = job.projects.filter((p) => p.step === 'needs-ok');
@@ -119,7 +124,10 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
       .map((p) => {
         const markable = p.exception?.code !== 'scan' && p.exception?.code !== 'error';
         const mark = p.exception?.code === 'revalidation' ? 'Accept' : `Mark ${num(p.counts?.notReported ?? 0)} anyway`;
-        return `<div class="flush-ask" data-id="${esc(p.id)}"><p><b>${esc(p.name)}</b>: ${esc(p.exception?.text ?? '')}</p>${allowed() ? `<div class="actions">${markable ? `<button type="button" class="sm" data-decide="mark">${esc(mark)}</button>` : ''}<button type="button" class="sm" data-decide="retry">Retry</button><button type="button" class="sm" data-decide="skip">Skip</button></div>` : ''}</div>`;
+        // The reason in a sentence of its own (translated), a failed call's own message as it came.
+        const reason = p.exception?.code === 'error' ? `<span translate="no">${esc(p.exception?.text ?? '')}</span>` : `<span>${esc(p.exception?.text ?? '')}</span>`;
+        const detail = p.exception?.detail ? ` <span class="hint" translate="no">${esc(p.exception.detail)}</span>` : '';
+        return `<div class="flush-ask" data-id="${esc(p.id)}"><p><b translate="no">${esc(p.name)}</b> ${reason}${detail}</p>${allowed() ? `<div class="actions">${markable ? `<button type="button" class="sm" data-decide="mark">${esc(mark)}</button>` : ''}<button type="button" class="sm" data-decide="retry">Retry</button><button type="button" class="sm" data-decide="skip">Skip</button></div>` : ''}</div>`;
       })
       .join('');
 
@@ -127,8 +135,10 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
       .map((p) => {
         const c = p.counts ?? {};
         const kind = STEP_KIND[p.step] ?? (ACTIVE.has(p.step) ? 'run' : '');
-        const note = p.step === 'left-out' || p.step === 'skipped' ? `<td colspan="4" class="hint">${esc(p.note || p.exception?.text || '')}</td>` : `<td class="num">${num(c.reported)}</td><td class="num flush-pne">${num(p.markedCount || c.notReported)}</td><td>${c.revalidated !== undefined && c.revalidated !== null ? `✓ ${num(c.revalidated)} of ${num(p.markedCount)}` : '—'}</td><td>${p.faeProjectId ? (p.faeDeleted ? 'Removed' : `<span translate="no">${esc(`${p.name}_FAE`)}</span>`) : '—'}</td>`;
-        return `<tr><td><b>${esc(p.name)}</b></td><td><span class="pill ${kind}">${esc(STEP_LABEL[p.step] ?? p.step)}</span></td><td class="num">${num(c.toVerify)}</td>${note}</tr>`;
+        const skippedBy = p.step === 'skipped' && /^Skipped by /.test(p.note ?? '') ? p.note.slice('Skipped by '.length) : '';
+        const why = skippedBy ? `<span>Skipped by</span> <span translate="no">${esc(skippedBy)}</span>${p.exception?.text ? ` · <span>${esc(p.exception.text)}</span>` : ''}` : `<span>${esc(p.note || p.exception?.text || '')}</span>`;
+        const note = p.step === 'left-out' || p.step === 'skipped' ? `<td colspan="4" class="hint">${why}</td>` : `<td class="num">${num(c.reported)}</td><td class="num flush-pne">${num(p.markedCount || c.notReported)}</td><td>${c.revalidated !== undefined && c.revalidated !== null ? `✓ ${num(c.revalidated)} of ${num(p.markedCount)}` : '—'}</td><td>${p.faeProjectId ? (p.faeDeleted ? 'Removed' : `<span translate="no">${esc(`${p.name}_FAE`)}</span>`) : '—'}</td>`;
+        return `<tr><td><b translate="no">${esc(p.name)}</b></td><td><span class="pill ${kind}">${esc(STEP_LABEL[p.step] ?? p.step)}</span></td><td class="num">${num(c.toVerify)}</td>${note}</tr>`;
       })
       .join('');
   }
@@ -170,12 +180,12 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
   });
   $('flush-undo').addEventListener('click', () => {
     const n = view?.summary?.totals?.marked ?? 0;
-    if (!confirm(`Undo FAE Flush?\n\nThe ${num(n)} results it marked Proposed not exploitable go back to To verify, apart from any someone changed since (those stay as they are).`)) return;
+    if (!confirm(t(`Undo FAE Flush?\n\nThe ${num(n)} results it marked Proposed not exploitable go back to To verify, apart from any someone changed since (those stay as they are).`))) return;
     act('/api/fae-flush/undo', {}, (v) => `${num(v.restored)} results back to To verify${v.changedSince ? `; ${num(v.changedSince)} changed since, left as they are` : ''}.`);
   });
   $('flush-delete-fae').addEventListener('click', () => {
     const n = view?.summary?.faeKept ?? 0;
-    if (!confirm(`Delete all ${num(n)} _FAE projects from Checkmarx One?\n\nThe projects FAE Flush made, and their scans. Your own projects and the results marked in them are not touched.`)) return;
+    if (!confirm(t(`Delete all ${num(n)} _FAE projects from Checkmarx One?\n\nThe projects FAE Flush made, and their scans. Your own projects and the results marked in them are not touched.`))) return;
     act('/api/fae-flush/delete-fae', {}, (v) => `${num(v.deleted)} _FAE project${v.deleted === 1 ? '' : 's'} deleted${v.failed?.length ? `; ${v.failed.length} could not be` : ''}.`);
   });
   $('flush-csv').addEventListener('click', () => {
