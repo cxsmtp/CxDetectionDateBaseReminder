@@ -83,6 +83,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.97 — not released yet · [#120](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/120)
+
+- **FAE Flush uploads the code on every tenant.** The code is now sent to Checkmarx One's upload address with the access token, as it is read, after a live tenant's gateway answered 401 without it; the in-place choice, which that tenant's scanner refuses, is gone.
+- **Checkmarx One's own reasons.** When Checkmarx One refuses a call during a run (a repository scan, an upload), the project's timeline and question give its own reason, not only the status.
+- **Test one project, after a restart too.** It checks the upload address as well (with an empty zip), and lists the run's projects until the projects are checked again.
+- **A standalone probe.** `scripts/fae-probe.mjs` tries every call FAE Flush makes on one project of your tenant, each way it can be made, and writes a report for support, with no key, token, signature or email address in it; run it with Podman from any folder (user guide).
+- **Status.** Measured when it is merged.
+
 ## MZ-01.00.96 — 2026-10-22 18:31 UTC · [#119](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/119)
 
 - **The tenant's credits beside the credit pool.** Settings → AI & credit pool shows a Checkmarx One tenant card next to the pool size: credits left of the tenant's total, used, given to projects and in this pool, and whether Fusion scans charge credits, with **read again**.
