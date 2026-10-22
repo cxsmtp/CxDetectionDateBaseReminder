@@ -9,8 +9,11 @@
  *   - What the AI engine found among them: GET /api/sast-results?scan-id=…&is-ai-generated=1 (the results Checkmarx
  *     One marks `isAiGenerated`, "LLM-Based: Yes"), matched to the risks by id; they bring their language, CWE,
  *     source and sink. A risk that says `isAiGenerated` itself counts too.
- * Every risk is Fusion's, except those the AI engine found in a language the traditional SAST engine does not
- * support (src/sast-languages.js): LAST's (language-agnostic static testing). Read-only: nothing starts a scan.
+ * Only what the AI engine reported is kept (from MZ-01.00.95): the page is about the AI engine, so the traditional
+ * engines' risks are left out, and so is a project whose latest scan's AI engine reported nothing (LAST on by
+ * default, nothing scanned by AI). A Fusion scan's AI results are Fusion's, except those in a language the
+ * traditional SAST engine does not support (src/sast-languages.js): LAST's (language-agnostic static testing); a
+ * LAST scan's are LAST's. Each keeps the description Checkmarx One gives it. Read-only: nothing starts a scan.
  */
 import { mapWithConcurrency } from './cxone/client.js';
 import { isProbeMiss } from './cxone/discovery.js';
@@ -41,6 +44,8 @@ const iso = (v) => {
   return Number.isFinite(t) ? new Date(t).toISOString() : null;
 };
 const scanIdOf = (scan) => text(scan?.id ?? scan?.scanId, 80);
+/** Text out of what may be HTML (a description), on one line, at most `max` long. */
+const plain = (v, max = 2000) => text(String(v ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim(), max);
 
 /** One AI-generated SAST result, as the results page shows it. */
 export function cleanAiResult(r, project, scanId) {
@@ -77,6 +82,9 @@ export function cleanAiResult(r, project, scanId) {
     firstFoundAt: iso(r?.firstFoundAt),
     foundAt: iso(r?.foundAt),
     confidence: Number.isFinite(Number(r?.confidenceLevel)) ? Number(r.confidenceLevel) : null,
+    // What it is and why, as Checkmarx One words it for this result (the AI engine's own explanation), when it does.
+    description: plain(r?.description ?? r?.resultDescription ?? r?.data?.description ?? r?.explanation),
+    queryId: text(r?.queryIDStr ?? r?.queryID ?? r?.queryId, 40),
     // Only those Checkmarx One says the AI engine found: the filter asks for them, and each must say so itself
     // (a Checkmarx One that ignored the filter would otherwise pass every SAST result off as Fusion's).
     ai: r?.isAiGenerated === true || r?.isAiGenerated === 1 || r?.isAiGenerated === 'true',
@@ -148,7 +156,39 @@ export function cleanRisk(raw, project, scanId, ai = null, scanType = 'fusion') 
     sinkNode: ai?.sinkNode ?? '',
     firstFoundAt: r.firstDetectedAt ?? ai?.firstFoundAt ?? null,
     foundAt: ai?.foundAt ?? null,
+    description: ai?.description || plain(raw?.description),
+    queryId: ai?.queryId ?? '',
   };
+}
+
+/** An AI result Risk Hub did not list (or not by an id it gives): listed from the SAST result itself. */
+export function riskFromAi(ai, scanType = 'fusion') {
+  return {
+    ...ai,
+    riskId: ai.resultId,
+    alternateId: ai.hash,
+    groupId: '',
+    packageIdentifier: '',
+    scanner: 'SAST',
+    ai: true,
+    aiTriaged: false,
+    engine: scanType === 'last' ? 'LAST' : ai.engine,
+    location: ai.sourceFile,
+  };
+}
+
+/** Checkmarx One's description of each query (GET /api/queries/descriptions?ids=…), for results that bring none. */
+async function queryDescriptions(client, ids, trace) {
+  const out = new Map();
+  const wanted = [...new Set(ids.filter((id) => id && id !== '0'))];
+  for (let i = 0; i < wanted.length; i += 50) {
+    const body = await client.request('/api/queries/descriptions', { query: { ids: wanted.slice(i, i + 50) }, retries: 0, background: true, trace }).catch(() => null);
+    for (const d of Array.isArray(body) ? body : Array.isArray(body?.descriptions) ? body.descriptions : []) {
+      const said = plain(d?.resultDescription ?? d?.description ?? d?.risk);
+      if (said) out.set(String(d?.queryId ?? d?.id ?? ''), said);
+    }
+  }
+  return out;
 }
 
 const COUNTED = [...SEVERITIES, 'total', 'NEW', 'RECURRENT', 'FIXED', ...STATES, 'aiFound', 'aiTriaged'];
@@ -187,19 +227,38 @@ export async function readRiskFusion(client, projects, scans, { types = null, en
         if (!ai.ai) continue;
         for (const key of [ai.hash, ai.resultId]) if (key) found.set(key, ai);
       }
+      // Only the AI engine's: the risks it reported, then its results Risk Hub did not list by any id they carry.
+      const used = new Set();
       const results = raw
-        .map((item) => cleanRisk(item, project, scanId, found.get(String(item?.id ?? item?.riskId ?? '')) ?? found.get(String(item?.alternateId ?? '')) ?? null, typeOf(project.id)))
-        .filter((r) => r.resultId);
+        .map((item) => {
+          const ai = found.get(String(item?.id ?? item?.riskId ?? '')) ?? found.get(String(item?.alternateId ?? '')) ?? null;
+          if (ai) used.add(ai);
+          return cleanRisk(item, project, scanId, ai, typeOf(project.id));
+        })
+        .filter((r) => r.resultId && r.ai);
+      for (const ai of new Set(found.values())) if (!used.has(ai)) results.push(riskFromAi(ai, typeOf(project.id)));
       return { project, scanId, scanAt: iso(scan.updatedAt ?? scan.createdAt), results };
     } catch (error) {
       failures.push({ projectId: project.id, status: error.status ?? 0, message: text(error.message, 200) });
       return { project, scanId, results: [], error: true };
     }
   });
+  // Descriptions for the results that came without one, by their query (not the AI engine's own, which have none).
+  const missing = per.flatMap((p) => p.results.filter((r) => !r.description && r.queryId).map((r) => r.queryId));
+  if (missing.length) {
+    const described = await queryDescriptions(client, missing, trace);
+    for (const p of per) for (const r of p.results) if (!r.description && described.has(r.queryId)) r.description = described.get(r.queryId);
+  }
   const totals = { ...emptyCounts(), engines: { FUSION: emptyCounts(), LAST: emptyCounts() } };
   const byProject = {};
   const results = [];
+  // Left out: a latest scan whose AI engine reported nothing (LAST on by default, no AI results).
+  let noAi = 0;
   for (const p of per) {
+    if (!p.error && !p.results.length) {
+      noAi += 1;
+      continue;
+    }
     const counts = { FUSION: emptyCounts(), LAST: emptyCounts() };
     const scanners = {};
     for (const r of p.results) {
@@ -236,7 +295,9 @@ export async function readRiskFusion(client, projects, scans, { types = null, en
     source: 'risk-hub',
     scanned: fusionScanned.length,
     // How many of them were Fusion scans, and how many LAST scans.
-    kinds: { fusion: fusionScanned.filter((p) => typeOf(p.id) === 'fusion').length, last: fusionScanned.filter((p) => typeOf(p.id) === 'last').length },
+    kinds: { fusion: Object.values(byProject).filter((p) => p.scanType === 'fusion').length, last: Object.values(byProject).filter((p) => p.scanType === 'last').length },
+    // Whose latest scan ran the AI engine but it reported nothing: left out, and said.
+    noAi,
     noScan: projects.length - withScan.length,
     // Projects whose latest scan did not run the AI engine: left out, and said.
     notFusion: withScan.length - fusionScanned.length,

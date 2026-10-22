@@ -100,6 +100,7 @@ import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
 import { PasswordResets, RESET_TTL_MS, maskEmail, resetAllowed } from './password-reset.js';
+import { FaeFlushRunner, FaeFlushStore, FaeHistory, cleanOptions, previewTenant, summaryOf, testProject, valueOf } from './fae-flush.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
 import {
   SessionStore,
@@ -292,6 +293,10 @@ function buildTenant({ id, dir }) {
     // When each finding was first seen open and when it closed: the Impact page (src/impact.js).
     findingJournal: new FindingJournal({ file: path.join(dir, 'finding-journal.json') }),
     scanAttribution: new ScanAttribution({ dataDir: dir }),
+    // FAE Flush (Labs): the last run, project by project (src/fae-flush.js).
+    faeFlush: new FaeFlushStore({ file: path.join(dir, 'fae-flush.json') }),
+    // Every result FAE Flush marked, after its run: the value it brought (Labs → FAE Flush → Value).
+    faeHistory: new FaeHistory({ file: path.join(dir, 'fae-flush-history.json') }),
     touchedProjects: new Map(),
     relayCache: new TtlCache({ max: 100_000 }),
     recentActions: new TtlCache({ max: 100_000 }),
@@ -1040,10 +1045,16 @@ function requirePermission(...permissions) {
  * A Beta feature: for people with Beta access, and, once an Admin made it final,
  * for everyone holding the feature's own permission too (src/features.js).
  */
+/** A feature held back for those an activation code has unlocked it for (features.js `unlockedBy`), while it has not. */
+function featureLocked(feature) {
+  return Boolean(feature?.unlockedBy) && !activations.feature(feature.unlockedBy)?.on;
+}
+
 function requireFeature(id) {
   return (req, res, next) =>
     requireSession(req, res, (error) => {
       if (error) return next(error);
+      if (featureLocked(featureById(id))) return res.status(403).json({ error: `“${featureById(id).name}” needs its activation code (Settings → Activation codes).`, locked: true });
       if (mayUse(settingsStore.get(), id, req.permissions)) return next();
       const feature = featureById(id);
       res.status(403).json({ error: `“${feature?.name ?? id}” is a Beta feature: your role needs “Beta features”${isFinal(settingsStore.get(), id) ? '' : ' until an Admin makes it final'}.`, permission: 'beta.use' });
@@ -1167,7 +1178,7 @@ function describeMe(session, user) {
   const held = permissionsFor(user);
   const settings = settingsStore.get();
   // "feature.<id>": what the page shows for each Beta feature this person may use (never checked by the server).
-  const permissions = [...held, ...featureList(settings).filter((f) => mayUse(settings, f.id, held)).map((f) => `feature.${f.id}`)];
+  const permissions = [...held, ...featureList(settings).filter((f) => !featureLocked(f) && mayUse(settings, f.id, held)).map((f) => `feature.${f.id}`)];
   const integration = integrationSession();
   let tenant = '';
   try {
@@ -1197,7 +1208,7 @@ function describeMe(session, user) {
     // The page's languages this person may use (Hebrew only for the people chosen).
     languages: languageAccess.available(allowedLanguages(user.id)),
     // Add-ons a code has unlocked (in date or not): until then the page does not show them.
-    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, impact: Boolean(activations.feature('impact')?.on) },
+    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, impact: Boolean(activations.feature('impact')?.on), faeFlush: Boolean(activations.feature('faeFlush')?.on) },
     // The product licence's end, for the Admins' banner in the last 30 days (src/activation.js).
     licence: held.has('activation.manage') ? (({ until, daysLeft, warn, activation }) => ({ until, daysLeft, warn, activation }))(activations.product()) : null,
     // The organisation's name (given with the terms of use), for what CxMissionZero makes for others.
@@ -4678,7 +4689,7 @@ function activationView(req) {
     // Only the add-ons a code has unlocked (expired ones too, to renew): nothing else is named.
     languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)]).filter(([, s]) => s.on || s.expired)),
     tenants: activations.tenants(),
-    features: Object.fromEntries(['impact'].map((name) => [name, activations.feature(name)]).filter(([, f]) => f)),
+    features: Object.fromEntries(['impact', 'faeFlush'].map((name) => [name, activations.feature(name)]).filter(([, f]) => f)),
     product: activations.product(),
     history: activations.history().slice(0, 10),
   };
@@ -4705,6 +4716,8 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
     what = `${applied.code === 'he' ? 'Hebrew' : applied.code} ${applied.on ? `turned on until ${result.expires.slice(0, 10)}, for the roles with its permission (People & roles)` : 'turned off'}`;
   } else if (result.scope === 'feature:impact') {
     what = `the Cx Credits Calculator's Impact tab ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}` : 'turned off'}`;
+  } else if (result.scope === 'feature:faeFlush') {
+    what = `FAE Flush (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with Beta access` : 'turned off: a run under way pauses'}`;
   } else if (result.scope === 'product') {
     what = `CxMissionZero activated for ${result.org} until ${result.expires.slice(0, 10)}`;
   } else {
@@ -9395,7 +9408,7 @@ app.put('/api/system/update/settings', requirePermission('system.update'), (req,
 app.get('/api/features', requireSession, (req, res) => {
   const settings = settingsStore.get();
   res.json({
-    features: featureList(settings).map((f) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })),
+    features: featureList(settings).filter((f) => !featureLocked(f)).map(({ unlockedBy, ...f }) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })),
     canManage: can(req, 'features.manage'),
   });
 });
@@ -9419,7 +9432,7 @@ app.put('/api/features/:id', requirePermission('features.manage'), (req, res) =>
     scheduler.sync();
   }
   const settings = settingsStore.get();
-  res.json({ features: featureList(settings).map((f) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })), canManage: true });
+  res.json({ features: featureList(settings).filter((f) => !featureLocked(f)).map(({ unlockedBy, ...f }) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })), canManage: true });
 });
 
 /** Everything worth knowing when something is wrong, without secrets: for the Admin, or to send to whoever helps. */
@@ -9780,6 +9793,17 @@ function linkFusion(req, fusion) {
  * Fusion (AI-generated SAST results, src/fusion-ai.js) for these projects, from each one's latest completed
  * scan; kept with the session, with the results as findings the credit, triage and remediation code acts on.
  */
+/**
+ * The credits a project's latest AI scan used: none for a LAST scan, nor for a Fusion scan whose steps say Fusion
+ * credits are disabled; otherwise the Fusion credits it used over the last year per AI scan (Checkmarx One does not
+ * say a scan's own), marked an estimate; null when not known.
+ */
+function scanCreditsOf(project, used) {
+  if (project.scanType === 'last' || project.fusionCredits === 'off') return { credits: 0, estimate: false };
+  if (used?.perScan !== null && used?.perScan !== undefined) return { credits: used.perScan, estimate: true };
+  return null;
+}
+
 async function loadAiFusion(req, names) {
   const ids = Object.keys(names);
   const client = req.session.client;
@@ -9802,7 +9826,9 @@ async function loadAiFusion(req, names) {
   fusion.tenant = { ai, credits, fusionCredits: charged.includes('reserved') ? 'reserved' : charged.length ? 'off' : '' };
   // Their AI scans and credits over the period chosen; how many of the line's projects had Fusion or LAST scans.
   const shown = Object.keys(fusion.projects);
-  fusion.usage = await fusionUsage(client, shown.map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period: req.session.fusionPeriod ?? FUSION_PERIOD, scopeIds: ids, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null));
+  // Over the last year: the Fusion credits each project used per AI scan, for what its latest scan cost.
+  fusion.usage = await fusionUsage(client, shown.map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period: 'last_year', scopeIds: ids, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null));
+  for (const [id, p] of Object.entries(fusion.projects)) p.scanCredits = scanCreditsOf(p, fusion.usage?.projects?.[id]);
   req.session.lastFusion = fusion;
   req.session.fusionScan = aiFindings(fusion);
   // A new read: the projects shown are the page's again; the Fusion and LAST ticks stay.
@@ -10089,6 +10115,184 @@ app.post(
     res.json({ fusion, scope, credits: fusionCredits(req) });
   }),
 );
+
+// ---- FAE Flush (Labs, then Act): Findings Analysis on the backlog, for the whole tenant at once ----------
+// Runs on the server with its own Checkmarx One connection (the integration key), a few scans at a time; the run
+// is kept on disk and carries on after a restart. Who may: Beta access (later everyone with the feature's
+// permission), and the Checkmarx One integration permission, since it creates, scans and deletes projects.
+const faeRunners = new WeakMap();
+/** The running tenant's FAE Flush runner. */
+function faeRunner() {
+  const tenant = tenancy.current();
+  let runner = faeRunners.get(tenant);
+  if (!runner) {
+    runner = new FaeFlushRunner({
+      store: tenant.faeFlush,
+      history: tenant.faeHistory,
+      clientOf: () => integrationSession()?.client ?? null,
+      record: (event, details = {}) => faeAudit(event, details),
+    });
+    faeRunners.set(tenant, runner);
+  }
+  return runner;
+}
+const FAE_EVENTS = {
+  started: (d) => `FAE Flush started for ${d.projects} project${d.projects === 1 ? '' : 's'}, ${d.concurrency} scan${d.concurrency === 1 ? '' : 's'} at a time${d.mode === 'report' ? ', reporting only (nothing marked)' : ''}; code: ${d.source}; stops to ask: ${d.sensitivity}; the _FAE projects are ${d.deleteFae ? 'deleted' : 'kept'} once checked.`,
+  'scan-started': (d) => `FAE Flush: ${d.project}'s code scanned again with Findings Analysis on ${d.faeProject} (scan ${d.scanId}; code from ${d.code}).`,
+  'mark-now': (d) => `FAE Flush: ${d.by} marked the report-only run now: ${d.results} results in ${d.projects} project(s).`,
+  'debug': (d) => `FAE Flush debug log turned ${d.on ? 'on' : 'off'} by ${d.by}.`,
+  'needs-ok': (d) => `FAE Flush stopped at ${d.project} to ask: ${d.reason}`,
+  decided: (d) => `FAE Flush: ${d.by || 'someone'} chose "${d.decision}" for ${d.project}${d.reason ? ` (${d.reason})` : ''}.`,
+  marked: (d) => `FAE Flush marked ${d.marked} of ${d.project}'s ${d.toVerify} results To verify Proposed not exploitable: not reported by the FAE scan ${d.faeScanId}.`,
+  'fae-deleted': (d) => `FAE Flush deleted ${d.project}_FAE.`,
+  'fae-deleted-all': (d) => `FAE Flush: ${d.deleted} _FAE project${d.deleted === 1 ? '' : 's'} deleted${d.failed ? `, ${d.failed} could not be` : ''}.`,
+  finished: (d) => `FAE Flush finished: ${d.marked} of ${d.toVerify} results To verify marked Proposed not exploitable across ${d.projects} projects, ${d.revalidated} revalidated.`,
+  undone: (d) => `FAE Flush undone by ${d.by}: ${d.restored} results back to To verify${d.changedSince ? ` (${d.changedSince} changed since and left as they are)` : ''}.`,
+};
+function faeAudit(event, details) {
+  const actor = details.actor ?? { kind: 'system', user: faeRunner().job?.startedBy || SYSTEM_ACTOR.user };
+  const { actor: _drop, ...rest } = details;
+  audit.record({ type: 'system', outcome: ['marked', 'undone', 'fae-deleted', 'fae-deleted-all', 'started'].includes(event) ? 'changed' : 'info', reason: FAE_EVENTS[event]?.(rest) ?? `FAE Flush: ${event}.`, actor, details: { faeFlush: { event, job: faeRunner().job?.id ?? '', ...rest } } });
+}
+/** What the page shows: the run (without each result's id) and its figures, and the last preview. */
+function faeView() {
+  const runner = faeRunner();
+  const store = runner.store;
+  const job = runner.job;
+  return {
+    connected: Boolean(integrationSession()),
+    preview: store.preview,
+    previewing: Boolean(store.previewing),
+    previewError: store.previewError ?? '',
+    job: job ? { ...job, projects: job.projects.map(({ marked, pending, ...p }) => ({ ...p, markedCount: marked?.length ?? 0 })) } : null,
+    summary: job ? summaryOf(job) : null,
+    debug: { on: runner.debug.on, entries: runner.debug.log.length },
+  };
+}
+const faeGuard = [requireFeature('faeFlush'), requirePermission('integration.cxone')];
+
+app.get('/api/fae-flush', requireFeature('faeFlush'), (req, res) => res.json(faeView()));
+
+// Every project as FAE Flush would take it (read only): read in the background, the page asks again.
+app.post('/api/fae-flush/preview', ...faeGuard, (req, res) => {
+  const store = faeRunner().store;
+  const client = integrationSession()?.client;
+  if (!client) return res.status(409).json({ error: 'Connect the server to Checkmarx One first (Settings → Checkmarx One).' });
+  if (!store.previewing) {
+    store.previewError = '';
+    store.previewing = previewTenant(client, { listProjects, getLastScans })
+      .then((preview) => (store.preview = preview))
+      .catch((error) => (store.previewError = cxErrorText(error)))
+      .finally(() => (store.previewing = null));
+  }
+  res.status(202).json(faeView());
+});
+
+app.post('/api/fae-flush/start', ...faeGuard, asyncRoute(async (req, res) => {
+  const runner = faeRunner();
+  if (!integrationSession()) return res.status(409).json({ error: 'Connect the server to Checkmarx One first (Settings → Checkmarx One).' });
+  const ids = Array.isArray(req.body?.projectIds) ? new Set(req.body.projectIds.map(String)) : null;
+  const preview = runner.store.preview && { ...runner.store.preview, projects: runner.store.preview.projects.filter((p) => !ids || ids.has(p.id)) };
+  try {
+    runner.start({ by: req.user?.email ?? '', concurrency: req.body?.concurrency, deleteFae: req.body?.deleteFae, preview, options: cleanOptions(req.body ?? {}) });
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: error.message });
+  }
+  faeTick();
+  res.json(faeView());
+}));
+
+app.post('/api/fae-flush/pause', ...faeGuard, (req, res) => {
+  faeRunner().setState('paused');
+  res.json(faeView());
+});
+app.post('/api/fae-flush/resume', ...faeGuard, (req, res) => {
+  faeRunner().setState('running');
+  faeTick();
+  res.json(faeView());
+});
+
+app.post('/api/fae-flush/decide', ...faeGuard, (req, res) => {
+  try {
+    faeRunner().decide(String(req.body?.projectId ?? ''), String(req.body?.decision ?? ''), req.user?.email ?? '');
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: error.message });
+  }
+  faeTick();
+  res.json(faeView());
+});
+
+// A report-only run: mark what it reported, now.
+app.post('/api/fae-flush/mark-now', ...faeGuard, (req, res) => {
+  try {
+    faeRunner().markReported(req.user?.email ?? '');
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: error.message });
+  }
+  faeTick();
+  res.json(faeView());
+});
+
+// Troubleshoot: one project, every step read-only (nothing made or changed).
+app.post('/api/fae-flush/test', ...faeGuard, asyncRoute(async (req, res) => {
+  const client = integrationSession()?.client;
+  if (!client) return res.status(409).json({ error: 'Connect the server to Checkmarx One first (Settings → Checkmarx One).' });
+  const projectId = String(req.body?.projectId ?? '').slice(0, 80);
+  if (!projectId) return res.status(400).json({ error: 'Choose a project.' });
+  res.json(await testProject(faeRunner().via(client, { name: `test: ${projectId}`, step: 'test' }), projectId, { getLastScans }));
+}));
+
+// Troubleshoot: the debug log (every FAE Flush call to Checkmarx One, signatures and the access token hidden).
+app.get('/api/fae-flush/debug', ...faeGuard, (req, res) => {
+  const { on, log } = faeRunner().debug;
+  res.set('Cache-Control', 'no-store');
+  res.json({ on, log });
+});
+app.put('/api/fae-flush/debug', ...faeGuard, (req, res) => {
+  const on = req.body?.on === true;
+  faeRunner().setDebug(on);
+  faeAudit('debug', { on, by: req.user?.email ?? '' });
+  res.json({ on, entries: faeRunner().debug.log.length });
+});
+app.delete('/api/fae-flush/debug', ...faeGuard, (req, res) => {
+  faeRunner().clearDebug();
+  res.json({ on: faeRunner().debug.on, entries: 0 });
+});
+
+// Value: every false positive FAE Flush marked, kept after its runs, and what that saved (the Impact page's figures).
+app.get('/api/fae-flush/value', requireFeature('faeFlush'), (req, res) => {
+  res.json(valueOf(tenancy.current().faeHistory, settingsStore.get().impact ?? {}));
+});
+
+app.post('/api/fae-flush/undo', ...faeGuard, asyncRoute(async (req, res) => {
+  if (!faeRunner().job) return res.status(409).json({ error: 'There is no FAE Flush to undo.' });
+  const result = await faeRunner().undo(req.user?.email ?? '');
+  res.json({ ...result, ...faeView() });
+}));
+
+// One click, any day after: every _FAE project of the run still in Checkmarx One.
+app.post('/api/fae-flush/delete-fae', ...faeGuard, asyncRoute(async (req, res) => {
+  if (!faeRunner().job) return res.status(409).json({ error: 'There is no FAE Flush with _FAE projects.' });
+  const result = await faeRunner().deleteAll();
+  res.json({ ...result, ...faeView() });
+}));
+
+const FAE_TICK_MS = Number(process.env.FAE_FLUSH_TICK_MS) || 30_000;
+const faeTicking = new WeakSet();
+/** One turn of every tenant's run (or the running tenant's only, from a request). */
+function faeTick(all = false) {
+  const turn = () => {
+    // Without its activation code (expired or turned off) nothing more is started; it carries on once unlocked again.
+    if (featureLocked(featureById('faeFlush'))) return;
+    const runner = faeRunner();
+    if (!runner.job || runner.job.state !== 'running' || faeTicking.has(runner)) return;
+    faeTicking.add(runner);
+    runner.tick().catch((error) => console.warn(`! [fae-flush] ${error.message}`)).finally(() => faeTicking.delete(runner));
+  };
+  if (all) tenancy.each(turn);
+  else turn();
+}
+setInterval(() => productActive() && faeTick(true), FAE_TICK_MS).unref?.();
 
 app.get('/api/beta/github/logins', requireFeature('identityMatching'), (req, res) => {
   const lastScan = req.session.lastScan;

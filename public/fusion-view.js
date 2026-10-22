@@ -169,6 +169,8 @@ export function fusionRows(fusion, scope, engines, filter = null) {
         fusionCredits: used?.fusion ?? null,
         actions: used?.actions ?? null,
         perScan: used?.perScan ?? null,
+        // What its latest scan used ({ credits, estimate }): none for a LAST scan or Fusion credits off; null unknown.
+        scanCredits: all.scanCredits ?? null,
       };
     })
     .filter((r) => (narrowed ? r.total > 0 || r.FIXED > 0 : shown.includes(ENGINE_OF[r.scanType]) || r.total > 0 || r.FIXED > 0))
@@ -211,6 +213,8 @@ export function fusionResultRows(fusion, scope, engines, projectId = null, filte
       project: scope?.names?.[r.projectId] ?? r.projectName ?? r.projectId,
       projectUrl: fusion?.projects?.[r.projectId]?.url ?? '',
       url: r.url ?? '',
+      // What it is, as Checkmarx One describes it (the AI engine's own explanation where it gives one).
+      description: r.description ?? '',
     }))
     // Open ones first, most severe first, then the most recently found; the fixed ones last.
     .sort((a, b) => a.fixed - b.fixed || (RANK[b.severity] ?? 0) - (RANK[a.severity] ?? 0) || String(b.firstFoundAt ?? '').localeCompare(String(a.firstFoundAt ?? '')) || a.name.localeCompare(b.name));
@@ -250,7 +254,10 @@ export function fusionReportHtml(fusion, scope, opts = {}) {
   const narrowed = filter ? [filter.status && wordsLabel(filter.status), filter.state && (STATE_LABEL[filter.state] ?? wordsLabel(filter.state)), filter.aiTriaged && 'AI-triaged only'].filter(Boolean).join(', ') : '';
   const one = opts.projectId ? projects[0] : null;
   const sum = (k) => projects.reduce((n, p) => n + p[k], 0);
-  const usage = fusion?.usage ? { scans: sum('scans'), credits: fusion.usage.creditsKnown ? sum('credits') : null } : null;
+  // The credits the latest scans used: their sum, an estimate where any was estimated.
+  const known = projects.filter((p) => p.scanCredits);
+  const scanCredits = known.length ? { credits: Math.round(known.reduce((n, p) => n + p.scanCredits.credits, 0) * 10) / 10, estimate: known.some((p) => p.scanCredits.estimate) } : null;
+  const credits = (c) => (c ? `${c.estimate ? '≈ ' : ''}${fmt(c.credits)}` : '—');
   const t = { results: sum('total'), CRITICAL: sum('CRITICAL'), HIGH: sum('HIGH'), MEDIUM: sum('MEDIUM'), LOW: sum('LOW'), NEW: sum('NEW'), RECURRENT: sum('RECURRENT'), FIXED: sum('FIXED'), TO_VERIFY: sum('TO_VERIFY'), CONFIRMED: sum('CONFIRMED') };
   const kind = (p) => (p.scanType === 'last' || p.scanType === 'fusion' ? `<span class="tag ${p.scanType}">${esc(SCAN_TYPE_LABEL[p.scanType])}</span>` : '—');
   const added = (p) => (p.aiFound !== null ? `${fmt(p.aiFound)} → ${fmt(p.aiAdded)}` : fmt(p.aiResults));
@@ -267,7 +274,7 @@ export function fusionReportHtml(fusion, scope, opts = {}) {
     ? `Project: ${one.name}`
     : [scope?.own?.applications?.length ? `Applications: ${scope.own.applications.join(', ')}` : '', scope?.own?.projects?.length ? `Projects: ${scope.own.projects.join(', ')}` : ''].filter(Boolean).join(' · ') || 'Every project';
   const title = `${label} results${one ? ` — ${one.name}` : ''}${opts.organisation ? ` — ${opts.organisation}` : ''}`;
-  const meaning = [engines.includes('FUSION') ? '<b>Fusion</b>: what the Fusion scan reported in Risk Hub' : '', engines.includes('LAST') ? '<b>LAST</b> (language-agnostic static testing): what its AI engine found in a language only it covers' : ''].filter(Boolean).join('; ');
+  const meaning = [engines.includes('FUSION') ? '<b>Fusion</b>: what a Fusion scan\'s AI engine reported' : '', engines.includes('LAST') ? '<b>LAST</b> (language-agnostic static testing): what its AI engine found in a language only it covers' : ''].filter(Boolean).join('; ');
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
@@ -294,19 +301,19 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
 </style></head>
 <body><main>
 <h1>${esc(title)}</h1>
-<p class="sub">The Risk Hub list of each project whose latest scan ran the AI engine (a Fusion or a LAST scan) · ${esc(scopeLine)}${narrowed ? ` · ${esc(narrowed)}` : ''} · read ${esc(date(fusion?.readAt))}</p>
+<p class="sub">Only what the AI engine reported (no traditional SAST results), for each project whose latest scan ran it (a Fusion or a LAST scan) · ${esc(scopeLine)}${narrowed ? ` · ${esc(narrowed)}` : ''} · read ${esc(date(fusion?.readAt))}</p>
 <p class="sub">${meaning}.</p>
 <div class="strip">
-<div><b>${fmt(projects.length)}</b><span>Projects</span></div>${usage ? `<div><b>${fmt(usage.scans)}</b><span>AI scans · ${esc(PERIOD_LABEL[fusion.usage.period] ?? '')}</span></div><div><b>${usage.credits === null ? '—' : fmt(usage.credits)}</b><span>Credits spent</span></div>` : ''}<div><b>${fmt(t.results)}</b><span>${esc(label)} results</span></div><div><b>${fmt(t.CRITICAL)}</b><span>Critical</span></div><div><b>${fmt(t.HIGH)}</b><span>High</span></div><div><b>${fmt(t.MEDIUM)}</b><span>Medium</span></div><div><b>${fmt(t.LOW)}</b><span>Low</span></div><div><b>${fmt(t.NEW)}</b><span>New</span></div><div><b>${fmt(t.FIXED)}</b><span>Fixed</span></div><div><b>${fmt(t.TO_VERIFY)}</b><span>To verify</span></div><div><b>${fmt(t.CONFIRMED)}</b><span>Confirmed</span></div>
+<div><b>${fmt(projects.length)}</b><span>Projects</span></div><div><b>${esc(credits(scanCredits))}</b><span>Credits, latest scans</span></div><div><b>${fmt(t.results)}</b><span>${esc(label)} results</span></div><div><b>${fmt(t.CRITICAL)}</b><span>Critical</span></div><div><b>${fmt(t.HIGH)}</b><span>High</span></div><div><b>${fmt(t.MEDIUM)}</b><span>Medium</span></div><div><b>${fmt(t.LOW)}</b><span>Low</span></div><div><b>${fmt(t.NEW)}</b><span>New</span></div><div><b>${fmt(t.FIXED)}</b><span>Fixed</span></div><div><b>${fmt(t.TO_VERIFY)}</b><span>To verify</span></div><div><b>${fmt(t.CONFIRMED)}</b><span>Confirmed</span></div>
 </div>
 <h2>Projects</h2>
-<table><thead><tr><th>Project</th><th>Scan</th><th>Model</th><th class="num">LOC</th><th class="num">AI found → added</th><th class="num">AI scans</th><th class="num">Credits</th><th class="num">Critical</th><th class="num">High</th><th class="num">Medium</th><th class="num">Low</th><th class="num">Total</th><th class="num">To verify</th><th class="num">Confirmed</th><th class="num">New</th><th class="num">Recurrent</th><th class="num">Fixed</th><th>Latest scan</th></tr></thead><tbody>
-${projects.map((p) => `<tr class="${esc(p.scanType)}"><td>${link(p.url, p.name)}</td><td>${kind(p)}</td><td>${esc(p.model || '—')}${p.model && MODEL_FROM[p.modelFrom] ? `<small>${esc(MODEL_FROM[p.modelFrom])}</small>` : ''}</td><td class="num">${p.loc === null ? '—' : fmt(p.loc)}</td><td class="num">${added(p)}</td><td class="num">${p.scans === null ? '—' : fmt(p.scans)}</td><td class="num">${p.credits === null ? '—' : fmt(p.credits)}</td><td class="num">${fmt(p.CRITICAL)}</td><td class="num">${fmt(p.HIGH)}</td><td class="num">${fmt(p.MEDIUM)}</td><td class="num">${fmt(p.LOW)}</td><td class="num">${fmt(p.total)}</td><td class="num">${fmt(p.TO_VERIFY)}</td><td class="num">${fmt(p.CONFIRMED)}</td><td class="num">${fmt(p.NEW)}</td><td class="num">${fmt(p.RECURRENT)}</td><td class="num">${p.fixedKnown ? fmt(p.FIXED) : '—'}</td><td>${esc(date(p.scanAt))}</td></tr>`).join('\n') || `<tr><td colspan="18">No ${esc(label)} results.</td></tr>`}
+<table><thead><tr><th>Project</th><th>Scan</th><th>Model</th><th class="num">LOC</th><th class="num">AI found → added</th><th class="num">Credits, latest scan</th><th class="num">Critical</th><th class="num">High</th><th class="num">Medium</th><th class="num">Low</th><th class="num">Total</th><th class="num">To verify</th><th class="num">Confirmed</th><th class="num">New</th><th class="num">Recurrent</th><th class="num">Fixed</th><th>Latest scan</th></tr></thead><tbody>
+${projects.map((p) => `<tr class="${esc(p.scanType)}"><td>${link(p.url, p.name)}</td><td>${kind(p)}</td><td>${esc(p.model || '—')}${p.model && MODEL_FROM[p.modelFrom] ? `<small>${esc(MODEL_FROM[p.modelFrom])}</small>` : ''}</td><td class="num">${p.loc === null ? '—' : fmt(p.loc)}</td><td class="num">${added(p)}</td><td class="num">${esc(credits(p.scanCredits))}</td><td class="num">${fmt(p.CRITICAL)}</td><td class="num">${fmt(p.HIGH)}</td><td class="num">${fmt(p.MEDIUM)}</td><td class="num">${fmt(p.LOW)}</td><td class="num">${fmt(p.total)}</td><td class="num">${fmt(p.TO_VERIFY)}</td><td class="num">${fmt(p.CONFIRMED)}</td><td class="num">${fmt(p.NEW)}</td><td class="num">${fmt(p.RECURRENT)}</td><td class="num">${p.fixedKnown ? fmt(p.FIXED) : '—'}</td><td>${esc(date(p.scanAt))}</td></tr>`).join('\n') || `<tr><td colspan="17">No ${esc(label)} results.</td></tr>`}
 </tbody></table>
 <h2>Results</h2>
 ${projects.filter((p) => byProject.has(p.projectId)).map((p) => `<h3>${link(p.url, p.name)} <small>${fmt(byProject.get(p.projectId).length)} result(s)</small></h3>
 <table><thead><tr><th>Severity</th><th>Scanner</th><th>Engine</th><th>Vulnerability</th><th>Status</th><th>State</th><th>Language</th><th>CWE</th><th>Where</th><th>First found</th><th>Last found</th></tr></thead><tbody>
-${byProject.get(p.projectId).map((r) => `<tr><td>${sev(r.severity)}</td><td>${esc(scannerLabel(r.scanner))}</td><td>${tag(r.engine)}</td><td>${link(r.url, r.name)}<small>${esc(r.id)}</small></td><td>${esc(r.status || '—')}</td><td>${esc(r.state || '—')}${r.aiTriaged ? '<small>set by AI Triage</small>' : ''}</td><td>${esc(r.language || '—')}${r.coveredAs && r.coveredAs !== r.language ? `<small>SAST: ${esc(r.coveredAs)}</small>` : ''}</td><td>${r.cwe ? `CWE-${esc(r.cwe)}` : '—'}</td><td>${r.source ? `${esc(r.source)}${r.sourceNode ? ` <small>${esc(r.sourceNode)}</small>` : ''}${r.sink && r.sink !== r.source ? `→ ${esc(r.sink)}` : ''}${r.sinkNode ? ` <small>${esc(r.sinkNode)}</small>` : ''}` : esc(r.location || '—')}</td><td>${esc(date(r.firstFoundAt))}</td><td>${esc(date(r.foundAt))}</td></tr>`).join('\n')}
+${byProject.get(p.projectId).map((r) => `<tr><td>${sev(r.severity)}</td><td>${esc(scannerLabel(r.scanner))}</td><td>${tag(r.engine)}</td><td>${link(r.url, r.name)}${r.description ? `<small class="desc">${esc(r.description)}</small>` : ''}<small>${esc(r.id)}</small></td><td>${esc(r.status || '—')}</td><td>${esc(r.state || '—')}${r.aiTriaged ? '<small>set by AI Triage</small>' : ''}</td><td>${esc(r.language || '—')}${r.coveredAs && r.coveredAs !== r.language ? `<small>SAST: ${esc(r.coveredAs)}</small>` : ''}</td><td>${r.cwe ? `CWE-${esc(r.cwe)}` : '—'}</td><td>${r.source ? `${esc(r.source)}${r.sourceNode ? ` <small>${esc(r.sourceNode)}</small>` : ''}${r.sink && r.sink !== r.source ? `→ ${esc(r.sink)}` : ''}${r.sinkNode ? ` <small>${esc(r.sinkNode)}</small>` : ''}` : esc(r.location || '—')}</td><td>${esc(date(r.firstFoundAt))}</td><td>${esc(date(r.foundAt))}</td></tr>`).join('\n')}
 </tbody></table>`).join('\n') || `<p>No ${esc(label)} results.</p>`}
 <footer>${esc(opts.appName || 'CxMissionZero')} · Labs → Fusion results · generated ${esc(date(opts.generatedAt ?? new Date().toISOString()))}. Each vulnerability opens the result in Checkmarx One; each project, its page there.</footer>
 </main></body></html>

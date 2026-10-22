@@ -126,7 +126,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>
             <span>Logs</span>
           </a>
-          <p class="nav-group nav-labs" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching feature.fusionResults" title="Early features, still being tried out: who wrote the code, and what Fusion re-scored"><i aria-hidden="true"></i>Labs</p>
+          <p class="nav-group nav-labs" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching feature.fusionResults feature.faeFlush" title="Early features, still being tried out: who wrote the code, what Fusion re-scored, and FAE on the backlog"><i aria-hidden="true"></i>Labs</p>
           <a href="#/beta" data-route="beta" class="tab" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.5L4.6 18.2A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.8L14 9.5V3" /><path d="M7.5 15h9" /></svg>
             <span id="nav-beta-label">Code authors</span>
@@ -134,6 +134,10 @@
           <a href="#/fusion" data-route="fusion" class="tab" data-stage="labs" data-perm="beta.use feature.fusionResults">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="5" /><circle cx="16" cy="12" r="5" /></svg>
             <span>Fusion results</span>
+          </a>
+          <a href="#/flush" data-route="flush" class="tab" id="nav-flush" data-stage="labs" data-perm="feature.faeFlush">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8z" /><path d="M17 15l3 3" /><path d="M20 15l-3 3" /></svg>
+            <span>FAE Flush</span>
           </a>
         </nav>
         <div class="sidebar-tools" id="sidebar-tools" hidden>
@@ -2310,13 +2314,159 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             </div>
           </div>
 
+          <!-- ================= FAE Flush (Labs; Act once final) ================= -->
+          <div id="page-flush" class="page flush" hidden>
+            <section class="panel" id="flush-intro">
+              <div class="panel-head">
+                <div>
+                  <h2>FAE Flush <span class="badge warn" data-beta-badge="faeFlush">Beta</span></h2>
+                  <p class="hint wide">Findings Analysis (FAE) only cuts the noise in results found after it is turned on. FAE Flush applies it to the backlog, once, for every project of the tenant at once (a few scans at a time), and leaves each project as it is: its history, triage, automations and integrations stay.</p>
+                </div>
+              </div>
+              <ol class="flush-steps">
+                <li><span class="flush-step-title">Copy the code</span><span class="flush-step-sub">The exact code of its latest scan, as Checkmarx One keeps it</span></li>
+                <li><span class="flush-step-title">Scan it on <code>name_FAE</code></span><span class="flush-step-sub">A new project with the same SAST settings, Findings Analysis on</span></li>
+                <li><span class="flush-step-title">Compare</span><span class="flush-step-sub">Each SAST result still To verify against the FAE scan's results</span></li>
+                <li><span class="flush-step-title">Mark</span><span class="flush-step-sub">Not reported by FAE → <span class="flush-pne">Proposed not exploitable</span>, in the original project</span></li>
+                <li><span class="flush-step-title">Revalidate</span><span class="flush-step-sub">Both read again: every one marked is marked, and still not reported</span></li>
+                <li><span class="flush-step-title">Remove <code>_FAE</code></span><span class="flush-step-sub">Deleted once checked, or kept: you choose when you start</span></li>
+              </ol>
+              <p class="status" id="flush-status" role="status"></p>
+            </section>
+
+            <div class="ptabs" role="tablist" aria-label="FAE Flush" data-ptabs="flush">
+              <button type="button" role="tab" class="ptab" data-pt="run">Run</button>
+              <button type="button" role="tab" class="ptab" data-pt="value">Value</button>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="flush:run" role="tabpanel">
+            <div class="flush-tiles" id="flush-tiles"></div>
+
+            <section class="panel" id="flush-run">
+              <h2>Run</h2>
+              <dl class="flush-q">
+                <dt>Projects</dt>
+                <dd><b id="flush-chosen">None yet</b> <span class="hint" id="flush-chosen-sub">Check the projects first, then tick them in the list below: try a few first.</span></dd>
+                <dt>What to do</dt>
+                <dd>
+                  <span class="flush-seg" role="radiogroup" aria-label="What to do">
+                    <label><input type="radio" name="flush-mode" value="mark" checked /><span>Mark false positives</span></label>
+                    <label><input type="radio" name="flush-mode" value="report" /><span>Only show what it would mark</span></label>
+                  </span>
+                  <span class="hint flush-under">Only show: it scans and counts, and changes nothing; you can mark them afterwards.</span>
+                </dd>
+                <dt>Stop and ask me if</dt>
+                <dd>
+                  <span class="flush-seg" role="radiogroup" aria-label="Stop and ask me if">
+                    <label><input type="radio" name="flush-sensitivity" value="rarely" /><span>Rarely</span></label>
+                    <label><input type="radio" name="flush-sensitivity" value="normal" checked /><span>Something looks off</span></label>
+                    <label><input type="radio" name="flush-sensitivity" value="often" /><span>Often</span></label>
+                  </span>
+                  <span class="hint flush-under">For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.</span>
+                </dd>
+              </dl>
+              <div class="flush-foot">
+                <label class="hint">Scans at once <select id="flush-concurrency"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>12</option></select></label>
+                <span class="flush-grow"></span>
+                <button type="button" id="flush-preview" class="sm">Check the projects</button>
+                <button type="button" id="flush-start" class="primary" disabled>Start FAE Flush</button>
+              </div>
+              <p class="hint" id="flush-perm-note" hidden>Starting it needs the Checkmarx One integration permission: it creates, scans and deletes projects with the server's own key.</p>
+            </section>
+
+            <section class="panel" id="flush-progress" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2 id="flush-progress-title">Progress</h2>
+                  <p class="hint wide" id="flush-result"></p>
+                </div>
+                <div class="actions">
+                  <button type="button" id="flush-mark-now" class="sm primary" hidden>Mark now</button>
+                  <button type="button" id="flush-pause" class="sm">Pause</button>
+                  <button type="button" id="flush-csv" class="sm">Export CSV</button>
+                  <button type="button" id="flush-delete-fae" class="sm">Delete all _FAE projects</button>
+                  <button type="button" id="flush-undo" class="sm danger">Undo all marks</button>
+                </div>
+              </div>
+              <div class="flush-asks" id="flush-asks"></div>
+              <div class="table-wrap">
+                <table class="flush-table" id="flush-table">
+                  <thead><tr><th>Project</th><th>Step</th><th class="num">To verify</th><th class="num">Reported by FAE</th><th class="num">Not reported → Proposed not exploitable</th><th>Revalidated</th><th>_FAE project</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <p class="hint">Click a project to see what it went through: each step, where its code came from, and any error.</p>
+            </section>
+
+            <section class="panel" id="flush-preview-panel" hidden>
+              <div class="panel-head">
+                <div><h2>Projects</h2><p class="hint wide" id="flush-preview-sub"></p></div>
+                <div class="actions"><button type="button" id="flush-tick-all" class="sm">Tick all</button><button type="button" id="flush-tick-none" class="sm">Tick none</button></div>
+              </div>
+              <div class="table-wrap">
+                <table class="flush-table" id="flush-preview-table">
+                  <thead><tr><th class="flush-tick"><span class="sr-only">Chosen</span></th><th>Project</th><th>Latest scan</th><th class="num">Lines of code</th><th class="num">To verify</th><th>FAE Flush</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+
+            <details class="panel flush-trouble" id="flush-trouble" data-perm="integration.cxone">
+              <summary>Troubleshoot</summary>
+              <p class="hint">For when something does not work. Nothing here changes your projects.</p>
+              <div class="flush-trouble-row">
+                <b>Test one project</b>
+                <div>
+                  <p class="hint">Runs every step without creating or changing anything, and says what worked.</p>
+                  <div class="flush-inline"><select id="flush-test-project" aria-label="Project to test"></select><button type="button" id="flush-test" class="sm">Test</button></div>
+                  <div class="table-wrap" id="flush-test-out" hidden><table class="flush-table"><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody></tbody></table></div>
+                </div>
+              </div>
+              <div class="flush-trouble-row">
+                <b>Debug log</b>
+                <div>
+                  <p class="hint">Records every call to Checkmarx One: address, request, answer and time (never the access token; signed addresses' signatures hidden). The last 500 calls, until cleared or the server restarts.</p>
+                  <div class="flush-inline"><label><input type="checkbox" id="flush-debug-on" /> On</label> <span class="hint" id="flush-debug-count"></span><button type="button" id="flush-debug-download" class="sm">Download</button><button type="button" id="flush-debug-clear" class="sm">Clear</button></div>
+                </div>
+              </div>
+              <div class="flush-trouble-row">
+                <b>Where the code comes from</b>
+                <div>
+                  <select id="flush-source" aria-label="Where the code comes from">
+                    <option value="auto" selected>Automatic</option>
+                    <option value="link">Checkmarx One's own copy only</option>
+                    <option value="upload">Download and upload only</option>
+                    <option value="git">The repository only</option>
+                  </select>
+                  <p class="hint">Automatic: Checkmarx One's own copy, read where it is (nothing passes through this server); if Checkmarx One refuses it, downloaded and uploaded again; else the repository at the latest scan's commit. Each project's timeline says which it used.</p>
+                </div>
+              </div>
+            </details>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="flush:value" role="tabpanel" hidden>
+              <section class="panel" id="flush-value">
+                <div class="panel-head">
+                  <div><h2>Value</h2><p class="hint wide">Every false positive FAE Flush took off people's hands, kept after each run: still marked Proposed not exploitable (undone ones taken out). Time and money use the figures under Settings → Impact.</p></div>
+                  <div class="actions"><button type="button" id="flush-value-csv" class="sm">Export CSV</button></div>
+                </div>
+                <div class="flush-tiles" id="flush-value-tiles"></div>
+                <div class="flush-sev" id="flush-value-sev"></div>
+                <h3 class="flush-h3">Runs</h3>
+                <div class="table-wrap"><table class="flush-table" id="flush-value-runs"><thead><tr><th>Started</th><th>By</th><th class="num">Projects</th><th class="num">To verify</th><th class="num">Marked</th><th class="num">Revalidated</th><th class="num">Undone</th></tr></thead><tbody></tbody></table></div>
+                <h3 class="flush-h3">Projects</h3>
+                <div class="table-wrap"><table class="flush-table" id="flush-value-projects"><thead><tr><th>Project</th><th class="num">Runs</th><th class="num">To verify</th><th class="num">False positives removed</th><th>Last</th></tr></thead><tbody></tbody></table></div>
+              </section>
+            </div>
+          </div>
+
           <!-- ================= Fusion results (Labs) ================= -->
           <div id="page-fusion" class="page fusion" hidden>
             <section class="panel" id="beta-fusion">
               <div class="panel-head">
                 <div>
                   <h2>Fusion results <span class="badge warn" data-beta-badge="fusionResults">Beta</span></h2>
-                  <p class="hint wide">The Risk Hub list of each project whose latest scan ran the AI engine. <strong class="fusion-word">Fusion</strong>: a Fusion scan (Fusion on in its settings) and what it reported. <strong class="last-word">LAST</strong> (language-agnostic static testing): a scan with Fusion off, or what a Fusion scan&#39;s AI engine found in a language only it covers. Click a project to see its vulnerabilities.</p>
+                  <p class="hint wide">Only what the AI engine reported, for each project whose latest scan ran it: no traditional SAST, SCA or other results. <strong class="fusion-word">Fusion</strong>: a Fusion scan (Fusion on in its settings) and what its AI engine reported. <strong class="last-word">LAST</strong> (language-agnostic static testing): a scan with Fusion off, or what a Fusion scan&#39;s AI engine found in a language only it covers. Click a project to see its vulnerabilities.</p>
                 </div>
                 <div class="actions"><button type="button" id="fusion-read" class="sm" data-perm="beta.use feature.fusionResults">Read Fusion now</button></div>
               </div>
@@ -2358,12 +2508,6 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <select id="fusion-model" aria-label="Model">
                     <option value="">Any model</option>
                   </select>
-                  <select id="fusion-period" aria-label="AI scans and credits over" title="AI scans and credits over">
-                    <option value="last_30_days">Last 30 days</option>
-                    <option value="last_90_days">Last 90 days</option>
-                    <option value="last_180_days">Last 180 days</option>
-                    <option value="last_year">Last year</option>
-                  </select>
                   <button type="button" class="sm" id="fusion-proj-csv">Export CSV</button>
                   <button type="button" class="sm" id="fusion-report">HTML report</button>
                 </div>
@@ -2380,7 +2524,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <p class="status" id="fusion-act-status"></p>
               <div class="table-wrap">
                 <table class="data-table fusion-table">
-                  <thead><tr><th>Project</th><th title="Fusion: its latest scan ran the AI engine with Fusion on. LAST: with Fusion off (LLM-based scanning alone).">Scan</th><th title="The model its latest scan ran with, and where that was set: the scan, the project, the tenant, or Checkmarx One itself">Model</th><th class="num" title="Lines of code its latest scan counted">LOC</th><th class="num" title="What the AI engine found in the latest scan, and how many of those it added once the ones the traditional engine also found were taken out (as the scan's steps say)">AI found → added</th><th title="Its results in Risk Hub by severity, for the engines shown">Results</th><th class="num" title="Open risks still in Risk Hub's default state, To verify">To verify</th><th class="num" title="Open risks confirmed (by people or by AI Triage)">Confirmed</th><th class="num" title="Completed scans that ran the AI engine, over the period chosen above">AI scans</th><th class="num" title="Checkmarx One credits the project used over the period chosen above">Credits</th><th>Latest scan</th></tr></thead>
+                  <thead><tr><th>Project</th><th title="Fusion: its latest scan ran the AI engine with Fusion on. LAST: with Fusion off (LLM-based scanning alone).">Scan</th><th title="The model its latest scan ran with, and where that was set: the scan, the project, the tenant, or Checkmarx One itself">Model</th><th class="num" title="Lines of code its latest scan counted">LOC</th><th class="num" title="What the AI engine found in the latest scan, and how many of those it added once the ones the traditional engine also found were taken out (as the scan's steps say)">AI found → added</th><th title="What the AI engine reported, by severity (no traditional SAST results)">AI results</th><th class="num" title="Open risks still in Risk Hub's default state, To verify">To verify</th><th class="num" title="Open risks confirmed (by people or by AI Triage)">Confirmed</th><th class="num" title="Credits its latest scan used: none for a LAST scan or with Fusion credits disabled; ≈ an estimate from the Fusion credits it used over the last year, per Fusion scan">Credits, latest scan</th><th>Latest scan</th></tr></thead>
                   <tbody id="fusion-body"><tr><td colspan="11" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
                 </table>
               </div>
@@ -3155,6 +3299,24 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
         <div id="remediate-body"></div>
         <div class="actions">
           <button value="go" class="primary" id="remediate-go">Remediate</button>
+          <button value="cancel" formnovalidate>Cancel</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="flush-dialog" class="notice-dialog" aria-labelledby="flush-dialog-title">
+      <form method="dialog">
+        <div class="notice-head">
+          <span class="notice-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16l-6 7v6l-4 2v-8z" /></svg></span>
+          <h2 id="flush-dialog-title">Start FAE Flush?</h2>
+        </div>
+        <div id="flush-dialog-body"></div>
+        <fieldset class="flush-keep">
+          <legend>Once each project is checked, its <code>_FAE</code> project:</legend>
+          <label><input type="radio" name="flush-keep" value="delete" required /> <b>Delete it</b> <span class="hint">nothing left behind in Checkmarx One</span></label>
+          <label><input type="radio" name="flush-keep" value="keep" required /> <b>Keep it</b> <span class="hint">to look at; delete them all later with one click</span></label>
+        </fieldset>
+        <div class="actions">
+          <button value="go" class="primary" id="flush-dialog-go">Start</button>
           <button value="cancel" formnovalidate>Cancel</button>
         </div>
       </form>

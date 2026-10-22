@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.95 | 514/s, 0 (main 507, 0) | 6.5 s | 573 ms | 780 | 0 vulnerabilities | No new scan (connector needs signing in again); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.94 | 513/s, 0 (main 494, 0) | 6.8 s | 303 ms | 765 | 0 vulnerabilities | No new scan (checked); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.93 | 509/s, 0 (main 491, 0) | 5.5 s | 646 ms | 758 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.92 | 479/s, 153 (main 462, 152; a busy host) | 16.0 s | 2.0 s | 748 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -80,6 +81,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.95 — 2026-10-22 16:48 UTC · [#118](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/118)
+
+- **FAE Flush, in Labs, behind an activation code.** Findings Analysis (FAE) now clears the existing backlog too: for the projects you tick, the code of its latest scan is scanned again on a `<name>_FAE` copy with FAE on, Checkmarx One reading its own copy of the code where it is; it appears only once its activation code is applied.
+- **Your projects stay as they are, and the value is kept.** Results still To verify that the FAE scan no longer reports are marked Proposed not exploitable in the original project and revalidated; a **Value** tab keeps every one after the run, with the triage hours and AI Triage credits they save.
+- **Simple to run, and to check.** Mark, or only show what it would mark and **Mark now** later; choose how readily a project stops to ask; Pause, Undo all marks, Export CSV, each project's timeline, and **Troubleshoot** to test one project read-only or keep a debug log of every call.
+- **Delete or keep the copies.** Starting asks whether each `_FAE` project is deleted once checked or kept; kept ones go with one click, any day after, and never show on the Workbench or in reports. Once final it becomes Act's first page; the Workbench stays the home page.
+- **Fusion results: only what the AI engine reported.** Labs → Fusion results, its side panel and both downloads now hold only the AI engine's results (Fusion and LAST), never the traditional engines', each with its description; a project whose AI engine reported nothing (LAST on by default) is left out.
+- **Credits for the latest scan.** Each project shows the credits its latest scan used (none with Fusion credits disabled or for a LAST scan, else an estimate marked ≈); the AI scans column and the period picker are gone.
+- **Activation codes from Windows.** `scripts/activation-codes.cmd` makes every activation code (product, tenants, Hebrew, Impact, FAE Flush) with Podman alone, the key staying on your PC.
+- **Status.** 514 requests a second for 3000 people at once on 2 vCPU, none failed (main 507, none failed, on the same host), report opens 6.5 s and triage polls 573 ms at p95, both shorter than main's; two earlier pairs met host pauses on both sides ([performance](docs/performance.md)); 780 tests pass; `npm audit` finds 0 vulnerabilities; no new Checkmarx One scan of this code (the connector needs signing in again; [status](docs/status.md)).
 
 ## MZ-01.00.94 — 2026-10-22 10:06 UTC · [#117](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/117)
 

@@ -3547,3 +3547,64 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 #scan-colour-note[hidden] { display: none; }
 /* A pressed chip reads as pressed in every look: the looks' own button backgrounds (Signal's well, the 3D sheen) never hide it. */
 .fusion button.fusion-chip[aria-pressed="true"] { background-color: var(--accent) !important; border-color: var(--accent) !important; color: var(--accent-ink) !important; }
+
+/* ---- FAE Flush (Labs; Act once final) ---- */
+.flush-steps { list-style: none; counter-reset: flush; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 12px 0 4px; padding: 0; }
+.flush-steps li { counter-increment: flush; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 10px 10px 38px; position: relative; background: var(--surface); font-size: 13px; }
+.flush-steps li::before { content: counter(flush); position: absolute; left: 10px; top: 10px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: var(--primary-ink); font-size: 11px; font-weight: 600; }
+.flush-steps .flush-step-title { display: block; font-weight: 600; }
+.flush-steps .flush-step-sub { color: var(--muted); display: block; margin-top: 2px; font-size: 12px; }
+.flush-pne { color: var(--accent); font-weight: 600; }
+.flush-warn { color: var(--warn); }
+.flush-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 0 0 14px; }
+.flush-tiles:empty { display: none; }
+.flush-tile { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 14px 16px; min-width: 0; }
+.flush-tile b { display: block; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.flush-tile span { color: var(--muted); font-size: 12.5px; }
+.flush-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.flush-grow { flex: 1; }
+.flush-asks:empty { display: none; }
+.flush-asks { display: grid; gap: 8px; margin: 0 0 12px; }
+.flush-ask { border: 1px solid var(--warn); background: var(--warn-soft); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
+.flush-ask p { margin: 0; flex: 1 1 320px; min-width: 0; overflow-wrap: anywhere; }
+.flush-table td.num, .flush-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.flush-table .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--border-strong); white-space: nowrap; }
+.flush-table .pill.ok { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.flush-table .pill.warn { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.flush-table .pill.run { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.flush-table .pill.muted { color: var(--muted); }
+.flush-keep { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px 10px; margin: 10px 0; display: grid; gap: 6px; }
+.flush-keep legend { padding: 0 4px; font-weight: 600; }
+.fusion-vuln-desc { margin: 6px 14px 10px; color: var(--text); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.flush-q { display: grid; grid-template-columns: minmax(140px, 190px) 1fr; gap: 14px 18px; align-items: start; margin: 8px 0 0; }
+.flush-q dt { font-weight: 600; padding-top: 6px; }
+.flush-q dd { margin: 0; min-width: 0; }
+.flush-under { display: block; margin-top: 4px; }
+.flush-seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--border-strong); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+.flush-seg label { position: relative; cursor: pointer; }
+.flush-seg label + label { border-inline-start: 1px solid var(--border-strong); }
+.flush-seg input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.flush-seg span { display: block; padding: 7px 14px; font-size: 13.5px; }
+.flush-seg input:checked + span { background: var(--primary); color: var(--primary-ink); }
+.flush-seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
+.flush-foot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.flush-tick { width: 34px; }
+.flush-row { cursor: pointer; }
+.flush-row.is-open td { background: var(--accent-soft); }
+.flush-timeline td { background: var(--surface); }
+.flush-timeline ol { margin: 4px 0; padding-inline-start: 20px; display: grid; gap: 3px; font-size: 12.5px; }
+.flush-timeline li.bad span:first-of-type { color: var(--danger); }
+.flush-timeline li.ok span:first-of-type { color: var(--ok); }
+.flush-trouble > summary { cursor: pointer; font-weight: 600; }
+.flush-trouble-row { display: grid; grid-template-columns: minmax(140px, 190px) 1fr; gap: 6px 18px; padding: 12px 0; border-top: 1px solid var(--border); }
+.flush-trouble-row:first-of-type { border-top: 0; }
+.flush-h3 { margin: 18px 0 6px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.flush-sev { display: grid; gap: 6px; margin: 4px 0 8px; max-width: 560px; }
+.flush-sev-row { display: grid; grid-template-columns: 80px 1fr 70px; gap: 10px; align-items: center; font-size: 13px; }
+.flush-sev-row i { height: 10px; border-radius: 99px; min-width: 2px; background: var(--muted); }
+.flush-sev-row i.sev-critical { background: #dc2626; } .flush-sev-row i.sev-high { background: #ea580c; } .flush-sev-row i.sev-medium { background: #d97706; } .flush-sev-row i.sev-low { background: #2563eb; }
+.flush-sev-row b { text-align: end; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .flush-q, .flush-trouble-row { grid-template-columns: 1fr; } }
+.flush-inline { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+.flush-inline select { min-width: 220px; max-width: 100%; }
+.flush-inline button { flex: 0 0 auto; width: auto; }

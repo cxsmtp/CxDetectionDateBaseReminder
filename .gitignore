@@ -9,3 +9,7 @@ coverage/
 # Administrator settings (SMTP credentials, recipients, template)
 data/
 /integrity.json
+
+# Private keys (the activation issuer key, certificates): never committed.
+*.pem
+*.key

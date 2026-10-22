@@ -1,5 +1,5 @@
-// Labs → Fusion: the Risk Hub list of each project whose latest scan was a Fusion scan, with what the AI engine
-// found among it (src/fusion-ai.js), and the figures, rows and report the page makes of it (public/fusion-view.js).
+// Labs → Fusion: only what the AI engine reported (no traditional SAST, SCA… results), for each project whose latest
+// scan ran it, with Risk Hub's states (src/fusion-ai.js), and the figures, rows and report the page makes of it (public/fusion-view.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -52,20 +52,36 @@ const P1 = [{ id: 'p1', name: 'Juice Shop' }];
 const SCANS = { p1: { id: 's1', updatedAt: '2026-10-20T06:56:00Z' } };
 const FUSION_SCAN = { p1: ['sast', 'sca', 'ai'] };
 
-test('Fusion is the Risk Hub list of a project whose latest scan was a Fusion scan; New, Recurrent and Fixed as Risk Hub says', async () => {
+test('only what the AI engine reported: the traditional engines’ risks are left out; New, Recurrent and Fixed as Risk Hub says', async () => {
   const client = tenant([AI, ...TRADITIONAL]);
   const hub = riskHub({ p1: RISKS });
   const f = await readRiskFusion(client, P1, SCANS, { engines: FUSION_SCAN, riskSource: hub });
   assert.deepEqual(hub.calls, ['p1'], 'read with the Workbench’s Risk Hub reader');
   assert.equal(f.source, 'risk-hub');
-  assert.deepEqual([f.totals.total, f.totals.CRITICAL, f.totals.HIGH, f.totals.MEDIUM], [3, 1, 1, 1], 'every scanner, the fixed one apart');
-  assert.deepEqual([f.totals.NEW, f.totals.RECURRENT, f.totals.FIXED], [2, 1, 1], 'Risk Hub’s own statuses');
+  assert.deepEqual([f.totals.total, f.totals.CRITICAL, f.totals.HIGH, f.totals.MEDIUM], [1, 1, 0, 0], 'the AI engine’s one; SCA and traditional SAST left out');
+  assert.deepEqual([f.totals.NEW, f.totals.RECURRENT, f.totals.FIXED], [1, 0, 0], 'Risk Hub’s own statuses');
   const listed = client.calls.find((c) => c.path === '/api/sast-results').query;
   assert.deepEqual([listed['scan-id'], listed['is-ai-generated'], listed['is-ai-generated-operation']], ['s1', 1, 'EQUAL'], 'what the AI engine found, to say which');
-  assert.deepEqual(f.results.map((r) => [r.resultId, r.scanner, r.ai, r.engine, r.status]), [[AI.resultHash, 'SAST', true, 'FUSION', 'NEW'], ['sca1', 'SCA', false, 'FUSION', 'RECURRENT'], ['sast2', 'SAST', false, 'FUSION', 'NEW'], ['gone', 'SAST', false, 'FUSION', 'FIXED']], 'open ones by severity, the fixed one last');
+  assert.deepEqual(f.results.map((r) => [r.resultId, r.scanner, r.ai, r.engine, r.status]), [[AI.resultHash, 'SAST', true, 'FUSION', 'NEW']]);
   const r = f.results[0];
   assert.deepEqual([r.name, r.language, r.cwe, r.sourceFile, r.sourceLine, r.sinkLine, r.coveredAs], ['Improper Authentication', 'TypeScript', 287, '/juice-shop-20.3.0/routes/nftMint.ts', 41, 42, 'TypeScript'], 'the AI engine’s own result adds its detail');
-  assert.equal(f.results[1].location, 'lodash');
+});
+
+test('an AI result Risk Hub does not list is listed from the SAST result, with its description; one with none gets its query’s', async () => {
+  const own = { ...AI, resultHash: 'own1', description: '<p>User input reaches <b>eval()</b>.</p>' };
+  const known = { ...AI, resultHash: 'q1', queryID: 4321, description: '' };
+  const client = fakeClient({
+    '/api/sast-results': () => ({ results: [own, known], totalCount: 2 }),
+    '/api/queries/descriptions': (q) => (q.ids.includes('4321') ? [{ queryId: 4321, resultDescription: 'The query’s own words.' }] : []),
+  });
+  const f = await readRiskFusion(client, P1, SCANS, { engines: FUSION_SCAN, riskSource: riskHub({ p1: RISKS.slice(1) }) });
+  assert.deepEqual(f.results.map((r) => [r.resultId, r.scanner, r.description]).sort(), [['own1', 'SAST', 'User input reaches eval() .'], ['q1', 'SAST', 'The query’s own words.']]);
+  assert.equal(f.projects.p1.total, 2);
+});
+
+test('a project whose latest scan’s AI engine reported nothing is left out, and counted', async () => {
+  const f = await readRiskFusion(tenant([]), [...P1, { id: 'p2', name: 'Quiet LAST' }], { ...SCANS, p2: { id: 's2' } }, { types: { p1: 'fusion', p2: 'last' }, riskSource: riskHub({ p1: [RISKS[0]], p2: RISKS.slice(1) }) });
+  assert.deepEqual([Object.keys(f.projects), f.noAi, f.kinds], [['p1'], 1, { fusion: 1, last: 0 }]);
 });
 
 test('a project whose latest scan was not a Fusion scan is left out, and said; one never scanned too', async () => {
@@ -80,11 +96,11 @@ test('LAST: what the AI engine found in a language only it covers; a Checkmarx O
   const risks = [...RISKS, { id: 'sol1', riskName: 'Reentrancy', severity: 'HIGH', status: 'NEW', state: 'TO_VERIFY', engine: 'SAST', fileName: 'contracts/Token.sol' }, { id: 'tf1', riskName: 'Open bucket', severity: 'LOW', status: 'RECURRENT', engine: 'SAST', fileName: 'infra/main.tf', isAiGenerated: true }];
   const f = await readRiskFusion(tenant([AI, sol, ...TRADITIONAL], { ignoreFilter: true }), P1, SCANS, { engines: FUSION_SCAN, riskSource: riskHub({ p1: risks }) });
   const engine = Object.fromEntries(f.results.map((r) => [r.resultId, r.engine]));
-  assert.deepEqual([engine.sol1, engine.tf1, engine[AI.resultHash], engine.sca1], ['LAST', 'LAST', 'FUSION', 'FUSION'], 'by the AI result’s language, else the risk’s file');
+  assert.deepEqual([engine.sol1, engine.tf1, engine[AI.resultHash], engine.sca1], ['LAST', 'LAST', 'FUSION', undefined], 'by the AI result’s language, else the risk’s file');
   const { FUSION, LAST } = f.projects.p1.engines;
-  assert.deepEqual([FUSION.total, LAST.total, LAST.HIGH, LAST.NEW, LAST.RECURRENT], [3, 2, 1, 1, 1]);
-  assert.deepEqual([f.totals.engines.LAST.total, f.totals.total], [2, 5]);
-  assert.equal(f.results.find((r) => r.resultId === 'sast2').ai, false, 'a traditional result the unfiltered answer also gave is not taken for the AI engine’s');
+  assert.deepEqual([FUSION.total, LAST.total, LAST.HIGH, LAST.NEW, LAST.RECURRENT], [1, 2, 1, 1, 1]);
+  assert.deepEqual([f.totals.engines.LAST.total, f.totals.total], [2, 3]);
+  assert.ok(!f.results.some((r) => ['sast2', 'h1', 'h2', 'sca1'].includes(r.resultId)), 'a traditional result the unfiltered answer also gave is not taken for the AI engine’s');
 });
 
 test('every page of the AI engine’s results is read', async () => {
@@ -98,7 +114,7 @@ test('every page of the AI engine’s results is read', async () => {
 test('the open risks as findings the credit, triage and remediation code acts on, with Risk Hub’s ids', async () => {
   const f = await readRiskFusion(tenant([AI]), P1, SCANS, { engines: FUSION_SCAN, riskSource: riskHub({ p1: [{ ...RISKS[0], alternateId: 'alt-1', groupId: 'g-1', similarityId: '-282866862' }, ...RISKS.slice(1)] }) });
   const { projects, initiators } = aiFindings(f);
-  assert.deepEqual(projects[0].risks.map((r) => [r.riskId, r.alternateId, r.groupId, r.scanner, r.severity, r.state, r.scanId]), [[AI.resultHash, 'alt-1', 'g-1', 'SAST', 'CRITICAL', 'CONFIRMED', 's1'], ['sca1', 'sca1', '', 'SCA', 'HIGH', 'TO_VERIFY', 's1'], ['sast2', 'sast2', '', 'SAST', 'MEDIUM', 'TO_VERIFY', 's1']], 'the fixed one is not acted on');
+  assert.deepEqual(projects[0].risks.map((r) => [r.riskId, r.alternateId, r.groupId, r.scanner, r.severity, r.state, r.scanId]), [[AI.resultHash, 'alt-1', 'g-1', 'SAST', 'CRITICAL', 'CONFIRMED', 's1']], 'only the AI engine’s');
   assert.deepEqual(initiators, { p1: { scanId: 's1' } });
 });
 
@@ -110,26 +126,25 @@ test('the page: figures, project rows, Checkmarx-style result rows and the HTML 
   f.projects.p1.url = 'https://deu.ast.checkmarx.net/projects/p1/overview';
   const scope = { projects: 3, names: { p1: 'Juice Shop' } };
   const t = fusionTiles(f, scope);
-  assert.deepEqual([t.found.results, t.found.CRITICAL, t.found.HIGH, t.found.projects, t.found.of, t.change.NEW, t.change.RECURRENT, t.change.FIXED], [4, 1, 2, 1, 3, 2, 2, 1], 'both: every open risk');
+  assert.deepEqual([t.found.results, t.found.CRITICAL, t.found.HIGH, t.found.projects, t.found.of, t.change.NEW, t.change.RECURRENT, t.change.FIXED], [2, 1, 1, 1, 3, 1, 1, 0], 'both: the AI engine’s open ones');
   const fusionOnly = fusionTiles(f, scope, ['FUSION']);
-  assert.deepEqual([fusionOnly.found.results, fusionOnly.found.HIGH, fusionOnly.change.FIXED], [3, 1, 1]);
+  assert.deepEqual([fusionOnly.found.results, fusionOnly.found.HIGH, fusionOnly.change.FIXED], [1, 0, 0]);
   assert.deepEqual([fusionTiles(f, scope, ['LAST']).found.results, fusionTiles(f, scope, ['LAST']).found.HIGH], [1, 1]);
   const [row] = fusionRows(f, scope, ['FUSION']);
-  assert.deepEqual([row.name, row.CRITICAL, row.HIGH, row.total, row.NEW, row.RECURRENT, row.FIXED, row.url], ['Juice Shop', 1, 1, 3, 2, 1, 1, f.projects.p1.url]);
+  assert.deepEqual([row.name, row.CRITICAL, row.HIGH, row.total, row.NEW, row.RECURRENT, row.FIXED, row.url], ['Juice Shop', 1, 0, 1, 1, 0, 0, f.projects.p1.url]);
   const rows = fusionResultRows(f, scope, ['FUSION', 'LAST'], 'p1');
-  assert.deepEqual(rows.map((r) => [r.severity, r.scanner, r.engine, r.status]), [['CRITICAL', 'SAST', 'FUSION', 'New'], ['HIGH', 'SAST', 'LAST', 'Recurrent'], ['HIGH', 'SCA', 'FUSION', 'Recurrent'], ['MEDIUM', 'SAST', 'FUSION', 'New'], ['HIGH', 'SAST', 'FUSION', 'Fixed']], 'the fixed one last');
+  assert.deepEqual(rows.map((r) => [r.severity, r.scanner, r.engine, r.status]), [['CRITICAL', 'SAST', 'FUSION', 'New'], ['HIGH', 'SAST', 'LAST', 'Recurrent']]);
   assert.equal(rows[0].source, '/juice-shop-20.3.0/routes/nftMint.ts:41');
-  assert.equal(rows[2].location, 'lodash');
   assert.equal(rows[0].projectUrl, f.projects.p1.url);
   assert.deepEqual(fusionResultRows(f, scope, ['LAST']).map((r) => r.id), ['sol']);
   assert.equal(fusionTotalOf(null, 'p1'), null);
-  assert.deepEqual([fusionTotalOf(f, 'p1'), fusionTotalOf(f, 'p1', ['LAST'])], [4, 1]);
+  assert.deepEqual([fusionTotalOf(f, 'p1'), fusionTotalOf(f, 'p1', ['LAST'])], [2, 1]);
   assert.equal(engineLabel(['LAST', 'FUSION']), 'Fusion and LAST');
   const html = fusionReportHtml(f, scope, { organisation: 'Acme <Bank>', generatedAt: '2026-10-21T10:00:00Z' });
   assert.match(html, /^<!doctype html>/);
   assert.ok(html.includes('Fusion and LAST results — Acme &lt;Bank&gt;'), 'titled by the ticks, escaped');
   assert.ok(html.includes('href="https://deu.ast.checkmarx.net/riskhub/p1?resultId=AZTOOZ"'), 'each result links to Checkmarx One');
-  assert.ok(html.includes('CWE-287') && html.includes('nftMint.ts:41') && html.includes('lodash'));
+  assert.ok(html.includes('CWE-287') && html.includes('nftMint.ts:41') && !html.includes('lodash'), 'no traditional result in it');
   assert.ok(!/<script|src="http/i.test(html), 'nothing runs, nothing loaded from elsewhere');
   const fusionReport = fusionReportHtml(f, scope, { engines: ['FUSION'] });
   assert.ok(fusionReport.includes('<title>Fusion results</title>') && !fusionReport.includes('Token.sol'), 'Fusion only: no LAST result');
@@ -140,22 +155,25 @@ test('the page: figures, project rows, Checkmarx-style result rows and the HTML 
 
 test('the page narrowed by status, state and AI Triage; projects by scan type, gold and pink', async () => {
   const risks = [{ ...RISKS[0], stateChangedBy: 'ai' }, RISKS[1], { ...RISKS[2], state: 'PROPOSED_NOT_EXPLOITABLE' }, RISKS[3]];
-  const f = await readRiskFusion(tenant([AI]), [...P1, { id: 'p2', name: 'abap-last' }, { id: 'p3', name: 'Quiet' }], { ...SCANS, p2: { id: 's2' }, p3: { id: 's3' } }, { types: { p1: 'fusion', p2: 'last', p3: 'last' }, riskSource: riskHub({ p1: risks, p2: [{ id: 'abap1', riskName: 'Missing Authorization', severity: 'HIGH', status: 'NEW', state: 'TO_VERIFY', isAiGenerated: true }], p3: [] }) });
+  // The AI engine's results of Juice Shop's scan only (abap-last's AI result is in Risk Hub; Quiet has none).
+  const onlyS1 = fakeClient({ '/api/sast-results': (q) => ({ results: q['scan-id'] === 's1' && !q.offset ? [AI] : [], totalCount: q['scan-id'] === 's1' ? 1 : 0 }) });
+  const f = await readRiskFusion(onlyS1, [...P1, { id: 'p2', name: 'abap-last' }, { id: 'p3', name: 'Quiet' }], { ...SCANS, p2: { id: 's2' }, p3: { id: 's3' } }, { types: { p1: 'fusion', p2: 'last', p3: 'last' }, riskSource: riskHub({ p1: risks, p2: [{ id: 'abap1', riskName: 'Missing Authorization', severity: 'HIGH', status: 'NEW', state: 'TO_VERIFY', isAiGenerated: true }], p3: [] }) });
   Object.assign(f.projects.p1, { model: 'haiku-4.5', modelFrom: 'scan', aiReported: 273, aiDuplicates: 47, aiAdded: 226, loc: 91970, files: 929 });
   Object.assign(f.projects.p2, { model: 'opus-4.7', modelFrom: 'environment', loc: 910, files: 5 });
   const scope = { projects: 5, names: { p1: 'Juice Shop', p2: 'abap-last', p3: 'Quiet' } };
   const all = fusionRows(f, scope);
-  assert.deepEqual(all.map((r) => [r.name, r.scanType]), [['Juice Shop', 'fusion'], ['abap-last', 'last'], ['Quiet', 'last']], 'a project with no results still shows, by its scan type');
+  assert.deepEqual(all.map((r) => [r.name, r.scanType]), [['Juice Shop', 'fusion'], ['abap-last', 'last']], 'one whose AI engine reported nothing is left out');
+  assert.equal(f.noAi, 1);
   assert.deepEqual(fusionRows(f, scope, ['FUSION']).map((r) => r.name), ['Juice Shop'], 'Fusion ticked alone: Fusion scans (and AI results of theirs)');
-  assert.deepEqual(fusionRows(f, scope, ['LAST']).map((r) => r.name), ['abap-last', 'Quiet']);
+  assert.deepEqual(fusionRows(f, scope, ['LAST']).map((r) => r.name), ['abap-last']);
   const t = fusionTiles(f, scope);
-  assert.deepEqual([t.states.TO_VERIFY, t.states.CONFIRMED, t.states.PROPOSED_NOT_EXPLOITABLE, t.found.aiTriaged, t.kinds], [2, 1, 1, 1, { fusion: 1, last: 2 }]);
+  assert.deepEqual([t.states.TO_VERIFY, t.states.CONFIRMED, t.states.PROPOSED_NOT_EXPLOITABLE, t.found.aiTriaged, t.kinds], [1, 1, 0, 1, { fusion: 1, last: 1 }]);
   assert.deepEqual([t.added.found, t.added.duplicates, t.added.added, t.models, t.code], [273, 47, 226, [['haiku-4.5', 1], ['opus-4.7', 1]], { loc: 92880, files: 934 }]);
   const confirmed = { state: 'CONFIRMED' };
   assert.deepEqual(fusionRows(f, scope, null, confirmed).map((r) => [r.name, r.total, r.CONFIRMED]), [['Juice Shop', 1, 1]], 'only the projects with a match, counted by their matches');
   assert.deepEqual(fusionResultRows(f, scope, null, null, { aiTriaged: true }).map((r) => [r.id, r.stateKey, r.aiTriaged]), [[AI.resultHash, 'CONFIRMED', true]]);
   assert.deepEqual(fusionResultRows(f, scope, null, null, { status: 'NEW', state: 'TO_VERIFY' }).map((r) => r.id), ['abap1']);
-  assert.equal(fusionTiles(f, scope, null, { status: 'FIXED' }).change.FIXED, 1);
+  assert.equal(fusionTiles(f, scope, null, { status: 'FIXED' }).change.FIXED, 0, 'the fixed one was traditional SAST');
   const html = fusionReportHtml(f, scope, { filter: confirmed, colours: { fusion: '#0f766e', last: 'red;}' } });
   assert.ok(html.includes('--fusion: #0f766e') && html.includes('--last: #d6337a'), 'the reader’s colours, only real ones');
   assert.ok(html.includes(' · Confirmed · ') && html.includes('Juice Shop') && !html.includes('abap-last'), 'narrowed: said, and only the projects with a match');
@@ -281,7 +299,7 @@ test('each project’s AI scans and credits over a period, from the scans and th
   assert.deepEqual([denied.period, denied.creditsKnown, denied.projects.p1.credits], ['last_30_days', false, null], 'no permission: unknown, not 0');
 });
 
-test('a LAST scan’s risks are all LAST’s; states, AI-found and AI-triaged are counted', async () => {
+test('a LAST scan’s AI results are all LAST’s; states, AI-found and AI-triaged are counted', async () => {
   const { readRiskFusion } = await import('../src/fusion-ai.js');
   const risks = [
     { ...RISKS[0], stateChangedBy: 'ai' },
@@ -293,7 +311,7 @@ test('a LAST scan’s risks are all LAST’s; states, AI-found and AI-triaged ar
   assert.deepEqual([f.kinds, f.projects.p1.scanType, f.projects.p2.scanType], [{ fusion: 1, last: 1 }, 'fusion', 'last']);
   assert.deepEqual(f.results.filter((r) => r.projectId === 'p2').map((r) => r.engine), ['LAST'], 'everything a LAST scan found');
   const p1 = f.projects.p1;
-  assert.deepEqual([p1.TO_VERIFY, p1.CONFIRMED, p1.PROPOSED_NOT_EXPLOITABLE, p1.NOT_EXPLOITABLE, p1.URGENT, p1.FIXED], [1, 1, 1, 0, 0, 1], 'states of the open risks; the fixed one apart');
+  assert.deepEqual([p1.TO_VERIFY, p1.CONFIRMED, p1.PROPOSED_NOT_EXPLOITABLE, p1.NOT_EXPLOITABLE, p1.URGENT, p1.FIXED], [1, 1, 0, 0, 0, 0], 'states of the AI engine’s open results');
   assert.deepEqual([p1.aiFound, p1.aiTriaged, f.totals.aiFound, f.totals.aiTriaged], [2, 1, 3, 1]);
   assert.equal(f.results.find((r) => r.resultId === AI.resultHash).aiTriaged, true);
 });
