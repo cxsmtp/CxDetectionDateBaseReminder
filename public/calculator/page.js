@@ -1522,7 +1522,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const f = currentFusionImpact();
     const { w } = L;
     $('calc-impact-fusion-empty').hidden = Boolean(f);
-    $('calc-impact-fusion-empty').textContent = fusionOff() ? 'Fusion is left out of this projection: tick Include Fusion at the top to count it.' : 'No Fusion projects yet: add them, with their lines of code, on the Fusion tab.';
+    $('calc-impact-fusion-empty').textContent = fusionOff() ? 'Fusion is left out of this projection: tick Include Fusion projection at the top to count it.' : 'No Fusion projects yet: add them, with their lines of code, on the Fusion tab.';
     if (!f) return ($('calc-impact-fusion').innerHTML = '');
     const cash = (n) => esc(money(n, f.settings.currency));
     $('calc-impact-fusion').innerHTML = [

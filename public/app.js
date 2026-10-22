@@ -1833,8 +1833,9 @@ function syncScanColours() {
     const near = Object.entries({ critical: '#dc2626', high: '#ea580c' }).find(([, sev]) => colourGap(colour, sev) < 8);
     if (near) notes.push(`${kind === 'fusion' ? 'Fusion' : 'LAST'} is close to the ${near[0]} severity colour.`);
   }
+  // Each sentence on its own, so each is translated as it is.
   $('scan-colour-note').hidden = !notes.length;
-  $('scan-colour-note').textContent = notes.length ? `${notes.join(' ')} The Fusion and LAST tags stay on every row.` : '';
+  $('scan-colour-note').innerHTML = notes.length ? [...notes, 'The Fusion and LAST tags stay on every row.'].map((n) => `<span>${escapeHtml(n)}</span>`).join(' ') : '';
 }
 function applyScanColours(value = {}, { save = false } = {}) {
   for (const kind of ['fusion', 'last']) {
@@ -8831,7 +8832,7 @@ function renderFusion() {
     ? `<td class="num" title="${escapeHtml(`${fmt(r.aiFound)} found by the AI engine, ${fmt(r.aiDuplicates)} already found by SAST, ${fmt(r.aiAdded)} added`)}">${fmt(r.aiFound)} → <b>${fmt(r.aiAdded)}</b></td>`
     : `<td class="num" title="${escapeHtml('Found by the AI engine, as Risk Hub marks them (the scan’s steps did not say more)')}">${fmt(r.aiResults)}</td>`);
   const scanTag = (r) => `<span class="scan-tag scan-tag-${escapeHtml(r.scanType)}">${escapeHtml(SCAN_TYPE_LABEL[r.scanType] ?? r.scanType)}</span>`;
-  const model = (r) => (r.model ? `<span class="fusion-model">${escapeHtml(r.model)}</span><small class="fusion-model-from">${escapeHtml(MODEL_FROM[r.modelFrom] ?? 'as Checkmarx One says')}</small>` : '<span class="zero" title="Checkmarx One did not say">—</span>');
+  const model = (r) => (r.model ? `<span class="fusion-model" translate="no">${escapeHtml(r.model)}</span><small class="fusion-model-from">${escapeHtml(MODEL_FROM[r.modelFrom] ?? 'as Checkmarx One says')}</small>` : '<span class="zero" title="Checkmarx One did not say">—</span>');
   // A click on a row (or its name, from the keyboard) opens the project's vulnerabilities in the side panel.
   $('fusion-body').innerHTML = rows.length
     ? rows.map((r) => `<tr data-fusion-row="${escapeHtml(r.projectId)}" class="scan-row-${escapeHtml(r.scanType)}${r.projectId === fusion.open ? ' is-open' : ''}"><td class="fusion-proj-name"><button type="button" class="link" data-fusion-project="${escapeHtml(r.projectId)}" title="Show its vulnerabilities">${escapeHtml(r.name)}</button></td><td>${scanTag(r)}</td><td class="fusion-model-cell">${model(r)}</td>${maybe(r.loc)}${added(r)}<td class="fusion-sevs">${sevs(r)}</td>${cell(r.TO_VERIFY)}${cell(r.CONFIRMED)}${maybe(r.scans, scansTitle(r))}${maybe(r.credits, creditsTitle(r))}<td class="nowrap">${escapeHtml(r.scanAt ? fmtDateTime(r.scanAt) : '—')}</td></tr>`).join('')
@@ -8861,7 +8862,7 @@ function renderFusionOverview(t) {
     ${kv([
       scope && ['Fusion scans', `<b>${fmt(scope.withFusion)}</b> of ${fmt(scope.projects)} projects had one ${escapeHtml(period ? `in the ${period}` : '')}`],
       scope && ['LAST scans', `<b>${fmt(scope.withLast)}</b> projects had one`],
-      ai && ['Tenant', escapeHtml(`Fusion ${onOff(ai.fusionEnabled)} · LLM-based scanning ${onOff(ai.llmBased)} · model ${ai.model || 'set by Checkmarx One'}`)],
+      ai && ['Tenant', `<span>${escapeHtml(`Fusion ${onOff(ai.fusionEnabled)}`)}</span> · <span>${escapeHtml(`LLM-based scanning ${onOff(ai.llmBased)}`)}</span> · <span>${escapeHtml('model')}</span> ${ai.model ? `<span class="fusion-model" translate="no">${escapeHtml(ai.model)}</span>` : `<span>${escapeHtml('set by Checkmarx One')}</span>`}`],
     ])}</section>`;
   const a = t.added;
   const dupPct = a.found ? `${((a.duplicates / a.found) * 100).toFixed(2)}%` : '0%';
@@ -8869,7 +8870,7 @@ function renderFusionOverview(t) {
     ${a.found !== null ? `<div class="fusion-flow"><span><b>${fmt(a.found)}</b> found</span><span aria-hidden="true">→</span><span><b>${fmt(a.duplicates)}</b> already found by SAST</span><span aria-hidden="true">→</span><span><b>${fmt(a.added)}</b> added</span></div>
     <div class="fusion-meter" role="img" aria-label="${escapeHtml(`${a.duplicates} of ${a.found} already found by SAST`)}"><i class="is-dup" style="width:${dupPct}"></i><i class="is-fusion" style="flex:1"></i></div>` : `<p class="hint">${escapeHtml(`${fmt(t.found.aiFound)} found by the AI engine, as Risk Hub marks them. The scans' steps did not say how many it added.`)}</p>`}
     ${kv([
-      t.models.length && ['Models', t.models.map(([m, n]) => `<span class="fusion-model">${escapeHtml(m)}</span> ${fmt(n)}`).join(' · ')],
+      t.models.length && ['Models', t.models.map(([m, n]) => `<span class="fusion-model" translate="no">${escapeHtml(m)}</span> ${fmt(n)}`).join(' · ')],
       ['Code', escapeHtml(`${known(t.code.loc)} lines${t.code.files !== null ? ` in ${fmt(t.code.files)} files` : ''}`)],
     ])}</section>`;
   const c = data.tenant?.credits;
