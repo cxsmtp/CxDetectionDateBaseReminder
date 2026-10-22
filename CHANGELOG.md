@@ -88,6 +88,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **The pool stays within what the tenant has left.** The pool size says **at most** what Checkmarx One has left for the tenant and checks it as you type, with **Use** to set exactly that; a pool set above it is refused, and 0 now means up to what the tenant has left.
 - **When the tenant has fewer left than the pool.** If credits are spent elsewhere, Settings and Credits say so in red, and spending, and what can be given to projects, stop at what the tenant has left.
 - **FAE Flush gets the code on every tenant.** Checkmarx One's stored copy of a project's code is now read with the access token, as a browser does on the same host, after a live tenant answered 401 without it; **Automatic** downloads and uploads it, else scans the repository, and **Test one project** says how the address answered.
+- **FAE Flush counts as Checkmarx One does.** One mark covers every result that shares a similarity id, so a run that marked 225 findings changed 239 results: its counts are now in results, with the distinct findings beside them where they differ.
+- **Money saved, and Not exploitable for Admins.** The Value tab leads with the money FAE Flush saved, in the currency and at the rates under Settings → AI & credit pool → Impact, with a money column per run and project; an Admin may have a run mark Not exploitable rather than Proposed not exploitable.
 - **Status.** Measured when it is merged.
 
 ## MZ-01.00.95 — 2026-10-22 16:48 UTC · [#118](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/118)
