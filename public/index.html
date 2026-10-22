@@ -2360,6 +2360,15 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   </span>
                   <span class="hint flush-under">Only show: it scans and counts, and changes nothing; you can mark them afterwards.</span>
                 </dd>
+                <dt id="flush-markas-dt" hidden>Mark them as</dt>
+                <dd id="flush-markas-dd" hidden>
+                  <span class="flush-seg" role="radiogroup" aria-label="Mark them as">
+                    <label><input type="radio" name="flush-markas" value="pne" checked /><span>Proposed not exploitable</span></label>
+                    <label><input type="radio" name="flush-markas" value="ne" /><span>Not exploitable</span></label>
+                  </span>
+                  <span class="hint flush-under" id="flush-markas-hint">Proposed: a person confirms each one later (recommended). Not exploitable: final at once; they leave every count, and Undo still puts them back to To verify.</span>
+                  <span class="status error flush-under" id="flush-markas-warn" hidden>Not exploitable is final: these results leave every count and dashboard at once, with no one confirming them. Undo puts them back to To verify.</span>
+                </dd>
                 <dt>Stop and ask me if</dt>
                 <dd>
                   <span class="flush-seg" role="radiogroup" aria-label="Stop and ask me if">
@@ -2456,11 +2465,12 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <div class="actions"><button type="button" id="flush-value-csv" class="sm">Export CSV</button></div>
                 </div>
                 <div class="flush-tiles" id="flush-value-tiles"></div>
+                <p class="hint flush-value-note" id="flush-value-note"></p>
                 <div class="flush-sev" id="flush-value-sev"></div>
                 <h3 class="flush-h3">Runs</h3>
-                <div class="table-wrap"><table class="flush-table" id="flush-value-runs"><thead><tr><th>Started</th><th>By</th><th class="num">Projects</th><th class="num">To verify</th><th class="num">Marked</th><th class="num">Revalidated</th><th class="num">Undone</th></tr></thead><tbody></tbody></table></div>
+                <div class="table-wrap"><table class="flush-table" id="flush-value-runs"><thead><tr><th>Started</th><th>By</th><th class="num">Projects</th><th class="num">To verify</th><th class="num">Marked</th><th class="num">Revalidated</th><th class="num">Undone</th><th class="num">Money saved</th></tr></thead><tbody></tbody></table></div>
                 <h3 class="flush-h3">Projects</h3>
-                <div class="table-wrap"><table class="flush-table" id="flush-value-projects"><thead><tr><th>Project</th><th class="num">Runs</th><th class="num">To verify</th><th class="num">False positives removed</th><th>Last</th></tr></thead><tbody></tbody></table></div>
+                <div class="table-wrap"><table class="flush-table" id="flush-value-projects"><thead><tr><th>Project</th><th class="num">Runs</th><th class="num">To verify</th><th class="num">False positives removed</th><th class="num">Money saved</th><th>Last</th></tr></thead><tbody></tbody></table></div>
               </section>
             </div>
           </div>

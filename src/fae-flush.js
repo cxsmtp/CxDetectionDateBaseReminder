@@ -32,6 +32,12 @@ import { FAE_FLUSH_TAG } from './cxone/projects.js';
 export const FAE_TAG = FAE_FLUSH_TAG;
 export const FAE_SUFFIX = '_FAE';
 export const PNE = 'PROPOSED_NOT_EXPLOITABLE';
+export const NE = 'NOT_EXPLOITABLE';
+/** What a run marks the false positives as: Proposed not exploitable, or (Admins only) Not exploitable. */
+export const MARK_AS = { pne: PNE, ne: NE };
+export const STATE_NAME = { [PNE]: 'Proposed not exploitable', [NE]: 'Not exploitable' };
+/** The state a run marks with. */
+export const markState = (job) => MARK_AS[job?.options?.markAs] ?? PNE;
 export const TO_VERIFY = 'TO_VERIFY';
 /** Where a project is: waiting, at work (copying … cleaning), stopped to ask, or finished one way or another. */
 export const STEPS = ['waiting', 'copying', 'scanning', 'comparing', 'needs-ok', 'reported', 'marking', 'revalidating', 'cleaning', 'done', 'skipped', 'left-out', 'undone'];
@@ -144,45 +150,63 @@ export class FaeHistory {
 const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
 /**
  * What FAE Flush has been worth: the false positives it took off people's hands (those still marked), by severity,
- * by run and by project, and what that saves with the Impact page's figures (`impact`: { triageMinutes, hourlyRate,
- * creditPrice, currency }): the manual triage hours, and the AI Triage credits (one per result) not needed.
+ * state, run and project, in results as Checkmarx One counts them and in distinct findings, and what that saves with
+ * the figures under Settings → AI & credit pool → Impact (`impact`: { triageMinutes, hourlyRate, creditPrice,
+ * currency }): the manual triage hours (a person triages each finding once), the AI Triage credits (one per result)
+ * not needed, and the money both come to.
  */
 export function valueOf(history, impact = {}) {
   const entries = history?.data?.entries ?? [];
   const sev = () => Object.fromEntries(SEVERITY_ORDER.map((k) => [k, 0]));
-  const total = { marked: 0, undone: 0, kept: 0, toVerify: 0, bySeverity: sev() };
+  const total = { marked: 0, markedFindings: 0, undone: 0, kept: 0, keptFindings: 0, toVerify: 0, bySeverity: sev(), byState: { [PNE]: 0, [NE]: 0 } };
+  const minutes = Number(impact.triageMinutes) > 0 ? Number(impact.triageMinutes) : 20;
+  const rate = Number(impact.hourlyRate) || 0;
+  const price = Number(impact.creditPrice) || 0;
+  const priced = rate > 0 || price > 0;
+  // What a number of findings (triaged by hand) and results (one AI Triage credit each) are worth.
+  const moneyOf = (findings, results) => (priced ? Math.round(((findings * minutes) / 60) * rate + results * price) : null);
   const runs = new Map();
   const projects = new Map();
   for (const e of entries) {
-    const marked = e.items?.length ?? 0;
+    const items = e.items ?? [];
+    const marked = items.reduce((n, it) => n + (Number(it[3]) || 1), 0);
     const undone = e.undone ?? 0;
+    const undoneFindings = e.undoneFindings ?? e.undone ?? 0;
+    const kept = Math.max(0, marked - undone);
+    const keptFindings = Math.max(0, items.length - undoneFindings);
     total.marked += marked;
+    total.markedFindings += items.length;
     total.undone += undone;
+    total.kept += kept;
+    total.keptFindings += keptFindings;
     total.toVerify += e.toVerify ?? 0;
-    const kept = sev();
-    for (const [, severity] of e.items ?? []) kept[SEVERITY_ORDER.includes(severity) ? severity : 'MEDIUM'] += 1;
-    for (const [k, n] of Object.entries(e.undoneBySeverity ?? {})) if (k in kept) kept[k] = Math.max(0, kept[k] - n);
-    for (const k of SEVERITY_ORDER) total.bySeverity[k] += kept[k];
-    const run = runs.get(e.runId) ?? { runId: e.runId, at: e.at, by: e.by ?? '', projects: 0, toVerify: 0, marked: 0, revalidated: 0, undone: 0 };
-    Object.assign(run, { projects: run.projects + 1, toVerify: run.toVerify + (e.toVerify ?? 0), marked: run.marked + marked, revalidated: run.revalidated + (e.revalidated ?? 0), undone: run.undone + undone, at: run.at < e.at ? run.at : e.at });
+    total.byState[e.state === NE ? NE : PNE] += kept;
+    const bySev = sev();
+    for (const [, severity, , results] of items) bySev[SEVERITY_ORDER.includes(severity) ? severity : 'MEDIUM'] += Number(results) || 1;
+    for (const [k, n] of Object.entries(e.undoneBySeverity ?? {})) if (k in bySev) bySev[k] = Math.max(0, bySev[k] - n);
+    for (const k of SEVERITY_ORDER) total.bySeverity[k] += bySev[k];
+    const run = runs.get(e.runId) ?? { runId: e.runId, at: e.at, by: e.by ?? '', state: e.state === NE ? NE : PNE, projects: 0, toVerify: 0, marked: 0, revalidated: 0, undone: 0, kept: 0, keptFindings: 0 };
+    Object.assign(run, { projects: run.projects + 1, toVerify: run.toVerify + (e.toVerify ?? 0), marked: run.marked + marked, revalidated: run.revalidated + (e.revalidated ?? 0), undone: run.undone + undone, kept: run.kept + kept, keptFindings: run.keptFindings + keptFindings, at: run.at < e.at ? run.at : e.at });
     runs.set(e.runId, run);
-    const proj = projects.get(e.projectId) ?? { projectId: e.projectId, project: e.project, runs: 0, toVerify: 0, kept: 0, last: '' };
-    Object.assign(proj, { project: e.project || proj.project, runs: proj.runs + 1, toVerify: proj.toVerify + (e.toVerify ?? 0), kept: proj.kept + marked - undone, last: proj.last > e.at ? proj.last : e.at });
+    const proj = projects.get(e.projectId) ?? { projectId: e.projectId, project: e.project, runs: 0, toVerify: 0, kept: 0, keptFindings: 0, last: '' };
+    Object.assign(proj, { project: e.project || proj.project, runs: proj.runs + 1, toVerify: proj.toVerify + (e.toVerify ?? 0), kept: proj.kept + kept, keptFindings: proj.keptFindings + keptFindings, last: proj.last > e.at ? proj.last : e.at });
     projects.set(e.projectId, proj);
   }
-  total.kept = total.marked - total.undone;
-  const minutes = Number(impact.triageMinutes) > 0 ? Number(impact.triageMinutes) : 20;
-  const hours = Math.round(((total.kept * minutes) / 60) * 10) / 10;
-  const rate = Number(impact.hourlyRate) || 0;
-  const price = Number(impact.creditPrice) || 0;
+  const hours = Math.round(((total.keptFindings * minutes) / 60) * 10) / 10;
+  const hoursCost = rate > 0 ? Math.round(((total.keptFindings * minutes) / 60) * rate) : null;
+  const creditsCost = price > 0 ? Math.round(total.kept * price * 100) / 100 : null;
+  for (const x of [...runs.values(), ...projects.values()]) x.money = moneyOf(x.keptFindings, x.kept);
   return {
     total,
     saved: {
       hours,
       minutesPerTriage: minutes,
-      hoursCost: rate > 0 ? Math.round(hours * rate) : null,
+      hourlyRate: rate,
+      creditPrice: price,
+      hoursCost,
       credits: total.kept,
-      creditsCost: price > 0 ? Math.round(total.kept * price * 100) / 100 : null,
+      creditsCost,
+      money: priced ? Math.round(((hoursCost ?? 0) + (creditsCost ?? 0)) * 100) / 100 : null,
       currency: text(impact.currency || 'USD', 8),
     },
     runs: [...runs.values()].sort((a, b) => String(b.at).localeCompare(String(a.at))),
@@ -208,27 +232,35 @@ const keyOf = (r) => text(r?.similarityID ?? r?.similarityId, 80);
 const reportedByFae = (r) => ![PNE, 'NOT_EXPLOITABLE'].includes(upper(r?.state));
 
 /**
- * The project's open SAST results still To verify, against the FAE scan's results, by similarity id:
- * { toVerify, reported, notReported: [{ similarityId, severity, query }], extra }.
- * `extra`: results the FAE scan reported that the project does not have at all.
+ * The project's open SAST results still To verify, against the FAE scan's results, by similarity id. Checkmarx
+ * One keeps a result's state by similarity id, so one mark covers every result sharing it: counts are in results,
+ * as Checkmarx One shows them, and in distinct findings (similarity ids).
+ * { toVerify, toVerifyFindings, reported, notReported (results), notReportedList: [{ similarityId, severity, query,
+ * results }], extra }. `extra`: findings the FAE scan reported that the project does not have at all.
  */
 export function compareResults(original, fae) {
   const open = original.filter((r) => upper(r?.state || TO_VERIFY) === TO_VERIFY && upper(r?.status) !== 'FIXED' && keyOf(r));
   const theirs = new Set(fae.filter(reportedByFae).map(keyOf).filter(Boolean));
   const ours = new Set(original.map(keyOf).filter(Boolean));
-  const seen = new Set();
-  const notReported = [];
-  let reported = 0;
+  const findings = new Map();
   for (const r of open) {
     const key = keyOf(r);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    if (theirs.has(key)) reported += 1;
-    else notReported.push({ similarityId: key, severity: upper(r.severity) || 'MEDIUM', query: text(r.queryName, 120) });
+    const f = findings.get(key);
+    if (f) f.results += 1;
+    else findings.set(key, { similarityId: key, severity: upper(r.severity) || 'MEDIUM', query: text(r.queryName, 120), results: 1 });
+  }
+  const notReportedList = [];
+  let reported = 0;
+  for (const f of findings.values()) {
+    if (theirs.has(f.similarityId)) reported += f.results;
+    else notReportedList.push(f);
   }
   const extra = [...theirs].filter((k) => !ours.has(k)).length;
-  return { toVerify: seen.size, reported, notReported, extra, faeReported: theirs.size };
+  const notReported = notReportedList.reduce((n, f) => n + f.results, 0);
+  return { toVerify: open.length, toVerifyFindings: findings.size, reported, notReported, notReportedList, extra, faeReported: theirs.size };
 }
+/** How many results a list of findings stands for (one each when not said). */
+const resultsIn = (list) => (list ?? []).reduce((n, m) => n + (Number(m.results) || 1), 0);
 
 /** Why a project stops and asks before marking (null when nothing looks off). */
 export function exceptionOf(p, limits = LIMITS) {
@@ -294,7 +326,7 @@ export async function previewTenant(client, { listProjects, getLastScans, concur
 /** The run's figures: how many projects at each step, and the results To verify, reported, marked and revalidated. */
 export function summaryOf(job) {
   const steps = Object.fromEntries(STEPS.map((s) => [s, 0]));
-  const totals = { toVerify: 0, reported: 0, notReported: 0, marked: 0, revalidated: 0, undone: 0 };
+  const totals = { toVerify: 0, toVerifyFindings: 0, reported: 0, notReported: 0, notReportedFindings: 0, marked: 0, markedFindings: 0, revalidated: 0, undone: 0 };
   for (const p of job?.projects ?? []) {
     steps[p.step] = (steps[p.step] ?? 0) + 1;
     for (const k of Object.keys(totals)) totals[k] += p.counts?.[k] ?? 0;
@@ -309,6 +341,7 @@ export function cleanOptions(o = {}) {
   return {
     source: SOURCES.includes(o.source) ? o.source : 'auto',
     mode: MODES.includes(o.mode) ? o.mode : 'mark',
+    markAs: o.markAs === 'ne' ? 'ne' : 'pne',
     sensitivity: o.sensitivity in SENSITIVITY ? o.sensitivity : 'normal',
   };
 }
@@ -488,7 +521,7 @@ export class FaeFlushRunner {
       job.state = 'done';
       job.finishedAt = new Date(this.now()).toISOString();
       const s = summaryOf(job);
-      this.record('finished', { projects: s.projects, marked: s.totals.marked, revalidated: s.totals.revalidated, toVerify: s.totals.toVerify, reportOnly: s.steps.reported });
+      this.record('finished', { projects: s.projects, marked: s.totals.marked, revalidated: s.totals.revalidated, toVerify: s.totals.toVerify, reportOnly: s.steps.reported, state: STATE_NAME[markState(this.job)] });
     }
     this.store.save();
   }
@@ -623,9 +656,9 @@ export class FaeFlushRunner {
   async compare(client, p) {
     const [original, fae] = await Promise.all([scanResults(client, p.sourceScanId), scanResults(client, p.faeScanId)]);
     const c = compareResults(original, fae);
-    p.counts = { ...p.counts, toVerify: c.toVerify, reported: c.reported, notReported: c.notReported.length, extra: c.extra, faeReported: c.faeReported, marked: p.counts?.marked ?? 0 };
-    p.pending = c.notReported;
-    this.attempt(p, 'compared', true, `${c.toVerify} To verify · ${c.reported} still reported · ${c.notReported.length} not`);
+    p.counts = { ...p.counts, toVerify: c.toVerify, toVerifyFindings: c.toVerifyFindings, reported: c.reported, notReported: c.notReported, notReportedFindings: c.notReportedList.length, extra: c.extra, faeReported: c.faeReported, marked: p.counts?.marked ?? 0 };
+    p.pending = c.notReportedList;
+    this.attempt(p, 'compared', true, `${c.toVerify} results To verify (${c.toVerifyFindings} findings) · ${c.reported} still reported · ${c.notReported} not (${c.notReportedList.length} findings)`);
     const exception = exceptionOf(p, this.limitsNow);
     if (exception) {
       p.exception = { ...exception, at: new Date(this.now()).toISOString() };
@@ -634,23 +667,28 @@ export class FaeFlushRunner {
     } else this.move(p, this.job.options?.mode === 'report' ? 'reported' : 'marking');
   }
 
-  /** Step 4: Proposed not exploitable, with a comment naming the FAE scan; only what is still To verify. */
+  /**
+   * Step 4: Proposed not exploitable (or Not exploitable, as the run was started), with a comment naming the FAE
+   * scan; only what is still To verify. One mark per similarity id covers every result sharing it.
+   */
   async mark(client, p) {
     const pending = p.pending ?? [];
+    const state = markState(this.job);
     const done = new Set(p.marked.map((m) => m.similarityId));
     const todo = pending.filter((m) => !done.has(m.similarityId));
     const comment = `FAE Flush: not reported when the same code was scanned again with Findings Analysis (project ${p.name}${FAE_SUFFIX}, scan ${p.faeScanId}).`;
     for (let i = 0; i < todo.length; i += PREDICATES_AT_ONCE) {
       const batch = todo.slice(i, i + PREDICATES_AT_ONCE);
-      await client.request('/api/sast-results-predicates', { method: 'POST', body: batch.map((m) => ({ similarityId: m.similarityId, projectId: p.id, severity: m.severity, state: PNE, comment })), retries: 2 });
-      p.marked.push(...batch.map((m) => ({ similarityId: m.similarityId, severity: m.severity, query: m.query ?? '' })));
-      p.counts.marked = p.marked.length;
+      await client.request('/api/sast-results-predicates', { method: 'POST', body: batch.map((m) => ({ similarityId: m.similarityId, projectId: p.id, severity: m.severity, state, comment })), retries: 2 });
+      p.marked.push(...batch.map((m) => ({ similarityId: m.similarityId, severity: m.severity, query: m.query ?? '', results: Number(m.results) || 1 })));
+      p.counts.marked = resultsIn(p.marked);
+      p.counts.markedFindings = p.marked.length;
       this.store.save();
     }
     // Kept after the run: the value it brought.
-    this.history?.put({ runId: this.job.id, at: new Date(this.now()).toISOString(), by: this.job.startedBy, projectId: p.id, project: p.name, faeScanId: p.faeScanId, toVerify: p.counts.toVerify ?? 0, items: p.marked.map((m) => [m.similarityId, m.severity, m.query ?? '']), revalidated: 0, undone: 0 });
-    this.attempt(p, 'marked', true, `${p.marked.length} Proposed not exploitable`);
-    this.record('marked', { project: p.name, marked: p.marked.length, toVerify: p.counts.toVerify, faeScanId: p.faeScanId });
+    this.history?.put({ runId: this.job.id, at: new Date(this.now()).toISOString(), by: this.job.startedBy, projectId: p.id, project: p.name, faeScanId: p.faeScanId, state, toVerify: p.counts.toVerify ?? 0, toVerifyFindings: p.counts.toVerifyFindings ?? 0, items: p.marked.map((m) => [m.similarityId, m.severity, m.query ?? '', m.results ?? 1]), revalidated: 0, undone: 0 });
+    this.attempt(p, 'marked', true, `${p.counts.marked} ${STATE_NAME[state]} (${p.marked.length} findings)`);
+    this.record('marked', { project: p.name, marked: p.counts.marked, findings: p.marked.length, toVerify: p.counts.toVerify, faeScanId: p.faeScanId, state: STATE_NAME[state] });
     this.move(p, 'revalidating');
   }
 
@@ -659,12 +697,16 @@ export class FaeFlushRunner {
     const [original, fae] = await Promise.all([scanResults(client, p.sourceScanId), scanResults(client, p.faeScanId)]);
     const state = new Map(original.map((r) => [keyOf(r), upper(r.state)]));
     const theirs = new Set(fae.filter(reportedByFae).map(keyOf));
-    const ok = p.marked.filter((m) => state.get(m.similarityId) === PNE && !theirs.has(m.similarityId)).length;
+    // As marked; or, marked Proposed, since confirmed Not exploitable by a person.
+    const wanted = markState(this.job);
+    const asMarked = (s) => s === wanted || (wanted === PNE && s === NE);
+    const ok = resultsIn(p.marked.filter((m) => asMarked(state.get(m.similarityId)) && !theirs.has(m.similarityId)));
+    const all = resultsIn(p.marked);
     p.counts.revalidated = ok;
     if (this.history?.find(this.job.id, p.id)) this.history.put({ runId: this.job.id, projectId: p.id, revalidated: ok });
-    this.attempt(p, 'revalidated', ok === p.marked.length, `${ok} of ${p.marked.length}`);
-    if (ok < p.marked.length) {
-      p.exception = { code: 'revalidation', text: `Revalidation: ${p.marked.length - ok} of ${p.marked.length} results marked are not as expected (changed since, or reported after all).`, at: new Date(this.now()).toISOString() };
+    this.attempt(p, 'revalidated', ok === all, `${ok} of ${all}`);
+    if (ok < all) {
+      p.exception = { code: 'revalidation', text: `Revalidation: ${all - ok} of ${all} results marked are not as expected (changed since, or reported after all).`, at: new Date(this.now()).toISOString() };
       this.move(p, 'needs-ok');
       return;
     }
@@ -714,19 +756,21 @@ export class FaeFlushRunner {
     for (const p of this.job?.projects ?? []) {
       if (!p.marked?.length) continue;
       const current = new Map((await scanResults(client, p.sourceScanId)).map((r) => [keyOf(r), upper(r.state)]));
-      const back = p.marked.filter((m) => current.get(m.similarityId) === PNE);
-      changed += p.marked.length - back.length;
+      const back = p.marked.filter((m) => current.get(m.similarityId) === markState(this.job));
+      changed += resultsIn(p.marked) - resultsIn(back);
       for (let i = 0; i < back.length; i += PREDICATES_AT_ONCE) {
         await client.request('/api/sast-results-predicates', { method: 'POST', body: back.slice(i, i + PREDICATES_AT_ONCE).map((m) => ({ similarityId: m.similarityId, projectId: p.id, severity: m.severity, state: TO_VERIFY, comment: `FAE Flush undone by ${text(by, 254)}.` })), retries: 2 });
       }
-      restored += back.length;
+      const backResults = resultsIn(back);
+      restored += backResults;
       const bySeverity = {};
-      for (const m of back) bySeverity[m.severity] = (bySeverity[m.severity] ?? 0) + 1;
-      if (this.history?.find(this.job.id, p.id)) this.history.put({ runId: this.job.id, projectId: p.id, undone: back.length, undoneBySeverity: bySeverity, undoneAt: new Date(this.now()).toISOString() });
-      p.counts.undone = back.length;
+      for (const m of back) bySeverity[m.severity] = (bySeverity[m.severity] ?? 0) + (Number(m.results) || 1);
+      if (this.history?.find(this.job.id, p.id)) this.history.put({ runId: this.job.id, projectId: p.id, undone: backResults, undoneFindings: back.length, undoneBySeverity: bySeverity, undoneAt: new Date(this.now()).toISOString() });
+      p.counts.undone = backResults;
       p.marked = [];
       p.counts.marked = 0;
-      this.attempt(p, 'undone', true, `${back.length} back to To verify`);
+      p.counts.markedFindings = 0;
+      this.attempt(p, 'undone', true, `${backResults} back to To verify`);
       this.move(p, 'undone');
       this.store.save();
     }

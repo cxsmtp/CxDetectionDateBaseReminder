@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { FaeFlushRunner, FaeFlushStore } from '../src/fae-flush.js';
+import { FaeFlushRunner, FaeFlushStore, FaeHistory, valueOf } from '../src/fae-flush.js';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-unit-'));
 const original = Array.from({ length: 30 }, (_, k) => ({ similarityID: `s${k}`, state: 'TO_VERIFY', severity: 'HIGH' }));
@@ -135,4 +135,38 @@ test('report only, then "Mark now"; and how readily it stops to ask', async () =
   r.markReported('a@acme.io');
   await turns(r, 3);
   assert.deepEqual([p.step, p.counts.marked, client.states.size], ['done', 20, 20]);
+});
+
+test('one mark covers every result sharing a similarity id: counted as Checkmarx One counts them; Not exploitable; money saved', async () => {
+  const client = fakeClient({ faeKeeps: 10 });
+  // The last 5 findings each show up twice in the project's scan (the same similarity id).
+  const twice = original.slice(25).map((r) => ({ ...r }));
+  const request = client.request;
+  client.request = async (p, opts = {}) => {
+    const out = await request(p, opts);
+    if (p === '/api/sast-results' && opts.query['scan-id'] !== 'scan-fae' && !(opts.query.offset > 0)) out.results.push(...twice.map((r) => ({ ...r, state: client.states.get(r.similarityID) ?? r.state })));
+    return out;
+  };
+  const history = new FaeHistory({ file: path.join(dir, 'twice-history.json') });
+  const r = new FaeFlushRunner({ store: new FaeFlushStore({ file: path.join(dir, 'twice.json') }), clientOf: () => client, history, tmpDir: dir });
+  r.start({ by: 'a@acme.io', deleteFae: true, options: { markAs: 'ne' }, preview: { projects: [{ id: 'p1', name: 'Payments', sourceScanId: 'scan-1', loc: 1000, toVerify: 35, codeKept: true }] } });
+  await turns(r, 8);
+  const p = r.job.projects[0];
+  assert.equal(p.step, 'done', JSON.stringify(p.exception));
+  assert.deepEqual([p.counts.toVerify, p.counts.toVerifyFindings], [35, 30]);
+  assert.deepEqual([p.counts.marked, p.counts.markedFindings, p.counts.revalidated], [25, 20, 25], '20 findings marked, 25 results');
+  assert.equal([...client.states.values()].filter((s) => s === 'NOT_EXPLOITABLE').length, 20, 'one predicate per finding, Not exploitable');
+
+  const v = valueOf(history, { triageMinutes: 30, hourlyRate: 60, creditPrice: 2, currency: 'EUR' });
+  assert.deepEqual([v.total.kept, v.total.keptFindings, v.total.byState.NOT_EXPLOITABLE], [25, 20, 25]);
+  // A person triages each finding once (20 × 30 min = 10 h × 60 = 600); AI Triage costs a credit a result (25 × 2 = 50).
+  assert.deepEqual([v.saved.hours, v.saved.hoursCost, v.saved.credits, v.saved.creditsCost, v.saved.money, v.saved.currency], [10, 600, 25, 50, 650, 'EUR']);
+  assert.equal(v.runs[0].money, 650);
+  assert.equal(v.projects[0].money, 650);
+  assert.equal(valueOf(history, {}).saved.money, null, 'no hourly cost or credit price: no money');
+
+  // Undo: every result back to To verify, counted the same way.
+  const undone = await r.undo('a@acme.io');
+  assert.deepEqual(undone, { restored: 25, changedSince: 0 });
+  assert.deepEqual([valueOf(history, {}).total.kept, valueOf(history, {}).total.keptFindings], [0, 0]);
 });

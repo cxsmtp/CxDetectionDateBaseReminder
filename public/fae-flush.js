@@ -38,21 +38,26 @@ export function estimate(preview, concurrency, count = preview?.eligible ?? 0) {
 
 /** The run's figures, a row per project, as the page gives them. */
 export function csvOf(job) {
-  const rows = [['Project', 'Step', 'Code from', 'To verify', 'Reported by FAE', 'Not reported', 'Marked Proposed not exploitable', 'Revalidated', 'FAE project', 'FAE scan', 'Note']];
+  const state = job?.options?.markAs === 'ne' ? 'Not exploitable' : 'Proposed not exploitable';
+  const rows = [['Project', 'Step', 'Code from', 'To verify (results)', 'To verify (findings)', 'Reported by FAE', 'Not reported', `Marked ${state} (results)`, 'Marked (findings)', 'Revalidated', 'FAE project', 'FAE scan', 'Note']];
   for (const p of job?.projects ?? []) {
     const c = p.counts ?? {};
-    rows.push([p.name, STEP_LABEL[p.step] ?? p.step, p.codeSource ?? '', c.toVerify ?? '', c.reported ?? '', c.notReported ?? '', c.marked ?? p.markedCount ?? '', c.revalidated ?? '', p.faeProjectId ? `${p.name}_FAE${p.faeDeleted ? ' (deleted)' : ''}` : '', p.faeScanId ?? '', p.exception?.text ?? p.note ?? '']);
+    rows.push([p.name, STEP_LABEL[p.step] ?? p.step, p.codeSource ?? '', c.toVerify ?? '', c.toVerifyFindings ?? '', c.reported ?? '', c.notReported ?? '', c.marked ?? p.markedCount ?? '', c.markedFindings ?? '', c.revalidated ?? '', p.faeProjectId ? `${p.name}_FAE${p.faeDeleted ? ' (deleted)' : ''}` : '', p.faeScanId ?? '', p.exception?.text ?? p.note ?? '']);
   }
   return csvText(rows);
 }
 
 /** What every run has been worth, a row per project and run. */
 export function valueCsvOf(value) {
-  const rows = [['Project', 'Runs', 'To verify', 'False positives removed', 'Last']];
-  for (const p of value?.projects ?? []) rows.push([p.project, p.runs, p.toVerify, p.kept, p.last]);
+  const currency = value?.saved?.currency ?? '';
+  const rows = [['Project', 'Runs', 'To verify', 'False positives removed (results)', 'False positives removed (findings)', `Money saved (${currency})`, 'Last']];
+  for (const p of value?.projects ?? []) rows.push([p.project, p.runs, p.toVerify, p.kept, p.keptFindings ?? '', p.money ?? '', p.last]);
   rows.push([]);
-  rows.push(['Run started', 'By', 'Projects', 'To verify', 'Marked', 'Revalidated', 'Undone']);
-  for (const r of value?.runs ?? []) rows.push([r.at, r.by, r.projects, r.toVerify, r.marked, r.revalidated, r.undone]);
+  rows.push(['Run started', 'By', 'Marked as', 'Projects', 'To verify', 'Marked', 'Revalidated', 'Undone', `Money saved (${currency})`]);
+  for (const r of value?.runs ?? []) rows.push([r.at, r.by, r.state === 'NOT_EXPLOITABLE' ? 'Not exploitable' : 'Proposed not exploitable', r.projects, r.toVerify, r.marked, r.revalidated, r.undone, r.money ?? '']);
+  rows.push([]);
+  const s = value?.saved ?? {};
+  rows.push(['Minutes per triage', s.minutesPerTriage ?? '', 'Hourly cost', s.hourlyRate ?? '', 'Credit price', s.creditPrice ?? '', 'Money saved', s.money ?? '']);
   return csvText(rows);
 }
 
@@ -67,6 +72,16 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
   const allowed = () => can('integration.cxone');
   const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body ?? {}) });
   const picked = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
+  // The run marks them Not exploitable (chosen at its start, Admins only), or Proposed not exploitable.
+  const ne = () => view?.job?.options?.markAs === 'ne';
+  const markAsChosen = () => (can('faeFlush.notExploitable') && picked('flush-markas') === 'ne' ? 'ne' : 'pne');
+  const showMarkAs = () => {
+    for (const id of ['flush-markas-dt', 'flush-markas-dd']) $(id).hidden = !can('faeFlush.notExploitable');
+    const final = markAsChosen() === 'ne';
+    $('flush-markas-hint').hidden = final;
+    $('flush-markas-warn').hidden = !final;
+  };
+  for (const radio of document.querySelectorAll('input[name="flush-markas"]')) radio.addEventListener('change', showMarkAs);
   const save = (name, blob) => {
     const url = URL.createObjectURL(blob);
     Object.assign(document.createElement('a'), { href: url, download: name }).click();
@@ -101,6 +116,7 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
 
   function render() {
     const { preview, job, summary } = view ?? {};
+    showMarkAs();
     $('flush-perm-note').hidden = allowed();
     for (const id of ['flush-preview', 'flush-start', 'flush-pause', 'flush-undo', 'flush-delete-fae', 'flush-mark-now']) $(id).hidden = !allowed();
     if (!view?.connected) setStatus('flush-status', 'The server is not connected to Checkmarx One: an Admin connects it under Settings → Checkmarx One.', 'error');
@@ -133,7 +149,7 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     const totals = summary?.totals;
     $('flush-tiles').innerHTML = job
       ? [
-          [num(totals.marked), 'false positives marked Proposed not exploitable', 'flush-pne'],
+          [num(totals.marked), ne() ? 'false positives marked Not exploitable' : 'false positives marked Proposed not exploitable', 'flush-pne'],
           [pct(totals.marked, totals.toVerify), `of ${num(totals.toVerify)} results To verify`],
           [`${num(summary.finished)} / ${num(summary.projects)}`, 'projects finished'],
           [num(summary.steps['needs-ok']), 'ask you', summary.steps['needs-ok'] ? 'flush-warn' : ''],
@@ -170,9 +186,12 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     const ready = summary.steps.reported ?? 0;
     $('flush-progress-title').textContent = job.state === 'done' ? (ready ? 'Ready to mark' : 'Finished') : job.state === 'paused' ? 'Paused' : `Progress · ${num(summary.finished)} of ${num(summary.projects)} finished · ${num(scanning)} scanning`;
     // Dates and who apart from the sentences, so each sentence is translated whole.
+    // Checkmarx One marks every result sharing a similarity id: say so when results and findings differ.
+    const findings = ready ? totals.notReportedFindings : totals.markedFindings;
+    const shared = findings && findings !== (ready ? totals.notReported : totals.marked) ? ` <span>${esc(`${num(findings)} distinct findings: Checkmarx One marks every result that shares one.`)}</span>` : '';
     const outcome = ready
-      ? `<span>${esc(`${num(totals.notReported)} results To verify would be marked Proposed not exploitable: not reported by the FAE scan of the same code. Nothing is marked until you select Mark now.`)}</span>`
-      : `<span><b class="flush-pne">${esc(num(totals.marked))}</b> of ${esc(num(totals.toVerify))} results To verify marked Proposed not exploitable: not reported by the FAE scan of the same code.</span> <span>${esc(num(totals.revalidated))} revalidated; ${esc(num(totals.reported))} still reported, left To verify.</span>`;
+      ? `<span>${esc(ne() ? `${num(totals.notReported)} results To verify would be marked Not exploitable: not reported by the FAE scan of the same code. Nothing is marked until you select Mark now.` : `${num(totals.notReported)} results To verify would be marked Proposed not exploitable: not reported by the FAE scan of the same code. Nothing is marked until you select Mark now.`)}</span>${shared}`
+      : `<span><b class="flush-pne">${esc(num(totals.marked))}</b> ${esc(ne() ? `of ${num(totals.toVerify)} results To verify marked Not exploitable: not reported by the FAE scan of the same code.` : `of ${num(totals.toVerify)} results To verify marked Proposed not exploitable: not reported by the FAE scan of the same code.`)}</span>${shared} <span>${esc(num(totals.revalidated))} revalidated; ${esc(num(totals.reported))} still reported, left To verify.</span>`;
     $('flush-result').innerHTML = `<span class="flush-meta"><span>Started</span> <time translate="no">${esc(fmtDateTime(job.startedAt))}</time> · <span translate="no">${esc(job.startedBy || '—')}</span>${job.finishedAt ? ` · <span>Finished</span> <time translate="no">${esc(fmtDateTime(job.finishedAt))}</time>` : ''}</span><br />${outcome} <span>${esc(job.deleteFae ? 'Each _FAE project is deleted once checked.' : 'The _FAE projects are kept.')}</span>`;
     $('flush-mark-now').hidden = !allowed() || !ready || job.state !== 'done';
     $('flush-mark-now').textContent = `Mark now (${num(totals.notReported)})`;
@@ -213,19 +232,39 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
   function renderValue() {
     const v = value;
     if (!v) return;
-    const money = (n) => (n === null || n === undefined ? '' : `${num(n)} ${v.saved.currency}`);
+    // Money in the currency of Settings → AI & credit pool → Impact, as the viewer's locale writes it.
+    const money = (n) => {
+      if (n === null || n === undefined) return '—';
+      try {
+        return new Intl.NumberFormat(undefined, { style: 'currency', currency: v.saved.currency, maximumFractionDigits: Number.isInteger(n) ? 0 : 2 }).format(n);
+      } catch {
+        return `${num(n)} ${v.saved.currency}`;
+      }
+    };
+    const s = v.saved;
+    const rate = (text) => ` <span class="flush-rate" translate="no">(${esc(text)})</span>`;
+    const tile = (b, caption, cls = '', extra = '') => `<div class="flush-tile ${cls === 'is-money' ? cls : ''}"><b class="${cls === 'is-money' ? '' : cls}" translate="no">${esc(b)}</b><span>${esc(caption)}</span>${extra}</div>`;
     $('flush-value-tiles').innerHTML = [
-      [num(v.total.kept), 'false positives removed (still marked)', 'flush-pne'],
-      [pct(v.total.kept, v.total.toVerify), `of ${num(v.total.toVerify)} results To verify they were in`],
-      [`${num(v.saved.hours)} h`, `manual triage saved at ${num(v.saved.minutesPerTriage)} min each${v.saved.hoursCost !== null ? ` · ${money(v.saved.hoursCost)}` : ''}`],
-      [num(v.saved.credits), `AI Triage credits not needed${v.saved.creditsCost !== null ? ` · ${money(v.saved.creditsCost)}` : ''}`],
-    ].map(([b, s, cls]) => `<div class="flush-tile"><b class="${cls ?? ''}">${esc(b)}</b><span>${esc(s)}</span></div>`).join('');
+      s.money !== null
+        ? tile(money(s.money), 'money saved', 'is-money', `<br /><span class="hint"><span translate="no">${esc(money(s.hoursCost ?? 0))}</span> <span>${esc('of triage time')}</span> + <span translate="no">${esc(money(s.creditsCost ?? 0))}</span> <span>${esc('of AI Triage credits')}</span></span>`)
+        : tile('—', 'money saved: add an hourly cost and the price of one credit', 'is-money'),
+      tile(num(v.total.kept), 'false positives removed (still marked)', 'flush-pne'),
+      tile(pct(v.total.kept, v.total.toVerify), `of ${num(v.total.toVerify)} results To verify they were in`),
+      tile(`${num(s.hours)} h`, `manual triage saved at ${num(s.minutesPerTriage)} min each`, '', s.hourlyRate ? rate(`${money(s.hourlyRate)}/h`) : ''),
+      tile(num(s.credits), 'AI Triage credits not needed', '', s.creditPrice ? rate(`× ${money(s.creditPrice)}`) : ''),
+    ].join('');
+    const tot = v.total;
+    $('flush-value-note').innerHTML = [
+      tot.keptFindings && tot.keptFindings !== tot.kept ? `<span>${esc(`${num(tot.kept)} results in ${num(tot.keptFindings)} distinct findings: Checkmarx One marks every result that shares one. Time counts each finding once; credits count each result.`)}</span>` : '',
+      tot.byState?.NOT_EXPLOITABLE ? `<span>${esc(`${num(tot.byState.PROPOSED_NOT_EXPLOITABLE ?? 0)} Proposed not exploitable · ${num(tot.byState.NOT_EXPLOITABLE)} Not exploitable.`)}</span>` : '',
+      `<span>${esc(s.money !== null ? 'Time and money use the figures under' : 'To see the money saved, set an hourly cost and the price of one credit under')}</span> <a href="#/settings/ai">${esc('Settings → AI & credit pool → Impact')}</a>`,
+    ].filter(Boolean).join(' ');
     const most = Math.max(1, ...SEVERITIES.map(([k]) => v.total.bySeverity[k] ?? 0));
     $('flush-value-sev').innerHTML = v.total.kept
       ? SEVERITIES.map(([k, label]) => `<div class="flush-sev-row"><span>${esc(label)}</span><i class="sev-${k.toLowerCase()}" style="width:${(((v.total.bySeverity[k] ?? 0) / most) * 100).toFixed(1)}%"></i><b>${esc(num(v.total.bySeverity[k] ?? 0))}</b></div>`).join('')
       : `<p class="hint">${esc('Nothing marked yet: the value shows here after a run marks false positives.')}</p>`;
-    $('flush-value-runs').tBodies[0].innerHTML = v.runs.map((r) => `<tr><td><time translate="no">${esc(fmtDateTime(r.at))}</time></td><td translate="no">${esc(r.by || '—')}</td><td class="num">${num(r.projects)}</td><td class="num">${num(r.toVerify)}</td><td class="num flush-pne">${num(r.marked)}</td><td class="num">${num(r.revalidated)}</td><td class="num">${num(r.undone)}</td></tr>`).join('') || `<tr><td colspan="7" class="hint">${esc('No run has marked anything yet.')}</td></tr>`;
-    $('flush-value-projects').tBodies[0].innerHTML = v.projects.map((p) => `<tr><td translate="no"><b>${esc(p.project)}</b></td><td class="num">${num(p.runs)}</td><td class="num">${num(p.toVerify)}</td><td class="num flush-pne">${num(p.kept)}</td><td><time translate="no">${esc(fmtDateTime(p.last))}</time></td></tr>`).join('') || `<tr><td colspan="5" class="hint">${esc('No project yet.')}</td></tr>`;
+    $('flush-value-runs').tBodies[0].innerHTML = v.runs.map((r) => `<tr><td><time translate="no">${esc(fmtDateTime(r.at))}</time></td><td translate="no">${esc(r.by || '—')}</td><td class="num">${num(r.projects)}</td><td class="num">${num(r.toVerify)}</td><td class="num flush-pne">${num(r.marked)}</td><td class="num">${num(r.revalidated)}</td><td class="num">${num(r.undone)}</td><td class="num" translate="no">${esc(money(r.money))}</td></tr>`).join('') || `<tr><td colspan="8" class="hint">${esc('No run has marked anything yet.')}</td></tr>`;
+    $('flush-value-projects').tBodies[0].innerHTML = v.projects.map((p) => `<tr><td translate="no"><b>${esc(p.project)}</b></td><td class="num">${num(p.runs)}</td><td class="num">${num(p.toVerify)}</td><td class="num flush-pne">${num(p.kept)}</td><td class="num" translate="no">${esc(money(p.money))}</td><td><time translate="no">${esc(fmtDateTime(p.last))}</time></td></tr>`).join('') || `<tr><td colspan="6" class="hint">${esc('No project yet.')}</td></tr>`;
   }
 
   async function act(path, body, done) {
@@ -262,7 +301,10 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     if (!p || !n) return;
     const concurrency = Number($('flush-concurrency').value) || 4;
     const report = picked('flush-mode') === 'report';
-    $('flush-dialog-body').innerHTML = `<p>${esc(`${num(n)} projects, ${concurrency} scans at a time (${estimate(p, concurrency, n)}). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Proposed not exploitable in the project itself, with a comment naming the FAE scan.`)}</p>${report ? `<p><b>${esc('Only show what it would mark: nothing is marked until you select Mark now.')}</b></p>` : ''}<p class="hint">${esc('Projects that look off stop and ask you first. Every mark is in the audit log, and Undo puts them all back to To verify.')}</p>`;
+    const final = markAsChosen() === 'ne';
+    $('flush-dialog-body').innerHTML = `<p>${esc(final
+      ? `${num(n)} projects, ${concurrency} scans at a time (${estimate(p, concurrency, n)}). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Not exploitable in the project itself, with a comment naming the FAE scan.`
+      : `${num(n)} projects, ${concurrency} scans at a time (${estimate(p, concurrency, n)}). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Proposed not exploitable in the project itself, with a comment naming the FAE scan.`)}</p>${final ? `<p class="status error">${esc('Not exploitable is final: these results leave every count and dashboard at once, with no one confirming them. Undo puts them back to To verify.')}</p>` : ''}${report ? `<p><b>${esc('Only show what it would mark: nothing is marked until you select Mark now.')}</b></p>` : ''}<p class="hint">${esc('Projects that look off stop and ask you first. Every mark is in the audit log, and Undo puts them all back to To verify.')}</p>`;
     for (const radio of document.querySelectorAll('input[name="flush-keep"]')) radio.checked = false;
     const dialog = $('flush-dialog');
     dialog.returnValue = '';
@@ -279,11 +321,13 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
       mode: picked('flush-mode') ?? 'mark',
       sensitivity: picked('flush-sensitivity') ?? 'normal',
       source: $('flush-source').value,
+      markAs: markAsChosen(),
     }, () => 'FAE Flush started: it runs on the server, you can close this page.');
   });
   $('flush-mark-now').addEventListener('click', () => {
     const n = view?.summary?.totals?.notReported ?? 0;
-    if (!confirm(t(`Mark ${num(n)} results Proposed not exploitable now?\n\nThe results the report found that the FAE scan no longer reports, in their projects; then revalidated. Undo puts them back.`))) return;
+    const question = ne() ? `Mark ${num(n)} results Not exploitable now?` : `Mark ${num(n)} results Proposed not exploitable now?`;
+    if (!confirm(t(`${question}\n\nThe results the report found that the FAE scan no longer reports, in their projects; then revalidated. Undo puts them back.`))) return;
     act('/api/fae-flush/mark-now', {}, () => 'Marking: it runs on the server, you can close this page.');
   });
   $('flush-pause').addEventListener('click', () => act(view?.job?.state === 'paused' ? '/api/fae-flush/resume' : '/api/fae-flush/pause'));
@@ -300,7 +344,8 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
   });
   $('flush-undo').addEventListener('click', () => {
     const n = view?.summary?.totals?.marked ?? 0;
-    if (!confirm(t(`Undo FAE Flush?\n\nThe ${num(n)} results it marked Proposed not exploitable go back to To verify, apart from any someone changed since (those stay as they are).`))) return;
+    const back = ne() ? `The ${num(n)} results it marked Not exploitable go back to To verify, apart from any someone changed since (those stay as they are).` : `The ${num(n)} results it marked Proposed not exploitable go back to To verify, apart from any someone changed since (those stay as they are).`;
+    if (!confirm(t(`Undo FAE Flush?\n\n${back}`))) return;
     act('/api/fae-flush/undo', {}, (v) => `${num(v.restored)} results back to To verify${v.changedSince ? `; ${num(v.changedSince)} changed since, left as they are` : ''}.`);
   });
   $('flush-delete-fae').addEventListener('click', () => {

@@ -100,7 +100,7 @@ import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
 import { PasswordResets, RESET_TTL_MS, maskEmail, resetAllowed } from './password-reset.js';
-import { FaeFlushRunner, FaeFlushStore, FaeHistory, cleanOptions, previewTenant, summaryOf, testProject, valueOf } from './fae-flush.js';
+import { FaeFlushRunner, FaeFlushStore, FaeHistory, NE, cleanOptions, markState, previewTenant, summaryOf, testProject, valueOf } from './fae-flush.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
 import {
   SessionStore,
@@ -10170,16 +10170,16 @@ function faeRunner() {
   return runner;
 }
 const FAE_EVENTS = {
-  started: (d) => `FAE Flush started for ${d.projects} project${d.projects === 1 ? '' : 's'}, ${d.concurrency} scan${d.concurrency === 1 ? '' : 's'} at a time${d.mode === 'report' ? ', reporting only (nothing marked)' : ''}; code: ${d.source}; stops to ask: ${d.sensitivity}; the _FAE projects are ${d.deleteFae ? 'deleted' : 'kept'} once checked.`,
+  started: (d) => `FAE Flush started for ${d.projects} project${d.projects === 1 ? '' : 's'}, ${d.concurrency} scan${d.concurrency === 1 ? '' : 's'} at a time${d.mode === 'report' ? ', reporting only (nothing marked)' : ''}; marks them ${d.markAs === 'ne' ? 'Not exploitable' : 'Proposed not exploitable'}; code: ${d.source}; stops to ask: ${d.sensitivity}; the _FAE projects are ${d.deleteFae ? 'deleted' : 'kept'} once checked.`,
   'scan-started': (d) => `FAE Flush: ${d.project}'s code scanned again with Findings Analysis on ${d.faeProject} (scan ${d.scanId}; code from ${d.code}).`,
   'mark-now': (d) => `FAE Flush: ${d.by} marked the report-only run now: ${d.results} results in ${d.projects} project(s).`,
   'debug': (d) => `FAE Flush debug log turned ${d.on ? 'on' : 'off'} by ${d.by}.`,
   'needs-ok': (d) => `FAE Flush stopped at ${d.project} to ask: ${d.reason}`,
   decided: (d) => `FAE Flush: ${d.by || 'someone'} chose "${d.decision}" for ${d.project}${d.reason ? ` (${d.reason})` : ''}.`,
-  marked: (d) => `FAE Flush marked ${d.marked} of ${d.project}'s ${d.toVerify} results To verify Proposed not exploitable: not reported by the FAE scan ${d.faeScanId}.`,
+  marked: (d) => `FAE Flush marked ${d.marked} of ${d.project}'s ${d.toVerify} results To verify ${d.state ?? 'Proposed not exploitable'}${d.findings !== undefined && d.findings !== d.marked ? ` (${d.findings} findings: Checkmarx One marks every result sharing one)` : ''}: not reported by the FAE scan ${d.faeScanId}.`,
   'fae-deleted': (d) => `FAE Flush deleted ${d.project}_FAE.`,
   'fae-deleted-all': (d) => `FAE Flush: ${d.deleted} _FAE project${d.deleted === 1 ? '' : 's'} deleted${d.failed ? `, ${d.failed} could not be` : ''}.`,
-  finished: (d) => `FAE Flush finished: ${d.marked} of ${d.toVerify} results To verify marked Proposed not exploitable across ${d.projects} projects, ${d.revalidated} revalidated.`,
+  finished: (d) => `FAE Flush finished: ${d.marked} of ${d.toVerify} results To verify marked ${d.state ?? 'Proposed not exploitable'} across ${d.projects} projects, ${d.revalidated} revalidated.`,
   undone: (d) => `FAE Flush undone by ${d.by}: ${d.restored} results back to To verify${d.changedSince ? ` (${d.changedSince} changed since and left as they are)` : ''}.`,
 };
 function faeAudit(event, details) {
@@ -10197,7 +10197,7 @@ function faeView() {
     preview: store.preview,
     previewing: Boolean(store.previewing),
     previewError: store.previewError ?? '',
-    job: job ? { ...job, projects: job.projects.map(({ marked, pending, ...p }) => ({ ...p, markedCount: marked?.length ?? 0 })) } : null,
+    job: job ? { ...job, projects: job.projects.map(({ marked, pending, ...p }) => ({ ...p, markedCount: p.counts?.marked ?? marked?.length ?? 0 })) } : null,
     summary: job ? summaryOf(job) : null,
     debug: { on: runner.debug.on, entries: runner.debug.log.length },
   };
@@ -10226,8 +10226,10 @@ app.post('/api/fae-flush/start', ...faeGuard, asyncRoute(async (req, res) => {
   if (!integrationSession()) return res.status(409).json({ error: 'Connect the server to Checkmarx One first (Settings → Checkmarx One).' });
   const ids = Array.isArray(req.body?.projectIds) ? new Set(req.body.projectIds.map(String)) : null;
   const preview = runner.store.preview && { ...runner.store.preview, projects: runner.store.preview.projects.filter((p) => !ids || ids.has(p.id)) };
+  const options = cleanOptions(req.body ?? {});
+  if (options.markAs === 'ne' && !req.permissions.has('faeFlush.notExploitable')) return res.status(403).json({ error: 'Only an Admin can mark them Not exploitable: choose Proposed not exploitable.', permission: 'faeFlush.notExploitable' });
   try {
-    runner.start({ by: req.user?.email ?? '', concurrency: req.body?.concurrency, deleteFae: req.body?.deleteFae, preview, options: cleanOptions(req.body ?? {}) });
+    runner.start({ by: req.user?.email ?? '', concurrency: req.body?.concurrency, deleteFae: req.body?.deleteFae, preview, options });
   } catch (error) {
     return res.status(error.status ?? 400).json({ error: error.message });
   }
@@ -10245,7 +10247,10 @@ app.post('/api/fae-flush/resume', ...faeGuard, (req, res) => {
   res.json(faeView());
 });
 
+/** A run that marks Not exploitable is marked on (Mark anyway, Mark now) by Admins alone. */
+const faeMarkRefused = (req) => (markState(faeRunner().job) === NE && !req.permissions.has('faeFlush.notExploitable') ? 'This run marks them Not exploitable: only an Admin can mark them.' : '');
 app.post('/api/fae-flush/decide', ...faeGuard, (req, res) => {
+  if (String(req.body?.decision) === 'mark' && faeMarkRefused(req)) return res.status(403).json({ error: faeMarkRefused(req), permission: 'faeFlush.notExploitable' });
   try {
     faeRunner().decide(String(req.body?.projectId ?? ''), String(req.body?.decision ?? ''), req.user?.email ?? '');
   } catch (error) {
@@ -10257,6 +10262,7 @@ app.post('/api/fae-flush/decide', ...faeGuard, (req, res) => {
 
 // A report-only run: mark what it reported, now.
 app.post('/api/fae-flush/mark-now', ...faeGuard, (req, res) => {
+  if (faeMarkRefused(req)) return res.status(403).json({ error: faeMarkRefused(req), permission: 'faeFlush.notExploitable' });
   try {
     faeRunner().markReported(req.user?.email ?? '');
   } catch (error) {

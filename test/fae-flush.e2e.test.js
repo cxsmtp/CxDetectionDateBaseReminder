@@ -90,9 +90,11 @@ test('compare: only results still To verify, matched by similarity id; what FAE 
   ];
   const fae = [{ similarityID: 'a', state: 'TO_VERIFY' }, { similarityID: 'e', state: 'PROPOSED_NOT_EXPLOITABLE' }, { similarityID: 'z', state: 'TO_VERIFY' }];
   const c = compareResults(original, fae);
-  assert.equal(c.toVerify, 3);
+  // Counted as Checkmarx One counts them (results: 'e' twice), and in distinct findings (similarity ids).
+  assert.deepEqual([c.toVerify, c.toVerifyFindings], [4, 3]);
   assert.equal(c.reported, 1);
-  assert.deepEqual(c.notReported.map((r) => r.similarityId), ['b', 'e']);
+  assert.deepEqual(c.notReportedList.map((r) => [r.similarityId, r.results]), [['b', 1], ['e', 2]]);
+  assert.equal(c.notReported, 3, 'one mark on e covers both its results');
   assert.equal(c.extra, 1);
 });
 
@@ -142,7 +144,7 @@ test('preview, then a run that deletes the _FAE copies: marked, revalidated, aud
   assert.equal((await admin('POST', '/api/fae-flush/start', { concurrency: 3 })).status, 400);
   const started = await admin('POST', '/api/fae-flush/start', { concurrency: 3, deleteFae: true });
   assert.equal(started.status, 200, JSON.stringify(started.body));
-  assert.deepEqual(started.body.job.options, { source: 'auto', mode: 'mark', sensitivity: 'normal' });
+  assert.deepEqual(started.body.job.options, { source: 'auto', mode: 'mark', markAs: 'pne', sensitivity: 'normal' });
   assert.equal((await admin('POST', '/api/fae-flush/start', { deleteFae: true })).status, 409, 'one run at a time');
 
   const done = await until((v) => v.job?.state === 'done', 60000);
@@ -167,7 +169,7 @@ test('preview, then a run that deletes the _FAE copies: marked, revalidated, aud
 
   const audit = (await admin('GET', '/api/audit?q=FAE%20Flush&limit=200')).body;
   const reasons = audit.entries.map((e) => e.reason).join('\n');
-  assert.match(reasons, /FAE Flush started for 10 projects, 3 scans at a time; code: auto; stops to ask: normal; the _FAE projects are deleted/);
+  assert.match(reasons, /FAE Flush started for 10 projects, 3 scans at a time; marks them Proposed not exploitable; code: auto; stops to ask: normal; the _FAE projects are deleted/);
   assert.match(reasons, /FAE Flush marked 20 of Project 0's 30 results To verify Proposed not exploitable/);
   assert.match(reasons, /code from download and upload/);
   assert.match(reasons, /FAE Flush finished: 200 of 300 results/);
@@ -248,4 +250,19 @@ test('a run that keeps the _FAE copies, then "Delete all _FAE projects" with one
   // Every run stays in the value: 200 + 40 + 200 marked, the first 200 and the report run's 40 undone.
   const value = (await admin('GET', '/api/fae-flush/value')).body;
   assert.deepEqual([value.runs.length, value.total.marked, value.total.kept], [3, 440, 200]);
+});
+
+test('Not exploitable is for Admins alone: another role that may run FAE Flush is refused it', async () => {
+  const role = await admin('POST', '/api/iam/roles', { name: 'FAE operator', permissions: ['beta.use', 'integration.cxone', 'settings.view'] });
+  assert.equal(role.status, 201, JSON.stringify(role.body));
+  const people = (await admin('GET', '/api/iam')).body.users;
+  const id = role.body.roles.find((r) => r.name === 'FAE operator').id;
+  assert.equal((await admin('PATCH', `/api/iam/users/${people.find((u) => u.email === 'uma@acme.io').id}`, { role: id })).status, 200);
+  const me = (await user('GET', '/api/me')).body;
+  assert.ok(!me.permissions.includes('faeFlush.notExploitable'), 'never given to another role');
+  const refused = await user('POST', '/api/fae-flush/start', { concurrency: 1, deleteFae: true, markAs: 'ne', projectIds: ['p0'] });
+  assert.equal(refused.status, 403, JSON.stringify(refused.body));
+  assert.match(refused.body.error, /Only an Admin can mark them Not exploitable/);
+  assert.ok((await admin('GET', '/api/me')).body.permissions.includes('faeFlush.notExploitable'), 'the Admin role holds it');
+  assert.equal((await admin('POST', '/api/iam/roles', { name: 'Sneaky', permissions: ['beta.use', 'faeFlush.notExploitable'] })).status, 400, 'it cannot be given to another role');
 });

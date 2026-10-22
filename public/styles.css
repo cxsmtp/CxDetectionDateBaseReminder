@@ -3484,6 +3484,12 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 .pool-tenant .field { margin-bottom: 10px; }
 .pool-tenant .field small { font-weight: 400; }
 .pool-check { font-size: 13px; line-height: 1.5; }
+/* FAE Flush → Value: money saved comes first. */
+.flush-tile.is-money { background: color-mix(in srgb, var(--ok, #15803d) 9%, var(--surface)); border-color: color-mix(in srgb, var(--ok, #15803d) 35%, var(--border)); }
+.flush-tile.is-money b { color: var(--ok, #15803d); }
+.flush-tile .flush-rate { white-space: nowrap; }
+.flush-value-note { margin: 6px 0 10px; }
+#flush-markas-warn { display: block; margin-top: 4px; }
 .pool-tenant input.is-invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
 .pool-check .status { margin: 0; }
 .pool-check button { margin-inline-start: 6px; }
