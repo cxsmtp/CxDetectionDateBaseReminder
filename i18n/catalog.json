@@ -26262,5 +26262,387 @@
   "seen": [
    "beta › fusion results"
   ]
+ },
+ "Labs: what Checkmarx One’s AI engine found in SAST": {
+  "kind": "text",
+  "seen": [
+   "fusion › p"
+  ]
+ },
+ "What Checkmarx One's AI engine found in SAST, from each project's latest scan. <strong>Fusion</strong>: in a language or framework the traditional SAST engine also supports. <strong>LAST</strong> (language-agnostic static testing): in a language only the AI engine covers. Click a project to see its vulnerabilities.": {
+  "kind": "html",
+  "seen": [
+   "first start › p › Fusion results Beta ?",
+   "sign in › p › Fusion results Beta ?",
+   "Dashboard › p › Fusion results Beta ?"
+  ]
+ },
+ "LAST": {
+  "kind": "text",
+  "seen": [
+   "first start › label › Show",
+   "sign in › label › Show",
+   "Dashboard › label › Show"
+  ]
+ },
+ "AI-generated, in a language or framework the traditional SAST engine also supports": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › label › Show",
+   "sign in › label › Show",
+   "Dashboard › label › Show"
+  ]
+ },
+ "AI-generated, in a language only the AI engine covers (language-agnostic static testing)": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › label › Show",
+   "sign in › label › Show",
+   "Dashboard › label › Show"
+  ]
+ },
+ "Load results": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Fusion results Beta ?",
+   "sign in › button › Fusion results Beta ?",
+   "Dashboard › button › Fusion results Beta ?"
+  ]
+ },
+ "Loading results…": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Load results first.": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Load results to act on them.": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion results Beta ?",
+   "sign in › span › Fusion results Beta ?",
+   "Dashboard › span › Fusion results Beta ?"
+  ]
+ },
+ "Choose applications or projects above (or none, for every project), then Load results.": {
+  "kind": "text",
+  "seen": [
+   "first start › td › Fusion results Beta ?",
+   "sign in › td › Fusion results Beta ?",
+   "Dashboard › td › Fusion results Beta ?"
+  ]
+ },
+ "AI scans": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Fusion results Beta ?",
+   "sign in › th › Fusion results Beta ?",
+   "Dashboard › th › Fusion results Beta ?"
+  ]
+ },
+ "Credits spent": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "LAST results": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Fusion and LAST results": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Recurrent": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Fusion results Beta ?",
+   "sign in › th › Fusion results Beta ?",
+   "Dashboard › th › Fusion results Beta ?"
+  ]
+ },
+ "With new results": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Fusion results Beta ?",
+   "sign in › option › Fusion results Beta ?",
+   "Dashboard › option › Fusion results Beta ?"
+  ]
+ },
+ "With recurrent results": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Fusion results Beta ?",
+   "sign in › option › Fusion results Beta ?",
+   "Dashboard › option › Fusion results Beta ?"
+  ]
+ },
+ "With fixed results": {
+  "kind": "text",
+  "seen": [
+   "first start › option › Fusion results Beta ?",
+   "sign in › option › Fusion results Beta ?",
+   "Dashboard › option › Fusion results Beta ?"
+  ]
+ },
+ "AI scans and credits over": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › select › Fusion results Beta ?",
+   "sign in › select › Fusion results Beta ?",
+   "Dashboard › select › Fusion results Beta ?"
+  ]
+ },
+ "Last 30 days": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Last 90 days": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Last 180 days": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "HTML report": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Fusion results Beta ?",
+   "first start › button",
+   "sign in › button › Fusion results Beta ?"
+  ]
+ },
+ "Allocate credits": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Fusion results Beta ?",
+   "sign in › button › Fusion results Beta ?",
+   "Dashboard › button › Fusion results Beta ?"
+  ]
+ },
+ "The model its latest Fusion scan ran with": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › th › Fusion results Beta ?",
+   "sign in › th › Fusion results Beta ?",
+   "Dashboard › th › Fusion results Beta ?"
+  ]
+ },
+ "LOC": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Fusion results Beta ?",
+   "sign in › th › Fusion results Beta ?",
+   "Dashboard › th › Fusion results Beta ?"
+  ]
+ },
+ "Lines of code its latest scan counted": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › th › Fusion results Beta ?",
+   "sign in › th › Fusion results Beta ?",
+   "Dashboard › th › Fusion results Beta ?"
+  ]
+ },
+ "Completed scans that ran the AI engine, over the period chosen above": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › th › Fusion results Beta ?",
+   "sign in › th › Fusion results Beta ?",
+   "Dashboard › th › Fusion results Beta ?"
+  ]
+ },
+ "Checkmarx One credits the project used over the period chosen above": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › th › Fusion results Beta ?",
+   "sign in › th › Fusion results Beta ?",
+   "Dashboard › th › Fusion results Beta ?"
+  ]
+ },
+ "Results": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Fusion results Beta ?",
+   "sign in › th › Fusion results Beta ?",
+   "Dashboard › th › Fusion results Beta ?"
+  ]
+ },
+ "Found by the latest scan for the first time": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › th › Fusion results Beta ?",
+   "sign in › th › Fusion results Beta ?",
+   "Dashboard › th › Fusion results Beta ?"
+  ]
+ },
+ "Found again by the latest scan": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › th › Fusion results Beta ?",
+   "sign in › th › Fusion results Beta ?",
+   "Dashboard › th › Fusion results Beta ?"
+  ]
+ },
+ "Found by the scan before and gone in the latest": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › th › Fusion results Beta ?",
+   "sign in › th › Fusion results Beta ?",
+   "Dashboard › th › Fusion results Beta ?"
+  ]
+ },
+ "Latest scan": {
+  "kind": "text",
+  "seen": [
+   "first start › th › Fusion results Beta ?",
+   "sign in › th › Fusion results Beta ?",
+   "Dashboard › th › Fusion results Beta ?"
+  ]
+ },
+ "Show its vulnerabilities": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Open in Checkmarx One ↗": {
+  "kind": "text",
+  "seen": [
+   "first start › a",
+   "sign in › a",
+   "Dashboard › a"
+  ]
+ },
+ "Open this result in Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Per AI scan": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Fusion credits, estimated": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "from its latest scan": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "from the project’s settings": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "from the tenant’s settings": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Gone from the latest scan: counted, not listed": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Status · state": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Source": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Sink": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "First found": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Last found": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Result id": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "(only the AI engine covers it)": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
+ },
+ "Results Checkmarx One’s AI engine found in this project’s latest scan: Fusion, LAST or both, as ticked on Labs → Fusion results": {
+  "kind": "attr:title",
+  "seen": [
+   "Dashboard › label › Fusion",
+   "Dashboard › th › Projects",
+   "Dashboard (advanced) › label › Fusion"
+  ]
+ },
+ "Until the end of": {
+  "kind": "text",
+  "seen": [
+   "settings › span › Activation codes ?",
+   "logs › span › Activation codes ?",
+   "logs › activity › span › Activation codes ?"
+  ]
+ },
+ "(UTC)": {
+  "kind": "text",
+  "seen": [
+   "settings › span › Activation codes ?",
+   "logs › span › Activation codes ?",
+   "logs › activity › span › Activation codes ?"
+  ]
+ },
+ "Deactivated": {
+  "kind": "text",
+  "seen": [
+   "fusion (runtime)"
+  ]
  }
 }

@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.93 | 509/s, 0 (main 491, 0) | 5.5 s | 646 ms | 758 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.92 | 479/s, 153 (main 462, 152; a busy host) | 16.0 s | 2.0 s | 748 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.91 | 461/s, 45 (main 437, 430; a busy host) | 14.2 s | 3.1 s | 747 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.90 | 469/s, 0 in its clean run (main 494, 0); other runs of both lost up to 298 to host pauses | 8.2 s | 1.6 s | 746 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -79,7 +80,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.93 — not released yet · [#116](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/116)
+## MZ-01.00.93 — 2026-10-22 06:19 UTC · [#116](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/116)
 
 - **Fusion counts that match Checkmarx One.** **Labs → Fusion results** now reads, from each project's latest scan, the SAST results Checkmarx One marks AI-generated ("LLM-Based: Yes"), so the counts match the platform instead of every risk of an application.
 - **Fusion and LAST, apart.** A result is **Fusion**'s when the traditional SAST engine supports its language or framework too, and **LAST**'s (language-agnostic static testing) when only the AI engine covers it; two ticks choose which the page, its exports and its credits follow.
@@ -88,7 +89,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **Triage and remediate from there.** Allocate credits, then AI Triage and AI Remediation for one project from its side panel, or for every project shown from the bar, without loading the Workbench; the button turns gold once the credits are there.
 - **Credits as Checkmarx One counts them.** Each project's credits come from Checkmarx One's credit consumption, with its AI Triage and AI Remediation actions; the Fusion share per AI scan is an estimate, and says so.
 - **CxMissionZero stops after 31 December 2026 (UTC)** until the product activation code is entered: one key for everyone, from Bhawani Singh. Admins see a banner from 1 December; after that every page says "The product has been deactivated. Please reach out to Bhawani Singh.", nothing is deleted and backups go on, and the standalone calculator built from this release stops too ([the product licence](docs/activation-codes.md#the-product-licence-cxmissionzero-stops-after-31-december-2026)).
-- **Status.** Measured when it is merged.
+- **Status.** 3000 people at once on 2 vCPU, one clean pair with main: 509 requests a second against main's 491, none failed on either side, report opens 5.5 s at p95 against 8.9 s and triage polls 646 ms against 1.4 s; no finding sent twice ([performance](docs/performance.md)); 758 tests pass; `npm audit --omit=dev` finds 0 vulnerabilities; no new Checkmarx One scan ([status](docs/status.md)).
 
 ## MZ-01.00.92 — 2026-10-21 16:12 UTC · [#115](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/115)
 
