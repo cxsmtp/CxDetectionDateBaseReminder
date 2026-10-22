@@ -1,11 +1,12 @@
-// Labs → Fusion: how Fusion's re-scored results are read, banded and counted (src/fusion.js), and the
-// figures the tab shows from them (public/fusion-view.js).
+// Labs → Fusion: the AI-generated SAST results of each project's latest scan (src/fusion-ai.js), and the
+// figures, rows and report the page makes of them (public/fusion-view.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { CxApiError } from '../src/cxone/client.js';
-import { readFusion, severityOfScore, summarize, cleanResult } from '../src/fusion.js';
-import { fusionRows, fusionTiles, fusionTotalOf } from '../public/fusion-view.js';
+import { aiFindings, cleanAiResult, cleanEngines, readAiFusion } from '../src/fusion-ai.js';
+import { sastCoverage } from '../src/sast-languages.js';
+import { engineLabel, fusionReportHtml, fusionResultRows, fusionRows, fusionTiles, fusionTotalOf } from '../public/fusion-view.js';
 
 /** A Checkmarx One that answers `routes` (path → body or function of query) and 404 elsewhere. */
 function fakeClient(routes) {
@@ -13,131 +14,186 @@ function fakeClient(routes) {
   return {
     calls,
     async request(path, { query } = {}) {
-      calls.push(path);
+      calls.push({ path, query: query ?? {} });
       const hit = routes[path];
       if (hit === undefined) throw new CxApiError('Not Found', { status: 404, path });
       return typeof hit === 'function' ? hit(query ?? {}) : hit;
     },
-    async *paginate(path) {
-      calls.push(path);
-      for (const app of routes[path]?.applications ?? []) yield app;
-    },
   };
 }
 
-test('a risk score is banded as Checkmarx One bands severities: 9+ critical, 7+ high, 4+ medium, above 0 low', () => {
-  assert.deepEqual([10, 9, 8.9, 7, 6.9, 4, 3.9, 0.1, 0, null, 'x'].map(severityOfScore), ['CRITICAL', 'CRITICAL', 'HIGH', 'HIGH', 'MEDIUM', 'MEDIUM', 'LOW', 'LOW', 'NONE', null, null]);
-});
+// The result behind the user's Risk Hub link: Fusion's critical SAST finding, and two traditional ones.
+const AI = { resultHash: 'AZTOOZ+t2mzaZy9qAn1As5Zzudg=', similarityID: -282866862, queryID: 0, queryName: 'Improper_Authentication', group: 'TypeScript_CRITICAL', languageName: 'TypeScript', cweID: 287, severity: 'CRITICAL', state: 'CONFIRMED', status: 'NEW', firstFoundAt: '2026-10-20T06:55:45Z', foundAt: '2026-10-20T06:55:45Z', nodes: [{ fileName: '/juice-shop-20.3.0/routes/nftMint.ts', line: 41, name: 'metamaskAddress' }, { fileName: '/juice-shop-20.3.0/routes/nftMint.ts', line: 42, name: 'metamaskAddress' }], isAiGenerated: true };
+const TRADITIONAL = [
+  { resultHash: 'h1', queryName: 'SQL_Injection', severity: 'HIGH', state: 'TO_VERIFY', status: 'RECURRENT', isAiGenerated: false },
+  { resultHash: 'h2', queryName: 'XSS', severity: 'MEDIUM', state: 'TO_VERIFY', status: 'NEW', isAiGenerated: false },
+];
 
-test('counts per project: under the new severity, raised or lowered, and what Fusion brought up to critical or high', () => {
-  const rows = [
-    cleanResult({ projectId: 'p1', resultId: 'a', oldRiskValue: 5.5, newRiskValue: 9.4 }, 'app'),
-    cleanResult({ projectId: 'p1', resultId: 'b', oldRiskValue: 7.5, newRiskValue: 8.0 }, 'app'),
-    cleanResult({ projectId: 'p2', resultId: 'c', oldRiskValue: 6.8, newRiskValue: 3.1 }, 'app'),
-  ];
-  const { projects, totals } = summarize(rows);
-  assert.equal(projects.p1.CRITICAL, 1);
-  assert.equal(projects.p1.HIGH, 1);
-  assert.equal(projects.p1.raisedToTop, 1, 'high already before: not brought up by Fusion');
-  assert.equal(projects.p1.raised, 2);
-  assert.equal(projects.p2.lowered, 1);
-  assert.deepEqual([totals.total, totals.LOW, totals.raisedToTop], [3, 1, 1]);
-});
-
-test('reads only the applications Fusion scanned that hold a fetched project, every page, each result once', async () => {
-  const page = (offset) => Array.from({ length: offset ? 20 : 100 }, (_, i) => ({ projectId: i % 2 ? 'p1' : 'p9', resultId: `r${offset + i}`, oldRiskValue: 3, newRiskValue: 8, scanId: 's' }));
-  const client = fakeClient({
-    '/api/applications': { applications: [{ id: 'a1', name: 'Payments', projectIds: ['p1', 'p9'] }, { id: 'a2', name: 'Web', projectIds: ['p2'] }, { id: 'a3', name: 'Other', projectIds: ['p7'] }] },
-    // Where the tenant's own Swagger (/spec/v1) puts them; a page of 100 of 120, then the rest by offset.
-    '/api/correlation/results/applications': { applications: ['a1', 'a3'] },
-    '/api/correlation/results/applications/a1/risk-scores': (q) => ({ totalCount: 120, results: page(Number(q.offset ?? 0)) }),
-    '/api/correlation/dispatcher/a1/scan-status': { scanStatus: 'Completed', stage: 100, scanTimestamp: 1760000000 },
+/** A tenant whose scan s1 (project p1, scan before s0) has `rows`; the filter honoured unless `ignoreFilter`. */
+function tenant(rows, { ignoreFilter = false, fixed = 2, aggregate = true } = {}) {
+  return fakeClient({
+    '/api/sast-results': (q) => {
+      const ai = ignoreFilter ? rows : rows.filter((r) => (q['is-ai-generated'] === 1 ? r.isAiGenerated : true));
+      return { results: ai.slice(Number(q.offset ?? 0), Number(q.offset ?? 0) + Number(q.limit ?? 20)), totalCount: ai.length };
+    },
+    ...(aggregate ? { '/api/sast-scan-summary/aggregate': (q) => ({ summaries: [{ severity: 'CRITICAL', count: rows.filter((r) => r.isAiGenerated && r.severity === 'CRITICAL').length }], totalCount: 1, asked: q }) } : {}),
+    '/api/scans': { scans: [{ id: 's1', status: 'Completed', createdAt: '2026-10-20T06:46:28Z' }, { id: 's0', status: 'Completed', createdAt: '2026-10-10T06:46:28Z' }] },
+    '/api/sast-scan-summary/compare/aggregate': (q) => ({ summaries: q.status === 'FIXED' && q['is-ai-generated'] === 1 && q['group-by-field'] === 'LANGUAGE' ? [{ language: 'TypeScript', count: fixed }] : [], totalCount: 1 }),
   });
-  const f = await readFusion(client, ['p1', 'p2']);
-  assert.equal(f.available, true);
-  assert.equal(f.totals.total, 60, 'the 120 results, only those of p1 (in scope)');
-  assert.equal(f.totals.raisedToTop, 60);
-  assert.deepEqual(Object.keys(f.projects), ['p1']);
-  assert.ok(!client.calls.some((c) => c.includes('/a3/')), 'a3 holds no fetched project');
-  const a1 = f.applications.find((a) => a.id === 'a1');
-  assert.equal(a1.scan.status, 'Completed');
-  assert.equal(a1.scan.at, new Date(1760000000 * 1000).toISOString(), 'seconds since 1970');
-  assert.equal(f.applications.find((a) => a.id === 'a2').notScanned, true);
+}
+const P1 = [{ id: 'p1', name: 'Juice Shop' }];
+const SCANS = { p1: { id: 's1', updatedAt: '2026-10-20T06:56:00Z' } };
 
-  // The path found is kept for the connection: the next read goes straight there.
-  client.calls.length = 0;
-  await readFusion(client, ['p1']);
-  assert.equal(client.calls.filter((c) => c === '/api/correlation/results/applications').length, 1, 'listed once, not probed again');
+test('Fusion is the SAST results Checkmarx One marks AI-generated, asked for with is-ai-generated=1 (EQUAL)', async () => {
+  const client = tenant([AI, ...TRADITIONAL]);
+  const f = await readAiFusion(client, P1, SCANS);
+  const listed = client.calls.find((c) => c.path === '/api/sast-results').query;
+  assert.deepEqual([listed['scan-id'], listed['is-ai-generated'], listed['is-ai-generated-operation']], ['s1', 1, 'EQUAL']);
+  const counted = client.calls.find((c) => c.path === '/api/sast-scan-summary/aggregate').query;
+  assert.deepEqual([counted['group-by-field'], counted['is-ai-generated'], counted['is-ai-generated-operation']], ['SEVERITY', 1, 'EQUAL']);
+  assert.deepEqual([f.totals.total, f.totals.CRITICAL, f.totals.NEW, f.totals.FIXED], [1, 1, 1, 2]);
+  assert.equal(f.projects.p1.reported, 1, 'Checkmarx One’s own count, beside the listed');
+  const compare = client.calls.find((c) => c.path === '/api/sast-scan-summary/compare/aggregate').query;
+  assert.deepEqual([compare['scan-id'], compare['base-scan-id'], compare.status], ['s1', 's0', 'FIXED'], 'compared with the scan before');
+  const r = f.results[0];
+  assert.deepEqual([r.name, r.severity, r.state, r.status, r.cwe, r.language, r.sourceFile, r.sourceLine, r.sinkLine, r.firstFoundAt], ['Improper Authentication', 'CRITICAL', 'CONFIRMED', 'NEW', 287, 'TypeScript', '/juice-shop-20.3.0/routes/nftMint.ts', 41, 42, '2026-10-20T06:55:45.000Z']);
+  assert.equal(r.hash, AI.resultHash, 'its hash, which opens it in Risk Hub');
 });
 
-test('a tenant without Fusion, or a key not allowed to read it: nothing to show, and what was asked and answered', async () => {
-  const f = await readFusion(fakeClient({ '/api/applications': { applications: [] } }), ['p1']);
-  assert.equal(f.available, false);
-  assert.equal(f.totals.total, 0);
-  assert.deepEqual(f.tried, [{ path: '/api/correlation/results/applications', status: 404 }, { path: '/api/risk-management/summary', status: 404 }]);
-  const refused = fakeClient({});
-  refused.request = async (path) => { throw new CxApiError('Forbidden', { status: 403, path }); };
-  assert.deepEqual((await readFusion(refused, ['p1'])).tried, [{ path: '/api/correlation/results/applications', status: 403 }, { path: '/api/risk-management/summary', status: 403 }]);
+test('a Checkmarx One that ignores the filter does not pass every SAST result off as Fusion’s', async () => {
+  const f = await readAiFusion(tenant([AI, ...TRADITIONAL], { ignoreFilter: true }), P1, SCANS);
+  assert.equal(f.totals.total, 1, 'only the one marked isAiGenerated');
+  const unmarked = await readAiFusion(tenant(TRADITIONAL.map(({ isAiGenerated, ...r }) => r), { ignoreFilter: true }), P1, SCANS);
+  assert.deepEqual([unmarked.totals.total, unmarked.unmarked], [0, 2], 'no flag at all: none counted, and said');
 });
 
-test('the tiles: share of open findings, raised to critical or high, results per credit entered', () => {
-  const fusion = { totals: { total: 50, CRITICAL: 10, HIGH: 15, raisedToTop: 12, lowered: 4 }, projects: { p1: { total: 30, raisedToTop: 12 }, p2: { total: 20, raisedToTop: 0 } }, applications: [] };
-  const scope = { openFindings: 1000, projects: 8 };
-  const t = fusionTiles(fusion, scope, '100');
-  assert.deepEqual(t.share, { results: 50, open: 1000, percent: 5, projects: 2, of: 8 });
-  assert.deepEqual(t.top, { known: true, raised: 12, projects: 1, lowered: 4 });
-  assert.deepEqual(t.perCredit, { credits: 100, results: 0.5, top: 0.25, creditsPerTop: 4 });
-  assert.equal(fusionTiles(fusion, scope, '').perCredit.results, null, 'no credits entered: nothing made up');
+test('every page of results is read; a project with no scan before has no Fixed; one without a scan is counted apart', async () => {
+  const many = Array.from({ length: 1203 }, (_, i) => ({ ...AI, resultHash: `r${i}`, severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], status: i % 3 ? 'RECURRENT' : 'NEW' }));
+  const client = tenant(many);
+  client.request = ((request) => async (path, opts) => (path === '/api/scans' ? { scans: [{ id: 's1', status: 'Completed' }] } : request(path, opts)))(client.request);
+  const f = await readAiFusion(client, [...P1, { id: 'p2', name: 'Never scanned' }], SCANS);
+  assert.equal(f.totals.total, 1203);
+  assert.deepEqual([f.totals.CRITICAL, f.totals.LOW, f.totals.NEW, f.totals.RECURRENT], [301, 300, 401, 802]);
+  assert.equal(f.projects.p1.fixedKnown, false, 'nothing to compare with');
+  assert.equal(f.noScan, 1);
 });
 
-test('rows: most critical first, named from the fetch; the Workbench column is empty until Fusion is read', () => {
-  const fusion = {
-    applications: [{ id: 'a1', name: 'Payments', scan: { status: 'Completed', at: '2026-10-20T10:00:00Z' } }],
-    projects: { p1: { CRITICAL: 0, HIGH: 2, total: 2, applications: ['a1'] }, p2: { CRITICAL: 1, HIGH: 0, total: 1, applications: ['a1'] } },
-  };
-  const rows = fusionRows(fusion, { names: { p1: 'Shop', p2: 'Bank' } });
-  assert.deepEqual(rows.map((r) => r.name), ['Bank', 'Shop']);
-  assert.deepEqual(rows[0].applications, ['Payments']);
-  assert.equal(rows[0].scan.status, 'Completed');
+test('the results as findings the credit, triage and remediation code acts on, ids as Risk Hub’s', async () => {
+  const f = await readAiFusion(tenant([AI]), P1, SCANS);
+  const { projects, initiators } = aiFindings(f);
+  assert.equal(projects.length, 1);
+  const r = projects[0].risks[0];
+  assert.deepEqual([r.riskId, r.alternateId, r.scanner, r.severity, r.state, r.scanId], [AI.resultHash, AI.resultHash, 'SAST', 'CRITICAL', 'CONFIRMED', 's1']);
+  assert.deepEqual(initiators, { p1: { scanId: 's1' } });
+});
+
+test('the page: figures, project rows, Checkmarx-style result rows and the HTML report, for the engines ticked', async () => {
+  const sol = { ...AI, resultHash: 'sol', languageName: 'Solidity', severity: 'HIGH', status: 'RECURRENT', state: 'TO_VERIFY', nodes: [{ fileName: 'contracts/Token.sol', line: 9 }] };
+  const f = await readAiFusion(tenant([AI, sol]), P1, SCANS);
+  f.results[0].url = 'https://deu.ast.checkmarx.net/riskhub/p1?resultId=AZTOOZ';
+  f.projects.p1.url = 'https://deu.ast.checkmarx.net/projects/p1/overview';
+  const scope = { projects: 3, names: { p1: 'Juice Shop' } };
+  const t = fusionTiles(f, scope);
+  assert.deepEqual([t.found.results, t.found.CRITICAL, t.found.HIGH, t.found.projects, t.found.of, t.change.NEW, t.change.RECURRENT, t.change.FIXED], [2, 1, 1, 1, 3, 1, 1, 2], 'both: every AI-generated result');
+  const fusionOnly = fusionTiles(f, scope, ['FUSION']);
+  assert.deepEqual([fusionOnly.found.results, fusionOnly.found.HIGH, fusionOnly.change.FIXED], [1, 0, 2], 'Fusion only (the fixed are TypeScript’s)');
+  assert.deepEqual([fusionTiles(f, scope, ['LAST']).found.results, fusionTiles(f, scope, ['LAST']).found.HIGH], [1, 1]);
+  const [row] = fusionRows(f, scope, ['FUSION']);
+  assert.deepEqual([row.name, row.CRITICAL, row.HIGH, row.total, row.NEW, row.FIXED, row.url], ['Juice Shop', 1, 0, 1, 1, 2, f.projects.p1.url]);
+  assert.equal(fusionRows(f, scope, ['LAST']).every((r) => r.FIXED === 0 && r.total === 1), true, 'LAST: Solidity only, nothing of it fixed');
+  const rows = fusionResultRows(f, scope, ['FUSION', 'LAST'], 'p1');
+  assert.deepEqual(rows.map((r) => [r.severity, r.engine, r.status, r.state]), [['CRITICAL', 'FUSION', 'New', 'Confirmed'], ['HIGH', 'LAST', 'Recurrent', 'To verify']]);
+  assert.equal(rows[0].source, '/juice-shop-20.3.0/routes/nftMint.ts:41');
+  assert.equal(rows[0].coveredAs, 'TypeScript');
+  assert.equal(rows[0].projectUrl, f.projects.p1.url);
+  assert.deepEqual(fusionResultRows(f, scope, ['LAST']).map((r) => r.hash), ['sol']);
   assert.equal(fusionTotalOf(null, 'p1'), null);
-  assert.equal(fusionTotalOf(fusion, 'p1'), 2);
-  assert.equal(fusionTotalOf(fusion, 'p3'), 0);
+  assert.deepEqual([fusionTotalOf(f, 'p1'), fusionTotalOf(f, 'p1', ['LAST'])], [2, 1]);
+  assert.equal(engineLabel(['LAST', 'FUSION']), 'Fusion and LAST');
+  const html = fusionReportHtml(f, scope, { organisation: 'Acme <Bank>', generatedAt: '2026-10-21T10:00:00Z' });
+  assert.match(html, /^<!doctype html>/);
+  assert.ok(html.includes('Fusion and LAST results — Acme &lt;Bank&gt;'), 'titled by the ticks, escaped');
+  assert.ok(html.includes('href="https://deu.ast.checkmarx.net/riskhub/p1?resultId=AZTOOZ"'), 'each result links to Checkmarx One');
+  assert.ok(html.includes('CWE-287') && html.includes('nftMint.ts:41'));
+  assert.ok(!/<script|src="http/i.test(html), 'nothing runs, nothing loaded from elsewhere');
+  const fusionReport = fusionReportHtml(f, scope, { engines: ['FUSION'] });
+  assert.ok(fusionReport.includes('<title>Fusion results</title>') && !fusionReport.includes('Token.sol'), 'Fusion only: no LAST result');
+  const one = fusionReportHtml(f, scope, { engines: ['LAST'], projectId: 'p1' });
+  assert.ok(one.includes('LAST results — Juice Shop') && one.includes('Token.sol') && !one.includes('nftMint.ts'), 'one project, LAST only');
+  assert.equal(fusionReportHtml(f, scope, { projectId: 'nope' }).includes('No Fusion and LAST results.'), true);
 });
 
-test('a tenant where the Fusion service is not running (the gateway answers 503): nothing to show, and said so, not an error', async () => {
-  const down = fakeClient({});
-  down.request = async (path) => { throw new CxApiError('Service Unavailable — no available server', { status: 503, path }); };
-  const f = await readFusion(down, ['p1']);
-  assert.equal(f.available, false);
-  assert.deepEqual(f.tried, [{ path: '/api/correlation/results/applications', status: 503 }, { path: '/api/risk-management/summary', status: 503 }]);
+test('a result cleaned keeps what the results page shows, and nothing it does not have', () => {
+  const r = cleanAiResult({ resultHash: 'h', queryName: 'Path_Traversal', severity: 'weird', isAiGenerated: 1 }, { id: 'p', name: 'P' }, 's');
+  assert.deepEqual([r.name, r.severity, r.cwe, r.sourceFile, r.ai], ['Path Traversal', 'INFO', null, '', true]);
 });
 
-test('no correlation service: Fusion is read through Application Risk Management, as the tenant serves it', async () => {
-  const result = (id, score, severity, projects) => ({ id, name: `Result ${id}`, hash: `h${id}`, type: 'code', risk: { score, severity }, createdAt: '2026-10-20T14:14:47Z', projects: projects.map((p) => ({ id: p })) });
+test('Fusion is AI-generated in a language or framework traditional SAST supports; LAST, in any other', () => {
+  const as = (language, extra = {}) => sastCoverage({ language, ...extra })?.language ?? 'LAST';
+  assert.deepEqual(['TypeScript', 'CSharp', 'C#', 'CPP', 'VbNet', 'PLSQL', 'Objc', 'GO Language', 'Kotlin', 'Rust', 'Cobol'].map((l) => as(l)), ['TypeScript', 'C#', 'C#', 'C++', 'VB.NET', 'PL/SQL', 'Objective-C', 'Go', 'Kotlin', 'Rust', 'Cobol']);
+  assert.deepEqual(['Vue', 'ReactJS', 'Node.js', 'Spring Boot', 'Django', 'Flutter', 'ASP.NET Core', 'Ruby on Rails'].map((l) => as(l)), ['JavaScript', 'JavaScript', 'JavaScript', 'Java', 'Python', 'Dart', 'C#', 'Ruby'], 'its frameworks count too');
+  assert.deepEqual(['Solidity', 'Terraform', 'Elixir', 'Svelte', 'Bash'].map((l) => as(l)), ['LAST', 'LAST', 'LAST', 'LAST', 'LAST']);
+  assert.equal(as('', { group: 'Java_Spring' }), 'Java', 'no language: its group');
+  assert.equal(as('', { file: 'contracts/Token.sol' }), 'LAST', 'nor group: its file');
+  assert.equal(as('', { file: 'app/views.py' }), 'Python');
+  assert.deepEqual([cleanEngines(['last', 'x']), cleanEngines(''), cleanEngines('FUSION,LAST')], [['LAST'], ['FUSION', 'LAST'], ['FUSION', 'LAST']]);
+});
+
+test('each project and the totals count Fusion and LAST apart, Fixed split by language', async () => {
+  const sol = { ...AI, resultHash: 'sol1', languageName: 'Solidity', severity: 'HIGH', status: 'RECURRENT', nodes: [{ fileName: '/c/Token.sol', line: 9 }] };
+  const client = tenant([AI, sol]);
+  const compare = client.request;
+  client.request = async (path, opts) => (path === '/api/sast-scan-summary/compare/aggregate' ? { summaries: [{ language: 'TypeScript', count: 2 }, { language: 'Solidity', count: 3 }] } : compare(path, opts));
+  const f = await readAiFusion(client, P1, SCANS);
+  assert.deepEqual(f.results.map((r) => [r.hash, r.engine]), [['AZTOOZ+t2mzaZy9qAn1As5Zzudg=', 'FUSION'], ['sol1', 'LAST']]);
+  const { FUSION, LAST } = f.projects.p1.engines;
+  assert.deepEqual([FUSION.total, FUSION.CRITICAL, FUSION.FIXED, LAST.total, LAST.HIGH, LAST.FIXED], [1, 1, 2, 1, 1, 3]);
+  assert.deepEqual([f.totals.total, f.totals.FIXED, f.totals.engines.LAST.RECURRENT], [2, 5, 1]);
+  const unnamed = tenant([AI]);
+  unnamed.request = ((request) => async (path, opts) => (path === '/api/sast-scan-summary/compare/aggregate' ? { summaries: [{ cweID: 89, count: 4 }] } : request(path, opts)))(unnamed.request);
+  const g = await readAiFusion(unnamed, P1, SCANS);
+  assert.equal(g.projects.p1.engines.FUSION.fixedKnown, false, 'counts that do not say their language: not guessed');
+});
+
+test('Checkmarx One marks a Fusion result with isAiGenerated (the UI’s "LLM-Based: Yes"): only true counts', () => {
+  // As /api/sast-results returns them for scan c40779dc… (Juice Shop 20.3.0).
+  const ai = { resultHash: 'qvurq/MI9Xru4OPKyRSrcqzxjao=', queryID: 0, queryName: 'Missing Authentication for Critical Function', group: 'TypeScript_CRITICAL', severity: 'CRITICAL', changeDetails: { engineVersionChanged: false, queryChanged: false, codeChanged: false }, isAiGenerated: true };
+  assert.equal(cleanAiResult(ai, P1[0], 's1').ai, true, 'LLM-Based: Yes');
+  for (const value of [false, 'false', null, undefined, 0, '']) assert.equal(cleanAiResult({ ...ai, isAiGenerated: value }, P1[0], 's1').ai, false, String(value));
+});
+
+test('each project’s model (its scan, else its settings, else the tenant’s) and lines of code', async () => {
+  const { projectFacts, modelIn } = await import('../src/fusion-usage.js');
+  assert.equal(modelIn({ configs: [{ type: 'sast', value: {} }, { type: 'ai', value: { llmModel: 'opus-5.5' } }] }), 'opus-5.5');
+  assert.equal(modelIn([{ key: 'scan.config.ai.llmModel', value: 'haiku-4.5' }]), 'haiku-4.5');
+  assert.equal(modelIn({ llmModel: '' }), '');
   const client = fakeClient({
-    '/api/applications': { applications: [{ id: 'a1', name: 'PRUOnline', projectIds: ['p1', 'p2'] }, { id: 'a2', name: 'Demo', projectIds: ['p3'] }, { id: 'a3', name: 'Elsewhere', projectIds: ['p9'] }] },
-    '/api/risk-management/summary': { summary: [{ id: 'a1', name: 'PRUOnline', riskScore: 9.3, riskSeverity: 'critical' }, { id: 'a3', name: 'Elsewhere', riskScore: 2, riskSeverity: 'low' }] },
-    '/api/risk-management/a1/results': (q) => ({ results: Number(q.offset) ? [] : [result('r1', 9.3, 'critical', ['p1']), result('r2', 7.8, 'high', ['p1', 'p2', 'p9']), result('r3', 4.1, 'medium', ['p2'])] }),
+    '/api/scans/s1': { statusDetails: [{ name: 'sast', loc: 177362 }], metadata: { configs: [{ type: 'ai', value: { llmModel: 'mythos-5.1' } }] } },
+    '/api/scans/s2': { statusDetails: [{ name: 'sast' }] },
+    '/api/scans/s3': { statusDetails: [] },
+    '/api/configuration/project': (q) => [{ key: 'scan.config.ai.llmModel', value: q['project-id'] === 'p2' ? 'opus-5.0' : '' }],
+    '/api/configuration/tenant': [{ key: 'scan.config.ai.llmModel', value: 'opus-5.5' }],
   });
-  const f = await readFusion(client, ['p1', 'p2', 'p3']);
-  assert.equal(f.available, true);
-  assert.equal(f.source, 'risk-management');
-  assert.ok(client.calls.includes('/api/correlation/results/applications'), 'the correlation service is looked for first');
-  assert.ok(!client.calls.includes('/api/risk-management/a3/results'), 'an application with no project in scope is not read');
-  assert.deepEqual([f.projects.p1.CRITICAL, f.projects.p1.HIGH, f.projects.p2.HIGH, f.projects.p2.MEDIUM], [1, 1, 1, 1]);
-  assert.equal(f.projects.p9, undefined, 'a project outside the scope is not counted');
-  assert.equal(f.totals.total, 4);
-  assert.deepEqual(f.applications.map((a) => [a.name, a.results, Boolean(a.notScanned)]), [['PRUOnline', 4, false], ['Demo', 0, true]]);
-  assert.equal(f.results[0].info, 'Result r1');
-  assert.equal(f.totals.raisedToTop, 0, 'no earlier score: nothing claimed as raised by Fusion');
-  assert.equal(fusionTiles(f, { openFindings: 100, projects: 3 }, '').top.known, false);
-  // Pinned under Troubleshoot: straight to it.
-  const pinned = fakeClient({ '/api/applications': { applications: [{ id: 'a1', name: 'PRUOnline', projectIds: ['p1'] }] }, '/api/risk-management/summary': { summary: [{ id: 'a1' }] }, '/api/risk-management/a1/results': { results: [result('r1', 9.5, 'critical', ['p1'])] } });
-  const g = await readFusion(pinned, ['p1'], { resultsPath: '/api/risk-management' });
-  assert.equal(g.totals.CRITICAL, 1);
-  assert.ok(!pinned.calls.some((c) => c.startsWith('/api/correlation')), 'no correlation call when pinned');
-  // Neither there: what each said.
-  const none = await readFusion(fakeClient({}), ['p1']);
-  assert.equal(none.available, false);
-  assert.ok(none.tried.some((t) => t.path === '/api/risk-management/summary' && t.status === 404));
+  const facts = await projectFacts(client, ['p1', 'p2', 'p3'], { p1: { id: 's1' }, p2: { id: 's2' }, p3: { id: 's3' } });
+  assert.deepEqual(facts, { p1: { model: 'mythos-5.1', modelFrom: 'scan', loc: 177362 }, p2: { model: 'opus-5.0', modelFrom: 'project', loc: null }, p3: { model: 'opus-5.5', modelFrom: 'tenant', loc: null } });
+  assert.equal(client.calls.filter((c) => c.path === '/api/configuration/tenant').length, 1, 'the tenant’s settings read once');
+  const silent = await projectFacts(fakeClient({}), ['p1'], { p1: { id: 's1' } });
+  assert.deepEqual(silent, { p1: { model: '', modelFrom: '', loc: null } }, 'nothing answered: nothing made up');
+});
+
+test('each project’s AI scans and credits over a period, from the scans and the credit consumption by project', async () => {
+  const { fusionUsage, usageRow } = await import('../src/fusion-usage.js');
+  assert.deepEqual(usageRow({ creditsUsed: 20, actionsPerformed: { actions: [{ actionType: 'triage', transactionCount: 4 }, { actionType: 'remediation', transactionCount: 2 }, { actionType: 'fusion', transactionCount: 3 }] } }), { credits: 20, fusion: 10, actions: { triage: 4, remediation: 2, other: 3 } });
+  const recent = new Date().toISOString();
+  const client = fakeClient({
+    '/api/scans': (q) => ({ scans: q['project-id'] === 'p1' ? [{ id: 'a', engines: ['sast', 'ai'], createdAt: recent }, { id: 'b', engines: ['sast'], createdAt: recent }, { id: 'c', engines: ['SAST', 'AI'], createdAt: recent }] : [{ id: 'd', createdAt: recent }] }),
+    '/api/credits/consumption': (q) => (q.viewBy === 'project' && q.period === 'last_90_days' ? { items: [{ name: 'Juice Shop', creditsUsed: 13, actionsPerformed: { actions: [{ actionType: 'triage', transactionCount: 1 }] } }], totalPages: 1 } : { items: [] }),
+  });
+  const u = await fusionUsage(client, [{ id: 'p1', name: 'Juice Shop' }, { id: 'p2', name: 'Other' }], { period: 'last_90_days' });
+  assert.deepEqual([u.period, u.days, u.creditsKnown], ['last_90_days', 90, true]);
+  assert.deepEqual(u.projects.p1, { scans: 2, credits: 13, fusion: 12, actions: { triage: 1, remediation: 0, other: 0 }, perScan: 6 }, 'matched by name; 2 of 3 scans ran the AI engine');
+  assert.deepEqual([u.projects.p2.scans, u.projects.p2.credits], [1, 0], 'no engines said: every completed scan; no consumption: 0');
+  assert.deepEqual(u.totals, { scans: 3, credits: 13, fusion: 12 });
+  const denied = await fusionUsage(fakeClient({ '/api/scans': { scans: [] }, '/api/credits/consumption': () => { throw new CxApiError('Forbidden', { status: 403 }); } }), [{ id: 'p1', name: 'x' }], { period: 'nonsense' });
+  assert.deepEqual([denied.period, denied.creditsKnown, denied.projects.p1.credits], ['last_30_days', false, null], 'no permission: unknown, not 0');
 });

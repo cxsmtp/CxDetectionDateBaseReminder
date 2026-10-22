@@ -11,6 +11,13 @@
 //   node scripts/activation.mjs lang <private-key-file> "<organisation>" he on|off [months=12]
 //       Prints a Hebrew activation code ("on") or deactivation code ("off").
 //
+//   node scripts/activation.mjs product <private-key-file> <YYYY-MM-DD | months> ["<label>"]
+//       Prints the product activation code: one key for everyone who has downloaded or uses CxMissionZero
+//       (it is not tied to a server or an organisation). With it, CxMissionZero works until the end of that
+//       day (UTC), or for that many months, past its built-in end (31 December 2026). Entered on the
+//       deactivation page, or under Settings → Activation codes before then. The label (default "Everyone")
+//       is what the Activation codes page shows it was issued for.
+//
 //   node scripts/activation.mjs show <code>
 //       What a code says (without checking its signature).
 import fs from 'node:fs';
@@ -22,15 +29,15 @@ const [command, ...args] = process.argv.slice(2);
 const b64url = (data) => Buffer.from(data).toString('base64url');
 
 function usage() {
-  console.error('Usage:\n  keygen <private-key-file>\n  issue <private-key-file> "<organisation>" <max-tenants> [months]\n  lang <private-key-file> "<organisation>" he on|off [months]\n  feature <private-key-file> "<organisation>" impact on|off [months]\n  show <code>');
+  console.error('Usage:\n  keygen <private-key-file>\n  issue <private-key-file> "<organisation>" <max-tenants> [months]\n  lang <private-key-file> "<organisation>" he on|off [months]\n  feature <private-key-file> "<organisation>" impact on|off [months]\n  product <private-key-file> <YYYY-MM-DD | months> ["<label>"]\n  show <code>');
   process.exit(2);
 }
 
-/** Sign a payload (expiry filled in) into an MZ1 code. */
-function makeCode(key, payload, months) {
+/** Sign a payload (expiry filled in: `months` from now, or `until` when given) into an MZ1 code. */
+function makeCode(key, payload, months, until = null) {
   const issued = new Date();
-  const expires = new Date(issued);
-  expires.setUTCMonth(expires.getUTCMonth() + Math.max(1, Number(months) || 12));
+  const expires = until ? new Date(until) : new Date(issued);
+  if (!until) expires.setUTCMonth(expires.getUTCMonth() + Math.max(1, Number(months) || 12));
   const full = { v: 1, id: randomBytes(6).toString('hex'), issued: issued.toISOString(), expires: expires.toISOString(), ...payload };
   const head = `MZ1.${b64url(JSON.stringify(full))}`;
   return { code: `${head}.${b64url(sign(null, Buffer.from(head), key))}`, full };
@@ -72,6 +79,20 @@ if (command === 'keygen') {
   const { code, full } = makeCode(key, { org: org.trim(), scope: `feature:${name}`, action }, months);
   console.log(code);
   console.error(`For ${full.org}: the calculator's Impact tab ${action === 'activate' ? 'ON' : 'OFF'}, until ${full.expires.slice(0, 10)}.`);
+} else if (command === 'product') {
+  const [file, when, org = 'Everyone'] = args;
+  if (!file || !when || !org.trim()) usage();
+  // A date: until the end of that day, UTC. A number: that many months from now.
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(when) ? Date.parse(`${when}T00:00:00Z`) + 24 * 3600_000 : null;
+  if (day !== null && !(day > Date.now())) {
+    console.error(`${when} is not a day in the future.`);
+    process.exit(1);
+  }
+  if (day === null && !(Number(when) >= 1)) usage();
+  const key = createPrivateKey(fs.readFileSync(file));
+  const { code, full } = makeCode(key, { org: org.trim(), scope: 'product', action: 'activate' }, when, day);
+  console.log(code);
+  console.error(`The product activation code (for ${full.org}): CxMissionZero works until ${full.expires.slice(0, 16).replace('T', ' ')} UTC, wherever it is entered.`);
 } else if (command === 'show') {
   const read = readCode(args[0]);
   if (!read) {

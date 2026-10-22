@@ -148,7 +148,8 @@ http.createServer((req, res) => {
           const i = Number(pid.replace(/^p/, ''));
           const n = perYear[i % 5];
           const own = BRANCHES ? [...(hasFeature(i) ? [{ id: `feat-p${i}`, projectId: pid, status: 'Completed', createdAt: day(0.5) }] : []), { id: `scan-p${i}`, projectId: pid, status: 'Completed', createdAt: day(1) }] : [];
-          const all = [...own, ...Array.from({ length: n }, (_, k) => ({ id: `hist-p${i}-${k}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() })), { id: `old-p${i}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
+          // Every other scan also ran the AI engine (Labs → Fusion results counts those).
+          const all = [...own, ...Array.from({ length: n }, (_, k) => ({ id: `hist-p${i}-${k}`, projectId: pid, status: 'Completed', engines: k % 2 ? ['sast', 'sca'] : ['sast', 'sca', 'ai'], createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() })), { id: `old-p${i}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
           const fromDate = Date.parse(u.searchParams.get('from-date') ?? '');
           const toDate = Date.parse(u.searchParams.get('to-date') ?? '');
           if (BRANCHES) for (const x of all) x.branch = branchOfScan(x.id);
@@ -205,7 +206,57 @@ http.createServer((req, res) => {
         const i = Number(pid.replace(/^p/, ''));
         const statusDetails = [{ name: 'general', status: 'Completed' }, { name: 'sast', status: 'Completed', ...(i % 14 === 3 ? {} : { loc: BRANCHES && i % 10 === 5 ? 0 : mockLoc(i) }) }];
         const branch = BRANCHES ? branchOfScan(id) : 'main';
-        return send(200, { id, projectId: pid, status: 'Completed', branch, engines: ['sast', 'sca', 'kics'], statusDetails, metadata: { Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch, commit_id: 'abc123' } } } });
+        // The model a Fusion scan ran with is in its configuration for every third project.
+        const configs = i % 3 === 0 ? [{ type: 'sast', value: { presetName: 'ASA Premium' } }, { type: 'ai', value: { llmModel: 'mythos-5.1' } }] : [{ type: 'sast', value: { presetName: 'ASA Premium' } }];
+        return send(200, { id, projectId: pid, status: 'Completed', branch, engines: ['sast', 'sca', 'kics'], statusDetails, metadata: { configs, Handler: { GitHandler: { repo_url: `https://github.com/acme/${pid}`, branch, commit_id: 'abc123' } } } });
+      }
+      // Scan settings: the project's "LLM Model" for every third project (the next one), else the tenant's.
+      if (u.pathname === '/api/configuration/project' || u.pathname === '/api/configuration/tenant') {
+        bump('configuration');
+        const i = Number(String(u.searchParams.get('project-id') ?? '').replace(/^p/, ''));
+        const value = u.pathname.endsWith('tenant') ? 'opus-5.5' : i % 3 === 1 ? 'opus-5.0' : '';
+        return send(200, [{ key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: 'true' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', value, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
+      }
+      // Credits used, by project (as CxCreditGuard reads it): project i used 4i + 6, with i % 3 triage and i % 2 remediation actions.
+      if (u.pathname === '/api/credits/consumption') {
+        bump('credits-consumption');
+        if (!/^(last_month|last_30_days|last_90_days|last_180_days|last_year)$/.test(u.searchParams.get('period') ?? '')) return send(400, { error: 'invalid period query parameter' });
+        const scale = { last_30_days: 1, last_month: 1, last_90_days: 3, last_180_days: 6, last_year: 12 }[u.searchParams.get('period')];
+        const all = Array.from({ length: PROJECTS }, (_, i) => ({ name: `Project ${i}`, projectId: `p${i}`, creditsUsed: (4 * i + 6) * scale, actionsPerformed: { actions: [{ actionType: 'triage', transactionCount: (i % 3) * scale }, { actionType: 'remediation', transactionCount: (i % 2) * scale }], total: ((i % 3) + (i % 2)) * scale } }));
+        const size = Number(u.searchParams.get('size') || 100);
+        const page = Number(u.searchParams.get('page') || 1);
+        return send(200, { items: all.slice((page - 1) * size, page * size), totalItems: all.length, totalPages: Math.ceil(all.length / size), currentPage: page });
+      }
+      // SAST results of a scan (Labs → Fusion results): every third finding is one the AI engine found (isAiGenerated),
+      // filtered by is-ai-generated as Checkmarx One does; counted by severity, and compared with the scan before.
+      // Of those, every other one is in Solidity, a language the traditional engine does not cover (LAST's).
+      if (u.pathname === '/api/sast-results' || u.pathname === '/api/sast-scan-summary/aggregate' || u.pathname === '/api/sast-scan-summary/compare/aggregate') {
+        bump(u.pathname.includes('compare') ? 'sast-compare' : u.pathname.includes('aggregate') ? 'sast-aggregate' : 'sast-results');
+        const pid = String(u.searchParams.get('scan-id') ?? '').replace(/^(scan|feat)-/, '');
+        const ai = u.searchParams.get('is-ai-generated');
+        const rows = risksFor(pid).map((r) => {
+          const k = Number(r.id.split('-r')[1]);
+          const last = k % 6 === 3;
+          const file = last ? `contracts/Token${k % 4}.sol` : `src/routes/file${k % 4}.ts`;
+          const language = last ? 'Solidity' : 'TypeScript';
+          return { resultHash: r.id, similarityID: r.groupId, queryName: r.riskName.replace(/ /g, '_'), queryID: k % 3 === 0 ? 0 : 1000 + k, group: k % 3 === 0 ? `${language}_${r.severity}` : 'TypeScript_High_Risk', languageName: language, cweID: [287, 89, 79][k % 3], severity: r.severity, state: r.state, status: k % 2 ? 'RECURRENT' : 'NEW', firstFoundAt: r.firstDetectionDate, foundAt: day(1), confidenceLevel: 0, nodes: [{ fileName: file, line: 40 + k, column: 13, name: 'input', method: 'handler' }, { fileName: file, line: 42 + k, column: 31, name: 'query', method: 'handler' }], isAiGenerated: k % 3 === 0 };
+        }).filter((r) => (ai === '1' ? r.isAiGenerated : ai === '0' ? !r.isAiGenerated : true));
+        if (u.pathname === '/api/sast-results') {
+          const lim = Number(u.searchParams.get('limit') || 20);
+          return send(200, { results: rows.slice(offset, offset + lim), totalCount: rows.length });
+        }
+        if (u.pathname.includes('compare')) {
+          // One AI-generated TypeScript result fixed since the scan before in every other project, and one in
+          // Solidity in every fourth; counted by language, as asked (group-by-field=LANGUAGE).
+          const n = Number(pid.replace(/^p/, ''));
+          const fixed = u.searchParams.get('status') === 'FIXED' ? [n % 2 === 0 && { language: 'TypeScript', count: 1 }, n % 4 === 0 && { language: 'Solidity', count: 1 }].filter(Boolean) : [];
+          const summaries = u.searchParams.get('group-by-field') === 'LANGUAGE' ? fixed : fixed.map(({ count }) => ({ cweID: 287, count }));
+          return send(200, { summaries, totalCount: summaries.length });
+        }
+        const by = {};
+        for (const r of rows) by[r.severity] = (by[r.severity] ?? 0) + 1;
+        const summaries = Object.entries(by).map(([severity, count]) => ({ severity, count }));
+        return send(200, { summaries, totalCount: summaries.length });
       }
       if (u.pathname === '/api/risks/' || u.pathname === '/api/risks') {
         bump('risks');
@@ -305,7 +356,7 @@ http.createServer((req, res) => {
           if (i % 3 === 2) continue;
           for (let j = 0; j < (i % 5) + 1; j++) {
             const sc = SCORE[(i + j) % 5];
-            all.push({ id: `p${i}-r${j}`, name: 'Improper Neutralization of Special Elements used in a Command', hash: `h${i}${j}`, type: j % 2 ? 'sca' : 'code', risk: { score: sc, severity: sc >= 9 ? 'critical' : sc >= 7 ? 'high' : sc >= 4 ? 'medium' : 'low' }, createdAt: '2026-10-20T14:14:47Z', projects: [{ id: `p${i}`, name: `Project ${i}` }] });
+            all.push({ id: `p${i}-r${j}`, name: ['Improper Neutralization of Special Elements used in a Command', 'CVE-2026-112366', 'Docker Socket Mounted In Container'][j % 3], hash: `h${i}${j}`, type: ['code', 'sca', 'kics'][j % 3], status: j % 2 ? 'RECURRENT' : 'NEW', state: 'TO_VERIFY', risk: { score: sc, severity: sc >= 9 ? 'critical' : sc >= 7 ? 'high' : sc >= 4 ? 'medium' : 'low' }, createdAt: `2026-10-${String(10 + ((i + j) % 15)).padStart(2, '0')}T14:14:47Z`, ...(j === 2 ? {} : { projects: [{ id: `p${i}`, name: `Project ${i}` }] }) });
           }
         }
         const offset = Number(u.searchParams.get('offset') || 0), limit = Number(u.searchParams.get('limit') || 100);

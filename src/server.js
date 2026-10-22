@@ -86,14 +86,16 @@ import { inlineScriptHashes, pruneAttempts, sameOriginGuard, securityHeaders, tr
 import { describeCertificate } from './tls.js';
 import { HSTS_AGES, HttpsManager } from './https-manager.js';
 import { AcmeService, CHALLENGE_PREFIX, RENEW_DAYS, cleanNames, validName } from './acme.js';
-import { ActivationStore, ISSUER_KEYS, checkCode } from './activation.js';
+import { ActivationStore, DEACTIVATED_MESSAGE, ISSUER_KEYS, checkCode } from './activation.js';
 import { GATED_LANGUAGES, LanguageAccess } from './languages.js';
 import { DEFAULT_TENANT, Tenancy, scoped, scopedState } from './tenancy.js';
 import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
 import { SUPPORTING_NOTICE, Terms, cleanName } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
-import { PROBE_DEFAULTS, probeFusion, readFusion } from './fusion.js';
+import { PROBE_DEFAULTS, probeFusion } from './fusion.js';
+import { aiFindings, cleanEngines as cleanFusionEngines, readAiFusion } from './fusion-ai.js';
+import { DEFAULT_PERIOD as FUSION_PERIOD, USAGE_PERIODS, fusionUsage, projectFacts } from './fusion-usage.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
@@ -271,7 +273,8 @@ function buildTenant({ id, dir }) {
       // The scheduler is synchronous about session lookup, so a key armed while
       // the process is running is picked up by the refresh below rather than here.
       // Nothing runs on its own until an Admin has accepted the terms of use.
-      resolveSession: () => (terms.organisation() ? sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) : null),
+      // Nor once the product licence has ended (src/activation.js).
+      resolveSession: () => (terms.organisation() && activations.product().active ? sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) : null),
       state: automationState,
       // Runs send through the last known good mail server while a change waits to be checked.
       // Always the organisation's branding, even for a run started by someone presenting their own.
@@ -759,6 +762,22 @@ app.use('/api/diagnostics/client-error', express.json({ limit: '16kb' }));
 app.use(express.json({ limit: '4mb' }));
 
 /**
+ * The product licence (src/activation.js, docs/activation-codes.md): after the end of 31 December 2026 (UTC), or a product
+ * code's date if later, CxMissionZero stops. Every page shows that it has been deactivated, with a field for the
+ * activation code; every other request is refused. Only the health check (the container's), the licence itself
+ * and what its page needs stay open. Nothing is deleted.
+ */
+const productActive = () => activations.product().active;
+const LICENCE_OPEN = new Set(['/api/health', '/api/licence', '/api/licence/activate', '/deactivated.js', '/favicon.svg', '/mz-icon-64.png']);
+app.use((req, res, next) => {
+  if (LICENCE_OPEN.has(req.path)) return next();
+  if (productActive()) return req.path === '/deactivated.html' ? res.redirect('/') : next();
+  res.set('Cache-Control', 'no-store');
+  if (req.path.startsWith('/api/') || !['GET', 'HEAD'].includes(req.method)) return res.status(503).json({ error: DEACTIVATED_MESSAGE, deactivated: true });
+  res.status(503).sendFile(path.join(publicDir, 'deactivated.html'));
+});
+
+/**
  * Which tenant a request is for, and run it there (src/tenancy.js): a signed-in person's chosen
  * tenant, or, for an emailed report and the links in it, the one it names. Grants are bound to
  * their tenant, so naming another makes them fail. Everything else is the first tenant.
@@ -1179,6 +1198,8 @@ function describeMe(session, user) {
     languages: languageAccess.available(allowedLanguages(user.id)),
     // Add-ons a code has unlocked (in date or not): until then the page does not show them.
     unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, impact: Boolean(activations.feature('impact')?.on) },
+    // The product licence's end, for the Admins' banner in the last 30 days (src/activation.js).
+    licence: held.has('activation.manage') ? (({ until, daysLeft, warn, activation }) => ({ until, daysLeft, warn, activation }))(activations.product()) : null,
     // The organisation's name (given with the terms of use), for what CxMissionZero makes for others.
     organisationName: terms.organisationName(),
     // Get help: the support portal here, or email to an address (installations whose mail cannot leave).
@@ -2429,6 +2450,7 @@ async function runConnectionCheck({ rollback = false, trigger = 'check', actor =
 
 /** Changes nobody is checking (the browser closed mid-edit) are checked once they have been left alone a while. */
 const idleCheck = setInterval(() => {
+  if (!productActive()) return;
   tenancy.each(() => {
     const changedAt = guard.changedAt;
     if (!changedAt || Date.now() - Date.parse(changedAt) < ROLLBACK_IDLE_MS) return;
@@ -4603,6 +4625,37 @@ app.delete('/api/https/acme', requirePermission('security.https'), httpsRoute(as
   res.json(acmeView(req));
 }));
 
+// ---- The product licence: whether CxMissionZero works, and a product code entered on the deactivation page ----
+// Open to anyone who reaches the server: only a code the maintainer signed can do anything here.
+app.get('/api/licence', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const { active, until, message } = activations.product();
+  res.json({ active, until, message });
+});
+
+const licenceTries = new Map();
+app.post('/api/licence/activate', (req, res) => {
+  // A few tries a minute from one address: a code cannot be guessed, but there is no reason to let anyone try.
+  const ip = clientIp(req);
+  const now = Date.now();
+  const recent = (licenceTries.get(ip) ?? []).filter((t) => now - t < 60_000);
+  if (recent.length >= 10) return res.status(429).json({ error: 'Too many tries. Wait a minute, then enter the code again.' });
+  licenceTries.set(ip, [...recent, now]);
+  if (licenceTries.size > 1000) licenceTries.clear();
+  const result = checkCode(String(req.body?.code ?? '').trim().slice(0, 4000));
+  // In date by the licence's own clock too (never earlier than the latest time it has seen).
+  const passed = result.valid && Date.parse(result.expires) <= activations.now();
+  if (!result.valid || result.scope !== 'product' || passed) {
+    const reason = !result.valid ? result.reason || 'This activation code is not valid.' : result.scope !== 'product' ? 'This is not a CxMissionZero activation code.' : `This activation code ended on ${result.expires.slice(0, 10)}.`;
+    audit.record({ type: 'settings', outcome: 'refused', reason: `Product activation code refused: ${reason}`, actor: { kind: 'system', user: `deactivation page (${ip})` } });
+    return res.status(400).json({ error: reason });
+  }
+  activations.record(result, `deactivation page (${ip})`);
+  audit.record({ type: 'settings', outcome: 'changed', reason: `Product activation code applied: CxMissionZero works until ${result.expires.slice(0, 10)} (${result.org}).`, actor: { kind: 'system', user: `deactivation page (${ip})` }, details: { activation: { id: result.id, org: result.org, scope: result.scope, action: result.action, expires: result.expires } } });
+  const { active, until } = activations.product();
+  res.json({ active, until });
+});
+
 // ---- Activation codes (Settings → Activation codes): add-ons unlocked by the maintainer ----
 
 function activationView(req) {
@@ -4614,6 +4667,7 @@ function activationView(req) {
     languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)]).filter(([, s]) => s.on || s.expired)),
     tenants: activations.tenants(),
     features: Object.fromEntries(['impact'].map((name) => [name, activations.feature(name)]).filter(([, f]) => f)),
+    product: activations.product(),
     history: activations.history().slice(0, 10),
   };
 }
@@ -4639,6 +4693,8 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
     what = `${applied.code === 'he' ? 'Hebrew' : applied.code} ${applied.on ? `turned on until ${result.expires.slice(0, 10)}, for the roles with its permission (People & roles)` : 'turned off'}`;
   } else if (result.scope === 'feature:impact') {
     what = `the Cx Credits Calculator's Impact tab ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}` : 'turned off'}`;
+  } else if (result.scope === 'product') {
+    what = `CxMissionZero activated for ${result.org} until ${result.expires.slice(0, 10)}`;
   } else {
     what = `several Checkmarx One tenants unlocked for ${result.org}: up to ${result.maxTenants}, until ${result.expires.slice(0, 10)}`;
   }
@@ -6377,6 +6433,8 @@ async function backgroundRefresh() {
   }
 }
 setInterval(() => {
+  // Deactivated (the product licence): nothing reads Checkmarx One or sends anything on its own.
+  if (!productActive()) return;
   tenancy.each(() => {
     backgroundRefresh().catch(() => {});
     monthlyImpact().catch((error) => console.warn(`[impact] ${error.message}`));
@@ -8259,7 +8317,7 @@ const healthView = () => ({ lastCheckAt: watchdog.state.lastCheckAt, everyMinute
 
 {
   const loop = (fn, every, first) => {
-    const run = () => fn().catch((error) => diagnostics.error('background', error));
+    const run = () => (productActive() ? fn() : Promise.resolve()).catch((error) => diagnostics.error('background', error));
     setTimeout(() => {
       run();
       setInterval(run, every).unref();
@@ -9628,8 +9686,74 @@ function initiatorLogins(lastScan) {
  * line (applications and projects by name) and its own fetch, apart from the Workbench's. Kept with
  * the session (session.fusionScope and session.lastFusion).
  */
+/** Each Fusion result's link in Checkmarx One: its project's Risk Hub with the result open (resultId = its hash). */
+function linkFusion(req, fusion) {
+  const { links } = settingsStore.get();
+  for (const r of fusion?.results ?? []) {
+    if (!r.projectId || r.projectId.startsWith('app:')) continue;
+    r.url = riskUrl({ projectId: r.projectId, id: r.hash || r.resultId, scanner: r.scanner || 'SAST' }, req.session.connection, links, r.scanId);
+  }
+  // Each project's own page in Checkmarx One, to go into its detail there.
+  for (const [projectId, p] of Object.entries(fusion?.projects ?? {})) p.url = projectUrl({ projectId }, req.session.connection, links);
+  return fusion;
+}
+
+/**
+ * Fusion (AI-generated SAST results, src/fusion-ai.js) for these projects, from each one's latest completed
+ * scan; kept with the session, with the results as findings the credit, triage and remediation code acts on.
+ */
+async function loadAiFusion(req, names) {
+  const ids = Object.keys(names);
+  const scans = await getLastScans(req.session.client, ids);
+  const trace = fusionTrace(req);
+  const fusion = linkFusion(req, await readAiFusion(req.session.client, ids.map((id) => ({ id, name: names[id] })), scans, { trace }));
+  // Each project's model and lines of code (its latest scan, else its settings), and its AI scans and credits.
+  const shown = Object.keys(fusion.projects);
+  const [facts, usage] = await Promise.all([
+    projectFacts(req.session.client, shown, scans, { trace }).catch((error) => (console.warn(`[fusion] facts: ${logSafe(error.message)}`), {})),
+    fusionUsage(req.session.client, shown.map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period: req.session.fusionPeriod ?? FUSION_PERIOD, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null)),
+  ]);
+  for (const [id, f] of Object.entries(facts)) Object.assign(fusion.projects[id], f);
+  fusion.usage = usage;
+  req.session.lastFusion = fusion;
+  req.session.fusionScan = aiFindings(fusion);
+  // A new read: the projects shown are the page's again; the Fusion and LAST ticks stay.
+  if (req.session.fusionFocus) req.session.fusionFocus.projectIds = null;
+  return fusion;
+}
+
+/**
+ * What the page's credits and actions are for: the results of the engines ticked (Fusion, LAST or both) in the
+ * projects it shows (null: every one loaded). Taken from the request when it says, kept with the session.
+ */
+function fusionFocus(req) {
+  const body = req.body ?? {};
+  // A project's side panel asks for that project alone, without changing what the page's bar acts on.
+  if (body.once === true) return { engines: cleanFusionEngines(body.engines), projectIds: Array.isArray(body.projectIds) ? body.projectIds.map((id) => String(id ?? '').slice(0, 80)).filter(Boolean).slice(0, 50) : null };
+  const focus = (req.session.fusionFocus ??= { engines: cleanFusionEngines(), projectIds: null });
+  if ('engines' in body) focus.engines = cleanFusionEngines(body.engines);
+  if ('projectIds' in body) focus.projectIds = Array.isArray(body.projectIds) ? [...new Set(body.projectIds.map((id) => String(id ?? '').slice(0, 80)).filter(Boolean))].slice(0, 5000) : null;
+  return focus;
+}
+
 app.get('/api/beta/fusion', requireFeature('fusionResults'), (req, res) => {
-  res.json({ fusion: req.session.lastFusion ?? null, scope: req.session.fusionScope ?? null, credits: fusionCredits(req) });
+  res.json({ fusion: req.session.lastFusion ?? null, scope: req.session.fusionScope ?? null, focus: fusionFocus(req), credits: fusionCredits(req) });
+});
+
+// The AI scans and credits over another period (the page's period picker), for the projects loaded.
+app.post('/api/beta/fusion/usage', requireFeature('fusionResults'), asyncRoute(async (req, res) => {
+  const fusion = req.session.lastFusion;
+  if (!fusion) return res.status(409).json({ error: 'Load results first.' });
+  const period = USAGE_PERIODS[req.body?.period] ? req.body.period : FUSION_PERIOD;
+  req.session.fusionPeriod = period;
+  const names = req.session.fusionScope?.names ?? {};
+  fusion.usage = await fusionUsage(req.session.client, Object.keys(fusion.projects).map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period, trace: fusionTrace(req) });
+  res.json({ usage: fusion.usage });
+}));
+
+// The credits the page's lanes show, for what it shows now (the ticks, and the projects its filters leave).
+app.post('/api/beta/fusion/credits', requireFeature('fusionResults'), (req, res) => {
+  res.json({ focus: fusionFocus(req), credits: fusionCredits(req) });
 });
 
 // ---- Troubleshooting Fusion (Admins who manage the Checkmarx One integration): test paths, and a
@@ -9695,11 +9819,14 @@ const plainId = (id) => {
   return s;
 };
 
-/** Which fetched findings Fusion re-scored: (projectId, finding) → true. */
+/** Which loaded results the page acts on (the engines ticked, the projects shown): (projectId, finding) → true. */
 function fusionKeep(req) {
+  const { engines, projectIds: shown } = fusionFocus(req);
+  const only = shown ? new Set(shown) : null;
   const ids = new Map();
   for (const r of req.session.lastFusion?.results ?? []) {
     if (!r.projectId || !r.resultId) continue;
+    if ((r.engine && !engines.includes(r.engine)) || (only && !only.has(r.projectId))) continue;
     if (!ids.has(r.projectId)) ids.set(r.projectId, new Set());
     ids.get(r.projectId).add(plainId(r.resultId));
   }
@@ -9712,10 +9839,15 @@ function fusionKeep(req) {
 
 const FUSION_RECENT_MS = 30 * 60 * 1000;
 
+/** The projects whose Fusion results are acted on: those the Fusion page loaded (else the Workbench's fetch). */
+const fusionProjects = (req, projectIds) => (req.session.fusionScan?.projects ?? scanProjects(req, projectIds)).filter((p) => projectIds.includes(p.projectId));
+/** Each project's scan the results come from, for AI Triage and AI Remediation. */
+const fusionInitiators = (req) => ({ ...(req.session.lastScan?.initiators ?? {}), ...(req.session.fusionScan?.initiators ?? {}) });
+
 /** The Fusion page's two lanes: credits needed by severity (1 to triage, 3 to remediate) and what its projects hold. */
 function fusionCredits(req) {
   const { keep, projectIds } = fusionKeep(req);
-  const projects = scanProjects(req, projectIds).filter((p) => projectIds.includes(p.projectId));
+  const projects = fusionProjects(req, projectIds);
   const triage = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
   const remediation = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
   const left = { triage: 0, remediation: 0 };
@@ -9748,8 +9880,8 @@ app.post('/api/beta/fusion/allocate', requireFeature('fusionResults'), requirePe
   const wanted = cleanSeverities(req.body?.severities);
   if (!wanted.length) return res.status(400).json({ error: 'Pick severities to allocate for.' });
   const { keep, projectIds } = fusionKeep(req);
-  const projects = scanProjects(req, projectIds).filter((p) => projectIds.includes(p.projectId));
-  if (!projects.length) return res.status(409).json({ error: 'None of the fetched projects has Fusion results.' });
+  const projects = fusionProjects(req, projectIds);
+  if (!projects.length) return res.status(409).json({ error: 'None of the loaded projects has Fusion results.' });
   const done = await allocateNeeded(req, projects, {
     wanted, extraTriage: 0, extraRemediation: 0, kinds: kindsOf(req.body?.kind), keep, where: 'Labs → Fusion results',
     details: { projectIds: projects.map((p) => p.projectId), kind: req.body?.kind ?? 'both', fusion: true },
@@ -9764,7 +9896,7 @@ app.post('/api/beta/fusion/triage', requireFeature('fusionResults'), requirePerm
   const wanted = cleanSeverities(req.body?.severities);
   if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to triage.' });
   const { keep, projectIds } = fusionKeep(req);
-  const projects = scanProjects(req, projectIds).filter((p) => projectIds.includes(p.projectId));
+  const projects = fusionProjects(req, projectIds);
   const candidate = (p, r) => keep(p.projectId, r) && wanted.includes(r.severity) && (!r.state || r.state === 'TO_VERIFY');
   const lives = await mapWithConcurrency(projects, VERIFY_AT_ONCE, async (p) => ((p.risks ?? []).some((r) => candidate(p, r)) ? projectStates(req.session, p.projectId).catch(() => null) : null));
   const originals = new Map();
@@ -9782,11 +9914,11 @@ app.post('/api/beta/fusion/triage', requireFeature('fusionResults'), requirePerm
   }
   if (!findings.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], credits: fusionCredits(req) });
   const actor = await adminActor(req);
-  const outcome = await adminTriage(req.session, findings, req.session.lastScan.initiators ?? {}, { actor, origin: `Labs → Fusion results: triage ${wanted.map((s) => s.toLowerCase()).join(', ')}` });
+  const outcome = await adminTriage(req.session, findings, fusionInitiators(req), { actor, origin: `Labs → Fusion results: triage ${wanted.map((s) => s.toLowerCase()).join(', ')}` });
   for (const f of outcome.startedFindings) originals.get(f).triageRequestedAt = Date.now();
   for (const p of projects) p.credits = creditView(p);
   const { startedFindings, ...summary } = outcome;
-  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'triage', startedFindings, req.session.lastScan.initiators ?? {}, actor);
+  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'triage', startedFindings, fusionInitiators(req), actor);
   res.json({ ...summary, notified, credits: fusionCredits(req) });
 }));
 
@@ -9795,7 +9927,7 @@ app.post('/api/beta/fusion/remediate', requireFeature('fusionResults'), requireP
   const wanted = cleanSeverities(req.body?.severities);
   if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to remediate.' });
   const { keep, projectIds } = fusionKeep(req);
-  const projects = scanProjects(req, projectIds).filter((p) => projectIds.includes(p.projectId));
+  const projects = fusionProjects(req, projectIds);
   const { allowReremediation = false } = settingsStore.get().aiTriage ?? {};
   const findings = [];
   for (const p of projects) {
@@ -9813,9 +9945,9 @@ app.post('/api/beta/fusion/remediate', requireFeature('fusionResults'), requireP
   const unique = remediationCandidates(findings, wanted);
   if (!unique.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], credits: fusionCredits(req) });
   const actor = await adminActor(req);
-  const { startedFindings, ...summary } = await adminRemediate(req.session, unique, req.session.lastScan.initiators ?? {}, { actor, origin: `Labs → Fusion results: remediate the confirmed ${wanted.map((s) => s.toLowerCase()).join(', ')}` });
+  const { startedFindings, ...summary } = await adminRemediate(req.session, unique, fusionInitiators(req), { actor, origin: `Labs → Fusion results: remediate the confirmed ${wanted.map((s) => s.toLowerCase()).join(', ')}` });
   for (const p of projects) p.credits = creditView(p);
-  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'remediation', startedFindings, req.session.lastScan.initiators ?? {}, actor);
+  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'remediation', startedFindings, fusionInitiators(req), actor);
   res.json({ ...summary, notified, credits: fusionCredits(req) });
 }));
 
@@ -9826,9 +9958,7 @@ app.post(
     // Read again for what the page's line last loaded.
     const scope = req.session.fusionScope;
     if (!scope?.projects) return res.status(400).json({ error: 'Choose applications or projects above, then Load Fusion results.' });
-    const { fusionResultsPath = '', fusionDispatcherPath = '' } = settingsStore.get().endpoints ?? {};
-    const fusion = await readFusion(req.session.client, Object.keys(scope.names), { resultsPath: fusionResultsPath, dispatcherPath: fusionDispatcherPath, trace: fusionTrace(req) });
-    req.session.lastFusion = fusion;
+    const fusion = await loadAiFusion(req, scope.names);
     res.json({ fusion, scope, credits: fusionCredits(req) });
   }),
 );
@@ -9864,9 +9994,8 @@ app.post(
       fetchedAt: new Date().toISOString(),
       own: { applications: wantedApps, projects: wantedProjects },
     };
-    const { fusionResultsPath = '', fusionDispatcherPath = '' } = settingsStore.get().endpoints ?? {};
-    const fusion = await readFusion(client, [...ids], { resultsPath: fusionResultsPath, dispatcherPath: fusionDispatcherPath, trace: fusionTrace(req) });
-    Object.assign(req.session, { fusionScope: scope, lastFusion: fusion });
+    req.session.fusionScope = scope;
+    const fusion = await loadAiFusion(req, scope.names);
     res.json({ fusion, scope, credits: fusionCredits(req) });
   }),
 );

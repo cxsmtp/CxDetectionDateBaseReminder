@@ -14,8 +14,8 @@ export class CxApiError extends Error {
   }
 }
 
-// What a trace keeps of a body: enough to see what came back.
-const TRACE_BODY = 8192;
+// What a trace keeps of a body: all of a page of results, to see every field that came back (debugging only).
+const TRACE_BODY = 256 * 1024;
 const RETRYABLE = new Set([429, 502, 503, 504]);
 // Pages of one collection read at once once its size is known (CX_PAGES_AT_ONCE).
 const PAGES_AT_ONCE = Math.max(1, Number(process.env.CX_PAGES_AT_ONCE) || 4);

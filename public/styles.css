@@ -3276,11 +3276,8 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .fusion-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 12px; }
 .fusion-tools input[type="search"] { flex: 1 1 220px; min-width: 0; }
 .fusion-tools select { flex: 0 1 auto; min-width: 0; }
-.fusion-credits { display: inline-flex; align-items: center; gap: 8px; margin-inline-start: auto; font-size: 12.5px; color: var(--muted); }
-.fusion-credits input { width: 110px; }
 .fusion-apps { margin-top: 14px; }
 .fusion-apps > summary { cursor: pointer; font-weight: 600; }
-@media (max-width: 760px) { .fusion-credits { margin-inline-start: 0; flex: 1 1 100%; } .fusion-credits input { flex: 1 1 auto; } }
 .fusion-tried { margin: -4px 0 12px; overflow-wrap: anywhere; }
 .fusion-tried:empty { display: none; }
 
@@ -3365,3 +3362,89 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .fusion-scope .scope-field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; min-width: 0; }
 .fusion-scope .scope-field input { width: 100%; }
 .fusion-scope .fetch-box { flex: 0 0 auto; padding: 0; border: 0; background: none; }
+/* Labs → Fusion results: every result, one by one. */
+.fusion-results-head { display: grid; gap: 8px; margin: 18px 0 8px; }
+.fusion-results-head .fusion-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fusion-results-head .fusion-tools input[type=search] { flex: 1 1 260px; }
+.fusion-results-head h3 { margin: 0; }
+.fusion-proj-name { white-space: nowrap; }
+.fusion-proj-name .link { font-weight: 600; text-align: start; }
+.fusion-out { text-decoration: none; margin-inline-start: 4px; }
+
+/* Labs → Fusion results: Fusion / LAST ticks, the projects list, and a project's vulnerabilities in a side panel. */
+.fusion { --fusion-c: #4f46e5; --last-c: #0f766e; }
+:root[data-theme="dark"] .fusion { --fusion-c: #8b85ff; --last-c: #2dd4bf; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fusion { --fusion-c: #8b85ff; --last-c: #2dd4bf; } }
+.fusion-show { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.fusion-show legend { padding: 0; margin-bottom: 4px; }
+.fusion-engines { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm, 10px); background: var(--surface); overflow: hidden; }
+.fusion-engine { display: inline-flex; align-items: center; gap: 7px; min-height: var(--control-h, 36px); padding: 0 12px; cursor: pointer; font-size: 13.5px; white-space: nowrap; }
+.fusion-engine + .fusion-engine { border-inline-start: 1px solid var(--border); }
+.fusion-engine input { margin: 0; width: 15px; height: 15px; accent-color: var(--c); }
+.fusion-engine i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.fusion-engine em { font-style: normal; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.fusion-engine-fusion { --c: var(--fusion-c); } .fusion-engine-last { --c: var(--last-c); }
+.fusion-tag { display: inline-block; padding: 0 7px; border-radius: 99px; font-size: 11px; font-weight: 600; line-height: 18px; color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); background: color-mix(in srgb, var(--c) 8%, transparent); white-space: nowrap; }
+.fusion-tag.fusion-FUSION { --c: var(--fusion-c); } .fusion-tag.fusion-LAST { --c: var(--last-c); }
+.fusion-act-bar { margin-top: 0; }
+@media (min-width: 1600px) { .fusion-act-bar { display: flex; } }
+.fusion-table tbody tr[data-fusion-row] { cursor: pointer; }
+.fusion-table tbody tr[data-fusion-row]:hover td { background: var(--accent-soft); }
+.fusion-table tbody tr.is-open td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.fusion-proj-name .link { font-weight: 600; text-align: start; }
+.fusion-proj-name small { margin-inline-start: 6px; color: var(--muted); font-size: 12px; }
+.fusion-drawer { position: fixed; inset: 0; z-index: 150; display: flex; justify-content: flex-end; }
+.fusion-drawer[hidden] { display: none; }
+.fusion-scrim { position: absolute; inset: 0; background: rgb(15 23 42 / 0.35); }
+.fusion-sheet { position: relative; display: flex; flex-direction: column; width: min(580px, 100%); height: 100%; background: var(--surface); border-inline-start: 1px solid var(--border); box-shadow: var(--shadow); animation: rp-in 0.18s ease-out; }
+[dir="rtl"] .fusion-sheet { animation-name: rp-in-rtl; }
+@media (prefers-reduced-motion: reduce) { .fusion-sheet { animation: none; } }
+.fusion-side-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
+.fusion-side-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.fusion-side-top h2 { margin: 0; overflow-wrap: anywhere; }
+.fusion-side-top .hint { margin: 2px 0 0; }
+.fusion-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.fusion-chip { min-height: 28px; padding: 0 11px; border-radius: 99px; font-size: 12.5px; }
+.fusion-sheet .fusion-chips button.fusion-chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.fusion-side-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.fusion-side-list { flex: 1; overflow-y: auto; padding: 8px 14px 24px; }
+.fusion-vuln { border: 1px solid var(--border); border-radius: 12px; margin: 8px 0; background: var(--surface-2); }
+.fusion-vuln > summary { list-style: none; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 3px 10px; padding: 11px 13px; cursor: pointer; }
+.fusion-vuln > summary::-webkit-details-marker { display: none; }
+.fusion-vuln > summary .sev-dot { margin: 0; }
+.fusion-vuln-name { font-weight: 600; overflow-wrap: anywhere; }
+.fusion-vuln-sub { grid-column: 2 / 4; color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.fusion-vuln dl { display: grid; grid-template-columns: minmax(96px, max-content) 1fr; gap: 6px 14px; margin: 0; padding: 2px 14px 14px 32px; font-size: 13px; }
+.fusion-vuln dt { color: var(--muted); }
+.fusion-vuln dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.fusion-vuln code { font: 12.5px var(--mono); word-break: break-all; }
+@media (max-width: 560px) { .fusion-vuln dl { grid-template-columns: 1fr; padding-inline-start: 14px; } .fusion-vuln dt { margin-top: 4px; } }
+/* The figures in one line, as the Dashboard's; coloured by what they are, not where they sit. */
+.fusion .fusion-tiles { display: flex; flex-wrap: wrap; gap: 0; margin: 4px 0 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.fusion .fusion-tiles:empty { display: none; }
+.fusion .fusion-tiles > div { flex: 1 1 auto; display: flex; flex-direction: row; align-items: baseline; justify-content: center; gap: 6px; padding: 11px 14px; min-width: 0; white-space: nowrap; border: 0; border-radius: 0; background: none; box-shadow: none; border-inline-start: 1px solid var(--border); margin-inline-start: -1px; }
+.fusion .fusion-tiles > div .value { font-size: 20px; line-height: 1.2; color: inherit; }
+.fusion .fusion-tiles .label { font-size: 12px; }
+.fusion .fusion-tiles > div.crit .value { color: var(--danger); } .fusion .fusion-tiles > div.high .value { color: var(--warn); }
+.licence-banner { margin: 0 0 14px; padding: 10px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border)); background: color-mix(in srgb, var(--warn) 10%, var(--surface)); color: var(--text); font-size: 13.5px; }
+.licence-banner[hidden] { display: none; }
+/* Fusion page v2: the model, the results by severity in one cell, and the side panel's facts and AI lanes. */
+.fusion-model { font: 12px var(--mono); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-2); white-space: nowrap; }
+.fusion-sevs { white-space: nowrap; }
+.fusion-sev { display: inline-block; margin-inline-end: 4px; padding: 0 6px; border-radius: 99px; font-size: 11.5px; font-weight: 600; line-height: 18px; color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); }
+.fusion-sev-critical { --c: #dc2626; } .fusion-sev-high { --c: #ea580c; } .fusion-sev-medium { --c: #b7791f; } .fusion-sev-low { --c: #2563eb; }
+.fusion-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin-top: 12px; }
+.fusion-facts:empty { display: none; }
+.fusion-facts > div { display: flex; flex-direction: column; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.fusion-facts span { font-size: 11.5px; color: var(--muted); }
+.fusion-facts b { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fusion-facts small { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.fusion-side-lanes { margin-top: 10px; }
+.fusion-side-lanes[hidden] { display: none; }
+.fusion-side-lanes .credit-lanes { gap: 8px; }
+.fusion-chip-fixed { display: inline-flex; align-items: center; min-height: 28px; padding: 0 11px; border: 1px dashed var(--border-strong); border-radius: 99px; font-size: 12.5px; color: var(--muted); }
+#fusion-side-status:empty { display: none; }
+/* In a project's side panel the lanes are narrow: the head on its own line, the two steps under it. */
+.fusion-side-lanes .credit-lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.fusion-side-lanes .lane-head { grid-column: 1 / -1; }
+.fusion-side-lanes .lane-actions button { white-space: normal; }

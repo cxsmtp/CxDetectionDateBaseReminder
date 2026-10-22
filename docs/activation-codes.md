@@ -8,7 +8,19 @@ A few add-ons are unlocked per installation with an activation code:
 | **Cx Credits Calculator: Impact** | an activation code and a deactivation code | Shows the calculator's **Impact** tab and puts its section back in the projection report and the PDF summary, until the code expires, or hides them again. Off until a code turns it on (from MZ-01.00.91), while it matures; the standalone calculator's downloads never have it. |
 | **Several tenants** | an activation code naming the organisation and how many tenants | Unlocks the Super Admin tasks for organisations that run more than one Checkmarx One tenant ([several tenants](multi-tenant.md)). |
 
-Everything else works without a code.
+Everything else works without a code, until the product licence's end date (below).
+
+## The product licence: CxMissionZero stops after 31 December 2026
+
+From MZ-01.00.93, CxMissionZero works until the **end of 31 December 2026, UTC** (04:00 on 1 January in the UAE). After that it stops until the **product activation code** from the maintainer is entered. There is **one product code for everyone** who has downloaded or uses CxMissionZero: it is not tied to a server or an organisation, so the same key, given to everyone, works on every installation and in the standalone calculator. The code says until when CxMissionZero works; a new one, issued when the licensing changes, extends it again.
+
+- **Before the end.** From 1 December (30 days before), Admins see a banner at the top of every page with the date and the days left, and **Settings → Activation codes** shows **CxMissionZero · Active · Until the end of 31 Dec 2026**. A product code applied there moves the date at once.
+- **After the end.** Every page shows **The product has been deactivated. Please reach out to Bhawani Singh.**, with **Enter an activation code**. Nobody can sign in; every other request is refused. Scheduled reminders, automation, AI Triage and AI Remediation, emails and reads of Checkmarx One all stop. The container's health check (`/api/health`) still answers, so the container is not restarted over and over.
+- **Nothing is deleted.** Settings, people, history and reports stay on disk, and scheduled backups go on. Once a code is entered, everything works again as it was, with no restart.
+- **Entering the code after the end.** Paste it on the deactivation page and select **Activate**: anyone who reaches the server can, since only a code the maintainer signed is accepted (a few tries a minute from one address). Every code applied or refused there is in the audit log (type **System**, by *deactivation page* and the address).
+- **The standalone Cx Credits Calculator** (the HTML file and the launcher's page) built from this release stops at the same moment and takes the same code, checked in the browser. Customers and reports kept in the browser are left as they are. Copies downloaded from releases before MZ-01.00.93 have no end date.
+- **Setting the clock back does not help.** The licence goes by the latest time the server (or the browser, for the calculator) has seen, kept in `DATA_DIR/activation.json`; a code whose date has already passed on that clock is refused. The release's file check ([integrity](integrity.md)) reports any changed file as *tampered*, so a copy edited to remove the date shows as such.
+
 
 ## For Admins: applying a code
 
@@ -38,6 +50,8 @@ Codes are signed with an Ed25519 key, using `scripts/activation.mjs`.
 | Turn Hebrew off | `node scripts/activation.mjs lang issuer-key.pem "Acme Corp" he off` |
 | Turn the calculator's Impact tab on | `node scripts/activation.mjs feature issuer-key.pem "Acme Corp" impact on` |
 | Turn the calculator's Impact tab off | `node scripts/activation.mjs feature issuer-key.pem "Acme Corp" impact off` |
+| Keep CxMissionZero working until the end of a day (UTC) | `node scripts/activation.mjs product issuer-key.pem 2027-12-31` |
+| Keep CxMissionZero working for some months | `node scripts/activation.mjs product issuer-key.pem 12` |
 | See what a code contains | `node scripts/activation.mjs show MZ1.…` |
 
 - **Validity:** a code lasts 12 months. Add a number of months as the last argument to change that.
