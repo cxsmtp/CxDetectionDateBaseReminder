@@ -7,6 +7,8 @@ Self-hosted, one container, nothing to install for developers.
 > <span style="color:#065f46">**On premise, your data stays yours.** Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add; and, only when an Admin checks for or installs updates, the registry its own image comes from). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</span>
 >
 > **An independent project, not a Checkmarx product.** Free for Checkmarx One customers to use inside their own organisation ([PolyForm Internal Use 1.0.0](LICENSE)). It comes as is, with no warranty and no promise of support or fixes, and neither its author nor Checkmarx is responsible for how it is used or for any credit discrepancy. Its credit figures and audit reports are supporting information only, never evidence in a dispute with Checkmarx. Using it means accepting the [terms of use](TERMS.md), which an Admin accepts for the organisation at the first sign-in.
+>
+> **Works until 31 December 2026 (UTC).** From MZ-01.00.93, CxMissionZero (and the standalone calculator built from it) stops at the end of 31 December 2026, UTC, until the product activation code is entered: one key for everyone, from Bhawani Singh. Admins see a banner from 1 December. Nothing is deleted and backups go on ([the product licence](docs/activation-codes.md#the-product-licence-cxmissionzero-stops-after-31-december-2026)).
 
 | You get | How |
 | --- | --- |
@@ -322,7 +324,7 @@ How it is measured, and what is open and why: [Performance and security status](
 | [When a connection does not work](docs/troubleshooting.md) | Every email server, Checkmarx One, git host and .env file problem MissionZero recognises, and the steps that fix each one. |
 | [Hands-off and self-healing](docs/hands-off.md) | Set it up once, steer it by email (links and one-word replies), and how it checks, repairs and reports on itself. |
 | [Activation codes](docs/activation-codes.md) | Add-ons unlocked with a code (Hebrew; several Checkmarx One tenants), and the product licence: CxMissionZero stops after 31 December 2026 (UTC) until a product activation code is entered. Applying one, and how they are issued. |
-| [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code (git blame, down to the exact developer), and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket; Fusion results (what Checkmarx One Fusion re-scored, by severity per project, with what it raised to critical or high). An Admin makes each one final when it has proved itself. |
+| [Beta features](docs/beta-features.md) | Emailing the authors of vulnerable code (git blame, down to the exact developer), and matching usernames to addresses, on GitHub, GitLab, Azure DevOps and Bitbucket; Fusion results (what Checkmarx One's AI engine found in SAST, Fusion and LAST apart, with each project's model, lines of code, AI scans and credits, its vulnerabilities in a side panel, and AI Triage and Remediation for them). An Admin makes each one final when it has proved itself. |
 
 ## Licence, terms of use and contributing
 

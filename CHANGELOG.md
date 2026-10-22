@@ -81,14 +81,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 ## MZ-01.00.93 — not released yet · [#116](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/116)
 
-- **Fusion counts that match Checkmarx One.** Fusion results read through Application Risk Management are now read to the last page even when Checkmarx One gives fewer per page than asked (before, only the first page was counted), and so is the list of applications.
-- **No Fusion result left out.** A result that names its project another way (`projectId`, `project`), or names none, as some of Fusion's own SAST results do, is now counted: under its project, or under its application as a row of its own ("… (no project given)"); before, it was dropped.
-- **Fusion's own results only.** Fusion Hub lists every risk of an application and marks the ones Fusion found; when Checkmarx One marks them, **Labs → Fusion results** now counts only those ("Only the results Fusion found: 1 of the 48…"), and says so when it cannot tell.
-- **Fusion's mark as Checkmarx One sets it.** A result whose `isAiGenerated` is true (shown as "LLM-Based: Yes" in its Vulnerability Details) now counts as one Fusion found; a standard result, `isAiGenerated: false`, does not.
-- **Each result opens in Checkmarx One.** A result's name links to it in its project's Risk Hub, with its details open (as the Workbench's findings do); the link is in the CSV too.
-- **The Fusion debug log keeps whole answers** (up to 256 KB each, was 8 KB), so a page of results can be read in full when something does not match.
-- **Every Fusion result, one by one.** Under the projects, **Every result** lists each result once, as Fusion Hub does: severity, scanner, risk name and its id, status (New, Recurrent), state (To verify…), when it was detected, its risk score, its projects and application; searchable by name, id, project or application, filtered by severity, scanner and state, and downloadable as CSV.
-- **Each result once in the totals.** A Fusion result that belongs to several projects still shows in each project's row, but counts once in the tiles and in its application's total, as on the platform.
+- **Fusion counts that match Checkmarx One.** **Labs → Fusion results** now reads, from each project's latest scan, the SAST results Checkmarx One marks AI-generated ("LLM-Based: Yes"), so the counts match the platform instead of every risk of an application.
+- **Fusion and LAST, apart.** A result is **Fusion**'s when the traditional SAST engine supports its language or framework too, and **LAST**'s (language-agnostic static testing) when only the AI engine covers it; two ticks choose which the page, its exports and its credits follow.
+- **A projects list, like the Workbench.** One line of figures (projects, AI scans, credits spent, results, critical, high, new, recurrent, fixed) and each project's model, lines of code, AI scans, credits and results, filtered by severity, by status (new, recurrent, fixed) and over 30 days to a year.
+- **Each project's vulnerabilities in a side panel.** Click a project to see each vulnerability as Checkmarx One's results page shows it (severity, status and state, language, CWE, source and sink, first and last found), each linking to it in Checkmarx One, with **Export CSV** and **HTML report** for that project or the whole page.
+- **Triage and remediate from there.** Allocate credits, then AI Triage and AI Remediation for one project from its side panel, or for every project shown from the bar, without loading the Workbench; the button turns gold once the credits are there.
+- **Credits as Checkmarx One counts them.** Each project's credits come from Checkmarx One's credit consumption, with its AI Triage and AI Remediation actions; the Fusion share per AI scan is an estimate, and says so.
+- **CxMissionZero stops after 31 December 2026 (UTC)** until the product activation code is entered: one key for everyone, from Bhawani Singh. Admins see a banner from 1 December; after that every page says "The product has been deactivated. Please reach out to Bhawani Singh.", nothing is deleted and backups go on, and the standalone calculator built from this release stops too ([the product licence](docs/activation-codes.md#the-product-licence-cxmissionzero-stops-after-31-december-2026)).
+- **Status.** Measured when it is merged.
 
 ## MZ-01.00.92 — 2026-10-21 16:12 UTC · [#115](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/115)
 
