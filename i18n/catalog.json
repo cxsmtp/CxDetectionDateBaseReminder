@@ -29176,5 +29176,149 @@
   "seen": [
    "MZ-01.00.95 › Settings → AI & credit pool"
   ]
+ },
+ "Mark them as": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Proposed not exploitable": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Proposed: a person confirms each one later (recommended). Not exploitable: final at once; they leave every count, and Undo still puts them back to To verify.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Not exploitable is final: these results leave every count and dashboard at once, with no one confirming them. Undo puts them back to To verify.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Money saved": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "false positives marked Not exploitable": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "{0} distinct findings: Checkmarx One marks every result that shares one.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "{0} results To verify would be marked Not exploitable: not reported by the FAE scan of the same code. Nothing is marked until you select Mark now.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "of {0} results To verify marked Not exploitable: not reported by the FAE scan of the same code.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "money saved": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "of triage time": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "of AI Triage credits": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "money saved: add an hourly cost and the price of one credit": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "{0} results in {1} distinct findings: Checkmarx One marks every result that shares one. Time counts each finding once; credits count each result.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "{0} Proposed not exploitable · {1} Not exploitable.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Time and money use the figures under": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "To see the money saved, set an hourly cost and the price of one credit under": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Settings → AI & credit pool → Impact": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Mark {0} results Not exploitable now?": {
+  "kind": "dialog",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "The {0} results it marked Not exploitable go back to To verify, apart from any someone changed since (those stay as they are).": {
+  "kind": "dialog",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "{0} projects, {1} scans at a time (≈ {2} min). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Not exploitable in the project itself, with a comment naming the FAE scan.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "Only an Admin can mark them Not exploitable: choose Proposed not exploitable.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "This run marks them Not exploitable: only an Admin can mark them.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.95 › Labs → FAE Flush"
+  ]
+ },
+ "<b class=\"flush-pne\">{0}</b> of {1} results To verify marked Not exploitable: not reported by the FAE scan of the same code.": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.96 › Labs → FAE Flush"
+  ]
  }
 }
