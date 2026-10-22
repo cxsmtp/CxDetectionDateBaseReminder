@@ -4311,6 +4311,9 @@
   "{0} projects, {1} scans at a time (≈ {2} min). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Not exploitable in the project itself, with a comment naming the FAE scan.": "{0} مشروع، {1} فحوص في كل مرة (≈ {2} دقيقة). يُفحص كود كل مشروع من جديد على مشروع جديد يحمل اسمه مع _FAE في آخره، مع تفعيل Findings Analysis؛ ونتائجه بانتظار التحقق التي لم يعد فحص FAE يُبلغ عنها تصبح غير قابلة للاستغلال في المشروع نفسه، مع تعليق يذكر فحص FAE.",
   "Only an Admin can mark them Not exploitable: choose Proposed not exploitable.": "لا يمكن إلا للمسؤول وضع علامة غير قابلة للاستغلال: اختر «مقترحة كغير قابلة للاستغلال».",
   "This run marks them Not exploitable: only an Admin can mark them.": "يضع هذا التشغيل علامة غير قابلة للاستغلال عليها: لا يمكن إلا للمسؤول وضع هذه العلامة.",
-  "<b class=\"flush-pne\">{0}</b> of {1} results To verify marked Not exploitable: not reported by the FAE scan of the same code.": "<b class=\"flush-pne\">{0}</b> من {1} نتيجة بانتظار التحقق وُضعت عليها علامة غير قابلة للاستغلال: لم يُبلغ عنها فحص FAE للكود نفسه."
+  "<b class=\"flush-pne\">{0}</b> of {1} results To verify marked Not exploitable: not reported by the FAE scan of the same code.": "<b class=\"flush-pne\">{0}</b> من {1} نتيجة بانتظار التحقق وُضعت عليها علامة غير قابلة للاستغلال: لم يُبلغ عنها فحص FAE للكود نفسه.",
+  "Its stored copy (signed download address)": "النسخة المخزّنة (عنوان تنزيل موقّع)",
+  "The upload address takes the code": "عنوان الرفع يقبل الكود",
+  "Automatic: Checkmarx One's copy of the code, downloaded and uploaded again with the access token (a temporary file on this server, deleted straight after); else the repository at the latest scan's commit. Each project's timeline says which it used.": "تلقائي: نسخة Checkmarx One من الكود، تُنزَّل وتُرفع من جديد باستخدام رمز الوصول (ملف مؤقت على هذا الخادم يُحذف فور الانتهاء)؛ وإلا فالمستودع عند الإيداع الخاص بآخر فحص. يوضّح المخطط الزمني لكل مشروع ما استُخدم."
  }
 }
