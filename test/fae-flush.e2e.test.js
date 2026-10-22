@@ -153,11 +153,12 @@ test('preview, then a run that deletes the _FAE copies: marked, revalidated, aud
   assert.equal(done.summary.totals.revalidated, 200);
   assert.equal(done.summary.steps.done, 10);
   assert.equal(done.summary.faeKept, 0);
-  // Checkmarx One's own copy, in place, for every project whose code it keeps; the repository for project 8.
+  // Downloaded (from storage that wants the access token, as on a real tenant) and uploaded again for every project
+  // whose code Checkmarx One keeps; the repository for project 8.
   const scans = Object.values((await mock('/__fae')).scans);
-  assert.deepEqual([scans.filter((x) => x.code === 'link').length, scans.filter((x) => x.code === 'git').map((x) => x.source)], [9, ['p8']]);
+  assert.deepEqual([scans.filter((x) => x.code === 'upload').length, scans.filter((x) => x.code === 'git').map((x) => x.source)], [9, ['p8']]);
   assert.deepEqual(done.job.projects.find((p) => p.id === 'p8').codeSource, 'git');
-  assert.ok(done.job.projects.find((p) => p.id === 'p0').attempts.some((a) => a.what === 'code: Checkmarx One’s own copy' && a.ok), 'each project says how its code came');
+  assert.ok(done.job.projects.find((p) => p.id === 'p0').attempts.some((a) => a.what === 'code: download and upload' && a.ok), 'each project says how its code came');
   const marks = await mock('/__predicates');
   assert.equal(Object.values(marks).filter((s) => s === 'PROPOSED_NOT_EXPLOITABLE').length, 200);
   // Only in the original projects, and the copies are gone.
@@ -168,7 +169,7 @@ test('preview, then a run that deletes the _FAE copies: marked, revalidated, aud
   const reasons = audit.entries.map((e) => e.reason).join('\n');
   assert.match(reasons, /FAE Flush started for 10 projects, 3 scans at a time; code: auto; stops to ask: normal; the _FAE projects are deleted/);
   assert.match(reasons, /FAE Flush marked 20 of Project 0's 30 results To verify Proposed not exploitable/);
-  assert.match(reasons, /code from Checkmarx One’s own copy/);
+  assert.match(reasons, /code from download and upload/);
   assert.match(reasons, /FAE Flush finished: 200 of 300 results/);
 
   // Kept after the run: the value it brought.
@@ -209,6 +210,7 @@ test('troubleshoot: test one project (nothing made), and a debug log of every ca
   assert.equal(check['Its own copy, in place (signed address)'].ok, true);
   assert.match(check['Its own copy, in place (signed address)'].detail, /302 → same host \/storage\/repostore\.mock\/tenant-1\/… · valid 900 s/);
   assert.equal(check['The signed address answers'].ok, true);
+  assert.match(check['The signed address answers'].detail, /^206 with the access token/, 'read as a browser does, with the access token on the same host');
   assert.match(check['Its repository and commit'].detail, /github\.com\/acme\/p3 · main · abc123/);
   assert.equal(check['The API key may make and delete projects, start scans and change states'].ok, null);
   assert.equal(Object.keys((await mock('/__fae')).projects).length, before, 'nothing made');

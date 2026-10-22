@@ -517,7 +517,9 @@ export class FaeFlushRunner {
   sourcesFor(p) {
     const chosen = this.job.options?.source ?? 'auto';
     if (chosen !== 'auto') return [chosen];
-    return ['link', 'upload', 'git'].filter((s) => !(p.failedSources ?? []).includes(s) && (s === 'git' ? Boolean(p.repoUrl) : p.codeKept !== false));
+    // Automatic: downloaded and uploaded again, else the repository. Checkmarx One's own copy in place only when chosen:
+    // its scanner fetches the signed address without an access token, which some tenants' gateway refuses.
+    return ['upload', 'git'].filter((s) => !(p.failedSources ?? []).includes(s) && (s === 'git' ? Boolean(p.repoUrl) : p.codeKept !== false));
   }
 
   /** Steps 1 and 2: the code of its latest scan, on a new project "<name>_FAE", scanned with Findings Analysis on. */
@@ -760,7 +762,7 @@ export async function testProject(client, projectId, { getLastScans }) {
     add('Its own copy, in place (signed address)', Boolean(where), where ? `${link.status} → ${where.host === new URL(client.baseUrl ?? where.href).host ? 'same host' : where.host} ${where.pathname.split('/').slice(0, 4).join('/')}/…${Number.isFinite(expires) ? ` · valid ${expires} s` : ''}` : `${link.status}, no address`);
     if (where) {
       const probe = await client.probeUrl(link.location).catch((error) => (add('The signed address answers', false, error.message), null));
-      if (probe) add('The signed address answers', probe.status < 400, `${probe.status} · ${probe.type || '?'}${probe.size !== null ? ` · ${probe.size} bytes` : ''} (first byte only)`);
+      if (probe) add('The signed address answers', probe.status < 400, `${probe.tried} · ${probe.type || '?'}${probe.size !== null ? ` · ${probe.size} bytes` : ''} (first byte only)`);
     }
   }
   const git = gitOf(scan);

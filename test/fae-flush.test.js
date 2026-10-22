@@ -91,25 +91,35 @@ test('the run is kept on disk and carries on from where it was', async () => {
   assert.equal(again.job.projects[0].counts.marked, 20);
 });
 
-test('automatic: Checkmarx One refuses its own copy in place, so the code is downloaded and uploaded instead', async () => {
+test('automatic: downloaded and uploaded, else the repository; Checkmarx One\'s own copy in place only when chosen', async () => {
   const client = fakeClient({ faeKeeps: 10 });
   const posted = [];
   client.redirectOf = async () => ({ status: 302, location: 'https://cx.example/storage/repostore.x/t/repos/r/scan-1?X-Amz-Expires=900&X-Amz-Signature=s' });
+  client.download = async () => {
+    throw Object.assign(new Error('GET the storage address of /api/repostore/code/scan-1 failed: 401 with the access token, 401 without it'), { status: 401 });
+  };
   const request = client.request;
   client.request = async (p, opts = {}) => {
-    if (p === '/api/scans' && opts.method === 'POST') {
-      posted.push(opts.body.handler.uploadUrl);
-      if (opts.body.handler.uploadUrl.includes('/storage/')) throw Object.assign(new Error('invalid upload url'), { status: 400 });
-    }
+    if (p === '/api/scans' && opts.method === 'POST') posted.push(opts.body.type === 'git' ? 'git' : opts.body.handler.uploadUrl.includes('/storage/') ? 'link' : 'upload');
     return request(p, opts);
   };
-  const r = runner(client, 'fallback');
+  const store = new FaeFlushStore({ file: path.join(dir, 'auto-order.json') });
+  const r = new FaeFlushRunner({ store, clientOf: () => client, tmpDir: dir });
+  r.start({ by: 'a@acme.io', deleteFae: true, preview: { projects: [{ id: 'p1', name: 'Payments', sourceScanId: 'scan-1', loc: 1000, toVerify: 30, codeKept: true, repoUrl: 'https://github.com/acme/payments', commit: 'abc123' }] } });
   await turns(r, 1);
   const p = r.job.projects[0];
   assert.equal(p.step, 'scanning');
-  assert.equal(p.codeSource, 'upload');
-  assert.deepEqual(posted.map((u) => (u.includes('/storage/') ? 'link' : 'upload')), ['link', 'upload']);
-  assert.deepEqual(p.attempts.filter((a) => a.what.startsWith('code:')).map((a) => [a.what, a.ok]), [['code: Checkmarx One’s own copy', false], ['code: download and upload', true]]);
+  assert.equal(p.codeSource, 'git');
+  assert.deepEqual(posted, ['git'], 'the signed address is never handed to the scanner unless chosen');
+  assert.deepEqual(p.attempts.filter((a) => a.what.startsWith('code:')).map((a) => [a.what, a.ok]), [['code: download and upload', false], ['code: the repository', true]]);
+  assert.match(p.attempts[p.attempts.length - 2].detail, /401 with the access token, 401 without it/, 'the timeline says how the storage address was tried');
+
+  // Chosen under Troubleshoot: Checkmarx One's own copy, in place.
+  posted.length = 0;
+  const chosen = new FaeFlushRunner({ store: new FaeFlushStore({ file: path.join(dir, 'chosen-link.json') }), clientOf: () => client, tmpDir: dir });
+  chosen.start({ by: 'a@acme.io', deleteFae: true, options: { source: 'link' }, preview: { projects: [{ id: 'p1', name: 'Payments', sourceScanId: 'scan-1', loc: 1000, toVerify: 30, codeKept: true }] } });
+  await turns(chosen, 1);
+  assert.deepEqual([posted, chosen.job.projects[0].codeSource], [['link'], 'link']);
 });
 
 test('report only, then "Mark now"; and how readily it stops to ask', async () => {

@@ -116,11 +116,11 @@ http.createServer((req, res) => {
       // FAE Flush: the states predicates set, and the _FAE projects and scans made.
       if (u.pathname === '/__predicates') return send(200, Object.fromEntries(predicates));
       if (u.pathname === '/__fae') return send(200, { projects: Object.fromEntries(faeProjects), scans: Object.fromEntries(faeScans) });
-      // Checkmarx One's signed storage address of a scan's code (what /api/repostore/code/{scanId} redirects to): no access
-      // token (a request with one is refused, as signed storage does), a Range for its first byte answered.
+      // Checkmarx One's signed storage address of a scan's code (what /api/repostore/code/{scanId} redirects to): behind
+      // its gateway, which wants the access token as well as the signature (as on a real tenant), a Range answered.
       if (u.pathname.startsWith('/storage/repostore.mock/')) {
         bump('storage-get');
-        if (req.headers.authorization) return send(400, { message: 'Only one auth mechanism allowed' });
+        if (!/^Bearer \S/.test(req.headers.authorization ?? '')) { res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Unauthorized\n'); }
         if (!u.searchParams.get('X-Amz-Signature')) return send(403, { message: 'AccessDenied' });
         const zip = Buffer.from('PK\x05\x06' + '\0'.repeat(18), 'binary');
         if (req.headers.range) { res.writeHead(206, { 'Content-Type': 'application/octet-stream', 'Content-Range': `bytes 0-0/${zip.length}` }); return res.end(zip.subarray(0, 1)); }
