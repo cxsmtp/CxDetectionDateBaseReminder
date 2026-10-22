@@ -26644,5 +26644,887 @@
   "seen": [
    "fusion (runtime)"
   ]
+ },
+ "What each project's latest scan was: a Fusion scan (gold), a LAST scan (pink), or one without the AI engine": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Any scan type": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "What this project’s latest Fusion scan reported in Risk Hub: Fusion, LAST or both, as ticked on Labs → Fusion results": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Fusion and LAST colours": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Rows and tags of projects whose latest scan was a Fusion or a LAST scan: on the Workbench, Labs → Fusion results and its reports. By default each look picks its own shades of gold and pink, for light and dark.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "The look's own (default)": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "The look's own": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Green": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Teal": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Blue": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Any colour": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Custom colour for Fusion": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Custom…": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Rose": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Slate": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Custom colour for LAST": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Preview in your look and theme": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Preview in your look and theme.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Use the look's colours": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "The Risk Hub list of each project whose latest scan ran the AI engine. <strong class=\"fusion-word\">Fusion</strong>: a Fusion scan (Fusion on in its settings) and what it reported. <strong class=\"last-word\">LAST</strong> (language-agnostic static testing): a scan with Fusion off, or what a Fusion scan's AI engine found in a language only it covers. Click a project to see its vulnerabilities.": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Projects whose latest scan was a Fusion scan, and what it reported in Risk Hub, other than LAST's": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Projects whose latest scan ran the AI engine with Fusion off, and what the AI engine found in a language only it covers (language-agnostic static testing)": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} Fusion and {1} LAST scan(s) read from Risk Hub. {2} project(s) left out: their latest scan did not run the AI engine.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "latest scan Fusion": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "latest scan LAST": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "no AI in latest scan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} Fusion, {1} LAST, {2} without AI": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "<b>{0}</b> of {1} projects had one in the last {2} days": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "LAST scans": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "<b>{0}</b> projects had one": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Fusion on": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "LLM-based scanning on": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "model": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "What the AI added <small>latest scans</small>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "<b>{0}</b> found": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "<b>{0}</b> already found by SAST": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "<b>{0}</b> added": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} of {1} already found by SAST": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} lines in {1} files": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "left of {0} (tenant)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} of {1} used": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} · {1} actions": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Given to projects": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} of {1} · <span class=\"ok-text\">within what is left</span>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "not charged on this tenant": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Found by AI": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "New <small>{0}</small>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Recurrent <small>{0}</small>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Fixed <small>{0}</small>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Any": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "To verify <small>{0}</small>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Confirmed <small>{0}</small>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Proposed not exploitable <small>{0}</small>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Not exploitable <small>{0}</small>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Urgent <small>{0}</small>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Only the risks whose state AI Triage set": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Only AI-triaged": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Any model": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "All {0} shown project(s) · Fusion and LAST results": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Fusion: its latest scan ran the AI engine with Fusion on. LAST: with Fusion off (LLM-based scanning alone).": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Scan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "The model its latest scan ran with, and where that was set: the scan, the project, the tenant, or Checkmarx One itself": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "What the AI engine found in the latest scan, and how many of those it added once the ones the traditional engine also found were taken out (as the scan's steps say)": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "AI found → added": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Its results in Risk Hub by severity, for the engines shown": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Open risks still in Risk Hub's default state, To verify": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "To verify": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Open risks confirmed (by people or by AI Triage)": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "set on this scan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} found by the AI engine, {1} already found by SAST, {2} added": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} Fusion, {1} LAST": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} AI Triage and {1} AI Remediation actions; about {2} for Fusion scans ({3} per AI scan)": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "project setting": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} AI Triage and {1} AI Remediation actions; about {2} for Fusion scans": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} project(s) whose latest scan ran the AI engine · gold: Fusion, pink: LAST · click a project to see its vulnerabilities": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Ticked: Fusion is projected: its credits, and the findings it adds to Triage & remediation. Unticked (the customer is not taking Fusion): none of it is counted, Triage & remediation's \"More found by Fusion\" is {0}%, and the report leaves it out. Its settings are kept.": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Include Fusion projection": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings (Triage & remediation counts {0}% more found by Fusion) or the report. The settings below are kept.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "What the AI added": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "latest scans": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} found by the AI engine, as Risk Hub marks them. The scans' steps did not say how many it added.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "— lines": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "No project shown · Fusion and LAST results": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "No project has risks that match.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "AI found": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} already found by SAST · {1} added": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} LOC": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} files · SAST {1}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Last {0} days · {1} Fusion · {2} LAST": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Last {0} days · {1} triage · {2} remediation": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "its scan said: Fusion credits are disabled": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "All {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "New {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Recurrent {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Any state": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "To verify {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Found by the AI engine": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "AI-found": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Allocated. This project now has {0} triage and {1} remediation credit(s) left.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "a LAST scan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Latest scan: Fusion": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Latest scan: LAST": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "<i class=\"scan-swatch scan-swatch-fusion\" aria-hidden=\"true\"></i>Fusion <b>{0}</b>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "<i class=\"scan-swatch scan-swatch-last\" aria-hidden=\"true\"></i>LAST <b>{0}</b>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "<i class=\"scan-swatch\" aria-hidden=\"true\"></i>No AI <b>{0}</b>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Checkmarx One: {0} credits left for this tenant of {1} ({2} used). The pool cannot be set higher, and projects cannot be given more, than it has left.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "No pool size set: spending is limited only by what each project is allocated, and what the tenant has left. Per project and over time: <a href=\"#/credits\">Credits</a>.": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Fusion and LAST are hard to tell apart in these colours.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Fusion is close to the high severity colour.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "LAST is close to the critical severity colour.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "The Fusion and LAST tags stay on every row.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0}% · Fusion left out": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Fusion is left out of this projection: tick Include Fusion projection at the top to count it.": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "tenant setting": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "set by Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "as Checkmarx One says": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Fusion off": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Fusion not said": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "LLM-based scanning off": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "LLM-based scanning not said": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "<b>{0}</b> of {1} projects had one in the last year": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} of {1} · <span class=\"bad-text\">more than is left</span>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "credits reserved for each scan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "not said": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Checkmarx One did not say what this tenant has left.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Confirmed {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Proposed not exploitable {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Not exploitable {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Urgent {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Fixed {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "AI-triaged": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Its state was set by AI Triage": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "(set by AI Triage)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Reserved": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "reserved for its scan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "its scan did not say": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Checkmarx One model": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "{0} Fusion and {1} LAST scan(s) read from Risk Hub.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Last year · {0} Fusion · {1} LAST": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Last year · {0} triage · {1} remediation": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "No project's latest scan ran the AI engine (Fusion and LAST).": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "No project's latest scan ran the AI engine (Fusion).": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "No project's latest scan ran the AI engine (LAST).": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Found by the AI engine, as Risk Hub marks them (the scan’s steps did not say more)": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "LAST is close to the high severity colour.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Fusion is close to the critical severity colour.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
+ },
+ "Checkmarx One did not say": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.94 › Labs → Fusion results, Workbench, Your appearance, AI & credit pool, Cx Credits Calculator"
+  ]
  }
 }

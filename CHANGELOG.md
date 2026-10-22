@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.94 | 513/s, 0 (main 494, 0) | 6.8 s | 303 ms | 765 | 0 vulnerabilities | No new scan (checked); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.93 | 509/s, 0 (main 491, 0) | 5.5 s | 646 ms | 758 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.92 | 479/s, 153 (main 462, 152; a busy host) | 16.0 s | 2.0 s | 748 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.91 | 461/s, 45 (main 437, 430; a busy host) | 14.2 s | 3.1 s | 747 | 0 vulnerabilities | No new scan; rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -80,7 +81,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.94 — not released yet
+## MZ-01.00.94 — 2026-10-22 10:06 UTC · [#117](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/117)
 
 - **Fusion results as Risk Hub shows them.** **Labs → Fusion results** lists, for each project whose latest scan ran the AI engine, the same risks Checkmarx One's Risk Hub shows, every scanner, with Risk Hub's own New, Recurrent and Fixed; before, a project with 216 risks in Risk Hub could show none.
 - **Fusion and LAST scans told apart.** A scan's own settings say whether Fusion was on: a Fusion scan, or a LAST scan (LLM-based scanning alone, for a language such as ABAP); LAST projects are listed too, and their risks count as LAST's.
@@ -90,7 +91,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **Gold for Fusion, pink for LAST, on the Workbench too.** Projects are coloured by their latest scan wherever they are listed, with a **Scan type** filter; each look has its own shades, and anyone can pick their own under Settings → Your appearance.
 - **Credits within what the tenant has left.** The credit pool and every allocation stay within the credits the tenant has left in Checkmarx One, shown beside the pool.
 - **The calculator knows Checkmarx One's models.** Fusion models start with opus-4.7, haiku-4.5, opus-5.0, opus-5.5 and mythos-5.1, and **Include Fusion projection**, now in the main configuration, unticked sets Triage & remediation's Fusion figure to 0%.
-- **Status.** Measured when it is merged.
+- **Status.** 513 requests a second for 3000 people at once on 2 vCPU, none failed (main 494, none failed), with a shorter tail than main; 765 tests pass; `npm audit` finds 0 vulnerabilities; no new Checkmarx One scan of this code ([status](docs/status.md)).
 
 ## MZ-01.00.93 — 2026-10-22 06:19 UTC · [#116](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/116)
 
