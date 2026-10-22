@@ -82,6 +82,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.96 — not released yet · [#119](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/119)
+
+- **The tenant's credits beside the credit pool.** Settings → AI & credit pool shows a Checkmarx One tenant card next to the pool size: credits left of the tenant's total, used, given to projects and in this pool, and whether Fusion scans charge credits, with **read again**.
+- **The pool stays within what the tenant has left.** The pool size says **at most** what Checkmarx One has left for the tenant and checks it as you type, with **Use** to set exactly that; a pool set above it is refused, and 0 now means up to what the tenant has left.
+- **When the tenant has fewer left than the pool.** If credits are spent elsewhere, Settings and Credits say so in red, and spending, and what can be given to projects, stop at what the tenant has left.
+- **FAE Flush gets the code on every tenant.** Checkmarx One's stored copy of a project's code is now read with the access token, as a browser does on the same host, after a live tenant answered 401 without it; **Automatic** downloads and uploads it, else scans the repository, and **Test one project** says how the address answered.
+- **Status.** Measured when it is merged.
+
 ## MZ-01.00.95 — 2026-10-22 16:48 UTC · [#118](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/118)
 
 - **FAE Flush, in Labs, behind an activation code.** Findings Analysis (FAE) now clears the existing backlog too: for the projects you tick, the code of its latest scan is scanned again on a `<name>_FAE` copy with FAE on, Checkmarx One reading its own copy of the code where it is; it appears only once its activation code is applied.

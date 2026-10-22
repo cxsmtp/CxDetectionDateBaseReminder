@@ -621,7 +621,7 @@ Moved to its own page under **Act → Automation** in MZ-01.00.88: see [Automati
 | Allow re-remediation | Remediate a finding again (3 credits again; may open another pull request). |
 | Leave not-exploitable findings out | Findings proposed or confirmed not exploitable are left out of reminders and reports. On by default. |
 | Administrator contact | Who developers ask for more credits; the report's "Ask the administrator" button emails them. Blank: the From address. |
-| **Credit pool** (Admin) | The most the utility may spend on triage and remediation together. 0 means no limit. It cannot be set higher than the credits the tenant has left in Checkmarx One (shown under it), and projects are never given more than the tenant has left, pool or no pool. |
+| **Credit pool** (Admin) | The most the utility may spend on triage and remediation together, never more than the tenant has left in Checkmarx One; 0 means up to what the tenant has left. Beside it, the **Checkmarx One tenant** card shows the credits left of the tenant's total, a bar of what is used and given to projects, how many are used, given to projects and in this pool, and whether Fusion scans charge credits; **read again** asks Checkmarx One afresh. **Pool size** says **at most** what the tenant has left and checks it as you type: within it, or why it cannot be saved, with **Use** to set exactly what is left (a pool above it is not saved; the rest of the page is). If the tenant later has fewer left than the pool (credits spent elsewhere), Settings and Credits say so in red, and spending, and what can be given to projects, stop at what the tenant has left. Projects are never given more than the tenant has left, pool or no pool. |
 | Refill | Every month on the 1st (UTC), or never (one pool). |
 
 **Costs:** 1 credit per Checkmarx One result triaged, and 3 per finding remediated.
@@ -1030,7 +1030,7 @@ How the credit pool is being used, in three tabs. Everyone with **credits.view**
 | Part | Meaning |
 | --- | --- |
 | Filters | <ul><li>Period: last 7 / 30 / 90 days, this or last month, last 12 months, or a custom range.</li><li>Group by day, week or month.</li><li>One project, or all.</li></ul> |
-| **Overview** → Credit pool | Size; used (triage / remediation); remaining; given to projects but not used; free to give. |
+| **Overview** → Credit pool | Size; used (triage / remediation); remaining; given to projects but not used; free to give. In red when Checkmarx One has fewer credits left for the tenant than the pool: spending and free to give then stop at what the tenant has left. |
 | **Overview** → Credits used over time | Columns per day / week / month: triage at the base, remediation on top. Hover for numbers. **Show as a table** gives exact figures. |
 | **By project** | Each project's triage and remediation credits in the period, with its share. |
 | **Allocated vs used** | Per project, all time. |
