@@ -62,6 +62,11 @@ export const MUST_COPY = new Set(['scan.config.sast.presetName', 'scan.config.sa
 const FINDINGS_ANALYSIS = 'scan.config.sast.findingsAnalysis';
 /** Checkmarx One answered that it will not take the change (not that it could not be reached). */
 const refused = (error) => [400, 403, 409, 422].includes(error?.status);
+/**
+ * Steps a project goes on to at once, in the same turn (they wait for nothing outside). Not revalidating: Checkmarx
+ * One may still be applying the marks, so that waits a turn.
+ */
+const CHAINED = new Set(['comparing', 'marking', 'cleaning']);
 /** Projects whose scan is under way count against "scans at once". */
 const SCANNING = new Set(['copying', 'scanning']);
 
@@ -325,6 +330,11 @@ export function compareResults(original, fae) {
   const notReported = notReportedList.reduce((n, f) => n + f.results, 0);
   return { toVerify: open.length, toVerifyFindings: findings.size, reported, notReported, notReportedList, extra, faeReported: theirs.size, aiLeft: toVerify.length - open.length };
 }
+/** The projects named (all of them when none is). */
+const picked = (projects, ids) => {
+  const want = Array.isArray(ids) && ids.length ? new Set(ids.map(String)) : null;
+  return (projects ?? []).filter((p) => !want || want.has(p.id));
+};
 /** How many results a list of findings stands for (one each when not said). */
 const resultsIn = (list) => (list ?? []).reduce((n, m) => n + (Number(m.results) || 1), 0);
 
@@ -348,7 +358,7 @@ export function exceptionOf(p, limits = LIMITS) {
  * code kept by Checkmarx One, its lines of code and results To verify (GET /api/scan-summary, 50 scans a call),
  * and how long its SAST scan took. Projects that cannot be flushed say why (`leftOut`).
  */
-export async function previewTenant(client, { listProjects, getLastScans, concurrency = 4 }) {
+export async function previewTenant(client, { listProjects, getLastScans, concurrency = 10 }) {
   const projects = (await listProjects(client)).filter((p) => !String(p.name ?? '').endsWith(FAE_SUFFIX));
   const scans = await getLastScans(client, projects.map((p) => p.id));
   const rows = await mapWithConcurrency(projects, concurrency, async (p) => {
@@ -358,7 +368,7 @@ export async function previewTenant(client, { listProjects, getLastScans, concur
     if (!scanId) return { ...row, leftOut: 'No completed scan.' };
     const scan = await client.request(`/api/scans/${encodeURIComponent(scanId)}`, { retries: 1, background: true }).catch(() => null);
     const sast = sastDone(scan);
-    Object.assign(row, { sourceScanId: scanId, branch: text(scan?.branch ?? last?.branch, 200), loc: sastLoc(scan), ...gitOf(scan) });
+    Object.assign(row, { sourceScanId: scanId, scannedAt: text(scan?.createdAt ?? last?.createdAt ?? last?.created, 40), branch: text(scan?.branch ?? last?.branch, 200), loc: sastLoc(scan), ...gitOf(scan) });
     if (!sast || String(sast.status ?? '').toLowerCase() !== 'completed') return { ...row, leftOut: 'Its latest scan has no completed SAST scan (FAE is for SAST results).' };
     const took = Date.parse(sast.endDate) - Date.parse(sast.startDate);
     row.sastSeconds = Number.isFinite(took) && took > 0 ? Math.round(took / 1000) : null;
@@ -531,8 +541,8 @@ export class FaeFlushRunner {
   }
 
   /** A report-only run's projects, marked now: every one compared, as a run that marks would have. */
-  markReported(by) {
-    const ready = (this.job?.projects ?? []).filter((p) => p.step === 'reported');
+  markReported(by, projectIds = null) {
+    const ready = picked(this.job?.projects, projectIds).filter((p) => p.step === 'reported');
     if (!ready.length) throw Object.assign(new Error('Nothing waits to be marked.'), { status: 409 });
     this.job.options = { ...cleanOptions(this.job.options), mode: 'mark' };
     for (const p of ready) this.move(p, 'marking');
@@ -569,6 +579,22 @@ export class FaeFlushRunner {
     p.exception = decision === 'retry' ? null : p.exception;
     this.store.save();
     return p;
+  }
+
+  /** The same answer for several projects that stopped to ask; those it does not fit are left as they are. */
+  decideMany(projectIds, decision, by) {
+    let done = 0;
+    const skipped = [];
+    for (const p of picked(this.job?.projects, projectIds).filter((x) => x.step === 'needs-ok')) {
+      try {
+        this.decide(p.id, decision, by);
+        done += 1;
+      } catch (error) {
+        skipped.push({ project: p.name, why: text(error.message, 200) });
+      }
+    }
+    if (!done && !skipped.length) throw Object.assign(new Error('None of those projects is waiting for an answer.'), { status: 409 });
+    return { done, skipped };
   }
 
   /** Its _FAE project was removed: the next try makes a new one. */
@@ -618,6 +644,10 @@ export class FaeFlushRunner {
       } else if (WORKING.has(p.step)) turn.push(p);
     }
     await mapWithConcurrency(turn, Math.max(2, job.concurrency), (p) => this.advance(client, p));
+    // Scans finished this turn free their places: start the next projects now, not a turn later.
+    const freed = job.concurrency - job.projects.filter((p) => SCANNING.has(p.step)).length;
+    const next = job.state === 'running' ? job.projects.filter((p) => p.step === 'waiting' && !this.busy.has(p.id)).slice(0, Math.max(0, freed)) : [];
+    if (next.length) await mapWithConcurrency(next, Math.max(2, job.concurrency), (p) => this.advance(client, p));
     if (job.projects.every((p) => FINISHED.has(p.step))) {
       job.state = 'done';
       job.finishedAt = new Date(this.now()).toISOString();
@@ -631,12 +661,19 @@ export class FaeFlushRunner {
     this.busy.add(p.id);
     const traced = this.via(client, p);
     try {
-      if (p.step === 'waiting' || p.step === 'copying') await this.copy(traced, p);
-      else if (p.step === 'scanning') await this.poll(traced, p);
-      else if (p.step === 'comparing') await this.compare(traced, p);
-      else if (p.step === 'marking') await this.mark(traced, p);
-      else if (p.step === 'revalidating') await this.revalidate(traced, p);
-      else if (p.step === 'cleaning') await this.clean(traced, p);
+      // One step, then straight on through the steps that wait for nothing (compare, mark, revalidate, remove),
+      // rather than a turn of the clock between each.
+      for (let steps = 0; steps < 6; steps += 1) {
+        const before = p.step;
+        if (p.step === 'waiting' || p.step === 'copying') await this.copy(traced, p);
+        else if (p.step === 'scanning') await this.poll(traced, p);
+        else if (p.step === 'comparing') await this.compare(traced, p);
+        else if (p.step === 'marking') await this.mark(traced, p);
+        else if (p.step === 'revalidating') await this.revalidate(traced, p);
+        else if (p.step === 'cleaning') await this.clean(traced, p);
+        this.store.save();
+        if (p.step === before || !CHAINED.has(p.step) || this.job?.state !== 'running') break;
+      }
     } catch (error) {
       p.exception = { code: ['copy', 'settings', 'rescan'].includes(error.code) ? error.code : 'error', text: ['settings', 'rescan'].includes(error.code) ? text(error.message, 500) : `${p.step}: ${text(error?.message, 400)}`, at: new Date(this.now()).toISOString() };
       this.attempt(p, p.step, false, error?.message);
@@ -929,10 +966,12 @@ export class FaeFlushRunner {
   }
 
   /** Delete every _FAE project of the run still there (one click, any time after); not those a report still needs. */
-  async deleteAll() {
+  async deleteAll(projectIds = null, { earlierOnly = false } = {}) {
     if (!this.clientOf()) throw Object.assign(new Error('No Checkmarx One connection on the server.'), { status: 409 });
     const client = this.via(this.clientOf());
-    const left = [...(this.job?.projects ?? []), ...(this.job?.earlier ?? [])].filter((p) => p.faeProjectId && !p.faeDeleted && !WORKING.has(p.step) && p.step !== 'reported');
+    // Those named, or every one (earlier runs' too).
+    const among = earlierOnly ? this.job?.earlier ?? [] : Array.isArray(projectIds) && projectIds.length ? picked(this.job?.projects, projectIds) : [...(this.job?.projects ?? []), ...(this.job?.earlier ?? [])];
+    const left = among.filter((p) => p.faeProjectId && !p.faeDeleted && !WORKING.has(p.step) && p.step !== 'reported');
     let deleted = 0;
     const failed = [];
     await mapWithConcurrency(left, 4, async (p) => {
@@ -950,13 +989,14 @@ export class FaeFlushRunner {
   }
 
   /** Undo: every result the run marked, back to To verify, but only those still as it left them. */
-  async undo(by) {
+  async undo(by, projectIds = null) {
     if (!this.clientOf()) throw Object.assign(new Error('No Checkmarx One connection on the server.'), { status: 409 });
     const client = this.via(this.clientOf());
-    if (this.job?.projects.some((p) => WORKING.has(p.step))) this.job.state = 'paused';
+    const which = picked(this.job?.projects, projectIds);
+    if (which.some((p) => WORKING.has(p.step))) this.job.state = 'paused';
     let restored = 0;
     let changed = 0;
-    for (const p of this.job?.projects ?? []) {
+    for (const p of which) {
       if (!p.marked?.length) continue;
       const current = new Map((await scanResults(client, p.sourceScanId)).map((r) => [keyOf(r), upper(r.state)]));
       const back = p.marked.filter((m) => current.get(m.similarityId) === markState(this.job));
@@ -977,7 +1017,7 @@ export class FaeFlushRunner {
       this.move(p, 'undone');
       this.store.save();
     }
-    this.record('undone', { restored, changedSince: changed, by });
+    this.record('undone', { restored, changedSince: changed, by, projects: which.filter((p) => p.step === 'undone').length });
     return { restored, changedSince: changed };
   }
 }

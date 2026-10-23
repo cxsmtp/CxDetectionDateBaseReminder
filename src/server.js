@@ -10181,7 +10181,7 @@ const FAE_EVENTS = {
   'fae-deleted': (d) => `FAE Flush deleted ${d.project}_FAE.`,
   'fae-deleted-all': (d) => `FAE Flush: ${d.deleted} _FAE project${d.deleted === 1 ? '' : 's'} deleted${d.failed ? `, ${d.failed} could not be` : ''}.`,
   finished: (d) => `FAE Flush finished: ${d.marked} of ${d.toVerify} results To verify marked ${d.state ?? 'Proposed not exploitable'} across ${d.projects} projects, ${d.revalidated} revalidated.`,
-  undone: (d) => `FAE Flush undone by ${d.by}: ${d.restored} results back to To verify${d.changedSince ? ` (${d.changedSince} changed since and left as they are)` : ''}.`,
+  undone: (d) => `FAE Flush undone by ${d.by}${d.projects ? ` for ${d.projects} project${d.projects === 1 ? '' : 's'}` : ''}: ${d.restored} results back to To verify${d.changedSince ? ` (${d.changedSince} changed since and left as they are)` : ''}.`,
 };
 function faeAudit(event, details) {
   const actor = details.actor ?? { kind: 'system', user: faeRunner().job?.startedBy || SYSTEM_ACTOR.user };
@@ -10261,6 +10261,20 @@ app.post('/api/fae-flush/decide', ...faeGuard, (req, res) => {
   res.json(faeView());
 });
 
+// Several projects that stopped to ask, the same answer (retry or skip; marking goes through Mark now).
+app.post('/api/fae-flush/decide-many', ...faeGuard, (req, res) => {
+  const decision = String(req.body?.decision ?? '');
+  if (!['retry', 'skip'].includes(decision)) return res.status(400).json({ error: 'Retry or skip.' });
+  let result;
+  try {
+    result = faeRunner().decideMany(Array.isArray(req.body?.projectIds) ? req.body.projectIds : [], decision, req.user?.email ?? '');
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: error.message });
+  }
+  faeTick();
+  res.json({ ...result, ...faeView() });
+});
+
 // Skipped projects back in the run (all of them, or those named).
 app.post('/api/fae-flush/bring-back', ...faeGuard, (req, res) => {
   try {
@@ -10276,7 +10290,7 @@ app.post('/api/fae-flush/bring-back', ...faeGuard, (req, res) => {
 app.post('/api/fae-flush/mark-now', ...faeGuard, (req, res) => {
   if (faeMarkRefused(req)) return res.status(403).json({ error: faeMarkRefused(req), permission: 'faeFlush.notExploitable' });
   try {
-    faeRunner().markReported(req.user?.email ?? '');
+    faeRunner().markReported(req.user?.email ?? '', Array.isArray(req.body?.projectIds) ? req.body.projectIds : null);
   } catch (error) {
     return res.status(error.status ?? 400).json({ error: error.message });
   }
@@ -10317,18 +10331,18 @@ app.get('/api/fae-flush/value', requireFeature('faeFlush'), (req, res) => {
 
 app.post('/api/fae-flush/undo', ...faeGuard, asyncRoute(async (req, res) => {
   if (!faeRunner().job) return res.status(409).json({ error: 'There is no FAE Flush to undo.' });
-  const result = await faeRunner().undo(req.user?.email ?? '');
+  const result = await faeRunner().undo(req.user?.email ?? '', Array.isArray(req.body?.projectIds) ? req.body.projectIds : null);
   res.json({ ...result, ...faeView() });
 }));
 
 // One click, any day after: every _FAE project of the run still in Checkmarx One.
 app.post('/api/fae-flush/delete-fae', ...faeGuard, asyncRoute(async (req, res) => {
   if (!faeRunner().job) return res.status(409).json({ error: 'There is no FAE Flush with _FAE projects.' });
-  const result = await faeRunner().deleteAll();
+  const result = await faeRunner().deleteAll(Array.isArray(req.body?.projectIds) ? req.body.projectIds : null, { earlierOnly: req.body?.earlier === true });
   res.json({ ...result, ...faeView() });
 }));
 
-const FAE_TICK_MS = Number(process.env.FAE_FLUSH_TICK_MS) || 30_000;
+const FAE_TICK_MS = Number(process.env.FAE_FLUSH_TICK_MS) || 15_000;
 const faeTicking = new WeakSet();
 /** One turn of every tenant's run (or the running tenant's only, from a request). */
 function faeTick(all = false) {

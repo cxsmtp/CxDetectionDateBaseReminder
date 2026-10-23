@@ -2394,48 +2394,59 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <p class="hint wide" id="flush-result"></p>
                 </div>
                 <div class="actions">
-                  <button type="button" id="flush-mark-now" class="sm primary" hidden>Mark now</button>
                   <button type="button" id="flush-pause" class="sm">Pause</button>
                   <button type="button" id="flush-csv" class="sm">Export CSV</button>
-                  <button type="button" id="flush-back-all" class="sm" hidden>Bring back all skipped</button>
-                  <button type="button" id="flush-delete-fae" class="sm">Delete all _FAE projects</button>
-                  <button type="button" id="flush-undo" class="sm danger">Undo all marks</button>
+                  <button type="button" id="flush-delete-earlier" class="sm" hidden>Delete _FAE projects of earlier runs</button>
                 </div>
               </div>
-              <div class="flush-asks" id="flush-asks"></div>
+              <div class="flush-find">
+                <span class="flush-chips" id="flush-steps" role="group" aria-label="Step"></span>
+                <input type="search" id="flush-run-search" maxlength="300" autocomplete="off" placeholder="Search the run" aria-label="Search the run" />
+              </div>
+              <div class="flush-actbar" id="flush-actbar" hidden>
+                <b id="flush-act-count"></b>
+                <span class="flush-grow"></span>
+                <button type="button" class="sm" data-bulk="retry">Retry</button>
+                <button type="button" class="sm" data-bulk="skip">Skip</button>
+                <button type="button" class="sm" data-bulk="back">Bring back</button>
+                <button type="button" class="sm" data-bulk="mark">Mark now</button>
+                <button type="button" class="sm" data-bulk="delete">Delete _FAE projects</button>
+                <button type="button" class="sm danger" data-bulk="undo">Undo marks</button>
+                <button type="button" class="sm" id="flush-act-clear" aria-label="Clear the selection" title="Clear the selection">✕</button>
+              </div>
               <div class="table-wrap">
-                <table class="flush-table" id="flush-table">
-                  <thead><tr><th>Project</th><th>Step</th><th class="num">To verify</th><th class="num">Reported by FAE</th><th class="num" id="flush-col-marked">Not reported → Proposed not exploitable</th><th>Revalidated</th><th>_FAE project</th></tr></thead>
+                <table class="flush-table data-table" id="flush-table" data-tt="flush-run">
+                  <thead><tr><th class="flush-tick checkbox"><input type="checkbox" id="flush-run-head" aria-label="Select every project shown" /></th><th>Project</th><th>Step</th><th class="num">To verify</th><th class="num">Reported by FAE</th><th class="num" id="flush-col-marked">Not reported → Proposed not exploitable</th><th>Revalidated</th><th>_FAE project</th></tr></thead>
                   <tbody></tbody>
                 </table>
               </div>
-              <p class="hint">Click a project to see what it went through: each step, where its code came from, and any error.</p>
+              <div class="flush-more"><button type="button" class="sm" id="flush-run-more" hidden>Show more</button></div>
+              <p class="hint">Click a project to see what it went through: each step, where its code came from, and any error. Tick projects to act on them; the box in the heading ticks every one shown.</p>
             </section>
 
             <section class="panel" id="flush-preview-panel" hidden>
               <div class="panel-head">
-                <div><h2>Projects</h2><p class="hint wide" id="flush-preview-sub"></p><p class="status warn" id="flush-av-warn" hidden>This tenant groups similar results by Attack Vector ID (Account settings → Grouping similar results). Checkmarx One may refuse the marks FAE Flush sends: choose Only show to see what it would mark, or set the grouping to Similarity ID.</p></div>
-                <div class="actions"><button type="button" id="flush-tick-all" class="sm">Tick all</button><button type="button" id="flush-tick-none" class="sm">Tick none</button></div>
+                <div><h2>Projects</h2><p class="hint wide" id="flush-preview-sub"></p><p class="status warn" id="flush-av-warn" hidden>This tenant groups similar results by Attack Vector ID (Account settings → Grouping similar results). FAE Flush marks them by attack vector there.</p></div>
               </div>
               <div class="flush-find">
-                <input type="search" id="flush-search" maxlength="300" autocomplete="off" placeholder="Search projects or branches; several: separate with commas" aria-label="Search projects" />
-                <select id="flush-show" aria-label="Show">
-                  <option value="all">All</option>
-                  <option value="ticked">Ticked</option>
-                  <option value="unticked">Not ticked</option>
-                  <option value="left-out">Left out</option>
-                </select>
-                <span class="hint" id="flush-found"></span>
-                <span class="flush-grow"></span>
-                <button type="button" id="flush-tick-found" class="sm" hidden>Tick these</button>
-                <button type="button" id="flush-untick-found" class="sm" hidden>Untick these</button>
+                <input type="search" id="flush-search" maxlength="300" autocomplete="off" placeholder="Search name or branch; several: separate with commas" aria-label="Search projects" />
+                <span class="flush-chips" id="flush-show" role="group" aria-label="Show">
+                  <button type="button" class="sm" data-show="all">All</button>
+                  <button type="button" class="sm" data-show="eligible">Can be flushed</button>
+                  <button type="button" class="sm" data-show="ticked">Ticked</button>
+                  <button type="button" class="sm" data-show="unticked">Not ticked</button>
+                  <button type="button" class="sm" data-show="left-out">Left out</button>
+                  <button type="button" class="sm" data-show="skipped" hidden>Skipped last run</button>
+                </span>
               </div>
+              <div class="flush-selbar"><b id="flush-sel-count"></b> <span class="hint" id="flush-sel-sub"></span><button type="button" class="link" id="flush-untick-all" hidden>Untick all</button><span class="flush-grow"></span><span class="hint" id="flush-found"></span></div>
               <div class="table-wrap">
-                <table class="flush-table" id="flush-preview-table">
-                  <thead><tr><th class="flush-tick"><span class="sr-only">Chosen</span></th><th>Project</th><th>Latest scan</th><th class="num">Lines of code</th><th class="num">To verify</th><th>FAE Flush</th></tr></thead>
+                <table class="flush-table data-table" id="flush-preview-table" data-tt="flush-projects">
+                  <thead><tr><th class="flush-tick checkbox"><input type="checkbox" id="flush-tick-head" aria-label="Tick every project shown" /></th><th>Project</th><th>Branch</th><th>Last scanned</th><th class="num">Lines of code</th><th class="num">To verify</th><th>Code from</th><th>FAE Flush</th></tr></thead>
                   <tbody></tbody>
                 </table>
               </div>
+              <div class="flush-more"><button type="button" class="sm" id="flush-more" hidden>Show more</button></div>
             </section>
 
             <details class="panel flush-trouble" id="flush-trouble" data-perm="integration.cxone">

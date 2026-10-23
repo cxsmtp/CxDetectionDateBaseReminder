@@ -3578,10 +3578,12 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 .flush-tile span { color: var(--muted); font-size: 12.5px; }
 .flush-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .flush-grow { flex: 1; }
-.flush-asks:empty { display: none; }
-.flush-asks { display: grid; gap: 8px; margin: 0 0 12px; }
-.flush-ask { border: 1px solid var(--warn); background: var(--warn-soft); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
-.flush-ask p { margin: 0; flex: 1 1 320px; min-width: 0; overflow-wrap: anywhere; }
+/* A project that asks: its question and answers on its own row. */
+.flush-row.is-asking > td { background: var(--warn-soft); }
+.flush-ask-line, .flush-why { display: block; margin-top: 3px; font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; white-space: normal; }
+#flush-table td:nth-child(2) { min-width: 260px; max-width: 560px; white-space: normal; }
+.flush-row.is-asking .flush-ask-line { color: var(--warn); }
+.flush-row-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .flush-table td.num, .flush-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .flush-table td.hint { white-space: normal; overflow-wrap: anywhere; max-width: 0; width: 55%; }
 .flush-step { white-space: nowrap; }
@@ -3605,6 +3607,17 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 .flush-find { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 10px; }
 .flush-find input[type="search"] { flex: 1 1 320px; min-width: 0; max-width: 520px; }
 .flush-find .hint { margin: 0; }
+/* Chips: one choice of several (what to show, the run's steps), with counts. */
+.flush-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.flush-chips button { border-radius: 99px; }
+.flush-chips button b { font-weight: 500; margin-inline-start: 4px; opacity: .75; }
+/* What is ticked, in one line; and the actions on the run's selected projects, in one bar. */
+.flush-selbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 7px 12px; margin: 0 0 8px; border-radius: var(--radius); background: color-mix(in srgb, var(--primary) 6%, var(--surface)); font-size: 13px; }
+.flush-selbar .hint { margin: 0; max-width: none; }
+.flush-actbar { position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 7px 10px; margin: 0 0 8px; border-radius: var(--radius); border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); font-size: 13px; }
+.flush-more { text-align: center; }
+.flush-more button { margin-top: 8px; }
+.flush-table th.flush-tick, .flush-table td.flush-tick { width: 30px; }
 .flush-hints > span:not([hidden]) ~ span:not([hidden])::before { content: '·'; margin: 0 8px; color: var(--muted); }
 .flush-step .flush-back { margin-inline-start: 6px; padding: 2px 9px; font-size: 12px; }
 .flush-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 9px; background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
@@ -3635,3 +3648,17 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 .flush-inline { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
 .flush-inline select { min-width: 220px; max-width: 100%; }
 .flush-inline button { flex: 0 0 auto; width: auto; }
+
+/* FAE Flush, the top kept small: the six steps in one line (what each does is under the ? beside the title),
+   and the run's figures in one thin line. */
+#flush-intro .flush-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 4px; margin: 6px 0 0; }
+#flush-intro .flush-steps li { border: 0; background: none; padding: 2px 6px 2px 24px; font-size: 12.5px; }
+#flush-intro .flush-steps li::before { left: 2px; top: 3px; width: 17px; height: 17px; font-size: 10px; }
+#flush-intro .flush-steps li:not(:last-child)::after { content: '→'; margin-inline-start: 8px; color: var(--muted); }
+#flush-intro .flush-steps .flush-step-title { display: inline; font-weight: 500; }
+#flush-intro .flush-steps .flush-step-sub { display: none; }
+#flush-intro.panel { padding-block: 14px; }
+#flush-tiles { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 26px; padding: 9px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+#flush-tiles .flush-tile { display: flex; align-items: baseline; gap: 6px; border: 0; padding: 0; background: none; }
+#flush-tiles .flush-tile b { display: inline; font-size: 18px; }
+#flush-tiles .flush-tile span { font-size: 12.5px; }
