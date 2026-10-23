@@ -9842,25 +9842,36 @@ async function loadAiFusion(req, names) {
   const client = req.session.client;
   const scans = await getLastScans(client, ids);
   const trace = fusionTrace(req);
-  // Each project's latest scan: Fusion, LAST or no AI (its settings say), its model and where that was set, its
-  // lines of code, and what its steps say the AI engine added. The tenant's AI settings and credits beside them.
+  // First, which latest scans ran the AI engine at all: from their engines, else a hundred scans to a call. Only
+  // those are read further (most of a tenant's projects never ran it).
+  const kinds = await scanTypes(client, Object.fromEntries(ids.filter((id) => scans[id]).map((id) => [id, scans[id]])), { background: false, trace }).catch(() => ({}));
+  const aiScanned = ids.filter((id) => scans[id] && kinds[id] !== 'none');
+  // Each of those: Fusion or LAST (its settings say), its model and where that was set, its lines of code. The
+  // tenant's AI settings and credits beside them, at the same time.
   const [facts, ai, credits] = await Promise.all([
-    projectFacts(client, ids.filter((id) => scans[id]), scans, { trace }).catch((error) => (console.warn(`[fusion] facts: ${logSafe(error.message)}`), {})),
+    projectFacts(client, aiScanned, scans, { trace, concurrency: 8 }).catch((error) => (console.warn(`[fusion] facts: ${logSafe(error.message)}`), {})),
     tenantAi(client, { trace }).catch(() => null),
     tenantCreditsOf(req, { fresh: true }),
   ]);
-  const types = Object.fromEntries(ids.map((id) => [id, facts[id]?.scanType ?? scanTypeOf(scans[id]?.engines, null)]));
-  // The AI-scanned projects' Risk Hub lists, as the Workbench reads them.
+  const types = Object.fromEntries(ids.map((id) => [id, facts[id]?.scanType ?? kinds[id] ?? scanTypeOf(scans[id]?.engines, null)]));
+  // The AI-scanned projects' Risk Hub lists, as the Workbench reads them; and, at the same time, the Fusion credits
+  // each used per AI scan over the last year (for what its latest scan cost).
   const riskSource = createRiskSource(client, activeConfig());
-  const fusion = linkFusion(req, await readRiskFusion(client, ids.map((id) => ({ id, name: names[id] })), scans, { types, riskSource, trace }));
+  const [read, usage] = await Promise.all([
+    readRiskFusion(client, ids.map((id) => ({ id, name: names[id] })), scans, { types, riskSource, trace, concurrency: 8 }),
+    fusionUsage(client, aiScanned.map((id) => ({ id, name: names[id] })), { period: 'last_year', scopeIds: ids, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null)),
+  ]);
+  const fusion = linkFusion(req, read);
   for (const [id, f] of Object.entries(facts)) if (fusion.projects[id]) Object.assign(fusion.projects[id], f, { scanType: fusion.projects[id].scanType });
   // Fusion credits: whether the tenant charges them, as the latest Fusion scans' steps say.
   const charged = Object.values(facts).map((f) => f.fusionCredits).filter(Boolean);
   fusion.tenant = { ai, credits, fusionCredits: charged.includes('reserved') ? 'reserved' : charged.length ? 'off' : '' };
-  // Their AI scans and credits over the period chosen; how many of the line's projects had Fusion or LAST scans.
-  const shown = Object.keys(fusion.projects);
-  // Over the last year: the Fusion credits each project used per AI scan, for what its latest scan cost.
-  fusion.usage = await fusionUsage(client, shown.map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period: 'last_year', scopeIds: ids, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null));
+  // Their AI scans and credits over the year, kept to the projects shown.
+  if (usage?.projects) {
+    for (const id of Object.keys(usage.projects)) if (!fusion.projects[id]) delete usage.projects[id];
+    usage.totals = Object.values(usage.projects).reduce((t, u) => ({ scans: t.scans + (u.scans ?? 0), fusionScans: t.fusionScans + (u.fusionScans ?? 0), lastScans: t.lastScans + (u.lastScans ?? 0), credits: t.credits + (u.credits ?? 0), fusion: t.fusion + (u.fusion ?? 0) }), { scans: 0, fusionScans: 0, lastScans: 0, credits: 0, fusion: 0 });
+  }
+  fusion.usage = usage;
   for (const [id, p] of Object.entries(fusion.projects)) p.scanCredits = scanCreditsOf(p, fusion.usage?.projects?.[id]);
   req.session.lastFusion = fusion;
   req.session.fusionScan = aiFindings(fusion);

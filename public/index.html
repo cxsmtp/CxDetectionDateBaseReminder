@@ -2523,9 +2523,9 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </form>
               <p class="status" id="fusion-status"></p>
               <p class="hint fusion-tried" id="fusion-tried"></p>
-              <!-- Three blocks: the projects (Fusion, LAST, no AI), what the AI engine added, and the tenant's credits. -->
-              <div class="fusion-over" id="fusion-over" hidden></div>
+              <!-- The figures in one thin line; Details opens the three blocks under it: the projects, the AI results, the tenant's credits. -->
               <div class="totals fusion-tiles" id="fusion-tiles"></div>
+              <div class="fusion-over" id="fusion-over" hidden></div>
               <!-- Risk Hub's statuses and states: a chip narrows the projects, the side panel, the exports and the figures. -->
               <div class="fusion-filters" id="fusion-filters" hidden>
                 <div class="fusion-chip-row" role="group" aria-label="Status"><span class="fusion-chip-key">Status</span><span id="fusion-status-chips"></span></div>
@@ -2562,8 +2562,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <p class="status" id="fusion-act-status"></p>
               <div class="table-wrap">
                 <table class="data-table fusion-table">
-                  <thead><tr><th>Project</th><th title="Fusion: its latest scan ran the AI engine with Fusion on. LAST: with Fusion off (LLM-based scanning alone).">Scan</th><th title="The model its latest scan ran with, and where that was set: the scan, the project, the tenant, or Checkmarx One itself">Model</th><th class="num" title="Lines of code its latest scan counted">LOC</th><th class="num" title="What the AI engine found in the latest scan, and how many of those it added once the ones the traditional engine also found were taken out (as the scan's steps say)">AI found → added</th><th title="What the AI engine reported, by severity (no traditional SAST results)">AI results</th><th class="num" title="Open risks still in Risk Hub's default state, To verify">To verify</th><th class="num" title="Open risks confirmed (by people or by AI Triage)">Confirmed</th><th class="num" title="Credits its latest scan used: none for a LAST scan or with Fusion credits disabled; ≈ an estimate from the Fusion credits it used over the last year, per Fusion scan">Credits, latest scan</th><th>Latest scan</th></tr></thead>
-                  <tbody id="fusion-body"><tr><td colspan="11" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
+                  <thead><tr><th>Project</th><th title="Fusion: its latest scan ran the AI engine with Fusion on. LAST: with Fusion off (LLM-based scanning alone).">Scan</th><th title="The model its latest scan ran with, and where that was set: the scan, the project, the tenant, or Checkmarx One itself">Model</th><th class="num" title="Lines of code its latest scan counted">LOC</th><th title="What the AI engine reported, by severity (no traditional SAST results)">AI results</th><th class="num" title="Open risks still in Risk Hub's default state, To verify">To verify</th><th class="num" title="Open risks confirmed (by people or by AI Triage)">Confirmed</th><th class="num" title="Credits its latest scan used: none for a LAST scan or with Fusion credits disabled; ≈ an estimate from the Fusion credits it used over the last year, per Fusion scan">Credits, latest scan</th><th>Latest scan</th></tr></thead>
+                  <tbody id="fusion-body"><tr><td colspan="9" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
                 </table>
               </div>
               <p class="hint" id="fusion-foot"></p>

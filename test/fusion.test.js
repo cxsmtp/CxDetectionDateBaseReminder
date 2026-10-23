@@ -178,7 +178,8 @@ test('the page narrowed by status, state and AI Triage; projects by scan type, g
   assert.ok(html.includes('--fusion: #0f766e') && html.includes('--last: #d6337a'), 'the reader’s colours, only real ones');
   assert.ok(html.includes(' · Confirmed · ') && html.includes('Juice Shop') && !html.includes('abap-last'), 'narrowed: said, and only the projects with a match');
   const both = fusionReportHtml(f, scope, {});
-  assert.ok(both.includes('<tr class="fusion">') && both.includes('<tr class="last">') && both.includes('273 → 226') && both.includes('set by Checkmarx One'));
+  assert.ok(both.includes('<tr class="fusion">') && both.includes('<tr class="last">') && both.includes('set by Checkmarx One'));
+  assert.ok(!both.includes('273 → 226') && !both.includes('AI found'), 'only what the AI engine found: no count of what SAST also found');
 });
 
 test('a result cleaned keeps what the results page shows, and nothing it does not have', () => {
