@@ -69,6 +69,18 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
   let chosen = null;
   let chosenFrom = '';
   let opened = '';
+  // The projects list: what is searched for (several terms, separated by commas) and which ones to show.
+  const terms = () => $('flush-search').value.toLowerCase().split(',').map((x) => x.trim()).filter(Boolean);
+  const shown = (p) => {
+    const words = terms();
+    if (words.length && !words.some((w) => `${p.name} ${p.branch ?? ''}`.toLowerCase().includes(w))) return false;
+    const show = $('flush-show').value;
+    if (show === 'left-out') return Boolean(p.leftOut);
+    if (show === 'ticked') return !p.leftOut && Boolean(chosen?.has(p.id));
+    if (show === 'unticked') return !p.leftOut && !chosen?.has(p.id);
+    return true;
+  };
+  const found = () => (view?.preview?.projects ?? []).filter((p) => !p.leftOut && shown(p));
   const allowed = () => can('integration.cxone');
   const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body ?? {}) });
   const picked = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
@@ -166,13 +178,21 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     $('flush-preview-panel').hidden = !preview || Boolean(job && preview.readAt <= job.startedAt);
     if (preview) {
       $('flush-preview-sub').textContent = `${num(preview.eligible)} to flush, ${num(preview.leftOut)} left out.`;
-      $('flush-preview-table').tBodies[0].innerHTML = preview.projects
+      const listed = preview.projects.filter(shown);
+      const narrowed = listed.length !== preview.projects.length;
+      $('flush-found').textContent = narrowed ? `${num(listed.length)} of ${num(preview.projects.length)} shown` : '';
+      const pickable = listed.filter((p) => !p.leftOut);
+      $('flush-tick-found').hidden = !narrowed || !pickable.length;
+      $('flush-untick-found').hidden = !narrowed || !pickable.length;
+      $('flush-tick-found').textContent = `Tick these ${num(pickable.length)}`;
+      $('flush-untick-found').textContent = `Untick these ${num(pickable.length)}`;
+      $('flush-preview-table').tBodies[0].innerHTML = listed
         .map((p) => {
           const tick = p.leftOut ? '' : `<input type="checkbox" data-flush-pick="${esc(p.id)}"${chosen.has(p.id) ? ' checked' : ''} aria-label="${esc(p.name)}" />`;
           const how = p.leftOut ? `<span class="pill muted">Left out</span> <span class="hint">${esc(p.leftOut)}</span>` : p.codeKept === false ? '<span class="pill ok">Will be flushed</span> <span class="hint">from its repository (Checkmarx One does not keep its code)</span>' : '<span class="pill ok">Will be flushed</span>';
           return `<tr><td class="flush-tick">${tick}</td><td><b translate="no">${esc(p.name)}</b></td><td>${p.sourceScanId ? `<span translate="no">${esc(p.branch || '')}</span>` : '—'}</td><td class="num">${num(p.loc)}</td><td class="num">${num(p.toVerify)}</td><td>${how}</td></tr>`;
         })
-        .join('');
+        .join('') || `<tr><td colspan="6" class="hint">${esc('No project matches.')}</td></tr>`;
     }
     // Troubleshoot: the projects to test; those of the run when the projects were not checked since a restart.
     const testable = preview?.projects?.length ? preview.projects : job?.projects ?? [];
@@ -295,6 +315,16 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
   });
   $('flush-tick-all').addEventListener('click', () => {
     chosen = new Set(eligible().map((p) => p.id));
+    render();
+  });
+  $('flush-search').addEventListener('input', () => view && render());
+  $('flush-show').addEventListener('change', () => view && render());
+  $('flush-tick-found').addEventListener('click', () => {
+    for (const p of found()) (chosen ??= new Set()).add(p.id);
+    render();
+  });
+  $('flush-untick-found').addEventListener('click', () => {
+    for (const p of found()) chosen?.delete(p.id);
     render();
   });
   $('flush-tick-none').addEventListener('click', () => {

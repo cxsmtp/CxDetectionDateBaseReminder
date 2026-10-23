@@ -2417,6 +2417,19 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div><h2>Projects</h2><p class="hint wide" id="flush-preview-sub"></p></div>
                 <div class="actions"><button type="button" id="flush-tick-all" class="sm">Tick all</button><button type="button" id="flush-tick-none" class="sm">Tick none</button></div>
               </div>
+              <div class="flush-find">
+                <input type="search" id="flush-search" maxlength="300" autocomplete="off" placeholder="Search projects or branches; several: separate with commas" aria-label="Search projects" />
+                <select id="flush-show" aria-label="Show">
+                  <option value="all">All</option>
+                  <option value="ticked">Ticked</option>
+                  <option value="unticked">Not ticked</option>
+                  <option value="left-out">Left out</option>
+                </select>
+                <span class="hint" id="flush-found"></span>
+                <span class="flush-grow"></span>
+                <button type="button" id="flush-tick-found" class="sm" hidden>Tick these</button>
+                <button type="button" id="flush-untick-found" class="sm" hidden>Untick these</button>
+              </div>
               <div class="table-wrap">
                 <table class="flush-table" id="flush-preview-table">
                   <thead><tr><th class="flush-tick"><span class="sr-only">Chosen</span></th><th>Project</th><th>Latest scan</th><th class="num">Lines of code</th><th class="num">To verify</th><th>FAE Flush</th></tr></thead>

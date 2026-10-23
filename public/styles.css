@@ -3583,6 +3583,8 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 .flush-ask { border: 1px solid var(--warn); background: var(--warn-soft); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
 .flush-ask p { margin: 0; flex: 1 1 320px; min-width: 0; overflow-wrap: anywhere; }
 .flush-table td.num, .flush-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.flush-table td.hint { white-space: normal; overflow-wrap: anywhere; max-width: 0; width: 55%; }
+.flush-step { white-space: nowrap; }
 .flush-table .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--border-strong); white-space: nowrap; }
 .flush-table .pill.ok { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
 .flush-table .pill.warn { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
@@ -3599,6 +3601,10 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 .flush-field select { min-height: 32px; }
 .flush-go { display: flex; gap: 8px; align-items: center; }
 .flush-hints { margin: 10px 0 0; max-width: none; }
+/* Projects: search (several terms, commas), what to show, and tick or untick what is found. */
+.flush-find { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 10px; }
+.flush-find input[type="search"] { flex: 1 1 320px; min-width: 0; max-width: 520px; }
+.flush-find .hint { margin: 0; }
 .flush-hints > span:not([hidden]) ~ span:not([hidden])::before { content: '·'; margin: 0 8px; color: var(--muted); }
 .flush-step .flush-back { margin-inline-start: 6px; padding: 2px 9px; font-size: 12px; }
 .flush-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 9px; background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
