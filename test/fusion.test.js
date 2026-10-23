@@ -223,9 +223,13 @@ test('each project’s model (its scan, else what Checkmarx One resolved for the
     '/api/scans/s2/workflow': [{ Source: 'last-worker-frankfurt', Info: 'started' }],
     '/api/sast-metadata': { scans: [{ scanId: 's1', loc: 91970, fileCount: 929 }, { scanId: 's2', loc: 910, fileCount: 5 }] },
     '/api/sast-metadata/engine-version': [{ scanId: 's1', engineVersion: '9.7.7-679962' }],
+    // Its SAST results in all, and their languages; the languages its SAST engine scanned (s2's: not said).
+    '/api/scan-summary': { scansSummaries: [{ scanId: 's1', sastCounters: { totalCounter: 1000, languageCounters: [{ language: 'TypeScript', counter: 900 }, { language: 'Go', counter: 100 }] } }, { scanId: 's2', sastCounters: { totalCounter: 40, languageCounters: [{ language: 'ABAP', counter: 40 }] } }] },
+    '/api/sast-metadata/s1/metrics': { scannedFilesPerLanguage: { TypeScript: { goodFiles: 900 }, JavaScript: { goodFiles: 20 }, Go: { goodFiles: 9 } } },
   });
   const facts = await projectFacts(client, ['p1', 'p2', 'p3'], { p1: { id: 's1' }, p2: { id: 's2' }, p3: { id: 's3' } });
-  assert.deepEqual(facts.p1, { scanType: 'fusion', fusionEnabled: true, model: 'haiku-4.5', modelFrom: 'scan', loc: 177362, files: 929, engineVersion: '9.7.7-679962', scanEngines: ['sast', 'ai'], aiReported: 273, aiDuplicates: 47, aiAdded: 226, fusionCredits: 'off' });
+  assert.deepEqual(facts.p1, { scanType: 'fusion', fusionEnabled: true, model: 'haiku-4.5', modelFrom: 'scan', loc: 177362, files: 929, engineVersion: '9.7.7-679962', scanEngines: ['sast', 'ai'], aiReported: 273, aiDuplicates: 47, aiAdded: 226, fusionCredits: 'off', sastResults: 1000, resultLanguages: ['Go', 'TypeScript'], sastLanguages: ['Go', 'JavaScript', 'TypeScript'] });
+  assert.deepEqual([facts.p2.sastResults, facts.p2.sastLanguages], [40, ['ABAP']], 'no metrics: the languages its results are in');
   assert.deepEqual([facts.p2.scanType, facts.p2.model, facts.p2.modelFrom, facts.p2.loc, facts.p2.files, facts.p2.aiReported], ['last', 'opus-4.7', 'environment', 910, 5, null], 'Fusion off: a LAST scan, the model as Checkmarx One resolved it, and where');
   assert.deepEqual([facts.p3.scanType, facts.p3.model], ['none', ''], 'no AI engine: nothing more read');
   assert.equal(client.calls.filter((c) => c.path === '/api/configuration/scan').length, 1, 'only for a scan that does not say');
