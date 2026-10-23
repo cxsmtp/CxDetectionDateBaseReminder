@@ -11,15 +11,17 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-unit-'));
 const original = Array.from({ length: 30 }, (_, k) => ({ similarityID: `s${k}`, state: 'TO_VERIFY', severity: 'HIGH' }));
 
 /** Checkmarx One as FAE Flush uses it; the FAE scan reports only `faeKeeps` of the project's results. */
-function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], refuse = [], refuseMark = [], results = original } = {}) {
+function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], refuse = [], refuseMark = [], results = original, avField = '' } = {}) {
   const states = new Map();
   const calls = [];
   const patches = [];
+  const posts = [];
   let made = 0;
   return {
     calls,
     states,
     patches,
+    posts,
     download: async (p, file) => (fs.writeFileSync(file, 'PK'), 2),
     uploadFile: async () => 2,
     request: async (p, { method = 'GET', body, query } = {}) => {
@@ -40,8 +42,15 @@ function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], ref
         return { results: results.map((r) => ({ ...r, state: states.get(r.similarityID) ?? r.state })) };
       }
       if (p === '/api/sast-results-predicates' && method === 'POST') {
-        if (body.some((m) => refuseMark.includes(m.similarityId))) throw Object.assign(new Error('POST /api/sast-results-predicates failed: 400 Bad Request'), { status: 400, body: '{"code":400,"message":"invalid severity for this result"}' });
-        for (const m of body) states.set(m.similarityId, m.state);
+        posts.push(Object.keys(body[0]).filter((k) => !['projectId', 'severity', 'state', 'comment'].includes(k)).join('+'));
+        // A tenant that groups similar results by attack vector: only `avField` is taken.
+        if (avField && body.some((m) => !m[avField] || (avField === 'attackVectorId' && m.similarityId))) {
+          if (body.some((m) => !m.attackVectorId && !m.attackVectorID)) throw Object.assign(new Error('POST /api/sast-results-predicates failed: 400 Bad Request'), { status: 400, body: '{"code":4002,"message":"Account is configured to use Attack Vector IDs. Updates by Similarity ID are not allowed.","data":null}' });
+          throw Object.assign(new Error('POST /api/sast-results-predicates failed: 400 Bad Request'), { status: 400, body: '{"message":"unknown field"}' });
+        }
+        if (avField) for (const m of body) states.set(String(m[avField]).replace(/^av-/, ''), m.state);
+        else if (body.some((m) => refuseMark.includes(m.similarityId))) throw Object.assign(new Error('POST /api/sast-results-predicates failed: 400 Bad Request'), { status: 400, body: '{"code":400,"message":"invalid severity for this result"}' });
+        if (!avField) for (const m of body) states.set(m.similarityId, m.state);
       }
       return [];
     },
@@ -315,4 +324,34 @@ test('a result Checkmarx One will not mark does not hold back the rest; its reas
   assert.deepEqual([p.counts.marked, p.counts.notMarked, p.counts.revalidated], [4, 1, 4]);
   assert.equal(p.notMarked[0].similarityId, 's27');
   assert.match(p.attempts.find((a) => a.what === 'not marked').detail, /1 result\(s\) Checkmarx One would not mark: .*400 Bad Request: 400 invalid severity for this result/);
+});
+
+test('a tenant that groups by attack vector: marks and Undo go by attack vector id, the way Checkmarx One takes is kept', async () => {
+  const withAv = original.map((r) => ({ ...r, attackVectorID: `av-${r.similarityID}` }));
+  const client = fakeClient({ faeKeeps: 25, results: withAv, avField: 'attackVectorID' });
+  const r = runner(client, 'by-attack-vector');
+  await turns(r, 6);
+  const p = r.job.projects[0];
+  assert.equal(p.step, 'done');
+  assert.deepEqual([p.counts.marked, p.counts.revalidated], [5, 5]);
+  assert.equal(r.job.markBy, 2, 'the third way: attackVectorID');
+  // By similarity id first, then each way by attack vector in turn; the next call goes straight the way that worked.
+  assert.deepEqual(client.posts, ['similarityId', 'attackVectorId', 'similarityId+attackVectorId', 'attackVectorID']);
+  assert.ok(p.attempts.some((a) => a.what === 'marks by attack vector'));
+  const undone = await r.undo('a@acme.io');
+  assert.equal(undone.restored, 5);
+  assert.deepEqual(client.posts.slice(4), ['attackVectorID']);
+  assert.ok([...client.states.values()].every((st) => st === 'TO_VERIFY'));
+});
+
+test('a tenant that groups by attack vector, and a result without one: it is left To verify, named', async () => {
+  const withAv = original.map((r, i) => (i === 27 ? r : { ...r, attackVectorID: `av-${r.similarityID}` }));
+  const client = fakeClient({ faeKeeps: 25, results: withAv, avField: 'attackVectorId' });
+  const r = runner(client, 'by-attack-vector-missing');
+  await turns(r, 6);
+  const p = r.job.projects[0];
+  assert.equal(p.step, 'done');
+  assert.deepEqual([p.counts.marked, p.counts.notMarked], [4, 1]);
+  assert.equal(r.job.markBy, 0);
+  assert.match(p.notMarked[0].why, /no attack vector id/);
 });

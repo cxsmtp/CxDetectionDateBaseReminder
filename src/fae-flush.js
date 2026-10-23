@@ -240,6 +240,18 @@ export async function scanResults(client, scanId) {
 }
 
 const keyOf = (r) => text(r?.similarityID ?? r?.similarityId, 80);
+const attackVectorOf = (r) => text(r?.attackVectorID ?? r?.attackVectorId, 120);
+/**
+ * A tenant can group similar results by attack vector instead of similarity id (Account settings): Checkmarx One then
+ * refuses a mark by similarity id ("Account is configured to use Attack Vector IDs", code 4002). The ways to send a
+ * mark by attack vector, tried in turn; the run keeps the one Checkmarx One takes.
+ */
+const BY_ATTACK_VECTOR = [
+  (av, m) => ({ attackVectorId: av }),
+  (av, m) => ({ similarityId: m.similarityId, attackVectorId: av }),
+  (av, m) => ({ attackVectorID: av }),
+];
+const wantsAttackVector = (error) => /attack vector/i.test(`${error?.message ?? ''} ${error?.body ?? ''}`) || /"code"\s*:\s*4002/.test(String(error?.body ?? ''));
 /** A refused call, with Checkmarx One's own reason when its answer gives one ("404 Not Found: repository not found"). */
 export function whyRefused(error) {
   const body = String(error?.body ?? '').trim();
@@ -284,8 +296,11 @@ export function compareResults(original, fae) {
   for (const r of open) {
     const key = keyOf(r);
     const f = findings.get(key);
-    if (f) f.results += 1;
-    else findings.set(key, { similarityId: key, severity: upper(r.severity) || 'MEDIUM', query: text(r.queryName, 120), results: 1 });
+    const av = attackVectorOf(r);
+    if (f) {
+      f.results += 1;
+      if (av && !f.attackVectorIds.includes(av)) f.attackVectorIds.push(av);
+    } else findings.set(key, { similarityId: key, attackVectorIds: av ? [av] : [], severity: upper(r.severity) || 'MEDIUM', query: text(r.queryName, 120), results: 1 });
   }
   const notReportedList = [];
   let reported = 0;
@@ -760,6 +775,40 @@ export class FaeFlushRunner {
   }
 
   /**
+   * Sets `state` on findings of `p` (each { similarityId, attackVectorIds, severity }): by similarity id, or by attack
+   * vector when the tenant groups similar results that way; the run remembers which (job.markBy).
+   */
+  async predicates(client, p, list, state, comment) {
+    const post = (body) => client.request('/api/sast-results-predicates', { method: 'POST', body, retries: 2 });
+    const base = (m) => ({ projectId: p.id, severity: m.severity, state, comment });
+    if (this.job.markBy === undefined || this.job.markBy === 'similarity') {
+      try {
+        await post(list.map((m) => ({ similarityId: m.similarityId, ...base(m) })));
+        this.job.markBy = 'similarity';
+        return;
+      } catch (error) {
+        if (!wantsAttackVector(error)) throw error;
+        if (this.job.markBy === 'similarity') delete this.job.markBy;
+      }
+    }
+    const without = list.filter((m) => !m.attackVectorIds?.length);
+    if (without.length) throw Object.assign(new Error(`Checkmarx One groups results by attack vector here, and ${without.length === 1 ? 'this result has' : 'these results have'} no attack vector id: scan the project again for one.`), { status: 400 });
+    let last = null;
+    for (const way of Number.isInteger(this.job.markBy) ? [this.job.markBy] : BY_ATTACK_VECTOR.keys()) {
+      try {
+        await post(list.flatMap((m) => m.attackVectorIds.map((av) => ({ ...BY_ATTACK_VECTOR[way](av, m), ...base(m) }))));
+        if (this.job.markBy !== way) this.attempt(p, 'marks by attack vector', true, 'Checkmarx One groups similar results by attack vector on this tenant');
+        this.job.markBy = way;
+        return;
+      } catch (error) {
+        if (!refused(error)) throw error;
+        last = error;
+      }
+    }
+    throw last;
+  }
+
+  /**
    * Step 4: Proposed not exploitable (or Not exploitable, as the run was started), with a comment naming the FAE
    * scan; only what is still To verify. One mark per similarity id covers every result sharing it.
    */
@@ -769,9 +818,9 @@ export class FaeFlushRunner {
     const done = new Set(p.marked.map((m) => m.similarityId));
     const todo = pending.filter((m) => !done.has(m.similarityId));
     const comment = `FAE Flush: not reported when the same code was scanned again with Findings Analysis (project ${p.name}${FAE_SUFFIX}, scan ${p.faeScanId}).`;
-    const post = (list) => client.request('/api/sast-results-predicates', { method: 'POST', body: list.map((m) => ({ similarityId: m.similarityId, projectId: p.id, severity: m.severity, state, comment })), retries: 2 });
+    const post = (list) => this.predicates(client, p, list, state, comment);
     const took = (list) => {
-      p.marked.push(...list.map((m) => ({ similarityId: m.similarityId, severity: m.severity, query: m.query ?? '', results: Number(m.results) || 1 })));
+      p.marked.push(...list.map((m) => ({ similarityId: m.similarityId, attackVectorIds: m.attackVectorIds ?? [], severity: m.severity, query: m.query ?? '', results: Number(m.results) || 1 })));
       p.counts.marked = resultsIn(p.marked);
       p.counts.markedFindings = p.marked.length;
       this.store.save();
@@ -875,7 +924,7 @@ export class FaeFlushRunner {
       const back = p.marked.filter((m) => current.get(m.similarityId) === markState(this.job));
       changed += resultsIn(p.marked) - resultsIn(back);
       for (let i = 0; i < back.length; i += PREDICATES_AT_ONCE) {
-        await client.request('/api/sast-results-predicates', { method: 'POST', body: back.slice(i, i + PREDICATES_AT_ONCE).map((m) => ({ similarityId: m.similarityId, projectId: p.id, severity: m.severity, state: TO_VERIFY, comment: `FAE Flush undone by ${text(by, 254)}.` })), retries: 2 });
+        await this.predicates(client, p, back.slice(i, i + PREDICATES_AT_ONCE), TO_VERIFY, `FAE Flush undone by ${text(by, 254)}.`);
       }
       const backResults = resultsIn(back);
       restored += backResults;

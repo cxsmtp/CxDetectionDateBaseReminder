@@ -298,3 +298,20 @@ test('a setting Checkmarx One will not copy stops a project to ask; skipped, it 
   const reasons = (await admin('GET', '/api/audit?q=FAE%20Flush&limit=50')).body.entries.map((e) => e.reason).join('\n');
   assert.match(reasons, /FAE Flush: admin@acme\.io brought back 1 skipped project \(Project 2\)\./);
 });
+
+test('a tenant that groups similar results by attack vector: marked and undone by attack vector id', async () => {
+  await mock('/__triage-by?by=av');
+  // Their results as the scans found them (an earlier run marked them).
+  await mock('/__predicates?clear=p4');
+  await mock('/__predicates?clear=p5');
+  const started = await admin('POST', '/api/fae-flush/start', { concurrency: 3, deleteFae: true, projectIds: ['p4', 'p5'] });
+  assert.equal(started.status, 200, JSON.stringify(started.body));
+  const done = await until((v) => v.job?.state === 'done', 60000);
+  assert.deepEqual([done.summary.steps.done, done.summary.totals.marked, done.summary.totals.revalidated], [2, 20, 20]);
+  assert.ok(done.job.projects.some((p) => p.attempts.some((a) => a.what === 'marks by attack vector')), 'said once, for the run');
+  assert.equal(done.job.markBy, 0);
+  assert.equal(Object.entries(await mock('/__predicates')).filter(([k, s]) => /^p[45]\|/.test(k) && s === 'PROPOSED_NOT_EXPLOITABLE').length, 20);
+  const undo = await admin('POST', '/api/fae-flush/undo');
+  assert.equal(undo.body.restored, 20);
+  await mock('/__triage-by?by=similarity');
+});

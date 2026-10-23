@@ -67,6 +67,7 @@ const lastScanProject = (i) => i % 6 === 4;
 // The tenant's credits left in Checkmarx One (TENANT_CREDITS=n), of 30,000; /__tenant-credits?n= changes them.
 let TENANT_CREDITS = Number(process.env.TENANT_CREDITS || 28854);
 let REFUSE_SETTING = '';
+let TRIAGE_BY = 'similarity';
 // One of a project's past scans: every other one ran the AI engine (Fusion, or LAST for a LAST project).
 const histScan = (i, k, n) => ({ id: `hist-p${i}-${k}`, projectId: `p${i}`, status: 'Completed', engines: k % 2 ? ['sast', 'sca'] : ['sast', 'sca', 'ai'], metadata: { configs: k % 2 ? [] : [{ type: 'ai', value: { fusionEnabled: lastScanProject(i) ? 'false' : 'true' } }] }, createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() });
 const risksFor = (pid) => allRisksFor(pid).filter((r) => !fixedByRescan(pid, `alt-${r.groupId.replace(/^sim-/, '')}`, r.id));
@@ -111,13 +112,19 @@ http.createServer((req, res) => {
       // A project deleted from Checkmarx One: its risks and the project itself answer 404.
       if (u.pathname === '/__gone') { const id = u.searchParams.get('id'); if (u.searchParams.get('on') === '1') gone.add(id); else gone.delete(id); return send(200, { gone: [...gone] }); }
       // A SAST setting Checkmarx One refuses to set on a project (403), as a live tenant may: /__refuse-setting?key=…
+      if (u.pathname === '/__triage-by') { TRIAGE_BY = u.searchParams.get('by') === 'av' ? 'av' : 'similarity'; return send(200, { by: TRIAGE_BY }); }
       if (u.pathname === '/__refuse-setting') { REFUSE_SETTING = u.searchParams.get('key') ?? ''; return send(200, { key: REFUSE_SETTING }); }
       if (u.pathname === '/__tenant-credits') { TENANT_CREDITS = Number(u.searchParams.get('n') ?? TENANT_CREDITS); return send(200, { available: TENANT_CREDITS }); }
       if (u.pathname === '/__changing') { changing = u.searchParams.get('on') === '1'; return send(200, { changing }); }
       if (u.pathname === '/__rescans') return send(200, Object.fromEntries(rescans));
       if (u.pathname === '/__reset') { for (const k of Object.keys(counts)) delete counts[k]; peak = 0; return send(200, {}); }
       // FAE Flush: the states predicates set, and the _FAE projects and scans made.
-      if (u.pathname === '/__predicates') return send(200, Object.fromEntries(predicates));
+      if (u.pathname === '/__predicates') {
+        // ?clear=<project id>: its results back to how the scans found them.
+        const clear = u.searchParams.get('clear');
+        if (clear) for (const k of [...predicates.keys()]) if (k.startsWith(`${clear}|`)) predicates.delete(k);
+        return send(200, Object.fromEntries(predicates));
+      }
       if (u.pathname === '/__fae') return send(200, { projects: Object.fromEntries(faeProjects), scans: Object.fromEntries(faeScans) });
       // Checkmarx One's signed storage address of a scan's code (what /api/repostore/code/{scanId} redirects to): behind
       // its gateway, which wants the access token as well as the signature (as on a real tenant), a Range answered.
@@ -251,6 +258,12 @@ http.createServer((req, res) => {
       if (req.method === 'POST' && u.pathname === '/api/sast-results-predicates') {
         bump('predicates');
         const body = JSON.parse(b || '[]');
+        // A tenant that groups similar results by attack vector (/__triage-by?by=av) takes marks only by attack vector id.
+        if (TRIAGE_BY === 'av') {
+          if (!Array.isArray(body) || body.some((p) => !p.attackVectorId)) return send(400, { code: 4002, message: 'Account is configured to use Attack Vector IDs. Updates by Similarity ID are not allowed.', data: null });
+          for (const p of body) predicates.set(`${p.projectId}|${String(p.attackVectorId).replace(/^av-/, '')}`, p.state);
+          return send(201, {});
+        }
         if (!Array.isArray(body) || body.some((p) => !p.similarityId || !p.projectId || !p.state)) return send(400, { message: 'bad predicates' });
         for (const p of body) predicates.set(`${p.projectId}|${p.similarityId}`, p.state);
         return send(201, {});
@@ -392,7 +405,7 @@ http.createServer((req, res) => {
           const last = k % 6 === 3;
           const file = last ? `contracts/Token${k % 4}.sol` : `src/routes/file${k % 4}.ts`;
           const language = last ? 'Solidity' : 'TypeScript';
-          return { resultHash: r.id, similarityID: r.groupId, queryName: r.riskName.replace(/ /g, '_'), queryID: k % 3 === 0 ? 0 : 1000 + k, group: k % 3 === 0 ? `${language}_${r.severity}` : 'TypeScript_High_Risk', languageName: language, cweID: [287, 89, 79][k % 3], severity: r.severity, state: r.state, status: k % 2 ? 'RECURRENT' : 'NEW', firstFoundAt: r.firstDetectionDate, foundAt: day(1), confidenceLevel: 0, nodes: [{ fileName: file, line: 40 + k, column: 13, name: 'input', method: 'handler' }, { fileName: file, line: 42 + k, column: 31, name: 'query', method: 'handler' }], isAiGenerated: k % 3 === 0, ...(k % 3 === 0 ? { description: `<p>The <code>input</code> parameter of <b>handler</b> reaches a ${last ? 'contract call' : 'database query'} in ${file} without being checked, so an attacker can change what it does.</p>` } : {}) };
+          return { resultHash: r.id, similarityID: r.groupId, attackVectorID: `av-${r.groupId}`, queryName: r.riskName.replace(/ /g, '_'), queryID: k % 3 === 0 ? 0 : 1000 + k, group: k % 3 === 0 ? `${language}_${r.severity}` : 'TypeScript_High_Risk', languageName: language, cweID: [287, 89, 79][k % 3], severity: r.severity, state: r.state, status: k % 2 ? 'RECURRENT' : 'NEW', firstFoundAt: r.firstDetectionDate, foundAt: day(1), confidenceLevel: 0, nodes: [{ fileName: file, line: 40 + k, column: 13, name: 'input', method: 'handler' }, { fileName: file, line: 42 + k, column: 31, name: 'query', method: 'handler' }], isAiGenerated: k % 3 === 0, ...(k % 3 === 0 ? { description: `<p>The <code>input</code> parameter of <b>handler</b> reaches a ${last ? 'contract call' : 'database query'} in ${file} without being checked, so an attacker can change what it does.</p>` } : {}) };
         }).filter((r) => (ai === '1' ? r.isAiGenerated : ai === '0' ? !r.isAiGenerated : true));
         if (u.pathname === '/api/sast-results') {
           const lim = Number(u.searchParams.get('limit') || 20);

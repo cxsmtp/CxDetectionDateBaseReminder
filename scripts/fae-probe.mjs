@@ -358,6 +358,7 @@ async function main() {
 // ---- --compare / --mark: FAE Flush's steps 3 and 4 for one project, on its own ----
 const upper = (v) => String(v ?? '').toUpperCase();
 const simOf = (r) => String(r?.similarityID ?? r?.similarityId ?? '');
+const avOf = (r) => String(r?.attackVectorID ?? r?.attackVectorId ?? '');
 /** Added by the AI engine (no SAST query behind it): the FAE scan, SAST only, can never report it. */
 const fromAi = (r) => {
   if (r?.isAiGenerated === true) return true;
@@ -399,15 +400,17 @@ async function compareAndMark(project, scanId) {
   for (const r of open) {
     const f = findings.get(simOf(r));
     if (f) f.results += 1;
-    else findings.set(simOf(r), { similarityId: simOf(r), severity: upper(r.severity) || 'MEDIUM', query: String(r.queryName ?? ''), results: 1 });
+    else findings.set(simOf(r), { similarityId: simOf(r), attackVectorId: avOf(r), severity: upper(r.severity) || 'MEDIUM', query: String(r.queryName ?? ''), results: 1 });
   }
   const notReported = [...findings.values()].filter((f) => !theirs.has(f.similarityId));
   const nr = notReported.reduce((n, f) => n + f.results, 0);
+  const withAv = open.filter((r) => avOf(r)).length;
+  step('Attack vector ids in the results', null, `${withAv} of ${open.length} SAST results To verify carry one${withAv ? ` (first: ${avOf(open.find((r) => avOf(r)))})` : ''}`);
   step('Compared, as FAE Flush does', true, `${toVerify.length} To verify · ${toVerify.length - open.length} added by the AI engine (left out) · ${open.length - nr} still reported · ${nr} not (${notReported.length} findings)`);
   const bySeverity = {};
   for (const f of notReported) bySeverity[f.severity] = (bySeverity[f.severity] ?? 0) + f.results;
   if (notReported.length) console.log(`    not reported, by severity: ${Object.entries(bySeverity).map(([k, v]) => `${k} ${v}`).join(' · ')}`);
-  for (const f of notReported.slice(0, 30)) console.log(`    ${f.severity} · ${short(f.query, 80)} · similarity ${f.similarityId}${f.results > 1 ? ` (${f.results} results)` : ''}`);
+  for (const f of notReported.slice(0, 30)) console.log(`    ${f.severity} · ${short(f.query, 80)} · similarity ${f.similarityId}${f.attackVectorId ? ` · attack vector ${f.attackVectorId}` : ''}${f.results > 1 ? ` (${f.results} results)` : ''}`);
   if (notReported.length > 30) console.log(`    … and ${notReported.length - 30} more`);
   if (!MARK) {
     conclusions.push(nr ? `FAE Flush would mark ${nr} result(s) (${notReported.length} finding(s)). Add --mark pne or --mark ne (with --limit 1 to start) to mark them one at a time and see Checkmarx One's answer.` : 'Nothing to mark: the FAE scan reports every result To verify.');
@@ -419,6 +422,7 @@ async function compareAndMark(project, scanId) {
   let marked = 0;
   const refused = [];
   let withoutSeverity = 0;
+  let avShape = '';
   for (const f of list) {
     const tryOne = (withSeverity) => call('POST', '/api/sast-results-predicates', { body: [{ similarityId: f.similarityId, projectId: project.id, ...(withSeverity ? { severity: f.severity } : {}), state, comment }] });
     const first = await tryOne(true);
@@ -427,6 +431,38 @@ async function compareAndMark(project, scanId) {
       continue;
     }
     const why = `${first.response.status} ${short((await json(first.response)).text, 300)}`;
+    // A tenant that groups similar results by attack vector refuses marks by similarity id: try the attack vector id.
+    if (/attack vector/i.test(why)) {
+      if (!f.attackVectorId) {
+        refused.push(why);
+        step(`  not marked: ${f.severity} ${short(f.query, 60)} (${f.similarityId})`, false, `${why} · this result has no attack vector id (scan it again on a recent engine)`);
+        continue;
+      }
+      const shapes = [
+        ['attackVectorId instead of similarityId', { attackVectorId: f.attackVectorId, projectId: project.id, severity: f.severity, state, comment }],
+        ['attackVectorId with similarityId', { similarityId: f.similarityId, attackVectorId: f.attackVectorId, projectId: project.id, severity: f.severity, state, comment }],
+        ['attackVectorID instead of similarityId', { attackVectorID: f.attackVectorId, projectId: project.id, severity: f.severity, state, comment }],
+      ];
+      let taken = '';
+      const answers = [];
+      for (const [label, body] of shapes) {
+        const { response } = await call('POST', '/api/sast-results-predicates', { body: [body] });
+        if (response.ok) {
+          taken = label;
+          break;
+        }
+        answers.push(`${label}: ${response.status} ${short((await json(response)).text, 160)}`);
+      }
+      if (taken) {
+        marked += 1;
+        avShape ||= taken;
+        step(`  ${f.severity} ${short(f.query, 60)} (attack vector ${f.attackVectorId})`, true, `taken by attack vector (${taken}); by similarity id: ${why}`);
+      } else {
+        refused.push(why);
+        step(`  not marked: ${f.severity} ${short(f.query, 60)} (attack vector ${f.attackVectorId})`, false, `by similarity id: ${why} · ${answers.join(' · ')}`);
+      }
+      continue;
+    }
     const again = await tryOne(false);
     if (again.response.ok) {
       marked += 1;
@@ -439,8 +475,9 @@ async function compareAndMark(project, scanId) {
   }
   step(`Marked ${MARK === 'ne' ? 'Not exploitable' : 'Proposed not exploitable'}`, !refused.length, `${marked} of ${list.length} finding(s)${refused.length ? `; ${refused.length} refused` : ''}${withoutSeverity ? `; ${withoutSeverity} only without their severity` : ''}`);
   if (refused.length) conclusions.push(`Checkmarx One refused ${refused.length} mark(s): ${refused[0]}`);
+  if (avShape) conclusions.push(`This tenant groups similar results by attack vector: Checkmarx One took the mark with ${avShape}. FAE Flush should mark that way here.`);
   if (withoutSeverity) conclusions.push(`Checkmarx One took ${withoutSeverity} mark(s) only without the result's severity: FAE Flush should leave the severity out.`);
-  if (!refused.length && !withoutSeverity) conclusions.push(`Every mark was taken (${marked}).`);
+  if (!refused.length && !withoutSeverity && !avShape) conclusions.push(`Every mark was taken (${marked}).`);
 }
 
 async function cleanup() {
