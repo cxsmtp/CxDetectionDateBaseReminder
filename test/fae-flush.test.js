@@ -11,7 +11,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-unit-'));
 const original = Array.from({ length: 30 }, (_, k) => ({ similarityID: `s${k}`, state: 'TO_VERIFY', severity: 'HIGH' }));
 
 /** Checkmarx One as FAE Flush uses it; the FAE scan reports only `faeKeeps` of the project's results. */
-function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], refuse = [], refuseMark = [], results = original, avField = '' } = {}) {
+function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], refuse = [], refuseMark = [], results = original, avField = '', latest = null, rescanned = null } = {}) {
   const states = new Map();
   const calls = [];
   const patches = [];
@@ -28,6 +28,7 @@ function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], ref
       calls.push(`${method} ${p}`);
       if (p === '/api/projects' && method === 'POST') return { id: `fae-${(made += 1)}` };
       if (p === '/api/configuration/project' && method === 'GET') return settings;
+      if (p === '/api/projects/last-scan') return latest ? { p1: { id: latest() } } : {};
       if (p === '/api/configuration/project' && method === 'PATCH') {
         patches.push(body.map((e) => e.key));
         if (body.some((e) => refuse.includes(e.key))) throw Object.assign(new Error('PATCH /api/configuration/project failed: 403 Forbidden'), { status: 403, body: '{"code":403,"message":"Forbidden"}' });
@@ -39,6 +40,7 @@ function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], ref
       if (p === '/api/sast-results') {
         if (query.offset > 0) return { results: [] };
         if (query['scan-id'] === 'scan-fae') return { results: results.filter((r) => !r.isAiGenerated).slice(0, faeKeeps) };
+        if (rescanned && query['scan-id'] === 'scan-2') return { results: rescanned.map((r) => ({ ...r, state: states.get(r.similarityID) ?? r.state })) };
         return { results: results.map((r) => ({ ...r, state: states.get(r.similarityID) ?? r.state })) };
       }
       if (p === '/api/sast-results-predicates' && method === 'POST') {
@@ -354,4 +356,23 @@ test('a tenant that groups by attack vector, and a result without one: it is lef
   assert.deepEqual([p.counts.marked, p.counts.notMarked], [4, 1]);
   assert.equal(r.job.markBy, 0);
   assert.match(p.notMarked[0].why, /no attack vector id/);
+});
+
+test('grouped by attack vector, a latest scan with none: it asks to scan again; Retry after a new scan marks', async () => {
+  let scan = 'scan-1';
+  const withAv = original.map((r) => ({ ...r, attackVectorID: `av-${r.similarityID}` }));
+  const client = fakeClient({ faeKeeps: 25, avField: 'attackVectorId', latest: () => scan, rescanned: withAv });
+  const r = runner(client, 'rescan');
+  await turns(r, 5);
+  const p = r.job.projects[0];
+  assert.equal(p.step, 'needs-ok');
+  assert.equal(p.exception.code, 'rescan');
+  assert.match(p.exception.text, /latest scan has no attack vector ids .* Scan Payments again, then bring it back\. Nothing was marked\./);
+  assert.throws(() => r.decide('p1', 'mark', 'a@acme.io'), /Nothing to mark/);
+  scan = 'scan-2';
+  r.decide('p1', 'retry', 'a@acme.io');
+  await turns(r, 7);
+  assert.equal(p.sourceScanId, 'scan-2');
+  assert.equal(p.step, 'done');
+  assert.deepEqual([p.counts.marked, p.counts.revalidated], [5, 5]);
 });

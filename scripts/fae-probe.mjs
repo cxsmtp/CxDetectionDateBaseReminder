@@ -405,7 +405,8 @@ async function compareAndMark(project, scanId) {
   const notReported = [...findings.values()].filter((f) => !theirs.has(f.similarityId));
   const nr = notReported.reduce((n, f) => n + f.results, 0);
   const withAv = open.filter((r) => avOf(r)).length;
-  step('Attack vector ids in the results', null, `${withAv} of ${open.length} SAST results To verify carry one${withAv ? ` (first: ${avOf(open.find((r) => avOf(r)))})` : ''}`);
+  const faeAv = fae.filter((r) => avOf(r)).length;
+  step('Attack vector ids in the results', null, `${withAv} of ${open.length} SAST results To verify carry one${withAv ? ` (first: ${avOf(open.find((r) => avOf(r)))})` : ''} · ${faeAv} of ${fae.length} in the FAE scan · fields of a result: ${Object.keys(open[0] ?? {}).join(', ')}`);
   step('Compared, as FAE Flush does', true, `${toVerify.length} To verify · ${toVerify.length - open.length} added by the AI engine (left out) · ${open.length - nr} still reported · ${nr} not (${notReported.length} findings)`);
   const bySeverity = {};
   for (const f of notReported) bySeverity[f.severity] = (bySeverity[f.severity] ?? 0) + f.results;

@@ -29,7 +29,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { mapWithConcurrency } from './cxone/client.js';
-import { FAE_FLUSH_TAG } from './cxone/projects.js';
+import { FAE_FLUSH_TAG, getLastScans } from './cxone/projects.js';
 
 export const FAE_TAG = FAE_FLUSH_TAG;
 export const FAE_SUFFIX = '_FAE';
@@ -532,7 +532,7 @@ export class FaeFlushRunner {
     const code = p.exception?.code;
     if (decision === 'mark') {
       // "Mark anyway" once compared; "Accept" after a revalidation that did not match. Never without an FAE scan's results.
-      if (code === 'scan' || code === 'error' || code === 'settings' || !p.pending) throw Object.assign(new Error('Nothing to mark: retry or skip it.'), { status: 409 });
+      if (['scan', 'error', 'settings', 'rescan'].includes(code) || !p.pending) throw Object.assign(new Error('Nothing to mark: retry or skip it.'), { status: 409 });
       this.move(p, code === 'revalidation' ? (this.job.deleteFae ? 'cleaning' : 'done') : this.job.options?.mode === 'report' ? 'reported' : 'marking');
     } else if (decision === 'continue') {
       // Scan without the settings Checkmarx One refused to copy.
@@ -542,6 +542,8 @@ export class FaeFlushRunner {
     } else if (decision === 'retry') {
       if (code === 'scan' || code === 'copy' || code === 'settings') p.failedSources = [];
       if (p.faeDeleted) this.freshCopy(p);
+      // Scanned again since: its latest scan, and its code, from the start.
+      if (code === 'rescan') Object.assign(p, { latestAgain: true, faeScanId: '', faeLoc: null, codeSource: '' });
       this.move(p, p.faeScanId && !['scan', 'settings'].includes(code) ? 'comparing' : 'waiting');
     } else if (decision === 'skip') this.move(p, this.job.deleteFae && p.faeProjectId && code !== 'scan' ? 'cleaning' : 'skipped', `Skipped by ${text(by, 254)}`);
     else throw Object.assign(new Error('Mark, continue, skip or retry.'), { status: 400 });
@@ -565,7 +567,7 @@ export class FaeFlushRunner {
     for (const p of back) {
       if (p.faeDeleted || !p.faeProjectId) this.freshCopy(p);
       else Object.assign(p, { faeScanId: '', faeLoc: null, codeSource: '', failedSources: [] });
-      Object.assign(p, { exception: null, settingsWaived: false, pending: undefined, counts: { toVerify: p.counts?.toVerify ?? null, marked: p.counts?.marked ?? 0 } });
+      Object.assign(p, { latestAgain: true, exception: null, settingsWaived: false, pending: undefined, counts: { toVerify: p.counts?.toVerify ?? null, marked: p.counts?.marked ?? 0 } });
       this.move(p, 'waiting', `Brought back by ${text(by, 254)}`);
       this.attempt(p, 'brought back', true, by);
     }
@@ -619,7 +621,7 @@ export class FaeFlushRunner {
       else if (p.step === 'revalidating') await this.revalidate(traced, p);
       else if (p.step === 'cleaning') await this.clean(traced, p);
     } catch (error) {
-      p.exception = { code: ['copy', 'settings'].includes(error.code) ? error.code : 'error', text: error.code === 'settings' ? text(error.message, 400) : `${p.step}: ${text(error?.message, 400)}`, at: new Date(this.now()).toISOString() };
+      p.exception = { code: ['copy', 'settings', 'rescan'].includes(error.code) ? error.code : 'error', text: ['settings', 'rescan'].includes(error.code) ? text(error.message, 500) : `${p.step}: ${text(error?.message, 400)}`, at: new Date(this.now()).toISOString() };
       this.attempt(p, p.step, false, error?.message);
       this.move(p, 'needs-ok');
     } finally {
@@ -636,11 +638,25 @@ export class FaeFlushRunner {
     return ['upload', 'git'].filter((s) => !(p.failedSources ?? []).includes(s) && (s === 'git' ? Boolean(p.repoUrl) : p.codeKept !== false));
   }
 
+  /** A project brought back or retried after a new scan: compared from its latest completed scan now. */
+  async latestScan(client, p) {
+    const last = (await getLastScans(client, [p.id]))[p.id];
+    const scanId = text(last?.id ?? last?.scanId, 80);
+    if (scanId && scanId !== p.sourceScanId) {
+      const scan = await client.request(`/api/scans/${encodeURIComponent(scanId)}`, { retries: 1, background: true }).catch(() => null);
+      Object.assign(p, { sourceScanId: scanId, branch: text(scan?.branch ?? last?.branch, 200) || p.branch, loc: sastLoc(scan) ?? p.loc, ...gitOf(scan) });
+      p.codeKept = await client.request(`/api/repostore/scans/${encodeURIComponent(scanId)}`, { method: 'HEAD', retries: 0, background: true }).then(() => true, () => false);
+      this.attempt(p, 'latest scan', true, scanId);
+    }
+    delete p.latestAgain;
+  }
+
   /** Steps 1 and 2: the code of its latest scan, on a new project "<name>_FAE", scanned with Findings Analysis on. */
   async copy(client, p) {
     this.move(p, 'copying');
     this.store.save();
     if (p.faeDeleted) this.freshCopy(p);
+    if (p.latestAgain) await this.latestScan(client, p);
     if (!p.faeProjectId || p.faeConfigured !== true) await this.makeFaeProject(client, p);
     const tried = [];
     for (const source of this.sourcesFor(p)) {
@@ -844,6 +860,11 @@ export class FaeFlushRunner {
           }
         }
       }
+    }
+    // A tenant grouping by attack vector, and a latest scan from before that: nobody can change its results until the
+    // project is scanned again (Checkmarx One: "updates are not allowed").
+    if (notTaken.length && notTaken.length === todo.length && notTaken.every((m) => /no attack vector id/.test(m.why))) {
+      throw Object.assign(new Error(`This tenant groups similar results by attack vector, and ${p.name}'s latest scan has no attack vector ids (it is older than that setting): Checkmarx One lets no one change its results until the project is scanned again. Scan ${p.name} again, then bring it back. Nothing was marked.`), { code: 'rescan' });
     }
     if (notTaken.length) {
       p.notMarked = notTaken.map(({ similarityId, severity, query, results, why }) => ({ similarityId, severity, query, results, why: text(why, 200) }));

@@ -231,11 +231,11 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     const asks = job.projects.filter((p) => p.step === 'needs-ok');
     $('flush-asks').innerHTML = asks
       .map((p) => {
-        const markable = !['scan', 'error', 'copy', 'settings'].includes(p.exception?.code);
+        const markable = !['scan', 'error', 'copy', 'settings', 'rescan'].includes(p.exception?.code);
         const carryOn = p.exception?.code === 'settings' ? `<button type="button" class="sm" data-decide="continue">${esc('Carry on without them')}</button>` : '';
         const mark = p.exception?.code === 'revalidation' ? 'Accept' : `Mark ${num(p.counts?.notReported ?? 0)} anyway`;
         // The reason in a sentence of its own (translated), a failed call's own message as it came.
-        const reason = ['error', 'copy', 'settings'].includes(p.exception?.code) ? `<span translate="no">${esc(p.exception?.text ?? '')}</span>` : `<span>${esc(p.exception?.text ?? '')}</span>`;
+        const reason = ['error', 'copy', 'settings', 'rescan'].includes(p.exception?.code) ? `<span translate="no">${esc(p.exception?.text ?? '')}</span>` : `<span>${esc(p.exception?.text ?? '')}</span>`;
         const detail = p.exception?.detail ? ` <span class="hint" translate="no">${esc(p.exception.detail)}</span>` : '';
         return `<div class="flush-ask" data-id="${esc(p.id)}"><p><b translate="no">${esc(p.name)}</b> ${reason}${detail}</p>${allowed() ? `<div class="actions">${markable ? `<button type="button" class="sm" data-decide="mark">${esc(mark)}</button>` : ''}${carryOn}<button type="button" class="sm" data-decide="retry">Retry</button><button type="button" class="sm" data-decide="skip">Skip</button></div>` : ''}</div>`;
       })
