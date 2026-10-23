@@ -230,6 +230,14 @@ async function main() {
     step('State history of that result (GET /api/sast-results-predicates/…)', pr.response.ok, `${pr.response.status}${pr.response.ok ? '' : ` ${short(prData.text, 160)}`}`);
   }
 
+  // 9. The project's own SAST settings: FAE Flush copies these to the _FAE project, with Findings Analysis on.
+  const st = await call('GET', '/api/configuration/project', { query: { 'project-id': project.id } });
+  const stData = await json(st.response);
+  const all = Array.isArray(stData.data) ? stData.data : [];
+  const own = all.filter((e) => String(e?.originLevel ?? '').toLowerCase() === 'project' && /^scan\.config\.sast\./.test(String(e?.key ?? '')) && e.key !== 'scan.config.sast.findingsAnalysis');
+  const locked = all.filter((e) => /^scan\.config\.sast\./.test(String(e?.key ?? '')) && e?.allowOverride === false).map((e) => e.key);
+  step('Its own SAST settings (GET /api/configuration/project)', st.response.ok, `${st.response.status}: ${st.response.ok ? `${own.length} set on the project${own.length ? `: ${own.map((e) => `${e.key}=${short(e.value, 60)}`).join(' · ')}` : ''}${locked.length ? ` · locked above the project: ${locked.join(', ')}` : ''}` : short(stData.text, 200)}`);
+
   if (!WRITE) {
     conclusions.push('Read-only run: add --write to try the upload, the throwaway project and the scans.');
     return;
@@ -258,6 +266,23 @@ async function main() {
   step('Throwaway project made', Boolean(probeProjectId), `${cp.response.status}: ${probeProjectId ? `${name} · ${probeProjectId}` : short(cpData.text, 200)}`);
   if (!probeProjectId) return;
 
+  // As FAE Flush does: the project's own SAST settings and Findings Analysis, in one PATCH; if refused, which one.
+  const setting = (e) => ({ key: e.key, value: String(e.value ?? '') });
+  if (own.length) {
+    const together = await call('PATCH', '/api/configuration/project', { query: { 'project-id': probeProjectId }, body: [...own.map(setting), { key: 'scan.config.sast.findingsAnalysis', value: 'true' }] });
+    const tText = together.response.ok ? '' : short((await json(together.response)).text, 200);
+    step(`Its ${own.length} own SAST setting(s) and Findings Analysis in one PATCH (as FAE Flush does)`, together.response.ok, `${together.response.status}${tText ? ` ${tText}` : ''}`);
+    if (!together.response.ok) {
+      const refused = [];
+      for (const e of own) {
+        const one = await call('PATCH', '/api/configuration/project', { query: { 'project-id': probeProjectId }, body: [setting(e)] });
+        const oText = one.response.ok ? '' : short((await json(one.response)).text, 160);
+        step(`  ${e.key} alone`, one.response.ok, `${one.response.status}${oText ? ` ${oText}` : ''} · ${e.allowOverride === false ? 'locked' : 'not locked'}`);
+        if (!one.response.ok) refused.push(`${e.key} (${one.response.status})`);
+      }
+      conclusions.push(refused.length ? `Checkmarx One refuses these settings on the new project: ${refused.join(', ')}. FAE Flush should leave them out and carry on.` : 'Each setting is taken alone but not all together.');
+    }
+  }
   const cfg = await call('PATCH', '/api/configuration/project', { query: { 'project-id': probeProjectId }, body: [{ key: 'scan.config.sast.findingsAnalysis', value: 'true' }] });
   const cfgText = cfg.response.ok ? '' : short((await json(cfg.response)).text, 200);
   const read = await call('GET', '/api/configuration/project', { query: { 'project-id': probeProjectId } });
