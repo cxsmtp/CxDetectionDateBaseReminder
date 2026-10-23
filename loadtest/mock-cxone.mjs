@@ -1,5 +1,6 @@
 // Mock Checkmarx One for load tests: many projects, fixed latency, per-route call counts.
 import http from 'http';
+import { createHash } from 'crypto';
 const PROJECTS = Number(process.env.PROJECTS || 200);
 const RISKS = Number(process.env.RISKS || 60);
 // How many different people ran the latest scans: project i was scanned by dev(i % INITIATORS).
@@ -66,6 +67,15 @@ const VULNS = [['SQL_Injection', 89], ['Reflected_XSS_All_Clients', 79], ['SSRF'
 const lastScanProject = (i) => i % 6 === 4;
 // The tenant's credits left in Checkmarx One (TENANT_CREDITS=n), of 30,000; /__tenant-credits?n= changes them.
 let TENANT_CREDITS = Number(process.env.TENANT_CREDITS || 28854);
+let REFUSE_SETTING = '';
+let TRIAGE_BY = 'similarity';
+// A result's attack vector id (16 hex characters), and back to its similarity group.
+const avGroups = new Map();
+const attackVectorOf = (groupId) => {
+  const av = createHash('sha256').update(String(groupId)).digest('hex').slice(0, 16);
+  avGroups.set(av, groupId);
+  return av;
+};
 // One of a project's past scans: every other one ran the AI engine (Fusion, or LAST for a LAST project).
 const histScan = (i, k, n) => ({ id: `hist-p${i}-${k}`, projectId: `p${i}`, status: 'Completed', engines: k % 2 ? ['sast', 'sca'] : ['sast', 'sca', 'ai'], metadata: { configs: k % 2 ? [] : [{ type: 'ai', value: { fusionEnabled: lastScanProject(i) ? 'false' : 'true' } }] }, createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() });
 const risksFor = (pid) => allRisksFor(pid).filter((r) => !fixedByRescan(pid, `alt-${r.groupId.replace(/^sim-/, '')}`, r.id));
@@ -109,12 +119,20 @@ http.createServer((req, res) => {
       if (u.pathname === '/__stats') return send(200, { counts, peak, maxSendsPerResult: Math.max(0, ...sentCount.values()), resultsSent: sentCount.size });
       // A project deleted from Checkmarx One: its risks and the project itself answer 404.
       if (u.pathname === '/__gone') { const id = u.searchParams.get('id'); if (u.searchParams.get('on') === '1') gone.add(id); else gone.delete(id); return send(200, { gone: [...gone] }); }
+      // A SAST setting Checkmarx One refuses to set on a project (403), as a live tenant may: /__refuse-setting?key=…
+      if (u.pathname === '/__triage-by') { TRIAGE_BY = u.searchParams.get('by') === 'av' ? 'av' : 'similarity'; return send(200, { by: TRIAGE_BY }); }
+      if (u.pathname === '/__refuse-setting') { REFUSE_SETTING = u.searchParams.get('key') ?? ''; return send(200, { key: REFUSE_SETTING }); }
       if (u.pathname === '/__tenant-credits') { TENANT_CREDITS = Number(u.searchParams.get('n') ?? TENANT_CREDITS); return send(200, { available: TENANT_CREDITS }); }
       if (u.pathname === '/__changing') { changing = u.searchParams.get('on') === '1'; return send(200, { changing }); }
       if (u.pathname === '/__rescans') return send(200, Object.fromEntries(rescans));
       if (u.pathname === '/__reset') { for (const k of Object.keys(counts)) delete counts[k]; peak = 0; return send(200, {}); }
       // FAE Flush: the states predicates set, and the _FAE projects and scans made.
-      if (u.pathname === '/__predicates') return send(200, Object.fromEntries(predicates));
+      if (u.pathname === '/__predicates') {
+        // ?clear=<project id>: its results back to how the scans found them.
+        const clear = u.searchParams.get('clear');
+        if (clear) for (const k of [...predicates.keys()]) if (k.startsWith(`${clear}|`)) predicates.delete(k);
+        return send(200, Object.fromEntries(predicates));
+      }
       if (u.pathname === '/__fae') return send(200, { projects: Object.fromEntries(faeProjects), scans: Object.fromEntries(faeScans) });
       // Checkmarx One's signed storage address of a scan's code (what /api/repostore/code/{scanId} redirects to): behind
       // its gateway, which wants the access token as well as the signature (as on a real tenant), a Range answered.
@@ -161,7 +179,7 @@ http.createServer((req, res) => {
         bump('project-delete');
         return faeProjects.delete(decodeURIComponent(sm0[1])) ? send(204) : send(404, { message: 'project not found' });
       }
-      if (req.method === 'PATCH' && u.pathname === '/api/configuration/project') { bump('configuration-patch'); return faeProjects.has(u.searchParams.get('project-id')) ? send(204) : send(404, {}); }
+      if (req.method === 'PATCH' && u.pathname === '/api/configuration/project') { bump('configuration-patch'); if (REFUSE_SETTING && JSON.parse(b || '[]').some?.((e) => e?.key === REFUSE_SETTING)) return send(403, { code: 403, message: 'Forbidden' }); return faeProjects.has(u.searchParams.get('project-id')) ? send(204) : send(404, {}); }
       if (req.method === 'POST' && u.pathname === '/api/uploads') { bump('uploads'); const path = `/__upload/${uploads.size + 1}-${Date.now()}`; uploads.add(path); return send(200, { url: `http://127.0.0.1:${process.env.PORT || 4101}${path}` }); }
       // A scan's source code, as Checkmarx One keeps it (a zip).
       if ((sm0 = u.pathname.match(/^\/api\/repostore\/(code|scans)\/(?:(?:scan|feat)-)?p(\d+)$/))) {
@@ -245,9 +263,18 @@ http.createServer((req, res) => {
         }
         return send(200, { scans, totalCount: total, filteredTotalCount: total });
       }
+      if (req.method === 'POST' && u.pathname === '/api/sast-results-predicates/attack-vector') {
+        bump('predicates-attack-vector');
+        const body = JSON.parse(b || '[]');
+        if (!Array.isArray(body) || body.some((p) => !/^[0-9a-fA-F]{16}$/.test(p.attackVectorId ?? '') || !p.projectId || !avGroups.has(p.attackVectorId))) return send(400, { code: 4000, message: 'invalid attack vector predicate' });
+        for (const p of body) predicates.set(`${p.projectId}|${avGroups.get(p.attackVectorId)}`, p.state);
+        return send(201, {});
+      }
       if (req.method === 'POST' && u.pathname === '/api/sast-results-predicates') {
         bump('predicates');
         const body = JSON.parse(b || '[]');
+        // A tenant that groups similar results by attack vector (/__triage-by?by=av) takes marks only by attack vector.
+        if (TRIAGE_BY === 'av') return send(400, { code: 4002, message: 'Account is configured to use Attack Vector IDs. Updates by Similarity ID are not allowed.', data: null });
         if (!Array.isArray(body) || body.some((p) => !p.similarityId || !p.projectId || !p.state)) return send(400, { message: 'bad predicates' });
         for (const p of body) predicates.set(`${p.projectId}|${p.similarityId}`, p.state);
         return send(201, {});
@@ -358,7 +385,7 @@ http.createServer((req, res) => {
         bump('configuration');
         const i = Number(String(u.searchParams.get('project-id') ?? '').replace(/^p/, ''));
         const value = u.pathname.endsWith('tenant') ? 'opus-5.5' : i % 3 === 1 ? 'opus-5.0' : '';
-        return send(200, [{ key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: 'true' }, { key: 'scan.config.sast.extendedAnalysis', name: 'LLM-based scanning', value: 'true' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', value, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
+        return send(200, [...(u.pathname.endsWith('tenant') ? [{ key: 'scan.config.sast.advancedTriageMode', name: 'Grouping Similar Results', value: TRIAGE_BY === 'av' ? 'Attack Vector ID' : 'Similarity ID', originLevel: 'Tenant' }] : []), { key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: 'true' }, { key: 'scan.config.sast.extendedAnalysis', name: 'LLM-based scanning', value: 'true', originLevel: 'Project' }, { key: 'scan.config.sast.presetName', name: 'presetName', value: '', originLevel: 'Project' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', value, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
       }
       // Credits used, by project (as CxCreditGuard reads it): project i used 4i + 6, with i % 3 triage and i % 2 remediation actions.
       if (u.pathname === '/api/credits/consumption') {
@@ -379,16 +406,17 @@ http.createServer((req, res) => {
         const faeScan = faeScans.get(scanId);
         const pid = faeScan ? faeScan.source : scanId.replace(/^(scan|feat)-/, '');
         const ai = u.searchParams.get('is-ai-generated');
-        // An FAE scan of the same code reports one in three of the project's results (Findings Analysis drops the rest),
-        // and two of its own; the project's results carry the states predicates gave them.
-        const kept = (r) => !faeScan || Number(r.id.split('-r')[1]) % 3 === 0;
+        // An FAE scan of the same code (SAST only) reports one in three of the project's results (Findings Analysis
+        // drops the rest) and none the AI engine added (every third, query id 0), and two of its own; the project's
+        // results carry the states predicates gave them.
+        const kept = (r) => !faeScan || Number(r.id.split('-r')[1]) % 3 === 1;
         const extra = faeScan ? [0, 1].map((n) => ({ id: `${pid}-x${n}`, riskName: `Finding ${pid}-x${n}`, severity: 'HIGH', state: 'TO_VERIFY', status: 'NEW', firstDetectionDate: day(0), groupId: `sim-${pid}-x${n}` })) : [];
         const rows = [...risksFor(pid).filter(kept), ...extra].map((r) => ({ ...r, state: faeScan ? r.state : (predicates.get(`${pid}|${r.groupId}`) ?? r.state) })).map((r) => {
           const k = Number(r.id.split(/-[rx]/)[1]);
           const last = k % 6 === 3;
           const file = last ? `contracts/Token${k % 4}.sol` : `src/routes/file${k % 4}.ts`;
           const language = last ? 'Solidity' : 'TypeScript';
-          return { resultHash: r.id, similarityID: r.groupId, queryName: r.riskName.replace(/ /g, '_'), queryID: k % 3 === 0 ? 0 : 1000 + k, group: k % 3 === 0 ? `${language}_${r.severity}` : 'TypeScript_High_Risk', languageName: language, cweID: [287, 89, 79][k % 3], severity: r.severity, state: r.state, status: k % 2 ? 'RECURRENT' : 'NEW', firstFoundAt: r.firstDetectionDate, foundAt: day(1), confidenceLevel: 0, nodes: [{ fileName: file, line: 40 + k, column: 13, name: 'input', method: 'handler' }, { fileName: file, line: 42 + k, column: 31, name: 'query', method: 'handler' }], isAiGenerated: k % 3 === 0, ...(k % 3 === 0 ? { description: `<p>The <code>input</code> parameter of <b>handler</b> reaches a ${last ? 'contract call' : 'database query'} in ${file} without being checked, so an attacker can change what it does.</p>` } : {}) };
+          return { resultHash: r.id, similarityID: r.groupId,  ...(u.searchParams.getAll('visible-columns').includes('attack-vector-id') ? { attackVectorID: attackVectorOf(r.groupId) } : {}), queryName: r.riskName.replace(/ /g, '_'), queryID: k % 3 === 0 ? 0 : 1000 + k, group: k % 3 === 0 ? `${language}_${r.severity}` : 'TypeScript_High_Risk', languageName: language, cweID: [287, 89, 79][k % 3], severity: r.severity, state: r.state, status: k % 2 ? 'RECURRENT' : 'NEW', firstFoundAt: r.firstDetectionDate, foundAt: day(1), confidenceLevel: 0, nodes: [{ fileName: file, line: 40 + k, column: 13, name: 'input', method: 'handler' }, { fileName: file, line: 42 + k, column: 31, name: 'query', method: 'handler' }], isAiGenerated: k % 3 === 0, ...(k % 3 === 0 ? { description: `<p>The <code>input</code> parameter of <b>handler</b> reaches a ${last ? 'contract call' : 'database query'} in ${file} without being checked, so an attacker can change what it does.</p>` } : {}) };
         }).filter((r) => (ai === '1' ? r.isAiGenerated : ai === '0' ? !r.isAiGenerated : true));
         if (u.pathname === '/api/sast-results') {
           const lim = Number(u.searchParams.get('limit') || 20);

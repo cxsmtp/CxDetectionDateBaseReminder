@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.98 | 484/s, 15 (main 459, 181; three pairs on a busy host) | 10.2 s | 1.5 s | 796 | 0 vulnerabilities | No new scan (checked); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.97 | 518/s, 0 (main 496, 147 in a host pause) | 7.3 s | 826 ms | 783 | 0 vulnerabilities | No new scan (connector needs signing in again); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.96 | 510/s, 0 (main 492, 37 in host pauses) | 6.1 s | 546 ms | 782 | 0 vulnerabilities | No new scan (connector needs signing in again); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.95 | 514/s, 0 (main 507, 0) | 6.5 s | 573 ms | 780 | 0 vulnerabilities | No new scan (connector needs signing in again); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -83,6 +84,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.98 — 2026-10-23 15:14 UTC · [#121](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/121)
+
+- **FAE Flush copies only the settings that count.** The `_FAE` project takes the project's own SAST settings that have a value, in one call; if Checkmarx One refuses, each is tried alone and the timeline names those refused, and a refused setting that changes the results (such as the preset) stops the project to ask: continue, skip or retry. This fixes the `PATCH /api/configuration/project … 403` seen on a live tenant.
+- **Marks on tenants that group by attack vector.** Where Checkmarx One refuses marks by similarity id (Account settings → Grouping similar results: Attack Vector ID), FAE Flush reads each result's attack vector id and marks by it instead, and Undo does the same; a result still refused stays To verify and is listed as not marked.
+- **Only SAST results are judged.** What the AI engine found (Fusion and LAST) is left out of the compare and marks, and counted apart.
+- **Project lists like the Workbench's.** Both FAE Flush tables sort and filter on their headings, with a search, show chips, a tick box that covers every project shown, and a hundred rows at a time; a bar acts on the projects ticked: retry, skip, **bring back** a skipped project, mark now, delete the `_FAE` projects, undo marks. A question shows in its project's row.
+- **Faster runs, compact top.** Freed scan slots fill at once, and compare, mark and clean-up follow one another without waiting; the Run controls, steps and figures each sit on one line.
+- **Fusion results: faster, AI results only.** A load reads scan types in bulk and the rest only for projects whose latest scan ran the AI engine, in parallel (about 4.4 s against 8.0 s for 300 projects in a test); "AI found → added" is gone from the table, side panel, CSV and report, the figures sit in one thin line, and **Details** opens the three blocks.
+- **The probe compares and marks.** `scripts/fae-probe.mjs --compare` lists what FAE Flush would mark on a project, and `--mark ne --limit 1` marks one, by similarity id or attack vector id, to check a tenant without building the container.
+- **Status.** 484 requests a second for 3000 people at once on 2 vCPU with 15 failed, against main's 459 and 181 on the same host; the first two pairs, on the same busy host, went main's way (62 and 24 failed against 402 and 216), all in pauses where even the health check waited 20–30 s, and nothing this release changes is on the measured paths ([performance](docs/performance.md)); 796 tests pass; `npm audit` finds 0 vulnerabilities; checked in Checkmarx One, no scan of this code newer than rescan fe2eb036 ([status](docs/status.md)).
 
 ## MZ-01.00.97 — 2026-10-22 20:35 UTC · [#120](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/120)
 

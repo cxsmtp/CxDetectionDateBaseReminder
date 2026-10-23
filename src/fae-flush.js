@@ -8,7 +8,9 @@
  *      handed to the new scan, so nothing passes through this server; else downloaded and uploaded again
  *      (POST /api/uploads, then PUT); else the repository at the latest scan's commit. Which one is a run option.
  *   2. Scan it on a new project, "<name>_FAE" (POST /api/projects, tagged mz-fae-flush), with the project's own
- *      SAST settings and Findings Analysis on (PATCH /api/configuration/project), SAST only (POST /api/scans).
+ *      SAST settings (those with a value) and Findings Analysis on (PATCH /api/configuration/project), SAST only
+ *      (POST /api/scans). A setting Checkmarx One refuses is left out and named; one that changes which results a
+ *      scan can report (its preset, for one) stops the project to ask instead.
  *   3. Compare: each SAST result of the project still To verify against the FAE scan's results, by similarity id.
  *   4. Mark: each one the FAE scan did not report becomes Proposed not exploitable in the original project
  *      (POST /api/sast-results-predicates), with a comment naming the FAE scan.
@@ -27,7 +29,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { mapWithConcurrency } from './cxone/client.js';
-import { FAE_FLUSH_TAG } from './cxone/projects.js';
+import { FAE_FLUSH_TAG, getLastScans } from './cxone/projects.js';
 
 export const FAE_TAG = FAE_FLUSH_TAG;
 export const FAE_SUFFIX = '_FAE';
@@ -52,6 +54,19 @@ export const SOURCE_LABEL = { link: 'Checkmarx One’s own copy', upload: 'downl
 /** Mark what the FAE scan no longer reports, or only report it (marked later, with "Mark now"). */
 export const MODES = ['mark', 'report'];
 const DEBUG_MAX = 500;
+/**
+ * SAST settings that change which results a scan can report: when Checkmarx One refuses to copy one to the _FAE
+ * project, results the FAE scan could not report would look like false positives, so the project stops to ask.
+ */
+export const MUST_COPY = new Set(['scan.config.sast.presetName', 'scan.config.sast.languageMode', 'scan.config.sast.extendedAnalysis', 'scan.config.sast.defaultConfigId', 'scan.config.sast.scanMode', 'scan.config.sast.lightQueries']);
+const FINDINGS_ANALYSIS = 'scan.config.sast.findingsAnalysis';
+/** Checkmarx One answered that it will not take the change (not that it could not be reached). */
+const refused = (error) => [400, 403, 409, 422].includes(error?.status);
+/**
+ * Steps a project goes on to at once, in the same turn (they wait for nothing outside). Not revalidating: Checkmarx
+ * One may still be applying the marks, so that waits a turn.
+ */
+const CHAINED = new Set(['comparing', 'marking', 'cleaning']);
 /** Projects whose scan is under way count against "scans at once". */
 const SCANNING = new Set(['copying', 'scanning']);
 
@@ -230,6 +245,31 @@ export async function scanResults(client, scanId) {
 }
 
 const keyOf = (r) => text(r?.similarityID ?? r?.similarityId, 80);
+/** A result's attack vector id, as Checkmarx One gives it (only when asked for: visible-columns=attack-vector-id). */
+const attackVectorOf = (r) => text(r?.attackVectorID ?? r?.attackVectorId, 120);
+/** Each similarity id's attack vector ids in a scan (Checkmarx One leaves them out of results unless asked). */
+export async function attackVectorsOf(client, scanId) {
+  const out = new Map();
+  for (let page = 0; page < PAGES; page += 1) {
+    const body = await client.request('/api/sast-results', { query: { 'scan-id': scanId, 'visible-columns': ['similarity-id', 'attack-vector-id'], 'include-nodes': 'false', limit: PAGE, offset: page * PAGE }, retries: 2, background: true });
+    const rows = Array.isArray(body?.results) ? body.results : [];
+    for (const r of rows) {
+      const sim = keyOf(r);
+      const av = attackVectorOf(r);
+      if (!sim || !av) continue;
+      if (!out.has(sim)) out.set(sim, []);
+      if (!out.get(sim).includes(av)) out.get(sim).push(av);
+    }
+    if (rows.length < PAGE || (Number.isFinite(Number(body?.totalCount)) && page * PAGE + rows.length >= Number(body.totalCount))) break;
+  }
+  return out;
+}
+/**
+ * A tenant can group similar results by attack vector instead of similarity id (Account settings): Checkmarx One then
+ * refuses a mark by similarity id ("Account is configured to use Attack Vector IDs", code 4002), and takes it by
+ * attack vector instead (POST /api/sast-results-predicates/attack-vector), kept to the result's similarity group.
+ */
+const wantsAttackVector = (error) => /attack vector/i.test(`${error?.message ?? ''} ${error?.body ?? ''}`) || /"code"\s*:\s*4002/.test(String(error?.body ?? ''));
 /** A refused call, with Checkmarx One's own reason when its answer gives one ("404 Not Found: repository not found"). */
 export function whyRefused(error) {
   const body = String(error?.body ?? '').trim();
@@ -245,6 +285,15 @@ export function whyRefused(error) {
   reason = text(reason.replace(/\s+/g, ' '), 200);
   return reason && !String(error?.message ?? '').includes(reason) ? `${error?.message ?? ''}: ${reason}` : String(error?.message ?? error);
 }
+/**
+ * A result the AI engine added (Fusion, LAST): no SAST query behind it (query id 0). The FAE scan is SAST only, so it
+ * can never report one: such results are left out of the comparison and never marked.
+ */
+export const fromAiEngine = (r) => {
+  if (r?.isAiGenerated === true) return true;
+  const q = r?.queryID ?? r?.queryId;
+  return q !== undefined && q !== null && q !== '' && Number(q) === 0;
+};
 /** A result the FAE scan reported: there, and not judged not exploitable by Findings Analysis itself. */
 const reportedByFae = (r) => ![PNE, 'NOT_EXPLOITABLE'].includes(upper(r?.state));
 
@@ -253,18 +302,23 @@ const reportedByFae = (r) => ![PNE, 'NOT_EXPLOITABLE'].includes(upper(r?.state))
  * One keeps a result's state by similarity id, so one mark covers every result sharing it: counts are in results,
  * as Checkmarx One shows them, and in distinct findings (similarity ids).
  * { toVerify, toVerifyFindings, reported, notReported (results), notReportedList: [{ similarityId, severity, query,
- * results }], extra }. `extra`: findings the FAE scan reported that the project does not have at all.
+ * results }], extra, aiLeft }. `extra`: findings the FAE scan reported that the project does not have at all;
+ * `aiLeft`: results To verify the AI engine added, left as they are (the FAE scan cannot report them).
  */
 export function compareResults(original, fae) {
-  const open = original.filter((r) => upper(r?.state || TO_VERIFY) === TO_VERIFY && upper(r?.status) !== 'FIXED' && keyOf(r));
+  const toVerify = original.filter((r) => upper(r?.state || TO_VERIFY) === TO_VERIFY && upper(r?.status) !== 'FIXED' && keyOf(r));
+  const open = toVerify.filter((r) => !fromAiEngine(r));
   const theirs = new Set(fae.filter(reportedByFae).map(keyOf).filter(Boolean));
   const ours = new Set(original.map(keyOf).filter(Boolean));
   const findings = new Map();
   for (const r of open) {
     const key = keyOf(r);
     const f = findings.get(key);
-    if (f) f.results += 1;
-    else findings.set(key, { similarityId: key, severity: upper(r.severity) || 'MEDIUM', query: text(r.queryName, 120), results: 1 });
+    const av = attackVectorOf(r);
+    if (f) {
+      f.results += 1;
+      if (av && !f.attackVectorIds.includes(av)) f.attackVectorIds.push(av);
+    } else findings.set(key, { similarityId: key, attackVectorIds: av ? [av] : [], severity: upper(r.severity) || 'MEDIUM', query: text(r.queryName, 120), results: 1 });
   }
   const notReportedList = [];
   let reported = 0;
@@ -274,8 +328,13 @@ export function compareResults(original, fae) {
   }
   const extra = [...theirs].filter((k) => !ours.has(k)).length;
   const notReported = notReportedList.reduce((n, f) => n + f.results, 0);
-  return { toVerify: open.length, toVerifyFindings: findings.size, reported, notReported, notReportedList, extra, faeReported: theirs.size };
+  return { toVerify: open.length, toVerifyFindings: findings.size, reported, notReported, notReportedList, extra, faeReported: theirs.size, aiLeft: toVerify.length - open.length };
 }
+/** The projects named (all of them when none is). */
+const picked = (projects, ids) => {
+  const want = Array.isArray(ids) && ids.length ? new Set(ids.map(String)) : null;
+  return (projects ?? []).filter((p) => !want || want.has(p.id));
+};
 /** How many results a list of findings stands for (one each when not said). */
 const resultsIn = (list) => (list ?? []).reduce((n, m) => n + (Number(m.results) || 1), 0);
 
@@ -299,7 +358,7 @@ export function exceptionOf(p, limits = LIMITS) {
  * code kept by Checkmarx One, its lines of code and results To verify (GET /api/scan-summary, 50 scans a call),
  * and how long its SAST scan took. Projects that cannot be flushed say why (`leftOut`).
  */
-export async function previewTenant(client, { listProjects, getLastScans, concurrency = 4 }) {
+export async function previewTenant(client, { listProjects, getLastScans, concurrency = 10 }) {
   const projects = (await listProjects(client)).filter((p) => !String(p.name ?? '').endsWith(FAE_SUFFIX));
   const scans = await getLastScans(client, projects.map((p) => p.id));
   const rows = await mapWithConcurrency(projects, concurrency, async (p) => {
@@ -309,7 +368,7 @@ export async function previewTenant(client, { listProjects, getLastScans, concur
     if (!scanId) return { ...row, leftOut: 'No completed scan.' };
     const scan = await client.request(`/api/scans/${encodeURIComponent(scanId)}`, { retries: 1, background: true }).catch(() => null);
     const sast = sastDone(scan);
-    Object.assign(row, { sourceScanId: scanId, branch: text(scan?.branch ?? last?.branch, 200), loc: sastLoc(scan), ...gitOf(scan) });
+    Object.assign(row, { sourceScanId: scanId, scannedAt: text(scan?.createdAt ?? last?.createdAt ?? last?.created, 40), branch: text(scan?.branch ?? last?.branch, 200), loc: sastLoc(scan), ...gitOf(scan) });
     if (!sast || String(sast.status ?? '').toLowerCase() !== 'completed') return { ...row, leftOut: 'Its latest scan has no completed SAST scan (FAE is for SAST results).' };
     const took = Date.parse(sast.endDate) - Date.parse(sast.startDate);
     row.sastSeconds = Number.isFinite(took) && took > 0 ? Math.round(took / 1000) : null;
@@ -330,8 +389,12 @@ export async function previewTenant(client, { listProjects, getLastScans, concur
     }
   }
   const eligible = rows.filter((r) => !r.leftOut);
+  // How the tenant groups similar results: by attack vector, Checkmarx One refuses marks by similarity id.
+  const tenant = await client.request('/api/configuration/tenant', { retries: 1, background: true }).catch(() => null);
+  const grouping = (Array.isArray(tenant) ? tenant : []).find((e) => e?.key === 'scan.config.sast.advancedTriageMode')?.value;
   return {
     readAt: new Date().toISOString(),
+    groupsByAttackVector: /attack/i.test(String(grouping ?? '')),
     projects: rows,
     eligible: eligible.length,
     leftOut: rows.length - eligible.length,
@@ -343,7 +406,7 @@ export async function previewTenant(client, { listProjects, getLastScans, concur
 /** The run's figures: how many projects at each step, and the results To verify, reported, marked and revalidated. */
 export function summaryOf(job) {
   const steps = Object.fromEntries(STEPS.map((s) => [s, 0]));
-  const totals = { toVerify: 0, toVerifyFindings: 0, reported: 0, notReported: 0, notReportedFindings: 0, marked: 0, markedFindings: 0, revalidated: 0, undone: 0 };
+  const totals = { toVerify: 0, toVerifyFindings: 0, reported: 0, notReported: 0, notReportedFindings: 0, marked: 0, markedFindings: 0, revalidated: 0, undone: 0, aiLeft: 0, notMarked: 0 };
   for (const p of job?.projects ?? []) {
     steps[p.step] = (steps[p.step] ?? 0) + 1;
     for (const k of Object.keys(totals)) totals[k] += p.counts?.[k] ?? 0;
@@ -478,8 +541,8 @@ export class FaeFlushRunner {
   }
 
   /** A report-only run's projects, marked now: every one compared, as a run that marks would have. */
-  markReported(by) {
-    const ready = (this.job?.projects ?? []).filter((p) => p.step === 'reported');
+  markReported(by, projectIds = null) {
+    const ready = picked(this.job?.projects, projectIds).filter((p) => p.step === 'reported');
     if (!ready.length) throw Object.assign(new Error('Nothing waits to be marked.'), { status: 409 });
     this.job.options = { ...cleanOptions(this.job.options), mode: 'mark' };
     for (const p of ready) this.move(p, 'marking');
@@ -496,18 +559,65 @@ export class FaeFlushRunner {
     const code = p.exception?.code;
     if (decision === 'mark') {
       // "Mark anyway" once compared; "Accept" after a revalidation that did not match. Never without an FAE scan's results.
-      if (code === 'scan' || code === 'error' || !p.pending) throw Object.assign(new Error('Nothing to mark: retry or skip it.'), { status: 409 });
+      if (['scan', 'error', 'settings', 'rescan'].includes(code) || !p.pending) throw Object.assign(new Error('Nothing to mark: retry or skip it.'), { status: 409 });
       this.move(p, code === 'revalidation' ? (this.job.deleteFae ? 'cleaning' : 'done') : this.job.options?.mode === 'report' ? 'reported' : 'marking');
+    } else if (decision === 'continue') {
+      // Scan without the settings Checkmarx One refused to copy.
+      if (code !== 'settings') throw Object.assign(new Error('Only a project whose settings could not be copied carries on without them.'), { status: 409 });
+      p.settingsWaived = true;
+      this.move(p, 'waiting');
     } else if (decision === 'retry') {
-      if (code === 'scan' || code === 'copy') p.failedSources = [];
-      this.move(p, p.faeScanId && code !== 'scan' ? 'comparing' : 'waiting');
+      if (code === 'scan' || code === 'copy' || code === 'settings') p.failedSources = [];
+      if (p.faeDeleted) this.freshCopy(p);
+      // Scanned again since: its latest scan, and its code, from the start.
+      if (code === 'rescan') Object.assign(p, { latestAgain: true, faeScanId: '', faeLoc: null, codeSource: '' });
+      this.move(p, p.faeScanId && !['scan', 'settings'].includes(code) ? 'comparing' : 'waiting');
     } else if (decision === 'skip') this.move(p, this.job.deleteFae && p.faeProjectId && code !== 'scan' ? 'cleaning' : 'skipped', `Skipped by ${text(by, 254)}`);
-    else throw Object.assign(new Error('Mark, skip or retry.'), { status: 400 });
+    else throw Object.assign(new Error('Mark, continue, skip or retry.'), { status: 400 });
     this.attempt(p, `answered: ${decision}`, true, by);
     this.record('decided', { project: p.name, decision, reason: p.exception?.text ?? '', by });
     p.exception = decision === 'retry' ? null : p.exception;
     this.store.save();
     return p;
+  }
+
+  /** The same answer for several projects that stopped to ask; those it does not fit are left as they are. */
+  decideMany(projectIds, decision, by) {
+    let done = 0;
+    const skipped = [];
+    for (const p of picked(this.job?.projects, projectIds).filter((x) => x.step === 'needs-ok')) {
+      try {
+        this.decide(p.id, decision, by);
+        done += 1;
+      } catch (error) {
+        skipped.push({ project: p.name, why: text(error.message, 200) });
+      }
+    }
+    if (!done && !skipped.length) throw Object.assign(new Error('None of those projects is waiting for an answer.'), { status: 409 });
+    return { done, skipped };
+  }
+
+  /** Its _FAE project was removed: the next try makes a new one. */
+  freshCopy(p) {
+    Object.assign(p, { faeProjectId: '', faeDeleted: false, faeConfigured: false, faeScanId: '', faeLoc: null, codeSource: '', failedSources: [] });
+  }
+
+  /** Skipped projects back in the run, from their first step; a finished run carries on for them. */
+  bringBack(projectIds, by) {
+    const ids = Array.isArray(projectIds) && projectIds.length ? new Set(projectIds.map(String)) : null;
+    const back = (this.job?.projects ?? []).filter((p) => p.step === 'skipped' && (!ids || ids.has(p.id)));
+    if (!back.length) throw Object.assign(new Error('Nothing skipped to bring back.'), { status: 409 });
+    for (const p of back) {
+      if (p.faeDeleted || !p.faeProjectId) this.freshCopy(p);
+      else Object.assign(p, { faeScanId: '', faeLoc: null, codeSource: '', failedSources: [] });
+      Object.assign(p, { latestAgain: true, exception: null, settingsWaived: false, pending: undefined, counts: { toVerify: p.counts?.toVerify ?? null, marked: p.counts?.marked ?? 0 } });
+      this.move(p, 'waiting', `Brought back by ${text(by, 254)}`);
+      this.attempt(p, 'brought back', true, by);
+    }
+    if (this.job.state === 'done') Object.assign(this.job, { state: 'running', finishedAt: null });
+    this.record('brought-back', { projects: back.length, names: back.map((p) => p.name).slice(0, 20), by });
+    this.store.save();
+    return back.length;
   }
 
   move(p, step, note = '') {
@@ -534,6 +644,10 @@ export class FaeFlushRunner {
       } else if (WORKING.has(p.step)) turn.push(p);
     }
     await mapWithConcurrency(turn, Math.max(2, job.concurrency), (p) => this.advance(client, p));
+    // Scans finished this turn free their places: start the next projects now, not a turn later.
+    const freed = job.concurrency - job.projects.filter((p) => SCANNING.has(p.step)).length;
+    const next = job.state === 'running' ? job.projects.filter((p) => p.step === 'waiting' && !this.busy.has(p.id)).slice(0, Math.max(0, freed)) : [];
+    if (next.length) await mapWithConcurrency(next, Math.max(2, job.concurrency), (p) => this.advance(client, p));
     if (job.projects.every((p) => FINISHED.has(p.step))) {
       job.state = 'done';
       job.finishedAt = new Date(this.now()).toISOString();
@@ -547,14 +661,21 @@ export class FaeFlushRunner {
     this.busy.add(p.id);
     const traced = this.via(client, p);
     try {
-      if (p.step === 'waiting' || p.step === 'copying') await this.copy(traced, p);
-      else if (p.step === 'scanning') await this.poll(traced, p);
-      else if (p.step === 'comparing') await this.compare(traced, p);
-      else if (p.step === 'marking') await this.mark(traced, p);
-      else if (p.step === 'revalidating') await this.revalidate(traced, p);
-      else if (p.step === 'cleaning') await this.clean(traced, p);
+      // One step, then straight on through the steps that wait for nothing (compare, mark, revalidate, remove),
+      // rather than a turn of the clock between each.
+      for (let steps = 0; steps < 6; steps += 1) {
+        const before = p.step;
+        if (p.step === 'waiting' || p.step === 'copying') await this.copy(traced, p);
+        else if (p.step === 'scanning') await this.poll(traced, p);
+        else if (p.step === 'comparing') await this.compare(traced, p);
+        else if (p.step === 'marking') await this.mark(traced, p);
+        else if (p.step === 'revalidating') await this.revalidate(traced, p);
+        else if (p.step === 'cleaning') await this.clean(traced, p);
+        this.store.save();
+        if (p.step === before || !CHAINED.has(p.step) || this.job?.state !== 'running') break;
+      }
     } catch (error) {
-      p.exception = { code: error.code === 'copy' ? 'copy' : 'error', text: `${p.step}: ${text(error?.message, 400)}`, at: new Date(this.now()).toISOString() };
+      p.exception = { code: ['copy', 'settings', 'rescan'].includes(error.code) ? error.code : 'error', text: ['settings', 'rescan'].includes(error.code) ? text(error.message, 500) : `${p.step}: ${text(error?.message, 400)}`, at: new Date(this.now()).toISOString() };
       this.attempt(p, p.step, false, error?.message);
       this.move(p, 'needs-ok');
     } finally {
@@ -571,11 +692,26 @@ export class FaeFlushRunner {
     return ['upload', 'git'].filter((s) => !(p.failedSources ?? []).includes(s) && (s === 'git' ? Boolean(p.repoUrl) : p.codeKept !== false));
   }
 
+  /** A project brought back or retried after a new scan: compared from its latest completed scan now. */
+  async latestScan(client, p) {
+    const last = (await getLastScans(client, [p.id]))[p.id];
+    const scanId = text(last?.id ?? last?.scanId, 80);
+    if (scanId && scanId !== p.sourceScanId) {
+      const scan = await client.request(`/api/scans/${encodeURIComponent(scanId)}`, { retries: 1, background: true }).catch(() => null);
+      Object.assign(p, { sourceScanId: scanId, branch: text(scan?.branch ?? last?.branch, 200) || p.branch, loc: sastLoc(scan) ?? p.loc, ...gitOf(scan) });
+      p.codeKept = await client.request(`/api/repostore/scans/${encodeURIComponent(scanId)}`, { method: 'HEAD', retries: 0, background: true }).then(() => true, () => false);
+      this.attempt(p, 'latest scan', true, scanId);
+    }
+    delete p.latestAgain;
+  }
+
   /** Steps 1 and 2: the code of its latest scan, on a new project "<name>_FAE", scanned with Findings Analysis on. */
   async copy(client, p) {
     this.move(p, 'copying');
     this.store.save();
-    if (!p.faeProjectId) await this.makeFaeProject(client, p);
+    if (p.faeDeleted) this.freshCopy(p);
+    if (p.latestAgain) await this.latestScan(client, p);
+    if (!p.faeProjectId || p.faeConfigured !== true) await this.makeFaeProject(client, p);
     const tried = [];
     for (const source of this.sourcesFor(p)) {
       try {
@@ -596,14 +732,39 @@ export class FaeFlushRunner {
   }
 
   async makeFaeProject(client, p) {
-    const created = await client.request('/api/projects', { method: 'POST', body: { name: `${p.name}${FAE_SUFFIX}`, groups: p.groups, ...(p.criticality ? { criticality: p.criticality } : {}), tags: { [FAE_TAG]: this.job.id } }, retries: 1 });
-    p.faeProjectId = text(created?.id, 80);
-    if (!p.faeProjectId) throw new Error('Checkmarx One did not give the new project an id.');
-    // The project's own SAST settings, and Findings Analysis on.
+    if (!p.faeProjectId) {
+      const created = await client.request('/api/projects', { method: 'POST', body: { name: `${p.name}${FAE_SUFFIX}`, groups: p.groups, ...(p.criticality ? { criticality: p.criticality } : {}), tags: { [FAE_TAG]: this.job.id } }, retries: 1 });
+      p.faeProjectId = text(created?.id, 80);
+      if (!p.faeProjectId) throw new Error('Checkmarx One did not give the new project an id.');
+      p.faeConfigured = false;
+    }
+    // The project's own SAST settings that have a value (Checkmarx One lists every one as the project's, most of
+    // them empty), and Findings Analysis on: in one call; if refused, Findings Analysis alone, then each in turn.
     const settings = await client.request('/api/configuration/project', { query: { 'project-id': p.id }, retries: 1, background: true }).catch(() => []);
-    const own = (Array.isArray(settings) ? settings : []).filter((e) => String(e?.originLevel ?? '').toLowerCase() === 'project' && /^scan\.config\.sast\./.test(String(e?.key ?? '')) && e.key !== 'scan.config.sast.findingsAnalysis');
-    await client.request('/api/configuration/project', { method: 'PATCH', query: { 'project-id': p.faeProjectId }, body: [...own.map((e) => ({ key: e.key, value: String(e.value ?? '') })), { key: 'scan.config.sast.findingsAnalysis', value: 'true' }], retries: 1 });
-    this.attempt(p, 'project made', true, `${p.name}${FAE_SUFFIX} (${own.length} SAST setting(s) copied)`);
+    const own = (Array.isArray(settings) ? settings : []).filter((e) => String(e?.originLevel ?? '').toLowerCase() === 'project' && /^scan\.config\.sast\./.test(String(e?.key ?? '')) && e.key !== FINDINGS_ANALYSIS && String(e?.value ?? '').trim() !== '');
+    const patch = (body) => client.request('/api/configuration/project', { method: 'PATCH', query: { 'project-id': p.faeProjectId }, body, retries: 1 });
+    const setting = (e) => ({ key: e.key, value: String(e.value) });
+    const left = [];
+    try {
+      await patch([...own.map(setting), { key: FINDINGS_ANALYSIS, value: 'true' }]);
+    } catch (error) {
+      if (!refused(error) || !own.length) throw Object.assign(new Error(`Findings Analysis could not be turned on for ${p.name}${FAE_SUFFIX}: ${whyRefused(error)}`), { code: 'copy' });
+      await patch([{ key: FINDINGS_ANALYSIS, value: 'true' }]).catch((again) => Promise.reject(Object.assign(new Error(`Findings Analysis could not be turned on for ${p.name}${FAE_SUFFIX}: ${whyRefused(again)}`), { code: 'copy' })));
+      for (const e of own) {
+        await patch([setting(e)]).catch((one) => {
+          if (!refused(one)) throw one;
+          left.push({ key: e.key, why: whyRefused(one) });
+        });
+      }
+    }
+    const named = (list) => list.map((l) => `${l.key.replace('scan.config.sast.', '')} (${l.why})`).join(', ');
+    this.attempt(p, 'project made', true, `${p.name}${FAE_SUFFIX} (${own.length - left.length} of ${own.length} SAST setting(s) copied${left.length ? `; refused: ${named(left)}` : ''})`);
+    const must = left.filter((l) => MUST_COPY.has(l.key));
+    if (must.length && !p.settingsWaived) {
+      throw Object.assign(new Error(`Checkmarx One would not copy ${must.length === 1 ? 'this setting' : 'these settings'} to ${p.name}${FAE_SUFFIX}: ${named(must)}. Without ${must.length === 1 ? 'it' : 'them'} the FAE scan could report different results, so nothing was scanned. Carry on without ${must.length === 1 ? 'it' : 'them'}, retry, or skip.`), { code: 'settings' });
+    }
+    if (must.length) this.attempt(p, 'carried on without settings', true, named(must));
+    p.faeConfigured = true;
   }
 
   /** The FAE scan, from the code as `source` gives it. */
@@ -672,15 +833,49 @@ export class FaeFlushRunner {
   async compare(client, p) {
     const [original, fae] = await Promise.all([scanResults(client, p.sourceScanId), scanResults(client, p.faeScanId)]);
     const c = compareResults(original, fae);
-    p.counts = { ...p.counts, toVerify: c.toVerify, toVerifyFindings: c.toVerifyFindings, reported: c.reported, notReported: c.notReported, notReportedFindings: c.notReportedList.length, extra: c.extra, faeReported: c.faeReported, marked: p.counts?.marked ?? 0 };
+    p.counts = { ...p.counts, toVerify: c.toVerify, toVerifyFindings: c.toVerifyFindings, reported: c.reported, notReported: c.notReported, notReportedFindings: c.notReportedList.length, extra: c.extra, faeReported: c.faeReported, aiLeft: c.aiLeft, marked: p.counts?.marked ?? 0 };
     p.pending = c.notReportedList;
-    this.attempt(p, 'compared', true, `${c.toVerify} results To verify (${c.toVerifyFindings} findings) · ${c.reported} still reported · ${c.notReported} not (${c.notReportedList.length} findings)`);
+    this.attempt(p, 'compared', true, `${c.toVerify} results To verify (${c.toVerifyFindings} findings) · ${c.reported} still reported · ${c.notReported} not (${c.notReportedList.length} findings)${c.aiLeft ? ` · ${c.aiLeft} found by the AI engine, left as they are` : ''}`);
     const exception = exceptionOf(p, this.limitsNow);
     if (exception) {
       p.exception = { ...exception, at: new Date(this.now()).toISOString() };
       this.move(p, 'needs-ok');
       this.record('needs-ok', { project: p.name, reason: exception.text });
     } else this.move(p, this.job.options?.mode === 'report' ? 'reported' : 'marking');
+  }
+
+  /**
+   * Sets `state` on findings of `p` (each { similarityId, attackVectorIds, severity }): by similarity id, or by attack
+   * vector when the tenant groups similar results that way; the run remembers which (job.markBy: 'similarity' or
+   * 'attackVector').
+   */
+  async predicates(client, p, list, state, comment) {
+    const post = (body) => client.request('/api/sast-results-predicates', { method: 'POST', body, retries: 2 });
+    const base = (m) => ({ projectId: p.id, severity: m.severity, state, comment });
+    if (this.job.markBy !== 'attackVector') {
+      try {
+        await post(list.map((m) => ({ similarityId: m.similarityId, ...base(m) })));
+        this.job.markBy = 'similarity';
+        return;
+      } catch (error) {
+        if (!wantsAttackVector(error)) throw error;
+        if (this.job.markBy === 'similarity') delete this.job.markBy;
+      }
+    }
+    // Not in what was read before: ask Checkmarx One for them.
+    if (list.some((m) => !m.attackVectorIds?.length)) {
+      const vectors = await attackVectorsOf(client, p.sourceScanId);
+      for (const m of list) if (!m.attackVectorIds?.length) m.attackVectorIds = vectors.get(m.similarityId) ?? [];
+    }
+    const without = list.filter((m) => !m.attackVectorIds?.length);
+    if (without.length) throw Object.assign(new Error(`Checkmarx One groups results by attack vector here, and ${without.length === 1 ? 'this result has' : 'these results have'} no attack vector id: scan the project again for one.`), { status: 400 });
+    await client.request('/api/sast-results-predicates/attack-vector', {
+      method: 'POST',
+      body: list.flatMap((m) => m.attackVectorIds.map((av) => ({ attackVectorId: av, scanId: p.sourceScanId, filterBySimilarityId: m.similarityId, ...base(m) }))),
+      retries: 2,
+    });
+    if (this.job.markBy !== 'attackVector') this.attempt(p, 'marks by attack vector', true, 'Checkmarx One groups similar results by attack vector on this tenant');
+    this.job.markBy = 'attackVector';
   }
 
   /**
@@ -693,13 +888,42 @@ export class FaeFlushRunner {
     const done = new Set(p.marked.map((m) => m.similarityId));
     const todo = pending.filter((m) => !done.has(m.similarityId));
     const comment = `FAE Flush: not reported when the same code was scanned again with Findings Analysis (project ${p.name}${FAE_SUFFIX}, scan ${p.faeScanId}).`;
-    for (let i = 0; i < todo.length; i += PREDICATES_AT_ONCE) {
-      const batch = todo.slice(i, i + PREDICATES_AT_ONCE);
-      await client.request('/api/sast-results-predicates', { method: 'POST', body: batch.map((m) => ({ similarityId: m.similarityId, projectId: p.id, severity: m.severity, state, comment })), retries: 2 });
-      p.marked.push(...batch.map((m) => ({ similarityId: m.similarityId, severity: m.severity, query: m.query ?? '', results: Number(m.results) || 1 })));
+    const post = (list) => this.predicates(client, p, list, state, comment);
+    const took = (list) => {
+      p.marked.push(...list.map((m) => ({ similarityId: m.similarityId, attackVectorIds: m.attackVectorIds ?? [], severity: m.severity, query: m.query ?? '', results: Number(m.results) || 1 })));
       p.counts.marked = resultsIn(p.marked);
       p.counts.markedFindings = p.marked.length;
       this.store.save();
+    };
+    const notTaken = [];
+    for (let i = 0; i < todo.length; i += PREDICATES_AT_ONCE) {
+      const batch = todo.slice(i, i + PREDICATES_AT_ONCE);
+      try {
+        await post(batch);
+        took(batch);
+      } catch (error) {
+        // Checkmarx One refused the batch: one at a time, so one it will not take does not hold back the rest.
+        if (!refused(error)) throw Object.assign(new Error(whyRefused(error)), { status: error.status });
+        for (const m of batch) {
+          try {
+            await post([m]);
+            took([m]);
+          } catch (one) {
+            if (!refused(one)) throw Object.assign(new Error(whyRefused(one)), { status: one.status });
+            notTaken.push({ ...m, why: whyRefused(one) });
+          }
+        }
+      }
+    }
+    // A tenant grouping similar results by attack vector, and results that carry no attack vector id (Checkmarx One's
+    // results API gives none): Checkmarx One takes no mark FAE Flush can send.
+    if (notTaken.length && notTaken.length === todo.length && notTaken.every((m) => /no attack vector id/.test(m.why))) {
+      throw Object.assign(new Error(`This tenant groups similar results by Attack Vector ID (Account settings → Grouping similar results), and Checkmarx One gives no attack vector id with ${p.name}'s results: it takes no mark FAE Flush can send. Nothing was marked. Set the grouping to Similarity ID to mark here, or use Only show and mark in Checkmarx One; if its latest scan is older than that setting, scanning it again may give the ids, then Retry.`), { code: 'rescan' });
+    }
+    if (notTaken.length) {
+      p.notMarked = notTaken.map(({ similarityId, severity, query, results, why }) => ({ similarityId, severity, query, results, why: text(why, 200) }));
+      p.counts.notMarked = resultsIn(notTaken);
+      this.attempt(p, 'not marked', false, `${p.counts.notMarked} result(s) Checkmarx One would not mark: ${notTaken[0].why}${notTaken.length > 1 ? ` (and ${notTaken.length - 1} more finding(s))` : ''}`);
     }
     // Kept after the run: the value it brought.
     this.history?.put({ runId: this.job.id, at: new Date(this.now()).toISOString(), by: this.job.startedBy, projectId: p.id, project: p.name, faeScanId: p.faeScanId, state, toVerify: p.counts.toVerify ?? 0, toVerifyFindings: p.counts.toVerifyFindings ?? 0, items: p.marked.map((m) => [m.similarityId, m.severity, m.query ?? '', m.results ?? 1]), revalidated: 0, undone: 0 });
@@ -742,10 +966,12 @@ export class FaeFlushRunner {
   }
 
   /** Delete every _FAE project of the run still there (one click, any time after); not those a report still needs. */
-  async deleteAll() {
+  async deleteAll(projectIds = null, { earlierOnly = false } = {}) {
     if (!this.clientOf()) throw Object.assign(new Error('No Checkmarx One connection on the server.'), { status: 409 });
     const client = this.via(this.clientOf());
-    const left = [...(this.job?.projects ?? []), ...(this.job?.earlier ?? [])].filter((p) => p.faeProjectId && !p.faeDeleted && !WORKING.has(p.step) && p.step !== 'reported');
+    // Those named, or every one (earlier runs' too).
+    const among = earlierOnly ? this.job?.earlier ?? [] : Array.isArray(projectIds) && projectIds.length ? picked(this.job?.projects, projectIds) : [...(this.job?.projects ?? []), ...(this.job?.earlier ?? [])];
+    const left = among.filter((p) => p.faeProjectId && !p.faeDeleted && !WORKING.has(p.step) && p.step !== 'reported');
     let deleted = 0;
     const failed = [];
     await mapWithConcurrency(left, 4, async (p) => {
@@ -763,19 +989,20 @@ export class FaeFlushRunner {
   }
 
   /** Undo: every result the run marked, back to To verify, but only those still as it left them. */
-  async undo(by) {
+  async undo(by, projectIds = null) {
     if (!this.clientOf()) throw Object.assign(new Error('No Checkmarx One connection on the server.'), { status: 409 });
     const client = this.via(this.clientOf());
-    if (this.job?.projects.some((p) => WORKING.has(p.step))) this.job.state = 'paused';
+    const which = picked(this.job?.projects, projectIds);
+    if (which.some((p) => WORKING.has(p.step))) this.job.state = 'paused';
     let restored = 0;
     let changed = 0;
-    for (const p of this.job?.projects ?? []) {
+    for (const p of which) {
       if (!p.marked?.length) continue;
       const current = new Map((await scanResults(client, p.sourceScanId)).map((r) => [keyOf(r), upper(r.state)]));
       const back = p.marked.filter((m) => current.get(m.similarityId) === markState(this.job));
       changed += resultsIn(p.marked) - resultsIn(back);
       for (let i = 0; i < back.length; i += PREDICATES_AT_ONCE) {
-        await client.request('/api/sast-results-predicates', { method: 'POST', body: back.slice(i, i + PREDICATES_AT_ONCE).map((m) => ({ similarityId: m.similarityId, projectId: p.id, severity: m.severity, state: TO_VERIFY, comment: `FAE Flush undone by ${text(by, 254)}.` })), retries: 2 });
+        await this.predicates(client, p, back.slice(i, i + PREDICATES_AT_ONCE), TO_VERIFY, `FAE Flush undone by ${text(by, 254)}.`);
       }
       const backResults = resultsIn(back);
       restored += backResults;
@@ -790,7 +1017,7 @@ export class FaeFlushRunner {
       this.move(p, 'undone');
       this.store.save();
     }
-    this.record('undone', { restored, changedSince: changed, by });
+    this.record('undone', { restored, changedSince: changed, by, projects: which.filter((p) => p.step === 'undone').length });
     return { restored, changedSince: changed };
   }
 }

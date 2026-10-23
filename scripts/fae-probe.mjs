@@ -13,6 +13,14 @@
  *   One answers; --wait <minutes> follows those scans; the throwaway project is deleted at the end (--keep keeps it).
  *   No result of the real project is ever marked.
  *
+ *   --compare: compares the project's latest scan with its "<name>_FAE" project's latest completed scan as FAE Flush
+ *   does (only results To verify; those the AI engine added left out, since the FAE scan is SAST only) and lists what
+ *   would be marked. Read-only. --fae-scan <id> names the FAE scan instead.
+ *
+ *   --mark pne|ne: as --compare, then marks those (Proposed not exploitable or Not exploitable) ONE AT A TIME, with
+ *   Checkmarx One's answer for each; one it refuses is tried once more without its severity, to tell why.
+ *   --limit <n> marks only the first n (start with --limit 1). This changes the project's results, as FAE Flush would.
+ *
  * The API key comes from the environment (CX_API_KEY), never the command line; it and the access token are never
  * printed or written. Signed addresses' signatures and email addresses are masked in the report.
  *
@@ -21,8 +29,12 @@
  *   podman run --rm -e CX_API_KEY -v "%CD%:/probe" ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest node /probe/fae-probe.mjs --project "ai-fix-demo"
  *   podman run --rm -e CX_API_KEY -v "%CD%:/probe" ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest node /probe/fae-probe.mjs --project "ai-fix-demo" --write --wait 15
  *
- * Options: --project <name or id> (required) · --write · --wait <minutes> · --keep · --out <folder> (default: this
- * file's folder) · --base-url / --iam-url / --tenant (only when the key does not carry them).
+ * Options: --project <name or id> (required) · --write · --wait <minutes> · --keep · --compare · --mark pne|ne ·
+ * --limit <n> · --fae-scan <id> · --out <folder> (default: this file's folder) · --base-url / --iam-url / --tenant
+ * (only when the key does not carry them).
+ *
+ *   podman run --rm -e CX_API_KEY -v "%CD%:/probe" ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest node /probe/fae-probe.mjs --project "ai-fix-demo" --compare
+ *   podman run --rm -e CX_API_KEY -v "%CD%:/probe" ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest node /probe/fae-probe.mjs --project "ai-fix-demo" --mark ne --limit 1
  */
 import { createWriteStream, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, createReadStream } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -42,6 +54,14 @@ const WRITE = flag('write');
 const WAIT_MIN = Math.max(0, Number(opt('wait', '0')) || 0);
 const KEEP = flag('keep');
 const OUT = opt('out', path.dirname(fileURLToPath(import.meta.url)));
+const MARK = ['pne', 'ne'].includes(opt('mark')) ? opt('mark') : '';
+const COMPARE = flag('compare') || Boolean(MARK);
+const LIMIT = Math.max(0, Math.floor(Number(opt('limit', '0')) || 0));
+const FAE_SCAN = opt('fae-scan');
+if (flag('mark') && !MARK) {
+  console.error('Say how to mark them: --mark pne (Proposed not exploitable) or --mark ne (Not exploitable).');
+  process.exit(2);
+}
 const ACCEPT = 'application/json; version=1.0';
 
 if (!PROJECT) {
@@ -170,6 +190,7 @@ async function main() {
   const commit = String(git.commit_id ?? git.commitId ?? '');
   const sast = (scan.statusDetails ?? []).find((d) => String(d?.name).toLowerCase() === 'sast');
   step('That scan', sc.response.ok, `${sc.response.status}: ${scan.status ?? '?'} · branch ${scan.branch || '—'} · source ${scan.sourceType ?? scan.sourceOrigin ?? '?'} · SAST ${sast?.status ?? '—'}${sast?.loc ? ` (${sast.loc} LOC)` : ''} · repository ${repoUrl ? short(repoUrl, 120) : '—'}${commit ? ` @ ${commit.slice(0, 12)}` : ''}`);
+  if (COMPARE) return compareAndMark(project, scanId);
 
   // 4. Does Checkmarx One keep its code?
   const kept = await call('HEAD', `/api/repostore/scans/${encodeURIComponent(scanId)}`);
@@ -230,6 +251,15 @@ async function main() {
     step('State history of that result (GET /api/sast-results-predicates/…)', pr.response.ok, `${pr.response.status}${pr.response.ok ? '' : ` ${short(prData.text, 160)}`}`);
   }
 
+  // 9. The project's own SAST settings with a value (Checkmarx One lists every one as the project's, most empty):
+  //    FAE Flush copies these to the _FAE project, with Findings Analysis on.
+  const st = await call('GET', '/api/configuration/project', { query: { 'project-id': project.id } });
+  const stData = await json(st.response);
+  const all = Array.isArray(stData.data) ? stData.data : [];
+  const own = all.filter((e) => String(e?.originLevel ?? '').toLowerCase() === 'project' && /^scan\.config\.sast\./.test(String(e?.key ?? '')) && e.key !== 'scan.config.sast.findingsAnalysis' && String(e?.value ?? '').trim() !== '');
+  const locked = all.filter((e) => /^scan\.config\.sast\./.test(String(e?.key ?? '')) && e?.allowOverride === false).map((e) => e.key);
+  step('Its own SAST settings (GET /api/configuration/project)', st.response.ok, `${st.response.status}: ${st.response.ok ? `${own.length} set on the project${own.length ? `: ${own.map((e) => `${e.key}=${short(e.value, 60)}`).join(' · ')}` : ''}${locked.length ? ` · locked above the project: ${locked.join(', ')}` : ''}` : short(stData.text, 200)}`);
+
   if (!WRITE) {
     conclusions.push('Read-only run: add --write to try the upload, the throwaway project and the scans.');
     return;
@@ -258,6 +288,23 @@ async function main() {
   step('Throwaway project made', Boolean(probeProjectId), `${cp.response.status}: ${probeProjectId ? `${name} · ${probeProjectId}` : short(cpData.text, 200)}`);
   if (!probeProjectId) return;
 
+  // As FAE Flush does: the project's own SAST settings and Findings Analysis, in one PATCH; if refused, which one.
+  const setting = (e) => ({ key: e.key, value: String(e.value ?? '') });
+  if (own.length) {
+    const together = await call('PATCH', '/api/configuration/project', { query: { 'project-id': probeProjectId }, body: [...own.map(setting), { key: 'scan.config.sast.findingsAnalysis', value: 'true' }] });
+    const tText = together.response.ok ? '' : short((await json(together.response)).text, 200);
+    step(`Its ${own.length} own SAST setting(s) and Findings Analysis in one PATCH (as FAE Flush does)`, together.response.ok, `${together.response.status}${tText ? ` ${tText}` : ''}`);
+    if (!together.response.ok) {
+      const refused = [];
+      for (const e of own) {
+        const one = await call('PATCH', '/api/configuration/project', { query: { 'project-id': probeProjectId }, body: [setting(e)] });
+        const oText = one.response.ok ? '' : short((await json(one.response)).text, 160);
+        step(`  ${e.key} alone`, one.response.ok, `${one.response.status}${oText ? ` ${oText}` : ''} · ${e.allowOverride === false ? 'locked' : 'not locked'}`);
+        if (!one.response.ok) refused.push(`${e.key} (${one.response.status})`);
+      }
+      conclusions.push(refused.length ? `Checkmarx One refuses these settings on the new project: ${refused.join(', ')}. FAE Flush should leave them out and carry on.` : 'Each setting is taken alone but not all together.');
+    }
+  }
   const cfg = await call('PATCH', '/api/configuration/project', { query: { 'project-id': probeProjectId }, body: [{ key: 'scan.config.sast.findingsAnalysis', value: 'true' }] });
   const cfgText = cfg.response.ok ? '' : short((await json(cfg.response)).text, 200);
   const read = await call('GET', '/api/configuration/project', { query: { 'project-id': probeProjectId } });
@@ -308,6 +355,138 @@ async function main() {
   for (const s of scans.filter((x) => open.has(x.id))) step(`${s.label} scan`, null, WAIT_MIN ? `still running after ${WAIT_MIN} min` : 'started (add --wait <minutes> to follow it)');
 }
 
+// ---- --compare / --mark: FAE Flush's steps 3 and 4 for one project, on its own ----
+const upper = (v) => String(v ?? '').toUpperCase();
+const simOf = (r) => String(r?.similarityID ?? r?.similarityId ?? '');
+const avOf = (r) => String(r?.attackVectorID ?? r?.attackVectorId ?? '');
+/** Added by the AI engine (no SAST query behind it): the FAE scan, SAST only, can never report it. */
+const fromAi = (r) => {
+  if (r?.isAiGenerated === true) return true;
+  const q = r?.queryID ?? r?.queryId;
+  return q !== undefined && q !== null && q !== '' && Number(q) === 0;
+};
+async function allResults(scanId) {
+  const out = [];
+  for (let page = 0; page < 40; page += 1) {
+    const { response } = await call('GET', '/api/sast-results', { query: { 'scan-id': scanId, limit: '500', offset: String(page * 500) } });
+    const { data, text } = await json(response);
+    if (!response.ok) throw new Error(`GET /api/sast-results (scan ${scanId}): ${response.status} ${short(text, 160)}`);
+    const rows = Array.isArray(data?.results) ? data.results : [];
+    out.push(...rows);
+    if (rows.length < 500 || out.length >= Number(data?.totalCount ?? Infinity)) break;
+  }
+  return out;
+}
+/** Each similarity id's attack vector ids: Checkmarx One gives them only when asked (visible-columns). */
+async function attackVectors(scanId) {
+  const out = new Map();
+  for (let page = 0; page < 40; page += 1) {
+    const url = new URL(`${conn.baseUrl}/api/sast-results`);
+    for (const [k, v] of [['scan-id', scanId], ['visible-columns', 'similarity-id'], ['visible-columns', 'attack-vector-id'], ['include-nodes', 'false'], ['limit', '500'], ['offset', String(page * 500)]]) url.searchParams.append(k, v);
+    const { response } = await call('GET', url.toString());
+    const { data, text } = await json(response);
+    if (!response.ok) return { error: `${response.status} ${short(text, 160)}`, map: out };
+    const rows = Array.isArray(data?.results) ? data.results : [];
+    for (const r of rows) if (simOf(r) && avOf(r)) out.set(simOf(r), [...new Set([...(out.get(simOf(r)) ?? []), avOf(r)])]);
+    if (rows.length < 500 || (page + 1) * 500 >= Number(data?.totalCount ?? Infinity)) break;
+  }
+  return { map: out };
+}
+
+async function compareAndMark(project, scanId) {
+  let faeScan = FAE_SCAN;
+  if (!faeScan) {
+    const name = `${project.name}_FAE`;
+    const { response } = await call('GET', '/api/projects', { query: { name, limit: '20' } });
+    const fp = ((await json(response)).data?.projects ?? []).find((p) => p.name === name);
+    step('Its _FAE project', Boolean(fp), fp ? `${fp.name} · ${fp.id}` : `${response.status}: none named "${name}" (pass --fae-scan <scan id> to name the FAE scan)`);
+    if (!fp) return;
+    const ls = await call('GET', '/api/projects/last-scan', { query: { 'project-ids': fp.id, 'scan-status': 'Completed' } });
+    const last = (await json(ls.response)).data;
+    faeScan = String(last?.[fp.id]?.id ?? last?.[fp.id]?.scanId ?? '');
+    step('Its latest completed FAE scan', Boolean(faeScan), faeScan || `${ls.response.status}: none completed yet`);
+    if (!faeScan) return;
+  }
+  const [original, fae] = await Promise.all([allResults(scanId), allResults(faeScan)]);
+  step('SAST results read', true, `${original.length} in the project's scan · ${fae.length} in the FAE scan`);
+  const toVerify = original.filter((r) => upper(r?.state || 'TO_VERIFY') === 'TO_VERIFY' && upper(r?.status) !== 'FIXED' && simOf(r));
+  const open = toVerify.filter((r) => !fromAi(r));
+  const theirs = new Set(fae.filter((r) => !['PROPOSED_NOT_EXPLOITABLE', 'NOT_EXPLOITABLE'].includes(upper(r?.state))).map(simOf).filter(Boolean));
+  const findings = new Map();
+  for (const r of open) {
+    const f = findings.get(simOf(r));
+    if (f) f.results += 1;
+    else findings.set(simOf(r), { similarityId: simOf(r), severity: upper(r.severity) || 'MEDIUM', query: String(r.queryName ?? ''), results: 1 });
+  }
+  const notReported = [...findings.values()].filter((f) => !theirs.has(f.similarityId));
+  const nr = notReported.reduce((n, f) => n + f.results, 0);
+  const vectors = await attackVectors(scanId);
+  for (const f of findings.values()) f.attackVectorIds = vectors.map.get(f.similarityId) ?? [];
+  const withAv = [...findings.values()].filter((f) => f.attackVectorIds.length).length;
+  const firstAv = [...findings.values()].find((f) => f.attackVectorIds.length)?.attackVectorIds[0];
+  step('Attack vector ids (visible-columns=attack-vector-id)', vectors.error ? false : null, vectors.error ?? `${withAv} of ${findings.size} findings To verify have one${firstAv ? ` (first: ${firstAv})` : ''}`);
+
+  step('Compared, as FAE Flush does', true, `${toVerify.length} To verify · ${toVerify.length - open.length} added by the AI engine (left out) · ${open.length - nr} still reported · ${nr} not (${notReported.length} findings)`);
+  const bySeverity = {};
+  for (const f of notReported) bySeverity[f.severity] = (bySeverity[f.severity] ?? 0) + f.results;
+  if (notReported.length) console.log(`    not reported, by severity: ${Object.entries(bySeverity).map(([k, v]) => `${k} ${v}`).join(' · ')}`);
+  for (const f of notReported.slice(0, 30)) console.log(`    ${f.severity} · ${short(f.query, 80)} · similarity ${f.similarityId}${f.attackVectorId ? ` · attack vector ${f.attackVectorId}` : ''}${f.results > 1 ? ` (${f.results} results)` : ''}`);
+  if (notReported.length > 30) console.log(`    … and ${notReported.length - 30} more`);
+  if (!MARK) {
+    conclusions.push(nr ? `FAE Flush would mark ${nr} result(s) (${notReported.length} finding(s)). Add --mark pne or --mark ne (with --limit 1 to start) to mark them one at a time and see Checkmarx One's answer.` : 'Nothing to mark: the FAE scan reports every result To verify.');
+    return;
+  }
+  const state = MARK === 'ne' ? 'NOT_EXPLOITABLE' : 'PROPOSED_NOT_EXPLOITABLE';
+  const list = LIMIT ? notReported.slice(0, LIMIT) : notReported;
+  const comment = `FAE Flush probe: not reported when the same code was scanned again with Findings Analysis (scan ${faeScan}).`;
+  let marked = 0;
+  const refused = [];
+  let withoutSeverity = 0;
+  let avShape = '';
+  for (const f of list) {
+    const tryOne = (withSeverity) => call('POST', '/api/sast-results-predicates', { body: [{ similarityId: f.similarityId, projectId: project.id, ...(withSeverity ? { severity: f.severity } : {}), state, comment }] });
+    const first = await tryOne(true);
+    if (first.response.ok) {
+      marked += 1;
+      continue;
+    }
+    const why = `${first.response.status} ${short((await json(first.response)).text, 300)}`;
+    // A tenant that groups similar results by attack vector refuses marks by similarity id: by attack vector instead.
+    if (/attack vector/i.test(why)) {
+      if (!f.attackVectorIds?.length) {
+        refused.push(why);
+        step(`  not marked: ${f.severity} ${short(f.query, 60)} (${f.similarityId})`, false, `${why} · Checkmarx One gave no attack vector id for it`);
+        continue;
+      }
+      const { response } = await call('POST', '/api/sast-results-predicates/attack-vector', { body: f.attackVectorIds.map((av) => ({ attackVectorId: av, projectId: project.id, scanId, state, severity: f.severity, comment, filterBySimilarityId: f.similarityId })) });
+      if (response.ok) {
+        marked += 1;
+        avShape ||= 'POST /api/sast-results-predicates/attack-vector';
+        step(`  ${f.severity} ${short(f.query, 60)} (${f.similarityId})`, true, `marked by attack vector ${f.attackVectorIds.join(', ')} (${response.status})`);
+      } else {
+        const answer = `${response.status} ${short((await json(response)).text, 300)}`;
+        refused.push(answer);
+        step(`  not marked: ${f.severity} ${short(f.query, 60)} (${f.similarityId})`, false, `by similarity id: ${why} · by attack vector ${f.attackVectorIds.join(', ')}: ${answer}`);
+      }
+      continue;
+    }
+    const again = await tryOne(false);
+    if (again.response.ok) {
+      marked += 1;
+      withoutSeverity += 1;
+      step(`  ${f.severity} ${short(f.query, 60)} (${f.similarityId})`, true, `refused with its severity (${why}); taken without it`);
+    } else {
+      refused.push(why);
+      step(`  not marked: ${f.severity} ${short(f.query, 60)} (${f.similarityId})`, false, `${why} · without its severity: ${again.response.status} ${short((await json(again.response)).text, 200)}`);
+    }
+  }
+  step(`Marked ${MARK === 'ne' ? 'Not exploitable' : 'Proposed not exploitable'}`, !refused.length, `${marked} of ${list.length} finding(s)${refused.length ? `; ${refused.length} refused` : ''}${withoutSeverity ? `; ${withoutSeverity} only without their severity` : ''}`);
+  if (refused.length) conclusions.push(`Checkmarx One refused ${refused.length} mark(s): ${refused[0]}`);
+  if (avShape) conclusions.push(`This tenant groups similar results by attack vector: Checkmarx One took the mark by attack vector (${avShape}), as FAE Flush now does.`);
+  if (withoutSeverity) conclusions.push(`Checkmarx One took ${withoutSeverity} mark(s) only without the result's severity: FAE Flush should leave the severity out.`);
+  if (!refused.length && !withoutSeverity && !avShape) conclusions.push(`Every mark was taken (${marked}).`);
+}
+
 async function cleanup() {
   if (probeProjectId && !KEEP) {
     try {
@@ -329,7 +508,7 @@ try {
 } finally {
   await cleanup().catch(() => {});
 }
-const report = { probe: 'FAE Flush', version: 1, at: new Date().toISOString(), write: WRITE, waitMinutes: WAIT_MIN, seconds: Math.round((Date.now() - started) / 1000), steps, conclusions, ...(failed ? { stopped: short(failed) } : {}) };
+const report = { probe: 'FAE Flush', version: 1, at: new Date().toISOString(), write: WRITE, compare: COMPARE, mark: MARK, limit: LIMIT, waitMinutes: WAIT_MIN, seconds: Math.round((Date.now() - started) / 1000), steps, conclusions, ...(failed ? { stopped: short(failed) } : {}) };
 const file = path.join(OUT, `fae-probe-report-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.json`);
 try {
   writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);

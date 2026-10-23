@@ -9842,25 +9842,36 @@ async function loadAiFusion(req, names) {
   const client = req.session.client;
   const scans = await getLastScans(client, ids);
   const trace = fusionTrace(req);
-  // Each project's latest scan: Fusion, LAST or no AI (its settings say), its model and where that was set, its
-  // lines of code, and what its steps say the AI engine added. The tenant's AI settings and credits beside them.
+  // First, which latest scans ran the AI engine at all: from their engines, else a hundred scans to a call. Only
+  // those are read further (most of a tenant's projects never ran it).
+  const kinds = await scanTypes(client, Object.fromEntries(ids.filter((id) => scans[id]).map((id) => [id, scans[id]])), { background: false, trace }).catch(() => ({}));
+  const aiScanned = ids.filter((id) => scans[id] && kinds[id] !== 'none');
+  // Each of those: Fusion or LAST (its settings say), its model and where that was set, its lines of code. The
+  // tenant's AI settings and credits beside them, at the same time.
   const [facts, ai, credits] = await Promise.all([
-    projectFacts(client, ids.filter((id) => scans[id]), scans, { trace }).catch((error) => (console.warn(`[fusion] facts: ${logSafe(error.message)}`), {})),
+    projectFacts(client, aiScanned, scans, { trace, concurrency: 8 }).catch((error) => (console.warn(`[fusion] facts: ${logSafe(error.message)}`), {})),
     tenantAi(client, { trace }).catch(() => null),
     tenantCreditsOf(req, { fresh: true }),
   ]);
-  const types = Object.fromEntries(ids.map((id) => [id, facts[id]?.scanType ?? scanTypeOf(scans[id]?.engines, null)]));
-  // The AI-scanned projects' Risk Hub lists, as the Workbench reads them.
+  const types = Object.fromEntries(ids.map((id) => [id, facts[id]?.scanType ?? kinds[id] ?? scanTypeOf(scans[id]?.engines, null)]));
+  // The AI-scanned projects' Risk Hub lists, as the Workbench reads them; and, at the same time, the Fusion credits
+  // each used per AI scan over the last year (for what its latest scan cost).
   const riskSource = createRiskSource(client, activeConfig());
-  const fusion = linkFusion(req, await readRiskFusion(client, ids.map((id) => ({ id, name: names[id] })), scans, { types, riskSource, trace }));
+  const [read, usage] = await Promise.all([
+    readRiskFusion(client, ids.map((id) => ({ id, name: names[id] })), scans, { types, riskSource, trace, concurrency: 8 }),
+    fusionUsage(client, aiScanned.map((id) => ({ id, name: names[id] })), { period: 'last_year', scopeIds: ids, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null)),
+  ]);
+  const fusion = linkFusion(req, read);
   for (const [id, f] of Object.entries(facts)) if (fusion.projects[id]) Object.assign(fusion.projects[id], f, { scanType: fusion.projects[id].scanType });
   // Fusion credits: whether the tenant charges them, as the latest Fusion scans' steps say.
   const charged = Object.values(facts).map((f) => f.fusionCredits).filter(Boolean);
   fusion.tenant = { ai, credits, fusionCredits: charged.includes('reserved') ? 'reserved' : charged.length ? 'off' : '' };
-  // Their AI scans and credits over the period chosen; how many of the line's projects had Fusion or LAST scans.
-  const shown = Object.keys(fusion.projects);
-  // Over the last year: the Fusion credits each project used per AI scan, for what its latest scan cost.
-  fusion.usage = await fusionUsage(client, shown.map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period: 'last_year', scopeIds: ids, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null));
+  // Their AI scans and credits over the year, kept to the projects shown.
+  if (usage?.projects) {
+    for (const id of Object.keys(usage.projects)) if (!fusion.projects[id]) delete usage.projects[id];
+    usage.totals = Object.values(usage.projects).reduce((t, u) => ({ scans: t.scans + (u.scans ?? 0), fusionScans: t.fusionScans + (u.fusionScans ?? 0), lastScans: t.lastScans + (u.lastScans ?? 0), credits: t.credits + (u.credits ?? 0), fusion: t.fusion + (u.fusion ?? 0) }), { scans: 0, fusionScans: 0, lastScans: 0, credits: 0, fusion: 0 });
+  }
+  fusion.usage = usage;
   for (const [id, p] of Object.entries(fusion.projects)) p.scanCredits = scanCreditsOf(p, fusion.usage?.projects?.[id]);
   req.session.lastFusion = fusion;
   req.session.fusionScan = aiFindings(fusion);
@@ -10175,12 +10186,13 @@ const FAE_EVENTS = {
   'mark-now': (d) => `FAE Flush: ${d.by} marked the report-only run now: ${d.results} results in ${d.projects} project(s).`,
   'debug': (d) => `FAE Flush debug log turned ${d.on ? 'on' : 'off'} by ${d.by}.`,
   'needs-ok': (d) => `FAE Flush stopped at ${d.project} to ask: ${d.reason}`,
+  'brought-back': (d) => `FAE Flush: ${d.by || 'someone'} brought back ${d.projects} skipped project${d.projects === 1 ? '' : 's'} (${(d.names ?? []).join(', ')}).`,
   decided: (d) => `FAE Flush: ${d.by || 'someone'} chose "${d.decision}" for ${d.project}${d.reason ? ` (${d.reason})` : ''}.`,
   marked: (d) => `FAE Flush marked ${d.marked} of ${d.project}'s ${d.toVerify} results To verify ${d.state ?? 'Proposed not exploitable'}${d.findings !== undefined && d.findings !== d.marked ? ` (${d.findings} findings: Checkmarx One marks every result sharing one)` : ''}: not reported by the FAE scan ${d.faeScanId}.`,
   'fae-deleted': (d) => `FAE Flush deleted ${d.project}_FAE.`,
   'fae-deleted-all': (d) => `FAE Flush: ${d.deleted} _FAE project${d.deleted === 1 ? '' : 's'} deleted${d.failed ? `, ${d.failed} could not be` : ''}.`,
   finished: (d) => `FAE Flush finished: ${d.marked} of ${d.toVerify} results To verify marked ${d.state ?? 'Proposed not exploitable'} across ${d.projects} projects, ${d.revalidated} revalidated.`,
-  undone: (d) => `FAE Flush undone by ${d.by}: ${d.restored} results back to To verify${d.changedSince ? ` (${d.changedSince} changed since and left as they are)` : ''}.`,
+  undone: (d) => `FAE Flush undone by ${d.by}${d.projects ? ` for ${d.projects} project${d.projects === 1 ? '' : 's'}` : ''}: ${d.restored} results back to To verify${d.changedSince ? ` (${d.changedSince} changed since and left as they are)` : ''}.`,
 };
 function faeAudit(event, details) {
   const actor = details.actor ?? { kind: 'system', user: faeRunner().job?.startedBy || SYSTEM_ACTOR.user };
@@ -10260,11 +10272,36 @@ app.post('/api/fae-flush/decide', ...faeGuard, (req, res) => {
   res.json(faeView());
 });
 
+// Several projects that stopped to ask, the same answer (retry or skip; marking goes through Mark now).
+app.post('/api/fae-flush/decide-many', ...faeGuard, (req, res) => {
+  const decision = String(req.body?.decision ?? '');
+  if (!['retry', 'skip'].includes(decision)) return res.status(400).json({ error: 'Retry or skip.' });
+  let result;
+  try {
+    result = faeRunner().decideMany(Array.isArray(req.body?.projectIds) ? req.body.projectIds : [], decision, req.user?.email ?? '');
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: error.message });
+  }
+  faeTick();
+  res.json({ ...result, ...faeView() });
+});
+
+// Skipped projects back in the run (all of them, or those named).
+app.post('/api/fae-flush/bring-back', ...faeGuard, (req, res) => {
+  try {
+    faeRunner().bringBack(Array.isArray(req.body?.projectIds) ? req.body.projectIds : null, req.user?.email ?? '');
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: error.message });
+  }
+  faeTick();
+  res.json(faeView());
+});
+
 // A report-only run: mark what it reported, now.
 app.post('/api/fae-flush/mark-now', ...faeGuard, (req, res) => {
   if (faeMarkRefused(req)) return res.status(403).json({ error: faeMarkRefused(req), permission: 'faeFlush.notExploitable' });
   try {
-    faeRunner().markReported(req.user?.email ?? '');
+    faeRunner().markReported(req.user?.email ?? '', Array.isArray(req.body?.projectIds) ? req.body.projectIds : null);
   } catch (error) {
     return res.status(error.status ?? 400).json({ error: error.message });
   }
@@ -10305,18 +10342,18 @@ app.get('/api/fae-flush/value', requireFeature('faeFlush'), (req, res) => {
 
 app.post('/api/fae-flush/undo', ...faeGuard, asyncRoute(async (req, res) => {
   if (!faeRunner().job) return res.status(409).json({ error: 'There is no FAE Flush to undo.' });
-  const result = await faeRunner().undo(req.user?.email ?? '');
+  const result = await faeRunner().undo(req.user?.email ?? '', Array.isArray(req.body?.projectIds) ? req.body.projectIds : null);
   res.json({ ...result, ...faeView() });
 }));
 
 // One click, any day after: every _FAE project of the run still in Checkmarx One.
 app.post('/api/fae-flush/delete-fae', ...faeGuard, asyncRoute(async (req, res) => {
   if (!faeRunner().job) return res.status(409).json({ error: 'There is no FAE Flush with _FAE projects.' });
-  const result = await faeRunner().deleteAll();
+  const result = await faeRunner().deleteAll(Array.isArray(req.body?.projectIds) ? req.body.projectIds : null, { earlierOnly: req.body?.earlier === true });
   res.json({ ...result, ...faeView() });
 }));
 
-const FAE_TICK_MS = Number(process.env.FAE_FLUSH_TICK_MS) || 30_000;
+const FAE_TICK_MS = Number(process.env.FAE_FLUSH_TICK_MS) || 15_000;
 const faeTicking = new WeakSet();
 /** One turn of every tenant's run (or the running tenant's only, from a request). */
 function faeTick(all = false) {

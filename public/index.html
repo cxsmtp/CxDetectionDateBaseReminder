@@ -2349,42 +2349,41 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
 
             <section class="panel" id="flush-run">
               <h2>Run</h2>
-              <dl class="flush-q">
-                <dt>Projects</dt>
-                <dd><b id="flush-chosen">None yet</b> <span class="hint" id="flush-chosen-sub">Check the projects first, then tick them in the list below: try a few first.</span></dd>
-                <dt>What to do</dt>
-                <dd>
-                  <span class="flush-seg" role="radiogroup" aria-label="What to do">
+              <div class="flush-bar">
+                <div class="flush-field"><span class="flush-label">Projects</span><b id="flush-chosen">None yet</b></div>
+                <div class="flush-field"><span class="flush-label" id="flush-mode-label">What to do</span>
+                  <span class="flush-seg" role="radiogroup" aria-labelledby="flush-mode-label">
                     <label><input type="radio" name="flush-mode" value="mark" checked /><span>Mark false positives</span></label>
-                    <label><input type="radio" name="flush-mode" value="report" /><span>Only show what it would mark</span></label>
+                    <label><input type="radio" name="flush-mode" value="report" /><span>Only show</span></label>
                   </span>
-                  <span class="hint flush-under">Only show: it scans and counts, and changes nothing; you can mark them afterwards.</span>
-                </dd>
-                <dt id="flush-markas-dt" hidden>Mark them as</dt>
-                <dd id="flush-markas-dd" hidden>
-                  <span class="flush-seg" role="radiogroup" aria-label="Mark them as">
+                </div>
+                <div class="flush-field" id="flush-markas-dd" hidden><span class="flush-label" id="flush-markas-dt">Mark them as</span>
+                  <span class="flush-seg" role="radiogroup" aria-labelledby="flush-markas-dt">
                     <label><input type="radio" name="flush-markas" value="pne" checked /><span>Proposed not exploitable</span></label>
                     <label><input type="radio" name="flush-markas" value="ne" /><span>Not exploitable</span></label>
                   </span>
-                  <span class="hint flush-under" id="flush-markas-hint">Proposed: a person confirms each one later (recommended). Not exploitable: final at once; they leave every count, and Undo still puts them back to To verify.</span>
-                  <span class="status error flush-under" id="flush-markas-warn" hidden>Not exploitable is final: these results leave every count and dashboard at once, with no one confirming them. Undo puts them back to To verify.</span>
-                </dd>
-                <dt>Stop and ask me if</dt>
-                <dd>
-                  <span class="flush-seg" role="radiogroup" aria-label="Stop and ask me if">
+                </div>
+                <div class="flush-field"><span class="flush-label" id="flush-sensitivity-label">Stop and ask me if</span>
+                  <span class="flush-seg" role="radiogroup" aria-labelledby="flush-sensitivity-label">
                     <label><input type="radio" name="flush-sensitivity" value="rarely" /><span>Rarely</span></label>
                     <label><input type="radio" name="flush-sensitivity" value="normal" checked /><span>Something looks off</span></label>
                     <label><input type="radio" name="flush-sensitivity" value="often" /><span>Often</span></label>
                   </span>
-                  <span class="hint flush-under">For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.</span>
-                </dd>
-              </dl>
-              <div class="flush-foot">
-                <label class="hint">Scans at once <select id="flush-concurrency"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>12</option></select></label>
+                </div>
+                <label class="flush-field"><span class="flush-label">Scans at once</span><select id="flush-concurrency"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>12</option></select></label>
                 <span class="flush-grow"></span>
-                <button type="button" id="flush-preview" class="sm">Check the projects</button>
-                <button type="button" id="flush-start" class="primary" disabled>Start FAE Flush</button>
+                <div class="flush-go">
+                  <button type="button" id="flush-preview" class="sm">Check the projects</button>
+                  <button type="button" id="flush-start" class="primary" disabled>Start FAE Flush</button>
+                </div>
               </div>
+              <p class="hint flush-hints">
+                <span id="flush-chosen-sub">Check the projects first, then tick them in the list below: try a few first.</span>
+                <span>Only show: it scans and counts, and changes nothing; you can mark them afterwards.</span>
+                <span id="flush-markas-hint" hidden>Proposed: a person confirms each one later (recommended). Not exploitable: final at once; they leave every count, and Undo still puts them back to To verify.</span>
+                <span class="status error" id="flush-markas-warn" hidden>Not exploitable is final: these results leave every count and dashboard at once, with no one confirming them. Undo puts them back to To verify.</span>
+                <span>For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.</span>
+              </p>
               <p class="hint" id="flush-perm-note" hidden>Starting it needs the Checkmarx One integration permission: it creates, scans and deletes projects with the server's own key.</p>
             </section>
 
@@ -2395,34 +2394,59 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <p class="hint wide" id="flush-result"></p>
                 </div>
                 <div class="actions">
-                  <button type="button" id="flush-mark-now" class="sm primary" hidden>Mark now</button>
                   <button type="button" id="flush-pause" class="sm">Pause</button>
                   <button type="button" id="flush-csv" class="sm">Export CSV</button>
-                  <button type="button" id="flush-delete-fae" class="sm">Delete all _FAE projects</button>
-                  <button type="button" id="flush-undo" class="sm danger">Undo all marks</button>
+                  <button type="button" id="flush-delete-earlier" class="sm" hidden>Delete _FAE projects of earlier runs</button>
                 </div>
               </div>
-              <div class="flush-asks" id="flush-asks"></div>
+              <div class="flush-find">
+                <span class="flush-chips" id="flush-steps" role="group" aria-label="Step"></span>
+                <input type="search" id="flush-run-search" maxlength="300" autocomplete="off" placeholder="Search the run" aria-label="Search the run" />
+              </div>
+              <div class="flush-actbar" id="flush-actbar" hidden>
+                <b id="flush-act-count"></b>
+                <span class="flush-grow"></span>
+                <button type="button" class="sm" data-bulk="retry">Retry</button>
+                <button type="button" class="sm" data-bulk="skip">Skip</button>
+                <button type="button" class="sm" data-bulk="back">Bring back</button>
+                <button type="button" class="sm" data-bulk="mark">Mark now</button>
+                <button type="button" class="sm" data-bulk="delete">Delete _FAE projects</button>
+                <button type="button" class="sm danger" data-bulk="undo">Undo marks</button>
+                <button type="button" class="sm" id="flush-act-clear" aria-label="Clear the selection" title="Clear the selection">✕</button>
+              </div>
               <div class="table-wrap">
-                <table class="flush-table" id="flush-table">
-                  <thead><tr><th>Project</th><th>Step</th><th class="num">To verify</th><th class="num">Reported by FAE</th><th class="num">Not reported → Proposed not exploitable</th><th>Revalidated</th><th>_FAE project</th></tr></thead>
+                <table class="flush-table data-table" id="flush-table" data-tt="flush-run">
+                  <thead><tr><th class="flush-tick checkbox"><input type="checkbox" id="flush-run-head" aria-label="Select every project shown" /></th><th>Project</th><th>Step</th><th class="num">To verify</th><th class="num">Reported by FAE</th><th class="num" id="flush-col-marked">Not reported → Proposed not exploitable</th><th>Revalidated</th><th>_FAE project</th></tr></thead>
                   <tbody></tbody>
                 </table>
               </div>
-              <p class="hint">Click a project to see what it went through: each step, where its code came from, and any error.</p>
+              <div class="flush-more"><button type="button" class="sm" id="flush-run-more" hidden>Show more</button></div>
+              <p class="hint">Click a project to see what it went through: each step, where its code came from, and any error. Tick projects to act on them; the box in the heading ticks every one shown.</p>
             </section>
 
             <section class="panel" id="flush-preview-panel" hidden>
               <div class="panel-head">
-                <div><h2>Projects</h2><p class="hint wide" id="flush-preview-sub"></p></div>
-                <div class="actions"><button type="button" id="flush-tick-all" class="sm">Tick all</button><button type="button" id="flush-tick-none" class="sm">Tick none</button></div>
+                <div><h2>Projects</h2><p class="hint wide" id="flush-preview-sub"></p><p class="status warn" id="flush-av-warn" hidden>This tenant groups similar results by Attack Vector ID (Account settings → Grouping similar results). FAE Flush marks them by attack vector there.</p></div>
               </div>
+              <div class="flush-find">
+                <input type="search" id="flush-search" maxlength="300" autocomplete="off" placeholder="Search name or branch; several: separate with commas" aria-label="Search projects" />
+                <span class="flush-chips" id="flush-show" role="group" aria-label="Show">
+                  <button type="button" class="sm" data-show="all">All</button>
+                  <button type="button" class="sm" data-show="eligible">Can be flushed</button>
+                  <button type="button" class="sm" data-show="ticked">Ticked</button>
+                  <button type="button" class="sm" data-show="unticked">Not ticked</button>
+                  <button type="button" class="sm" data-show="left-out">Left out</button>
+                  <button type="button" class="sm" data-show="skipped" hidden>Skipped last run</button>
+                </span>
+              </div>
+              <div class="flush-selbar"><b id="flush-sel-count"></b> <span class="hint" id="flush-sel-sub"></span><button type="button" class="link" id="flush-untick-all" hidden>Untick all</button><span class="flush-grow"></span><span class="hint" id="flush-found"></span></div>
               <div class="table-wrap">
-                <table class="flush-table" id="flush-preview-table">
-                  <thead><tr><th class="flush-tick"><span class="sr-only">Chosen</span></th><th>Project</th><th>Latest scan</th><th class="num">Lines of code</th><th class="num">To verify</th><th>FAE Flush</th></tr></thead>
+                <table class="flush-table data-table" id="flush-preview-table" data-tt="flush-projects">
+                  <thead><tr><th class="flush-tick checkbox"><input type="checkbox" id="flush-tick-head" aria-label="Tick every project shown" /></th><th>Project</th><th>Branch</th><th>Last scanned</th><th class="num">Lines of code</th><th class="num">To verify</th><th>Code from</th><th>FAE Flush</th></tr></thead>
                   <tbody></tbody>
                 </table>
               </div>
+              <div class="flush-more"><button type="button" class="sm" id="flush-more" hidden>Show more</button></div>
             </section>
 
             <details class="panel flush-trouble" id="flush-trouble" data-perm="integration.cxone">
@@ -2499,9 +2523,9 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </form>
               <p class="status" id="fusion-status"></p>
               <p class="hint fusion-tried" id="fusion-tried"></p>
-              <!-- Three blocks: the projects (Fusion, LAST, no AI), what the AI engine added, and the tenant's credits. -->
-              <div class="fusion-over" id="fusion-over" hidden></div>
+              <!-- The figures in one thin line; Details opens the three blocks under it: the projects, the AI results, the tenant's credits. -->
               <div class="totals fusion-tiles" id="fusion-tiles"></div>
+              <div class="fusion-over" id="fusion-over" hidden></div>
               <!-- Risk Hub's statuses and states: a chip narrows the projects, the side panel, the exports and the figures. -->
               <div class="fusion-filters" id="fusion-filters" hidden>
                 <div class="fusion-chip-row" role="group" aria-label="Status"><span class="fusion-chip-key">Status</span><span id="fusion-status-chips"></span></div>
@@ -2538,8 +2562,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <p class="status" id="fusion-act-status"></p>
               <div class="table-wrap">
                 <table class="data-table fusion-table">
-                  <thead><tr><th>Project</th><th title="Fusion: its latest scan ran the AI engine with Fusion on. LAST: with Fusion off (LLM-based scanning alone).">Scan</th><th title="The model its latest scan ran with, and where that was set: the scan, the project, the tenant, or Checkmarx One itself">Model</th><th class="num" title="Lines of code its latest scan counted">LOC</th><th class="num" title="What the AI engine found in the latest scan, and how many of those it added once the ones the traditional engine also found were taken out (as the scan's steps say)">AI found → added</th><th title="What the AI engine reported, by severity (no traditional SAST results)">AI results</th><th class="num" title="Open risks still in Risk Hub's default state, To verify">To verify</th><th class="num" title="Open risks confirmed (by people or by AI Triage)">Confirmed</th><th class="num" title="Credits its latest scan used: none for a LAST scan or with Fusion credits disabled; ≈ an estimate from the Fusion credits it used over the last year, per Fusion scan">Credits, latest scan</th><th>Latest scan</th></tr></thead>
-                  <tbody id="fusion-body"><tr><td colspan="11" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
+                  <thead><tr><th>Project</th><th title="Fusion: its latest scan ran the AI engine with Fusion on. LAST: with Fusion off (LLM-based scanning alone).">Scan</th><th title="The model its latest scan ran with, and where that was set: the scan, the project, the tenant, or Checkmarx One itself">Model</th><th class="num" title="Lines of code its latest scan counted">LOC</th><th title="What the AI engine reported, by severity (no traditional SAST results)">AI results</th><th class="num" title="Open risks still in Risk Hub's default state, To verify">To verify</th><th class="num" title="Open risks confirmed (by people or by AI Triage)">Confirmed</th><th class="num" title="Credits its latest scan used: none for a LAST scan or with Fusion credits disabled; ≈ an estimate from the Fusion credits it used over the last year, per Fusion scan">Credits, latest scan</th><th>Latest scan</th></tr></thead>
+                  <tbody id="fusion-body"><tr><td colspan="9" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
                 </table>
               </div>
               <p class="hint" id="fusion-foot"></p>

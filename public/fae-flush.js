@@ -5,6 +5,8 @@
  * Pause, Undo, Export and Delete all _FAE. The Value tab shows what every run has been worth; Troubleshoot tests
  * one project, keeps a debug log and chooses where the code comes from.
  */
+import { sortAndFilter } from './table-tools.js';
+
 const STEP_LABEL = {
   waiting: 'Waiting',
   copying: 'Copying the code',
@@ -69,6 +71,48 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
   let chosen = null;
   let chosenFrom = '';
   let opened = '';
+  // The projects list: what is searched for (several terms, separated by commas), which ones to show, how many.
+  const PAGE_ROWS = 100;
+  let showWhat = 'all';
+  let pageRows = PAGE_ROWS;
+  // The run's table: the step tab, what is searched for, the projects selected, how many rows.
+  let stepTab = 'all';
+  let runRows = PAGE_ROWS;
+  let selected = new Set();
+  let projectsShown = [];
+  let runShown = [];
+  const termsOf = (id) => $(id).value.toLowerCase().split(',').map((x) => x.trim()).filter(Boolean);
+  const matches = (words, ...fields) => !words.length || words.some((w) => fields.join(' ').toLowerCase().includes(w));
+  const skippedLast = () => new Set((view?.job?.projects ?? []).filter((p) => p.step === 'skipped').map((p) => p.id));
+  const shown = (p) => {
+    if (!matches(termsOf('flush-search'), p.name, p.branch ?? '')) return false;
+    if (showWhat === 'eligible') return !p.leftOut;
+    if (showWhat === 'left-out') return Boolean(p.leftOut);
+    if (showWhat === 'ticked') return !p.leftOut && Boolean(chosen?.has(p.id));
+    if (showWhat === 'unticked') return !p.leftOut && !chosen?.has(p.id);
+    if (showWhat === 'skipped') return skippedLast().has(p.id);
+    return true;
+  };
+  // The run's steps, as tabs.
+  const TABS = [
+    ['all', 'All', () => true],
+    ['work', 'At work', (p) => ACTIVE.has(p.step) || p.step === 'waiting'],
+    ['asks', 'Asks you', (p) => p.step === 'needs-ok'],
+    ['ready', 'Ready to mark', (p) => p.step === 'reported'],
+    ['done', 'Done', (p) => p.step === 'done'],
+    ['skipped', 'Skipped', (p) => p.step === 'skipped'],
+    ['undone', 'Undone', (p) => p.step === 'undone'],
+    ['left-out', 'Left out', (p) => p.step === 'left-out'],
+  ];
+  // What each action on the selected projects applies to.
+  const BULK = {
+    retry: (p) => p.step === 'needs-ok',
+    skip: (p) => p.step === 'needs-ok',
+    back: (p) => p.step === 'skipped',
+    mark: (p) => p.step === 'reported',
+    delete: (p) => p.faeProjectId && !p.faeDeleted && !ACTIVE.has(p.step) && p.step !== 'reported',
+    undo: (p) => (p.markedCount ?? 0) > 0,
+  };
   const allowed = () => can('integration.cxone');
   const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body ?? {}) });
   const picked = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
@@ -76,9 +120,9 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
   const ne = () => view?.job?.options?.markAs === 'ne';
   const markAsChosen = () => (can('faeFlush.notExploitable') && picked('flush-markas') === 'ne' ? 'ne' : 'pne');
   const showMarkAs = () => {
-    for (const id of ['flush-markas-dt', 'flush-markas-dd']) $(id).hidden = !can('faeFlush.notExploitable');
+    $('flush-markas-dd').hidden = !can('faeFlush.notExploitable');
     const final = markAsChosen() === 'ne';
-    $('flush-markas-hint').hidden = final;
+    $('flush-markas-hint').hidden = final || !can('faeFlush.notExploitable');
     $('flush-markas-warn').hidden = !final;
   };
   for (const radio of document.querySelectorAll('input[name="flush-markas"]')) radio.addEventListener('change', showMarkAs);
@@ -118,7 +162,7 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     const { preview, job, summary } = view ?? {};
     showMarkAs();
     $('flush-perm-note').hidden = allowed();
-    for (const id of ['flush-preview', 'flush-start', 'flush-pause', 'flush-undo', 'flush-delete-fae', 'flush-mark-now']) $(id).hidden = !allowed();
+    for (const id of ['flush-preview', 'flush-start', 'flush-pause']) $(id).hidden = !allowed();
     if (!view?.connected) setStatus('flush-status', 'The server is not connected to Checkmarx One: an Admin connects it under Settings → Checkmarx One.', 'error');
     else if (view.previewError) setStatus('flush-status', `Checking the projects did not finish: ${view.previewError}`, 'error');
     else if (view.previewing) setStatus('flush-status', 'Checking every project: its latest scan, whether its code is kept, and its results To verify…');
@@ -164,16 +208,7 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
 
     // The projects checked, each ticked or not: until a run starts from them (its own table then shows each one).
     $('flush-preview-panel').hidden = !preview || Boolean(job && preview.readAt <= job.startedAt);
-    if (preview) {
-      $('flush-preview-sub').textContent = `${num(preview.eligible)} to flush, ${num(preview.leftOut)} left out.`;
-      $('flush-preview-table').tBodies[0].innerHTML = preview.projects
-        .map((p) => {
-          const tick = p.leftOut ? '' : `<input type="checkbox" data-flush-pick="${esc(p.id)}"${chosen.has(p.id) ? ' checked' : ''} aria-label="${esc(p.name)}" />`;
-          const how = p.leftOut ? `<span class="pill muted">Left out</span> <span class="hint">${esc(p.leftOut)}</span>` : p.codeKept === false ? '<span class="pill ok">Will be flushed</span> <span class="hint">from its repository (Checkmarx One does not keep its code)</span>' : '<span class="pill ok">Will be flushed</span>';
-          return `<tr><td class="flush-tick">${tick}</td><td><b translate="no">${esc(p.name)}</b></td><td>${p.sourceScanId ? `<span translate="no">${esc(p.branch || '')}</span>` : '—'}</td><td class="num">${num(p.loc)}</td><td class="num">${num(p.toVerify)}</td><td>${how}</td></tr>`;
-        })
-        .join('');
-    }
+    if (preview) renderProjects(preview);
     // Troubleshoot: the projects to test; those of the run when the projects were not checked since a restart.
     const testable = preview?.projects?.length ? preview.projects : job?.projects ?? [];
     const select = $('flush-test-project');
@@ -193,41 +228,127 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     const outcome = ready
       ? `<span>${esc(ne() ? `${num(totals.notReported)} results To verify would be marked Not exploitable: not reported by the FAE scan of the same code. Nothing is marked until you select Mark now.` : `${num(totals.notReported)} results To verify would be marked Proposed not exploitable: not reported by the FAE scan of the same code. Nothing is marked until you select Mark now.`)}</span>${shared}`
       : `<span><b class="flush-pne">${esc(num(totals.marked))}</b> ${esc(ne() ? `of ${num(totals.toVerify)} results To verify marked Not exploitable: not reported by the FAE scan of the same code.` : `of ${num(totals.toVerify)} results To verify marked Proposed not exploitable: not reported by the FAE scan of the same code.`)}</span>${shared} <span>${esc(num(totals.revalidated))} revalidated; ${esc(num(totals.reported))} still reported, left To verify.</span>`;
-    $('flush-result').innerHTML = `<span class="flush-meta"><span>Started</span> <time translate="no">${esc(fmtDateTime(job.startedAt))}</time> · <span translate="no">${esc(job.startedBy || '—')}</span>${job.finishedAt ? ` · <span>Finished</span> <time translate="no">${esc(fmtDateTime(job.finishedAt))}</time>` : ''}</span><br />${outcome} <span>${esc(job.deleteFae ? 'Each _FAE project is deleted once checked.' : 'The _FAE projects are kept.')}</span>`;
-    $('flush-mark-now').hidden = !allowed() || !ready || job.state !== 'done';
-    $('flush-mark-now').textContent = `Mark now (${num(totals.notReported)})`;
+    const left = [totals.aiLeft ? `<span>${esc(`${num(totals.aiLeft)} found by the AI engine, left as they are.`)}</span>` : '', totals.notMarked ? `<span>${esc(`${num(totals.notMarked)} Checkmarx One would not mark (each project's timeline says why).`)}</span>` : ''].join(' ');
+    $('flush-result').innerHTML = `<span class="flush-meta"><span>Started</span> <time translate="no">${esc(fmtDateTime(job.startedAt))}</time> · <span translate="no">${esc(job.startedBy || '—')}</span>${job.finishedAt ? ` · <span>Finished</span> <time translate="no">${esc(fmtDateTime(job.finishedAt))}</time>` : ''}</span><br />${outcome} ${left} <span>${esc(job.deleteFae ? 'Each _FAE project is deleted once checked.' : 'The _FAE projects are kept.')}</span>`;
     $('flush-pause').textContent = job.state === 'paused' ? 'Resume' : 'Pause';
     $('flush-pause').hidden = !allowed() || job.state === 'done';
-    $('flush-delete-fae').hidden = !allowed() || !summary.faeKept;
-    $('flush-delete-fae').textContent = `Delete all _FAE projects (${num(summary.faeKept)})`;
-    $('flush-undo').hidden = !allowed() || !totals.marked;
+    const earlier = (job.earlier ?? []).filter((p) => p.faeProjectId && !p.faeDeleted).length;
+    $('flush-delete-earlier').hidden = !allowed() || !earlier;
+    $('flush-delete-earlier').textContent = `Delete ${num(earlier)} _FAE project${earlier === 1 ? '' : 's'} of earlier runs`;
+    // The column says the state this run marks with.
+    $('flush-col-marked').textContent = ne() ? 'Not reported → Not exploitable' : 'Not reported → Proposed not exploitable';
+    renderRun(job);
+  }
 
-    // Those that stopped to ask.
-    const asks = job.projects.filter((p) => p.step === 'needs-ok');
-    $('flush-asks').innerHTML = asks
+  /** The projects checked: searched, shown by kind, sorted and filtered from the headings, a page at a time. */
+  function renderProjects(preview) {
+    $('flush-preview-sub').textContent = `${num(preview.projects.length)} in the tenant · ${num(preview.eligible)} can be flushed · ${num(preview.leftOut)} left out.`;
+    $('flush-av-warn').hidden = !preview.groupsByAttackVector;
+    const skipped = skippedLast();
+    document.querySelector('#flush-show [data-show="skipped"]').hidden = !skipped.size;
+    if (showWhat === 'skipped' && !skipped.size) showWhat = 'all';
+    for (const chip of document.querySelectorAll('#flush-show [data-show]')) chip.classList.toggle('primary', chip.dataset.show === showWhat);
+    const codeFrom = (p) => (p.leftOut ? '' : p.codeKept === false ? 'Repository' : 'Stored copy');
+    const rows = sortAndFilter('flush-projects', preview.projects.filter(shown), [
+      null,
+      (p) => p.name,
+      (p) => p.branch ?? '',
+      { value: (p) => (p.scannedAt ? Date.parse(p.scannedAt) : null), text: (p) => (p.scannedAt ? fmtDateTime(p.scannedAt) : '') },
+      (p) => p.loc ?? null,
+      (p) => p.toVerify ?? null,
+      codeFrom,
+      (p) => (p.leftOut ? 'Left out' : 'Can be flushed'),
+    ], () => renderProjects(view.preview));
+    const pickable = rows.filter((p) => !p.leftOut);
+    const ticked = pickable.filter((p) => chosen?.has(p.id)).length;
+    const head = $('flush-tick-head');
+    head.checked = pickable.length > 0 && ticked === pickable.length;
+    head.indeterminate = ticked > 0 && ticked < pickable.length;
+    head.disabled = !pickable.length;
+    const n = chosen?.size ?? 0;
+    const tickedAll = eligible().filter((p) => chosen?.has(p.id));
+    $('flush-sel-count').textContent = `${num(n)} ticked`;
+    $('flush-sel-sub').textContent = n ? `of ${num(preview.eligible)} · ${num(tickedAll.reduce((a, p) => a + (p.toVerify ?? 0), 0))} results To verify · ${estimate(preview, Number($('flush-concurrency').value) || 4, n)}` : `of ${num(preview.eligible)}: tick the projects to flush (the box in the heading ticks every one shown)`;
+    $('flush-untick-all').hidden = !n;
+    $('flush-found').textContent = rows.length !== preview.projects.length ? `${num(rows.length)} of ${num(preview.projects.length)} shown` : '';
+    $('flush-preview-table').tBodies[0].innerHTML = rows
+      .slice(0, pageRows)
       .map((p) => {
-        const markable = !['scan', 'error', 'copy'].includes(p.exception?.code);
-        const mark = p.exception?.code === 'revalidation' ? 'Accept' : `Mark ${num(p.counts?.notReported ?? 0)} anyway`;
-        // The reason in a sentence of its own (translated), a failed call's own message as it came.
-        const reason = ['error', 'copy'].includes(p.exception?.code) ? `<span translate="no">${esc(p.exception?.text ?? '')}</span>` : `<span>${esc(p.exception?.text ?? '')}</span>`;
-        const detail = p.exception?.detail ? ` <span class="hint" translate="no">${esc(p.exception.detail)}</span>` : '';
-        return `<div class="flush-ask" data-id="${esc(p.id)}"><p><b translate="no">${esc(p.name)}</b> ${reason}${detail}</p>${allowed() ? `<div class="actions">${markable ? `<button type="button" class="sm" data-decide="mark">${esc(mark)}</button>` : ''}<button type="button" class="sm" data-decide="retry">Retry</button><button type="button" class="sm" data-decide="skip">Skip</button></div>` : ''}</div>`;
+        const tick = p.leftOut ? '' : `<input type="checkbox" data-flush-pick="${esc(p.id)}"${chosen?.has(p.id) ? ' checked' : ''} aria-label="${esc(p.name)}" />`;
+        const how = p.leftOut ? `<span class="pill muted">Left out</span> <span class="hint">${esc(p.leftOut)}</span>` : '<span class="pill ok">Can be flushed</span>';
+        return `<tr><td class="flush-tick">${tick}</td><td><b translate="no">${esc(p.name)}</b></td><td>${p.sourceScanId ? `<span translate="no">${esc(p.branch || '')}</span>` : '—'}</td><td>${p.scannedAt ? `<time translate="no">${esc(fmtDateTime(p.scannedAt))}</time>` : '—'}</td><td class="num">${num(p.loc)}</td><td class="num">${num(p.toVerify)}</td><td>${p.leftOut ? '—' : esc(codeFrom(p))}</td><td>${how}</td></tr>`;
       })
-      .join('');
+      .join('') || `<tr><td colspan="8" class="hint">${esc('No project matches.')}</td></tr>`;
+    $('flush-more').hidden = rows.length <= pageRows;
+    $('flush-more').textContent = `Show ${num(Math.min(PAGE_ROWS, rows.length - pageRows))} more (${num(rows.length - pageRows)} left)`;
+    projectsShown = pickable;
+  }
 
-    // Each project, and (opened) what it went through.
-    const timeline = (p) => `<tr class="flush-timeline"><td colspan="7"><ol>${(p.attempts ?? []).map((a) => `<li class="${a.ok ? 'ok' : 'bad'}"><time translate="no">${esc(fmtDateTime(a.at))}</time> <span>${esc(a.what)}</span>${a.detail ? ` <span class="hint" translate="no">${esc(a.detail)}</span>` : ''}</li>`).join('') || `<li>${esc('Nothing yet.')}</li>`}</ol></td></tr>`;
-    $('flush-table').tBodies[0].innerHTML = job.projects
+  /** The run, a project a row: the step tabs, search, headings, and what can be done with those selected. */
+  function renderRun(job) {
+    const counts = Object.fromEntries(TABS.map(([key, , test]) => [key, job.projects.filter(test).length]));
+    if (stepTab !== 'all' && !counts[stepTab]) stepTab = 'all';
+    $('flush-steps').innerHTML = TABS.filter(([key]) => key === 'all' || counts[key]).map(([key, label]) => `<button type="button" data-tab="${key}" class="sm${key === stepTab ? ' primary' : ''}"><span>${esc(label)}</span> <b translate="no">${num(counts[key])}</b></button>`).join('');
+    const test = TABS.find(([key]) => key === stepTab)[2];
+    const words = termsOf('flush-run-search');
+    const markedLabel = ne() ? 'Not exploitable' : 'Proposed not exploitable';
+    const rows = sortAndFilter('flush-run', job.projects.filter((p) => test(p) && matches(words, p.name, STEP_LABEL[p.step] ?? p.step, p.exception?.text ?? '', p.note ?? '')), [
+      null,
+      (p) => p.name,
+      (p) => STEP_LABEL[p.step] ?? p.step,
+      (p) => p.counts?.toVerify ?? null,
+      (p) => p.counts?.reported ?? null,
+      (p) => p.markedCount || p.counts?.notReported || null,
+      (p) => p.counts?.revalidated ?? null,
+      (p) => (p.faeProjectId ? (p.faeDeleted ? 'Removed' : `${p.name}_FAE`) : ''),
+    ], () => renderRun(view.job));
+    // The selection keeps only projects still in the run.
+    const ids = new Set(job.projects.map((p) => p.id));
+    selected = new Set([...selected].filter((id) => ids.has(id)));
+    const shownIds = rows.map((p) => p.id);
+    const on = shownIds.filter((id) => selected.has(id)).length;
+    const head = $('flush-run-head');
+    head.checked = shownIds.length > 0 && on === shownIds.length;
+    head.indeterminate = on > 0 && on < shownIds.length;
+    head.disabled = !allowed() || !shownIds.length;
+    const chosenRows = job.projects.filter((p) => selected.has(p.id));
+    $('flush-actbar').hidden = !allowed() || !chosenRows.length;
+    $('flush-act-count').textContent = `${num(chosenRows.length)} selected`;
+    const LABEL = { retry: 'Retry', skip: 'Skip', back: 'Bring back', mark: 'Mark now', delete: 'Delete _FAE projects', undo: 'Undo marks' };
+    for (const button of document.querySelectorAll('#flush-actbar [data-bulk]')) {
+      const n = chosenRows.filter(BULK[button.dataset.bulk]).length;
+      button.disabled = !n;
+      button.textContent = n ? `${LABEL[button.dataset.bulk]} (${num(n)})` : LABEL[button.dataset.bulk];
+    }
+    const timeline = (p) => `<tr class="flush-timeline"><td colspan="8"><ol>${(p.attempts ?? []).map((a) => `<li class="${a.ok ? 'ok' : 'bad'}"><time translate="no">${esc(fmtDateTime(a.at))}</time> <span>${esc(a.what)}</span>${a.detail ? ` <span class="hint" translate="no">${esc(a.detail)}</span>` : ''}</li>`).join('') || `<li>${esc('Nothing yet.')}</li>`}</ol></td></tr>`;
+    const question = (p) => {
+      const code = p.exception?.code;
+      const markable = !['scan', 'error', 'copy', 'settings', 'rescan'].includes(code);
+      const mark = code === 'revalidation' ? 'Accept' : `Mark ${num(p.counts?.notReported ?? 0)} anyway`;
+      const reason = ['error', 'copy', 'settings', 'rescan'].includes(code) ? `<span translate="no">${esc(p.exception?.text ?? '')}</span>` : `<span>${esc(p.exception?.text ?? '')}</span>`;
+      const detail = p.exception?.detail ? ` <span class="hint" translate="no">${esc(p.exception.detail)}</span>` : '';
+      const buttons = allowed() ? `<span class="flush-row-actions">${markable ? `<button type="button" class="sm" data-decide="mark">${esc(mark)}</button>` : ''}${code === 'settings' ? `<button type="button" class="sm" data-decide="continue">${esc('Carry on without them')}</button>` : ''}<button type="button" class="sm" data-decide="retry">Retry</button><button type="button" class="sm" data-decide="skip">Skip</button></span>` : '';
+      return `<span class="flush-ask-line">${reason}${detail}</span>${buttons}`;
+    };
+    const why = (p) => {
+      if (p.step === 'needs-ok') return question(p);
+      if (p.step === 'skipped' && /^Skipped by /.test(p.note ?? '')) return `<span class="flush-why"><span>Skipped by</span> <span translate="no">${esc(p.note.slice('Skipped by '.length))}</span>${p.exception?.text ? ` · <span translate="no">${esc(p.exception.text)}</span>` : ''}</span>`;
+      const text = p.step === 'left-out' || p.step === 'skipped' ? p.note || p.exception?.text : p.counts?.notMarked ? `${num(p.counts.notMarked)} not marked: Checkmarx One refused them (see the timeline)` : '';
+      return text ? `<span class="flush-why">${esc(text)}</span>` : '';
+    };
+    $('flush-table').tBodies[0].innerHTML = rows
+      .slice(0, runRows)
       .map((p) => {
         const c = p.counts ?? {};
         const kind = STEP_KIND[p.step] ?? (ACTIVE.has(p.step) ? 'run' : '');
-        const skippedBy = p.step === 'skipped' && /^Skipped by /.test(p.note ?? '') ? p.note.slice('Skipped by '.length) : '';
-        const why = skippedBy ? `<span>Skipped by</span> <span translate="no">${esc(skippedBy)}</span>${p.exception?.text ? ` · <span>${esc(p.exception.text)}</span>` : ''}` : `<span>${esc(p.note || p.exception?.text || '')}</span>`;
-        const cells = p.step === 'left-out' || p.step === 'skipped' ? `<td colspan="4" class="hint">${why}</td>` : `<td class="num">${num(c.reported)}</td><td class="num flush-pne">${num(p.markedCount || c.notReported)}</td><td>${c.revalidated !== undefined && c.revalidated !== null ? `✓ ${num(c.revalidated)} of ${num(p.markedCount)}` : '—'}</td><td>${p.faeProjectId ? (p.faeDeleted ? 'Removed' : `<span translate="no">${esc(`${p.name}_FAE`)}</span>`) : '—'}</td>`;
-        const row = `<tr class="flush-row${opened === p.id ? ' is-open' : ''}" data-flush-open="${esc(p.id)}"><td><b translate="no">${esc(p.name)}</b></td><td><span class="pill ${kind}">${esc(STEP_LABEL[p.step] ?? p.step)}</span></td><td class="num">${num(c.toVerify)}</td>${cells}</tr>`;
+        const box = allowed() ? `<input type="checkbox" data-flush-sel="${esc(p.id)}"${selected.has(p.id) ? ' checked' : ''} aria-label="${esc(p.name)}" />` : '';
+        const row = `<tr class="flush-row${opened === p.id ? ' is-open' : ''}${p.step === 'needs-ok' ? ' is-asking' : ''}" data-flush-open="${esc(p.id)}" data-id="${esc(p.id)}"><td class="flush-tick">${box}</td><td><b translate="no">${esc(p.name)}</b>${why(p)}</td><td><span class="pill ${kind}">${esc(STEP_LABEL[p.step] ?? p.step)}</span></td><td class="num">${num(c.toVerify)}</td><td class="num">${num(c.reported)}</td><td class="num flush-pne" title="${esc(markedLabel)}">${num(p.markedCount || c.notReported)}</td><td>${c.revalidated !== undefined && c.revalidated !== null ? `✓ ${num(c.revalidated)} of ${num(p.markedCount)}` : '—'}</td><td>${p.faeProjectId ? (p.faeDeleted ? 'Removed' : `<span translate="no">${esc(`${p.name}_FAE`)}</span>`) : '—'}</td></tr>`;
         return opened === p.id ? row + timeline(p) : row;
       })
-      .join('');
+      .join('') || `<tr><td colspan="8" class="hint">${esc('No project matches.')}</td></tr>`;
+    $('flush-run-more').hidden = rows.length <= runRows;
+    $('flush-run-more').textContent = `Show ${num(Math.min(PAGE_ROWS, rows.length - runRows))} more (${num(rows.length - runRows)} left)`;
+    runShown = shownIds;
   }
 
   function renderValue() {
@@ -281,19 +402,39 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
 
   $('flush-preview').addEventListener('click', () => act('/api/fae-flush/preview'));
   $('flush-concurrency').addEventListener('change', () => view && render());
+  // The projects list.
   $('flush-preview-table').addEventListener('change', (event) => {
     const box = event.target.closest('[data-flush-pick]');
     if (!box) return;
-    if (box.checked) chosen.add(box.dataset.flushPick);
-    else chosen.delete(box.dataset.flushPick);
+    if (box.checked) (chosen ??= new Set()).add(box.dataset.flushPick);
+    else chosen?.delete(box.dataset.flushPick);
     render();
   });
-  $('flush-tick-all').addEventListener('click', () => {
-    chosen = new Set(eligible().map((p) => p.id));
+  // The box in the heading: every project shown (the whole filtered list, not only this page).
+  $('flush-tick-head').addEventListener('change', (event) => {
+    for (const p of projectsShown) {
+      if (event.target.checked) (chosen ??= new Set()).add(p.id);
+      else chosen?.delete(p.id);
+    }
     render();
   });
-  $('flush-tick-none').addEventListener('click', () => {
+  $('flush-untick-all').addEventListener('click', () => {
     chosen = new Set();
+    render();
+  });
+  $('flush-search').addEventListener('input', () => {
+    pageRows = PAGE_ROWS;
+    if (view) render();
+  });
+  $('flush-show').addEventListener('click', (event) => {
+    const chip = event.target.closest('[data-show]');
+    if (!chip) return;
+    showWhat = chip.dataset.show;
+    pageRows = PAGE_ROWS;
+    render();
+  });
+  $('flush-more').addEventListener('click', () => {
+    pageRows += PAGE_ROWS;
     render();
   });
   $('flush-start').addEventListener('click', () => {
@@ -325,34 +466,87 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
       markAs: markAsChosen(),
     }, () => 'FAE Flush started: it runs on the server, you can close this page.');
   });
-  $('flush-mark-now').addEventListener('click', () => {
-    const n = view?.summary?.totals?.notReported ?? 0;
-    const question = ne() ? `Mark ${num(n)} results Not exploitable now?` : `Mark ${num(n)} results Proposed not exploitable now?`;
-    if (!confirm(t(`${question}\n\nThe results the report found that the FAE scan no longer reports, in their projects; then revalidated. Undo puts them back.`))) return;
-    act('/api/fae-flush/mark-now', {}, () => 'Marking: it runs on the server, you can close this page.');
-  });
   $('flush-pause').addEventListener('click', () => act(view?.job?.state === 'paused' ? '/api/fae-flush/resume' : '/api/fae-flush/pause'));
-  $('flush-asks').addEventListener('click', (event) => {
-    const button = event.target.closest('[data-decide]');
-    if (!button) return;
-    act('/api/fae-flush/decide', { projectId: button.closest('[data-id]').dataset.id, decision: button.dataset.decide });
-  });
+  // The run's table: a project's own answer, opening its timeline, selecting.
   $('flush-table').addEventListener('click', (event) => {
+    const answer = event.target.closest('[data-decide]');
+    if (answer) return act('/api/fae-flush/decide', { projectId: answer.closest('[data-id]').dataset.id, decision: answer.dataset.decide });
+    if (event.target.closest('input, button, a')) return;
     const row = event.target.closest('[data-flush-open]');
     if (!row) return;
     opened = opened === row.dataset.flushOpen ? '' : row.dataset.flushOpen;
     render();
   });
-  $('flush-undo').addEventListener('click', () => {
-    const n = view?.summary?.totals?.marked ?? 0;
-    const back = ne() ? `The ${num(n)} results it marked Not exploitable go back to To verify, apart from any someone changed since (those stay as they are).` : `The ${num(n)} results it marked Proposed not exploitable go back to To verify, apart from any someone changed since (those stay as they are).`;
-    if (!confirm(t(`Undo FAE Flush?\n\n${back}`))) return;
-    act('/api/fae-flush/undo', {}, (v) => `${num(v.restored)} results back to To verify${v.changedSince ? `; ${num(v.changedSince)} changed since, left as they are` : ''}.`);
+  $('flush-table').addEventListener('change', (event) => {
+    const box = event.target.closest('[data-flush-sel]');
+    if (!box) return;
+    if (box.checked) selected.add(box.dataset.flushSel);
+    else selected.delete(box.dataset.flushSel);
+    render();
   });
-  $('flush-delete-fae').addEventListener('click', () => {
-    const n = view?.summary?.faeKept ?? 0;
-    if (!confirm(t(`Delete all ${num(n)} _FAE projects from Checkmarx One?\n\nThe projects FAE Flush made, and their scans. Your own projects and the results marked in them are not touched.`))) return;
-    act('/api/fae-flush/delete-fae', {}, (v) => `${num(v.deleted)} _FAE project${v.deleted === 1 ? '' : 's'} deleted${v.failed?.length ? `; ${v.failed.length} could not be` : ''}.`);
+  $('flush-run-head').addEventListener('change', (event) => {
+    for (const id of runShown) {
+      if (event.target.checked) selected.add(id);
+      else selected.delete(id);
+    }
+    render();
+  });
+  $('flush-act-clear').addEventListener('click', () => {
+    selected = new Set();
+    render();
+  });
+  $('flush-steps').addEventListener('click', (event) => {
+    const tab = event.target.closest('[data-tab]');
+    if (!tab) return;
+    stepTab = tab.dataset.tab;
+    runRows = PAGE_ROWS;
+    render();
+  });
+  $('flush-run-search').addEventListener('input', () => {
+    runRows = PAGE_ROWS;
+    if (view) render();
+  });
+  $('flush-run-more').addEventListener('click', () => {
+    runRows += PAGE_ROWS;
+    render();
+  });
+  // One action on the selected projects (only those it applies to).
+  $('flush-actbar').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-bulk]');
+    if (!button || button.disabled) return;
+    const kind = button.dataset.bulk;
+    const list = (view?.job?.projects ?? []).filter((p) => selected.has(p.id) && BULK[kind](p));
+    const projectIds = list.map((p) => p.id);
+    if (!projectIds.length) return;
+    const n = projectIds.length;
+    const many = `${num(n)} project${n === 1 ? '' : 's'}`;
+    const done = () => {
+      selected = new Set();
+    };
+    if (kind === 'retry' || kind === 'skip') {
+      act('/api/fae-flush/decide-many', { projectIds, decision: kind }, (v) => (kind === 'retry' ? `Retrying ${num(v.done)}: they go on when a scan slot is free.` : `${num(v.done)} skipped.`));
+    } else if (kind === 'back') {
+      act('/api/fae-flush/bring-back', { projectIds }, () => 'Brought back: they start again when a scan slot is free.');
+    } else if (kind === 'mark') {
+      const results = list.reduce((a, p) => a + (p.counts?.notReported ?? 0), 0);
+      const question = ne() ? `Mark ${num(results)} results Not exploitable now, in ${many}?` : `Mark ${num(results)} results Proposed not exploitable now, in ${many}?`;
+      if (!confirm(t(`${question}\n\nThe results the report found that the FAE scan no longer reports, in their projects; then revalidated. Undo puts them back.`))) return;
+      act('/api/fae-flush/mark-now', { projectIds }, () => 'Marking: it runs on the server, you can close this page.');
+    } else if (kind === 'delete') {
+      if (!confirm(t(`Delete the _FAE projects of ${many} from Checkmarx One?\n\nThe projects FAE Flush made, and their scans. Your own projects and the results marked in them are not touched.`))) return;
+      act('/api/fae-flush/delete-fae', { projectIds }, (v) => `${num(v.deleted)} _FAE project${v.deleted === 1 ? '' : 's'} deleted${v.failed?.length ? `; ${v.failed.length} could not be` : ''}.`);
+    } else if (kind === 'undo') {
+      const results = list.reduce((a, p) => a + (p.markedCount ?? 0), 0);
+      const back = ne() ? `The ${num(results)} results marked Not exploitable in ${many} go back to To verify, apart from any someone changed since (those stay as they are).` : `The ${num(results)} results marked Proposed not exploitable in ${many} go back to To verify, apart from any someone changed since (those stay as they are).`;
+      if (!confirm(t(`Undo FAE Flush for these projects?\n\n${back}`))) return;
+      act('/api/fae-flush/undo', { projectIds }, (v) => `${num(v.restored)} results back to To verify${v.changedSince ? `; ${num(v.changedSince)} changed since, left as they are` : ''}.`);
+    }
+    done();
+  });
+  $('flush-delete-earlier').addEventListener('click', () => {
+    const earlier = (view?.job?.earlier ?? []).filter((p) => p.faeProjectId && !p.faeDeleted);
+    if (!earlier.length || !confirm(t(`Delete ${num(earlier.length)} _FAE projects of earlier runs from Checkmarx One?\n\nThe projects FAE Flush made, and their scans. Your own projects are not touched.`))) return;
+    act('/api/fae-flush/delete-fae', { earlier: true }, (v) => `${num(v.deleted)} _FAE project${v.deleted === 1 ? '' : 's'} deleted${v.failed?.length ? `; ${v.failed.length} could not be` : ''}.`);
   });
   $('flush-csv').addEventListener('click', () => view?.job && save(`fae-flush-${view.job.startedAt.slice(0, 10)}.csv`, new Blob([csvOf(view.job)], { type: 'text/csv' })));
 
