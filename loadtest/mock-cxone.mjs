@@ -1,5 +1,6 @@
 // Mock Checkmarx One for load tests: many projects, fixed latency, per-route call counts.
 import http from 'http';
+import { createHash } from 'crypto';
 const PROJECTS = Number(process.env.PROJECTS || 200);
 const RISKS = Number(process.env.RISKS || 60);
 // How many different people ran the latest scans: project i was scanned by dev(i % INITIATORS).
@@ -68,6 +69,13 @@ const lastScanProject = (i) => i % 6 === 4;
 let TENANT_CREDITS = Number(process.env.TENANT_CREDITS || 28854);
 let REFUSE_SETTING = '';
 let TRIAGE_BY = 'similarity';
+// A result's attack vector id (16 hex characters), and back to its similarity group.
+const avGroups = new Map();
+const attackVectorOf = (groupId) => {
+  const av = createHash('sha256').update(String(groupId)).digest('hex').slice(0, 16);
+  avGroups.set(av, groupId);
+  return av;
+};
 // One of a project's past scans: every other one ran the AI engine (Fusion, or LAST for a LAST project).
 const histScan = (i, k, n) => ({ id: `hist-p${i}-${k}`, projectId: `p${i}`, status: 'Completed', engines: k % 2 ? ['sast', 'sca'] : ['sast', 'sca', 'ai'], metadata: { configs: k % 2 ? [] : [{ type: 'ai', value: { fusionEnabled: lastScanProject(i) ? 'false' : 'true' } }] }, createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() });
 const risksFor = (pid) => allRisksFor(pid).filter((r) => !fixedByRescan(pid, `alt-${r.groupId.replace(/^sim-/, '')}`, r.id));
@@ -255,15 +263,18 @@ http.createServer((req, res) => {
         }
         return send(200, { scans, totalCount: total, filteredTotalCount: total });
       }
+      if (req.method === 'POST' && u.pathname === '/api/sast-results-predicates/attack-vector') {
+        bump('predicates-attack-vector');
+        const body = JSON.parse(b || '[]');
+        if (!Array.isArray(body) || body.some((p) => !/^[0-9a-fA-F]{16}$/.test(p.attackVectorId ?? '') || !p.projectId || !avGroups.has(p.attackVectorId))) return send(400, { code: 4000, message: 'invalid attack vector predicate' });
+        for (const p of body) predicates.set(`${p.projectId}|${avGroups.get(p.attackVectorId)}`, p.state);
+        return send(201, {});
+      }
       if (req.method === 'POST' && u.pathname === '/api/sast-results-predicates') {
         bump('predicates');
         const body = JSON.parse(b || '[]');
-        // A tenant that groups similar results by attack vector (/__triage-by?by=av) takes marks only by attack vector id.
-        if (TRIAGE_BY === 'av') {
-          if (!Array.isArray(body) || body.some((p) => !p.attackVectorId)) return send(400, { code: 4002, message: 'Account is configured to use Attack Vector IDs. Updates by Similarity ID are not allowed.', data: null });
-          for (const p of body) predicates.set(`${p.projectId}|${String(p.attackVectorId).replace(/^av-/, '')}`, p.state);
-          return send(201, {});
-        }
+        // A tenant that groups similar results by attack vector (/__triage-by?by=av) takes marks only by attack vector.
+        if (TRIAGE_BY === 'av') return send(400, { code: 4002, message: 'Account is configured to use Attack Vector IDs. Updates by Similarity ID are not allowed.', data: null });
         if (!Array.isArray(body) || body.some((p) => !p.similarityId || !p.projectId || !p.state)) return send(400, { message: 'bad predicates' });
         for (const p of body) predicates.set(`${p.projectId}|${p.similarityId}`, p.state);
         return send(201, {});
@@ -405,7 +416,7 @@ http.createServer((req, res) => {
           const last = k % 6 === 3;
           const file = last ? `contracts/Token${k % 4}.sol` : `src/routes/file${k % 4}.ts`;
           const language = last ? 'Solidity' : 'TypeScript';
-          return { resultHash: r.id, similarityID: r.groupId, attackVectorID: `av-${r.groupId}`, queryName: r.riskName.replace(/ /g, '_'), queryID: k % 3 === 0 ? 0 : 1000 + k, group: k % 3 === 0 ? `${language}_${r.severity}` : 'TypeScript_High_Risk', languageName: language, cweID: [287, 89, 79][k % 3], severity: r.severity, state: r.state, status: k % 2 ? 'RECURRENT' : 'NEW', firstFoundAt: r.firstDetectionDate, foundAt: day(1), confidenceLevel: 0, nodes: [{ fileName: file, line: 40 + k, column: 13, name: 'input', method: 'handler' }, { fileName: file, line: 42 + k, column: 31, name: 'query', method: 'handler' }], isAiGenerated: k % 3 === 0, ...(k % 3 === 0 ? { description: `<p>The <code>input</code> parameter of <b>handler</b> reaches a ${last ? 'contract call' : 'database query'} in ${file} without being checked, so an attacker can change what it does.</p>` } : {}) };
+          return { resultHash: r.id, similarityID: r.groupId,  ...(u.searchParams.getAll('visible-columns').includes('attack-vector-id') ? { attackVectorID: attackVectorOf(r.groupId) } : {}), queryName: r.riskName.replace(/ /g, '_'), queryID: k % 3 === 0 ? 0 : 1000 + k, group: k % 3 === 0 ? `${language}_${r.severity}` : 'TypeScript_High_Risk', languageName: language, cweID: [287, 89, 79][k % 3], severity: r.severity, state: r.state, status: k % 2 ? 'RECURRENT' : 'NEW', firstFoundAt: r.firstDetectionDate, foundAt: day(1), confidenceLevel: 0, nodes: [{ fileName: file, line: 40 + k, column: 13, name: 'input', method: 'handler' }, { fileName: file, line: 42 + k, column: 31, name: 'query', method: 'handler' }], isAiGenerated: k % 3 === 0, ...(k % 3 === 0 ? { description: `<p>The <code>input</code> parameter of <b>handler</b> reaches a ${last ? 'contract call' : 'database query'} in ${file} without being checked, so an attacker can change what it does.</p>` } : {}) };
         }).filter((r) => (ai === '1' ? r.isAiGenerated : ai === '0' ? !r.isAiGenerated : true));
         if (u.pathname === '/api/sast-results') {
           const lim = Number(u.searchParams.get('limit') || 20);

@@ -240,17 +240,30 @@ export async function scanResults(client, scanId) {
 }
 
 const keyOf = (r) => text(r?.similarityID ?? r?.similarityId, 80);
+/** A result's attack vector id, as Checkmarx One gives it (only when asked for: visible-columns=attack-vector-id). */
 const attackVectorOf = (r) => text(r?.attackVectorID ?? r?.attackVectorId, 120);
+/** Each similarity id's attack vector ids in a scan (Checkmarx One leaves them out of results unless asked). */
+export async function attackVectorsOf(client, scanId) {
+  const out = new Map();
+  for (let page = 0; page < PAGES; page += 1) {
+    const body = await client.request('/api/sast-results', { query: { 'scan-id': scanId, 'visible-columns': ['similarity-id', 'attack-vector-id'], 'include-nodes': 'false', limit: PAGE, offset: page * PAGE }, retries: 2, background: true });
+    const rows = Array.isArray(body?.results) ? body.results : [];
+    for (const r of rows) {
+      const sim = keyOf(r);
+      const av = attackVectorOf(r);
+      if (!sim || !av) continue;
+      if (!out.has(sim)) out.set(sim, []);
+      if (!out.get(sim).includes(av)) out.get(sim).push(av);
+    }
+    if (rows.length < PAGE || (Number.isFinite(Number(body?.totalCount)) && page * PAGE + rows.length >= Number(body.totalCount))) break;
+  }
+  return out;
+}
 /**
  * A tenant can group similar results by attack vector instead of similarity id (Account settings): Checkmarx One then
- * refuses a mark by similarity id ("Account is configured to use Attack Vector IDs", code 4002). The ways to send a
- * mark by attack vector, tried in turn; the run keeps the one Checkmarx One takes.
+ * refuses a mark by similarity id ("Account is configured to use Attack Vector IDs", code 4002), and takes it by
+ * attack vector instead (POST /api/sast-results-predicates/attack-vector), kept to the result's similarity group.
  */
-const BY_ATTACK_VECTOR = [
-  (av, m) => ({ attackVectorId: av }),
-  (av, m) => ({ similarityId: m.similarityId, attackVectorId: av }),
-  (av, m) => ({ attackVectorID: av }),
-];
 const wantsAttackVector = (error) => /attack vector/i.test(`${error?.message ?? ''} ${error?.body ?? ''}`) || /"code"\s*:\s*4002/.test(String(error?.body ?? ''));
 /** A refused call, with Checkmarx One's own reason when its answer gives one ("404 Not Found: repository not found"). */
 export function whyRefused(error) {
@@ -796,12 +809,13 @@ export class FaeFlushRunner {
 
   /**
    * Sets `state` on findings of `p` (each { similarityId, attackVectorIds, severity }): by similarity id, or by attack
-   * vector when the tenant groups similar results that way; the run remembers which (job.markBy).
+   * vector when the tenant groups similar results that way; the run remembers which (job.markBy: 'similarity' or
+   * 'attackVector').
    */
   async predicates(client, p, list, state, comment) {
     const post = (body) => client.request('/api/sast-results-predicates', { method: 'POST', body, retries: 2 });
     const base = (m) => ({ projectId: p.id, severity: m.severity, state, comment });
-    if (this.job.markBy === undefined || this.job.markBy === 'similarity') {
+    if (this.job.markBy !== 'attackVector') {
       try {
         await post(list.map((m) => ({ similarityId: m.similarityId, ...base(m) })));
         this.job.markBy = 'similarity';
@@ -811,21 +825,20 @@ export class FaeFlushRunner {
         if (this.job.markBy === 'similarity') delete this.job.markBy;
       }
     }
+    // Not in what was read before: ask Checkmarx One for them.
+    if (list.some((m) => !m.attackVectorIds?.length)) {
+      const vectors = await attackVectorsOf(client, p.sourceScanId);
+      for (const m of list) if (!m.attackVectorIds?.length) m.attackVectorIds = vectors.get(m.similarityId) ?? [];
+    }
     const without = list.filter((m) => !m.attackVectorIds?.length);
     if (without.length) throw Object.assign(new Error(`Checkmarx One groups results by attack vector here, and ${without.length === 1 ? 'this result has' : 'these results have'} no attack vector id: scan the project again for one.`), { status: 400 });
-    let last = null;
-    for (const way of Number.isInteger(this.job.markBy) ? [this.job.markBy] : BY_ATTACK_VECTOR.keys()) {
-      try {
-        await post(list.flatMap((m) => m.attackVectorIds.map((av) => ({ ...BY_ATTACK_VECTOR[way](av, m), ...base(m) }))));
-        if (this.job.markBy !== way) this.attempt(p, 'marks by attack vector', true, 'Checkmarx One groups similar results by attack vector on this tenant');
-        this.job.markBy = way;
-        return;
-      } catch (error) {
-        if (!refused(error)) throw error;
-        last = error;
-      }
-    }
-    throw last;
+    await client.request('/api/sast-results-predicates/attack-vector', {
+      method: 'POST',
+      body: list.flatMap((m) => m.attackVectorIds.map((av) => ({ attackVectorId: av, scanId: p.sourceScanId, filterBySimilarityId: m.similarityId, ...base(m) }))),
+      retries: 2,
+    });
+    if (this.job.markBy !== 'attackVector') this.attempt(p, 'marks by attack vector', true, 'Checkmarx One groups similar results by attack vector on this tenant');
+    this.job.markBy = 'attackVector';
   }
 
   /**

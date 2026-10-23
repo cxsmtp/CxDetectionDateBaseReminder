@@ -313,7 +313,7 @@ test('a tenant that groups similar results by attack vector: marked and undone b
   const done = await until((v) => v.job?.state === 'done', 60000);
   assert.deepEqual([done.summary.steps.done, done.summary.totals.marked, done.summary.totals.revalidated], [2, 20, 20]);
   assert.ok(done.job.projects.some((p) => p.attempts.some((a) => a.what === 'marks by attack vector')), 'said once, for the run');
-  assert.equal(done.job.markBy, 0);
+  assert.equal(done.job.markBy, 'attackVector');
   assert.equal(Object.entries(await mock('/__predicates')).filter(([k, s]) => /^p[45]\|/.test(k) && s === 'PROPOSED_NOT_EXPLOITABLE').length, 20);
   const undo = await admin('POST', '/api/fae-flush/undo');
   assert.equal(undo.body.restored, 20);
